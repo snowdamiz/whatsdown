@@ -1,0 +1,3 @@
+- Use TDD without creating useless tests
+- useMemo is a React compiler anti-pattern, do not use it
+- Never write inline gel/edgedb queries
