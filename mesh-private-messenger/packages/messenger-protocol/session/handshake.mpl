@@ -1,0 +1,323 @@
+from Identity.Device import DeviceKeys, IdentityError, VerificationPolicy, verify_device_credential
+from Prekeys.Bundle import OneTimePrekeySecrets, PrekeyError, SignedPrekeySecrets, verify_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeviceCredential, HandshakeTranscript, InitialMessage, PrekeyBundle, ProtocolError, decode_device_credential, decode_initial_message, encode_device_credential, encode_prekey_bundle, hash_handshake_transcript
+
+pub type SessionError do
+  AuthenticationRejected
+
+  CryptoFailure( error :: CryptoError)
+
+  IdentityFailure( error :: IdentityError)
+
+  PrekeyFailure( error :: PrekeyError)
+
+  ProtocolFailure( error :: ProtocolError)
+
+  InvalidHandshake
+end
+
+pub resource struct RatchetState do
+  version :: Int
+  suite :: Int
+  session_id :: Bytes
+  root_key :: SecretBytes
+  local_ratchet_private :: X25519PrivateKey
+  local_ratchet_public :: X25519PublicKey
+  remote_ratchet_public :: X25519PublicKey
+  sent_count :: Int
+  received_count :: Int
+end
+
+fn concat(first :: SecretBytes, second :: SecretBytes) -> SecretBytes ! SessionError do
+  case Secret.concat(first, second) do
+    Err( error) -> Err(CryptoFailure(error))
+    Ok( value) -> Ok(value)
+  end
+end
+
+fn combine_dh(first :: SecretBytes,
+second :: SecretBytes,
+third :: SecretBytes,
+fourth :: SecretBytes) -> SecretBytes ! SessionError do
+  let combined = concat(first, second) ?
+  let combined = concat(combined, third) ?
+  concat(combined, fourth)
+end
+
+fn handshake_salt(transcript_hash :: Bytes) -> Bytes ! SessionError do
+  case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/handshake"), transcript_hash) do
+    Err( _) -> Err(InvalidHandshake)
+    Ok( value) -> Ok(Crypto.sha256(value))
+  end
+end
+
+fn encoded_credential(value :: DeviceCredential) -> Bytes ! SessionError do
+  case encode_device_credential(value) do
+    Err( error) -> Err(ProtocolFailure(error))
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn decoded_credential(value :: Bytes) -> DeviceCredential ! SessionError do
+  case decode_device_credential(value) do
+    Err( error) -> Err(ProtocolFailure(error))
+    Ok( decoded) -> Ok(decoded)
+  end
+end
+
+fn transcript_for(initiator_credential :: DeviceCredential,
+responder_bundle :: PrekeyBundle,
+ephemeral_public_key :: X25519PublicKey) -> HandshakeTranscript ! SessionError do
+  let credential_hash = Crypto.sha256(encoded_credential(initiator_credential) ?)
+  let bundle_hash = case encode_prekey_bundle(responder_bundle) do
+    Err( error) -> Err(ProtocolFailure(error))
+    Ok( encoded) -> Ok(Crypto.sha256(encoded))
+  end ?
+  Ok(HandshakeTranscript {
+    version : 1,
+    suite : 1,
+    initiator_credential_hash : credential_hash,
+    responder_prekey_bundle_hash : bundle_hash,
+    initiator_ephemeral_public_key : ephemeral_public_key.bytes,
+    signed_prekey_id : responder_bundle.signed_prekey_id,
+    responder_signed_prekey : responder_bundle.signed_prekey,
+    one_time_prekey_id : responder_bundle.one_time_prekey_id,
+    responder_one_time_prekey : responder_bundle.one_time_prekey,
+    extensions : List.new()
+  })
+end
+
+fn transcript_hash(value :: HandshakeTranscript) -> Bytes ! SessionError do
+  case hash_handshake_transcript(value) do
+    Err( error) -> Err(ProtocolFailure(error))
+    Ok( value) -> Ok(value)
+  end
+end
+
+pub fn initiate(initiator :: borrow DeviceKeys,
+initiator_credential :: DeviceCredential,
+responder_account :: AccountIdentity,
+responder_bundle :: PrekeyBundle,
+responder_policy :: VerificationPolicy,
+strongest_authenticated_suite :: Int,
+plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > do
+  if Bytes.length(plaintext) > 65171 do
+    Err(InvalidHandshake)
+  else
+    let bundle_valid = case verify_prekey_bundle(responder_account,
+    responder_bundle,
+    strongest_authenticated_suite,
+    responder_policy.current_time,
+    responder_policy.minimum_directory_sequence) do
+      Err( _) -> false
+      Ok( value) -> value
+    end
+    if !bundle_valid || Bytes.length(responder_bundle.one_time_prekey) != 32 do
+      Err(InvalidHandshake)
+    else
+      let ephemeral = case Crypto.x25519_generate() do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      let ephemeral_public = ephemeral.public_key
+      let ephemeral_private = ephemeral.private_key
+      let responder_identity = X25519PublicKey { bytes : responder_bundle.identity_dh_public_key }
+      let responder_signed = X25519PublicKey { bytes : responder_bundle.signed_prekey }
+      let responder_one_time = X25519PublicKey { bytes : responder_bundle.one_time_prekey }
+      let dh1 = case Crypto.x25519_shared(initiator.identity_private_key, responder_signed) do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      let dh2 = case Crypto.x25519_shared(ephemeral_private, responder_identity) do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      let dh3 = case Crypto.x25519_shared(ephemeral_private, responder_signed) do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      let dh4 = case Crypto.x25519_shared(ephemeral_private, responder_one_time) do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      let ikm = combine_dh(dh1, dh2, dh3, dh4) ?
+      let transcript = transcript_for(initiator_credential, responder_bundle, ephemeral_public) ?
+      let hash = transcript_hash(transcript) ?
+      let salt = handshake_salt(hash) ?
+      let root_key = case Crypto.hkdf_sha256(ikm, salt, Bytes.from_utf8("mesh-msg/v1/root-key"), 32) do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      let message_material = case Crypto.hkdf_sha256(ikm,
+      salt,
+      Bytes.from_utf8("mesh-msg/v1/initial-message"),
+      32) do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      Secret.destroy(ikm)
+      let message_key = case Crypto.aead_key(message_material) do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      let nonce = case Crypto.random_bytes(12) do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      let ciphertext = case Crypto.aead_seal(message_key, nonce, hash, plaintext) do
+        Err( error) -> Err(CryptoFailure(error))
+        Ok( value) -> Ok(value)
+      end ?
+      let credential_bytes = encoded_credential(initiator_credential) ?
+      Ok((RatchetState {
+        version : 1,
+        suite : 1,
+        session_id : hash,
+        root_key : root_key,
+        local_ratchet_private : ephemeral_private,
+        local_ratchet_public : ephemeral_public,
+        remote_ratchet_public : responder_signed,
+        sent_count : 1,
+        received_count : 0
+      },
+      InitialMessage {
+        version : 1,
+        suite : 1,
+        signed_prekey_id : responder_bundle.signed_prekey_id,
+        one_time_prekey_id : responder_bundle.one_time_prekey_id,
+        initiator_credential : credential_bytes,
+        initiator_identity_public_key : initiator.identity_public_key,
+        initiator_ephemeral_public_key : ephemeral_public,
+        transcript_hash : hash,
+        nonce : nonce,
+        ciphertext : ciphertext
+      }))
+    end
+  end
+end
+
+# ponytail: a receive attempt burns its claimed one-time prekey; add a durable
+# reservation/commit wrapper when concurrent mailbox processing is introduced.
+
+pub fn receive_initial(responder :: borrow DeviceKeys,
+responder_account :: AccountIdentity,
+responder_bundle :: PrekeyBundle,
+signed_prekey :: borrow SignedPrekeySecrets,
+one_time_prekey :: consume OneTimePrekeySecrets,
+initiator_account :: AccountIdentity,
+responder_policy :: VerificationPolicy,
+initiator_policy :: VerificationPolicy,
+message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
+  case decode_initial_message(message_bytes) do
+    Err( _) -> Err(InvalidHandshake)
+    Ok( message) -> do
+      let wrong_version = message.version != 1 || message.suite != 1
+      let wrong_ids = U64.compare(message.signed_prekey_id, signed_prekey.id) != 0 || U64.compare(message.one_time_prekey_id,
+      one_time_prekey.id) != 0
+      let wrong_keys = !Bytes.secure_equals(responder_bundle.signed_prekey,
+      signed_prekey.public_key.bytes) || !Bytes.secure_equals(responder_bundle.one_time_prekey,
+      one_time_prekey.public_key.bytes)
+      if wrong_version || wrong_ids || wrong_keys do
+        Err(InvalidHandshake)
+      else
+        let bundle_valid = case verify_prekey_bundle(responder_account,
+        responder_bundle,
+        1,
+        responder_policy.current_time,
+        responder_policy.minimum_directory_sequence) do
+          Err( _) -> false
+          Ok( value) -> value
+        end
+        let credential = decoded_credential(message.initiator_credential) ?
+        let credential_valid = case verify_device_credential(initiator_account,
+        credential,
+        initiator_policy.current_time,
+        initiator_policy.minimum_directory_sequence) do
+          Err( _) -> false
+          Ok( value) -> value
+        end
+        let identity_key_mismatch = !Bytes.secure_equals(credential.dh_public_key,
+        message.initiator_identity_public_key.bytes)
+        if !bundle_valid || !credential_valid || identity_key_mismatch do
+          Err(InvalidHandshake)
+        else
+          let transcript = transcript_for(credential,
+          responder_bundle,
+          message.initiator_ephemeral_public_key) ?
+          let hash = transcript_hash(transcript) ?
+          if !Bytes.secure_equals(hash, message.transcript_hash) do
+            Err(InvalidHandshake)
+          else
+            let dh1 = case Crypto.x25519_shared(signed_prekey.private_key,
+            message.initiator_identity_public_key) do
+              Err( error) -> Err(CryptoFailure(error))
+              Ok( value) -> Ok(value)
+            end ?
+            let dh2 = case Crypto.x25519_shared(responder.identity_private_key,
+            message.initiator_ephemeral_public_key) do
+              Err( error) -> Err(CryptoFailure(error))
+              Ok( value) -> Ok(value)
+            end ?
+            let dh3 = case Crypto.x25519_shared(signed_prekey.private_key,
+            message.initiator_ephemeral_public_key) do
+              Err( error) -> Err(CryptoFailure(error))
+              Ok( value) -> Ok(value)
+            end ?
+            let dh4 = case Crypto.x25519_shared(one_time_prekey.private_key,
+            message.initiator_ephemeral_public_key) do
+              Err( error) -> Err(CryptoFailure(error))
+              Ok( value) -> Ok(value)
+            end ?
+            let ikm = combine_dh(dh1, dh2, dh3, dh4) ?
+            let salt = handshake_salt(hash) ?
+            let root_key = case Crypto.hkdf_sha256(ikm,
+            salt,
+            Bytes.from_utf8("mesh-msg/v1/root-key"),
+            32) do
+              Err( error) -> Err(CryptoFailure(error))
+              Ok( value) -> Ok(value)
+            end ?
+            let message_material = case Crypto.hkdf_sha256(ikm,
+            salt,
+            Bytes.from_utf8("mesh-msg/v1/initial-message"),
+            32) do
+              Err( error) -> Err(CryptoFailure(error))
+              Ok( value) -> Ok(value)
+            end ?
+            Secret.destroy(ikm)
+            let message_key = case Crypto.aead_key(message_material) do
+              Err( error) -> Err(CryptoFailure(error))
+              Ok( value) -> Ok(value)
+            end ?
+            let plaintext = case Crypto.aead_open(message_key,
+            message.nonce,
+            hash,
+            message.ciphertext) do
+              Err( AuthenticationFailed) -> Err(AuthenticationRejected)
+              Err( error) -> Err(CryptoFailure(error))
+              Ok( value) -> Ok(value)
+            end ?
+            let local_ratchet = case Crypto.x25519_generate() do
+              Err( error) -> Err(CryptoFailure(error))
+              Ok( value) -> Ok(value)
+            end ?
+            let local_public = local_ratchet.public_key
+            let local_private = local_ratchet.private_key
+            Ok((RatchetState {
+              version : 1,
+              suite : 1,
+              session_id : hash,
+              root_key : root_key,
+              local_ratchet_private : local_private,
+              local_ratchet_public : local_public,
+              remote_ratchet_public : message.initiator_ephemeral_public_key,
+              sent_count : 0,
+              received_count : 1
+            },
+            plaintext))
+          end
+        end
+      end
+    end
+  end
+end

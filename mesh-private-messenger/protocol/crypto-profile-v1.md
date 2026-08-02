@@ -45,6 +45,7 @@ mesh-msg/v1/root-key
 mesh-msg/v1/sending-chain
 mesh-msg/v1/receiving-chain
 mesh-msg/v1/message-key
+mesh-msg/v1/initial-message
 mesh-msg/v1/header-key
 mesh-msg/v1/attachment-key
 mesh-msg/v1/storage-wrap
