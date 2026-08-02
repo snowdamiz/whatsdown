@@ -9,6 +9,12 @@ The implementation roadmap and security caveats live in [mesh-private-messenger-
 - `mesh-lang/` — Mesh compiler, runtime, standard APIs, tools, and release proofs
 - `mesh-private-messenger/` — protocol, services, clients, mobile app, and infrastructure
 
+The protocol contracts include the [threat model](mesh-private-messenger/protocol/threat-model.md),
+[privacy contract](mesh-private-messenger/protocol/privacy-contract.md),
+[cryptographic profile](mesh-private-messenger/protocol/crypto-profile-v1.md),
+[secret-purpose inventory](mesh-private-messenger/protocol/secret-purpose-inventory.md),
+and [storage-wrapping format](mesh-private-messenger/protocol/storage-wrapping-v1.md).
+
 ## Development rules
 
 - Reusable capabilities are implemented in Mesh before the messenger consumes them.
