@@ -13,6 +13,7 @@ Developers may keep a separate `mesh-lang/` checkout in this directory for local
 The protocol contracts include the [threat model](mesh-private-messenger/protocol/threat-model.md),
 [privacy contract](mesh-private-messenger/protocol/privacy-contract.md),
 [cryptographic profile](mesh-private-messenger/protocol/crypto-profile-v1.md),
+[ratchet wire format](mesh-private-messenger/protocol/ratchet-message-v1.md),
 [secret-purpose inventory](mesh-private-messenger/protocol/secret-purpose-inventory.md),
 and [storage-wrapping format](mesh-private-messenger/protocol/storage-wrapping-v1.md).
 

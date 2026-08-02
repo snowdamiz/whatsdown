@@ -1,3 +1,4 @@
+from Binary.Reader import BinaryReader, finish, read_fixed, read_u16_be, read_u8, read_vector, reader
 from Session.Handshake import RatchetState
 
 pub type RatchetError do
@@ -17,6 +18,16 @@ pub struct RatchetMessage do
   message_number :: Int
   nonce :: Bytes
   ciphertext :: Bytes
+end
+
+struct ReadInt do
+  state :: BinaryReader
+  value :: Int
+end
+
+struct ReadBytes do
+  state :: BinaryReader
+  value :: Bytes
 end
 
 pub type DecryptOutcome do
@@ -45,6 +56,128 @@ fn write_u32(value :: Int) -> Bytes ! RatchetError do
         Err(_) -> Err(InvalidMessage)
         Ok(encoded) -> Ok(encoded)
       end
+  end
+end
+
+fn byte(value :: Int) -> Bytes ! RatchetError do
+  case Bytes.from_list([value]) do
+    Err(_) -> Err(InvalidMessage)
+    Ok(encoded) -> Ok(encoded)
+  end
+end
+
+fn vector(value :: Bytes) -> Bytes ! RatchetError do
+  append(write_u32(Bytes.length(value)) ?, value)
+end
+
+fn open(input :: Bytes) -> BinaryReader ! RatchetError do
+  if Bytes.length(input) > 65630 do
+    Err(InvalidMessage)
+  else
+    case reader(input, 65630) do
+      Err(_) -> Err(InvalidMessage)
+      Ok(state) -> Ok(state)
+    end
+  end
+end
+
+fn take_u8(state :: BinaryReader) -> ReadInt ! RatchetError do
+  case read_u8(state) do
+    Err(_) -> Err(InvalidMessage)
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
+    Ok(_) -> Err(InvalidMessage)
+  end
+end
+
+fn take_u16(state :: BinaryReader) -> ReadInt ! RatchetError do
+  case read_u16_be(state) do
+    Err(_) -> Err(InvalidMessage)
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
+    Ok(_) -> Err(InvalidMessage)
+  end
+end
+
+fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! RatchetError do
+  case read_fixed(state, length) do
+    Err(_) -> Err(InvalidMessage)
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok(_) -> Err(InvalidMessage)
+  end
+end
+
+fn take_u32(state :: BinaryReader) -> ReadInt ! RatchetError do
+  let bytes = take_fixed(state, 4) ?
+  case Bytes.read_u32_be(bytes.value, 0) do
+    Err(_) -> Err(InvalidMessage)
+    Ok(value) -> case U64.to_int(value) do
+        Err(_) -> Err(InvalidMessage)
+        Ok(number) -> Ok(ReadInt { state: bytes.state, value: number })
+      end
+  end
+end
+
+fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes ! RatchetError do
+  case read_vector(state, maximum) do
+    Err(_) -> Err(InvalidMessage)
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok(_) -> Err(InvalidMessage)
+  end
+end
+
+fn require_end(state :: BinaryReader) -> Result<(), RatchetError> do
+  case finish(state) do
+    Err(_) -> Err(InvalidMessage)
+    Ok(_) -> Ok(nil)
+  end
+end
+
+fn validate_message(value :: RatchetMessage) -> Result<(), RatchetError> do
+  let valid = value.version == 1 && value.suite == 1 && Bytes.length(value.session_id) == 32 && Bytes.length(value.ratchet_public_key.bytes) == 32 && value.previous_chain_length >= 0 && value.message_number >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65536
+  if valid do
+    Ok(nil)
+  else
+    Err(InvalidMessage)
+  end
+end
+
+pub fn encode_ratchet_message(value :: RatchetMessage) -> Bytes ! RatchetError do
+  validate_message(value) ?
+  let output = append(byte(value.version) ?, Bytes.from_utf8("RAT")) ?
+  let output = append(output, write_u16(value.suite) ?) ?
+  let output = append(output, value.session_id) ?
+  let output = append(output, value.ratchet_public_key.bytes) ?
+  let output = append(output, write_u32(value.previous_chain_length) ?) ?
+  let output = append(output, write_u32(value.message_number) ?) ?
+  let output = append(output, value.nonce) ?
+  append(output, vector(value.ciphertext) ?)
+end
+
+pub fn decode_ratchet_message(input :: Bytes) -> RatchetMessage ! RatchetError do
+  let version = take_u8(open(input) ?) ?
+  let magic = take_fixed(version.state, 3) ?
+  let suite = take_u16(magic.state) ?
+  let session_id = take_fixed(suite.state, 32) ?
+  let ratchet_public_key = take_fixed(session_id.state, 32) ?
+  let previous_chain_length = take_u32(ratchet_public_key.state) ?
+  let message_number = take_u32(previous_chain_length.state) ?
+  let nonce = take_fixed(message_number.state, 12) ?
+  let ciphertext = take_vector(nonce.state, 65536) ?
+  require_end(ciphertext.state) ?
+  let value = RatchetMessage {
+    version: version.value,
+    suite: suite.value,
+    session_id: session_id.value,
+    ratchet_public_key: X25519PublicKey { bytes: ratchet_public_key.value },
+    previous_chain_length: previous_chain_length.value,
+    message_number: message_number.value,
+    nonce: nonce.value,
+    ciphertext: ciphertext.value
+  }
+  if !Bytes.secure_equals(magic.value, Bytes.from_utf8("RAT")) do
+    Err(InvalidMessage)
+  else
+    validate_message(value) ?
+    Ok(value)
   end
 end
 

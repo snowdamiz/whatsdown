@@ -20,6 +20,10 @@ Restore preserves skipped message keys and counters; session replacement
 accepts only a newer authenticated snapshot and otherwise returns the current
 state unchanged. `StorageKey.ephemeral()` supports same-process CLI proofs only;
 restart persistence requires a host-provisioned key and durable nonce counter.
+`Session.Ratchet.encode_ratchet_message` and `decode_ratchet_message` provide
+the bounded canonical binary form used by HTTP delivery; decoding rejects
+wrong magic, unsupported profiles, oversized ciphertext, truncation, and
+trailing bytes.
 
 Unknown optional extensions are retained byte-for-byte. Version 1 has no
 registered mandatory extension, so every mandatory extension is rejected.
