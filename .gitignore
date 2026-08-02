@@ -13,6 +13,9 @@ coverage/
 .svelte-kit/
 target/
 
+# Mesh is a separate repository. A local checkout may live here for reference.
+mesh-lang/
+
 *.db
 *.db-shm
 *.db-wal
