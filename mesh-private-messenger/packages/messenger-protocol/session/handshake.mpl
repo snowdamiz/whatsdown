@@ -21,11 +21,36 @@ pub resource struct RatchetState do
   suite :: Int
   session_id :: Bytes
   root_key :: SecretBytes
+  sending_chain_key :: SecretBytes
+  receiving_chain_key :: SecretBytes
   local_ratchet_private :: X25519PrivateKey
   local_ratchet_public :: X25519PublicKey
   remote_ratchet_public :: X25519PublicKey
+  previous_chain_length :: Int
   sent_count :: Int
   received_count :: Int
+  skipped_keys :: SecretMap
+  pending_send_ratchet :: Bool
+end
+
+fn chain_key(root_key :: borrow SecretBytes,
+session_id :: Bytes,
+label :: String) -> SecretBytes ! SessionError do
+  let info = case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/chain/"), Bytes.from_utf8(label)) do
+    Err(_) -> Err(InvalidHandshake)
+    Ok(value) -> Ok(value)
+  end ?
+  case Crypto.hkdf_sha256(root_key, session_id, info, 32) do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
+  end
+end
+
+fn skipped_key_store() -> SecretMap ! SessionError do
+  case SecretMap.new(64) do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
+  end
 end
 
 fn concat(first :: SecretBytes, second :: SecretBytes) -> SecretBytes ! SessionError do
@@ -148,6 +173,9 @@ plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > d
         Err( error) -> Err(CryptoFailure(error))
         Ok( value) -> Ok(value)
       end ?
+      let sending_chain_key = chain_key(root_key, hash, "initiator") ?
+      let receiving_chain_key = chain_key(root_key, hash, "responder") ?
+      let skipped_keys = skipped_key_store() ?
       let message_material = case Crypto.hkdf_sha256(ikm,
       salt,
       Bytes.from_utf8("mesh-msg/v1/initial-message"),
@@ -174,11 +202,16 @@ plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > d
         suite : 1,
         session_id : hash,
         root_key : root_key,
+        sending_chain_key : sending_chain_key,
+        receiving_chain_key : receiving_chain_key,
         local_ratchet_private : ephemeral_private,
         local_ratchet_public : ephemeral_public,
-        remote_ratchet_public : responder_signed,
-        sent_count : 1,
-        received_count : 0
+        remote_ratchet_public : responder_one_time,
+        previous_chain_length : 0,
+        sent_count : 0,
+        received_count : 0,
+        skipped_keys : skipped_keys,
+        pending_send_ratchet : true
       },
       InitialMessage {
         version : 1,
@@ -277,6 +310,9 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
               Err( error) -> Err(CryptoFailure(error))
               Ok( value) -> Ok(value)
             end ?
+            let sending_chain_key = chain_key(root_key, hash, "responder") ?
+            let receiving_chain_key = chain_key(root_key, hash, "initiator") ?
+            let skipped_keys = skipped_key_store() ?
             let message_material = case Crypto.hkdf_sha256(ikm,
             salt,
             Bytes.from_utf8("mesh-msg/v1/initial-message"),
@@ -297,22 +333,23 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
               Err( error) -> Err(CryptoFailure(error))
               Ok( value) -> Ok(value)
             end ?
-            let local_ratchet = case Crypto.x25519_generate() do
-              Err( error) -> Err(CryptoFailure(error))
-              Ok( value) -> Ok(value)
-            end ?
-            let local_public = local_ratchet.public_key
-            let local_private = local_ratchet.private_key
+            let local_public = one_time_prekey.public_key
+            let local_private = one_time_prekey.private_key
             Ok((RatchetState {
               version : 1,
               suite : 1,
               session_id : hash,
               root_key : root_key,
+              sending_chain_key : sending_chain_key,
+              receiving_chain_key : receiving_chain_key,
               local_ratchet_private : local_private,
               local_ratchet_public : local_public,
               remote_ratchet_public : message.initiator_ephemeral_public_key,
+              previous_chain_length : 0,
               sent_count : 0,
-              received_count : 1
+              received_count : 0,
+              skipped_keys : skipped_keys,
+              pending_send_ratchet : false
             },
             plaintext))
           end
