@@ -14,6 +14,13 @@ extensions, and trailing bytes.
 `hash_handshake_transcript` hashes the canonical transcript with the exact
 `mesh-msg/v1/handshake` domain label.
 
+`Session.Snapshot` seals every private ratchet resource under a `StorageKey`
+with account, device, session, purpose, and monotonic snapshot-version binding.
+Restore preserves skipped message keys and counters; session replacement
+accepts only a newer authenticated snapshot and otherwise returns the current
+state unchanged. `StorageKey.ephemeral()` supports same-process CLI proofs only;
+restart persistence requires a host-provisioned key and durable nonce counter.
+
 Unknown optional extensions are retained byte-for-byte. Version 1 has no
 registered mandatory extension, so every mandatory extension is rejected.
 The complete field layouts and decoder ceilings are specified in

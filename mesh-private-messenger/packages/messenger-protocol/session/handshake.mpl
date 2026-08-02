@@ -31,6 +31,14 @@ pub resource struct RatchetState do
   received_count :: Int
   skipped_keys :: SecretMap
   pending_send_ratchet :: Bool
+  snapshot_version :: U64
+end
+
+fn initial_snapshot_version() -> U64 ! SessionError do
+  case U64.parse("0") do
+    Err(_) -> Err(InvalidHandshake)
+    Ok(value) -> Ok(value)
+  end
 end
 
 fn chain_key(root_key :: borrow SecretBytes,
@@ -211,7 +219,8 @@ plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > d
         sent_count : 0,
         received_count : 0,
         skipped_keys : skipped_keys,
-        pending_send_ratchet : true
+        pending_send_ratchet : true,
+        snapshot_version : initial_snapshot_version() ?
       },
       InitialMessage {
         version : 1,
@@ -349,7 +358,8 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
               sent_count : 0,
               received_count : 0,
               skipped_keys : skipped_keys,
-              pending_send_ratchet : false
+              pending_send_ratchet : false,
+              snapshot_version : initial_snapshot_version() ?
             },
             plaintext))
           end
