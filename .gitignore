@@ -16,6 +16,7 @@ target/
 # Mesh is a separate repository. A local checkout may live here for reference.
 mesh-lang/
 /mesh-private-messenger/services/directory-delivery/output
+/mesh-private-messenger/clients/mesh-cli/output
 
 *.db
 *.db-shm
