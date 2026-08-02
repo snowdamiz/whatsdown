@@ -9,7 +9,8 @@ extensions, and trailing bytes.
 
 `Protocol.V1` exports codecs for `AccountIdentity`, `DeviceCredential`,
 `PrekeyBundle`, `OuterEnvelope`, `InnerEnvelope`, `HandshakeTranscript`, and
-`InitialMessage`.
+`InitialMessage`, plus the bounded directory, mailbox-fetch, delivery-batch,
+and acknowledgement records used by the CLI services.
 `negotiate_profile_a` enforces the authenticated strongest-suite floor;
 `hash_handshake_transcript` hashes the canonical transcript with the exact
 `mesh-msg/v1/handshake` domain label.
@@ -45,6 +46,10 @@ The complete field layouts and decoder ceilings are specified in
 
 The maximum encoded envelope is 65,606 bytes.
 
+Delivery fetches return at most eight envelopes (524,949 encoded bytes), and
+acknowledgements accept at most eight 16-byte envelope IDs. Usernames are
+1–64 lowercase ASCII letters, digits, dots, underscores, or hyphens.
+
 ## Device credential v1
 
 | Field | Encoding |
@@ -78,6 +83,8 @@ Golden and hostile fixtures live in `tests/fixtures/m1` and
 | Inner envelope | 65,536 |
 | Handshake transcript | 16,684 |
 | Initial message | 65,536 |
+| Directory entry | 33,636 |
+| Delivery batch | 524,949 |
 
 Every extension list has at most 16 entries, each value is at most 1,024
 bytes, and protocol nesting is one extension-list level. Inner bodies are at

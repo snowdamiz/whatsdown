@@ -135,6 +135,31 @@ pub struct InitialMessage do
   ciphertext :: Bytes
 end
 
+pub struct DirectoryEntry do
+  version :: Int
+  username :: String
+  account_identity :: Bytes
+  prekey_bundle :: Bytes
+  mailbox_token :: Bytes
+end
+
+pub struct MailboxFetch do
+  version :: Int
+  mailbox_token :: Bytes
+  after_sequence :: U64
+end
+
+pub struct DeliveredEnvelope do
+  sequence :: U64
+  envelope :: Bytes
+end
+
+pub struct MailboxAck do
+  version :: Int
+  mailbox_token :: Bytes
+  envelope_ids :: List < Bytes >
+end
+
 struct ReadInt do
   state :: BinaryReader
   value :: Int
@@ -158,6 +183,16 @@ end
 struct ReadSuites do
   state :: BinaryReader
   value :: List < Int >
+end
+
+struct ReadDeliveries do
+  state :: BinaryReader
+  value :: List < DeliveredEnvelope >
+end
+
+struct ReadIds do
+  state :: BinaryReader
+  value :: List < Bytes >
 end
 
 fn contains_suite(values :: List < Int >, target :: Int, index :: Int) -> Bool do
@@ -987,5 +1022,297 @@ pub fn decode_device_credential(input :: Bytes) -> DeviceCredential ! ProtocolEr
     }
     validate_credential(value) ?
     Ok(value)
+  end
+end
+
+fn valid_username_byte(value :: Int) -> Bool do
+  (value >= 97 && value <= 122) || (value >= 48 && value <= 57) || value == 45 || value == 46 || value == 95
+end
+
+fn validate_username_bytes(value :: Bytes, index :: Int) -> Result <(), ProtocolError > do
+  if index >= Bytes.length(value) do
+    Ok(nil)
+  else
+    case Bytes.get(value, index) do
+      Err( _) -> Err(MalformedEncoding)
+      Ok( next) -> if valid_username_byte(next) do
+        validate_username_bytes(value, index + 1)
+      else
+        Err(InvalidFieldLength)
+      end
+    end
+  end
+end
+
+fn encode_username(value :: String) -> Bytes ! ProtocolError do
+  let encoded = Bytes.from_utf8(value)
+  if Bytes.length(encoded) == 0 || Bytes.length(encoded) > 64 do
+    Err(InvalidFieldLength)
+  else
+    validate_username_bytes(encoded, 0) ?
+    Ok(encoded)
+  end
+end
+
+fn decode_username(value :: Bytes) -> String ! ProtocolError do
+  if Bytes.length(value) == 0 || Bytes.length(value) > 64 do
+    Err(InvalidFieldLength)
+  else
+    validate_username_bytes(value, 0) ?
+    case Bytes.to_utf8(value) do
+      Err( _) -> Err(MalformedEncoding)
+      Ok( decoded) -> Ok(decoded)
+    end
+  end
+end
+
+fn valid_magic(value :: Bytes, expected :: String) -> Result <(), ProtocolError > do
+  if Bytes.secure_equals(value, Bytes.from_utf8(expected)) do
+    Ok(nil)
+  else
+    Err(MalformedEncoding)
+  end
+end
+
+pub fn encode_directory_lookup(username :: String) -> Bytes ! ProtocolError do
+  join([byte(1) ?, Bytes.from_utf8("DLK"), vector(encode_username(username) ?) ?], 0, Bytes.empty())
+end
+
+pub fn decode_directory_lookup(input :: Bytes) -> String ! ProtocolError do
+  let version = take_u8(open(input, 72) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = take_fixed(version.state, 3) ?
+    valid_magic(magic.value, "DLK") ?
+    let username = take_vector(magic.state, 64) ?
+    require_end(username.state) ?
+    decode_username(username.value)
+  end
+end
+
+fn validate_directory_entry(value :: DirectoryEntry) -> Result <(), ProtocolError > do
+  if value.version != 1 do
+    Err(UnsupportedVersion)
+  else
+    let _ = encode_username(value.username) ?
+    if Bytes.length(value.account_identity) == 0 || Bytes.length(value.account_identity) > 16582 || Bytes.length(value.prekey_bundle) == 0 || Bytes.length(value.prekey_bundle) > 16942 || Bytes.length(value.mailbox_token) != 32 do
+      Err(InvalidFieldLength)
+    else
+      Ok(nil)
+    end
+  end
+end
+
+pub fn encode_directory_entry(value :: DirectoryEntry) -> Bytes ! ProtocolError do
+  validate_directory_entry(value) ?
+  join([byte(value.version) ?, Bytes.from_utf8("DRE"), vector(encode_username(value.username) ?) ?, vector(value.account_identity) ?, vector(value.prekey_bundle) ?, value.mailbox_token],
+  0,
+  Bytes.empty())
+end
+
+pub fn decode_directory_entry(input :: Bytes) -> DirectoryEntry ! ProtocolError do
+  let version = take_u8(open(input, 33636) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = take_fixed(version.state, 3) ?
+    valid_magic(magic.value, "DRE") ?
+    let username = take_vector(magic.state, 64) ?
+    let account_identity = take_vector(username.state, 16582) ?
+    let prekey_bundle = take_vector(account_identity.state, 16942) ?
+    let mailbox_token = take_fixed(prekey_bundle.state, 32) ?
+    require_end(mailbox_token.state) ?
+    let value = DirectoryEntry {
+      version : version.value,
+      username : decode_username(username.value) ?,
+      account_identity : account_identity.value,
+      prekey_bundle : prekey_bundle.value,
+      mailbox_token : mailbox_token.value
+    }
+    validate_directory_entry(value) ?
+    Ok(value)
+  end
+end
+
+pub fn encode_mailbox_fetch(value :: MailboxFetch) -> Bytes ! ProtocolError do
+  if value.version != 1 do
+    Err(UnsupportedVersion)
+  else
+    if Bytes.length(value.mailbox_token) != 32 do
+      Err(InvalidFieldLength)
+    else
+      join([byte(value.version) ?, Bytes.from_utf8("FET"), value.mailbox_token, write_u64(value.after_sequence) ?],
+      0,
+      Bytes.empty())
+    end
+  end
+end
+
+pub fn decode_mailbox_fetch(input :: Bytes) -> MailboxFetch ! ProtocolError do
+  let version = take_u8(open(input, 44) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = take_fixed(version.state, 3) ?
+    valid_magic(magic.value, "FET") ?
+    let mailbox_token = take_fixed(magic.state, 32) ?
+    let after_sequence = take_u64(mailbox_token.state) ?
+    require_end(after_sequence.state) ?
+    Ok(MailboxFetch {
+      version : version.value,
+      mailbox_token : mailbox_token.value,
+      after_sequence : after_sequence.value
+    })
+  end
+end
+
+fn validate_delivery_entries(values :: List < DeliveredEnvelope >, index :: Int) -> Result <(), ProtocolError > do
+  if List.length(values) > 8 do
+    Err(OversizedInput)
+  else
+    if index >= List.length(values) do
+      Ok(nil)
+    else
+      let _ = decode_outer_envelope(List.get(values, index).envelope) ?
+      validate_delivery_entries(values, index + 1)
+    end
+  end
+end
+
+fn encode_delivery_entries(values :: List < DeliveredEnvelope >, index :: Int, output :: Bytes) -> Bytes ! ProtocolError do
+  if index >= List.length(values) do
+    Ok(output)
+  else
+    let value = List.get(values, index)
+    let next = join([output, write_u64(value.sequence) ?, vector(value.envelope) ?],
+    0,
+    Bytes.empty()) ?
+    encode_delivery_entries(values, index + 1, next)
+  end
+end
+
+pub fn encode_delivery_batch(values :: List < DeliveredEnvelope >) -> Bytes ! ProtocolError do
+  validate_delivery_entries(values, 0) ?
+  encode_delivery_entries(values,
+  0,
+  join([byte(1) ?, Bytes.from_utf8("BAT"), byte(List.length(values)) ?], 0, Bytes.empty()) ?)
+end
+
+fn read_delivery_entries(state :: BinaryReader,
+count :: Int,
+index :: Int,
+output :: List < DeliveredEnvelope >) -> ReadDeliveries ! ProtocolError do
+  if index >= count do
+    Ok(ReadDeliveries {
+      state : state,
+      value : output
+    })
+  else
+    let sequence = take_u64(state) ?
+    let envelope = take_vector(sequence.state, 65606) ?
+    let _ = decode_outer_envelope(envelope.value) ?
+    read_delivery_entries(envelope.state,
+    count,
+    index + 1,
+    List.append(output,
+    DeliveredEnvelope {
+      sequence : sequence.value,
+      envelope : envelope.value
+    }))
+  end
+end
+
+pub fn decode_delivery_batch(input :: Bytes) -> List < DeliveredEnvelope > ! ProtocolError do
+  let version = take_u8(open(input, 524949) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = take_fixed(version.state, 3) ?
+    valid_magic(magic.value, "BAT") ?
+    let count = take_u8(magic.state) ?
+    if count.value > 8 do
+      Err(OversizedInput)
+    else
+      let values = read_delivery_entries(count.state, count.value, 0, List.new()) ?
+      require_end(values.state) ?
+      Ok(values.value)
+    end
+  end
+end
+
+fn validate_ack_ids(values :: List < Bytes >, index :: Int) -> Result <(), ProtocolError > do
+  if List.length(values) == 0 || List.length(values) > 8 do
+    Err(InvalidFieldLength)
+  else
+    if index >= List.length(values) do
+      Ok(nil)
+    else
+      if Bytes.length(List.get(values, index)) != 16 do
+        Err(InvalidFieldLength)
+      else
+        validate_ack_ids(values, index + 1)
+      end
+    end
+  end
+end
+
+fn encode_ack_ids(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! ProtocolError do
+  if index >= List.length(values) do
+    Ok(output)
+  else
+    encode_ack_ids(values, index + 1, join([output, List.get(values, index)], 0, Bytes.empty()) ?)
+  end
+end
+
+pub fn encode_mailbox_ack(value :: MailboxAck) -> Bytes ! ProtocolError do
+  if value.version != 1 do
+    Err(UnsupportedVersion)
+  else
+    if Bytes.length(value.mailbox_token) != 32 do
+      Err(InvalidFieldLength)
+    else
+      validate_ack_ids(value.envelope_ids, 0) ?
+      encode_ack_ids(value.envelope_ids,
+      0,
+      join([byte(value.version) ?, Bytes.from_utf8("ACK"), value.mailbox_token, byte(List.length(value.envelope_ids)) ?],
+      0,
+      Bytes.empty()) ?)
+    end
+  end
+end
+
+fn read_ack_ids(state :: BinaryReader, count :: Int, index :: Int, output :: List < Bytes >) -> ReadIds ! ProtocolError do
+  if index >= count do
+    Ok(ReadIds {
+      state : state,
+      value : output
+    })
+  else
+    let id = take_fixed(state, 16) ?
+    read_ack_ids(id.state, count, index + 1, List.append(output, id.value))
+  end
+end
+
+pub fn decode_mailbox_ack(input :: Bytes) -> MailboxAck ! ProtocolError do
+  let version = take_u8(open(input, 165) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = take_fixed(version.state, 3) ?
+    valid_magic(magic.value, "ACK") ?
+    let mailbox_token = take_fixed(magic.state, 32) ?
+    let count = take_u8(mailbox_token.state) ?
+    if count.value == 0 || count.value > 8 do
+      Err(InvalidFieldLength)
+    else
+      let ids = read_ack_ids(count.state, count.value, 0, List.new()) ?
+      require_end(ids.state) ?
+      Ok(MailboxAck {
+        version : version.value,
+        mailbox_token : mailbox_token.value,
+        envelope_ids : ids.value
+      })
+    end
   end
 end

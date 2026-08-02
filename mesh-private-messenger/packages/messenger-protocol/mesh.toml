@@ -5,3 +5,4 @@ description = "Canonical Whatsdown messenger protocol codecs"
 license = "MIT"
 
 [dependencies]
+mesh-binary = { path = "../../../mesh-lang/packages/mesh-binary" }
