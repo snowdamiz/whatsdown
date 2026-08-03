@@ -24,6 +24,10 @@ class MeshMessengerModule : Module() {
                     "mesh_messenger_receive_initial" -> MeshLibrary.receive_initial_export(request)
                     "mesh_messenger_send_message" -> MeshLibrary.send_message_export(request)
                     "mesh_messenger_receive_message" -> MeshLibrary.receive_message_export(request)
+                    "mesh_messenger_update_conversation" -> MeshLibrary.update_conversation_export(request)
+                    "mesh_messenger_list_conversations" -> MeshLibrary.list_conversations_export(request)
+                    "mesh_messenger_load_history" -> MeshLibrary.load_history_export(request)
+                    "mesh_messenger_safety_number" -> MeshLibrary.safety_number_export(request)
                     else -> throw IllegalArgumentException("unknown_export")
                 }
             }

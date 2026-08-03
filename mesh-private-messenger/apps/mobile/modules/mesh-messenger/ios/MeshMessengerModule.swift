@@ -31,6 +31,14 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.send_message_export(request)
       case "mesh_messenger_receive_message":
         return try MeshLibrary.receive_message_export(request)
+      case "mesh_messenger_update_conversation":
+        return try MeshLibrary.update_conversation_export(request)
+      case "mesh_messenger_list_conversations":
+        return try MeshLibrary.list_conversations_export(request)
+      case "mesh_messenger_load_history":
+        return try MeshLibrary.load_history_export(request)
+      case "mesh_messenger_safety_number":
+        return try MeshLibrary.safety_number_export(request)
       default:
         throw MeshLibraryFailure(
           status: MESH_LIBRARY_ERR_INVALID_ARGUMENT,

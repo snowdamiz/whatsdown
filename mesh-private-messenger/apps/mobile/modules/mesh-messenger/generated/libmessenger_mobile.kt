@@ -19,4 +19,8 @@ object MeshLibrary {
     @JvmStatic external fun receive_initial_export(request: ByteArray): ByteArray
     @JvmStatic external fun send_message_export(request: ByteArray): ByteArray
     @JvmStatic external fun receive_message_export(request: ByteArray): ByteArray
+    @JvmStatic external fun update_conversation_export(request: ByteArray): ByteArray
+    @JvmStatic external fun list_conversations_export(request: ByteArray): ByteArray
+    @JvmStatic external fun load_history_export(request: ByteArray): ByteArray
+    @JvmStatic external fun safety_number_export(request: ByteArray): ByteArray
 }

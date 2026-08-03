@@ -63,6 +63,11 @@ struct MobileSessionRecord do
   peer_username :: String
   peer_mailbox :: Bytes
   conversation_id :: Bytes
+  request_state :: Int
+  blocked :: Bool
+  verified :: Bool
+  key_changed :: Bool
+  disappearing_seconds :: Int
 end
 
 struct MobileLoadedSession do
@@ -73,6 +78,23 @@ end
 
 struct MobileRatchetPacket do
   message :: Bytes
+end
+
+struct MobileHistoryEntry do
+  direction :: Int
+  inner :: InnerEnvelope
+end
+
+struct MobilePolicyRequest do
+  database_path :: String
+  peer_profile :: Bytes
+  action :: Int
+  value :: Int
+end
+
+struct MobilePeerRequest do
+  database_path :: String
+  peer_profile :: Bytes
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! String do
@@ -170,6 +192,28 @@ fn mobile_write_u64(value :: U64) -> Bytes ! String do
   case Bytes.write_u64_be(value) do
     Err( _) -> Err("integer_encoding_failed")
     Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn mobile_read_byte(value :: Bytes) -> Int ! String do
+  if Bytes.length(value) != 1 do
+    Err("invalid_integer")
+  else
+    Ok(List.head(Bytes.to_list(value)))
+  end
+end
+
+fn mobile_read_u32(value :: Bytes) -> Int ! String do
+  if Bytes.length(value) != 4 do
+    Err("invalid_integer")
+  else
+    case Bytes.read_u32_be(value, 0) do
+      Err( _) -> Err("invalid_integer")
+      Ok( wide) -> case U64.to_int(wide) do
+        Err( _) -> Err("invalid_integer")
+        Ok( number) -> Ok(number)
+      end
+    end
   end
 end
 
@@ -617,6 +661,44 @@ fn parse_receive_request(input :: Bytes) -> MobileReceiveRequest ! String do
   end
 end
 
+fn parse_policy_request(input :: Bytes) -> MobilePolicyRequest ! String do
+  case reader(input, 20532) do
+    Err( _) -> Err("invalid_policy_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let peer_profile = take_vector(path.state, 16384) ?
+      let action = take_vector(peer_profile.state, 1) ?
+      let value = take_vector(action.state, 4) ?
+      case finish(value.state) do
+        Err( _) -> Err("invalid_policy_request")
+        Ok( _) -> Ok(MobilePolicyRequest {
+          database_path : mobile_utf8(path.value, "invalid_database_path") ?,
+          peer_profile : peer_profile.value,
+          action : mobile_read_byte(action.value) ?,
+          value : mobile_read_u32(value.value) ?
+        })
+      end
+    end
+  end
+end
+
+fn parse_peer_request(input :: Bytes) -> MobilePeerRequest ! String do
+  case reader(input, 20488) do
+    Err( _) -> Err("invalid_peer_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let peer_profile = take_vector(path.state, 16384) ?
+      case finish(peer_profile.state) do
+        Err( _) -> Err("invalid_peer_request")
+        Ok( _) -> Ok(MobilePeerRequest {
+          database_path : mobile_utf8(path.value, "invalid_database_path") ?,
+          peer_profile : peer_profile.value
+        })
+      end
+    end
+  end
+end
+
 fn current_time() -> U64 ! String do
   mobile_wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
@@ -760,8 +842,14 @@ end
 fn encode_session_record(snapshot_blob :: Bytes,
 local :: MobileProfile,
 peer :: MobileProfile,
-conversation_id :: Bytes) -> Bytes ! String do
-  mobile_join([mobile_vector(snapshot_blob) ?, mobile_vector(local.account_id) ?, mobile_vector(local.device_id) ?, mobile_vector(peer.account_id) ?, mobile_vector(peer.device_id) ?, mobile_vector(Bytes.from_utf8(peer.username)) ?, mobile_vector(peer.entry.mailbox_token) ?, mobile_vector(conversation_id) ?],
+conversation_id :: Bytes,
+request_state :: Int,
+key_changed :: Bool) -> Bytes ! String do
+  mobile_join([mobile_vector(snapshot_blob) ?, mobile_vector(local.account_id) ?, mobile_vector(local.device_id) ?, mobile_vector(peer.account_id) ?, mobile_vector(peer.device_id) ?, mobile_vector(Bytes.from_utf8(peer.username)) ?, mobile_vector(peer.entry.mailbox_token) ?, mobile_vector(conversation_id) ?, mobile_vector(mobile_byte(request_state) ?) ?, mobile_vector(mobile_byte(0) ?) ?, mobile_vector(mobile_byte(0) ?) ?, mobile_vector(mobile_byte(if key_changed do
+    1
+  else
+    0
+  end) ?) ?, mobile_vector(mobile_write_u32(0) ?) ?],
   0,
   Bytes.empty())
 end
@@ -778,11 +866,21 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
       let peer_username = take_vector(peer_device_id.state, 64) ?
       let peer_mailbox = take_vector(peer_username.state, 32) ?
       let conversation_id = take_vector(peer_mailbox.state, 16) ?
-      case finish(conversation_id.state) do
+      let request_state = take_vector(conversation_id.state, 1) ?
+      let blocked = take_vector(request_state.state, 1) ?
+      let verified = take_vector(blocked.state, 1) ?
+      let key_changed = take_vector(verified.state, 1) ?
+      let disappearing_seconds = take_vector(key_changed.state, 4) ?
+      case finish(disappearing_seconds.state) do
         Err( _) -> Err("invalid_session_record")
         Ok( _) -> do
           let username = mobile_utf8(peer_username.value, "invalid_session_record") ?
-          let valid = Bytes.length(local_account_id.value) == 32 && Bytes.length(local_device_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && String.length(username) > 0 && Bytes.length(peer_mailbox.value) == 32 && Bytes.length(conversation_id.value) == 16
+          let request_value = mobile_read_byte(request_state.value) ?
+          let blocked_value = mobile_read_byte(blocked.value) ?
+          let verified_value = mobile_read_byte(verified.value) ?
+          let changed_value = mobile_read_byte(key_changed.value) ?
+          let disappearing_value = mobile_read_u32(disappearing_seconds.value) ?
+          let valid = Bytes.length(local_account_id.value) == 32 && Bytes.length(local_device_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && String.length(username) > 0 && Bytes.length(peer_mailbox.value) == 32 && Bytes.length(conversation_id.value) == 16 && (request_value == 0 || request_value == 1) && blocked_value <= 1 && verified_value <= 1 && changed_value <= 1
           if !valid do
             Err("invalid_session_record")
           else
@@ -794,7 +892,12 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
               peer_device_id : peer_device_id.value,
               peer_username : username,
               peer_mailbox : peer_mailbox.value,
-              conversation_id : conversation_id.value
+              conversation_id : conversation_id.value,
+              request_state : request_value,
+              blocked : blocked_value == 1,
+              verified : verified_value == 1,
+              key_changed : changed_value == 1,
+              disappearing_seconds : disappearing_value
             })
           end
         end
@@ -886,6 +989,262 @@ index :: Int) -> MobileLoadedSession ! String do
   end
 end
 
+fn history_label(conversation_id :: Bytes) -> String do
+  "history/v1/#{Bytes.to_hex(conversation_id)}"
+end
+
+fn encode_history_entry(value :: MobileHistoryEntry) -> Bytes ! String do
+  mobile_join([mobile_vector(mobile_byte(value.direction) ?) ?, mobile_vector(inner_bytes(value.inner) ?) ?],
+  0,
+  Bytes.empty())
+end
+
+fn encode_history_parts(values :: List < MobileHistoryEntry >, index :: Int, output :: Bytes) -> Bytes ! String do
+  if index >= List.length(values) do
+    Ok(output)
+  else
+    encode_history_parts(values,
+    index + 1,
+    mobile_append(output, mobile_vector(encode_history_entry(List.get(values, index)) ?) ?) ?)
+  end
+end
+
+fn encode_history(values :: List < MobileHistoryEntry >) -> Bytes ! String do
+  let bounded = if List.length(values) > 256 do
+    List.drop(values, List.length(values) - 256)
+  else
+    values
+  end
+  encode_history_parts(bounded, 0, mobile_vector(mobile_write_u32(List.length(bounded)) ?) ?)
+end
+
+fn parse_history_entry(input :: Bytes) -> MobileHistoryEntry ! String do
+  case reader(input, 65600) do
+    Err( _) -> Err("invalid_history")
+    Ok( state) -> do
+      let direction = take_vector(state, 1) ?
+      let inner = take_vector(direction.state, 65536) ?
+      case finish(inner.state) do
+        Err( _) -> Err("invalid_history")
+        Ok( _) -> do
+          let direction_value = mobile_read_byte(direction.value) ?
+          if direction_value != 1 && direction_value != 2 do
+            Err("invalid_history")
+          else
+            case decode_inner_envelope(inner.value) do
+              Err( _) -> Err("invalid_history")
+              Ok( value) -> Ok(MobileHistoryEntry {
+                direction : direction_value,
+                inner : value
+              })
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_history_parts(state :: BinaryReader,
+count :: Int,
+index :: Int,
+values :: List < MobileHistoryEntry >) -> List < MobileHistoryEntry > ! String do
+  if index >= count do
+    case finish(state) do
+      Err( _) -> Err("invalid_history")
+      Ok( _) -> Ok(values)
+    end
+  else
+    let entry = take_vector(state, 65600) ?
+    parse_history_parts(entry.state,
+    count,
+    index + 1,
+    List.append(values, parse_history_entry(entry.value) ?))
+  end
+end
+
+fn decode_history(input :: Bytes) -> List < MobileHistoryEntry > ! String do
+  case reader(input, 8388608) do
+    Err( _) -> Err("invalid_history")
+    Ok( state) -> do
+      let count = take_vector(state, 4) ?
+      let count_value = mobile_read_u32(count.value) ?
+      if count_value > 256 do
+        Err("invalid_history")
+      else
+        parse_history_parts(count.state, count_value, 0, List.new())
+      end
+    end
+  end
+end
+
+fn load_history(database_path :: String,
+wrapping_key :: borrow StorageKey,
+conversation_id :: Bytes) -> List < MobileHistoryEntry > ! String do
+  let label = history_label(conversation_id)
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(List.new())
+    else
+      Err(error)
+    end
+    Ok( blob) -> decode_history(open_local(blob, wrapping_key, local_context(label) ?) ?)
+  end
+end
+
+fn updated_history(database_path :: String,
+wrapping_key :: borrow StorageKey,
+inner :: InnerEnvelope,
+direction :: Int) -> Result <( String, Bytes), String > do
+  let label = history_label(inner.conversation_id)
+  let entries = load_history(database_path, wrapping_key, inner.conversation_id) ?
+  let updated = List.append(entries,
+  MobileHistoryEntry {
+    direction : direction,
+    inner : inner
+  })
+  Ok((label, seal_local(encode_history(updated) ?, wrapping_key, local_context(label) ?) ?))
+end
+
+fn encode_output_parts(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! String do
+  if index >= List.length(values) do
+    Ok(output)
+  else
+    encode_output_parts(values,
+    index + 1,
+    mobile_append(output, mobile_vector(List.get(values, index)) ?) ?)
+  end
+end
+
+fn encode_output_list(values :: List < Bytes >) -> Bytes ! String do
+  encode_output_parts(values, 0, mobile_vector(mobile_write_u32(List.length(values)) ?) ?)
+end
+
+fn safety_number(session_id :: Bytes) -> Bytes ! String do
+  Ok(Bytes.from_utf8(Bytes.to_hex(Crypto.sha256(mobile_append(Bytes.from_utf8("mesh-msg/mobile/safety/v1"),
+  session_id) ?))))
+end
+
+fn conversation_summary(loaded :: MobileLoadedSession) -> Bytes ! String do
+  mobile_join([mobile_vector(loaded.record.conversation_id) ?, mobile_vector(Bytes.from_utf8(loaded.record.peer_username)) ?, mobile_vector(loaded.record.peer_account_id) ?, mobile_vector(loaded.record.peer_device_id) ?, mobile_vector(safety_number(loaded.session_id) ?) ?, mobile_vector(mobile_byte(loaded.record.request_state) ?) ?, mobile_vector(mobile_byte(if loaded.record.blocked do
+    1
+  else
+    0
+  end) ?) ?, mobile_vector(mobile_byte(if loaded.record.verified do
+    1
+  else
+    0
+  end) ?) ?, mobile_vector(mobile_byte(if loaded.record.key_changed do
+    1
+  else
+    0
+  end) ?) ?, mobile_vector(mobile_write_u32(loaded.record.disappearing_seconds) ?) ?],
+  0,
+  Bytes.empty())
+end
+
+fn collect_conversations(database_path :: String,
+wrapping_key :: borrow StorageKey,
+session_ids :: List < Bytes >,
+index :: Int,
+values :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(session_ids) do
+    Ok(values)
+  else
+    let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
+    collect_conversations(database_path,
+    wrapping_key,
+    session_ids,
+    index + 1,
+    List.append(values, conversation_summary(loaded) ?))
+  end
+end
+
+fn list_conversations(database_path :: String) -> Bytes ! String do
+  ensure_schema(database_path) ?
+  let wrapping_key = platform_key() ?
+  let session_ids = load_session_ids(database_path, wrapping_key) ?
+  encode_output_list(collect_conversations(database_path, wrapping_key, session_ids, 0, List.new()) ?)
+end
+
+fn message_visible(value :: MobileHistoryEntry, now :: U64) -> Bool ! String do
+  if value.inner.disappearing_seconds == 0 do
+    Ok(true)
+  else
+    let lifetime = mobile_wide(Int.to_string(value.inner.disappearing_seconds * 1000)) ?
+    let expires_at = U64.add(value.inner.client_timestamp, lifetime) ?
+    Ok(U64.compare(now, expires_at) < 0)
+  end
+end
+
+fn visible_history(values :: List < MobileHistoryEntry >,
+now :: U64,
+index :: Int,
+visible :: List < MobileHistoryEntry >) -> List < MobileHistoryEntry > ! String do
+  if index >= List.length(values) do
+    Ok(visible)
+  else
+    let value = List.get(values, index)
+    let next = if message_visible(value, now) ? do
+      List.append(visible, value)
+    else
+      visible
+    end
+    visible_history(values, now, index + 1, next)
+  end
+end
+
+fn history_summary(value :: MobileHistoryEntry) -> Bytes ! String do
+  mobile_join([mobile_vector(mobile_byte(value.direction) ?) ?, mobile_vector(value.inner.client_message_id) ?, mobile_vector(mobile_write_u64(value.inner.client_timestamp) ?) ?, mobile_vector(value.inner.body) ?, mobile_vector(mobile_write_u32(value.inner.disappearing_seconds) ?) ?],
+  0,
+  Bytes.empty())
+end
+
+fn history_summaries(values :: List < MobileHistoryEntry >,
+index :: Int,
+summaries :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(values) do
+    Ok(summaries)
+  else
+    history_summaries(values,
+    index + 1,
+    List.append(summaries, history_summary(List.get(values, index)) ?))
+  end
+end
+
+fn load_visible_history(request :: MobilePeerRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let peer = parse_profile(request.peer_profile) ?
+  let wrapping_key = platform_key() ?
+  let loaded = find_peer_session(request.database_path,
+  wrapping_key,
+  peer.account_id,
+  load_session_ids(request.database_path, wrapping_key) ?,
+  0) ?
+  let entries = load_history(request.database_path, wrapping_key, loaded.record.conversation_id) ?
+  let visible = visible_history(entries, current_time() ?, 0, List.new()) ?
+  if List.length(visible) != List.length(entries) do
+    let label = history_label(loaded.record.conversation_id)
+    let blob = seal_local(encode_history(visible) ?, wrapping_key, local_context(label) ?) ?
+    store_updated_session(request.database_path, label, blob) ?
+  else
+    nil
+  end
+  encode_output_list(history_summaries(visible, 0, List.new()) ?)
+end
+
+fn conversation_safety(request :: MobilePeerRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let peer = parse_profile(request.peer_profile) ?
+  let wrapping_key = platform_key() ?
+  let loaded = find_peer_session(request.database_path,
+  wrapping_key,
+  peer.account_id,
+  load_session_ids(request.database_path, wrapping_key) ?,
+  0) ?
+  safety_number(loaded.session_id)
+end
+
 fn reject_session_snapshot(state :: consume RatchetState) -> Result <( Bytes, String, Bytes), String > do
   Err("session_snapshot_failed")
 end
@@ -896,9 +1255,16 @@ wrapping_key :: borrow StorageKey,
 local :: MobileProfile,
 peer :: MobileProfile,
 conversation_id :: Bytes,
+request_state :: Int,
+key_changed :: Bool,
 session_id :: Bytes,
 label :: String) -> Result <( Bytes, String, Bytes), String > do
-  let record = encode_session_record(snapshot_blob, local, peer, conversation_id) ?
+  let record = encode_session_record(snapshot_blob,
+  local,
+  peer,
+  conversation_id,
+  request_state,
+  key_changed) ?
   Ok((session_id, label, seal_local(record, wrapping_key, local_context(label) ?) ?))
 end
 
@@ -906,7 +1272,9 @@ fn seal_session(state :: consume RatchetState,
 wrapping_key :: borrow StorageKey,
 local :: MobileProfile,
 peer :: MobileProfile,
-conversation_id :: Bytes) -> Result <( Bytes, String, Bytes), String > do
+conversation_id :: Bytes,
+request_state :: Int,
+key_changed :: Bool) -> Result <( Bytes, String, Bytes), String > do
   let session_id = state.session_id
   let label = session_label(session_id)
   case snapshot(state, wrapping_key, local.account_id, local.device_id, mobile_wide("1") ?) do
@@ -917,6 +1285,8 @@ conversation_id :: Bytes) -> Result <( Bytes, String, Bytes), String > do
     local,
     peer,
     conversation_id,
+    request_state,
+    key_changed,
     session_id,
     label)
   end
@@ -925,7 +1295,9 @@ end
 fn store_started_session(database_path :: String,
 label :: String,
 blob :: Bytes,
-index_blob :: Bytes) -> Result <(), String > do
+index_blob :: Bytes,
+history_key :: String,
+history_blob :: Bytes) -> Result <(), String > do
   case Sqlite.open(database_path) do
     Err( _) -> Err("database_open_failed")
     Ok( database) -> do
@@ -935,9 +1307,12 @@ index_blob :: Bytes) -> Result <(), String > do
           Err( error) -> Err(error)
           Ok( _) -> case put_blob(database, "sessions/v1", index_blob) do
             Err( error) -> Err(error)
-            Ok( _) -> case Sqlite.commit(database) do
-              Err( _) -> Err("database_write_failed")
-              Ok( _) -> Ok(nil)
+            Ok( _) -> case put_blob(database, history_key, history_blob) do
+              Err( error) -> Err(error)
+              Ok( _) -> case Sqlite.commit(database) do
+                Err( _) -> Err("database_write_failed")
+                Ok( _) -> Ok(nil)
+              end
             end
           end
         end
@@ -960,7 +1335,9 @@ end
 fn store_received_session(database_path :: String,
 label :: String,
 blob :: Bytes,
-index_blob :: Bytes) -> Result <(), String > do
+index_blob :: Bytes,
+history_key :: String,
+history_blob :: Bytes) -> Result <(), String > do
   let one_time_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("one-time-prekey/v1")))
   case Sqlite.open(database_path) do
     Err( _) -> Err("database_open_failed")
@@ -971,13 +1348,16 @@ index_blob :: Bytes) -> Result <(), String > do
           Err( error) -> Err(error)
           Ok( _) -> case put_blob(database, "sessions/v1", index_blob) do
             Err( error) -> Err(error)
-            Ok( _) -> case Sqlite.execute(database,
-            "DELETE FROM encrypted_blobs WHERE record_hash = ?",
-            [one_time_hash]) do
-              Err( _) -> Err("database_write_failed")
-              Ok( _) -> case Sqlite.commit(database) do
+            Ok( _) -> case put_blob(database, history_key, history_blob) do
+              Err( error) -> Err(error)
+              Ok( _) -> case Sqlite.execute(database,
+              "DELETE FROM encrypted_blobs WHERE record_hash = ?",
+              [one_time_hash]) do
                 Err( _) -> Err("database_write_failed")
-                Ok( _) -> Ok(nil)
+                Ok( _) -> case Sqlite.commit(database) do
+                  Err( _) -> Err("database_write_failed")
+                  Ok( _) -> Ok(nil)
+                end
               end
             end
           end
@@ -1080,9 +1460,17 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   wrapping_key,
   local,
   peer,
-  conversation_id) ?
+  conversation_id,
+  1,
+  false) ?
   let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
-  store_started_session(request.database_path, label, session_blob, index_blob) ?
+  let ( history_key, history_blob) = updated_history(request.database_path, wrapping_key, inner, 1) ?
+  store_started_session(request.database_path,
+  label,
+  session_blob,
+  index_blob,
+  history_key,
+  history_blob) ?
   Ok(outer)
 end
 
@@ -1134,9 +1522,20 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
       wrapping_key,
       local,
       peer,
-      inner.conversation_id) ?
+      inner.conversation_id,
+      0,
+      false) ?
       let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
-      store_received_session(request.database_path, label, session_blob, index_blob) ?
+      let ( history_key, history_blob) = updated_history(request.database_path,
+      wrapping_key,
+      inner,
+      2) ?
+      store_received_session(request.database_path,
+      label,
+      session_blob,
+      index_blob,
+      history_key,
+      history_blob) ?
       Ok(inner.body)
     end
   end
@@ -1187,7 +1586,19 @@ fn restore_session(loaded :: MobileLoadedSession, wrapping_key :: borrow Storage
 end
 
 fn updated_session_record(snapshot_blob :: Bytes, record :: MobileSessionRecord) -> Bytes ! String do
-  mobile_join([mobile_vector(snapshot_blob) ?, mobile_vector(record.local_account_id) ?, mobile_vector(record.local_device_id) ?, mobile_vector(record.peer_account_id) ?, mobile_vector(record.peer_device_id) ?, mobile_vector(Bytes.from_utf8(record.peer_username)) ?, mobile_vector(record.peer_mailbox) ?, mobile_vector(record.conversation_id) ?],
+  mobile_join([mobile_vector(snapshot_blob) ?, mobile_vector(record.local_account_id) ?, mobile_vector(record.local_device_id) ?, mobile_vector(record.peer_account_id) ?, mobile_vector(record.peer_device_id) ?, mobile_vector(Bytes.from_utf8(record.peer_username)) ?, mobile_vector(record.peer_mailbox) ?, mobile_vector(record.conversation_id) ?, mobile_vector(mobile_byte(record.request_state) ?) ?, mobile_vector(mobile_byte(if record.blocked do
+    1
+  else
+    0
+  end) ?) ?, mobile_vector(mobile_byte(if record.verified do
+    1
+  else
+    0
+  end) ?) ?, mobile_vector(mobile_byte(if record.key_changed do
+    1
+  else
+    0
+  end) ?) ?, mobile_vector(mobile_write_u32(record.disappearing_seconds) ?) ?],
   0,
   Bytes.empty())
 end
@@ -1238,6 +1649,42 @@ fn store_updated_session(database_path :: String, label :: String, blob :: Bytes
   end
 end
 
+fn store_updated_session_and_history(database_path :: String,
+session_key :: String,
+session_blob :: Bytes,
+history_key :: String,
+history_blob :: Bytes) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case put_blob(database, session_key, session_blob) do
+          Err( error) -> Err(error)
+          Ok( _) -> case put_blob(database, history_key, history_blob) do
+            Err( error) -> Err(error)
+            Ok( _) -> case Sqlite.commit(database) do
+              Err( _) -> Err("database_write_failed")
+              Ok( _) -> Ok(nil)
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
 fn send_message(request :: MobileStartRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
   let local = parse_profile(load_profile(request.database_path) ?) ?
@@ -1252,6 +1699,10 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
   requested_peer.entry.mailbox_token)
   if changed do
     Err("peer_keys_changed")
+  else if loaded.record.blocked do
+    Err("conversation_blocked")
+  else if loaded.record.request_state != 1 do
+    Err("message_request_pending")
   else
     let state = restore_session(loaded, wrapping_key) ?
     let now = current_time() ?
@@ -1268,7 +1719,7 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
       reply_reference : Bytes.empty(),
       attachment_manifest : Bytes.empty(),
       receipt_policy : 0,
-      disappearing_seconds : 0,
+      disappearing_seconds : loaded.record.disappearing_seconds,
       extensions : List.new()
     }
     let ( next_state, message) = case encrypt(state,
@@ -1280,7 +1731,15 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
     let packet = encode_ratchet_packet(ratchet_bytes(message) ?) ?
     let outer = outer_bytes(loaded.record.peer_mailbox, packet, now) ?
     let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
-    store_updated_session(request.database_path, loaded.label, session_blob) ?
+    let ( history_key, history_blob) = updated_history(request.database_path,
+    wrapping_key,
+    inner,
+    1) ?
+    store_updated_session_and_history(request.database_path,
+    loaded.label,
+    session_blob,
+    history_key,
+    history_blob) ?
     Ok(outer)
   end
 end
@@ -1319,12 +1778,58 @@ fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
           reject_message(next_state)
         else
           let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
-          store_updated_session(request.database_path, loaded.label, session_blob) ?
-          Ok(inner.body)
+          if loaded.record.blocked do
+            store_updated_session(request.database_path, loaded.label, session_blob) ?
+            Err("blocked_message")
+          else
+            let ( history_key, history_blob) = updated_history(request.database_path,
+            wrapping_key,
+            inner,
+            2) ?
+            store_updated_session_and_history(request.database_path,
+            loaded.label,
+            session_blob,
+            history_key,
+            history_blob) ?
+            Ok(inner.body)
+          end
         end
       end
     end
   end
+end
+
+fn updated_policy(record :: MobileSessionRecord, action :: Int, value :: Int) -> MobileSessionRecord ! String do
+  if action == 1 do
+    Ok(% { record | request_state : 1 })
+  else if action == 2 do
+    Ok(% { record | blocked : true })
+  else if action == 3 do
+    Ok(% { record | blocked : false })
+  else if action == 4 do
+    Ok(% { record | verified : true, key_changed : false })
+  else if action == 5 && value >= 0 && value <= 2592000 do
+    Ok(% { record | disappearing_seconds : value })
+  else
+    Err("invalid_conversation_policy")
+  end
+end
+
+fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let peer = parse_profile(request.peer_profile) ?
+  let wrapping_key = platform_key() ?
+  let loaded = find_peer_session(request.database_path,
+  wrapping_key,
+  peer.account_id,
+  load_session_ids(request.database_path, wrapping_key) ?,
+  0) ?
+  let record = updated_policy(loaded.record, request.action, request.value) ?
+  let blob = seal_local(updated_session_record(record.snapshot, record) ?,
+  wrapping_key,
+  local_context(loaded.label) ?) ?
+  store_updated_session(request.database_path, loaded.label, blob) ?
+  Ok(Bytes.from_utf8("ok"))
 end
 
 fn canonical_outer(input :: Bytes) -> OuterEnvelope ! String do
@@ -1434,4 +1939,20 @@ end
 
 @ export("mesh_messenger_receive_message")pub fn receive_message_export(request :: Bytes) -> Bytes ! String do
   receive_message(parse_receive_request(request) ?)
+end
+
+@ export("mesh_messenger_update_conversation")pub fn update_conversation_export(request :: Bytes) -> Bytes ! String do
+  update_conversation(parse_policy_request(request) ?)
+end
+
+@ export("mesh_messenger_list_conversations")pub fn list_conversations_export(request :: Bytes) -> Bytes ! String do
+  list_conversations(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_load_history")pub fn load_history_export(request :: Bytes) -> Bytes ! String do
+  load_visible_history(parse_peer_request(request) ?)
+end
+
+@ export("mesh_messenger_safety_number")pub fn safety_number_export(request :: Bytes) -> Bytes ! String do
+  conversation_safety(parse_peer_request(request) ?)
 end
