@@ -616,6 +616,14 @@ fn parse_profile(encoded :: Bytes) -> MobileProfile ! String do
   end
 end
 
+fn peer_account_id(reference :: Bytes) -> Bytes ! String do
+  if Bytes.length(reference) == 32 do
+    Ok(reference)
+  else
+    Ok(parse_profile(reference) ?.account_id)
+  end
+end
+
 fn parse_start_request(input :: Bytes) -> MobileStartRequest ! String do
   case reader(input, 53260) do
     Err( _) -> Err("invalid_start_request")
@@ -1236,11 +1244,11 @@ end
 
 fn load_visible_history(request :: MobilePeerRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let peer = parse_profile(request.peer_profile) ?
+  let peer_id = peer_account_id(request.peer_profile) ?
   let wrapping_key = platform_key() ?
   let loaded = find_peer_session(request.database_path,
   wrapping_key,
-  peer.account_id,
+  peer_id,
   load_session_ids(request.database_path, wrapping_key) ?,
   0) ?
   let entries = load_history(request.database_path, wrapping_key, loaded.record.conversation_id) ?
@@ -1257,11 +1265,11 @@ end
 
 fn conversation_safety(request :: MobilePeerRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let peer = parse_profile(request.peer_profile) ?
+  let peer_id = peer_account_id(request.peer_profile) ?
   let wrapping_key = platform_key() ?
   let loaded = find_peer_session(request.database_path,
   wrapping_key,
-  peer.account_id,
+  peer_id,
   load_session_ids(request.database_path, wrapping_key) ?,
   0) ?
   safety_number(loaded.session_id)
@@ -1839,11 +1847,11 @@ end
 
 fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let peer = parse_profile(request.peer_profile) ?
+  let peer_id = peer_account_id(request.peer_profile) ?
   let wrapping_key = platform_key() ?
   let loaded = find_peer_session(request.database_path,
   wrapping_key,
-  peer.account_id,
+  peer_id,
   load_session_ids(request.database_path, wrapping_key) ?,
   0) ?
   let record = updated_policy(loaded.record, request.action, request.value) ?
