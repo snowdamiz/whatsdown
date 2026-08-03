@@ -8,6 +8,8 @@ pub type DeliveryInsert do
 
   MailboxFull
 
+  MailboxRevoked
+
   RateLimited
 end deriving(Eq, Debug)
 
@@ -75,10 +77,14 @@ pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryI
       if String.contains(error, "messenger_mailbox_capacity") do
         Ok(MailboxFull)
       else
-        if String.contains(error, "messenger_rate_limited") do
-          Ok(RateLimited)
+        if String.contains(error, "messenger_mailbox_inactive") do
+          Ok(MailboxRevoked)
         else
-          Err(error)
+          if String.contains(error, "messenger_rate_limited") do
+            Ok(RateLimited)
+          else
+            Err(error)
+          end
         end
       end
     end
@@ -123,7 +129,7 @@ pub fn fetch_mailbox(pool :: PoolHandle, request :: MailboxFetch) -> List < Deli
     Ok( _) -> Ok(nil)
   end ?
   let rows = Pool.query_values(pool,
-  "SELECT sequence::text, envelope_id, suite::text, expiration_ms::text, padding_bucket::text, ciphertext FROM messenger_envelopes WHERE mailbox_token_hash = $1 AND sequence > $2::bigint AND acknowledged_at IS NULL AND expiration_ms > floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint ORDER BY sequence LIMIT 8",
+  "SELECT envelope.sequence::text, envelope.envelope_id, envelope.suite::text, envelope.expiration_ms::text, envelope.padding_bucket::text, envelope.ciphertext FROM messenger_envelopes AS envelope JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = envelope.mailbox_token_hash AND mailbox.active WHERE envelope.mailbox_token_hash = $1 AND envelope.sequence > $2::bigint AND envelope.acknowledged_at IS NULL AND envelope.expiration_ms > floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint ORDER BY envelope.sequence LIMIT 8",
   [Binary(Crypto.sha256(request.mailbox_token)), Text(U64.to_string(request.after_sequence))]) ?
   deliveries(rows, request.mailbox_token, 0, List.new())
 end

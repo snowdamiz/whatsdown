@@ -74,6 +74,9 @@ fn proof() -> Bool ! String do
   let _ = Pool.execute(pool, "DELETE FROM messenger_outbox_events", []) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_rate_limits", []) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_envelopes", []) ?
+  let _ = Pool.execute(pool, "DELETE FROM messenger_devices", []) ?
+  let _ = Pool.execute(pool, "DELETE FROM messenger_revoked_devices", []) ?
+  let _ = Pool.execute(pool, "DELETE FROM messenger_accounts", []) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_directory", []) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_mailboxes", []) ?
   let token = repeated(7, 32)
