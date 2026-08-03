@@ -672,6 +672,12 @@ int main(int argc, char **argv) {
     return 30;
   }
   mesh_library_free_returned_bytes(&response);
+  if (mesh_messenger_receive_initial(receive_request, receive_request_len,
+                                     &response) !=
+      MESH_LIBRARY_ERR_APPLICATION) {
+    return 118;
+  }
+  mesh_library_free_returned_bytes(&response);
   free(receive_request);
 
   const uint8_t *alice_peer_values[] = {(const uint8_t *)argv[2], bob_profile};
@@ -754,6 +760,61 @@ int main(int argc, char **argv) {
   memcpy(reply_outer, response.data, reply_outer_len);
   mesh_library_free_returned_bytes(&response);
   free(send_request);
+
+  const size_t packet_offset = 70;
+  const size_t ratchet_offset = packet_offset + 9;
+  const size_t message_number_offset = ratchet_offset + 74;
+  const size_t ciphertext_length_offset = ratchet_offset + 90;
+  if (reply_outer_len < ciphertext_length_offset + 4 ||
+      read_u32(reply_outer + 66) != reply_outer_len - packet_offset ||
+      read_u32(reply_outer + packet_offset) != 1 ||
+      reply_outer[packet_offset + 4] != 2 ||
+      read_u32(reply_outer + packet_offset + 5) !=
+          reply_outer_len - ratchet_offset ||
+      memcmp(reply_outer + ratchet_offset + 1, "RAT", 3) != 0) {
+    return 119;
+  }
+  size_t ratchet_ciphertext_len =
+      read_u32(reply_outer + ciphertext_length_offset);
+  if (ratchet_ciphertext_len < 16 ||
+      ratchet_offset + 94 + ratchet_ciphertext_len != reply_outer_len) {
+    return 120;
+  }
+
+  uint8_t *rejected_outer = malloc(reply_outer_len);
+  if (rejected_outer == NULL) return 121;
+  memcpy(rejected_outer, reply_outer, reply_outer_len);
+  write_u32(rejected_outer + message_number_offset, 65);
+  const uint8_t *jump_values[] = {(const uint8_t *)argv[2], rejected_outer};
+  const size_t jump_lengths[] = {strlen(argv[2]), reply_outer_len};
+  size_t jump_request_len = 0;
+  uint8_t *jump_request =
+      vector_request(jump_values, jump_lengths, 2, &jump_request_len);
+  if (jump_request == NULL ||
+      mesh_messenger_receive_message(jump_request, jump_request_len,
+                                     &response) !=
+          MESH_LIBRARY_ERR_APPLICATION) {
+    return 122;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(jump_request);
+
+  memcpy(rejected_outer, reply_outer, reply_outer_len);
+  rejected_outer[ratchet_offset + 94 + ratchet_ciphertext_len - 1] ^= 1;
+  const uint8_t *tamper_values[] = {(const uint8_t *)argv[2], rejected_outer};
+  const size_t tamper_lengths[] = {strlen(argv[2]), reply_outer_len};
+  size_t tamper_request_len = 0;
+  uint8_t *tamper_request =
+      vector_request(tamper_values, tamper_lengths, 2, &tamper_request_len);
+  free(rejected_outer);
+  if (tamper_request == NULL ||
+      mesh_messenger_receive_message(tamper_request, tamper_request_len,
+                                     &response) !=
+          MESH_LIBRARY_ERR_APPLICATION) {
+    return 123;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(tamper_request);
 
   const uint8_t *reply_receive_values[] = {(const uint8_t *)argv[2],
                                            reply_outer};
