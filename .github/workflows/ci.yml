@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  MESH_LANG_REVISION: 0b8d791154a4f18e9aaa50c174f5f365a613abf4
+  MESH_LANG_REVISION: e5f48afe3b1d06b15dc4f581584ebefb033d9672
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
