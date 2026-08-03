@@ -88,6 +88,14 @@ struct MobileLoadedSession do
   record :: MobileSessionRecord
 end
 
+struct MobilePreparedSend do
+  envelope :: Bytes
+  session_id :: Bytes
+  session_label :: String
+  session_blob :: Bytes
+  new_session :: Bool
+end
+
 struct MobileRatchetPacket do
   message :: Bytes
 end
@@ -462,6 +470,20 @@ index :: Int) -> Result <(), String > do
   end
 end
 
+fn put_blobs(database :: SqliteConn,
+labels :: List < String >,
+blobs :: List < Bytes >,
+index :: Int) -> Result <(), String > do
+  if List.length(labels) != List.length(blobs) do
+    Err("invalid_local_state")
+  else if index >= List.length(labels) do
+    Ok(nil)
+  else
+    put_blob(database, List.get(labels, index), List.get(blobs, index)) ?
+    put_blobs(database, labels, blobs, index + 1)
+  end
+end
+
 fn delete_blob(database :: SqliteConn, label :: String) -> Result <(), String > do
   let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
   case Sqlite.execute(database, "DELETE FROM encrypted_blobs WHERE record_hash = ?", [record_hash]) do
@@ -524,6 +546,71 @@ fn store_blobs(database_path :: String, labels :: List < String >, blobs :: List
           Ok( _) -> case Sqlite.commit(database) do
             Err( _) -> Err("database_write_failed")
             Ok( _) -> Ok(nil)
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn store_prepared_sessions(database :: SqliteConn,
+prepared :: List < MobilePreparedSend >,
+index :: Int) -> Result <(), String > do
+  if index >= List.length(prepared) do
+    Ok(nil)
+  else
+    let value = List.get(prepared, index)
+    let stored = if value.new_session do
+      insert_blob(database, value.session_label, value.session_blob)
+    else
+      put_blob(database, value.session_label, value.session_blob)
+    end
+    stored ?
+    store_prepared_sessions(database, prepared, index + 1)
+  end
+end
+
+fn store_outbound(database_path :: String,
+prepared :: List < MobilePreparedSend >,
+session_index_blob :: Bytes,
+history_key :: String,
+history_blob :: Bytes,
+outbox_labels :: List < String >,
+outbox_blobs :: List < Bytes >,
+outbox_index_blob :: Bytes) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case store_prepared_sessions(database, prepared, 0) do
+          Err( error) -> Err(error)
+          Ok( _) -> case put_blob(database, "sessions/v1", session_index_blob) do
+            Err( error) -> Err(error)
+            Ok( _) -> case put_blob(database, history_key, history_blob) do
+              Err( error) -> Err(error)
+              Ok( _) -> case put_blobs(database, outbox_labels, outbox_blobs, 0) do
+                Err( error) -> Err(error)
+                Ok( _) -> case put_blob(database, "outbox/v1", outbox_index_blob) do
+                  Err( error) -> Err(error)
+                  Ok( _) -> case Sqlite.commit(database) do
+                    Err( _) -> Err("database_write_failed")
+                    Ok( _) -> Ok(nil)
+                  end
+                end
+              end
+            end
           end
         end
       end
@@ -1874,6 +1961,43 @@ session_id :: Bytes) -> Bytes ! String do
   seal_local(encoded, wrapping_key, local_context("sessions/v1") ?)
 end
 
+fn prepared_session_ids(prepared :: List < MobilePreparedSend >,
+index :: Int,
+session_ids :: List < Bytes >) -> List < Bytes > do
+  if index >= List.length(prepared) do
+    session_ids
+  else
+    let value = List.get(prepared, index)
+    let next = if value.new_session && !contains_session_id(session_ids,
+    value.session_id,
+    0) do
+      List.append(session_ids, value.session_id)
+    else
+      session_ids
+    end
+    prepared_session_ids(prepared, index + 1, next)
+  end
+end
+
+fn prepared_envelopes(prepared :: List < MobilePreparedSend >,
+index :: Int,
+envelopes :: List < Bytes >) -> List < Bytes > do
+  if index >= List.length(prepared) do
+    envelopes
+  else
+    prepared_envelopes(prepared,
+    index + 1,
+    List.append(envelopes, List.get(prepared, index).envelope))
+  end
+end
+
+fn seal_session_ids(session_ids :: List < Bytes >,
+wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  seal_local(mobile_join(session_ids, 0, Bytes.empty()) ?,
+  wrapping_key,
+  local_context("sessions/v1") ?)
+end
+
 fn load_session_record(database_path :: String,
 wrapping_key :: borrow StorageKey,
 session_id :: Bytes) -> MobileLoadedSession ! String do
@@ -2158,6 +2282,285 @@ fn encode_output_list(values :: List < Bytes >) -> Bytes ! String do
   encode_output_parts(values, 0, mobile_vector(mobile_write_u32(List.length(values)) ?) ?)
 end
 
+fn decode_outbox_ids_parts(state :: BinaryReader, count :: Int, index :: Int, ids :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= count do
+    case finish(state) do
+      Err( _) -> Err("invalid_outbox")
+      Ok( _) -> Ok(ids)
+    end
+  else
+    let id = take_vector(state, 16) ?
+    if Bytes.length(id.value) != 16 do
+      Err("invalid_outbox")
+    else
+      decode_outbox_ids_parts(id.state, count, index + 1, List.append(ids, id.value))
+    end
+  end
+end
+
+fn decode_outbox_ids(input :: Bytes) -> List < Bytes > ! String do
+  case reader(input, 2048) do
+    Err( _) -> Err("invalid_outbox")
+    Ok( state) -> do
+      let count = take_vector(state, 4) ?
+      let count_value = mobile_read_u32(count.value) ?
+      if count_value > 64 do
+        Err("invalid_outbox")
+      else
+        decode_outbox_ids_parts(count.state, count_value, 0, List.new())
+      end
+    end
+  end
+end
+
+fn outbox_entry_label(id :: Bytes) -> String ! String do
+  if Bytes.length(id) != 16 do
+    Err("invalid_outbox")
+  else
+    Ok("outbox-envelope/v1/#{Bytes.to_hex(id)}")
+  end
+end
+
+fn outbox_tail_label(id :: Bytes) -> String ! String do
+  if Bytes.length(id) != 16 do
+    Err("invalid_outbox")
+  else
+    Ok("outbox-envelope-tail/v1/#{Bytes.to_hex(id)}")
+  end
+end
+
+fn load_outbox_ids(database_path :: String, wrapping_key :: borrow StorageKey) -> List < Bytes > ! String do
+  case load_blob(database_path, "outbox/v1") do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(List.new())
+    else
+      Err(error)
+    end
+    Ok( blob) -> decode_outbox_ids(open_local(blob, wrapping_key, local_context("outbox/v1") ?) ?)
+  end
+end
+
+fn outbox_contains(ids :: List < Bytes >, id :: Bytes, index :: Int) -> Bool do
+  if index >= List.length(ids) do
+    false
+  else if Bytes.secure_equals(List.get(ids, index), id) do
+    true
+  else
+    outbox_contains(ids, id, index + 1)
+  end
+end
+
+fn prepare_outbox(envelopes :: List < Bytes >,
+wrapping_key :: borrow StorageKey,
+index :: Int,
+ids :: List < Bytes >,
+labels :: List < String >,
+blobs :: List < Bytes >) -> Result <( List < Bytes >, List < String >, List < Bytes >), String > do
+  if index >= List.length(envelopes) do
+    Ok((ids, labels, blobs))
+  else
+    let envelope = List.get(envelopes, index)
+    let outer = canonical_outer(envelope) ?
+    let label = outbox_entry_label(outer.envelope_id) ?
+    let envelope_length = Bytes.length(envelope)
+    if envelope_length > 65606 || outbox_contains(ids, outer.envelope_id, 0) do
+      Err("invalid_outbox")
+    else
+      let head_length = if envelope_length > 65532 do
+        65532
+      else
+        envelope_length
+      end
+      let head = mobile_append(mobile_write_u32(envelope_length) ?,
+      Bytes.slice(envelope, 0, head_length) ?) ?
+      let head_blob = seal_local(head, wrapping_key, local_context(label) ?) ?
+      if envelope_length == head_length do
+        prepare_outbox(envelopes,
+        wrapping_key,
+        index + 1,
+        List.append(ids, outer.envelope_id),
+        List.append(labels, label),
+        List.append(blobs, head_blob))
+      else
+        let tail_label = outbox_tail_label(outer.envelope_id) ?
+        let tail = Bytes.slice(envelope,
+        head_length,
+        envelope_length - head_length) ?
+        prepare_outbox(envelopes,
+        wrapping_key,
+        index + 1,
+        List.append(ids, outer.envelope_id),
+        List.append(List.append(labels, label), tail_label),
+        List.append(List.append(blobs, head_blob), seal_local(tail,
+        wrapping_key,
+        local_context(tail_label) ?) ?))
+      end
+    end
+  end
+end
+
+fn prepare_outbox_writes(wrapping_key :: borrow StorageKey,
+existing_ids :: List < Bytes >,
+envelopes :: List < Bytes >) -> Result <( List < String >, List < Bytes >, Bytes), String > do
+  if List.length(existing_ids) + List.length(envelopes) > 64 do
+    Err("outbox_full")
+  else
+    let ( ids, labels, blobs) = prepare_outbox(envelopes,
+    wrapping_key,
+    0,
+    existing_ids,
+    List.new(),
+    List.new()) ?
+    let index_blob = seal_local(encode_output_list(ids) ?,
+    wrapping_key,
+    local_context("outbox/v1") ?) ?
+    Ok((labels, blobs, index_blob))
+  end
+end
+
+fn load_outbox_entry(database_path :: String, wrapping_key :: borrow StorageKey, id :: Bytes) -> Bytes ! String do
+  let label = outbox_entry_label(id) ?
+  let head = open_local(load_blob(database_path, label) ?, wrapping_key, local_context(label) ?) ?
+  if Bytes.length(head) < 4 do
+    Err("invalid_outbox")
+  else
+  let envelope_length = mobile_read_u32(Bytes.slice(head, 0, 4) ?) ?
+  let head_length = Bytes.length(head) - 4
+  if envelope_length > 65606 || envelope_length < head_length || head_length > 65532 do
+    Err("invalid_outbox")
+  else
+  let head_value = Bytes.slice(head, 4, head_length) ?
+  let value = if envelope_length == head_length do
+    Ok(head_value)
+  else if head_length != 65532 || envelope_length - head_length > 74 do
+    Err("invalid_outbox")
+  else
+    let tail_label = outbox_tail_label(id) ?
+    let tail = open_local(load_blob(database_path, tail_label) ?,
+    wrapping_key,
+    local_context(tail_label) ?) ?
+    if Bytes.length(tail) != envelope_length - head_length do
+      Err("invalid_outbox")
+    else
+      mobile_append(head_value, tail)
+    end
+  end ?
+  let outer = canonical_outer(value) ?
+  if Bytes.secure_equals(outer.envelope_id, id) do
+    Ok(value)
+  else
+    Err("invalid_outbox")
+  end
+  end
+  end
+end
+
+fn load_outbox_entries(database_path :: String,
+wrapping_key :: borrow StorageKey,
+ids :: List < Bytes >,
+index :: Int,
+entries :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(ids) || index >= 8 do
+    Ok(entries)
+  else
+    load_outbox_entries(database_path,
+    wrapping_key,
+    ids,
+    index + 1,
+    List.append(entries, load_outbox_entry(database_path, wrapping_key, List.get(ids, index)) ?))
+  end
+end
+
+fn remove_outbox_id(ids :: List < Bytes >, id :: Bytes, index :: Int, remaining :: List < Bytes >) -> List < Bytes > do
+  if index >= List.length(ids) do
+    remaining
+  else if Bytes.secure_equals(List.get(ids, index), id) do
+    remove_outbox_id(ids, id, index + 1, remaining)
+  else
+    remove_outbox_id(ids, id, index + 1, List.append(remaining, List.get(ids, index)))
+  end
+end
+
+fn update_outbox_index(database :: SqliteConn, remaining :: List < Bytes >, index_blob :: Bytes) -> Result <(), String > do
+  if List.length(remaining) == 0 do
+    delete_blob(database, "outbox/v1")
+  else
+    put_blob(database, "outbox/v1", index_blob)
+  end
+end
+
+fn store_outbox_ack(database_path :: String,
+id :: Bytes,
+remaining :: List < Bytes >,
+index_blob :: Bytes) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case delete_blob(database, outbox_entry_label(id) ?) do
+          Err( error) -> Err(error)
+          Ok( _) -> case delete_blob(database, outbox_tail_label(id) ?) do
+            Err( error) -> Err(error)
+            Ok( _) -> case update_outbox_index(database, remaining, index_blob) do
+              Err( error) -> Err(error)
+              Ok( _) -> case Sqlite.commit(database) do
+                Err( _) -> Err("database_write_failed")
+                Ok( _) -> Ok(nil)
+              end
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn list_outbox(database_path :: String) -> Bytes ! String do
+  ensure_schema(database_path) ?
+  let wrapping_key = platform_key() ?
+  encode_output_list(load_outbox_entries(database_path,
+  wrapping_key,
+  load_outbox_ids(database_path, wrapping_key) ?,
+  0,
+  List.new()) ?)
+end
+
+fn acknowledge_outbox(request :: MobilePayloadRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let envelope = canonical_outer(request.payload) ?
+  let wrapping_key = platform_key() ?
+  let ids = load_outbox_ids(request.database_path, wrapping_key) ?
+  if !outbox_contains(ids, envelope.envelope_id, 0) do
+    Ok(Bytes.empty())
+  else if !Bytes.secure_equals(load_outbox_entry(request.database_path,
+  wrapping_key,
+  envelope.envelope_id) ?,
+  request.payload) do
+    Err("outbox_ack_mismatch")
+  else
+    let remaining = remove_outbox_id(ids, envelope.envelope_id, 0, List.new())
+    let index_blob = if List.length(remaining) == 0 do
+      Bytes.empty()
+    else
+      seal_local(encode_output_list(remaining) ?, wrapping_key, local_context("outbox/v1") ?) ?
+    end
+    store_outbox_ack(request.database_path, envelope.envelope_id, remaining, index_blob) ?
+    Ok(Bytes.empty())
+  end
+end
+
 fn bytes_before(left :: Bytes, right :: Bytes, index :: Int) -> Bool ! String do
   if Bytes.length(left) != Bytes.length(right) do
     Err("invalid_safety_number")
@@ -2415,46 +2818,6 @@ fn store_new_session(database_path :: String, label :: String, blob :: Bytes, in
   end
 end
 
-fn store_started_session(database_path :: String,
-label :: String,
-blob :: Bytes,
-index_blob :: Bytes,
-history_key :: String,
-history_blob :: Bytes) -> Result <(), String > do
-  case Sqlite.open(database_path) do
-    Err( _) -> Err("database_open_failed")
-    Ok( database) -> do
-      let result = case Sqlite.begin(database) do
-        Err( _) -> Err("database_write_failed")
-        Ok( _) -> case insert_blob(database, label, blob) do
-          Err( error) -> Err(error)
-          Ok( _) -> case put_blob(database, "sessions/v1", index_blob) do
-            Err( error) -> Err(error)
-            Ok( _) -> case put_blob(database, history_key, history_blob) do
-              Err( error) -> Err(error)
-              Ok( _) -> case Sqlite.commit(database) do
-                Err( _) -> Err("database_write_failed")
-                Ok( _) -> Ok(nil)
-              end
-            end
-          end
-        end
-      end
-      case result do
-        Err( error) -> do
-          let _ = Sqlite.rollback(database)
-          Sqlite.close(database)
-          Err(error)
-        end
-        Ok( _) -> do
-          Sqlite.close(database)
-          Ok(nil)
-        end
-      end
-    end
-  end
-end
-
 fn store_received_session(database_path :: String,
 label :: String,
 blob :: Bytes,
@@ -2532,7 +2895,11 @@ fn outer_bytes(mailbox_token :: Bytes, suite :: Int, packet :: Bytes, now :: U64
     ciphertext : packet
   }) do
     Err( _) -> Err("outer_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Ok( encoded) -> if Bytes.length(encoded) > 65606 do
+      Err("message_too_large")
+    else
+      Ok(encoded)
+    end
   end
 end
 
@@ -2542,6 +2909,13 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   let local = parse_profile(local_profile_bytes) ?
   let peer = parse_profile(request.peer_profile) ?
   let wrapping_key = platform_key() ?
+  let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
+  let _ = if List.length(pending_ids) >= 64 do
+    Err("outbox_full")
+  else
+    Ok(nil)
+  end ?
+  let session_ids = load_session_ids(request.database_path, wrapping_key) ?
   let local_device = open_device(local, wrapping_key, request.database_path) ?
   let now = current_time() ?
   let conversation_id = random_bytes(16) ?
@@ -2566,7 +2940,7 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   wrapping_key,
   peer.account_id,
   peer.device_id,
-  load_session_ids(request.database_path, wrapping_key) ?,
+  session_ids,
   0,
   0) ?
   let ( state, initial) = case initiate(local_device,
@@ -2588,14 +2962,27 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   conversation_id,
   1,
   false) ?
-  let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
+  let prepared = [MobilePreparedSend {
+    envelope : outer,
+    session_id : session_id,
+    session_label : label,
+    session_blob : session_blob,
+    new_session : true
+  }]
+  let index_blob = seal_session_ids(prepared_session_ids(prepared, 0, session_ids),
+  wrapping_key) ?
   let ( history_key, history_blob) = updated_history(request.database_path, wrapping_key, inner, 1) ?
-  store_started_session(request.database_path,
-  label,
-  session_blob,
+  let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+  pending_ids,
+  [outer]) ?
+  store_outbound(request.database_path,
+  prepared,
   index_blob,
   history_key,
-  history_blob) ?
+  history_blob,
+  outbox_labels,
+  outbox_blobs,
+  outbox_index_blob) ?
   Ok(outer)
 end
 
@@ -2869,12 +3256,12 @@ end
 
 fn send_to_device(database_path :: String,
 wrapping_key :: borrow StorageKey,
+session_ids :: List < Bytes >,
 local_device :: borrow DeviceKeys,
 local_profile_bytes :: Bytes,
 local :: MobileProfile,
 peer :: MobileProfile,
-inner :: InnerEnvelope) -> Bytes ! String do
-  let session_ids = load_session_ids(database_path, wrapping_key) ?
+inner :: InnerEnvelope) -> MobilePreparedSend ! String do
   case find_device_session(database_path,
   wrapping_key,
   peer.account_id,
@@ -2900,8 +3287,13 @@ inner :: InnerEnvelope) -> Bytes ! String do
         packet,
         inner.client_timestamp) ?
         let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
-        store_updated_session(database_path, loaded.label, session_blob) ?
-        Ok(outer)
+        Ok(MobilePreparedSend {
+          envelope : outer,
+          session_id : loaded.session_id,
+          session_label : loaded.label,
+          session_blob : session_blob,
+          new_session : false
+        })
       end
     end
     Err( error) -> if error != "session_not_found" do
@@ -2930,15 +3322,20 @@ inner :: InnerEnvelope) -> Bytes ! String do
       inner.conversation_id,
       1,
       false) ?
-      let index_blob = updated_session_index(database_path, wrapping_key, session_id) ?
-      store_new_session(database_path, label, session_blob, index_blob) ?
-      Ok(outer)
+      Ok(MobilePreparedSend {
+        envelope : outer,
+        session_id : session_id,
+        session_label : label,
+        session_blob : session_blob,
+        new_session : true
+      })
     end
   end
 end
 
 fn peer_fanout(database_path :: String,
 wrapping_key :: borrow StorageKey,
+session_ids :: List < Bytes >,
 local_device :: borrow DeviceKeys,
 local_profile_bytes :: Bytes,
 local :: MobileProfile,
@@ -2949,7 +3346,7 @@ now :: U64,
 body :: Bytes,
 disappearing_seconds :: Int,
 index :: Int,
-output :: List < Bytes >) -> List < Bytes > ! String do
+output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String do
   if index >= List.length(profiles) do
     Ok(output)
   else
@@ -2970,8 +3367,9 @@ output :: List < Bytes >) -> List < Bytes > ! String do
       disappearing_seconds : disappearing_seconds,
       extensions : List.new()
     }
-    let outer = send_to_device(database_path,
+    let prepared = send_to_device(database_path,
     wrapping_key,
+    session_ids,
     local_device,
     local_profile_bytes,
     local,
@@ -2979,6 +3377,7 @@ output :: List < Bytes >) -> List < Bytes > ! String do
     inner) ?
     peer_fanout(database_path,
     wrapping_key,
+    session_ids,
     local_device,
     local_profile_bytes,
     local,
@@ -2989,12 +3388,13 @@ output :: List < Bytes >) -> List < Bytes > ! String do
     body,
     disappearing_seconds,
     index + 1,
-    List.append(output, outer))
+    List.append(output, prepared))
   end
 end
 
 fn self_fanout(database_path :: String,
 wrapping_key :: borrow StorageKey,
+session_ids :: List < Bytes >,
 local_device :: borrow DeviceKeys,
 local_profile_bytes :: Bytes,
 local :: MobileProfile,
@@ -3003,7 +3403,7 @@ client_message_id :: Bytes,
 now :: U64,
 sync_body :: Bytes,
 index :: Int,
-output :: List < Bytes >) -> List < Bytes > ! String do
+output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String do
   if index >= List.length(local_profiles) do
     Ok(output)
   else
@@ -3011,6 +3411,7 @@ output :: List < Bytes >) -> List < Bytes > ! String do
     if Bytes.secure_equals(peer.device_id, local.device_id) do
       self_fanout(database_path,
       wrapping_key,
+      session_ids,
       local_device,
       local_profile_bytes,
       local,
@@ -3037,8 +3438,9 @@ output :: List < Bytes >) -> List < Bytes > ! String do
         disappearing_seconds : 0,
         extensions : List.new()
       }
-      let outer = send_to_device(database_path,
+      let prepared = send_to_device(database_path,
       wrapping_key,
+      session_ids,
       local_device,
       local_profile_bytes,
       local,
@@ -3046,6 +3448,7 @@ output :: List < Bytes >) -> List < Bytes > ! String do
       inner) ?
       self_fanout(database_path,
       wrapping_key,
+      session_ids,
       local_device,
       local_profile_bytes,
       local,
@@ -3054,7 +3457,7 @@ output :: List < Bytes >) -> List < Bytes > ! String do
       now,
       sync_body,
       index + 1,
-      List.append(output, outer))
+      List.append(output, prepared))
     end
   end
 end
@@ -3071,6 +3474,7 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
     Err("invalid_fanout_device_set")
   else
     let wrapping_key = platform_key() ?
+    let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
     let session_ids = load_session_ids(request.database_path, wrapping_key) ?
     let anchor = case find_peer_session(request.database_path,
     wrapping_key,
@@ -3100,7 +3504,10 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       end
       Ok( loaded) -> Ok(loaded.record)
     end ?
-    if anchor.blocked do
+    let added_count = List.length(peers.profiles) + List.length(local_devices.profiles) - 1
+    if List.length(pending_ids) + added_count > 64 do
+      Err("outbox_full")
+    else if anchor.blocked do
       Err("conversation_blocked")
     else if anchor.request_state != 1 do
       Err("message_request_pending")
@@ -3108,8 +3515,9 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       let now = current_time() ?
       let client_message_id = random_bytes(16) ?
       let local_device = open_device(local, wrapping_key, request.database_path) ?
-      let output = peer_fanout(request.database_path,
+      let prepared_peers = peer_fanout(request.database_path,
       wrapping_key,
+      session_ids,
       local_device,
       local_profile_bytes,
       local,
@@ -3141,11 +3549,10 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       wrapping_key,
       history_inner,
       1) ?
-      store_updated_session(request.database_path, history_key, history_blob) ?
       let sync_body = encode_sync_payload(List.head(peers.profiles), history_inner) ?
-      # ponytail: a durable encrypted mobile outbox will make state and network submission one retryable unit.
-      encode_output_list(self_fanout(request.database_path,
+      let prepared = self_fanout(request.database_path,
       wrapping_key,
+      session_ids,
       local_device,
       local_profile_bytes,
       local,
@@ -3154,7 +3561,24 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       now,
       sync_body,
       0,
-      output) ?)
+      prepared_peers) ?
+      let envelopes = prepared_envelopes(prepared, 0, List.new())
+      let session_index_blob = seal_session_ids(prepared_session_ids(prepared,
+      0,
+      session_ids),
+      wrapping_key) ?
+      let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+      pending_ids,
+      envelopes) ?
+      store_outbound(request.database_path,
+      prepared,
+      session_index_blob,
+      history_key,
+      history_blob,
+      outbox_labels,
+      outbox_blobs,
+      outbox_index_blob) ?
+      encode_output_list(envelopes)
     end
   end
 end
@@ -3164,10 +3588,17 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
   let local = parse_profile(load_profile(request.database_path) ?) ?
   let requested_peer = parse_profile(request.peer_profile) ?
   let wrapping_key = platform_key() ?
+  let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
+  let _ = if List.length(pending_ids) >= 64 do
+    Err("outbox_full")
+  else
+    Ok(nil)
+  end ?
+  let session_ids = load_session_ids(request.database_path, wrapping_key) ?
   let loaded = find_peer_session(request.database_path,
   wrapping_key,
   requested_peer.account_id,
-  load_session_ids(request.database_path, wrapping_key) ?,
+  session_ids,
   0) ?
   let changed = !Bytes.secure_equals(loaded.record.peer_device_id, requested_peer.device_id) || !Bytes.secure_equals(loaded.record.peer_mailbox,
   requested_peer.entry.mailbox_token)
@@ -3209,11 +3640,24 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
     wrapping_key,
     inner,
     1) ?
-    store_updated_session_and_history(request.database_path,
-    loaded.label,
-    session_blob,
+    let prepared = [MobilePreparedSend {
+      envelope : outer,
+      session_id : loaded.session_id,
+      session_label : loaded.label,
+      session_blob : session_blob,
+      new_session : false
+    }]
+    let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+    pending_ids,
+    [outer]) ?
+    store_outbound(request.database_path,
+    prepared,
+    seal_session_ids(session_ids, wrapping_key) ?,
     history_key,
-    history_blob) ?
+    history_blob,
+    outbox_labels,
+    outbox_blobs,
+    outbox_index_blob) ?
     Ok(outer)
   end
 end
@@ -3678,4 +4122,17 @@ end
 
 @ export("mesh_messenger_process_delivery_batch")pub fn process_delivery_batch_export(request :: Bytes) -> Bytes ! String do
   process_delivery_batch(parse_batch_request(request) ?)
+end
+
+@ export("mesh_messenger_outbox_list")pub fn outbox_list_export(request :: Bytes) -> Bytes ! String do
+  let database_path = mobile_utf8(request, "invalid_database_path") ?
+  if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Err("invalid_database_path")
+  else
+    list_outbox(database_path)
+  end
+end
+
+@ export("mesh_messenger_outbox_ack")pub fn outbox_ack_export(request :: Bytes) -> Bytes ! String do
+  acknowledge_outbox(parse_payload_request(request) ?)
 end

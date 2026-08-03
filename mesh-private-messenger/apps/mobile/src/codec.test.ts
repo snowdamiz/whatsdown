@@ -104,6 +104,9 @@ test('binary output lists decode each bounded envelope', () => {
     first,
     second,
   ]);
+  const boundary = new Uint8Array(65_606);
+  assert.equal(parseByteList(vectors(writeU32(1), boundary), 8, 65_606)[0]?.length, 65_606);
+  assert.throws(() => parseByteList(vectors(writeU32(1), boundary), 8, 65_605));
   assert.throws(() => parseByteList(vectors(writeU32(9)), 8, 65_606));
 });
 

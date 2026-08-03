@@ -39,4 +39,6 @@ object MeshLibrary {
     @JvmStatic external fun privacy_submission_export(request: ByteArray): ByteArray
     @JvmStatic external fun mailbox_fetch_export(request: ByteArray): ByteArray
     @JvmStatic external fun process_delivery_batch_export(request: ByteArray): ByteArray
+    @JvmStatic external fun outbox_list_export(request: ByteArray): ByteArray
+    @JvmStatic external fun outbox_ack_export(request: ByteArray): ByteArray
 }

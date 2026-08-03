@@ -88,6 +88,20 @@ prove_bridge() {
   if grep -R -q 'secure_store_' "$module_dir/generated/libmessenger_mobile.ts" "$module_dir/index.ts"; then
     fail "secure-store operations crossed the TypeScript boundary"
   fi
+  local symbol
+  for symbol in mesh_messenger_outbox_list mesh_messenger_outbox_ack; do
+    grep -q "\"$symbol\"" "$module_dir/ios/MeshMessengerModule.swift" || \
+      fail "iOS bridge does not dispatch $symbol"
+    grep -q "\"$symbol\"" \
+      "$module_dir/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt" || \
+      fail "Android bridge does not dispatch $symbol"
+  done
+  grep -q 'private let lock = NSLock()' "$module_dir/ios/MeshMessengerModule.swift" && \
+    grep -q 'self.lock.lock()' "$module_dir/ios/MeshMessengerModule.swift" || \
+    fail "iOS bridge does not serialize native invocations"
+  grep -q 'synchronized(lock)' \
+    "$module_dir/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt" || \
+    fail "Android bridge does not serialize native invocations"
 
   if [[ "$(uname -s)" == Darwin ]] && command -v xcrun >/dev/null; then
     xcrun clang -fobjc-arc -fmodules -fsyntax-only -I "$module_dir/generated" \
@@ -109,7 +123,7 @@ main() {
 
   "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
   cc "$core_dir/tests/host.c" -I "$temp_dir" -L "$temp_dir" -lmessenger_mobile \
-    -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
+    -lsqlite3 -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
   "$temp_dir/host" "$vector" "$database"
 
   [[ "$(sqlite3 "$database" "SELECT count(*) = 13 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \

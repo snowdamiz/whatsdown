@@ -1,6 +1,7 @@
 #include "libmessenger_mobile.h"
 
 #include <stdint.h>
+#include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -369,6 +370,94 @@ static int bytes_contains(const uint8_t *value, size_t value_len,
   return 0;
 }
 
+static int output_list_contains(const uint8_t *encoded, size_t encoded_len,
+                                const uint8_t *expected,
+                                size_t expected_len) {
+  if (encoded_len < 8 || read_u32(encoded) != 4) return 0;
+  uint32_t count = read_u32(encoded + 4);
+  size_t offset = 8;
+  for (uint32_t index = 0; index < count; index += 1) {
+    if (offset > encoded_len - 4) return 0;
+    uint32_t item_len = read_u32(encoded + offset);
+    offset += 4;
+    if (item_len > encoded_len - offset) return 0;
+    if (item_len == expected_len &&
+        memcmp(encoded + offset, expected, expected_len) == 0) {
+      return 1;
+    }
+    offset += item_len;
+  }
+  return 0;
+}
+
+static int acknowledge_outbox(const char *database_path,
+                              const uint8_t *envelope,
+                              size_t envelope_len) {
+  MeshLibraryBytes pending = {0};
+  int32_t list_status = mesh_messenger_outbox_list(
+      (const uint8_t *)database_path, strlen(database_path), &pending);
+  int queued = list_status == MESH_LIBRARY_OK &&
+               output_list_contains(pending.data, (size_t)pending.len,
+                                    envelope, envelope_len);
+  mesh_library_free_returned_bytes(&pending);
+  if (!queued) return 0;
+  const uint8_t *values[] = {(const uint8_t *)database_path, envelope};
+  const size_t lengths[] = {strlen(database_path), envelope_len};
+  size_t request_len = 0;
+  uint8_t *request = vector_request(values, lengths, 2, &request_len);
+  MeshLibraryBytes response = {0};
+  int32_t status = request == NULL
+                       ? MESH_LIBRARY_ERR_INVALID_ARGUMENT
+                       : mesh_messenger_outbox_ack(request, request_len,
+                                                   &response);
+  free(request);
+  mesh_library_free_returned_bytes(&response);
+  return status == MESH_LIBRARY_OK;
+}
+
+static char *encrypted_database_state(const char *database_path) {
+  sqlite3 *database = NULL;
+  sqlite3_stmt *statement = NULL;
+  char *copy = NULL;
+  static const char query[] =
+      "SELECT COALESCE(group_concat(record_hash || ':' || ciphertext, '|'), "
+      "'') FROM (SELECT record_hash, ciphertext FROM encrypted_blobs ORDER BY "
+      "record_hash)";
+  if (sqlite3_open_v2(database_path, &database, SQLITE_OPEN_READONLY, NULL) !=
+          SQLITE_OK ||
+      sqlite3_prepare_v2(database, query, -1, &statement, NULL) != SQLITE_OK ||
+      sqlite3_step(statement) != SQLITE_ROW) {
+    goto done;
+  }
+  const unsigned char *value = sqlite3_column_text(statement, 0);
+  int value_len = sqlite3_column_bytes(statement, 0);
+  copy = malloc((size_t)value_len + 1);
+  if (copy != NULL) {
+    memcpy(copy, value, (size_t)value_len);
+    copy[value_len] = '\0';
+  }
+
+done:
+  sqlite3_finalize(statement);
+  sqlite3_close(database);
+  return copy;
+}
+
+static int set_outbox_write_failure(const char *database_path, int enabled) {
+  sqlite3 *database = NULL;
+  static const char create_trigger[] =
+      "CREATE TRIGGER host_fail_outbox BEFORE INSERT ON encrypted_blobs "
+      "WHEN NEW.record_hash = "
+      "'2e18a8aa47e3428a0c87b2dd84049e85da6950238b82128496e6c35bd760b220' "
+      "BEGIN SELECT RAISE(ABORT, 'forced outbox write failure'); END";
+  static const char drop_trigger[] = "DROP TRIGGER host_fail_outbox";
+  int ok = sqlite3_open(database_path, &database) == SQLITE_OK &&
+           sqlite3_exec(database, enabled ? create_trigger : drop_trigger,
+                        NULL, NULL, NULL) == SQLITE_OK;
+  sqlite3_close(database);
+  return ok;
+}
+
 int main(int argc, char **argv) {
   if (argc != 3) return 10;
   size_t envelope_len = 0;
@@ -390,6 +479,22 @@ int main(int argc, char **argv) {
     return 14;
   }
   mesh_library_free_returned_bytes(&response);
+
+  const size_t boundary_outer_len = 65606;
+  uint8_t *boundary_outer = malloc(boundary_outer_len);
+  if (envelope_len < 70 || boundary_outer == NULL) return 136;
+  memcpy(boundary_outer, envelope, 66);
+  write_u32(boundary_outer + 62, 65536);
+  write_u32(boundary_outer + 66, 65536);
+  memset(boundary_outer + 70, 0xa5, 65536);
+  if (mesh_messenger_validate_outer(boundary_outer, boundary_outer_len,
+                                    &response) != MESH_LIBRARY_OK ||
+      response.len != boundary_outer_len ||
+      memcmp(response.data, boundary_outer, boundary_outer_len) != 0) {
+    return 137;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(boundary_outer);
 
   if (envelope_len < 70) return 18;
   size_t stored_envelope_len = 86;
@@ -657,6 +762,7 @@ int main(int argc, char **argv) {
   if (initial_outer == NULL) return 29;
   memcpy(initial_outer, response.data, initial_outer_len);
   mesh_library_free_returned_bytes(&response);
+  if (!acknowledge_outbox(argv[2], initial_outer, initial_outer_len)) return 132;
   free(start_request);
 
   const uint8_t *receive_values[] = {(const uint8_t *)bob_path, initial_outer};
@@ -759,6 +865,7 @@ int main(int argc, char **argv) {
   if (reply_outer == NULL) return 32;
   memcpy(reply_outer, response.data, reply_outer_len);
   mesh_library_free_returned_bytes(&response);
+  if (!acknowledge_outbox(bob_path, reply_outer, reply_outer_len)) return 133;
   free(send_request);
 
   const size_t packet_offset = 70;
@@ -848,7 +955,26 @@ int main(int argc, char **argv) {
   uint8_t *alice_fanout_request = vector_request(
       alice_fanout_values, alice_fanout_lengths, 4,
       &alice_fanout_request_len);
-  if (alice_fanout_request == NULL ||
+  char *before_failed_fanout = encrypted_database_state(argv[2]);
+  if (alice_fanout_request == NULL || before_failed_fanout == NULL ||
+      !set_outbox_write_failure(argv[2], 1)) {
+    return 129;
+  }
+  int32_t failed_fanout = mesh_messenger_send_fanout(
+      alice_fanout_request, alice_fanout_request_len, &response);
+  mesh_library_free_returned_bytes(&response);
+  if (!set_outbox_write_failure(argv[2], 0) ||
+      failed_fanout != MESH_LIBRARY_ERR_APPLICATION) {
+    return 130;
+  }
+  char *after_failed_fanout = encrypted_database_state(argv[2]);
+  if (after_failed_fanout == NULL ||
+      strcmp(before_failed_fanout, after_failed_fanout) != 0) {
+    return 131;
+  }
+  free(before_failed_fanout);
+  free(after_failed_fanout);
+  if (
       mesh_messenger_send_fanout(alice_fanout_request,
                                  alice_fanout_request_len,
                                  &response) != MESH_LIBRARY_OK) {
@@ -869,6 +995,42 @@ int main(int argc, char **argv) {
       fanout_first_len < 52 || fanout_second_len < 52) {
     return 71;
   }
+
+  /* No network submission occurred. A later public call must reopen SQLite
+     and recover the advanced ratchet's exact envelopes from encrypted storage. */
+  int32_t retry_list = mesh_messenger_outbox_list(
+      (const uint8_t *)argv[2], strlen(argv[2]), &response);
+  if (retry_list != MESH_LIBRARY_OK) {
+    fprintf(stderr, "outbox retry failed: status=%d payload=%.*s\n",
+            retry_list, (int)response.len,
+            response.data == NULL ? (uint8_t *)"" : response.data);
+    return 124;
+  }
+  size_t retry_count = 0;
+  size_t retry_first_len = 0;
+  size_t retry_second_len = 0;
+  uint8_t *retry_first = output_list_item(
+      response.data, (size_t)response.len, 0, &retry_count, &retry_first_len);
+  uint8_t *retry_second = output_list_item(
+      response.data, (size_t)response.len, 1, &retry_count,
+      &retry_second_len);
+  mesh_library_free_returned_bytes(&response);
+  if (retry_count != 2 || retry_first_len != fanout_first_len ||
+      retry_second_len != fanout_second_len ||
+      memcmp(retry_first, fanout_first, fanout_first_len) != 0 ||
+      memcmp(retry_second, fanout_second, fanout_second_len) != 0 ||
+      !acknowledge_outbox(argv[2], retry_first, retry_first_len) ||
+      !acknowledge_outbox(argv[2], retry_second, retry_second_len)) {
+    return 125;
+  }
+  free(retry_first);
+  free(retry_second);
+  if (mesh_messenger_outbox_list((const uint8_t *)argv[2], strlen(argv[2]),
+                                 &response) != MESH_LIBRARY_OK ||
+      response.len != 8 || read_u32(response.data + 4) != 0) {
+    return 126;
+  }
+  mesh_library_free_returned_bytes(&response);
   const uint8_t *bob_mailbox = NULL;
   const uint8_t *linked_mailbox = NULL;
   if (!profile_mailbox(bob_profile, bob_profile_len, &bob_mailbox) ||
@@ -969,6 +1131,10 @@ int main(int argc, char **argv) {
       bob_reply_second_len < 52) {
     return 78;
   }
+  if (!acknowledge_outbox(bob_path, bob_reply_first, bob_reply_first_len) ||
+      !acknowledge_outbox(bob_path, bob_reply_second, bob_reply_second_len)) {
+    return 127;
+  }
   const uint8_t *root_mailbox = NULL;
   if (!profile_mailbox(profile, profile_len, &root_mailbox)) return 79;
   uint8_t *root_reply =
@@ -1059,6 +1225,7 @@ int main(int argc, char **argv) {
       memcmp(only_active + 20, root_mailbox, 32) != 0) {
     return 85;
   }
+  if (!acknowledge_outbox(bob_path, only_active, root_reply_len)) return 128;
   free(only_active);
 
   static const uint8_t block_action[] = {2};
@@ -1097,6 +1264,7 @@ int main(int argc, char **argv) {
   if (blocked_outer == NULL) return 39;
   memcpy(blocked_outer, response.data, blocked_outer_len);
   mesh_library_free_returned_bytes(&response);
+  if (!acknowledge_outbox(argv[2], blocked_outer, blocked_outer_len)) return 134;
   free(blocked_send);
 
   const uint8_t *blocked_receive_values[] = {(const uint8_t *)bob_path,
@@ -1166,6 +1334,7 @@ int main(int argc, char **argv) {
   if (ephemeral_outer == NULL) return 47;
   memcpy(ephemeral_outer, response.data, ephemeral_outer_len);
   mesh_library_free_returned_bytes(&response);
+  if (!acknowledge_outbox(argv[2], ephemeral_outer, ephemeral_outer_len)) return 135;
   free(ephemeral_request);
 
   const uint8_t *ephemeral_receive_values[] = {(const uint8_t *)bob_path,

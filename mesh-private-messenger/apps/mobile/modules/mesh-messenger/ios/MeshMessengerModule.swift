@@ -71,6 +71,10 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.mailbox_fetch_export(request)
       case "mesh_messenger_process_delivery_batch":
         return try MeshLibrary.process_delivery_batch_export(request)
+      case "mesh_messenger_outbox_list":
+        return try MeshLibrary.outbox_list_export(request)
+      case "mesh_messenger_outbox_ack":
+        return try MeshLibrary.outbox_ack_export(request)
       default:
         throw MeshLibraryFailure(
           status: MESH_LIBRARY_ERR_INVALID_ARGUMENT,

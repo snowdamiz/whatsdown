@@ -44,6 +44,8 @@ class MeshMessengerModule : Module() {
                     "mesh_messenger_privacy_submission" -> MeshLibrary.privacy_submission_export(request)
                     "mesh_messenger_mailbox_fetch" -> MeshLibrary.mailbox_fetch_export(request)
                     "mesh_messenger_process_delivery_batch" -> MeshLibrary.process_delivery_batch_export(request)
+                    "mesh_messenger_outbox_list" -> MeshLibrary.outbox_list_export(request)
+                    "mesh_messenger_outbox_ack" -> MeshLibrary.outbox_ack_export(request)
                     else -> throw IllegalArgumentException("unknown_export")
                 }
             }

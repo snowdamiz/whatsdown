@@ -22,6 +22,8 @@ classical devices remain on suite `0x0001` until credential rotation. Suite
 Transparency and witness keys are required 32-byte lowercase hex build pins; directory responses fail closed when they are absent or do not match.
 The delivery X25519 key is also a required 32-byte lowercase hex build pin. Sends fail closed without the privacy-edge URL or a valid key. Abuse difficulty defaults to 16 and must stay between 1 and 24.
 
+Outbound session state, history, and the encrypted outbox commit atomically. Submission is at-least-once with server deduplication; only a durable 2xx response permits local acknowledgement. The iOS and Android bridges serialize native calls.
+
 Run the software acceptance proof from the repository root:
 
 ```sh

@@ -35,3 +35,5 @@ export const verify_transparency_export = (request: Uint8Array): Promise<Uint8Ar
 export const privacy_submission_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_privacy_submission', request);
 export const mailbox_fetch_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_mailbox_fetch', request);
 export const process_delivery_batch_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_process_delivery_batch', request);
+export const outbox_list_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_outbox_list', request);
+export const outbox_ack_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_outbox_ack', request);

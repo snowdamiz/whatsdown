@@ -5,6 +5,8 @@ import {
   inspect_device_set_export,
   load_profile_export,
   mailbox_fetch_export,
+  outbox_ack_export,
+  outbox_list_export,
   privacy_submission_export,
   process_delivery_batch_export,
   send_fanout_export,
@@ -126,6 +128,17 @@ export async function submitEnvelope(envelope: Uint8Array): Promise<void> {
   await binaryRequest('/v1/envelopes/batch', submission, 'POST', edgeUrl);
 }
 
+export async function drainOutbox(databasePath: string): Promise<void> {
+  for (;;) {
+    const envelopes = parseByteList(await outbox_list_export(utf8(databasePath)), 8, 65_606);
+    if (envelopes.length === 0) return;
+    for (const envelope of envelopes) {
+      await submitEnvelope(envelope);
+      await outbox_ack_export(batchRequest(databasePath, envelope));
+    }
+  }
+}
+
 export async function sendFanout(
   databasePath: string,
   peerUsername: string,
@@ -140,15 +153,15 @@ export async function sendFanout(
     inspectDeviceSet(databasePath, peerSet),
     inspectDeviceSet(databasePath, localSet),
   ]);
-  const encoded = await send_fanout_export(
+  await send_fanout_export(
     vectors(utf8(databasePath), peerSet, localSet, utf8(body)),
   );
-  const envelopes = parseByteList(encoded, 80, 65_606);
-  await Promise.all(envelopes.map(submitEnvelope));
+  await drainOutbox(databasePath);
   return peerSummary.changed;
 }
 
 export async function synchronizeMailbox(databasePath: string): Promise<void> {
+  await drainOutbox(databasePath);
   const fetchRequest = await mailbox_fetch_export(utf8(databasePath));
   const batch = await binaryRequest('/v1/mailbox/fetch', fetchRequest);
   const acknowledgement = await process_delivery_batch_export(batchRequest(databasePath, batch));

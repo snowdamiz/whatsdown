@@ -15,6 +15,8 @@ export {
   load_history_export,
   load_profile_export,
   mailbox_fetch_export,
+  outbox_ack_export,
+  outbox_list_export,
   persist_envelope,
   process_delivery_batch_export,
   privacy_submission_export,
