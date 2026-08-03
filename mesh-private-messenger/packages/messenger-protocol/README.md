@@ -30,6 +30,8 @@ trailing bytes.
 `Groups.Mls` exports the development-only suite `0x0003`: bounded immutable
 membership trees, signed add/remove commits, HPKE welcomes, epoch messages,
 delivery fanout, extension negotiation, and purpose-16 sealed snapshots.
+Epoch secrets use storage purpose 16; TreeKEM leaf and direct-path private keys
+use purpose 17.
 Commit, welcome, message, and snapshot decoders are canonical and reject
 trailing data. The exact limits and independent-review release gate are in
 [`../../protocol/mls-groups-v1.md`](../../protocol/mls-groups-v1.md).

@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  MESH_LANG_REVISION: 7c12a1ef51cb688bdf3c5ec7b817a2e959a92e1c
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -21,12 +24,19 @@ defaults:
 
 jobs:
   mesh:
-    name: Mesh formatting and tests
+    name: Pinned Mesh and messenger tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 105
     steps:
-      - name: Checkout
+      - name: Checkout Whatsdown
         uses: actions/checkout@v4
+
+      - name: Checkout pinned Mesh
+        uses: actions/checkout@v4
+        with:
+          repository: snowdamiz/mesh-lang
+          ref: ${{ env.MESH_LANG_REVISION }}
+          path: mesh-lang
 
       - name: Cache LLVM
         uses: actions/cache@v4
@@ -71,3 +81,18 @@ jobs:
           cargo test -p mesh-typeck --lib --locked
           cargo test -p mesh-codegen --lib --locked
           cargo build --workspace --locked
+
+      - name: Verify messenger protocol
+        timeout-minutes: 20
+        run: |
+          ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/groups --check
+          ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/tests --check
+          ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-protocol/tests
+
+      - name: Verify mobile application
+        timeout-minutes: 15
+        working-directory: mesh-private-messenger/apps/mobile
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
