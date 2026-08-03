@@ -1,9 +1,13 @@
 export {
   create_account_export,
+  create_link_request_export,
+  device_link_sas_export,
   directory_entry_export,
   directory_lookup_export,
   import_contact_export,
   initialize,
+  authorize_device_link_export,
+  complete_device_link_export,
   list_conversations_export,
   load_history_export,
   load_profile_export,

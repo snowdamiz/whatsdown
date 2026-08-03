@@ -121,6 +121,27 @@ static void write_u32(uint8_t *output, uint32_t value) {
   output[3] = (uint8_t)value;
 }
 
+static uint32_t read_u32(const uint8_t *input) {
+  return ((uint32_t)input[0] << 24) | ((uint32_t)input[1] << 16) |
+         ((uint32_t)input[2] << 8) | (uint32_t)input[3];
+}
+
+static int profile_ids(const uint8_t *profile, size_t profile_len,
+                       const uint8_t **account_id, const uint8_t **device_id) {
+  if (profile_len < 4) return 0;
+  uint32_t username_len = read_u32(profile);
+  size_t offset = 4 + username_len;
+  if (offset + 4 + 32 + 4 + 16 > profile_len ||
+      read_u32(profile + offset) != 32) {
+    return 0;
+  }
+  *account_id = profile + offset + 4;
+  offset += 4 + 32;
+  if (read_u32(profile + offset) != 16) return 0;
+  *device_id = profile + offset + 4;
+  return 1;
+}
+
 static uint8_t *store_request(const char *database_path, const uint8_t *envelope,
                               size_t envelope_len, size_t *request_len) {
   static const uint8_t record_key[] = "whatsdown-mobile-record-key";
@@ -286,6 +307,92 @@ int main(int argc, char **argv) {
   memcpy(bob_profile, response.data, bob_profile_len);
   mesh_library_free_returned_bytes(&response);
   free(bob_request);
+
+  size_t linked_path_len = strlen(argv[2]) + 8;
+  char *linked_path = malloc(linked_path_len);
+  if (linked_path == NULL) return 55;
+  snprintf(linked_path, linked_path_len, "%s.linked", argv[2]);
+  if (mesh_messenger_create_link_request((const uint8_t *)linked_path,
+                                         strlen(linked_path), &response) !=
+          MESH_LIBRARY_OK ||
+      response.len == 0) {
+    fprintf(stderr, "create link request failed: %.*s\n", (int)response.len,
+            response.data == NULL ? (uint8_t *)"" : response.data);
+    return 56;
+  }
+  size_t link_request_len = (size_t)response.len;
+  uint8_t *link_request = malloc(link_request_len);
+  if (link_request == NULL) return 57;
+  memcpy(link_request, response.data, link_request_len);
+  mesh_library_free_returned_bytes(&response);
+  if (mesh_messenger_device_link_sas(link_request, link_request_len,
+                                     &response) != MESH_LIBRARY_OK ||
+      response.len != 12) {
+    return 58;
+  }
+  mesh_library_free_returned_bytes(&response);
+
+  const uint8_t *authorize_values[] = {(const uint8_t *)argv[2], link_request};
+  const size_t authorize_lengths[] = {strlen(argv[2]), link_request_len};
+  size_t authorize_request_len = 0;
+  uint8_t *authorize_request = vector_request(
+      authorize_values, authorize_lengths, 2, &authorize_request_len);
+  if (authorize_request == NULL ||
+      mesh_messenger_authorize_device_link(authorize_request,
+                                            authorize_request_len,
+                                            &response) != MESH_LIBRARY_OK ||
+      response.len == 0) {
+    return 59;
+  }
+  size_t authorization_len = (size_t)response.len;
+  uint8_t *authorization = malloc(authorization_len);
+  if (authorization == NULL) return 60;
+  memcpy(authorization, response.data, authorization_len);
+  mesh_library_free_returned_bytes(&response);
+  free(authorize_request);
+
+  const uint8_t *complete_values[] = {(const uint8_t *)linked_path,
+                                      authorization};
+  const size_t complete_lengths[] = {strlen(linked_path), authorization_len};
+  size_t complete_request_len = 0;
+  uint8_t *complete_request = vector_request(
+      complete_values, complete_lengths, 2, &complete_request_len);
+  if (complete_request == NULL ||
+      mesh_messenger_complete_device_link(complete_request,
+                                          complete_request_len,
+                                          &response) != MESH_LIBRARY_OK ||
+      response.len == 0) {
+    fprintf(stderr, "complete link failed: %.*s\n", (int)response.len,
+            response.data == NULL ? (uint8_t *)"" : response.data);
+    return 61;
+  }
+  size_t linked_profile_len = (size_t)response.len;
+  uint8_t *linked_profile = malloc(linked_profile_len);
+  if (linked_profile == NULL) return 62;
+  memcpy(linked_profile, response.data, linked_profile_len);
+  mesh_library_free_returned_bytes(&response);
+  if (mesh_messenger_load_profile((const uint8_t *)linked_path,
+                                  strlen(linked_path), &response) !=
+          MESH_LIBRARY_OK ||
+      response.len != linked_profile_len ||
+      memcmp(response.data, linked_profile, linked_profile_len) != 0) {
+    return 63;
+  }
+  mesh_library_free_returned_bytes(&response);
+  const uint8_t *root_account_id = NULL;
+  const uint8_t *root_device_id = NULL;
+  const uint8_t *linked_account_id = NULL;
+  const uint8_t *linked_device_id = NULL;
+  if (!profile_ids(profile, profile_len, &root_account_id, &root_device_id) ||
+      !profile_ids(linked_profile, linked_profile_len, &linked_account_id,
+                   &linked_device_id) ||
+      memcmp(root_account_id, linked_account_id, 32) != 0 ||
+      memcmp(root_device_id, linked_device_id, 16) == 0) {
+    return 64;
+  }
+  free(complete_request);
+  free(authorization);
+  free(link_request);
 
   if (mesh_messenger_directory_entry((const uint8_t *)bob_path,
                                      strlen(bob_path), &response) !=
@@ -598,6 +705,8 @@ int main(int argc, char **argv) {
   free(initial_outer);
   free(bob_profile);
   free(bob_path);
+  free(linked_profile);
+  free(linked_path);
   free(profile);
 
   const uint8_t invalid[] = {0, 1, 2};

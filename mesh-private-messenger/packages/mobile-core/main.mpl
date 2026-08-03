@@ -1,7 +1,7 @@
 from Binary.Reader import BinaryReader, finish, read_vector, reader
-from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_device_credential
+from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, verify_device_link_authorization
 from Prekeys.Bundle import OneTimePrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
@@ -100,6 +100,11 @@ end
 struct MobileBatchRequest do
   database_path :: String
   batch :: Bytes
+end
+
+struct MobilePayloadRequest do
+  database_path :: String
+  payload :: Bytes
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! String do
@@ -279,6 +284,16 @@ fn local_context(label :: String) -> Bytes ! String do
   end
 end
 
+fn pending_context(label :: String, purpose :: Int) -> Bytes ! String do
+  case Bytes.repeat(0, 32) do
+    Err( _) -> Err("storage_context_failed")
+    Ok( account_id) -> case Bytes.repeat(0, 16) do
+      Err( _) -> Err("storage_context_failed")
+      Ok( device_id) -> context(account_id, device_id, label, purpose)
+    end
+  end
+end
+
 fn platform_key() -> StorageKey ! String do
   case StorageKey.platform() do
     Err( _) -> Err("secure_storage_unavailable")
@@ -364,6 +379,57 @@ index :: Int) -> Result <(), String > do
     else
       insert_blob(database, List.get(labels, index), List.get(blobs, index)) ?
       insert_blobs(database, labels, blobs, index + 1)
+    end
+  end
+end
+
+fn delete_blob(database :: SqliteConn, label :: String) -> Result <(), String > do
+  let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
+  case Sqlite.execute(database, "DELETE FROM encrypted_blobs WHERE record_hash = ?", [record_hash]) do
+    Err( _) -> Err("database_write_failed")
+    Ok( _) -> Ok(nil)
+  end
+end
+
+fn delete_blobs(database :: SqliteConn, labels :: List < String >, index :: Int) -> Result <(), String > do
+  if index >= List.length(labels) do
+    Ok(nil)
+  else
+    delete_blob(database, List.get(labels, index)) ?
+    delete_blobs(database, labels, index + 1)
+  end
+end
+
+fn store_linked_blobs(database_path :: String, labels :: List < String >, blobs :: List < Bytes >) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case insert_blobs(database, labels, blobs, 0) do
+          Err( error) -> Err(error)
+          Ok( _) -> case delete_blobs(database,
+          ["pending-link-request/v1", "pending-device-signing-key/v1", "pending-device-identity-key/v1"],
+          0) do
+            Err( error) -> Err(error)
+            Ok( _) -> case Sqlite.commit(database) do
+              Err( _) -> Err("database_write_failed")
+              Ok( _) -> Ok(nil)
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
     end
   end
 end
@@ -729,6 +795,30 @@ fn parse_batch_request(input :: Bytes) -> MobileBatchRequest ! String do
   end
 end
 
+fn parse_payload_request(input :: Bytes) -> MobilePayloadRequest ! String do
+  case reader(input, 290504) do
+    Err( _) -> Err("invalid_payload_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let payload = take_vector(path.state, 286400) ?
+      case finish(payload.state) do
+        Err( _) -> Err("invalid_payload_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 || Bytes.length(payload.value) == 0 do
+            Err("invalid_payload_request")
+          else
+            Ok(MobilePayloadRequest {
+              database_path : database_path,
+              payload : payload.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
 fn current_time() -> U64 ! String do
   mobile_wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
@@ -751,6 +841,22 @@ fn reject_device_open(signing :: consume SigningPrivateKey, error :: String) -> 
   Err(error)
 end
 
+fn open_account(profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+database_path :: String) -> AccountKeys ! String do
+  let account_blob = load_blob(database_path, "account-signing-key/v1") ?
+  case open_signing(account_blob,
+  wrapping_key,
+  context(profile.account_id, profile.device_id, "account-signing-key/v1", 6) ?) do
+    Err( error) -> Err(error)
+    Ok( private_key) -> Ok(AccountKeys {
+      account_id : profile.account_id,
+      private_key : private_key,
+      public_key : SigningPublicKey { bytes : profile.account.authorization_public_key }
+    })
+  end
+end
+
 fn reject_prekey_open(signed_private :: consume X25519PrivateKey, error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets), String > do
   Err(error)
 end
@@ -770,6 +876,30 @@ fn open_device(profile :: MobileProfile, wrapping_key :: borrow StorageKey, data
         signing_public_key : SigningPublicKey { bytes : profile.credential.signing_public_key },
         identity_private_key : identity,
         identity_public_key : X25519PublicKey { bytes : profile.credential.dh_public_key }
+      })
+    end
+  end
+end
+
+fn open_pending_device(request :: DeviceLinkRequest,
+wrapping_key :: borrow StorageKey,
+database_path :: String) -> DeviceKeys ! String do
+  let signing_blob = load_blob(database_path, "pending-device-signing-key/v1") ?
+  let identity_blob = load_blob(database_path, "pending-device-identity-key/v1") ?
+  case open_signing(signing_blob,
+  wrapping_key,
+  pending_context("pending-device-signing-key/v1", 7) ?) do
+    Err( error) -> Err(error)
+    Ok( signing) -> case open_x25519(identity_blob,
+    wrapping_key,
+    pending_context("pending-device-identity-key/v1", 8) ?) do
+      Err( error) -> reject_device_open(signing, error)
+      Ok( identity) -> Ok(DeviceKeys {
+        device_id : request.device_id,
+        signing_private_key : signing,
+        signing_public_key : SigningPublicKey { bytes : request.signing_public_key },
+        identity_private_key : identity,
+        identity_public_key : X25519PublicKey { bytes : request.dh_public_key }
       })
     end
   end
@@ -799,6 +929,197 @@ database_path :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets)
         public_key : X25519PublicKey { bytes : profile.bundle.one_time_prekey }
       }))
     end
+  end
+end
+
+fn link_request_bytes(value :: DeviceLinkRequest) -> Bytes ! String do
+  case encode_device_link_request(value) do
+    Err( _) -> Err("link_request_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn parse_link_request(input :: Bytes) -> DeviceLinkRequest ! String do
+  case decode_device_link_request(input) do
+    Err( _) -> Err("invalid_link_request")
+    Ok( value) -> if Bytes.secure_equals(link_request_bytes(value) ?, input) do
+      Ok(value)
+    else
+      Err("noncanonical_link_request")
+    end
+  end
+end
+
+fn link_authorization_bytes(value :: DeviceLinkAuthorization) -> Bytes ! String do
+  case encode_device_link_authorization(value) do
+    Err( _) -> Err("link_authorization_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn parse_link_authorization(input :: Bytes) -> DeviceLinkAuthorization ! String do
+  case decode_device_link_authorization(input) do
+    Err( _) -> Err("invalid_link_authorization")
+    Ok( value) -> if Bytes.secure_equals(link_authorization_bytes(value) ?, input) do
+      Ok(value)
+    else
+      Err("noncanonical_link_authorization")
+    end
+  end
+end
+
+fn load_pending_link_request(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  open_local(load_blob(database_path, "pending-link-request/v1") ?,
+  wrapping_key,
+  local_context("pending-link-request/v1") ?)
+end
+
+fn create_device_link_request(database_path :: String) -> Bytes ! String do
+  if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Err("invalid_database_path")
+  else
+    ensure_schema(database_path) ?
+    ensure_account_missing(database_path) ?
+    let wrapping_key = platform_key() ?
+    case load_pending_link_request(database_path, wrapping_key) do
+      Ok( existing) -> do
+        let _ = parse_link_request(existing) ?
+        Ok(existing)
+      end
+      Err( error) -> if error != "local_state_not_found" do
+        Err(error)
+      else
+        let now = current_time() ?
+        let device = device_keys() ?
+        let request = DeviceLinkRequest {
+          version : 1,
+          nonce : random_bytes(32) ?,
+          device_id : device.device_id,
+          signing_public_key : device.signing_public_key.bytes,
+          dh_public_key : device.identity_public_key.bytes,
+          capabilities : mobile_wide("1") ?,
+          created_at : now,
+          expires_at : U64.add(now, mobile_wide("600000") ?) ?
+        }
+        let request_wire = link_request_bytes(request) ?
+        let request_blob = seal_local(request_wire,
+        wrapping_key,
+        local_context("pending-link-request/v1") ?) ?
+        let signing_blob = seal_signing(device.signing_private_key,
+        wrapping_key,
+        pending_context("pending-device-signing-key/v1", 7) ?) ?
+        let identity_blob = seal_x25519(device.identity_private_key,
+        wrapping_key,
+        pending_context("pending-device-identity-key/v1", 8) ?) ?
+        store_blobs(database_path,
+        ["pending-link-request/v1", "pending-device-signing-key/v1", "pending-device-identity-key/v1"],
+        [request_blob, signing_blob, identity_blob]) ?
+        Ok(request_wire)
+      end
+    end
+  end
+end
+
+fn authorize_link(request :: MobilePayloadRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let requested_device = parse_link_request(request.payload) ?
+  let now = current_time() ?
+  if U64.compare(requested_device.created_at, now) > 0 || U64.compare(requested_device.expires_at,
+  now) < 0 do
+    Err("link_request_expired")
+  else
+    let wrapping_key = platform_key() ?
+    let account = open_account(local, wrapping_key, request.database_path) ?
+    let authorization = case authorize_device_link(account,
+    local.account,
+    requested_device,
+    local.username,
+    U64.add(now, mobile_wide("31536000000") ?) ?,
+    U64.add(local.account.directory_sequence, mobile_wide("1") ?) ?) do
+      Err( _) -> Err("link_authorization_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    link_authorization_bytes(authorization)
+  end
+end
+
+fn complete_link(request :: MobilePayloadRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  ensure_account_missing(request.database_path) ?
+  let authorization = parse_link_authorization(request.payload) ?
+  let wrapping_key = platform_key() ?
+  let pending_wire = load_pending_link_request(request.database_path, wrapping_key) ?
+  let pending = parse_link_request(pending_wire) ?
+  let now = current_time() ?
+  let valid = case verify_device_link_authorization(pending, authorization, now, mobile_wide("1") ?) do
+    Err( _) -> Err("link_authorization_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  if !valid do
+    Err("link_authorization_failed")
+  else
+    let account = case decode_account_identity(authorization.account_identity) do
+      Err( _) -> Err("invalid_link_authorization")
+      Ok( value) -> Ok(value)
+    end ?
+    let credential = case decode_device_credential(authorization.device_credential) do
+      Err( _) -> Err("invalid_link_authorization")
+      Ok( value) -> Ok(value)
+    end ?
+    let device = open_pending_device(pending, wrapping_key, request.database_path) ?
+    let signed = case generate_signed_prekey(device,
+    credential,
+    mobile_wide("1") ?,
+    credential.expires_at) do
+      Err( _) -> Err("prekey_generation_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let one_time = case generate_one_time_prekey(mobile_wide("2") ?) do
+      Err( _) -> Err("prekey_generation_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let bundle = case build_prekey_bundle(credential, signed, one_time) do
+      Err( _) -> Err("prekey_bundle_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let entry = DirectoryEntry {
+      version : 1,
+      username : authorization.username,
+      account_identity : authorization.account_identity,
+      prekey_bundle : case encode_prekey_bundle(bundle) do
+        Err( _) -> Err("prekey_encoding_failed")
+        Ok( value) -> Ok(value)
+      end ?,
+      mailbox_token : random_bytes(32) ?
+    }
+    let profile = profile_bytes(entry, account.account_id, credential.device_id) ?
+    let signing_blob = seal_signing(device.signing_private_key,
+    wrapping_key,
+    context(account.account_id, credential.device_id, "device-signing-key/v1", 7) ?) ?
+    let identity_blob = seal_x25519(device.identity_private_key,
+    wrapping_key,
+    context(account.account_id, credential.device_id, "device-identity-key/v1", 8) ?) ?
+    let signed_prekey_blob = seal_x25519(signed.private_key,
+    wrapping_key,
+    context(account.account_id, credential.device_id, "signed-prekey/v1", 9) ?) ?
+    let one_time_prekey_blob = seal_x25519(one_time.private_key,
+    wrapping_key,
+    context(account.account_id, credential.device_id, "one-time-prekey/v1", 10) ?) ?
+    let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1") ?) ?
+    store_linked_blobs(request.database_path,
+    ["device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", "one-time-prekey/v1", "profile/v1"],
+    [signing_blob, identity_blob, signed_prekey_blob, one_time_prekey_blob, profile_blob]) ?
+    Ok(profile)
+  end
+end
+
+fn device_link_sas(input :: Bytes) -> Bytes ! String do
+  let request = parse_link_request(input) ?
+  let digest = Crypto.sha256(link_request_bytes(request) ?)
+  case Bytes.slice(digest, 0, 6) do
+    Err( _) -> Err("link_sas_failed")
+    Ok( value) -> Ok(Bytes.from_utf8(Bytes.to_hex(value)))
   end
 end
 
@@ -2047,6 +2368,22 @@ end
 
 @ export("mesh_messenger_load_profile")pub fn load_profile_export(request :: Bytes) -> Bytes ! String do
   load_profile(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_create_link_request")pub fn create_link_request_export(request :: Bytes) -> Bytes ! String do
+  create_device_link_request(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_device_link_sas")pub fn device_link_sas_export(request :: Bytes) -> Bytes ! String do
+  device_link_sas(request)
+end
+
+@ export("mesh_messenger_authorize_device_link")pub fn authorize_device_link_export(request :: Bytes) -> Bytes ! String do
+  authorize_link(parse_payload_request(request) ?)
+end
+
+@ export("mesh_messenger_complete_device_link")pub fn complete_device_link_export(request :: Bytes) -> Bytes ! String do
+  complete_link(parse_payload_request(request) ?)
 end
 
 @ export("mesh_messenger_start_conversation")pub fn start_conversation_export(request :: Bytes) -> Bytes ! String do

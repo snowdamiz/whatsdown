@@ -14,6 +14,7 @@ temp_dir="$(mktemp -d "$temp_parent/whatsdown-m10.XXXXXX")"
 readonly temp_dir
 readonly database="$temp_dir/mobile.db"
 readonly peer_database="$database.bob"
+readonly linked_database="$database.linked"
 if [[ "$(uname -s)" == Darwin ]]; then
   readonly library="$temp_dir/libmessenger_mobile.dylib"
   readonly host_system_libs=(-framework Security -framework CoreFoundation)
@@ -115,7 +116,9 @@ main() {
     fail "sender SQLite did not contain ten encrypted records"
   [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 8 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
     fail "recipient SQLite did not atomically replace its one-time prekey with a session"
-  if LC_ALL=C grep -a -E -q 'whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|profile/v1|sessions/v1|session/v1|history/v1|alice|bob|hello bob|hello alice|blocked message|gone soon' "$database" "$peer_database"; then
+  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 5 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "linked-device SQLite did not atomically replace pending keys with five encrypted active records"
+  if LC_ALL=C grep -a -E -q 'whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|pending-link|profile/v1|sessions/v1|session/v1|history/v1|alice|bob|hello bob|hello alice|blocked message|gone soon' "$database" "$peer_database" "$linked_database"; then
     fail "SQLite leaked a record label or profile value"
   fi
 

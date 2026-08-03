@@ -23,6 +23,14 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.create_account_export(request)
       case "mesh_messenger_load_profile":
         return try MeshLibrary.load_profile_export(request)
+      case "mesh_messenger_create_link_request":
+        return try MeshLibrary.create_link_request_export(request)
+      case "mesh_messenger_device_link_sas":
+        return try MeshLibrary.device_link_sas_export(request)
+      case "mesh_messenger_authorize_device_link":
+        return try MeshLibrary.authorize_device_link_export(request)
+      case "mesh_messenger_complete_device_link":
+        return try MeshLibrary.complete_device_link_export(request)
       case "mesh_messenger_start_conversation":
         return try MeshLibrary.start_conversation_export(request)
       case "mesh_messenger_receive_initial":
