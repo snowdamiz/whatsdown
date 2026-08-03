@@ -29,8 +29,14 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.device_link_sas_export(request)
       case "mesh_messenger_authorize_device_link":
         return try MeshLibrary.authorize_device_link_export(request)
+      case "mesh_messenger_authorize_device_link_for_set":
+        return try MeshLibrary.authorize_device_link_for_set_export(request)
       case "mesh_messenger_complete_device_link":
         return try MeshLibrary.complete_device_link_export(request)
+      case "mesh_messenger_inspect_device_set":
+        return try MeshLibrary.inspect_device_set_export(request)
+      case "mesh_messenger_create_device_revocation":
+        return try MeshLibrary.create_device_revocation_export(request)
       case "mesh_messenger_start_conversation":
         return try MeshLibrary.start_conversation_export(request)
       case "mesh_messenger_receive_initial":

@@ -22,7 +22,10 @@ import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  complete_device_link_export,
   create_account_export,
+  create_link_request_export,
+  device_link_sas_export,
   list_conversations_export,
   load_history_export,
   load_profile_export,
@@ -33,17 +36,31 @@ import {
 import {
   accountRequest,
   Conversation,
+  decodeUtf8,
+  DeviceSetSummary,
   HistoryMessage,
+  hex,
   parseConversations,
   parseHistory,
+  payloadFromQr,
+  payloadQrValue,
   peerRequest,
   policyRequest,
   profileFromQr,
   profileQrValue,
   startRequest,
   utf8,
+  vectors,
 } from './codec';
-import { registerDirectory, resolveContact, submitEnvelope, synchronizeMailbox } from './network';
+import {
+  authorizeDeviceLink,
+  loadAccountDevices,
+  registerDirectory,
+  resolveContact,
+  revokeDevice,
+  submitEnvelope,
+  synchronizeMailbox,
+} from './network';
 import { listenForGenericWakeups } from './push';
 import { databasePath } from './storage';
 
@@ -60,7 +77,8 @@ const colors = {
   line: '#3A3D32',
 };
 
-type Screen = 'home' | 'account' | 'scanner' | 'chat';
+type Screen = 'home' | 'account' | 'scanner' | 'chat' | 'devices' | 'link-device' | 'link-authorization';
+type ScanMode = 'contact' | 'link-request' | 'link-authorization';
 
 const disappearingOptions = [
   { label: 'Off', value: 0 },
@@ -167,6 +185,13 @@ export default function App() {
   const [firstMessage, setFirstMessage] = useState('');
   const [composer, setComposer] = useState('');
   const [scannedProfile, setScannedProfile] = useState<Uint8Array | null>(null);
+  const [scanMode, setScanMode] = useState<ScanMode>('contact');
+  const [scannedLinkRequest, setScannedLinkRequest] = useState<Uint8Array | null>(null);
+  const [linkRequest, setLinkRequest] = useState<Uint8Array | null>(null);
+  const [linkAuthorization, setLinkAuthorization] = useState<Uint8Array | null>(null);
+  const [linkSas, setLinkSas] = useState('');
+  const [deviceSet, setDeviceSet] = useState<Uint8Array | null>(null);
+  const [devices, setDevices] = useState<DeviceSetSummary | null>(null);
   const [busy, setBusy] = useState(true);
   const [status, setStatus] = useState('Opening encrypted storage…');
   const [error, setError] = useState('');
@@ -185,16 +210,30 @@ export default function App() {
     setHistory(parseHistory(encoded));
   }
 
+  async function refreshDevices(currentProfile: Uint8Array): Promise<DeviceSetSummary> {
+    const loaded = await loadAccountDevices(databasePath, currentProfile);
+    setDeviceSet(loaded.wire);
+    setDevices(loaded.summary);
+    return loaded.summary;
+  }
+
   async function synchronize(): Promise<void> {
     if (!profile) return;
     setError('');
     setStatus('Checking the encrypted mailbox…');
     try {
+      await registerDirectory(databasePath);
       await synchronizeMailbox(databasePath);
+      const currentDevices = await refreshDevices(profile);
       const next = await refreshConversations();
       const active = next.find((conversation) => conversation.conversationId.join('.') === selectedId);
       if (active) await refreshHistory(active);
-      setStatus('Mailbox is current');
+      if (currentDevices.changed) {
+        setError('Your account device set changed. Review linked devices.');
+        setStatus('Mailbox is current · device change detected');
+      } else {
+        setStatus('Mailbox is current');
+      }
     } catch (caught) {
       setError(friendlyError(caught));
       setStatus('Offline — messages stay queued on the server');
@@ -264,8 +303,9 @@ export default function App() {
     }
     void perform('Generating device keys…', async () => {
       const created = await create_account_export(accountRequest(databasePath, normalized));
-      await registerDirectory(databasePath);
       setProfile(created);
+      await registerDirectory(databasePath);
+      await refreshDevices(created);
       setUsername('');
       setStatus('Identity created and public keys registered');
     });
@@ -329,12 +369,89 @@ export default function App() {
     });
   }
 
+  function openScanner(mode: ScanMode): void {
+    setScanMode(mode);
+    setScannedProfile(null);
+    setScannedLinkRequest(null);
+    setError('');
+    setScreen('scanner');
+  }
+
+  function beginDeviceLink(): void {
+    void perform('Preparing a one-time link request…', async () => {
+      const request = await create_link_request_export(utf8(databasePath));
+      const sas = decodeUtf8(await device_link_sas_export(request));
+      setLinkRequest(request);
+      setLinkSas(sas);
+      setScreen('link-device');
+      setStatus('Link request expires in ten minutes');
+    });
+  }
+
+  function openDevices(): void {
+    if (!profile) return;
+    void perform('Loading signed device set…', async () => {
+      await refreshDevices(profile);
+      setScreen('devices');
+      setStatus('Device set verified and cached');
+    });
+  }
+
+  function authorizeScannedDevice(): void {
+    if (!profile || !scannedLinkRequest) return;
+    void perform('Authorizing this exact device set change…', async () => {
+      const loaded = await loadAccountDevices(databasePath, profile);
+      const authorization = await authorizeDeviceLink(
+        databasePath,
+        loaded.wire,
+        scannedLinkRequest,
+      );
+      setLinkAuthorization(authorization);
+      setScreen('link-authorization');
+      setStatus('Authorization signed by your account key');
+    });
+  }
+
+  function revokeLinkedDevice(deviceId: Uint8Array): void {
+    if (!profile || !deviceSet) return;
+    void perform('Revoking device and disabling its mailbox…', async () => {
+      await revokeDevice(databasePath, deviceSet, deviceId);
+      await refreshDevices(profile);
+      setStatus('Device permanently revoked');
+    });
+  }
+
   function onQrScanned(result: BarcodeScanningResult): void {
-    try {
-      setScannedProfile(profileFromQr(result.data));
-      setError('');
-    } catch (caught) {
-      setError(friendlyError(caught));
+    if (scannedProfile || scannedLinkRequest) return;
+    if (scanMode === 'contact') {
+      try {
+        setScannedProfile(profileFromQr(result.data));
+        setError('');
+      } catch (caught) {
+        setError(friendlyError(caught));
+      }
+    } else if (scanMode === 'link-request') {
+      void perform('Validating link request…', async () => {
+        const request = payloadFromQr(result.data, 'link-request', 140);
+        setScannedLinkRequest(request);
+        setLinkSas(decodeUtf8(await device_link_sas_export(request)));
+        setStatus('Compare this code on both devices');
+      });
+    } else {
+      setScreen('link-device');
+      void perform('Verifying account authorization…', async () => {
+        const authorization = payloadFromQr(result.data, 'link-authorization', 20_864);
+        const linkedProfile = await complete_device_link_export(
+          vectors(utf8(databasePath), authorization),
+        );
+        setProfile(linkedProfile);
+        await registerDirectory(databasePath);
+        await refreshDevices(linkedProfile);
+        setLinkRequest(null);
+        setLinkSas('');
+        setScreen('home');
+        setStatus('Linked device active and registered');
+      });
     }
   }
 
@@ -361,7 +478,36 @@ export default function App() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}
         >
-          {onboarding ? (
+          {onboarding && screen === 'link-device' && linkRequest ? (
+            <ScrollView contentContainerStyle={styles.screenContent}>
+              <View style={styles.topRow}>
+                <PrimaryButton label="Cancel" onPress={() => setScreen('home')} quiet />
+                <Text style={styles.eyebrow}>LINK THIS DEVICE</Text>
+              </View>
+              <Text accessibilityRole="header" style={styles.title}>
+                Scan this from a trusted device.
+              </Text>
+              <Text style={styles.bodyCopy}>
+                Compare the short code on both screens before authorizing. This request expires in ten
+                minutes.
+              </Text>
+              <View accessibilityLabel="One-time device link QR code" style={styles.qrFrame}>
+                <QRCode
+                  backgroundColor={colors.paper}
+                  color={colors.background}
+                  quietZone={12}
+                  size={250}
+                  value={payloadQrValue('link-request', linkRequest)}
+                />
+              </View>
+              <Text style={styles.sas}>{linkSas}</Text>
+              <PrimaryButton
+                label="Scan signed authorization"
+                onPress={() => openScanner('link-authorization')}
+              />
+              {error ? <StatusNotice error text={error} /> : null}
+            </ScrollView>
+          ) : onboarding ? (
             <ScrollView contentContainerStyle={styles.onboarding} keyboardShouldPersistTaps="handled">
               <Text style={styles.eyebrow}>PRIVATE MESSENGER / DEVICE 01</Text>
               <Text accessibilityRole="header" style={styles.heroTitle}>
@@ -380,6 +526,7 @@ export default function App() {
               />
               {error ? <StatusNotice error text={error} /> : null}
               <PrimaryButton label="Create encrypted identity" onPress={createAccount} />
+              <PrimaryButton label="Link an existing account" onPress={beginDeviceLink} quiet />
               <Text style={styles.finePrint}>
                 Losing this device without a linked device or recovery export means losing encrypted
                 history.
@@ -409,16 +556,96 @@ export default function App() {
               </View>
               <Text style={styles.monoCaption}>VERIFY THE SAFETY NUMBER AFTER CONNECTING</Text>
             </ScrollView>
+          ) : screen === 'link-authorization' && linkAuthorization ? (
+            <ScrollView contentContainerStyle={styles.screenContent}>
+              <View style={styles.topRow}>
+                <PrimaryButton label="Close" onPress={() => setScreen('devices')} quiet />
+                <Text style={styles.eyebrow}>SIGNED DEVICE LINK</Text>
+              </View>
+              <Text accessibilityRole="header" style={styles.title}>
+                Return this authorization to the new device.
+              </Text>
+              <Text style={styles.bodyCopy}>
+                Scan only after the short code matches on both screens. The signature is bound to that
+                exact one-time request.
+              </Text>
+              <View accessibilityLabel="Signed device authorization QR code" style={styles.qrFrame}>
+                <QRCode
+                  backgroundColor={colors.paper}
+                  color={colors.background}
+                  quietZone={12}
+                  size={250}
+                  value={payloadQrValue('link-authorization', linkAuthorization)}
+                />
+              </View>
+              <Text style={styles.sas}>{linkSas}</Text>
+            </ScrollView>
+          ) : screen === 'devices' ? (
+            <ScrollView contentContainerStyle={styles.screenContent}>
+              <View style={styles.topRow}>
+                <PrimaryButton label="Back" onPress={() => setScreen('home')} quiet />
+                <Text style={styles.eyebrow}>ACCOUNT DEVICES</Text>
+              </View>
+              <Text accessibilityRole="header" style={styles.title}>
+                Devices that can receive your messages.
+              </Text>
+              <Text style={styles.bodyCopy}>
+                Revocation is permanent. A lost device cannot silently rejoin with the same identity.
+              </Text>
+              {devices?.changed ? (
+                <StatusNotice error text="The signed device sequence changed since your last review." />
+              ) : null}
+              {devices && !devices.canManage ? (
+                <StatusNotice text="This linked device can receive messages but does not hold the account authority key needed to link or revoke devices." />
+              ) : null}
+              <View style={styles.deviceList}>
+                {devices?.devices.map((device) => (
+                  <View key={hex(device.deviceId)} style={styles.deviceRow}>
+                    <View style={styles.deviceCopy}>
+                      <Text style={styles.deviceTitle}>
+                        {device.current ? 'This device' : device.active ? 'Linked device' : 'Revoked device'}
+                      </Text>
+                      <Text style={styles.monoCaption}>{hex(device.deviceId).slice(0, 20)}…</Text>
+                    </View>
+                    {devices?.canManage && device.active && !device.current ? (
+                      <PrimaryButton
+                        label="Revoke permanently"
+                        onPress={() => revokeLinkedDevice(device.deviceId)}
+                        quiet
+                      />
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+              {devices?.canManage ? (
+                <PrimaryButton label="Link another device" onPress={() => openScanner('link-request')} />
+              ) : null}
+              {error ? <StatusNotice error text={error} /> : null}
+            </ScrollView>
           ) : screen === 'scanner' ? (
             <View style={styles.cameraScreen}>
               <View style={styles.topRowPadded}>
-                <PrimaryButton label="Cancel scan" onPress={() => setScreen('home')} quiet />
-                <Text style={styles.eyebrow}>CONTACT SCANNER</Text>
+                <PrimaryButton
+                  label="Cancel scan"
+                  onPress={() =>
+                    setScreen(
+                      scanMode === 'link-request'
+                        ? 'devices'
+                        : scanMode === 'link-authorization'
+                          ? 'link-device'
+                          : 'home',
+                    )
+                  }
+                  quiet
+                />
+                <Text style={styles.eyebrow}>
+                  {scanMode === 'contact' ? 'CONTACT SCANNER' : 'DEVICE LINK SCANNER'}
+                </Text>
               </View>
               {!cameraPermission?.granted ? (
                 <View style={styles.permissionPanel}>
                   <Text accessibilityRole="header" style={styles.title}>
-                    Camera access is only used for contact codes.
+                    Camera access is only used for Whatsdown QR codes.
                   </Text>
                   <Text style={styles.bodyCopy}>No frames are uploaded or stored.</Text>
                   <PrimaryButton label="Allow camera" onPress={() => void requestCameraPermission()} />
@@ -438,6 +665,23 @@ export default function App() {
                     onPress={() => startWithProfile(scannedProfile, firstMessage)}
                   />
                   <PrimaryButton label="Scan again" onPress={() => setScannedProfile(null)} quiet />
+                </ScrollView>
+              ) : scannedLinkRequest ? (
+                <ScrollView contentContainerStyle={styles.screenContent}>
+                  <StatusNotice text="Link request validated by the Mesh core." />
+                  <Text accessibilityRole="header" style={styles.title}>
+                    Do these codes match?
+                  </Text>
+                  <Text style={styles.sas}>{linkSas}</Text>
+                  <Text style={styles.bodyCopy}>
+                    Confirm the same code is visible on the new device before signing.
+                  </Text>
+                  <PrimaryButton label="Authorize this device" onPress={authorizeScannedDevice} />
+                  <PrimaryButton
+                    label="Reject and scan again"
+                    onPress={() => setScannedLinkRequest(null)}
+                    quiet
+                  />
                 </ScrollView>
               ) : (
                 <CameraView
@@ -548,7 +792,8 @@ export default function App() {
                 </View>
                 <View style={styles.headerActions}>
                   <PrimaryButton label="My QR" onPress={() => setScreen('account')} quiet />
-                  <PrimaryButton label="Scan" onPress={() => setScreen('scanner')} quiet />
+                  <PrimaryButton label="Devices" onPress={openDevices} quiet />
+                  <PrimaryButton label="Scan" onPress={() => openScanner('contact')} quiet />
                 </View>
               </View>
               <View style={styles.statusLine}>
@@ -741,6 +986,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     lineHeight: 16,
   },
+  sas: {
+    color: colors.amber,
+    fontFamily: 'IBMPlexMono_400Regular',
+    fontSize: 28,
+    letterSpacing: 4,
+    textAlign: 'center',
+  },
   cameraScreen: { backgroundColor: colors.background, flex: 1 },
   camera: { flex: 1 },
   reticle: { alignItems: 'center', flex: 1, gap: 24, justifyContent: 'center' },
@@ -755,7 +1007,7 @@ const styles = StyleSheet.create({
   },
   permissionPanel: { flex: 1, gap: 20, justifyContent: 'center', padding: 28 },
   homeHeader: { alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'space-between' },
-  headerActions: { flexDirection: 'row', gap: 8 },
+  headerActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' },
   statusLine: {
     alignItems: 'center',
     borderBottomColor: colors.line,
@@ -786,6 +1038,18 @@ const styles = StyleSheet.create({
   emptyPanel: { borderColor: colors.line, borderStyle: 'dashed', borderWidth: 1, gap: 8, padding: 24 },
   emptyTitle: { color: colors.paper, fontFamily: 'Newsreader_600SemiBold', fontSize: 20 },
   emptyText: { color: colors.muted, fontFamily: 'Newsreader_400Regular', fontSize: 16, lineHeight: 22 },
+  deviceList: { borderTopColor: colors.line, borderTopWidth: 1 },
+  deviceRow: {
+    alignItems: 'center',
+    borderBottomColor: colors.line,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 78,
+    paddingVertical: 12,
+  },
+  deviceCopy: { flex: 1, gap: 5 },
+  deviceTitle: { color: colors.paper, fontFamily: 'Newsreader_600SemiBold', fontSize: 20 },
   conversationRow: {
     alignItems: 'center',
     borderBottomColor: colors.line,

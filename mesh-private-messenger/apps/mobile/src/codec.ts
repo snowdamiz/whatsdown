@@ -22,6 +22,27 @@ export type HistoryMessage = {
   disappearingSeconds: number;
 };
 
+export type DeviceSummary = {
+  deviceId: Uint8Array;
+  active: boolean;
+  current: boolean;
+};
+
+export type DeviceSetSummary = {
+  username: string;
+  accountId: Uint8Array;
+  sequence: number;
+  changed: boolean;
+  canManage: boolean;
+  devices: DeviceSummary[];
+};
+
+export type ProfileSummary = {
+  username: string;
+  accountId: Uint8Array;
+  deviceId: Uint8Array;
+};
+
 export const utf8 = (value: string): Uint8Array => textEncoder.encode(value);
 export const decodeUtf8 = (value: Uint8Array): string => textDecoder.decode(value);
 
@@ -182,6 +203,43 @@ export function parseHistory(input: Uint8Array): HistoryMessage[] {
   return messages;
 }
 
+export function parseDeviceSetSummary(input: Uint8Array): DeviceSetSummary {
+  const summary = new Reader(input);
+  const username = decodeUtf8(summary.vector(64));
+  const accountId = summary.vector(32);
+  const sequence = readU64Number(summary.vector(8));
+  const changed = readByte(summary.vector(1)) === 1;
+  const canManage = readByte(summary.vector(1)) === 1;
+  const encodedDevices = new Reader(summary.vector(8_192));
+  const count = readU32(encodedDevices.vector(4));
+  if (count > 40) throw new Error('Device list is too large');
+  const devices: DeviceSummary[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const encoded = new Reader(encodedDevices.vector(64));
+    const deviceId = encoded.vector(16);
+    const activeValue = readByte(encoded.vector(1));
+    const currentValue = readByte(encoded.vector(1));
+    encoded.finish();
+    if (activeValue > 1 || currentValue > 1 || (currentValue === 1 && activeValue === 0)) {
+      throw new Error('Invalid device state');
+    }
+    devices.push({ deviceId, active: activeValue === 1, current: currentValue === 1 });
+  }
+  encodedDevices.finish();
+  summary.finish();
+  return { username, accountId, sequence, changed, canManage, devices };
+}
+
+export function parseProfileSummary(input: Uint8Array): ProfileSummary {
+  const profile = new Reader(input);
+  const username = decodeUtf8(profile.vector(64));
+  const accountId = profile.vector(32);
+  const deviceId = profile.vector(16);
+  profile.vector(33_636);
+  profile.finish();
+  return { username, accountId, deviceId };
+}
+
 function binaryString(value: Uint8Array): string {
   let output = '';
   for (let offset = 0; offset < value.length; offset += 0x8000) {
@@ -190,18 +248,23 @@ function binaryString(value: Uint8Array): string {
   return output;
 }
 
-export const profileQrValue = (profile: Uint8Array): string =>
-  `mesh://contact/${btoa(binaryString(profile)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')}`;
+export const payloadQrValue = (kind: string, payload: Uint8Array): string =>
+  `mesh://${kind}/${btoa(binaryString(payload)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')}`;
 
-export function profileFromQr(value: string): Uint8Array {
-  const prefix = 'mesh://contact/';
-  if (!value.startsWith(prefix)) throw new Error('Not a Whatsdown contact code');
+export function payloadFromQr(value: string, kind: string, maximum = 286_400): Uint8Array {
+  const prefix = `mesh://${kind}/`;
+  if (!value.startsWith(prefix)) throw new Error(`Not a Whatsdown ${kind} code`);
   const encoded = value.slice(prefix.length).replaceAll('-', '+').replaceAll('_', '/');
   const decoded = atob(encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '='));
-  const profile = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
-  if (profile.length === 0 || profile.length > 16_384) throw new Error('Invalid contact code');
-  return profile;
+  const payload = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+  if (payload.length === 0 || payload.length > maximum) throw new Error(`Invalid ${kind} code`);
+  return payload;
 }
+
+export const profileQrValue = (profile: Uint8Array): string => payloadQrValue('contact', profile);
+
+export const profileFromQr = (value: string): Uint8Array =>
+  payloadFromQr(value, 'contact', 16_384);
 
 export const hex = (value: Uint8Array): string =>
   Array.from(value, (byte) => byte.toString(16).padStart(2, '0')).join('');

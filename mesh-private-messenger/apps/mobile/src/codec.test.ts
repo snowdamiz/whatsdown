@@ -3,7 +3,11 @@ import test from 'node:test';
 
 import {
   parseConversations,
+  parseDeviceSetSummary,
   parseHistory,
+  parseProfileSummary,
+  payloadFromQr,
+  payloadQrValue,
   profileFromQr,
   profileQrValue,
   utf8,
@@ -22,6 +26,39 @@ test('contact QR values round trip binary profiles', () => {
   const profile = Uint8Array.from({ length: 257 }, (_, index) => index % 251);
   assert.deepEqual(profileFromQr(profileQrValue(profile)), profile);
   assert.throws(() => profileFromQr('https://example.com/not-a-contact'));
+});
+
+test('device summaries and linking QR payloads stay bounded and canonical', () => {
+  const current = vectors(new Uint8Array(16).fill(1), Uint8Array.of(1), Uint8Array.of(1));
+  const revoked = vectors(new Uint8Array(16).fill(2), Uint8Array.of(0), Uint8Array.of(0));
+  const summary = parseDeviceSetSummary(
+    vectors(
+      utf8('alice'),
+      new Uint8Array(32).fill(3),
+      u64(9n),
+      Uint8Array.of(1),
+      Uint8Array.of(1),
+      vectors(writeU32(2), current, revoked),
+    ),
+  );
+  assert.equal(summary.username, 'alice');
+  assert.equal(summary.sequence, 9);
+  assert.equal(summary.changed, true);
+  assert.equal(summary.canManage, true);
+  assert.equal(summary.devices[0]?.current, true);
+  assert.equal(summary.devices[1]?.active, false);
+
+  const profile = vectors(
+    utf8('alice'),
+    new Uint8Array(32).fill(3),
+    new Uint8Array(16).fill(1),
+    Uint8Array.of(9),
+  );
+  assert.equal(parseProfileSummary(profile).username, 'alice');
+
+  const link = Uint8Array.from({ length: 140 }, (_, index) => index % 251);
+  assert.deepEqual(payloadFromQr(payloadQrValue('link-request', link), 'link-request'), link);
+  assert.throws(() => payloadFromQr(payloadQrValue('link-request', link), 'link-authorization'));
 });
 
 test('conversation and history lists reject trailing bytes and decode policy state', () => {

@@ -1,11 +1,21 @@
 import {
+  authorize_device_link_for_set_export,
+  create_device_revocation_export,
   directory_entry_export,
   directory_lookup_export,
   import_contact_export,
+  inspect_device_set_export,
   mailbox_fetch_export,
   process_delivery_batch_export,
 } from '../modules/mesh-messenger';
-import { batchRequest, utf8 } from './codec';
+import {
+  batchRequest,
+  DeviceSetSummary,
+  parseDeviceSetSummary,
+  parseProfileSummary,
+  utf8,
+  vectors,
+} from './codec';
 
 const baseUrl = (process.env.EXPO_PUBLIC_MESSENGER_BASE_URL ?? 'http://127.0.0.1:18086').replace(
   /\/$/,
@@ -32,7 +42,49 @@ async function binaryRequest(path: string, body: Uint8Array, method = 'POST'): P
 
 export async function registerDirectory(databasePath: string): Promise<void> {
   const entry = await directory_entry_export(utf8(databasePath));
-  await binaryRequest('/v1/directory/register', entry, 'PUT');
+  await binaryRequest('/v1/devices/register', entry, 'PUT');
+}
+
+export async function resolveDeviceSet(username: string): Promise<Uint8Array> {
+  const lookup = await directory_lookup_export(utf8(username));
+  return binaryRequest('/v1/devices/resolve', lookup);
+}
+
+export async function inspectDeviceSet(
+  databasePath: string,
+  deviceSet: Uint8Array,
+): Promise<DeviceSetSummary> {
+  const encoded = await inspect_device_set_export(batchRequest(databasePath, deviceSet));
+  return parseDeviceSetSummary(encoded);
+}
+
+export async function loadAccountDevices(
+  databasePath: string,
+  profile: Uint8Array,
+): Promise<{ wire: Uint8Array; summary: DeviceSetSummary }> {
+  const wire = await resolveDeviceSet(parseProfileSummary(profile).username);
+  return { wire, summary: await inspectDeviceSet(databasePath, wire) };
+}
+
+export async function authorizeDeviceLink(
+  databasePath: string,
+  deviceSet: Uint8Array,
+  linkRequest: Uint8Array,
+): Promise<Uint8Array> {
+  return authorize_device_link_for_set_export(
+    vectors(utf8(databasePath), deviceSet, linkRequest),
+  );
+}
+
+export async function revokeDevice(
+  databasePath: string,
+  deviceSet: Uint8Array,
+  deviceId: Uint8Array,
+): Promise<void> {
+  const revocation = await create_device_revocation_export(
+    vectors(utf8(databasePath), deviceSet, deviceId),
+  );
+  await binaryRequest('/v1/devices/revoke', revocation);
 }
 
 export async function resolveContact(username: string): Promise<Uint8Array> {

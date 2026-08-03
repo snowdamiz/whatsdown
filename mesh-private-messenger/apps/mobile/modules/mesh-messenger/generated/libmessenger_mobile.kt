@@ -18,7 +18,10 @@ object MeshLibrary {
     @JvmStatic external fun create_link_request_export(request: ByteArray): ByteArray
     @JvmStatic external fun device_link_sas_export(request: ByteArray): ByteArray
     @JvmStatic external fun authorize_device_link_export(request: ByteArray): ByteArray
+    @JvmStatic external fun authorize_device_link_for_set_export(request: ByteArray): ByteArray
     @JvmStatic external fun complete_device_link_export(request: ByteArray): ByteArray
+    @JvmStatic external fun inspect_device_set_export(request: ByteArray): ByteArray
+    @JvmStatic external fun create_device_revocation_export(request: ByteArray): ByteArray
     @JvmStatic external fun start_conversation_export(request: ByteArray): ByteArray
     @JvmStatic external fun receive_initial_export(request: ByteArray): ByteArray
     @JvmStatic external fun send_message_export(request: ByteArray): ByteArray

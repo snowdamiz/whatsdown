@@ -121,6 +121,12 @@ static void write_u32(uint8_t *output, uint32_t value) {
   output[3] = (uint8_t)value;
 }
 
+static void write_u64(uint8_t *output, uint64_t value) {
+  for (size_t index = 0; index < 8; index += 1) {
+    output[index] = (uint8_t)(value >> (56 - index * 8));
+  }
+}
+
 static uint32_t read_u32(const uint8_t *input) {
   return ((uint32_t)input[0] << 24) | ((uint32_t)input[1] << 16) |
          ((uint32_t)input[2] << 8) | (uint32_t)input[3];
@@ -140,6 +146,97 @@ static int profile_ids(const uint8_t *profile, size_t profile_len,
   if (read_u32(profile + offset) != 16) return 0;
   *device_id = profile + offset + 4;
   return 1;
+}
+
+static int profile_entry(const uint8_t *profile, size_t profile_len,
+                         const uint8_t **username, size_t *username_len,
+                         const uint8_t **entry, size_t *entry_len) {
+  if (profile_len < 4) return 0;
+  *username_len = read_u32(profile);
+  size_t offset = 4;
+  if (*username_len == 0 || offset + *username_len + 4 + 32 + 4 + 16 + 4 >
+                                profile_len) {
+    return 0;
+  }
+  *username = profile + offset;
+  offset += *username_len;
+  if (read_u32(profile + offset) != 32) return 0;
+  offset += 4 + 32;
+  if (read_u32(profile + offset) != 16) return 0;
+  offset += 4 + 16;
+  *entry_len = read_u32(profile + offset);
+  offset += 4;
+  if (*entry_len == 0 || offset + *entry_len != profile_len) return 0;
+  *entry = profile + offset;
+  return 1;
+}
+
+static uint8_t *device_set(const uint8_t **profiles,
+                           const size_t *profile_lengths, size_t count,
+                           uint64_t sequence, size_t *output_len) {
+  if (count == 0 || count > 8) return NULL;
+  const uint8_t *username = NULL;
+  const uint8_t *first_entry = NULL;
+  size_t username_len = 0;
+  size_t first_entry_len = 0;
+  if (!profile_entry(profiles[0], profile_lengths[0], &username, &username_len,
+                     &first_entry, &first_entry_len) ||
+      first_entry_len < 12 || first_entry[0] != 1 ||
+      memcmp(first_entry + 1, "DRE", 3) != 0) {
+    return NULL;
+  }
+  size_t entry_username_len = read_u32(first_entry + 4);
+  size_t account_offset = 8 + entry_username_len;
+  if (account_offset + 4 > first_entry_len) return NULL;
+  size_t account_len = read_u32(first_entry + account_offset);
+  account_offset += 4;
+  if (account_len == 0 || account_offset + account_len > first_entry_len) {
+    return NULL;
+  }
+  const uint8_t *entries[8] = {0};
+  size_t entry_lengths[8] = {0};
+  *output_len = 1 + 3 + 4 + username_len + 4 + account_len + 8 + 1 + 1;
+  for (size_t index = 0; index < count; index += 1) {
+    const uint8_t *next_username = NULL;
+    size_t next_username_len = 0;
+    if (!profile_entry(profiles[index], profile_lengths[index],
+                       &next_username, &next_username_len, &entries[index],
+                       &entry_lengths[index]) ||
+        next_username_len != username_len ||
+        memcmp(next_username, username, username_len) != 0) {
+      return NULL;
+    }
+    *output_len += 4 + entry_lengths[index];
+  }
+  uint8_t *output = malloc(*output_len);
+  if (output == NULL) return NULL;
+  size_t offset = 0;
+  output[offset++] = 1;
+  memcpy(output + offset, "DVS", 3);
+  offset += 3;
+  write_u32(output + offset, (uint32_t)username_len);
+  offset += 4;
+  memcpy(output + offset, username, username_len);
+  offset += username_len;
+  write_u32(output + offset, (uint32_t)account_len);
+  offset += 4;
+  memcpy(output + offset, first_entry + account_offset, account_len);
+  offset += account_len;
+  write_u64(output + offset, sequence);
+  offset += 8;
+  output[offset++] = (uint8_t)count;
+  for (size_t index = 0; index < count; index += 1) {
+    write_u32(output + offset, (uint32_t)entry_lengths[index]);
+    offset += 4;
+    memcpy(output + offset, entries[index], entry_lengths[index]);
+    offset += entry_lengths[index];
+  }
+  output[offset++] = 0;
+  if (offset != *output_len) {
+    free(output);
+    return NULL;
+  }
+  return output;
 }
 
 static uint8_t *store_request(const char *database_path, const uint8_t *envelope,
@@ -332,15 +429,23 @@ int main(int argc, char **argv) {
   }
   mesh_library_free_returned_bytes(&response);
 
-  const uint8_t *authorize_values[] = {(const uint8_t *)argv[2], link_request};
-  const size_t authorize_lengths[] = {strlen(argv[2]), link_request_len};
+  const uint8_t *root_profiles[] = {profile};
+  const size_t root_profile_lengths[] = {profile_len};
+  size_t root_set_len = 0;
+  uint8_t *root_set = device_set(root_profiles, root_profile_lengths, 1, 1,
+                                 &root_set_len);
+  if (root_set == NULL) return 65;
+  const uint8_t *authorize_values[] = {(const uint8_t *)argv[2], root_set,
+                                       link_request};
+  const size_t authorize_lengths[] = {strlen(argv[2]), root_set_len,
+                                      link_request_len};
   size_t authorize_request_len = 0;
   uint8_t *authorize_request = vector_request(
-      authorize_values, authorize_lengths, 2, &authorize_request_len);
+      authorize_values, authorize_lengths, 3, &authorize_request_len);
   if (authorize_request == NULL ||
-      mesh_messenger_authorize_device_link(authorize_request,
-                                            authorize_request_len,
-                                            &response) != MESH_LIBRARY_OK ||
+      mesh_messenger_authorize_device_link_for_set(
+          authorize_request, authorize_request_len, &response) !=
+          MESH_LIBRARY_OK ||
       response.len == 0) {
     return 59;
   }
@@ -350,6 +455,7 @@ int main(int argc, char **argv) {
   memcpy(authorization, response.data, authorization_len);
   mesh_library_free_returned_bytes(&response);
   free(authorize_request);
+  free(root_set);
 
   const uint8_t *complete_values[] = {(const uint8_t *)linked_path,
                                       authorization};
@@ -390,6 +496,44 @@ int main(int argc, char **argv) {
       memcmp(root_device_id, linked_device_id, 16) == 0) {
     return 64;
   }
+  const uint8_t *linked_profiles[] = {profile, linked_profile};
+  const size_t linked_profile_lengths[] = {profile_len, linked_profile_len};
+  size_t linked_set_len = 0;
+  uint8_t *linked_set = device_set(linked_profiles, linked_profile_lengths, 2,
+                                   2, &linked_set_len);
+  if (linked_set == NULL) return 66;
+  const uint8_t *inspect_values[] = {(const uint8_t *)argv[2], linked_set};
+  const size_t inspect_lengths[] = {strlen(argv[2]), linked_set_len};
+  size_t inspect_request_len = 0;
+  uint8_t *inspect_request = vector_request(
+      inspect_values, inspect_lengths, 2, &inspect_request_len);
+  if (inspect_request == NULL ||
+      mesh_messenger_inspect_device_set(inspect_request, inspect_request_len,
+                                        &response) != MESH_LIBRARY_OK ||
+      !bytes_contains(response.data, (size_t)response.len, root_device_id, 16) ||
+      !bytes_contains(response.data, (size_t)response.len, linked_device_id,
+                      16)) {
+    return 67;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(inspect_request);
+
+  const uint8_t *revoke_values[] = {(const uint8_t *)argv[2], linked_set,
+                                     linked_device_id};
+  const size_t revoke_lengths[] = {strlen(argv[2]), linked_set_len, 16};
+  size_t revoke_request_len = 0;
+  uint8_t *revoke_request = vector_request(revoke_values, revoke_lengths, 3,
+                                           &revoke_request_len);
+  if (revoke_request == NULL ||
+      mesh_messenger_create_device_revocation(revoke_request,
+                                               revoke_request_len,
+                                               &response) != MESH_LIBRARY_OK ||
+      response.len == 0) {
+    return 68;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(revoke_request);
+  free(linked_set);
   free(complete_request);
   free(authorization);
   free(link_request);

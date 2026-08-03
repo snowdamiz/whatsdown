@@ -1,7 +1,7 @@
 from Binary.Reader import BinaryReader, finish, read_vector, reader
-from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, verify_device_link_authorization
-from Prekeys.Bundle import OneTimePrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
+from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, issue_device_revocation, verify_device_link_authorization
+from Prekeys.Bundle import OneTimePrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey, verify_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceSet, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_set, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
@@ -105,6 +105,19 @@ end
 struct MobilePayloadRequest do
   database_path :: String
   payload :: Bytes
+end
+
+struct MobileTriplePayloadRequest do
+  database_path :: String
+  first :: Bytes
+  second :: Bytes
+end
+
+struct MobileVerifiedDeviceSet do
+  wire :: Bytes
+  value :: DeviceSet
+  account :: AccountIdentity
+  profiles :: List < MobileProfile >
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! String do
@@ -819,6 +832,32 @@ fn parse_payload_request(input :: Bytes) -> MobilePayloadRequest ! String do
   end
 end
 
+fn parse_triple_payload_request(input :: Bytes) -> MobileTriplePayloadRequest ! String do
+  case reader(input, 577000) do
+    Err( _) -> Err("invalid_payload_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let first = take_vector(path.state, 286400) ?
+      let second = take_vector(first.state, 286400) ?
+      case finish(second.state) do
+        Err( _) -> Err("invalid_payload_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 || Bytes.length(first.value) == 0 || Bytes.length(second.value) == 0 do
+            Err("invalid_payload_request")
+          else
+            Ok(MobileTriplePayloadRequest {
+              database_path : database_path,
+              first : first.value,
+              second : second.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
 fn current_time() -> U64 ! String do
   mobile_wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
@@ -983,8 +1022,13 @@ fn create_device_link_request(database_path :: String) -> Bytes ! String do
     let wrapping_key = platform_key() ?
     case load_pending_link_request(database_path, wrapping_key) do
       Ok( existing) -> do
-        let _ = parse_link_request(existing) ?
-        Ok(existing)
+        let pending = parse_link_request(existing) ?
+        if U64.compare(pending.expires_at, current_time() ?) >= 0 do
+          Ok(existing)
+        else
+          store_linked_blobs(database_path, List.new(), List.new()) ?
+          create_device_link_request(database_path)
+        end
       end
       Err( error) -> if error != "local_state_not_found" do
         Err(error)
@@ -1120,6 +1164,246 @@ fn device_link_sas(input :: Bytes) -> Bytes ! String do
   case Bytes.slice(digest, 0, 6) do
     Err( _) -> Err("link_sas_failed")
     Ok( value) -> Ok(Bytes.from_utf8(Bytes.to_hex(value)))
+  end
+end
+
+fn device_set_bytes(value :: DeviceSet) -> Bytes ! String do
+  case encode_device_set(value) do
+    Err( _) -> Err("device_set_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn canonical_device_set(input :: Bytes) -> DeviceSet ! String do
+  case decode_device_set(input) do
+    Err( _) -> Err("invalid_device_set")
+    Ok( value) -> if Bytes.secure_equals(device_set_bytes(value) ?, input) do
+      Ok(value)
+    else
+      Err("noncanonical_device_set")
+    end
+  end
+end
+
+fn contains_device_id(profiles :: List < MobileProfile >, device_id :: Bytes, index :: Int) -> Bool do
+  if index >= List.length(profiles) do
+    false
+  else if Bytes.secure_equals(List.get(profiles, index).device_id, device_id) do
+    true
+  else
+    contains_device_id(profiles, device_id, index + 1)
+  end
+end
+
+fn contains_revoked_id(values :: List < Bytes >, device_id :: Bytes, index :: Int) -> Bool do
+  if index >= List.length(values) do
+    false
+  else if Bytes.secure_equals(List.get(values, index), device_id) do
+    true
+  else
+    contains_revoked_id(values, device_id, index + 1)
+  end
+end
+
+fn verified_device_profiles(value :: DeviceSet,
+account :: AccountIdentity,
+now :: U64,
+index :: Int,
+profiles :: List < MobileProfile >) -> List < MobileProfile > ! String do
+  if index >= List.length(value.devices) do
+    Ok(profiles)
+  else
+    let entry = List.get(value.devices, index)
+    let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
+      Err( _) -> Err("invalid_device_set")
+      Ok( decoded) -> Ok(decoded)
+    end ?
+    let credential = case decode_device_credential(bundle.device_credential) do
+      Err( _) -> Err("invalid_device_set")
+      Ok( decoded) -> Ok(decoded)
+    end ?
+    let verified = case verify_prekey_bundle(account, bundle, 1, now, account.directory_sequence) do
+      Err( _) -> false
+      Ok( result) -> result
+    end
+    let profile = parse_profile(profile_bytes(entry, account.account_id, credential.device_id) ?) ?
+    let invalid = !verified || contains_device_id(profiles, profile.device_id, 0) || contains_revoked_id(value.revoked_device_ids,
+    profile.device_id,
+    0)
+    if invalid do
+      Err("invalid_device_set")
+    else
+      verified_device_profiles(value, account, now, index + 1, List.append(profiles, profile))
+    end
+  end
+end
+
+fn verified_device_set(input :: Bytes) -> MobileVerifiedDeviceSet ! String do
+  let value = canonical_device_set(input) ?
+  let account = case decode_account_identity(value.account_identity) do
+    Err( _) -> Err("invalid_device_set")
+    Ok( decoded) -> Ok(decoded)
+  end ?
+  if U64.compare(value.sequence, account.directory_sequence) < 0 do
+    Err("device_set_rollback")
+  else
+    Ok(MobileVerifiedDeviceSet {
+      wire : input,
+      value : value,
+      account : account,
+      profiles : verified_device_profiles(value, account, current_time() ?, 0, List.new()) ?
+    })
+  end
+end
+
+fn device_set_label(account_id :: Bytes) -> String do
+  "device-set/v1/#{Bytes.to_hex(account_id)}"
+end
+
+fn cached_device_set_changed(database_path :: String,
+wrapping_key :: borrow StorageKey,
+next :: MobileVerifiedDeviceSet,
+label :: String) -> Bool ! String do
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(false)
+    else
+      Err(error)
+    end
+    Ok( blob) -> do
+      let previous_wire = open_local(blob, wrapping_key, local_context(label) ?) ?
+      let previous = canonical_device_set(previous_wire) ?
+      let same_identity = previous.username == next.value.username && Bytes.secure_equals(previous.account_identity,
+      next.value.account_identity)
+      let sequence = U64.compare(next.value.sequence, previous.sequence)
+      if !same_identity || sequence < 0 do
+        Err("device_set_rollback")
+      else if sequence == 0 && !Bytes.secure_equals(previous_wire, next.wire) do
+        Err("device_set_equivocation")
+      else
+        Ok(sequence > 0)
+      end
+    end
+  end
+end
+
+fn active_device_rows(profiles :: List < MobileProfile >,
+local_device_id :: Bytes,
+index :: Int,
+rows :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(profiles) do
+    Ok(rows)
+  else
+    let profile = List.get(profiles, index)
+    let row = mobile_join([mobile_vector(profile.device_id) ?, mobile_vector(mobile_byte(1) ?) ?, mobile_vector(mobile_byte(if Bytes.secure_equals(profile.device_id,
+    local_device_id) do
+      1
+    else
+      0
+    end) ?) ?],
+    0,
+    Bytes.empty()) ?
+    active_device_rows(profiles, local_device_id, index + 1, List.append(rows, row))
+  end
+end
+
+fn revoked_device_rows(values :: List < Bytes >, index :: Int, rows :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(values) do
+    Ok(rows)
+  else
+    let row = mobile_join([mobile_vector(List.get(values, index)) ?, mobile_vector(mobile_byte(0) ?) ?, mobile_vector(mobile_byte(0) ?) ?],
+    0,
+    Bytes.empty()) ?
+    revoked_device_rows(values, index + 1, List.append(rows, row))
+  end
+end
+
+fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let verified = verified_device_set(request.payload) ?
+  let wrapping_key = platform_key() ?
+  let label = device_set_label(verified.account.account_id)
+  let changed = cached_device_set_changed(request.database_path, wrapping_key, verified, label) ?
+  let sealed = seal_local(verified.wire, wrapping_key, local_context(label) ?) ?
+  store_updated_session(request.database_path, label, sealed) ?
+  let can_manage = case load_blob(request.database_path, "account-signing-key/v1") do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(false)
+    else
+      Err(error)
+    end
+    Ok( _) -> Ok(true)
+  end ?
+  let active = active_device_rows(verified.profiles, local.device_id, 0, List.new()) ?
+  let rows = revoked_device_rows(verified.value.revoked_device_ids, 0, active) ?
+  mobile_join([mobile_vector(Bytes.from_utf8(verified.value.username)) ?, mobile_vector(verified.account.account_id) ?, mobile_vector(mobile_write_u64(verified.value.sequence) ?) ?, mobile_vector(mobile_byte(if changed do
+    1
+  else
+    0
+  end) ?) ?, mobile_vector(mobile_byte(if can_manage do
+    1
+  else
+    0
+  end) ?) ?, mobile_vector(encode_output_list(rows) ?) ?],
+  0,
+  Bytes.empty())
+end
+
+fn local_device_set(local :: MobileProfile, value :: MobileVerifiedDeviceSet) -> Bool do
+  local.username == value.value.username && Bytes.secure_equals(local.account_id,
+  value.account.account_id) && Bytes.secure_equals(local.entry.account_identity,
+  value.value.account_identity) && contains_device_id(value.profiles, local.device_id, 0)
+end
+
+fn authorize_link_for_set(request :: MobileTriplePayloadRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let devices = verified_device_set(request.first) ?
+  let requested_device = parse_link_request(request.second) ?
+  let now = current_time() ?
+  if !local_device_set(local, devices) || U64.compare(requested_device.created_at, now) > 0 || U64.compare(requested_device.expires_at,
+  now) < 0 do
+    Err("link_authorization_failed")
+  else
+    let wrapping_key = platform_key() ?
+    let account = open_account(local, wrapping_key, request.database_path) ?
+    let authorization = case authorize_device_link(account,
+    local.account,
+    requested_device,
+    local.username,
+    U64.add(now, mobile_wide("31536000000") ?) ?,
+    U64.add(devices.value.sequence, mobile_wide("1") ?) ?) do
+      Err( _) -> Err("link_authorization_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    link_authorization_bytes(authorization)
+  end
+end
+
+fn create_device_revocation(request :: MobileTriplePayloadRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let devices = verified_device_set(request.first) ?
+  let target = request.second
+  let allowed = Bytes.length(target) == 16 && local_device_set(local, devices) && List.length(devices.profiles) > 1 && contains_device_id(devices.profiles,
+  target,
+  0) && !Bytes.secure_equals(local.device_id, target)
+  if !allowed do
+    Err("invalid_device_revocation")
+  else
+    let wrapping_key = platform_key() ?
+    let account = open_account(local, wrapping_key, request.database_path) ?
+    let revocation = case issue_device_revocation(account,
+    target,
+    U64.add(devices.value.sequence, mobile_wide("1") ?) ?) do
+      Err( _) -> Err("invalid_device_revocation")
+      Ok( value) -> Ok(value)
+    end ?
+    case encode_device_revocation(revocation) do
+      Err( _) -> Err("invalid_device_revocation")
+      Ok( encoded) -> Ok(encoded)
+    end
   end
 end
 
@@ -2382,8 +2666,20 @@ end
   authorize_link(parse_payload_request(request) ?)
 end
 
+@ export("mesh_messenger_authorize_device_link_for_set")pub fn authorize_device_link_for_set_export(request :: Bytes) -> Bytes ! String do
+  authorize_link_for_set(parse_triple_payload_request(request) ?)
+end
+
 @ export("mesh_messenger_complete_device_link")pub fn complete_device_link_export(request :: Bytes) -> Bytes ! String do
   complete_link(parse_payload_request(request) ?)
+end
+
+@ export("mesh_messenger_inspect_device_set")pub fn inspect_device_set_export(request :: Bytes) -> Bytes ! String do
+  inspect_device_set(parse_payload_request(request) ?)
+end
+
+@ export("mesh_messenger_create_device_revocation")pub fn create_device_revocation_export(request :: Bytes) -> Bytes ! String do
+  create_device_revocation(parse_triple_payload_request(request) ?)
 end
 
 @ export("mesh_messenger_start_conversation")pub fn start_conversation_export(request :: Bytes) -> Bytes ! String do
