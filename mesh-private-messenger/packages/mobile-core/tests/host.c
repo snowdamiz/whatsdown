@@ -161,6 +161,24 @@ static uint8_t *account_request(const char *database_path, const char *username,
   return request;
 }
 
+static uint8_t *vector_request(const uint8_t **values, const size_t *lengths,
+                               size_t count, size_t *request_len) {
+  *request_len = count * 4;
+  for (size_t index = 0; index < count; index += 1) {
+    *request_len += lengths[index];
+  }
+  uint8_t *request = malloc(*request_len);
+  if (request == NULL) return NULL;
+  size_t offset = 0;
+  for (size_t index = 0; index < count; index += 1) {
+    write_u32(request + offset, (uint32_t)lengths[index]);
+    offset += 4;
+    memcpy(request + offset, values[index], lengths[index]);
+    offset += lengths[index];
+  }
+  return request;
+}
+
 int main(int argc, char **argv) {
   if (argc != 3) return 10;
   size_t envelope_len = 0;
@@ -239,6 +257,64 @@ int main(int argc, char **argv) {
     return 23;
   }
   mesh_library_free_returned_bytes(&response);
+
+  size_t bob_path_len = strlen(argv[2]) + 5;
+  char *bob_path = malloc(bob_path_len);
+  if (bob_path == NULL) return 25;
+  snprintf(bob_path, bob_path_len, "%s.bob", argv[2]);
+  size_t bob_request_len = 0;
+  uint8_t *bob_request = account_request(bob_path, "bob", &bob_request_len);
+  if (bob_request == NULL ||
+      mesh_messenger_create_account(bob_request, bob_request_len, &response) !=
+          MESH_LIBRARY_OK ||
+      response.len == 0) {
+    return 26;
+  }
+  size_t bob_profile_len = (size_t)response.len;
+  uint8_t *bob_profile = malloc(bob_profile_len);
+  if (bob_profile == NULL) return 27;
+  memcpy(bob_profile, response.data, bob_profile_len);
+  mesh_library_free_returned_bytes(&response);
+  free(bob_request);
+
+  static const uint8_t greeting[] = "hello bob";
+  const uint8_t *start_values[] = {(const uint8_t *)argv[2], bob_profile,
+                                   greeting};
+  const size_t start_lengths[] = {strlen(argv[2]), bob_profile_len,
+                                  sizeof(greeting) - 1};
+  size_t start_request_len = 0;
+  uint8_t *start_request =
+      vector_request(start_values, start_lengths, 3, &start_request_len);
+  if (start_request == NULL ||
+      mesh_messenger_start_conversation(start_request, start_request_len,
+                                        &response) != MESH_LIBRARY_OK ||
+      response.len == 0) {
+    return 28;
+  }
+  size_t initial_outer_len = (size_t)response.len;
+  uint8_t *initial_outer = malloc(initial_outer_len);
+  if (initial_outer == NULL) return 29;
+  memcpy(initial_outer, response.data, initial_outer_len);
+  mesh_library_free_returned_bytes(&response);
+  free(start_request);
+
+  const uint8_t *receive_values[] = {(const uint8_t *)bob_path, initial_outer};
+  const size_t receive_lengths[] = {strlen(bob_path), initial_outer_len};
+  size_t receive_request_len = 0;
+  uint8_t *receive_request =
+      vector_request(receive_values, receive_lengths, 2, &receive_request_len);
+  if (receive_request == NULL ||
+      mesh_messenger_receive_initial(receive_request, receive_request_len,
+                                     &response) != MESH_LIBRARY_OK ||
+      response.len != sizeof(greeting) - 1 ||
+      memcmp(response.data, greeting, sizeof(greeting) - 1) != 0) {
+    return 30;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(receive_request);
+  free(initial_outer);
+  free(bob_profile);
+  free(bob_path);
   free(profile);
 
   const uint8_t invalid[] = {0, 1, 2};

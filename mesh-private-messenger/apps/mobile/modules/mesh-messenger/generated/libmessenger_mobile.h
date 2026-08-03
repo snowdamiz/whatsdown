@@ -50,6 +50,8 @@ int32_t mesh_messenger_validate_outer(const uint8_t *request, uint64_t request_l
 int32_t mesh_messenger_store_envelope(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_create_account(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_load_profile(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_start_conversation(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_receive_initial(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 
 #ifdef __cplusplus
 }

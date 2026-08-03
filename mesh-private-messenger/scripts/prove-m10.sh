@@ -13,6 +13,7 @@ readonly temp_parent="${TMPDIR:-/tmp}"
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-m10.XXXXXX")"
 readonly temp_dir
 readonly database="$temp_dir/mobile.db"
+readonly peer_database="$database.bob"
 if [[ "$(uname -s)" == Darwin ]]; then
   readonly library="$temp_dir/libmessenger_mobile.dylib"
   readonly host_system_libs=(-framework Security -framework CoreFoundation)
@@ -110,9 +111,11 @@ main() {
     -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
   "$temp_dir/host" "$vector" "$database"
 
-  [[ "$(sqlite3 "$database" "SELECT count(*) = 7 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "SQLite did not contain seven encrypted records"
-  if LC_ALL=C grep -a -E -q 'whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|profile/v1|alice' "$database"; then
+  [[ "$(sqlite3 "$database" "SELECT count(*) = 8 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "sender SQLite did not contain eight encrypted records"
+  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 6 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "recipient SQLite did not atomically replace its one-time prekey with a session"
+  if LC_ALL=C grep -a -E -q 'whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|profile/v1|session/v1|alice|bob|hello bob' "$database" "$peer_database"; then
     fail "SQLite leaked a record label or profile value"
   fi
 

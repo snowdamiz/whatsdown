@@ -1,7 +1,9 @@
 from Binary.Reader import BinaryReader, finish, read_vector, reader
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential
+from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_device_credential
 from Prekeys.Bundle import OneTimePrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DirectoryEntry, OuterEnvelope, decode_outer_envelope, encode_account_identity, encode_directory_entry, encode_outer_envelope, encode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, InitialMessage, InnerEnvelope, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_device_credential, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_directory_entry, encode_initial_message, encode_inner_envelope, encode_outer_envelope, encode_prekey_bundle
+from Session.Handshake import RatchetState, initiate, receive_initial
+from Session.Snapshot import SnapshotOutcome, snapshot
 
 struct MobileReadBytes do
   state :: BinaryReader
@@ -17,6 +19,38 @@ end
 struct MobileAccountRequest do
   database_path :: Bytes
   username :: Bytes
+end
+
+struct MobileProfile do
+  encoded :: Bytes
+  username :: String
+  account_id :: Bytes
+  device_id :: Bytes
+  entry :: DirectoryEntry
+  account :: AccountIdentity
+  bundle :: PrekeyBundle
+  credential :: DeviceCredential
+end
+
+struct MobileStartRequest do
+  database_path :: String
+  peer_profile :: Bytes
+  body :: Bytes
+end
+
+struct MobileReceiveRequest do
+  database_path :: String
+  outer :: Bytes
+end
+
+struct MobileInitialPacket do
+  account_identity :: Bytes
+  message :: Bytes
+end
+
+struct MobileInitialPlaintext do
+  profile :: Bytes
+  inner :: Bytes
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! String do
@@ -164,12 +198,12 @@ fn context(account_id :: Bytes, device_id :: Bytes, label :: String, purpose :: 
   end
 end
 
-fn profile_context() -> Bytes ! String do
+fn local_context(label :: String) -> Bytes ! String do
   case Bytes.repeat(0, 32) do
     Err( _) -> Err("storage_context_failed")
     Ok( account_id) -> case Bytes.repeat(0, 16) do
       Err( _) -> Err("storage_context_failed")
-      Ok( device_id) -> context(account_id, device_id, "profile/v1", 14)
+      Ok( device_id) -> context(account_id, device_id, label, 14)
     end
   end
 end
@@ -196,6 +230,20 @@ value_context :: Bytes) -> Bytes ! String do
   case X25519PrivateKey.seal_for_storage(key, wrapping_key, value_context) do
     Err( _) -> Err("identity_seal_failed")
     Ok( blob) -> Ok(blob)
+  end
+end
+
+fn open_signing(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> SigningPrivateKey ! String do
+  case SigningPrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
+    Err( _) -> Err("identity_open_failed")
+    Ok( key) -> Ok(key)
+  end
+end
+
+fn open_x25519(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> X25519PrivateKey ! String do
+  case X25519PrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
+    Err( _) -> Err("identity_open_failed")
+    Ok( key) -> Ok(key)
   end
 end
 
@@ -416,7 +464,7 @@ fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
       Err( _) -> Err("one_time_prekey_seal_failed")
       Ok( value) -> Ok(value)
     end ?
-    let profile_blob = seal_local(profile, wrapping_key, profile_context() ?) ?
+    let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1") ?) ?
     store_blobs(database_path,
     ["account-signing-key/v1", "device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", "one-time-prekey/v1", "profile/v1"],
     [account_blob, device_signing_blob, device_identity_blob, signed_prekey_blob, one_time_prekey_blob, profile_blob]) ?
@@ -430,7 +478,466 @@ fn load_profile(database_path :: String) -> Bytes ! String do
   else
     ensure_schema(database_path) ?
     let wrapping_key = platform_key() ?
-    open_local(load_blob(database_path, "profile/v1") ?, wrapping_key, profile_context() ?)
+    open_local(load_blob(database_path, "profile/v1") ?,
+    wrapping_key,
+    local_context("profile/v1") ?)
+  end
+end
+
+fn parse_profile(encoded :: Bytes) -> MobileProfile ! String do
+  case reader(encoded, 16384) do
+    Err( _) -> Err("invalid_profile")
+    Ok( state) -> do
+      let username_bytes = take_vector(state, 64) ?
+      let account_id = take_vector(username_bytes.state, 32) ?
+      let device_id = take_vector(account_id.state, 16) ?
+      let entry_bytes = take_vector(device_id.state, 15000) ?
+      case finish(entry_bytes.state) do
+        Err( _) -> Err("invalid_profile")
+        Ok( _) -> do
+          let username = mobile_utf8(username_bytes.value, "invalid_profile") ?
+          let entry = case decode_directory_entry(entry_bytes.value) do
+            Err( _) -> Err("invalid_profile")
+            Ok( value) -> Ok(value)
+          end ?
+          let account = case decode_account_identity(entry.account_identity) do
+            Err( _) -> Err("invalid_profile")
+            Ok( value) -> Ok(value)
+          end ?
+          let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
+            Err( _) -> Err("invalid_profile")
+            Ok( value) -> Ok(value)
+          end ?
+          let credential = case decode_device_credential(bundle.device_credential) do
+            Err( _) -> Err("invalid_profile")
+            Ok( value) -> Ok(value)
+          end ?
+          let mismatch = entry.username != username || !Bytes.secure_equals(account_id.value,
+          account.account_id) || !Bytes.secure_equals(device_id.value, credential.device_id) || !Bytes.secure_equals(account.account_id,
+          credential.account_id)
+          if mismatch do
+            Err("invalid_profile")
+          else
+            Ok(MobileProfile {
+              encoded : encoded,
+              username : username,
+              account_id : account_id.value,
+              device_id : device_id.value,
+              entry : entry,
+              account : account,
+              bundle : bundle,
+              credential : credential
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_start_request(input :: Bytes) -> MobileStartRequest ! String do
+  case reader(input, 53260) do
+    Err( _) -> Err("invalid_start_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let peer_profile = take_vector(path.state, 16384) ?
+      let body = take_vector(peer_profile.state, 32768) ?
+      case finish(body.state) do
+        Err( _) -> Err("invalid_start_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 || Bytes.length(body.value) == 0 do
+            Err("invalid_start_request")
+          else
+            Ok(MobileStartRequest {
+              database_path : database_path,
+              peer_profile : peer_profile.value,
+              body : body.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_receive_request(input :: Bytes) -> MobileReceiveRequest ! String do
+  case reader(input, 69710) do
+    Err( _) -> Err("invalid_receive_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let outer = take_vector(path.state, 65606) ?
+      case finish(outer.state) do
+        Err( _) -> Err("invalid_receive_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 do
+            Err("invalid_receive_request")
+          else
+            Ok(MobileReceiveRequest {
+              database_path : database_path,
+              outer : outer.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn current_time() -> U64 ! String do
+  mobile_wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
+end
+
+fn random_bytes(length :: Int) -> Bytes ! String do
+  case Crypto.random_bytes(length) do
+    Err( _) -> Err("random_generation_failed")
+    Ok( value) -> Ok(value)
+  end
+end
+
+fn policy(profile :: MobileProfile, now :: U64) -> VerificationPolicy do
+  VerificationPolicy {
+    current_time : now,
+    minimum_directory_sequence : profile.account.directory_sequence
+  }
+end
+
+fn reject_device_open(signing :: consume SigningPrivateKey, error :: String) -> DeviceKeys ! String do
+  Err(error)
+end
+
+fn reject_prekey_open(signed_private :: consume X25519PrivateKey, error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets), String > do
+  Err(error)
+end
+
+fn open_device(profile :: MobileProfile, wrapping_key :: borrow StorageKey, database_path :: String) -> DeviceKeys ! String do
+  let signing_blob = load_blob(database_path, "device-signing-key/v1") ?
+  let identity_blob = load_blob(database_path, "device-identity-key/v1") ?
+  let signing_context = context(profile.account_id, profile.device_id, "device-signing-key/v1", 7) ?
+  let identity_context = context(profile.account_id, profile.device_id, "device-identity-key/v1", 8) ?
+  case open_signing(signing_blob, wrapping_key, signing_context) do
+    Err( error) -> Err(error)
+    Ok( signing) -> case open_x25519(identity_blob, wrapping_key, identity_context) do
+      Err( error) -> reject_device_open(signing, error)
+      Ok( identity) -> Ok(DeviceKeys {
+        device_id : profile.device_id,
+        signing_private_key : signing,
+        signing_public_key : SigningPublicKey { bytes : profile.credential.signing_public_key },
+        identity_private_key : identity,
+        identity_public_key : X25519PublicKey { bytes : profile.credential.dh_public_key }
+      })
+    end
+  end
+end
+
+fn open_prekeys(profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+database_path :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets), String > do
+  let signed_blob = load_blob(database_path, "signed-prekey/v1") ?
+  let one_time_blob = load_blob(database_path, "one-time-prekey/v1") ?
+  let signed_context = context(profile.account_id, profile.device_id, "signed-prekey/v1", 9) ?
+  let one_time_context = context(profile.account_id, profile.device_id, "one-time-prekey/v1", 10) ?
+  case open_x25519(signed_blob, wrapping_key, signed_context) do
+    Err( error) -> Err(error)
+    Ok( signed_private) -> case open_x25519(one_time_blob, wrapping_key, one_time_context) do
+      Err( error) -> reject_prekey_open(signed_private, error)
+      Ok( one_time_private) -> Ok((SignedPrekeySecrets {
+        id : profile.bundle.signed_prekey_id,
+        private_key : signed_private,
+        public_key : X25519PublicKey { bytes : profile.bundle.signed_prekey },
+        signature : Signature { bytes : profile.bundle.signed_prekey_signature },
+        expires_at : profile.bundle.expires_at
+      },
+      OneTimePrekeySecrets {
+        id : profile.bundle.one_time_prekey_id,
+        private_key : one_time_private,
+        public_key : X25519PublicKey { bytes : profile.bundle.one_time_prekey }
+      }))
+    end
+  end
+end
+
+fn inner_bytes(value :: InnerEnvelope) -> Bytes ! String do
+  case encode_inner_envelope(value) do
+    Err( _) -> Err("inner_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn initial_bytes(value :: InitialMessage) -> Bytes ! String do
+  case encode_initial_message(value) do
+    Err( _) -> Err("initial_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn encode_initial_packet(account_identity :: Bytes, message :: Bytes) -> Bytes ! String do
+  mobile_join([mobile_vector(mobile_byte(1) ?) ?, mobile_vector(account_identity) ?, mobile_vector(message) ?],
+  0,
+  Bytes.empty())
+end
+
+fn parse_initial_packet(input :: Bytes) -> MobileInitialPacket ! String do
+  case reader(input, 65536) do
+    Err( _) -> Err("invalid_initial_packet")
+    Ok( state) -> do
+      let kind = take_vector(state, 1) ?
+      let account_identity = take_vector(kind.state, 4096) ?
+      let message = take_vector(account_identity.state, 60000) ?
+      case finish(message.state) do
+        Err( _) -> Err("invalid_initial_packet")
+        Ok( _) -> if !Bytes.secure_equals(kind.value, mobile_byte(1) ?) do
+          Err("invalid_initial_packet")
+        else
+          Ok(MobileInitialPacket {
+            account_identity : account_identity.value,
+            message : message.value
+          })
+        end
+      end
+    end
+  end
+end
+
+fn encode_initial_plaintext(profile :: Bytes, inner :: Bytes) -> Bytes ! String do
+  mobile_join([mobile_vector(profile) ?, mobile_vector(inner) ?], 0, Bytes.empty())
+end
+
+fn parse_initial_plaintext(input :: Bytes) -> MobileInitialPlaintext ! String do
+  case reader(input, 65536) do
+    Err( _) -> Err("invalid_initial_plaintext")
+    Ok( state) -> do
+      let profile = take_vector(state, 16384) ?
+      let inner = take_vector(profile.state, 49144) ?
+      case finish(inner.state) do
+        Err( _) -> Err("invalid_initial_plaintext")
+        Ok( _) -> Ok(MobileInitialPlaintext {
+          profile : profile.value,
+          inner : inner.value
+        })
+      end
+    end
+  end
+end
+
+fn session_label(session_id :: Bytes) -> String do
+  "session/v1/#{Bytes.to_hex(session_id)}"
+end
+
+fn encode_session_record(snapshot_blob :: Bytes,
+local :: MobileProfile,
+peer :: MobileProfile,
+conversation_id :: Bytes) -> Bytes ! String do
+  mobile_join([mobile_vector(snapshot_blob) ?, mobile_vector(local.account_id) ?, mobile_vector(local.device_id) ?, mobile_vector(peer.account_id) ?, mobile_vector(peer.device_id) ?, mobile_vector(Bytes.from_utf8(peer.username)) ?, mobile_vector(peer.entry.mailbox_token) ?, mobile_vector(conversation_id) ?],
+  0,
+  Bytes.empty())
+end
+
+fn reject_session_snapshot(state :: consume RatchetState) -> Result <( String, Bytes), String > do
+  Err("session_snapshot_failed")
+end
+
+fn finish_session_snapshot(state :: consume RatchetState,
+snapshot_blob :: Bytes,
+wrapping_key :: borrow StorageKey,
+local :: MobileProfile,
+peer :: MobileProfile,
+conversation_id :: Bytes,
+label :: String) -> Result <( String, Bytes), String > do
+  let record = encode_session_record(snapshot_blob, local, peer, conversation_id) ?
+  Ok((label, seal_local(record, wrapping_key, local_context(label) ?) ?))
+end
+
+fn seal_session(state :: consume RatchetState,
+wrapping_key :: borrow StorageKey,
+local :: MobileProfile,
+peer :: MobileProfile,
+conversation_id :: Bytes) -> Result <( String, Bytes), String > do
+  let session_id = state.session_id
+  let label = session_label(session_id)
+  case snapshot(state, wrapping_key, local.account_id, local.device_id, mobile_wide("1") ?) do
+    SnapshotRejected( rejected_state, _) -> reject_session_snapshot(rejected_state)
+    SnapshotSealed( next_state, snapshot_blob) -> finish_session_snapshot(next_state,
+    snapshot_blob,
+    wrapping_key,
+    local,
+    peer,
+    conversation_id,
+    label)
+  end
+end
+
+fn store_received_session(database_path :: String, label :: String, blob :: Bytes) -> Result <(), String > do
+  let one_time_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("one-time-prekey/v1")))
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case insert_blob(database, label, blob) do
+          Err( error) -> Err(error)
+          Ok( _) -> case Sqlite.execute(database,
+          "DELETE FROM encrypted_blobs WHERE record_hash = ?",
+          [one_time_hash]) do
+            Err( _) -> Err("database_write_failed")
+            Ok( _) -> case Sqlite.commit(database) do
+              Err( _) -> Err("database_write_failed")
+              Ok( _) -> Ok(nil)
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn padding_bucket(length :: Int) -> Int ! String do
+  if length <= 256 do
+    Ok(256)
+  else if length <= 512 do
+    Ok(512)
+  else if length <= 1024 do
+    Ok(1024)
+  else if length <= 2048 do
+    Ok(2048)
+  else if length <= 4096 do
+    Ok(4096)
+  else if length <= 8192 do
+    Ok(8192)
+  else if length <= 16384 do
+    Ok(16384)
+  else if length <= 32768 do
+    Ok(32768)
+  else if length <= 65536 do
+    Ok(65536)
+  else
+    Err("message_too_large")
+  end
+end
+
+fn outer_bytes(mailbox_token :: Bytes, packet :: Bytes, now :: U64) -> Bytes ! String do
+  let expiration = U64.add(now, mobile_wide("2592000000") ?) ?
+  case encode_outer_envelope(OuterEnvelope {
+    version : 1,
+    envelope_id : random_bytes(16) ?,
+    mailbox_token : mailbox_token,
+    suite : 1,
+    expiration : expiration,
+    padding_bucket : padding_bucket(Bytes.length(packet)) ?,
+    ciphertext : packet
+  }) do
+    Err( _) -> Err("outer_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let local_profile_bytes = load_profile(request.database_path) ?
+  let local = parse_profile(local_profile_bytes) ?
+  let peer = parse_profile(request.peer_profile) ?
+  let wrapping_key = platform_key() ?
+  let local_device = open_device(local, wrapping_key, request.database_path) ?
+  let now = current_time() ?
+  let conversation_id = random_bytes(16) ?
+  let inner = InnerEnvelope {
+    version : 1,
+    sender_account_id : local.account_id,
+    sender_device_id : local.device_id,
+    recipient_device_id : peer.device_id,
+    conversation_id : conversation_id,
+    client_message_id : random_bytes(16) ?,
+    client_timestamp : now,
+    message_type : 1,
+    body : request.body,
+    reply_reference : Bytes.empty(),
+    attachment_manifest : Bytes.empty(),
+    receipt_policy : 0,
+    disappearing_seconds : 0,
+    extensions : List.new()
+  }
+  let plaintext = encode_initial_plaintext(local_profile_bytes, inner_bytes(inner) ?) ?
+  let ( state, initial) = case initiate(local_device,
+  local.credential,
+  peer.account,
+  peer.bundle,
+  policy(peer, now),
+  1,
+  plaintext) do
+    Err( _) -> Err("session_start_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let packet = encode_initial_packet(local.entry.account_identity, initial_bytes(initial) ?) ?
+  let outer = outer_bytes(peer.entry.mailbox_token, packet, now) ?
+  let ( label, session_blob) = seal_session(state, wrapping_key, local, peer, conversation_id) ?
+  store_blobs(request.database_path, [label], [session_blob]) ?
+  Ok(outer)
+end
+
+fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let local_profile_bytes = load_profile(request.database_path) ?
+  let local = parse_profile(local_profile_bytes) ?
+  let outer = canonical_outer(request.outer) ?
+  if !Bytes.secure_equals(outer.mailbox_token, local.entry.mailbox_token) do
+    Err("wrong_mailbox")
+  else
+    let packet = parse_initial_packet(outer.ciphertext) ?
+    let initiator_account = case decode_account_identity(packet.account_identity) do
+      Err( _) -> Err("invalid_initiator_account")
+      Ok( value) -> Ok(value)
+    end ?
+    let wrapping_key = platform_key() ?
+    let local_device = open_device(local, wrapping_key, request.database_path) ?
+    let ( signed, one_time) = open_prekeys(local, wrapping_key, request.database_path) ?
+    let now = current_time() ?
+    let ( state, plaintext) = case receive_initial(local_device,
+    local.account,
+    local.bundle,
+    signed,
+    one_time,
+    initiator_account,
+    policy(local, now),
+    VerificationPolicy {
+      current_time : now,
+      minimum_directory_sequence : initiator_account.directory_sequence
+    },
+    packet.message) do
+      Err( _) -> Err("initial_receive_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let decoded = parse_initial_plaintext(plaintext) ?
+    let peer = parse_profile(decoded.profile) ?
+    let inner = case decode_inner_envelope(decoded.inner) do
+      Err( _) -> Err("invalid_inner_envelope")
+      Ok( value) -> Ok(value)
+    end ?
+    let mismatch = !Bytes.secure_equals(peer.entry.account_identity, packet.account_identity) || !Bytes.secure_equals(inner.sender_account_id,
+    peer.account_id) || !Bytes.secure_equals(inner.sender_device_id, peer.device_id) || !Bytes.secure_equals(inner.recipient_device_id,
+    local.device_id)
+    if mismatch do
+      Err("initial_identity_mismatch")
+    else
+      let ( label, session_blob) = seal_session(state,
+      wrapping_key,
+      local,
+      peer,
+      inner.conversation_id) ?
+      store_received_session(request.database_path, label, session_blob) ?
+      Ok(inner.body)
+    end
   end
 end
 
@@ -525,4 +1032,12 @@ end
 
 @ export("mesh_messenger_load_profile")pub fn load_profile_export(request :: Bytes) -> Bytes ! String do
   load_profile(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_start_conversation")pub fn start_conversation_export(request :: Bytes) -> Bytes ! String do
+  start_conversation(parse_start_request(request) ?)
+end
+
+@ export("mesh_messenger_receive_initial")pub fn receive_initial_export(request :: Bytes) -> Bytes ! String do
+  receive_initial_message(parse_receive_request(request) ?)
 end

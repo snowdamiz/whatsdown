@@ -20,6 +20,8 @@ class MeshMessengerModule : Module() {
                     "mesh_messenger_store_envelope" -> MeshLibrary.persist_envelope(request)
                     "mesh_messenger_create_account" -> MeshLibrary.create_account_export(request)
                     "mesh_messenger_load_profile" -> MeshLibrary.load_profile_export(request)
+                    "mesh_messenger_start_conversation" -> MeshLibrary.start_conversation_export(request)
+                    "mesh_messenger_receive_initial" -> MeshLibrary.receive_initial_export(request)
                     else -> throw IllegalArgumentException("unknown_export")
                 }
             }
