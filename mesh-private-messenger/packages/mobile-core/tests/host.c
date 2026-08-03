@@ -128,6 +128,25 @@ static void write_u64(uint8_t *output, uint64_t value) {
   }
 }
 
+static uint8_t *prekey_response(const uint8_t account_id[32],
+                                const uint8_t device_id[16],
+                                const uint64_t *active_ids,
+                                size_t active_count, size_t *output_len) {
+  if (active_count > 64 || output_len == NULL) return NULL;
+  *output_len = 53 + active_count * 8;
+  uint8_t *output = malloc(*output_len);
+  if (output == NULL) return NULL;
+  output[0] = 1;
+  memcpy(output + 1, "OTA", 3);
+  memcpy(output + 4, account_id, 32);
+  memcpy(output + 36, device_id, 16);
+  output[52] = (uint8_t)active_count;
+  for (size_t index = 0; index < active_count; index += 1) {
+    write_u64(output + 53 + index * 8, active_ids[index]);
+  }
+  return output;
+}
+
 static uint32_t read_u32(const uint8_t *input) {
   return ((uint32_t)input[0] << 24) | ((uint32_t)input[1] << 16) |
          ((uint32_t)input[2] << 8) | (uint32_t)input[3];
@@ -402,6 +421,71 @@ static uint8_t *vector_request(const uint8_t **values, const size_t *lengths,
     offset += lengths[index];
   }
   return request;
+}
+
+static int create_account_ids(const char *database_path, const char *username,
+                              uint8_t account_id[32], uint8_t device_id[16]) {
+  size_t request_len = 0;
+  uint8_t *request = account_request(database_path, username, &request_len);
+  MeshLibraryBytes response = {0};
+  if (request == NULL ||
+      mesh_messenger_create_account(request, request_len, &response) !=
+          MESH_LIBRARY_OK) {
+    free(request);
+    mesh_library_free_returned_bytes(&response);
+    return 0;
+  }
+  const uint8_t *account = NULL;
+  const uint8_t *device = NULL;
+  int valid = profile_ids(response.data, (size_t)response.len, &account,
+                          &device);
+  if (valid) {
+    memcpy(account_id, account, 32);
+    memcpy(device_id, device, 16);
+  }
+  free(request);
+  mesh_library_free_returned_bytes(&response);
+  return valid;
+}
+
+static int request_prekeys(const char *database_path, uint32_t count,
+                           MeshLibraryBytes *response) {
+  uint8_t encoded_count[4];
+  write_u32(encoded_count, count);
+  const uint8_t *values[] = {(const uint8_t *)database_path, encoded_count};
+  const size_t lengths[] = {strlen(database_path), sizeof(encoded_count)};
+  size_t request_len = 0;
+  uint8_t *request = vector_request(values, lengths, 2, &request_len);
+  if (request == NULL) return 0;
+  int ok = mesh_messenger_replenish_prekeys(request, request_len, response) ==
+           MESH_LIBRARY_OK;
+  free(request);
+  return ok;
+}
+
+static int reconcile_prekey_ids(const char *database_path,
+                                const uint8_t account_id[32],
+                                const uint8_t device_id[16],
+                                const uint64_t *active_ids,
+                                size_t active_count,
+                                uint32_t expected_count) {
+  size_t acknowledgement_len = 0;
+  uint8_t *acknowledgement = prekey_response(
+      account_id, device_id, active_ids, active_count, &acknowledgement_len);
+  if (acknowledgement == NULL) return 0;
+  const uint8_t *values[] = {(const uint8_t *)database_path, acknowledgement};
+  const size_t lengths[] = {strlen(database_path), acknowledgement_len};
+  size_t request_len = 0;
+  uint8_t *request = vector_request(values, lengths, 2, &request_len);
+  MeshLibraryBytes response = {0};
+  int ok = request != NULL &&
+           mesh_messenger_reconcile_prekeys(request, request_len, &response) ==
+               MESH_LIBRARY_OK &&
+           response.len == 4 && read_u32(response.data) == expected_count;
+  mesh_library_free_returned_bytes(&response);
+  free(request);
+  free(acknowledgement);
+  return ok;
 }
 
 static int bytes_contains(const uint8_t *value, size_t value_len,
@@ -880,6 +964,29 @@ int main(int argc, char **argv) {
   memcpy(initial_outer, response.data, initial_outer_len);
   mesh_library_free_returned_bytes(&response);
   if (!acknowledge_outbox(argv[2], initial_outer, initial_outer_len)) return 132;
+
+  const uint64_t bob_active_ids[] = {3};
+  size_t bob_prekey_response_len = 0;
+  uint8_t *bob_prekey_response =
+      prekey_response(bob_account_id, bob_device_id, bob_active_ids, 1,
+                      &bob_prekey_response_len);
+  const uint8_t *bob_reconcile_values[] = {(const uint8_t *)bob_path,
+                                           bob_prekey_response};
+  const size_t bob_reconcile_lengths[] = {strlen(bob_path),
+                                          bob_prekey_response_len};
+  size_t bob_reconcile_len = 0;
+  uint8_t *bob_reconcile =
+      vector_request(bob_reconcile_values, bob_reconcile_lengths, 2,
+                     &bob_reconcile_len);
+  if (bob_prekey_response == NULL || bob_reconcile == NULL ||
+      mesh_messenger_reconcile_prekeys(bob_reconcile, bob_reconcile_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 4 || read_u32(response.data) != 1) {
+    return 156;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(bob_reconcile);
+  free(bob_prekey_response);
 
   const uint8_t *receive_values[] = {(const uint8_t *)bob_path, initial_outer};
   const size_t receive_lengths[] = {strlen(bob_path), initial_outer_len};
@@ -1546,6 +1653,16 @@ int main(int argc, char **argv) {
                                     &response) != MESH_LIBRARY_OK) {
     return 150;
   }
+  const uint8_t *capacity_account_ptr = NULL;
+  const uint8_t *capacity_device_ptr = NULL;
+  uint8_t capacity_account_id[32];
+  uint8_t capacity_device_id[16];
+  if (!profile_ids(response.data, (size_t)response.len, &capacity_account_ptr,
+                   &capacity_device_ptr)) {
+    return 157;
+  }
+  memcpy(capacity_account_id, capacity_account_ptr, sizeof(capacity_account_id));
+  memcpy(capacity_device_id, capacity_device_ptr, sizeof(capacity_device_id));
   mesh_library_free_returned_bytes(&response);
   free(capacity_account);
 
@@ -1569,6 +1686,33 @@ int main(int argc, char **argv) {
   mesh_library_free_returned_bytes(&response);
   free(capacity_request);
 
+  uint64_t capacity_active_ids[64];
+  for (size_t index = 0; index < 64; index += 1) {
+    capacity_active_ids[index] = 2 + index;
+  }
+  size_t capacity_response_len = 0;
+  uint8_t *capacity_response =
+      prekey_response(capacity_account_id, capacity_device_id,
+                      capacity_active_ids, 64, &capacity_response_len);
+  const uint8_t *capacity_reconcile_values[] = {
+      (const uint8_t *)capacity_path, capacity_response};
+  size_t capacity_reconcile_lengths[] = {strlen(capacity_path),
+                                         capacity_response_len};
+  size_t capacity_reconcile_len = 0;
+  uint8_t *capacity_reconcile =
+      vector_request(capacity_reconcile_values, capacity_reconcile_lengths, 2,
+                     &capacity_reconcile_len);
+  if (capacity_response == NULL || capacity_reconcile == NULL ||
+      mesh_messenger_reconcile_prekeys(capacity_reconcile,
+                                       capacity_reconcile_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 4 || read_u32(response.data) != 64) {
+    return 158;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(capacity_reconcile);
+  free(capacity_response);
+
   static const uint8_t zero_prekeys[] = {0, 0, 0, 0};
   const uint8_t *export_values[] = {(const uint8_t *)capacity_path,
                                     zero_prekeys};
@@ -1581,13 +1725,76 @@ int main(int argc, char **argv) {
       mesh_messenger_replenish_prekeys(export_request,
                                        export_request_len,
                                        &response) != MESH_LIBRARY_OK ||
-      response.len != 2677 || response.data[52] != 64 ||
-      read_u64(response.data + 53) != 2 ||
-      read_u64(response.data + 53 + 63 * 40) != 65) {
+      response.len != 117 || response.data[52] != 0) {
     return 155;
   }
   mesh_library_free_returned_bytes(&response);
   free(export_request);
+
+  for (size_t index = 0; index < 33; index += 1) {
+    capacity_active_ids[index] = 33 + index;
+  }
+  capacity_response = prekey_response(capacity_account_id, capacity_device_id,
+                                      capacity_active_ids, 33,
+                                      &capacity_response_len);
+  capacity_reconcile_values[1] = capacity_response;
+  capacity_reconcile_lengths[1] = capacity_response_len;
+  capacity_reconcile = vector_request(capacity_reconcile_values,
+                                      capacity_reconcile_lengths, 2,
+                                      &capacity_reconcile_len);
+  if (capacity_response == NULL || capacity_reconcile == NULL ||
+      mesh_messenger_reconcile_prekeys(capacity_reconcile,
+                                       capacity_reconcile_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 4 || read_u32(response.data) != 33) {
+    return 159;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(capacity_reconcile);
+  free(capacity_response);
+
+  static const uint8_t thirty_one_prekeys[] = {0, 0, 0, 31};
+  const uint8_t *retired_replenish_values[] = {
+      (const uint8_t *)capacity_path, thirty_one_prekeys};
+  const size_t retired_replenish_lengths[] = {strlen(capacity_path),
+                                              sizeof(thirty_one_prekeys)};
+  size_t retired_replenish_len = 0;
+  uint8_t *retired_replenish =
+      vector_request(retired_replenish_values, retired_replenish_lengths, 2,
+                     &retired_replenish_len);
+  if (retired_replenish == NULL ||
+      mesh_messenger_replenish_prekeys(retired_replenish,
+                                       retired_replenish_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 1357 || response.data[52] != 31 ||
+      read_u64(response.data + 53) != 66 ||
+      read_u64(response.data + 53 + 30 * 40) != 96) {
+    return 160;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(retired_replenish);
+
+  for (size_t index = 0; index < 64; index += 1) {
+    capacity_active_ids[index] = 33 + index;
+  }
+  capacity_response = prekey_response(capacity_account_id, capacity_device_id,
+                                      capacity_active_ids, 64,
+                                      &capacity_response_len);
+  capacity_reconcile_values[1] = capacity_response;
+  capacity_reconcile_lengths[1] = capacity_response_len;
+  capacity_reconcile = vector_request(capacity_reconcile_values,
+                                      capacity_reconcile_lengths, 2,
+                                      &capacity_reconcile_len);
+  if (capacity_response == NULL || capacity_reconcile == NULL ||
+      mesh_messenger_reconcile_prekeys(capacity_reconcile,
+                                       capacity_reconcile_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 4 || read_u32(response.data) != 64) {
+    return 161;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(capacity_reconcile);
+  free(capacity_response);
   char *full_pool_state = encrypted_database_state(capacity_path);
 
   const uint8_t *overflow_values[] = {(const uint8_t *)capacity_path,
@@ -1630,7 +1837,215 @@ int main(int argc, char **argv) {
     return 154;
   }
   free(full_pool_state);
+
+  const uint64_t unknown_active_id[] = {999};
+  capacity_response = prekey_response(capacity_account_id, capacity_device_id,
+                                      unknown_active_id, 1,
+                                      &capacity_response_len);
+  capacity_reconcile_values[1] = capacity_response;
+  capacity_reconcile_lengths[1] = capacity_response_len;
+  capacity_reconcile = vector_request(capacity_reconcile_values,
+                                      capacity_reconcile_lengths, 2,
+                                      &capacity_reconcile_len);
+  if (capacity_response == NULL || capacity_reconcile == NULL ||
+      mesh_messenger_reconcile_prekeys(capacity_reconcile,
+                                       capacity_reconcile_len,
+                                       &response) !=
+          MESH_LIBRARY_ERR_APPLICATION) {
+    return 162;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(capacity_reconcile);
+  free(capacity_response);
+  char *after_unknown_response = encrypted_database_state(capacity_path);
+  if (after_unknown_response == NULL ||
+      strcmp(after_pool_rejections, after_unknown_response) != 0) {
+    return 163;
+  }
+  free(after_unknown_response);
+
+  capacity_response = prekey_response(capacity_account_id, capacity_device_id,
+                                      NULL, 0, &capacity_response_len);
+  capacity_reconcile_values[1] = capacity_response;
+  capacity_reconcile_lengths[1] = capacity_response_len;
+  capacity_reconcile = vector_request(capacity_reconcile_values,
+                                      capacity_reconcile_lengths, 2,
+                                      &capacity_reconcile_len);
+  if (capacity_response == NULL || capacity_reconcile == NULL ||
+      !set_receive_write_failure(capacity_path, 1)) {
+    return 164;
+  }
+  int32_t failed_reconcile = mesh_messenger_reconcile_prekeys(
+      capacity_reconcile, capacity_reconcile_len, &response);
+  mesh_library_free_returned_bytes(&response);
+  if (!set_receive_write_failure(capacity_path, 0) ||
+      failed_reconcile != MESH_LIBRARY_ERR_APPLICATION) {
+    return 165;
+  }
+  char *after_failed_reconcile = encrypted_database_state(capacity_path);
+  if (after_failed_reconcile == NULL ||
+      strcmp(after_pool_rejections, after_failed_reconcile) != 0) {
+    return 166;
+  }
+  free(after_failed_reconcile);
   free(after_pool_rejections);
+
+  if (mesh_messenger_reconcile_prekeys(capacity_reconcile,
+                                       capacity_reconcile_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 4 || read_u32(response.data) != 0) {
+    return 167;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(capacity_reconcile);
+  free(capacity_response);
+
+  export_request = vector_request(export_values, export_lengths, 2,
+                                  &export_request_len);
+  if (export_request == NULL ||
+      mesh_messenger_replenish_prekeys(export_request,
+                                       export_request_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 2677 || response.data[52] != 64 ||
+      read_u64(response.data + 53) != 33 ||
+      read_u64(response.data + 53 + 63 * 40) != 96) {
+    return 168;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(export_request);
+
+  static const uint8_t sixty_four_prekeys[] = {0, 0, 0, 64};
+  const uint8_t *replacement_values[] = {(const uint8_t *)capacity_path,
+                                         sixty_four_prekeys};
+  const size_t replacement_lengths[] = {strlen(capacity_path),
+                                        sizeof(sixty_four_prekeys)};
+  size_t replacement_len = 0;
+  uint8_t *replacement = vector_request(replacement_values,
+                                        replacement_lengths, 2,
+                                        &replacement_len);
+  if (replacement == NULL ||
+      mesh_messenger_replenish_prekeys(replacement, replacement_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 2677 || response.data[52] != 64 ||
+      read_u64(response.data + 53) != 97 ||
+      read_u64(response.data + 53 + 63 * 40) != 160) {
+    return 169;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(replacement);
+
+  for (size_t index = 0; index < 64; index += 1) {
+    capacity_active_ids[index] = 97 + index;
+  }
+  capacity_response = prekey_response(capacity_account_id, capacity_device_id,
+                                      capacity_active_ids, 64,
+                                      &capacity_response_len);
+  capacity_reconcile_values[1] = capacity_response;
+  capacity_reconcile_lengths[1] = capacity_response_len;
+  capacity_reconcile = vector_request(capacity_reconcile_values,
+                                      capacity_reconcile_lengths, 2,
+                                      &capacity_reconcile_len);
+  if (capacity_response == NULL || capacity_reconcile == NULL ||
+      mesh_messenger_reconcile_prekeys(capacity_reconcile,
+                                       capacity_reconcile_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 4 || read_u32(response.data) != 64) {
+    return 170;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(capacity_reconcile);
+  free(capacity_response);
+
+  export_request = vector_request(export_values, export_lengths, 2,
+                                  &export_request_len);
+  if (export_request == NULL ||
+      mesh_messenger_replenish_prekeys(export_request,
+                                       export_request_len,
+                                       &response) != MESH_LIBRARY_OK ||
+      response.len != 117 || response.data[52] != 0) {
+    return 171;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(export_request);
+
+  size_t legacy_active_path_len = strlen(argv[2]) + 15;
+  char *legacy_active_path = malloc(legacy_active_path_len);
+  size_t legacy_consumed_path_len = strlen(argv[2]) + 17;
+  char *legacy_consumed_path = malloc(legacy_consumed_path_len);
+  if (legacy_active_path == NULL || legacy_consumed_path == NULL) return 172;
+  snprintf(legacy_active_path, legacy_active_path_len, "%s.legacy-active",
+           argv[2]);
+  snprintf(legacy_consumed_path, legacy_consumed_path_len,
+           "%s.legacy-consumed", argv[2]);
+  uint8_t legacy_active_account_id[32];
+  uint8_t legacy_active_device_id[16];
+  uint8_t legacy_consumed_account_id[32];
+  uint8_t legacy_consumed_device_id[16];
+  if (!create_account_ids(legacy_active_path, "legacy-active",
+                          legacy_active_account_id, legacy_active_device_id) ||
+      !create_account_ids(legacy_consumed_path, "legacy-consumed",
+                          legacy_consumed_account_id,
+                          legacy_consumed_device_id)) {
+    return 173;
+  }
+  if (mesh_messenger_test_prepare_legacy_prekey(
+          (const uint8_t *)legacy_active_path, strlen(legacy_active_path),
+          &response) != MESH_LIBRARY_OK) {
+    return 174;
+  }
+  mesh_library_free_returned_bytes(&response);
+  if (!request_prekeys(legacy_active_path, 0, &response) ||
+      response.len != 117 || response.data[52] != 0) {
+    return 175;
+  }
+  mesh_library_free_returned_bytes(&response);
+  const uint64_t legacy_singleton_id[] = {2};
+  if (!reconcile_prekey_ids(legacy_active_path, legacy_active_account_id,
+                            legacy_active_device_id, legacy_singleton_id, 1,
+                            1) ||
+      !request_prekeys(legacy_active_path, 0, &response) ||
+      response.len != 117 || response.data[52] != 0) {
+    return 176;
+  }
+  mesh_library_free_returned_bytes(&response);
+
+  if (mesh_messenger_test_prepare_legacy_prekey(
+          (const uint8_t *)legacy_consumed_path, strlen(legacy_consumed_path),
+          &response) != MESH_LIBRARY_OK) {
+    return 177;
+  }
+  mesh_library_free_returned_bytes(&response);
+  if (!request_prekeys(legacy_consumed_path, 0, &response) ||
+      response.len != 117 || response.data[52] != 0) {
+    return 178;
+  }
+  mesh_library_free_returned_bytes(&response);
+  if (!reconcile_prekey_ids(legacy_consumed_path, legacy_consumed_account_id,
+                            legacy_consumed_device_id, NULL, 0, 0) ||
+      !request_prekeys(legacy_consumed_path, 0, &response) ||
+      response.len != 157 || response.data[52] != 1 ||
+      read_u64(response.data + 53) != 2) {
+    return 179;
+  }
+  mesh_library_free_returned_bytes(&response);
+  if (!request_prekeys(legacy_consumed_path, 1, &response) ||
+      response.len != 157 || response.data[52] != 1 ||
+      read_u64(response.data + 53) != 3) {
+    return 180;
+  }
+  mesh_library_free_returned_bytes(&response);
+  const uint64_t replacement_active_id[] = {3};
+  if (!reconcile_prekey_ids(legacy_consumed_path, legacy_consumed_account_id,
+                            legacy_consumed_device_id, replacement_active_id,
+                            1, 1) ||
+      !request_prekeys(legacy_consumed_path, 0, &response) ||
+      response.len != 157 || response.data[52] != 1 ||
+      read_u64(response.data + 53) != 2) {
+    return 181;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(legacy_active_path);
+  free(legacy_consumed_path);
   free(capacity_path);
 
   free(bob_peer);

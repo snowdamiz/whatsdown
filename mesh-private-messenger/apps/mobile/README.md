@@ -24,15 +24,26 @@ The delivery X25519 key is also a required 32-byte lowercase hex build pin. Send
 
 Outbound session state, history, and the encrypted outbox commit atomically. Submission is at-least-once with server deduplication; only a durable 2xx response permits local acknowledgement. The iOS and Android bridges serialize native calls.
 
-Each device keeps at most 64 storage-wrapped one-time prekey secrets, indexed by
-their public `prekey_id`. `mesh_messenger_replenish_prekeys` returns a canonical,
-device-signed `OTB` batch for upload; a requested count of zero re-exports all
-remaining public entries so a lost bridge response is recoverable without
-generating more secrets. An accepted initial message deletes only the exact
-claimed secret in the same SQLite transaction as its session and history; a
-failed transaction retains the secret, while replay after commit fails.
-Existing singleton records are conservatively retired on first pool use
-because their historical consumption cannot be proven. Bundle claim responses
+Each device keeps at most 64 server-active and 64 retired/in-flight
+storage-wrapped one-time prekey secrets, indexed by their public `prekey_id`.
+`mesh_messenger_replenish_prekeys` returns a canonical, device-signed `OTB`
+batch for upload; a requested count of zero re-exports pending entries or sends
+an authenticated empty recovery query. The server's identity-bound `OTA`
+response is applied through `mesh_messenger_reconcile_prekeys` before native
+code generates replacements. Foreground registration and mailbox sync perform
+that recovery and refill automatically. An accepted initial message deletes
+only the exact claimed secret and active marker in the same SQLite transaction
+as its session and history; a failed transaction retains both, while replay
+after commit fails.
+When all 64 retired slots are occupied, refill evicts the oldest retired
+secrets. This bounds storage, but more than 64 claimed initial messages delayed
+past delivery can no longer decrypt and require a protocol-level delivery
+acknowledgement before raising the limit.
+Existing singleton records are opened with their historical storage context,
+resealed under the per-ID context, and retained provisionally active until the
+first `OTA` classifies them as active or retired. A consumed singleton remains
+available for a delayed initial message but its ID is never generated again.
+Bundle claim responses
 must preserve the transparently verified base bundle and substitute the
 server-claimed ID/public key pair without changing other fields.
 

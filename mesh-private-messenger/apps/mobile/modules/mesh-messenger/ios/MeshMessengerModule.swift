@@ -25,6 +25,8 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.load_profile_export(request)
       case "mesh_messenger_replenish_prekeys":
         return try MeshLibrary.replenish_prekeys_export(request)
+      case "mesh_messenger_reconcile_prekeys":
+        return try MeshLibrary.reconcile_prekeys_export(request)
       case "mesh_messenger_create_link_request":
         return try MeshLibrary.create_link_request_export(request)
       case "mesh_messenger_device_link_sas":

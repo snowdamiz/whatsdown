@@ -8,6 +8,7 @@ import {
   parseByteList,
   parseDeviceSetSummary,
   parseHistory,
+  parsePrekeyCount,
   parseProfileSummary,
   payloadFromQr,
   payloadQrValue,
@@ -125,4 +126,10 @@ test('abuse work difficulty stays within the native verifier bound', () => {
   assert.equal(boundedInteger('8', 16, 1, 24), 8);
   assert.throws(() => boundedInteger('0', 16, 1, 24));
   assert.throws(() => boundedInteger('1.5', 16, 1, 24));
+});
+
+test('native prekey reconciliation counts stay canonical and bounded', () => {
+  assert.equal(parsePrekeyCount(writeU32(64)), 64);
+  assert.throws(() => parsePrekeyCount(writeU32(65)));
+  assert.throws(() => parsePrekeyCount(Uint8Array.of(0, 1)));
 });

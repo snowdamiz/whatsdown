@@ -2,9 +2,9 @@ from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishR
 from Protocol.V1 import PrekeyBundle, decode_device_credential, decode_prekey_bundle, encode_prekey_bundle
 
 pub type PrekeyPublishWrite do
-  PrekeysPublished
+  PrekeysPublished( active_ids :: List < U64 >)
 
-  PrekeysUnchanged
+  PrekeysUnchanged( active_ids :: List < U64 >)
 
   PrekeysUnauthorized
 
@@ -123,6 +123,27 @@ fn insert_prekeys(conn :: borrow PgConn, request :: PrekeyPublishRequest, index 
   end
 end
 
+fn prekey_row_ids(rows :: List < Map < String, DbValue > >, index :: Int, output :: List < U64 >) -> List < U64 > ! String do
+  if index >= List.length(rows) do
+    Ok(output)
+  else
+    prekey_row_ids(rows,
+    index + 1,
+    List.append(output, wide(Map.get(List.get(rows, index), "prekey_id")) ?))
+  end
+end
+
+fn active_prekey_ids(conn :: borrow PgConn, account_id :: Bytes, device_id :: Bytes) -> List < U64 > ! String do
+  let rows = Pg.query_values(conn,
+  "SELECT prekey_id::text FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL ORDER BY prekey_id",
+  [Binary(account_id), Binary(device_id)]) ?
+  if List.length(rows) > 64 do
+    Err("prekey pool overflow")
+  else
+    prekey_row_ids(rows, 0, List.new())
+  end
+end
+
 fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest) -> PrekeyPublishWrite ! String do
   case active_bundle(conn, request.account_id, request.device_id, true) ? do
     None -> Ok(PrekeysUnauthorized)
@@ -147,11 +168,16 @@ fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest)
             Err("prekey pool count failed")
           else if integer(Map.get(List.head(counts), "available_count")) ? + checked.new_count > 64 do
             Ok(PrekeyPoolFull)
-          else if checked.new_count == 0 do
-            Ok(PrekeysUnchanged)
           else
-            insert_prekeys(conn, request, 0) ?
-            Ok(PrekeysPublished)
+            if checked.new_count > 0 do
+              insert_prekeys(conn, request, 0) ?
+            end
+            let active_ids = active_prekey_ids(conn, request.account_id, request.device_id) ?
+            if checked.new_count == 0 do
+              Ok(PrekeysUnchanged(active_ids))
+            else
+              Ok(PrekeysPublished(active_ids))
+            end
           end
         end
       end

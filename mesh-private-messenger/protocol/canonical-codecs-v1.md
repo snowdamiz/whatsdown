@@ -110,7 +110,7 @@ version:u8 = 1
 tag:3 = "OTB"
 account_id:32
 device_id:16
-count:u8 (1..64)
+count:u8 (0..64)
 repeat count times:
   prekey_id:u64 (1..2^63-1, strictly increasing)
   public_key:32
@@ -124,12 +124,31 @@ ASCII("mesh-msg/v1/one-time-prekey-batch") ||
 canonical_OTB_fields_before_signature
 ```
 
-The encoded size is `117 + 40 * count` bytes and is at most 2,677 bytes.
-Decoders reject empty or oversized batches, duplicate or unsorted IDs,
+The encoded size is `117 + 40 * count` bytes and is at most 2,677 bytes. An
+empty batch is an authenticated recovery query that inserts nothing and asks
+for the current active set. Decoders reject oversized batches, duplicate or unsorted IDs,
 out-of-range IDs, wrong key or signature lengths, unsupported tags or
 versions, truncation, and trailing bytes. Replaying an identical signed batch
 is idempotent. Reusing an ID with different public-key bytes is a conflict and
 never changes or reactivates the original row.
+
+## One-time prekey active acknowledgement (`OTA`)
+
+```text
+version:u8 = 1
+tag:3 = "OTA"
+account_id:32
+device_id:16
+count:u8 (0..64)
+repeat count times:
+  active_prekey_id:u64 (1..2^63-1, strictly increasing)
+```
+
+The service returns this identity-bound body with every successful `OTB`
+publication. It is encoded after the publication transaction has inserted any
+new rows and lists exactly the device's unconsumed server IDs. The maximum size
+is 565 bytes. Decoders reject unknown versions, wrong identity lengths,
+duplicate or unsorted IDs, out-of-range IDs, truncation, and trailing bytes.
 
 ## One-time prekey bundle claim (`OTQ`)
 

@@ -51,6 +51,10 @@ the bounded internal wake request. Directory and delivery services retain and
 forward only opaque ciphertext. The exact boundary and wire ceilings are in
 [`../../protocol/push-token-wire-v1.md`](../../protocol/push-token-wire-v1.md).
 
+`Prekeys.Pool` exports device-signed `OTB` publications, anonymous `OTQ`
+claims, and identity-bound `OTA` active-set acknowledgements. Empty signed
+publications provide crash-safe recovery without generating or reusing a key.
+
 Unknown optional extensions are retained byte-for-byte. Version 1 has no
 registered mandatory extension, so every mandatory extension is rejected.
 The complete field layouts and decoder ceilings are specified in

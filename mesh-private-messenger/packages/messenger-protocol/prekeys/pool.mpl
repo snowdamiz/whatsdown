@@ -18,6 +18,12 @@ pub struct PrekeyClaimRequest do
   base_bundle_hash :: Bytes
 end
 
+pub struct PrekeyPublishResponse do
+  account_id :: Bytes
+  device_id :: Bytes
+  active_ids :: List < U64 >
+end
+
 struct ReadBytes do
   state :: BinaryReader
   value :: Bytes
@@ -36,6 +42,11 @@ end
 struct ReadPrekeys do
   state :: BinaryReader
   value :: List < OneTimePrekeyPublic >
+end
+
+struct ReadIds do
+  state :: BinaryReader
+  value :: List < U64 >
 end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
@@ -138,6 +149,19 @@ fn valid_prekeys(values :: List < OneTimePrekeyPublic >, index :: Int, previous 
   end
 end
 
+fn valid_ids(values :: List < U64 >, index :: Int, previous :: U64) -> Bool ! String do
+  if index >= List.length(values) do
+    Ok(true)
+  else
+    let value = List.get(values, index)
+    if !(valid_id(value) ?) || U64.compare(value, previous) <= 0 do
+      Ok(false)
+    else
+      valid_ids(values, index + 1, value)
+    end
+  end
+end
+
 fn encode_prekeys(values :: List < OneTimePrekeyPublic >, index :: Int, output :: Bytes) -> Bytes ! String do
   if index >= List.length(values) do
     Ok(output)
@@ -176,9 +200,33 @@ output :: List < OneTimePrekeyPublic >) -> ReadPrekeys ! String do
   end
 end
 
+fn encode_ids(values :: List < U64 >, index :: Int, output :: Bytes) -> Bytes ! String do
+  if index >= List.length(values) do
+    Ok(output)
+  else
+    encode_ids(values, index + 1, append(output, write_u64(List.get(values, index)) ?) ?)
+  end
+end
+
+fn decode_ids(state :: BinaryReader, remaining :: Int, previous :: U64, output :: List < U64 >) -> ReadIds ! String do
+  if remaining <= 0 do
+    Ok(ReadIds {
+      state : state,
+      value : output
+    })
+  else
+    let id = take_u64(state) ?
+    if !(valid_id(id.value) ?) || U64.compare(id.value, previous) <= 0 do
+      Err("invalid active prekey order")
+    else
+      decode_ids(id.state, remaining - 1, id.value, List.append(output, id.value))
+    end
+  end
+end
+
 fn publish_content(value :: PrekeyPublishRequest) -> Bytes ! String do
   let count = List.length(value.prekeys)
-  if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || count <= 0 || count > 64 || !(valid_prekeys(value.prekeys,
+  if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || count > 64 || !(valid_prekeys(value.prekeys,
   0,
   U64.parse("0") ?) ?) do
     Err("invalid prekey publication")
@@ -218,7 +266,7 @@ pub fn decode_prekey_publish(input :: Bytes) -> PrekeyPublishRequest ! String do
   let account_id = take_fixed(magic.state, 32) ?
   let device_id = take_fixed(account_id.state, 16) ?
   let count = take_u8(device_id.state) ?
-  if count.value <= 0 || count.value > 64 do
+  if count.value > 64 do
     Err("invalid prekey publication count")
   else
     let prekeys = decode_prekeys(count.state, count.value, U64.parse("0") ?, List.new()) ?
@@ -260,5 +308,44 @@ pub fn decode_prekey_claim(input :: Bytes) -> PrekeyClaimRequest ! String do
     }
     let _ = claim_content(value) ?
     Ok(value)
+  end
+end
+
+pub fn encode_prekey_publish_response(value :: PrekeyPublishResponse) -> Bytes ! String do
+  let count = List.length(value.active_ids)
+  if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || count > 64 || !(valid_ids(value.active_ids,
+  0,
+  U64.parse("0") ?) ?) do
+    Err("invalid prekey publication response")
+  else
+    let prefix = join([byte(1) ?, Bytes.from_utf8("OTA"), value.account_id, value.device_id, byte(count) ?],
+    0,
+    Bytes.empty()) ?
+    encode_ids(value.active_ids, 0, prefix)
+  end
+end
+
+pub fn decode_prekey_publish_response(input :: Bytes) -> PrekeyPublishResponse ! String do
+  let version = take_u8(start(input, 565) ?) ?
+  let magic = take_fixed(version.state, 3) ?
+  let account_id = take_fixed(magic.state, 32) ?
+  let device_id = take_fixed(account_id.state, 16) ?
+  let count = take_u8(device_id.state) ?
+  if count.value > 64 do
+    Err("invalid active prekey count")
+  else
+    let active_ids = decode_ids(count.state, count.value, U64.parse("0") ?, List.new()) ?
+    done(active_ids.state) ?
+    if version.value != 1 || !Bytes.secure_equals(magic.value, Bytes.from_utf8("OTA")) do
+      Err("invalid prekey publication response wire")
+    else
+      let value = PrekeyPublishResponse {
+        account_id : account_id.value,
+        device_id : device_id.value,
+        active_ids : active_ids.value
+      }
+      let _ = encode_prekey_publish_response(value) ?
+      Ok(value)
+    end
   end
 end

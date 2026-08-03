@@ -136,6 +136,12 @@ const readU32 = (value: Uint8Array): number => {
   return new DataView(value.buffer, value.byteOffset, 4).getUint32(0, false);
 };
 
+export function parsePrekeyCount(input: Uint8Array): number {
+  const count = readU32(input);
+  if (count > 64) throw new Error('Prekey count is too large');
+  return count;
+}
+
 const readU64Number = (value: Uint8Array): number => {
   if (value.length !== 8) throw new Error('Invalid u64');
   const parsed = new DataView(value.buffer, value.byteOffset, 8).getBigUint64(0, false);

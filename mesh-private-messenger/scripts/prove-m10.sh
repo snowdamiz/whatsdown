@@ -16,6 +16,9 @@ readonly database="$temp_dir/mobile.db"
 readonly peer_database="$database.bob"
 readonly linked_database="$database.linked"
 readonly capacity_database="$database.capacity"
+readonly legacy_active_database="$database.legacy-active"
+readonly legacy_consumed_database="$database.legacy-consumed"
+readonly legacy_core_dir="$temp_dir/legacy-core"
 if [[ "$(uname -s)" == Darwin ]]; then
   readonly library="$temp_dir/libmessenger_mobile.dylib"
   readonly host_system_libs=(-framework Security -framework CoreFoundation)
@@ -91,7 +94,7 @@ prove_bridge() {
   fi
   local symbol
   for symbol in mesh_messenger_outbox_list mesh_messenger_outbox_ack \
-    mesh_messenger_replenish_prekeys; do
+    mesh_messenger_replenish_prekeys mesh_messenger_reconcile_prekeys; do
     grep -q "\"$symbol\"" "$module_dir/ios/MeshMessengerModule.swift" || \
       fail "iOS bridge does not dispatch $symbol"
     grep -q "\"$symbol\"" \
@@ -123,22 +126,34 @@ main() {
   command -v cc >/dev/null || fail "a C compiler is required"
   command -v sqlite3 >/dev/null || fail "sqlite3 is required"
 
-  "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
+  mkdir "$legacy_core_dir"
+  sed -e "\$r $core_dir/tests/legacy_fixture.mesh.inc" \
+    "$core_dir/main.mpl" >"$legacy_core_dir/main.mpl"
+  sed -e "s|../../../mesh-lang/packages/mesh-binary|$repo_root/mesh-lang/packages/mesh-binary|" \
+    -e "s|../messenger-protocol|$repo_root/mesh-private-messenger/packages/messenger-protocol|" \
+    "$core_dir/mesh.toml" >"$legacy_core_dir/mesh.toml"
+  "$meshc_bin" build "$legacy_core_dir" --artifact cdylib --output "$library"
   cc "$core_dir/tests/host.c" -I "$temp_dir" -L "$temp_dir" -lmessenger_mobile \
     -lsqlite3 -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
   "$temp_dir/host" "$vector" "$database"
 
-  [[ "$(sqlite3 "$database" "SELECT count(*) = 17 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "sender SQLite did not contain seventeen encrypted session, outbox, and prekey records"
-  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 13 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "recipient SQLite did not contain thirteen encrypted fanout and prekey records"
-  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 11 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "linked-device SQLite did not contain eleven encrypted sync and prekey records"
-  [[ "$(sqlite3 "$capacity_database" "SELECT count(*) = 72 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+  "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
+
+  [[ "$(sqlite3 "$database" "SELECT count(*) = 18 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "sender SQLite did not contain eighteen encrypted session, outbox, and prekey records"
+  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 14 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "recipient SQLite did not contain fourteen encrypted fanout and prekey records"
+  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 12 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "linked-device SQLite did not contain twelve encrypted sync and prekey records"
+  [[ "$(sqlite3 "$capacity_database" "SELECT count(*) = 73 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
     fail "bounded-pool SQLite did not contain sixty-four encrypted one-time prekeys"
+  [[ "$(sqlite3 "$legacy_active_database" "SELECT count(*) >= 10 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "active legacy singleton migration did not remain encrypted"
+  [[ "$(sqlite3 "$legacy_consumed_database" "SELECT count(*) >= 11 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "consumed legacy singleton migration did not remain encrypted"
   local leak_pattern='whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|post-quantum-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
   local leaks
-  leaks="$(LC_ALL=C grep -a -E -o "$leak_pattern" "$database" "$peer_database" "$linked_database" "$capacity_database" || true)"
+  leaks="$(LC_ALL=C grep -a -E -o "$leak_pattern" "$database" "$peer_database" "$linked_database" "$capacity_database" "$legacy_active_database" "$legacy_consumed_database" || true)"
   if [[ -n "$leaks" ]]; then
     fail "SQLite leaked a record label or profile value: $leaks"
   fi

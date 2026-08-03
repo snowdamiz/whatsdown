@@ -16,6 +16,7 @@ object MeshLibrary {
     @JvmStatic external fun create_account_export(request: ByteArray): ByteArray
     @JvmStatic external fun load_profile_export(request: ByteArray): ByteArray
     @JvmStatic external fun replenish_prekeys_export(request: ByteArray): ByteArray
+    @JvmStatic external fun reconcile_prekeys_export(request: ByteArray): ByteArray
     @JvmStatic external fun create_link_request_export(request: ByteArray): ByteArray
     @JvmStatic external fun device_link_sas_export(request: ByteArray): ByteArray
     @JvmStatic external fun authorize_device_link_export(request: ByteArray): ByteArray

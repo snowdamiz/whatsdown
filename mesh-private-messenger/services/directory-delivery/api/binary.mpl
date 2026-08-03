@@ -1,5 +1,5 @@
 from Protocol.V1 import decode_device_revocation, decode_directory_entry, decode_directory_lookup, decode_mailbox_ack, decode_mailbox_fetch, decode_outer_envelope, encode_delivery_batch, encode_directory_entry, encode_prekey_bundle
-from Prekeys.Pool import decode_prekey_claim, decode_prekey_publish
+from Prekeys.Pool import PrekeyPublishResponse, decode_prekey_claim, decode_prekey_publish, encode_prekey_publish_response
 from Privacy.Edge import decode_sealed_delivery, open_delivery
 from Push.Binding import decode_push_bind, decode_push_unbind
 from Storage.Delivery import DeliveryInsert, acknowledge_mailbox, enqueue_envelope, fetch_mailbox
@@ -304,8 +304,22 @@ pub fn publish_prekeys_request(pool :: PoolHandle, body :: Bytes) -> BinaryResul
     Err( _) -> empty(400)
     Ok( request) -> case publish_prekeys(pool, request) do
       Err( _) -> empty(500)
-      Ok( PrekeysPublished) -> empty(201)
-      Ok( PrekeysUnchanged) -> empty(200)
+      Ok( PrekeysPublished( active_ids)) -> case encode_prekey_publish_response(PrekeyPublishResponse {
+        account_id : request.account_id,
+        device_id : request.device_id,
+        active_ids : active_ids
+      }) do
+        Err( _) -> empty(500)
+        Ok( encoded) -> response(201, encoded)
+      end
+      Ok( PrekeysUnchanged( active_ids)) -> case encode_prekey_publish_response(PrekeyPublishResponse {
+        account_id : request.account_id,
+        device_id : request.device_id,
+        active_ids : active_ids
+      }) do
+        Err( _) -> empty(500)
+        Ok( encoded) -> response(200, encoded)
+      end
       Ok( PrekeysUnauthorized) -> empty(403)
       Ok( PrekeysConflict) -> empty(409)
       Ok( PrekeyPoolFull) -> empty(429)

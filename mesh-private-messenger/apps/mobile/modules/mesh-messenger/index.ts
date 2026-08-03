@@ -21,6 +21,7 @@ export {
   process_delivery_batch_export,
   privacy_submission_export,
   replenish_prekeys_export,
+  reconcile_prekeys_export,
   receive_initial_export,
   receive_message_export,
   send_fanout_export,

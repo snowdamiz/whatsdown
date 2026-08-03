@@ -20,10 +20,12 @@ Every fake push contains only the generic body `New encrypted activity` and the 
 
 ## One-time prekey pools
 
-- Devices publish canonical, device-signed batches with `POST /v1/prekeys/one-time/batch`. A new batch returns `201`, an exact replay returns `200`, an invalid signature returns `403`, an ID/key conflict returns `409`, and exceeding the 64 available-key cap returns `429`.
+- Devices publish canonical, device-signed batches with `POST /v1/prekeys/one-time/batch`. A new batch returns `201`, an exact replay or empty recovery query returns `200`, an invalid signature returns `403`, an ID/key conflict returns `409`, and exceeding the 64 available-key cap returns `429`. Every `200`/`201` body is the canonical `OTA` list of exactly the server's active IDs after the transaction.
 - Clients claim with `GET /v1/prekeys/bundle?request=<hex>`, where `request` is the canonical 84-byte query bound to the SHA-256 hash of the verified base bundle. Success returns a canonical prekey bundle. A missing, revoked, or stale target returns `404`; an exhausted pool returns `409`.
 - Never retry exhaustion in a tight loop. Back off, preserve the verified base bundle, and let the target replenish its pool. Alert only on aggregate exhaustion and replenishment rates; account, device, and prekey IDs must not be metric labels.
 - Registration extracts its submitted one-time prekey into the pool atomically. Publication is idempotent, but consumed IDs are permanent tombstones and must never be republished with different key bytes. Revocation deletes the device's entire pool.
+- Mobile clients reconcile each `OTA` body before generating replacements. They retain at most 64 non-active secrets for delayed initial messages and at most 64 active secrets. If the retired bound is full, replenishment evicts the oldest retired secrets atomically; more than 64 claimed-but-undelivered initial messages can therefore become undecryptable and require incident investigation.
+- During upgrade, a legacy singleton secret is opened with its historical context, resealed under its per-ID context, and held provisionally active until `OTA` reports whether the server still has it. An already-consumed singleton becomes retired without permitting its ID to be reused.
 - Investigate sustained `429` responses before changing limits. The 64-key cap is a protocol and abuse-control boundary, not a deployment tuning knob.
 
 ## Operate

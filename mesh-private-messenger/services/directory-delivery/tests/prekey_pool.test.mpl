@@ -1,7 +1,7 @@
 from Api.Binary import claim_prekey_request, publish_prekeys_request, revoke_device_request
 from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation
 from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
-from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
+from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, decode_prekey_publish_response, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
 from Protocol.V1 import AccountIdentity, DirectoryEntry, PrekeyBundle, ProtocolError, decode_prekey_bundle, encode_account_identity, encode_device_revocation, encode_directory_entry, encode_prekey_bundle
 from Storage.Devices import DeviceWrite, register_device, resolve_devices
 
@@ -229,6 +229,13 @@ fn happy_path() -> Bool ! String do
   let stored = decoded_bundle(target_base) ?
   assert(U64.compare(stored.one_time_prekey_id, wide("0") ?) == 0)
   assert(Bytes.length(stored.one_time_prekey) == 0)
+  let recovery = sign_publish(target.signing_private_key,
+  unsigned_publish(identity, target, List.new()) ?) ?
+  let recovery_response = publish_prekeys_request(pool, encode_prekey_publish(recovery) ?)
+  assert(recovery_response.status == 200)
+  let recovery_active = decode_prekey_publish_response(recovery_response.body) ?
+  assert(List.length(recovery_active.active_ids) == 1)
+  assert(U64.compare(List.head(recovery_active.active_ids), wide("2") ?) == 0)
   let claim = claim_request(identity, target, target_base)
   let stale_claim = PrekeyClaimRequest {
     account_id : claim.account_id,
@@ -253,8 +260,17 @@ fn happy_path() -> Bool ! String do
   let forged = sign_publish(requester.signing_private_key, unsigned) ?
   assert(publish_prekeys_request(pool, encode_prekey_publish(forged) ?).status == 403)
   let published = sign_publish(target.signing_private_key, unsigned) ?
-  assert(publish_prekeys_request(pool, encode_prekey_publish(published) ?).status == 201)
-  assert(publish_prekeys_request(pool, encode_prekey_publish(published) ?).status == 200)
+  let published_response = publish_prekeys_request(pool, encode_prekey_publish(published) ?)
+  assert(published_response.status == 201)
+  let published_active = decode_prekey_publish_response(published_response.body) ?
+  assert(Bytes.secure_equals(published_active.account_id, identity.account_id))
+  assert(Bytes.secure_equals(published_active.device_id, target.device_id))
+  assert(List.length(published_active.active_ids) == 2)
+  assert(U64.compare(List.get(published_active.active_ids, 0), wide("100") ?) == 0)
+  assert(U64.compare(List.get(published_active.active_ids, 1), wide("101") ?) == 0)
+  let replay_response = publish_prekeys_request(pool, encode_prekey_publish(published) ?)
+  assert(replay_response.status == 200)
+  assert(List.length(decode_prekey_publish_response(replay_response.body) ?.active_ids) == 2)
   assert(publish_prekeys_request(pool,
   append_bytes(encode_prekey_publish(published) ?, repeated(0, 1) ?) ?).status == 400)
   let tampered = PrekeyPublishRequest {
@@ -284,6 +300,9 @@ fn happy_path() -> Bool ! String do
   let ids_match = (first_claim_id == 100 && second_claim_id == 101) || (first_claim_id == 101 && second_claim_id == 100)
   assert(ids_match)
   assert(claim_prekey_request(pool, claim_body).status == 409)
+  let exhausted_recovery = publish_prekeys_request(pool, encode_prekey_publish(recovery) ?)
+  assert(exhausted_recovery.status == 200)
+  assert(List.length(decode_prekey_publish_response(exhausted_recovery.body) ?.active_ids) == 0)
   let replenished = sign_publish(target.signing_private_key,
   unsigned_publish(identity,
   target,

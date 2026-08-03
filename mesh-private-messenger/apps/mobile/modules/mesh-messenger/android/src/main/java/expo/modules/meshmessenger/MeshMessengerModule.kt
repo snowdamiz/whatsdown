@@ -21,6 +21,7 @@ class MeshMessengerModule : Module() {
                     "mesh_messenger_create_account" -> MeshLibrary.create_account_export(request)
                     "mesh_messenger_load_profile" -> MeshLibrary.load_profile_export(request)
                     "mesh_messenger_replenish_prekeys" -> MeshLibrary.replenish_prekeys_export(request)
+                    "mesh_messenger_reconcile_prekeys" -> MeshLibrary.reconcile_prekeys_export(request)
                     "mesh_messenger_create_link_request" -> MeshLibrary.create_link_request_export(request)
                     "mesh_messenger_device_link_sas" -> MeshLibrary.device_link_sas_export(request)
                     "mesh_messenger_authorize_device_link" -> MeshLibrary.authorize_device_link_export(request)

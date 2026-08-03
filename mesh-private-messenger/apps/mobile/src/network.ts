@@ -9,6 +9,8 @@ import {
   outbox_list_export,
   privacy_submission_export,
   process_delivery_batch_export,
+  reconcile_prekeys_export,
+  replenish_prekeys_export,
   send_fanout_export,
   transparency_lookup_export,
   verify_transparency_export,
@@ -21,14 +23,18 @@ import {
   parseByteList,
   parseDeviceSetSummary,
   parseProfileSummary,
+  parsePrekeyCount,
   utf8,
   vectors,
+  writeU32,
 } from './codec';
+import { createKeyedSingleFlight } from './single-flight';
 
 const baseUrl = (process.env.EXPO_PUBLIC_MESSENGER_BASE_URL ?? 'http://127.0.0.1:18086').replace(
   /\/$/,
   '',
 );
+const synchronizePrekeysByDatabase = createKeyedSingleFlight<string, void>();
 
 async function binaryRequest(
   path: string,
@@ -56,6 +62,28 @@ async function binaryRequest(
 export async function registerDirectory(databasePath: string): Promise<void> {
   const entry = await directory_entry_export(utf8(databasePath));
   await binaryRequest('/v1/devices/register', entry, 'PUT');
+  await synchronizePrekeys(databasePath);
+}
+
+async function publishPrekeys(databasePath: string, count: number): Promise<number> {
+  const publication = await replenish_prekeys_export(
+    batchRequest(databasePath, writeU32(count)),
+  );
+  const acknowledgement = await binaryRequest('/v1/prekeys/one-time/batch', publication);
+  return parsePrekeyCount(
+    await reconcile_prekeys_export(vectors(utf8(databasePath), acknowledgement)),
+  );
+}
+
+async function synchronizePrekeysOnce(databasePath: string): Promise<void> {
+  const active = await publishPrekeys(databasePath, 0);
+  if (active < 64 && (await publishPrekeys(databasePath, 64 - active)) !== 64) {
+    throw new Error('Server did not accept the complete prekey refill');
+  }
+}
+
+export function synchronizePrekeys(databasePath: string): Promise<void> {
+  return synchronizePrekeysByDatabase(databasePath, () => synchronizePrekeysOnce(databasePath));
 }
 
 export async function resolveDeviceSet(
@@ -166,4 +194,5 @@ export async function synchronizeMailbox(databasePath: string): Promise<void> {
   const batch = await binaryRequest('/v1/mailbox/fetch', fetchRequest);
   const acknowledgement = await process_delivery_batch_export(batchRequest(databasePath, batch));
   await binaryRequest('/v1/mailbox/ack', acknowledgement);
+  await synchronizePrekeys(databasePath);
 }

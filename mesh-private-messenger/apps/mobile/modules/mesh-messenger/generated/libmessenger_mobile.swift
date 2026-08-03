@@ -79,6 +79,17 @@ public enum MeshLibrary {
     return payload
   }
 
+  public static func reconcile_prekeys_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_reconcile_prekeys(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
   public static func create_link_request_export(_ request: Data) throws -> Data {
     var response = MeshLibraryBytes(data: nil, len: 0)
     let status = request.withUnsafeBytes { bytes in
