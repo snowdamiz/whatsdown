@@ -27,6 +27,13 @@ the bounded canonical binary form used by HTTP delivery; decoding rejects
 wrong magic, unsupported profiles, oversized ciphertext, truncation, and
 trailing bytes.
 
+`Groups.Mls` exports the development-only suite `0x0003`: bounded immutable
+membership trees, signed add/remove commits, HPKE welcomes, epoch messages,
+delivery fanout, extension negotiation, and purpose-16 sealed snapshots.
+Commit, welcome, message, and snapshot decoders are canonical and reject
+trailing data. The exact limits and independent-review release gate are in
+[`../../protocol/mls-groups-v1.md`](../../protocol/mls-groups-v1.md).
+
 Unknown optional extensions are retained byte-for-byte. Version 1 has no
 registered mandatory extension, so every mandatory extension is rejected.
 The complete field layouts and decoder ceilings are specified in

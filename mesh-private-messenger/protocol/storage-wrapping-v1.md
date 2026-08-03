@@ -26,14 +26,16 @@ Purpose identifiers are stable: `1` root key, `2` sending chain key, `3`
 receiving chain key, `4` header key, `5` attachment key, `6` account
 authorization key, `7` device signing key, `8` device DH key, `9` signed
 prekey, `10` one-time prekey, `11` skipped message key, `12` skipped-key map,
-`13` ratchet DH key, `14` local data, and `15` ML-KEM prekey seed. Unknown
-identifiers are rejected.
+`13` ratchet DH key, `14` local data, `15` ML-KEM prekey seed, and `16` group
+epoch secret. Unknown identifiers are rejected.
 
 The Session ID is the canonical 32-byte session identifier for session,
-ratchet, message, and header keys; other purposes use 32 zero bytes. The Object
-ID prevents swapping values with the same purpose: use the 32-byte hash of the
-corresponding public key for account/device keys and prekeys, the attachment ID
-for attachment keys, and
+ratchet, message, and header keys; purpose `16` uses the 32-byte group ID and
+other purposes use 32 zero bytes. The Object ID prevents swapping values with
+the same purpose: use the 32-byte hash of the corresponding public key for
+account/device keys and prekeys, the attachment ID for attachment keys, the
+hash of the complete canonical public group-snapshot header for purpose `16`,
+and
 `SHA-256(session_id || ratchet_public_key || message_number_u64_be)` for a
 skipped message key. A singleton session key uses its session ID as Object ID;
 a chain or header generation uses
