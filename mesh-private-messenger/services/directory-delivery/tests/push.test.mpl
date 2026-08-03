@@ -4,10 +4,10 @@ from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, genera
 from Protocol.V1 import AccountIdentity, DirectoryEntry, OuterEnvelope, ProtocolError, encode_account_identity, encode_prekey_bundle
 from Push.Binding import PushBindRequest, PushUnbindRequest, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
 from Runtime.FakePushProvider import generic_push_payload
-from Runtime.PushDispatch import dispatch_push
+from Runtime.PushDispatch import broker_status, dispatch_push
 from Storage.Delivery import DeliveryInsert, enqueue_envelope
 from Storage.Devices import DeviceWrite, register_device
-from Storage.Outbox import finish_outbox, lease_outbox
+from Storage.Outbox import PushResult, finish_outbox, lease_outbox
 from Storage.Push import find_push_binding_for_mailbox
 
 fn repeated(value :: Int, length :: Int) -> Bytes ! String do
@@ -125,6 +125,25 @@ fn unsigned_unbind(mailbox_token_hash :: Bytes, revision :: String) -> PushUnbin
     revision : U64.parse(revision) ?,
     signature : repeated(0, 64) ?
   })
+end
+
+test("push broker statuses preserve retry semantics") do
+  case broker_status(204) do
+    PushDelivered -> assert(true)
+    _ -> assert(false)
+  end
+  case broker_status(422) do
+    PushPermanent( code) -> assert(code == "provider_rejected")
+    _ -> assert(false)
+  end
+  case broker_status(503) do
+    PushRetryable( code) -> assert(code == "provider_retryable")
+    _ -> assert(false)
+  end
+  case broker_status(500) do
+    PushRetryable( code) -> assert(code == "broker_invalid_response")
+    _ -> assert(false)
+  end
 end
 
 fn text(value :: DbValue) -> String ! String do

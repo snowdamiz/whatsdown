@@ -1,7 +1,7 @@
 from Storage.Outbox import finish_outbox, lease_outbox
 from Storage.Retention import purge_envelopes
 from Runtime.Registry import get_pool
-from Runtime.PushDispatch import dispatch_push
+from Runtime.PushDispatch import dispatch_configured_push
 
 fn process_outbox_once(pool :: PoolHandle, owner :: String) -> Bool ! String do
   let events = lease_outbox(pool, owner, 1, 30) ?
@@ -12,7 +12,7 @@ fn process_outbox_once(pool :: PoolHandle, owner :: String) -> Bool ! String do
     finish_outbox(pool,
     event,
     owner,
-    dispatch_push(pool, event, Env.get("MESSENGER_LOCAL_FAKE_PUSH_AVAILABLE", "true") != "false") ?) ?
+    dispatch_configured_push(pool, event) ?) ?
     Ok(true)
   end
 end
