@@ -41,6 +41,8 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.start_conversation_export(request)
       case "mesh_messenger_receive_initial":
         return try MeshLibrary.receive_initial_export(request)
+      case "mesh_messenger_send_fanout":
+        return try MeshLibrary.send_fanout_export(request)
       case "mesh_messenger_send_message":
         return try MeshLibrary.send_message_export(request)
       case "mesh_messenger_receive_message":

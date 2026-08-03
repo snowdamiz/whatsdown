@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   parseConversations,
+  parseByteList,
   parseDeviceSetSummary,
   parseHistory,
   parseProfileSummary,
@@ -92,4 +93,14 @@ test('conversation and history lists reject trailing bytes and decode policy sta
   assert.equal(history[0]?.body, 'hello');
   assert.throws(() => parseHistory(new Uint8Array([...vectors(writeU32(0)), 1])));
   assert.equal(vector(utf8('ok')).length, 6);
+});
+
+test('binary output lists decode each bounded envelope', () => {
+  const first = Uint8Array.of(1, 2, 3);
+  const second = Uint8Array.of(4, 5);
+  assert.deepEqual(parseByteList(vectors(writeU32(2), first, second), 8, 65_606), [
+    first,
+    second,
+  ]);
+  assert.throws(() => parseByteList(vectors(writeU32(9)), 8, 65_606));
 });

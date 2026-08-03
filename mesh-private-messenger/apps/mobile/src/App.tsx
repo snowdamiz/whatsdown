@@ -29,8 +29,6 @@ import {
   list_conversations_export,
   load_history_export,
   load_profile_export,
-  send_message_export,
-  start_conversation_export,
   update_conversation_export,
 } from '../modules/mesh-messenger';
 import {
@@ -42,13 +40,13 @@ import {
   hex,
   parseConversations,
   parseHistory,
+  parseProfileSummary,
   payloadFromQr,
   payloadQrValue,
   peerRequest,
   policyRequest,
   profileFromQr,
   profileQrValue,
-  startRequest,
   utf8,
   vectors,
 } from './codec';
@@ -56,9 +54,8 @@ import {
   authorizeDeviceLink,
   loadAccountDevices,
   registerDirectory,
-  resolveContact,
   revokeDevice,
-  submitEnvelope,
+  sendFanout,
   synchronizeMailbox,
 } from './network';
 import { listenForGenericWakeups } from './push';
@@ -317,12 +314,12 @@ export default function App() {
       return;
     }
     void perform('Sealing the first message…', async () => {
-      const envelope = await start_conversation_export(startRequest(databasePath, contact, body.trim()));
-      await submitEnvelope(envelope);
+      const changed = await sendFanout(databasePath, parseProfileSummary(contact).username, body.trim());
       await refreshConversations();
       setFirstMessage('');
       setScannedProfile(null);
-      setStatus('Encrypted message queued');
+      setStatus(changed ? 'Encrypted message queued · device change detected' : 'Encrypted message queued');
+      if (changed) setError('Their signed device set changed. Review linked devices and verify again.');
       setScreen('home');
     });
   }
@@ -330,29 +327,23 @@ export default function App() {
   function startByUsername(): void {
     const target = contactUsername.trim().toLowerCase();
     void perform('Resolving exact username…', async () => {
-      const contact = await resolveContact(target);
-      const envelope = await start_conversation_export(
-        startRequest(databasePath, contact, firstMessage.trim()),
-      );
-      await submitEnvelope(envelope);
+      const changed = await sendFanout(databasePath, target, firstMessage.trim());
       await refreshConversations();
       setContactUsername('');
       setFirstMessage('');
-      setStatus('Encrypted message queued');
+      setStatus(changed ? 'Encrypted message queued · device change detected' : 'Encrypted message queued');
+      if (changed) setError('Their signed device set changed. Review linked devices and verify again.');
     });
   }
 
   function sendMessage(): void {
     if (!selected || !composer.trim()) return;
     void perform('Encrypting message…', async () => {
-      const currentProfile = await resolveContact(selected.username);
-      const envelope = await send_message_export(
-        startRequest(databasePath, currentProfile, composer.trim()),
-      );
-      await submitEnvelope(envelope);
+      const changed = await sendFanout(databasePath, selected.username, composer.trim());
       setComposer('');
       await refreshHistory(selected);
-      setStatus('Encrypted message queued');
+      setStatus(changed ? 'Encrypted message queued · device change detected' : 'Encrypted message queued');
+      if (changed) setError('Their signed device set changed. Review linked devices and verify again.');
     });
   }
 

@@ -59,6 +59,7 @@ int32_t mesh_messenger_inspect_device_set(const uint8_t *request, uint64_t reque
 int32_t mesh_messenger_create_device_revocation(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_start_conversation(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_receive_initial(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_send_fanout(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_send_message(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_receive_message(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_update_conversation(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);

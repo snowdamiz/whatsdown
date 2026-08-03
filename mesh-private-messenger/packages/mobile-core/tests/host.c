@@ -239,6 +239,68 @@ static uint8_t *device_set(const uint8_t **profiles,
   return output;
 }
 
+static uint8_t *device_set_with_revoked(const uint8_t *profile,
+                                        size_t profile_len,
+                                        const uint8_t *revoked_device_id,
+                                        uint64_t sequence,
+                                        size_t *output_len) {
+  const uint8_t *profiles[] = {profile};
+  const size_t lengths[] = {profile_len};
+  size_t active_len = 0;
+  uint8_t *active = device_set(profiles, lengths, 1, sequence, &active_len);
+  if (active == NULL || active_len == 0 || active[active_len - 1] != 0) {
+    free(active);
+    return NULL;
+  }
+  uint8_t *output = realloc(active, active_len + 16);
+  if (output == NULL) {
+    free(active);
+    return NULL;
+  }
+  output[active_len - 1] = 1;
+  memcpy(output + active_len, revoked_device_id, 16);
+  *output_len = active_len + 16;
+  return output;
+}
+
+static int profile_mailbox(const uint8_t *profile, size_t profile_len,
+                           const uint8_t **mailbox) {
+  const uint8_t *username = NULL;
+  const uint8_t *entry = NULL;
+  size_t username_len = 0;
+  size_t entry_len = 0;
+  if (!profile_entry(profile, profile_len, &username, &username_len, &entry,
+                     &entry_len) ||
+      entry_len < 32) {
+    return 0;
+  }
+  *mailbox = entry + entry_len - 32;
+  return 1;
+}
+
+static uint8_t *output_list_item(const uint8_t *input, size_t input_len,
+                                 size_t requested, size_t *count,
+                                 size_t *item_len) {
+  if (input_len < 8 || read_u32(input) != 4) return NULL;
+  *count = read_u32(input + 4);
+  size_t offset = 8;
+  for (size_t index = 0; index < *count; index += 1) {
+    if (offset + 4 > input_len) return NULL;
+    size_t length = read_u32(input + offset);
+    offset += 4;
+    if (length == 0 || offset + length > input_len) return NULL;
+    if (index == requested) {
+      uint8_t *item = malloc(length);
+      if (item == NULL) return NULL;
+      memcpy(item, input + offset, length);
+      *item_len = length;
+      return item;
+    }
+    offset += length;
+  }
+  return NULL;
+}
+
 static uint8_t *store_request(const char *database_path, const uint8_t *envelope,
                               size_t envelope_len, size_t *request_len) {
   static const uint8_t record_key[] = "whatsdown-mobile-record-key";
@@ -533,7 +595,6 @@ int main(int argc, char **argv) {
   }
   mesh_library_free_returned_bytes(&response);
   free(revoke_request);
-  free(linked_set);
   free(complete_request);
   free(authorization);
   free(link_request);
@@ -569,6 +630,13 @@ int main(int argc, char **argv) {
     return 54;
   }
   mesh_library_free_returned_bytes(&response);
+
+  const uint8_t *bob_profiles[] = {bob_profile};
+  const size_t bob_profile_lengths[] = {bob_profile_len};
+  size_t bob_set_len = 0;
+  uint8_t *bob_set =
+      device_set(bob_profiles, bob_profile_lengths, 1, 1, &bob_set_len);
+  if (bob_set == NULL) return 69;
 
   static const uint8_t greeting[] = "hello bob";
   const uint8_t *start_values[] = {(const uint8_t *)argv[2], bob_profile,
@@ -710,6 +778,228 @@ int main(int argc, char **argv) {
   }
   mesh_library_free_returned_bytes(&response);
 
+  static const uint8_t synced_body[] = "synced hello";
+  const uint8_t *alice_fanout_values[] = {
+      (const uint8_t *)argv[2], bob_set, linked_set, synced_body};
+  const size_t alice_fanout_lengths[] = {
+      strlen(argv[2]), bob_set_len, linked_set_len, sizeof(synced_body) - 1};
+  size_t alice_fanout_request_len = 0;
+  uint8_t *alice_fanout_request = vector_request(
+      alice_fanout_values, alice_fanout_lengths, 4,
+      &alice_fanout_request_len);
+  if (alice_fanout_request == NULL ||
+      mesh_messenger_send_fanout(alice_fanout_request,
+                                 alice_fanout_request_len,
+                                 &response) != MESH_LIBRARY_OK) {
+    return 70;
+  }
+  size_t fanout_count = 0;
+  size_t fanout_first_len = 0;
+  size_t fanout_second_len = 0;
+  uint8_t *fanout_first =
+      output_list_item(response.data, (size_t)response.len, 0, &fanout_count,
+                       &fanout_first_len);
+  uint8_t *fanout_second =
+      output_list_item(response.data, (size_t)response.len, 1, &fanout_count,
+                       &fanout_second_len);
+  mesh_library_free_returned_bytes(&response);
+  free(alice_fanout_request);
+  if (fanout_count != 2 || fanout_first == NULL || fanout_second == NULL ||
+      fanout_first_len < 52 || fanout_second_len < 52) {
+    return 71;
+  }
+  const uint8_t *bob_mailbox = NULL;
+  const uint8_t *linked_mailbox = NULL;
+  if (!profile_mailbox(bob_profile, bob_profile_len, &bob_mailbox) ||
+      !profile_mailbox(linked_profile, linked_profile_len, &linked_mailbox)) {
+    return 72;
+  }
+  uint8_t *bob_fanout =
+      memcmp(fanout_first + 20, bob_mailbox, 32) == 0 ? fanout_first
+                                                      : fanout_second;
+  size_t bob_fanout_len = bob_fanout == fanout_first ? fanout_first_len
+                                                      : fanout_second_len;
+  uint8_t *self_fanout = bob_fanout == fanout_first ? fanout_second
+                                                     : fanout_first;
+  size_t self_fanout_len = self_fanout == fanout_first ? fanout_first_len
+                                                        : fanout_second_len;
+  if (memcmp(self_fanout + 20, linked_mailbox, 32) != 0) {
+    return 73;
+  }
+  const uint8_t *bob_fanout_receive_values[] = {
+      (const uint8_t *)bob_path, bob_fanout};
+  const size_t bob_fanout_receive_lengths[] = {strlen(bob_path),
+                                               bob_fanout_len};
+  size_t bob_fanout_receive_len = 0;
+  uint8_t *bob_fanout_receive = vector_request(
+      bob_fanout_receive_values, bob_fanout_receive_lengths, 2,
+      &bob_fanout_receive_len);
+  if (bob_fanout_receive == NULL ||
+      mesh_messenger_receive_message(bob_fanout_receive,
+                                     bob_fanout_receive_len,
+                                     &response) != MESH_LIBRARY_OK ||
+      response.len != sizeof(synced_body) - 1 ||
+      memcmp(response.data, synced_body, sizeof(synced_body) - 1) != 0) {
+    return 74;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(bob_fanout_receive);
+  const uint8_t *self_receive_values[] = {(const uint8_t *)linked_path,
+                                          self_fanout};
+  const size_t self_receive_lengths[] = {strlen(linked_path), self_fanout_len};
+  size_t self_receive_len = 0;
+  uint8_t *self_receive = vector_request(self_receive_values,
+                                         self_receive_lengths, 2,
+                                         &self_receive_len);
+  if (self_receive == NULL ||
+      mesh_messenger_receive_initial(self_receive, self_receive_len,
+                                     &response) != MESH_LIBRARY_OK ||
+      response.len != sizeof(synced_body) - 1 ||
+      memcmp(response.data, synced_body, sizeof(synced_body) - 1) != 0) {
+    return 75;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(self_receive);
+  free(fanout_first);
+  free(fanout_second);
+
+  const uint8_t *linked_bob_peer_values[] = {(const uint8_t *)linked_path,
+                                             bob_profile};
+  const size_t linked_bob_peer_lengths[] = {strlen(linked_path),
+                                            bob_profile_len};
+  size_t linked_bob_peer_len = 0;
+  uint8_t *linked_bob_peer = vector_request(
+      linked_bob_peer_values, linked_bob_peer_lengths, 2,
+      &linked_bob_peer_len);
+  if (linked_bob_peer == NULL ||
+      mesh_messenger_load_history(linked_bob_peer, linked_bob_peer_len,
+                                  &response) != MESH_LIBRARY_OK ||
+      !bytes_contains(response.data, (size_t)response.len, synced_body,
+                      sizeof(synced_body) - 1)) {
+    return 76;
+  }
+  mesh_library_free_returned_bytes(&response);
+
+  static const uint8_t fanout_reply[] = "all alice devices";
+  const uint8_t *bob_fanout_values[] = {(const uint8_t *)bob_path, linked_set,
+                                        bob_set, fanout_reply};
+  const size_t bob_fanout_lengths[] = {
+      strlen(bob_path), linked_set_len, bob_set_len, sizeof(fanout_reply) - 1};
+  size_t bob_fanout_request_len = 0;
+  uint8_t *bob_fanout_request = vector_request(
+      bob_fanout_values, bob_fanout_lengths, 4, &bob_fanout_request_len);
+  if (bob_fanout_request == NULL ||
+      mesh_messenger_send_fanout(bob_fanout_request, bob_fanout_request_len,
+                                 &response) != MESH_LIBRARY_OK) {
+    return 77;
+  }
+  size_t bob_reply_first_len = 0;
+  size_t bob_reply_second_len = 0;
+  uint8_t *bob_reply_first = output_list_item(
+      response.data, (size_t)response.len, 0, &fanout_count,
+      &bob_reply_first_len);
+  uint8_t *bob_reply_second = output_list_item(
+      response.data, (size_t)response.len, 1, &fanout_count,
+      &bob_reply_second_len);
+  mesh_library_free_returned_bytes(&response);
+  free(bob_fanout_request);
+  if (fanout_count != 2 || bob_reply_first == NULL ||
+      bob_reply_second == NULL || bob_reply_first_len < 52 ||
+      bob_reply_second_len < 52) {
+    return 78;
+  }
+  const uint8_t *root_mailbox = NULL;
+  if (!profile_mailbox(profile, profile_len, &root_mailbox)) return 79;
+  uint8_t *root_reply =
+      memcmp(bob_reply_first + 20, root_mailbox, 32) == 0 ? bob_reply_first
+                                                          : bob_reply_second;
+  size_t root_reply_len = root_reply == bob_reply_first ? bob_reply_first_len
+                                                         : bob_reply_second_len;
+  uint8_t *linked_reply = root_reply == bob_reply_first ? bob_reply_second
+                                                         : bob_reply_first;
+  size_t linked_reply_len = linked_reply == bob_reply_first
+                                ? bob_reply_first_len
+                                : bob_reply_second_len;
+  const uint8_t *root_receive_values[] = {(const uint8_t *)argv[2], root_reply};
+  const size_t root_receive_lengths[] = {strlen(argv[2]), root_reply_len};
+  size_t root_receive_len = 0;
+  uint8_t *root_receive = vector_request(root_receive_values,
+                                         root_receive_lengths, 2,
+                                         &root_receive_len);
+  if (root_receive == NULL ||
+      mesh_messenger_receive_message(root_receive, root_receive_len,
+                                     &response) != MESH_LIBRARY_OK ||
+      response.len != sizeof(fanout_reply) - 1) {
+    return 80;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(root_receive);
+  const uint8_t *linked_reply_values[] = {(const uint8_t *)linked_path,
+                                          linked_reply};
+  const size_t linked_reply_lengths[] = {strlen(linked_path), linked_reply_len};
+  size_t linked_reply_request_len = 0;
+  uint8_t *linked_reply_request = vector_request(
+      linked_reply_values, linked_reply_lengths, 2,
+      &linked_reply_request_len);
+  if (linked_reply_request == NULL ||
+      mesh_messenger_receive_initial(linked_reply_request,
+                                     linked_reply_request_len,
+                                     &response) != MESH_LIBRARY_OK ||
+      response.len != sizeof(fanout_reply) - 1) {
+    return 81;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(linked_reply_request);
+  free(bob_reply_first);
+  free(bob_reply_second);
+  if (mesh_messenger_load_history(linked_bob_peer, linked_bob_peer_len,
+                                  &response) != MESH_LIBRARY_OK ||
+      !bytes_contains(response.data, (size_t)response.len, synced_body,
+                      sizeof(synced_body) - 1) ||
+      !bytes_contains(response.data, (size_t)response.len, fanout_reply,
+                      sizeof(fanout_reply) - 1)) {
+    return 82;
+  }
+  mesh_library_free_returned_bytes(&response);
+  if (mesh_messenger_safety_number(linked_bob_peer, linked_bob_peer_len,
+                                   &response) != MESH_LIBRARY_OK ||
+      response.len != sizeof(safety_number) ||
+      memcmp(response.data, safety_number, sizeof(safety_number)) != 0) {
+    return 86;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(linked_bob_peer);
+
+  size_t revoked_set_len = 0;
+  uint8_t *revoked_set = device_set_with_revoked(
+      profile, profile_len, linked_device_id, 3, &revoked_set_len);
+  if (revoked_set == NULL) return 83;
+  const uint8_t *revoked_fanout_values[] = {
+      (const uint8_t *)bob_path, revoked_set, bob_set, fanout_reply};
+  const size_t revoked_fanout_lengths[] = {
+      strlen(bob_path), revoked_set_len, bob_set_len,
+      sizeof(fanout_reply) - 1};
+  size_t revoked_fanout_request_len = 0;
+  uint8_t *revoked_fanout_request = vector_request(
+      revoked_fanout_values, revoked_fanout_lengths, 4,
+      &revoked_fanout_request_len);
+  if (revoked_fanout_request == NULL ||
+      mesh_messenger_send_fanout(revoked_fanout_request,
+                                 revoked_fanout_request_len,
+                                 &response) != MESH_LIBRARY_OK) {
+    return 84;
+  }
+  uint8_t *only_active = output_list_item(
+      response.data, (size_t)response.len, 0, &fanout_count, &root_reply_len);
+  mesh_library_free_returned_bytes(&response);
+  free(revoked_fanout_request);
+  free(revoked_set);
+  if (fanout_count != 1 || only_active == NULL || root_reply_len < 52 ||
+      memcmp(only_active + 20, root_mailbox, 32) != 0) {
+    return 85;
+  }
+  free(only_active);
+
   static const uint8_t block_action[] = {2};
   const uint8_t *block_policy_values[] = {(const uint8_t *)bob_path, profile,
                                           block_action, zero_value};
@@ -847,6 +1137,8 @@ int main(int argc, char **argv) {
   free(reply_receive_request);
   free(reply_outer);
   free(initial_outer);
+  free(bob_set);
+  free(linked_set);
   free(bob_profile);
   free(bob_path);
   free(linked_profile);

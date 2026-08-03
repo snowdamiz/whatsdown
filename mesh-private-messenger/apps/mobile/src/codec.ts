@@ -121,12 +121,6 @@ const readU64Number = (value: Uint8Array): number => {
 export const accountRequest = (databasePath: string, username: string): Uint8Array =>
   vectors(utf8(databasePath), utf8(username));
 
-export const startRequest = (
-  databasePath: string,
-  peerProfile: Uint8Array,
-  body: string,
-): Uint8Array => vectors(utf8(databasePath), peerProfile, utf8(body));
-
 export const peerRequest = (
   databasePath: string,
   peerReference: Uint8Array,
@@ -141,6 +135,23 @@ export const policyRequest = (
 
 export const batchRequest = (databasePath: string, batch: Uint8Array): Uint8Array =>
   vectors(utf8(databasePath), batch);
+
+export function parseByteList(
+  input: Uint8Array,
+  maximumCount: number,
+  maximumItemLength: number,
+): Uint8Array[] {
+  if (!Number.isInteger(maximumCount) || maximumCount < 0 || !Number.isInteger(maximumItemLength) || maximumItemLength < 0) {
+    throw new RangeError('Invalid list bounds');
+  }
+  const list = new Reader(input);
+  const count = readU32(list.vector(4));
+  if (count > maximumCount) throw new Error('Binary list is too large');
+  const values: Uint8Array[] = [];
+  for (let index = 0; index < count; index += 1) values.push(list.vector(maximumItemLength));
+  list.finish();
+  return values;
+}
 
 export function parseConversations(input: Uint8Array): Conversation[] {
   const list = new Reader(input);

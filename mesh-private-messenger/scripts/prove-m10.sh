@@ -112,13 +112,13 @@ main() {
     -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
   "$temp_dir/host" "$vector" "$database"
 
-  [[ "$(sqlite3 "$database" "SELECT count(*) = 11 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "sender SQLite did not contain eleven encrypted records"
-  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 8 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "recipient SQLite did not atomically replace its one-time prekey with a session"
-  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 5 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "linked-device SQLite did not atomically replace pending keys with five encrypted active records"
-  local leak_pattern='whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|hello bob|hello alice|blocked message|gone soon'
+  [[ "$(sqlite3 "$database" "SELECT count(*) = 12 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "sender SQLite did not contain twelve encrypted records after fanout"
+  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 10 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "recipient SQLite did not contain ten encrypted fanout records"
+  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 10 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "linked-device SQLite did not contain ten encrypted sync records"
+  local leak_pattern='whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
   local leaks
   leaks="$(LC_ALL=C grep -a -E -o "$leak_pattern" "$database" "$peer_database" "$linked_database" || true)"
   if [[ -n "$leaks" ]]; then

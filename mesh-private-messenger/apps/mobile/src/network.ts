@@ -3,14 +3,16 @@ import {
   create_device_revocation_export,
   directory_entry_export,
   directory_lookup_export,
-  import_contact_export,
   inspect_device_set_export,
+  load_profile_export,
   mailbox_fetch_export,
   process_delivery_batch_export,
+  send_fanout_export,
 } from '../modules/mesh-messenger';
 import {
   batchRequest,
   DeviceSetSummary,
+  parseByteList,
   parseDeviceSetSummary,
   parseProfileSummary,
   utf8,
@@ -87,14 +89,30 @@ export async function revokeDevice(
   await binaryRequest('/v1/devices/revoke', revocation);
 }
 
-export async function resolveContact(username: string): Promise<Uint8Array> {
-  const lookup = await directory_lookup_export(utf8(username));
-  const entry = await binaryRequest('/v1/directory/resolve', lookup);
-  return import_contact_export(entry);
-}
-
 export async function submitEnvelope(envelope: Uint8Array): Promise<void> {
   await binaryRequest('/v1/envelopes/batch', envelope);
+}
+
+export async function sendFanout(
+  databasePath: string,
+  peerUsername: string,
+  body: string,
+): Promise<boolean> {
+  const localProfile = await load_profile_export(utf8(databasePath));
+  const [peerSet, localSet] = await Promise.all([
+    resolveDeviceSet(peerUsername),
+    resolveDeviceSet(parseProfileSummary(localProfile).username),
+  ]);
+  const [peerSummary] = await Promise.all([
+    inspectDeviceSet(databasePath, peerSet),
+    inspectDeviceSet(databasePath, localSet),
+  ]);
+  const encoded = await send_fanout_export(
+    vectors(utf8(databasePath), peerSet, localSet, utf8(body)),
+  );
+  const envelopes = parseByteList(encoded, 80, 65_606);
+  await Promise.all(envelopes.map(submitEnvelope));
+  return peerSummary.changed;
 }
 
 export async function synchronizeMailbox(databasePath: string): Promise<void> {

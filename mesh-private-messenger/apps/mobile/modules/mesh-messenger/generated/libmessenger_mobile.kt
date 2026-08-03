@@ -24,6 +24,7 @@ object MeshLibrary {
     @JvmStatic external fun create_device_revocation_export(request: ByteArray): ByteArray
     @JvmStatic external fun start_conversation_export(request: ByteArray): ByteArray
     @JvmStatic external fun receive_initial_export(request: ByteArray): ByteArray
+    @JvmStatic external fun send_fanout_export(request: ByteArray): ByteArray
     @JvmStatic external fun send_message_export(request: ByteArray): ByteArray
     @JvmStatic external fun receive_message_export(request: ByteArray): ByteArray
     @JvmStatic external fun update_conversation_export(request: ByteArray): ByteArray

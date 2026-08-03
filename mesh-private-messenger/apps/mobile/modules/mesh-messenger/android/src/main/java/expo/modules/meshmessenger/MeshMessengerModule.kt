@@ -29,6 +29,7 @@ class MeshMessengerModule : Module() {
                     "mesh_messenger_create_device_revocation" -> MeshLibrary.create_device_revocation_export(request)
                     "mesh_messenger_start_conversation" -> MeshLibrary.start_conversation_export(request)
                     "mesh_messenger_receive_initial" -> MeshLibrary.receive_initial_export(request)
+                    "mesh_messenger_send_fanout" -> MeshLibrary.send_fanout_export(request)
                     "mesh_messenger_send_message" -> MeshLibrary.send_message_export(request)
                     "mesh_messenger_receive_message" -> MeshLibrary.receive_message_export(request)
                     "mesh_messenger_update_conversation" -> MeshLibrary.update_conversation_export(request)

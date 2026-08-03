@@ -19,6 +19,7 @@ export {
   process_delivery_batch_export,
   receive_initial_export,
   receive_message_export,
+  send_fanout_export,
   send_message_export,
   safety_number_export,
   start_conversation_export,
