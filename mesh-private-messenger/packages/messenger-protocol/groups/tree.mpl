@@ -7,6 +7,8 @@ pub type GroupTreeError do
 
   InvalidMember
 
+  InvalidParent
+
   MissingMember
 end
 
@@ -16,6 +18,7 @@ pub struct GroupMember do
   device_id :: Bytes
   signing_public_key :: SigningPublicKey
   init_public_key :: X25519PublicKey
+  leaf_public_key :: X25519PublicKey
   mailbox_token :: Bytes
   directory_sequence :: U64
   transparency_checkpoint_hash :: Bytes
@@ -28,8 +31,20 @@ pub struct IndexedGroupMember do
   member :: GroupMember
 end
 
+pub struct TreeKemParentNode do
+  node_index :: Int
+  public_key :: X25519PublicKey
+  unmerged_leaves :: List < Int >
+end
+
+pub struct TreeKemResolutionNode do
+  node_index :: Int
+  public_key :: X25519PublicKey
+end
+
 pub struct GroupTree do
   members :: List < IndexedGroupMember >
+  parent_nodes :: List < TreeKemParentNode >
   hashes :: List < Bytes >
   count :: Int
 end
@@ -74,7 +89,8 @@ fn valid_extensions(values :: List < Int >, index :: Int, previous :: Int) -> Bo
 end
 
 pub fn validate_member(value :: GroupMember) -> Result <(), GroupTreeError > do
-  let valid = value.version == 1 && Bytes.length(value.account_id) == 32 && Bytes.length(value.device_id) == 16 && Bytes.length(value.signing_public_key.bytes) == 32 && Bytes.length(value.init_public_key.bytes) == 32 && Bytes.length(value.mailbox_token) == 32 && Bytes.length(value.transparency_checkpoint_hash) == 32 && value.witness_count >= 0 && value.witness_count <= 255 && valid_extensions(value.extensions,
+  let valid = value.version == 1 && Bytes.length(value.account_id) == 32 && Bytes.length(value.device_id) == 16 && Bytes.length(value.signing_public_key.bytes) == 32 && Bytes.length(value.init_public_key.bytes) == 32 && Bytes.length(value.leaf_public_key.bytes) == 32 && !Bytes.secure_equals(value.init_public_key.bytes,
+  value.leaf_public_key.bytes) && Bytes.length(value.mailbox_token) == 32 && Bytes.length(value.transparency_checkpoint_hash) == 32 && value.witness_count >= 0 && value.witness_count <= 255 && valid_extensions(value.extensions,
   0,
   0)
   if valid do
@@ -98,6 +114,7 @@ pub fn encode_member(value :: GroupMember) -> Bytes ! GroupTreeError do
   let output = append(output, value.device_id) ?
   let output = append(output, value.signing_public_key.bytes) ?
   let output = append(output, value.init_public_key.bytes) ?
+  let output = append(output, value.leaf_public_key.bytes) ?
   let output = append(output, value.mailbox_token) ?
   let output = append(output, write_u64(value.directory_sequence) ?) ?
   let output = append(output, value.transparency_checkpoint_hash) ?
@@ -115,8 +132,45 @@ fn occupied_leaf_hash(index :: Int, member :: GroupMember) -> Bytes ! GroupTreeE
   Ok(Crypto.sha256(append(append(prefix, byte(1) ?) ?, encode_member(member) ?) ?))
 end
 
-fn parent_hash(index :: Int, left :: Bytes, right :: Bytes) -> Bytes ! GroupTreeError do
+fn parent_node_from(values :: List < TreeKemParentNode >, node_index :: Int, index :: Int) -> Option < TreeKemParentNode > do
+  if index >= List.length(values) do
+    None
+  else
+    let value = List.get(values, index)
+    if value.node_index == node_index do
+      Some(value)
+    else
+      parent_node_from(values, node_index, index + 1)
+    end
+  end
+end
+
+fn encode_unmerged(values :: List < Int >, index :: Int, output :: Bytes) -> Bytes ! GroupTreeError do
+  if index >= List.length(values) do
+    Ok(output)
+  else
+    encode_unmerged(values, index + 1, append(output, write_u16(List.get(values, index)) ?) ?)
+  end
+end
+
+fn parent_state(index :: Int, values :: List < TreeKemParentNode >) -> Bytes ! GroupTreeError do
+  case parent_node_from(values, index, 0) do
+    None -> Ok(byte(0) ?)
+    Some( value) -> do
+      let output = append(byte(1) ?, value.public_key.bytes) ?
+      encode_unmerged(value.unmerged_leaves,
+      0,
+      append(output, byte(List.length(value.unmerged_leaves)) ?) ?)
+    end
+  end
+end
+
+fn parent_hash(index :: Int,
+left :: Bytes,
+right :: Bytes,
+parent_nodes :: List < TreeKemParentNode >) -> Bytes ! GroupTreeError do
   let value = append(Bytes.from_utf8("mesh-mls/v1/tree-parent"), write_u16(index) ?) ?
+  let value = append(value, parent_state(index, parent_nodes) ?) ?
   let value = append(value, left) ?
   Ok(Crypto.sha256(append(value, right) ?))
 end
@@ -132,7 +186,8 @@ end
 fn parent_layer(children :: List < Bytes >,
 first_node :: Int,
 index :: Int,
-output :: List < Bytes >) -> List < Bytes > ! GroupTreeError do
+output :: List < Bytes >,
+parent_nodes :: List < TreeKemParentNode >) -> List < Bytes > ! GroupTreeError do
   if index >= List.length(children) / 2 do
     Ok(output)
   else
@@ -142,18 +197,21 @@ output :: List < Bytes >) -> List < Bytes > ! GroupTreeError do
     List.append(output,
     parent_hash(first_node + index,
     List.get(children, index * 2),
-    List.get(children, index * 2 + 1)) ?))
+    List.get(children, index * 2 + 1),
+    parent_nodes) ?),
+    parent_nodes)
   end
 end
 
 fn all_empty_hashes() -> List < Bytes > ! GroupTreeError do
   let leaves = leaf_hashes(0, List.new()) ?
-  let level_one = parent_layer(leaves, 31, 0, List.new()) ?
-  let level_two = parent_layer(level_one, 15, 0, List.new()) ?
-  let level_three = parent_layer(level_two, 7, 0, List.new()) ?
-  let level_four = parent_layer(level_three, 3, 0, List.new()) ?
-  let level_five = parent_layer(level_four, 1, 0, List.new()) ?
-  let root = parent_layer(level_five, 0, 0, List.new()) ?
+  let parent_nodes :: List < TreeKemParentNode > = List.new()
+  let level_one = parent_layer(leaves, 31, 0, List.new(), parent_nodes) ?
+  let level_two = parent_layer(level_one, 15, 0, List.new(), parent_nodes) ?
+  let level_three = parent_layer(level_two, 7, 0, List.new(), parent_nodes) ?
+  let level_four = parent_layer(level_three, 3, 0, List.new(), parent_nodes) ?
+  let level_five = parent_layer(level_four, 1, 0, List.new(), parent_nodes) ?
+  let root = parent_layer(level_five, 0, 0, List.new(), parent_nodes) ?
   Ok(List.concat(root,
   List.concat(level_five,
   List.concat(level_four,
@@ -163,6 +221,7 @@ end
 pub fn empty_tree() -> GroupTree ! GroupTreeError do
   Ok(GroupTree {
     members : List.new(),
+    parent_nodes : List.new(),
     hashes : all_empty_hashes() ?,
     count : 0
   })
@@ -174,6 +233,57 @@ end
 
 pub fn member_count(value :: borrow GroupTree) -> Int do
   value.count
+end
+
+fn path_from(node :: Int, output :: List < Int >) -> List < Int > do
+  if node == 0 do
+    output
+  else
+    let parent = (node - 1) / 2
+    path_from(parent, List.append(output, parent))
+  end
+end
+
+pub fn direct_path(leaf_index :: Int) -> List < Int > ! GroupTreeError do
+  if leaf_index < 0 || leaf_index >= 64 do
+    Err(InvalidIndex)
+  else
+    Ok(path_from(63 + leaf_index, List.new()))
+  end
+end
+
+fn sibling(node :: Int) -> Int do
+  if node % 2 == 1 do
+    node + 1
+  else
+    node - 1
+  end
+end
+
+fn copath_from(node :: Int, output :: List < Int >) -> List < Int > do
+  if node == 0 do
+    output
+  else
+    copath_from((node - 1) / 2, List.append(output, sibling(node)))
+  end
+end
+
+pub fn copath(leaf_index :: Int) -> List < Int > ! GroupTreeError do
+  if leaf_index < 0 || leaf_index >= 64 do
+    Err(InvalidIndex)
+  else
+    Ok(copath_from(63 + leaf_index, List.new()))
+  end
+end
+
+fn node_contains_leaf(node_index :: Int, current :: Int) -> Bool do
+  if current == node_index do
+    true
+  else if current == 0 do
+    false
+  else
+    node_contains_leaf(node_index, (current - 1) / 2)
+  end
 end
 
 fn indexed_member_at(values :: List < IndexedGroupMember >, leaf_index :: Int, index :: Int) -> IndexedGroupMember ! GroupTreeError do
@@ -201,7 +311,10 @@ fn replace_hash(values :: List < Bytes >, index :: Int, value :: Bytes) -> List 
   List.concat(List.append(List.take(values, index), value), List.drop(values, index + 1))
 end
 
-fn update_hash_path(hashes :: List < Bytes >, node :: Int, hash :: Bytes) -> List < Bytes > ! GroupTreeError do
+fn update_hash_path(hashes :: List < Bytes >,
+parent_nodes :: List < TreeKemParentNode >,
+node :: Int,
+hash :: Bytes) -> List < Bytes > ! GroupTreeError do
   let updated = replace_hash(hashes, node, hash)
   if node == 0 do
     Ok(updated)
@@ -209,8 +322,9 @@ fn update_hash_path(hashes :: List < Bytes >, node :: Int, hash :: Bytes) -> Lis
     let parent = (node - 1) / 2
     let left = parent * 2 + 1
     update_hash_path(updated,
+    parent_nodes,
     parent,
-    parent_hash(parent, List.get(updated, left), List.get(updated, left + 1)) ?)
+    parent_hash(parent, List.get(updated, left), List.get(updated, left + 1), parent_nodes) ?)
   end
 end
 
@@ -246,8 +360,86 @@ fn first_open(value :: GroupTree, index :: Int) -> Int do
   end
 end
 
-fn compare_indexed(left :: IndexedGroupMember, right :: IndexedGroupMember) -> Int do
-  left.leaf_index - right.leaf_index
+fn compare_int(left :: Int, right :: Int) -> Int do
+  left - right
+end
+
+fn insert_indexed(values :: List < IndexedGroupMember >,
+value :: IndexedGroupMember,
+index :: Int,
+output :: List < IndexedGroupMember >) -> List < IndexedGroupMember > do
+  if index >= List.length(values) do
+    List.append(output, value)
+  else
+    let current = List.get(values, index)
+    if value.leaf_index < current.leaf_index do
+      List.concat(List.append(output, value), List.drop(values, index))
+    else
+      insert_indexed(values, value, index + 1, List.append(output, current))
+    end
+  end
+end
+
+fn without_parent(values :: List < TreeKemParentNode >,
+node_index :: Int,
+index :: Int,
+output :: List < TreeKemParentNode >) -> List < TreeKemParentNode > do
+  if index >= List.length(values) do
+    output
+  else
+    let value = List.get(values, index)
+    if value.node_index == node_index do
+      without_parent(values, node_index, index + 1, output)
+    else
+      without_parent(values, node_index, index + 1, List.append(output, value))
+    end
+  end
+end
+
+fn insert_parent(values :: List < TreeKemParentNode >,
+value :: TreeKemParentNode,
+index :: Int,
+output :: List < TreeKemParentNode >) -> List < TreeKemParentNode > do
+  if index >= List.length(values) do
+    List.append(output, value)
+  else
+    let current = List.get(values, index)
+    if value.node_index < current.node_index do
+      List.concat(List.append(output, value), List.drop(values, index))
+    else
+      insert_parent(values, value, index + 1, List.append(output, current))
+    end
+  end
+end
+
+fn put_parent(values :: List < TreeKemParentNode >, value :: TreeKemParentNode) -> List < TreeKemParentNode > do
+  insert_parent(without_parent(values, value.node_index, 0, List.new()), value, 0, List.new())
+end
+
+fn mark_unmerged(values :: List < TreeKemParentNode >,
+leaf_index :: Int,
+index :: Int,
+output :: List < TreeKemParentNode >) -> List < TreeKemParentNode > do
+  if index >= List.length(values) do
+    output
+  else
+    let value = List.get(values, index)
+    let next = if node_contains_leaf(value.node_index, 63 + leaf_index) do
+      % { value | unmerged_leaves : List.sort(List.append(value.unmerged_leaves, leaf_index),
+      compare_int) }
+    else
+      value
+    end
+    mark_unmerged(values, leaf_index, index + 1, List.append(output, next))
+  end
+end
+
+fn blank_parent_path(values :: List < TreeKemParentNode >, path :: List < Int >, index :: Int) -> List < TreeKemParentNode > do
+  if index >= List.length(path) do
+    values
+  else
+    blank_parent_path(without_parent(values, List.get(path, index), 0, List.new()), path, index + 1)
+  end
 end
 
 fn set_member(value :: GroupTree, index :: Int, member :: GroupMember) -> GroupTree ! GroupTreeError do
@@ -257,14 +449,20 @@ fn set_member(value :: GroupTree, index :: Int, member :: GroupMember) -> GroupT
     case member_at(value, index) do
       Ok( _) -> Err(DuplicateMember)
       Err( MissingMember) -> do
-        let hashes = update_hash_path(value.hashes, 63 + index, occupied_leaf_hash(index, member) ?) ?
+        let parent_nodes = mark_unmerged(value.parent_nodes, index, 0, List.new())
+        let hashes = update_hash_path(value.hashes,
+        parent_nodes,
+        63 + index,
+        occupied_leaf_hash(index, member) ?) ?
         Ok(GroupTree {
-          members : List.sort(List.append(value.members,
+          members : insert_indexed(value.members,
           IndexedGroupMember {
             leaf_index : index,
             member : member
-          }),
-          compare_indexed),
+          },
+          0,
+          List.new()),
+          parent_nodes : parent_nodes,
           hashes : hashes,
           count : value.count + 1
         })
@@ -284,6 +482,139 @@ pub fn insert_member(value :: GroupTree, member :: GroupMember) -> Result <( Gro
       Err(GroupFull)
     else
       Ok((set_member(value, index, member) ?, index))
+    end
+  end
+end
+
+fn validate_unmerged(value :: borrow GroupTree,
+node_index :: Int,
+values :: List < Int >,
+index :: Int,
+previous :: Int,
+committer_leaf :: Int) -> Result <(), GroupTreeError > do
+  if List.length(values) > 64 do
+    Err(InvalidParent)
+  else if index >= List.length(values) do
+    Ok(nil)
+  else
+    let leaf_index = List.get(values, index)
+    if leaf_index == committer_leaf || leaf_index <= previous || leaf_index < 0 || leaf_index >= 64 || !node_contains_leaf(node_index,
+    63 + leaf_index) do
+      Err(InvalidParent)
+    else
+      case member_at(value, leaf_index) do
+        Err( _) -> Err(InvalidParent)
+        Ok( _) -> validate_unmerged(value,
+        node_index,
+        values,
+        index + 1,
+        leaf_index,
+        committer_leaf)
+      end
+    end
+  end
+end
+
+fn validate_parent(value :: borrow GroupTree, parent :: TreeKemParentNode, committer_leaf :: Int) -> Result <(), GroupTreeError > do
+  if parent.node_index < 0 || parent.node_index >= 63 || Bytes.length(parent.public_key.bytes) != 32 do
+    Err(InvalidParent)
+  else
+    validate_unmerged(value, parent.node_index, parent.unmerged_leaves, 0, -1, committer_leaf)
+  end
+end
+
+fn replace_update_nodes(value :: borrow GroupTree,
+expected :: List < Int >,
+nodes :: List < TreeKemParentNode >,
+index :: Int,
+output :: List < TreeKemParentNode >,
+committer_leaf :: Int) -> List < TreeKemParentNode > ! GroupTreeError do
+  if index >= List.length(nodes) do
+    Ok(output)
+  else
+    let node = List.get(nodes, index)
+    if node.node_index != List.get(expected, index) do
+      Err(InvalidParent)
+    else
+      validate_parent(value, node, committer_leaf) ?
+      replace_update_nodes(value,
+      expected,
+      nodes,
+      index + 1,
+      put_parent(output, node),
+      committer_leaf)
+    end
+  end
+end
+
+pub fn apply_update_path(value :: GroupTree,
+committer_leaf :: Int,
+nodes :: List < TreeKemParentNode >) -> GroupTree ! GroupTreeError do
+  member_at(value, committer_leaf) ?
+  let expected = direct_path(committer_leaf) ?
+  if List.length(nodes) != List.length(expected) do
+    Err(InvalidParent)
+  else
+    let parent_nodes = replace_update_nodes(value,
+    expected,
+    nodes,
+    0,
+    value.parent_nodes,
+    committer_leaf) ?
+    let leaf_node = 63 + committer_leaf
+    let hashes = update_hash_path(value.hashes,
+    parent_nodes,
+    leaf_node,
+    List.get(value.hashes, leaf_node)) ?
+    Ok(% { value | parent_nodes : parent_nodes, hashes : hashes })
+  end
+end
+
+fn unmerged_resolution(value :: borrow GroupTree,
+leaves :: List < Int >,
+index :: Int,
+output :: List < TreeKemResolutionNode >) -> List < TreeKemResolutionNode > ! GroupTreeError do
+  if index >= List.length(leaves) do
+    Ok(output)
+  else
+    let leaf_index = List.get(leaves, index)
+    let member = member_at(value, leaf_index) ?
+    unmerged_resolution(value,
+    leaves,
+    index + 1,
+    List.append(output,
+    TreeKemResolutionNode {
+      node_index : 63 + leaf_index,
+      public_key : member.leaf_public_key
+    }))
+  end
+end
+
+pub fn resolution(value :: borrow GroupTree, node_index :: Int) -> List < TreeKemResolutionNode > ! GroupTreeError do
+  if node_index < 0 || node_index >= 127 do
+    Err(InvalidIndex)
+  else if node_index >= 63 do
+    case member_at(value, node_index - 63) do
+      Err( MissingMember) -> Ok(List.new())
+      Err( error) -> Err(error)
+      Ok( member) -> Ok([TreeKemResolutionNode {
+        node_index : node_index,
+        public_key : member.leaf_public_key
+      }])
+    end
+  else
+    case parent_node_from(value.parent_nodes, node_index, 0) do
+      Some( parent) -> unmerged_resolution(value,
+      parent.unmerged_leaves,
+      0,
+      [TreeKemResolutionNode {
+        node_index : node_index,
+        public_key : parent.public_key
+      }])
+      None -> do
+        let left = resolution(value, node_index * 2 + 1) ?
+        Ok(List.concat(left, resolution(value, node_index * 2 + 2) ?))
+      end
     end
   end
 end
@@ -311,9 +642,14 @@ pub fn remove_member(value :: GroupTree, index :: Int) -> GroupTree ! GroupTreeE
     case member_at(value, index) do
       Err( error) -> Err(error)
       Ok( _) -> do
-        let hashes = update_hash_path(value.hashes, 63 + index, empty_leaf_hash(index) ?) ?
+        let parent_nodes = blank_parent_path(value.parent_nodes, direct_path(index) ?, 0)
+        let hashes = update_hash_path(value.hashes,
+        parent_nodes,
+        63 + index,
+        empty_leaf_hash(index) ?) ?
         Ok(GroupTree {
           members : without_member(value.members, index, 0, List.new()),
+          parent_nodes : parent_nodes,
           hashes : hashes,
           count : value.count - 1
         })

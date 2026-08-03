@@ -650,12 +650,13 @@ output :: List < Int >) -> GroupReadInts ! GroupError do
 end
 
 fn decode_member_wire(input :: Bytes) -> GroupMember ! GroupError do
-  let version = wire_u8(wire_reader(input, 219) ?) ?
+  let version = wire_u8(wire_reader(input, 251) ?) ?
   let account_id = wire_fixed(version.state, 32) ?
   let device_id = wire_fixed(account_id.state, 16) ?
   let signing_public_key = wire_fixed(device_id.state, 32) ?
   let init_public_key = wire_fixed(signing_public_key.state, 32) ?
-  let mailbox_token = wire_fixed(init_public_key.state, 32) ?
+  let leaf_public_key = wire_fixed(init_public_key.state, 32) ?
+  let mailbox_token = wire_fixed(leaf_public_key.state, 32) ?
   let directory_sequence = wire_u64(mailbox_token.state) ?
   let checkpoint = wire_fixed(directory_sequence.state, 32) ?
   let witness_count = wire_u8(checkpoint.state) ?
@@ -668,6 +669,7 @@ fn decode_member_wire(input :: Bytes) -> GroupMember ! GroupError do
     device_id : device_id.value,
     signing_public_key : SigningPublicKey { bytes : signing_public_key.value },
     init_public_key : X25519PublicKey { bytes : init_public_key.value },
+    leaf_public_key : X25519PublicKey { bytes : leaf_public_key.value },
     mailbox_token : mailbox_token.value,
     directory_sequence : directory_sequence.value,
     transparency_checkpoint_hash : checkpoint.value,
@@ -684,7 +686,7 @@ fn read_proposal(state :: BinaryReader) -> GroupReadProposal ! GroupError do
   if leaf.value < 0 || leaf.value >= 64 do
     Err(InvalidGroup)
   else if kind.value == 1 do
-    let member = wire_vector(leaf.state, 219) ?
+    let member = wire_vector(leaf.state, 251) ?
     Ok(GroupReadProposal {
       state : member.state,
       value : AddMember(leaf.value, decode_member_wire(member.value) ?)
@@ -762,7 +764,9 @@ end
 
 fn validate_commit_shape(value :: GroupCommit) -> Result <(), GroupError > do
   let valid = value.version == 1 && value.suite == 3 && Bytes.length(value.group_id) == 32 && value.committer_leaf >= 0 && value.committer_leaf < 64 && Bytes.length(value.prior_transcript_hash) == 32 && Bytes.length(value.tree_hash) == 32 && Bytes.length(value.signature.bytes) == 64
-  if !valid || U64.compare(value.epoch, next_epoch(value.prior_epoch) ?) != 0 do
+  if !valid do
+    Err(InvalidGroup)
+  else if U64.compare(value.epoch, next_epoch(value.prior_epoch) ?) != 0 do
     Err(InvalidGroup)
   else
     validate_proposal_shape(value.proposal) ?
@@ -847,7 +851,7 @@ output :: List < IndexedGroupMember >) -> GroupReadMembers ! GroupError do
     })
   else
     let leaf = wire_u16(state) ?
-    let member = wire_vector(leaf.state, 219) ?
+    let member = wire_vector(leaf.state, 251) ?
     if leaf.value < 0 || leaf.value >= 64 || leaf.value <= previous do
       Err(InvalidGroup)
     else
@@ -920,7 +924,7 @@ pub fn encode_group_welcome(value :: GroupWelcome) -> Bytes ! GroupError do
   Bytes.empty()) ?, extensions_bytes(value.extensions) ?, policy_bytes(value.policy) ?, write_u16(value.recipient_leaf) ?],
   0,
   Bytes.empty()) ?
-  if Bytes.length(body) > 24000 do
+  if Bytes.length(body) > 26048 do
     Err(InvalidGroup)
   else
     join([byte(1) ?, Bytes.from_utf8("GWL"), body], 0, Bytes.empty())
@@ -928,7 +932,7 @@ pub fn encode_group_welcome(value :: GroupWelcome) -> Bytes ! GroupError do
 end
 
 pub fn decode_group_welcome(input :: Bytes) -> GroupWelcome ! GroupError do
-  let commit = wire_vector(wire_start(input, 24004, "GWL") ?, 8200) ?
+  let commit = wire_vector(wire_start(input, 26052, "GWL") ?, 8200) ?
   let member_count = wire_u8(commit.state) ?
   let members = read_members(member_count.state, member_count.value, 0, -1, List.new()) ?
   let extension_count = wire_u8(members.state) ?
@@ -1150,7 +1154,7 @@ snapshot_version :: U64) -> Bytes ! GroupError do
     Err( error) -> Err(CryptoFailure(error))
     Ok( value) -> Ok(value)
   end ?
-  if Bytes.length(header) > 24000 || Bytes.length(sealed) != 99 do
+  if Bytes.length(header) > 26048 || Bytes.length(sealed) != 99 do
     Err(InvalidGroup)
   else
     append(header, vector(sealed) ?)
@@ -1173,7 +1177,7 @@ snapshot_version :: U64) -> GroupSnapshotOutcome do
 end
 
 fn parse_group_snapshot(input :: Bytes) -> ParsedGroupSnapshot ! GroupError do
-  let state_version = wire_u8(wire_start(input, 24103, "GST") ?) ?
+  let state_version = wire_u8(wire_start(input, 26151, "GST") ?) ?
   let suite = wire_u16(state_version.state) ?
   let group_id = wire_fixed(suite.state, 32) ?
   let epoch = wire_u64(group_id.state) ?

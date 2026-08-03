@@ -40,6 +40,7 @@ checkpoint :: Bytes) -> GroupMember ! GroupError do
     device_id : repeated(device, 16),
     signing_public_key : signing,
     init_public_key : init,
+    leaf_public_key : X25519PublicKey { bytes : repeated(device + 70, 32) },
     mailbox_token : repeated(device + 40, 32),
     directory_sequence : wide(5) ?,
     transparency_checkpoint_hash : checkpoint,
@@ -50,6 +51,22 @@ end
 
 fn consume_state(value :: consume GroupState) do
   nil
+end
+
+fn group_error_name(value :: GroupError) -> String do
+  case value do
+    AuthenticationRejected -> "AuthenticationRejected"
+    CryptoFailure( _) -> "CryptoFailure"
+    FutureEpoch -> "FutureEpoch"
+    InvalidGroup -> "InvalidGroup"
+    InvalidMember -> "InvalidMember"
+    InvalidPolicy -> "InvalidPolicy"
+    Replay -> "Replay"
+    RemovedMember -> "RemovedMember"
+    RollbackRejected -> "RollbackRejected"
+    StaleEpoch -> "StaleEpoch"
+    TreeFailure( _) -> "TreeFailure"
+  end
 end
 
 fn added(outcome :: GroupAddOutcome) -> Result <( GroupState, GroupCommit, GroupWelcome), GroupError > do
@@ -229,7 +246,10 @@ end
 
 test("MLS group add, welcome, message, and multi-device membership") do
   case proof() do
-    Err( _) -> assert(false)
+    Err( error) -> do
+      println(group_error_name(error))
+      assert(false)
+    end
     Ok( value) -> assert(value)
   end
 end
@@ -287,7 +307,10 @@ end
 
 test("MLS removal rejects reordered epochs and excludes the removed device") do
   case removal_proof() do
-    Err( _) -> assert(false)
+    Err( error) -> do
+      println(group_error_name(error))
+      assert(false)
+    end
     Ok( value) -> assert(value)
   end
 end

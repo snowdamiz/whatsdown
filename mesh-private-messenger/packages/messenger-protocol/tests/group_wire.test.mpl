@@ -40,6 +40,7 @@ checkpoint :: Bytes) -> GroupMember ! GroupError do
     device_id : repeated(device, 16),
     signing_public_key : signing,
     init_public_key : init,
+    leaf_public_key : X25519PublicKey { bytes : repeated(device + 70, 32) },
     mailbox_token : repeated(device + 40, 32),
     directory_sequence : wide(5) ?,
     transparency_checkpoint_hash : checkpoint,

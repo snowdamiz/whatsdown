@@ -11,7 +11,7 @@ A.2.1.
 ## State and transitions
 
 Groups contain at most 64 device leaves. Each leaf binds an account ID, device
-ID, signing key, HPKE initialization key, mailbox capability, transparency
+ID, signing key, HPKE initialization key, ratcheting leaf HPKE key, mailbox capability, transparency
 checkpoint, witness count, and sorted extension list. A cached immutable
 Merkle tree makes the root and member count constant-time while add/remove
 path updates remain bounded.
@@ -54,9 +54,9 @@ reject trailing bytes before cryptographic work.
 | Value | Magic | Maximum encoded bytes |
 |---|---|---:|
 | Commit | `GCM` | 8,200 |
-| Welcome | `GWL` | 24,004 |
+| Welcome | `GWL` | 26,052 |
 | Group message | `GMS` | 65,750 |
-| Group snapshot | `GST` | 24,103 |
+| Group snapshot | `GST` | 26,151 |
 
 Variable bytes use a `u32` length. Member and epoch-secret lists are capped at
 64; extension lists are capped at 16 and strictly increasing; ciphertext is
