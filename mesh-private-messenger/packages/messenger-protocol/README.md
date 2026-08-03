@@ -41,6 +41,11 @@ trailing data. The exact limits and independent-review release gate are in
 are specified in
 [`../../protocol/attachment-wire-v1.md`](../../protocol/attachment-wire-v1.md).
 
+`Backups.Protocol` exports the fixed Argon2id v1.3 recovery profile, opaque
+authenticated manifest, and bounded encrypted chunks used for opt-in client
+backups. The exact profile and 16 MiB development ceiling are specified in
+[`../../protocol/backup-wire-v1.md`](../../protocol/backup-wire-v1.md).
+
 Unknown optional extensions are retained byte-for-byte. Version 1 has no
 registered mandatory extension, so every mandatory extension is rejected.
 The complete field layouts and decoder ceilings are specified in
