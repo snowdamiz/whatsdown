@@ -312,6 +312,51 @@ int main(int argc, char **argv) {
   }
   mesh_library_free_returned_bytes(&response);
   free(receive_request);
+
+  static const uint8_t reply[] = "hello alice";
+  const uint8_t *send_values[] = {(const uint8_t *)bob_path, profile, reply};
+  const size_t send_lengths[] = {strlen(bob_path), profile_len,
+                                 sizeof(reply) - 1};
+  size_t send_request_len = 0;
+  uint8_t *send_request =
+      vector_request(send_values, send_lengths, 3, &send_request_len);
+  if (send_request == NULL ||
+      mesh_messenger_send_message(send_request, send_request_len, &response) !=
+          MESH_LIBRARY_OK ||
+      response.len == 0) {
+    return 31;
+  }
+  size_t reply_outer_len = (size_t)response.len;
+  uint8_t *reply_outer = malloc(reply_outer_len);
+  if (reply_outer == NULL) return 32;
+  memcpy(reply_outer, response.data, reply_outer_len);
+  mesh_library_free_returned_bytes(&response);
+  free(send_request);
+
+  const uint8_t *reply_receive_values[] = {(const uint8_t *)argv[2],
+                                           reply_outer};
+  const size_t reply_receive_lengths[] = {strlen(argv[2]), reply_outer_len};
+  size_t reply_receive_request_len = 0;
+  uint8_t *reply_receive_request =
+      vector_request(reply_receive_values, reply_receive_lengths, 2,
+                     &reply_receive_request_len);
+  if (reply_receive_request == NULL ||
+      mesh_messenger_receive_message(reply_receive_request,
+                                     reply_receive_request_len,
+                                     &response) != MESH_LIBRARY_OK ||
+      response.len != sizeof(reply) - 1 ||
+      memcmp(response.data, reply, sizeof(reply) - 1) != 0) {
+    return 33;
+  }
+  mesh_library_free_returned_bytes(&response);
+  if (mesh_messenger_receive_message(reply_receive_request,
+                                     reply_receive_request_len,
+                                     &response) != MESH_LIBRARY_ERR_APPLICATION) {
+    return 34;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(reply_receive_request);
+  free(reply_outer);
   free(initial_outer);
   free(bob_profile);
   free(bob_path);

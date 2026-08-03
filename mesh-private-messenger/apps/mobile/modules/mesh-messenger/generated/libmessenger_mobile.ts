@@ -13,3 +13,5 @@ export const create_account_export = (request: Uint8Array): Promise<Uint8Array> 
 export const load_profile_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_load_profile', request);
 export const start_conversation_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_start_conversation', request);
 export const receive_initial_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_receive_initial', request);
+export const send_message_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_send_message', request);
+export const receive_message_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_receive_message', request);

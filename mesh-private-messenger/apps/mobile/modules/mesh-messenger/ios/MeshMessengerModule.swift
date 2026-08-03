@@ -27,6 +27,10 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.start_conversation_export(request)
       case "mesh_messenger_receive_initial":
         return try MeshLibrary.receive_initial_export(request)
+      case "mesh_messenger_send_message":
+        return try MeshLibrary.send_message_export(request)
+      case "mesh_messenger_receive_message":
+        return try MeshLibrary.receive_message_export(request)
       default:
         throw MeshLibraryFailure(
           status: MESH_LIBRARY_ERR_INVALID_ARGUMENT,

@@ -3,7 +3,8 @@ from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generat
 from Prekeys.Bundle import OneTimePrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
 from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, InitialMessage, InnerEnvelope, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_device_credential, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_directory_entry, encode_initial_message, encode_inner_envelope, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
-from Session.Snapshot import SnapshotOutcome, snapshot
+from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
+from Session.Snapshot import SnapshotOutcome, restore, snapshot
 
 struct MobileReadBytes do
   state :: BinaryReader
@@ -51,6 +52,27 @@ end
 struct MobileInitialPlaintext do
   profile :: Bytes
   inner :: Bytes
+end
+
+struct MobileSessionRecord do
+  snapshot :: Bytes
+  local_account_id :: Bytes
+  local_device_id :: Bytes
+  peer_account_id :: Bytes
+  peer_device_id :: Bytes
+  peer_username :: String
+  peer_mailbox :: Bytes
+  conversation_id :: Bytes
+end
+
+struct MobileLoadedSession do
+  session_id :: Bytes
+  label :: String
+  record :: MobileSessionRecord
+end
+
+struct MobileRatchetPacket do
+  message :: Bytes
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! String do
@@ -265,6 +287,16 @@ fn insert_blob(database :: SqliteConn, label :: String, blob :: Bytes) -> Result
   let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
   case Sqlite.execute(database,
   "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+  [record_hash, Bytes.to_base64(blob)]) do
+    Err( _) -> Err("database_write_failed")
+    Ok( _) -> Ok(nil)
+  end
+end
+
+fn put_blob(database :: SqliteConn, label :: String, blob :: Bytes) -> Result <(), String > do
+  let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
+  case Sqlite.execute(database,
+  "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(record_hash) DO UPDATE SET ciphertext = excluded.ciphertext, updated_at = CURRENT_TIMESTAMP",
   [record_hash, Bytes.to_base64(blob)]) do
     Err( _) -> Err("database_write_failed")
     Ok( _) -> Ok(nil)
@@ -734,7 +766,127 @@ conversation_id :: Bytes) -> Bytes ! String do
   Bytes.empty())
 end
 
-fn reject_session_snapshot(state :: consume RatchetState) -> Result <( String, Bytes), String > do
+fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
+  case reader(input, 68000) do
+    Err( _) -> Err("invalid_session_record")
+    Ok( state) -> do
+      let snapshot_blob = take_vector(state, 66300) ?
+      let local_account_id = take_vector(snapshot_blob.state, 32) ?
+      let local_device_id = take_vector(local_account_id.state, 16) ?
+      let peer_account_id = take_vector(local_device_id.state, 32) ?
+      let peer_device_id = take_vector(peer_account_id.state, 16) ?
+      let peer_username = take_vector(peer_device_id.state, 64) ?
+      let peer_mailbox = take_vector(peer_username.state, 32) ?
+      let conversation_id = take_vector(peer_mailbox.state, 16) ?
+      case finish(conversation_id.state) do
+        Err( _) -> Err("invalid_session_record")
+        Ok( _) -> do
+          let username = mobile_utf8(peer_username.value, "invalid_session_record") ?
+          let valid = Bytes.length(local_account_id.value) == 32 && Bytes.length(local_device_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && String.length(username) > 0 && Bytes.length(peer_mailbox.value) == 32 && Bytes.length(conversation_id.value) == 16
+          if !valid do
+            Err("invalid_session_record")
+          else
+            Ok(MobileSessionRecord {
+              snapshot : snapshot_blob.value,
+              local_account_id : local_account_id.value,
+              local_device_id : local_device_id.value,
+              peer_account_id : peer_account_id.value,
+              peer_device_id : peer_device_id.value,
+              peer_username : username,
+              peer_mailbox : peer_mailbox.value,
+              conversation_id : conversation_id.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn read_session_ids(encoded :: Bytes, offset :: Int, values :: List < Bytes >) -> List < Bytes > ! String do
+  if offset >= Bytes.length(encoded) do
+    Ok(values)
+  else
+    case Bytes.slice(encoded, offset, 32) do
+      Err( _) -> Err("invalid_session_index")
+      Ok( value) -> read_session_ids(encoded, offset + 32, List.append(values, value))
+    end
+  end
+end
+
+fn decode_session_ids(encoded :: Bytes) -> List < Bytes > ! String do
+  if Bytes.length(encoded) % 32 != 0 do
+    Err("invalid_session_index")
+  else
+    read_session_ids(encoded, 0, List.new())
+  end
+end
+
+fn contains_session_id(values :: List < Bytes >, session_id :: Bytes, index :: Int) -> Bool do
+  if index >= List.length(values) do
+    false
+  else if Bytes.secure_equals(List.get(values, index), session_id) do
+    true
+  else
+    contains_session_id(values, session_id, index + 1)
+  end
+end
+
+fn load_session_ids(database_path :: String, wrapping_key :: borrow StorageKey) -> List < Bytes > ! String do
+  case load_blob(database_path, "sessions/v1") do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(List.new())
+    else
+      Err(error)
+    end
+    Ok( blob) -> decode_session_ids(open_local(blob, wrapping_key, local_context("sessions/v1") ?) ?)
+  end
+end
+
+fn updated_session_index(database_path :: String,
+wrapping_key :: borrow StorageKey,
+session_id :: Bytes) -> Bytes ! String do
+  let existing = load_session_ids(database_path, wrapping_key) ?
+  let encoded = if contains_session_id(existing, session_id, 0) do
+    mobile_join(existing, 0, Bytes.empty()) ?
+  else
+    mobile_join(List.append(existing, session_id), 0, Bytes.empty()) ?
+  end
+  seal_local(encoded, wrapping_key, local_context("sessions/v1") ?)
+end
+
+fn load_session_record(database_path :: String,
+wrapping_key :: borrow StorageKey,
+session_id :: Bytes) -> MobileLoadedSession ! String do
+  let label = session_label(session_id)
+  let record = open_local(load_blob(database_path, label) ?, wrapping_key, local_context(label) ?) ?
+  Ok(MobileLoadedSession {
+    session_id : session_id,
+    label : label,
+    record : parse_session_record(record) ?
+  })
+end
+
+# ponytail: the MVP scans encrypted session IDs; add an encrypted peer index if measured conversation counts make this slow.
+
+fn find_peer_session(database_path :: String,
+wrapping_key :: borrow StorageKey,
+peer_account_id :: Bytes,
+session_ids :: List < Bytes >,
+index :: Int) -> MobileLoadedSession ! String do
+  if index >= List.length(session_ids) do
+    Err("session_not_found")
+  else
+    let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
+    if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) do
+      Ok(loaded)
+    else
+      find_peer_session(database_path, wrapping_key, peer_account_id, session_ids, index + 1)
+    end
+  end
+end
+
+fn reject_session_snapshot(state :: consume RatchetState) -> Result <( Bytes, String, Bytes), String > do
   Err("session_snapshot_failed")
 end
 
@@ -744,16 +896,17 @@ wrapping_key :: borrow StorageKey,
 local :: MobileProfile,
 peer :: MobileProfile,
 conversation_id :: Bytes,
-label :: String) -> Result <( String, Bytes), String > do
+session_id :: Bytes,
+label :: String) -> Result <( Bytes, String, Bytes), String > do
   let record = encode_session_record(snapshot_blob, local, peer, conversation_id) ?
-  Ok((label, seal_local(record, wrapping_key, local_context(label) ?) ?))
+  Ok((session_id, label, seal_local(record, wrapping_key, local_context(label) ?) ?))
 end
 
 fn seal_session(state :: consume RatchetState,
 wrapping_key :: borrow StorageKey,
 local :: MobileProfile,
 peer :: MobileProfile,
-conversation_id :: Bytes) -> Result <( String, Bytes), String > do
+conversation_id :: Bytes) -> Result <( Bytes, String, Bytes), String > do
   let session_id = state.session_id
   let label = session_label(session_id)
   case snapshot(state, wrapping_key, local.account_id, local.device_id, mobile_wide("1") ?) do
@@ -764,11 +917,50 @@ conversation_id :: Bytes) -> Result <( String, Bytes), String > do
     local,
     peer,
     conversation_id,
+    session_id,
     label)
   end
 end
 
-fn store_received_session(database_path :: String, label :: String, blob :: Bytes) -> Result <(), String > do
+fn store_started_session(database_path :: String,
+label :: String,
+blob :: Bytes,
+index_blob :: Bytes) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case insert_blob(database, label, blob) do
+          Err( error) -> Err(error)
+          Ok( _) -> case put_blob(database, "sessions/v1", index_blob) do
+            Err( error) -> Err(error)
+            Ok( _) -> case Sqlite.commit(database) do
+              Err( _) -> Err("database_write_failed")
+              Ok( _) -> Ok(nil)
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn store_received_session(database_path :: String,
+label :: String,
+blob :: Bytes,
+index_blob :: Bytes) -> Result <(), String > do
   let one_time_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("one-time-prekey/v1")))
   case Sqlite.open(database_path) do
     Err( _) -> Err("database_open_failed")
@@ -777,13 +969,16 @@ fn store_received_session(database_path :: String, label :: String, blob :: Byte
         Err( _) -> Err("database_write_failed")
         Ok( _) -> case insert_blob(database, label, blob) do
           Err( error) -> Err(error)
-          Ok( _) -> case Sqlite.execute(database,
-          "DELETE FROM encrypted_blobs WHERE record_hash = ?",
-          [one_time_hash]) do
-            Err( _) -> Err("database_write_failed")
-            Ok( _) -> case Sqlite.commit(database) do
+          Ok( _) -> case put_blob(database, "sessions/v1", index_blob) do
+            Err( error) -> Err(error)
+            Ok( _) -> case Sqlite.execute(database,
+            "DELETE FROM encrypted_blobs WHERE record_hash = ?",
+            [one_time_hash]) do
               Err( _) -> Err("database_write_failed")
-              Ok( _) -> Ok(nil)
+              Ok( _) -> case Sqlite.commit(database) do
+                Err( _) -> Err("database_write_failed")
+                Ok( _) -> Ok(nil)
+              end
             end
           end
         end
@@ -881,8 +1076,13 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   end ?
   let packet = encode_initial_packet(local.entry.account_identity, initial_bytes(initial) ?) ?
   let outer = outer_bytes(peer.entry.mailbox_token, packet, now) ?
-  let ( label, session_blob) = seal_session(state, wrapping_key, local, peer, conversation_id) ?
-  store_blobs(request.database_path, [label], [session_blob]) ?
+  let ( session_id, label, session_blob) = seal_session(state,
+  wrapping_key,
+  local,
+  peer,
+  conversation_id) ?
+  let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
+  store_started_session(request.database_path, label, session_blob, index_blob) ?
   Ok(outer)
 end
 
@@ -930,13 +1130,199 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
     if mismatch do
       Err("initial_identity_mismatch")
     else
-      let ( label, session_blob) = seal_session(state,
+      let ( session_id, label, session_blob) = seal_session(state,
       wrapping_key,
       local,
       peer,
       inner.conversation_id) ?
-      store_received_session(request.database_path, label, session_blob) ?
+      let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
+      store_received_session(request.database_path, label, session_blob, index_blob) ?
       Ok(inner.body)
+    end
+  end
+end
+
+fn ratchet_bytes(value :: RatchetMessage) -> Bytes ! String do
+  case encode_ratchet_message(value) do
+    Err( _) -> Err("ratchet_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn encode_ratchet_packet(message :: Bytes) -> Bytes ! String do
+  mobile_join([mobile_vector(mobile_byte(2) ?) ?, mobile_vector(message) ?], 0, Bytes.empty())
+end
+
+fn parse_ratchet_packet(input :: Bytes) -> MobileRatchetPacket ! String do
+  case reader(input, 65536) do
+    Err( _) -> Err("invalid_ratchet_packet")
+    Ok( state) -> do
+      let kind = take_vector(state, 1) ?
+      let message = take_vector(kind.state, 65520) ?
+      case finish(message.state) do
+        Err( _) -> Err("invalid_ratchet_packet")
+        Ok( _) -> if !Bytes.secure_equals(kind.value, mobile_byte(2) ?) do
+          Err("invalid_ratchet_packet")
+        else
+          Ok(MobileRatchetPacket { message : message.value })
+        end
+      end
+    end
+  end
+end
+
+fn ratchet_aad(session_id :: Bytes) -> Bytes ! String do
+  Ok(Crypto.sha256(mobile_append(Bytes.from_utf8("mesh-msg/mobile/ratchet-aad/v1"), session_id) ?))
+end
+
+fn restore_session(loaded :: MobileLoadedSession, wrapping_key :: borrow StorageKey) -> RatchetState ! String do
+  case restore(loaded.record.snapshot,
+  wrapping_key,
+  loaded.record.local_account_id,
+  loaded.record.local_device_id,
+  mobile_wide("1") ?) do
+    Err( _) -> Err("session_restore_failed")
+    Ok( state) -> Ok(state)
+  end
+end
+
+fn updated_session_record(snapshot_blob :: Bytes, record :: MobileSessionRecord) -> Bytes ! String do
+  mobile_join([mobile_vector(snapshot_blob) ?, mobile_vector(record.local_account_id) ?, mobile_vector(record.local_device_id) ?, mobile_vector(record.peer_account_id) ?, mobile_vector(record.peer_device_id) ?, mobile_vector(Bytes.from_utf8(record.peer_username)) ?, mobile_vector(record.peer_mailbox) ?, mobile_vector(record.conversation_id) ?],
+  0,
+  Bytes.empty())
+end
+
+fn reject_updated_snapshot(state :: consume RatchetState) -> Bytes ! String do
+  Err("session_snapshot_failed")
+end
+
+fn finish_updated_snapshot(state :: consume RatchetState,
+snapshot_blob :: Bytes,
+record :: MobileSessionRecord,
+wrapping_key :: borrow StorageKey,
+label :: String) -> Bytes ! String do
+  seal_local(updated_session_record(snapshot_blob, record) ?, wrapping_key, local_context(label) ?)
+end
+
+fn seal_updated_session(state :: consume RatchetState,
+loaded :: MobileLoadedSession,
+wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  let next_version = U64.add(state.snapshot_version, mobile_wide("1") ?) ?
+  case snapshot(state,
+  wrapping_key,
+  loaded.record.local_account_id,
+  loaded.record.local_device_id,
+  next_version) do
+    SnapshotRejected( rejected_state, _) -> reject_updated_snapshot(rejected_state)
+    SnapshotSealed( next_state, snapshot_blob) -> finish_updated_snapshot(next_state,
+    snapshot_blob,
+    loaded.record,
+    wrapping_key,
+    loaded.label)
+  end
+end
+
+fn store_updated_session(database_path :: String, label :: String, blob :: Bytes) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> case put_blob(database, label, blob) do
+      Err( error) -> do
+        Sqlite.close(database)
+        Err(error)
+      end
+      Ok( _) -> do
+        Sqlite.close(database)
+        Ok(nil)
+      end
+    end
+  end
+end
+
+fn send_message(request :: MobileStartRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let requested_peer = parse_profile(request.peer_profile) ?
+  let wrapping_key = platform_key() ?
+  let loaded = find_peer_session(request.database_path,
+  wrapping_key,
+  requested_peer.account_id,
+  load_session_ids(request.database_path, wrapping_key) ?,
+  0) ?
+  let changed = !Bytes.secure_equals(loaded.record.peer_device_id, requested_peer.device_id) || !Bytes.secure_equals(loaded.record.peer_mailbox,
+  requested_peer.entry.mailbox_token)
+  if changed do
+    Err("peer_keys_changed")
+  else
+    let state = restore_session(loaded, wrapping_key) ?
+    let now = current_time() ?
+    let inner = InnerEnvelope {
+      version : 1,
+      sender_account_id : local.account_id,
+      sender_device_id : local.device_id,
+      recipient_device_id : loaded.record.peer_device_id,
+      conversation_id : loaded.record.conversation_id,
+      client_message_id : random_bytes(16) ?,
+      client_timestamp : now,
+      message_type : 1,
+      body : request.body,
+      reply_reference : Bytes.empty(),
+      attachment_manifest : Bytes.empty(),
+      receipt_policy : 0,
+      disappearing_seconds : 0,
+      extensions : List.new()
+    }
+    let ( next_state, message) = case encrypt(state,
+    inner_bytes(inner) ?,
+    ratchet_aad(loaded.session_id) ?) do
+      Err( _) -> Err("message_encryption_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let packet = encode_ratchet_packet(ratchet_bytes(message) ?) ?
+    let outer = outer_bytes(loaded.record.peer_mailbox, packet, now) ?
+    let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
+    store_updated_session(request.database_path, loaded.label, session_blob) ?
+    Ok(outer)
+  end
+end
+
+fn reject_message(state :: consume RatchetState) -> Bytes ! String do
+  Err("message_rejected")
+end
+
+fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let outer = canonical_outer(request.outer) ?
+  if !Bytes.secure_equals(outer.mailbox_token, local.entry.mailbox_token) do
+    Err("wrong_mailbox")
+  else
+    let packet = parse_ratchet_packet(outer.ciphertext) ?
+    let message = case decode_ratchet_message(packet.message) do
+      Err( _) -> Err("invalid_ratchet_message")
+      Ok( value) -> Ok(value)
+    end ?
+    let wrapping_key = platform_key() ?
+    let loaded = load_session_record(request.database_path, wrapping_key, message.session_id) ?
+    let state = restore_session(loaded, wrapping_key) ?
+    case decrypt(state, message, ratchet_aad(loaded.session_id) ?) do
+      Rejected( rejected_state, _) -> reject_message(rejected_state)
+      Opened( next_state, plaintext) -> do
+        let inner = case decode_inner_envelope(plaintext) do
+          Err( _) -> Err("invalid_inner_envelope")
+          Ok( value) -> Ok(value)
+        end ?
+        let mismatch = !Bytes.secure_equals(inner.sender_account_id, loaded.record.peer_account_id) || !Bytes.secure_equals(inner.sender_device_id,
+        loaded.record.peer_device_id) || !Bytes.secure_equals(inner.recipient_device_id,
+        local.device_id) || !Bytes.secure_equals(inner.conversation_id,
+        loaded.record.conversation_id)
+        if mismatch do
+          reject_message(next_state)
+        else
+          let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
+          store_updated_session(request.database_path, loaded.label, session_blob) ?
+          Ok(inner.body)
+        end
+      end
     end
   end
 end
@@ -1040,4 +1426,12 @@ end
 
 @ export("mesh_messenger_receive_initial")pub fn receive_initial_export(request :: Bytes) -> Bytes ! String do
   receive_initial_message(parse_receive_request(request) ?)
+end
+
+@ export("mesh_messenger_send_message")pub fn send_message_export(request :: Bytes) -> Bytes ! String do
+  send_message(parse_start_request(request) ?)
+end
+
+@ export("mesh_messenger_receive_message")pub fn receive_message_export(request :: Bytes) -> Bytes ! String do
+  receive_message(parse_receive_request(request) ?)
 end
