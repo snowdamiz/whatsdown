@@ -1,4 +1,5 @@
 from Binary.Reader import BinaryReader, finish, read_fixed, read_u8, read_vector, reader
+from Push.Token import valid_sealed_provider_token
 
 pub struct PushBindRequest do
   mailbox_token_hash :: Bytes
@@ -139,7 +140,7 @@ end
 fn bind_content(value :: PushBindRequest) -> Bytes ! String do
   let ciphertext_length = Bytes.length(value.provider_token_ciphertext)
   if Bytes.length(value.mailbox_token_hash) != 32 || Bytes.length(value.wake_token_hash) != 32 || Bytes.secure_equals(value.mailbox_token_hash,
-  value.wake_token_hash) || !(valid_revision(value.revision) ?) || value.provider <= 0 || value.provider > 255 || ciphertext_length < 17 || ciphertext_length > 4096 do
+  value.wake_token_hash) || !(valid_revision(value.revision) ?) || value.provider != 1 || ciphertext_length > 580 || !valid_sealed_provider_token(value.provider_token_ciphertext) do
     Err("invalid push binding")
   else
     join([byte(1) ?, Bytes.from_utf8("PSB"), value.mailbox_token_hash, value.wake_token_hash, write_u64(value.revision) ?, byte(value.provider) ?, vector(value.provider_token_ciphertext) ?],
@@ -175,13 +176,13 @@ pub fn encode_push_bind(value :: PushBindRequest) -> Bytes ! String do
 end
 
 pub fn decode_push_bind(input :: Bytes) -> PushBindRequest ! String do
-  let version = take_u8(start(input, 4241) ?) ?
+  let version = take_u8(start(input, 725) ?) ?
   let magic = take_fixed(version.state, 3) ?
   let mailbox_token_hash = take_fixed(magic.state, 32) ?
   let wake_token_hash = take_fixed(mailbox_token_hash.state, 32) ?
   let revision = take_u64(wake_token_hash.state) ?
   let provider = take_u8(revision.state) ?
-  let ciphertext = take_vector(provider.state, 4096) ?
+  let ciphertext = take_vector(provider.state, 580) ?
   let signature = take_fixed(ciphertext.state, 64) ?
   done(signature.state) ?
   if version.value != 1 || !Bytes.secure_equals(magic.value, Bytes.from_utf8("PSB")) do

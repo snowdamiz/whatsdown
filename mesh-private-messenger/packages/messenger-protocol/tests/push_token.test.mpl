@@ -1,8 +1,16 @@
+from Push.Binding import PushBindRequest, decode_push_bind, encode_push_bind
 from Push.Token import PushWakeRequest, decode_push_wake, encode_push_wake, open_provider_token, seal_provider_token
 
 fn seed(value :: Int) -> Bytes ! String do
   case Bytes.repeat(value, 32) do
     Err( _) -> Err("seed allocation failed")
+    Ok( output) -> Ok(output)
+  end
+end
+
+fn empty_signature() -> Bytes ! String do
+  case Bytes.repeat(0, 64) do
+    Err( _) -> Err("signature allocation failed")
     Ok( output) -> Ok(output)
   end
 end
@@ -65,6 +73,20 @@ fn proof() -> Bool ! String do
   assert(opened_wake.provider == 1)
   assert(Bytes.secure_equals(opened_wake.sealed_provider_token, sealed))
   case decode_push_wake(append_trailing_byte(wake_wire) ?) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+  let binding = PushBindRequest {
+    mailbox_token_hash : seed(1) ?,
+    wake_token_hash : seed(2) ?,
+    revision : U64.parse("1") ?,
+    provider : 1,
+    provider_token_ciphertext : sealed,
+    signature : empty_signature() ?
+  }
+  let binding_wire = encode_push_bind(binding) ?
+  assert(Bytes.secure_equals(decode_push_bind(binding_wire) ?.provider_token_ciphertext, sealed))
+  case encode_push_bind(% { binding | provider_token_ciphertext : seed(8) ? }) do
     Err( _) -> assert(true)
     Ok( _) -> assert(false)
   end

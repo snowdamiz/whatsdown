@@ -34,6 +34,10 @@ ChaCha20-Poly1305 uses the same `info` as associated data. The maximum encoded
 sealed token is 580 bytes. Only the broker private key can open it; the broker
 revalidates the plaintext token after authentication.
 
+Push binding accepts provider `1` only and embeds exactly one canonical `SPT`;
+arbitrary ciphertext and unsupported provider identifiers are rejected before
+the binding reaches storage. The maximum signed binding is 725 bytes.
+
 ## Broker wake request (`PWK`)
 
 ```text

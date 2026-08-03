@@ -197,6 +197,16 @@ fn decode_sealed(input :: Bytes) -> SealedProviderToken ! String do
   end
 end
 
+pub fn valid_sealed_provider_token(input :: Bytes) -> Bool do
+  case decode_sealed(input) do
+    Err( _) -> false
+    Ok( value) -> case encode_sealed(value) do
+      Err( _) -> false
+      Ok( canonical) -> Bytes.secure_equals(canonical, input)
+    end
+  end
+end
+
 pub fn seal_provider_token(token :: Bytes, broker_public_key :: X25519PublicKey) -> Bytes ! String do
   if !valid_provider_token(token) do
     Err("invalid provider token")

@@ -3,6 +3,7 @@ from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_
 from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
 from Protocol.V1 import AccountIdentity, DirectoryEntry, OuterEnvelope, ProtocolError, encode_account_identity, encode_prekey_bundle
 from Push.Binding import PushBindRequest, PushUnbindRequest, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
+from Push.Token import seal_provider_token
 from Runtime.FakePushProvider import generic_push_payload
 from Runtime.PushDispatch import broker_status, dispatch_push
 from Storage.Delivery import DeliveryInsert, enqueue_envelope
@@ -213,6 +214,14 @@ fn proof() -> Bool ! String do
   let mailbox_token_hash = Crypto.sha256(mailbox_token)
   let first_wake_token_hash = random_hash() ?
   let second_wake_token_hash = random_hash() ?
+  let broker = case Crypto.x25519_from_seed(repeated(12, 32) ?) do
+    Err( _) -> Err("broker key generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let first_provider_token = seal_provider_token(Bytes.from_utf8("ExpoPushToken[first-test-device]"),
+  broker.public_key) ?
+  let second_provider_token = seal_provider_token(Bytes.from_utf8("ExpoPushToken[second-test-device]"),
+  broker.public_key) ?
   assert(!Bytes.secure_equals(mailbox_token_hash, first_wake_token_hash))
   case register_device(pool,
   registration(account, identity, device, mailbox_token, created_at, expires_at) ?) ? do
@@ -226,7 +235,7 @@ fn proof() -> Bool ! String do
   let first_unsigned = unsigned_bind(mailbox_token_hash,
   first_wake_token_hash,
   "1",
-  repeated(9, 48) ?) ?
+  first_provider_token) ?
   let unauthorized = sign_bind(attacker.signing_private_key, first_unsigned) ?
   assert(bind_push_request(pool, encode_push_bind(unauthorized) ?).status == 403)
   let first = sign_bind(device.signing_private_key, first_unsigned) ?
@@ -246,7 +255,7 @@ fn proof() -> Bool ! String do
   case encode_push_bind(unsigned_bind(mailbox_token_hash,
   mailbox_token_hash,
   "2",
-  repeated(8, 48) ?) ?) do
+  first_provider_token) ?) do
     Err( _) -> Ok(nil)
     Ok( _) -> Err("mailbox and wake hashes were allowed to alias")
   end ?
@@ -255,7 +264,7 @@ fn proof() -> Bool ! String do
   assert(scalar(pool,
   "SELECT concat((SELECT count(*) FROM messenger_outbox_events WHERE status = 'retryable_failure'), ':', (SELECT count(*) FROM messenger_envelopes), ':', (SELECT completed_at IS NULL FROM messenger_outbox_events WHERE status = 'retryable_failure')) AS value") ? == "1:2:t")
   let second = sign_bind(device.signing_private_key,
-  unsigned_bind(mailbox_token_hash, second_wake_token_hash, "2", repeated(10, 64) ?) ?) ?
+  unsigned_bind(mailbox_token_hash, second_wake_token_hash, "2", second_provider_token) ?) ?
   assert(bind_push_request(pool, encode_push_bind(second) ?).status == 201)
   assert(bind_push_request(pool, encode_push_bind(first) ?).status == 409)
   let stored = find_push_binding_for_mailbox(pool, mailbox_token_hash) ?
@@ -283,7 +292,7 @@ fn proof() -> Bool ! String do
     Some( _) -> Err("push binding remained active")
   end ?
   let final_binding = sign_bind(device.signing_private_key,
-  unsigned_bind(mailbox_token_hash, first_wake_token_hash, "4", repeated(11, 48) ?) ?) ?
+  unsigned_bind(mailbox_token_hash, first_wake_token_hash, "4", first_provider_token) ?) ?
   assert(bind_push_request(pool, encode_push_bind(final_binding) ?).status == 201)
   let _ = Pool.execute_values(pool,
   "UPDATE messenger_mailboxes SET active = false WHERE mailbox_token_hash = $1",
