@@ -143,6 +143,43 @@ pub struct DirectoryEntry do
   mailbox_token :: Bytes
 end
 
+pub struct DeviceLinkRequest do
+  version :: Int
+  nonce :: Bytes
+  device_id :: Bytes
+  signing_public_key :: Bytes
+  dh_public_key :: Bytes
+  capabilities :: U64
+  created_at :: U64
+  expires_at :: U64
+end
+
+pub struct DeviceLinkAuthorization do
+  version :: Int
+  request_hash :: Bytes
+  username :: String
+  account_identity :: Bytes
+  device_credential :: Bytes
+  authorization_signature :: Bytes
+end
+
+pub struct DeviceSet do
+  version :: Int
+  username :: String
+  account_identity :: Bytes
+  sequence :: U64
+  devices :: List < DirectoryEntry >
+  revoked_device_ids :: List < Bytes >
+end
+
+pub struct DeviceRevocation do
+  version :: Int
+  account_id :: Bytes
+  device_id :: Bytes
+  sequence :: U64
+  signature :: Bytes
+end
+
 pub struct MailboxFetch do
   version :: Int
   mailbox_token :: Bytes
@@ -193,6 +230,11 @@ end
 struct ReadIds do
   state :: BinaryReader
   value :: List < Bytes >
+end
+
+struct ReadDirectoryEntries do
+  state :: BinaryReader
+  value :: List < DirectoryEntry >
 end
 
 fn contains_suite(values :: List < Int >, target :: Int, index :: Int) -> Bool do
@@ -1131,6 +1173,294 @@ pub fn decode_directory_entry(input :: Bytes) -> DirectoryEntry ! ProtocolError 
       mailbox_token : mailbox_token.value
     }
     validate_directory_entry(value) ?
+    Ok(value)
+  end
+end
+
+fn validate_device_link_request(value :: DeviceLinkRequest) -> Result <(), ProtocolError > do
+  if value.version != 1 do
+    Err(UnsupportedVersion)
+  else if Bytes.length(value.nonce) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.dh_public_key) != 32 do
+    Err(InvalidFieldLength)
+  else if U64.compare(value.created_at, value.expires_at) > 0 do
+    Err(InvalidExpiration)
+  else
+    Ok(nil)
+  end
+end
+
+pub fn encode_device_link_request(value :: DeviceLinkRequest) -> Bytes ! ProtocolError do
+  validate_device_link_request(value) ?
+  join([byte(value.version) ?, Bytes.from_utf8("LNK"), value.nonce, value.device_id, value.signing_public_key, value.dh_public_key, write_u64(value.capabilities) ?, write_u64(value.created_at) ?, write_u64(value.expires_at) ?],
+  0,
+  Bytes.empty())
+end
+
+pub fn decode_device_link_request(input :: Bytes) -> DeviceLinkRequest ! ProtocolError do
+  let version = take_u8(open(input, 140) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = take_fixed(version.state, 3) ?
+    valid_magic(magic.value, "LNK") ?
+    let nonce = take_fixed(magic.state, 32) ?
+    let device_id = take_fixed(nonce.state, 16) ?
+    let signing_public_key = take_fixed(device_id.state, 32) ?
+    let dh_public_key = take_fixed(signing_public_key.state, 32) ?
+    let capabilities = take_u64(dh_public_key.state) ?
+    let created_at = take_u64(capabilities.state) ?
+    let expires_at = take_u64(created_at.state) ?
+    require_end(expires_at.state) ?
+    let value = DeviceLinkRequest {
+      version : version.value,
+      nonce : nonce.value,
+      device_id : device_id.value,
+      signing_public_key : signing_public_key.value,
+      dh_public_key : dh_public_key.value,
+      capabilities : capabilities.value,
+      created_at : created_at.value,
+      expires_at : expires_at.value
+    }
+    validate_device_link_request(value) ?
+    Ok(value)
+  end
+end
+
+fn validate_device_link_authorization(value :: DeviceLinkAuthorization) -> Result <(), ProtocolError > do
+  if value.version != 1 do
+    Err(UnsupportedVersion)
+  else
+    let _ = encode_username(value.username) ?
+    if Bytes.length(value.request_hash) != 32 || Bytes.length(value.account_identity) == 0 || Bytes.length(value.account_identity) > 16582 || Bytes.length(value.device_credential) == 0 || Bytes.length(value.device_credential) > 4096 || Bytes.length(value.authorization_signature) != 64 do
+      Err(InvalidFieldLength)
+    else
+      Ok(nil)
+    end
+  end
+end
+
+pub fn encode_device_link_authorization(value :: DeviceLinkAuthorization) -> Bytes ! ProtocolError do
+  validate_device_link_authorization(value) ?
+  join([byte(value.version) ?, Bytes.from_utf8("LNA"), value.request_hash, vector(encode_username(value.username) ?) ?, vector(value.account_identity) ?, vector(value.device_credential) ?, value.authorization_signature],
+  0,
+  Bytes.empty())
+end
+
+pub fn decode_device_link_authorization(input :: Bytes) -> DeviceLinkAuthorization ! ProtocolError do
+  let version = take_u8(open(input, 20864) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = take_fixed(version.state, 3) ?
+    valid_magic(magic.value, "LNA") ?
+    let request_hash = take_fixed(magic.state, 32) ?
+    let username = take_vector(request_hash.state, 64) ?
+    let account_identity = take_vector(username.state, 16582) ?
+    let device_credential = take_vector(account_identity.state, 4096) ?
+    let authorization_signature = take_fixed(device_credential.state, 64) ?
+    require_end(authorization_signature.state) ?
+    let value = DeviceLinkAuthorization {
+      version : version.value,
+      request_hash : request_hash.value,
+      username : decode_username(username.value) ?,
+      account_identity : account_identity.value,
+      device_credential : device_credential.value,
+      authorization_signature : authorization_signature.value
+    }
+    validate_device_link_authorization(value) ?
+    Ok(value)
+  end
+end
+
+fn contains_bytes(values :: List < Bytes >, target :: Bytes, index :: Int) -> Bool do
+  if index >= List.length(values) do
+    false
+  else if Bytes.secure_equals(List.get(values, index), target) do
+    true
+  else
+    contains_bytes(values, target, index + 1)
+  end
+end
+
+fn contains_mailbox(values :: List < DirectoryEntry >, target :: Bytes, index :: Int) -> Bool do
+  if index >= List.length(values) do
+    false
+  else if Bytes.secure_equals(List.get(values, index).mailbox_token, target) do
+    true
+  else
+    contains_mailbox(values, target, index + 1)
+  end
+end
+
+fn validate_device_entries(value :: DeviceSet, index :: Int) -> Result <(), ProtocolError > do
+  if List.length(value.devices) == 0 || List.length(value.devices) > 8 do
+    Err(InvalidFieldLength)
+  else if index >= List.length(value.devices) do
+    Ok(nil)
+  else
+    let entry = List.get(value.devices, index)
+    validate_directory_entry(entry) ?
+    if entry.username != value.username || !Bytes.secure_equals(entry.account_identity,
+    value.account_identity) do
+      Err(InvalidPolicy)
+    else
+      if contains_mailbox(value.devices, entry.mailbox_token, index + 1) do
+        Err(NonCanonicalEncoding)
+      else
+        validate_device_entries(value, index + 1)
+      end
+    end
+  end
+end
+
+fn validate_revoked_ids(values :: List < Bytes >, index :: Int) -> Result <(), ProtocolError > do
+  if List.length(values) > 32 do
+    Err(OversizedInput)
+  else if index >= List.length(values) do
+    Ok(nil)
+  else if Bytes.length(List.get(values, index)) != 16 do
+    Err(InvalidFieldLength)
+  else if contains_bytes(List.drop(values, index + 1), List.get(values, index), 0) do
+    Err(NonCanonicalEncoding)
+  else
+    validate_revoked_ids(values, index + 1)
+  end
+end
+
+fn validate_device_set(value :: DeviceSet) -> Result <(), ProtocolError > do
+  if value.version != 1 do
+    Err(UnsupportedVersion)
+  else
+    let _ = encode_username(value.username) ?
+    if Bytes.length(value.account_identity) == 0 || Bytes.length(value.account_identity) > 16582 do
+      Err(InvalidFieldLength)
+    else
+      validate_device_entries(value, 0) ?
+      validate_revoked_ids(value.revoked_device_ids, 0)
+    end
+  end
+end
+
+fn encode_device_entries(values :: List < DirectoryEntry >, index :: Int, output :: Bytes) -> Bytes ! ProtocolError do
+  if index >= List.length(values) do
+    Ok(output)
+  else
+    encode_device_entries(values,
+    index + 1,
+    append(output, vector(encode_directory_entry(List.get(values, index)) ?) ?) ?)
+  end
+end
+
+fn read_device_entries(state :: BinaryReader,
+count :: Int,
+index :: Int,
+output :: List < DirectoryEntry >) -> ReadDirectoryEntries ! ProtocolError do
+  if index >= count do
+    Ok(ReadDirectoryEntries {
+      state : state,
+      value : output
+    })
+  else
+    let entry = take_vector(state, 33636) ?
+    read_device_entries(entry.state,
+    count,
+    index + 1,
+    List.append(output, decode_directory_entry(entry.value) ?))
+  end
+end
+
+fn encode_fixed_ids(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! ProtocolError do
+  if index >= List.length(values) do
+    Ok(output)
+  else
+    encode_fixed_ids(values, index + 1, append(output, List.get(values, index)) ?)
+  end
+end
+
+pub fn encode_device_set(value :: DeviceSet) -> Bytes ! ProtocolError do
+  validate_device_set(value) ?
+  let header = join([byte(value.version) ?, Bytes.from_utf8("DVS"), vector(encode_username(value.username) ?) ?, vector(value.account_identity) ?, write_u64(value.sequence) ?, byte(List.length(value.devices)) ?],
+  0,
+  Bytes.empty()) ?
+  let devices = encode_device_entries(value.devices, 0, header) ?
+  encode_fixed_ids(value.revoked_device_ids,
+  0,
+  append(devices, byte(List.length(value.revoked_device_ids)) ?) ?)
+end
+
+pub fn decode_device_set(input :: Bytes) -> DeviceSet ! ProtocolError do
+  let version = take_u8(open(input, 286400) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = take_fixed(version.state, 3) ?
+    valid_magic(magic.value, "DVS") ?
+    let username = take_vector(magic.state, 64) ?
+    let account_identity = take_vector(username.state, 16582) ?
+    let sequence = take_u64(account_identity.state) ?
+    let device_count = take_u8(sequence.state) ?
+    if device_count.value == 0 || device_count.value > 8 do
+      Err(InvalidFieldLength)
+    else
+      let devices = read_device_entries(device_count.state, device_count.value, 0, List.new()) ?
+      let revoked_count = take_u8(devices.state) ?
+      if revoked_count.value > 32 do
+        Err(OversizedInput)
+      else
+        let revoked = read_ack_ids(revoked_count.state, revoked_count.value, 0, List.new()) ?
+        require_end(revoked.state) ?
+        let value = DeviceSet {
+          version : version.value,
+          username : decode_username(username.value) ?,
+          account_identity : account_identity.value,
+          sequence : sequence.value,
+          devices : devices.value,
+          revoked_device_ids : revoked.value
+        }
+        validate_device_set(value) ?
+        Ok(value)
+      end
+    end
+  end
+end
+
+fn validate_device_revocation(value :: DeviceRevocation) -> Result <(), ProtocolError > do
+  if value.version != 1 do
+    Err(UnsupportedVersion)
+  else if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signature) != 64 do
+    Err(InvalidFieldLength)
+  else
+    Ok(nil)
+  end
+end
+
+pub fn encode_device_revocation(value :: DeviceRevocation) -> Bytes ! ProtocolError do
+  validate_device_revocation(value) ?
+  join([byte(value.version) ?, Bytes.from_utf8("DVR"), value.account_id, value.device_id, write_u64(value.sequence) ?, value.signature],
+  0,
+  Bytes.empty())
+end
+
+pub fn decode_device_revocation(input :: Bytes) -> DeviceRevocation ! ProtocolError do
+  let version = take_u8(open(input, 256) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = take_fixed(version.state, 3) ?
+    valid_magic(magic.value, "DVR") ?
+    let account_id = take_fixed(magic.state, 32) ?
+    let device_id = take_fixed(account_id.state, 16) ?
+    let sequence = take_u64(device_id.state) ?
+    let signature = take_fixed(sequence.state, 64) ?
+    require_end(signature.state) ?
+    let value = DeviceRevocation {
+      version : version.value,
+      account_id : account_id.value,
+      device_id : device_id.value,
+      sequence : sequence.value,
+      signature : signature.value
+    }
+    validate_device_revocation(value) ?
     Ok(value)
   end
 end
