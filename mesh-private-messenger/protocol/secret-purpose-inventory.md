@@ -19,6 +19,7 @@ the version 1 classical and experimental hybrid profiles.
 | Header key | `SecretBytes` | One local session and header-key generation | Sealed in the session snapshot |
 | Message key | `SecretBytes` | One message attempt; destroyed after commit or failure | Never |
 | Group epoch secret | `SecretBytes` | One local group state and epoch | Sealed in the group snapshot |
+| Group TreeKEM leaf and parent private keys | `X25519PrivateKey` | One local group state; replaced when its path is updated | Sealed in the group snapshot |
 | Attachment key | `SecretBytes` | One attachment until upload/download completion or expiry | Sealed while work is pending |
 | Skipped message key | `SecretBytes` | One session; at most 1,000 keys for at most 7 days | Sealed in the session snapshot |
 | HKDF or HMAC intermediate | `SecretBytes` | One derivation call; consumed into a named key or tag | Never |

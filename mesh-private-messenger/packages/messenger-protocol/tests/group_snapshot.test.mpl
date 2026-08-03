@@ -1,4 +1,4 @@
-from Groups.Mls import GroupAddOutcome, GroupDecryptOutcome, GroupEncryptOutcome, GroupError, GroupSnapshotOutcome, GroupState, GroupTransparencyPolicy, create_group, commit_add, decrypt_group_message, encrypt_group_message, group_snapshot, join_from_welcome, restore_group
+from Groups.Mls import CommitApplyOutcome, GroupAddOutcome, GroupDecryptOutcome, GroupEncryptOutcome, GroupError, GroupSnapshotOutcome, GroupState, GroupTransparencyPolicy, apply_commit, create_group, commit_add, decrypt_group_message, encrypt_group_message, group_snapshot, join_from_welcome, restore_group
 from Groups.Tree import GroupMember
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
@@ -40,6 +40,7 @@ fn member(account :: Int,
 device :: Int,
 signing :: SigningPublicKey,
 init :: X25519PublicKey,
+leaf :: X25519PublicKey,
 checkpoint :: Bytes) -> GroupMember ! GroupError do
   Ok(GroupMember {
     version : 1,
@@ -47,7 +48,7 @@ checkpoint :: Bytes) -> GroupMember ! GroupError do
     device_id : repeated(device, 16),
     signing_public_key : signing,
     init_public_key : init,
-    leaf_public_key : X25519PublicKey { bytes : repeated(device + 70, 32) },
+    leaf_public_key : leaf,
     mailbox_token : repeated(device + 40, 32),
     directory_sequence : wide(5) ?,
     transparency_checkpoint_hash : checkpoint,
@@ -56,8 +57,34 @@ checkpoint :: Bytes) -> GroupMember ! GroupError do
   })
 end
 
+fn applied(outcome :: CommitApplyOutcome) -> GroupState ! GroupError do
+  case outcome do
+    CommitApplied( state) -> Ok(state)
+    CommitRejected( state, error) -> do
+      consume_state(state)
+      Err(error)
+    end
+  end
+end
+
 fn consume_state(value :: consume GroupState) do
   nil
+end
+
+fn group_error_name(value :: GroupError) -> String do
+  case value do
+    AuthenticationRejected -> "AuthenticationRejected"
+    CryptoFailure( _) -> "CryptoFailure"
+    FutureEpoch -> "FutureEpoch"
+    InvalidGroup -> "InvalidGroup"
+    InvalidMember -> "InvalidMember"
+    InvalidPolicy -> "InvalidPolicy"
+    Replay -> "Replay"
+    RemovedMember -> "RemovedMember"
+    RollbackRejected -> "RollbackRejected"
+    StaleEpoch -> "StaleEpoch"
+    TreeFailure( _) -> "TreeFailure"
+  end
 end
 
 fn added(outcome :: GroupAddOutcome) -> Result <( GroupState, GroupCommit, GroupWelcome), GroupError > do
@@ -154,6 +181,16 @@ minimum :: U64) -> Bool do
   end
 end
 
+fn rejects_join(value :: Result < GroupState, GroupError >) -> Bool do
+  case value do
+    Err( _) -> true
+    Ok( state) -> do
+      consume_state(state)
+      false
+    end
+  end
+end
+
 fn proof() -> Bool ! GroupError do
   let checkpoint = repeated(73, 32)
   let policy = GroupTransparencyPolicy {
@@ -163,16 +200,52 @@ fn proof() -> Bool ! GroupError do
   }
   let alice_signing = signing_pair() ?
   let alice_init = init_pair() ?
+  let alice_leaf = init_pair() ?
   let bob_signing = signing_pair() ?
   let bob_init = init_pair() ?
-  let alice = member(1, 1, alice_signing.public_key, alice_init.public_key, checkpoint) ?
-  let bob = member(2, 2, bob_signing.public_key, bob_init.public_key, checkpoint) ?
+  let bob_leaf = init_pair() ?
+  let carol_signing = signing_pair() ?
+  let carol_init = init_pair() ?
+  let carol_leaf = init_pair() ?
+  let dave_signing = signing_pair() ?
+  let dave_init = init_pair() ?
+  let dave_leaf = init_pair() ?
+  let alice = member(1,
+  1,
+  alice_signing.public_key,
+  alice_init.public_key,
+  alice_leaf.public_key,
+  checkpoint) ?
+  let bob = member(2,
+  2,
+  bob_signing.public_key,
+  bob_init.public_key,
+  bob_leaf.public_key,
+  checkpoint) ?
+  let carol = member(3,
+  3,
+  carol_signing.public_key,
+  carol_init.public_key,
+  carol_leaf.public_key,
+  checkpoint) ?
+  let dave = member(4,
+  4,
+  dave_signing.public_key,
+  dave_init.public_key,
+  dave_leaf.public_key,
+  checkpoint) ?
   let bob_account = bob.account_id
   let bob_device = bob.device_id
-  let alice_state = create_group(alice, [1], policy) ?
+  let alice_state = create_group(alice, alice_leaf.private_key, [1], policy) ?
   let ( alice_state, _, welcome) = added(commit_add(alice_state, alice_signing.private_key, bob)) ?
-  let bob_state = join_from_welcome(welcome, bob_init.private_key) ?
+  let bob_state = join_from_welcome(welcome, bob_init.private_key, bob_leaf.private_key) ?
+  let ( alice_state, carol_commit, carol_welcome) = added(commit_add(alice_state,
+  alice_signing.private_key,
+  carol)) ?
+  let bob_state = applied(apply_commit(bob_state, carol_commit)) ?
+  let carol_state = join_from_welcome(carol_welcome, carol_init.private_key, carol_leaf.private_key) ?
   let key = storage_key() ?
+  let wrong_key = storage_key() ?
   let ( bob_state, blob) = sealed(group_snapshot(bob_state, key, bob_account, bob_device, wide(1) ?)) ?
   let bob_state = rollback_rejected(group_snapshot(bob_state,
   key,
@@ -180,24 +253,39 @@ fn proof() -> Bool ! GroupError do
   bob_device,
   wide(1) ?)) ?
   assert(rejects_restore(tamper_last_byte(blob) ?, key, bob_account, bob_device, wide(1) ?))
+  assert(rejects_restore(blob, wrong_key, bob_account, bob_device, wide(1) ?))
   assert(rejects_restore(blob, key, bob_account, bob_device, wide(2) ?))
+  assert(rejects_restore(blob, key, repeated(9, 32), bob_device, wide(1) ?))
+  assert(rejects_restore(blob, key, bob_account, repeated(9, 16), wide(1) ?))
   let restored = restore_group(blob, key, bob_account, bob_device, wide(1) ?) ?
+  let ( carol_state, dave_commit, dave_welcome) = added(commit_add(carol_state,
+  carol_signing.private_key,
+  dave)) ?
+  let restored = applied(apply_commit(restored, dave_commit)) ?
+  let changed_policy = % { dave_welcome | policy : % { dave_welcome.policy | witness_threshold : 1 } }
+  assert(rejects_join(join_from_welcome(changed_policy,
+  dave_init.private_key,
+  dave_leaf.private_key)))
   let plaintext = Bytes.from_utf8("message after restart")
   let caller_data = Bytes.from_utf8("group-snapshot-test")
-  let ( alice_state, message) = encrypted(encrypt_group_message(alice_state,
-  alice_signing.private_key,
+  let ( carol_state, message) = encrypted(encrypt_group_message(carol_state,
+  carol_signing.private_key,
   plaintext,
   caller_data)) ?
   let restored = opened(decrypt_group_message(restored, message, caller_data), plaintext) ?
   consume_state(alice_state)
   consume_state(bob_state)
+  consume_state(carol_state)
   consume_state(restored)
   Ok(true)
 end
 
-test("group state recovery seals epoch secrets and rejects rollback or tampering") do
+test("group recovery restores TreeKEM private paths and rejects rollback or tampering") do
   case proof() do
-    Err( _) -> assert(false)
+    Err( error) -> do
+      println(group_error_name(error))
+      assert(false)
+    end
     Ok( value) -> assert(value)
   end
 end

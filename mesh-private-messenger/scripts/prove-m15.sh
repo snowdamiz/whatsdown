@@ -24,6 +24,8 @@ main() {
   (cd "$compiler_root" && \
     cargo test -p mesh-rt hpke_base_mode_matches_rfc9180_a2_1_sequence_zero)
   (cd "$compiler_root" && \
+    cargo test -p mesh-rt x25519_public_key_matches_mlswg_treekem_vector)
+  (cd "$compiler_root" && \
     cargo test -p mesh-rt every_registered_purpose_round_trips_to_its_exact_resource_kind)
   (cd "$compiler_root" && cargo test -p mesh-typeck --test crypto_v2 hpke_)
   (cd "$compiler_root" && \
@@ -53,12 +55,12 @@ main() {
   grep -q 'not an RFC 9420 wire-compatible implementation' \
     "$messenger_root/protocol/mls-groups-v1.md" || \
     fail "the interoperability boundary is missing"
-  grep -q 'does not provide MLS TreeKEM forward secrecy' \
+  grep -q 'six-node direct path' \
     "$messenger_root/protocol/mls-groups-v1.md" || \
-    fail "the TreeKEM forward-secrecy limitation is missing"
+    fail "the TreeKEM update-path contract is missing"
 
   printf '%s\n' \
-    'M15 proof passed: official HPKE vector, groups, codecs, persistence, and iOS runtime builds; production remains externally gated.'
+    'M15 proof passed: official HPKE and TreeKEM X25519 vectors, groups, codecs, persistence, and iOS runtime builds; production remains externally gated.'
 }
 
 main "$@"

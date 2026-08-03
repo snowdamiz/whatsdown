@@ -10,28 +10,36 @@ A.2.1.
 
 ## State and transitions
 
-Groups contain at most 64 device leaves. Each leaf binds an account ID, device
-ID, signing key, HPKE initialization key, ratcheting leaf HPKE key, mailbox capability, transparency
-checkpoint, witness count, and sorted extension list. A cached immutable
-Merkle tree makes the root and member count constant-time while add/remove
-path updates remain bounded.
+Groups contain at most 64 device leaves in a fixed 127-node left-balanced tree.
+Each leaf binds an account ID, device ID, signing key, join-only HPKE
+initialization key, ratcheting leaf HPKE key, mailbox capability, transparency
+checkpoint, witness count, and sorted extension list. Public parent nodes bind
+their HPKE key and sorted unmerged leaves. The cached tree hash commits to both
+leaf and parent state.
 
-Every add or remove creates exactly the next epoch, signs the prior transcript,
-proposal, resulting tree root, and one HPKE-wrapped 32-byte epoch secret for
-every active device. Wrapped-secret entries must be sorted, unique, exactly 80
-bytes, and match the resulting leaf set one-for-one. A removed device receives
-no next-epoch secret. Receivers reject stale, skipped, reordered, altered, or
-wrong-group commits without changing their state.
+Every add or remove creates exactly the next epoch and rotates the committer's
+leaf key. A fresh path secret is advanced through the six-node direct path with
+HKDF-SHA256; each level derives a deterministic X25519 parent key. The commit
+contains those public nodes and HPKE-encrypts the matching path secret to the
+resolution of each copath node. A newly added leaf is excluded from the commit
+ciphertexts, and a removed leaf has no resolution entry.
 
-Version 1 wraps each epoch secret to long-lived device initialization keys. It
-does not provide MLS TreeKEM forward secrecy or post-compromise security:
-compromise of an initialization key can expose recorded epoch commits for that
-device. Production activation requires replacing this distribution mechanism
-with independently reviewed TreeKEM update paths.
+The Ed25519 signature binds the prior transcript, proposal, resulting tree
+root, new leaf key, every public parent node, every unmerged-leaf list, and all
+recipient ciphertexts. A receiver opens the first path secret addressed to a
+leaf or parent private key it owns, derives the remaining path, verifies every
+derived public key, and derives the next epoch secret from the root secret.
+Replaced private path material is consumed. Receivers reject stale, skipped,
+reordered, altered, wrong-group, or wrongly addressed commits without changing
+their state.
 
-Welcomes carry the signed add commit, complete indexed roster, negotiated
-extensions, transparency policy, and recipient leaf. The recipient proves
-possession of the leaf initialization key before opening its epoch secret.
+Welcomes carry the signed add commit, complete indexed roster and public parent
+tree, negotiated extensions, transparency policy, recipient leaf, and one
+HPKE-wrapped secret at the recipient's lowest common ancestor with the
+committer. The long-lived initialization key is used only for this join. The
+recipient proves possession of both its initialization and ratcheting leaf
+private keys before deriving and validating its private path. The Welcome HPKE
+associated data also binds the negotiated extensions and transparency policy.
 Every member must meet the minimum directory sequence, exact checkpoint,
 witness threshold, and selected extensions.
 
@@ -54,30 +62,41 @@ reject trailing bytes before cryptographic work.
 | Value | Magic | Maximum encoded bytes |
 |---|---|---:|
 | Commit | `GCM` | 8,200 |
-| Welcome | `GWL` | 26,052 |
+| Welcome | `GWL` | 65,535 |
 | Group message | `GMS` | 65,750 |
-| Group snapshot | `GST` | 26,151 |
+| Group snapshot | `GST` | 65,535 |
 
-Variable bytes use a `u32` length. Member and epoch-secret lists are capped at
-64; extension lists are capped at 16 and strictly increasing; ciphertext is
-capped at 65,536 bytes. Commit signatures and message signatures are exactly
-64 bytes.
+Variable bytes use a `u32` length. Rosters, recipient sets, and unmerged-leaf
+lists are capped at 64; update paths contain exactly six ordered parent nodes;
+extension lists are capped at 16 and strictly increasing; ciphertext is capped
+at 65,536 bytes. Each TreeKEM HPKE ciphertext is exactly 80 bytes. Commit and
+message signatures are exactly 64 bytes. Decoders reject non-canonical counts,
+out-of-range nodes, duplicate or unsorted public lists, and trailing data.
 
 ## Persistence
 
-Snapshots encode the public tree, transcript, counters, transparency policy,
-extensions, and monotonic snapshot version. The epoch secret remains a
-`SecretBytes` resource and is sealed under storage purpose `16`; it never
-becomes ordinary `Bytes`. Its 123-byte storage context binds the local account,
-device, group ID, the hash of the complete public snapshot header, purpose,
-and version. Restore rejects rollback, wrong-device use, altered public state,
-trailing data, or failed authentication before returning a group state.
+Snapshots encode the complete public tree, transcript, counters, transparency
+policy, extensions, available private-path levels, and monotonic snapshot
+version. The epoch secret remains a `SecretBytes` resource sealed under storage
+purpose `16`. The leaf private key and six fixed private-path slots remain
+`X25519PrivateKey` resources sealed under purpose `17`; unavailable slots hold
+independent dummy keys and are ignored.
+
+Each 123-byte storage context binds the local account, device, group ID, hash
+of the complete public snapshot header, purpose, key slot, and version. Restore
+authenticates all eight sealed resources and verifies the leaf and every
+available parent private key against the public tree before returning state.
+It rejects rollback, wrong-device use, altered public state, trailing data, or
+failed authentication.
 
 ## Release gate
 
-The M15 proof covers the official HPKE vector, hostile wire inputs, add/remove,
-multi-device membership, epoch ordering, removal exclusion, persistence,
-fanout, extension negotiation, and mobile-target compilation. Production
-activation still requires a recorded independent review of the protocol and
-its final wire revision; this repository does not treat its internal proof as
-that review.
+The M15 proof covers the RFC 9180 HPKE vector and the
+[MLSWG `treekem.json`](https://github.com/mlswg/mls-implementations/blob/main/test-vectors/treekem.json)
+cipher-suite-1 leaf private/public X25519 vector, plus this profile's complete
+path derivation, hostile wire inputs, add/remove, multi-device membership,
+epoch ordering, removal exclusion, private-path recovery, fanout, extension
+negotiation, and mobile-target compilation. This custom profile is not expected
+to consume RFC 9420 wire vectors directly. Production activation still
+requires a recorded independent review of the protocol and its final wire
+revision; this repository does not treat its internal proof as that review.

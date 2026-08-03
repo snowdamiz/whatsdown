@@ -33,6 +33,7 @@ fn member(account :: Int,
 device :: Int,
 signing :: SigningPublicKey,
 init :: X25519PublicKey,
+leaf :: X25519PublicKey,
 checkpoint :: Bytes) -> GroupMember ! GroupError do
   Ok(GroupMember {
     version : 1,
@@ -40,7 +41,7 @@ checkpoint :: Bytes) -> GroupMember ! GroupError do
     device_id : repeated(device, 16),
     signing_public_key : signing,
     init_public_key : init,
-    leaf_public_key : X25519PublicKey { bytes : repeated(device + 70, 32) },
+    leaf_public_key : leaf,
     mailbox_token : repeated(device + 40, 32),
     directory_sequence : wide(5) ?,
     transparency_checkpoint_hash : checkpoint,
@@ -102,6 +103,13 @@ fn rejects_commit(input :: Bytes) -> Bool do
   end
 end
 
+fn rejects_commit_value(value :: GroupCommit) -> Bool do
+  case encode_group_commit(value) do
+    Err( _) -> true
+    _ -> false
+  end
+end
+
 fn rejects_welcome(value :: GroupWelcome) -> Bool do
   case encode_group_welcome(value) do
     Err( _) -> true
@@ -118,11 +126,23 @@ fn proof() -> Bool ! GroupError do
   }
   let alice_signing = signing_pair() ?
   let alice_init = init_pair() ?
+  let alice_leaf = init_pair() ?
   let bob_signing = signing_pair() ?
   let bob_init = init_pair() ?
-  let alice = member(1, 1, alice_signing.public_key, alice_init.public_key, checkpoint) ?
-  let bob = member(2, 2, bob_signing.public_key, bob_init.public_key, checkpoint) ?
-  let alice_state = create_group(alice, [1], policy) ?
+  let bob_leaf = init_pair() ?
+  let alice = member(1,
+  1,
+  alice_signing.public_key,
+  alice_init.public_key,
+  alice_leaf.public_key,
+  checkpoint) ?
+  let bob = member(2,
+  2,
+  bob_signing.public_key,
+  bob_init.public_key,
+  bob_leaf.public_key,
+  checkpoint) ?
+  let alice_state = create_group(alice, alice_leaf.private_key, [1], policy) ?
   let ( alice_state, commit, welcome) = added(commit_add(alice_state,
   alice_signing.private_key,
   bob)) ?
@@ -130,12 +150,23 @@ fn proof() -> Bool ! GroupError do
   let decoded_commit = decode_group_commit(commit_wire) ?
   assert(decoded_commit.committer_leaf == commit.committer_leaf)
   assert(Bytes.secure_equals(decoded_commit.tree_hash, commit.tree_hash))
+  assert(List.length(decoded_commit.update_path.nodes) == 6)
+  let short_path = % { commit | update_path : % { commit.update_path | nodes : List.drop(commit.update_path.nodes,
+  1) } }
+  assert(rejects_commit_value(short_path))
+  let first_node = List.get(commit.update_path.nodes, 0)
+  let invalid_unmerged = % { first_node | parent : % { first_node.parent | unmerged_leaves : [2, 1] } }
+  let invalid_path = % { commit | update_path : % { commit.update_path | nodes : List.concat([invalid_unmerged],
+  List.drop(commit.update_path.nodes, 1)) } }
+  assert(rejects_commit_value(invalid_path))
   assert(rejects_commit(append(commit_wire, Bytes.from_utf8("x")) ?))
   let welcome_wire = encode_group_welcome(welcome) ?
   let inconsistent = % { welcome | commit : % { welcome.commit | proposal : AddMember(welcome.recipient_leaf,
   alice) } }
   assert(rejects_welcome(inconsistent))
-  let bob_state = join_from_welcome(decode_group_welcome(welcome_wire) ?, bob_init.private_key) ?
+  let bob_state = join_from_welcome(decode_group_welcome(welcome_wire) ?,
+  bob_init.private_key,
+  bob_leaf.private_key) ?
   let plaintext = Bytes.from_utf8("canonical group wire")
   let caller_data = Bytes.from_utf8("group-wire-test")
   let ( alice_state, message) = encrypted(encrypt_group_message(alice_state,

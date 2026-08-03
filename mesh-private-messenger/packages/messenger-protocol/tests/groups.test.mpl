@@ -33,6 +33,7 @@ fn member(account :: Int,
 device :: Int,
 signing :: SigningPublicKey,
 init :: X25519PublicKey,
+leaf :: X25519PublicKey,
 checkpoint :: Bytes) -> GroupMember ! GroupError do
   Ok(GroupMember {
     version : 1,
@@ -40,7 +41,7 @@ checkpoint :: Bytes) -> GroupMember ! GroupError do
     device_id : repeated(device, 16),
     signing_public_key : signing,
     init_public_key : init,
-    leaf_public_key : X25519PublicKey { bytes : repeated(device + 70, 32) },
+    leaf_public_key : leaf,
     mailbox_token : repeated(device + 40, 32),
     directory_sequence : wide(5) ?,
     transparency_checkpoint_hash : checkpoint,
@@ -162,6 +163,7 @@ fn rejected_commit(outcome :: CommitApplyOutcome, expected :: GroupError) -> Gro
     end
     CommitRejected( state, error) -> case (error, expected) do
       ( FutureEpoch, FutureEpoch) -> Ok(state)
+      ( AuthenticationRejected, AuthenticationRejected) -> Ok(state)
       ( RemovedMember, RemovedMember) -> Ok(state)
       ( StaleEpoch, StaleEpoch) -> Ok(state)
       _ -> do
@@ -191,31 +193,49 @@ fn proof() -> Bool ! GroupError do
   }
   let alice_signing = signing_pair() ?
   let alice_init = init_pair() ?
+  let alice_leaf = init_pair() ?
   let bob_signing = signing_pair() ?
   let bob_init = init_pair() ?
+  let bob_leaf = init_pair() ?
   let alice_second_signing = signing_pair() ?
   let alice_second_init = init_pair() ?
-  let alice = member(1, 1, alice_signing.public_key, alice_init.public_key, checkpoint) ?
-  let bob = member(2, 2, bob_signing.public_key, bob_init.public_key, checkpoint) ?
+  let alice_second_leaf = init_pair() ?
+  let alice = member(1,
+  1,
+  alice_signing.public_key,
+  alice_init.public_key,
+  alice_leaf.public_key,
+  checkpoint) ?
+  let bob = member(2,
+  2,
+  bob_signing.public_key,
+  bob_init.public_key,
+  bob_leaf.public_key,
+  checkpoint) ?
   let alice_second = member(1,
   3,
   alice_second_signing.public_key,
   alice_second_init.public_key,
+  alice_second_leaf.public_key,
   checkpoint) ?
-  let alice_state = create_group(alice, [1], policy) ?
+  let alice_state = create_group(alice, alice_leaf.private_key, [1], policy) ?
   let invalid_bob = % { bob | witness_count : 0 }
   let alice_state = rejected_add(commit_add(alice_state, alice_signing.private_key, invalid_bob)) ?
   let ( alice_state, bob_commit, bob_welcome) = added(commit_add(alice_state,
   alice_signing.private_key,
   bob)) ?
-  let bob_state = join_from_welcome(bob_welcome, bob_init.private_key) ?
+  assert(List.length(bob_commit.update_path.nodes) == 6)
+  assert(List.length(List.get(bob_commit.update_path.nodes, 0).parent.unmerged_leaves) == 0)
+  let bob_state = join_from_welcome(bob_welcome, bob_init.private_key, bob_leaf.private_key) ?
   assert(member_count(alice_state.tree) == 2)
   assert(member_count(bob_state.tree) == 2)
   let ( alice_state, second_commit, second_welcome) = added(commit_add(alice_state,
   alice_signing.private_key,
   alice_second)) ?
-  let bob_state = applied(apply_commit(bob_state, bob_init.private_key, second_commit)) ?
-  let alice_second_state = join_from_welcome(second_welcome, alice_second_init.private_key) ?
+  let bob_state = applied(apply_commit(bob_state, second_commit)) ?
+  let alice_second_state = join_from_welcome(second_welcome,
+  alice_second_init.private_key,
+  alice_second_leaf.private_key) ?
   assert(member_count(alice_state.tree) == 3)
   assert(member_count(bob_state.tree) == 3)
   assert(member_count(alice_second_state.tree) == 3)
@@ -263,32 +283,50 @@ fn removal_proof() -> Bool ! GroupError do
   }
   let alice_signing = signing_pair() ?
   let alice_init = init_pair() ?
+  let alice_leaf = init_pair() ?
   let bob_signing = signing_pair() ?
   let bob_init = init_pair() ?
+  let bob_leaf = init_pair() ?
   let carol_signing = signing_pair() ?
   let carol_init = init_pair() ?
-  let alice = member(11, 11, alice_signing.public_key, alice_init.public_key, checkpoint) ?
-  let bob = member(12, 12, bob_signing.public_key, bob_init.public_key, checkpoint) ?
-  let carol = member(13, 13, carol_signing.public_key, carol_init.public_key, checkpoint) ?
-  let alice_state = create_group(alice, [1], policy) ?
+  let carol_leaf = init_pair() ?
+  let alice = member(11,
+  11,
+  alice_signing.public_key,
+  alice_init.public_key,
+  alice_leaf.public_key,
+  checkpoint) ?
+  let bob = member(12,
+  12,
+  bob_signing.public_key,
+  bob_init.public_key,
+  bob_leaf.public_key,
+  checkpoint) ?
+  let carol = member(13,
+  13,
+  carol_signing.public_key,
+  carol_init.public_key,
+  carol_leaf.public_key,
+  checkpoint) ?
+  let alice_state = create_group(alice, alice_leaf.private_key, [1], policy) ?
   let ( alice_state, _, bob_welcome) = added(commit_add(alice_state, alice_signing.private_key, bob)) ?
-  let bob_state = join_from_welcome(bob_welcome, bob_init.private_key) ?
+  let bob_state = join_from_welcome(bob_welcome, bob_init.private_key, bob_leaf.private_key) ?
   let ( alice_state, carol_commit, carol_welcome) = added(commit_add(alice_state,
   alice_signing.private_key,
   carol)) ?
-  let carol_state = join_from_welcome(carol_welcome, carol_init.private_key) ?
+  let carol_state = join_from_welcome(carol_welcome, carol_init.private_key, carol_leaf.private_key) ?
   let alice_state = rejected_remove(commit_remove(alice_state, bob_signing.private_key, 1)) ?
   let ( alice_state, removal_commit) = removed(commit_remove(alice_state,
   alice_signing.private_key,
   1)) ?
-  let bob_state = rejected_commit(apply_commit(bob_state, bob_init.private_key, removal_commit),
-  FutureEpoch) ?
-  let bob_state = applied(apply_commit(bob_state, bob_init.private_key, carol_commit)) ?
-  let bob_state = rejected_commit(apply_commit(bob_state, bob_init.private_key, removal_commit),
-  RemovedMember) ?
-  let carol_state = applied(apply_commit(carol_state, carol_init.private_key, removal_commit)) ?
-  let carol_state = rejected_commit(apply_commit(carol_state, carol_init.private_key, carol_commit),
-  StaleEpoch) ?
+  let bob_state = rejected_commit(apply_commit(bob_state, removal_commit), FutureEpoch) ?
+  let tampered_carol_commit = % { carol_commit | signature : Signature { bytes : repeated(0, 64) } }
+  let bob_state = rejected_commit(apply_commit(bob_state, tampered_carol_commit),
+  AuthenticationRejected) ?
+  let bob_state = applied(apply_commit(bob_state, carol_commit)) ?
+  let bob_state = rejected_commit(apply_commit(bob_state, removal_commit), RemovedMember) ?
+  let carol_state = applied(apply_commit(carol_state, removal_commit)) ?
+  let carol_state = rejected_commit(apply_commit(carol_state, carol_commit), StaleEpoch) ?
   let plaintext = Bytes.from_utf8("after removal")
   let caller_data = Bytes.from_utf8("group removal")
   let ( alice_state, message) = encrypted(encrypt_group_message(alice_state,
