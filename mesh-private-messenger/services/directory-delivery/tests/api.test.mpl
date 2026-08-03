@@ -34,6 +34,7 @@ fn proof() -> Bool ! String do
   "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_envelopes", []) ?
+  let _ = Pool.execute(pool, "DELETE FROM messenger_rate_limits", []) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_directory", []) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_mailboxes", []) ?
   let token = repeated(3, 32)
@@ -55,7 +56,7 @@ fn proof() -> Bool ! String do
     envelope_id : envelope_id,
     mailbox_token : token,
     suite : 1,
-    expiration : wide("2000000000") ?,
+    expiration : wide("4102444800000") ?,
     padding_bucket : 256,
     ciphertext : Bytes.from_utf8("opaque ciphertext")
   })) ?

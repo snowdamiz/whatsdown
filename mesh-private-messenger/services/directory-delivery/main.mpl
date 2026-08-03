@@ -1,13 +1,21 @@
 from Api.Router import build_router
 from Runtime.Registry import start_registry
+from Runtime.Workers import start_workers
 
 fn serve(pool :: PoolHandle, port :: Int) do
   let _ = start_registry(pool)
-  println("directory-delivery listening on :#{port}")
-  HTTP.serve(build_router(), port)
+  case start_workers(2, 250) do
+    Err( error) -> println("worker startup failed: #{error}")
+    Ok( count) -> do
+      println("directory-delivery listening on :#{port} with #{count} workers")
+      HTTP.serve(build_router(), port)
+    end
+  end
+  Pool.close(pool)
 end
 
 fn main() do
+  Process.install_shutdown_signals()
   let url = Env.get("MESSENGER_DATABASE_URL",
   "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let port = Env.get_int("MESSENGER_PORT", 18086)

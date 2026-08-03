@@ -1,4 +1,5 @@
 from Protocol.V1 import DeliveredEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope
+from Storage.RateLimit import allow_request_on_connection
 
 pub type DeliveryInsert do
   Accepted
@@ -6,6 +7,8 @@ pub type DeliveryInsert do
   Duplicate
 
   MailboxFull
+
+  RateLimited
 end deriving(Eq, Debug)
 
 fn binary(value :: DbValue) -> Bytes ! String do
@@ -40,19 +43,43 @@ fn valid_outer(value :: OuterEnvelope) -> Result <(), String > do
   end
 end
 
+fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryInsert ! String do
+  let token_hash = Crypto.sha256(value.mailbox_token)
+  let existing = Pg.query_values(conn,
+  "SELECT sequence::text FROM messenger_envelopes WHERE mailbox_token_hash = $1 AND envelope_id = $2",
+  [Binary(token_hash), Binary(value.envelope_id)]) ?
+  if List.length(existing) > 0 do
+    Ok(Duplicate)
+  else
+    let _ = Pg.execute_values(conn,
+    "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6)",
+    [Binary(token_hash), Binary(value.envelope_id), Text(Int.to_string(value.suite)), Text(U64.to_string(value.expiration)), Text(Int.to_string(value.padding_bucket)), Binary(value.ciphertext)]) ?
+    if allow_request_on_connection(conn, token_hash, 32, 60) ? do
+      let _ = Pg.execute_values(conn,
+      "INSERT INTO messenger_outbox_events (mailbox_token_hash, envelope_id) VALUES ($1, $2)",
+      [Binary(token_hash), Binary(value.envelope_id)]) ?
+      Ok(Accepted)
+    else
+      Err("messenger_rate_limited")
+    end
+  end
+end
+
 pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryInsert ! String do
   valid_outer(value) ?
-  case Pool.execute_values(pool,
-  "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6)",
-  [Binary(Crypto.sha256(value.mailbox_token)), Binary(value.envelope_id), Text(Int.to_string(value.suite)), Text(U64.to_string(value.expiration)), Text(Int.to_string(value.padding_bucket)), Binary(value.ciphertext)]) do
-    Ok( _) -> Ok(Accepted)
+  case Repo.transaction(pool, fn (conn :: borrow PgConn) -> insert_envelope(conn, value) end) do
+    Ok( result) -> Ok(result)
     Err( error) -> if String.contains(error, "messenger_envelopes_mailbox_envelope_key") do
       Ok(Duplicate)
     else
       if String.contains(error, "messenger_mailbox_capacity") do
         Ok(MailboxFull)
       else
-        Err(error)
+        if String.contains(error, "messenger_rate_limited") do
+          Ok(RateLimited)
+        else
+          Err(error)
+        end
       end
     end
   end
@@ -96,7 +123,7 @@ pub fn fetch_mailbox(pool :: PoolHandle, request :: MailboxFetch) -> List < Deli
     Ok( _) -> Ok(nil)
   end ?
   let rows = Pool.query_values(pool,
-  "SELECT sequence::text, envelope_id, suite::text, expiration_ms::text, padding_bucket::text, ciphertext FROM messenger_envelopes WHERE mailbox_token_hash = $1 AND sequence > $2::bigint AND acknowledged_at IS NULL ORDER BY sequence LIMIT 8",
+  "SELECT sequence::text, envelope_id, suite::text, expiration_ms::text, padding_bucket::text, ciphertext FROM messenger_envelopes WHERE mailbox_token_hash = $1 AND sequence > $2::bigint AND acknowledged_at IS NULL AND expiration_ms > floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint ORDER BY sequence LIMIT 8",
   [Binary(Crypto.sha256(request.mailbox_token)), Text(U64.to_string(request.after_sequence))]) ?
   deliveries(rows, request.mailbox_token, 0, List.new())
 end

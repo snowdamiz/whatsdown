@@ -50,6 +50,7 @@ pub fn submit_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
       Ok( Accepted) -> empty(202)
       Ok( Duplicate) -> empty(200)
       Ok( MailboxFull) -> empty(429)
+      Ok( RateLimited) -> empty(429)
     end
   end
 end
