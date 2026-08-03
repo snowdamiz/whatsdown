@@ -7,14 +7,15 @@ there is no unversioned production path.
 ## Version 1 identifiers
 
 - Protocol version: `1`
-- Development suite: `0x0001` (`mesh-msg/profile-a/v1`)
+- Classical suite: `0x0001` (`mesh-msg/profile-a/v1`)
+- Experimental hybrid suite: `0x0002` (`mesh-msg/profile-b/v1`)
 - Envelope, encrypted payload, credential, prekey bundle, transcript, ratchet
   snapshot, and extension encodings each carry version `1`.
 
-Profile A has one suite, so negotiation cannot select an alternative. A device
-advertises its supported suite list in its signed credential and prekey bundle.
-The initiator selects the strongest mutually supported suite according to the
-published profile order.
+Hybrid credentials and bundles advertise `[0x0002, 0x0001]`; classical values
+advertise only `[0x0001]`. Negotiation selects `0x0002` when both peers support
+it. Selecting `0x0001` is an explicit compatibility result, never a retry after
+a hybrid failure.
 
 ## Downgrade rules
 
@@ -28,6 +29,8 @@ published profile order.
   error. It is never retried with a lower value automatically.
 - Malformed version lists, duplicate suite identifiers, and an empty mutual
   suite set fail before key agreement.
+- A changed ML-KEM ciphertext fails initial-message authentication; it is not
+  retried as a classical handshake.
 
 ## Codec compatibility
 

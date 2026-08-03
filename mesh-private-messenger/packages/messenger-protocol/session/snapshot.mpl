@@ -107,7 +107,8 @@ fn zero() -> U64 ! SnapshotError do
 end
 
 fn encode_header(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes ! SnapshotError do
-  let valid = state.version == 1 && state.suite == 1 && Bytes.length(state.session_id) == 32 && Bytes.length(state.local_ratchet_public.bytes) == 32 && Bytes.length(state.remote_ratchet_public.bytes) == 32 && state.previous_chain_length >= 0 && state.sent_count >= 0 && state.received_count >= 0 && U64.compare(snapshot_version, zero() ?) > 0
+  let valid_suite = state.suite == 1 || state.suite == 2
+  let valid = state.version == 1 && valid_suite && Bytes.length(state.session_id) == 32 && Bytes.length(state.local_ratchet_public.bytes) == 32 && Bytes.length(state.remote_ratchet_public.bytes) == 32 && state.previous_chain_length >= 0 && state.sent_count >= 0 && state.received_count >= 0 && U64.compare(snapshot_version, zero() ?) > 0
   if !valid do
     Err(InvalidSnapshot)
   else
@@ -323,7 +324,8 @@ fn decode_snapshot(input :: Bytes) -> ParsedSnapshot ! SnapshotError do
   let local_private = take_vector(receiving_chain_key.state, 99) ?
   let skipped_keys = take_vector(local_private.state, 65603) ?
   require_end(skipped_keys.state) ?
-  let valid = version.value == 1 && Bytes.secure_equals(magic.value, Bytes.from_utf8("RST")) && suite.value == 1 && pending.value >= 0 && pending.value <= 1 && U64.compare(snapshot_version.value, zero() ?) > 0
+  let valid_suite = suite.value == 1 || suite.value == 2
+  let valid = version.value == 1 && Bytes.secure_equals(magic.value, Bytes.from_utf8("RST")) && valid_suite && pending.value >= 0 && pending.value <= 1 && U64.compare(snapshot_version.value, zero() ?) > 0
   if !valid do
     Err(InvalidSnapshot)
   else

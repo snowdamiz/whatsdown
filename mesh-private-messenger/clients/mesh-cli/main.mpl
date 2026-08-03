@@ -1,5 +1,5 @@
 from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
+from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
 from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DirectoryEntry, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
@@ -65,6 +65,13 @@ end
 fn one_time_prekey() -> OneTimePrekeySecrets ! String do
   case generate_one_time_prekey(wide("2") ?) do
     Err( _) -> Err("one-time prekey generation failed")
+    Ok( value) -> Ok(value)
+  end
+end
+
+fn post_quantum_prekey() -> PostQuantumPrekeySecrets ! String do
+  case generate_post_quantum_prekey() do
+    Err( _) -> Err("post-quantum prekey generation failed")
     Ok( value) -> Ok(value)
   end
 end
@@ -454,6 +461,7 @@ fn run_device_b() -> Int ! String do
   let bob_credential = credential(bob_account_keys, bob, created_at, expires_at) ?
   let signed = signed_prekey(bob, bob_credential, expires_at) ?
   let one_time = one_time_prekey() ?
+  let post_quantum = post_quantum_prekey() ?
   let published = bundle(bob_credential, signed, one_time) ?
   let token = random(32) ?
   let _ = register_entry(DirectoryEntry {
@@ -494,9 +502,11 @@ fn run_device_b() -> Int ! String do
       published,
       signed,
       one_time,
+      post_quantum,
       alice_account,
       policy(now) ?,
       policy(now) ?,
+      1,
       initial) do
         Err( _) -> Err("initial receive failed")
         Ok( value) -> Ok(value)

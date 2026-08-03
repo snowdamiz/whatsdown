@@ -1,7 +1,8 @@
 # messenger-protocol
 
-Canonical Profile A (`version = 1`, `suite = 0x0001`) types, negotiation,
-transcript hashing, and codecs implemented entirely in Mesh. Integers are
+Canonical classical (`version = 1`, `suite = 0x0001`) and experimental hybrid
+(`suite = 0x0002`) types, negotiation, transcript hashing, and codecs
+implemented entirely in Mesh. Integers are
 unsigned, fixed-width, and big-endian. Vectors are a `u32` byte length followed
 by exactly that many bytes. Decoders reject unsupported versions or suites,
 oversized vectors, truncation, duplicate extension IDs, unknown mandatory
@@ -11,9 +12,9 @@ extensions, and trailing bytes.
 `PrekeyBundle`, `OuterEnvelope`, `InnerEnvelope`, `HandshakeTranscript`, and
 `InitialMessage`, plus the bounded directory, mailbox-fetch, delivery-batch,
 and acknowledgement records used by the CLI services.
-`negotiate_profile_a` enforces the authenticated strongest-suite floor;
-`hash_handshake_transcript` hashes the canonical transcript with the exact
-`mesh-msg/v1/handshake` domain label.
+`negotiate_suites` prefers suite `0x0002` and enforces the authenticated
+strongest-suite floor. `hash_handshake_transcript` hashes the canonical
+transcript with the exact `mesh-msg/v1/handshake` domain label.
 
 `Session.Snapshot` seals every private ratchet resource under a `StorageKey`
 with account, device, session, purpose, and monotonic snapshot-version binding.
@@ -39,7 +40,7 @@ The complete field layouts and decoder ceilings are specified in
 | Magic | 3 bytes, ASCII `MSG` |
 | Envelope ID | 16 bytes |
 | Destination mailbox token | 32 bytes |
-| Suite | `u16`, value `1` |
+| Suite | `u16`, value `1` or `2` |
 | Expiration | `u64`, Unix milliseconds |
 | Padding bucket | `u32`: 256 through 65,536 in powers of two |
 | Ciphertext | `u32` length + bytes, at most the padding bucket |
@@ -55,20 +56,20 @@ acknowledgements accept at most eight 16-byte envelope IDs. Usernames are
 | Field | Encoding |
 |---|---|
 | Version | `u8`, value `1` |
-| Suite | `u16`, value `1` |
+| Suite | `u16`, value `1` or `2` |
 | Account ID | 32 bytes |
 | Device ID | 16 bytes |
 | Ed25519 signing public key | 32 bytes |
 | X25519 public key | 32 bytes |
-| Post-quantum public key | `u32` length + bytes; empty in Profile A |
+| Post-quantum public key | `u32` length + bytes; empty in suite 1, exactly 1,184 bytes in suite 2 |
 | Capabilities | `u32` bit set |
 | Created at | `u64`, Unix milliseconds |
 | Expires at | `u64`, Unix milliseconds; not before creation |
 | Directory sequence | `u64` |
 | Ed25519 signature | 64 bytes |
 
-The Profile A credential is exactly 211 bytes. The vector remains bounded at
-4,096 bytes so malformed future-profile input is rejected before allocation.
+The credential is exactly 211 bytes in suite 1 and 1,395 bytes in suite 2. The
+vector remains bounded so malformed input is rejected before allocation.
 Golden and hostile fixtures live in `tests/fixtures/m1` and
 `tests/fixtures/m5`.
 
@@ -77,13 +78,13 @@ Golden and hostile fixtures live in `tests/fixtures/m1` and
 | Value | Maximum encoded bytes |
 |---|---:|
 | Account identity | 16,582 |
-| Device credential | 4,307 (211 is canonical in Profile A) |
-| Prekey bundle | 16,942 |
+| Device credential | 1,395 |
+| Prekey bundle | 18,126 |
 | Outer envelope | 65,606 |
 | Inner envelope | 65,536 |
-| Handshake transcript | 16,684 |
+| Handshake transcript | 17,868 |
 | Initial message | 65,536 |
-| Directory entry | 33,636 |
+| Directory entry | 34,820 |
 | Delivery batch | 524,949 |
 
 Every extension list has at most 16 entries, each value is at most 1,024

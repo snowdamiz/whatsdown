@@ -25,7 +25,8 @@ Callers first encode the 123-byte context in this fixed order:
 Purpose identifiers are stable: `1` root key, `2` sending chain key, `3`
 receiving chain key, `4` header key, `5` attachment key, `6` account
 authorization key, `7` device signing key, `8` device DH key, `9` signed
-prekey, `10` one-time prekey, and `11` skipped message key. Unknown
+prekey, `10` one-time prekey, `11` skipped message key, `12` skipped-key map,
+`13` ratchet DH key, `14` local data, and `15` ML-KEM prekey seed. Unknown
 identifiers are rejected.
 
 The Session ID is the canonical 32-byte session identifier for session,
@@ -53,10 +54,11 @@ SHA-256("mesh-msg/v1/storage-wrap" || context)
 The supplied context is never inferred from database columns. Unsealing
 recomputes this digest and rejects a mismatch before returning secret material.
 
-Profile A wraps exactly 32 plaintext bytes. `seal_for_storage` reads them
-directly from the live resource table; no ordinary `Bytes` plaintext is
-created. `unseal_from_storage` authenticates the complete blob before checking
-the 32-byte plaintext length and constructing the purpose-specific resource.
+Private resources wrap exactly 32 plaintext bytes except purpose `15`, which
+wraps the 64-byte ML-KEM-768 seed. `seal_for_storage` reads them directly from
+the live resource table; no ordinary `Bytes` plaintext is created.
+`unseal_from_storage` authenticates the complete blob before checking the exact
+purpose-specific length and constructing the resource.
 
 ## Blob encoding
 

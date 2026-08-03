@@ -1,6 +1,6 @@
 from Identity.Device import DeviceKeys, IdentityError, VerificationPolicy, verify_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PrekeyError, SignedPrekeySecrets, verify_prekey_bundle
-from Protocol.V1 import AccountIdentity, DeviceCredential, HandshakeTranscript, InitialMessage, PrekeyBundle, ProtocolError, decode_device_credential, decode_initial_message, encode_device_credential, encode_prekey_bundle, hash_handshake_transcript
+from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, verify_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeviceCredential, HandshakeTranscript, InitialMessage, PrekeyBundle, ProtocolError, decode_device_credential, decode_initial_message, encode_device_credential, encode_prekey_bundle, hash_handshake_transcript, negotiate_suites
 
 pub type SessionError do
   AuthenticationRejected
@@ -77,6 +77,53 @@ fourth :: SecretBytes) -> SecretBytes ! SessionError do
   concat(combined, fourth)
 end
 
+fn supported_suites(credential :: DeviceCredential) -> List < Int > do
+  if credential.suite == 2 do [2, 1] else [1] end
+end
+
+fn selected_suite(credential :: DeviceCredential,
+bundle :: PrekeyBundle,
+strongest_authenticated_suite :: Int) -> Int ! SessionError do
+  case negotiate_suites(supported_suites(credential),
+  bundle.supported_suites,
+  strongest_authenticated_suite) do
+    Err(error) -> Err(ProtocolFailure(error))
+    Ok(value) -> Ok(value)
+  end
+end
+
+fn initiator_ikm(suite :: Int,
+classical_ikm :: SecretBytes,
+bundle :: PrekeyBundle) -> Result <( Bytes, SecretBytes), SessionError > do
+  if suite == 2 do
+    case Crypto.mlkem_encapsulate(MlKemPublicKey { bytes : bundle.post_quantum_prekey }) do
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> do
+        let (ciphertext, shared_secret) = value
+        Ok((ciphertext.bytes, concat(classical_ikm, shared_secret) ?))
+      end
+    end
+  else
+    Ok((Bytes.empty(), classical_ikm))
+  end
+end
+
+fn responder_ikm(suite :: Int,
+classical_ikm :: SecretBytes,
+post_quantum_prekey :: borrow PostQuantumPrekeySecrets,
+ciphertext :: Bytes) -> SecretBytes ! SessionError do
+  if suite == 2 do
+    let shared_secret = case Crypto.mlkem_decapsulate(post_quantum_prekey.private_key,
+    MlKemCiphertext { bytes : ciphertext }) do
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
+    end ?
+    concat(classical_ikm, shared_secret)
+  else
+    Ok(classical_ikm)
+  end
+end
+
 fn handshake_salt(transcript_hash :: Bytes) -> Bytes ! SessionError do
   case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/handshake"), transcript_hash) do
     Err( _) -> Err(InvalidHandshake)
@@ -100,7 +147,8 @@ end
 
 fn transcript_for(initiator_credential :: DeviceCredential,
 responder_bundle :: PrekeyBundle,
-ephemeral_public_key :: X25519PublicKey) -> HandshakeTranscript ! SessionError do
+ephemeral_public_key :: X25519PublicKey,
+suite :: Int) -> HandshakeTranscript ! SessionError do
   let credential_hash = Crypto.sha256(encoded_credential(initiator_credential) ?)
   let bundle_hash = case encode_prekey_bundle(responder_bundle) do
     Err( error) -> Err(ProtocolFailure(error))
@@ -108,7 +156,7 @@ ephemeral_public_key :: X25519PublicKey) -> HandshakeTranscript ! SessionError d
   end ?
   Ok(HandshakeTranscript {
     version : 1,
-    suite : 1,
+    suite : suite,
     initiator_credential_hash : credential_hash,
     responder_prekey_bundle_hash : bundle_hash,
     initiator_ephemeral_public_key : ephemeral_public_key.bytes,
@@ -116,6 +164,11 @@ ephemeral_public_key :: X25519PublicKey) -> HandshakeTranscript ! SessionError d
     responder_signed_prekey : responder_bundle.signed_prekey,
     one_time_prekey_id : responder_bundle.one_time_prekey_id,
     responder_one_time_prekey : responder_bundle.one_time_prekey,
+    responder_post_quantum_prekey : if suite == 2 do
+      responder_bundle.post_quantum_prekey
+    else
+      Bytes.empty()
+    end,
     extensions : List.new()
   })
 end
@@ -134,7 +187,13 @@ responder_bundle :: PrekeyBundle,
 responder_policy :: VerificationPolicy,
 strongest_authenticated_suite :: Int,
 plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > do
-  if Bytes.length(plaintext) > 65171 do
+  let suite = selected_suite(initiator_credential,
+  responder_bundle,
+  strongest_authenticated_suite) ?
+  let credential_length = Bytes.length(encoded_credential(initiator_credential) ?)
+  let post_quantum_length = if suite == 2 do 1088 else 0 end
+  let maximum_plaintext = 65382 - credential_length - post_quantum_length
+  if Bytes.length(plaintext) > maximum_plaintext do
     Err(InvalidHandshake)
   else
     let bundle_valid = case verify_prekey_bundle(responder_account,
@@ -173,8 +232,14 @@ plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > d
         Err( error) -> Err(CryptoFailure(error))
         Ok( value) -> Ok(value)
       end ?
-      let ikm = combine_dh(dh1, dh2, dh3, dh4) ?
-      let transcript = transcript_for(initiator_credential, responder_bundle, ephemeral_public) ?
+      let classical_ikm = combine_dh(dh1, dh2, dh3, dh4) ?
+      let (post_quantum_ciphertext, ikm) = initiator_ikm(suite,
+      classical_ikm,
+      responder_bundle) ?
+      let transcript = transcript_for(initiator_credential,
+      responder_bundle,
+      ephemeral_public,
+      suite) ?
       let hash = transcript_hash(transcript) ?
       let salt = handshake_salt(hash) ?
       let root_key = case Crypto.hkdf_sha256(ikm, salt, Bytes.from_utf8("mesh-msg/v1/root-key"), 32) do
@@ -207,7 +272,7 @@ plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > d
       let credential_bytes = encoded_credential(initiator_credential) ?
       Ok((RatchetState {
         version : 1,
-        suite : 1,
+        suite : suite,
         session_id : hash,
         root_key : root_key,
         sending_chain_key : sending_chain_key,
@@ -224,12 +289,13 @@ plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > d
       },
       InitialMessage {
         version : 1,
-        suite : 1,
+        suite : suite,
         signed_prekey_id : responder_bundle.signed_prekey_id,
         one_time_prekey_id : responder_bundle.one_time_prekey_id,
         initiator_credential : credential_bytes,
         initiator_identity_public_key : initiator.identity_public_key,
         initiator_ephemeral_public_key : ephemeral_public,
+        post_quantum_ciphertext : post_quantum_ciphertext,
         transcript_hash : hash,
         nonce : nonce,
         ciphertext : ciphertext
@@ -246,31 +312,38 @@ responder_account :: AccountIdentity,
 responder_bundle :: PrekeyBundle,
 signed_prekey :: borrow SignedPrekeySecrets,
 one_time_prekey :: consume OneTimePrekeySecrets,
+post_quantum_prekey :: borrow PostQuantumPrekeySecrets,
 initiator_account :: AccountIdentity,
 responder_policy :: VerificationPolicy,
 initiator_policy :: VerificationPolicy,
+strongest_authenticated_suite :: Int,
 message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
   case decode_initial_message(message_bytes) do
     Err( _) -> Err(InvalidHandshake)
     Ok( message) -> do
-      let wrong_version = message.version != 1 || message.suite != 1
+      let credential = decoded_credential(message.initiator_credential) ?
+      let suite = selected_suite(credential,
+      responder_bundle,
+      strongest_authenticated_suite) ?
+      let wrong_version = message.version != 1 || message.suite != suite
       let wrong_ids = U64.compare(message.signed_prekey_id, signed_prekey.id) != 0 || U64.compare(message.one_time_prekey_id,
       one_time_prekey.id) != 0
       let wrong_keys = !Bytes.secure_equals(responder_bundle.signed_prekey,
       signed_prekey.public_key.bytes) || !Bytes.secure_equals(responder_bundle.one_time_prekey,
       one_time_prekey.public_key.bytes)
-      if wrong_version || wrong_ids || wrong_keys do
+      let wrong_post_quantum_key = suite == 2 && !Bytes.secure_equals(responder_bundle.post_quantum_prekey,
+      post_quantum_prekey.public_key.bytes)
+      if wrong_version || wrong_ids || wrong_keys || wrong_post_quantum_key do
         Err(InvalidHandshake)
       else
         let bundle_valid = case verify_prekey_bundle(responder_account,
         responder_bundle,
-        1,
+        strongest_authenticated_suite,
         responder_policy.current_time,
         responder_policy.minimum_directory_sequence) do
           Err( _) -> false
           Ok( value) -> value
         end
-        let credential = decoded_credential(message.initiator_credential) ?
         let credential_valid = case verify_device_credential(initiator_account,
         credential,
         initiator_policy.current_time,
@@ -285,7 +358,8 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
         else
           let transcript = transcript_for(credential,
           responder_bundle,
-          message.initiator_ephemeral_public_key) ?
+          message.initiator_ephemeral_public_key,
+          suite) ?
           let hash = transcript_hash(transcript) ?
           if !Bytes.secure_equals(hash, message.transcript_hash) do
             Err(InvalidHandshake)
@@ -310,7 +384,11 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
               Err( error) -> Err(CryptoFailure(error))
               Ok( value) -> Ok(value)
             end ?
-            let ikm = combine_dh(dh1, dh2, dh3, dh4) ?
+            let classical_ikm = combine_dh(dh1, dh2, dh3, dh4) ?
+            let ikm = responder_ikm(suite,
+            classical_ikm,
+            post_quantum_prekey,
+            message.post_quantum_ciphertext) ?
             let salt = handshake_salt(hash) ?
             let root_key = case Crypto.hkdf_sha256(ikm,
             salt,
@@ -346,7 +424,7 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
             let local_private = one_time_prekey.private_key
             Ok((RatchetState {
               version : 1,
-              suite : 1,
+              suite : suite,
               session_id : hash,
               root_key : root_key,
               sending_chain_key : sending_chain_key,

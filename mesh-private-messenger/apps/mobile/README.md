@@ -15,6 +15,10 @@ npm run ios
 ```
 
 Use a LAN or deployed HTTPS URL on physical devices. `127.0.0.1` only reaches the device itself. A custom development build is required because the app contains the local native module.
+New development accounts advertise experimental hybrid suite `0x0002`; linked
+classical devices remain on suite `0x0001` until credential rotation. Suite
+`0x0002` is not production-approved until the independent cryptographic review
+[gate](../../protocol/hybrid-handshake-v1.md) is complete.
 Transparency and witness keys are required 32-byte lowercase hex build pins; directory responses fail closed when they are absent or do not match.
 The delivery X25519 key is also a required 32-byte lowercase hex build pin. Sends fail closed without the privacy-edge URL or a valid key. Abuse difficulty defaults to 16 and must stay between 1 and 24.
 

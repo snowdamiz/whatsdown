@@ -122,10 +122,31 @@ capabilities :: U64,
 created_at :: U64,
 expires_at :: U64,
 directory_sequence :: U64) -> DeviceCredential ! IdentityError do
-  issue_public_device_credential(account,
+  issue_credential(account,
   device.device_id,
   device.signing_public_key.bytes,
   device.identity_public_key.bytes,
+  Bytes.empty(),
+  1,
+  capabilities,
+  created_at,
+  expires_at,
+  directory_sequence)
+end
+
+pub fn issue_hybrid_device_credential(account :: borrow AccountKeys,
+device :: borrow DeviceKeys,
+post_quantum_public_key :: MlKemPublicKey,
+capabilities :: U64,
+created_at :: U64,
+expires_at :: U64,
+directory_sequence :: U64) -> DeviceCredential ! IdentityError do
+  issue_credential(account,
+  device.device_id,
+  device.signing_public_key.bytes,
+  device.identity_public_key.bytes,
+  post_quantum_public_key.bytes,
+  2,
   capabilities,
   created_at,
   expires_at,
@@ -140,17 +161,40 @@ capabilities :: U64,
 created_at :: U64,
 expires_at :: U64,
 directory_sequence :: U64) -> DeviceCredential ! IdentityError do
-  if Bytes.length(device_id) != 16 || Bytes.length(signing_public_key) != 32 || Bytes.length(dh_public_key) != 32 do
+  issue_credential(account,
+  device_id,
+  signing_public_key,
+  dh_public_key,
+  Bytes.empty(),
+  1,
+  capabilities,
+  created_at,
+  expires_at,
+  directory_sequence)
+end
+
+fn issue_credential(account :: borrow AccountKeys,
+device_id :: Bytes,
+signing_public_key :: Bytes,
+dh_public_key :: Bytes,
+post_quantum_public_key :: Bytes,
+suite :: Int,
+capabilities :: U64,
+created_at :: U64,
+expires_at :: U64,
+directory_sequence :: U64) -> DeviceCredential ! IdentityError do
+  let expected_post_quantum_length = if suite == 2 do 1184 else 0 end
+  if Bytes.length(device_id) != 16 || Bytes.length(signing_public_key) != 32 || Bytes.length(dh_public_key) != 32 || Bytes.length(post_quantum_public_key) != expected_post_quantum_length do
     Err(InvalidCredential)
   else
     let unsigned = DeviceCredential {
       version : 1,
-      suite : 1,
+      suite : suite,
       account_id : account.account_id,
       device_id : device_id,
       signing_public_key : signing_public_key,
       dh_public_key : dh_public_key,
-      post_quantum_public_key : Bytes.empty(),
+      post_quantum_public_key : post_quantum_public_key,
       capabilities : capabilities,
       created_at : created_at,
       expires_at : expires_at,

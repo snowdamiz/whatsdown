@@ -35,16 +35,16 @@ preserved byte-for-byte. Maximum nesting is one extension-list level.
 ## Suite negotiation
 
 A suite advertisement is a `u8` count followed by `u16` suite IDs. It contains
-one to eight unique IDs. Profile A recognizes only `0x0001`; any higher or
-otherwise unknown ID returns `UnsupportedSuite` instead of falling back.
+one or two unique IDs. Version 1 recognizes classical `0x0001` and experimental
+hybrid `0x0002`; any other ID returns `UnsupportedSuite` instead of falling
+back.
 
-`negotiate_profile_a(local, remote, strongest_authenticated_suite)` returns
-`0x0001` only when both authenticated lists are valid and the remembered suite
-floor is not stronger. A duplicate list fails with `DuplicateSuite`; a
-remembered value above Profile A fails with `DowngradeDetected`. The selected
-history below zero fails with `InvalidSuiteHistory`. The selected suite is also
-encoded in credentials, prekey bundles, outer envelopes, and the handshake
-transcript.
+`negotiate_suites(local, remote, strongest_authenticated_suite)` prefers
+`0x0002`, then `0x0001`. A duplicate list fails with `DuplicateSuite`; selecting
+below the remembered floor fails with `DowngradeDetected`. History outside
+`0..2` fails with `InvalidSuiteHistory`. The selected suite is encoded in
+credentials, prekey bundles, outer envelopes, handshakes, ratchet messages, and
+snapshots.
 
 ## Account identity (`ACT`)
 
@@ -63,19 +63,20 @@ directory/transparency position. Maximum encoded size: 16,582 bytes.
 
 ## Device credential
 
-The existing credential layout remains exactly 211 bytes in Profile A. It
+The credential layout is exactly 211 bytes in suite `0x0001` and 1,395 bytes in
+suite `0x0002`. It
 binds the account and device IDs, Ed25519 and X25519 public keys, capabilities,
 creation and expiry times, directory sequence, selected suite, and signature.
-The post-quantum key vector must be empty. See the package README for the exact
-field table.
+The post-quantum key vector is empty in suite `0x0001` and is an exact
+1,184-byte ML-KEM-768 encapsulation key in suite `0x0002`.
 
 ## Prekey bundle (`PKB`)
 
 ```text
 version:u8 = 1
 tag:3 = "PKB"
-suite:u16 = 1
-device_credential:vector (exactly 211 bytes)
+suite:u16 = 1 or 2
+device_credential:vector (exactly 211 or 1,395 bytes)
 identity_dh_public_key:32
 signing_public_key:32
 signed_prekey_id:u64 (nonzero)
@@ -83,6 +84,7 @@ signed_prekey:32
 signed_prekey_signature:64
 one_time_prekey_id:u64
 one_time_prekey:vector (0 or 32 bytes)
+post_quantum_prekey:0 bytes for suite 1; 1,184 bytes for suite 2
 supported_suites
 expires_at:u64
 extensions
@@ -130,7 +132,7 @@ attachments.
 ```text
 version:u8 = 1
 tag:3 = "HST"
-suite:u16 = 1
+suite:u16 = 1 or 2
 initiator_credential_hash:32
 responder_prekey_bundle_hash:32
 initiator_ephemeral_public_key:32
@@ -138,6 +140,7 @@ signed_prekey_id:u64 (nonzero)
 responder_signed_prekey:32
 one_time_prekey_id:u64
 responder_one_time_prekey:vector (0 or 32 bytes)
+responder_post_quantum_prekey:0 bytes for suite 1; 1,184 bytes for suite 2
 extensions
 ```
 
@@ -157,18 +160,21 @@ vectors for every new value and the transcript digest live under
 ```text
 version:u8 = 1
 tag:3 = "INI"
-suite:u16 = 1
+suite:u16 = 1 or 2
 signed_prekey_id:u64 (nonzero)
 one_time_prekey_id:u64 (nonzero)
-initiator_credential:vector (exactly 211 bytes)
+initiator_credential:vector (exactly 211 or 1,395 bytes)
 initiator_identity_public_key:32
 initiator_ephemeral_public_key:32
+post_quantum_ciphertext:0 bytes for suite 1; 1,088 bytes for suite 2
 transcript_hash:32
 nonce:12
 ciphertext:vector (16..65,187 bytes)
 ```
 
-The total is `349 + ciphertext_length` bytes and cannot exceed 65,536 bytes.
+The total is `349 + ciphertext_length` bytes for suite `0x0001` and
+`2,621 + ciphertext_length` bytes for suite `0x0002`; neither may exceed
+65,536 bytes.
 Encoding uses the affine `BytesBuilder`; decoding uses `BinaryReader` and
 rejects oversized input, truncation, invalid fixed lengths, malformed embedded
 credentials, unsupported identifiers, and trailing bytes before cryptography.

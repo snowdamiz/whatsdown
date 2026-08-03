@@ -87,8 +87,8 @@ Unsupported higher suites fail explicitly.
 
 ## Outside Profile A
 
-ML-KEM, hybrid establishment, key transparency enforcement, sealed delivery,
-multi-device linking and revocation, and independent witness checkpoints belong
-to Profile B or later. Profile C must pin the final hybrid scheme, ratchet,
-identity binding, nonce derivation, limits, prekey rotation, and backup KDF after
-independent review.
+Suite `0x0002` is the experimental hybrid Profile B defined in
+[`hybrid-handshake-v1.md`](hybrid-handshake-v1.md). It is implemented for
+interoperability and performance testing but is not release-approved.
+Production activation remains blocked until an independent cryptographic review
+of the final revision is recorded.

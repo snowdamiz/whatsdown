@@ -1,5 +1,5 @@
 from Identity.Device import DeviceKeys, IdentityError, verify_device_credential
-from Protocol.V1 import AccountIdentity, DeviceCredential, PrekeyBundle, ProtocolError, decode_device_credential, encode_device_credential, encode_prekey_bundle, negotiate_profile_a
+from Protocol.V1 import AccountIdentity, DeviceCredential, PrekeyBundle, ProtocolError, decode_device_credential, encode_device_credential, encode_prekey_bundle, negotiate_suites
 
 pub type PrekeyError do
   CryptoFailure( error :: CryptoError)
@@ -23,6 +23,11 @@ pub resource struct OneTimePrekeySecrets do
   id :: U64
   private_key :: X25519PrivateKey
   public_key :: X25519PublicKey
+end
+
+pub resource struct PostQuantumPrekeySecrets do
+  private_key :: MlKemPrivateKey
+  public_key :: MlKemPublicKey
 end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! PrekeyError do
@@ -98,16 +103,49 @@ pub fn generate_one_time_prekey(id :: U64) -> OneTimePrekeySecrets ! PrekeyError
   end
 end
 
+pub fn generate_post_quantum_prekey() -> PostQuantumPrekeySecrets ! PrekeyError do
+  case Crypto.mlkem_generate() do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(pair) -> do
+      let public_key = pair.public_key
+      let private_key = pair.private_key
+      Ok(PostQuantumPrekeySecrets {
+        private_key : private_key,
+        public_key : public_key
+      })
+    end
+  end
+end
+
 pub fn build_prekey_bundle(credential :: DeviceCredential,
 signed_prekey :: borrow SignedPrekeySecrets,
 one_time_prekey :: borrow OneTimePrekeySecrets) -> PrekeyBundle ! PrekeyError do
+  build_bundle(credential, signed_prekey, one_time_prekey, Bytes.empty(), [1])
+end
+
+pub fn build_hybrid_prekey_bundle(credential :: DeviceCredential,
+signed_prekey :: borrow SignedPrekeySecrets,
+one_time_prekey :: borrow OneTimePrekeySecrets,
+post_quantum_prekey :: borrow PostQuantumPrekeySecrets) -> PrekeyBundle ! PrekeyError do
+  build_bundle(credential,
+  signed_prekey,
+  one_time_prekey,
+  post_quantum_prekey.public_key.bytes,
+  [2, 1])
+end
+
+fn build_bundle(credential :: DeviceCredential,
+signed_prekey :: borrow SignedPrekeySecrets,
+one_time_prekey :: borrow OneTimePrekeySecrets,
+post_quantum_prekey :: Bytes,
+supported_suites :: List < Int >) -> PrekeyBundle ! PrekeyError do
   let credential_bytes = case encode_device_credential(credential) do
     Err( error) -> Err(ProtocolFailure(error))
     Ok( value) -> Ok(value)
   end ?
   let bundle = PrekeyBundle {
     version : 1,
-    suite : 1,
+    suite : credential.suite,
     device_credential : credential_bytes,
     identity_dh_public_key : credential.dh_public_key,
     signing_public_key : credential.signing_public_key,
@@ -116,7 +154,8 @@ one_time_prekey :: borrow OneTimePrekeySecrets) -> PrekeyBundle ! PrekeyError do
     signed_prekey_signature : signed_prekey.signature.bytes,
     one_time_prekey_id : one_time_prekey.id,
     one_time_prekey : one_time_prekey.public_key.bytes,
-    supported_suites : [1],
+    post_quantum_prekey : post_quantum_prekey,
+    supported_suites : supported_suites,
     expires_at : signed_prekey.expires_at,
     extensions : List.new()
   }
@@ -149,10 +188,12 @@ minimum_directory_sequence :: U64) -> Bool ! PrekeyError do
     bundle.identity_dh_public_key)
     let signing_key_mismatch = !Bytes.secure_equals(credential.signing_public_key,
     bundle.signing_public_key)
-    if !credential_valid || identity_key_mismatch || signing_key_mismatch do
+    let post_quantum_key_mismatch = !Bytes.secure_equals(credential.post_quantum_public_key,
+    bundle.post_quantum_prekey)
+    if !credential_valid || identity_key_mismatch || signing_key_mismatch || post_quantum_key_mismatch do
       Err(InvalidBundle)
     else
-      let _ = case negotiate_profile_a([1], bundle.supported_suites, strongest_authenticated_suite) do
+      let _ = case negotiate_suites([2, 1], bundle.supported_suites, strongest_authenticated_suite) do
         Err( error) -> Err(ProtocolFailure(error))
         Ok( value) -> Ok(value)
       end ?

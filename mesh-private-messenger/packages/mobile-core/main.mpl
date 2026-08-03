@@ -1,8 +1,8 @@
 from Binary.Reader import BinaryReader, finish, read_vector, reader
-from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, issue_device_revocation, verify_device_link_authorization
-from Prekeys.Bundle import OneTimePrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey, verify_prekey_bundle
+from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential, verify_device_link_authorization
+from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, verify_prekey_bundle
 from Privacy.Edge import encode_privacy_submission, mint_submission, seal_delivery
-from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceSet, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_set, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceSet, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_set, decode_directory_entry, decode_initial_message, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
@@ -79,6 +79,7 @@ struct MobileSessionRecord do
   verified :: Bool
   key_changed :: Bool
   disappearing_seconds :: Int
+  strongest_suite :: Int
 end
 
 struct MobileLoadedSession do
@@ -323,7 +324,7 @@ fn context(account_id :: Bytes, device_id :: Bytes, label :: String, purpose :: 
   if Bytes.length(account_id) != 32 || Bytes.length(device_id) != 16 do
     Err("invalid_storage_identity")
   else
-    let session_id = if purpose >= 5 && purpose <= 10 do
+    let session_id = if (purpose >= 5 && purpose <= 10) || purpose == 15 do
       mobile_zeroes(32) ?
     else
       Crypto.sha256(Bytes.from_utf8("mesh-msg/mobile/storage-session/v1"))
@@ -379,6 +380,15 @@ value_context :: Bytes) -> Bytes ! String do
   end
 end
 
+fn seal_mlkem(key :: borrow MlKemPrivateKey,
+wrapping_key :: borrow StorageKey,
+value_context :: Bytes) -> Bytes ! String do
+  case MlKemPrivateKey.seal_for_storage(key, wrapping_key, value_context) do
+    Err(_) -> Err("identity_seal_failed")
+    Ok(blob) -> Ok(blob)
+  end
+end
+
 fn open_signing(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> SigningPrivateKey ! String do
   case SigningPrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
     Err( _) -> Err("identity_open_failed")
@@ -390,6 +400,15 @@ fn open_x25519(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :
   case X25519PrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
     Err( _) -> Err("identity_open_failed")
     Ok( key) -> Ok(key)
+  end
+end
+
+fn open_mlkem(blob :: Bytes,
+wrapping_key :: borrow StorageKey,
+value_context :: Bytes) -> MlKemPrivateKey ! String do
+  case MlKemPrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
+    Err(_) -> Err("identity_open_failed")
+    Ok(key) -> Ok(key)
   end
 end
 
@@ -599,8 +618,13 @@ fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
     ensure_account_missing(database_path) ?
     let ( account, identity) = account_keys(created_at) ?
     let device = device_keys() ?
-    let credential = case issue_device_credential(account,
+    let post_quantum = case generate_post_quantum_prekey() do
+      Err(_) -> Err("post_quantum_prekey_generation_failed")
+      Ok(value) -> Ok(value)
+    end ?
+    let credential = case issue_hybrid_device_credential(account,
     device,
+    post_quantum.public_key,
     mobile_wide("1") ?,
     created_at,
     expires_at,
@@ -616,7 +640,10 @@ fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
       Err( _) -> Err("prekey_generation_failed")
       Ok( value) -> Ok(value)
     end ?
-    let bundle = case build_prekey_bundle(credential, signed, one_time) do
+    let bundle = case build_hybrid_prekey_bundle(credential,
+    signed,
+    one_time,
+    post_quantum) do
       Err( _) -> Err("prekey_bundle_failed")
       Ok( value) -> Ok(value)
     end ?
@@ -671,10 +698,16 @@ fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
       Err( _) -> Err("one_time_prekey_seal_failed")
       Ok( value) -> Ok(value)
     end ?
+    let post_quantum_prekey_blob = case seal_mlkem(post_quantum.private_key,
+    wrapping_key,
+    context(identity.account_id, credential.device_id, "post-quantum-prekey/v1", 15) ?) do
+      Err(_) -> Err("post_quantum_prekey_seal_failed")
+      Ok(value) -> Ok(value)
+    end ?
     let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1") ?) ?
     store_blobs(database_path,
-    ["account-signing-key/v1", "device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", "one-time-prekey/v1", "profile/v1"],
-    [account_blob, device_signing_blob, device_identity_blob, signed_prekey_blob, one_time_prekey_blob, profile_blob]) ?
+    ["account-signing-key/v1", "device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", "one-time-prekey/v1", "post-quantum-prekey/v1", "profile/v1"],
+    [account_blob, device_signing_blob, device_identity_blob, signed_prekey_blob, one_time_prekey_blob, post_quantum_prekey_blob, profile_blob]) ?
     Ok(profile)
   end
 end
@@ -1036,8 +1069,40 @@ database_path :: String) -> AccountKeys ! String do
   end
 end
 
-fn reject_prekey_open(signed_private :: consume X25519PrivateKey, error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets), String > do
+fn reject_prekey_open(signed_private :: consume X25519PrivateKey,
+error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
   Err(error)
+end
+
+fn reject_post_quantum_open(signed_private :: consume X25519PrivateKey,
+one_time_private :: consume X25519PrivateKey,
+error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
+  Err(error)
+end
+
+fn open_post_quantum_prekey(profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+database_path :: String) -> PostQuantumPrekeySecrets ! String do
+  let label = "post-quantum-prekey/v1"
+  case load_blob(database_path, label) do
+    Err(error) -> if error == "local_state_not_found" && profile.bundle.suite == 1 do
+      case generate_post_quantum_prekey() do
+        Err(_) -> Err("post_quantum_prekey_generation_failed")
+        Ok(value) -> Ok(value)
+      end
+    else
+      Err(error)
+    end
+    Ok(blob) -> do
+      let private_key = open_mlkem(blob,
+      wrapping_key,
+      context(profile.account_id, profile.device_id, label, 15) ?) ?
+      Ok(PostQuantumPrekeySecrets {
+        private_key : private_key,
+        public_key : MlKemPublicKey { bytes : profile.bundle.post_quantum_prekey }
+      })
+    end
+  end
 end
 
 fn open_device(profile :: MobileProfile, wrapping_key :: borrow StorageKey, database_path :: String) -> DeviceKeys ! String do
@@ -1086,7 +1151,7 @@ end
 
 fn open_prekeys(profile :: MobileProfile,
 wrapping_key :: borrow StorageKey,
-database_path :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets), String > do
+database_path :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
   let signed_blob = load_blob(database_path, "signed-prekey/v1") ?
   let one_time_blob = load_blob(database_path, "one-time-prekey/v1") ?
   let signed_context = context(profile.account_id, profile.device_id, "signed-prekey/v1", 9) ?
@@ -1095,18 +1160,24 @@ database_path :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets)
     Err( error) -> Err(error)
     Ok( signed_private) -> case open_x25519(one_time_blob, wrapping_key, one_time_context) do
       Err( error) -> reject_prekey_open(signed_private, error)
-      Ok( one_time_private) -> Ok((SignedPrekeySecrets {
-        id : profile.bundle.signed_prekey_id,
-        private_key : signed_private,
-        public_key : X25519PublicKey { bytes : profile.bundle.signed_prekey },
-        signature : Signature { bytes : profile.bundle.signed_prekey_signature },
-        expires_at : profile.bundle.expires_at
-      },
-      OneTimePrekeySecrets {
-        id : profile.bundle.one_time_prekey_id,
-        private_key : one_time_private,
-        public_key : X25519PublicKey { bytes : profile.bundle.one_time_prekey }
-      }))
+      Ok( one_time_private) -> case open_post_quantum_prekey(profile,
+      wrapping_key,
+      database_path) do
+        Err(error) -> reject_post_quantum_open(signed_private, one_time_private, error)
+        Ok(post_quantum) -> Ok((SignedPrekeySecrets {
+          id : profile.bundle.signed_prekey_id,
+          private_key : signed_private,
+          public_key : X25519PublicKey { bytes : profile.bundle.signed_prekey },
+          signature : Signature { bytes : profile.bundle.signed_prekey_signature },
+          expires_at : profile.bundle.expires_at
+        },
+        OneTimePrekeySecrets {
+          id : profile.bundle.one_time_prekey_id,
+          private_key : one_time_private,
+          public_key : X25519PublicKey { bytes : profile.bundle.one_time_prekey }
+        },
+        post_quantum))
+      end
     end
   end
 end
@@ -1678,12 +1749,13 @@ local :: MobileProfile,
 peer :: MobileProfile,
 conversation_id :: Bytes,
 request_state :: Int,
-key_changed :: Bool) -> Bytes ! String do
+key_changed :: Bool,
+strongest_suite :: Int) -> Bytes ! String do
   mobile_join([mobile_vector(snapshot_blob) ?, mobile_vector(local.account_id) ?, mobile_vector(local.device_id) ?, mobile_vector(peer.account_id) ?, mobile_vector(peer.device_id) ?, mobile_vector(Bytes.from_utf8(peer.username)) ?, mobile_vector(peer.entry.mailbox_token) ?, mobile_vector(conversation_id) ?, mobile_vector(mobile_byte(request_state) ?) ?, mobile_vector(mobile_byte(0) ?) ?, mobile_vector(mobile_byte(0) ?) ?, mobile_vector(mobile_byte(if key_changed do
     1
   else
     0
-  end) ?) ?, mobile_vector(mobile_write_u32(0) ?) ?],
+  end) ?) ?, mobile_vector(mobile_write_u32(0) ?) ?, mobile_vector(mobile_byte(strongest_suite) ?) ?],
   0,
   Bytes.empty())
 end
@@ -1705,7 +1777,15 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
       let verified = take_vector(blocked.state, 1) ?
       let key_changed = take_vector(verified.state, 1) ?
       let disappearing_seconds = take_vector(key_changed.state, 4) ?
-      case finish(disappearing_seconds.state) do
+      let strongest_suite = if disappearing_seconds.state.offset == Bytes.length(disappearing_seconds.state.input) do
+        MobileReadBytes {
+          state : disappearing_seconds.state,
+          value : mobile_byte(1) ?
+        }
+      else
+        take_vector(disappearing_seconds.state, 1) ?
+      end
+      case finish(strongest_suite.state) do
         Err( _) -> Err("invalid_session_record")
         Ok( _) -> do
           let username = mobile_utf8(peer_username.value, "invalid_session_record") ?
@@ -1714,7 +1794,8 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
           let verified_value = mobile_read_byte(verified.value) ?
           let changed_value = mobile_read_byte(key_changed.value) ?
           let disappearing_value = mobile_read_u32(disappearing_seconds.value) ?
-          let valid = Bytes.length(local_account_id.value) == 32 && Bytes.length(local_device_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && String.length(username) > 0 && Bytes.length(peer_mailbox.value) == 32 && Bytes.length(conversation_id.value) == 16 && (request_value == 0 || request_value == 1) && blocked_value <= 1 && verified_value <= 1 && changed_value <= 1
+          let strongest_value = mobile_read_byte(strongest_suite.value) ?
+          let valid = Bytes.length(local_account_id.value) == 32 && Bytes.length(local_device_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && String.length(username) > 0 && Bytes.length(peer_mailbox.value) == 32 && Bytes.length(conversation_id.value) == 16 && (request_value == 0 || request_value == 1) && blocked_value <= 1 && verified_value <= 1 && changed_value <= 1 && (strongest_value == 1 || strongest_value == 2)
           if !valid do
             Err("invalid_session_record")
           else
@@ -1731,7 +1812,8 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
               blocked : blocked_value == 1,
               verified : verified_value == 1,
               key_changed : changed_value == 1,
-              disappearing_seconds : disappearing_value
+              disappearing_seconds : disappearing_value,
+              strongest_suite : strongest_value
             })
           end
         end
@@ -1858,6 +1940,34 @@ index :: Int) -> MobileLoadedSession ! String do
   end
 end
 
+fn strongest_device_suite(database_path :: String,
+wrapping_key :: borrow StorageKey,
+peer_account_id :: Bytes,
+peer_device_id :: Bytes,
+session_ids :: List < Bytes >,
+index :: Int,
+strongest :: Int) -> Int ! String do
+  if index >= List.length(session_ids) do
+    Ok(strongest)
+  else
+    let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
+    let matches = Bytes.secure_equals(loaded.record.peer_account_id,
+    peer_account_id) && Bytes.secure_equals(loaded.record.peer_device_id, peer_device_id)
+    let next = if matches && loaded.record.strongest_suite > strongest do
+      loaded.record.strongest_suite
+    else
+      strongest
+    end
+    strongest_device_suite(database_path,
+    wrapping_key,
+    peer_account_id,
+    peer_device_id,
+    session_ids,
+    index + 1,
+    next)
+  end
+end
+
 fn conversation_alias_id(peer_account_id :: Bytes) -> Bytes ! String do
   Ok(Crypto.sha256(mobile_append(Bytes.from_utf8("mesh-msg/mobile/conversation-alias/v1"),
   peer_account_id) ?))
@@ -1905,7 +2015,8 @@ sync :: MobileSyncPayload) -> Result <(), String > do
         blocked : false,
         verified : false,
         key_changed : false,
-        disappearing_seconds : sync.disappearing_seconds
+        disappearing_seconds : sync.disappearing_seconds,
+        strongest_suite : 1
       }
       let blob = seal_local(updated_session_record(record.snapshot, record) ?,
       wrapping_key,
@@ -2243,7 +2354,8 @@ label :: String) -> Result <( Bytes, String, Bytes), String > do
   peer,
   conversation_id,
   request_state,
-  key_changed) ?
+  key_changed,
+  state.suite) ?
   Ok((session_id, label, seal_local(record, wrapping_key, local_context(label) ?) ?))
 end
 
@@ -2408,13 +2520,13 @@ fn padding_bucket(length :: Int) -> Int ! String do
   end
 end
 
-fn outer_bytes(mailbox_token :: Bytes, packet :: Bytes, now :: U64) -> Bytes ! String do
+fn outer_bytes(mailbox_token :: Bytes, suite :: Int, packet :: Bytes, now :: U64) -> Bytes ! String do
   let expiration = U64.add(now, mobile_wide("2592000000") ?) ?
   case encode_outer_envelope(OuterEnvelope {
     version : 1,
     envelope_id : random_bytes(16) ?,
     mailbox_token : mailbox_token,
-    suite : 1,
+    suite : suite,
     expiration : expiration,
     padding_bucket : padding_bucket(Bytes.length(packet)) ?,
     ciphertext : packet
@@ -2450,18 +2562,25 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
     extensions : List.new()
   }
   let plaintext = encode_initial_plaintext(local_profile_bytes, inner_bytes(inner) ?) ?
+  let strongest_suite = strongest_device_suite(request.database_path,
+  wrapping_key,
+  peer.account_id,
+  peer.device_id,
+  load_session_ids(request.database_path, wrapping_key) ?,
+  0,
+  0) ?
   let ( state, initial) = case initiate(local_device,
   local.credential,
   peer.account,
   peer.bundle,
   policy(peer, now),
-  1,
+  strongest_suite,
   plaintext) do
     Err( _) -> Err("session_start_failed")
     Ok( value) -> Ok(value)
   end ?
   let packet = encode_initial_packet(local.entry.account_identity, initial_bytes(initial) ?) ?
-  let outer = outer_bytes(peer.entry.mailbox_token, packet, now) ?
+  let outer = outer_bytes(peer.entry.mailbox_token, initial.suite, packet, now) ?
   let ( session_id, label, session_blob) = seal_session(state,
   wrapping_key,
   local,
@@ -2489,25 +2608,47 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
     Err("wrong_mailbox")
   else
     let packet = parse_initial_packet(outer.ciphertext) ?
+    let initial = case decode_initial_message(packet.message) do
+      Err(_) -> Err("invalid_initial_message")
+      Ok(value) -> Ok(value)
+    end ?
+    if outer.suite != initial.suite do
+      Err("outer_suite_mismatch")
+    else
     let initiator_account = case decode_account_identity(packet.account_identity) do
       Err( _) -> Err("invalid_initiator_account")
       Ok( value) -> Ok(value)
     end ?
     let wrapping_key = platform_key() ?
     let local_device = open_device(local, wrapping_key, request.database_path) ?
-    let ( signed, one_time) = open_prekeys(local, wrapping_key, request.database_path) ?
+    let initiator_credential = case decode_device_credential(initial.initiator_credential) do
+      Err(_) -> Err("invalid_initiator_credential")
+      Ok(value) -> Ok(value)
+    end ?
+    let strongest_suite = strongest_device_suite(request.database_path,
+    wrapping_key,
+    initiator_account.account_id,
+    initiator_credential.device_id,
+    load_session_ids(request.database_path, wrapping_key) ?,
+    0,
+    0) ?
+    let ( signed, one_time, post_quantum) = open_prekeys(local,
+    wrapping_key,
+    request.database_path) ?
     let now = current_time() ?
     let ( state, plaintext) = case receive_initial(local_device,
     local.account,
     local.bundle,
     signed,
     one_time,
+    post_quantum,
     initiator_account,
     policy(local, now),
     VerificationPolicy {
       current_time : now,
       minimum_directory_sequence : initiator_account.directory_sequence
     },
+    strongest_suite,
     packet.message) do
       Err( _) -> Err("initial_receive_failed")
       Ok( value) -> Ok(value)
@@ -2570,6 +2711,7 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
         Ok(inner.body)
       end
     end
+    end
   end
 end
 
@@ -2630,7 +2772,7 @@ fn updated_session_record(snapshot_blob :: Bytes, record :: MobileSessionRecord)
     1
   else
     0
-  end) ?) ?, mobile_vector(mobile_write_u32(record.disappearing_seconds) ?) ?],
+  end) ?) ?, mobile_vector(mobile_write_u32(record.disappearing_seconds) ?) ?, mobile_vector(mobile_byte(record.strongest_suite) ?) ?],
   0,
   Bytes.empty())
 end
@@ -2644,7 +2786,15 @@ snapshot_blob :: Bytes,
 record :: MobileSessionRecord,
 wrapping_key :: borrow StorageKey,
 label :: String) -> Bytes ! String do
-  seal_local(updated_session_record(snapshot_blob, record) ?, wrapping_key, local_context(label) ?)
+  let strongest_suite = if state.suite > record.strongest_suite do
+    state.suite
+  else
+    record.strongest_suite
+  end
+  seal_local(updated_session_record(snapshot_blob,
+  %{record | strongest_suite : strongest_suite}) ?,
+  wrapping_key,
+  local_context(label) ?)
 end
 
 fn seal_updated_session(state :: consume RatchetState,
@@ -2745,7 +2895,10 @@ inner :: InnerEnvelope) -> Bytes ! String do
           Ok( value) -> Ok(value)
         end ?
         let packet = encode_ratchet_packet(ratchet_bytes(message) ?) ?
-        let outer = outer_bytes(peer.entry.mailbox_token, packet, inner.client_timestamp) ?
+        let outer = outer_bytes(peer.entry.mailbox_token,
+        message.suite,
+        packet,
+        inner.client_timestamp) ?
         let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
         store_updated_session(database_path, loaded.label, session_blob) ?
         Ok(outer)
@@ -2760,13 +2913,16 @@ inner :: InnerEnvelope) -> Bytes ! String do
       peer.account,
       peer.bundle,
       policy(peer, inner.client_timestamp),
-      1,
+      0,
       plaintext) do
         Err( _) -> Err("session_start_failed")
         Ok( value) -> Ok(value)
       end ?
       let packet = encode_initial_packet(local.entry.account_identity, initial_bytes(initial) ?) ?
-      let outer = outer_bytes(peer.entry.mailbox_token, packet, inner.client_timestamp) ?
+      let outer = outer_bytes(peer.entry.mailbox_token,
+      initial.suite,
+      packet,
+      inner.client_timestamp) ?
       let ( session_id, label, session_blob) = seal_session(state,
       wrapping_key,
       local,
@@ -2936,7 +3092,8 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
           blocked : false,
           verified : false,
           key_changed : false,
-          disappearing_seconds : 0
+          disappearing_seconds : 0,
+          strongest_suite : 1
         })
       else
         Err(error)
@@ -3046,7 +3203,7 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
       Ok( value) -> Ok(value)
     end ?
     let packet = encode_ratchet_packet(ratchet_bytes(message) ?) ?
-    let outer = outer_bytes(loaded.record.peer_mailbox, packet, now) ?
+    let outer = outer_bytes(loaded.record.peer_mailbox, message.suite, packet, now) ?
     let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
     let ( history_key, history_blob) = updated_history(request.database_path,
     wrapping_key,
@@ -3076,6 +3233,11 @@ fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
     let message = case decode_ratchet_message(packet.message) do
       Err( _) -> Err("invalid_ratchet_message")
       Ok( value) -> Ok(value)
+    end ?
+    let _ = if outer.suite != message.suite do
+      Err("outer_suite_mismatch")
+    else
+      Ok(nil)
     end ?
     let wrapping_key = platform_key() ?
     let loaded = load_session_record(request.database_path, wrapping_key, message.session_id) ?

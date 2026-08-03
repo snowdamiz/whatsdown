@@ -132,7 +132,8 @@ fn require_end(state :: BinaryReader) -> Result<(), RatchetError> do
 end
 
 fn validate_message(value :: RatchetMessage) -> Result<(), RatchetError> do
-  let valid = value.version == 1 && value.suite == 1 && Bytes.length(value.session_id) == 32 && Bytes.length(value.ratchet_public_key.bytes) == 32 && value.previous_chain_length >= 0 && value.message_number >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65536
+  let valid_suite = value.suite == 1 || value.suite == 2
+  let valid = value.version == 1 && valid_suite && Bytes.length(value.session_id) == 32 && Bytes.length(value.ratchet_public_key.bytes) == 32 && value.previous_chain_length >= 0 && value.message_number >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65536
   if valid do
     Ok(nil)
   else
@@ -193,14 +194,15 @@ message_number :: Int) -> Bytes ! RatchetError do
   keyed_info("mesh-msg/v1/skipped-key", ratchet_public_key, message_number)
 end
 
-fn authenticated_data(session_id :: Bytes,
+fn authenticated_data(suite :: Int,
+session_id :: Bytes,
 ratchet_public_key :: X25519PublicKey,
 previous_chain_length :: Int,
 message_number :: Int,
 nonce :: Bytes,
 caller_data :: Bytes) -> Bytes ! RatchetError do
   let value = append(Bytes.from_utf8("mesh-msg/v1/ratchet-message"), write_u16(1) ?) ?
-  let value = append(value, write_u16(1) ?) ?
+  let value = append(value, write_u16(suite) ?) ?
   let value = append(value, session_id) ?
   let value = append(value, ratchet_public_key.bytes) ?
   let value = append(value, write_u32(previous_chain_length) ?) ?
@@ -327,7 +329,8 @@ associated_data :: Bytes) -> Result <( RatchetState, RatchetMessage), RatchetErr
     Err(_) -> Err(CryptoFailure)
     Ok(value) -> Ok(value)
   end ?
-  let authenticated = authenticated_data(state.session_id,
+  let authenticated = authenticated_data(state.suite,
+  state.session_id,
   state.local_ratchet_public,
   state.previous_chain_length,
   message_number,
@@ -339,7 +342,7 @@ associated_data :: Bytes) -> Result <( RatchetState, RatchetMessage), RatchetErr
   end ?
   let message = RatchetMessage {
     version: 1,
-    suite: 1,
+    suite: state.suite,
     session_id: state.session_id,
     ratchet_public_key: state.local_ratchet_public,
     previous_chain_length: state.previous_chain_length,
@@ -384,7 +387,7 @@ end
 pub fn encrypt(state :: consume RatchetState,
 plaintext :: Bytes,
 associated_data :: Bytes) -> Result <( RatchetState, RatchetMessage), RatchetError > do
-  if state.version != 1 || state.suite != 1 || Bytes.length(plaintext) > 65520 || state.sent_count < 0 do
+  if state.version != 1 || !(state.suite == 1 || state.suite == 2) || Bytes.length(plaintext) > 65520 || state.sent_count < 0 do
     Err(InvalidMessage)
   else if state.pending_send_ratchet do
     encrypt_rotated(state, plaintext, associated_data)
@@ -470,7 +473,8 @@ key_id :: Bytes) -> DecryptOutcome do
     Err(_) -> Rejected(state, Replay)
     Ok(material) -> case aead_key(material) do
         Err(error) -> Rejected(state, error)
-        Ok(key) -> case authenticated_data(state.session_id,
+        Ok(key) -> case authenticated_data(state.suite,
+          state.session_id,
           message.ratchet_public_key,
           message.previous_chain_length,
           message.message_number,
@@ -513,7 +517,8 @@ candidate :: consume SecretMap,
 next_chain :: consume SecretBytes,
 message :: RatchetMessage,
 associated_data :: Bytes) -> DecryptOutcome do
-  case authenticated_data(state.session_id,
+  case authenticated_data(state.suite,
+  state.session_id,
   message.ratchet_public_key,
   message.previous_chain_length,
   message.message_number,
@@ -597,7 +602,8 @@ root_key :: consume SecretBytes,
 next_chain :: consume SecretBytes,
 message :: RatchetMessage,
 associated_data :: Bytes) -> DecryptOutcome do
-  case authenticated_data(state.session_id,
+  case authenticated_data(state.suite,
+  state.session_id,
   message.ratchet_public_key,
   message.previous_chain_length,
   message.message_number,
@@ -694,7 +700,7 @@ end
 pub fn decrypt(state :: consume RatchetState,
 message :: RatchetMessage,
 associated_data :: Bytes) -> DecryptOutcome do
-  let wrong_header = message.version != 1 || message.suite != 1 || !Bytes.secure_equals(message.session_id,
+  let wrong_header = message.version != 1 || !(state.suite == 1 || state.suite == 2) || message.suite != state.suite || !Bytes.secure_equals(message.session_id,
   state.session_id) || Bytes.length(message.ratchet_public_key.bytes) != 32 || message.previous_chain_length < 0 || message.message_number < 0 || Bytes.length(message.nonce) != 12 || Bytes.length(message.ciphertext) > 65536
   if wrong_header do
     Rejected(state, InvalidMessage)
