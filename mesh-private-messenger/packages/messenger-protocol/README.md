@@ -46,6 +46,11 @@ authenticated manifest, and bounded encrypted chunks used for opt-in client
 backups. The exact profile and 16 MiB development ceiling are specified in
 [`../../protocol/backup-wire-v1.md`](../../protocol/backup-wire-v1.md).
 
+`Push.Token` seals Expo provider tokens directly to the push broker and exports
+the bounded internal wake request. Directory and delivery services retain and
+forward only opaque ciphertext. The exact boundary and wire ceilings are in
+[`../../protocol/push-token-wire-v1.md`](../../protocol/push-token-wire-v1.md).
+
 Unknown optional extensions are retained byte-for-byte. Version 1 has no
 registered mandatory extension, so every mandatory extension is rejected.
 The complete field layouts and decoder ceilings are specified in
