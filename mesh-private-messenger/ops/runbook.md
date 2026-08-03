@@ -18,6 +18,14 @@ Push wake-up delivery currently uses a local fake adapter for integration testin
 
 Every fake push contains only the generic body `New encrypted activity` and the data field `kind=encrypted-wakeup`. Do not add usernames, mailbox identifiers, envelope identifiers, senders, or message content. Production provider registration and adapters require a later implementation slice before release.
 
+## One-time prekey pools
+
+- Devices publish canonical, device-signed batches with `POST /v1/prekeys/one-time/batch`. A new batch returns `201`, an exact replay returns `200`, an invalid signature returns `403`, an ID/key conflict returns `409`, and exceeding the 64 available-key cap returns `429`.
+- Clients claim with `GET /v1/prekeys/bundle?request=<hex>`, where `request` is the canonical 84-byte query bound to the SHA-256 hash of the verified base bundle. Success returns a canonical prekey bundle. A missing, revoked, or stale target returns `404`; an exhausted pool returns `409`.
+- Never retry exhaustion in a tight loop. Back off, preserve the verified base bundle, and let the target replenish its pool. Alert only on aggregate exhaustion and replenishment rates; account, device, and prekey IDs must not be metric labels.
+- Registration extracts its submitted one-time prekey into the pool atomically. Publication is idempotent, but consumed IDs are permanent tombstones and must never be republished with different key bytes. Revocation deletes the device's entire pool.
+- Investigate sustained `429` responses before changing limits. The 64-key cap is a protocol and abuse-control boundary, not a deployment tuning knob.
+
 ## Operate
 
 - Treat PostgreSQL as the durability boundary. Do not acknowledge a submission before its transaction commits.

@@ -1,6 +1,8 @@
 from Identity.Device import verify_device_revocation
+from Prekeys.Pool import OneTimePrekeyPublic
 from Prekeys.Bundle import verify_prekey_bundle
-from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceRevocation, DeviceSet, DirectoryEntry, decode_account_identity, decode_device_credential, decode_prekey_bundle, encode_device_revocation, encode_device_set, encode_directory_entry
+from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceRevocation, DeviceSet, DirectoryEntry, PrekeyBundle, decode_account_identity, decode_device_credential, decode_prekey_bundle, encode_device_revocation, encode_device_set, encode_directory_entry, encode_prekey_bundle
+from Storage.Prekeys import seed_registration_prekey_on_connection
 from Storage.Transparency import append_entry_on_connection
 
 pub type DeviceWrite do
@@ -12,6 +14,13 @@ pub type DeviceWrite do
 
   DeviceInvalid
 end deriving(Eq, Debug)
+
+struct VerifiedRegistration do
+  entry :: DirectoryEntry
+  account :: AccountIdentity
+  credential :: DeviceCredential
+  initial_prekey :: Option < OneTimePrekeyPublic >
+end
 
 fn binary(value :: DbValue) -> Bytes ! String do
   case value do
@@ -42,7 +51,31 @@ fn current_time() -> U64 ! String do
   U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
-fn verified_registration(entry :: DirectoryEntry) -> Result <( AccountIdentity, DeviceCredential), String > do
+fn normalized_bundle(bundle :: PrekeyBundle) -> PrekeyBundle ! String do
+  let normalized = PrekeyBundle {
+    version : bundle.version,
+    suite : bundle.suite,
+    device_credential : bundle.device_credential,
+    identity_dh_public_key : bundle.identity_dh_public_key,
+    signing_public_key : bundle.signing_public_key,
+    signed_prekey_id : bundle.signed_prekey_id,
+    signed_prekey : bundle.signed_prekey,
+    signed_prekey_signature : bundle.signed_prekey_signature,
+    one_time_prekey_id : U64.parse("0") ?,
+    one_time_prekey : Bytes.empty(),
+    post_quantum_prekey : bundle.post_quantum_prekey,
+    supported_suites : bundle.supported_suites,
+    expires_at : bundle.expires_at,
+    extensions : bundle.extensions
+  }
+  let _ = case encode_prekey_bundle(normalized) do
+    Err( _) -> Err("invalid normalized prekey bundle")
+    Ok( output) -> Ok(output)
+  end ?
+  Ok(normalized)
+end
+
+fn verified_registration(entry :: DirectoryEntry) -> VerifiedRegistration ! String do
   let _ = case encode_directory_entry(entry) do
     Err( _) -> Err("invalid device registration")
     Ok( value) -> Ok(value)
@@ -62,7 +95,33 @@ fn verified_registration(entry :: DirectoryEntry) -> Result <( AccountIdentity, 
   case verify_prekey_bundle(account, bundle, 1, current_time() ?, account.directory_sequence) do
     Err( _) -> Err("invalid device registration")
     Ok( false) -> Err("invalid device registration")
-    Ok( true) -> Ok((account, credential))
+    Ok( true) -> do
+      let initial_prekey = if Bytes.length(bundle.one_time_prekey) == 32 do
+        Some(OneTimePrekeyPublic {
+          id : bundle.one_time_prekey_id,
+          public_key : bundle.one_time_prekey
+        })
+      else
+        None
+      end
+      let base = normalized_bundle(bundle) ?
+      let encoded_base = case encode_prekey_bundle(base) do
+        Err( _) -> Err("invalid normalized prekey bundle")
+        Ok( output) -> Ok(output)
+      end ?
+      Ok(VerifiedRegistration {
+        entry : DirectoryEntry {
+          version : entry.version,
+          username : entry.username,
+          account_identity : entry.account_identity,
+          prekey_bundle : encoded_base,
+          mailbox_token : entry.mailbox_token
+        },
+        account : account,
+        credential : credential,
+        initial_prekey : initial_prekey
+      })
+    end
   end
 end
 
@@ -133,7 +192,8 @@ end
 fn register_on_connection(conn :: borrow PgConn,
 entry :: DirectoryEntry,
 account :: AccountIdentity,
-credential :: DeviceCredential) -> DeviceWrite ! String do
+credential :: DeviceCredential,
+initial_prekey :: Option < OneTimePrekeyPublic >) -> DeviceWrite ! String do
   let _ = Pg.execute_values(conn,
   "INSERT INTO messenger_accounts (username, account_id, account_identity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
   [Text(entry.username), Binary(account.account_id), Binary(entry.account_identity)]) ?
@@ -190,6 +250,10 @@ credential :: DeviceCredential) -> DeviceWrite ! String do
               let _ = Pg.execute_values(conn,
               "INSERT INTO messenger_devices (account_id, device_id, prekey_bundle, mailbox_token, mailbox_token_hash) VALUES ($1, $2, $3, $4, $5)",
               [Binary(account.account_id), Binary(credential.device_id), Binary(entry.prekey_bundle), Binary(entry.mailbox_token), Binary(token_hash)]) ?
+              seed_registration_prekey_on_connection(conn,
+              account.account_id,
+              credential.device_id,
+              initial_prekey) ?
               let changed = Pg.execute_values(conn,
               "UPDATE messenger_accounts SET sequence = $2::bigint, updated_at = now() WHERE account_id = $1 AND sequence = $3::bigint",
               [Binary(account.account_id), Text(U64.to_string(next_sequence)), Text(U64.to_string(sequence))]) ?
@@ -220,9 +284,12 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
   case verified_registration(entry) do
     Err( _) -> Ok(DeviceInvalid)
     Ok( verified) -> do
-      let ( account, credential) = verified
       case Repo.transaction(pool,
-      fn (conn :: borrow PgConn) -> register_on_connection(conn, entry, account, credential) end) do
+      fn (conn :: borrow PgConn) -> register_on_connection(conn,
+      verified.entry,
+      verified.account,
+      verified.credential,
+      verified.initial_prekey) end) do
         Err( error) -> if String.contains(error, "messenger_devices_") || String.contains(error,
         "duplicate key") do
           Ok(DeviceConflict)

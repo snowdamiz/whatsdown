@@ -1,4 +1,4 @@
-from Api.Http import handle_acknowledge, handle_fetch, handle_health, handle_push_bind, handle_push_unbind, handle_register, handle_register_device, handle_resolve, handle_resolve_devices, handle_revoke_device, handle_sealed_submit, handle_submit, handle_transparency_checkpoint, handle_transparency_consistency, handle_transparency_inclusion, handle_transparency_witness_submit, handle_transparency_witnesses
+from Api.Http import handle_acknowledge, handle_fetch, handle_health, handle_prekey_claim, handle_prekeys_publish, handle_push_bind, handle_push_unbind, handle_register, handle_register_device, handle_resolve, handle_resolve_devices, handle_revoke_device, handle_sealed_submit, handle_submit, handle_transparency_checkpoint, handle_transparency_consistency, handle_transparency_inclusion, handle_transparency_witness_submit, handle_transparency_witnesses
 
 pub fn build_router() do
   HTTP.router()
@@ -9,6 +9,8 @@ pub fn build_router() do
     |> HTTP.on_put("/v1/devices/register", handle_register_device)
     |> HTTP.on_post("/v1/devices/resolve", handle_resolve_devices)
     |> HTTP.on_post("/v1/devices/revoke", handle_revoke_device)
+    |> HTTP.on_post("/v1/prekeys/one-time/batch", handle_prekeys_publish)
+    |> HTTP.on_get("/v1/prekeys/bundle", handle_prekey_claim)
     |> HTTP.on_post("/v1/envelopes/batch", handle_submit)
     |> HTTP.on_post("/internal/v1/envelopes/sealed", handle_sealed_submit)
     |> HTTP.on_post("/v1/mailbox/fetch", handle_fetch)

@@ -96,6 +96,59 @@ is zero exactly when the one-time public key is absent; otherwise it is
 nonzero. This makes prekey consumption addressable without ambiguity. Maximum
 encoded size: 16,942 bytes.
 
+The directory stores and logs a base bundle with `one_time_prekey_id = 0` and
+an empty `one_time_prekey`. During device registration, a nonzero one-time
+prekey from the submitted bundle is extracted into the device's consumable
+pool in the same transaction. A successful pool claim returns a canonical
+`PKB` made from that exact base bundle plus one claimed ID and public key. The
+base bundle remains unchanged, so its transparency evidence remains valid.
+
+## One-time prekey publication (`OTB`)
+
+```text
+version:u8 = 1
+tag:3 = "OTB"
+account_id:32
+device_id:16
+count:u8 (1..64)
+repeat count times:
+  prekey_id:u64 (1..2^63-1, strictly increasing)
+  public_key:32
+signature:64
+```
+
+The device Ed25519 signature covers:
+
+```text
+ASCII("mesh-msg/v1/one-time-prekey-batch") ||
+canonical_OTB_fields_before_signature
+```
+
+The encoded size is `117 + 40 * count` bytes and is at most 2,677 bytes.
+Decoders reject empty or oversized batches, duplicate or unsorted IDs,
+out-of-range IDs, wrong key or signature lengths, unsupported tags or
+versions, truncation, and trailing bytes. Replaying an identical signed batch
+is idempotent. Reusing an ID with different public-key bytes is a conflict and
+never changes or reactivates the original row.
+
+## One-time prekey bundle claim (`OTQ`)
+
+```text
+version:u8 = 1
+tag:3 = "OTQ"
+account_id:32
+device_id:16
+base_bundle_hash:32
+```
+
+This request is exactly 84 bytes. `base_bundle_hash` is
+`SHA-256(canonical_base_PKB)` and binds the claim to the transparently verified
+device bundle without revealing requester identity. The service atomically
+marks at most one available key consumed and returns the reconstructed `PKB`.
+Concurrent claims cannot receive the same key. Consumed IDs remain tombstones,
+publication cannot reactivate them, exhaustion returns no bundle, and device
+revocation removes that device's pool.
+
 ## Outer envelope (`MSG`)
 
 The server-visible layout remains version, tag, 16-byte envelope ID, 32-byte
