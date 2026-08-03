@@ -230,12 +230,12 @@ fn chunk_label() -> Bytes do
   Bytes.from_utf8("mesh-msg/v1/attachment-chunk")
 end
 
-fn manifest_aad(attachment_id :: Bytes) -> Bytes ! AttachmentError do
-  join([manifest_label(), attachment_id], 0, Bytes.empty())
+fn attachment_key_label() -> Bytes do
+  Bytes.from_utf8("mesh-msg/v1/attachment-key")
 end
 
-fn chunk_info(index :: Int) -> Bytes ! AttachmentError do
-  join([chunk_label(), write_u32(index) ?], 0, Bytes.empty())
+fn manifest_aad(attachment_id :: Bytes) -> Bytes ! AttachmentError do
+  join([manifest_label(), attachment_id], 0, Bytes.empty())
 end
 
 fn chunk_aad(value :: AttachmentManifest, index :: Int) -> Bytes ! AttachmentError do
@@ -353,11 +353,18 @@ pub fn generate_attachment_key() -> SecretBytes ! AttachmentError do
   end
 end
 
+pub fn generate_attachment_id() -> Bytes ! AttachmentError do
+  case Crypto.random_bytes(32) do
+    Err( error) -> Err(CryptoFailure(error))
+    Ok( value) -> Ok(value)
+  end
+end
+
 pub fn seal_manifest(secret :: borrow SecretBytes, value :: AttachmentManifest) -> Bytes ! AttachmentError do
   let plaintext = encode_manifest(value) ?
   let nonce_value = nonce() ?
   let authenticated_data = manifest_aad(value.attachment_id) ?
-  let key = derive_key(secret, value.attachment_id, manifest_label()) ?
+  let key = derive_key(secret, value.attachment_id, attachment_key_label()) ?
   let ciphertext = seal(key, nonce_value, authenticated_data, plaintext) ?
   encode_encrypted_manifest(EncryptedManifest {
     attachment_id : value.attachment_id,
@@ -369,7 +376,7 @@ end
 pub fn open_manifest(secret :: borrow SecretBytes, input :: Bytes) -> AttachmentManifest ! AttachmentError do
   let encrypted = decode_encrypted_manifest(input) ?
   let authenticated_data = manifest_aad(encrypted.attachment_id) ?
-  let key = derive_key(secret, encrypted.attachment_id, manifest_label()) ?
+  let key = derive_key(secret, encrypted.attachment_id, attachment_key_label()) ?
   let plaintext = open(key, encrypted.nonce, authenticated_data, encrypted.ciphertext) ?
   let value = decode_manifest(plaintext) ?
   if Bytes.secure_equals(value.attachment_id, encrypted.attachment_id) do
@@ -387,7 +394,7 @@ plaintext :: Bytes) -> Bytes ! AttachmentError do
     Err(InvalidChunkSize)
   else
     let nonce_value = nonce() ?
-    let key = derive_key(secret, manifest.attachment_id, chunk_info(index) ?) ?
+    let key = derive_key(secret, manifest.attachment_id, attachment_key_label()) ?
     let ciphertext = seal(key, nonce_value, chunk_aad(manifest, index) ?, plaintext) ?
     encode_chunk(EncryptedChunk {
       index : index,
@@ -408,7 +415,7 @@ input :: Bytes) -> Bytes ! AttachmentError do
   else if Bytes.length(encrypted.ciphertext) != expected_size + 16 do
     Err(InvalidChunkSize)
   else
-    let key = derive_key(secret, manifest.attachment_id, chunk_info(expected_index) ?) ?
+    let key = derive_key(secret, manifest.attachment_id, attachment_key_label()) ?
     let plaintext = open(key,
     encrypted.nonce,
     chunk_aad(manifest, expected_index) ?,

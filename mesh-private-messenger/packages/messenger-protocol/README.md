@@ -36,6 +36,11 @@ Commit, welcome, message, and snapshot decoders are canonical and reject
 trailing data. The exact limits and independent-review release gate are in
 [`../../protocol/mls-groups-v1.md`](../../protocol/mls-groups-v1.md).
 
+`Attachments.Protocol` exports a bounded encrypted manifest and authenticated
+64 KiB chunks. Its exact labels, wire layouts, and 16 MiB development ceiling
+are specified in
+[`../../protocol/attachment-wire-v1.md`](../../protocol/attachment-wire-v1.md).
+
 Unknown optional extensions are retained byte-for-byte. Version 1 has no
 registered mandatory extension, so every mandatory extension is rejected.
 The complete field layouts and decoder ceilings are specified in

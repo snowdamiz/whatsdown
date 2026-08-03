@@ -1,4 +1,4 @@
-from Attachments.Protocol import AttachmentError, AttachmentManifest, generate_attachment_key, open_chunk, open_manifest, seal_chunk, seal_manifest
+from Attachments.Protocol import AttachmentError, AttachmentManifest, generate_attachment_id, generate_attachment_key, open_chunk, open_manifest, seal_chunk, seal_manifest
 
 fn repeated(value :: Int, count :: Int) -> Bytes ! AttachmentError do
   case Bytes.repeat(value, count) do
@@ -37,9 +37,11 @@ end
 
 fn attachment_proof() -> Bool ! AttachmentError do
   let key = generate_attachment_key() ?
+  let attachment_id = generate_attachment_id() ?
+  assert(Bytes.length(attachment_id) == 32)
   let manifest = AttachmentManifest {
     version : 1,
-    attachment_id : repeated(7, 32) ?,
+    attachment_id : attachment_id,
     chunk_size : 16,
     chunk_count : 2,
     plaintext_size : 21,
