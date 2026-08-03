@@ -24,6 +24,18 @@ The delivery X25519 key is also a required 32-byte lowercase hex build pin. Send
 
 Outbound session state, history, and the encrypted outbox commit atomically. Submission is at-least-once with server deduplication; only a durable 2xx response permits local acknowledgement. The iOS and Android bridges serialize native calls.
 
+Each device keeps at most 64 storage-wrapped one-time prekey secrets, indexed by
+their public `prekey_id`. `mesh_messenger_replenish_prekeys` returns a canonical,
+device-signed `OTB` batch for upload; a requested count of zero re-exports all
+remaining public entries so a lost bridge response is recoverable without
+generating more secrets. An accepted initial message deletes only the exact
+claimed secret in the same SQLite transaction as its session and history; a
+failed transaction retains the secret, while replay after commit fails.
+Existing singleton records are conservatively retired on first pool use
+because their historical consumption cannot be proven. Bundle claim responses
+must preserve the transparently verified base bundle and substitute the
+server-claimed ID/public key pair without changing other fields.
+
 Run the software acceptance proof from the repository root:
 
 ```sh

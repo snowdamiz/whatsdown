@@ -11,6 +11,7 @@ export const validate_outer = (request: Uint8Array): Promise<Uint8Array> => nati
 export const persist_envelope = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_store_envelope', request);
 export const create_account_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_create_account', request);
 export const load_profile_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_load_profile', request);
+export const replenish_prekeys_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_replenish_prekeys', request);
 export const create_link_request_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_create_link_request', request);
 export const device_link_sas_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_device_link_sas', request);
 export const authorize_device_link_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_authorize_device_link', request);

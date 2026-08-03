@@ -1,6 +1,7 @@
 from Binary.Reader import BinaryReader, finish, read_vector, reader
 from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential, verify_device_link_authorization
 from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, verify_prekey_bundle
+from Prekeys.Pool import OneTimePrekeyPublic, PrekeyPublishRequest, encode_prekey_publish, prekey_publish_signing_bytes
 from Privacy.Edge import encode_privacy_submission, mint_submission, seal_delivery
 from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceSet, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_set, decode_directory_entry, decode_initial_message, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
@@ -24,6 +25,16 @@ end
 struct MobileAccountRequest do
   database_path :: Bytes
   username :: Bytes
+end
+
+struct MobilePrekeyRequest do
+  database_path :: String
+  count :: Int
+end
+
+struct MobileOneTimePrekey do
+  id :: U64
+  public_key :: Bytes
 end
 
 struct MobileProfile do
@@ -328,6 +339,31 @@ fn parse_account_request(input :: Bytes) -> MobileAccountRequest ! String do
   end
 end
 
+fn parse_prekey_request(input :: Bytes) -> MobilePrekeyRequest ! String do
+  case reader(input, 4108) do
+    Err( _) -> Err("invalid_prekey_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let count = take_vector(path.state, 4) ?
+      case finish(count.state) do
+        Err( _) -> Err("invalid_prekey_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          let count_value = mobile_read_u32(count.value) ?
+          if String.length(database_path) == 0 || count_value > 64 do
+            Err("invalid_prekey_request")
+          else
+            Ok(MobilePrekeyRequest {
+              database_path : database_path,
+              count : count_value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
 fn context(account_id :: Bytes, device_id :: Bytes, label :: String, purpose :: Int) -> Bytes ! String do
   if Bytes.length(account_id) != 32 || Bytes.length(device_id) != 16 do
     Err("invalid_storage_identity")
@@ -363,6 +399,15 @@ fn pending_context(label :: String, purpose :: Int) -> Bytes ! String do
   end
 end
 
+fn one_time_prekey_label(id :: U64) -> String do
+  "one-time-prekey/v1/#{U64.to_string(id)}"
+end
+
+fn one_time_prekey_context(profile :: MobileProfile, id :: U64) -> Bytes ! String do
+  let label = one_time_prekey_label(id)
+  context(profile.account_id, profile.device_id, label, 10)
+end
+
 fn platform_key() -> StorageKey ! String do
   case StorageKey.platform() do
     Err( _) -> Err("secure_storage_unavailable")
@@ -392,8 +437,8 @@ fn seal_mlkem(key :: borrow MlKemPrivateKey,
 wrapping_key :: borrow StorageKey,
 value_context :: Bytes) -> Bytes ! String do
   case MlKemPrivateKey.seal_for_storage(key, wrapping_key, value_context) do
-    Err(_) -> Err("identity_seal_failed")
-    Ok(blob) -> Ok(blob)
+    Err( _) -> Err("identity_seal_failed")
+    Ok( blob) -> Ok(blob)
   end
 end
 
@@ -411,12 +456,10 @@ fn open_x25519(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :
   end
 end
 
-fn open_mlkem(blob :: Bytes,
-wrapping_key :: borrow StorageKey,
-value_context :: Bytes) -> MlKemPrivateKey ! String do
+fn open_mlkem(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> MlKemPrivateKey ! String do
   case MlKemPrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
-    Err(_) -> Err("identity_open_failed")
-    Ok(key) -> Ok(key)
+    Err( _) -> Err("identity_open_failed")
+    Ok( key) -> Ok(key)
   end
 end
 
@@ -431,6 +474,60 @@ fn open_local(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context ::
   case StorageKey.unseal_bytes(blob, wrapping_key, value_context) do
     Err( _) -> Err("local_state_open_failed")
     Ok( value) -> Ok(value)
+  end
+end
+
+fn valid_prekey_id(id :: U64) -> Bool ! String do
+  Ok(U64.compare(id, mobile_wide("0") ?) > 0 && U64.compare(id,
+  mobile_wide("9223372036854775807") ?) <= 0)
+end
+
+fn encode_prekey_entries(entries :: List < MobileOneTimePrekey >, index :: Int, output :: Bytes) -> Bytes ! String do
+  if List.length(entries) > 64 do
+    Err("prekey_pool_full")
+  else if index >= List.length(entries) do
+    Ok(output)
+  else
+    let entry = List.get(entries, index)
+    if !(valid_prekey_id(entry.id) ?) || Bytes.length(entry.public_key) != 32 do
+      Err("invalid_prekey_pool")
+    else
+      encode_prekey_entries(entries,
+      index + 1,
+      mobile_join([output, mobile_write_u64(entry.id) ?, entry.public_key], 0, Bytes.empty()) ?)
+    end
+  end
+end
+
+fn decode_prekey_entries(encoded :: Bytes,
+offset :: Int,
+previous :: U64,
+entries :: List < MobileOneTimePrekey >) -> List < MobileOneTimePrekey > ! String do
+  if offset >= Bytes.length(encoded) do
+    Ok(entries)
+  else
+    let id = mobile_read_u64(Bytes.slice(encoded, offset, 8) ?) ?
+    let public_key = Bytes.slice(encoded, offset + 8, 32) ?
+    if !(valid_prekey_id(id) ?) || U64.compare(id, previous) <= 0 do
+      Err("invalid_prekey_pool")
+    else
+      decode_prekey_entries(encoded,
+      offset + 40,
+      id,
+      List.append(entries,
+      MobileOneTimePrekey {
+        id : id,
+        public_key : public_key
+      }))
+    end
+  end
+end
+
+fn decode_prekey_pool(encoded :: Bytes) -> List < MobileOneTimePrekey > ! String do
+  if Bytes.length(encoded) % 40 != 0 || Bytes.length(encoded) > 2560 do
+    Err("invalid_prekey_pool")
+  else
+    decode_prekey_entries(encoded, 0, mobile_wide("0") ?, List.new())
   end
 end
 
@@ -546,6 +643,56 @@ fn store_blobs(database_path :: String, labels :: List < String >, blobs :: List
           Ok( _) -> case Sqlite.commit(database) do
             Err( _) -> Err("database_write_failed")
             Ok( _) -> Ok(nil)
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn store_prekey_batch(database_path :: String,
+labels :: List < String >,
+blobs :: List < Bytes >,
+index_blob :: Bytes,
+next_id_blob :: Bytes,
+delete_legacy :: Bool) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case insert_blobs(database, labels, blobs, 0) do
+          Err( error) -> Err(error)
+          Ok( _) -> case put_blob(database, "one-time-prekeys/v1", index_blob) do
+            Err( error) -> Err(error)
+            Ok( _) -> case put_blob(database, "one-time-prekey-next-id/v1", next_id_blob) do
+              Err( error) -> Err(error)
+              Ok( _) -> do
+                let legacy_result = if delete_legacy do
+                  delete_blob(database, "one-time-prekey/v1")
+                else
+                  Ok(nil)
+                end
+                case legacy_result do
+                  Err( error) -> Err(error)
+                  Ok( _) -> case Sqlite.commit(database) do
+                    Err( _) -> Err("database_write_failed")
+                    Ok( _) -> Ok(nil)
+                  end
+                end
+              end
+            end
           end
         end
       end
@@ -706,8 +853,8 @@ fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
     let ( account, identity) = account_keys(created_at) ?
     let device = device_keys() ?
     let post_quantum = case generate_post_quantum_prekey() do
-      Err(_) -> Err("post_quantum_prekey_generation_failed")
-      Ok(value) -> Ok(value)
+      Err( _) -> Err("post_quantum_prekey_generation_failed")
+      Ok( value) -> Ok(value)
     end ?
     let credential = case issue_hybrid_device_credential(account,
     device,
@@ -727,10 +874,7 @@ fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
       Err( _) -> Err("prekey_generation_failed")
       Ok( value) -> Ok(value)
     end ?
-    let bundle = case build_hybrid_prekey_bundle(credential,
-    signed,
-    one_time,
-    post_quantum) do
+    let bundle = case build_hybrid_prekey_bundle(credential, signed, one_time, post_quantum) do
       Err( _) -> Err("prekey_bundle_failed")
       Ok( value) -> Ok(value)
     end ?
@@ -779,22 +923,31 @@ fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
       Err( _) -> Err("signed_prekey_seal_failed")
       Ok( value) -> Ok(value)
     end ?
+    let one_time_label = one_time_prekey_label(one_time.id)
     let one_time_prekey_blob = case seal_x25519(one_time.private_key,
     wrapping_key,
-    context(identity.account_id, credential.device_id, "one-time-prekey/v1", 10) ?) do
+    context(identity.account_id, credential.device_id, one_time_label, 10) ?) do
       Err( _) -> Err("one_time_prekey_seal_failed")
       Ok( value) -> Ok(value)
     end ?
     let post_quantum_prekey_blob = case seal_mlkem(post_quantum.private_key,
     wrapping_key,
     context(identity.account_id, credential.device_id, "post-quantum-prekey/v1", 15) ?) do
-      Err(_) -> Err("post_quantum_prekey_seal_failed")
-      Ok(value) -> Ok(value)
+      Err( _) -> Err("post_quantum_prekey_seal_failed")
+      Ok( value) -> Ok(value)
     end ?
     let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1") ?) ?
+    let prekey_index_blob = seal_prekey_pool([MobileOneTimePrekey {
+      id : one_time.id,
+      public_key : one_time.public_key.bytes
+    }],
+    wrapping_key) ?
+    let prekey_next_id_blob = seal_prekey_wide("one-time-prekey-next-id/v1",
+    U64.add(one_time.id, mobile_wide("1") ?) ?,
+    wrapping_key) ?
     store_blobs(database_path,
-    ["account-signing-key/v1", "device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", "one-time-prekey/v1", "post-quantum-prekey/v1", "profile/v1"],
-    [account_blob, device_signing_blob, device_identity_blob, signed_prekey_blob, one_time_prekey_blob, post_quantum_prekey_blob, profile_blob]) ?
+    ["account-signing-key/v1", "device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", one_time_label, "post-quantum-prekey/v1", "profile/v1", "one-time-prekeys/v1", "one-time-prekey-next-id/v1"],
+    [account_blob, device_signing_blob, device_identity_blob, signed_prekey_blob, one_time_prekey_blob, post_quantum_prekey_blob, profile_blob, prekey_index_blob, prekey_next_id_blob]) ?
     Ok(profile)
   end
 end
@@ -1156,8 +1309,7 @@ database_path :: String) -> AccountKeys ! String do
   end
 end
 
-fn reject_prekey_open(signed_private :: consume X25519PrivateKey,
-error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
+fn reject_prekey_open(signed_private :: consume X25519PrivateKey, error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
   Err(error)
 end
 
@@ -1172,15 +1324,15 @@ wrapping_key :: borrow StorageKey,
 database_path :: String) -> PostQuantumPrekeySecrets ! String do
   let label = "post-quantum-prekey/v1"
   case load_blob(database_path, label) do
-    Err(error) -> if error == "local_state_not_found" && profile.bundle.suite == 1 do
+    Err( error) -> if error == "local_state_not_found" && profile.bundle.suite == 1 do
       case generate_post_quantum_prekey() do
-        Err(_) -> Err("post_quantum_prekey_generation_failed")
-        Ok(value) -> Ok(value)
+        Err( _) -> Err("post_quantum_prekey_generation_failed")
+        Ok( value) -> Ok(value)
       end
     else
       Err(error)
     end
-    Ok(blob) -> do
+    Ok( blob) -> do
       let private_key = open_mlkem(blob,
       wrapping_key,
       context(profile.account_id, profile.device_id, label, 15) ?) ?
@@ -1212,6 +1364,206 @@ fn open_device(profile :: MobileProfile, wrapping_key :: borrow StorageKey, data
   end
 end
 
+fn seal_prekey_pool(entries :: List < MobileOneTimePrekey >, wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  seal_local(encode_prekey_entries(entries, 0, Bytes.empty()) ?,
+  wrapping_key,
+  local_context("one-time-prekeys/v1") ?)
+end
+
+fn seal_prekey_wide(label :: String, value :: U64, wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  seal_local(mobile_write_u64(value) ?, wrapping_key, local_context(label) ?)
+end
+
+fn load_prekey_wide(database_path :: String, label :: String, wrapping_key :: borrow StorageKey) -> U64 ! String do
+  mobile_read_u64(open_local(load_blob(database_path, label) ?,
+  wrapping_key,
+  local_context(label) ?) ?)
+end
+
+fn migrate_legacy_prekey(profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+database_path :: String) -> List < MobileOneTimePrekey > ! String do
+  let id = profile.bundle.one_time_prekey_id
+  if !(valid_prekey_id(id) ?) || Bytes.length(profile.bundle.one_time_prekey) != 32 do
+    Err("prekey_pool_uninitialized")
+  else
+    # Older clients retained this singleton after successful receives, so its
+    # consumption history is unknowable. Retire it instead of risking reuse.
+    let _ = load_blob(database_path, "one-time-prekey/v1") ?
+    let entries = List.new()
+    store_prekey_batch(database_path,
+    List.new(),
+    List.new(),
+    seal_prekey_pool(entries, wrapping_key) ?,
+    seal_prekey_wide("one-time-prekey-next-id/v1", U64.add(id, mobile_wide("1") ?) ?, wrapping_key) ?,
+    true) ?
+    Ok(entries)
+  end
+end
+
+fn load_prekey_pool(profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+database_path :: String) -> List < MobileOneTimePrekey > ! String do
+  case load_blob(database_path, "one-time-prekeys/v1") do
+    Err( error) -> if error == "local_state_not_found" do
+      migrate_legacy_prekey(profile, wrapping_key, database_path)
+    else
+      Err(error)
+    end
+    Ok( blob) -> decode_prekey_pool(open_local(blob,
+    wrapping_key,
+    local_context("one-time-prekeys/v1") ?) ?)
+  end
+end
+
+fn generate_prekey_batch(profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+next_id :: U64,
+remaining :: Int,
+entries :: List < MobileOneTimePrekey >,
+labels :: List < String >,
+blobs :: List < Bytes >) -> Result <( List < MobileOneTimePrekey >, List < String >, List < Bytes >, U64), String > do
+  if remaining <= 0 do
+    Ok((entries, labels, blobs, next_id))
+  else if !(valid_prekey_id(next_id) ?) do
+    Err("prekey_id_exhausted")
+  else
+    let generated = case generate_one_time_prekey(next_id) do
+      Err( _) -> Err("prekey_generation_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let label = one_time_prekey_label(next_id)
+    let blob = seal_x25519(generated.private_key,
+    wrapping_key,
+    one_time_prekey_context(profile, next_id) ?) ?
+    generate_prekey_batch(profile,
+    wrapping_key,
+    U64.add(next_id, mobile_wide("1") ?) ?,
+    remaining - 1,
+    List.append(entries,
+    MobileOneTimePrekey {
+      id : next_id,
+      public_key : generated.public_key.bytes
+    }),
+    List.append(labels, label),
+    List.append(blobs, blob))
+  end
+end
+
+fn append_prekeys(source :: List < MobileOneTimePrekey >,
+index :: Int,
+output :: List < MobileOneTimePrekey >) -> List < MobileOneTimePrekey > do
+  if index >= List.length(source) do
+    output
+  else
+    append_prekeys(source, index + 1, List.append(output, List.get(source, index)))
+  end
+end
+
+fn public_prekeys(entries :: List < MobileOneTimePrekey >,
+index :: Int,
+output :: List < OneTimePrekeyPublic >) -> List < OneTimePrekeyPublic > do
+  if index >= List.length(entries) do
+    output
+  else
+    let entry = List.get(entries, index)
+    public_prekeys(entries,
+    index + 1,
+    List.append(output,
+    OneTimePrekeyPublic {
+      id : entry.id,
+      public_key : entry.public_key
+    }))
+  end
+end
+
+fn find_prekey(entries :: List < MobileOneTimePrekey >, id :: U64, index :: Int) -> MobileOneTimePrekey ! String do
+  if index >= List.length(entries) do
+    Err("one_time_prekey_not_found")
+  else
+    let entry = List.get(entries, index)
+    if U64.compare(entry.id, id) == 0 do
+      Ok(entry)
+    else
+      find_prekey(entries, id, index + 1)
+    end
+  end
+end
+
+fn remove_prekey(entries :: List < MobileOneTimePrekey >,
+id :: U64,
+index :: Int,
+remaining :: List < MobileOneTimePrekey >) -> List < MobileOneTimePrekey > do
+  if index >= List.length(entries) do
+    remaining
+  else
+    let entry = List.get(entries, index)
+    if U64.compare(entry.id, id) == 0 do
+      remove_prekey(entries, id, index + 1, remaining)
+    else
+      remove_prekey(entries, id, index + 1, List.append(remaining, entry))
+    end
+  end
+end
+
+fn signed_prekey_publication(profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+database_path :: String,
+entries :: List < MobileOneTimePrekey >) -> Bytes ! String do
+  if List.length(entries) == 0 do
+    Err("prekey_pool_empty")
+  else
+    let unsigned = PrekeyPublishRequest {
+      account_id : profile.account_id,
+      device_id : profile.device_id,
+      prekeys : public_prekeys(entries, 0, List.new()),
+      signature : Bytes.empty()
+    }
+    let device = open_device(profile, wrapping_key, database_path) ?
+    let signature = case Crypto.sign(device.signing_private_key,
+    prekey_publish_signing_bytes(unsigned) ?) do
+      Err( _) -> Err("prekey_publication_signing_failed")
+      Ok( value) -> Ok(value.bytes)
+    end ?
+    encode_prekey_publish(% { unsigned | signature : signature })
+  end
+end
+
+fn replenish_prekeys(request :: MobilePrekeyRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let existing = load_prekey_pool(profile, wrapping_key, request.database_path) ?
+  if request.count == 0 do
+    signed_prekey_publication(profile, wrapping_key, request.database_path, existing)
+  else if List.length(existing) + request.count > 64 do
+    Err("prekey_pool_full")
+  else
+    let next_id = load_prekey_wide(request.database_path,
+    "one-time-prekey-next-id/v1",
+    wrapping_key) ?
+    let ( generated, labels, blobs, following_id) = generate_prekey_batch(profile,
+    wrapping_key,
+    next_id,
+    request.count,
+    List.new(),
+    List.new(),
+    List.new()) ?
+    let publication = signed_prekey_publication(profile,
+    wrapping_key,
+    request.database_path,
+    generated) ?
+    let updated = append_prekeys(generated, 0, existing)
+    store_prekey_batch(request.database_path,
+    labels,
+    blobs,
+    seal_prekey_pool(updated, wrapping_key) ?,
+    seal_prekey_wide("one-time-prekey-next-id/v1", following_id, wrapping_key) ?,
+    false) ?
+    Ok(publication)
+  end
+end
+
 fn open_pending_device(request :: DeviceLinkRequest,
 wrapping_key :: borrow StorageKey,
 database_path :: String) -> DeviceKeys ! String do
@@ -1238,20 +1590,20 @@ end
 
 fn open_prekeys(profile :: MobileProfile,
 wrapping_key :: borrow StorageKey,
-database_path :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
+database_path :: String,
+selected :: MobileOneTimePrekey) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
   let signed_blob = load_blob(database_path, "signed-prekey/v1") ?
-  let one_time_blob = load_blob(database_path, "one-time-prekey/v1") ?
+  let one_time_label = one_time_prekey_label(selected.id)
+  let one_time_blob = load_blob(database_path, one_time_label) ?
   let signed_context = context(profile.account_id, profile.device_id, "signed-prekey/v1", 9) ?
-  let one_time_context = context(profile.account_id, profile.device_id, "one-time-prekey/v1", 10) ?
+  let one_time_context = one_time_prekey_context(profile, selected.id) ?
   case open_x25519(signed_blob, wrapping_key, signed_context) do
     Err( error) -> Err(error)
     Ok( signed_private) -> case open_x25519(one_time_blob, wrapping_key, one_time_context) do
       Err( error) -> reject_prekey_open(signed_private, error)
-      Ok( one_time_private) -> case open_post_quantum_prekey(profile,
-      wrapping_key,
-      database_path) do
-        Err(error) -> reject_post_quantum_open(signed_private, one_time_private, error)
-        Ok(post_quantum) -> Ok((SignedPrekeySecrets {
+      Ok( one_time_private) -> case open_post_quantum_prekey(profile, wrapping_key, database_path) do
+        Err( error) -> reject_post_quantum_open(signed_private, one_time_private, error)
+        Ok( post_quantum) -> Ok((SignedPrekeySecrets {
           id : profile.bundle.signed_prekey_id,
           private_key : signed_private,
           public_key : X25519PublicKey { bytes : profile.bundle.signed_prekey },
@@ -1259,9 +1611,9 @@ database_path :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets,
           expires_at : profile.bundle.expires_at
         },
         OneTimePrekeySecrets {
-          id : profile.bundle.one_time_prekey_id,
+          id : selected.id,
           private_key : one_time_private,
-          public_key : X25519PublicKey { bytes : profile.bundle.one_time_prekey }
+          public_key : X25519PublicKey { bytes : selected.public_key }
         },
         post_quantum))
       end
@@ -1445,13 +1797,22 @@ fn complete_link(request :: MobilePayloadRequest) -> Bytes ! String do
     let signed_prekey_blob = seal_x25519(signed.private_key,
     wrapping_key,
     context(account.account_id, credential.device_id, "signed-prekey/v1", 9) ?) ?
+    let one_time_label = one_time_prekey_label(one_time.id)
     let one_time_prekey_blob = seal_x25519(one_time.private_key,
     wrapping_key,
-    context(account.account_id, credential.device_id, "one-time-prekey/v1", 10) ?) ?
+    context(account.account_id, credential.device_id, one_time_label, 10) ?) ?
     let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1") ?) ?
+    let prekey_index_blob = seal_prekey_pool([MobileOneTimePrekey {
+      id : one_time.id,
+      public_key : one_time.public_key.bytes
+    }],
+    wrapping_key) ?
+    let prekey_next_id_blob = seal_prekey_wide("one-time-prekey-next-id/v1",
+    U64.add(one_time.id, mobile_wide("1") ?) ?,
+    wrapping_key) ?
     store_linked_blobs(request.database_path,
-    ["device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", "one-time-prekey/v1", "profile/v1"],
-    [signing_blob, identity_blob, signed_prekey_blob, one_time_prekey_blob, profile_blob]) ?
+    ["device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", one_time_label, "profile/v1", "one-time-prekeys/v1", "one-time-prekey-next-id/v1"],
+    [signing_blob, identity_blob, signed_prekey_blob, one_time_prekey_blob, profile_blob, prekey_index_blob, prekey_next_id_blob]) ?
     Ok(profile)
   end
 end
@@ -1968,9 +2329,7 @@ session_ids :: List < Bytes >) -> List < Bytes > do
     session_ids
   else
     let value = List.get(prepared, index)
-    let next = if value.new_session && !contains_session_id(session_ids,
-    value.session_id,
-    0) do
+    let next = if value.new_session && !contains_session_id(session_ids, value.session_id, 0) do
       List.append(session_ids, value.session_id)
     else
       session_ids
@@ -1991,8 +2350,7 @@ envelopes :: List < Bytes >) -> List < Bytes > do
   end
 end
 
-fn seal_session_ids(session_ids :: List < Bytes >,
-wrapping_key :: borrow StorageKey) -> Bytes ! String do
+fn seal_session_ids(session_ids :: List < Bytes >, wrapping_key :: borrow StorageKey) -> Bytes ! String do
   seal_local(mobile_join(session_ids, 0, Bytes.empty()) ?,
   wrapping_key,
   local_context("sessions/v1") ?)
@@ -2075,8 +2433,8 @@ strongest :: Int) -> Int ! String do
     Ok(strongest)
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
-    let matches = Bytes.secure_equals(loaded.record.peer_account_id,
-    peer_account_id) && Bytes.secure_equals(loaded.record.peer_device_id, peer_device_id)
+    let matches = Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) && Bytes.secure_equals(loaded.record.peer_device_id,
+    peer_device_id)
     let next = if matches && loaded.record.strongest_suite > strongest do
       loaded.record.strongest_suite
     else
@@ -2383,17 +2741,14 @@ blobs :: List < Bytes >) -> Result <( List < Bytes >, List < String >, List < By
         List.append(blobs, head_blob))
       else
         let tail_label = outbox_tail_label(outer.envelope_id) ?
-        let tail = Bytes.slice(envelope,
-        head_length,
-        envelope_length - head_length) ?
+        let tail = Bytes.slice(envelope, head_length, envelope_length - head_length) ?
         prepare_outbox(envelopes,
         wrapping_key,
         index + 1,
         List.append(ids, outer.envelope_id),
         List.append(List.append(labels, label), tail_label),
-        List.append(List.append(blobs, head_blob), seal_local(tail,
-        wrapping_key,
-        local_context(tail_label) ?) ?))
+        List.append(List.append(blobs, head_blob),
+        seal_local(tail, wrapping_key, local_context(tail_label) ?) ?))
       end
     end
   end
@@ -2424,34 +2779,34 @@ fn load_outbox_entry(database_path :: String, wrapping_key :: borrow StorageKey,
   if Bytes.length(head) < 4 do
     Err("invalid_outbox")
   else
-  let envelope_length = mobile_read_u32(Bytes.slice(head, 0, 4) ?) ?
-  let head_length = Bytes.length(head) - 4
-  if envelope_length > 65606 || envelope_length < head_length || head_length > 65532 do
-    Err("invalid_outbox")
-  else
-  let head_value = Bytes.slice(head, 4, head_length) ?
-  let value = if envelope_length == head_length do
-    Ok(head_value)
-  else if head_length != 65532 || envelope_length - head_length > 74 do
-    Err("invalid_outbox")
-  else
-    let tail_label = outbox_tail_label(id) ?
-    let tail = open_local(load_blob(database_path, tail_label) ?,
-    wrapping_key,
-    local_context(tail_label) ?) ?
-    if Bytes.length(tail) != envelope_length - head_length do
+    let envelope_length = mobile_read_u32(Bytes.slice(head, 0, 4) ?) ?
+    let head_length = Bytes.length(head) - 4
+    if envelope_length > 65606 || envelope_length < head_length || head_length > 65532 do
       Err("invalid_outbox")
     else
-      mobile_append(head_value, tail)
+      let head_value = Bytes.slice(head, 4, head_length) ?
+      let value = if envelope_length == head_length do
+        Ok(head_value)
+      else if head_length != 65532 || envelope_length - head_length > 74 do
+        Err("invalid_outbox")
+      else
+        let tail_label = outbox_tail_label(id) ?
+        let tail = open_local(load_blob(database_path, tail_label) ?,
+        wrapping_key,
+        local_context(tail_label) ?) ?
+        if Bytes.length(tail) != envelope_length - head_length do
+          Err("invalid_outbox")
+        else
+          mobile_append(head_value, tail)
+        end
+      end ?
+      let outer = canonical_outer(value) ?
+      if Bytes.secure_equals(outer.envelope_id, id) do
+        Ok(value)
+      else
+        Err("invalid_outbox")
+      end
     end
-  end ?
-  let outer = canonical_outer(value) ?
-  if Bytes.secure_equals(outer.envelope_id, id) do
-    Ok(value)
-  else
-    Err("invalid_outbox")
-  end
-  end
   end
 end
 
@@ -2823,8 +3178,9 @@ label :: String,
 blob :: Bytes,
 index_blob :: Bytes,
 history_key :: String,
-history_blob :: Bytes) -> Result <(), String > do
-  # ponytail: retain the single published one-time prekey until directory-backed replenishment is atomic; deleting it makes a device accept only one initial session.
+history_blob :: Bytes,
+prekey_label :: String,
+prekey_index_blob :: Bytes) -> Result <(), String > do
   case Sqlite.open(database_path) do
     Err( _) -> Err("database_open_failed")
     Ok( database) -> do
@@ -2836,9 +3192,15 @@ history_blob :: Bytes) -> Result <(), String > do
             Err( error) -> Err(error)
             Ok( _) -> case put_blob(database, history_key, history_blob) do
               Err( error) -> Err(error)
-              Ok( _) -> case Sqlite.commit(database) do
-                Err( _) -> Err("database_write_failed")
-                Ok( _) -> Ok(nil)
+              Ok( _) -> case delete_blob(database, prekey_label) do
+                Err( error) -> Err(error)
+                Ok( _) -> case put_blob(database, "one-time-prekeys/v1", prekey_index_blob) do
+                  Err( error) -> Err(error)
+                  Ok( _) -> case Sqlite.commit(database) do
+                    Err( _) -> Err("database_write_failed")
+                    Ok( _) -> Ok(nil)
+                  end
+                end
               end
             end
           end
@@ -2969,8 +3331,7 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
     session_blob : session_blob,
     new_session : true
   }]
-  let index_blob = seal_session_ids(prepared_session_ids(prepared, 0, session_ids),
-  wrapping_key) ?
+  let index_blob = seal_session_ids(prepared_session_ids(prepared, 0, session_ids), wrapping_key) ?
   let ( history_key, history_blob) = updated_history(request.database_path, wrapping_key, inner, 1) ?
   let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
   pending_ids,
@@ -2996,108 +3357,119 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
   else
     let packet = parse_initial_packet(outer.ciphertext) ?
     let initial = case decode_initial_message(packet.message) do
-      Err(_) -> Err("invalid_initial_message")
-      Ok(value) -> Ok(value)
+      Err( _) -> Err("invalid_initial_message")
+      Ok( value) -> Ok(value)
     end ?
     if outer.suite != initial.suite do
       Err("outer_suite_mismatch")
     else
-    let initiator_account = case decode_account_identity(packet.account_identity) do
-      Err( _) -> Err("invalid_initiator_account")
-      Ok( value) -> Ok(value)
-    end ?
-    let wrapping_key = platform_key() ?
-    let local_device = open_device(local, wrapping_key, request.database_path) ?
-    let initiator_credential = case decode_device_credential(initial.initiator_credential) do
-      Err(_) -> Err("invalid_initiator_credential")
-      Ok(value) -> Ok(value)
-    end ?
-    let strongest_suite = strongest_device_suite(request.database_path,
-    wrapping_key,
-    initiator_account.account_id,
-    initiator_credential.device_id,
-    load_session_ids(request.database_path, wrapping_key) ?,
-    0,
-    0) ?
-    let ( signed, one_time, post_quantum) = open_prekeys(local,
-    wrapping_key,
-    request.database_path) ?
-    let now = current_time() ?
-    let ( state, plaintext) = case receive_initial(local_device,
-    local.account,
-    local.bundle,
-    signed,
-    one_time,
-    post_quantum,
-    initiator_account,
-    policy(local, now),
-    VerificationPolicy {
-      current_time : now,
-      minimum_directory_sequence : initiator_account.directory_sequence
-    },
-    strongest_suite,
-    packet.message) do
-      Err( _) -> Err("initial_receive_failed")
-      Ok( value) -> Ok(value)
-    end ?
-    let decoded = parse_initial_plaintext(plaintext) ?
-    let peer = parse_profile(decoded.profile) ?
-    let inner = case decode_inner_envelope(decoded.inner) do
-      Err( _) -> Err("invalid_inner_envelope")
-      Ok( value) -> Ok(value)
-    end ?
-    let self_sync = inner.message_type == 2 && Bytes.secure_equals(peer.account_id,
-    local.account_id)
-    let valid_kind = self_sync || (inner.message_type == 1 && !Bytes.secure_equals(peer.account_id,
-    local.account_id))
-    let mismatch = !valid_kind || !Bytes.secure_equals(peer.entry.account_identity,
-    packet.account_identity) || !Bytes.secure_equals(inner.sender_account_id, peer.account_id) || !Bytes.secure_equals(inner.sender_device_id,
-    peer.device_id) || !Bytes.secure_equals(inner.recipient_device_id, local.device_id)
-    if mismatch do
-      Err("initial_identity_mismatch")
-    else
-      let ( session_id, label, session_blob) = seal_session(state,
+      let initiator_account = case decode_account_identity(packet.account_identity) do
+        Err( _) -> Err("invalid_initiator_account")
+        Ok( value) -> Ok(value)
+      end ?
+      let wrapping_key = platform_key() ?
+      let prekeys = load_prekey_pool(local, wrapping_key, request.database_path) ?
+      let selected_prekey = find_prekey(prekeys, initial.one_time_prekey_id, 0) ?
+      let responder_bundle = % { local.bundle | one_time_prekey_id : selected_prekey.id, one_time_prekey : selected_prekey.public_key }
+      let local_device = open_device(local, wrapping_key, request.database_path) ?
+      let initiator_credential = case decode_device_credential(initial.initiator_credential) do
+        Err( _) -> Err("invalid_initiator_credential")
+        Ok( value) -> Ok(value)
+      end ?
+      let strongest_suite = strongest_device_suite(request.database_path,
       wrapping_key,
-      local,
-      peer,
-      inner.conversation_id,
+      initiator_account.account_id,
+      initiator_credential.device_id,
+      load_session_ids(request.database_path, wrapping_key) ?,
       0,
-      false) ?
-      if self_sync do
-        let sync = parse_sync_payload(inner.body) ?
-        if Bytes.secure_equals(sync.peer_account_id, local.account_id) do
-          Err("invalid_sync_payload")
+      0) ?
+      let ( signed, one_time, post_quantum) = open_prekeys(local,
+      wrapping_key,
+      request.database_path,
+      selected_prekey) ?
+      let now = current_time() ?
+      let ( state, plaintext) = case receive_initial(local_device,
+      local.account,
+      responder_bundle,
+      signed,
+      one_time,
+      post_quantum,
+      initiator_account,
+      policy(local, now),
+      VerificationPolicy {
+        current_time : now,
+        minimum_directory_sequence : initiator_account.directory_sequence
+      },
+      strongest_suite,
+      packet.message) do
+        Err( _) -> Err("initial_receive_failed")
+        Ok( value) -> Ok(value)
+      end ?
+      let decoded = parse_initial_plaintext(plaintext) ?
+      let peer = parse_profile(decoded.profile) ?
+      let inner = case decode_inner_envelope(decoded.inner) do
+        Err( _) -> Err("invalid_inner_envelope")
+        Ok( value) -> Ok(value)
+      end ?
+      let self_sync = inner.message_type == 2 && Bytes.secure_equals(peer.account_id,
+      local.account_id)
+      let valid_kind = self_sync || (inner.message_type == 1 && !Bytes.secure_equals(peer.account_id,
+      local.account_id))
+      let mismatch = !valid_kind || !Bytes.secure_equals(peer.entry.account_identity,
+      packet.account_identity) || !Bytes.secure_equals(inner.sender_account_id, peer.account_id) || !Bytes.secure_equals(inner.sender_device_id,
+      peer.device_id) || !Bytes.secure_equals(inner.recipient_device_id, local.device_id)
+      if mismatch do
+        Err("initial_identity_mismatch")
+      else
+        let ( session_id, label, session_blob) = seal_session(state,
+        wrapping_key,
+        local,
+        peer,
+        inner.conversation_id,
+        0,
+        false) ?
+        let remaining_prekeys = remove_prekey(prekeys, selected_prekey.id, 0, List.new())
+        let prekey_index_blob = seal_prekey_pool(remaining_prekeys, wrapping_key) ?
+        let prekey_label = one_time_prekey_label(selected_prekey.id)
+        if self_sync do
+          let sync = parse_sync_payload(inner.body) ?
+          if Bytes.secure_equals(sync.peer_account_id, local.account_id) do
+            Err("invalid_sync_payload")
+          else
+            let history_inner = sync_history_inner(local, sync) ?
+            ensure_conversation_alias(request.database_path, wrapping_key, local, sync) ?
+            let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
+            let ( history_key, history_blob) = updated_history(request.database_path,
+            wrapping_key,
+            history_inner,
+            1) ?
+            store_received_session(request.database_path,
+            label,
+            session_blob,
+            index_blob,
+            history_key,
+            history_blob,
+            prekey_label,
+            prekey_index_blob) ?
+            Ok(history_inner.body)
+          end
         else
-          let history_inner = sync_history_inner(local, sync) ?
-          ensure_conversation_alias(request.database_path, wrapping_key, local, sync) ?
           let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
           let ( history_key, history_blob) = updated_history(request.database_path,
           wrapping_key,
-          history_inner,
-          1) ?
+          inner,
+          2) ?
           store_received_session(request.database_path,
           label,
           session_blob,
           index_blob,
           history_key,
-          history_blob) ?
-          Ok(history_inner.body)
+          history_blob,
+          prekey_label,
+          prekey_index_blob) ?
+          Ok(inner.body)
         end
-      else
-        let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
-        let ( history_key, history_blob) = updated_history(request.database_path,
-        wrapping_key,
-        inner,
-        2) ?
-        store_received_session(request.database_path,
-        label,
-        session_blob,
-        index_blob,
-        history_key,
-        history_blob) ?
-        Ok(inner.body)
       end
-    end
     end
   end
 end
@@ -3178,8 +3550,7 @@ label :: String) -> Bytes ! String do
   else
     record.strongest_suite
   end
-  seal_local(updated_session_record(snapshot_blob,
-  %{record | strongest_suite : strongest_suite}) ?,
+  seal_local(updated_session_record(snapshot_blob, % { record | strongest_suite : strongest_suite }) ?,
   wrapping_key,
   local_context(label) ?)
 end
@@ -3563,9 +3934,7 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       0,
       prepared_peers) ?
       let envelopes = prepared_envelopes(prepared, 0, List.new())
-      let session_index_blob = seal_session_ids(prepared_session_ids(prepared,
-      0,
-      session_ids),
+      let session_index_blob = seal_session_ids(prepared_session_ids(prepared, 0, session_ids),
       wrapping_key) ?
       let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
       pending_ids,
@@ -4026,6 +4395,10 @@ end
 
 @ export("mesh_messenger_load_profile")pub fn load_profile_export(request :: Bytes) -> Bytes ! String do
   load_profile(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_replenish_prekeys")pub fn replenish_prekeys_export(request :: Bytes) -> Bytes ! String do
+  replenish_prekeys(parse_prekey_request(request) ?)
 end
 
 @ export("mesh_messenger_create_link_request")pub fn create_link_request_export(request :: Bytes) -> Bytes ! String do

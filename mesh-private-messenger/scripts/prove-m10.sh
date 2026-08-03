@@ -15,6 +15,7 @@ readonly temp_dir
 readonly database="$temp_dir/mobile.db"
 readonly peer_database="$database.bob"
 readonly linked_database="$database.linked"
+readonly capacity_database="$database.capacity"
 if [[ "$(uname -s)" == Darwin ]]; then
   readonly library="$temp_dir/libmessenger_mobile.dylib"
   readonly host_system_libs=(-framework Security -framework CoreFoundation)
@@ -89,7 +90,8 @@ prove_bridge() {
     fail "secure-store operations crossed the TypeScript boundary"
   fi
   local symbol
-  for symbol in mesh_messenger_outbox_list mesh_messenger_outbox_ack; do
+  for symbol in mesh_messenger_outbox_list mesh_messenger_outbox_ack \
+    mesh_messenger_replenish_prekeys; do
     grep -q "\"$symbol\"" "$module_dir/ios/MeshMessengerModule.swift" || \
       fail "iOS bridge does not dispatch $symbol"
     grep -q "\"$symbol\"" \
@@ -126,15 +128,17 @@ main() {
     -lsqlite3 -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
   "$temp_dir/host" "$vector" "$database"
 
-  [[ "$(sqlite3 "$database" "SELECT count(*) = 13 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "sender SQLite did not contain thirteen encrypted records after fanout"
-  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 11 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "recipient SQLite did not contain eleven encrypted fanout records"
-  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 10 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "linked-device SQLite did not contain ten encrypted sync records"
+  [[ "$(sqlite3 "$database" "SELECT count(*) = 17 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "sender SQLite did not contain seventeen encrypted session, outbox, and prekey records"
+  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 13 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "recipient SQLite did not contain thirteen encrypted fanout and prekey records"
+  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 11 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "linked-device SQLite did not contain eleven encrypted sync and prekey records"
+  [[ "$(sqlite3 "$capacity_database" "SELECT count(*) = 72 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "bounded-pool SQLite did not contain sixty-four encrypted one-time prekeys"
   local leak_pattern='whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|post-quantum-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
   local leaks
-  leaks="$(LC_ALL=C grep -a -E -o "$leak_pattern" "$database" "$peer_database" "$linked_database" || true)"
+  leaks="$(LC_ALL=C grep -a -E -o "$leak_pattern" "$database" "$peer_database" "$linked_database" "$capacity_database" || true)"
   if [[ -n "$leaks" ]]; then
     fail "SQLite leaked a record label or profile value: $leaks"
   fi
