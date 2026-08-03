@@ -1,4 +1,4 @@
-from Api.Binary import BinaryResult, acknowledge_request, checkpoint_request, consistency_request, delivery_seed, fetch_request, inclusion_request, register_device_request, register_request, resolve_devices_request, resolve_request, revoke_device_request, submit_request, submit_sealed_request, submit_witness_request, witnesses_request
+from Api.Binary import BinaryResult, acknowledge_request, bind_push_request, checkpoint_request, consistency_request, delivery_seed, fetch_request, inclusion_request, register_device_request, register_request, resolve_devices_request, resolve_request, revoke_device_request, submit_request, submit_sealed_request, submit_witness_request, unbind_push_request, witnesses_request
 from Runtime.Registry import get_pool
 
 fn respond(result :: BinaryResult) -> Response do
@@ -46,6 +46,14 @@ end
 
 pub fn handle_acknowledge(request :: Request) -> Response do
   respond(acknowledge_request(get_pool(), Request.body_bytes(request)))
+end
+
+pub fn handle_push_bind(request :: Request) -> Response do
+  respond(bind_push_request(get_pool(), Request.body_bytes(request)))
+end
+
+pub fn handle_push_unbind(request :: Request) -> Response do
+  respond(unbind_push_request(get_pool(), Request.body_bytes(request)))
 end
 
 pub fn handle_transparency_checkpoint(_request :: Request) -> Response do

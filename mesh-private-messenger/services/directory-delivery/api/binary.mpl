@@ -1,8 +1,10 @@
 from Protocol.V1 import decode_device_revocation, decode_directory_entry, decode_directory_lookup, decode_mailbox_ack, decode_mailbox_fetch, decode_outer_envelope, encode_delivery_batch, encode_directory_entry
 from Privacy.Edge import decode_sealed_delivery, open_delivery
+from Push.Binding import decode_push_bind, decode_push_unbind
 from Storage.Delivery import DeliveryInsert, acknowledge_mailbox, enqueue_envelope, fetch_mailbox
 from Storage.Devices import DeviceWrite, register_device, resolve_devices, revoke_device
 from Storage.Directory import register_directory, resolve_directory
+from Storage.Push import PushWrite, bind_push, unbind_push
 from Storage.Transparency import consistency_from, create_checkpoint, evidence_for_username, latest_checkpoint, store_witness, witnesses_for_checkpoint
 from Transparency.Merkle import WitnessKey
 from Transparency.Wire import decode_transparency_evidence, decode_transparency_lookup, decode_transparency_tree_query, decode_witnesses, encode_checkpoint, encode_consistency_proof, encode_inclusion_proof, encode_transparency_evidence, encode_witnesses
@@ -267,6 +269,30 @@ pub fn acknowledge_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
     Ok( ack) -> case acknowledge_mailbox(pool, ack) do
       Err( _) -> empty(500)
       Ok( _) -> empty(200)
+    end
+  end
+end
+
+pub fn bind_push_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
+  case decode_push_bind(body) do
+    Err( _) -> empty(400)
+    Ok( request) -> case bind_push(pool, request) do
+      Err( _) -> empty(500)
+      Ok( PushAccepted) -> empty(201)
+      Ok( PushUnauthorized) -> empty(403)
+      Ok( PushStale) -> empty(409)
+    end
+  end
+end
+
+pub fn unbind_push_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
+  case decode_push_unbind(body) do
+    Err( _) -> empty(400)
+    Ok( request) -> case unbind_push(pool, request) do
+      Err( _) -> empty(500)
+      Ok( PushAccepted) -> empty(200)
+      Ok( PushUnauthorized) -> empty(403)
+      Ok( PushStale) -> empty(409)
     end
   end
 end

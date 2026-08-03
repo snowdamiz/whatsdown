@@ -12,6 +12,12 @@ The service is development-only until every release gate in the implementation p
 
 Never place signing seeds, mailbox capabilities, envelope IDs, account IDs, device IDs, or message data in command lines, logs, metrics, or incident tickets.
 
+## Push delivery adapter
+
+Push wake-up delivery currently uses a local fake adapter for integration testing. It does not register with or send to APNs, FCM, or another production provider. Set `MESSENGER_LOCAL_FAKE_PUSH_AVAILABLE=false` to simulate a retryable provider outage; the default is available.
+
+Every fake push contains only the generic body `New encrypted activity` and the data field `kind=encrypted-wakeup`. Do not add usernames, mailbox identifiers, envelope identifiers, senders, or message content. Production provider registration and adapters require a later implementation slice before release.
+
 ## Operate
 
 - Treat PostgreSQL as the durability boundary. Do not acknowledge a submission before its transaction commits.

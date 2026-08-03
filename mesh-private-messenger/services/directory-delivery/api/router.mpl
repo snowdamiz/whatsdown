@@ -1,4 +1,4 @@
-from Api.Http import handle_acknowledge, handle_fetch, handle_health, handle_register, handle_register_device, handle_resolve, handle_resolve_devices, handle_revoke_device, handle_sealed_submit, handle_submit, handle_transparency_checkpoint, handle_transparency_consistency, handle_transparency_inclusion, handle_transparency_witness_submit, handle_transparency_witnesses
+from Api.Http import handle_acknowledge, handle_fetch, handle_health, handle_push_bind, handle_push_unbind, handle_register, handle_register_device, handle_resolve, handle_resolve_devices, handle_revoke_device, handle_sealed_submit, handle_submit, handle_transparency_checkpoint, handle_transparency_consistency, handle_transparency_inclusion, handle_transparency_witness_submit, handle_transparency_witnesses
 
 pub fn build_router() do
   HTTP.router()
@@ -13,6 +13,8 @@ pub fn build_router() do
     |> HTTP.on_post("/internal/v1/envelopes/sealed", handle_sealed_submit)
     |> HTTP.on_post("/v1/mailbox/fetch", handle_fetch)
     |> HTTP.on_post("/v1/mailbox/ack", handle_acknowledge)
+    |> HTTP.on_put("/v1/push/bind", handle_push_bind)
+    |> HTTP.on_post("/v1/push/unbind", handle_push_unbind)
     |> HTTP.on_get("/v1/transparency/checkpoint", handle_transparency_checkpoint)
     |> HTTP.on_get("/v1/transparency/inclusion", handle_transparency_inclusion)
     |> HTTP.on_post("/v1/transparency/inclusion", handle_transparency_inclusion)

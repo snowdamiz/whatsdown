@@ -1,10 +1,7 @@
-from Storage.Outbox import OutboxEvent, PushResult, finish_outbox, lease_outbox
+from Storage.Outbox import finish_outbox, lease_outbox
 from Storage.Retention import purge_envelopes
 from Runtime.Registry import get_pool
-
-fn no_push(_event :: OutboxEvent) -> PushResult do
-  PushDelivered
-end
+from Runtime.PushDispatch import dispatch_push
 
 fn process_outbox_once(pool :: PoolHandle, owner :: String) -> Bool ! String do
   let events = lease_outbox(pool, owner, 1, 30) ?
@@ -12,7 +9,10 @@ fn process_outbox_once(pool :: PoolHandle, owner :: String) -> Bool ! String do
     Ok(false)
   else
     let event = List.head(events)
-    finish_outbox(pool, event, owner, no_push(event)) ?
+    finish_outbox(pool,
+    event,
+    owner,
+    dispatch_push(pool, event, Env.get("MESSENGER_LOCAL_FAKE_PUSH_AVAILABLE", "true") != "false") ?) ?
     Ok(true)
   end
 end
