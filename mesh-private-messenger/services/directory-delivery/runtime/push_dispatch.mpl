@@ -15,7 +15,16 @@ pub fn broker_status(status :: Int) -> PushResult do
   end
 end
 
-fn send_broker_push(binding :: ProviderPushBinding, broker_url :: String) -> PushResult do
+pub fn broker_authorization(value :: String) -> String ! String do
+  if String.length(value) < 32 || String.length(value) > 256 || String.trim(value) != value || String.contains(value,
+  "\r") || String.contains(value, "\n") do
+    Err("invalid broker credential")
+  else
+    Ok("Bearer " <> value)
+  end
+end
+
+fn send_broker_push(binding :: ProviderPushBinding, broker_url :: String, authorization :: String) -> PushResult do
   let wake = encode_push_wake(PushWakeRequest {
     version : 1,
     wake_token_hash : binding.wake_token_hash,
@@ -26,6 +35,7 @@ fn send_broker_push(binding :: ProviderPushBinding, broker_url :: String) -> Pus
     Err( _) -> PushPermanent("invalid_provider_request")
     Ok( body) -> case Http.build(:post, broker_url)
       |> Http.header("Content-Type", "application/octet-stream")
+      |> Http.header("Authorization", authorization)
       |> Http.body_bytes(body)
       |> Http.timeout(5000)
       |> Http.max_response_bytes(1024)
@@ -43,13 +53,19 @@ pub fn dispatch_push(pool :: PoolHandle, event :: OutboxEvent, local_fake_availa
   end
 end
 
-pub fn dispatch_broker_push(pool :: PoolHandle, event :: OutboxEvent, broker_url :: String) -> PushResult ! String do
+pub fn dispatch_broker_push(pool :: PoolHandle,
+event :: OutboxEvent,
+broker_url :: String,
+broker_token :: String) -> PushResult ! String do
   case find_push_binding_for_mailbox(pool, event.mailbox_token_hash) ? do
     None -> Ok(PushDelivered)
     Some( binding) -> if String.length(broker_url) == 0 do
       Ok(PushRetryable("broker_unconfigured"))
     else
-      Ok(send_broker_push(binding, broker_url))
+      case broker_authorization(broker_token) do
+        Err( _) -> Ok(PushRetryable("broker_auth_unconfigured"))
+        Ok( authorization) -> Ok(send_broker_push(binding, broker_url, authorization))
+      end
     end
   end
 end
@@ -59,7 +75,10 @@ pub fn dispatch_configured_push(pool :: PoolHandle, event :: OutboxEvent) -> Pus
   if mode == "local-fake" do
     dispatch_push(pool, event, Env.get("MESSENGER_LOCAL_FAKE_PUSH_AVAILABLE", "true") != "false")
   else if mode == "broker" do
-    dispatch_broker_push(pool, event, Env.get("MESSENGER_PUSH_BROKER_URL", ""))
+    dispatch_broker_push(pool,
+    event,
+    Env.get("MESSENGER_PUSH_BROKER_URL", ""),
+    Env.get("MESSENGER_PUSH_BROKER_INTERNAL_TOKEN", ""))
   else
     case find_push_binding_for_mailbox(pool, event.mailbox_token_hash) ? do
       None -> Ok(PushDelivered)

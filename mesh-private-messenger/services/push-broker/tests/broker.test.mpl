@@ -1,5 +1,5 @@
-from Broker.Expo import BrokerOutcome, classify_expo_response, expo_message, prepare_expo_request
-from Broker.Service import access_token, broker_seed, outcome_status, prepare_delivery, provider_url
+from Broker.Expo import BrokerOutcome, classify_expo_receipt, classify_expo_response, expo_message, parse_expo_ticket, prepare_expo_request, receipt_message
+from Broker.Service import access_token, authorized, broker_seed, expo_receipts_url, expo_send_url, internal_token, outcome_status, prepare_delivery, provider_url
 from Push.Token import PushWakeRequest, encode_push_wake, seal_provider_token
 
 fn seed(value :: Int) -> Bytes ! String do
@@ -36,11 +36,12 @@ fn opened_payload() -> Bool ! String do
     Ok( output) -> Ok(output)
   end ?
   let token = Bytes.from_utf8("ExpoPushToken[broker-only-token]")
+  let sealed = seal_provider_token(token, broker.public_key) ?
   let wake = encode_push_wake(PushWakeRequest {
     version : 1,
     wake_token_hash : Crypto.sha256(Bytes.from_utf8("wake")),
     provider : 1,
-    sealed_provider_token : seal_provider_token(token, broker.public_key) ?
+    sealed_provider_token : sealed
   }) ?
   assert(prepare_expo_request(wake, broker_seed) ? == expo_message(token) ?)
   Ok(true)
@@ -69,6 +70,38 @@ test("Expo single-item ticket array is delivered") do
   end
 end
 
+test("Expo send responses retain the ticket id for receipt polling") do
+  case parse_expo_ticket(200,
+  Bytes.from_utf8("{\"data\":{\"status\":\"ok\",\"id\":\"ticket-retained\"}}")) do
+    Err( _) -> assert(false)
+    Ok( id) -> assert(id == "ticket-retained")
+  end
+  case parse_expo_ticket(200,
+  Bytes.from_utf8("{\"data\":{\"status\":\"error\",\"details\":{\"error\":\"DeviceNotRegistered\"}}}")) do
+    Err( Permanent) -> assert(true)
+    _ -> assert(false)
+  end
+end
+
+test("Expo receipts decide delivery and terminal device state") do
+  assert(receipt_message("ticket-retained") == "{\"ids\":[\"ticket-retained\"]}")
+  let delivered = Bytes.from_utf8("{\"data\":{\"ticket-retained\":{\"status\":\"ok\"}}}")
+  case classify_expo_receipt(200, delivered, "ticket-retained") do
+    Delivered -> assert(true)
+    _ -> assert(false)
+  end
+  let unregistered = Bytes.from_utf8("{\"data\":{\"ticket-retained\":{\"status\":\"error\",\"details\":{\"error\":\"DeviceNotRegistered\"}}}}")
+  case classify_expo_receipt(200, unregistered, "ticket-retained") do
+    Permanent -> assert(true)
+    _ -> assert(false)
+  end
+  let credentials = Bytes.from_utf8("{\"data\":{\"ticket-retained\":{\"status\":\"error\",\"details\":{\"error\":\"InvalidCredentials\"}}}}")
+  assert(is_retryable(classify_expo_receipt(200, credentials, "ticket-retained")))
+  assert(is_retryable(classify_expo_receipt(200,
+  Bytes.from_utf8("{\"data\":{}}"),
+  "ticket-retained")))
+end
+
 test("Expo rejects an unregistered device permanently") do
   let body = Bytes.from_utf8("{\"data\":{\"status\":\"error\",\"message\":\"not registered\",\"details\":{\"error\":\"DeviceNotRegistered\"}}}")
   case classify_expo_response(200, body) do
@@ -85,13 +118,20 @@ test("Expo message rate errors are retryable") do
   end
 end
 
+test("Expo unknown and credential ticket errors remain retryable") do
+  let unknown = Bytes.from_utf8("{\"data\":{\"status\":\"error\",\"message\":\"new provider error\",\"details\":{\"error\":\"FutureProviderError\"}}}")
+  let credentials = Bytes.from_utf8("{\"data\":{\"status\":\"error\",\"message\":\"credentials\",\"details\":{\"error\":\"InvalidCredentials\"}}}")
+  assert(is_retryable(classify_expo_response(200, unknown)))
+  assert(is_retryable(classify_expo_response(200, credentials)))
+end
+
 test("Expo HTTP failures distinguish retryable outages from permanent requests") do
   assert(is_retryable(classify_expo_response(302, Bytes.empty())))
   assert(is_retryable(classify_expo_response(429, Bytes.empty())))
   assert(is_retryable(classify_expo_response(500, Bytes.empty())))
   assert(is_retryable(classify_expo_response(503, Bytes.empty())))
   assert(is_permanent(classify_expo_response(400, Bytes.empty())))
-  assert(is_permanent(classify_expo_response(401, Bytes.empty())))
+  assert(is_retryable(classify_expo_response(401, Bytes.empty())))
 end
 
 test("Expo payload contains only generic encrypted activity") do
@@ -108,6 +148,8 @@ test("broker outcomes map to the internal delivery contract") do
 end
 
 test("broker configuration rejects unsafe external provider settings") do
+  assert(expo_send_url() == "https://exp.host/--/api/v2/push/send")
+  assert(expo_receipts_url() == "https://exp.host/--/api/v2/push/getReceipts")
   let valid_seed = case seed(9) do
     Err( _) -> ""
     Ok( value) -> Bytes.to_hex(value)
@@ -128,12 +170,32 @@ test("broker configuration rejects unsafe external provider settings") do
     Err( _) -> assert(true)
     Ok( _) -> assert(false)
   end
+  case provider_url("https://attacker.example/push") do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
   case access_token("") do
     Err( _) -> assert(false)
     Ok( None) -> assert(true)
     Ok( Some( _)) -> assert(false)
   end
   case access_token("token\r\ninjected") do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+end
+
+test("broker requires an exact internal bearer credential") do
+  let secret = "0123456789abcdef0123456789abcdef"
+  case internal_token(secret) do
+    Err( _) -> assert(false)
+    Ok( validated) -> do
+      assert(authorized(Some("Bearer " <> validated), validated))
+      assert(!authorized(None, validated))
+      assert(!authorized(Some("Bearer wrong"), validated))
+    end
+  end
+  case internal_token("") do
     Err( _) -> assert(true)
     Ok( _) -> assert(false)
   end
