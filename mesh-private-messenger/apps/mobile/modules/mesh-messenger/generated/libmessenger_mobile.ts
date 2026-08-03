@@ -19,3 +19,8 @@ export const update_conversation_export = (request: Uint8Array): Promise<Uint8Ar
 export const list_conversations_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_list_conversations', request);
 export const load_history_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_load_history', request);
 export const safety_number_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_safety_number', request);
+export const import_contact_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_import_contact', request);
+export const directory_entry_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_directory_entry', request);
+export const directory_lookup_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_directory_lookup', request);
+export const mailbox_fetch_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_mailbox_fetch', request);
+export const process_delivery_batch_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_process_delivery_batch', request);

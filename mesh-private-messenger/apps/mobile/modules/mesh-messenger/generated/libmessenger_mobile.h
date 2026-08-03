@@ -58,6 +58,11 @@ int32_t mesh_messenger_update_conversation(const uint8_t *request, uint64_t requ
 int32_t mesh_messenger_list_conversations(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_load_history(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_safety_number(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_import_contact(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_directory_entry(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_directory_lookup(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_mailbox_fetch(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_process_delivery_batch(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 
 #ifdef __cplusplus
 }

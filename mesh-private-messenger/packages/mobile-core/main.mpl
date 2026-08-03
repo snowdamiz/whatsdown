@@ -1,7 +1,7 @@
 from Binary.Reader import BinaryReader, finish, read_vector, reader
 from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_device_credential
 from Prekeys.Bundle import OneTimePrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, InitialMessage, InnerEnvelope, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_device_credential, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_directory_entry, encode_initial_message, encode_inner_envelope, encode_outer_envelope, encode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
@@ -95,6 +95,11 @@ end
 struct MobilePeerRequest do
   database_path :: String
   peer_profile :: Bytes
+end
+
+struct MobileBatchRequest do
+  database_path :: String
+  batch :: Bytes
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! String do
@@ -693,6 +698,23 @@ fn parse_peer_request(input :: Bytes) -> MobilePeerRequest ! String do
         Ok( _) -> Ok(MobilePeerRequest {
           database_path : mobile_utf8(path.value, "invalid_database_path") ?,
           peer_profile : peer_profile.value
+        })
+      end
+    end
+  end
+end
+
+fn parse_batch_request(input :: Bytes) -> MobileBatchRequest ! String do
+  case reader(input, 604104) do
+    Err( _) -> Err("invalid_batch_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let batch = take_vector(path.state, 600000) ?
+      case finish(batch.state) do
+        Err( _) -> Err("invalid_batch_request")
+        Ok( _) -> Ok(MobileBatchRequest {
+          database_path : mobile_utf8(path.value, "invalid_database_path") ?,
+          batch : batch.value
         })
       end
     end
@@ -1832,6 +1854,100 @@ fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
   Ok(Bytes.from_utf8("ok"))
 end
 
+fn import_contact(input :: Bytes) -> Bytes ! String do
+  let entry = case decode_directory_entry(input) do
+    Err( _) -> Err("invalid_directory_entry")
+    Ok( value) -> Ok(value)
+  end ?
+  let account = case decode_account_identity(entry.account_identity) do
+    Err( _) -> Err("invalid_directory_entry")
+    Ok( value) -> Ok(value)
+  end ?
+  let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
+    Err( _) -> Err("invalid_directory_entry")
+    Ok( value) -> Ok(value)
+  end ?
+  let credential = case decode_device_credential(bundle.device_credential) do
+    Err( _) -> Err("invalid_directory_entry")
+    Ok( value) -> Ok(value)
+  end ?
+  let profile = profile_bytes(entry, account.account_id, credential.device_id) ?
+  let _ = parse_profile(profile) ?
+  Ok(profile)
+end
+
+fn directory_entry_for(database_path :: String) -> Bytes ! String do
+  let profile = parse_profile(load_profile(database_path) ?) ?
+  directory_bytes(profile.entry)
+end
+
+fn directory_lookup(input :: Bytes) -> Bytes ! String do
+  let username = mobile_utf8(input, "invalid_username") ?
+  case encode_directory_lookup(username) do
+    Err( _) -> Err("invalid_username")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn mailbox_fetch(database_path :: String) -> Bytes ! String do
+  let profile = parse_profile(load_profile(database_path) ?) ?
+  case encode_mailbox_fetch(MailboxFetch {
+    version : 1,
+    mailbox_token : profile.entry.mailbox_token,
+    after_sequence : mobile_wide("0") ?
+  }) do
+    Err( _) -> Err("mailbox_fetch_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn process_deliveries(database_path :: String,
+deliveries :: List < DeliveredEnvelope >,
+index :: Int,
+envelope_ids :: List < Bytes >) -> List < Bytes > do
+  if index >= List.length(deliveries) do
+    envelope_ids
+  else
+    let delivered = List.get(deliveries, index)
+    case canonical_outer(delivered.envelope) do
+      Err( _) -> process_deliveries(database_path, deliveries, index + 1, envelope_ids)
+      Ok( outer) -> do
+        let ignored = case parse_initial_packet(outer.ciphertext) do
+          Ok( _) -> receive_initial_message(MobileReceiveRequest {
+            database_path : database_path,
+            outer : delivered.envelope
+          })
+          Err( _) -> receive_message(MobileReceiveRequest {
+            database_path : database_path,
+            outer : delivered.envelope
+          })
+        end
+        process_deliveries(database_path,
+        deliveries,
+        index + 1,
+        List.append(envelope_ids, outer.envelope_id))
+      end
+    end
+  end
+end
+
+fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes ! String do
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let deliveries = case decode_delivery_batch(request.batch) do
+    Err( _) -> Err("invalid_delivery_batch")
+    Ok( values) -> Ok(values)
+  end ?
+  let envelope_ids = process_deliveries(request.database_path, deliveries, 0, List.new())
+  case encode_mailbox_ack(MailboxAck {
+    version : 1,
+    mailbox_token : profile.entry.mailbox_token,
+    envelope_ids : envelope_ids
+  }) do
+    Err( _) -> Err("mailbox_ack_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
 fn canonical_outer(input :: Bytes) -> OuterEnvelope ! String do
   case decode_outer_envelope(input) do
     Err( _) -> Err("invalid_outer_envelope")
@@ -1955,4 +2071,24 @@ end
 
 @ export("mesh_messenger_safety_number")pub fn safety_number_export(request :: Bytes) -> Bytes ! String do
   conversation_safety(parse_peer_request(request) ?)
+end
+
+@ export("mesh_messenger_import_contact")pub fn import_contact_export(request :: Bytes) -> Bytes ! String do
+  import_contact(request)
+end
+
+@ export("mesh_messenger_directory_entry")pub fn directory_entry_export(request :: Bytes) -> Bytes ! String do
+  directory_entry_for(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_directory_lookup")pub fn directory_lookup_export(request :: Bytes) -> Bytes ! String do
+  directory_lookup(request)
+end
+
+@ export("mesh_messenger_mailbox_fetch")pub fn mailbox_fetch_export(request :: Bytes) -> Bytes ! String do
+  mailbox_fetch(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_process_delivery_batch")pub fn process_delivery_batch_export(request :: Bytes) -> Bytes ! String do
+  process_delivery_batch(parse_batch_request(request) ?)
 end

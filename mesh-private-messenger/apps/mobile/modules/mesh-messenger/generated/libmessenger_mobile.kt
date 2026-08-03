@@ -23,4 +23,9 @@ object MeshLibrary {
     @JvmStatic external fun list_conversations_export(request: ByteArray): ByteArray
     @JvmStatic external fun load_history_export(request: ByteArray): ByteArray
     @JvmStatic external fun safety_number_export(request: ByteArray): ByteArray
+    @JvmStatic external fun import_contact_export(request: ByteArray): ByteArray
+    @JvmStatic external fun directory_entry_export(request: ByteArray): ByteArray
+    @JvmStatic external fun directory_lookup_export(request: ByteArray): ByteArray
+    @JvmStatic external fun mailbox_fetch_export(request: ByteArray): ByteArray
+    @JvmStatic external fun process_delivery_batch_export(request: ByteArray): ByteArray
 }

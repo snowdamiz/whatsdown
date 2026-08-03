@@ -39,6 +39,16 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.load_history_export(request)
       case "mesh_messenger_safety_number":
         return try MeshLibrary.safety_number_export(request)
+      case "mesh_messenger_import_contact":
+        return try MeshLibrary.import_contact_export(request)
+      case "mesh_messenger_directory_entry":
+        return try MeshLibrary.directory_entry_export(request)
+      case "mesh_messenger_directory_lookup":
+        return try MeshLibrary.directory_lookup_export(request)
+      case "mesh_messenger_mailbox_fetch":
+        return try MeshLibrary.mailbox_fetch_export(request)
+      case "mesh_messenger_process_delivery_batch":
+        return try MeshLibrary.process_delivery_batch_export(request)
       default:
         throw MeshLibraryFailure(
           status: MESH_LIBRARY_ERR_INVALID_ARGUMENT,

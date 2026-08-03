@@ -28,6 +28,11 @@ class MeshMessengerModule : Module() {
                     "mesh_messenger_list_conversations" -> MeshLibrary.list_conversations_export(request)
                     "mesh_messenger_load_history" -> MeshLibrary.load_history_export(request)
                     "mesh_messenger_safety_number" -> MeshLibrary.safety_number_export(request)
+                    "mesh_messenger_import_contact" -> MeshLibrary.import_contact_export(request)
+                    "mesh_messenger_directory_entry" -> MeshLibrary.directory_entry_export(request)
+                    "mesh_messenger_directory_lookup" -> MeshLibrary.directory_lookup_export(request)
+                    "mesh_messenger_mailbox_fetch" -> MeshLibrary.mailbox_fetch_export(request)
+                    "mesh_messenger_process_delivery_batch" -> MeshLibrary.process_delivery_batch_export(request)
                     else -> throw IllegalArgumentException("unknown_export")
                 }
             }
