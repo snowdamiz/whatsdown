@@ -110,10 +110,10 @@ main() {
     -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
   "$temp_dir/host" "$vector" "$database"
 
-  [[ "$(sqlite3 "$database" "SELECT count(*) = 1 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "SQLite did not contain one encrypted record"
-  if LC_ALL=C grep -a -q 'whatsdown-mobile-record-key' "$database"; then
-    fail "SQLite leaked the unhashed record key"
+  [[ "$(sqlite3 "$database" "SELECT count(*) = 7 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "SQLite did not contain seven encrypted records"
+  if LC_ALL=C grep -a -E -q 'whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|profile/v1|alice' "$database"; then
+    fail "SQLite leaked a record label or profile value"
   fi
 
   "$meshc_bin" build "$core_dir" --artifact staticlib \

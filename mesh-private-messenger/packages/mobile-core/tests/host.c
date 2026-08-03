@@ -5,6 +5,76 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct {
+  uint8_t key[64];
+  size_t key_len;
+  uint8_t value[64];
+  size_t value_len;
+} SecureRecord;
+
+static SecureRecord secure_records[2] = {0};
+
+static int32_t secure_store_get(void *context, const uint8_t *input,
+                                uint64_t input_len, uint8_t *output,
+                                uint64_t output_capacity,
+                                uint64_t *output_len) {
+  (void)context;
+  for (size_t index = 0; index < 2; index += 1) {
+    SecureRecord *record = &secure_records[index];
+    if (record->key_len == input_len &&
+        memcmp(record->key, input, (size_t)input_len) == 0) {
+      if (record->value_len > output_capacity) return 1;
+      memcpy(output, record->value, record->value_len);
+      *output_len = record->value_len;
+      return 0;
+    }
+  }
+  return 2;
+}
+
+static int32_t secure_store_put(void *context, const uint8_t *input,
+                                uint64_t input_len, uint8_t *output,
+                                uint64_t output_capacity,
+                                uint64_t *output_len) {
+  (void)context;
+  (void)output;
+  (void)output_capacity;
+  if (input_len < 4 || output_len == NULL) return 1;
+  size_t key_len = ((size_t)input[0] << 24) | ((size_t)input[1] << 16) |
+                   ((size_t)input[2] << 8) | (size_t)input[3];
+  if (key_len == 0 || key_len > sizeof(secure_records[0].key) ||
+      key_len > input_len - 4) {
+    return 1;
+  }
+  size_t value_len = (size_t)input_len - 4 - key_len;
+  if (value_len > sizeof(secure_records[0].value)) return 1;
+  SecureRecord *record = NULL;
+  for (size_t index = 0; index < 2; index += 1) {
+    if (secure_records[index].key_len == 0 ||
+        (secure_records[index].key_len == key_len &&
+         memcmp(secure_records[index].key, input + 4, key_len) == 0)) {
+      record = &secure_records[index];
+      break;
+    }
+  }
+  if (record == NULL) return 1;
+  memcpy(record->key, input + 4, key_len);
+  memcpy(record->value, input + 4 + key_len, value_len);
+  record->key_len = key_len;
+  record->value_len = value_len;
+  *output_len = 0;
+  return 0;
+}
+
+static int register_secure_store(void) {
+  MeshLibraryHostCallbacksV1 callbacks = {0};
+  callbacks.abi_version = MESH_LIBRARY_ABI_VERSION;
+  callbacks.struct_size = sizeof(callbacks);
+  callbacks.secure_store_get = secure_store_get;
+  callbacks.secure_store_put = secure_store_put;
+  return mesh_library_register_host_callbacks(&callbacks);
+}
+
 static uint8_t hex_nibble(char value) {
   if (value >= '0' && value <= '9') return (uint8_t)(value - '0');
   if (value >= 'a' && value <= 'f') return (uint8_t)(value - 'a' + 10);
@@ -72,12 +142,32 @@ static uint8_t *store_request(const char *database_path, const uint8_t *envelope
   return request;
 }
 
+static uint8_t *account_request(const char *database_path, const char *username,
+                                size_t *request_len) {
+  size_t path_len = strlen(database_path);
+  size_t username_len = strlen(username);
+  *request_len = 8 + path_len + username_len;
+  uint8_t *request = malloc(*request_len);
+  if (request == NULL) return NULL;
+  size_t offset = 0;
+  const char *values[] = {database_path, username};
+  const size_t lengths[] = {path_len, username_len};
+  for (size_t index = 0; index < 2; index += 1) {
+    write_u32(request + offset, (uint32_t)lengths[index]);
+    offset += 4;
+    memcpy(request + offset, values[index], lengths[index]);
+    offset += lengths[index];
+  }
+  return request;
+}
+
 int main(int argc, char **argv) {
   if (argc != 3) return 10;
   size_t envelope_len = 0;
   uint8_t *envelope = read_hex(argv[1], &envelope_len);
   if (envelope == NULL) return 11;
   if (mesh_library_init() != MESH_LIBRARY_OK) return 12;
+  if (register_secure_store() != MESH_LIBRARY_OK) return 20;
 
   MeshLibraryBytes response = {0};
   if (mesh_messenger_initialize((const uint8_t *)argv[2], strlen(argv[2]), &response) !=
@@ -117,6 +207,39 @@ int main(int argc, char **argv) {
   mesh_library_free_returned_bytes(&response);
   free(request);
   free(stored_envelope);
+
+  size_t account_request_len = 0;
+  uint8_t *create_request =
+      account_request(argv[2], "alice", &account_request_len);
+  int32_t create_status = create_request == NULL
+                              ? MESH_LIBRARY_ERR_INVALID_ARGUMENT
+                              : mesh_messenger_create_account(
+                                    create_request, account_request_len, &response);
+  if (create_status != MESH_LIBRARY_OK || response.len == 0) {
+    fprintf(stderr, "create account failed: status=%d payload=%.*s\n",
+            create_status, (int)response.len,
+            response.data == NULL ? (uint8_t *)"" : response.data);
+    return 21;
+  }
+  uint8_t *profile = malloc((size_t)response.len);
+  size_t profile_len = (size_t)response.len;
+  if (profile == NULL) return 22;
+  memcpy(profile, response.data, profile_len);
+  mesh_library_free_returned_bytes(&response);
+  if (mesh_messenger_create_account(create_request, account_request_len,
+                                    &response) != MESH_LIBRARY_ERR_APPLICATION) {
+    return 24;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(create_request);
+  if (mesh_messenger_load_profile((const uint8_t *)argv[2], strlen(argv[2]),
+                                  &response) != MESH_LIBRARY_OK ||
+      response.len != profile_len ||
+      memcmp(response.data, profile, profile_len) != 0) {
+    return 23;
+  }
+  mesh_library_free_returned_bytes(&response);
+  free(profile);
 
   const uint8_t invalid[] = {0, 1, 2};
   if (mesh_messenger_validate_outer(invalid, sizeof(invalid), &response) !=

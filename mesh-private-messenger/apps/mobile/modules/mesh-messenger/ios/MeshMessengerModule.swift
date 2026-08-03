@@ -19,6 +19,10 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.validate_outer(request)
       case "mesh_messenger_store_envelope":
         return try MeshLibrary.persist_envelope(request)
+      case "mesh_messenger_create_account":
+        return try MeshLibrary.create_account_export(request)
+      case "mesh_messenger_load_profile":
+        return try MeshLibrary.load_profile_export(request)
       default:
         throw MeshLibraryFailure(
           status: MESH_LIBRARY_ERR_INVALID_ARGUMENT,
