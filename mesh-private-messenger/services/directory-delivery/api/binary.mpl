@@ -47,6 +47,7 @@ fn device_write(result :: Result < DeviceWrite, String >) -> BinaryResult do
   case result do
     Err( _) -> empty(500)
     Ok( DeviceAccepted) -> empty(201)
+    Ok( DeviceUnchanged) -> empty(200)
     Ok( DeviceConflict) -> empty(409)
     Ok( DeviceInvalid) -> empty(400)
   end
@@ -79,6 +80,7 @@ pub fn revoke_device_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult 
     Ok( revocation) -> case revoke_device(pool, revocation) do
       Err( _) -> empty(500)
       Ok( DeviceAccepted) -> empty(200)
+      Ok( DeviceUnchanged) -> empty(200)
       Ok( DeviceConflict) -> empty(409)
       Ok( DeviceInvalid) -> empty(400)
     end

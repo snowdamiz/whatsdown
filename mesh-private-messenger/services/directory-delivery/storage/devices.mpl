@@ -1,9 +1,12 @@
 from Identity.Device import verify_device_revocation
 from Prekeys.Bundle import verify_prekey_bundle
 from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceRevocation, DeviceSet, DirectoryEntry, decode_account_identity, decode_device_credential, decode_prekey_bundle, encode_device_revocation, encode_device_set, encode_directory_entry
+from Storage.Transparency import append_entry_on_connection
 
 pub type DeviceWrite do
   DeviceAccepted
+
+  DeviceUnchanged
 
   DeviceConflict
 
@@ -60,101 +63,6 @@ fn verified_registration(entry :: DirectoryEntry) -> Result <( AccountIdentity, 
     Err( _) -> Err("invalid device registration")
     Ok( false) -> Err("invalid device registration")
     Ok( true) -> Ok((account, credential))
-  end
-end
-
-fn register_on_connection(conn :: borrow PgConn,
-entry :: DirectoryEntry,
-account :: AccountIdentity,
-credential :: DeviceCredential) -> DeviceWrite ! String do
-  let _ = Pg.execute_values(conn,
-  "INSERT INTO messenger_accounts (username, account_id, account_identity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-  [Text(entry.username), Binary(account.account_id), Binary(entry.account_identity)]) ?
-  let accounts = Pg.query_values(conn,
-  "SELECT username, account_id, account_identity, sequence::text, (SELECT count(*)::text FROM messenger_devices WHERE account_id = messenger_accounts.account_id AND revoked_at IS NULL) AS active_count FROM messenger_accounts WHERE username = $1 OR account_id = $2 FOR UPDATE",
-  [Text(entry.username), Binary(account.account_id)]) ?
-  if List.length(accounts) != 1 do
-    Err("messenger_devices_conflict")
-  else
-    let row = List.head(accounts)
-    let account_matches = text(Map.get(row, "username")) ? == entry.username && Bytes.secure_equals(binary(Map.get(row,
-    "account_id")) ?,
-    account.account_id) && Bytes.secure_equals(binary(Map.get(row, "account_identity")) ?,
-    entry.account_identity)
-    if !account_matches do
-      Err("messenger_devices_conflict")
-    else
-      let revoked = Pg.query_values(conn,
-      "SELECT sequence::text FROM messenger_revoked_devices WHERE account_id = $1 AND device_id = $2",
-      [Binary(account.account_id), Binary(credential.device_id)]) ?
-      if List.length(revoked) > 0 do
-        Err("messenger_devices_conflict")
-      else
-        let existing = Pg.query_values(conn,
-        "SELECT prekey_bundle, mailbox_token_hash FROM messenger_devices WHERE account_id = $1 AND device_id = $2 AND revoked_at IS NULL",
-        [Binary(account.account_id), Binary(credential.device_id)]) ?
-        let token_hash = Crypto.sha256(entry.mailbox_token)
-        if List.length(existing) > 0 do
-          let device_row = List.head(existing)
-          if Bytes.secure_equals(binary(Map.get(device_row, "prekey_bundle")) ?,
-          entry.prekey_bundle) && Bytes.secure_equals(binary(Map.get(device_row,
-          "mailbox_token_hash")) ?,
-          token_hash) do
-            Ok(DeviceAccepted)
-          else
-            Err("messenger_devices_conflict")
-          end
-        else
-          let sequence = wide(Map.get(row, "sequence")) ?
-          let next_sequence = U64.add(sequence, U64.parse("1") ?) ?
-          if U64.compare(credential.directory_sequence, next_sequence) != 0 || integer(Map.get(row,
-          "active_count")) ? >= 8 do
-            Err("messenger_devices_conflict")
-          else
-            let _ = Pg.execute_values(conn,
-            "INSERT INTO messenger_mailboxes (mailbox_token_hash) VALUES ($1) ON CONFLICT DO NOTHING",
-            [Binary(token_hash)]) ?
-            let mailboxes = Pg.query_values(conn,
-            "SELECT active::text FROM messenger_mailboxes WHERE mailbox_token_hash = $1 FOR UPDATE",
-            [Binary(token_hash)]) ?
-            if List.length(mailboxes) != 1 || text(Map.get(List.head(mailboxes), "active")) ? != "true" do
-              Err("messenger_devices_conflict")
-            else
-              let _ = Pg.execute_values(conn,
-              "INSERT INTO messenger_devices (account_id, device_id, prekey_bundle, mailbox_token, mailbox_token_hash) VALUES ($1, $2, $3, $4, $5)",
-              [Binary(account.account_id), Binary(credential.device_id), Binary(entry.prekey_bundle), Binary(entry.mailbox_token), Binary(token_hash)]) ?
-              let changed = Pg.execute_values(conn,
-              "UPDATE messenger_accounts SET sequence = $2::bigint, updated_at = now() WHERE account_id = $1 AND sequence = $3::bigint",
-              [Binary(account.account_id), Text(U64.to_string(next_sequence)), Text(U64.to_string(sequence))]) ?
-              if changed == 1 do
-                Ok(DeviceAccepted)
-              else
-                Err("device sequence changed")
-              end
-            end
-          end
-        end
-      end
-    end
-  end
-end
-
-pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWrite ! String do
-  case verified_registration(entry) do
-    Err( _) -> Ok(DeviceInvalid)
-    Ok( verified) -> do
-      let ( account, credential) = verified
-      case Repo.transaction(pool,
-      fn (conn :: borrow PgConn) -> register_on_connection(conn, entry, account, credential) end) do
-        Err( error) -> if String.contains(error, "messenger_devices_") || String.contains(error,
-        "duplicate key") do
-          Ok(DeviceConflict)
-        else
-          Err(error)
-        end
-        Ok( result) -> Ok(result)
-      end
-    end
   end
 end
 
@@ -222,13 +130,118 @@ fn resolve_on_connection(conn :: borrow PgConn, username :: String) -> Option < 
   end
 end
 
+fn register_on_connection(conn :: borrow PgConn,
+entry :: DirectoryEntry,
+account :: AccountIdentity,
+credential :: DeviceCredential) -> DeviceWrite ! String do
+  let _ = Pg.execute_values(conn,
+  "INSERT INTO messenger_accounts (username, account_id, account_identity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+  [Text(entry.username), Binary(account.account_id), Binary(entry.account_identity)]) ?
+  let accounts = Pg.query_values(conn,
+  "SELECT username, account_id, account_identity, sequence::text, (SELECT count(*)::text FROM messenger_devices WHERE account_id = messenger_accounts.account_id AND revoked_at IS NULL) AS active_count FROM messenger_accounts WHERE username = $1 OR account_id = $2 FOR UPDATE",
+  [Text(entry.username), Binary(account.account_id)]) ?
+  if List.length(accounts) != 1 do
+    Err("messenger_devices_conflict")
+  else
+    let row = List.head(accounts)
+    let account_matches = text(Map.get(row, "username")) ? == entry.username && Bytes.secure_equals(binary(Map.get(row,
+    "account_id")) ?,
+    account.account_id) && Bytes.secure_equals(binary(Map.get(row, "account_identity")) ?,
+    entry.account_identity)
+    if !account_matches do
+      Err("messenger_devices_conflict")
+    else
+      let revoked = Pg.query_values(conn,
+      "SELECT sequence::text FROM messenger_revoked_devices WHERE account_id = $1 AND device_id = $2",
+      [Binary(account.account_id), Binary(credential.device_id)]) ?
+      if List.length(revoked) > 0 do
+        Err("messenger_devices_conflict")
+      else
+        let existing = Pg.query_values(conn,
+        "SELECT prekey_bundle, mailbox_token_hash FROM messenger_devices WHERE account_id = $1 AND device_id = $2 AND revoked_at IS NULL",
+        [Binary(account.account_id), Binary(credential.device_id)]) ?
+        let token_hash = Crypto.sha256(entry.mailbox_token)
+        if List.length(existing) > 0 do
+          let device_row = List.head(existing)
+          if Bytes.secure_equals(binary(Map.get(device_row, "prekey_bundle")) ?,
+          entry.prekey_bundle) && Bytes.secure_equals(binary(Map.get(device_row,
+          "mailbox_token_hash")) ?,
+          token_hash) do
+            Ok(DeviceUnchanged)
+          else
+            Err("messenger_devices_conflict")
+          end
+        else
+          let sequence = wide(Map.get(row, "sequence")) ?
+          let next_sequence = U64.add(sequence, U64.parse("1") ?) ?
+          if U64.compare(credential.directory_sequence, next_sequence) != 0 || integer(Map.get(row,
+          "active_count")) ? >= 8 do
+            Err("messenger_devices_conflict")
+          else
+            let _ = Pg.execute_values(conn,
+            "INSERT INTO messenger_mailboxes (mailbox_token_hash) VALUES ($1) ON CONFLICT DO NOTHING",
+            [Binary(token_hash)]) ?
+            let mailboxes = Pg.query_values(conn,
+            "SELECT active::text FROM messenger_mailboxes WHERE mailbox_token_hash = $1 FOR UPDATE",
+            [Binary(token_hash)]) ?
+            if List.length(mailboxes) != 1 || text(Map.get(List.head(mailboxes), "active")) ? != "true" do
+              Err("messenger_devices_conflict")
+            else
+              let _ = Pg.execute_values(conn,
+              "INSERT INTO messenger_devices (account_id, device_id, prekey_bundle, mailbox_token, mailbox_token_hash) VALUES ($1, $2, $3, $4, $5)",
+              [Binary(account.account_id), Binary(credential.device_id), Binary(entry.prekey_bundle), Binary(entry.mailbox_token), Binary(token_hash)]) ?
+              let changed = Pg.execute_values(conn,
+              "UPDATE messenger_accounts SET sequence = $2::bigint, updated_at = now() WHERE account_id = $1 AND sequence = $3::bigint",
+              [Binary(account.account_id), Text(U64.to_string(next_sequence)), Text(U64.to_string(sequence))]) ?
+              if changed == 1 do
+                let current = resolve_on_connection(conn, entry.username) ?
+                let device_set = case current do
+                  None -> Err("device set disappeared")
+                  Some( value) -> Ok(value)
+                end ?
+                let encoded = case encode_device_set(device_set) do
+                  Err( _) -> Err("invalid stored device set")
+                  Ok( value) -> Ok(value)
+                end ?
+                let _ = append_entry_on_connection(conn, account.account_id, encoded) ?
+                Ok(DeviceAccepted)
+              else
+                Err("device sequence changed")
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWrite ! String do
+  case verified_registration(entry) do
+    Err( _) -> Ok(DeviceInvalid)
+    Ok( verified) -> do
+      let ( account, credential) = verified
+      case Repo.transaction(pool,
+      fn (conn :: borrow PgConn) -> register_on_connection(conn, entry, account, credential) end) do
+        Err( error) -> if String.contains(error, "messenger_devices_") || String.contains(error,
+        "duplicate key") do
+          Ok(DeviceConflict)
+        else
+          Err(error)
+        end
+        Ok( result) -> Ok(result)
+      end
+    end
+  end
+end
+
 pub fn resolve_devices(pool :: PoolHandle, username :: String) -> Option < DeviceSet > ! String do
   Repo.transaction(pool, fn (conn :: borrow PgConn) -> resolve_on_connection(conn, username) end)
 end
 
 fn revoke_on_connection(conn :: borrow PgConn, value :: DeviceRevocation) -> DeviceWrite ! String do
   let accounts = Pg.query_values(conn,
-  "SELECT account_identity, sequence::text FROM messenger_accounts WHERE account_id = $1 FOR UPDATE",
+  "SELECT username, account_identity, sequence::text FROM messenger_accounts WHERE account_id = $1 FOR UPDATE",
   [Binary(value.account_id)]) ?
   if List.length(accounts) != 1 do
     Err("messenger_revoked_devices_conflict")
@@ -274,6 +287,16 @@ fn revoke_on_connection(conn :: borrow PgConn, value :: DeviceRevocation) -> Dev
             "UPDATE messenger_accounts SET sequence = $2::bigint, updated_at = now() WHERE account_id = $1 AND sequence = $3::bigint",
             [Binary(value.account_id), Text(U64.to_string(value.sequence)), Text(U64.to_string(sequence))]) ?
             if changed == 1 && mailbox_changed == 1 && sequence_changed == 1 do
+              let current = resolve_on_connection(conn, text(Map.get(row, "username")) ?) ?
+              let device_set = case current do
+                None -> Err("device set disappeared")
+                Some( stored) -> Ok(stored)
+              end ?
+              let encoded = case encode_device_set(device_set) do
+                Err( _) -> Err("invalid stored device set")
+                Ok( stored) -> Ok(stored)
+              end ?
+              let _ = append_entry_on_connection(conn, value.account_id, encoded) ?
               Ok(DeviceAccepted)
             else
               Err("device revocation changed concurrently")
