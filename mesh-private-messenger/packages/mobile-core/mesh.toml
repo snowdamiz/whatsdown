@@ -1,0 +1,12 @@
+[package]
+name = "messenger-mobile-core"
+version = "0.1.0"
+description = "Mobile embedding boundary for the Whatsdown protocol core"
+license = "MIT"
+
+[dependencies]
+mesh-binary = { path = "../../../mesh-lang/packages/mesh-binary" }
+messenger-protocol = { path = "../messenger-protocol" }
+
+[build]
+entrypoint = "main.mpl"

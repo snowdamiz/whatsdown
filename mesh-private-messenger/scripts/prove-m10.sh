@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly script_dir
+repo_root="$(cd "$script_dir/../.." && pwd)"
+readonly repo_root
+readonly core_dir="$repo_root/mesh-private-messenger/packages/mobile-core"
+readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
+readonly vector="$repo_root/mesh-private-messenger/tests/fixtures/m1/outer-envelope-v1.hex"
+readonly temp_parent="${TMPDIR:-/tmp}"
+temp_dir="$(mktemp -d "$temp_parent/whatsdown-m10.XXXXXX")"
+readonly temp_dir
+readonly database="$temp_dir/mobile.db"
+if [[ "$(uname -s)" == Darwin ]]; then
+  readonly library="$temp_dir/libmessenger_mobile.dylib"
+  readonly host_system_libs=(-framework Security -framework CoreFoundation)
+else
+  readonly library="$temp_dir/libmessenger_mobile.so"
+  readonly host_system_libs=()
+fi
+
+fail() {
+  printf 'M10 proof failed: %s\n' "$*" >&2
+  return 1
+}
+
+cleanup() {
+  local status=$?
+  local resolved_parent
+  local resolved_temp
+  trap - EXIT INT TERM
+  if [[ -d "$temp_dir" && ! -L "$temp_dir" ]]; then
+    resolved_parent="$(realpath "$temp_parent")"
+    resolved_temp="$(realpath "$temp_dir")"
+    case "$resolved_temp" in
+      "$resolved_parent"/whatsdown-m10.*)
+        if [[ "$(find "$resolved_temp" -type l | wc -l | tr -d ' ')" == 0 ]]; then
+          find "$resolved_temp" -depth -delete
+        fi
+        ;;
+    esac
+  fi
+  exit "$status"
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+build_ios() {
+  local target=$1
+  local sdk=$2
+  local clang_target=$3
+  local archive="$temp_dir/libmessenger_${target}.a"
+  local linked="$temp_dir/libmessenger_${target}.dylib"
+
+  IPHONEOS_DEPLOYMENT_TARGET=15.0 "$meshc_bin" build "$core_dir" \
+    --artifact staticlib --target "$target" --output "$archive"
+  xcrun --sdk "$sdk" clang -target "$clang_target" -dynamiclib \
+    -Wl,-force_load,"$archive" -framework Security -framework CoreFoundation -lm -o "$linked"
+  xcrun nm -gU "$linked" | grep '_mesh_messenger_validate_outer$' >/dev/null || \
+    fail "$target artifact does not export the mobile protocol boundary"
+}
+
+main() {
+  [[ -x "$meshc_bin" ]] || fail "Mesh compiler not found at $meshc_bin"
+  command -v cc >/dev/null || fail "a C compiler is required"
+  command -v sqlite3 >/dev/null || fail "sqlite3 is required"
+
+  "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
+  cc "$core_dir/tests/host.c" -I "$temp_dir" -L "$temp_dir" -lmessenger_mobile \
+    -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
+  "$temp_dir/host" "$vector" "$database"
+
+  [[ "$(sqlite3 "$database" "SELECT count(*) = 1 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "SQLite did not contain one encrypted record"
+  if LC_ALL=C grep -a -q 'whatsdown-mobile-record-key' "$database"; then
+    fail "SQLite leaked the unhashed record key"
+  fi
+
+  "$meshc_bin" build "$core_dir" --artifact staticlib \
+    --output "$temp_dir/libmessenger_mobile.a"
+
+  if [[ "$(uname -s)" == Darwin ]] && command -v xcrun >/dev/null && \
+      [[ -f "$repo_root/mesh-lang/target/aarch64-apple-ios/debug/libmesh_rt.a" ]] && \
+      [[ -f "$repo_root/mesh-lang/target/aarch64-apple-ios-sim/debug/libmesh_rt.a" ]]; then
+    build_ios aarch64-apple-ios iphoneos arm64-apple-ios15.0
+    build_ios aarch64-apple-ios-sim iphonesimulator arm64-apple-ios15.0-simulator
+  fi
+
+  printf 'M10 proof passed: canonical mobile vector, encrypted SQLite, host lifecycle, static/dynamic libraries, and available iOS targets.\n'
+}
+
+main "$@"
