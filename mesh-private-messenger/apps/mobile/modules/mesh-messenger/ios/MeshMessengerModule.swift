@@ -61,6 +61,10 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.directory_entry_export(request)
       case "mesh_messenger_directory_lookup":
         return try MeshLibrary.directory_lookup_export(request)
+      case "mesh_messenger_transparency_lookup":
+        return try MeshLibrary.transparency_lookup_export(request)
+      case "mesh_messenger_verify_transparency":
+        return try MeshLibrary.verify_transparency_export(request)
       case "mesh_messenger_mailbox_fetch":
         return try MeshLibrary.mailbox_fetch_export(request)
       case "mesh_messenger_process_delivery_batch":

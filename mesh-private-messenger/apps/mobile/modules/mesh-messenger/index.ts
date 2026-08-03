@@ -23,6 +23,8 @@ export {
   send_message_export,
   safety_number_export,
   start_conversation_export,
+  transparency_lookup_export,
   update_conversation_export,
   validate_outer,
+  verify_transparency_export,
 } from './generated/libmessenger_mobile';

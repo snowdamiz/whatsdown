@@ -39,6 +39,8 @@ class MeshMessengerModule : Module() {
                     "mesh_messenger_import_contact" -> MeshLibrary.import_contact_export(request)
                     "mesh_messenger_directory_entry" -> MeshLibrary.directory_entry_export(request)
                     "mesh_messenger_directory_lookup" -> MeshLibrary.directory_lookup_export(request)
+                    "mesh_messenger_transparency_lookup" -> MeshLibrary.transparency_lookup_export(request)
+                    "mesh_messenger_verify_transparency" -> MeshLibrary.verify_transparency_export(request)
                     "mesh_messenger_mailbox_fetch" -> MeshLibrary.mailbox_fetch_export(request)
                     "mesh_messenger_process_delivery_batch" -> MeshLibrary.process_delivery_batch_export(request)
                     else -> throw IllegalArgumentException("unknown_export")

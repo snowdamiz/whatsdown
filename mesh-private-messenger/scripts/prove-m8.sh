@@ -12,6 +12,10 @@ readonly database_port=55433
 readonly service_port=18087
 readonly database_url="postgres://messenger:messenger@127.0.0.1:$database_port/messenger?sslmode=disable"
 readonly base_url="http://127.0.0.1:$service_port"
+# Deterministic proof-only keys; deployments inject unrelated secrets.
+readonly transparency_signing_seed_hex="5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b"
+readonly witness_a_public_key_hex="d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+readonly witness_b_public_key_hex="3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
 readonly temp_parent="${TMPDIR:-/tmp}"
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-m8.XXXXXX")"
 readonly temp_dir
@@ -168,6 +172,10 @@ main() {
   [[ -x "$meshc_bin" ]] || fail "Mesh compiler not found at $meshc_bin"
   command -v curl >/dev/null || fail "curl is required"
   command -v docker >/dev/null || fail "Docker is required"
+
+  export MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX="$transparency_signing_seed_hex"
+  export MESSENGER_WITNESS_A_PUBLIC_KEY_HEX="$witness_a_public_key_hex"
+  export MESSENGER_WITNESS_B_PUBLIC_KEY_HEX="$witness_b_public_key_hex"
 
   (cd "$service_dir" && "$meshc_bin" build .)
   (cd "$client_dir" && "$meshc_bin" build . && "$meshc_bin" test tests/transport.test.mpl)

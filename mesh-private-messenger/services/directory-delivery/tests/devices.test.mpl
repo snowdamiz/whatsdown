@@ -1,9 +1,10 @@
-from Api.Binary import fetch_request, register_device_request, resolve_devices_request, revoke_device_request, submit_request
+from Api.Binary import checkpoint_request, consistency_request, fetch_request, inclusion_request, register_device_request, resolve_devices_request, revoke_device_request, submit_request, submit_witness_request, validate_transparency_config, witnesses_request
 from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation
 from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, MailboxFetch, OuterEnvelope, ProtocolError, decode_delivery_batch, decode_device_set, encode_account_identity, encode_device_set, encode_directory_entry, encode_directory_lookup, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle, encode_device_revocation
-from Storage.Transparency import create_checkpoint, entry_count, consistency_from, inclusion_for_account
-from Transparency.Merkle import leaf_hash, verify_checkpoint, verify_consistency, verify_inclusion
+from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, MailboxFetch, OuterEnvelope, ProtocolError, decode_delivery_batch, decode_device_set, encode_account_identity, encode_device_set, encode_directory_entry, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle, encode_device_revocation
+from Storage.Transparency import create_checkpoint, entry_count, consistency_from, evidence_for_username, inclusion_for_account
+from Transparency.Merkle import WitnessKey, leaf_hash, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
+from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_checkpoint, decode_consistency_proof, decode_inclusion_proof, decode_transparency_evidence, decode_witnesses, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query, encode_witnesses
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
@@ -87,6 +88,7 @@ fn proof() -> Bool ! String do
   let url = Env.get("MESSENGER_TEST_DATABASE_URL",
   "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000) ?
+  let _ = validate_transparency_config() ?
   let _ = Pool.execute(pool,
   "TRUNCATE witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_directory, messenger_mailboxes RESTART IDENTITY",
   []) ?
@@ -107,21 +109,66 @@ fn proof() -> Bool ! String do
   repeated(32, 32),
   expires_at) ?
   assert(register_device_request(pool, protocol(encode_directory_entry(second)) ?).status == 409)
-  assert(resolve_devices_request(pool, protocol(encode_directory_lookup("alice")) ?).status == 404)
+  assert(resolve_devices_request(pool,
+  encode_transparency_lookup(TransparencyLookup {
+    username : "alice",
+    previous_tree_size : 0
+  }) ?).status == 404)
   assert(register_device_request(pool, protocol(encode_directory_entry(first)) ?).status == 201)
   let first_checkpoint = create_checkpoint(pool, transparency_seed) ?
-  assert(verify_checkpoint(first_checkpoint, SigningPublicKey { bytes : first_checkpoint.service_public_key }) ?)
+  assert(verify_checkpoint(first_checkpoint,
+  SigningPublicKey { bytes : first_checkpoint.service_public_key }) ?)
   assert(register_device_request(pool, protocol(encode_directory_entry(first)) ?).status == 200)
   assert(entry_count(pool) ? == 1)
   assert(register_device_request(pool, protocol(encode_directory_entry(second)) ?).status == 201)
   let second_checkpoint = create_checkpoint(pool, transparency_seed) ?
-  assert(verify_checkpoint(second_checkpoint, SigningPublicKey { bytes : first_checkpoint.service_public_key }) ?)
+  assert(verify_checkpoint(second_checkpoint,
+  SigningPublicKey { bytes : first_checkpoint.service_public_key }) ?)
   assert(verify_consistency(first_checkpoint.tree_root,
   second_checkpoint.tree_root,
   consistency_from(pool, U64.to_int(first_checkpoint.tree_size) ?) ?) ?)
-  let resolved = resolve_devices_request(pool, protocol(encode_directory_lookup("alice")) ?)
+  let witness_a = case Crypto.signing_from_seed(Bytes.from_hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60") ?) do
+    Err( _) -> Err("witness generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let witness_b = case Crypto.signing_from_seed(Bytes.from_hex("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb") ?) do
+    Err( _) -> Err("witness generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let witness_a_key = WitnessKey {
+    witness_id : "witness-a",
+    public_key : witness_a.public_key.bytes
+  }
+  let witness_b_key = WitnessKey {
+    witness_id : "witness-b",
+    public_key : witness_b.public_key.bytes
+  }
+  assert(submit_witness_request(pool,
+  encode_witnesses([sign_witness("witness-a", witness_a.private_key, second_checkpoint) ?]) ?).status == 201)
+  assert(submit_witness_request(pool,
+  encode_witnesses([sign_witness("witness-b", witness_b.private_key, second_checkpoint) ?]) ?).status == 201)
+  let lookup = encode_transparency_lookup(TransparencyLookup {
+    username : "alice",
+    previous_tree_size : 1
+  }) ?
+  let _ = decode_transparency_evidence(encode_transparency_evidence(evidence_for_username(pool,
+  "alice",
+  1,
+  transparency_seed) ?) ?) ?
+  let resolved = resolve_devices_request(pool, lookup)
   assert(resolved.status == 200)
-  let device_set = case decode_device_set(resolved.body) do
+  let evidence = decode_transparency_evidence(resolved.body) ?
+  assert(verify_witnesses(evidence.checkpoint,
+  evidence.witnesses,
+  [witness_a_key, witness_b_key],
+  2) ?)
+  assert(Bytes.secure_equals(decode_checkpoint(checkpoint_request(pool).body) ?.tree_root,
+  second_checkpoint.tree_root))
+  assert(decode_inclusion_proof(inclusion_request(pool, lookup).body) ?.tree_size == 2)
+  assert(decode_consistency_proof(consistency_request(pool,
+  encode_transparency_tree_query(TransparencyTreeQuery { previous_tree_size : 1 }) ?).body) ?.old_tree_size == 1)
+  assert(List.length(decode_witnesses(witnesses_request(pool).body) ?) == 2)
+  let device_set = case decode_device_set(evidence.entry_bytes) do
     Err( _) -> Err("invalid device set")
     Ok( value) -> Ok(value)
   end ?
@@ -145,8 +192,13 @@ fn proof() -> Bool ! String do
     Ok( value) -> Ok(value)
   end ?
   assert(revoke_device_request(pool, protocol(encode_device_revocation(revocation)) ?).status == 200)
-  let updated = resolve_devices_request(pool, protocol(encode_directory_lookup("alice")) ?)
-  let updated_set = case decode_device_set(updated.body) do
+  let updated = resolve_devices_request(pool,
+  encode_transparency_lookup(TransparencyLookup {
+    username : "alice",
+    previous_tree_size : 2
+  }) ?)
+  let updated_evidence = decode_transparency_evidence(updated.body) ?
+  let updated_set = case decode_device_set(updated_evidence.entry_bytes) do
     Err( _) -> Err("invalid updated device set")
     Ok( value) -> Ok(value)
   end ?

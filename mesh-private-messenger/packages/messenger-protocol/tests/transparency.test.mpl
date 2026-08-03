@@ -1,4 +1,6 @@
+from Transparency.Client import verify_evidence
 from Transparency.Merkle import WitnessKey, checkpoint_conflict, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, merkle_root, sign_checkpoint, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
+from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_transparency_evidence, decode_transparency_lookup, decode_transparency_tree_query, encode_checkpoint, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query
 
 fn signing_pair() -> SigningKeyPair ! String do
   case Crypto.signing_generate() do
@@ -73,6 +75,60 @@ fn transparency_proof() -> Bool ! String do
   }]
   assert(verify_witnesses(second_checkpoint, [attestation_a, attestation_b], trusted_witnesses, 2) ?)
   assert(!verify_witnesses(second_checkpoint, [attestation_a], trusted_witnesses, 2) ?)
+  let lookup = decode_transparency_lookup(encode_transparency_lookup(TransparencyLookup {
+    username : "alice",
+    previous_tree_size : 2
+  }) ?) ?
+  assert(lookup.username == "alice" && lookup.previous_tree_size == 2)
+  assert(decode_transparency_tree_query(encode_transparency_tree_query(TransparencyTreeQuery { previous_tree_size : 2 }) ?) ?.previous_tree_size == 2)
+  let evidence = decode_transparency_evidence(encode_transparency_evidence(TransparencyEvidence {
+    entry_bytes : Bytes.from_utf8("alice/device-set/2"),
+    inclusion : inclusion,
+    consistency : consistency,
+    checkpoint : second_checkpoint,
+    witnesses : [attestation_a, attestation_b]
+  }) ?) ?
+  assert(Bytes.secure_equals(evidence.entry_bytes, Bytes.from_utf8("alice/device-set/2")))
+  assert(evidence.inclusion.leaf_index == 2 && evidence.inclusion.tree_size == 3)
+  assert(evidence.consistency.old_tree_size == 2 && evidence.consistency.new_tree_size == 3)
+  assert(Bytes.secure_equals(evidence.checkpoint.tree_root, second_root))
+  assert(List.length(evidence.witnesses) == 2)
+  assert(verify_evidence(evidence,
+  service_public,
+  trusted_witnesses,
+  2,
+  encode_checkpoint(first_checkpoint) ?) ?)
+  assert(!verify_evidence(TransparencyEvidence {
+    entry_bytes : Bytes.from_utf8("substituted"),
+    inclusion : evidence.inclusion,
+    consistency : evidence.consistency,
+    checkpoint : evidence.checkpoint,
+    witnesses : evidence.witnesses
+  },
+  service_public,
+  trusted_witnesses,
+  2,
+  encode_checkpoint(first_checkpoint) ?) ?)
+  assert(!verify_evidence(TransparencyEvidence {
+    entry_bytes : evidence.entry_bytes,
+    inclusion : evidence.inclusion,
+    consistency : evidence.consistency,
+    checkpoint : evidence.checkpoint,
+    witnesses : [attestation_a]
+  },
+  service_public,
+  trusted_witnesses,
+  2,
+  encode_checkpoint(first_checkpoint) ?) ?)
+  let encoded_evidence = encode_transparency_evidence(evidence) ?
+  let trailing = case Bytes.concat(encoded_evidence, repeated(0, 1) ?) do
+    Err( _) -> Err("bytes failed")
+    Ok( value) -> Ok(value)
+  end ?
+  case decode_transparency_evidence(trailing) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
   let conflicting = sign_checkpoint(service_private,
   service_public.bytes,
   wide("2") ?,

@@ -5,6 +5,9 @@ from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, De
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
+from Transparency.Client import verify_evidence
+from Transparency.Merkle import WitnessKey
+from Transparency.Wire import TransparencyLookup, decode_checkpoint, decode_transparency_evidence, encode_checkpoint, encode_transparency_lookup
 
 struct MobileReadBytes do
   state :: BinaryReader
@@ -128,6 +131,15 @@ struct MobileTriplePayloadRequest do
   database_path :: String
   first :: Bytes
   second :: Bytes
+end
+
+struct MobileTransparencyRequest do
+  database_path :: String
+  username :: String
+  evidence :: Bytes
+  service_public_key :: Bytes
+  witness_a_public_key :: Bytes
+  witness_b_public_key :: Bytes
 end
 
 struct MobileVerifiedDeviceSet do
@@ -906,6 +918,39 @@ fn parse_triple_payload_request(input :: Bytes) -> MobileTriplePayloadRequest ! 
               database_path : database_path,
               first : first.value,
               second : second.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_transparency_request(input :: Bytes) -> MobileTransparencyRequest ! String do
+  case reader(input, 554400) do
+    Err( _) -> Err("invalid_transparency_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let username = take_vector(path.state, 64) ?
+      let evidence = take_vector(username.state, 550000) ?
+      let service_key = take_vector(evidence.state, 32) ?
+      let witness_a = take_vector(service_key.state, 32) ?
+      let witness_b = take_vector(witness_a.state, 32) ?
+      case finish(witness_b.state) do
+        Err( _) -> Err("invalid_transparency_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          let expected_username = mobile_utf8(username.value, "invalid_username") ?
+          if String.length(database_path) == 0 || String.length(expected_username) == 0 || Bytes.length(evidence.value) == 0 || Bytes.length(service_key.value) != 32 || Bytes.length(witness_a.value) != 32 || Bytes.length(witness_b.value) != 32 do
+            Err("invalid_transparency_request")
+          else
+            Ok(MobileTransparencyRequest {
+              database_path : database_path,
+              username : expected_username,
+              evidence : evidence.value,
+              service_public_key : service_key.value,
+              witness_a_public_key : witness_a.value,
+              witness_b_public_key : witness_b.value
             })
           end
         end
@@ -3123,6 +3168,69 @@ fn directory_lookup(input :: Bytes) -> Bytes ! String do
   end
 end
 
+fn transparency_checkpoint_bytes(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  let label = "transparency-checkpoint/v1"
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(Bytes.empty())
+    else
+      Err(error)
+    end
+    Ok( blob) -> open_local(blob, wrapping_key, local_context(label) ?)
+  end
+end
+
+fn transparency_lookup(request :: MobilePayloadRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let username = mobile_utf8(request.payload, "invalid_username") ?
+  let checkpoint_bytes = transparency_checkpoint_bytes(request.database_path, platform_key() ?) ?
+  let previous_tree_size = if Bytes.length(checkpoint_bytes) == 0 do
+    0
+  else
+    U64.to_int(decode_checkpoint(checkpoint_bytes) ?.tree_size) ?
+  end
+  case encode_transparency_lookup(TransparencyLookup {
+    username : username,
+    previous_tree_size : previous_tree_size
+  }) do
+    Err( _) -> Err("invalid_username")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn verify_transparency_response(request :: MobileTransparencyRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let evidence = case decode_transparency_evidence(request.evidence) do
+    Err( _) -> Err("invalid_transparency_evidence")
+    Ok( value) -> Ok(value)
+  end ?
+  let wrapping_key = platform_key() ?
+  let previous = transparency_checkpoint_bytes(request.database_path, wrapping_key) ?
+  let trusted_service_key = SigningPublicKey { bytes : request.service_public_key }
+  let trusted_witnesses = [WitnessKey {
+    witness_id : "witness-a",
+    public_key : request.witness_a_public_key
+  }, WitnessKey {
+    witness_id : "witness-b",
+    public_key : request.witness_b_public_key
+  }]
+  if !verify_evidence(evidence, trusted_service_key, trusted_witnesses, 2, previous) ? do
+    Err("transparency_verification_failed")
+  else
+    let devices = verified_device_set(evidence.entry_bytes) ?
+    if devices.value.username != request.username do
+      Err("transparency_username_mismatch")
+    else
+      let label = "transparency-checkpoint/v1"
+      let sealed = seal_local(encode_checkpoint(evidence.checkpoint) ?,
+      wrapping_key,
+      local_context(label) ?) ?
+      store_updated_session(request.database_path, label, sealed) ?
+      Ok(evidence.entry_bytes)
+    end
+  end
+end
+
 fn mailbox_fetch(database_path :: String) -> Bytes ! String do
   let profile = parse_profile(load_profile(database_path) ?) ?
   case encode_mailbox_fetch(MailboxFetch {
@@ -3349,6 +3457,14 @@ end
 
 @ export("mesh_messenger_directory_lookup")pub fn directory_lookup_export(request :: Bytes) -> Bytes ! String do
   directory_lookup(request)
+end
+
+@ export("mesh_messenger_transparency_lookup")pub fn transparency_lookup_export(request :: Bytes) -> Bytes ! String do
+  transparency_lookup(parse_payload_request(request) ?)
+end
+
+@ export("mesh_messenger_verify_transparency")pub fn verify_transparency_export(request :: Bytes) -> Bytes ! String do
+  verify_transparency_response(parse_transparency_request(request) ?)
 end
 
 @ export("mesh_messenger_mailbox_fetch")pub fn mailbox_fetch_export(request :: Bytes) -> Bytes ! String do

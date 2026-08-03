@@ -30,5 +30,7 @@ export const safety_number_export = (request: Uint8Array): Promise<Uint8Array> =
 export const import_contact_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_import_contact', request);
 export const directory_entry_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_directory_entry', request);
 export const directory_lookup_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_directory_lookup', request);
+export const transparency_lookup_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_transparency_lookup', request);
+export const verify_transparency_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_verify_transparency', request);
 export const mailbox_fetch_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_mailbox_fetch', request);
 export const process_delivery_batch_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_process_delivery_batch', request);

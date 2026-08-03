@@ -1,4 +1,5 @@
-from Transparency.Merkle import ConsistencyProof, InclusionProof, TransparencyCheckpoint, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint
+from Transparency.Merkle import ConsistencyProof, InclusionProof, TransparencyCheckpoint, WitnessAttestation, WitnessKey, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint, verify_witnesses
+from Transparency.Wire import TransparencyEvidence
 
 fn binary(value :: DbValue) -> Bytes ! String do
   case value do
@@ -47,11 +48,10 @@ fn account_commitment(account_id :: Bytes) -> Bytes ! String do
   end
 end
 
-pub fn append_entry_on_connection(conn :: borrow PgConn,
-account_id :: Bytes,
-entry_bytes :: Bytes) -> Int ! String do
+pub fn append_entry_on_connection(conn :: borrow PgConn, account_id :: Bytes, entry_bytes :: Bytes) -> Int ! String do
   let commitment = account_commitment(account_id) ?
   let hash = leaf_hash(entry_bytes) ?
+  let _ = Pg.query_values(conn, "SELECT pg_advisory_xact_lock(1835365485)", []) ?
   let rows = Pg.query_values(conn,
   "INSERT INTO transparency_entries (account_commitment, entry_bytes, leaf_hash) VALUES ($1, $2, $3) RETURNING sequence::text",
   [Binary(commitment), Binary(entry_bytes), Binary(hash)]) ?
@@ -62,9 +62,7 @@ entry_bytes :: Bytes) -> Int ! String do
   end
 end
 
-fn hashes(rows :: List < Map < String, DbValue > >,
-index :: Int,
-output :: List < Bytes >) -> List < Bytes > ! String do
+fn hashes(rows :: List < Map < String, DbValue > >, index :: Int, output :: List < Bytes >) -> List < Bytes > ! String do
   if index >= List.length(rows) do
     Ok(output)
   else
@@ -104,12 +102,44 @@ fn checkpoint_rows(conn :: borrow PgConn) -> List < Map < String, DbValue > > ! 
   [])
 end
 
+fn prefix(values :: List < Bytes >, count :: Int, index :: Int, output :: List < Bytes >) -> List < Bytes > do
+  if index >= count do
+    output
+  else
+    prefix(values, count, index + 1, List.append(output, List.get(values, index)))
+  end
+end
+
+fn witness_values(rows :: List < Map < String, DbValue > >,
+index :: Int,
+output :: List < WitnessAttestation >) -> List < WitnessAttestation > ! String do
+  if index >= List.length(rows) do
+    Ok(output)
+  else
+    let row = List.get(rows, index)
+    witness_values(rows,
+    index + 1,
+    List.append(output,
+    WitnessAttestation {
+      witness_id : text(Map.get(row, "witness_id")) ?,
+      checkpoint_hash : binary(Map.get(row, "checkpoint_hash")) ?,
+      signature : binary(Map.get(row, "signature")) ?
+    }))
+  end
+end
+
+fn witnesses_on_connection(conn :: borrow PgConn, checkpoint_sequence :: U64) -> List < WitnessAttestation > ! String do
+  let rows = Pg.query_values(conn,
+  "SELECT witness_id, checkpoint_hash, signature FROM witness_signatures WHERE checkpoint_sequence = $1::bigint ORDER BY witness_id",
+  [Text(U64.to_string(checkpoint_sequence))]) ?
+  witness_values(rows, 0, List.new())
+end
+
 fn current_time() -> U64 ! String do
   U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
-fn create_checkpoint_on_connection(conn :: borrow PgConn,
-signing_seed :: Bytes) -> TransparencyCheckpoint ! String do
+fn create_checkpoint_on_connection(conn :: borrow PgConn, signing_seed :: Bytes) -> TransparencyCheckpoint ! String do
   let _ = Pg.query_values(conn, "SELECT pg_advisory_xact_lock(1835365485)", []) ?
   let leaf_hashes = all_hashes_on_connection(conn) ?
   if List.length(leaf_hashes) == 0 do
@@ -155,8 +185,7 @@ signing_seed :: Bytes) -> TransparencyCheckpoint ! String do
   end
 end
 
-pub fn create_checkpoint(pool :: PoolHandle,
-signing_seed :: Bytes) -> TransparencyCheckpoint ! String do
+pub fn create_checkpoint(pool :: PoolHandle, signing_seed :: Bytes) -> TransparencyCheckpoint ! String do
   Repo.transaction(pool,
   fn (conn :: borrow PgConn) -> create_checkpoint_on_connection(conn, signing_seed) end)
 end
@@ -184,7 +213,8 @@ pub fn inclusion_for_account(pool :: PoolHandle, account_id :: Bytes) -> Inclusi
     if List.length(rows) > 4096 do
       Err("transparency log exceeds proof ceiling")
     else
-      inclusion_proof(hashes(rows, 0, List.new()) ?, integer(Map.get(List.head(positions), "leaf_index")) ?)
+      inclusion_proof(hashes(rows, 0, List.new()) ?,
+      integer(Map.get(List.head(positions), "leaf_index")) ?)
     end
   end
 end
@@ -205,4 +235,100 @@ pub fn consistency_from(pool :: PoolHandle, old_tree_size :: Int) -> Consistency
       consistency_proof(hashes(old_rows, 0, List.new()) ?, hashes(new_rows, 0, List.new()) ?)
     end
   end
+end
+
+pub fn latest_checkpoint(pool :: PoolHandle) -> Option < TransparencyCheckpoint > ! String do
+  let rows = Pool.query_values(pool,
+  "SELECT sequence::text, tree_size::text, tree_root, previous_checkpoint_hash, timestamp_ms::text, service_public_key, service_signature FROM transparency_checkpoints ORDER BY sequence DESC LIMIT 1",
+  []) ?
+  if List.length(rows) == 0 do
+    Ok(None)
+  else
+    Ok(Some(checkpoint_from_row(List.head(rows)) ?))
+  end
+end
+
+pub fn witnesses_for_checkpoint(pool :: PoolHandle, checkpoint_sequence :: U64) -> List < WitnessAttestation > ! String do
+  Repo.transaction(pool,
+  fn (conn :: borrow PgConn) -> witnesses_on_connection(conn, checkpoint_sequence) end)
+end
+
+fn evidence_on_connection(conn :: borrow PgConn,
+username :: String,
+old_tree_size :: Int,
+signing_seed :: Bytes) -> TransparencyEvidence ! String do
+  let checkpoint = create_checkpoint_on_connection(conn, signing_seed) ?
+  let all = all_hashes_on_connection(conn) ?
+  if old_tree_size < 0 || old_tree_size > List.length(all) do
+    Err("invalid consistency size")
+  else
+    let accounts = Pg.query_values(conn,
+    "SELECT account_id FROM messenger_accounts WHERE username = $1",
+    [Text(username)]) ?
+    if List.length(accounts) != 1 do
+      Err("transparency entry not found")
+    else
+      let positions = Pg.query_values(conn,
+      "SELECT entry_bytes, (SELECT count(*) FROM transparency_entries AS earlier WHERE earlier.sequence < current.sequence)::text AS leaf_index FROM transparency_entries AS current WHERE account_commitment = $1 ORDER BY sequence DESC LIMIT 1",
+      [Binary(account_commitment(binary(Map.get(List.head(accounts), "account_id")) ?) ?)]) ?
+      if List.length(positions) != 1 do
+        Err("transparency entry not found")
+      else
+        let position = List.head(positions)
+        Ok(TransparencyEvidence {
+          entry_bytes : binary(Map.get(position, "entry_bytes")) ?,
+          inclusion : inclusion_proof(all, integer(Map.get(position, "leaf_index")) ?) ?,
+          consistency : consistency_proof(prefix(all, old_tree_size, 0, List.new()), all) ?,
+          checkpoint : checkpoint,
+          witnesses : witnesses_on_connection(conn, checkpoint.sequence) ?
+        })
+      end
+    end
+  end
+end
+
+pub fn evidence_for_username(pool :: PoolHandle,
+username :: String,
+old_tree_size :: Int,
+signing_seed :: Bytes) -> TransparencyEvidence ! String do
+  Repo.transaction(pool,
+  fn (conn :: borrow PgConn) -> evidence_on_connection(conn, username, old_tree_size, signing_seed) end)
+end
+
+fn store_witness_on_connection(conn :: borrow PgConn,
+attestation :: WitnessAttestation,
+trusted :: WitnessKey) -> Result <(), String > do
+  let rows = checkpoint_rows(conn) ?
+  if List.length(rows) != 1 do
+    Err("transparency checkpoint not found")
+  else
+    let checkpoint = checkpoint_from_row(List.head(rows)) ?
+    if attestation.witness_id != trusted.witness_id || !verify_witnesses(checkpoint,
+    [attestation],
+    [trusted],
+    1) ? do
+      Err("invalid witness attestation")
+    else
+      let changed = Pg.execute_values(conn,
+      "INSERT INTO witness_signatures (checkpoint_sequence, witness_id, witness_public_key, checkpoint_hash, signature) VALUES ($1::bigint, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
+      [Text(U64.to_string(checkpoint.sequence)), Text(attestation.witness_id), Binary(trusted.public_key), Binary(attestation.checkpoint_hash), Binary(attestation.signature)]) ?
+      if changed == 1 do
+        Ok(nil)
+      else
+        let existing = Pg.query_values(conn,
+        "SELECT witness_id FROM witness_signatures WHERE checkpoint_sequence = $1::bigint AND witness_id = $2 AND witness_public_key = $3 AND checkpoint_hash = $4 AND signature = $5",
+        [Text(U64.to_string(checkpoint.sequence)), Text(attestation.witness_id), Binary(trusted.public_key), Binary(attestation.checkpoint_hash), Binary(attestation.signature)]) ?
+        if List.length(existing) == 1 do
+          Ok(nil)
+        else
+          Err("witness conflict")
+        end
+      end
+    end
+  end
+end
+
+pub fn store_witness(pool :: PoolHandle, attestation :: WitnessAttestation, trusted :: WitnessKey) -> Result <(), String > do
+  Repo.transaction(pool,
+  fn (conn :: borrow PgConn) -> store_witness_on_connection(conn, attestation, trusted) end)
 end

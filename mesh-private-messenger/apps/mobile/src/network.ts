@@ -2,16 +2,18 @@ import {
   authorize_device_link_for_set_export,
   create_device_revocation_export,
   directory_entry_export,
-  directory_lookup_export,
   inspect_device_set_export,
   load_profile_export,
   mailbox_fetch_export,
   process_delivery_batch_export,
   send_fanout_export,
+  transparency_lookup_export,
+  verify_transparency_export,
 } from '../modules/mesh-messenger';
 import {
   batchRequest,
   DeviceSetSummary,
+  hexBytes,
   parseByteList,
   parseDeviceSetSummary,
   parseProfileSummary,
@@ -47,9 +49,22 @@ export async function registerDirectory(databasePath: string): Promise<void> {
   await binaryRequest('/v1/devices/register', entry, 'PUT');
 }
 
-export async function resolveDeviceSet(username: string): Promise<Uint8Array> {
-  const lookup = await directory_lookup_export(utf8(username));
-  return binaryRequest('/v1/devices/resolve', lookup);
+export async function resolveDeviceSet(
+  databasePath: string,
+  username: string,
+): Promise<Uint8Array> {
+  const lookup = await transparency_lookup_export(batchRequest(databasePath, utf8(username)));
+  const evidence = await binaryRequest('/v1/devices/resolve', lookup);
+  return verify_transparency_export(
+    vectors(
+      utf8(databasePath),
+      utf8(username),
+      evidence,
+      hexBytes(process.env.EXPO_PUBLIC_MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX, 32),
+      hexBytes(process.env.EXPO_PUBLIC_MESSENGER_WITNESS_A_PUBLIC_KEY_HEX, 32),
+      hexBytes(process.env.EXPO_PUBLIC_MESSENGER_WITNESS_B_PUBLIC_KEY_HEX, 32),
+    ),
+  );
 }
 
 export async function inspectDeviceSet(
@@ -64,7 +79,7 @@ export async function loadAccountDevices(
   databasePath: string,
   profile: Uint8Array,
 ): Promise<{ wire: Uint8Array; summary: DeviceSetSummary }> {
-  const wire = await resolveDeviceSet(parseProfileSummary(profile).username);
+  const wire = await resolveDeviceSet(databasePath, parseProfileSummary(profile).username);
   return { wire, summary: await inspectDeviceSet(databasePath, wire) };
 }
 
@@ -100,8 +115,8 @@ export async function sendFanout(
 ): Promise<boolean> {
   const localProfile = await load_profile_export(utf8(databasePath));
   const [peerSet, localSet] = await Promise.all([
-    resolveDeviceSet(peerUsername),
-    resolveDeviceSet(parseProfileSummary(localProfile).username),
+    resolveDeviceSet(databasePath, peerUsername),
+    resolveDeviceSet(databasePath, parseProfileSummary(localProfile).username),
   ]);
   const [peerSummary] = await Promise.all([
     inspectDeviceSet(databasePath, peerSet),

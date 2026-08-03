@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  hexBytes,
   parseConversations,
   parseByteList,
   parseDeviceSetSummary,
@@ -103,4 +104,14 @@ test('binary output lists decode each bounded envelope', () => {
     second,
   ]);
   assert.throws(() => parseByteList(vectors(writeU32(9)), 8, 65_606));
+});
+
+test('pinned transparency keys require canonical 32-byte hex', () => {
+  assert.deepEqual(
+    hexBytes('00ff'.repeat(16), 32),
+    Uint8Array.from({ length: 32 }, (_, index) => (index % 2 === 0 ? 0 : 255)),
+  );
+  assert.throws(() => hexBytes('AA'.repeat(32), 32));
+  assert.throws(() => hexBytes('0g'.repeat(32), 32));
+  assert.throws(() => hexBytes('00', 32));
 });
