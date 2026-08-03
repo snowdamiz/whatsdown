@@ -59,6 +59,19 @@ export function hexBytes(value: string | undefined, expectedLength: number): Uin
   );
 }
 
+export function boundedInteger(
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const parsed = value === undefined ? fallback : Number(value);
+  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new RangeError(`Expected an integer between ${minimum} and ${maximum}`);
+  }
+  return parsed;
+}
+
 export function writeU32(value: number): Uint8Array {
   if (!Number.isInteger(value) || value < 0 || value > 0xffff_ffff) {
     throw new RangeError('Expected an unsigned 32-bit integer');

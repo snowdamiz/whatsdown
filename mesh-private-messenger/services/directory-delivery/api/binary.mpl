@@ -1,4 +1,5 @@
 from Protocol.V1 import decode_device_revocation, decode_directory_entry, decode_directory_lookup, decode_mailbox_ack, decode_mailbox_fetch, decode_outer_envelope, encode_delivery_batch, encode_directory_entry
+from Privacy.Edge import decode_sealed_delivery, open_delivery
 from Storage.Delivery import DeliveryInsert, acknowledge_mailbox, enqueue_envelope, fetch_mailbox
 from Storage.Devices import DeviceWrite, register_device, resolve_devices, revoke_device
 from Storage.Directory import register_directory, resolve_directory
@@ -101,6 +102,10 @@ fn signing_seed() -> Bytes ! String do
   configured_key("MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX")
 end
 
+pub fn delivery_seed() -> Bytes ! String do
+  configured_key("MESSENGER_DELIVERY_SEALING_SEED_HEX")
+end
+
 fn trusted_witness(witness_id :: String) -> WitnessKey ! String do
   if witness_id == "witness-a" do
     Ok(WitnessKey {
@@ -121,6 +126,11 @@ pub fn validate_transparency_config() -> Result <(), String > do
   let _ = signing_seed() ?
   let _ = trusted_witness("witness-a") ?
   let _ = trusted_witness("witness-b") ?
+  Ok(nil)
+end
+
+pub fn validate_delivery_config() -> Result <(), String > do
+  let _ = delivery_seed() ?
   Ok(nil)
 end
 
@@ -224,6 +234,16 @@ pub fn submit_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
       Ok( MailboxFull) -> empty(429)
       Ok( MailboxRevoked) -> empty(410)
       Ok( RateLimited) -> empty(429)
+    end
+  end
+end
+
+pub fn submit_sealed_request(pool :: PoolHandle, body :: Bytes, private_seed :: Bytes) -> BinaryResult do
+  case decode_sealed_delivery(body) do
+    Err( _) -> empty(400)
+    Ok( sealed) -> case open_delivery(sealed, private_seed) do
+      Err( _) -> empty(400)
+      Ok( outer) -> submit_request(pool, outer)
     end
   end
 end

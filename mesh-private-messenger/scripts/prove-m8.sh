@@ -16,6 +16,7 @@ readonly base_url="http://127.0.0.1:$service_port"
 readonly transparency_signing_seed_hex="5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b"
 readonly witness_a_public_key_hex="d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
 readonly witness_b_public_key_hex="3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
+readonly delivery_sealing_seed_hex="77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
 readonly temp_parent="${TMPDIR:-/tmp}"
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-m8.XXXXXX")"
 readonly temp_dir
@@ -176,6 +177,7 @@ main() {
   export MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX="$transparency_signing_seed_hex"
   export MESSENGER_WITNESS_A_PUBLIC_KEY_HEX="$witness_a_public_key_hex"
   export MESSENGER_WITNESS_B_PUBLIC_KEY_HEX="$witness_b_public_key_hex"
+  export MESSENGER_DELIVERY_SEALING_SEED_HEX="$delivery_sealing_seed_hex"
 
   (cd "$service_dir" && "$meshc_bin" build .)
   (cd "$client_dir" && "$meshc_bin" build . && "$meshc_bin" test tests/transport.test.mpl)

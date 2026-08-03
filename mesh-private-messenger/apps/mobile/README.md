@@ -5,6 +5,9 @@ The Expo app calls the local `mesh-messenger` native module; private keys and pr
 ```sh
 npm ci
 EXPO_PUBLIC_MESSENGER_BASE_URL=http://YOUR-MESSENGER-HOST:18086 \
+EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL=http://YOUR-EDGE-HOST:18087 \
+EXPO_PUBLIC_MESSENGER_DELIVERY_PUBLIC_KEY_HEX=DELIVERY_X25519_PUBLIC_KEY \
+EXPO_PUBLIC_MESSENGER_ABUSE_DIFFICULTY=16 \
 EXPO_PUBLIC_MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX=SERVICE_PUBLIC_KEY \
 EXPO_PUBLIC_MESSENGER_WITNESS_A_PUBLIC_KEY_HEX=WITNESS_A_PUBLIC_KEY \
 EXPO_PUBLIC_MESSENGER_WITNESS_B_PUBLIC_KEY_HEX=WITNESS_B_PUBLIC_KEY \
@@ -13,6 +16,7 @@ npm run ios
 
 Use a LAN or deployed HTTPS URL on physical devices. `127.0.0.1` only reaches the device itself. A custom development build is required because the app contains the local native module.
 Transparency and witness keys are required 32-byte lowercase hex build pins; directory responses fail closed when they are absent or do not match.
+The delivery X25519 key is also a required 32-byte lowercase hex build pin. Sends fail closed without the privacy-edge URL or a valid key. Abuse difficulty defaults to 16 and must stay between 1 and 24.
 
 Run the software acceptance proof from the repository root:
 

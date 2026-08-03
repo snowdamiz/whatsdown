@@ -5,6 +5,7 @@ import {
   inspect_device_set_export,
   load_profile_export,
   mailbox_fetch_export,
+  privacy_submission_export,
   process_delivery_batch_export,
   send_fanout_export,
   transparency_lookup_export,
@@ -12,6 +13,7 @@ import {
 } from '../modules/mesh-messenger';
 import {
   batchRequest,
+  boundedInteger,
   DeviceSetSummary,
   hexBytes,
   parseByteList,
@@ -26,12 +28,17 @@ const baseUrl = (process.env.EXPO_PUBLIC_MESSENGER_BASE_URL ?? 'http://127.0.0.1
   '',
 );
 
-async function binaryRequest(path: string, body: Uint8Array, method = 'POST'): Promise<Uint8Array> {
+async function binaryRequest(
+  path: string,
+  body: Uint8Array,
+  method = 'POST',
+  root = baseUrl,
+): Promise<Uint8Array> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   const payload = body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer;
   try {
-    const response = await fetch(`${baseUrl}${path}`, {
+    const response = await fetch(`${root}${path}`, {
       method,
       headers: { 'Content-Type': 'application/octet-stream' },
       body: payload,
@@ -105,7 +112,18 @@ export async function revokeDevice(
 }
 
 export async function submitEnvelope(envelope: Uint8Array): Promise<void> {
-  await binaryRequest('/v1/envelopes/batch', envelope);
+  const edgeUrl = process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL?.replace(/\/$/, '');
+  if (!edgeUrl) throw new Error('EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL is required');
+  const submission = await privacy_submission_export(
+    vectors(
+      envelope,
+      hexBytes(process.env.EXPO_PUBLIC_MESSENGER_DELIVERY_PUBLIC_KEY_HEX, 32),
+      Uint8Array.of(
+        boundedInteger(process.env.EXPO_PUBLIC_MESSENGER_ABUSE_DIFFICULTY, 16, 1, 24),
+      ),
+    ),
+  );
+  await binaryRequest('/v1/envelopes/batch', submission, 'POST', edgeUrl);
 }
 
 export async function sendFanout(

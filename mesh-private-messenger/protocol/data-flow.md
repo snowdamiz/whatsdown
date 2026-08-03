@@ -80,8 +80,8 @@ sequenceDiagram
   participant Push as Push Broker
   participant Recipient as Recipient Device
 
-  Sender->>Edge: Opaque envelope batch
-  Edge->>Delivery: Forward without sender identity
+  Sender->>Edge: Sealed delivery + anonymous work proof
+  Edge->>Delivery: Canonical sealed delivery only
   Delivery->>DB: Insert envelope and outbox event
   DB-->>Delivery: Commit
   Delivery-->>Sender: Accepted envelope IDs

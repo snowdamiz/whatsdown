@@ -15,6 +15,7 @@ The protocol contracts include the [threat model](mesh-private-messenger/protoco
 [cryptographic profile](mesh-private-messenger/protocol/crypto-profile-v1.md),
 [ratchet wire format](mesh-private-messenger/protocol/ratchet-message-v1.md),
 [delivery wire format](mesh-private-messenger/protocol/delivery-wire-v1.md),
+[sealed-delivery format](mesh-private-messenger/protocol/sealed-delivery-v1.md),
 [secret-purpose inventory](mesh-private-messenger/protocol/secret-purpose-inventory.md),
 and [storage-wrapping format](mesh-private-messenger/protocol/storage-wrapping-v1.md).
 

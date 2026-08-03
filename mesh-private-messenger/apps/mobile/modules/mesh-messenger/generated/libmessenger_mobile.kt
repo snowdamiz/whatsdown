@@ -36,6 +36,7 @@ object MeshLibrary {
     @JvmStatic external fun directory_lookup_export(request: ByteArray): ByteArray
     @JvmStatic external fun transparency_lookup_export(request: ByteArray): ByteArray
     @JvmStatic external fun verify_transparency_export(request: ByteArray): ByteArray
+    @JvmStatic external fun privacy_submission_export(request: ByteArray): ByteArray
     @JvmStatic external fun mailbox_fetch_export(request: ByteArray): ByteArray
     @JvmStatic external fun process_delivery_batch_export(request: ByteArray): ByteArray
 }

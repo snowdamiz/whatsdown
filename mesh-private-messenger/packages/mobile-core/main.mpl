@@ -1,6 +1,7 @@
 from Binary.Reader import BinaryReader, finish, read_vector, reader
 from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, issue_device_revocation, verify_device_link_authorization
 from Prekeys.Bundle import OneTimePrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey, verify_prekey_bundle
+from Privacy.Edge import encode_privacy_submission, mint_submission, seal_delivery
 from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceSet, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_set, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
@@ -140,6 +141,12 @@ struct MobileTransparencyRequest do
   service_public_key :: Bytes
   witness_a_public_key :: Bytes
   witness_b_public_key :: Bytes
+end
+
+struct MobilePrivacyRequest do
+  outer :: Bytes
+  delivery_public_key :: Bytes
+  difficulty :: Int
 end
 
 struct MobileVerifiedDeviceSet do
@@ -959,8 +966,40 @@ fn parse_transparency_request(input :: Bytes) -> MobileTransparencyRequest ! Str
   end
 end
 
+fn parse_privacy_request(input :: Bytes) -> MobilePrivacyRequest ! String do
+  case reader(input, 65651) do
+    Err( _) -> Err("invalid_privacy_request")
+    Ok( state) -> do
+      let outer = take_vector(state, 65606) ?
+      let delivery_key = take_vector(outer.state, 32) ?
+      let difficulty = take_vector(delivery_key.state, 1) ?
+      case finish(difficulty.state) do
+        Err( _) -> Err("invalid_privacy_request")
+        Ok( _) -> do
+          let parsed_difficulty = mobile_read_byte(difficulty.value) ?
+          if Bytes.length(delivery_key.value) != 32 || parsed_difficulty < 1 || parsed_difficulty > 24 do
+            Err("invalid_privacy_request")
+          else
+            Ok(MobilePrivacyRequest {
+              outer : outer.value,
+              delivery_public_key : delivery_key.value,
+              difficulty : parsed_difficulty
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
 fn current_time() -> U64 ! String do
   mobile_wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
+end
+
+fn privacy_submission(request :: MobilePrivacyRequest) -> Bytes ! String do
+  let sealed = seal_delivery(request.outer, X25519PublicKey { bytes : request.delivery_public_key }) ?
+  let expires_at = U64.add(current_time() ?, mobile_wide("300000") ?) ?
+  encode_privacy_submission(mint_submission(sealed, expires_at, request.difficulty) ?)
 end
 
 fn random_bytes(length :: Int) -> Bytes ! String do
@@ -3465,6 +3504,10 @@ end
 
 @ export("mesh_messenger_verify_transparency")pub fn verify_transparency_export(request :: Bytes) -> Bytes ! String do
   verify_transparency_response(parse_transparency_request(request) ?)
+end
+
+@ export("mesh_messenger_privacy_submission")pub fn privacy_submission_export(request :: Bytes) -> Bytes ! String do
+  privacy_submission(parse_privacy_request(request) ?)
 end
 
 @ export("mesh_messenger_mailbox_fetch")pub fn mailbox_fetch_export(request :: Bytes) -> Bytes ! String do

@@ -17,7 +17,7 @@ session decryption keys.
 | Session keys and ratchet state | Never leave the device in plaintext |
 | Local contact names | Never sent to the server |
 | Conversation identifier | Never clear in delivery records |
-| Sender identity | Hidden from delivery in sealed-delivery mode |
+| Sender identity | Visible to neither edge payload processing nor delivery in sealed mode |
 | Destination | Opaque mailbox token visible to delivery |
 | Username | Visible to the directory in the initial design |
 | Device public keys | Visible to directory and transparency services |
@@ -33,6 +33,13 @@ Push notifications contain only a generic encrypted-message wakeup. Object
 storage receives random object identifiers, encrypted chunks, approximate
 sizes, access times, and expiry; it does not receive file keys, names, MIME
 types, identities, or conversation identifiers.
+
+In sealed-delivery mode the privacy edge receives the source connection, an
+opaque sealed record, and an anonymous proof of work. The delivery core receives
+the mailbox capability only after unsealing a request forwarded by the edge, so
+it observes the edge connection rather than the sender connection. Direct and
+internal delivery endpoints require production network policy as specified by
+the [sealed-delivery contract](sealed-delivery-v1.md).
 
 ## Required implementation properties
 

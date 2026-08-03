@@ -1,4 +1,5 @@
-from Api.Binary import acknowledge_request, fetch_request, register_request, resolve_request, submit_request
+from Api.Binary import acknowledge_request, fetch_request, register_request, resolve_request, submit_request, submit_sealed_request
+from Privacy.Edge import encode_sealed_delivery, seal_delivery
 from Protocol.V1 import DirectoryEntry, MailboxAck, MailboxFetch, OuterEnvelope, decode_delivery_batch, encode_directory_entry, encode_directory_lookup, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
@@ -65,6 +66,24 @@ fn proof() -> Bool ! String do
   })) ?
   assert(submit_request(pool, envelope).status == 202)
   assert(submit_request(pool, envelope).status == 200)
+  let delivery_seed = Bytes.from_hex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a") ?
+  let delivery_key = case Crypto.x25519_from_seed(delivery_seed) do
+    Err( _) -> Err("delivery key failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let sealed_id = repeated(5, 16)
+  let sealed = wire(encode_outer_envelope(OuterEnvelope {
+    version : 1,
+    envelope_id : sealed_id,
+    mailbox_token : token,
+    suite : 1,
+    expiration : wide("4102444800000") ?,
+    padding_bucket : 256,
+    ciphertext : Bytes.from_utf8("sealed ciphertext")
+  })) ?
+  assert(submit_sealed_request(pool,
+  encode_sealed_delivery(seal_delivery(sealed, delivery_key.public_key) ?) ?,
+  delivery_seed).status == 202)
   let fetched = fetch_request(pool,
   wire(encode_mailbox_fetch(MailboxFetch {
     version : 1,
@@ -76,12 +95,12 @@ fn proof() -> Bool ! String do
     Err( _) -> Err("invalid delivery response")
     Ok( values) -> Ok(values)
   end ?
-  assert(List.length(deliveries) == 1)
+  assert(List.length(deliveries) == 2)
   let acknowledged = acknowledge_request(pool,
   wire(encode_mailbox_ack(MailboxAck {
     version : 1,
     mailbox_token : token,
-    envelope_ids : [envelope_id]
+    envelope_ids : [envelope_id, sealed_id]
   })) ?)
   assert(acknowledged.status == 200)
   assert(delivery_count(fetch_request(pool,

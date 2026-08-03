@@ -71,6 +71,7 @@ int32_t mesh_messenger_directory_entry(const uint8_t *request, uint64_t request_
 int32_t mesh_messenger_directory_lookup(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_transparency_lookup(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_verify_transparency(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_privacy_submission(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_mailbox_fetch(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_process_delivery_batch(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 
