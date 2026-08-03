@@ -17,6 +17,7 @@ target/
 mesh-lang/
 /mesh-private-messenger/services/directory-delivery/output
 /mesh-private-messenger/clients/mesh-cli/output
+/mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/
 
 *.db
 *.db-shm
