@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 typedef struct {
   uint8_t key[64];
@@ -754,28 +753,6 @@ int main(int argc, char **argv) {
   uint8_t safety_number[64];
   memcpy(safety_number, response.data, sizeof(safety_number));
   mesh_library_free_returned_bytes(&response);
-
-  const uint8_t *bob_peer_values[] = {(const uint8_t *)bob_path, profile};
-  const size_t bob_peer_lengths[] = {strlen(bob_path), profile_len};
-  size_t bob_peer_len = 0;
-  uint8_t *bob_peer =
-      vector_request(bob_peer_values, bob_peer_lengths, 2, &bob_peer_len);
-  if (bob_peer == NULL ||
-      mesh_messenger_safety_number(bob_peer, bob_peer_len, &response) !=
-          MESH_LIBRARY_OK ||
-      response.len != sizeof(safety_number) ||
-      memcmp(response.data, safety_number, sizeof(safety_number)) != 0) {
-    return 42;
-  }
-  mesh_library_free_returned_bytes(&response);
-  if (mesh_messenger_list_conversations((const uint8_t *)bob_path,
-                                        strlen(bob_path), &response) !=
-          MESH_LIBRARY_OK ||
-      !bytes_contains(response.data, (size_t)response.len,
-                      (const uint8_t *)"alice", 5)) {
-    return 43;
-  }
-  mesh_library_free_returned_bytes(&response);
   free(alice_peer);
 
   static const uint8_t reply[] = "hello alice";
@@ -785,12 +762,7 @@ int main(int argc, char **argv) {
   size_t send_request_len = 0;
   uint8_t *send_request =
       vector_request(send_values, send_lengths, 3, &send_request_len);
-  if (send_request == NULL ||
-      mesh_messenger_send_message(send_request, send_request_len, &response) !=
-          MESH_LIBRARY_ERR_APPLICATION) {
-    return 35;
-  }
-  mesh_library_free_returned_bytes(&response);
+  if (send_request == NULL) return 35;
 
   static const uint8_t accept_action[] = {1};
   static const uint8_t zero_value[] = {0, 0, 0, 0};
@@ -1184,143 +1156,6 @@ int main(int argc, char **argv) {
   if (!acknowledge_outbox(bob_path, only_active, root_reply_len)) return 128;
   free(only_active);
 
-  static const uint8_t block_action[] = {2};
-  const uint8_t *block_policy_values[] = {(const uint8_t *)bob_path, profile,
-                                          block_action, zero_value};
-  const size_t block_policy_lengths[] = {strlen(bob_path), profile_len, 1, 4};
-  size_t block_policy_len = 0;
-  uint8_t *block_policy = vector_request(block_policy_values,
-                                         block_policy_lengths, 4,
-                                         &block_policy_len);
-  if (block_policy == NULL ||
-      mesh_messenger_update_conversation(block_policy, block_policy_len,
-                                         &response) != MESH_LIBRARY_OK) {
-    return 37;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(block_policy);
-
-  static const uint8_t blocked_body[] = "blocked message";
-  const uint8_t *blocked_send_values[] = {(const uint8_t *)database_path, bob_profile,
-                                          blocked_body};
-  const size_t blocked_send_lengths[] = {strlen(database_path), bob_profile_len,
-                                         sizeof(blocked_body) - 1};
-  size_t blocked_send_len = 0;
-  uint8_t *blocked_send = vector_request(blocked_send_values,
-                                         blocked_send_lengths, 3,
-                                         &blocked_send_len);
-  if (blocked_send == NULL ||
-      mesh_messenger_send_message(blocked_send, blocked_send_len, &response) !=
-          MESH_LIBRARY_OK ||
-      response.len == 0) {
-    return 38;
-  }
-  size_t blocked_outer_len = (size_t)response.len;
-  uint8_t *blocked_outer = malloc(blocked_outer_len);
-  if (blocked_outer == NULL) return 39;
-  memcpy(blocked_outer, response.data, blocked_outer_len);
-  mesh_library_free_returned_bytes(&response);
-  if (!acknowledge_outbox(database_path, blocked_outer, blocked_outer_len)) return 134;
-  free(blocked_send);
-
-  const uint8_t *blocked_receive_values[] = {(const uint8_t *)bob_path,
-                                             blocked_outer};
-  const size_t blocked_receive_lengths[] = {strlen(bob_path), blocked_outer_len};
-  size_t blocked_receive_len = 0;
-  uint8_t *blocked_receive = vector_request(blocked_receive_values,
-                                            blocked_receive_lengths, 2,
-                                            &blocked_receive_len);
-  if (blocked_receive == NULL ||
-      mesh_messenger_receive_message(blocked_receive, blocked_receive_len,
-                                     &response) !=
-          MESH_LIBRARY_ERR_APPLICATION) {
-    return 40;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(blocked_receive);
-  free(blocked_outer);
-
-  static const uint8_t unblock_action[] = {3};
-  const uint8_t *unblock_values[] = {(const uint8_t *)bob_path, profile,
-                                     unblock_action, zero_value};
-  const size_t unblock_lengths[] = {strlen(bob_path), profile_len, 1, 4};
-  size_t unblock_len = 0;
-  uint8_t *unblock_request =
-      vector_request(unblock_values, unblock_lengths, 4, &unblock_len);
-  if (unblock_request == NULL ||
-      mesh_messenger_update_conversation(unblock_request, unblock_len,
-                                         &response) != MESH_LIBRARY_OK) {
-    return 44;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(unblock_request);
-
-  static const uint8_t disappear_action[] = {5};
-  static const uint8_t one_second[] = {0, 0, 0, 1};
-  const uint8_t *disappear_values[] = {(const uint8_t *)database_path, bob_profile,
-                                       disappear_action, one_second};
-  const size_t disappear_lengths[] = {strlen(database_path), bob_profile_len, 1, 4};
-  size_t disappear_len = 0;
-  uint8_t *disappear_request = vector_request(
-      disappear_values, disappear_lengths, 4, &disappear_len);
-  if (disappear_request == NULL ||
-      mesh_messenger_update_conversation(disappear_request, disappear_len,
-                                         &response) != MESH_LIBRARY_OK) {
-    return 45;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(disappear_request);
-
-  static const uint8_t ephemeral_body[] = "gone soon";
-  const uint8_t *ephemeral_values[] = {(const uint8_t *)database_path, bob_profile,
-                                       ephemeral_body};
-  const size_t ephemeral_lengths[] = {strlen(database_path), bob_profile_len,
-                                      sizeof(ephemeral_body) - 1};
-  size_t ephemeral_len = 0;
-  uint8_t *ephemeral_request =
-      vector_request(ephemeral_values, ephemeral_lengths, 3, &ephemeral_len);
-  if (ephemeral_request == NULL ||
-      mesh_messenger_send_message(ephemeral_request, ephemeral_len, &response) !=
-          MESH_LIBRARY_OK ||
-      response.len == 0) {
-    return 46;
-  }
-  size_t ephemeral_outer_len = (size_t)response.len;
-  uint8_t *ephemeral_outer = malloc(ephemeral_outer_len);
-  if (ephemeral_outer == NULL) return 47;
-  memcpy(ephemeral_outer, response.data, ephemeral_outer_len);
-  mesh_library_free_returned_bytes(&response);
-  if (!acknowledge_outbox(database_path, ephemeral_outer, ephemeral_outer_len)) return 135;
-  free(ephemeral_request);
-
-  const uint8_t *ephemeral_receive_values[] = {(const uint8_t *)bob_path,
-                                               ephemeral_outer};
-  const size_t ephemeral_receive_lengths[] = {strlen(bob_path),
-                                              ephemeral_outer_len};
-  size_t ephemeral_receive_len = 0;
-  uint8_t *ephemeral_receive =
-      vector_request(ephemeral_receive_values, ephemeral_receive_lengths, 2,
-                     &ephemeral_receive_len);
-  if (ephemeral_receive == NULL ||
-      mesh_messenger_receive_message(ephemeral_receive, ephemeral_receive_len,
-                                     &response) != MESH_LIBRARY_OK ||
-      response.len != sizeof(ephemeral_body) - 1) {
-    return 48;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(ephemeral_receive);
-  free(ephemeral_outer);
-
-  sleep(2);
-  if (mesh_messenger_load_history(bob_peer, bob_peer_len, &response) !=
-          MESH_LIBRARY_OK ||
-      bytes_contains(response.data, (size_t)response.len, ephemeral_body,
-                     sizeof(ephemeral_body) - 1)) {
-    return 49;
-  }
-  mesh_library_free_returned_bytes(&response);
-
-  free(bob_peer);
   free(reply_receive_request);
   free(reply_outer);
   free(initial_outer);

@@ -144,6 +144,19 @@ struct MobilePeerRequest do
   peer_profile :: Bytes
 end
 
+pub struct ConversationSummary do
+  conversation_id :: Bytes
+  username :: String
+  peer_account_id :: Bytes
+  peer_device_id :: Bytes
+  safety_number :: Bytes
+  request_state :: Int
+  blocked :: Bool
+  verified :: Bool
+  key_changed :: Bool
+  disappearing_seconds :: Int
+end
+
 struct MobileBatchRequest do
   database_path :: String
   batch :: Bytes
@@ -3225,6 +3238,58 @@ fn conversation_summary(loaded :: MobileLoadedSession) -> Bytes ! String do
   end) ?) ?, mobile_vector(mobile_write_u32(loaded.record.disappearing_seconds) ?) ?],
   0,
   Bytes.empty())
+end
+
+pub fn decode_conversation_summary(input :: Bytes) -> ConversationSummary ! String do
+  case reader(input, 1024) do
+    Err( _) -> Err("invalid_conversation_summary")
+    Ok( state) -> do
+      let count = take_vector(state, 4) ?
+      let entry_bytes = take_vector(count.state, 512) ?
+      let entry = case reader(entry_bytes.value, 512) do
+        Err( _) -> Err("invalid_conversation_summary")
+        Ok( value) -> Ok(value)
+      end ?
+      let conversation_id = take_vector(entry, 16) ?
+      let username = take_vector(conversation_id.state, 32) ?
+      let peer_account_id = take_vector(username.state, 32) ?
+      let peer_device_id = take_vector(peer_account_id.state, 16) ?
+      let safety = take_vector(peer_device_id.state, 64) ?
+      let request_state = take_vector(safety.state, 1) ?
+      let blocked = take_vector(request_state.state, 1) ?
+      let verified = take_vector(blocked.state, 1) ?
+      let key_changed = take_vector(verified.state, 1) ?
+      let disappearing = take_vector(key_changed.state, 4) ?
+      let request_value = mobile_read_byte(request_state.value) ?
+      let blocked_value = mobile_read_byte(blocked.value) ?
+      let verified_value = mobile_read_byte(verified.value) ?
+      let changed_value = mobile_read_byte(key_changed.value) ?
+      let username_value = mobile_utf8(username.value, "invalid_conversation_summary") ?
+      let valid = mobile_read_u32(count.value) ? == 1 && String.length(username_value) > 0 && Bytes.length(conversation_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && Bytes.length(safety.value) == 64 && (request_value == 0 || request_value == 1) && blocked_value <= 1 && verified_value <= 1 && changed_value <= 1
+      case finish(entry_bytes.state) do
+        Err( _) -> Err("invalid_conversation_summary")
+        Ok( _) -> case finish(disappearing.state) do
+          Err( _) -> Err("invalid_conversation_summary")
+          Ok( _) -> if !valid do
+            Err("invalid_conversation_summary")
+          else
+            Ok(ConversationSummary {
+              conversation_id : conversation_id.value,
+              username : username_value,
+              peer_account_id : peer_account_id.value,
+              peer_device_id : peer_device_id.value,
+              safety_number : safety.value,
+              request_state : request_value,
+              blocked : blocked_value == 1,
+              verified : verified_value == 1,
+              key_changed : changed_value == 1,
+              disappearing_seconds : mobile_read_u32(disappearing.value) ?
+            })
+          end
+        end
+      end
+    end
+  end
 end
 
 fn collect_conversations(database_path :: String,
