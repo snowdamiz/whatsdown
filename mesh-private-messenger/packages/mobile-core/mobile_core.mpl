@@ -199,6 +199,33 @@ struct MobilePushState do
   provider_token_hash :: Bytes
   pending_kind :: Int
   pending_wire :: Bytes
+  action_epoch :: U64
+  action_kind :: Int
+  target_mode :: Int
+  project_id :: Bytes
+  broker_public_key :: Bytes
+end
+
+struct MobilePushIntentRequest do
+  database_path :: String
+  intent :: Int
+end
+
+struct MobilePushBuildConfig do
+  project_id :: Bytes
+  broker_public_key :: Bytes
+end
+
+struct MobilePushActionCompletion do
+  database_path :: String
+  action :: Bytes
+  outcome :: Int
+end
+
+struct MobilePushActionFrame do
+  kind :: Int
+  epoch :: U64
+  payload :: Bytes
 end
 
 struct MobileExpoRawToken do
@@ -313,6 +340,17 @@ fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! Strin
       value : value
     })
     Ok( _) -> Err("invalid_store_request")
+  end
+end
+
+fn take_push_vector(state :: BinaryReader, maximum :: Int, error :: String) -> MobileReadBytes ! String do
+  case read_vector(state, maximum) do
+    Err( _) -> Err(error)
+    Ok( ( next, value)) -> Ok(MobileReadBytes {
+      state : next,
+      value : value
+    })
+    Ok( _) -> Err(error)
   end
 end
 
@@ -1472,6 +1510,56 @@ fn parse_push_bind_request(input :: Bytes) -> MobilePayloadRequest ! String do
   case parse_push_bind_request_inner(input) do
     Err( _) -> Err("invalid_payload_request")
     Ok( value) -> Ok(value)
+  end
+end
+
+fn parse_push_intent_request(input :: Bytes) -> MobilePushIntentRequest ! String do
+  case reader(input, 4105) do
+    Err( _) -> Err("invalid_push_intent")
+    Ok( state) -> do
+      let path = take_push_vector(state, 4096, "invalid_push_intent") ?
+      let intent = take_push_vector(path.state, 1, "invalid_push_intent") ?
+      let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+      let intent_value = mobile_read_byte(intent.value) ?
+      if String.length(database_path) == 0 || (intent_value != 0 && intent_value != 1 && intent_value != 2) do
+        Err("invalid_push_intent")
+      else
+        case finish(intent.state) do
+          Err( _) -> Err("invalid_push_intent")
+          Ok( _) -> Ok(MobilePushIntentRequest {
+            database_path : database_path,
+            intent : intent_value
+          })
+        end
+      end
+    end
+  end
+end
+
+fn parse_push_action_completion(input :: Bytes) -> MobilePushActionCompletion ! String do
+  case reader(input, 4852) do
+    Err( _) -> Err("invalid_push_action_completion")
+    Ok( state) -> do
+      let path = take_push_vector(state, 4096, "invalid_push_action_completion") ?
+      let action = take_push_vector(path.state, 743, "invalid_push_action_completion") ?
+      let outcome = take_push_vector(action.state, 1, "invalid_push_action_completion") ?
+      case finish(outcome.state) do
+        Err( _) -> Err("invalid_push_action_completion")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          let outcome_value = mobile_read_byte(outcome.value) ?
+          if String.length(database_path) == 0 || Bytes.length(action.value) < 18 || (outcome_value != 0 && outcome_value != 1) do
+            Err("invalid_push_action_completion")
+          else
+            Ok(MobilePushActionCompletion {
+              database_path : database_path,
+              action : action.value,
+              outcome : outcome_value
+            })
+          end
+        end
+      end
+    end
   end
 end
 
@@ -4907,17 +4995,52 @@ endpoint :: String) -> Bytes ! String do
   end
 end
 
-fn push_broker_public_key_hex() -> String do
-  ""
+fn push_broker_public_key(input :: Bytes) -> X25519PublicKey ! String do
+  if Bytes.length(input) != 32 do
+    Err("invalid_push_broker_public_key")
+  else
+    let probe = case Crypto.x25519_generate() do
+      Err( _) -> Err("push_configuration_validation_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let shared = case Crypto.x25519_shared(probe.private_key, X25519PublicKey { bytes : input }) do
+      Err( _) -> Err("invalid_push_broker_public_key")
+      Ok( value) -> Ok(value)
+    end ?
+    Secret.destroy(shared)
+    Ok(X25519PublicKey { bytes : input })
+  end
 end
 
-fn push_broker_public_key() -> X25519PublicKey ! String do
-  case Bytes.from_hex(push_broker_public_key_hex()) do
-    Err( _) -> Err("push_broker_unconfigured")
-    Ok( value) -> if Bytes.length(value) != 32 do
-      Err("push_broker_unconfigured")
+fn native_push_build_config() -> MobilePushBuildConfig ! String do
+  let frame = case Host.push_get_token(Bytes.from_utf8("expo/config/v1")) do
+    Err( _) -> Err("push_configuration_required")
+    Ok( value) -> Ok(value)
+  end ?
+  if Bytes.length(frame) != 103 do
+    Err("invalid_push_configuration")
+  else
+    let text = mobile_utf8(frame, "invalid_push_configuration") ?
+    let fields = String.split(text, "\n")
+    if List.length(fields) != 3 || List.get(fields, 0) != "1" do
+      Err("invalid_push_configuration")
     else
-      Ok(X25519PublicKey { bytes : value })
+      let project_id = Bytes.from_utf8(List.get(fields, 1))
+      let _ = expo_project_id(project_id) ?
+      let broker_hex = List.get(fields, 2)
+      let broker_public_key = case Bytes.from_hex(broker_hex) do
+        Err( _) -> Err("invalid_push_broker_public_key")
+        Ok( value) -> Ok(value)
+      end ?
+      if String.length(broker_hex) != 64 || Bytes.to_hex(broker_public_key) != broker_hex do
+        Err("invalid_push_broker_public_key")
+      else
+        let key = push_broker_public_key(broker_public_key) ?
+        Ok(MobilePushBuildConfig {
+          project_id : project_id,
+          broker_public_key : key.bytes
+        })
+      end
     end
   end
 end
@@ -4972,10 +5095,22 @@ fn stored_unbind_valid(state :: MobilePushState, profile :: MobileProfile) -> Bo
   end
 end
 
+fn stored_push_project_valid(project_id :: Bytes) -> Bool do
+  case expo_project_id(project_id) do
+    Err( _) -> false
+    Ok( _) -> true
+  end
+end
+
+fn stored_push_config_valid(project_id :: Bytes, broker_public_key :: Bytes) -> Bool do
+  stored_push_project_valid(project_id) && Bytes.length(broker_public_key) == 32
+end
+
 fn push_state_valid(state :: MobilePushState, profile :: MobileProfile) -> Bool ! String do
   let zero = mobile_zeroes(32) ?
   let revision_zero = U64.compare(state.revision, mobile_wide("0") ?) == 0
   let revision_valid = U64.compare(state.revision, mobile_wide("9223372036854775807") ?) <= 0
+  let action_epoch_valid = U64.compare(state.action_epoch, mobile_wide("9223372036854775807") ?) <= 0
   let hashes_zero = Bytes.secure_equals(state.wake_token_hash, zero) && Bytes.secure_equals(state.provider_token_hash,
   zero)
   let pending_shape = if state.pending_kind == 0 do
@@ -4996,7 +5131,33 @@ fn push_state_valid(state :: MobilePushState, profile :: MobileProfile) -> Bool 
   else
     false
   end
-  Ok(revision_valid && pending_shape && mode_shape && (!revision_zero || (state.mode == 0 && state.pending_kind == 0)))
+  let config_empty = Bytes.length(state.project_id) == 0 && Bytes.length(state.broker_public_key) == 0
+  let config_valid = stored_push_config_valid(state.project_id, state.broker_public_key)
+  let config_shape = if state.action_kind == 1 || state.action_kind == 2 || (state.target_mode == 1 && (state.action_kind == 4 || state.action_kind == 5)) do
+    config_valid
+  else if state.action_kind == 3 do
+    config_empty || config_valid
+  else if state.action_kind == 0 && state.mode == 1 do
+    config_empty || config_valid
+  else
+    config_empty
+  end
+  let action_shape = if state.action_kind == 0 do
+    state.pending_kind == 0 && state.target_mode == state.mode
+  else if state.action_kind == 1 || state.action_kind == 2 do
+    state.pending_kind == 0 && state.target_mode == 1
+  else if state.action_kind == 3 do
+    state.pending_kind == 1 && state.target_mode == 1
+  else if state.action_kind == 4 do
+    state.pending_kind == 2
+  else if state.action_kind == 5 do
+    (state.pending_kind == 0 || state.pending_kind == 2) && state.mode == 0
+  else
+    false
+  end
+  let action_epoch_shape = state.action_kind == 0 || U64.compare(state.action_epoch,
+  mobile_wide("0") ?) > 0
+  Ok(revision_valid && action_epoch_valid && pending_shape && mode_shape && config_shape && action_shape && action_epoch_shape && (state.target_mode == 0 || state.target_mode == 1) && (!revision_zero || (state.mode == 0 && state.pending_kind == 0)))
 end
 
 fn pristine_push_state() -> MobilePushState ! String do
@@ -5006,7 +5167,12 @@ fn pristine_push_state() -> MobilePushState ! String do
     wake_token_hash : mobile_zeroes(32) ?,
     provider_token_hash : mobile_zeroes(32) ?,
     pending_kind : 0,
-    pending_wire : Bytes.empty()
+    pending_wire : Bytes.empty(),
+    action_epoch : mobile_wide("0") ?,
+    action_kind : 0,
+    target_mode : 0,
+    project_id : Bytes.empty(),
+    broker_public_key : Bytes.empty()
   })
 end
 
@@ -5014,14 +5180,14 @@ fn push_state_bytes(state :: MobilePushState, profile :: MobileProfile) -> Bytes
   if !(push_state_valid(state, profile) ?) do
     Err("push_state_corrupt")
   else
-    mobile_join([mobile_byte(1) ?, Bytes.from_utf8("PBL"), mobile_write_u64(state.revision) ?, mobile_byte(state.mode) ?, state.wake_token_hash, state.provider_token_hash, mobile_byte(state.pending_kind) ?, mobile_vector(state.pending_wire) ?],
+    mobile_join([mobile_byte(2) ?, Bytes.from_utf8("PBL"), mobile_write_u64(state.revision) ?, mobile_byte(state.mode) ?, state.wake_token_hash, state.provider_token_hash, mobile_byte(state.pending_kind) ?, mobile_vector(state.pending_wire) ?, mobile_write_u64(state.action_epoch) ?, mobile_byte(state.action_kind) ?, mobile_byte(state.target_mode) ?, mobile_vector(state.project_id) ?, mobile_vector(state.broker_public_key) ?],
     0,
     Bytes.empty())
   end
 end
 
 fn parse_push_state(input :: Bytes, profile :: MobileProfile) -> MobilePushState ! String do
-  case reader(input, 807) do
+  case reader(input, 893) do
     Err( _) -> Err("push_state_corrupt")
     Ok( reader_state) -> do
       let version = take_fixed(reader_state, 1) ?
@@ -5032,24 +5198,83 @@ fn parse_push_state(input :: Bytes, profile :: MobileProfile) -> MobilePushState
       let provider_hash = take_fixed(wake_hash.state, 32) ?
       let pending_kind = take_fixed(provider_hash.state, 1) ?
       let pending_wire = take_vector(pending_kind.state, 725) ?
-      case finish(pending_wire.state) do
-        Err( _) -> Err("push_state_corrupt")
-        Ok( _) -> do
-          let state = MobilePushState {
-            revision : mobile_read_u64(revision.value) ?,
-            mode : mobile_read_byte(mode.value) ?,
-            wake_token_hash : wake_hash.value,
-            provider_token_hash : provider_hash.value,
-            pending_kind : mobile_read_byte(pending_kind.value) ?,
-            pending_wire : pending_wire.value
-          }
-          if mobile_read_byte(version.value) ? != 1 || !Bytes.secure_equals(magic.value,
-          Bytes.from_utf8("PBL")) || !(push_state_valid(state, profile) ?) do
-            Err("push_state_corrupt")
-          else
-            Ok(state)
+      let version_value = mobile_read_byte(version.value) ?
+      let mode_value = mobile_read_byte(mode.value) ?
+      let pending_value = mobile_read_byte(pending_kind.value) ?
+      if !Bytes.secure_equals(magic.value, Bytes.from_utf8("PBL")) do
+        Err("push_state_corrupt")
+      else if version_value == 1 do
+        case finish(pending_wire.state) do
+          Err( _) -> Err("push_state_corrupt")
+          Ok( _) -> do
+            let action_kind = if pending_value == 1 do
+              3
+            else if pending_value == 2 do
+              5
+            else if mode_value == 0 do
+              5
+            else
+              0
+            end
+            let state = MobilePushState {
+              revision : mobile_read_u64(revision.value) ?,
+              mode : mode_value,
+              wake_token_hash : wake_hash.value,
+              provider_token_hash : provider_hash.value,
+              pending_kind : pending_value,
+              pending_wire : pending_wire.value,
+              action_epoch : if action_kind == 0 do
+                mobile_wide("0") ?
+              else
+                mobile_wide("1") ?
+              end,
+              action_kind : action_kind,
+              target_mode : if mode_value == 1 || pending_value == 1 do
+                1
+              else
+                0
+              end,
+              project_id : Bytes.empty(),
+              broker_public_key : Bytes.empty()
+            }
+            if push_state_valid(state, profile) ? do
+              Ok(state)
+            else
+              Err("push_state_corrupt")
+            end
           end
         end
+      else if version_value == 2 do
+        let action_epoch = take_fixed(pending_wire.state, 8) ?
+        let action_kind = take_fixed(action_epoch.state, 1) ?
+        let target_mode = take_fixed(action_kind.state, 1) ?
+        let project_id = take_vector(target_mode.state, 36) ?
+        let broker_public_key = take_vector(project_id.state, 32) ?
+        case finish(broker_public_key.state) do
+          Err( _) -> Err("push_state_corrupt")
+          Ok( _) -> do
+            let state = MobilePushState {
+              revision : mobile_read_u64(revision.value) ?,
+              mode : mode_value,
+              wake_token_hash : wake_hash.value,
+              provider_token_hash : provider_hash.value,
+              pending_kind : pending_value,
+              pending_wire : pending_wire.value,
+              action_epoch : mobile_read_u64(action_epoch.value) ?,
+              action_kind : mobile_read_byte(action_kind.value) ?,
+              target_mode : mobile_read_byte(target_mode.value) ?,
+              project_id : project_id.value,
+              broker_public_key : broker_public_key.value
+            }
+            if push_state_valid(state, profile) ? do
+              Ok(state)
+            else
+              Err("push_state_corrupt")
+            end
+          end
+        end
+      else
+        Err("push_state_corrupt")
       end
     end
   end
@@ -5094,6 +5319,14 @@ fn next_push_revision(revision :: U64) -> U64 ! String do
     Err("push_revision_exhausted")
   else
     U64.add(revision, mobile_wide("1") ?)
+  end
+end
+
+fn next_push_action_epoch(epoch :: U64) -> U64 ! String do
+  if U64.compare(epoch, mobile_wide("9223372036854775807") ?) >= 0 do
+    Err("push_action_epoch_exhausted")
+  else
+    U64.add(epoch, mobile_wide("1") ?)
   end
 end
 
@@ -5181,14 +5414,7 @@ raw_material :: Bytes) -> Bytes ! String do
     wake_hash,
     revision,
     sealed) ?
-    let updated = MobilePushState {
-      revision : revision,
-      mode : 1,
-      wake_token_hash : wake_hash,
-      provider_token_hash : token_hash,
-      pending_kind : 1,
-      pending_wire : wire
-    }
+    let updated = % { state | revision : revision, mode : 1, wake_token_hash : wake_hash, provider_token_hash : token_hash, pending_kind : 1, pending_wire : wire }
     store_push_state(request.database_path, profile, wrapping_key, updated) ?
     Ok(wire)
   end
@@ -5212,10 +5438,11 @@ endpoint :: String) -> Bytes ! String do
       Err( _) -> Err("push_material_unavailable")
       Ok( value) -> Ok(value)
     end ?
+    let action_state = % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 3, target_mode : 1, project_id : request.payload, broker_public_key : broker_public_key.bytes }
     prepare_new_push_bind(request,
     profile,
     wrapping_key,
-    state,
+    action_state,
     project_id,
     broker_public_key,
     endpoint,
@@ -5223,8 +5450,21 @@ endpoint :: String) -> Bytes ! String do
   end
 end
 
-fn prepare_push_bind(request :: MobilePayloadRequest) -> Bytes ! String do
-  prepare_push_bind_with_config(request, push_broker_public_key(), expo_push_endpoint())
+fn prepare_push_unbind_loaded(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+state :: MobilePushState) -> Bytes ! String do
+  if state.pending_kind == 2 do
+    Ok(state.pending_wire)
+  else if state.mode == 0 do
+    Ok(Bytes.empty())
+  else
+    let revision = next_push_revision(state.revision) ?
+    let wire = signed_push_unbind(database_path, profile, wrapping_key, revision) ?
+    let updated = % { state | revision : revision, mode : 0, wake_token_hash : mobile_zeroes(32) ?, provider_token_hash : mobile_zeroes(32) ?, pending_kind : 2, pending_wire : wire }
+    store_push_state(database_path, profile, wrapping_key, updated) ?
+    Ok(wire)
+  end
 end
 
 fn prepare_push_unbind(database_path :: String) -> Bytes ! String do
@@ -5237,21 +5477,9 @@ fn prepare_push_unbind(database_path :: String) -> Bytes ! String do
     let state = load_push_state(database_path, profile, wrapping_key) ?
     if state.pending_kind == 2 do
       Ok(state.pending_wire)
-    else if state.mode == 0 do
-      Ok(Bytes.empty())
     else
-      let revision = next_push_revision(state.revision) ?
-      let wire = signed_push_unbind(database_path, profile, wrapping_key, revision) ?
-      let updated = MobilePushState {
-        revision : revision,
-        mode : 0,
-        wake_token_hash : mobile_zeroes(32) ?,
-        provider_token_hash : mobile_zeroes(32) ?,
-        pending_kind : 2,
-        pending_wire : wire
-      }
-      store_push_state(database_path, profile, wrapping_key, updated) ?
-      Ok(wire)
+      let action_state = % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 4, target_mode : 0, project_id : Bytes.empty(), broker_public_key : Bytes.empty() }
+      prepare_push_unbind_loaded(database_path, profile, wrapping_key, action_state)
     end
   end
 end
@@ -5269,13 +5497,353 @@ fn commit_push_update(request :: MobilePayloadRequest) -> Bytes ! String do
     else if !Bytes.secure_equals(state.pending_wire, request.payload) do
       Err("push_update_mismatch")
     else
+      let epoch = next_push_action_epoch(state.action_epoch) ?
       store_push_state(request.database_path,
       profile,
       wrapping_key,
-      % { state | pending_kind : 0, pending_wire : Bytes.empty() }) ?
+      % { state | pending_kind : 0, pending_wire : Bytes.empty(), action_epoch : epoch, action_kind : 0, target_mode : state.mode }) ?
       Ok(Bytes.empty())
     end
   end
+end
+
+fn parse_push_action_frame(input :: Bytes) -> MobilePushActionFrame ! String do
+  case reader(input, 743) do
+    Err( _) -> Err("invalid_push_action")
+    Ok( state) -> do
+      let version = take_fixed(state, 1) ?
+      let magic = take_fixed(version.state, 3) ?
+      let kind = take_fixed(magic.state, 1) ?
+      let flags = take_fixed(kind.state, 1) ?
+      let epoch = take_fixed(flags.state, 8) ?
+      let payload = take_push_vector(epoch.state, 725, "invalid_push_action") ?
+      case finish(payload.state) do
+        Err( _) -> Err("invalid_push_action")
+        Ok( _) -> do
+          let kind_value = mobile_read_byte(kind.value) ?
+          let payload_length = Bytes.length(payload.value)
+          let payload_shape = if kind_value == 1 || kind_value == 2 || kind_value == 5 do
+            payload_length == 0
+          else if kind_value == 3 || kind_value == 4 do
+            payload_length > 0
+          else
+            false
+          end
+          if mobile_read_byte(version.value) ? != 1 || !Bytes.secure_equals(magic.value,
+          Bytes.from_utf8("PFA")) || mobile_read_byte(flags.value) ? != 0 || !payload_shape do
+            Err("invalid_push_action")
+          else
+            Ok(MobilePushActionFrame {
+              kind : kind_value,
+              epoch : mobile_read_u64(epoch.value) ?,
+              payload : payload.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn encode_push_action(kind :: Int, flags :: Int, epoch :: U64, payload :: Bytes) -> Bytes ! String do
+  if kind < 0 || kind > 5 || flags < 0 || flags > 1 || Bytes.length(payload) > 725 do
+    Err("invalid_push_action")
+  else
+    mobile_join([mobile_byte(1) ?, Bytes.from_utf8("PFA"), mobile_byte(kind) ?, mobile_byte(flags) ?, mobile_write_u64(epoch) ?, mobile_write_u32(Bytes.length(payload)) ?, payload],
+    0,
+    Bytes.empty())
+  end
+end
+
+fn push_status_code(state :: MobilePushState) -> Int do
+  if state.action_kind == 1 || state.action_kind == 2 || state.action_kind == 3 do
+    2
+  else if state.action_kind == 4 || state.action_kind == 5 do
+    3
+  else if state.pending_kind == 1 do
+    2
+  else if state.pending_kind == 2 do
+    3
+  else if state.mode == 1 do
+    1
+  else
+    0
+  end
+end
+
+fn push_status_bytes(state :: MobilePushState) -> Bytes do
+  let status = push_status_code(state)
+  if status == 1 do
+    Bytes.from_utf8("enabled")
+  else if status == 2 do
+    Bytes.from_utf8("pending-bind")
+  else if status == 3 do
+    Bytes.from_utf8("pending-unbind")
+  else
+    Bytes.from_utf8("disabled")
+  end
+end
+
+fn push_done_action(state :: MobilePushState, surface_error :: Int) -> Bytes ! String do
+  encode_push_action(0, surface_error, state.action_epoch, mobile_byte(push_status_code(state)) ?)
+end
+
+fn current_push_action(state :: MobilePushState) -> Bytes ! String do
+  if state.action_kind == 0 do
+    push_done_action(state, 0)
+  else if state.action_kind == 3 || state.action_kind == 4 do
+    encode_push_action(state.action_kind, 0, state.action_epoch, state.pending_wire)
+  else
+    encode_push_action(state.action_kind, 0, state.action_epoch, Bytes.empty())
+  end
+end
+
+fn store_push_action(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+state :: MobilePushState) -> Bytes ! String do
+  store_push_state(database_path, profile, wrapping_key, state) ?
+  current_push_action(state)
+end
+
+fn push_action(database_path :: String) -> Bytes ! String do
+  if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Err("invalid_database_path")
+  else
+    ensure_schema(database_path) ?
+    let profile = parse_profile(load_profile(database_path) ?) ?
+    current_push_action(load_push_state(database_path, profile, platform_key() ?) ?)
+  end
+end
+
+fn push_config_matches(state :: MobilePushState, config :: MobilePushBuildConfig) -> Bool do
+  Bytes.secure_equals(state.project_id, config.project_id) && Bytes.secure_equals(state.broker_public_key,
+  config.broker_public_key)
+end
+
+fn matching_native_push_config(state :: MobilePushState) -> MobilePushBuildConfig ! String do
+  let config = native_push_build_config() ?
+  if push_config_matches(state, config) do
+    Ok(config)
+  else
+    Err("push_configuration_changed")
+  end
+end
+
+fn begin_push_cleanup(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+state :: MobilePushState,
+target_mode :: Int,
+project_id :: Bytes,
+broker_public_key :: Bytes) -> Bytes ! String do
+  let cleanup = % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 5, target_mode : target_mode, project_id : project_id, broker_public_key : broker_public_key }
+  if state.pending_kind == 2 do
+    store_push_action(database_path, profile, wrapping_key, cleanup)
+  else
+    let wire = prepare_push_unbind_loaded(database_path, profile, wrapping_key, cleanup) ?
+    if Bytes.length(wire) == 0 do
+      store_push_action(database_path, profile, wrapping_key, cleanup)
+    else
+      encode_push_action(5, 0, cleanup.action_epoch, Bytes.empty())
+    end
+  end
+end
+
+fn retarget_push_enable(database_path :: String,
+config :: MobilePushBuildConfig,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+state :: MobilePushState) -> Bytes ! String do
+  if state.action_kind == 4 || state.action_kind == 5 do
+    store_push_action(database_path,
+    profile,
+    wrapping_key,
+    % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, target_mode : 1, project_id : config.project_id, broker_public_key : config.broker_public_key })
+  else if state.mode == 1 || state.pending_kind == 1 do
+    begin_push_cleanup(database_path,
+    profile,
+    wrapping_key,
+    state,
+    1,
+    config.project_id,
+    config.broker_public_key)
+  else
+    store_push_action(database_path,
+    profile,
+    wrapping_key,
+    % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, target_mode : 1, project_id : config.project_id, broker_public_key : config.broker_public_key })
+  end
+end
+
+fn push_intent(request :: MobilePushIntentRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_push_state(request.database_path, profile, wrapping_key) ?
+  if request.intent == 0 do
+    if state.action_kind != 0 do
+      if state.target_mode == 0 do
+        current_push_action(state)
+      else
+        let config = native_push_build_config() ?
+        if push_config_matches(state, config) do
+          current_push_action(state)
+        else
+          retarget_push_enable(request.database_path, config, profile, wrapping_key, state)
+        end
+      end
+    else if state.mode == 1 do
+      let config = native_push_build_config() ?
+      if !push_config_matches(state, config) do
+        begin_push_cleanup(request.database_path,
+        profile,
+        wrapping_key,
+        state,
+        1,
+        config.project_id,
+        config.broker_public_key)
+      else
+        store_push_action(request.database_path,
+        profile,
+        wrapping_key,
+        % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 2, target_mode : 1 })
+      end
+    else
+      current_push_action(state)
+    end
+  else if request.intent == 1 do
+    let config = native_push_build_config() ?
+    if state.action_kind != 0 do
+      if state.target_mode == 1 && push_config_matches(state, config) do
+        current_push_action(state)
+      else
+        retarget_push_enable(request.database_path, config, profile, wrapping_key, state)
+      end
+    else if state.mode == 1 do
+      if push_config_matches(state, config) do
+        current_push_action(state)
+      else
+        begin_push_cleanup(request.database_path,
+        profile,
+        wrapping_key,
+        state,
+        1,
+        config.project_id,
+        config.broker_public_key)
+      end
+    else
+      store_push_action(request.database_path,
+      profile,
+      wrapping_key,
+      % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 1, target_mode : 1, project_id : config.project_id, broker_public_key : config.broker_public_key })
+    end
+  else if state.action_kind == 4 || state.action_kind == 5 do
+    if state.target_mode == 0 && Bytes.length(state.project_id) == 0 && Bytes.length(state.broker_public_key) == 0 do
+      current_push_action(state)
+    else
+      store_push_action(request.database_path,
+      profile,
+      wrapping_key,
+      % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, target_mode : 0, project_id : Bytes.empty(), broker_public_key : Bytes.empty() })
+    end
+  else if state.mode == 1 || state.pending_kind == 1 do
+    begin_push_cleanup(request.database_path,
+    profile,
+    wrapping_key,
+    state,
+    0,
+    Bytes.empty(),
+    Bytes.empty())
+  else if state.action_kind != 0 do
+    store_push_action(request.database_path,
+    profile,
+    wrapping_key,
+    % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 5, target_mode : 0, project_id : Bytes.empty(), broker_public_key : Bytes.empty() })
+  else
+    current_push_action(state)
+  end
+end
+
+fn complete_push_action_with_config(request :: MobilePushActionCompletion, endpoint :: String) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_push_state(request.database_path, profile, wrapping_key) ?
+  let completed = parse_push_action_frame(request.action) ?
+  let order = U64.compare(completed.epoch, state.action_epoch)
+  if order < 0 do
+    current_push_action(state)
+  else if order > 0 || state.action_kind == 0 || !Bytes.secure_equals(request.action,
+  current_push_action(state) ?) do
+    Err("push_action_mismatch")
+  else if state.action_kind == 5 && state.pending_kind == 2 do
+    store_push_action(request.database_path,
+    profile,
+    wrapping_key,
+    % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 4 })
+  else if request.outcome == 1 do
+    push_done_action(state, 1)
+  else if state.action_kind == 1 do
+    store_push_action(request.database_path,
+    profile,
+    wrapping_key,
+    % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 2 })
+  else if state.action_kind == 2 do
+    let config = matching_native_push_config(state) ?
+    let project_id = expo_project_id(config.project_id) ?
+    let configured_key = push_broker_public_key(config.broker_public_key) ?
+    let raw_material = case Host.push_get_token(Bytes.from_utf8("expo/raw/v1")) do
+      Err( _) -> Err("push_material_unavailable")
+      Ok( value) -> Ok(value)
+    end ?
+    let epoch = next_push_action_epoch(state.action_epoch) ?
+    let bind_state = % { state | action_epoch : epoch, action_kind : 3 }
+    let wire = prepare_new_push_bind(MobilePayloadRequest {
+      database_path : request.database_path,
+      payload : config.project_id
+    },
+    profile,
+    wrapping_key,
+    bind_state,
+    project_id,
+    configured_key,
+    endpoint,
+    raw_material) ?
+    if Bytes.length(wire) == 0 do
+      store_push_action(request.database_path,
+      profile,
+      wrapping_key,
+      % { state | action_epoch : epoch, action_kind : 0, target_mode : 1 })
+    else
+      encode_push_action(3, 0, epoch, wire)
+    end
+  else if state.action_kind == 3 do
+    let _ = matching_native_push_config(state) ?
+    store_push_action(request.database_path,
+    profile,
+    wrapping_key,
+    % { state | pending_kind : 0, pending_wire : Bytes.empty(), action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 0, target_mode : 1 })
+  else if state.action_kind == 4 do
+    store_push_action(request.database_path,
+    profile,
+    wrapping_key,
+    % { state | pending_kind : 0, pending_wire : Bytes.empty(), action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 5 })
+  else if state.target_mode == 1 do
+    store_push_action(request.database_path,
+    profile,
+    wrapping_key,
+    % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 1 })
+  else
+    store_push_action(request.database_path,
+    profile,
+    wrapping_key,
+    % { state | action_epoch : next_push_action_epoch(state.action_epoch) ?, action_kind : 0, target_mode : 0, project_id : Bytes.empty(), broker_public_key : Bytes.empty() })
+  end
+end
+
+fn complete_push_action(request :: MobilePushActionCompletion) -> Bytes ! String do
+  complete_push_action_with_config(request, expo_push_endpoint())
 end
 
 fn push_status(database_path :: String) -> Bytes ! String do
@@ -5286,15 +5854,7 @@ fn push_status(database_path :: String) -> Bytes ! String do
     let profile = parse_profile(load_profile(database_path) ?) ?
     let wrapping_key = platform_key() ?
     let state = load_push_state(database_path, profile, wrapping_key) ?
-    if state.pending_kind == 1 do
-      Ok(Bytes.from_utf8("pending-bind"))
-    else if state.pending_kind == 2 do
-      Ok(Bytes.from_utf8("pending-unbind"))
-    else if state.mode == 1 do
-      Ok(Bytes.from_utf8("enabled"))
-    else
-      Ok(Bytes.from_utf8("disabled"))
-    end
+    Ok(push_status_bytes(state))
   end
 end
 
@@ -7485,16 +8045,16 @@ end
   update_conversation(parse_policy_request(request) ?)
 end
 
-@ export("mesh_messenger_push_bind_prepare")pub fn push_bind_prepare_export(request :: Bytes) -> Bytes ! String do
-  prepare_push_bind(parse_push_bind_request(request) ?)
+@ export("mesh_messenger_push_intent")pub fn push_intent_export(request :: Bytes) -> Bytes ! String do
+  push_intent(parse_push_intent_request(request) ?)
 end
 
-@ export("mesh_messenger_push_unbind_prepare")pub fn push_unbind_prepare_export(request :: Bytes) -> Bytes ! String do
-  prepare_push_unbind(mobile_utf8(request, "invalid_database_path") ?)
+pub fn push_action_export(request :: Bytes) -> Bytes ! String do
+  push_action(mobile_utf8(request, "invalid_database_path") ?)
 end
 
-@ export("mesh_messenger_push_update_commit")pub fn push_update_commit_export(request :: Bytes) -> Bytes ! String do
-  commit_push_update(parse_payload_request(request) ?)
+@ export("mesh_messenger_push_action_complete")pub fn push_action_complete_export(request :: Bytes) -> Bytes ! String do
+  complete_push_action(parse_push_action_completion(request) ?)
 end
 
 @ export("mesh_messenger_push_status")pub fn push_status_export(request :: Bytes) -> Bytes ! String do

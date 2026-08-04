@@ -14,7 +14,8 @@ constexpr int32_t kPlatformFailure = 3;
 constexpr int32_t kOutputTooLarge = 4;
 constexpr int32_t kJavaFailure = 5;
 constexpr size_t kMaximumPushFrameLength = 4362;
-constexpr char kPushSelector[] = "expo/raw/v1";
+constexpr char kRawPushSelector[] = "expo/raw/v1";
+constexpr char kConfigPushSelector[] = "expo/config/v1";
 
 JavaVM *g_vm = nullptr;
 jclass g_store_class = nullptr;
@@ -23,6 +24,7 @@ jmethodID g_put = nullptr;
 jmethodID g_get = nullptr;
 jmethodID g_delete = nullptr;
 jmethodID g_consume_push_material = nullptr;
+jmethodID g_build_push_config = nullptr;
 std::mutex g_store_lock;
 
 JNIEnv *CurrentEnvironment(bool *attached) {
@@ -164,21 +166,27 @@ int32_t SecureStoreDelete(void *, const uint8_t *input, uint64_t input_length,
 int32_t PushGetToken(void *, const uint8_t *input, uint64_t input_length,
                      uint8_t *output, uint64_t output_capacity,
                      uint64_t *output_length) {
-  if (input == nullptr || output == nullptr || output_length == nullptr ||
-      input_length != sizeof(kPushSelector) - 1 ||
-      std::memcmp(input, kPushSelector, sizeof(kPushSelector) - 1) != 0) {
+  if (input == nullptr || output == nullptr || output_length == nullptr) {
     return kInvalidInput;
   }
   *output_length = 0;
+  bool consume = input_length == sizeof(kRawPushSelector) - 1 &&
+                 std::memcmp(input, kRawPushSelector,
+                             sizeof(kRawPushSelector) - 1) == 0;
+  bool read_config = input_length == sizeof(kConfigPushSelector) - 1 &&
+                     std::memcmp(input, kConfigPushSelector,
+                                 sizeof(kConfigPushSelector) - 1) == 0;
+  if (!consume && !read_config) return kInvalidInput;
   std::lock_guard<std::mutex> guard(g_store_lock);
-  if (g_push_class == nullptr || g_consume_push_material == nullptr) {
+  jmethodID method = consume ? g_consume_push_material : g_build_push_config;
+  if (g_push_class == nullptr || method == nullptr) {
     return kPlatformFailure;
   }
   bool attached;
   JNIEnv *environment = CurrentEnvironment(&attached);
   if (environment == nullptr) return kPlatformFailure;
   auto result = static_cast<jbyteArray>(environment->CallStaticObjectMethod(
-      g_push_class, g_consume_push_material));
+      g_push_class, method));
   int32_t java_status = JavaStatus(environment);
   if (java_status != MESH_LIBRARY_OK) {
     ReleaseEnvironment(attached);
@@ -205,7 +213,7 @@ int32_t PushGetToken(void *, const uint8_t *input, uint64_t input_length,
     }
   }
 
-  if (result_length > 0) {
+  if (consume && result_length > 0) {
     int32_t zero_status = ZeroByteArray(environment, result, result_length);
     if (status == MESH_LIBRARY_OK && zero_status != MESH_LIBRARY_OK) {
       *output_length = 0;
@@ -226,6 +234,7 @@ void ClearStore(JNIEnv *environment) {
   g_get = nullptr;
   g_delete = nullptr;
   g_consume_push_material = nullptr;
+  g_build_push_config = nullptr;
 }
 }  // namespace
 
@@ -271,7 +280,9 @@ Java_expo_modules_meshmessenger_MeshMessengerHost_registerHostCallbacks(
   }
   g_consume_push_material =
       environment->GetStaticMethodID(g_push_class, "consume", "()[B");
-  if (g_consume_push_material == nullptr) {
+  g_build_push_config =
+      environment->GetStaticMethodID(g_push_class, "buildConfig", "()[B");
+  if (g_consume_push_material == nullptr || g_build_push_config == nullptr) {
     environment->ExceptionClear();
     ClearStore(environment);
     return kJavaFailure;

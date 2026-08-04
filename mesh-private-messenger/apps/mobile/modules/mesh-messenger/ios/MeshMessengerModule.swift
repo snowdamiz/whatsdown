@@ -105,12 +105,10 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.receive_message_export(request)
       case "mesh_messenger_update_conversation":
         return try MeshLibrary.update_conversation_export(request)
-      case "mesh_messenger_push_bind_prepare":
-        return try MeshLibrary.push_bind_prepare_export(request)
-      case "mesh_messenger_push_unbind_prepare":
-        return try MeshLibrary.push_unbind_prepare_export(request)
-      case "mesh_messenger_push_update_commit":
-        return try MeshLibrary.push_update_commit_export(request)
+      case "mesh_messenger_push_intent":
+        return try MeshLibrary.push_intent_export(request)
+      case "mesh_messenger_push_action_complete":
+        return try MeshLibrary.push_action_complete_export(request)
       case "mesh_messenger_push_status":
         return try MeshLibrary.push_status_export(request)
       case "mesh_messenger_list_conversations":

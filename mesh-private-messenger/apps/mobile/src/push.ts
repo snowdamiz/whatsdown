@@ -5,33 +5,24 @@ import {
   clearPushToken,
   onPushRegistrationChanged,
   primePushToken,
-  push_bind_prepare_export,
+  push_action_complete_export,
+  push_intent_export,
   push_status_export,
-  push_unbind_prepare_export,
-  push_update_commit_export,
 } from '../modules/mesh-messenger';
 import { decodeUtf8, utf8, vectors } from './codec';
 import {
-  coordinatePush,
-  type PushFlowOperations,
-  type PushIntent,
+  executePushActions,
+  type PushActionOperations,
   type PushStatus,
-} from './push-coordinator';
+} from './push-action-executor';
 import { submitPushBind, submitPushUnbind } from './network';
 
 import { isGenericWakeupContent } from './push-policy';
-import { createKeyedSingleFlight } from './single-flight';
+import { createKeyedSerialQueue } from './single-flight';
 
-const expoProjectIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const coordinateByDatabase = createKeyedSingleFlight<string, PushStatus>();
+export type { PushStatus } from './push-action-executor';
 
-function expoProjectId(): string {
-  const projectId = process.env.EXPO_PUBLIC_MESSENGER_EXPO_PROJECT_ID;
-  if (!projectId || !expoProjectIdPattern.test(projectId)) {
-    throw new Error('EXPO_PUBLIC_MESSENGER_EXPO_PROJECT_ID must be a lowercase UUID');
-  }
-  return projectId;
-}
+const coordinateByDatabase = createKeyedSerialQueue<string>();
 
 async function requestNotificationPermission(): Promise<void> {
   if (Platform.OS === 'android') {
@@ -57,47 +48,39 @@ export async function getPushStatus(databasePath: string): Promise<PushStatus> {
   return status;
 }
 
-function pushOperations(databasePath: string, projectId?: string): PushFlowOperations {
+function pushOperations(
+  databasePath: string,
+  intent: 0 | 1 | 2,
+): PushActionOperations {
   return {
+    poll: () => push_intent_export(vectors(utf8(databasePath), Uint8Array.of(intent))),
+    complete: (action, outcome) =>
+      push_action_complete_export(
+        vectors(utf8(databasePath), action, Uint8Array.of(outcome)),
+      ),
     requestPermission: requestNotificationPermission,
     prime: primePushToken,
     clear: clearPushToken,
-    prepareBind: () =>
-      push_bind_prepare_export(vectors(utf8(databasePath), utf8(projectId ?? ''))),
-    prepareUnbind: () => push_unbind_prepare_export(utf8(databasePath)),
     sendBind: submitPushBind,
     sendUnbind: submitPushUnbind,
-    commit: async (wire) => {
-      await push_update_commit_export(vectors(utf8(databasePath), wire));
-    },
   };
 }
 
-function runPushIntent(databasePath: string, intent: PushIntent): Promise<PushStatus> {
-  return coordinateByDatabase(databasePath, async () => {
-    const status = await getPushStatus(databasePath);
-    const needsProjectId =
-      intent === 'enable' || (intent === 'recover' && status === 'enabled');
-    await coordinatePush(
-      status,
-      intent,
-      pushOperations(databasePath, needsProjectId ? expoProjectId() : undefined),
-    );
-    return getPushStatus(databasePath);
-  });
+function runPushIntent(databasePath: string, intent: 0 | 1 | 2): Promise<PushStatus> {
+  return coordinateByDatabase(databasePath, () => executePushActions(pushOperations(databasePath, intent)));
 }
 
 export const recoverPushBinding = (databasePath: string): Promise<PushStatus> =>
-  runPushIntent(databasePath, 'recover');
+  runPushIntent(databasePath, 0);
 
 export async function enablePushBinding(databasePath: string): Promise<PushStatus> {
-  const status = await runPushIntent(databasePath, 'enable');
+  const status = await runPushIntent(databasePath, 1);
   if (status !== 'enabled') throw new Error('Mesh push binding did not converge to enabled');
   return status;
 }
 
 export async function disablePushBinding(databasePath: string): Promise<PushStatus> {
-  const status = await runPushIntent(databasePath, 'disable');
+  const status = await runPushIntent(databasePath, 2);
   if (status !== 'disabled') throw new Error('Mesh push binding did not converge to disabled');
   return status;
 }

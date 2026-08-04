@@ -84,6 +84,12 @@ prove_bridge() {
   grep -q 'AES/GCM/NoPadding' \
     "$module_dir/android/src/main/java/expo/modules/meshmessenger/MeshMessengerSecureStore.kt" || \
     fail "Android adapter does not authenticate encrypted values"
+  grep -Fq 'stringWithFormat:@"1\n%@\n%@"' \
+    "$module_dir/ios/MeshMessengerSecureStore.m" || \
+    fail "iOS adapter does not marshal the versioned signed push config frame"
+  grep -Fq '"1\n${projectID.orEmpty()}\n${brokerPublicKeyHex.orEmpty()}"' \
+    "$module_dir/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt" || \
+    fail "Android adapter does not marshal the versioned signed push config frame"
   [[ -f "$module_dir/ios/MeshMessenger.podspec" ]] || fail "iOS module descriptor is missing"
   [[ -f "$module_dir/android/build.gradle" ]] || fail "Android module descriptor is missing"
   [[ -f "$module_dir/android/src/main/cpp/CMakeLists.txt" ]] || fail "Android native build is missing"

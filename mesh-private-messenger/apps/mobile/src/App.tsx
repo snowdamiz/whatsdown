@@ -77,8 +77,8 @@ import {
   listenForGenericWakeups,
   listenForPushRegistrationChanges,
   recoverPushBinding,
+  type PushStatus,
 } from './push';
-import type { PushStatus } from './push-coordinator';
 import { databasePath } from './storage';
 
 const colors = {
@@ -736,9 +736,13 @@ export default function App() {
               <View style={styles.newContactPanel}>
                 <Text style={styles.panelKicker}>GENERIC NOTIFICATIONS</Text>
                 <Text accessibilityRole="header" style={styles.panelTitle}>
-                  {pushStatus === 'enabled' || pushStatus === 'pending-bind'
+                  {pushStatus === 'enabled'
                     ? 'Enabled'
-                    : 'No-push mode'}
+                    : pushStatus === 'pending-bind'
+                      ? 'Enabling notifications…'
+                    : pushStatus === 'pending-unbind'
+                      ? 'Disabling notifications…'
+                      : 'No-push mode'}
                 </Text>
                 <Text style={styles.bodyCopy}>
                   No-push mode never requests notification permission or registers this device. When
@@ -749,21 +753,25 @@ export default function App() {
                   label={
                     pushStatus === 'enabled' || pushStatus === 'pending-bind'
                       ? 'Use no-push mode'
-                      : 'Enable generic notifications'
+                      : pushStatus === 'pending-unbind'
+                        ? 'Retry notification cleanup'
+                        : 'Enable generic notifications'
                   }
                   onPress={() =>
-                    void updatePush(() =>
-                      pushStatus === 'enabled' || pushStatus === 'pending-bind'
-                        ? disablePushBinding(databasePath)
-                        : enablePushBinding(databasePath),
-                    )
+                    void updatePush(() => {
+                      if (pushStatus === 'pending-unbind') {
+                        return recoverPushBinding(databasePath);
+                      }
+                      if (pushStatus !== 'disabled') return disablePushBinding(databasePath);
+                      return enablePushBinding(databasePath);
+                    })
                   }
                 />
                 {pushStatus === 'pending-bind' ? (
                   <StatusNotice text="Notification enablement will finish when the broker is reachable." />
                 ) : null}
                 {pushStatus === 'pending-unbind' ? (
-                  <StatusNotice text="No-push mode is active; broker removal will retry when connected." />
+                  <StatusNotice text="Notification cleanup is pending and will retry until local token removal and broker unbinding both finish." />
                 ) : null}
                 {pushError ? <StatusNotice error text={pushError} /> : null}
               </View>

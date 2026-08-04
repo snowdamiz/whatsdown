@@ -8,7 +8,12 @@
 #import "libmessenger_mobile.h"
 
 static NSString *const MeshMessengerKeychainService = @"app.whatsdown.mesh";
-static const uint8_t MeshMessengerPushSelector[] = "expo/raw/v1";
+static NSString *const MeshMessengerExpoProjectIDKey =
+    @"MeshMessengerExpoProjectID";
+static NSString *const MeshMessengerPushBrokerPublicKeyHexKey =
+    @"MeshMessengerPushBrokerPublicKeyHex";
+static const uint8_t MeshMessengerRawPushSelector[] = "expo/raw/v1";
+static const uint8_t MeshMessengerConfigPushSelector[] = "expo/config/v1";
 static const uint64_t MeshMessengerMaximumApplicationIDLength = 255;
 static const uint64_t MeshMessengerMaximumPushTokenLength = 4096;
 static const uint64_t MeshMessengerMaximumPushFrameLength = 4362;
@@ -166,12 +171,45 @@ static int32_t MeshMessengerPushGetToken(void *context, const uint8_t *input,
                                          uint64_t outputCapacity,
                                          uint64_t *outputLength) {
   (void)context;
-  if (input == NULL || output == NULL || outputLength == NULL ||
-      inputLength != sizeof(MeshMessengerPushSelector) - 1 ||
-      memcmp(input, MeshMessengerPushSelector, inputLength) != 0) {
+  if (input == NULL || output == NULL || outputLength == NULL) {
     return MeshMessengerSecureStoreInvalidInput;
   }
   *outputLength = 0;
+
+  bool rawSelector = inputLength == sizeof(MeshMessengerRawPushSelector) - 1 &&
+                     memcmp(input, MeshMessengerRawPushSelector, inputLength) ==
+                         0;
+  bool configSelector =
+      inputLength == sizeof(MeshMessengerConfigPushSelector) - 1 &&
+      memcmp(input, MeshMessengerConfigPushSelector, inputLength) == 0;
+  if (!rawSelector && !configSelector) {
+    return MeshMessengerSecureStoreInvalidInput;
+  }
+  if (configSelector) {
+    id projectValue =
+        [NSBundle.mainBundle objectForInfoDictionaryKey:MeshMessengerExpoProjectIDKey];
+    id brokerValue = [NSBundle.mainBundle
+        objectForInfoDictionaryKey:MeshMessengerPushBrokerPublicKeyHexKey];
+    if (projectValue == nil && brokerValue == nil) {
+      return MeshMessengerSecureStoreNotFound;
+    }
+    if ((projectValue != nil && ![projectValue isKindOfClass:NSString.class]) ||
+        (brokerValue != nil && ![brokerValue isKindOfClass:NSString.class])) {
+      return MeshMessengerSecureStorePlatformFailure;
+    }
+    NSString *frame = [NSString
+        stringWithFormat:@"1\n%@\n%@", projectValue ?: @"", brokerValue ?: @""];
+    NSData *data = [frame dataUsingEncoding:NSUTF8StringEncoding];
+    if (data == nil) {
+      return MeshMessengerSecureStorePlatformFailure;
+    }
+    if (data.length > outputCapacity) {
+      return MeshMessengerSecureStoreOutputTooLarge;
+    }
+    [data getBytes:output length:data.length];
+    *outputLength = data.length;
+    return MESH_LIBRARY_OK;
+  }
 
   os_unfair_lock_lock(&MeshMessengerPushLock);
   if (MeshMessengerPushFrameLength == 0) {

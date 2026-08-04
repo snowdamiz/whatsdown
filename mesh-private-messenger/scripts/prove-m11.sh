@@ -106,6 +106,19 @@ NODE
     "$messenger_module_dir/generated/libmessenger_mobile.ts" >/dev/null; then
     fail "a raw or provider push token crossed the TypeScript boundary"
   fi
+  if rg -n '\b(MESSENGER_EXPO_PROJECT_ID|MESSENGER_PUSH_BROKER_PUBLIC_KEY_HEX|MeshMessengerExpoProjectID|MeshMessengerPushBrokerPublicKeyHex|brokerPublicKey)\b|expo/config/v1' \
+    "$app_dir/src" "$messenger_module_dir/index.ts" \
+    "$messenger_module_dir/generated/libmessenger_mobile.ts" >/dev/null; then
+    fail "signed-native push configuration crossed or was selected by the TypeScript runtime"
+  fi
+  if rg -n 'EXPO_PUBLIC_MESSENGER_(EXPO_PROJECT_ID|PUSH_BROKER_PUBLIC_KEY_HEX)' \
+    "$app_dir" -g '!node_modules/**' >/dev/null; then
+    fail "push trust pins were exposed as Expo public environment variables"
+  fi
+  if rg -n '\bpush_action_export\b|mesh_messenger_push_action([^_[:alnum:]]|$)' \
+    "$messenger_module_dir" >/dev/null; then
+    fail "the unused direct push-action poll crossed the native/JavaScript ABI"
+  fi
   "$script_dir/prove-m10.sh"
   npm --prefix "$app_dir" test
   npm --prefix "$app_dir" run typecheck

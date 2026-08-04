@@ -210,3 +210,63 @@ endpoint :: String) -> Bytes ! String do
   end
   prepare_push_bind_with_config(request, configured_key, endpoint)
 end
+
+pub fn push_unbind_prepare_export(request :: Bytes) -> Bytes ! String do
+  prepare_push_unbind(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+pub fn push_update_commit_export(request :: Bytes) -> Bytes ! String do
+  commit_push_update(parse_payload_request(request) ?)
+end
+
+pub fn push_action_complete_with_test_config(input :: Bytes, endpoint :: String) -> Bytes ! String do
+  complete_push_action_with_config(parse_push_action_completion(input) ?, endpoint)
+end
+
+fn store_legacy_push_state_for_test(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+state :: MobilePushState) -> Bool ! String do
+  let encoded = mobile_join([mobile_byte(1) ?, Bytes.from_utf8("PBL"), mobile_write_u64(state.revision) ?, mobile_byte(state.mode) ?, state.wake_token_hash, state.provider_token_hash, mobile_byte(state.pending_kind) ?, mobile_vector(state.pending_wire) ?],
+  0,
+  Bytes.empty()) ?
+  let sealed = seal_local(encoded, wrapping_key, push_state_context(profile) ?) ?
+  store_updated_session(database_path, "push-binding/v1", sealed) ?
+  Ok(true)
+end
+
+pub fn install_legacy_disabled_push_state_for_test(database_path :: String) -> Bool ! String do
+  ensure_schema(database_path) ?
+  let profile = parse_profile(load_profile(database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_push_state(database_path, profile, wrapping_key) ?
+  store_legacy_push_state_for_test(database_path,
+  profile,
+  wrapping_key,
+  % { state | mode : 0, wake_token_hash : mobile_zeroes(32) ?, provider_token_hash : mobile_zeroes(32) ?, pending_kind : 0, pending_wire : Bytes.empty() })
+end
+
+pub fn install_legacy_enabled_push_state_for_test(database_path :: String) -> Bool ! String do
+  ensure_schema(database_path) ?
+  let profile = parse_profile(load_profile(database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_push_state(database_path, profile, wrapping_key) ?
+  if state.mode != 1 || state.pending_kind != 0 do
+    Err("push state is not stably enabled")
+  else
+    store_legacy_push_state_for_test(database_path, profile, wrapping_key, state)
+  end
+end
+
+pub fn install_legacy_pending_unbind_push_state_for_test(database_path :: String) -> Bool ! String do
+  ensure_schema(database_path) ?
+  let profile = parse_profile(load_profile(database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_push_state(database_path, profile, wrapping_key) ?
+  let revision = next_push_revision(state.revision) ?
+  let wire = signed_push_unbind(database_path, profile, wrapping_key, revision) ?
+  store_legacy_push_state_for_test(database_path,
+  profile,
+  wrapping_key,
+  % { state | revision : revision, mode : 0, wake_token_hash : mobile_zeroes(32) ?, provider_token_hash : mobile_zeroes(32) ?, pending_kind : 2, pending_wire : wire })
+end

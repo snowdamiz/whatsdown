@@ -14,3 +14,21 @@ export function createKeyedSingleFlight<Key, Value>() {
     return started;
   };
 }
+
+export function createKeyedSerialQueue<Key>() {
+  const tails = new Map<Key, Promise<void>>();
+
+  return <Value>(key: Key, operation: () => Promise<Value>): Promise<Value> => {
+    const previous = tails.get(key);
+    const started = previous ? previous.then(operation, operation) : Promise.resolve().then(operation);
+    const tail = started.then(
+      () => undefined,
+      () => undefined,
+    );
+    tails.set(key, tail);
+    tail.then(() => {
+      if (tails.get(key) === tail) tails.delete(key);
+    });
+    return started;
+  };
+}

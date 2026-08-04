@@ -74,9 +74,8 @@ int32_t mesh_messenger_group_inspect(const uint8_t *request, uint64_t request_le
 int32_t mesh_messenger_group_history(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_receive_message(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_update_conversation(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
-int32_t mesh_messenger_push_bind_prepare(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
-int32_t mesh_messenger_push_unbind_prepare(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
-int32_t mesh_messenger_push_update_commit(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_push_intent(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
+int32_t mesh_messenger_push_action_complete(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_push_status(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_list_conversations(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);
 int32_t mesh_messenger_load_history(const uint8_t *request, uint64_t request_len, MeshLibraryBytes *response);

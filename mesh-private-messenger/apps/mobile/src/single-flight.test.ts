@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createKeyedSingleFlight } from './single-flight.ts';
+import { createKeyedSerialQueue, createKeyedSingleFlight } from './single-flight.ts';
 
 test('coalesces a deferred publish and reconcile flow for one database', async () => {
   let deliverResponse: (response: string) => void = () => {
@@ -27,4 +27,31 @@ test('coalesces a deferred publish and reconcile flow for one database', async (
   deliverResponse('latest-ota');
   await Promise.all([first, concurrent]);
   assert.deepEqual(events, ['replenish', 'reconcile:latest-ota']);
+});
+
+test('serializes later work after an earlier operation rejects', async () => {
+  let rejectFirst: (error: Error) => void = () => {
+    throw new Error('Deferred rejection was not initialized');
+  };
+  const firstGate = new Promise<never>((_, reject) => {
+    rejectFirst = reject;
+  });
+  const events: string[] = [];
+  const serialQueue = createKeyedSerialQueue<string>();
+
+  const first = serialQueue('mobile.db', async () => {
+    events.push('recover:start');
+    await firstGate;
+  });
+  const second = serialQueue('mobile.db', async () => {
+    events.push('disable');
+    return 'disabled';
+  });
+
+  await Promise.resolve();
+  assert.deepEqual(events, ['recover:start']);
+  rejectFirst(new Error('recovery failed'));
+  await assert.rejects(first, /recovery failed/);
+  assert.equal(await second, 'disabled');
+  assert.deepEqual(events, ['recover:start', 'disable']);
 });

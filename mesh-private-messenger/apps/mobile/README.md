@@ -11,7 +11,8 @@ EXPO_PUBLIC_MESSENGER_ABUSE_DIFFICULTY=16 \
 EXPO_PUBLIC_MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX=SERVICE_PUBLIC_KEY \
 EXPO_PUBLIC_MESSENGER_WITNESS_A_PUBLIC_KEY_HEX=WITNESS_A_PUBLIC_KEY \
 EXPO_PUBLIC_MESSENGER_WITNESS_B_PUBLIC_KEY_HEX=WITNESS_B_PUBLIC_KEY \
-EXPO_PUBLIC_MESSENGER_EXPO_PROJECT_ID=YOUR_EAS_PROJECT_UUID \
+MESSENGER_EXPO_PROJECT_ID=YOUR_EAS_PROJECT_UUID \
+MESSENGER_PUSH_BROKER_PUBLIC_KEY_HEX=PUSH_BROKER_X25519_PUBLIC_KEY \
 npm run ios
 ```
 
@@ -23,6 +24,7 @@ classical devices remain on suite `0x0001` until credential rotation. Suite
 [gate](../../protocol/hybrid-handshake-v1.md) is complete.
 Transparency and witness keys are required 32-byte lowercase hex build pins; directory responses fail closed when they are absent or do not match.
 The delivery X25519 key is also a required 32-byte lowercase hex build pin. Sends fail closed without the privacy-edge URL or a valid key. Abuse difficulty defaults to 16 and must stay between 1 and 24.
+Generic notification enablement requires the Expo project UUID and push-broker X25519 public key together. The broker key is a 32-byte lowercase-hex public build pin. Both non-public environment variables are provisioned into signed native resources during prebuild; they are not OTA JavaScript configuration. Missing, partial, or malformed build configuration fails before notification permission is requested. No-push startup recovery remains available when both pins are absent.
 
 Outbound session state, history, and the encrypted outbox commit atomically. Submission is at-least-once with server deduplication; only a durable 2xx response permits local acknowledgement. The iOS and Android bridges serialize native calls.
 

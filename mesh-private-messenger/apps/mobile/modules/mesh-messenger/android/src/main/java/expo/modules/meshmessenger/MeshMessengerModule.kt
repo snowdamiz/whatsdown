@@ -104,9 +104,8 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
                     "mesh_messenger_group_history" -> MeshLibrary.group_history_export(request)
                     "mesh_messenger_receive_message" -> MeshLibrary.receive_message_export(request)
                     "mesh_messenger_update_conversation" -> MeshLibrary.update_conversation_export(request)
-                    "mesh_messenger_push_bind_prepare" -> MeshLibrary.push_bind_prepare_export(request)
-                    "mesh_messenger_push_unbind_prepare" -> MeshLibrary.push_unbind_prepare_export(request)
-                    "mesh_messenger_push_update_commit" -> MeshLibrary.push_update_commit_export(request)
+                    "mesh_messenger_push_intent" -> MeshLibrary.push_intent_export(request)
+                    "mesh_messenger_push_action_complete" -> MeshLibrary.push_action_complete_export(request)
                     "mesh_messenger_push_status" -> MeshLibrary.push_status_export(request)
                     "mesh_messenger_list_conversations" -> MeshLibrary.list_conversations_export(request)
                     "mesh_messenger_load_history" -> MeshLibrary.load_history_export(request)
@@ -153,6 +152,7 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
         val context = appContext.reactContext
             ?: throw IllegalStateException("React context is unavailable")
         MeshMessengerSecureStore.install(context)
+        MeshMessengerPushMaterial.install(context)
         MeshLibrary.ensureInitialized()
         val status = MeshMessengerHost.registerHostCallbacks()
         check(status == 0) { "Host callback registration failed (status=$status)" }
@@ -184,10 +184,31 @@ internal object MeshMessengerHost {
 }
 
 internal object MeshMessengerPushMaterial {
+    private const val PROJECT_ID_METADATA = "app.whatsdown.mesh.EXPO_PROJECT_ID"
+    private const val BROKER_KEY_METADATA = "app.whatsdown.mesh.PUSH_BROKER_PUBLIC_KEY_HEX"
     private const val MAX_APPLICATION_ID_BYTES = 255
     private const val MAX_TOKEN_BYTES = 4096
     private const val MAX_FRAME_BYTES = 4362
     private var frame: ByteArray? = null
+    private var buildConfigFrame: ByteArray? = null
+    private var buildConfigLoaded = false
+
+    @Suppress("DEPRECATION")
+    @Synchronized
+    fun install(context: android.content.Context) {
+        if (buildConfigLoaded) return
+        val metadata = context.packageManager
+            .getApplicationInfo(context.packageName, android.content.pm.PackageManager.GET_META_DATA)
+            .metaData
+        val projectID = metadata?.get(PROJECT_ID_METADATA)?.toString()
+        val brokerPublicKeyHex = metadata?.get(BROKER_KEY_METADATA)?.toString()
+        buildConfigFrame = if (projectID == null && brokerPublicKeyHex == null) {
+            null
+        } else {
+            "1\n${projectID.orEmpty()}\n${brokerPublicKeyHex.orEmpty()}".toByteArray(Charsets.UTF_8)
+        }
+        buildConfigLoaded = true
+    }
 
     @Synchronized
     fun cache(applicationID: String, token: String): Boolean {
@@ -222,6 +243,10 @@ internal object MeshMessengerPushMaterial {
     @JvmStatic
     @Synchronized
     fun consume(): ByteArray? = frame.also { frame = null }
+
+    @JvmStatic
+    @Synchronized
+    fun buildConfig(): ByteArray? = buildConfigFrame?.clone()
 
     @Synchronized
     fun clear() {
