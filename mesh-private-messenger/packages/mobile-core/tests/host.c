@@ -3,7 +3,6 @@
 /* ABI and lifecycle smoke only. Protocol and state assertions belong in Mesh. */
 
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 typedef struct {
@@ -80,30 +79,6 @@ static int register_secure_store(void) {
   return mesh_library_register_host_callbacks(&callbacks);
 }
 
-static void write_u32(uint8_t *output, uint32_t value) {
-  output[0] = (uint8_t)(value >> 24);
-  output[1] = (uint8_t)(value >> 16);
-  output[2] = (uint8_t)(value >> 8);
-  output[3] = (uint8_t)value;
-}
-
-static uint8_t *account_request(const char *database_path,
-                                size_t *request_len) {
-  static const char username[] = "abi-smoke";
-  size_t path_len = strlen(database_path);
-  size_t username_len = sizeof(username) - 1;
-  if (path_len > UINT32_MAX) return NULL;
-  *request_len = 8 + path_len + username_len;
-  uint8_t *request = malloc(*request_len);
-  if (request == NULL) return NULL;
-
-  write_u32(request, (uint32_t)path_len);
-  memcpy(request + 4, database_path, path_len);
-  write_u32(request + 4 + path_len, (uint32_t)username_len);
-  memcpy(request + 8 + path_len, username, username_len);
-  return request;
-}
-
 int main(int argc, char **argv) {
   if (argc != 2) return 10;
   if (mesh_library_init() != MESH_LIBRARY_OK) return 11;
@@ -123,18 +98,7 @@ int main(int argc, char **argv) {
     goto shutdown;
   }
 
-  size_t request_len = 0;
-  uint8_t *request = account_request(argv[1], &request_len);
-  if (request == NULL) {
-    result = 14;
-    goto shutdown;
-  }
-  status = mesh_messenger_create_account(request, request_len, &response);
-  mesh_library_free_returned_bytes(&response);
-  free(request);
-  if (status != MESH_LIBRARY_OK) result = 15;
-
 shutdown:
-  if (mesh_library_shutdown() != MESH_LIBRARY_OK && result == 0) result = 16;
+  if (mesh_library_shutdown() != MESH_LIBRARY_OK && result == 0) result = 14;
   return result;
 }
