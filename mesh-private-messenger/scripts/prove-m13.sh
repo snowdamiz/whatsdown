@@ -93,6 +93,7 @@ wait_for_health() {
 }
 
 build_mobile_submission() {
+  "$meshc_bin" test "$mobile_dir/tests/transparency.test.mpl"
   MESSENGER_M13_SUBMISSION_PATH="$submission" \
     "$meshc_bin" test "$mobile_dir/tests/privacy_submission.test.mpl"
   [[ -s "$submission" ]] || fail "Mesh mobile privacy proof did not produce a submission"

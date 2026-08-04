@@ -547,6 +547,14 @@ The same public API used by tests and examples must be used in production.
 
 No undocumented key derivation, nonce generation, or fallback algorithm is allowed.
 
+## Rule 11: Native languages stop at the ABI boundary
+
+C, Swift, Kotlin, and Objective-C may implement generated bindings, platform callbacks,
+resource ownership, and runtime lifecycle mechanics. Messenger behavior, protocol/state
+assertions, storage semantics, and security proofs must be written in Mesh. When Mesh
+cannot express a required proof, extend Mesh with the smallest reusable capability instead
+of adding a native-language behavioral fallback.
+
 ---
 
 # 8. Product Concept
