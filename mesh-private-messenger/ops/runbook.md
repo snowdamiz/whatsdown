@@ -14,9 +14,9 @@ Never place signing seeds, mailbox capabilities, envelope IDs, account IDs, devi
 
 ## Push delivery adapter
 
-Push wake-up delivery currently uses a local fake adapter for integration testing. It does not register with or send to APNs, FCM, or another production provider. Set `MESSENGER_LOCAL_FAKE_PUSH_AVAILABLE=false` to simulate a retryable provider outage; the default is available.
+Push is disabled by default. Use `MESSENGER_PUSH_MODE=local-fake` only for integration tests; set `MESSENGER_LOCAL_FAKE_PUSH_AVAILABLE=false` to simulate a retryable provider outage. Production deployments use `MESSENGER_PUSH_MODE=broker` with `MESSENGER_PUSH_BROKER_URL` and the matching `MESSENGER_PUSH_BROKER_INTERNAL_TOKEN`. Operate the broker as documented in [`../services/push-broker/README.md`](../services/push-broker/README.md), and distribute only the public key derived from its secret X25519 seed to mobile clients.
 
-Every fake push contains only the generic body `New encrypted activity` and the data field `kind=encrypted-wakeup`. Do not add usernames, mailbox identifiers, envelope identifiers, senders, or message content. Production provider registration and adapters require a later implementation slice before release.
+Both adapters send only the generic body `New encrypted activity` and the data field `kind=encrypted-wakeup`. Do not add usernames, mailbox identifiers, envelope identifiers, senders, or message content. Keep the broker endpoint private and treat a `204` response as durable queue acceptance, not provider delivery.
 
 ## One-time prekey pools
 
