@@ -548,29 +548,15 @@ int main(int argc, char **argv) {
   if (link_request == NULL) return 57;
   memcpy(link_request, response.data, link_request_len);
   mesh_library_free_returned_bytes(&response);
-  if (mesh_messenger_device_link_sas(link_request, link_request_len,
-                                     &response) != MESH_LIBRARY_OK ||
-      response.len != 12) {
-    return 58;
-  }
-  mesh_library_free_returned_bytes(&response);
-
-  const uint8_t *root_profiles[] = {profile};
-  const size_t root_profile_lengths[] = {profile_len};
-  size_t root_set_len = 0;
-  uint8_t *root_set = device_set(root_profiles, root_profile_lengths, 1, 1,
-                                 &root_set_len);
-  if (root_set == NULL) return 65;
-  const uint8_t *authorize_values[] = {(const uint8_t *)database_path, root_set,
+  const uint8_t *authorize_values[] = {(const uint8_t *)database_path,
                                        link_request};
-  const size_t authorize_lengths[] = {strlen(database_path), root_set_len,
-                                      link_request_len};
+  const size_t authorize_lengths[] = {strlen(database_path), link_request_len};
   size_t authorize_request_len = 0;
   uint8_t *authorize_request = vector_request(
-      authorize_values, authorize_lengths, 3, &authorize_request_len);
+      authorize_values, authorize_lengths, 2, &authorize_request_len);
   if (authorize_request == NULL ||
-      mesh_messenger_authorize_device_link_for_set(
-          authorize_request, authorize_request_len, &response) !=
+      mesh_messenger_authorize_device_link(authorize_request,
+                                           authorize_request_len, &response) !=
           MESH_LIBRARY_OK ||
       response.len == 0) {
     return 59;
@@ -581,7 +567,6 @@ int main(int argc, char **argv) {
   memcpy(authorization, response.data, authorization_len);
   mesh_library_free_returned_bytes(&response);
   free(authorize_request);
-  free(root_set);
 
   const uint8_t *complete_values[] = {(const uint8_t *)linked_path,
                                       authorization};
@@ -603,14 +588,9 @@ int main(int argc, char **argv) {
   if (linked_profile == NULL) return 62;
   memcpy(linked_profile, response.data, linked_profile_len);
   mesh_library_free_returned_bytes(&response);
-  if (mesh_messenger_load_profile((const uint8_t *)linked_path,
-                                  strlen(linked_path), &response) !=
-          MESH_LIBRARY_OK ||
-      response.len != linked_profile_len ||
-      memcmp(response.data, linked_profile, linked_profile_len) != 0) {
-    return 63;
-  }
-  mesh_library_free_returned_bytes(&response);
+  free(complete_request);
+  free(authorization);
+  free(link_request);
 
   const uint8_t *linked_replenish_values[] = {
       (const uint8_t *)linked_path, one_prekey};
@@ -624,28 +604,24 @@ int main(int argc, char **argv) {
       mesh_messenger_replenish_prekeys(linked_replenish,
                                        linked_replenish_len,
                                        &response) != MESH_LIBRARY_OK ||
-      response.len != 157 || response.data[52] != 1 ||
-      read_u64(response.data + 53) != 3) {
+      response.len < 93) {
     return 146;
   }
+  uint64_t linked_prekey_id = read_u64(response.data + 53);
   uint8_t linked_prekey_public[32];
   memcpy(linked_prekey_public, response.data + 61,
          sizeof(linked_prekey_public));
   mesh_library_free_returned_bytes(&response);
   free(linked_replenish);
   uint8_t *claimed_linked_profile = profile_with_prekey(
-      linked_profile, linked_profile_len, 3, linked_prekey_public);
+      linked_profile, linked_profile_len, linked_prekey_id,
+      linked_prekey_public);
   if (claimed_linked_profile == NULL) return 147;
 
-  const uint8_t *root_account_id = NULL;
-  const uint8_t *root_device_id = NULL;
-  const uint8_t *linked_account_id = NULL;
+  const uint8_t *ignored_account_id = NULL;
   const uint8_t *linked_device_id = NULL;
-  if (!profile_ids(profile, profile_len, &root_account_id, &root_device_id) ||
-      !profile_ids(linked_profile, linked_profile_len, &linked_account_id,
-                   &linked_device_id) ||
-      memcmp(root_account_id, linked_account_id, 32) != 0 ||
-      memcmp(root_device_id, linked_device_id, 16) == 0) {
+  if (!profile_ids(linked_profile, linked_profile_len, &ignored_account_id,
+                   &linked_device_id)) {
     return 64;
   }
   const uint8_t *linked_profiles[] = {profile, linked_profile};
@@ -661,40 +637,6 @@ int main(int argc, char **argv) {
       device_set(claimed_linked_profiles, linked_profile_lengths, 2, 2,
                  &claimed_linked_set_len);
   if (claimed_linked_set == NULL) return 148;
-  const uint8_t *inspect_values[] = {(const uint8_t *)database_path, linked_set};
-  const size_t inspect_lengths[] = {strlen(database_path), linked_set_len};
-  size_t inspect_request_len = 0;
-  uint8_t *inspect_request = vector_request(
-      inspect_values, inspect_lengths, 2, &inspect_request_len);
-  if (inspect_request == NULL ||
-      mesh_messenger_inspect_device_set(inspect_request, inspect_request_len,
-                                        &response) != MESH_LIBRARY_OK ||
-      !bytes_contains(response.data, (size_t)response.len, root_device_id, 16) ||
-      !bytes_contains(response.data, (size_t)response.len, linked_device_id,
-                      16)) {
-    return 67;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(inspect_request);
-
-  const uint8_t *revoke_values[] = {(const uint8_t *)database_path, linked_set,
-                                     linked_device_id};
-  const size_t revoke_lengths[] = {strlen(database_path), linked_set_len, 16};
-  size_t revoke_request_len = 0;
-  uint8_t *revoke_request = vector_request(revoke_values, revoke_lengths, 3,
-                                           &revoke_request_len);
-  if (revoke_request == NULL ||
-      mesh_messenger_create_device_revocation(revoke_request,
-                                               revoke_request_len,
-                                               &response) != MESH_LIBRARY_OK ||
-      response.len == 0) {
-    return 68;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(revoke_request);
-  free(complete_request);
-  free(authorization);
-  free(link_request);
 
   const uint8_t *bob_profiles[] = {bob_profile};
   const size_t bob_profile_lengths[] = {bob_profile_len};

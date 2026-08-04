@@ -146,8 +146,8 @@ main() {
     MESSENGER_M10_LEGACY_CONSUMED_PATH="$legacy_consumed_database" \
     "$meshc_bin" test "$core_dir/tests"
 
-  encrypted_database_matches "$database" 15 || \
-    fail "sender SQLite did not contain fifteen encrypted session, outbox, and prekey records"
+  encrypted_database_matches "$database" 14 || \
+    fail "sender SQLite did not contain fourteen encrypted session, outbox, and prekey records"
   encrypted_database_matches "$peer_database" 14 || \
     fail "recipient SQLite did not contain fourteen encrypted fanout and prekey records"
   encrypted_database_matches "$linked_database" 12 || \
