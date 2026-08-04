@@ -12,6 +12,9 @@ permissions:
 
 env:
   MESH_LANG_REVISION: a36c9ceffed5d04e82629cc5787efea53b1f3c87
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -86,7 +89,7 @@ jobs:
           cargo test -p mesh-parser --lib --locked
           cargo test -p mesh-typeck --lib --locked
           cargo test -p mesh-codegen --lib --locked
-          cargo build --workspace --locked
+          cargo build --locked -p meshc -p mesh-rt -p mesh-test-rt
 
       - name: Verify Mesh messenger packages
         timeout-minutes: 20
