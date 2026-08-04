@@ -61,6 +61,9 @@ plaintext bytes; a backup has at most 256 chunks and 16 MiB plaintext. Wrong
 keys, changed manifests, reordered chunks, truncation, oversized vectors, and
 trailing bytes fail closed.
 
+A maximum plaintext chunk seals to 65,552 ciphertext bytes, and its complete
+`BCH` wrapper is therefore at most 65,608 bytes.
+
 The snapshot hash is checked only after every authenticated chunk has been
 reassembled. A successful cryptographic restore does not itself recover account
 access or authorize a new device; those are separate product operations.

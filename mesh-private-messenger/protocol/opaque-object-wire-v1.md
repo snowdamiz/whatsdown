@@ -69,7 +69,7 @@ GET /v1/objects/{object_id}/parts/{part_index}
 X-Object-Capability: {64 lowercase hex characters}
 ```
 
-`PUT` uses the upload capability and a raw binary body of 1 through 65,576 bytes. The sum of all unique parts cannot exceed 16,777,216 bytes. The first accepted body returns `201`; replaying the exact body returns `200`; replaying the same index with different bytes returns `409`. Oversized parts or totals return `413`.
+`PUT` uses the upload capability and a raw binary body of 1 through 65,608 bytes. The sum of all unique parts cannot exceed 16,795,830 bytes. This is the exact shared maximum required by the current encodings: `182 + (256 × 65,608) = 16,795,830` for one encrypted backup manifest and 256 maximum-size encrypted backup chunks. The corresponding maximum attachment object is `514 + (256 × 65,576) = 16,787,970` bytes, so it fits below the same bounded ceiling. The first accepted body returns `201`; replaying the exact body returns `200`; replaying the same index with different bytes returns `409`. Oversized parts or totals return `413`.
 
 `GET` uses the download capability and returns the exact raw binary part only after completion. Capability failure returns `403`. Part hashes and file lengths are checked before bytes are returned.
 

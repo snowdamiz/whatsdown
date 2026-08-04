@@ -34,7 +34,7 @@ object_identifier:32
 chunk_size:u32 (1..65,536)
 chunk_count:u32 (1..256)
 plaintext_size:u32
-expires_at:u64
+expires_at:u64 (Unix milliseconds)
 filename:vector (at most 255 bytes)
 mime_type:vector (1..127 bytes)
 ```
@@ -45,6 +45,11 @@ canonical nonzero size. The maximum plaintext attachment is 16 MiB; increasing
 that ceiling requires streaming host I/O rather than actor-mailbox byte values.
 
 The maximum encoded plaintext manifest is 446 bytes.
+
+`expires_at` is an absolute Unix timestamp in milliseconds. When the encrypted
+attachment is uploaded through opaque object wire v1, the object grant's
+`OGR.expires_at` must equal this manifest value exactly; clients must not round,
+truncate, extend, or otherwise substitute the storage expiry.
 
 ## Encrypted manifest (`EAM`)
 

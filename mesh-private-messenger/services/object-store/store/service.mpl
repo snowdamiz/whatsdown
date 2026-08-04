@@ -22,6 +22,14 @@ struct PartRecord do
   content_hash :: Bytes
 end
 
+fn maximum_part_bytes() -> Int do
+  65608
+end
+
+fn maximum_object_bytes() -> Int do
+  16795830
+end
+
 fn response(status :: Int, body :: Bytes) -> ObjectResult do
   ObjectResult {
     status : status,
@@ -64,18 +72,103 @@ fn begin_immediate(database :: SqliteConn) -> Result <(), String > do
   end
 end
 
-fn schema(database :: SqliteConn) -> Result <(), String > do
-  let _ = Sqlite.execute(database, "PRAGMA journal_mode = WAL", []) ?
+fn create_current_tables(database :: SqliteConn) -> Result <(), String > do
   let _ = Sqlite.execute(database,
-  "CREATE TABLE IF NOT EXISTS objects (object_id BLOB PRIMARY KEY CHECK(typeof(object_id) = 'blob' AND length(object_id) = 32), grant_hash BLOB NOT NULL UNIQUE CHECK(typeof(grant_hash) = 'blob' AND length(grant_hash) = 32), upload_hash BLOB NOT NULL CHECK(typeof(upload_hash) = 'blob' AND length(upload_hash) = 32), download_hash BLOB NOT NULL CHECK(typeof(download_hash) = 'blob' AND length(download_hash) = 32), part_count INTEGER NOT NULL CHECK(part_count BETWEEN 1 AND 257), total_bytes INTEGER NOT NULL DEFAULT 0 CHECK(total_bytes BETWEEN 0 AND 16777216), expires_at INTEGER NOT NULL CHECK(expires_at >= 0), completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1))) STRICT",
+  "CREATE TABLE IF NOT EXISTS objects (object_id BLOB PRIMARY KEY CHECK(typeof(object_id) = 'blob' AND length(object_id) = 32), grant_hash BLOB NOT NULL UNIQUE CHECK(typeof(grant_hash) = 'blob' AND length(grant_hash) = 32), upload_hash BLOB NOT NULL CHECK(typeof(upload_hash) = 'blob' AND length(upload_hash) = 32), download_hash BLOB NOT NULL CHECK(typeof(download_hash) = 'blob' AND length(download_hash) = 32), part_count INTEGER NOT NULL CHECK(part_count BETWEEN 1 AND 257), total_bytes INTEGER NOT NULL DEFAULT 0 CHECK(total_bytes BETWEEN 0 AND 16795830), expires_at INTEGER NOT NULL CHECK(expires_at >= 0), completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1))) STRICT",
   []) ?
   let _ = Sqlite.execute(database,
-  "CREATE TABLE IF NOT EXISTS object_parts (object_id BLOB NOT NULL CHECK(typeof(object_id) = 'blob' AND length(object_id) = 32), part_index INTEGER NOT NULL CHECK(part_index BETWEEN 0 AND 256), size INTEGER NOT NULL CHECK(size BETWEEN 1 AND 65576), content_hash BLOB NOT NULL CHECK(typeof(content_hash) = 'blob' AND length(content_hash) = 32), PRIMARY KEY (object_id, part_index), FOREIGN KEY (object_id) REFERENCES objects(object_id) ON DELETE CASCADE) STRICT",
+  "CREATE TABLE IF NOT EXISTS object_parts (object_id BLOB NOT NULL CHECK(typeof(object_id) = 'blob' AND length(object_id) = 32), part_index INTEGER NOT NULL CHECK(part_index BETWEEN 0 AND 256), size INTEGER NOT NULL CHECK(size BETWEEN 1 AND 65608), content_hash BLOB NOT NULL CHECK(typeof(content_hash) = 'blob' AND length(content_hash) = 32), PRIMARY KEY (object_id, part_index), FOREIGN KEY (object_id) REFERENCES objects(object_id) ON DELETE CASCADE) STRICT",
   []) ?
+  Ok(nil)
+end
+
+fn table_sql(database :: SqliteConn, table_name :: String) -> String ! String do
+  let rows = Sqlite.query_values(database,
+  "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+  [Text(table_name)]) ?
+  if List.length(rows) != 1 do
+    Err("invalid object metadata schema")
+  else
+    case Map.get(List.head(rows), "sql") do
+      Binary( _) -> Err("invalid object metadata schema")
+      Null -> Err("invalid object metadata schema")
+      Text( value) -> Ok(value)
+    end
+  end
+end
+
+fn ceiling_schema_version(database :: SqliteConn) -> Int ! String do
+  let objects = table_sql(database, "objects") ?
+  let parts = table_sql(database, "object_parts") ?
+  if String.contains(objects, "total_bytes BETWEEN 0 AND 16795830") && String.contains(parts,
+  "size BETWEEN 1 AND 65608") do
+    Ok(1)
+  else if String.contains(objects, "total_bytes BETWEEN 0 AND 16777216") && String.contains(parts,
+  "size BETWEEN 1 AND 65576") do
+    Ok(0)
+  else
+    Err("invalid object metadata schema")
+  end
+end
+
+fn migrate_legacy_ceiling_schema(database :: SqliteConn) -> Result <(), String > do
+  let _ = Sqlite.execute(database,
+  "CREATE TABLE objects_ceiling_migration (object_id BLOB PRIMARY KEY CHECK(typeof(object_id) = 'blob' AND length(object_id) = 32), grant_hash BLOB NOT NULL UNIQUE CHECK(typeof(grant_hash) = 'blob' AND length(grant_hash) = 32), upload_hash BLOB NOT NULL CHECK(typeof(upload_hash) = 'blob' AND length(upload_hash) = 32), download_hash BLOB NOT NULL CHECK(typeof(download_hash) = 'blob' AND length(download_hash) = 32), part_count INTEGER NOT NULL CHECK(part_count BETWEEN 1 AND 257), total_bytes INTEGER NOT NULL DEFAULT 0 CHECK(total_bytes BETWEEN 0 AND 16795830), expires_at INTEGER NOT NULL CHECK(expires_at >= 0), completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1))) STRICT",
+  []) ?
+  let _ = Sqlite.execute(database,
+  "CREATE TABLE object_parts_ceiling_migration (object_id BLOB NOT NULL CHECK(typeof(object_id) = 'blob' AND length(object_id) = 32), part_index INTEGER NOT NULL CHECK(part_index BETWEEN 0 AND 256), size INTEGER NOT NULL CHECK(size BETWEEN 1 AND 65608), content_hash BLOB NOT NULL CHECK(typeof(content_hash) = 'blob' AND length(content_hash) = 32), PRIMARY KEY (object_id, part_index), FOREIGN KEY (object_id) REFERENCES objects_ceiling_migration(object_id) ON DELETE CASCADE) STRICT",
+  []) ?
+  let _ = Sqlite.execute(database,
+  "INSERT INTO objects_ceiling_migration (object_id, grant_hash, upload_hash, download_hash, part_count, total_bytes, expires_at, completed) SELECT object_id, grant_hash, upload_hash, download_hash, part_count, total_bytes, expires_at, completed FROM objects",
+  []) ?
+  let _ = Sqlite.execute(database,
+  "INSERT INTO object_parts_ceiling_migration (object_id, part_index, size, content_hash) SELECT object_id, part_index, size, content_hash FROM object_parts",
+  []) ?
+  let _ = Sqlite.execute(database,
+  "ALTER TABLE object_parts RENAME TO object_parts_legacy_ceiling",
+  []) ?
+  let _ = Sqlite.execute(database, "ALTER TABLE objects RENAME TO objects_legacy_ceiling", []) ?
+  let _ = Sqlite.execute(database, "ALTER TABLE objects_ceiling_migration RENAME TO objects", []) ?
+  let _ = Sqlite.execute(database,
+  "ALTER TABLE object_parts_ceiling_migration RENAME TO object_parts",
+  []) ?
+  let _ = Sqlite.execute(database, "DROP TABLE object_parts_legacy_ceiling", []) ?
+  let _ = Sqlite.execute(database, "DROP TABLE objects_legacy_ceiling", []) ?
+  Ok(nil)
+end
+
+fn ensure_schema_in_transaction(database :: SqliteConn) -> Result <(), String > do
+  create_current_tables(database) ?
+  let version = ceiling_schema_version(database) ?
+  if version == 0 do
+    migrate_legacy_ceiling_schema(database) ?
+  else if version != 1 do
+    Err("invalid object metadata schema") ?
+  else
+    nil
+  end
   let _ = Sqlite.execute(database,
   "CREATE INDEX IF NOT EXISTS objects_expiry ON objects (expires_at, object_id)",
   []) ?
   Ok(nil)
+end
+
+fn schema(database :: SqliteConn) -> Result <(), String > do
+  let _ = Sqlite.execute(database, "PRAGMA journal_mode = WAL", []) ?
+  begin_immediate(database) ?
+  case ensure_schema_in_transaction(database) do
+    Err( error) -> do
+      let _ = Sqlite.rollback(database)
+      Err(error)
+    end
+    Ok( _) -> case Sqlite.commit(database) do
+      Err( error) -> do
+        let _ = Sqlite.rollback(database)
+        Err(error)
+      end
+      Ok( _) -> Ok(nil)
+    end
+  end
 end
 
 fn open_database(path :: String) -> SqliteConn ! String do
@@ -132,7 +225,7 @@ fn decode_object(row :: Map < String, DbValue >) -> ObjectRecord ! String do
     expires_at : integer_value(row, "expires_at") ?,
     completed : integer_value(row, "completed") ?
   }
-  if Bytes.length(value.object_id) != 32 || Bytes.length(value.upload_hash) != 32 || Bytes.length(value.download_hash) != 32 || value.part_count < 1 || value.part_count > 257 || value.total_bytes < 0 || value.total_bytes > 16777216 || value.expires_at < 0 || (value.completed != 0 && value.completed != 1) do
+  if Bytes.length(value.object_id) != 32 || Bytes.length(value.upload_hash) != 32 || Bytes.length(value.download_hash) != 32 || value.part_count < 1 || value.part_count > 257 || value.total_bytes < 0 || value.total_bytes > maximum_object_bytes() || value.expires_at < 0 || (value.completed != 0 && value.completed != 1) do
     Err("invalid object metadata")
   else
     Ok(value)
@@ -145,7 +238,7 @@ fn decode_part(row :: Map < String, DbValue >) -> PartRecord ! String do
     size : integer_value(row, "size") ?,
     content_hash : binary_value(row, "content_hash") ?
   }
-  if value.part_index < 0 || value.part_index > 256 || value.size < 1 || value.size > 65576 || Bytes.length(value.content_hash) != 32 do
+  if value.part_index < 0 || value.part_index > 256 || value.size < 1 || value.size > maximum_part_bytes() || Bytes.length(value.content_hash) != 32 do
     Err("invalid object metadata")
   else
     Ok(value)
@@ -200,7 +293,7 @@ end
 
 fn write_part_file(path :: String, body :: Bytes) -> Result <(), String > do
   let length = Bytes.length(body)
-  if length <= 0 || length > 65576 do
+  if length <= 0 || length > maximum_part_bytes() do
     Err("invalid object part size")
   else if length <= 65536 do
     File.write_bytes(path, 0, body, true)
@@ -225,7 +318,7 @@ fn append_part_tail(head :: Bytes, path :: String, expected_size :: Int) -> Opti
 end
 
 fn read_part_file(path :: String, expected_size :: Int) -> Option < Bytes > do
-  if expected_size > 0 && expected_size <= 65576 do
+  if expected_size > 0 && expected_size <= maximum_part_bytes() do
     if expected_size <= 65536 do
       case File.read_bytes(path, 0, expected_size) do
         Err( _) -> None
@@ -363,7 +456,7 @@ now :: Int) -> ObjectResult ! String do
             end
           end
         end
-        None -> if object.total_bytes + Bytes.length(body) > 16777216 do
+        None -> if object.total_bytes + Bytes.length(body) > maximum_object_bytes() do
           Ok(empty(413))
         else
           case write_part_file(path, body) do
@@ -378,7 +471,7 @@ now :: Int) -> ObjectResult ! String do
               let updated = case inserted do
                 Err( error) -> Err(error)
                 Ok( _) -> Sqlite.execute_values(database,
-                "UPDATE objects SET total_bytes = total_bytes + ? WHERE object_id = ? AND completed = 0 AND total_bytes + ? <= 16777216",
+                "UPDATE objects SET total_bytes = total_bytes + ? WHERE object_id = ? AND completed = 0 AND total_bytes + ? <= 16795830",
                 [Text(Int.to_string(Bytes.length(body))), Binary(object_id), Text(Int.to_string(Bytes.length(body)))])
               end
               case updated do
@@ -408,7 +501,7 @@ part_index :: Int,
 capability :: Bytes,
 body :: Bytes,
 now :: U64) -> ObjectResult do
-  if Bytes.length(body) <= 0 || Bytes.length(body) > 65576 do
+  if Bytes.length(body) <= 0 || Bytes.length(body) > maximum_part_bytes() do
     empty(413)
   else
     case validate_paths(database_path, root) do

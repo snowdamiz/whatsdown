@@ -110,6 +110,7 @@ jobs:
       - name: Verify service startup failures
         timeout-minutes: 5
         run: |
+          ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/object_store.test.mpl
           bash -n ../mesh-private-messenger/scripts/prove-service-startup.sh
           ../mesh-private-messenger/scripts/prove-service-startup.sh
 
