@@ -1,6 +1,6 @@
 from Identity.Device import AccountKeys, DeviceKeys, IdentityError, VerificationPolicy, generate_account, generate_device, issue_device_credential, issue_hybrid_device_credential
 from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle, ProtocolError, encode_initial_message, negotiate_suites
+from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle, ProtocolError, ProtocolExtension, decode_prekey_bundle, encode_initial_message, encode_prekey_bundle, negotiate_suites
 from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, decrypt, encrypt
 
@@ -103,6 +103,78 @@ fn zeroes(length :: Int) -> Bytes ! String do
   case Bytes.repeat(0, length) do
     Err( _) -> Err("zero bytes failed")
     Ok( value) -> Ok(value)
+  end
+end
+
+fn maximal_extensions(index :: Int, output :: List < ProtocolExtension >) -> List < ProtocolExtension > ! String do
+  if index >= 16 do
+    Ok(output)
+  else
+    maximal_extensions(index + 1,
+    List.append(output,
+    ProtocolExtension {
+      id : index + 1,
+      mandatory : false,
+      value : zeroes(1024) ?
+    }))
+  end
+end
+
+fn encoded_bundle(value :: PrekeyBundle) -> Bytes ! String do
+  case encode_prekey_bundle(value) do
+    Err( _) -> Err("prekey bundle encoding failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn decoded_bundle(value :: Bytes) -> PrekeyBundle ! String do
+  case decode_prekey_bundle(value) do
+    Err( _) -> Err("prekey bundle decoding failed")
+    Ok( decoded) -> Ok(decoded)
+  end
+end
+
+fn maximal_bundle_proof() -> Bool ! String do
+  let now = wide("1700000000000") ?
+  let expires = wide("1700604800000") ?
+  let ( account_keys, _) = account(now) ?
+  let device_keys = device() ?
+  let post_quantum = post_quantum_prekey() ?
+  let credential = hybrid_credential(account_keys, device_keys, post_quantum, now, expires) ?
+  let signed = signed_prekey(device_keys, credential, expires) ?
+  let one_time = one_time_prekey() ?
+  let bundle = hybrid_bundle(credential, signed, one_time, post_quantum) ?
+  let maximal = PrekeyBundle {
+    version : bundle.version,
+    suite : bundle.suite,
+    device_credential : bundle.device_credential,
+    identity_dh_public_key : bundle.identity_dh_public_key,
+    signing_public_key : bundle.signing_public_key,
+    signed_prekey_id : bundle.signed_prekey_id,
+    signed_prekey : bundle.signed_prekey,
+    signed_prekey_signature : bundle.signed_prekey_signature,
+    one_time_prekey_id : bundle.one_time_prekey_id,
+    one_time_prekey : bundle.one_time_prekey,
+    post_quantum_prekey : bundle.post_quantum_prekey,
+    supported_suites : bundle.supported_suites,
+    expires_at : bundle.expires_at,
+    extensions : maximal_extensions(0, List.new()) ?
+  }
+  let encoded = encoded_bundle(maximal) ?
+  assert(Bytes.length(encoded) == 19312)
+  let decoded = decoded_bundle(encoded) ?
+  assert(List.length(decoded.extensions) == 16)
+  assert(Bytes.secure_equals(encoded_bundle(decoded) ?, encoded))
+  Ok(true)
+end
+
+test("maximal hybrid prekey bundle round-trips at the canonical ceiling") do
+  case maximal_bundle_proof() do
+    Err( error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok( value) -> assert(value)
   end
 end
 

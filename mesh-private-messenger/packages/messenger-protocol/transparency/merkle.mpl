@@ -73,7 +73,7 @@ fn hash_parts(label :: String, parts :: List < Bytes >) -> Bytes ! String do
 end
 
 pub fn leaf_hash(entry :: Bytes) -> Bytes ! String do
-  if Bytes.length(entry) == 0 || Bytes.length(entry) > 286400 do
+  if Bytes.length(entry) == 0 || Bytes.length(entry) > 305260 do
     Err("invalid_transparency_leaf")
   else
     hash_parts("mesh-msg/v1/transparency-leaf", [entry])

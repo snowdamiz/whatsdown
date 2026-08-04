@@ -68,7 +68,7 @@ The complete field layouts and decoder ceilings are specified in
 | Magic | 3 bytes, ASCII `MSG` |
 | Envelope ID | 16 bytes |
 | Destination mailbox token | 32 bytes |
-| Suite | `u16`, value `1` or `2` |
+| Suite | `u16`, value `1`, `2`, or development-only group suite `3` |
 | Expiration | `u64`, Unix milliseconds |
 | Padding bucket | `u32`: 256 through 65,536 in powers of two |
 | Ciphertext | `u32` length + bytes, at most the padding bucket |
@@ -107,12 +107,12 @@ Golden and hostile fixtures live in `tests/fixtures/m1` and
 |---|---:|
 | Account identity | 16,582 |
 | Device credential | 1,395 |
-| Prekey bundle | 18,126 |
+| Prekey bundle | 19,312 |
 | Outer envelope | 65,606 |
 | Inner envelope | 65,536 |
 | Handshake transcript | 17,868 |
 | Initial message | 65,536 |
-| Directory entry | 34,820 |
+| Directory entry | 36,006 |
 | Delivery batch | 524,949 |
 
 Every extension list has at most 16 entries, each value is at most 1,024

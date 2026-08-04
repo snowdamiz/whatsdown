@@ -495,8 +495,16 @@ fn validate_prekey_bundle(value :: PrekeyBundle) -> Result <(), ProtocolError > 
     if !supported_suite(value.suite) do
       Err(UnsupportedSuite)
     else
-      let credential_length = if value.suite == 2 do 1395 else 211 end
-      let post_quantum_length = if value.suite == 2 do 1184 else 0 end
+      let credential_length = if value.suite == 2 do
+        1395
+      else
+        211
+      end
+      let post_quantum_length = if value.suite == 2 do
+        1184
+      else
+        0
+      end
       if Bytes.length(value.device_credential) != credential_length || Bytes.length(value.identity_dh_public_key) != 32 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.signed_prekey) != 32 || Bytes.length(value.signed_prekey_signature) != 64 || Bytes.length(value.post_quantum_prekey) != post_quantum_length do
         Err(InvalidFieldLength)
       else
@@ -537,7 +545,7 @@ pub fn encode_prekey_bundle(value :: PrekeyBundle) -> Bytes ! ProtocolError do
 end
 
 pub fn decode_prekey_bundle(input :: Bytes) -> PrekeyBundle ! ProtocolError do
-  let version = take_u8(open(input, 18126) ?) ?
+  let version = take_u8(open(input, 19312) ?) ?
   if version.value != 1 do
     Err(UnsupportedVersion)
   else
@@ -665,7 +673,11 @@ fn validate_handshake_transcript(value :: HandshakeTranscript) -> Result <(), Pr
     if !supported_suite(value.suite) do
       Err(UnsupportedSuite)
     else
-      let post_quantum_length = if value.suite == 2 do 1184 else 0 end
+      let post_quantum_length = if value.suite == 2 do
+        1184
+      else
+        0
+      end
       if Bytes.length(value.initiator_credential_hash) != 32 || Bytes.length(value.responder_prekey_bundle_hash) != 32 || Bytes.length(value.initiator_ephemeral_public_key) != 32 || Bytes.length(value.responder_signed_prekey) != 32 || Bytes.length(value.responder_post_quantum_prekey) != post_quantum_length || is_zero(value.signed_prekey_id) || !(Bytes.length(value.responder_one_time_prekey) == 0 || Bytes.length(value.responder_one_time_prekey) == 32) do
         Err(InvalidFieldLength)
       else
@@ -907,11 +919,15 @@ fn supported_bucket(value :: Int) -> Bool do
   value == 256 || value == 512 || value == 1024 || value == 2048 || value == 4096 || value == 8192 || value == 16384 || value == 32768 || value == 65536
 end
 
+fn supported_outer_suite(value :: Int) -> Bool do
+  supported_suite(value) || value == 3
+end
+
 fn validate_outer(value :: OuterEnvelope) -> Result <(), ProtocolError > do
   if value.version != 1 do
     Err(UnsupportedVersion)
   else
-    if !supported_suite(value.suite) do
+    if !supported_outer_suite(value.suite) do
       Err(UnsupportedSuite)
     else
       if Bytes.length(value.envelope_id) != 16 || Bytes.length(value.mailbox_token) != 32 do
@@ -973,7 +989,11 @@ fn validate_initial_message(value :: InitialMessage) -> Result <(), ProtocolErro
     if !supported_suite(value.suite) do
       Err(UnsupportedSuite)
     else
-      let post_quantum_length = if value.suite == 2 do 1088 else 0 end
+      let post_quantum_length = if value.suite == 2 do
+        1088
+      else
+        0
+      end
       let credential_length = Bytes.length(value.initiator_credential)
       let invalid_credential_length = !(credential_length == 211 || credential_length == 1395)
       let invalid_lengths = invalid_credential_length || Bytes.length(value.initiator_identity_public_key.bytes) != 32 || Bytes.length(value.initiator_ephemeral_public_key.bytes) != 32 || Bytes.length(value.post_quantum_ciphertext) != post_quantum_length || Bytes.length(value.transcript_hash) != 32 || Bytes.length(value.nonce) != 12
@@ -989,7 +1009,7 @@ fn validate_initial_message(value :: InitialMessage) -> Result <(), ProtocolErro
           else
             case decode_device_credential(value.initiator_credential) do
               Err( _) -> Err(MalformedEncoding)
-              Ok(credential) -> if value.suite == 2 && credential.suite != 2 do
+              Ok( credential) -> if value.suite == 2 && credential.suite != 2 do
                 Err(UnsupportedSuite)
               else
                 Ok(nil)
@@ -1067,7 +1087,11 @@ fn validate_credential(value :: DeviceCredential) -> Result <(), ProtocolError >
       if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.dh_public_key) != 32 || Bytes.length(value.signature) != 64 do
         Err(InvalidFieldLength)
       else
-        let post_quantum_length = if value.suite == 2 do 1184 else 0 end
+        let post_quantum_length = if value.suite == 2 do
+          1184
+        else
+          0
+        end
         if Bytes.length(value.post_quantum_public_key) != post_quantum_length do
           Err(InvalidFieldLength)
         else
@@ -1196,7 +1220,7 @@ fn validate_directory_entry(value :: DirectoryEntry) -> Result <(), ProtocolErro
     Err(UnsupportedVersion)
   else
     let _ = encode_username(value.username) ?
-    if Bytes.length(value.account_identity) == 0 || Bytes.length(value.account_identity) > 16582 || Bytes.length(value.prekey_bundle) == 0 || Bytes.length(value.prekey_bundle) > 18126 || Bytes.length(value.mailbox_token) != 32 do
+    if Bytes.length(value.account_identity) == 0 || Bytes.length(value.account_identity) > 16582 || Bytes.length(value.prekey_bundle) == 0 || Bytes.length(value.prekey_bundle) > 19312 || Bytes.length(value.mailbox_token) != 32 do
       Err(InvalidFieldLength)
     else
       Ok(nil)
@@ -1212,7 +1236,7 @@ pub fn encode_directory_entry(value :: DirectoryEntry) -> Bytes ! ProtocolError 
 end
 
 pub fn decode_directory_entry(input :: Bytes) -> DirectoryEntry ! ProtocolError do
-  let version = take_u8(open(input, 34820) ?) ?
+  let version = take_u8(open(input, 36006) ?) ?
   if version.value != 1 do
     Err(UnsupportedVersion)
   else
@@ -1220,7 +1244,7 @@ pub fn decode_directory_entry(input :: Bytes) -> DirectoryEntry ! ProtocolError 
     valid_magic(magic.value, "DRE") ?
     let username = take_vector(magic.state, 64) ?
     let account_identity = take_vector(username.state, 16582) ?
-    let prekey_bundle = take_vector(account_identity.state, 18126) ?
+    let prekey_bundle = take_vector(account_identity.state, 19312) ?
     let mailbox_token = take_fixed(prekey_bundle.state, 32) ?
     require_end(mailbox_token.state) ?
     let value = DirectoryEntry {
@@ -1419,7 +1443,7 @@ output :: List < DirectoryEntry >) -> ReadDirectoryEntries ! ProtocolError do
       value : output
     })
   else
-    let entry = take_vector(state, 34820) ?
+    let entry = take_vector(state, 36006) ?
     read_device_entries(entry.state,
     count,
     index + 1,
@@ -1447,7 +1471,7 @@ pub fn encode_device_set(value :: DeviceSet) -> Bytes ! ProtocolError do
 end
 
 pub fn decode_device_set(input :: Bytes) -> DeviceSet ! ProtocolError do
-  let version = take_u8(open(input, 295872) ?) ?
+  let version = take_u8(open(input, 305260) ?) ?
   if version.value != 1 do
     Err(UnsupportedVersion)
   else

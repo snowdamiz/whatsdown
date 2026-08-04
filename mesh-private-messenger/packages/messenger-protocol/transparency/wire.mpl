@@ -446,7 +446,7 @@ output :: List < WitnessAttestation >) -> ReadWitnesses ! String do
 end
 
 pub fn decode_witnesses(input :: Bytes) -> List < WitnessAttestation > ! String do
-  let count = take_u16(start(input, 1650, "KTW") ?) ?
+  let count = take_u16(start(input, 2630, "KTW") ?) ?
   if count.value > 16 do
     Err("invalid witness attestations")
   else
@@ -457,7 +457,7 @@ pub fn decode_witnesses(input :: Bytes) -> List < WitnessAttestation > ! String 
 end
 
 pub fn encode_transparency_evidence(value :: TransparencyEvidence) -> Bytes ! String do
-  if Bytes.length(value.entry_bytes) == 0 || Bytes.length(value.entry_bytes) > 286400 do
+  if Bytes.length(value.entry_bytes) == 0 || Bytes.length(value.entry_bytes) > 305260 do
     Err("invalid transparency evidence")
   else
     join([byte(1) ?, Bytes.from_utf8("KTE"), vector(value.entry_bytes) ?, vector(encode_inclusion_proof(value.inclusion) ?) ?, vector(encode_consistency_proof(value.consistency) ?) ?, vector(encode_checkpoint(value.checkpoint) ?) ?, vector(encode_witnesses(value.witnesses) ?) ?],
@@ -467,11 +467,11 @@ pub fn encode_transparency_evidence(value :: TransparencyEvidence) -> Bytes ! St
 end
 
 pub fn decode_transparency_evidence(input :: Bytes) -> TransparencyEvidence ! String do
-  let entry = take_vector(start(input, 550000, "KTE") ?, 286400) ?
+  let entry = take_vector(start(input, 570274, "KTE") ?, 305260) ?
   let inclusion_bytes = take_vector(entry.state, 131086) ?
   let consistency_bytes = take_vector(inclusion_bytes.state, 131086) ?
   let checkpoint_bytes = take_vector(consistency_bytes.state, 188) ?
-  let witness_bytes = take_vector(checkpoint_bytes.state, 1650) ?
+  let witness_bytes = take_vector(checkpoint_bytes.state, 2630) ?
   done(witness_bytes.state) ?
   let inclusion = decode_inclusion_proof(inclusion_bytes.value) ?
   let consistency = decode_consistency_proof(consistency_bytes.value) ?

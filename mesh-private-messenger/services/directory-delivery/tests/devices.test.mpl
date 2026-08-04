@@ -1,7 +1,7 @@
 from Api.Binary import checkpoint_request, consistency_request, fetch_request, inclusion_request, register_device_request, resolve_devices_request, revoke_device_request, submit_request, submit_witness_request, validate_transparency_config, witnesses_request
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation
-from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, MailboxFetch, OuterEnvelope, ProtocolError, decode_delivery_batch, decode_device_set, encode_account_identity, encode_device_set, encode_directory_entry, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle, encode_device_revocation
+from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
+from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
+from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, MailboxFetch, OuterEnvelope, PrekeyBundle, ProtocolError, ProtocolExtension, decode_delivery_batch, decode_device_set, encode_account_identity, encode_device_set, encode_directory_entry, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle, encode_device_revocation
 from Storage.Transparency import create_checkpoint, entry_count, consistency_from, evidence_for_username, inclusion_for_account
 from Transparency.Merkle import WitnessKey, leaf_hash, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
 from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_checkpoint, decode_consistency_proof, decode_inclusion_proof, decode_transparency_evidence, decode_witnesses, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query, encode_witnesses
@@ -58,6 +58,20 @@ fn protocol(value :: Result < Bytes, ProtocolError >) -> Bytes ! String do
   end
 end
 
+fn maximal_extensions(index :: Int, output :: List < ProtocolExtension >) -> List < ProtocolExtension > do
+  if index >= 16 do
+    output
+  else
+    maximal_extensions(index + 1,
+    List.append(output,
+    ProtocolExtension {
+      id : index + 1,
+      mandatory : false,
+      value : repeated(index, 1024)
+    }))
+  end
+end
+
 fn entry(identity :: AccountIdentity,
 device_keys :: borrow DeviceKeys,
 device_credential :: DeviceCredential,
@@ -84,6 +98,66 @@ expires_at :: U64) -> DirectoryEntry ! String do
   })
 end
 
+fn maximal_hybrid_entry(identity :: AccountIdentity,
+account_keys :: borrow AccountKeys,
+device_keys :: borrow DeviceKeys,
+mailbox_token :: Bytes,
+created_at :: U64,
+expires_at :: U64,
+sequence :: U64) -> DirectoryEntry ! String do
+  let post_quantum = case generate_post_quantum_prekey() do
+    Err( _) -> Err("post-quantum prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let device_credential = case issue_hybrid_device_credential(account_keys,
+  device_keys,
+  post_quantum.public_key,
+  wide("3") ?,
+  created_at,
+  expires_at,
+  sequence) do
+    Err( _) -> Err("hybrid credential generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let signed = case generate_signed_prekey(device_keys, device_credential, wide("1") ?, expires_at) do
+    Err( _) -> Err("signed prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let one_time = case generate_one_time_prekey(wide("2") ?) do
+    Err( _) -> Err("one-time prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let base = case build_hybrid_prekey_bundle(device_credential, signed, one_time, post_quantum) do
+    Err( _) -> Err("hybrid bundle generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let bundle = PrekeyBundle {
+    version : base.version,
+    suite : base.suite,
+    device_credential : base.device_credential,
+    identity_dh_public_key : base.identity_dh_public_key,
+    signing_public_key : base.signing_public_key,
+    signed_prekey_id : base.signed_prekey_id,
+    signed_prekey : base.signed_prekey,
+    signed_prekey_signature : base.signed_prekey_signature,
+    one_time_prekey_id : base.one_time_prekey_id,
+    one_time_prekey : base.one_time_prekey,
+    post_quantum_prekey : base.post_quantum_prekey,
+    supported_suites : base.supported_suites,
+    expires_at : base.expires_at,
+    extensions : maximal_extensions(0, List.new())
+  }
+  let encoded = protocol(encode_prekey_bundle(bundle)) ?
+  assert(Bytes.length(encoded) == 19312)
+  Ok(DirectoryEntry {
+    version : 1,
+    username : "alice",
+    account_identity : protocol(encode_account_identity(identity)) ?,
+    prekey_bundle : encoded,
+    mailbox_token : mailbox_token
+  })
+end
+
 fn proof() -> Bool ! String do
   let url = Env.get("MESSENGER_TEST_DATABASE_URL",
   "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
@@ -103,11 +177,13 @@ fn proof() -> Bool ! String do
   credential(account_keys, first_device, created_at, expires_at, wide("1") ?) ?,
   repeated(31, 32),
   expires_at) ?
-  let second = entry(identity,
+  let second = maximal_hybrid_entry(identity,
+  account_keys,
   second_device,
-  credential(account_keys, second_device, created_at, expires_at, wide("2") ?) ?,
   repeated(32, 32),
-  expires_at) ?
+  created_at,
+  expires_at,
+  wide("2") ?) ?
   assert(register_device_request(pool, protocol(encode_directory_entry(second)) ?).status == 409)
   assert(resolve_devices_request(pool,
   encode_transparency_lookup(TransparencyLookup {

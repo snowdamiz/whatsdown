@@ -1,6 +1,7 @@
 from Transparency.Client import verify_evidence
-from Transparency.Merkle import WitnessKey, checkpoint_conflict, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, merkle_root, sign_checkpoint, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
-from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_transparency_evidence, decode_transparency_lookup, decode_transparency_tree_query, encode_checkpoint, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query
+from Transparency.Merkle import WitnessAttestation, WitnessKey, checkpoint_conflict, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, merkle_root, sign_checkpoint, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
+from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_transparency_evidence, decode_transparency_lookup, decode_transparency_tree_query, decode_witnesses, encode_checkpoint, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query, encode_witnesses
+from Protocol.V1 import DeviceSet, DirectoryEntry, encode_device_set
 
 fn signing_pair() -> SigningKeyPair ! String do
   case Crypto.signing_generate() do
@@ -14,6 +15,142 @@ fn repeated(value :: Int, count :: Int) -> Bytes ! String do
     Err( _) -> Err("bytes failed")
     Ok( output) -> Ok(output)
   end
+end
+
+fn maximal_device_entries(username :: String,
+account_identity :: Bytes,
+prekey_bundle :: Bytes,
+index :: Int,
+output :: List < DirectoryEntry >) -> List < DirectoryEntry > ! String do
+  if index >= 8 do
+    Ok(output)
+  else
+    maximal_device_entries(username,
+    account_identity,
+    prekey_bundle,
+    index + 1,
+    List.append(output,
+    DirectoryEntry {
+      version : 1,
+      username : username,
+      account_identity : account_identity,
+      prekey_bundle : prekey_bundle,
+      mailbox_token : repeated(index + 1, 32) ?
+    }))
+  end
+end
+
+fn maximal_revocations(index :: Int, output :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= 32 do
+    Ok(output)
+  else
+    maximal_revocations(index + 1, List.append(output, repeated(index + 64, 16) ?))
+  end
+end
+
+fn maximal_witnesses(index :: Int, output :: List < WitnessAttestation >) -> List < WitnessAttestation > ! String do
+  if index >= 16 do
+    Ok(output)
+  else
+    maximal_witnesses(index + 1,
+    List.append(output,
+    WitnessAttestation {
+      witness_id : "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      checkpoint_hash : repeated(index + 1, 32) ?,
+      signature : repeated(index + 32, 64) ?
+    }))
+  end
+end
+
+fn maximal_hashes(value :: Bytes, index :: Int, output :: List < Bytes >) -> List < Bytes > do
+  if index >= 4096 do
+    output
+  else
+    maximal_hashes(value, index + 1, List.append(output, value))
+  end
+end
+
+fn maximal_device_set() -> Bytes ! String do
+  let username = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  let account_identity = repeated(41, 16582) ?
+  let prekey_bundle = repeated(42, 19312) ?
+  case encode_device_set(DeviceSet {
+    version : 1,
+    username : username,
+    account_identity : account_identity,
+    sequence : wide("1") ?,
+    devices : maximal_device_entries(username, account_identity, prekey_bundle, 0, List.new()) ?,
+    revoked_device_ids : maximal_revocations(0, List.new()) ?
+  }) do
+    Err( _) -> Err("device set encoding failed")
+    Ok( value) -> Ok(value)
+  end
+end
+
+fn transparency_capacity_proof() -> Bool ! String do
+  let entry = maximal_device_set() ?
+  assert(Bytes.length(entry) == 305260)
+  let leaf = leaf_hash(entry) ?
+  let leaves = maximal_hashes(leaf, 0, List.new())
+  let signer = signing_pair() ?
+  let checkpoint = sign_checkpoint(signer.private_key,
+  signer.public_key.bytes,
+  wide("1") ?,
+  leaves,
+  repeated(0, 32) ?,
+  wide("1000") ?) ?
+  let encoded_evidence = encode_transparency_evidence(TransparencyEvidence {
+    entry_bytes : entry,
+    inclusion : inclusion_proof(leaves, 0) ?,
+    consistency : consistency_proof(List.new(), leaves) ?,
+    checkpoint : checkpoint,
+    witnesses : maximal_witnesses(0, List.new()) ?
+  }) ?
+  assert(Bytes.length(encoded_evidence) == 570274)
+  let evidence = decode_transparency_evidence(encoded_evidence) ?
+  assert(Bytes.secure_equals(evidence.entry_bytes, entry))
+  let oversized_evidence = case Bytes.concat(encoded_evidence, repeated(0, 1) ?) do
+    Err( _) -> Err("bytes failed")
+    Ok( value) -> Ok(value)
+  end ?
+  case decode_transparency_evidence(oversized_evidence) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+  let oversized = case Bytes.concat(entry, repeated(0, 1) ?) do
+    Err( _) -> Err("bytes failed")
+    Ok( value) -> Ok(value)
+  end ?
+  case leaf_hash(oversized) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+  case encode_transparency_evidence(TransparencyEvidence {
+    entry_bytes : oversized,
+    inclusion : evidence.inclusion,
+    consistency : evidence.consistency,
+    checkpoint : evidence.checkpoint,
+    witnesses : evidence.witnesses
+  }) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+  Ok(true)
+end
+
+fn witness_capacity_proof() -> Bool ! String do
+  let encoded = encode_witnesses(maximal_witnesses(0, List.new()) ?) ?
+  assert(Bytes.length(encoded) == 2630)
+  assert(List.length(decode_witnesses(encoded) ?) == 16)
+  let trailing = case Bytes.concat(encoded, repeated(0, 1) ?) do
+    Err( _) -> Err("bytes failed")
+    Ok( value) -> Ok(value)
+  end ?
+  case decode_witnesses(trailing) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+  Ok(true)
 end
 
 fn wide(value :: String) -> U64 ! String do
@@ -142,6 +279,26 @@ end
 test("transparency proofs detect substitution, split views, and missing witnesses") do
   case transparency_proof() do
     Err( _) -> assert(false)
+    Ok( value) -> assert(value)
+  end
+end
+
+test("maximal device sets round-trip through bounded transparency evidence") do
+  case transparency_capacity_proof() do
+    Err( error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok( value) -> assert(value)
+  end
+end
+
+test("maximal witness sets round-trip at the exact wire ceiling") do
+  case witness_capacity_proof() do
+    Err( error) -> do
+      println(error)
+      assert(false)
+    end
     Ok( value) -> assert(value)
   end
 end

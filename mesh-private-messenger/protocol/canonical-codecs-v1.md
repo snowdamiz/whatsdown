@@ -93,8 +93,9 @@ extensions
 The embedded credential must itself decode canonically, use the same suite,
 and contain the same signing and identity-DH public keys. A one-time prekey ID
 is zero exactly when the one-time public key is absent; otherwise it is
-nonzero. This makes prekey consumption addressable without ambiguity. Maximum
-encoded size: 16,942 bytes.
+nonzero. This makes prekey consumption addressable without ambiguity. A
+maximal suite-2 bundle is 2,814 bytes through `expires_at` plus a 16,498-byte
+extension list, for a maximum encoded size of 19,312 bytes.
 
 The directory stores and logs a base bundle with `one_time_prekey_id = 0` and
 an empty `one_time_prekey`. During device registration, a nonzero one-time

@@ -41,10 +41,12 @@ username<64>
 account_identity<16582>
 u64 sequence
 u8 active_device_count (1..8)
-repeated directory_entry<33636>
+repeated directory_entry<36006>
 u8 revoked_device_count (0..32)
 repeated revoked_device_id[16]
 ```
+
+The maximum encoded device set is 305,260 bytes.
 
 Every active entry must use the same username and byte-identical account identity. Mailbox capabilities and revoked IDs must be unique. Clients validate every account-signed device credential before caching or using the set. Milestone 13 adds transparent inclusion and consistency proofs over this canonical record.
 

@@ -33,6 +33,28 @@ test('contact QR values round trip binary profiles', () => {
   assert.throws(() => profileFromQr('https://example.com/not-a-contact'));
 });
 
+test('profile and device-set QR limits match the canonical wire ceilings', () => {
+  const profile = vectors(
+    utf8('a'.repeat(64)),
+    new Uint8Array(32),
+    new Uint8Array(16),
+    new Uint8Array(36_006),
+  );
+  assert.equal(profile.length, 36_134);
+  assert.equal(parseProfileSummary(profile).username.length, 64);
+  assert.equal(profileFromQr(profileQrValue(profile)).length, 36_134);
+  assert.throws(() => profileFromQr(profileQrValue(new Uint8Array(36_135))));
+
+  assert.equal(
+    payloadFromQr(payloadQrValue('device-set', new Uint8Array(305_260)), 'device-set')
+      .length,
+    305_260,
+  );
+  assert.throws(() =>
+    payloadFromQr(payloadQrValue('device-set', new Uint8Array(305_261)), 'device-set'),
+  );
+});
+
 test('device summaries and linking QR payloads stay bounded and canonical', () => {
   const current = vectors(new Uint8Array(16).fill(1), Uint8Array.of(1), Uint8Array.of(1));
   const revoked = vectors(new Uint8Array(16).fill(2), Uint8Array.of(0), Uint8Array.of(0));

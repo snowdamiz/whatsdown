@@ -279,7 +279,7 @@ export function parseProfileSummary(input: Uint8Array): ProfileSummary {
   const username = decodeUtf8(profile.vector(64));
   const accountId = profile.vector(32);
   const deviceId = profile.vector(16);
-  profile.vector(33_636);
+  profile.vector(36_006);
   profile.finish();
   return { username, accountId, deviceId };
 }
@@ -295,7 +295,7 @@ function binaryString(value: Uint8Array): string {
 export const payloadQrValue = (kind: string, payload: Uint8Array): string =>
   `mesh://${kind}/${btoa(binaryString(payload)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')}`;
 
-export function payloadFromQr(value: string, kind: string, maximum = 286_400): Uint8Array {
+export function payloadFromQr(value: string, kind: string, maximum = 305_260): Uint8Array {
   const prefix = `mesh://${kind}/`;
   if (!value.startsWith(prefix)) throw new Error(`Not a Whatsdown ${kind} code`);
   const encoded = value.slice(prefix.length).replaceAll('-', '+').replaceAll('_', '/');
@@ -308,7 +308,7 @@ export function payloadFromQr(value: string, kind: string, maximum = 286_400): U
 export const profileQrValue = (profile: Uint8Array): string => payloadQrValue('contact', profile);
 
 export const profileFromQr = (value: string): Uint8Array =>
-  payloadFromQr(value, 'contact', 16_384);
+  payloadFromQr(value, 'contact', 36_134);
 
 export const hex = (value: Uint8Array): string =>
   Array.from(value, (byte) => byte.toString(16).padStart(2, '0')).join('');

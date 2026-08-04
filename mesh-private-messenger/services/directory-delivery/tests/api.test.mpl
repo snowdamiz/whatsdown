@@ -1,6 +1,6 @@
 from Api.Binary import acknowledge_request, fetch_request, register_request, resolve_request, submit_request, submit_sealed_request
 from Privacy.Edge import encode_sealed_delivery, seal_delivery
-from Protocol.V1 import DirectoryEntry, MailboxAck, MailboxFetch, OuterEnvelope, decode_delivery_batch, encode_directory_entry, encode_directory_lookup, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope
+from Protocol.V1 import DirectoryEntry, MailboxAck, MailboxFetch, OuterEnvelope, decode_delivery_batch, decode_outer_envelope, encode_directory_entry, encode_directory_lookup, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
@@ -27,6 +27,22 @@ fn delivery_count(value :: Bytes) -> Int ! String do
   case decode_delivery_batch(value) do
     Err( _) -> Err("invalid delivery response")
     Ok( deliveries) -> Ok(List.length(deliveries))
+  end
+end
+
+fn outer(value :: Bytes) -> OuterEnvelope ! String do
+  case decode_outer_envelope(value) do
+    Err( _) -> Err("invalid delivered envelope")
+    Ok( envelope) -> Ok(envelope)
+  end
+end
+
+fn database_rejects_suite(pool :: PoolHandle, token :: Bytes, envelope_id :: Bytes, suite :: Int) -> Bool do
+  case Pool.execute_values(pool,
+  "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6)",
+  [Binary(Crypto.sha256(token)), Binary(envelope_id), Text(Int.to_string(suite)), Text("4102444800000"), Text("256"), Binary(Bytes.from_utf8("opaque"))]) do
+    Err( _) -> true
+    Ok( _) -> false
   end
 end
 
@@ -59,7 +75,7 @@ fn proof() -> Bool ! String do
     version : 1,
     envelope_id : envelope_id,
     mailbox_token : token,
-    suite : 1,
+    suite : 2,
     expiration : wide("4102444800000") ?,
     padding_bucket : 256,
     ciphertext : Bytes.from_utf8("opaque ciphertext")
@@ -96,6 +112,7 @@ fn proof() -> Bool ! String do
     Ok( values) -> Ok(values)
   end ?
   assert(List.length(deliveries) == 2)
+  assert(outer(List.head(deliveries).envelope) ?.suite == 2)
   let acknowledged = acknowledge_request(pool,
   wire(encode_mailbox_ack(MailboxAck {
     version : 1,
@@ -109,6 +126,8 @@ fn proof() -> Bool ! String do
     mailbox_token : token,
     after_sequence : wide("0") ?
   })) ?).body) ? == 0)
+  assert(database_rejects_suite(pool, token, repeated(6, 16), 0))
+  assert(database_rejects_suite(pool, token, repeated(7, 16), 4))
   let hostile = Bytes.from_utf8("not-a-canonical-frame")
   assert(register_request(pool, hostile).status == 400)
   assert(resolve_request(pool, hostile).status == 400)
