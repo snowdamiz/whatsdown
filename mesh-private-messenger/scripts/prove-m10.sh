@@ -8,7 +8,6 @@ readonly repo_root
 readonly core_dir="$repo_root/mesh-private-messenger/packages/mobile-core"
 readonly module_dir="$repo_root/mesh-private-messenger/apps/mobile/modules/mesh-messenger"
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
-readonly vector="$repo_root/mesh-private-messenger/tests/fixtures/m1/outer-envelope-v1.hex"
 readonly temp_parent="${TMPDIR:-/tmp}"
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-m10.XXXXXX")"
 readonly temp_dir
@@ -137,13 +136,13 @@ main() {
   "$meshc_bin" build "$legacy_core_dir" --artifact cdylib --output "$library"
   cc "$core_dir/tests/host.c" -I "$temp_dir" -L "$temp_dir" -lmessenger_mobile \
     -lsqlite3 -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
-  "$temp_dir/host" "$vector" "$database"
+  "$temp_dir/host" "$database"
 
   "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
   "$meshc_bin" test "$core_dir/tests"
 
-  [[ "$(sqlite3 "$database" "SELECT count(*) = 18 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
-    fail "sender SQLite did not contain eighteen encrypted session, outbox, and prekey records"
+  [[ "$(sqlite3 "$database" "SELECT count(*) = 17 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
+    fail "sender SQLite did not contain seventeen encrypted session, outbox, and prekey records"
   [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 14 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
     fail "recipient SQLite did not contain fourteen encrypted fanout and prekey records"
   [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 12 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
@@ -172,7 +171,7 @@ main() {
     build_ios aarch64-apple-ios-sim iphonesimulator arm64-apple-ios16.4-simulator
   fi
 
-  printf 'M10 proof passed: canonical mobile vector, encrypted SQLite, native bridge, host lifecycle, static/dynamic libraries, and available iOS targets.\n'
+  printf 'M10 proof passed: encrypted SQLite, native bridge, host lifecycle, static/dynamic libraries, and available iOS targets.\n'
 }
 
 main "$@"

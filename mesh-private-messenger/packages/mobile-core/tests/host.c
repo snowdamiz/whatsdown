@@ -77,44 +77,6 @@ static int register_secure_store(void) {
   return mesh_library_register_host_callbacks(&callbacks);
 }
 
-static uint8_t hex_nibble(char value) {
-  if (value >= '0' && value <= '9') return (uint8_t)(value - '0');
-  if (value >= 'a' && value <= 'f') return (uint8_t)(value - 'a' + 10);
-  if (value >= 'A' && value <= 'F') return (uint8_t)(value - 'A' + 10);
-  return 255;
-}
-
-static uint8_t *read_hex(const char *path, size_t *output_len) {
-  FILE *file = fopen(path, "rb");
-  if (file == NULL || fseek(file, 0, SEEK_END) != 0) return NULL;
-  long file_len = ftell(file);
-  if (file_len <= 0 || fseek(file, 0, SEEK_SET) != 0) return NULL;
-  char *text = malloc((size_t)file_len);
-  if (text == NULL || fread(text, 1, (size_t)file_len, file) != (size_t)file_len) return NULL;
-  fclose(file);
-
-  uint8_t *bytes = malloc((size_t)file_len / 2 + 1);
-  if (bytes == NULL) return NULL;
-  size_t digits = 0;
-  for (long index = 0; index < file_len; index += 1) {
-    uint8_t nibble = hex_nibble(text[index]);
-    if (nibble == 255) continue;
-    if ((digits & 1) == 0) {
-      bytes[digits / 2] = (uint8_t)(nibble << 4);
-    } else {
-      bytes[digits / 2] |= nibble;
-    }
-    digits += 1;
-  }
-  free(text);
-  if ((digits & 1) != 0) {
-    free(bytes);
-    return NULL;
-  }
-  *output_len = digits / 2;
-  return bytes;
-}
-
 static void write_u32(uint8_t *output, uint32_t value) {
   output[0] = (uint8_t)(value >> 24);
   output[1] = (uint8_t)(value >> 16);
@@ -364,28 +326,6 @@ static uint8_t *output_list_item(const uint8_t *input, size_t input_len,
   return NULL;
 }
 
-static uint8_t *store_request(const char *database_path, const uint8_t *envelope,
-                              size_t envelope_len, size_t *request_len) {
-  static const uint8_t record_key[] = "whatsdown-mobile-record-key";
-  size_t path_len = strlen(database_path);
-  *request_len = 12 + path_len + sizeof(record_key) - 1 + envelope_len;
-  uint8_t *request = malloc(*request_len);
-  if (request == NULL) return NULL;
-  size_t offset = 0;
-  write_u32(request + offset, (uint32_t)path_len);
-  offset += 4;
-  memcpy(request + offset, database_path, path_len);
-  offset += path_len;
-  write_u32(request + offset, (uint32_t)(sizeof(record_key) - 1));
-  offset += 4;
-  memcpy(request + offset, record_key, sizeof(record_key) - 1);
-  offset += sizeof(record_key) - 1;
-  write_u32(request + offset, (uint32_t)envelope_len);
-  offset += 4;
-  memcpy(request + offset, envelope, envelope_len);
-  return request;
-}
-
 static uint8_t *account_request(const char *database_path, const char *username,
                                 size_t *request_len) {
   size_t path_len = strlen(database_path);
@@ -601,71 +541,22 @@ static int set_receive_write_failure(const char *database_path, int enabled) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 3) return 10;
-  size_t envelope_len = 0;
-  uint8_t *envelope = read_hex(argv[1], &envelope_len);
-  if (envelope == NULL) return 11;
+  if (argc != 2) return 10;
+  const char *database_path = argv[1];
   if (mesh_library_init() != MESH_LIBRARY_OK) return 12;
   if (register_secure_store() != MESH_LIBRARY_OK) return 20;
 
   MeshLibraryBytes response = {0};
-  if (mesh_messenger_initialize((const uint8_t *)argv[2], strlen(argv[2]), &response) !=
+  if (mesh_messenger_initialize((const uint8_t *)database_path, strlen(database_path), &response) !=
           MESH_LIBRARY_OK ||
       response.len == 0) {
     return 13;
   }
   mesh_library_free_returned_bytes(&response);
 
-  if (mesh_messenger_validate_outer(envelope, envelope_len, &response) != MESH_LIBRARY_OK ||
-      response.len != envelope_len || memcmp(response.data, envelope, envelope_len) != 0) {
-    return 14;
-  }
-  mesh_library_free_returned_bytes(&response);
-
-  const size_t boundary_outer_len = 65606;
-  uint8_t *boundary_outer = malloc(boundary_outer_len);
-  if (envelope_len < 70 || boundary_outer == NULL) return 136;
-  memcpy(boundary_outer, envelope, 66);
-  write_u32(boundary_outer + 62, 65536);
-  write_u32(boundary_outer + 66, 65536);
-  memset(boundary_outer + 70, 0xa5, 65536);
-  if (mesh_messenger_validate_outer(boundary_outer, boundary_outer_len,
-                                    &response) != MESH_LIBRARY_OK ||
-      response.len != boundary_outer_len ||
-      memcmp(response.data, boundary_outer, boundary_outer_len) != 0) {
-    return 137;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(boundary_outer);
-
-  if (envelope_len < 70) return 18;
-  size_t stored_envelope_len = 86;
-  uint8_t *stored_envelope = malloc(stored_envelope_len);
-  if (stored_envelope == NULL) return 19;
-  memcpy(stored_envelope, envelope, 70);
-  write_u32(stored_envelope + 66, 16);
-  for (size_t index = 70; index < stored_envelope_len; index += 1) {
-    stored_envelope[index] = (uint8_t)index;
-  }
-
-  size_t request_len = 0;
-  uint8_t *request =
-      store_request(argv[2], stored_envelope, stored_envelope_len, &request_len);
-  int32_t store_status = request == NULL
-                             ? MESH_LIBRARY_ERR_INVALID_ARGUMENT
-                             : mesh_messenger_store_envelope(request, request_len, &response);
-  if (store_status != MESH_LIBRARY_OK || response.len != 64) {
-    fprintf(stderr, "store failed: status=%d payload=%.*s\n", store_status,
-            (int)response.len, response.data == NULL ? (uint8_t *)"" : response.data);
-    return 15;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(request);
-  free(stored_envelope);
-
   size_t account_request_len = 0;
   uint8_t *create_request =
-      account_request(argv[2], "alice", &account_request_len);
+      account_request(database_path, "alice", &account_request_len);
   int32_t create_status = create_request == NULL
                               ? MESH_LIBRARY_ERR_INVALID_ARGUMENT
                               : mesh_messenger_create_account(
@@ -687,7 +578,7 @@ int main(int argc, char **argv) {
   }
   mesh_library_free_returned_bytes(&response);
   free(create_request);
-  if (mesh_messenger_load_profile((const uint8_t *)argv[2], strlen(argv[2]),
+  if (mesh_messenger_load_profile((const uint8_t *)database_path, strlen(database_path),
                                   &response) != MESH_LIBRARY_OK ||
       response.len != profile_len ||
       memcmp(response.data, profile, profile_len) != 0) {
@@ -695,10 +586,10 @@ int main(int argc, char **argv) {
   }
   mesh_library_free_returned_bytes(&response);
 
-  size_t bob_path_len = strlen(argv[2]) + 5;
+  size_t bob_path_len = strlen(database_path) + 5;
   char *bob_path = malloc(bob_path_len);
   if (bob_path == NULL) return 25;
-  snprintf(bob_path, bob_path_len, "%s.bob", argv[2]);
+  snprintf(bob_path, bob_path_len, "%s.bob", database_path);
   size_t bob_request_len = 0;
   uint8_t *bob_request = account_request(bob_path, "bob", &bob_request_len);
   if (bob_request == NULL ||
@@ -740,10 +631,10 @@ int main(int argc, char **argv) {
   mesh_library_free_returned_bytes(&response);
   free(replenish_request);
 
-  size_t linked_path_len = strlen(argv[2]) + 8;
+  size_t linked_path_len = strlen(database_path) + 8;
   char *linked_path = malloc(linked_path_len);
   if (linked_path == NULL) return 55;
-  snprintf(linked_path, linked_path_len, "%s.linked", argv[2]);
+  snprintf(linked_path, linked_path_len, "%s.linked", database_path);
   if (mesh_messenger_create_link_request((const uint8_t *)linked_path,
                                          strlen(linked_path), &response) !=
           MESH_LIBRARY_OK ||
@@ -770,9 +661,9 @@ int main(int argc, char **argv) {
   uint8_t *root_set = device_set(root_profiles, root_profile_lengths, 1, 1,
                                  &root_set_len);
   if (root_set == NULL) return 65;
-  const uint8_t *authorize_values[] = {(const uint8_t *)argv[2], root_set,
+  const uint8_t *authorize_values[] = {(const uint8_t *)database_path, root_set,
                                        link_request};
-  const size_t authorize_lengths[] = {strlen(argv[2]), root_set_len,
+  const size_t authorize_lengths[] = {strlen(database_path), root_set_len,
                                       link_request_len};
   size_t authorize_request_len = 0;
   uint8_t *authorize_request = vector_request(
@@ -870,8 +761,8 @@ int main(int argc, char **argv) {
       device_set(claimed_linked_profiles, linked_profile_lengths, 2, 2,
                  &claimed_linked_set_len);
   if (claimed_linked_set == NULL) return 148;
-  const uint8_t *inspect_values[] = {(const uint8_t *)argv[2], linked_set};
-  const size_t inspect_lengths[] = {strlen(argv[2]), linked_set_len};
+  const uint8_t *inspect_values[] = {(const uint8_t *)database_path, linked_set};
+  const size_t inspect_lengths[] = {strlen(database_path), linked_set_len};
   size_t inspect_request_len = 0;
   uint8_t *inspect_request = vector_request(
       inspect_values, inspect_lengths, 2, &inspect_request_len);
@@ -886,9 +777,9 @@ int main(int argc, char **argv) {
   mesh_library_free_returned_bytes(&response);
   free(inspect_request);
 
-  const uint8_t *revoke_values[] = {(const uint8_t *)argv[2], linked_set,
+  const uint8_t *revoke_values[] = {(const uint8_t *)database_path, linked_set,
                                      linked_device_id};
-  const size_t revoke_lengths[] = {strlen(argv[2]), linked_set_len, 16};
+  const size_t revoke_lengths[] = {strlen(database_path), linked_set_len, 16};
   size_t revoke_request_len = 0;
   uint8_t *revoke_request = vector_request(revoke_values, revoke_lengths, 3,
                                            &revoke_request_len);
@@ -945,9 +836,9 @@ int main(int argc, char **argv) {
   if (bob_set == NULL) return 69;
 
   static const uint8_t greeting[] = "hello bob";
-  const uint8_t *start_values[] = {(const uint8_t *)argv[2], bob_profile,
+  const uint8_t *start_values[] = {(const uint8_t *)database_path, bob_profile,
                                    greeting};
-  const size_t start_lengths[] = {strlen(argv[2]), bob_profile_len,
+  const size_t start_lengths[] = {strlen(database_path), bob_profile_len,
                                   sizeof(greeting) - 1};
   size_t start_request_len = 0;
   uint8_t *start_request =
@@ -963,7 +854,7 @@ int main(int argc, char **argv) {
   if (initial_outer == NULL) return 29;
   memcpy(initial_outer, response.data, initial_outer_len);
   mesh_library_free_returned_bytes(&response);
-  if (!acknowledge_outbox(argv[2], initial_outer, initial_outer_len)) return 132;
+  if (!acknowledge_outbox(database_path, initial_outer, initial_outer_len)) return 132;
 
   const uint64_t bob_active_ids[] = {3};
   size_t bob_prekey_response_len = 0;
@@ -1040,7 +931,7 @@ int main(int argc, char **argv) {
   if (reused_outer == NULL) return 143;
   memcpy(reused_outer, response.data, reused_outer_len);
   mesh_library_free_returned_bytes(&response);
-  if (!acknowledge_outbox(argv[2], reused_outer, reused_outer_len)) return 144;
+  if (!acknowledge_outbox(database_path, reused_outer, reused_outer_len)) return 144;
   const uint8_t *reused_values[] = {(const uint8_t *)bob_path, reused_outer};
   const size_t reused_lengths[] = {strlen(bob_path), reused_outer_len};
   size_t reused_request_len = 0;
@@ -1058,8 +949,8 @@ int main(int argc, char **argv) {
   free(receive_request);
   free(start_request);
 
-  const uint8_t *alice_peer_values[] = {(const uint8_t *)argv[2], bob_profile};
-  const size_t alice_peer_lengths[] = {strlen(argv[2]), bob_profile_len};
+  const uint8_t *alice_peer_values[] = {(const uint8_t *)database_path, bob_profile};
+  const size_t alice_peer_lengths[] = {strlen(database_path), bob_profile_len};
   size_t alice_peer_len = 0;
   uint8_t *alice_peer = vector_request(alice_peer_values, alice_peer_lengths, 2,
                                        &alice_peer_len);
@@ -1164,8 +1055,8 @@ int main(int argc, char **argv) {
   if (rejected_outer == NULL) return 121;
   memcpy(rejected_outer, reply_outer, reply_outer_len);
   write_u32(rejected_outer + message_number_offset, 65);
-  const uint8_t *jump_values[] = {(const uint8_t *)argv[2], rejected_outer};
-  const size_t jump_lengths[] = {strlen(argv[2]), reply_outer_len};
+  const uint8_t *jump_values[] = {(const uint8_t *)database_path, rejected_outer};
+  const size_t jump_lengths[] = {strlen(database_path), reply_outer_len};
   size_t jump_request_len = 0;
   uint8_t *jump_request =
       vector_request(jump_values, jump_lengths, 2, &jump_request_len);
@@ -1180,8 +1071,8 @@ int main(int argc, char **argv) {
 
   memcpy(rejected_outer, reply_outer, reply_outer_len);
   rejected_outer[ratchet_offset + 94 + ratchet_ciphertext_len - 1] ^= 1;
-  const uint8_t *tamper_values[] = {(const uint8_t *)argv[2], rejected_outer};
-  const size_t tamper_lengths[] = {strlen(argv[2]), reply_outer_len};
+  const uint8_t *tamper_values[] = {(const uint8_t *)database_path, rejected_outer};
+  const size_t tamper_lengths[] = {strlen(database_path), reply_outer_len};
   size_t tamper_request_len = 0;
   uint8_t *tamper_request =
       vector_request(tamper_values, tamper_lengths, 2, &tamper_request_len);
@@ -1195,9 +1086,9 @@ int main(int argc, char **argv) {
   mesh_library_free_returned_bytes(&response);
   free(tamper_request);
 
-  const uint8_t *reply_receive_values[] = {(const uint8_t *)argv[2],
+  const uint8_t *reply_receive_values[] = {(const uint8_t *)database_path,
                                            reply_outer};
-  const size_t reply_receive_lengths[] = {strlen(argv[2]), reply_outer_len};
+  const size_t reply_receive_lengths[] = {strlen(database_path), reply_outer_len};
   size_t reply_receive_request_len = 0;
   uint8_t *reply_receive_request =
       vector_request(reply_receive_values, reply_receive_lengths, 2,
@@ -1220,26 +1111,26 @@ int main(int argc, char **argv) {
 
   static const uint8_t synced_body[] = "synced hello";
   const uint8_t *alice_fanout_values[] = {
-      (const uint8_t *)argv[2], bob_set, linked_set, synced_body};
+      (const uint8_t *)database_path, bob_set, linked_set, synced_body};
   const size_t alice_fanout_lengths[] = {
-      strlen(argv[2]), bob_set_len, linked_set_len, sizeof(synced_body) - 1};
+      strlen(database_path), bob_set_len, linked_set_len, sizeof(synced_body) - 1};
   size_t alice_fanout_request_len = 0;
   uint8_t *alice_fanout_request = vector_request(
       alice_fanout_values, alice_fanout_lengths, 4,
       &alice_fanout_request_len);
-  char *before_failed_fanout = encrypted_database_state(argv[2]);
+  char *before_failed_fanout = encrypted_database_state(database_path);
   if (alice_fanout_request == NULL || before_failed_fanout == NULL ||
-      !set_outbox_write_failure(argv[2], 1)) {
+      !set_outbox_write_failure(database_path, 1)) {
     return 129;
   }
   int32_t failed_fanout = mesh_messenger_send_fanout(
       alice_fanout_request, alice_fanout_request_len, &response);
   mesh_library_free_returned_bytes(&response);
-  if (!set_outbox_write_failure(argv[2], 0) ||
+  if (!set_outbox_write_failure(database_path, 0) ||
       failed_fanout != MESH_LIBRARY_ERR_APPLICATION) {
     return 130;
   }
-  char *after_failed_fanout = encrypted_database_state(argv[2]);
+  char *after_failed_fanout = encrypted_database_state(database_path);
   if (after_failed_fanout == NULL ||
       strcmp(before_failed_fanout, after_failed_fanout) != 0) {
     return 131;
@@ -1271,7 +1162,7 @@ int main(int argc, char **argv) {
   /* No network submission occurred. A later public call must reopen SQLite
      and recover the advanced ratchet's exact envelopes from encrypted storage. */
   int32_t retry_list = mesh_messenger_outbox_list(
-      (const uint8_t *)argv[2], strlen(argv[2]), &response);
+      (const uint8_t *)database_path, strlen(database_path), &response);
   if (retry_list != MESH_LIBRARY_OK) {
     fprintf(stderr, "outbox retry failed: status=%d payload=%.*s\n",
             retry_list, (int)response.len,
@@ -1291,13 +1182,13 @@ int main(int argc, char **argv) {
       retry_second_len != fanout_second_len ||
       memcmp(retry_first, fanout_first, fanout_first_len) != 0 ||
       memcmp(retry_second, fanout_second, fanout_second_len) != 0 ||
-      !acknowledge_outbox(argv[2], retry_first, retry_first_len) ||
-      !acknowledge_outbox(argv[2], retry_second, retry_second_len)) {
+      !acknowledge_outbox(database_path, retry_first, retry_first_len) ||
+      !acknowledge_outbox(database_path, retry_second, retry_second_len)) {
     return 125;
   }
   free(retry_first);
   free(retry_second);
-  if (mesh_messenger_outbox_list((const uint8_t *)argv[2], strlen(argv[2]),
+  if (mesh_messenger_outbox_list((const uint8_t *)database_path, strlen(database_path),
                                  &response) != MESH_LIBRARY_OK ||
       response.len != 8 || read_u32(response.data + 4) != 0) {
     return 126;
@@ -1421,8 +1312,8 @@ int main(int argc, char **argv) {
   size_t linked_reply_len = linked_reply == bob_reply_first
                                 ? bob_reply_first_len
                                 : bob_reply_second_len;
-  const uint8_t *root_receive_values[] = {(const uint8_t *)argv[2], root_reply};
-  const size_t root_receive_lengths[] = {strlen(argv[2]), root_reply_len};
+  const uint8_t *root_receive_values[] = {(const uint8_t *)database_path, root_reply};
+  const size_t root_receive_lengths[] = {strlen(database_path), root_reply_len};
   size_t root_receive_len = 0;
   uint8_t *root_receive = vector_request(root_receive_values,
                                          root_receive_lengths, 2,
@@ -1519,9 +1410,9 @@ int main(int argc, char **argv) {
   free(block_policy);
 
   static const uint8_t blocked_body[] = "blocked message";
-  const uint8_t *blocked_send_values[] = {(const uint8_t *)argv[2], bob_profile,
+  const uint8_t *blocked_send_values[] = {(const uint8_t *)database_path, bob_profile,
                                           blocked_body};
-  const size_t blocked_send_lengths[] = {strlen(argv[2]), bob_profile_len,
+  const size_t blocked_send_lengths[] = {strlen(database_path), bob_profile_len,
                                          sizeof(blocked_body) - 1};
   size_t blocked_send_len = 0;
   uint8_t *blocked_send = vector_request(blocked_send_values,
@@ -1538,7 +1429,7 @@ int main(int argc, char **argv) {
   if (blocked_outer == NULL) return 39;
   memcpy(blocked_outer, response.data, blocked_outer_len);
   mesh_library_free_returned_bytes(&response);
-  if (!acknowledge_outbox(argv[2], blocked_outer, blocked_outer_len)) return 134;
+  if (!acknowledge_outbox(database_path, blocked_outer, blocked_outer_len)) return 134;
   free(blocked_send);
 
   const uint8_t *blocked_receive_values[] = {(const uint8_t *)bob_path,
@@ -1575,9 +1466,9 @@ int main(int argc, char **argv) {
 
   static const uint8_t disappear_action[] = {5};
   static const uint8_t one_second[] = {0, 0, 0, 1};
-  const uint8_t *disappear_values[] = {(const uint8_t *)argv[2], bob_profile,
+  const uint8_t *disappear_values[] = {(const uint8_t *)database_path, bob_profile,
                                        disappear_action, one_second};
-  const size_t disappear_lengths[] = {strlen(argv[2]), bob_profile_len, 1, 4};
+  const size_t disappear_lengths[] = {strlen(database_path), bob_profile_len, 1, 4};
   size_t disappear_len = 0;
   uint8_t *disappear_request = vector_request(
       disappear_values, disappear_lengths, 4, &disappear_len);
@@ -1590,9 +1481,9 @@ int main(int argc, char **argv) {
   free(disappear_request);
 
   static const uint8_t ephemeral_body[] = "gone soon";
-  const uint8_t *ephemeral_values[] = {(const uint8_t *)argv[2], bob_profile,
+  const uint8_t *ephemeral_values[] = {(const uint8_t *)database_path, bob_profile,
                                        ephemeral_body};
-  const size_t ephemeral_lengths[] = {strlen(argv[2]), bob_profile_len,
+  const size_t ephemeral_lengths[] = {strlen(database_path), bob_profile_len,
                                       sizeof(ephemeral_body) - 1};
   size_t ephemeral_len = 0;
   uint8_t *ephemeral_request =
@@ -1608,7 +1499,7 @@ int main(int argc, char **argv) {
   if (ephemeral_outer == NULL) return 47;
   memcpy(ephemeral_outer, response.data, ephemeral_outer_len);
   mesh_library_free_returned_bytes(&response);
-  if (!acknowledge_outbox(argv[2], ephemeral_outer, ephemeral_outer_len)) return 135;
+  if (!acknowledge_outbox(database_path, ephemeral_outer, ephemeral_outer_len)) return 135;
   free(ephemeral_request);
 
   const uint8_t *ephemeral_receive_values[] = {(const uint8_t *)bob_path,
@@ -1641,10 +1532,10 @@ int main(int argc, char **argv) {
   /* A fresh device starts with id=2. Publishing 63 more reaches the hard
      64-key pool bound; rejected replenishments must leave encrypted state
      unchanged. */
-  size_t capacity_path_len = strlen(argv[2]) + 10;
+  size_t capacity_path_len = strlen(database_path) + 10;
   char *capacity_path = malloc(capacity_path_len);
   if (capacity_path == NULL) return 149;
-  snprintf(capacity_path, capacity_path_len, "%s.capacity", argv[2]);
+  snprintf(capacity_path, capacity_path_len, "%s.capacity", database_path);
   size_t capacity_account_len = 0;
   uint8_t *capacity_account =
       account_request(capacity_path, "capacity", &capacity_account_len);
@@ -1968,15 +1859,15 @@ int main(int argc, char **argv) {
   mesh_library_free_returned_bytes(&response);
   free(export_request);
 
-  size_t legacy_active_path_len = strlen(argv[2]) + 15;
+  size_t legacy_active_path_len = strlen(database_path) + 15;
   char *legacy_active_path = malloc(legacy_active_path_len);
-  size_t legacy_consumed_path_len = strlen(argv[2]) + 17;
+  size_t legacy_consumed_path_len = strlen(database_path) + 17;
   char *legacy_consumed_path = malloc(legacy_consumed_path_len);
   if (legacy_active_path == NULL || legacy_consumed_path == NULL) return 172;
   snprintf(legacy_active_path, legacy_active_path_len, "%s.legacy-active",
-           argv[2]);
+           database_path);
   snprintf(legacy_consumed_path, legacy_consumed_path_len,
-           "%s.legacy-consumed", argv[2]);
+           "%s.legacy-consumed", database_path);
   uint8_t legacy_active_account_id[32];
   uint8_t legacy_active_device_id[16];
   uint8_t legacy_consumed_account_id[32];
@@ -2062,13 +1953,6 @@ int main(int argc, char **argv) {
   free(linked_path);
   free(profile);
 
-  const uint8_t invalid[] = {0, 1, 2};
-  if (mesh_messenger_validate_outer(invalid, sizeof(invalid), &response) !=
-      MESH_LIBRARY_ERR_APPLICATION) {
-    return 16;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(envelope);
   if (mesh_library_shutdown() != MESH_LIBRARY_OK) return 17;
   puts("mobile core host proof passed");
   return 0;

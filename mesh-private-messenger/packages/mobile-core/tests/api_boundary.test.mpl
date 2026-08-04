@@ -3,7 +3,7 @@ from MobileCore import initialize, persist_envelope, validate_outer
 from Protocol.V1 import OuterEnvelope, encode_outer_envelope
 from Tests.Support import append, database_path, repeated, vector
 
-fn outer() -> Bytes ! String do
+fn outer(ciphertext :: Bytes, padding_bucket :: Int) -> Bytes ! String do
   let expiration = case U64.parse("2000000000") do
     Err( _) -> Err("test timestamp conversion failed")
     Ok( value) -> Ok(value)
@@ -14,8 +14,8 @@ fn outer() -> Bytes ! String do
     mailbox_token : repeated(7, 32) ?,
     suite : 1,
     expiration : expiration,
-    padding_bucket : 256,
-    ciphertext : repeated(165, 16) ?
+    padding_bucket : padding_bucket,
+    ciphertext : ciphertext
   }) do
     Err( _) -> Err("test outer encoding failed")
     Ok( encoded) -> Ok(encoded)
@@ -36,8 +36,11 @@ fn proof() -> Bool ! String do
     Ok( _) -> assert(false)
     Err( error) -> assert(error == "invalid_database_path")
   end
-  let encoded_outer = outer() ?
+  let encoded_outer = outer(repeated(165, 16) ?, 256) ?
   assert(Bytes.secure_equals(validate_outer(encoded_outer) ?, encoded_outer))
+  let boundary_outer = outer(repeated(165, 65536) ?, 65536) ?
+  assert(Bytes.length(boundary_outer) == 65606)
+  assert(Bytes.secure_equals(validate_outer(boundary_outer) ?, boundary_outer))
   let trailing = append(encoded_outer, Bytes.from_utf8("x")) ?
   case validate_outer(trailing) do
     Ok( _) -> assert(false)
