@@ -17,7 +17,6 @@ readonly linked_database="$database.linked"
 readonly capacity_database="$database.capacity"
 readonly legacy_active_database="$database.legacy-active"
 readonly legacy_consumed_database="$database.legacy-consumed"
-readonly legacy_core_dir="$temp_dir/legacy-core"
 if [[ "$(uname -s)" == Darwin ]]; then
   readonly library="$temp_dir/libmessenger_mobile.dylib"
   readonly host_system_libs=(-framework Security -framework CoreFoundation)
@@ -29,6 +28,12 @@ fi
 fail() {
   printf 'M10 proof failed: %s\n' "$*" >&2
   return 1
+}
+
+encrypted_database_matches() {
+  local database_path=$1
+  local expected_count=$2
+  [[ "$(sqlite3 "$database_path" "SELECT count(*) = $expected_count AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND sum(typeof(ciphertext) != 'blob') = 0 FROM encrypted_blobs;")" == 1 ]]
 }
 
 cleanup() {
@@ -125,35 +130,35 @@ main() {
   command -v cc >/dev/null || fail "a C compiler is required"
   command -v sqlite3 >/dev/null || fail "sqlite3 is required"
 
-  mkdir -p "$legacy_core_dir/storage"
-  cp "$core_dir/main.mpl" "$legacy_core_dir/main.mpl"
-  sed -e "\$r $core_dir/tests/legacy_fixture.mesh.inc" \
-    "$core_dir/mobile_core.mpl" >"$legacy_core_dir/mobile_core.mpl"
-  cp "$core_dir/storage/blobs.mpl" "$legacy_core_dir/storage/blobs.mpl"
-  sed -e "s|../../../mesh-lang/packages/mesh-binary|$repo_root/mesh-lang/packages/mesh-binary|" \
-    -e "s|../messenger-protocol|$repo_root/mesh-private-messenger/packages/messenger-protocol|" \
-    "$core_dir/mesh.toml" >"$legacy_core_dir/mesh.toml"
-  "$meshc_bin" build "$legacy_core_dir" --artifact cdylib --output "$library"
+  local mixed_database="$temp_dir/mixed-storage.db"
+  sqlite3 "$mixed_database" "CREATE TABLE encrypted_blobs(record_hash TEXT, ciphertext BLOB); INSERT INTO encrypted_blobs VALUES (printf('%064d', 0), X'00'), (printf('%064d', 1), 'text');"
+  if encrypted_database_matches "$mixed_database" 2; then
+    fail "encrypted SQLite verification accepted a non-BLOB ciphertext"
+  fi
+
+  "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
   cc "$core_dir/tests/host.c" -I "$temp_dir" -L "$temp_dir" -lmessenger_mobile \
     -lsqlite3 -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
   "$temp_dir/host" "$database"
 
-  "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
-  MESSENGER_M10_CAPACITY_PATH="$capacity_database" "$meshc_bin" test "$core_dir/tests"
+  MESSENGER_M10_CAPACITY_PATH="$capacity_database" \
+    MESSENGER_M10_LEGACY_ACTIVE_PATH="$legacy_active_database" \
+    MESSENGER_M10_LEGACY_CONSUMED_PATH="$legacy_consumed_database" \
+    "$meshc_bin" test "$core_dir/tests"
 
-  [[ "$(sqlite3 "$database" "SELECT count(*) = 17 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
+  encrypted_database_matches "$database" 17 || \
     fail "sender SQLite did not contain seventeen encrypted session, outbox, and prekey records"
-  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 14 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
+  encrypted_database_matches "$peer_database" 14 || \
     fail "recipient SQLite did not contain fourteen encrypted fanout and prekey records"
-  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 12 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
+  encrypted_database_matches "$linked_database" 12 || \
     fail "linked-device SQLite did not contain twelve encrypted sync and prekey records"
-  [[ "$(sqlite3 "$capacity_database" "SELECT count(*) = 73 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
+  encrypted_database_matches "$capacity_database" 73 || \
     fail "bounded-pool SQLite did not contain sixty-four encrypted one-time prekeys"
-  [[ "$(sqlite3 "$legacy_active_database" "SELECT count(*) >= 10 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
+  encrypted_database_matches "$legacy_active_database" 10 || \
     fail "active legacy singleton migration did not remain encrypted"
-  [[ "$(sqlite3 "$legacy_consumed_database" "SELECT count(*) >= 11 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
+  encrypted_database_matches "$legacy_consumed_database" 11 || \
     fail "consumed legacy singleton migration did not remain encrypted"
-  local leak_pattern='whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|post-quantum-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
+  local leak_pattern='whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|post-quantum-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|capacity|legacy-active|legacy-consumed|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
   local leaks
   leaks="$(LC_ALL=C grep -a -E -o "$leak_pattern" "$database" "$peer_database" "$linked_database" "$capacity_database" "$legacy_active_database" "$legacy_consumed_database" || true)"
   if [[ -n "$leaks" ]]; then

@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  MESH_LANG_REVISION: b8072a36e1fbe0a75bcfd4762b286bcd5e344c3c
+  MESH_LANG_REVISION: a36c9ceffed5d04e82629cc5787efea53b1f3c87
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -73,6 +73,12 @@ jobs:
           key: ci-mesh-x86_64-unknown-linux-gnu
           workspaces: mesh-lang -> target
 
+      - name: Install M10 system dependencies
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libsqlite3-dev sqlite3
+
       - name: Verify formatting and core workspace
         timeout-minutes: 45
         run: |
@@ -89,7 +95,7 @@ jobs:
           ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/tests --check
           ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-protocol/tests
           ./target/debug/meshc fmt ../mesh-private-messenger/packages/mobile-core --check
-          ./target/debug/meshc test ../mesh-private-messenger/packages/mobile-core/tests
+          ../mesh-private-messenger/scripts/prove-m10.sh
 
       - name: Verify mobile application
         timeout-minutes: 15

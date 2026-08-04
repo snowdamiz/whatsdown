@@ -34,7 +34,7 @@ legacy_blob :: Bytes) -> Result <(), String > do
   end
 end
 
-fn prepare_legacy_prekey_fixture_path(database_path :: String) -> Result <(), String > do
+pub fn prepare_legacy_prekey_fixture_path(database_path :: String) -> Result <(), String > do
   ensure_schema(database_path) ?
   let profile = parse_profile(load_profile(database_path) ?) ?
   let wrapping_key = platform_key() ?
@@ -52,12 +52,14 @@ fn prepare_legacy_prekey_fixture_path(database_path :: String) -> Result <(), St
   end
 end
 
-@ export("mesh_messenger_test_prepare_legacy_prekey")pub fn prepare_legacy_prekey(request :: Bytes) -> Bytes ! String do
-  case Bytes.to_utf8(request) do
-    Err( _) -> Err("invalid_database_path")
-    Ok( database_path) -> do
-      prepare_legacy_prekey_fixture_path(database_path) ?
-      Ok(Bytes.empty())
-    end
+pub fn migrated_prekey_matches_profile_path(database_path :: String) -> Bool ! String do
+  let profile = parse_profile(load_profile(database_path) ?) ?
+  let id = profile.bundle.one_time_prekey_id
+  let private_key = open_x25519(load_blob(database_path, one_time_prekey_label(id)) ?,
+  platform_key() ?,
+  one_time_prekey_context(profile, id) ?) ?
+  case Crypto.x25519_public(private_key) do
+    Err( _) -> Err("invalid_migrated_prekey")
+    Ok( public_key) -> Ok(Bytes.secure_equals(public_key.bytes, profile.bundle.one_time_prekey))
   end
 end
