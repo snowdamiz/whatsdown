@@ -139,7 +139,7 @@ main() {
   "$temp_dir/host" "$database"
 
   "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
-  "$meshc_bin" test "$core_dir/tests"
+  MESSENGER_M10_CAPACITY_PATH="$capacity_database" "$meshc_bin" test "$core_dir/tests"
 
   [[ "$(sqlite3 "$database" "SELECT count(*) = 17 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
     fail "sender SQLite did not contain seventeen encrypted session, outbox, and prekey records"
