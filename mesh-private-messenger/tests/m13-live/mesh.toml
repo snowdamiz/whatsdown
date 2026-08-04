@@ -1,0 +1,7 @@
+[package]
+name = "messenger-m13-live-proof"
+version = "0.1.0"
+
+[dependencies]
+messenger-mobile-core = { path = "../../packages/mobile-core" }
+messenger-protocol = { path = "../../packages/messenger-protocol" }
