@@ -22,15 +22,16 @@ cleanup() {
   local resolved_temp
   trap - EXIT INT TERM
   if [[ -d "$temp_dir" && ! -L "$temp_dir" ]]; then
-    resolved_parent="$(realpath "$temp_parent")"
-    resolved_temp="$(realpath "$temp_dir")"
-    case "$resolved_temp" in
-      "$resolved_parent"/whatsdown-m11.*)
-        if [[ "$(find "$resolved_temp" -type l -print -quit)" == '' ]]; then
-          find "$resolved_temp" -depth -delete
-        fi
-        ;;
-    esac
+    if resolved_parent="$(cd "$temp_parent" && pwd -P)" &&
+      resolved_temp="$(cd "$temp_dir" && pwd -P)"; then
+      case "$resolved_temp" in
+        "$resolved_parent"/whatsdown-m11.*)
+          if [[ "$(/usr/bin/find "$resolved_temp" -type l -print -quit)" == '' ]]; then
+            /usr/bin/find "$resolved_temp" -depth -delete
+          fi
+          ;;
+      esac
+    fi
   fi
   exit "$status"
 }
