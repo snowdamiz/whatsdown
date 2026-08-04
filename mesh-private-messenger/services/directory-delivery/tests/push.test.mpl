@@ -242,7 +242,10 @@ fn proof() -> Bool ! String do
   let encoded_first = encode_push_bind(first) ?
   assert(bind_push_request(pool, append_bytes(encoded_first, repeated(0, 1) ?) ?).status == 400)
   assert(bind_push_request(pool, encoded_first).status == 201)
-  assert(bind_push_request(pool, encode_push_bind(first) ?).status == 409)
+  assert(bind_push_request(pool, encode_push_bind(first) ?).status == 201)
+  let conflicting_first = sign_bind(device.signing_private_key,
+  unsigned_bind(mailbox_token_hash, second_wake_token_hash, "1", second_provider_token) ?) ?
+  assert(bind_push_request(pool, encode_push_bind(conflicting_first) ?).status == 409)
   let tampered = PushBindRequest {
     mailbox_token_hash : first.mailbox_token_hash,
     wake_token_hash : second_wake_token_hash,
@@ -285,7 +288,10 @@ fn proof() -> Bool ! String do
   assert(unbind_push_request(pool, encode_push_unbind(invalid_unbind) ?).status == 403)
   let unbind = sign_unbind(device.signing_private_key, unsigned_unbind(mailbox_token_hash, "3") ?) ?
   assert(unbind_push_request(pool, encode_push_unbind(unbind) ?).status == 200)
-  assert(unbind_push_request(pool, encode_push_unbind(unbind) ?).status == 409)
+  assert(unbind_push_request(pool, encode_push_unbind(unbind) ?).status == 200)
+  let stale_unbind = sign_unbind(device.signing_private_key,
+  unsigned_unbind(mailbox_token_hash, "2") ?) ?
+  assert(unbind_push_request(pool, encode_push_unbind(stale_unbind) ?).status == 409)
   assert(bind_push_request(pool, encode_push_bind(second) ?).status == 409)
   case find_push_binding_for_mailbox(pool, mailbox_token_hash) ? do
     None -> Ok(nil)
@@ -305,7 +311,7 @@ fn proof() -> Bool ! String do
   Ok(true)
 end
 
-test("signed push bindings resist forgery and replay without weakening durable delivery") do
+test("signed push binding replays are idempotent without weakening durable delivery") do
   case proof() do
     Err( error) -> do
       println(error)

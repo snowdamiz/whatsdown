@@ -80,7 +80,7 @@ fn bind_on_connection(conn :: borrow PgConn, request :: PushBindRequest) -> Push
     Ok(PushUnauthorized)
   else
     let changed = Pg.execute_values(conn,
-    "INSERT INTO messenger_push_bindings (mailbox_token_hash, wake_token_hash, revision, provider, provider_token_ciphertext) VALUES ($1, $2, $3::bigint, $4::smallint, $5) ON CONFLICT (mailbox_token_hash) DO UPDATE SET wake_token_hash = EXCLUDED.wake_token_hash, revision = EXCLUDED.revision, provider = EXCLUDED.provider, provider_token_ciphertext = EXCLUDED.provider_token_ciphertext, disabled_at = NULL WHERE messenger_push_bindings.revision < EXCLUDED.revision",
+    "INSERT INTO messenger_push_bindings (mailbox_token_hash, wake_token_hash, revision, provider, provider_token_ciphertext) VALUES ($1, $2, $3::bigint, $4::smallint, $5) ON CONFLICT (mailbox_token_hash) DO UPDATE SET wake_token_hash = EXCLUDED.wake_token_hash, revision = EXCLUDED.revision, provider = EXCLUDED.provider, provider_token_ciphertext = EXCLUDED.provider_token_ciphertext, disabled_at = NULL WHERE messenger_push_bindings.revision < EXCLUDED.revision OR (messenger_push_bindings.revision = EXCLUDED.revision AND messenger_push_bindings.disabled_at IS NULL AND messenger_push_bindings.wake_token_hash = EXCLUDED.wake_token_hash AND messenger_push_bindings.provider = EXCLUDED.provider AND messenger_push_bindings.provider_token_ciphertext = EXCLUDED.provider_token_ciphertext)",
     [Binary(request.mailbox_token_hash), Binary(request.wake_token_hash), Text(U64.to_string(request.revision)), Text(Int.to_string(request.provider)), Binary(request.provider_token_ciphertext)]) ?
     if changed == 1 do
       Ok(PushAccepted)
@@ -103,7 +103,7 @@ fn unbind_on_connection(conn :: borrow PgConn, request :: PushUnbindRequest) -> 
     Ok(PushUnauthorized)
   else
     let changed = Pg.execute_values(conn,
-    "UPDATE messenger_push_bindings SET revision = $2::bigint, disabled_at = now() WHERE mailbox_token_hash = $1 AND revision < $2::bigint",
+    "UPDATE messenger_push_bindings SET revision = $2::bigint, disabled_at = coalesce(disabled_at, now()) WHERE mailbox_token_hash = $1 AND (revision < $2::bigint OR (revision = $2::bigint AND disabled_at IS NOT NULL))",
     [Binary(request.mailbox_token_hash), Text(U64.to_string(request.revision))]) ?
     if changed == 1 do
       Ok(PushAccepted)
