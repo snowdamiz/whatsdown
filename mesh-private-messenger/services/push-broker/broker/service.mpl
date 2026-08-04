@@ -1,5 +1,5 @@
-from Broker.Expo import BrokerOutcome, classify_expo_receipt, parse_expo_ticket, prepare_expo_request, receipt_message
-from Broker.Queue import EnqueueOutcome, QueueJob, complete_job, enqueue, mark_terminal, next_job, purge_tombstones, record_ticket, retry_job, tombstone_cutoff_ms
+from Broker.Expo import BrokerOutcome, classify_expo_receipt, parse_expo_ticket, prepare_expo_request_with_key, receipt_message
+from Broker.Queue import EnqueueOutcome, QueueJob, complete_job, enqueue_with_key, mark_terminal, next_job, purge_tombstones, record_ticket, retry_job, tombstone_cutoff_ms
 
 pub fn expo_send_url() -> String do
   "https://exp.host/--/api/v2/push/send"
@@ -9,14 +9,14 @@ pub fn expo_receipts_url() -> String do
   "https://exp.host/--/api/v2/push/getReceipts"
 end
 
-pub fn broker_seed(encoded :: String) -> Bytes ! String do
-  case Bytes.from_hex(encoded) do
+pub fn broker_private_key() -> X25519PrivateKey ! String do
+  let material = case Env.get_secret_hex("MESSENGER_PUSH_BROKER_SEED_HEX") do
     Err( _) -> Err("invalid broker seed")
-    Ok( value) -> if Bytes.length(value) == 32 do
-      Ok(value)
-    else
-      Err("invalid broker seed")
-    end
+    Ok( value) -> Ok(value)
+  end ?
+  case Crypto.x25519_from_secret(material) do
+    Err( _) -> Err("invalid broker seed")
+    Ok( pair) -> Ok(pair.private_key)
   end
 end
 
@@ -56,19 +56,21 @@ pub fn authorized(header :: Option < String >, secret :: String) -> Bool do
   end
 end
 
-pub fn prepare_delivery(input :: Bytes, broker_private_seed :: Bytes) -> Result < String, BrokerOutcome > do
+pub fn prepare_delivery_with_key(input :: Bytes, broker_private_key :: borrow X25519PrivateKey) -> Result < String, BrokerOutcome > do
   if Bytes.length(input) == 0 || Bytes.length(input) > 621 do
     Err(Permanent)
   else
-    case prepare_expo_request(input, broker_private_seed) do
+    case prepare_expo_request_with_key(input, broker_private_key) do
       Err( _) -> Err(Permanent)
       Ok( message) -> Ok(message)
     end
   end
 end
 
-pub fn send_ticket(input :: Bytes, broker_private_seed :: Bytes, token :: String) -> Result < String, BrokerOutcome > do
-  case prepare_delivery(input, broker_private_seed) do
+pub fn send_ticket_with_key(input :: Bytes,
+broker_private_key :: borrow X25519PrivateKey,
+token :: String) -> Result < String, BrokerOutcome > do
+  case prepare_delivery_with_key(input, broker_private_key) do
     Err( outcome) -> Err(outcome)
     Ok( message) -> do
       let request = Http.build(:post, expo_send_url())
@@ -106,10 +108,13 @@ pub fn check_receipt(ticket_id :: String, token :: String) -> BrokerOutcome do
   end
 end
 
-pub fn accept_durable(path :: String, input :: Bytes, broker_private_seed :: Bytes, now_ms :: Int) -> BrokerOutcome do
-  case prepare_delivery(input, broker_private_seed) do
+pub fn accept_durable_with_key(path :: String,
+input :: Bytes,
+broker_private_key :: borrow X25519PrivateKey,
+now_ms :: Int) -> BrokerOutcome do
+  case prepare_delivery_with_key(input, broker_private_key) do
     Err( outcome) -> outcome
-    Ok( _) -> case enqueue(path, input, broker_private_seed, now_ms) do
+    Ok( _) -> case enqueue_with_key(path, input, broker_private_key, now_ms) do
       Err( _) -> Retryable
       Ok( QueueAccepted) -> Delivered
       Ok( QueueCoalesced) -> Delivered
@@ -117,12 +122,12 @@ pub fn accept_durable(path :: String, input :: Bytes, broker_private_seed :: Byt
   end
 end
 
-fn process_send(path :: String,
+fn process_send_with_key(path :: String,
 job :: QueueJob,
-broker_private_seed :: Bytes,
+broker_private_key :: borrow X25519PrivateKey,
 token :: String,
 now_ms :: Int) -> Result <(), String > do
-  case send_ticket(job.sealed_request, broker_private_seed, token) do
+  case send_ticket_with_key(job.sealed_request, broker_private_key, token) do
     Ok( ticket_id) -> record_ticket(path, job, ticket_id, now_ms)
     Err( Delivered) -> Err("invalid Expo send state")
     Err( Permanent) -> mark_terminal(path, job.wake_hash, job.request_hash, now_ms)
@@ -138,11 +143,14 @@ fn process_receipt(path :: String, job :: QueueJob, token :: String, now_ms :: I
   end
 end
 
-pub fn process_once(path :: String, broker_private_seed :: Bytes, token :: String, now_ms :: Int) -> Bool ! String do
+pub fn process_once_with_key(path :: String,
+broker_private_key :: borrow X25519PrivateKey,
+token :: String,
+now_ms :: Int) -> Bool ! String do
   case next_job(path, now_ms) ? do
     None -> Ok(false)
     Some( job) -> if job.state == "pending" || job.state == "retry_send" do
-      process_send(path, job, broker_private_seed, token, now_ms) ?
+      process_send_with_key(path, job, broker_private_key, token, now_ms) ?
       Ok(true)
     else if job.state == "receipt" || job.state == "retry_receipt" do
       process_receipt(path, job, token, now_ms) ?
@@ -153,7 +161,10 @@ pub fn process_once(path :: String, broker_private_seed :: Bytes, token :: Strin
   end
 end
 
-fn worker_loop(path :: String, broker_private_seed :: Bytes, token :: String, last_purge_ms :: Int) do
+fn worker_loop(path :: String,
+broker_private_key :: borrow X25519PrivateKey,
+token :: String,
+last_purge_ms :: Int) do
   if Process.shutdown_requested() do
     nil
   else
@@ -167,21 +178,30 @@ fn worker_loop(path :: String, broker_private_seed :: Bytes, token :: String, la
     else
       last_purge_ms
     end
-    case process_once(path, broker_private_seed, token, now_ms) do
+    case process_once_with_key(path, broker_private_key, token, now_ms) do
       Err( _) -> println("push worker failed")
       Ok( _) -> nil
     end
     Timer.sleep(250)
-    worker_loop(path, broker_private_seed, token, next_purge_ms)
+    worker_loop(path, broker_private_key, token, next_purge_ms)
   end
 end
 
-actor push_worker(path :: String, broker_private_seed :: Bytes, token :: String) do
-  worker_loop(path, broker_private_seed, token, 0)
+fn run_worker(path :: String, token :: String) -> Result <(), String > do
+  let private_key = broker_private_key() ?
+  worker_loop(path, private_key, token, 0)
+  Ok(nil)
 end
 
-pub fn start_worker(path :: String, broker_private_seed :: Bytes, token :: String) do
-  spawn(push_worker, path, broker_private_seed, token)
+actor push_worker(path :: String, token :: String) do
+  case run_worker(path, token) do
+    Err( _) -> println("push worker key configuration failed")
+    Ok( _) -> nil
+  end
+end
+
+pub fn start_worker(path :: String, token :: String) do
+  spawn(push_worker, path, token)
   nil
 end
 

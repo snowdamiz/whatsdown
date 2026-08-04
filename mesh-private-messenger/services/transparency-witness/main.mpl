@@ -1,7 +1,7 @@
 from Transparency.Merkle import TransparencyCheckpoint, checkpoint_conflict, sign_witness, verify_checkpoint, verify_consistency
 from Transparency.Wire import TransparencyTreeQuery, decode_checkpoint, decode_consistency_proof, encode_checkpoint, encode_transparency_tree_query, encode_witnesses
 
-fn configured_key(name :: String) -> Bytes ! String do
+fn configured_public_key(name :: String) -> Bytes ! String do
   case Bytes.from_hex(Env.get(name, "")) do
     Err( _) -> Err("invalid witness configuration")
     Ok( value) -> if Bytes.length(value) == 32 do
@@ -9,6 +9,17 @@ fn configured_key(name :: String) -> Bytes ! String do
     else
       Err("invalid witness configuration")
     end
+  end
+end
+
+fn configured_signer() -> SigningKeyPair ! String do
+  let material = case Env.get_secret_hex("MESSENGER_WITNESS_SIGNING_SEED_HEX") do
+    Err( _) -> Err("invalid witness signing seed")
+    Ok( value) -> Ok(value)
+  end ?
+  case Crypto.signing_from_secret(material) do
+    Err( _) -> Err("invalid witness signing seed")
+    Ok( signer) -> Ok(signer)
   end
 end
 
@@ -103,7 +114,7 @@ fn witness_once() -> Result <(), String > do
   if String.length(witness_id) == 0 || String.length(witness_id) > 64 || String.length(checkpoint_path) == 0 do
     Err("invalid witness configuration")
   else
-    let trusted_log_key = SigningPublicKey { bytes : configured_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX") ? }
+    let trusted_log_key = SigningPublicKey { bytes : configured_public_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX") ? }
     let checkpoint = fetch_checkpoint() ?
     if !verify_checkpoint(checkpoint, trusted_log_key) ? do
       Err("transparency checkpoint signature failed")
@@ -112,12 +123,9 @@ fn witness_once() -> Result <(), String > do
         None -> Ok(nil)
         Some( previous) -> verify_history(previous, checkpoint, trusted_log_key)
       end ?
-      let signer = case Crypto.signing_from_seed(configured_key("MESSENGER_WITNESS_SIGNING_SEED_HEX") ?) do
-        Err( _) -> Err("invalid witness signing seed")
-        Ok( value) -> Ok(value)
-      end ?
+      let signer = configured_signer() ?
       if !Bytes.secure_equals(signer.public_key.bytes,
-      configured_key("MESSENGER_WITNESS_PUBLIC_KEY_HEX") ?) do
+      configured_public_key("MESSENGER_WITNESS_PUBLIC_KEY_HEX") ?) do
         Err("witness signing key does not match pinned public key")
       else
         let response = post("/v1/transparency/witnesses",

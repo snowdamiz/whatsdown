@@ -1,5 +1,5 @@
-from Broker.Expo import BrokerOutcome, classify_expo_receipt, classify_expo_response, expo_message, parse_expo_ticket, prepare_expo_request, receipt_message
-from Broker.Service import access_token, authorized, broker_seed, expo_receipts_url, expo_send_url, internal_token, outcome_status, prepare_delivery, provider_url
+from Broker.Expo import BrokerOutcome, classify_expo_receipt, classify_expo_response, expo_message, parse_expo_ticket, prepare_expo_request_with_key, receipt_message
+from Broker.Service import access_token, authorized, expo_receipts_url, expo_send_url, internal_token, outcome_status, prepare_delivery_with_key, provider_url
 from Push.Token import PushWakeRequest, encode_push_wake, seal_provider_token
 
 fn seed(value :: Int) -> Bytes ! String do
@@ -43,7 +43,7 @@ fn opened_payload() -> Bool ! String do
     provider : 1,
     sealed_provider_token : sealed
   }) ?
-  assert(prepare_expo_request(wake, broker_seed) ? == expo_message(token) ?)
+  assert(prepare_expo_request_with_key(wake, broker.private_key) ? == expo_message(token) ?)
   Ok(true)
 end
 
@@ -150,18 +150,6 @@ end
 test("broker configuration rejects unsafe external provider settings") do
   assert(expo_send_url() == "https://exp.host/--/api/v2/push/send")
   assert(expo_receipts_url() == "https://exp.host/--/api/v2/push/getReceipts")
-  let valid_seed = case seed(9) do
-    Err( _) -> ""
-    Ok( value) -> Bytes.to_hex(value)
-  end
-  case broker_seed(valid_seed) do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(Bytes.length(value) == 32)
-  end
-  case broker_seed("") do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
-  end
   case provider_url("https://exp.host/--/api/v2/push/send") do
     Err( _) -> assert(false)
     Ok( value) -> assert(value == "https://exp.host/--/api/v2/push/send")
@@ -201,25 +189,32 @@ test("broker requires an exact internal bearer credential") do
   end
 end
 
-test("broker rejects empty, oversized, and malformed internal push bodies") do
-  case seed(3) do
+fn invalid_delivery_proof() -> Bool ! String do
+  let broker = case Crypto.x25519_from_seed(seed(3) ?) do
+    Err( _) -> Err("broker key failed")
+    Ok( output) -> Ok(output)
+  end ?
+  case prepare_delivery_with_key(Bytes.empty(), broker.private_key) do
+    Err( Permanent) -> assert(true)
+    _ -> assert(false)
+  end
+  case Bytes.repeat(0, 622) do
     Err( _) -> assert(false)
-    Ok( private_seed) -> do
-      case prepare_delivery(Bytes.empty(), private_seed) do
-        Err( Permanent) -> assert(true)
-        _ -> assert(false)
-      end
-      case Bytes.repeat(0, 622) do
-        Err( _) -> assert(false)
-        Ok( oversized) -> case prepare_delivery(oversized, private_seed) do
-          Err( Permanent) -> assert(true)
-          _ -> assert(false)
-        end
-      end
-      case prepare_delivery(Bytes.from_utf8("not-a-canonical-wake"), private_seed) do
-        Err( Permanent) -> assert(true)
-        _ -> assert(false)
-      end
+    Ok( oversized) -> case prepare_delivery_with_key(oversized, broker.private_key) do
+      Err( Permanent) -> assert(true)
+      _ -> assert(false)
     end
+  end
+  case prepare_delivery_with_key(Bytes.from_utf8("not-a-canonical-wake"), broker.private_key) do
+    Err( Permanent) -> assert(true)
+    _ -> assert(false)
+  end
+  Ok(true)
+end
+
+test("broker rejects empty, oversized, and malformed internal push bodies") do
+  case invalid_delivery_proof() do
+    Err( _) -> assert(false)
+    Ok( value) -> assert(value)
   end
 end

@@ -1,4 +1,4 @@
-from Broker.Expo import prepare_expo_request
+from Broker.Expo import prepare_expo_request_with_key
 from Push.Token import decode_push_wake
 
 pub type EnqueueOutcome do
@@ -62,42 +62,49 @@ pub fn initialize(path :: String) -> Result <(), String > do
   end
 end
 
-pub fn enqueue(path :: String, input :: Bytes, broker_private_seed :: Bytes, now_ms :: Int) -> Result < EnqueueOutcome, String > do
-  if now_ms < 0 do
-    Err("invalid broker time")
-  else
-    case Sqlite.open(path) do
-      Err( _) -> Err("broker queue unavailable")
-      Ok( database) -> do
-        let result = case configure(database) do
+fn enqueue_prepared(path :: String, input :: Bytes, now_ms :: Int) -> Result < EnqueueOutcome, String > do
+  case Sqlite.open(path) do
+    Err( _) -> Err("broker queue unavailable")
+    Ok( database) -> do
+      let result = case configure(database) do
+        Err( error) -> Err(error)
+        Ok( _) -> case decode_push_wake(input) do
           Err( error) -> Err(error)
-          Ok( _) -> case prepare_expo_request(input, broker_private_seed) do
-            Err( error) -> Err(error)
-            Ok( _) -> case decode_push_wake(input) do
+          Ok( wake) -> do
+            let wake_hash = Bytes.to_hex(wake.wake_token_hash)
+            let request_hash = Bytes.to_hex(Crypto.sha256(input))
+            case Sqlite.execute(database,
+            "INSERT INTO broker_jobs (wake_hash, request_hash, sealed_request, state, ticket_id, attempts, next_attempt_ms, updated_ms) VALUES (?, ?, ?, 'pending', '', 0, ?, ?) ON CONFLICT(wake_hash) DO UPDATE SET request_hash = excluded.request_hash, sealed_request = excluded.sealed_request, state = 'pending', ticket_id = '', attempts = 0, next_attempt_ms = excluded.next_attempt_ms, updated_ms = excluded.updated_ms WHERE broker_jobs.request_hash <> excluded.request_hash",
+            [wake_hash, request_hash, Bytes.to_base64(input), Int.to_string(now_ms), Int.to_string(now_ms)]) do
               Err( error) -> Err(error)
-              Ok( wake) -> do
-                let wake_hash = Bytes.to_hex(wake.wake_token_hash)
-                let request_hash = Bytes.to_hex(Crypto.sha256(input))
-                case Sqlite.execute(database,
-                "INSERT INTO broker_jobs (wake_hash, request_hash, sealed_request, state, ticket_id, attempts, next_attempt_ms, updated_ms) VALUES (?, ?, ?, 'pending', '', 0, ?, ?) ON CONFLICT(wake_hash) DO UPDATE SET request_hash = excluded.request_hash, sealed_request = excluded.sealed_request, state = 'pending', ticket_id = '', attempts = 0, next_attempt_ms = excluded.next_attempt_ms, updated_ms = excluded.updated_ms WHERE broker_jobs.request_hash <> excluded.request_hash",
-                [wake_hash, request_hash, Bytes.to_base64(input), Int.to_string(now_ms), Int.to_string(now_ms)]) do
-                  Err( error) -> Err(error)
-                  Ok( changed) -> if changed == 0 do
-                    Ok(QueueCoalesced)
-                  else
-                    Ok(QueueAccepted)
-                  end
-                end
+              Ok( changed) -> if changed == 0 do
+                Ok(QueueCoalesced)
+              else
+                Ok(QueueAccepted)
               end
             end
           end
         end
-        Sqlite.close(database)
-        case result do
-          Err( _) -> Err("broker queue unavailable")
-          Ok( outcome) -> Ok(outcome)
-        end
       end
+      Sqlite.close(database)
+      case result do
+        Err( _) -> Err("broker queue unavailable")
+        Ok( outcome) -> Ok(outcome)
+      end
+    end
+  end
+end
+
+pub fn enqueue_with_key(path :: String,
+input :: Bytes,
+broker_private_key :: borrow X25519PrivateKey,
+now_ms :: Int) -> Result < EnqueueOutcome, String > do
+  if now_ms < 0 do
+    Err("invalid broker time")
+  else
+    case prepare_expo_request_with_key(input, broker_private_key) do
+      Err( _) -> Err("broker queue unavailable")
+      Ok( _) -> enqueue_prepared(path, input, now_ms)
     end
   end
 end

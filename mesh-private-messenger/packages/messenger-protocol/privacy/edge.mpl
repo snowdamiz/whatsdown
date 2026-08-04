@@ -222,16 +222,17 @@ pub fn seal_delivery(outer_bytes :: Bytes, delivery_public_key :: X25519PublicKe
   })
 end
 
-pub fn open_delivery(value :: SealedDelivery, delivery_private_seed :: Bytes) -> Bytes ! String do
-  if Bytes.length(delivery_private_seed) != 32 || Bytes.length(value.ephemeral_public_key) != 32 || Bytes.length(value.nonce) != 12 || Bytes.length(value.ciphertext) < 16 || Bytes.length(value.ciphertext) > 65622 do
+pub fn open_delivery_with_key(value :: SealedDelivery,
+delivery_private_key :: borrow X25519PrivateKey) -> Bytes ! String do
+  if Bytes.length(value.ephemeral_public_key) != 32 || Bytes.length(value.nonce) != 12 || Bytes.length(value.ciphertext) < 16 || Bytes.length(value.ciphertext) > 65622 do
     Err("invalid sealed delivery")
   else
-    let delivery = case Crypto.x25519_from_seed(delivery_private_seed) do
+    let delivery_public_key = case Crypto.x25519_public(delivery_private_key) do
       Err( _) -> Err("invalid delivery key")
       Ok( output) -> Ok(output)
     end ?
-    let authenticated_data = authenticated(value.ephemeral_public_key, delivery.public_key.bytes) ?
-    let shared = case Crypto.x25519_shared(delivery.private_key,
+    let authenticated_data = authenticated(value.ephemeral_public_key, delivery_public_key.bytes) ?
+    let shared = case Crypto.x25519_shared(delivery_private_key,
     X25519PublicKey { bytes : value.ephemeral_public_key }) do
       Err( _) -> Err("delivery key agreement failed")
       Ok( output) -> Ok(output)
@@ -242,6 +243,18 @@ pub fn open_delivery(value :: SealedDelivery, delivery_private_seed :: Bytes) ->
       Ok( output) -> Ok(output)
     end ?
     canonical_outer(plaintext)
+  end
+end
+
+pub fn open_delivery(value :: SealedDelivery, delivery_private_seed :: Bytes) -> Bytes ! String do
+  if Bytes.length(delivery_private_seed) != 32 do
+    Err("invalid sealed delivery")
+  else
+    let delivery = case Crypto.x25519_from_seed(delivery_private_seed) do
+      Err( _) -> Err("invalid delivery key")
+      Ok( output) -> Ok(output)
+    end ?
+    open_delivery_with_key(value, delivery.private_key)
   end
 end
 

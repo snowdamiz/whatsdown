@@ -1,14 +1,10 @@
 from Broker.Expo import BrokerOutcome
 from Broker.Queue import initialize
-from Broker.Service import accept_durable, access_token, authorized, broker_seed, internal_token, outcome_status, provider_url, start_worker
+from Broker.Service import accept_durable_with_key, access_token, authorized, broker_private_key, internal_token, outcome_status, provider_url, start_worker
 
 fn fatal(message :: String) do
   io_eprintln(message)
   Process.exit(1)
-end
-
-fn configured_seed() -> Bytes ! String do
-  broker_seed(Env.get("MESSENGER_PUSH_BROKER_SEED_HEX", ""))
 end
 
 fn configured_url() -> String ! String do
@@ -37,7 +33,7 @@ fn configured_queue_path() -> String ! String do
 end
 
 fn validate_config() -> Result <(), String > do
-  let _seed = configured_seed() ?
+  let _private_key = broker_private_key() ?
   let _url = configured_url() ?
   let _token = configured_token() ?
   let _internal_token = configured_internal_token() ?
@@ -46,9 +42,10 @@ fn validate_config() -> Result <(), String > do
 end
 
 fn accept_configured(input :: Bytes) -> BrokerOutcome ! String do
-  Ok(accept_durable(configured_queue_path() ?,
+  let private_key = broker_private_key() ?
+  Ok(accept_durable_with_key(configured_queue_path() ?,
   input,
-  configured_seed() ?,
+  private_key,
   DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
@@ -78,9 +75,8 @@ end
 
 fn serve(port :: Int) -> Result <(), String > do
   let path = configured_queue_path() ?
-  let seed = configured_seed() ?
   let token = configured_token() ?
-  start_worker(path, seed, token)
+  start_worker(path, token)
   println("push-broker listening on :#{port} with one worker")
   let _ = HTTP.serve(HTTP.router()
     |> HTTP.on_get("/health", handle_health)

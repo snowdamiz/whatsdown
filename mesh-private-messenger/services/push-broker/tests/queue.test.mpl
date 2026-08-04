@@ -1,4 +1,4 @@
-from Broker.Queue import EnqueueOutcome, complete_job, enqueue, initialize, mark_terminal, next_job, purge_tombstones, record_ticket, retry_delay_ms, retry_job, tombstone_cutoff_ms
+from Broker.Queue import EnqueueOutcome, complete_job, enqueue_with_key, initialize, mark_terminal, next_job, purge_tombstones, record_ticket, retry_delay_ms, retry_job, tombstone_cutoff_ms
 from Push.Token import PushWakeRequest, encode_push_wake, seal_provider_token
 
 fn seed(value :: Int) -> Bytes ! String do
@@ -29,12 +29,12 @@ fn queue_proof() -> Bool ! String do
     provider : 1,
     sealed_provider_token : first_sealed
   }) ?
-  let first_accepted = case enqueue(path, first, private_seed, 1000) ? do
+  let first_accepted = case enqueue_with_key(path, first, broker.private_key, 1000) ? do
     QueueAccepted -> true
     QueueCoalesced -> false
   end
   assert(first_accepted)
-  let duplicate_coalesced = case enqueue(path, first, private_seed, 1001) ? do
+  let duplicate_coalesced = case enqueue_with_key(path, first, broker.private_key, 1001) ? do
     QueueAccepted -> false
     QueueCoalesced -> true
   end
@@ -45,7 +45,7 @@ fn queue_proof() -> Bool ! String do
   end ?
   assert(Bytes.secure_equals(job.sealed_request, first))
   mark_terminal(path, job.wake_hash, job.request_hash, 1002) ?
-  let terminal_coalesced = case enqueue(path, first, private_seed, 1003) ? do
+  let terminal_coalesced = case enqueue_with_key(path, first, broker.private_key, 1003) ? do
     QueueAccepted -> false
     QueueCoalesced -> true
   end
@@ -66,7 +66,7 @@ fn queue_proof() -> Bool ! String do
     provider : 1,
     sealed_provider_token : changed_sealed
   }) ?
-  let changed_accepted = case enqueue(path, changed, private_seed, 1004) ? do
+  let changed_accepted = case enqueue_with_key(path, changed, changed_broker.private_key, 1004) ? do
     QueueAccepted -> true
     QueueCoalesced -> false
   end
@@ -105,11 +105,11 @@ fn queue_proof() -> Bool ! String do
     None -> nil
     Some( _) -> assert(false)
   end
-  case enqueue(path, changed, private_seed, 902006) ? do
+  case enqueue_with_key(path, changed, changed_broker.private_key, 902006) ? do
     QueueAccepted -> assert(false)
     QueueCoalesced -> nil
   end
-  case enqueue(path, first, private_seed, 902007) ? do
+  case enqueue_with_key(path, first, broker.private_key, 902007) ? do
     QueueAccepted -> nil
     QueueCoalesced -> assert(false)
   end
@@ -120,7 +120,7 @@ fn queue_proof() -> Bool ! String do
   mark_terminal(path, final_job.wake_hash, final_job.request_hash, 902008) ?
   assert(tombstone_cutoff_ms(604800123) == 123)
   assert(purge_tombstones(path, 902009, 1) ? == 1)
-  case enqueue(path, first, private_seed, 902010) ? do
+  case enqueue_with_key(path, first, broker.private_key, 902010) ? do
     QueueAccepted -> nil
     QueueCoalesced -> assert(false)
   end

@@ -2,8 +2,9 @@
 
 The push broker is the only service that can decrypt provider tokens. It accepts
 one canonical, sealed `PWK` body at `POST /internal/v1/push`, durably stores the
-sealed request, and returns `204`. One worker later opens the nested token with
-its X25519 seed and sends Expo only this generic notification:
+sealed request, and returns `204`. One worker ingests the seed directly into an
+actor-owned Mesh X25519 private-key resource, opens the nested token, and sends
+Expo only this generic notification:
 
 ```json
 {"to":"<provider token>","body":"New encrypted activity","data":{"kind":"encrypted-wakeup"}}
@@ -26,7 +27,8 @@ days are purged in batches of at most 256.
 ## Configuration
 
 - `MESSENGER_PUSH_BROKER_SEED_HEX` — required 32-byte X25519 seed as hex. Keep
-  it secret and distribute only its derived public key to clients.
+  it secret and distribute only its derived public key to clients. Mesh ingests
+  it with `Env.get_secret_hex`; it never becomes a Mesh `String` or `Bytes`.
 - `MESSENGER_PUSH_BROKER_INTERNAL_TOKEN` — required 32–256 character service
   credential. Configure the exact same value on directory delivery.
 - `MESSENGER_PUSH_BROKER_DB_PATH` — durable SQLite queue path; defaults to

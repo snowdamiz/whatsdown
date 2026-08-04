@@ -1,5 +1,5 @@
 from Push.Binding import PushBindRequest, decode_push_bind, encode_push_bind
-from Push.Token import PushWakeRequest, decode_push_wake, encode_push_wake, open_provider_token, seal_provider_token
+from Push.Token import PushWakeRequest, decode_push_wake, encode_push_wake, open_provider_token_with_key, seal_provider_token
 
 fn seed(value :: Int) -> Bytes ! String do
   case Bytes.repeat(value, 32) do
@@ -52,8 +52,8 @@ fn proof() -> Bool ! String do
   let token = Bytes.from_utf8("ExponentPushToken[opaque-device-token]")
   let sealed = seal_provider_token(token, broker.public_key) ?
   assert(Bytes.length(sealed) <= 580)
-  assert(Bytes.secure_equals(open_provider_token(sealed, broker_seed) ?, token))
-  case open_provider_token(tamper_last_byte(sealed) ?, broker_seed) do
+  assert(Bytes.secure_equals(open_provider_token_with_key(sealed, broker.private_key) ?, token))
+  case open_provider_token_with_key(tamper_last_byte(sealed) ?, broker.private_key) do
     Err( _) -> assert(true)
     Ok( _) -> assert(false)
   end

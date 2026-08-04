@@ -1,4 +1,4 @@
-from Push.Token import decode_push_wake, open_provider_token
+from Push.Token import decode_push_wake, open_provider_token_with_key
 
 pub type BrokerOutcome do
   Delivered
@@ -16,7 +16,7 @@ pub fn expo_message(token :: Bytes) -> String ! String do
   Ok("{\"to\":" <> Json.encode_string(value) <> ",\"body\":\"New encrypted activity\",\"data\":{\"kind\":\"encrypted-wakeup\"}}")
 end
 
-pub fn prepare_expo_request(input :: Bytes, broker_private_seed :: Bytes) -> String ! String do
+pub fn prepare_expo_request_with_key(input :: Bytes, broker_private_key :: borrow X25519PrivateKey) -> String ! String do
   if Bytes.length(input) > 621 do
     Err("invalid push request")
   else
@@ -24,7 +24,7 @@ pub fn prepare_expo_request(input :: Bytes, broker_private_seed :: Bytes) -> Str
       Err( _) -> Err("invalid push request")
       Ok( output) -> Ok(output)
     end ?
-    let token = case open_provider_token(wake.sealed_provider_token, broker_private_seed) do
+    let token = case open_provider_token_with_key(wake.sealed_provider_token, broker_private_key) do
       Err( _) -> Err("invalid push request")
       Ok( output) -> Ok(output)
     end ?

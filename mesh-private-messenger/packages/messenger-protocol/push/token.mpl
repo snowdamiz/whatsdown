@@ -237,31 +237,39 @@ pub fn seal_provider_token(token :: Bytes, broker_public_key :: X25519PublicKey)
   end
 end
 
+pub fn open_provider_token_with_key(input :: Bytes, broker_private_key :: borrow X25519PrivateKey) -> Bytes ! String do
+  let sealed = decode_sealed(input) ?
+  let broker_public_key = case Crypto.x25519_public(broker_private_key) do
+    Err( _) -> Err("invalid push broker key")
+    Ok( output) -> Ok(output)
+  end ?
+  let authenticated_data = authenticated(sealed.ephemeral_public_key, broker_public_key.bytes) ?
+  let shared = case Crypto.x25519_shared(broker_private_key,
+  X25519PublicKey { bytes : sealed.ephemeral_public_key }) do
+    Err( _) -> Err("push token key agreement failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let key = token_key(shared, authenticated_data) ?
+  let token = case Crypto.aead_open(key, sealed.nonce, authenticated_data, sealed.ciphertext) do
+    Err( _) -> Err("push token opening failed")
+    Ok( output) -> Ok(output)
+  end ?
+  if valid_provider_token(token) do
+    Ok(token)
+  else
+    Err("invalid provider token")
+  end
+end
+
 pub fn open_provider_token(input :: Bytes, broker_private_seed :: Bytes) -> Bytes ! String do
   if Bytes.length(broker_private_seed) != 32 do
     Err("invalid push broker key")
   else
-    let sealed = decode_sealed(input) ?
     let broker = case Crypto.x25519_from_seed(broker_private_seed) do
       Err( _) -> Err("invalid push broker key")
       Ok( output) -> Ok(output)
     end ?
-    let authenticated_data = authenticated(sealed.ephemeral_public_key, broker.public_key.bytes) ?
-    let shared = case Crypto.x25519_shared(broker.private_key,
-    X25519PublicKey { bytes : sealed.ephemeral_public_key }) do
-      Err( _) -> Err("push token key agreement failed")
-      Ok( output) -> Ok(output)
-    end ?
-    let key = token_key(shared, authenticated_data) ?
-    let token = case Crypto.aead_open(key, sealed.nonce, authenticated_data, sealed.ciphertext) do
-      Err( _) -> Err("push token opening failed")
-      Ok( output) -> Ok(output)
-    end ?
-    if valid_provider_token(token) do
-      Ok(token)
-    else
-      Err("invalid provider token")
-    end
+    open_provider_token_with_key(input, broker.private_key)
   end
 end
 

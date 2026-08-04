@@ -139,7 +139,25 @@ fn current_time() -> U64 ! String do
   U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
-fn create_checkpoint_on_connection(conn :: borrow PgConn, signing_seed :: Bytes) -> TransparencyCheckpoint ! String do
+fn configured_signer() -> SigningKeyPair ! String do
+  let material = case Env.get_secret_hex("MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX") do
+    Err( _) -> Err("invalid transparency signing seed")
+    Ok( value) -> Ok(value)
+  end ?
+  case Crypto.signing_from_secret(material) do
+    Err( _) -> Err("invalid transparency signing seed")
+    Ok( signer) -> Ok(signer)
+  end
+end
+
+pub fn validate_signing_config() -> Result <(), String > do
+  let _signer = configured_signer() ?
+  Ok(nil)
+end
+
+fn create_checkpoint_on_connection(conn :: borrow PgConn,
+signing_key :: borrow SigningPrivateKey,
+signing_public_key :: Bytes) -> TransparencyCheckpoint ! String do
   let _ = Pg.query_values(conn, "SELECT pg_advisory_xact_lock(1835365485)", []) ?
   let leaf_hashes = all_hashes_on_connection(conn) ?
   if List.length(leaf_hashes) == 0 do
@@ -163,12 +181,8 @@ fn create_checkpoint_on_connection(conn :: borrow PgConn, signing_seed :: Bytes)
         None -> zero_hash()
         Some( value) -> checkpoint_hash(value)
       end ?
-      let signer = case Crypto.signing_from_seed(signing_seed) do
-        Err( _) -> Err("invalid transparency signing seed")
-        Ok( value) -> Ok(value)
-      end ?
-      let checkpoint = sign_checkpoint(signer.private_key,
-      signer.public_key.bytes,
+      let checkpoint = sign_checkpoint(signing_key,
+      signing_public_key,
       sequence,
       leaf_hashes,
       previous_hash,
@@ -185,9 +199,27 @@ fn create_checkpoint_on_connection(conn :: borrow PgConn, signing_seed :: Bytes)
   end
 end
 
+fn create_checkpoint_from_seed_on_connection(conn :: borrow PgConn, signing_seed :: Bytes) -> TransparencyCheckpoint ! String do
+  let signer = case Crypto.signing_from_seed(signing_seed) do
+    Err( _) -> Err("invalid transparency signing seed")
+    Ok( value) -> Ok(value)
+  end ?
+  create_checkpoint_on_connection(conn, signer.private_key, signer.public_key.bytes)
+end
+
+fn create_configured_checkpoint_on_connection(conn :: borrow PgConn) -> TransparencyCheckpoint ! String do
+  let signer = configured_signer() ?
+  create_checkpoint_on_connection(conn, signer.private_key, signer.public_key.bytes)
+end
+
 pub fn create_checkpoint(pool :: PoolHandle, signing_seed :: Bytes) -> TransparencyCheckpoint ! String do
   Repo.transaction(pool,
-  fn (conn :: borrow PgConn) -> create_checkpoint_on_connection(conn, signing_seed) end)
+  fn (conn :: borrow PgConn) -> create_checkpoint_from_seed_on_connection(conn, signing_seed) end)
+end
+
+pub fn create_configured_checkpoint(pool :: PoolHandle) -> TransparencyCheckpoint ! String do
+  Repo.transaction(pool,
+  fn (conn :: borrow PgConn) -> create_configured_checkpoint_on_connection(conn) end)
 end
 
 pub fn entry_count(pool :: PoolHandle) -> Int ! String do
@@ -256,8 +288,9 @@ end
 fn evidence_on_connection(conn :: borrow PgConn,
 username :: String,
 old_tree_size :: Int,
-signing_seed :: Bytes) -> TransparencyEvidence ! String do
-  let checkpoint = create_checkpoint_on_connection(conn, signing_seed) ?
+signing_key :: borrow SigningPrivateKey,
+signing_public_key :: Bytes) -> TransparencyEvidence ! String do
+  let checkpoint = create_checkpoint_on_connection(conn, signing_key, signing_public_key) ?
   let all = all_hashes_on_connection(conn) ?
   if old_tree_size < 0 || old_tree_size > List.length(all) do
     Err("invalid consistency size")
@@ -287,12 +320,40 @@ signing_seed :: Bytes) -> TransparencyEvidence ! String do
   end
 end
 
+fn evidence_from_seed_on_connection(conn :: borrow PgConn,
+username :: String,
+old_tree_size :: Int,
+signing_seed :: Bytes) -> TransparencyEvidence ! String do
+  let signer = case Crypto.signing_from_seed(signing_seed) do
+    Err( _) -> Err("invalid transparency signing seed")
+    Ok( value) -> Ok(value)
+  end ?
+  evidence_on_connection(conn, username, old_tree_size, signer.private_key, signer.public_key.bytes)
+end
+
+fn configured_evidence_on_connection(conn :: borrow PgConn,
+username :: String,
+old_tree_size :: Int) -> TransparencyEvidence ! String do
+  let signer = configured_signer() ?
+  evidence_on_connection(conn, username, old_tree_size, signer.private_key, signer.public_key.bytes)
+end
+
 pub fn evidence_for_username(pool :: PoolHandle,
 username :: String,
 old_tree_size :: Int,
 signing_seed :: Bytes) -> TransparencyEvidence ! String do
   Repo.transaction(pool,
-  fn (conn :: borrow PgConn) -> evidence_on_connection(conn, username, old_tree_size, signing_seed) end)
+  fn (conn :: borrow PgConn) -> evidence_from_seed_on_connection(conn,
+  username,
+  old_tree_size,
+  signing_seed) end)
+end
+
+pub fn configured_evidence_for_username(pool :: PoolHandle,
+username :: String,
+old_tree_size :: Int) -> TransparencyEvidence ! String do
+  Repo.transaction(pool,
+  fn (conn :: borrow PgConn) -> configured_evidence_on_connection(conn, username, old_tree_size) end)
 end
 
 fn store_witness_on_connection(conn :: borrow PgConn,

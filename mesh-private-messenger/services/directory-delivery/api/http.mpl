@@ -1,4 +1,4 @@
-from Api.Binary import BinaryResult, acknowledge_request, bind_push_request, checkpoint_request, claim_prekey_request, consistency_request, delivery_seed, fetch_request, inclusion_request, publish_prekeys_request, register_device_request, register_request, resolve_devices_request, resolve_request, revoke_device_request, submit_request, submit_sealed_request, submit_witness_request, unbind_push_request, witnesses_request
+from Api.Binary import BinaryResult, acknowledge_request, bind_push_request, checkpoint_request, claim_prekey_request, consistency_request, fetch_request, inclusion_request, publish_prekeys_request, register_device_request, register_request, resolve_devices_request, resolve_request, revoke_device_request, submit_configured_sealed_request, submit_request, submit_witness_request, unbind_push_request, witnesses_request
 from Runtime.Registry import get_pool
 
 fn respond(result :: BinaryResult) -> Response do
@@ -34,9 +34,9 @@ pub fn handle_submit(request :: Request) -> Response do
 end
 
 pub fn handle_sealed_submit(request :: Request) -> Response do
-  case delivery_seed() do
+  case submit_configured_sealed_request(get_pool(), Request.body_bytes(request)) do
     Err( _) -> HTTP.response(500, "")
-    Ok( seed) -> respond(submit_sealed_request(get_pool(), Request.body_bytes(request), seed))
+    Ok( result) -> respond(result)
   end
 end
 

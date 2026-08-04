@@ -1,13 +1,13 @@
 from Protocol.V1 import decode_device_revocation, decode_directory_entry, decode_directory_lookup, decode_mailbox_ack, decode_mailbox_fetch, decode_outer_envelope, encode_delivery_batch, encode_directory_entry, encode_prekey_bundle
 from Prekeys.Pool import PrekeyPublishResponse, decode_prekey_claim, decode_prekey_publish, encode_prekey_publish_response
-from Privacy.Edge import decode_sealed_delivery, open_delivery
+from Privacy.Edge import decode_sealed_delivery, open_delivery, open_delivery_with_key
 from Push.Binding import decode_push_bind, decode_push_unbind
 from Storage.Delivery import DeliveryInsert, acknowledge_mailbox, enqueue_envelope, fetch_mailbox
 from Storage.Devices import DeviceWrite, register_device, resolve_devices, revoke_device
 from Storage.Directory import register_directory, resolve_directory
 from Storage.Push import PushWrite, bind_push, unbind_push
 from Storage.Prekeys import PrekeyClaimWrite, PrekeyPublishWrite, claim_prekey, publish_prekeys
-from Storage.Transparency import consistency_from, create_checkpoint, evidence_for_username, latest_checkpoint, store_witness, witnesses_for_checkpoint
+from Storage.Transparency import consistency_from, configured_evidence_for_username, create_configured_checkpoint, latest_checkpoint, store_witness, validate_signing_config, witnesses_for_checkpoint
 from Transparency.Merkle import WitnessKey
 from Transparency.Wire import decode_transparency_evidence, decode_transparency_lookup, decode_transparency_tree_query, decode_witnesses, encode_checkpoint, encode_consistency_proof, encode_inclusion_proof, encode_transparency_evidence, encode_witnesses
 
@@ -74,24 +74,20 @@ pub fn resolve_devices_request(pool :: PoolHandle, body :: Bytes) -> BinaryResul
     Ok( lookup) -> case resolve_devices(pool, lookup.username) do
       Err( _) -> empty(500)
       Ok( None) -> empty(404)
-      Ok( Some( _)) -> case signing_seed() do
+      Ok( Some( _)) -> case configured_evidence_for_username(pool,
+      lookup.username,
+      lookup.previous_tree_size) do
         Err( _) -> empty(500)
-        Ok( seed) -> case evidence_for_username(pool,
-        lookup.username,
-        lookup.previous_tree_size,
-        seed) do
+        Ok( evidence) -> case encode_transparency_evidence(evidence) do
           Err( _) -> empty(500)
-          Ok( evidence) -> case encode_transparency_evidence(evidence) do
-            Err( _) -> empty(500)
-            Ok( encoded) -> response(200, encoded)
-          end
+          Ok( encoded) -> response(200, encoded)
         end
       end
     end
   end
 end
 
-fn configured_key(name :: String) -> Bytes ! String do
+fn configured_public_key(name :: String) -> Bytes ! String do
   case Bytes.from_hex(Env.get(name, "")) do
     Err( _) -> Err("invalid transparency configuration")
     Ok( value) -> if Bytes.length(value) == 32 do
@@ -102,24 +98,27 @@ fn configured_key(name :: String) -> Bytes ! String do
   end
 end
 
-fn signing_seed() -> Bytes ! String do
-  configured_key("MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX")
-end
-
-pub fn delivery_seed() -> Bytes ! String do
-  configured_key("MESSENGER_DELIVERY_SEALING_SEED_HEX")
+fn delivery_private_key() -> X25519PrivateKey ! String do
+  let material = case Env.get_secret_hex("MESSENGER_DELIVERY_SEALING_SEED_HEX") do
+    Err( _) -> Err("invalid delivery configuration")
+    Ok( value) -> Ok(value)
+  end ?
+  case Crypto.x25519_from_secret(material) do
+    Err( _) -> Err("invalid delivery configuration")
+    Ok( pair) -> Ok(pair.private_key)
+  end
 end
 
 fn trusted_witness(witness_id :: String) -> WitnessKey ! String do
   if witness_id == "witness-a" do
     Ok(WitnessKey {
       witness_id : witness_id,
-      public_key : configured_key("MESSENGER_WITNESS_A_PUBLIC_KEY_HEX") ?
+      public_key : configured_public_key("MESSENGER_WITNESS_A_PUBLIC_KEY_HEX") ?
     })
   else if witness_id == "witness-b" do
     Ok(WitnessKey {
       witness_id : witness_id,
-      public_key : configured_key("MESSENGER_WITNESS_B_PUBLIC_KEY_HEX") ?
+      public_key : configured_public_key("MESSENGER_WITNESS_B_PUBLIC_KEY_HEX") ?
     })
   else
     Err("untrusted witness")
@@ -127,14 +126,14 @@ fn trusted_witness(witness_id :: String) -> WitnessKey ! String do
 end
 
 pub fn validate_transparency_config() -> Result <(), String > do
-  let _ = signing_seed() ?
+  validate_signing_config() ?
   let _ = trusted_witness("witness-a") ?
   let _ = trusted_witness("witness-b") ?
   Ok(nil)
 end
 
 pub fn validate_delivery_config() -> Result <(), String > do
-  let _ = delivery_seed() ?
+  let _private_key = delivery_private_key() ?
   Ok(nil)
 end
 
@@ -199,16 +198,13 @@ end
 pub fn consistency_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
   case decode_transparency_tree_query(body) do
     Err( _) -> empty(400)
-    Ok( query) -> case signing_seed() do
+    Ok( query) -> case create_configured_checkpoint(pool) do
       Err( _) -> empty(500)
-      Ok( seed) -> case create_checkpoint(pool, seed) do
-        Err( _) -> empty(500)
-        Ok( _) -> case consistency_from(pool, query.previous_tree_size) do
-          Err( _) -> empty(400)
-          Ok( proof) -> case encode_consistency_proof(proof) do
-            Err( _) -> empty(500)
-            Ok( encoded) -> response(200, encoded)
-          end
+      Ok( _) -> case consistency_from(pool, query.previous_tree_size) do
+        Err( _) -> empty(400)
+        Ok( proof) -> case encode_consistency_proof(proof) do
+          Err( _) -> empty(500)
+          Ok( encoded) -> response(200, encoded)
         end
       end
     end
@@ -250,6 +246,21 @@ pub fn submit_sealed_request(pool :: PoolHandle, body :: Bytes, private_seed :: 
       Ok( outer) -> submit_request(pool, outer)
     end
   end
+end
+
+fn submit_sealed_with_key(pool :: PoolHandle, body :: Bytes, private_key :: borrow X25519PrivateKey) -> BinaryResult do
+  case decode_sealed_delivery(body) do
+    Err( _) -> empty(400)
+    Ok( sealed) -> case open_delivery_with_key(sealed, private_key) do
+      Err( _) -> empty(400)
+      Ok( outer) -> submit_request(pool, outer)
+    end
+  end
+end
+
+pub fn submit_configured_sealed_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult ! String do
+  let private_key = delivery_private_key() ?
+  Ok(submit_sealed_with_key(pool, body, private_key))
 end
 
 pub fn fetch_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do

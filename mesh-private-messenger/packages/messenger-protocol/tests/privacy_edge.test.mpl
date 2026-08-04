@@ -1,4 +1,4 @@
-from Privacy.Edge import AnonymousAbuseToken, PrivacySubmission, decode_privacy_submission, encode_privacy_submission, mint_submission, open_delivery, seal_delivery, verify_submission
+from Privacy.Edge import AnonymousAbuseToken, PrivacySubmission, decode_privacy_submission, encode_privacy_submission, mint_submission, open_delivery_with_key, seal_delivery, verify_submission
 from Protocol.V1 import OuterEnvelope, encode_outer_envelope
 
 fn repeated(value :: Int, count :: Int) -> Bytes ! String do
@@ -78,8 +78,7 @@ fn edge_proof() -> Bool ! String do
   let decoded = decode_privacy_submission(encoded) ?
   let token_expires_at = decoded.token.expires_at
   let token_nonce = decoded.token.nonce
-  let opened = open_delivery(decoded.sealed,
-  Bytes.from_hex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a") ?) ?
+  let opened = open_delivery_with_key(decoded.sealed, pair.private_key) ?
   assert(Bytes.secure_equals(opened, outer))
   assert(token_rejects_alternate(token_expires_at, token_nonce, public_key, 0) ?)
   Ok(true)
