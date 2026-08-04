@@ -1,6 +1,6 @@
 import File
 from MobileCore import privacy_submission_export
-from Privacy.Edge import decode_privacy_submission, open_delivery, verify_submission
+from Privacy.Edge import decode_privacy_submission, open_delivery_with_key, verify_submission
 from Tests.Support import append, vector
 
 fn join(parts :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! String do
@@ -11,16 +11,12 @@ fn join(parts :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! Strin
   end
 end
 
-fn delivery_seed() -> Bytes ! String do
-  case Bytes.from_hex(Env.get("MESSENGER_DELIVERY_SEALING_SEED_HEX",
-  "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")) do
+fn delivery_key_pair() -> X25519KeyPair ! String do
+  let material = case Env.get_secret_hex("MESSENGER_DELIVERY_SEALING_SEED_HEX") do
     Err( _) -> Err("invalid test delivery seed")
     Ok( value) -> Ok(value)
-  end
-end
-
-fn key_pair(seed :: Bytes) -> X25519KeyPair ! String do
-  case Crypto.x25519_from_seed(seed) do
+  end ?
+  case Crypto.x25519_from_secret(material) do
     Err( _) -> Err("test delivery key generation failed")
     Ok( value) -> Ok(value)
   end
@@ -55,8 +51,7 @@ fn byte(value :: Int) -> Bytes ! String do
 end
 
 fn proof() -> Bool ! String do
-  let seed = delivery_seed() ?
-  let pair = key_pair(seed) ?
+  let pair = delivery_key_pair() ?
   let outer = fixture_outer() ?
   let request = join([vector(outer) ?, vector(pair.public_key.bytes) ?, vector(byte(8) ?) ?],
   0,
@@ -65,7 +60,7 @@ fn proof() -> Bool ! String do
   let submission = privacy_submission_export(request) ?
   assert(verify_submission(submission, started_at, wide("600000") ?, 8) ?)
   let decoded = decode_privacy_submission(submission) ?
-  assert(Bytes.secure_equals(open_delivery(decoded.sealed, seed) ?, outer))
+  assert(Bytes.secure_equals(open_delivery_with_key(decoded.sealed, pair.private_key) ?, outer))
   let output_path = Env.get("MESSENGER_M13_SUBMISSION_PATH", "")
   if String.length(output_path) > 0 do
     File.write_bytes(output_path, 0, submission, true) ?

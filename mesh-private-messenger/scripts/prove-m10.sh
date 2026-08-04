@@ -16,12 +16,11 @@ readonly database="$temp_dir/mobile.db"
 readonly capacity_database="$database.capacity"
 readonly legacy_active_database="$database.legacy-active"
 readonly legacy_consumed_database="$database.legacy-consumed"
+readonly delivery_sealing_seed_hex="77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
 if [[ "$(uname -s)" == Darwin ]]; then
   readonly library="$temp_dir/libmessenger_mobile.dylib"
-  readonly host_system_libs=(-framework Security -framework CoreFoundation)
 else
   readonly library="$temp_dir/libmessenger_mobile.so"
-  readonly host_system_libs=()
 fi
 
 fail() {
@@ -123,7 +122,6 @@ prove_bridge() {
 
 main() {
   [[ -x "$meshc_bin" ]] || fail "Mesh compiler not found at $meshc_bin"
-  command -v cc >/dev/null || fail "a C compiler is required"
   command -v sqlite3 >/dev/null || fail "sqlite3 is required"
 
   local mixed_database="$temp_dir/mixed-storage.db"
@@ -132,12 +130,12 @@ main() {
     fail "encrypted SQLite verification accepted a non-BLOB ciphertext"
   fi
 
+  # meshc's e2e_library suite owns the generic foreign-host ABI, link, and
+  # lifecycle proof. Messenger behavior stays in the Mesh tests below.
   "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
-  cc "$core_dir/tests/host.c" -I "$temp_dir" -L "$temp_dir" -lmessenger_mobile \
-    -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
-  "$temp_dir/host" "$database"
 
-  MESSENGER_M10_CAPACITY_PATH="$capacity_database" \
+  MESSENGER_DELIVERY_SEALING_SEED_HEX="$delivery_sealing_seed_hex" \
+    MESSENGER_M10_CAPACITY_PATH="$capacity_database" \
     MESSENGER_M10_LEGACY_ACTIVE_PATH="$legacy_active_database" \
     MESSENGER_M10_LEGACY_CONSUMED_PATH="$legacy_consumed_database" \
     "$meshc_bin" test "$core_dir/tests"
@@ -170,7 +168,7 @@ main() {
     target_proof="iOS device and simulator targets"
   fi
 
-  printf 'M10 proof passed: encrypted SQLite, native bridge, host lifecycle, static/dynamic libraries, and %s.\n' \
+  printf 'M10 proof passed: encrypted SQLite, Mesh behavior, native bindings, static/dynamic libraries, and %s.\n' \
     "$target_proof"
 }
 
