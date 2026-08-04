@@ -1,7 +1,7 @@
 import File
 from MobileCore import create_account_export, directory_entry_export, transparency_lookup_export, verify_transparency_export
 from Protocol.V1 import DeviceSet, decode_account_identity, decode_directory_entry, encode_device_set
-from Tests.Support import append, database_path, repeated, vector
+from Tests.Support import append, database_path, install_security_config, repeated, vector
 from Transparency.Merkle import consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint, sign_witness
 from Transparency.Wire import TransparencyEvidence, decode_transparency_lookup, encode_transparency_evidence
 
@@ -64,6 +64,15 @@ fn proof() -> Bool ! String do
   let service_pair = signing_pair() ?
   let witness_a = signing_pair() ?
   let witness_b = signing_pair() ?
+  let delivery_pair = case Crypto.x25519_generate() do
+    Err( _) -> Err("test delivery key generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  assert(install_security_config(service_pair.public_key.bytes,
+  witness_a.public_key.bytes,
+  witness_b.public_key.bytes,
+  delivery_pair.public_key.bytes,
+  8))
   let checkpoint = sign_checkpoint(service_pair.private_key,
   service_pair.public_key.bytes,
   wide("1") ?,
@@ -85,10 +94,7 @@ fn proof() -> Bool ! String do
   let path_vector = vector(path_bytes) ?
   let username_vector = vector(username_bytes) ?
   let evidence_vector = vector(evidence) ?
-  let service_vector = vector(service_pair.public_key.bytes) ?
-  let witness_a_vector = vector(witness_a.public_key.bytes) ?
-  let witness_b_vector = vector(witness_b.public_key.bytes) ?
-  let request = join([path_vector, username_vector, evidence_vector, service_vector, witness_a_vector, witness_b_vector],
+  let request = join([path_vector, username_vector, evidence_vector],
   0,
   Bytes.empty()) ?
   assert(Bytes.secure_equals(verify_transparency_export(request) ?, device_set))

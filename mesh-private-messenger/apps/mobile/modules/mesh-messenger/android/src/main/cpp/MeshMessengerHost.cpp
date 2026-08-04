@@ -16,6 +16,7 @@ constexpr int32_t kJavaFailure = 5;
 constexpr size_t kMaximumPushFrameLength = 4362;
 constexpr char kRawPushSelector[] = "expo/raw/v1";
 constexpr char kConfigPushSelector[] = "expo/config/v1";
+constexpr char kSecurityConfigSelector[] = "messenger/config/v1";
 
 JavaVM *g_vm = nullptr;
 jclass g_store_class = nullptr;
@@ -25,6 +26,7 @@ jmethodID g_get = nullptr;
 jmethodID g_delete = nullptr;
 jmethodID g_consume_push_material = nullptr;
 jmethodID g_build_push_config = nullptr;
+jmethodID g_build_security_config = nullptr;
 std::mutex g_store_lock;
 
 JNIEnv *CurrentEnvironment(bool *attached) {
@@ -176,9 +178,15 @@ int32_t PushGetToken(void *, const uint8_t *input, uint64_t input_length,
   bool read_config = input_length == sizeof(kConfigPushSelector) - 1 &&
                      std::memcmp(input, kConfigPushSelector,
                                  sizeof(kConfigPushSelector) - 1) == 0;
-  if (!consume && !read_config) return kInvalidInput;
+  bool read_security_config =
+      input_length == sizeof(kSecurityConfigSelector) - 1 &&
+      std::memcmp(input, kSecurityConfigSelector,
+                  sizeof(kSecurityConfigSelector) - 1) == 0;
+  if (!consume && !read_config && !read_security_config) return kInvalidInput;
   std::lock_guard<std::mutex> guard(g_store_lock);
-  jmethodID method = consume ? g_consume_push_material : g_build_push_config;
+  jmethodID method = consume ? g_consume_push_material
+                             : read_config ? g_build_push_config
+                                           : g_build_security_config;
   if (g_push_class == nullptr || method == nullptr) {
     return kPlatformFailure;
   }
@@ -235,6 +243,7 @@ void ClearStore(JNIEnv *environment) {
   g_delete = nullptr;
   g_consume_push_material = nullptr;
   g_build_push_config = nullptr;
+  g_build_security_config = nullptr;
 }
 }  // namespace
 
@@ -282,7 +291,10 @@ Java_expo_modules_meshmessenger_MeshMessengerHost_registerHostCallbacks(
       environment->GetStaticMethodID(g_push_class, "consume", "()[B");
   g_build_push_config =
       environment->GetStaticMethodID(g_push_class, "buildConfig", "()[B");
-  if (g_consume_push_material == nullptr || g_build_push_config == nullptr) {
+  g_build_security_config =
+      environment->GetStaticMethodID(g_push_class, "securityConfig", "()[B");
+  if (g_consume_push_material == nullptr || g_build_push_config == nullptr ||
+      g_build_security_config == nullptr) {
     environment->ExceptionClear();
     ClearStore(environment);
     return kJavaFailure;

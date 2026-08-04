@@ -14,6 +14,18 @@ const withMeshPushConfig = require('../plugins/with-mesh-push-config.cjs');
 
 const projectID = '01234567-89ab-cdef-0123-456789abcdef';
 const brokerPublicKeyHex = 'ab'.repeat(32);
+const transparencyPublicKeyHex = '11'.repeat(32);
+const witnessAPublicKeyHex = '22'.repeat(32);
+const witnessBPublicKeyHex = '33'.repeat(32);
+const deliveryPublicKeyHex = '44'.repeat(32);
+const securityFields = [
+  ['MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX', transparencyPublicKeyHex],
+  ['MESSENGER_WITNESS_A_PUBLIC_KEY_HEX', witnessAPublicKeyHex],
+  ['MESSENGER_WITNESS_B_PUBLIC_KEY_HEX', witnessBPublicKeyHex],
+  ['MESSENGER_DELIVERY_PUBLIC_KEY_HEX', deliveryPublicKeyHex],
+  ['MESSENGER_ABUSE_DIFFICULTY', '8'],
+];
+const securityFrame = `1\n${securityFields.map(([, value]) => value).join('\n')}`;
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 async function inspect(environment, seeded = false) {
@@ -26,6 +38,7 @@ async function inspect(environment, seeded = false) {
         ? {
             MeshMessengerExpoProjectID: projectID,
             MeshMessengerPushBrokerPublicKeyHex: brokerPublicKeyHex,
+            MeshMessengerSecurityConfig: securityFrame,
           }
         : {},
     },
@@ -46,6 +59,11 @@ async function inspect(environment, seeded = false) {
         application,
         'app.whatsdown.mesh.PUSH_BROKER_PUBLIC_KEY_HEX',
         brokerPublicKeyHex,
+      );
+      AndroidConfig.Manifest.addMetaDataItemToMainApplication(
+        application,
+        'app.whatsdown.mesh.SECURITY_CONFIG',
+        securityFrame,
       );
       return current;
     });
@@ -98,7 +116,26 @@ test('canonical push pins land in signed iOS and Android resources', async () =>
   assert.equal(androidFrame, expectedFrame);
 });
 
-test('an absent push-pin pair removes stale native resource values', async () => {
+test('messenger security policy lands in one canonical signed native frame', async () => {
+  const config = await inspect({
+    MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX: transparencyPublicKeyHex,
+    MESSENGER_WITNESS_A_PUBLIC_KEY_HEX: witnessAPublicKeyHex,
+    MESSENGER_WITNESS_B_PUBLIC_KEY_HEX: witnessBPublicKeyHex,
+    MESSENGER_DELIVERY_PUBLIC_KEY_HEX: deliveryPublicKeyHex,
+    MESSENGER_ABUSE_DIFFICULTY: '8',
+  });
+  const manifest = config._internal.modResults.android.manifest;
+  assert.equal(config.ios.infoPlist.MeshMessengerSecurityConfig, securityFrame);
+  assert.equal(
+    AndroidConfig.Manifest.getMainApplicationMetaDataValue(
+      manifest,
+      'app.whatsdown.mesh.SECURITY_CONFIG',
+    ),
+    securityFrame,
+  );
+});
+
+test('absent native configuration removes stale signed resource values', async () => {
   const config = await inspect({}, true);
 
   assert.equal('MeshMessengerExpoProjectID' in config.ios.infoPlist, false);
@@ -106,6 +143,7 @@ test('an absent push-pin pair removes stale native resource values', async () =>
     'MeshMessengerPushBrokerPublicKeyHex' in config.ios.infoPlist,
     false,
   );
+  assert.equal('MeshMessengerSecurityConfig' in config.ios.infoPlist, false);
   const manifest = config._internal.modResults.android.manifest;
   const application = AndroidConfig.Manifest.getMainApplicationOrThrow(manifest);
   assert.equal(
@@ -122,9 +160,16 @@ test('an absent push-pin pair removes stale native resource values', async () =>
     ),
     -1,
   );
+  assert.equal(
+    AndroidConfig.Manifest.findMetaDataItem(
+      application,
+      'app.whatsdown.mesh.SECURITY_CONFIG',
+    ),
+    -1,
+  );
 });
 
-test('partial or malformed push pins fail native config evaluation', async () => {
+test('partial or malformed native configuration fails evaluation', async () => {
   const invalidEnvironments = [
     { MESSENGER_EXPO_PROJECT_ID: projectID },
     { MESSENGER_PUSH_BROKER_PUBLIC_KEY_HEX: brokerPublicKeyHex },
@@ -142,10 +187,25 @@ test('partial or malformed push pins fail native config evaluation', async () =>
     },
   ];
 
+  invalidEnvironments.push(
+    { MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX: transparencyPublicKeyHex },
+    Object.fromEntries(
+      securityFields.map(([name, value]) => [
+        name,
+        name === 'MESSENGER_ABUSE_DIFFICULTY' ? '08' : value,
+      ]),
+    ),
+    Object.fromEntries(
+      securityFields.map(([name, value]) => [
+        name,
+        name === 'MESSENGER_WITNESS_B_PUBLIC_KEY_HEX'
+          ? witnessAPublicKeyHex
+          : value,
+      ]),
+    ),
+  );
+
   for (const environment of invalidEnvironments) {
-    await assert.rejects(
-      inspect(environment),
-      /MESSENGER_(EXPO_PROJECT_ID|PUSH_BROKER_PUBLIC_KEY_HEX)/,
-    );
+    await assert.rejects(inspect(environment), /MESSENGER/);
   }
 });

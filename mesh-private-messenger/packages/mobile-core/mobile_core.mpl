@@ -157,15 +157,14 @@ struct MobileTransparencyRequest do
   database_path :: String
   username :: String
   evidence :: Bytes
-  service_public_key :: Bytes
-  witness_a_public_key :: Bytes
-  witness_b_public_key :: Bytes
 end
 
-struct MobilePrivacyRequest do
-  outer :: Bytes
+struct MobileSecurityConfig do
+  transparency_service_public_key :: Bytes
+  witness_a_public_key :: Bytes
+  witness_b_public_key :: Bytes
   delivery_public_key :: Bytes
-  difficulty :: Int
+  abuse_difficulty :: Int
 end
 
 struct MobilePushState do
@@ -1623,56 +1622,24 @@ fn parse_group_send_request(input :: Bytes) -> MobileGroupSendRequest ! String d
 end
 
 fn parse_transparency_request(input :: Bytes) -> MobileTransparencyRequest ! String do
-  case reader(input, 574554) do
+  case reader(input, 574446) do
     Err( _) -> Err("invalid_transparency_request")
     Ok( state) -> do
       let path = take_vector(state, 4096) ?
       let username = take_vector(path.state, 64) ?
       let evidence = take_vector(username.state, 570274) ?
-      let service_key = take_vector(evidence.state, 32) ?
-      let witness_a = take_vector(service_key.state, 32) ?
-      let witness_b = take_vector(witness_a.state, 32) ?
-      case finish(witness_b.state) do
+      case finish(evidence.state) do
         Err( _) -> Err("invalid_transparency_request")
         Ok( _) -> do
           let database_path = mobile_utf8(path.value, "invalid_database_path") ?
           let expected_username = mobile_utf8(username.value, "invalid_username") ?
-          if String.length(database_path) == 0 || String.length(expected_username) == 0 || Bytes.length(evidence.value) == 0 || Bytes.length(service_key.value) != 32 || Bytes.length(witness_a.value) != 32 || Bytes.length(witness_b.value) != 32 do
+          if String.length(database_path) == 0 || String.length(expected_username) == 0 || Bytes.length(evidence.value) == 0 do
             Err("invalid_transparency_request")
           else
             Ok(MobileTransparencyRequest {
               database_path : database_path,
               username : expected_username,
-              evidence : evidence.value,
-              service_public_key : service_key.value,
-              witness_a_public_key : witness_a.value,
-              witness_b_public_key : witness_b.value
-            })
-          end
-        end
-      end
-    end
-  end
-end
-
-fn parse_privacy_request(input :: Bytes) -> MobilePrivacyRequest ! String do
-  case reader(input, 65651) do
-    Err( _) -> Err("invalid_privacy_request")
-    Ok( state) -> do
-      let outer = take_vector(state, 65606) ?
-      let delivery_key = take_vector(outer.state, 32) ?
-      let difficulty = take_vector(delivery_key.state, 1) ?
-      case finish(difficulty.state) do
-        Err( _) -> Err("invalid_privacy_request")
-        Ok( _) -> do
-          let parsed_difficulty = mobile_read_byte(difficulty.value) ?
-          if Bytes.length(delivery_key.value) != 32 || parsed_difficulty < 1 || parsed_difficulty > 24 do
-            Err("invalid_privacy_request")
-          else
-            Ok(MobilePrivacyRequest {
-              outer : outer.value,
-              delivery_public_key : delivery_key.value,
-              difficulty : parsed_difficulty
+              evidence : evidence.value
             })
           end
         end
@@ -1685,10 +1652,11 @@ fn current_time() -> U64 ! String do
   mobile_wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
-fn privacy_submission(request :: MobilePrivacyRequest) -> Bytes ! String do
-  let sealed = seal_delivery(request.outer, X25519PublicKey { bytes : request.delivery_public_key }) ?
+fn privacy_submission(outer :: Bytes) -> Bytes ! String do
+  let config = native_security_config() ?
+  let sealed = seal_delivery(outer, X25519PublicKey { bytes : config.delivery_public_key }) ?
   let expires_at = U64.add(current_time() ?, mobile_wide("300000") ?) ?
-  encode_privacy_submission(mint_submission(sealed, expires_at, request.difficulty) ?)
+  encode_privacy_submission(mint_submission(sealed, expires_at, config.abuse_difficulty) ?)
 end
 
 fn random_bytes(length :: Int) -> Bytes ! String do
@@ -4895,21 +4863,29 @@ endpoint :: String) -> Bytes ! String do
   end
 end
 
-fn push_broker_public_key(input :: Bytes) -> X25519PublicKey ! String do
+fn contributory_x25519_public_key(input :: Bytes,
+invalid_error :: String,
+validation_error :: String) -> X25519PublicKey ! String do
   if Bytes.length(input) != 32 do
-    Err("invalid_push_broker_public_key")
+    Err(invalid_error)
   else
     let probe = case Crypto.x25519_generate() do
-      Err( _) -> Err("push_configuration_validation_failed")
+      Err( _) -> Err(validation_error)
       Ok( value) -> Ok(value)
     end ?
     let shared = case Crypto.x25519_shared(probe.private_key, X25519PublicKey { bytes : input }) do
-      Err( _) -> Err("invalid_push_broker_public_key")
+      Err( _) -> Err(invalid_error)
       Ok( value) -> Ok(value)
     end ?
     Secret.destroy(shared)
     Ok(X25519PublicKey { bytes : input })
   end
+end
+
+fn push_broker_public_key(input :: Bytes) -> X25519PublicKey ! String do
+  contributory_x25519_public_key(input,
+  "invalid_push_broker_public_key",
+  "push_configuration_validation_failed")
 end
 
 fn native_push_build_config() -> MobilePushBuildConfig ! String do
@@ -4943,6 +4919,67 @@ fn native_push_build_config() -> MobilePushBuildConfig ! String do
       end
     end
   end
+end
+
+fn security_config_key(input :: String) -> Bytes ! String do
+  let value = case Bytes.from_hex(input) do
+    Err( _) -> Err("invalid_messenger_configuration")
+    Ok( parsed) -> Ok(parsed)
+  end ?
+  if String.length(input) != 64 || Bytes.length(value) != 32 || Bytes.to_hex(value) != input do
+    Err("invalid_messenger_configuration")
+  else
+    Ok(value)
+  end
+end
+
+fn security_delivery_key(input :: Bytes) -> X25519PublicKey ! String do
+  contributory_x25519_public_key(input,
+  "invalid_messenger_configuration",
+  "messenger_configuration_validation_failed")
+end
+
+fn parse_security_config(frame :: Bytes) -> MobileSecurityConfig ! String do
+  if Bytes.length(frame) < 263 || Bytes.length(frame) > 264 do
+    Err("invalid_messenger_configuration")
+  else
+    let text = mobile_utf8(frame, "invalid_messenger_configuration") ?
+    let fields = String.split(text, "\n")
+    if List.length(fields) != 6 || List.get(fields, 0) != "1" do
+      Err("invalid_messenger_configuration")
+    else
+      let service_key = security_config_key(List.get(fields, 1)) ?
+      let witness_a = security_config_key(List.get(fields, 2)) ?
+      let witness_b = security_config_key(List.get(fields, 3)) ?
+      let delivery_bytes = security_config_key(List.get(fields, 4)) ?
+      let difficulty = case String.to_int(List.get(fields, 5)) do
+        None -> Err("invalid_messenger_configuration")
+        Some( value) -> Ok(value)
+      end ?
+      let canonical = "1\n" <> Bytes.to_hex(service_key) <> "\n" <> Bytes.to_hex(witness_a) <> "\n" <> Bytes.to_hex(witness_b) <> "\n" <> Bytes.to_hex(delivery_bytes) <> "\n" <> Int.to_string(difficulty)
+      if difficulty < 1 || difficulty > 24 || text != canonical || Bytes.secure_equals(witness_a,
+      witness_b) do
+        Err("invalid_messenger_configuration")
+      else
+        let delivery_key = security_delivery_key(delivery_bytes) ?
+        Ok(MobileSecurityConfig {
+          transparency_service_public_key : service_key,
+          witness_a_public_key : witness_a,
+          witness_b_public_key : witness_b,
+          delivery_public_key : delivery_key.bytes,
+          abuse_difficulty : difficulty
+        })
+      end
+    end
+  end
+end
+
+fn native_security_config() -> MobileSecurityConfig ! String do
+  let frame = case Host.push_get_token(Bytes.from_utf8("messenger/config/v1")) do
+    Err( _) -> Err("messenger_configuration_required")
+    Ok( value) -> Ok(value)
+  end ?
+  parse_security_config(frame)
 end
 
 fn expo_push_endpoint() -> String do
@@ -6193,6 +6230,7 @@ fn transparency_lookup(request :: MobilePayloadRequest) -> Bytes ! String do
 end
 
 fn verify_transparency_response(request :: MobileTransparencyRequest) -> Bytes ! String do
+  let config = native_security_config() ?
   ensure_schema(request.database_path) ?
   let evidence = case decode_transparency_evidence(request.evidence) do
     Err( _) -> Err("invalid_transparency_evidence")
@@ -6206,17 +6244,17 @@ fn verify_transparency_response(request :: MobileTransparencyRequest) -> Bytes !
   else
     let existing_view = decode_transparency_view(existing_view_bytes) ?
     Bytes.secure_equals(existing_view.checkpoint, previous) && Bytes.secure_equals(existing_view.service_public_key,
-    request.service_public_key) && Bytes.secure_equals(existing_view.witness_a_public_key,
-    request.witness_a_public_key) && Bytes.secure_equals(existing_view.witness_b_public_key,
-    request.witness_b_public_key)
+    config.transparency_service_public_key) && Bytes.secure_equals(existing_view.witness_a_public_key,
+    config.witness_a_public_key) && Bytes.secure_equals(existing_view.witness_b_public_key,
+    config.witness_b_public_key)
   end
-  let trusted_service_key = SigningPublicKey { bytes : request.service_public_key }
+  let trusted_service_key = SigningPublicKey { bytes : config.transparency_service_public_key }
   let trusted_witnesses = [WitnessKey {
     witness_id : "witness-a",
-    public_key : request.witness_a_public_key
+    public_key : config.witness_a_public_key
   }, WitnessKey {
     witness_id : "witness-b",
-    public_key : request.witness_b_public_key
+    public_key : config.witness_b_public_key
   }]
   if !trust_matches do
     Err("transparency_trust_mismatch")
@@ -6243,9 +6281,9 @@ fn verify_transparency_response(request :: MobileTransparencyRequest) -> Bytes !
       let view_storage = transparency_view_storage(MobileTransparencyView {
         checkpoint : encoded_checkpoint,
         consistency : encoded_consistency,
-        service_public_key : request.service_public_key,
-        witness_a_public_key : request.witness_a_public_key,
-        witness_b_public_key : request.witness_b_public_key
+        service_public_key : config.transparency_service_public_key,
+        witness_a_public_key : config.witness_a_public_key,
+        witness_b_public_key : config.witness_b_public_key
       },
       wrapping_key) ?
       store_updated_blobs(request.database_path,
@@ -8016,7 +8054,7 @@ end
 end
 
 @ export("mesh_messenger_privacy_submission")pub fn privacy_submission_export(request :: Bytes) -> Bytes ! String do
-  privacy_submission(parse_privacy_request(request) ?)
+  privacy_submission(request)
 end
 
 @ export("mesh_messenger_mailbox_fetch")pub fn mailbox_fetch_export(request :: Bytes) -> Bytes ! String do

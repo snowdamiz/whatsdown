@@ -12,8 +12,12 @@ static NSString *const MeshMessengerExpoProjectIDKey =
     @"MeshMessengerExpoProjectID";
 static NSString *const MeshMessengerPushBrokerPublicKeyHexKey =
     @"MeshMessengerPushBrokerPublicKeyHex";
+static NSString *const MeshMessengerSecurityConfigKey =
+    @"MeshMessengerSecurityConfig";
 static const uint8_t MeshMessengerRawPushSelector[] = "expo/raw/v1";
 static const uint8_t MeshMessengerConfigPushSelector[] = "expo/config/v1";
+static const uint8_t MeshMessengerSecurityConfigSelector[] =
+    "messenger/config/v1";
 static const uint64_t MeshMessengerMaximumApplicationIDLength = 255;
 static const uint64_t MeshMessengerMaximumPushTokenLength = 4096;
 static const uint64_t MeshMessengerMaximumPushFrameLength = 4362;
@@ -182,7 +186,10 @@ static int32_t MeshMessengerPushGetToken(void *context, const uint8_t *input,
   bool configSelector =
       inputLength == sizeof(MeshMessengerConfigPushSelector) - 1 &&
       memcmp(input, MeshMessengerConfigPushSelector, inputLength) == 0;
-  if (!rawSelector && !configSelector) {
+  bool securityConfigSelector =
+      inputLength == sizeof(MeshMessengerSecurityConfigSelector) - 1 &&
+      memcmp(input, MeshMessengerSecurityConfigSelector, inputLength) == 0;
+  if (!rawSelector && !configSelector && !securityConfigSelector) {
     return MeshMessengerSecureStoreInvalidInput;
   }
   if (configSelector) {
@@ -200,6 +207,26 @@ static int32_t MeshMessengerPushGetToken(void *context, const uint8_t *input,
     NSString *frame = [NSString
         stringWithFormat:@"1\n%@\n%@", projectValue ?: @"", brokerValue ?: @""];
     NSData *data = [frame dataUsingEncoding:NSUTF8StringEncoding];
+    if (data == nil) {
+      return MeshMessengerSecureStorePlatformFailure;
+    }
+    if (data.length > outputCapacity) {
+      return MeshMessengerSecureStoreOutputTooLarge;
+    }
+    [data getBytes:output length:data.length];
+    *outputLength = data.length;
+    return MESH_LIBRARY_OK;
+  }
+  if (securityConfigSelector) {
+    id value = [NSBundle.mainBundle
+        objectForInfoDictionaryKey:MeshMessengerSecurityConfigKey];
+    if (value == nil) {
+      return MeshMessengerSecureStoreNotFound;
+    }
+    if (![value isKindOfClass:NSString.class]) {
+      return MeshMessengerSecureStorePlatformFailure;
+    }
+    NSData *data = [(NSString *)value dataUsingEncoding:NSUTF8StringEncoding];
     if (data == nil) {
       return MeshMessengerSecureStorePlatformFailure;
     }

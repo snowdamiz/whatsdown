@@ -78,32 +78,6 @@ export type GroupDetails = {
 export const utf8 = (value: string): Uint8Array => textEncoder.encode(value);
 export const decodeUtf8 = (value: Uint8Array): string => textDecoder.decode(value);
 
-export function hexBytes(value: string | undefined, expectedLength: number): Uint8Array {
-  if (
-    value === undefined ||
-    value.length !== expectedLength * 2 ||
-    !/^[0-9a-f]+$/.test(value)
-  ) {
-    throw new Error(`Expected ${expectedLength}-byte lowercase hex`);
-  }
-  return Uint8Array.from({ length: expectedLength }, (_, index) =>
-    Number.parseInt(value.slice(index * 2, index * 2 + 2), 16),
-  );
-}
-
-export function boundedInteger(
-  value: string | undefined,
-  fallback: number,
-  minimum: number,
-  maximum: number,
-): number {
-  const parsed = value === undefined ? fallback : Number(value);
-  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
-    throw new RangeError(`Expected an integer between ${minimum} and ${maximum}`);
-  }
-  return parsed;
-}
-
 export function writeU32(value: number): Uint8Array {
   if (!Number.isInteger(value) || value < 0 || value > 0xffff_ffff) {
     throw new RangeError('Expected an unsigned 32-bit integer');

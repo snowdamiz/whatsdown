@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  boundedInteger,
-  hexBytes,
   parseConversations,
   parseByteList,
   parseDeviceSetSummary,
@@ -252,23 +250,6 @@ test('Mesh-owned group inspection marks the local member without exposing routin
       ),
     ),
   );
-});
-
-test('pinned transparency keys require canonical 32-byte hex', () => {
-  assert.deepEqual(
-    hexBytes('00ff'.repeat(16), 32),
-    Uint8Array.from({ length: 32 }, (_, index) => (index % 2 === 0 ? 0 : 255)),
-  );
-  assert.throws(() => hexBytes('AA'.repeat(32), 32));
-  assert.throws(() => hexBytes('0g'.repeat(32), 32));
-  assert.throws(() => hexBytes('00', 32));
-});
-
-test('abuse work difficulty stays within the native verifier bound', () => {
-  assert.equal(boundedInteger(undefined, 16, 1, 24), 16);
-  assert.equal(boundedInteger('8', 16, 1, 24), 8);
-  assert.throws(() => boundedInteger('0', 16, 1, 24));
-  assert.throws(() => boundedInteger('1.5', 16, 1, 24));
 });
 
 test('native prekey reconciliation counts stay canonical and bounded', () => {

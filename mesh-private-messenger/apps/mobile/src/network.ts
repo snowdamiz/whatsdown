@@ -25,12 +25,10 @@ import {
 } from '../modules/mesh-messenger';
 import {
   batchRequest,
-  boundedInteger,
   DeviceSetSummary,
   GroupHistoryMessage,
   GroupDetails,
   GroupSummary,
-  hexBytes,
   parseByteList,
   parseDeviceSetSummary,
   parseGroupHistory,
@@ -42,13 +40,17 @@ import {
   vectors,
   writeU32,
 } from './codec';
-import { createKeyedSingleFlight } from './single-flight';
+import {
+  createKeyedSerialQueue,
+  createKeyedSingleFlight,
+} from './single-flight';
 
 const baseUrl = (process.env.EXPO_PUBLIC_MESSENGER_BASE_URL ?? 'http://127.0.0.1:18086').replace(
   /\/$/,
   '',
 );
 const synchronizePrekeysByDatabase = createKeyedSingleFlight<string, void>();
+const resolveTransparencyByDatabase = createKeyedSerialQueue<string>();
 export const GROUP_KEY_PACKAGE_LENGTH = 369;
 
 async function binaryRequest(
@@ -115,18 +117,15 @@ export async function resolveDeviceSet(
   databasePath: string,
   username: string,
 ): Promise<Uint8Array> {
-  const lookup = await transparency_lookup_export(batchRequest(databasePath, utf8(username)));
-  const evidence = await binaryRequest('/v1/devices/resolve', lookup);
-  return verify_transparency_export(
-    vectors(
-      utf8(databasePath),
-      utf8(username),
-      evidence,
-      hexBytes(process.env.EXPO_PUBLIC_MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX, 32),
-      hexBytes(process.env.EXPO_PUBLIC_MESSENGER_WITNESS_A_PUBLIC_KEY_HEX, 32),
-      hexBytes(process.env.EXPO_PUBLIC_MESSENGER_WITNESS_B_PUBLIC_KEY_HEX, 32),
-    ),
-  );
+  return resolveTransparencyByDatabase(databasePath, async () => {
+    const lookup = await transparency_lookup_export(
+      batchRequest(databasePath, utf8(username)),
+    );
+    const evidence = await binaryRequest('/v1/devices/resolve', lookup);
+    return verify_transparency_export(
+      vectors(utf8(databasePath), utf8(username), evidence),
+    );
+  });
 }
 
 export async function inspectDeviceSet(
@@ -169,15 +168,7 @@ export async function revokeDevice(
 export async function submitEnvelope(envelope: Uint8Array): Promise<void> {
   const edgeUrl = process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL?.replace(/\/$/, '');
   if (!edgeUrl) throw new Error('EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL is required');
-  const submission = await privacy_submission_export(
-    vectors(
-      envelope,
-      hexBytes(process.env.EXPO_PUBLIC_MESSENGER_DELIVERY_PUBLIC_KEY_HEX, 32),
-      Uint8Array.of(
-        boundedInteger(process.env.EXPO_PUBLIC_MESSENGER_ABUSE_DIFFICULTY, 16, 1, 24),
-      ),
-    ),
-  );
+  const submission = await privacy_submission_export(envelope);
   await binaryRequest('/v1/envelopes/batch', submission, 'POST', edgeUrl);
 }
 
@@ -260,14 +251,13 @@ export async function sendFanout(
   body: string,
 ): Promise<boolean> {
   const localProfile = await load_profile_export(utf8(databasePath));
-  const [peerSet, localSet] = await Promise.all([
-    resolveDeviceSet(databasePath, peerUsername),
-    resolveDeviceSet(databasePath, parseProfileSummary(localProfile).username),
-  ]);
-  const [peerSummary] = await Promise.all([
-    inspectDeviceSet(databasePath, peerSet),
-    inspectDeviceSet(databasePath, localSet),
-  ]);
+  const peerSet = await resolveDeviceSet(databasePath, peerUsername);
+  const localSet = await resolveDeviceSet(
+    databasePath,
+    parseProfileSummary(localProfile).username,
+  );
+  const peerSummary = await inspectDeviceSet(databasePath, peerSet);
+  await inspectDeviceSet(databasePath, localSet);
   await send_fanout_export(
     vectors(utf8(databasePath), peerSet, localSet, utf8(body)),
   );

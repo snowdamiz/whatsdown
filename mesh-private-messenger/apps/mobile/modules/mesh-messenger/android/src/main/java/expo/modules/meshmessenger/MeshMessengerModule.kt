@@ -186,11 +186,13 @@ internal object MeshMessengerHost {
 internal object MeshMessengerPushMaterial {
     private const val PROJECT_ID_METADATA = "app.whatsdown.mesh.EXPO_PROJECT_ID"
     private const val BROKER_KEY_METADATA = "app.whatsdown.mesh.PUSH_BROKER_PUBLIC_KEY_HEX"
+    private const val SECURITY_CONFIG_METADATA = "app.whatsdown.mesh.SECURITY_CONFIG"
     private const val MAX_APPLICATION_ID_BYTES = 255
     private const val MAX_TOKEN_BYTES = 4096
     private const val MAX_FRAME_BYTES = 4362
     private var frame: ByteArray? = null
     private var buildConfigFrame: ByteArray? = null
+    private var securityConfigFrame: ByteArray? = null
     private var buildConfigLoaded = false
 
     @Suppress("DEPRECATION")
@@ -207,6 +209,8 @@ internal object MeshMessengerPushMaterial {
         } else {
             "1\n${projectID.orEmpty()}\n${brokerPublicKeyHex.orEmpty()}".toByteArray(Charsets.UTF_8)
         }
+        securityConfigFrame = metadata?.get(SECURITY_CONFIG_METADATA)?.toString()
+            ?.toByteArray(Charsets.UTF_8)
         buildConfigLoaded = true
     }
 
@@ -247,6 +251,10 @@ internal object MeshMessengerPushMaterial {
     @JvmStatic
     @Synchronized
     fun buildConfig(): ByteArray? = buildConfigFrame?.clone()
+
+    @JvmStatic
+    @Synchronized
+    fun securityConfig(): ByteArray? = securityConfigFrame?.clone()
 
     @Synchronized
     fun clear() {
