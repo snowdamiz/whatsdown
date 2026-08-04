@@ -4,13 +4,15 @@ The service is development-only until every release gate in the implementation p
 
 ## Start and verify
 
-1. Set `MESSENGER_DATABASE_URL`, `MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX`, `MESSENGER_WITNESS_A_PUBLIC_KEY_HEX`, `MESSENGER_WITNESS_B_PUBLIC_KEY_HEX`, and `MESSENGER_DELIVERY_SEALING_SEED_HEX` through the deployment secret store.
+1. Set `MESSENGER_DATABASE_URL`, `MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX`, `MESSENGER_WITNESS_A_PUBLIC_KEY_HEX`, `MESSENGER_WITNESS_B_PUBLIC_KEY_HEX`, `MESSENGER_DELIVERY_SEALING_SEED_HEX`, and a high-entropy `MESSENGER_DELIVERY_INTERNAL_TOKEN` through the deployment secret store. Provision the same token on the privacy edge.
 2. Apply `services/directory-delivery/migrations/*.sql` in numeric order with `psql -v ON_ERROR_STOP=1`.
 3. Build and start `services/directory-delivery`; expose only its configured HTTP port.
 4. Require `GET /health` to return success before routing traffic.
 5. Run `scripts/prove-m9.sh` against an isolated PostgreSQL instance before promotion.
 
 Never place signing seeds, mailbox capabilities, envelope IDs, account IDs, device IDs, or message data in command lines, logs, metrics, or incident tickets.
+
+The public direct-delivery route is disabled unless `MESSENGER_DIRECT_DELIVERY_COMPATIBILITY=enabled`; never set that compatibility flag in production. Network policy must also restrict `/internal/v1/envelopes/sealed` to the privacy edge. The bearer token is required even on a private network and must be rotated as one coordinated edge/core secret.
 
 ## Push delivery adapter
 

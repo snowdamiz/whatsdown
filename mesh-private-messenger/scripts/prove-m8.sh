@@ -17,6 +17,7 @@ readonly transparency_signing_seed_hex="5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b
 readonly witness_a_public_key_hex="d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
 readonly witness_b_public_key_hex="3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
 readonly delivery_sealing_seed_hex="77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
+readonly internal_delivery_token="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 readonly temp_parent="${TMPDIR:-/tmp}"
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-m8.XXXXXX")"
 readonly temp_dir
@@ -88,6 +89,8 @@ wait_for_health() {
 
 start_service() {
   MESSENGER_DATABASE_URL="$database_url" MESSENGER_PORT="$service_port" \
+    MESSENGER_DELIVERY_INTERNAL_TOKEN="$internal_delivery_token" \
+    MESSENGER_DIRECT_DELIVERY_COMPATIBILITY=enabled \
     "$service_dir/output" >>"$server_log" 2>&1 &
   service_pid=$!
   wait_for_health

@@ -22,6 +22,7 @@ readonly witness_a_signing_seed_hex="9d61b19deffd5a60ba844af492ec2cc44449c5697b3
 readonly witness_a_public_key_hex="d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
 readonly witness_b_public_key_hex="3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
 readonly mailbox_hash_hex="72dbb7336c76780023f83da4c355f2eeea85733b13d3477697917790c1229084"
+readonly internal_delivery_token="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 readonly temp_parent="${TMPDIR:-/tmp}"
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-m13.XXXXXX")"
 readonly temp_dir
@@ -181,6 +182,7 @@ main() {
   psql -c "INSERT INTO messenger_mailboxes (mailbox_token_hash) VALUES (decode('$mailbox_hash_hex', 'hex'));" >/dev/null
 
   MESSENGER_DATABASE_URL="$database_url" MESSENGER_PORT="$core_port" \
+    MESSENGER_DELIVERY_INTERNAL_TOKEN="$internal_delivery_token" \
     "$core_dir/output" >"$core_log" 2>&1 &
   core_pid=$!
   wait_for_health "http://127.0.0.1:$core_port"
@@ -204,6 +206,7 @@ main() {
     fail "directory core did not persist the witness attestation"
   MESSENGER_PRIVACY_EDGE_PORT="$edge_port" MESSENGER_ABUSE_DIFFICULTY=8 \
     MESSENGER_DELIVERY_INTERNAL_URL="http://127.0.0.1:$core_port" \
+    MESSENGER_DELIVERY_INTERNAL_TOKEN="$internal_delivery_token" \
     "$edge_dir/output" >"$edge_log" 2>&1 &
   edge_pid=$!
   wait_for_health "http://127.0.0.1:$edge_port"

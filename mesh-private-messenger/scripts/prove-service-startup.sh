@@ -80,6 +80,7 @@ main() {
 
   MESSENGER_PRIVACY_EDGE_PORT=18996 \
     MESSENGER_DELIVERY_INTERNAL_URL=http://127.0.0.1:1 \
+    MESSENGER_DELIVERY_INTERNAL_TOKEN=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
     "$temp_dir/privacy-edge" >"$temp_dir/privacy-edge-first.log" 2>&1 &
   edge_pid=$!
   wait_for_edge
@@ -88,6 +89,7 @@ main() {
   set +e
   MESSENGER_PRIVACY_EDGE_PORT=18996 \
     MESSENGER_DELIVERY_INTERNAL_URL=http://127.0.0.1:1 \
+    MESSENGER_DELIVERY_INTERNAL_TOKEN=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
     "$temp_dir/privacy-edge" >"$temp_dir/privacy-edge-bind.log" 2>&1
   bind_exit=$?
   set -e

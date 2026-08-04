@@ -68,9 +68,12 @@ becomes material.
 - Public mobile sends use the privacy edge `POST /v1/envelopes/batch`.
 - The edge forwards only `SED` bytes to delivery
   `POST /internal/v1/envelopes/sealed`.
-- The direct delivery `POST /v1/envelopes/batch` remains for compatibility and
-  acceptance tooling; production ingress must deny it.
-- The internal sealed route must accept traffic only from the privacy edge.
+- The direct delivery `POST /v1/envelopes/batch` is absent by default. It is
+  registered only when `MESSENGER_DIRECT_DELIVERY_COMPATIBILITY=enabled`; that
+  compatibility flag is forbidden in production.
+- The internal sealed route requires the privacy edge's exact
+  `Authorization: Bearer` credential, compared in constant time, in addition
+  to network policy restricting the route to the edge.
 - Neither service logs request bodies, mailbox tokens, envelope IDs, token
   nonces, hashes, or shared request identifiers.
 
