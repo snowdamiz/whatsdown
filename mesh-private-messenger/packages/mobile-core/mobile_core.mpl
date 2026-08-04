@@ -15,6 +15,7 @@ from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
 from Transparency.Client import verify_evidence
 from Transparency.Merkle import ConsistencyProof, TransparencyCheckpoint, WitnessKey, checkpoint_hash, verify_checkpoint, verify_consistency
 from Transparency.Wire import TransparencyLookup, decode_checkpoint, decode_consistency_proof, decode_transparency_evidence, encode_checkpoint, encode_consistency_proof, encode_transparency_lookup
+from Transport.Packet import ClientProfile, TransportPacket, decode_client_profile, decode_initial_plaintext, decode_packet, encode_client_profile, encode_initial_plaintext, encode_packet, session_aad
 
 struct MobileReadBytes do
   state :: BinaryReader
@@ -47,17 +48,6 @@ struct MobileOneTimePrekey do
   public_key :: Bytes
 end
 
-struct MobileProfile do
-  encoded :: Bytes
-  username :: String
-  account_id :: Bytes
-  device_id :: Bytes
-  entry :: DirectoryEntry
-  account :: AccountIdentity
-  bundle :: PrekeyBundle
-  credential :: DeviceCredential
-end
-
 struct MobileStartRequest do
   database_path :: String
   peer_profile :: Bytes
@@ -74,16 +64,6 @@ end
 struct MobileReceiveRequest do
   database_path :: String
   outer :: Bytes
-end
-
-struct MobileInitialPacket do
-  account_identity :: Bytes
-  message :: Bytes
-end
-
-struct MobileInitialPlaintext do
-  profile :: Bytes
-  inner :: Bytes
 end
 
 struct MobileSessionRecord do
@@ -115,10 +95,6 @@ struct MobilePreparedSend do
   session_label :: String
   session_blob :: Bytes
   new_session :: Bool
-end
-
-struct MobileRatchetPacket do
-  message :: Bytes
 end
 
 struct MobileHistoryEntry do
@@ -239,7 +215,7 @@ struct MobileVerifiedDeviceSet do
   wire :: Bytes
   value :: DeviceSet
   account :: AccountIdentity
-  profiles :: List < MobileProfile >
+  profiles :: List < ClientProfile >
 end
 
 struct MobileVerifiedTransparencySet do
@@ -624,7 +600,7 @@ fn one_time_prekey_label(id :: U64) -> String do
   "one-time-prekey/v1/#{U64.to_string(id)}"
 end
 
-fn one_time_prekey_context(profile :: MobileProfile, id :: U64) -> Bytes ! String do
+fn one_time_prekey_context(profile :: ClientProfile, id :: U64) -> Bytes ! String do
   let label = one_time_prekey_label(id)
   context(profile.account_id, profile.device_id, label, 10)
 end
@@ -1145,12 +1121,6 @@ fn directory_bytes(value :: DirectoryEntry) -> Bytes ! String do
   end
 end
 
-fn profile_bytes(value :: DirectoryEntry, account_id :: Bytes, device_id :: Bytes) -> Bytes ! String do
-  mobile_join([mobile_vector(Bytes.from_utf8(value.username)) ?, mobile_vector(account_id) ?, mobile_vector(device_id) ?, mobile_vector(directory_bytes(value) ?) ?],
-  0,
-  Bytes.empty())
-end
-
 fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
   let database_path = mobile_utf8(request.database_path, "invalid_database_path") ?
   let username = mobile_utf8(request.username, "invalid_username") ?
@@ -1208,7 +1178,7 @@ fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
       prekey_bundle : bundle_wire,
       mailbox_token : mailbox_token
     }
-    let profile = profile_bytes(entry, identity.account_id, credential.device_id) ?
+    let profile = encode_client_profile(entry, identity.account_id, credential.device_id) ?
     let wrapping_key = platform_key() ?
     let account_blob = case seal_signing(account.private_key,
     wrapping_key,
@@ -1276,62 +1246,11 @@ fn load_profile(database_path :: String) -> Bytes ! String do
   end
 end
 
-fn parse_profile(encoded :: Bytes) -> MobileProfile ! String do
-  case reader(encoded, 36134) do
-    Err( _) -> Err("invalid_profile")
-    Ok( state) -> do
-      let username_bytes = take_vector(state, 64) ?
-      let account_id = take_vector(username_bytes.state, 32) ?
-      let device_id = take_vector(account_id.state, 16) ?
-      let entry_bytes = take_vector(device_id.state, 36006) ?
-      case finish(entry_bytes.state) do
-        Err( _) -> Err("invalid_profile")
-        Ok( _) -> do
-          let username = mobile_utf8(username_bytes.value, "invalid_profile") ?
-          let entry = case decode_directory_entry(entry_bytes.value) do
-            Err( _) -> Err("invalid_profile")
-            Ok( value) -> Ok(value)
-          end ?
-          let account = case decode_account_identity(entry.account_identity) do
-            Err( _) -> Err("invalid_profile")
-            Ok( value) -> Ok(value)
-          end ?
-          let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
-            Err( _) -> Err("invalid_profile")
-            Ok( value) -> Ok(value)
-          end ?
-          let credential = case decode_device_credential(bundle.device_credential) do
-            Err( _) -> Err("invalid_profile")
-            Ok( value) -> Ok(value)
-          end ?
-          let mismatch = entry.username != username || !Bytes.secure_equals(account_id.value,
-          account.account_id) || !Bytes.secure_equals(device_id.value, credential.device_id) || !Bytes.secure_equals(account.account_id,
-          credential.account_id)
-          if mismatch do
-            Err("invalid_profile")
-          else
-            Ok(MobileProfile {
-              encoded : encoded,
-              username : username,
-              account_id : account_id.value,
-              device_id : device_id.value,
-              entry : entry,
-              account : account,
-              bundle : bundle,
-              credential : credential
-            })
-          end
-        end
-      end
-    end
-  end
-end
-
 fn peer_account_id(reference :: Bytes) -> Bytes ! String do
   if Bytes.length(reference) == 32 do
     Ok(reference)
   else
-    Ok(parse_profile(reference) ?.account_id)
+    Ok(decode_client_profile(reference) ?.account_id)
   end
 end
 
@@ -1779,7 +1698,7 @@ fn random_bytes(length :: Int) -> Bytes ! String do
   end
 end
 
-fn policy(profile :: MobileProfile, now :: U64) -> VerificationPolicy do
+fn policy(profile :: ClientProfile, now :: U64) -> VerificationPolicy do
   VerificationPolicy {
     current_time : now,
     minimum_directory_sequence : profile.account.directory_sequence
@@ -1790,7 +1709,7 @@ fn reject_device_open(signing :: consume SigningPrivateKey, error :: String) -> 
   Err(error)
 end
 
-fn open_account(profile :: MobileProfile,
+fn open_account(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String) -> AccountKeys ! String do
   let account_blob = load_blob(database_path, "account-signing-key/v1") ?
@@ -1816,7 +1735,7 @@ error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQua
   Err(error)
 end
 
-fn open_post_quantum_prekey(profile :: MobileProfile,
+fn open_post_quantum_prekey(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String) -> PostQuantumPrekeySecrets ! String do
   let label = "post-quantum-prekey/v1"
@@ -1841,7 +1760,7 @@ database_path :: String) -> PostQuantumPrekeySecrets ! String do
   end
 end
 
-fn open_device(profile :: MobileProfile, wrapping_key :: borrow StorageKey, database_path :: String) -> DeviceKeys ! String do
+fn open_device(profile :: ClientProfile, wrapping_key :: borrow StorageKey, database_path :: String) -> DeviceKeys ! String do
   let signing_blob = load_blob(database_path, "device-signing-key/v1") ?
   let identity_blob = load_blob(database_path, "device-identity-key/v1") ?
   let signing_context = context(profile.account_id, profile.device_id, "device-signing-key/v1", 7) ?
@@ -1883,7 +1802,7 @@ fn load_prekey_wide(database_path :: String, label :: String, wrapping_key :: bo
   local_context(label) ?) ?)
 end
 
-fn migrate_legacy_prekey(profile :: MobileProfile,
+fn migrate_legacy_prekey(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String) -> List < MobileOneTimePrekey > ! String do
   let id = profile.bundle.one_time_prekey_id
@@ -1911,7 +1830,7 @@ database_path :: String) -> List < MobileOneTimePrekey > ! String do
   end
 end
 
-fn load_prekey_pool(profile :: MobileProfile,
+fn load_prekey_pool(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String) -> List < MobileOneTimePrekey > ! String do
   case load_blob(database_path, "one-time-prekeys/v1") do
@@ -1963,7 +1882,7 @@ wrapping_key :: borrow StorageKey) -> List < U64 > ! String do
   end
 end
 
-fn generate_prekey_batch(profile :: MobileProfile,
+fn generate_prekey_batch(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 next_id :: U64,
 remaining :: Int,
@@ -2082,7 +2001,7 @@ output :: List < MobileOneTimePrekey >) -> List < MobileOneTimePrekey > do
   end
 end
 
-fn signed_prekey_publication(profile :: MobileProfile,
+fn signed_prekey_publication(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String,
 entries :: List < MobileOneTimePrekey >) -> Bytes ! String do
@@ -2103,7 +2022,7 @@ end
 
 fn replenish_prekeys(request :: MobilePrekeyRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let wrapping_key = platform_key() ?
   let existing = load_prekey_pool(profile, wrapping_key, request.database_path) ?
   let active_ids = load_active_prekey_pool(request.database_path, existing, wrapping_key) ?
@@ -2195,7 +2114,7 @@ end
 
 fn reconcile_prekeys(request :: MobilePrekeyReconcileRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let response = case decode_prekey_publish_response(request.response) do
     Err( _) -> Err("invalid_prekey_reconciliation")
     Ok( value) -> Ok(value)
@@ -2256,7 +2175,7 @@ database_path :: String) -> DeviceKeys ! String do
   end
 end
 
-fn open_prekeys(profile :: MobileProfile,
+fn open_prekeys(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String,
 selected :: MobileOneTimePrekey) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
@@ -2386,7 +2305,7 @@ end
 
 fn authorize_link(request :: MobilePayloadRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let local = decode_client_profile(load_profile(request.database_path) ?) ?
   let requested_device = parse_link_request(request.payload) ?
   let now = current_time() ?
   if U64.compare(requested_device.created_at, now) > 0 || U64.compare(requested_device.expires_at,
@@ -2457,7 +2376,7 @@ fn complete_link(request :: MobilePayloadRequest) -> Bytes ! String do
       end ?,
       mailbox_token : random_bytes(32) ?
     }
-    let profile = profile_bytes(entry, account.account_id, credential.device_id) ?
+    let profile = encode_client_profile(entry, account.account_id, credential.device_id) ?
     let signing_blob = seal_signing(device.signing_private_key,
     wrapping_key,
     context(account.account_id, credential.device_id, "device-signing-key/v1", 7) ?) ?
@@ -2515,7 +2434,7 @@ fn canonical_device_set(input :: Bytes) -> DeviceSet ! String do
   end
 end
 
-fn contains_device_id(profiles :: List < MobileProfile >, device_id :: Bytes, index :: Int) -> Bool do
+fn contains_device_id(profiles :: List < ClientProfile >, device_id :: Bytes, index :: Int) -> Bool do
   if index >= List.length(profiles) do
     false
   else if Bytes.secure_equals(List.get(profiles, index).device_id, device_id) do
@@ -2539,7 +2458,7 @@ fn verified_device_profiles(value :: DeviceSet,
 account :: AccountIdentity,
 now :: U64,
 index :: Int,
-profiles :: List < MobileProfile >) -> List < MobileProfile > ! String do
+profiles :: List < ClientProfile >) -> List < ClientProfile > ! String do
   if index >= List.length(value.devices) do
     Ok(profiles)
   else
@@ -2556,7 +2475,9 @@ profiles :: List < MobileProfile >) -> List < MobileProfile > ! String do
       Err( _) -> false
       Ok( result) -> result
     end
-    let profile = parse_profile(profile_bytes(entry, account.account_id, credential.device_id) ?) ?
+    let profile = decode_client_profile(encode_client_profile(entry,
+    account.account_id,
+    credential.device_id) ?) ?
     let invalid = !verified || contains_device_id(profiles, profile.device_id, 0) || contains_revoked_id(value.revoked_device_ids,
     profile.device_id,
     0)
@@ -2617,7 +2538,7 @@ label :: String) -> Bool ! String do
   end
 end
 
-fn active_device_rows(profiles :: List < MobileProfile >,
+fn active_device_rows(profiles :: List < ClientProfile >,
 local_device_id :: Bytes,
 index :: Int,
 rows :: List < Bytes >) -> List < Bytes > ! String do
@@ -2650,7 +2571,7 @@ end
 
 fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let local = decode_client_profile(load_profile(request.database_path) ?) ?
   let verified = verified_device_set(request.payload) ?
   let wrapping_key = platform_key() ?
   let label = device_set_label(verified.account.account_id)
@@ -2680,7 +2601,7 @@ fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes ! String do
   Bytes.empty())
 end
 
-fn local_device_set(local :: MobileProfile, value :: MobileVerifiedDeviceSet) -> Bool do
+fn local_device_set(local :: ClientProfile, value :: MobileVerifiedDeviceSet) -> Bool do
   local.username == value.value.username && Bytes.secure_equals(local.account_id,
   value.account.account_id) && Bytes.secure_equals(local.entry.account_identity,
   value.value.account_identity) && contains_device_id(value.profiles, local.device_id, 0)
@@ -2688,7 +2609,7 @@ end
 
 fn authorize_link_for_set(request :: MobileTriplePayloadRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let local = decode_client_profile(load_profile(request.database_path) ?) ?
   let devices = verified_device_set(request.first) ?
   let requested_device = parse_link_request(request.second) ?
   let now = current_time() ?
@@ -2713,7 +2634,7 @@ end
 
 fn create_device_revocation(request :: MobileTriplePayloadRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let local = decode_client_profile(load_profile(request.database_path) ?) ?
   let devices = verified_device_set(request.first) ?
   let target = request.second
   let allowed = Bytes.length(target) == 16 && local_device_set(local, devices) && List.length(devices.profiles) > 1 && contains_device_id(devices.profiles,
@@ -2744,7 +2665,7 @@ fn inner_bytes(value :: InnerEnvelope) -> Bytes ! String do
   end
 end
 
-fn encode_sync_payload(peer :: MobileProfile, inner :: InnerEnvelope) -> Bytes ! String do
+fn encode_sync_payload(peer :: ClientProfile, inner :: InnerEnvelope) -> Bytes ! String do
   mobile_join([mobile_vector(Bytes.from_utf8(peer.username)) ?, mobile_vector(peer.account_id) ?, mobile_vector(inner.conversation_id) ?, mobile_vector(inner.client_message_id) ?, mobile_vector(mobile_write_u64(inner.client_timestamp) ?) ?, mobile_vector(inner.body) ?, mobile_vector(mobile_write_u32(inner.disappearing_seconds) ?) ?],
   0,
   Bytes.empty())
@@ -2792,7 +2713,7 @@ fn parse_sync_payload(input :: Bytes) -> MobileSyncPayload ! String do
   end
 end
 
-fn sync_history_inner(local :: MobileProfile, value :: MobileSyncPayload) -> InnerEnvelope ! String do
+fn sync_history_inner(local :: ClientProfile, value :: MobileSyncPayload) -> InnerEnvelope ! String do
   Ok(InnerEnvelope {
     version : 1,
     sender_account_id : local.account_id,
@@ -2818,52 +2739,11 @@ fn initial_bytes(value :: InitialMessage) -> Bytes ! String do
   end
 end
 
-fn encode_initial_packet(account_identity :: Bytes, message :: Bytes) -> Bytes ! String do
-  mobile_join([mobile_vector(mobile_byte(1) ?) ?, mobile_vector(account_identity) ?, mobile_vector(message) ?],
-  0,
-  Bytes.empty())
-end
-
-fn parse_initial_packet(input :: Bytes) -> MobileInitialPacket ! String do
-  case reader(input, 65536) do
+fn parse_initial_packet(input :: Bytes) -> Result <( Bytes, Bytes), String > do
+  case decode_packet(input) do
     Err( _) -> Err("invalid_initial_packet")
-    Ok( state) -> do
-      let kind = take_vector_error(state, 1, "invalid_initial_packet") ?
-      let account_identity = take_vector_error(kind.state, 4096, "invalid_initial_packet") ?
-      let message = take_vector_error(account_identity.state, 60000, "invalid_initial_packet") ?
-      case finish(message.state) do
-        Err( _) -> Err("invalid_initial_packet")
-        Ok( _) -> if !Bytes.secure_equals(kind.value, mobile_byte(1) ?) do
-          Err("invalid_initial_packet")
-        else
-          Ok(MobileInitialPacket {
-            account_identity : account_identity.value,
-            message : message.value
-          })
-        end
-      end
-    end
-  end
-end
-
-fn encode_initial_plaintext(profile :: Bytes, inner :: Bytes) -> Bytes ! String do
-  mobile_join([mobile_vector(profile) ?, mobile_vector(inner) ?], 0, Bytes.empty())
-end
-
-fn parse_initial_plaintext(input :: Bytes) -> MobileInitialPlaintext ! String do
-  case reader(input, 65536) do
-    Err( _) -> Err("invalid_initial_plaintext")
-    Ok( state) -> do
-      let profile = take_vector_error(state, 36134, "invalid_initial_plaintext") ?
-      let inner = take_vector_error(profile.state, 49144, "invalid_initial_plaintext") ?
-      case finish(inner.state) do
-        Err( _) -> Err("invalid_initial_plaintext")
-        Ok( _) -> Ok(MobileInitialPlaintext {
-          profile : profile.value,
-          inner : inner.value
-        })
-      end
-    end
+    Ok( RatchetPacket( _)) -> Err("invalid_initial_packet")
+    Ok( InitialPacket( account_identity, message)) -> Ok((account_identity, message))
   end
 end
 
@@ -2872,8 +2752,8 @@ fn session_label(session_id :: Bytes) -> String do
 end
 
 fn encode_session_record(snapshot_blob :: Bytes,
-local :: MobileProfile,
-peer :: MobileProfile,
+local :: ClientProfile,
+peer :: ClientProfile,
 conversation_id :: Bytes,
 request_state :: Int,
 key_changed :: Bool,
@@ -3146,7 +3026,7 @@ end
 
 fn ensure_conversation_alias(database_path :: String,
 wrapping_key :: borrow StorageKey,
-local :: MobileProfile,
+local :: ClientProfile,
 sync :: MobileSyncPayload) -> Result <(), String > do
   let alias_id = conversation_alias_id(sync.peer_account_id) ?
   let label = session_label(alias_id)
@@ -3735,7 +3615,7 @@ end
 fn list_conversations(database_path :: String) -> Bytes ! String do
   ensure_schema(database_path) ?
   let wrapping_key = platform_key() ?
-  let local = parse_profile(load_profile(database_path) ?) ?
+  let local = decode_client_profile(load_profile(database_path) ?) ?
   let session_ids = load_session_ids(database_path, wrapping_key) ?
   encode_output_list(collect_conversations(database_path,
   wrapping_key,
@@ -3831,8 +3711,8 @@ end
 fn finish_session_snapshot(state :: consume RatchetState,
 snapshot_blob :: Bytes,
 wrapping_key :: borrow StorageKey,
-local :: MobileProfile,
-peer :: MobileProfile,
+local :: ClientProfile,
+peer :: ClientProfile,
 conversation_id :: Bytes,
 request_state :: Int,
 key_changed :: Bool,
@@ -3850,8 +3730,8 @@ end
 
 fn seal_session(state :: consume RatchetState,
 wrapping_key :: borrow StorageKey,
-local :: MobileProfile,
-peer :: MobileProfile,
+local :: ClientProfile,
+peer :: ClientProfile,
 conversation_id :: Bytes,
 request_state :: Int,
 key_changed :: Bool) -> Result <( Bytes, String, Bytes), String > do
@@ -4002,9 +3882,9 @@ end
 
 fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let local_profile_bytes = load_profile(request.database_path) ?
-  let local = parse_profile(local_profile_bytes) ?
-  let peer = parse_profile(request.peer_profile) ?
+  let local_encode_client_profile = load_profile(request.database_path) ?
+  let local = decode_client_profile(local_encode_client_profile) ?
+  let peer = decode_client_profile(request.peer_profile) ?
   let wrapping_key = platform_key() ?
   let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
   let _ = if List.length(pending_ids) >= 64 do
@@ -4032,7 +3912,10 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
     disappearing_seconds : 0,
     extensions : List.new()
   }
-  let plaintext = encode_initial_plaintext(local_profile_bytes, inner_bytes(inner) ?) ?
+  let plaintext = case encode_initial_plaintext(local_encode_client_profile, inner_bytes(inner) ?) do
+    Err( _) -> Err("invalid_initial_plaintext")
+    Ok( value) -> Ok(value)
+  end ?
   let strongest_suite = strongest_device_suite(request.database_path,
   wrapping_key,
   peer.account_id,
@@ -4050,7 +3933,7 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
     Err( _) -> Err("session_start_failed")
     Ok( value) -> Ok(value)
   end ?
-  let packet = encode_initial_packet(local.entry.account_identity, initial_bytes(initial) ?) ?
+  let packet = encode_packet(InitialPacket(local.entry.account_identity, initial_bytes(initial) ?)) ?
   let outer = outer_bytes(peer.entry.mailbox_token, initial.suite, packet, now) ?
   let ( session_id, label, session_blob) = seal_session(state,
   wrapping_key,
@@ -4084,21 +3967,21 @@ end
 
 fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let local_profile_bytes = load_profile(request.database_path) ?
-  let local = parse_profile(local_profile_bytes) ?
+  let local_encode_client_profile = load_profile(request.database_path) ?
+  let local = decode_client_profile(local_encode_client_profile) ?
   let outer = canonical_outer(request.outer) ?
   if !Bytes.secure_equals(outer.mailbox_token, local.entry.mailbox_token) do
     Err("wrong_mailbox")
   else
-    let packet = parse_initial_packet(outer.ciphertext) ?
-    let initial = case decode_initial_message(packet.message) do
+    let ( packet_account_identity, packet_message) = parse_initial_packet(outer.ciphertext) ?
+    let initial = case decode_initial_message(packet_message) do
       Err( _) -> Err("invalid_initial_message")
       Ok( value) -> Ok(value)
     end ?
     if outer.suite != initial.suite do
       Err("outer_suite_mismatch")
     else
-      let initiator_account = case decode_account_identity(packet.account_identity) do
+      let initiator_account = case decode_account_identity(packet_account_identity) do
         Err( _) -> Err("invalid_initiator_account")
         Ok( value) -> Ok(value)
       end ?
@@ -4137,7 +4020,7 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
         minimum_directory_sequence : initiator_account.directory_sequence
       },
       strongest_suite,
-      packet.message) do
+      packet_message) do
         Err( error) -> if is_retryable_session_error(error) do
           Err("initial_crypto_failed")
         else
@@ -4145,8 +4028,11 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
         end
         Ok( value) -> Ok(value)
       end ?
-      let decoded = parse_initial_plaintext(plaintext) ?
-      let peer = case parse_profile(decoded.profile) do
+      let decoded = case decode_initial_plaintext(plaintext) do
+        Err( _) -> Err("invalid_initial_plaintext")
+        Ok( value) -> Ok(value)
+      end ?
+      let peer = case decode_client_profile(decoded.profile) do
         Err( _) -> Err("invalid_peer_profile")
         Ok( value) -> Ok(value)
       end ?
@@ -4159,7 +4045,7 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
       let valid_kind = self_sync || (inner.message_type == 1 && !Bytes.secure_equals(peer.account_id,
       local.account_id))
       let mismatch = !valid_kind || !Bytes.secure_equals(peer.entry.account_identity,
-      packet.account_identity) || !Bytes.secure_equals(inner.sender_account_id, peer.account_id) || !Bytes.secure_equals(inner.sender_device_id,
+      packet_account_identity) || !Bytes.secure_equals(inner.sender_account_id, peer.account_id) || !Bytes.secure_equals(inner.sender_device_id,
       peer.device_id) || !Bytes.secure_equals(inner.recipient_device_id, local.device_id)
       if mismatch do
         Err("initial_identity_mismatch")
@@ -4231,30 +4117,12 @@ fn ratchet_bytes(value :: RatchetMessage) -> Bytes ! String do
   end
 end
 
-fn encode_ratchet_packet(message :: Bytes) -> Bytes ! String do
-  mobile_join([mobile_vector(mobile_byte(2) ?) ?, mobile_vector(message) ?], 0, Bytes.empty())
-end
-
-fn parse_ratchet_packet(input :: Bytes) -> MobileRatchetPacket ! String do
-  case reader(input, 65536) do
+fn parse_ratchet_packet(input :: Bytes) -> Bytes ! String do
+  case decode_packet(input) do
     Err( _) -> Err("invalid_ratchet_packet")
-    Ok( state) -> do
-      let kind = take_vector_error(state, 1, "invalid_ratchet_packet") ?
-      let message = take_vector_error(kind.state, 65520, "invalid_ratchet_packet") ?
-      case finish(message.state) do
-        Err( _) -> Err("invalid_ratchet_packet")
-        Ok( _) -> if !Bytes.secure_equals(kind.value, mobile_byte(2) ?) do
-          Err("invalid_ratchet_packet")
-        else
-          Ok(MobileRatchetPacket { message : message.value })
-        end
-      end
-    end
+    Ok( InitialPacket( _, _)) -> Err("invalid_ratchet_packet")
+    Ok( RatchetPacket( message)) -> Ok(message)
   end
-end
-
-fn ratchet_aad(session_id :: Bytes) -> Bytes ! String do
-  Ok(Crypto.sha256(mobile_append(Bytes.from_utf8("mesh-msg/mobile/ratchet-aad/v1"), session_id) ?))
 end
 
 fn restore_session(loaded :: MobileLoadedSession, wrapping_key :: borrow StorageKey) -> RatchetState ! String do
@@ -4379,9 +4247,9 @@ fn send_to_device(database_path :: String,
 wrapping_key :: borrow StorageKey,
 session_ids :: List < Bytes >,
 local_device :: borrow DeviceKeys,
-local_profile_bytes :: Bytes,
-local :: MobileProfile,
-peer :: MobileProfile,
+local_encode_client_profile :: Bytes,
+local :: ClientProfile,
+peer :: ClientProfile,
 inner :: InnerEnvelope) -> MobilePreparedSend ! String do
   case find_device_session(database_path,
   wrapping_key,
@@ -4398,11 +4266,11 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
         let state = restore_session(loaded, wrapping_key) ?
         let ( next_state, message) = case encrypt(state,
         inner_bytes(inner) ?,
-        ratchet_aad(loaded.session_id) ?) do
+        session_aad(loaded.session_id) ?) do
           Err( _) -> Err("message_encryption_failed")
           Ok( value) -> Ok(value)
         end ?
-        let packet = encode_ratchet_packet(ratchet_bytes(message) ?) ?
+        let packet = encode_packet(RatchetPacket(ratchet_bytes(message) ?)) ?
         let outer = outer_bytes(peer.entry.mailbox_token,
         message.suite,
         packet,
@@ -4420,7 +4288,11 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
     Err( error) -> if error != "session_not_found" do
       Err(error)
     else
-      let plaintext = encode_initial_plaintext(local_profile_bytes, inner_bytes(inner) ?) ?
+      let plaintext = case encode_initial_plaintext(local_encode_client_profile,
+      inner_bytes(inner) ?) do
+        Err( _) -> Err("invalid_initial_plaintext")
+        Ok( value) -> Ok(value)
+      end ?
       let ( state, initial) = case initiate(local_device,
       local.credential,
       peer.account,
@@ -4431,7 +4303,8 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
         Err( _) -> Err("session_start_failed")
         Ok( value) -> Ok(value)
       end ?
-      let packet = encode_initial_packet(local.entry.account_identity, initial_bytes(initial) ?) ?
+      let packet = encode_packet(InitialPacket(local.entry.account_identity,
+      initial_bytes(initial) ?)) ?
       let outer = outer_bytes(peer.entry.mailbox_token,
       initial.suite,
       packet,
@@ -4458,9 +4331,9 @@ fn peer_fanout(database_path :: String,
 wrapping_key :: borrow StorageKey,
 session_ids :: List < Bytes >,
 local_device :: borrow DeviceKeys,
-local_profile_bytes :: Bytes,
-local :: MobileProfile,
-profiles :: List < MobileProfile >,
+local_encode_client_profile :: Bytes,
+local :: ClientProfile,
+profiles :: List < ClientProfile >,
 conversation_id :: Bytes,
 client_message_id :: Bytes,
 now :: U64,
@@ -4492,7 +4365,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
     wrapping_key,
     session_ids,
     local_device,
-    local_profile_bytes,
+    local_encode_client_profile,
     local,
     peer,
     inner) ?
@@ -4500,7 +4373,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
     wrapping_key,
     session_ids,
     local_device,
-    local_profile_bytes,
+    local_encode_client_profile,
     local,
     profiles,
     conversation_id,
@@ -4517,9 +4390,9 @@ fn self_fanout(database_path :: String,
 wrapping_key :: borrow StorageKey,
 session_ids :: List < Bytes >,
 local_device :: borrow DeviceKeys,
-local_profile_bytes :: Bytes,
-local :: MobileProfile,
-local_profiles :: List < MobileProfile >,
+local_encode_client_profile :: Bytes,
+local :: ClientProfile,
+local_profiles :: List < ClientProfile >,
 client_message_id :: Bytes,
 now :: U64,
 sync_body :: Bytes,
@@ -4534,7 +4407,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       wrapping_key,
       session_ids,
       local_device,
-      local_profile_bytes,
+      local_encode_client_profile,
       local,
       local_profiles,
       client_message_id,
@@ -4563,7 +4436,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       wrapping_key,
       session_ids,
       local_device,
-      local_profile_bytes,
+      local_encode_client_profile,
       local,
       peer,
       inner) ?
@@ -4571,7 +4444,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       wrapping_key,
       session_ids,
       local_device,
-      local_profile_bytes,
+      local_encode_client_profile,
       local,
       local_profiles,
       client_message_id,
@@ -4585,8 +4458,8 @@ end
 
 fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let local_profile_bytes = load_profile(request.database_path) ?
-  let local = parse_profile(local_profile_bytes) ?
+  let local_encode_client_profile = load_profile(request.database_path) ?
+  let local = decode_client_profile(local_encode_client_profile) ?
   let peers = verified_device_set(request.peer_device_set) ?
   let local_devices = verified_device_set(request.local_device_set) ?
   let invalid = !local_device_set(local, local_devices) || Bytes.secure_equals(local.account_id,
@@ -4640,7 +4513,7 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       wrapping_key,
       session_ids,
       local_device,
-      local_profile_bytes,
+      local_encode_client_profile,
       local,
       peers.profiles,
       anchor.conversation_id,
@@ -4675,7 +4548,7 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       wrapping_key,
       session_ids,
       local_device,
-      local_profile_bytes,
+      local_encode_client_profile,
       local,
       local_devices.profiles,
       client_message_id,
@@ -4704,8 +4577,8 @@ end
 
 fn send_message(request :: MobileStartRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let local = parse_profile(load_profile(request.database_path) ?) ?
-  let requested_peer = parse_profile(request.peer_profile) ?
+  let local = decode_client_profile(load_profile(request.database_path) ?) ?
+  let requested_peer = decode_client_profile(request.peer_profile) ?
   let wrapping_key = platform_key() ?
   let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
   let _ = if List.length(pending_ids) >= 64 do
@@ -4748,11 +4621,11 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
     }
     let ( next_state, message) = case encrypt(state,
     inner_bytes(inner) ?,
-    ratchet_aad(loaded.session_id) ?) do
+    session_aad(loaded.session_id) ?) do
       Err( _) -> Err("message_encryption_failed")
       Ok( value) -> Ok(value)
     end ?
-    let packet = encode_ratchet_packet(ratchet_bytes(message) ?) ?
+    let packet = encode_packet(RatchetPacket(ratchet_bytes(message) ?)) ?
     let outer = outer_bytes(loaded.record.peer_mailbox, message.suite, packet, now) ?
     let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
     let ( history_key, history_blob) = updated_history(request.database_path,
@@ -4787,13 +4660,13 @@ end
 
 fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let local = parse_profile(load_profile(request.database_path) ?) ?
+  let local = decode_client_profile(load_profile(request.database_path) ?) ?
   let outer = canonical_outer(request.outer) ?
   if !Bytes.secure_equals(outer.mailbox_token, local.entry.mailbox_token) do
     Err("wrong_mailbox")
   else
-    let packet = parse_ratchet_packet(outer.ciphertext) ?
-    let message = case decode_ratchet_message(packet.message) do
+    let packet_message = parse_ratchet_packet(outer.ciphertext) ?
+    let message = case decode_ratchet_message(packet_message) do
       Err( _) -> Err("invalid_ratchet_message")
       Ok( value) -> Ok(value)
     end ?
@@ -4805,7 +4678,7 @@ fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
     let wrapping_key = platform_key() ?
     let loaded = load_session_record(request.database_path, wrapping_key, message.session_id) ?
     let state = restore_session(loaded, wrapping_key) ?
-    case decrypt(state, message, ratchet_aad(loaded.session_id) ?) do
+    case decrypt(state, message, session_aad(loaded.session_id) ?) do
       Rejected( rejected_state, error) -> if is_retryable_ratchet_error(error) do
         reject_message(rejected_state, "ratchet_retryable")
       else
@@ -5076,7 +4949,7 @@ fn expo_push_endpoint() -> String do
   "https://exp.host/--/api/v2/push/getExpoPushToken"
 end
 
-fn push_state_context(profile :: MobileProfile) -> Bytes ! String do
+fn push_state_context(profile :: ClientProfile) -> Bytes ! String do
   context(profile.account_id, profile.device_id, "push-binding/v1", 14)
 end
 
@@ -5089,7 +4962,7 @@ fn push_signature_valid(public_key :: Bytes, signed :: Bytes, signature :: Bytes
   end
 end
 
-fn stored_bind_valid(state :: MobilePushState, profile :: MobileProfile) -> Bool do
+fn stored_bind_valid(state :: MobilePushState, profile :: ClientProfile) -> Bool do
   case decode_push_bind(state.pending_wire) do
     Err( _) -> false
     Ok( value) -> case encode_push_bind(value) do
@@ -5106,7 +4979,7 @@ fn stored_bind_valid(state :: MobilePushState, profile :: MobileProfile) -> Bool
   end
 end
 
-fn stored_unbind_valid(state :: MobilePushState, profile :: MobileProfile) -> Bool do
+fn stored_unbind_valid(state :: MobilePushState, profile :: ClientProfile) -> Bool do
   case decode_push_unbind(state.pending_wire) do
     Err( _) -> false
     Ok( value) -> case encode_push_unbind(value) do
@@ -5133,7 +5006,7 @@ fn stored_push_config_valid(project_id :: Bytes, broker_public_key :: Bytes) -> 
   stored_push_project_valid(project_id) && Bytes.length(broker_public_key) == 32
 end
 
-fn push_state_valid(state :: MobilePushState, profile :: MobileProfile) -> Bool ! String do
+fn push_state_valid(state :: MobilePushState, profile :: ClientProfile) -> Bool ! String do
   let zero = mobile_zeroes(32) ?
   let revision_zero = U64.compare(state.revision, mobile_wide("0") ?) == 0
   let revision_valid = U64.compare(state.revision, mobile_wide("9223372036854775807") ?) <= 0
@@ -5203,7 +5076,7 @@ fn pristine_push_state() -> MobilePushState ! String do
   })
 end
 
-fn push_state_bytes(state :: MobilePushState, profile :: MobileProfile) -> Bytes ! String do
+fn push_state_bytes(state :: MobilePushState, profile :: ClientProfile) -> Bytes ! String do
   if !(push_state_valid(state, profile) ?) do
     Err("push_state_corrupt")
   else
@@ -5213,7 +5086,7 @@ fn push_state_bytes(state :: MobilePushState, profile :: MobileProfile) -> Bytes
   end
 end
 
-fn parse_push_state(input :: Bytes, profile :: MobileProfile) -> MobilePushState ! String do
+fn parse_push_state(input :: Bytes, profile :: ClientProfile) -> MobilePushState ! String do
   case reader(input, 893) do
     Err( _) -> Err("push_state_corrupt")
     Ok( reader_state) -> do
@@ -5307,7 +5180,7 @@ fn parse_push_state(input :: Bytes, profile :: MobileProfile) -> MobilePushState
   end
 end
 
-fn decode_push_state(input :: Bytes, profile :: MobileProfile) -> MobilePushState ! String do
+fn decode_push_state(input :: Bytes, profile :: ClientProfile) -> MobilePushState ! String do
   case parse_push_state(input, profile) do
     Err( _) -> Err("push_state_corrupt")
     Ok( state) -> Ok(state)
@@ -5315,7 +5188,7 @@ fn decode_push_state(input :: Bytes, profile :: MobileProfile) -> MobilePushStat
 end
 
 fn load_push_state(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey) -> MobilePushState ! String do
   let label = "push-binding/v1"
   case load_blob(database_path, label) do
@@ -5332,7 +5205,7 @@ wrapping_key :: borrow StorageKey) -> MobilePushState ! String do
 end
 
 fn store_push_state(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 state :: MobilePushState) -> Result <(), String > do
   let label = "push-binding/v1"
@@ -5358,7 +5231,7 @@ fn next_push_action_epoch(epoch :: U64) -> U64 ! String do
 end
 
 fn signed_push_bind(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 wake_token_hash :: Bytes,
 revision :: U64,
@@ -5380,7 +5253,7 @@ provider_token_ciphertext :: Bytes) -> Bytes ! String do
 end
 
 fn signed_push_unbind(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 revision :: U64) -> Bytes ! String do
   let unsigned = PushUnbindRequest {
@@ -5398,7 +5271,7 @@ revision :: U64) -> Bytes ! String do
 end
 
 fn prepare_new_push_bind(request :: MobilePayloadRequest,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 state :: MobilePushState,
 project_id :: String,
@@ -5451,7 +5324,7 @@ fn prepare_push_bind_with_config(request :: MobilePayloadRequest,
 broker_public_key :: Result < X25519PublicKey, String >,
 endpoint :: String) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_push_state(request.database_path, profile, wrapping_key) ?
   if state.pending_kind == 1 do
@@ -5478,7 +5351,7 @@ endpoint :: String) -> Bytes ! String do
 end
 
 fn prepare_push_unbind_loaded(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 state :: MobilePushState) -> Bytes ! String do
   if state.pending_kind == 2 do
@@ -5499,7 +5372,7 @@ fn prepare_push_unbind(database_path :: String) -> Bytes ! String do
     Err("invalid_database_path")
   else
     ensure_schema(database_path) ?
-    let profile = parse_profile(load_profile(database_path) ?) ?
+    let profile = decode_client_profile(load_profile(database_path) ?) ?
     let wrapping_key = platform_key() ?
     let state = load_push_state(database_path, profile, wrapping_key) ?
     if state.pending_kind == 2 do
@@ -5516,7 +5389,7 @@ fn commit_push_update(request :: MobilePayloadRequest) -> Bytes ! String do
     Err("invalid_push_update")
   else
     ensure_schema(request.database_path) ?
-    let profile = parse_profile(load_profile(request.database_path) ?) ?
+    let profile = decode_client_profile(load_profile(request.database_path) ?) ?
     let wrapping_key = platform_key() ?
     let state = load_push_state(request.database_path, profile, wrapping_key) ?
     if state.pending_kind == 0 do
@@ -5626,7 +5499,7 @@ fn current_push_action(state :: MobilePushState) -> Bytes ! String do
 end
 
 fn store_push_action(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 state :: MobilePushState) -> Bytes ! String do
   store_push_state(database_path, profile, wrapping_key, state) ?
@@ -5638,7 +5511,7 @@ fn push_action(database_path :: String) -> Bytes ! String do
     Err("invalid_database_path")
   else
     ensure_schema(database_path) ?
-    let profile = parse_profile(load_profile(database_path) ?) ?
+    let profile = decode_client_profile(load_profile(database_path) ?) ?
     current_push_action(load_push_state(database_path, profile, platform_key() ?) ?)
   end
 end
@@ -5658,7 +5531,7 @@ fn matching_native_push_config(state :: MobilePushState) -> MobilePushBuildConfi
 end
 
 fn begin_push_cleanup(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 state :: MobilePushState,
 target_mode :: Int,
@@ -5679,7 +5552,7 @@ end
 
 fn retarget_push_enable(database_path :: String,
 config :: MobilePushBuildConfig,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 state :: MobilePushState) -> Bytes ! String do
   if state.action_kind == 4 || state.action_kind == 5 do
@@ -5705,7 +5578,7 @@ end
 
 fn push_intent(request :: MobilePushIntentRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_push_state(request.database_path, profile, wrapping_key) ?
   if request.intent == 0 do
@@ -5794,7 +5667,7 @@ end
 
 fn complete_push_action_with_config(request :: MobilePushActionCompletion, endpoint :: String) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_push_state(request.database_path, profile, wrapping_key) ?
   let completed = parse_push_action_frame(request.action) ?
@@ -5878,7 +5751,7 @@ fn push_status(database_path :: String) -> Bytes ! String do
     Err("invalid_database_path")
   else
     ensure_schema(database_path) ?
-    let profile = parse_profile(load_profile(database_path) ?) ?
+    let profile = decode_client_profile(load_profile(database_path) ?) ?
     let wrapping_key = platform_key() ?
     let state = load_push_state(database_path, profile, wrapping_key) ?
     Ok(push_status_bytes(state))
@@ -5902,13 +5775,13 @@ fn import_contact(input :: Bytes) -> Bytes ! String do
     Err( _) -> Err("invalid_directory_entry")
     Ok( value) -> Ok(value)
   end ?
-  let profile = profile_bytes(entry, account.account_id, credential.device_id) ?
-  let _ = parse_profile(profile) ?
+  let profile = encode_client_profile(entry, account.account_id, credential.device_id) ?
+  let _ = decode_client_profile(profile) ?
   Ok(profile)
 end
 
 fn directory_entry_for(database_path :: String) -> Bytes ! String do
-  let profile = parse_profile(load_profile(database_path) ?) ?
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
   directory_bytes(profile.entry)
 end
 
@@ -6384,7 +6257,7 @@ fn verify_transparency_response(request :: MobileTransparencyRequest) -> Bytes !
 end
 
 fn mailbox_fetch(database_path :: String) -> Bytes ! String do
-  let profile = parse_profile(load_profile(database_path) ?) ?
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
   case encode_mailbox_fetch(MailboxFetch {
     version : 1,
     mailbox_token : profile.entry.mailbox_token,
@@ -6654,7 +6527,7 @@ fn group_checkpoint(database_path :: String, wrapping_key :: borrow StorageKey) 
   end
 end
 
-fn group_member(profile :: MobileProfile,
+fn group_member(profile :: ClientProfile,
 init_public_key :: X25519PublicKey,
 leaf_public_key :: X25519PublicKey,
 directory_sequence :: U64,
@@ -6731,10 +6604,10 @@ fn decode_group_key_package(input :: Bytes) -> MobileGroupKeyPackage ! String do
   end
 end
 
-fn group_profile(profiles :: List < MobileProfile >,
+fn group_profile(profiles :: List < ClientProfile >,
 account_id :: Bytes,
 device_id :: Bytes,
-index :: Int) -> MobileProfile ! String do
+index :: Int) -> ClientProfile ! String do
   if index >= List.length(profiles) do
     Err("group_member_not_found")
   else
@@ -6778,7 +6651,7 @@ end
 
 fn create_group_key_package(database_path :: String) -> Bytes ! String do
   ensure_schema(database_path) ?
-  let profile = parse_profile(load_profile(database_path) ?) ?
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
   let wrapping_key = platform_key() ?
   let checkpoint = group_checkpoint(database_path, wrapping_key) ?
   let view = load_transparency_view(database_path, wrapping_key) ?
@@ -6847,7 +6720,7 @@ fn create_group_key_package(database_path :: String) -> Bytes ! String do
 end
 
 fn group_snapshot_blob(state :: consume GroupState,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey) -> Result <( String, Bytes), String > do
   let label = group_state_label(state.group_id) ?
   let version = U64.add(state.snapshot_version, mobile_wide("1") ?) ?
@@ -6865,7 +6738,7 @@ wrapping_key :: borrow StorageKey) -> Result <( String, Bytes), String > do
 end
 
 fn load_group(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 group_id :: Bytes) -> GroupState ! String do
   let label = group_state_label(group_id) ?
@@ -6915,7 +6788,7 @@ end
 
 fn inspect_mobile_group(request :: MobileGroupReferenceRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
   let members = group_member_summaries(indexed_members(state.tree), state.local_leaf, 0, List.new()) ?
@@ -6925,7 +6798,7 @@ fn inspect_mobile_group(request :: MobileGroupReferenceRequest) -> Bytes ! Strin
 end
 
 fn collect_group_summaries(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 group_ids :: List < Bytes >,
 index :: Int,
@@ -6950,7 +6823,7 @@ fn list_mobile_groups(database_path :: String) -> Bytes ! String do
     Err("invalid_database_path")
   else
     ensure_schema(database_path) ?
-    let profile = parse_profile(load_profile(database_path) ?) ?
+    let profile = decode_client_profile(load_profile(database_path) ?) ?
     let wrapping_key = platform_key() ?
     encode_output_list(collect_group_summaries(database_path,
     profile,
@@ -6963,7 +6836,7 @@ end
 
 fn mobile_group_history(request :: MobileGroupReferenceRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
   consume_group_state(state)
@@ -7367,7 +7240,7 @@ end
 
 fn create_mobile_group(database_path :: String) -> Bytes ! String do
   ensure_schema(database_path) ?
-  let profile = parse_profile(load_profile(database_path) ?) ?
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
   let wrapping_key = platform_key() ?
   let checkpoint = group_checkpoint(database_path, wrapping_key) ?
   let checkpoint_hash_value = checkpoint_hash(canonical_transparency_checkpoint(checkpoint) ?) ?
@@ -7403,7 +7276,7 @@ end
 
 fn add_mobile_group_member(request :: MobileGroupAddRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
   let baseline = load_group_baseline(request.database_path, wrapping_key, request.group_id) ?
@@ -7473,7 +7346,7 @@ end
 
 fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
   let leaf_index = find_member_index(state.tree, request.account_id, request.device_id)
@@ -7523,7 +7396,7 @@ fn send_mobile_group_message(request :: MobileGroupSendRequest) -> Bytes ! Strin
     Err("group_message_too_large")
   else
     ensure_schema(request.database_path) ?
-    let profile = parse_profile(load_profile(request.database_path) ?) ?
+    let profile = decode_client_profile(load_profile(request.database_path) ?) ?
     let wrapping_key = platform_key() ?
     let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
     let targets = case delivery_targets(state.tree, state.local_leaf) do
@@ -7602,7 +7475,7 @@ fn welcome_member(value :: GroupWelcome) -> GroupMember ! String do
   end
 end
 
-fn local_welcome_member(profile :: MobileProfile, member :: GroupMember, welcome :: GroupWelcome) -> Bool do
+fn local_welcome_member(profile :: ClientProfile, member :: GroupMember, welcome :: GroupWelcome) -> Bool do
   Bytes.secure_equals(member.account_id, profile.account_id) && Bytes.secure_equals(member.device_id,
   profile.device_id) && Bytes.secure_equals(member.signing_public_key.bytes,
   profile.credential.signing_public_key) && Bytes.secure_equals(member.mailbox_token,
@@ -7611,7 +7484,7 @@ fn local_welcome_member(profile :: MobileProfile, member :: GroupMember, welcome
 end
 
 fn join_mobile_group(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 welcome :: GroupWelcome,
 baseline_checkpoint :: Bytes) -> Bytes ! String do
@@ -7701,7 +7574,7 @@ baseline_checkpoint :: Bytes) -> Bytes ! String do
 end
 
 fn apply_mobile_group_commit(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 commit :: GroupCommit) -> Bytes ! String do
   let group_id = commit.group_id
@@ -7733,7 +7606,7 @@ commit :: GroupCommit) -> Bytes ! String do
 end
 
 fn open_mobile_group_message(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 message :: GroupMessage) -> Bytes ! String do
   let state = load_group(database_path, profile, wrapping_key, message.group_id) ?
@@ -7781,7 +7654,7 @@ end
 
 fn receive_mobile_group_result(request :: MobileReceiveRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let outer = canonical_outer(request.outer) ?
   if outer.suite != 3 || !Bytes.secure_equals(outer.mailbox_token, profile.entry.mailbox_token) do
     Err("wrong_group_delivery")
@@ -7894,7 +7767,7 @@ envelope_ids :: List < Bytes >) -> List < Bytes > do
 end
 
 fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes ! String do
-  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let deliveries = case decode_delivery_batch(request.batch) do
     Err( _) -> Err("invalid_delivery_batch")
     Ok( values) -> Ok(values)

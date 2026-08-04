@@ -3,7 +3,7 @@ from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, Signe
 from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DirectoryEntry, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
-from Transport.Packet import TransportPacket, decode_packet, encode_packet
+from Transport.Packet import TransportPacket, decode_packet, encode_packet, session_aad
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
@@ -15,13 +15,6 @@ end
 fn random(length :: Int) -> Bytes ! String do
   case Crypto.random_bytes(length) do
     Err( _) -> Err("random generation failed")
-    Ok( value) -> Ok(value)
-  end
-end
-
-fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
-  case Bytes.concat(left, right) do
-    Err( _) -> Err("byte concatenation failed")
     Ok( value) -> Ok(value)
   end
 end
@@ -250,10 +243,6 @@ fn policy(now :: U64) -> VerificationPolicy ! String do
   })
 end
 
-fn associated_data(token :: Bytes) -> Bytes ! String do
-  Ok(Crypto.sha256(append(Bytes.from_utf8("mesh-msg/m8/mailbox-aad"), token) ?))
-end
-
 fn inner(account_id :: Bytes,
 sender_device_id :: Bytes,
 recipient_device_id :: Bytes,
@@ -329,7 +318,6 @@ fn run_device_a() -> Int ! String do
   conversation_id,
   random(16) ?,
   "initial") ?
-  let aad = associated_data(directory.mailbox_token) ?
   let ( alice_session, initial) = case initiate(alice,
   alice_credential,
   bob_account,
@@ -340,6 +328,7 @@ fn run_device_a() -> Int ! String do
     Err( _) -> Err("initial handshake failed")
     Ok( value) -> Ok(value)
   end ?
+  let aad = session_aad(alice_session.session_id) ?
   let initial_outer = outbound(directory.mailbox_token,
   InitialPacket(account_wire(alice_account) ?, initial_wire(initial) ?)) ?
   let _ = submit_envelope(initial_outer, 202) ?
@@ -512,7 +501,8 @@ fn run_device_b() -> Int ! String do
         Ok( value) -> Ok(value)
       end ?
       display(initial_plaintext)
-      let _bob_session = process_deliveries(bob_session, deliveries, 1, associated_data(token) ?)
+      let aad = session_aad(bob_session.session_id) ?
+      let _bob_session = process_deliveries(bob_session, deliveries, 1, aad)
       let ids = envelope_ids(deliveries, 0, List.new())
       let _ = acknowledge(token, ids) ?
       println("device-b:acked=#{List.length(ids)}")

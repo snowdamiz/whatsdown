@@ -121,7 +121,7 @@ end
 
 pub fn prepare_legacy_prekey_fixture_path(database_path :: String) -> Result <(), String > do
   ensure_schema(database_path) ?
-  let profile = parse_profile(load_profile(database_path) ?) ?
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
   let wrapping_key = platform_key() ?
   let id = profile.bundle.one_time_prekey_id
   let label = one_time_prekey_label(id)
@@ -138,7 +138,7 @@ pub fn prepare_legacy_prekey_fixture_path(database_path :: String) -> Result <()
 end
 
 pub fn migrated_prekey_matches_profile_path(database_path :: String) -> Bool ! String do
-  let profile = parse_profile(load_profile(database_path) ?) ?
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
   let id = profile.bundle.one_time_prekey_id
   let private_key = open_x25519(load_blob(database_path, one_time_prekey_label(id)) ?,
   platform_key() ?,
@@ -151,8 +151,8 @@ end
 
 fn test_ratchet_outer(input :: Bytes) -> Result <( OuterEnvelope, RatchetMessage), String > do
   let outer = canonical_outer(input) ?
-  let packet = parse_ratchet_packet(outer.ciphertext) ?
-  case decode_ratchet_message(packet.message) do
+  let packet_message = parse_ratchet_packet(outer.ciphertext) ?
+  case decode_ratchet_message(packet_message) do
     Err( _) -> Err("invalid_ratchet_message")
     Ok( message) -> Ok((outer, message))
   end
@@ -163,7 +163,7 @@ fn test_encode_ratchet_outer(outer :: OuterEnvelope, message :: RatchetMessage) 
     Err( _) -> Err("ratchet_encoding_failed")
     Ok( encoded) -> Ok(encoded)
   end ?
-  case encode_outer_envelope(% { outer | ciphertext : encode_ratchet_packet(encoded_message) ? }) do
+  case encode_outer_envelope(% { outer | ciphertext : encode_packet(RatchetPacket(encoded_message)) ? }) do
     Err( _) -> Err("outer_encoding_failed")
     Ok( encoded) -> Ok(encoded)
   end
@@ -233,7 +233,7 @@ pub fn push_action_complete_with_test_config(input :: Bytes, endpoint :: String)
 end
 
 fn store_legacy_push_state_for_test(database_path :: String,
-profile :: MobileProfile,
+profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 state :: MobilePushState) -> Bool ! String do
   let encoded = mobile_join([mobile_byte(1) ?, Bytes.from_utf8("PBL"), mobile_write_u64(state.revision) ?, mobile_byte(state.mode) ?, state.wake_token_hash, state.provider_token_hash, mobile_byte(state.pending_kind) ?, mobile_vector(state.pending_wire) ?],
@@ -246,7 +246,7 @@ end
 
 pub fn install_legacy_disabled_push_state_for_test(database_path :: String) -> Bool ! String do
   ensure_schema(database_path) ?
-  let profile = parse_profile(load_profile(database_path) ?) ?
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_push_state(database_path, profile, wrapping_key) ?
   store_legacy_push_state_for_test(database_path,
@@ -257,7 +257,7 @@ end
 
 pub fn install_legacy_enabled_push_state_for_test(database_path :: String) -> Bool ! String do
   ensure_schema(database_path) ?
-  let profile = parse_profile(load_profile(database_path) ?) ?
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_push_state(database_path, profile, wrapping_key) ?
   if state.mode != 1 || state.pending_kind != 0 do
@@ -269,7 +269,7 @@ end
 
 pub fn install_legacy_pending_unbind_push_state_for_test(database_path :: String) -> Bool ! String do
   ensure_schema(database_path) ?
-  let profile = parse_profile(load_profile(database_path) ?) ?
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
   let wrapping_key = platform_key() ?
   let state = load_push_state(database_path, profile, wrapping_key) ?
   let revision = next_push_revision(state.revision) ?

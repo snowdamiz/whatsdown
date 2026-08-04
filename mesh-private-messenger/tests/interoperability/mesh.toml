@@ -1,0 +1,7 @@
+[package]
+name = "messenger-interoperability"
+version = "0.1.0"
+
+[dependencies]
+mesh-messenger-cli = { path = "../../clients/mesh-cli" }
+messenger-mobile-core = { path = "../../packages/mobile-core" }

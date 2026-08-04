@@ -9,8 +9,11 @@
 | Encrypted backups | backup wire/profile `1`, Argon2id v1.3 | opaque sealed manifest and chunks only | Parameters are fixed per version; reject changed profiles, manifests, chunk order, snapshot hash, oversized input, and trailing bytes | Development only; opt-in mobile restore and opaque backup storage required |
 | Push provider tokens | sealed-token and broker-wake wire `1` | directory stores only broker-sealed ciphertext | Only the configured broker key can open a provider token; reject unsupported providers, malformed tokens, tampering, oversized input, and trailing bytes | Development only; production provider adapter and mobile registration required |
 | Directory and delivery | delivery wire `1` | migrations `001`–`004` | Clients and services reject unsupported versions and trailing data | Development only |
+| Direct client transport | `M8P` version `1`, kinds `1` and `2` | inside sealed session/outbox records | CLI and mobile use the same canonical codec and session-bound ratchet AAD; reject wrong kinds, trailing data, identity/session mismatches, and suite mismatches | Development only; Mesh CLI/mobile suite-2 interoperability proof required |
 | Mobile native ABI | `MESH_LIBRARY_ABI_VERSION = 1` | encrypted record format `1` | Host and generated bindings must use the same ABI; secrets never cross into TypeScript | Physical iOS and Android proof required |
 
 Persisted records and wire messages always carry their existing version. An incompatible field, algorithm, domain label, or canonical encoding requires a new version; it must not silently reinterpret version `1`. Database migrations are forward-only. Rollback is allowed only while the target revision understands every deployed migration, protocol version, suite, snapshot, and native ABI.
 
 CI pins the exact Mesh revision used by Whatsdown. Updating that revision requires protocol, persistence, native-binding, downgrade, and mobile proof reruns before merge.
+
+The earlier private, unversioned mobile direct-message wrapper existed only in development and was never deployed or accepted by a production service. It is retired in favor of canonical `M8P` version `1`; there is intentionally no legacy decoder for that undeployed format.

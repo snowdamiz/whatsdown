@@ -6,6 +6,9 @@ readonly script_dir
 repo_root="$(cd "$script_dir/../.." && pwd -P)"
 readonly repo_root
 readonly core_dir="$repo_root/mesh-private-messenger/packages/mobile-core"
+readonly cli_dir="$repo_root/mesh-private-messenger/clients/mesh-cli"
+readonly interop_dir="$repo_root/mesh-private-messenger/tests/interoperability"
+readonly shared_transport="$repo_root/mesh-private-messenger/packages/messenger-protocol/transport/packet.mpl"
 readonly module_dir="$repo_root/mesh-private-messenger/apps/mobile/modules/mesh-messenger"
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
 temp_parent="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
@@ -32,6 +35,11 @@ encrypted_database_matches() {
   local database_path=$1
   local expected_count=$2
   [[ "$(sqlite3 "$database_path" "SELECT count(*) = $expected_count AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND sum(typeof(ciphertext) != 'blob') = 0 FROM encrypted_blobs;")" == 1 ]]
+}
+
+encrypted_database_nonempty() {
+  local database_path=$1
+  [[ "$(sqlite3 "$database_path" "SELECT count(*) > 0 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND sum(typeof(ciphertext) != 'blob') = 0 FROM encrypted_blobs;")" == 1 ]]
 }
 
 cleanup() {
@@ -136,6 +144,30 @@ main() {
     fail "encrypted SQLite verification accepted a non-BLOB ciphertext"
   fi
 
+  [[ ! -e "$cli_dir/transport/packet.mpl" ]] || \
+    fail "the CLI still owns a private transport codec"
+  [[ -z "$(find "$core_dir/tests" -type f -name '*.c' -print -quit)" ]] || \
+    fail "mobile-core behavior tests must be written in Mesh, not C"
+  [[ -f "$shared_transport" ]] || fail "the shared client transport codec is missing"
+  if grep -R -q 'from MobileCore' "$cli_dir/interop"; then
+    fail "the CLI interoperability module imports the mobile implementation"
+  fi
+  if grep -qE 'struct Mobile(Profile|InitialPacket|InitialPlaintext|RatchetPacket)|fn (encode_initial_packet|encode_ratchet_packet|ratchet_aad)' \
+      "$core_dir/mobile_core.mpl"; then
+    fail "the mobile core still owns a duplicate behavioral client codec"
+  fi
+
+  "$meshc_bin" build "$cli_dir" --output "$temp_dir/mesh-cli"
+  "$meshc_bin" test "$cli_dir/tests/transport.test.mpl"
+  MESSENGER_M10_INTEROP_PATH="$database" "$meshc_bin" test "$interop_dir"
+  encrypted_database_nonempty "$database" || \
+    fail "CLI/mobile interoperability did not persist encrypted SQLite blobs"
+  local interop_leaks
+  interop_leaks="$(LC_ALL=C grep -a -E -o 'm10-cli-greeting-opaque|m10-mobile-reply-opaque' "$database" || true)"
+  if [[ -n "$interop_leaks" ]]; then
+    fail "CLI/mobile interoperability leaked message plaintext into SQLite: $interop_leaks"
+  fi
+
   # meshc's e2e_library suite owns the generic foreign-host ABI, link, and
   # lifecycle proof. Messenger behavior stays in the Mesh tests below.
   "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
@@ -174,7 +206,7 @@ main() {
     target_proof="iOS device and simulator targets"
   fi
 
-  printf 'M10 proof passed: encrypted SQLite, Mesh behavior, native bindings, static/dynamic libraries, and %s.\n' \
+  printf 'M10 proof passed: Mesh CLI/mobile suite-2 round trip, encrypted SQLite plaintext exclusion, Mesh behavior, native bindings, static/dynamic libraries, and %s.\n' \
     "$target_proof"
 }
 

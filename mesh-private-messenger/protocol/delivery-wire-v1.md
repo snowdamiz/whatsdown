@@ -12,6 +12,15 @@ big-endian, and vectors use a `u32` byte length.
 | Delivery batch | `BAT` | `u8` count, then `u64` sequence and envelope vector | 524,949 bytes |
 | Mailbox acknowledgement | `ACK` | 32-byte mailbox token, `u8` count, 16-byte envelope IDs | 165 bytes |
 
+CLI and mobile direct messages share the canonical `M8P` client transport
+record inside `OuterEnvelope.ciphertext`. It contains byte version `1`, magic
+`M8P`, a byte kind, an account-identity vector, and a message vector. Kind `1`
+is an initial message and requires a non-empty account identity; kind `2` is a
+ratchet message and requires an empty account-identity vector. Both clients
+reject truncation, trailing bytes, wrong kind/account combinations, and inputs
+over 65,536 bytes. Ratchet encryption binds to the shared session-ID-derived
+AAD domain `mesh-msg/mobile/ratchet-aad/v1`.
+
 Directory usernames are 1–64 lowercase ASCII letters, digits, dots,
 underscores, or hyphens. Fetch and acknowledgement batches contain at most
 eight envelopes. Every delivered envelope is decoded as a canonical
