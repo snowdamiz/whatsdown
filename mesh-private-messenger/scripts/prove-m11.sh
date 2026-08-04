@@ -100,6 +100,11 @@ NODE
     >/dev/null; then
     fail "the ExpoPushTokenManager sentinel exposes a raw-token method or emits token events"
   fi
+  if rg -n '\b(getDevicePushTokenAsync|getExpoPushTokenAsync|devicePushToken|expoPushToken|ExpoPushTokenManager)\b' \
+    "$app_dir/src" "$messenger_module_dir/index.ts" \
+    "$messenger_module_dir/generated/libmessenger_mobile.ts" >/dev/null; then
+    fail "a raw or provider push token crossed the TypeScript boundary"
+  fi
   "$script_dir/prove-m10.sh"
   npm --prefix "$app_dir" test
   npm --prefix "$app_dir" run typecheck
