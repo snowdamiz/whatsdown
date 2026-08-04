@@ -148,10 +148,12 @@ end
 
 pub struct DeviceLinkRequest do
   version :: Int
+  suite :: Int
   nonce :: Bytes
   device_id :: Bytes
   signing_public_key :: Bytes
   dh_public_key :: Bytes
+  post_quantum_public_key :: Bytes
   capabilities :: U64
   created_at :: U64
   expires_at :: U64
@@ -1260,9 +1262,13 @@ pub fn decode_directory_entry(input :: Bytes) -> DirectoryEntry ! ProtocolError 
 end
 
 fn validate_device_link_request(value :: DeviceLinkRequest) -> Result <(), ProtocolError > do
-  if value.version != 1 do
+  if value.version != 1 && value.version != 2 do
     Err(UnsupportedVersion)
+  else if (value.version == 1 && value.suite != 1) || (value.version == 2 && value.suite != 2) do
+    Err(UnsupportedSuite)
   else if Bytes.length(value.nonce) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.dh_public_key) != 32 do
+    Err(InvalidFieldLength)
+  else if (value.suite == 1 && Bytes.length(value.post_quantum_public_key) != 0) || (value.suite == 2 && Bytes.length(value.post_quantum_public_key) != 1184) do
     Err(InvalidFieldLength)
   else if U64.compare(value.created_at, value.expires_at) > 0 do
     Err(InvalidExpiration)
@@ -1273,32 +1279,44 @@ end
 
 pub fn encode_device_link_request(value :: DeviceLinkRequest) -> Bytes ! ProtocolError do
   validate_device_link_request(value) ?
-  join([byte(value.version) ?, Bytes.from_utf8("LNK"), value.nonce, value.device_id, value.signing_public_key, value.dh_public_key, write_u64(value.capabilities) ?, write_u64(value.created_at) ?, write_u64(value.expires_at) ?],
+  let suite = if value.version == 2 do write_u16(value.suite) ? else Bytes.empty() end
+  join([byte(value.version) ?, Bytes.from_utf8("LNK"), suite, value.nonce, value.device_id, value.signing_public_key, value.dh_public_key, value.post_quantum_public_key, write_u64(value.capabilities) ?, write_u64(value.created_at) ?, write_u64(value.expires_at) ?],
   0,
   Bytes.empty())
 end
 
 pub fn decode_device_link_request(input :: Bytes) -> DeviceLinkRequest ! ProtocolError do
-  let version = take_u8(open(input, 140) ?) ?
-  if version.value != 1 do
+  let version = take_u8(open(input, 1326) ?) ?
+  if version.value != 1 && version.value != 2 do
     Err(UnsupportedVersion)
   else
     let magic = take_fixed(version.state, 3) ?
     valid_magic(magic.value, "LNK") ?
-    let nonce = take_fixed(magic.state, 32) ?
+    let suite = if version.value == 2 do
+      take_u16(magic.state) ?
+    else
+      ReadInt {
+        state : magic.state,
+        value : 1
+      }
+    end
+    let nonce = take_fixed(suite.state, 32) ?
     let device_id = take_fixed(nonce.state, 16) ?
     let signing_public_key = take_fixed(device_id.state, 32) ?
     let dh_public_key = take_fixed(signing_public_key.state, 32) ?
-    let capabilities = take_u64(dh_public_key.state) ?
+    let post_quantum_public_key = take_suite_fixed(dh_public_key.state, suite.value, 1184) ?
+    let capabilities = take_u64(post_quantum_public_key.state) ?
     let created_at = take_u64(capabilities.state) ?
     let expires_at = take_u64(created_at.state) ?
     require_end(expires_at.state) ?
     let value = DeviceLinkRequest {
       version : version.value,
+      suite : suite.value,
       nonce : nonce.value,
       device_id : device_id.value,
       signing_public_key : signing_public_key.value,
       dh_public_key : dh_public_key.value,
+      post_quantum_public_key : post_quantum_public_key.value,
       capabilities : capabilities.value,
       created_at : created_at.value,
       expires_at : expires_at.value

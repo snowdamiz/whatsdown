@@ -1,5 +1,5 @@
 from Identity.Device import IdentityError, authorize_device_link, generate_account, issue_device_revocation, verify_device_link_authorization, verify_device_revocation
-from Protocol.V1 import DeviceLinkAuthorization, DeviceLinkRequest, DeviceRevocation, DeviceSet, DirectoryEntry, ProtocolError, decode_device_link_authorization, decode_device_link_request, decode_device_revocation, decode_device_set, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set
+from Protocol.V1 import DeviceLinkAuthorization, DeviceLinkRequest, DeviceRevocation, DeviceSet, DirectoryEntry, ProtocolError, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_revocation, decode_device_set, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
@@ -18,16 +18,27 @@ end
 fn proof() -> Bool ! ProtocolError do
   let link_request = DeviceLinkRequest {
     version : 1,
+    suite : 1,
     nonce : repeated(1, 32),
     device_id : repeated(2, 16),
     signing_public_key : repeated(3, 32),
     dh_public_key : repeated(4, 32),
+    post_quantum_public_key : Bytes.empty(),
     capabilities : wide(1) ?,
     created_at : wide(1000) ?,
     expires_at : wide(2000) ?
   }
   let link_wire = encode_device_link_request(link_request) ?
+  let historical_link_wire = case Bytes.from_hex("014c4e4b01010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020203030303030303030303030303030303030303030303030303030303030303030404040404040404040404040404040404040404040404040404040404040404000000000000000100000000000003e800000000000007d0") do
+    Err( _) -> Err(MalformedEncoding)
+    Ok( value) -> Ok(value)
+  end ?
+  assert(Bytes.length(link_wire) == 140)
+  assert(Bytes.secure_equals(link_wire, historical_link_wire))
   let decoded_link = decode_device_link_request(link_wire) ?
+  assert(Bytes.secure_equals(encode_device_link_request(decoded_link) ?, link_wire))
+  assert(decoded_link.suite == 1)
+  assert(Bytes.length(decoded_link.post_quantum_public_key) == 0)
   assert(Bytes.secure_equals(decoded_link.device_id, link_request.device_id))
   assert(Bytes.secure_equals(decoded_link.nonce, link_request.nonce))
   let authorization = DeviceLinkAuthorization {
@@ -96,6 +107,76 @@ test("device linking and device-set records have bounded canonical codecs") do
   end
 end
 
+fn hybrid_codec_proof() -> Bool ! ProtocolError do
+  let request = DeviceLinkRequest {
+    version : 2,
+    suite : 2,
+    nonce : repeated(31, 32),
+    device_id : repeated(32, 16),
+    signing_public_key : repeated(33, 32),
+    dh_public_key : repeated(34, 32),
+    post_quantum_public_key : repeated(35, 1184),
+    capabilities : wide(1) ?,
+    created_at : wide(1000) ?,
+    expires_at : wide(2000) ?
+  }
+  let wire = encode_device_link_request(request) ?
+  assert(Bytes.length(wire) == 1326)
+  let decoded = decode_device_link_request(wire) ?
+  assert(decoded.version == 2)
+  assert(decoded.suite == 2)
+  assert(Bytes.secure_equals(decoded.post_quantum_public_key, request.post_quantum_public_key))
+  assert(Bytes.secure_equals(encode_device_link_request(decoded) ?, wire))
+  let mismatched_suite = DeviceLinkRequest {
+    version : 2,
+    suite : 1,
+    nonce : request.nonce,
+    device_id : request.device_id,
+    signing_public_key : request.signing_public_key,
+    dh_public_key : request.dh_public_key,
+    post_quantum_public_key : request.post_quantum_public_key,
+    capabilities : request.capabilities,
+    created_at : request.created_at,
+    expires_at : request.expires_at
+  }
+  case encode_device_link_request(mismatched_suite) do
+    Err( UnsupportedSuite) -> assert(true)
+    _ -> assert(false)
+  end
+  let short_key = DeviceLinkRequest {
+    version : 2,
+    suite : 2,
+    nonce : request.nonce,
+    device_id : request.device_id,
+    signing_public_key : request.signing_public_key,
+    dh_public_key : request.dh_public_key,
+    post_quantum_public_key : repeated(35, 1183),
+    capabilities : request.capabilities,
+    created_at : request.created_at,
+    expires_at : request.expires_at
+  }
+  case encode_device_link_request(short_key) do
+    Err( InvalidFieldLength) -> assert(true)
+    _ -> assert(false)
+  end
+  let trailing = case Bytes.concat(wire, Bytes.from_utf8("x")) do
+    Err( _) -> Err(MalformedEncoding)
+    Ok( value) -> Ok(value)
+  end ?
+  case decode_device_link_request(trailing) do
+    Err( OversizedInput) -> assert(true)
+    _ -> assert(false)
+  end
+  Ok(true)
+end
+
+test("hybrid device-link requests have a canonical v2 wire format") do
+  case hybrid_codec_proof() do
+    Err( _) -> assert(false)
+    Ok( value) -> assert(value)
+  end
+end
+
 fn identity_wide(value :: Int) -> U64 ! IdentityError do
   case U64.parse(Int.to_string(value)) do
     Err( _) -> Err(InvalidCredential)
@@ -108,10 +189,12 @@ fn identity_proof() -> Bool ! IdentityError do
   let ( account, identity) = generate_account(now, identity_wide(1) ?) ?
   let request = DeviceLinkRequest {
     version : 1,
+    suite : 1,
     nonce : repeated(21, 32),
     device_id : repeated(22, 16),
     signing_public_key : repeated(23, 32),
     dh_public_key : repeated(24, 32),
+    post_quantum_public_key : Bytes.empty(),
     capabilities : identity_wide(1) ?,
     created_at : now,
     expires_at : identity_wide(2000) ?
@@ -125,10 +208,12 @@ fn identity_proof() -> Bool ! IdentityError do
   assert(verify_device_link_authorization(request, authorization, now, identity_wide(1) ?) ?)
   let wrong_request = DeviceLinkRequest {
     version : request.version,
+    suite : request.suite,
     nonce : repeated(25, 32),
     device_id : request.device_id,
     signing_public_key : request.signing_public_key,
     dh_public_key : request.dh_public_key,
+    post_quantum_public_key : request.post_quantum_public_key,
     capabilities : request.capabilities,
     created_at : request.created_at,
     expires_at : request.expires_at
@@ -149,6 +234,64 @@ end
 
 test("account authorization binds links and revocations to exact devices") do
   case identity_proof() do
+    Err( _) -> assert(false)
+    Ok( value) -> assert(value)
+  end
+end
+
+fn hybrid_identity_proof() -> Bool ! IdentityError do
+  let now = identity_wide(1000) ?
+  let ( account, identity) = generate_account(now, identity_wide(1) ?) ?
+  let request = DeviceLinkRequest {
+    version : 2,
+    suite : 2,
+    nonce : repeated(41, 32),
+    device_id : repeated(42, 16),
+    signing_public_key : repeated(43, 32),
+    dh_public_key : repeated(44, 32),
+    post_quantum_public_key : repeated(45, 1184),
+    capabilities : identity_wide(1) ?,
+    created_at : now,
+    expires_at : identity_wide(2000) ?
+  }
+  let authorization = authorize_device_link(account,
+  identity,
+  request,
+  "alice",
+  identity_wide(31536001000) ?,
+  identity_wide(2) ?) ?
+  assert(authorization.version == 1)
+  case encode_device_link_request(request) do
+    Err( _) -> assert(false)
+    Ok( wire) -> assert(Bytes.secure_equals(authorization.request_hash, Crypto.sha256(wire)))
+  end
+  case decode_device_credential(authorization.device_credential) do
+    Err( _) -> assert(false)
+    Ok( credential) -> do
+      assert(credential.suite == 2)
+      assert(Bytes.secure_equals(credential.post_quantum_public_key,
+      request.post_quantum_public_key))
+    end
+  end
+  assert(verify_device_link_authorization(request, authorization, now, identity_wide(1) ?) ?)
+  let stripped = DeviceLinkRequest {
+    version : 1,
+    suite : 1,
+    nonce : request.nonce,
+    device_id : request.device_id,
+    signing_public_key : request.signing_public_key,
+    dh_public_key : request.dh_public_key,
+    post_quantum_public_key : Bytes.empty(),
+    capabilities : request.capabilities,
+    created_at : request.created_at,
+    expires_at : request.expires_at
+  }
+  assert(!verify_device_link_authorization(stripped, authorization, now, identity_wide(1) ?) ?)
+  Ok(true)
+end
+
+test("account authorization preserves hybrid device-link credentials and rejects stripped downgrades") do
+  case hybrid_identity_proof() do
     Err( _) -> assert(false)
     Ok( value) -> assert(value)
   end

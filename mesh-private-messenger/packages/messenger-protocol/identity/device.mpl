@@ -299,10 +299,12 @@ directory_sequence :: U64) -> DeviceLinkAuthorization ! IdentityError do
     Err(InvalidCredential)
   else
     let request_wire = protocol_bytes(encode_device_link_request(request)) ?
-    let credential = issue_public_device_credential(account,
+    let credential = issue_credential(account,
     request.device_id,
     request.signing_public_key,
     request.dh_public_key,
+    request.post_quantum_public_key,
+    request.suite,
     request.capabilities,
     request.created_at,
     credential_expires_at,
@@ -346,7 +348,8 @@ minimum_directory_sequence :: U64) -> Bool ! IdentityError do
   let request_matches = Bytes.secure_equals(authorization.request_hash, Crypto.sha256(request_wire)) && Bytes.secure_equals(request.device_id,
   credential.device_id) && Bytes.secure_equals(request.signing_public_key,
   credential.signing_public_key) && Bytes.secure_equals(request.dh_public_key,
-  credential.dh_public_key) && U64.compare(request.capabilities, credential.capabilities) == 0
+  credential.dh_public_key) && request.suite == credential.suite && Bytes.secure_equals(request.post_quantum_public_key,
+  credential.post_quantum_public_key) && U64.compare(request.capabilities, credential.capabilities) == 0
   if !credential_valid || !request_current || !request_matches do
     Ok(false)
   else
