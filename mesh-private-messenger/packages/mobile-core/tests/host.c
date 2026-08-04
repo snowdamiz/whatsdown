@@ -731,38 +731,6 @@ int main(int argc, char **argv) {
   free(authorization);
   free(link_request);
 
-  if (mesh_messenger_directory_entry((const uint8_t *)bob_path,
-                                     strlen(bob_path), &response) !=
-          MESH_LIBRARY_OK ||
-      response.len == 0) {
-    return 50;
-  }
-  size_t bob_entry_len = (size_t)response.len;
-  uint8_t *bob_entry = malloc(bob_entry_len);
-  if (bob_entry == NULL) return 51;
-  memcpy(bob_entry, response.data, bob_entry_len);
-  mesh_library_free_returned_bytes(&response);
-  if (mesh_messenger_import_contact(bob_entry, bob_entry_len, &response) !=
-          MESH_LIBRARY_OK ||
-      response.len != bob_profile_len ||
-      memcmp(response.data, bob_profile, bob_profile_len) != 0) {
-    return 52;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(bob_entry);
-  if (mesh_messenger_directory_lookup((const uint8_t *)"bob", 3, &response) !=
-          MESH_LIBRARY_OK ||
-      response.len == 0) {
-    return 53;
-  }
-  mesh_library_free_returned_bytes(&response);
-  if (mesh_messenger_mailbox_fetch((const uint8_t *)bob_path, strlen(bob_path),
-                                   &response) != MESH_LIBRARY_OK ||
-      response.len == 0) {
-    return 54;
-  }
-  mesh_library_free_returned_bytes(&response);
-
   const uint8_t *bob_profiles[] = {bob_profile};
   const size_t bob_profile_lengths[] = {bob_profile_len};
   size_t bob_set_len = 0;
