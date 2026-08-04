@@ -126,9 +126,10 @@ main() {
   command -v cc >/dev/null || fail "a C compiler is required"
   command -v sqlite3 >/dev/null || fail "sqlite3 is required"
 
-  mkdir "$legacy_core_dir"
+  mkdir -p "$legacy_core_dir/storage"
   sed -e "\$r $core_dir/tests/legacy_fixture.mesh.inc" \
     "$core_dir/main.mpl" >"$legacy_core_dir/main.mpl"
+  cp "$core_dir/storage/blobs.mpl" "$legacy_core_dir/storage/blobs.mpl"
   sed -e "s|../../../mesh-lang/packages/mesh-binary|$repo_root/mesh-lang/packages/mesh-binary|" \
     -e "s|../messenger-protocol|$repo_root/mesh-private-messenger/packages/messenger-protocol|" \
     "$core_dir/mesh.toml" >"$legacy_core_dir/mesh.toml"
@@ -138,18 +139,19 @@ main() {
   "$temp_dir/host" "$vector" "$database"
 
   "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
+  "$meshc_bin" test "$core_dir/tests/blob_migration.test.mpl"
 
-  [[ "$(sqlite3 "$database" "SELECT count(*) = 18 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+  [[ "$(sqlite3 "$database" "SELECT count(*) = 18 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
     fail "sender SQLite did not contain eighteen encrypted session, outbox, and prekey records"
-  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 14 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+  [[ "$(sqlite3 "$peer_database" "SELECT count(*) = 14 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
     fail "recipient SQLite did not contain fourteen encrypted fanout and prekey records"
-  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 12 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+  [[ "$(sqlite3 "$linked_database" "SELECT count(*) = 12 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
     fail "linked-device SQLite did not contain twelve encrypted sync and prekey records"
-  [[ "$(sqlite3 "$capacity_database" "SELECT count(*) = 73 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+  [[ "$(sqlite3 "$capacity_database" "SELECT count(*) = 73 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
     fail "bounded-pool SQLite did not contain sixty-four encrypted one-time prekeys"
-  [[ "$(sqlite3 "$legacy_active_database" "SELECT count(*) >= 10 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+  [[ "$(sqlite3 "$legacy_active_database" "SELECT count(*) >= 10 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
     fail "active legacy singleton migration did not remain encrypted"
-  [[ "$(sqlite3 "$legacy_consumed_database" "SELECT count(*) >= 11 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'text' FROM encrypted_blobs;")" == 1 ]] || \
+  [[ "$(sqlite3 "$legacy_consumed_database" "SELECT count(*) >= 11 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
     fail "consumed legacy singleton migration did not remain encrypted"
   local leak_pattern='whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|post-quantum-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
   local leaks

@@ -7,6 +7,7 @@ from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, De
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
+from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
 from Transparency.Client import verify_evidence
 from Transparency.Merkle import WitnessKey
 from Transparency.Wire import TransparencyLookup, decode_checkpoint, decode_transparency_evidence, encode_checkpoint, encode_transparency_lookup
@@ -621,26 +622,6 @@ fn decode_active_prekey_pool(encoded :: Bytes, entry_ids :: List < U64 >) -> Lis
   end
 end
 
-fn insert_blob(database :: SqliteConn, label :: String, blob :: Bytes) -> Result <(), String > do
-  let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
-  case Sqlite.execute(database,
-  "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-  [record_hash, Bytes.to_base64(blob)]) do
-    Err( _) -> Err("database_write_failed")
-    Ok( _) -> Ok(nil)
-  end
-end
-
-fn put_blob(database :: SqliteConn, label :: String, blob :: Bytes) -> Result <(), String > do
-  let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
-  case Sqlite.execute(database,
-  "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(record_hash) DO UPDATE SET ciphertext = excluded.ciphertext, updated_at = CURRENT_TIMESTAMP",
-  [record_hash, Bytes.to_base64(blob)]) do
-    Err( _) -> Err("database_write_failed")
-    Ok( _) -> Ok(nil)
-  end
-end
-
 fn insert_blobs(database :: SqliteConn,
 labels :: List < String >,
 blobs :: List < Bytes >,
@@ -906,32 +887,6 @@ outbox_index_blob :: Bytes) -> Result <(), String > do
         Ok( _) -> do
           Sqlite.close(database)
           Ok(nil)
-        end
-      end
-    end
-  end
-end
-
-fn load_blob(database_path :: String, label :: String) -> Bytes ! String do
-  let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
-  case Sqlite.open(database_path) do
-    Err( _) -> Err("database_open_failed")
-    Ok( database) -> case Sqlite.query(database,
-    "SELECT ciphertext FROM encrypted_blobs WHERE record_hash = ?",
-    [record_hash]) do
-      Err( _) -> do
-        Sqlite.close(database)
-        Err("database_read_failed")
-      end
-      Ok( rows) -> do
-        Sqlite.close(database)
-        if List.length(rows) != 1 do
-          Err("local_state_not_found")
-        else
-          case Bytes.from_base64(Map.get(List.head(rows), "ciphertext")) do
-            Err( _) -> Err("invalid_local_state")
-            Ok( blob) -> Ok(blob)
-          end
         end
       end
     end
@@ -4639,24 +4594,6 @@ fn canonical_outer(input :: Bytes) -> OuterEnvelope ! String do
   end
 end
 
-fn ensure_schema(database_path :: String) -> Result <(), String > do
-  case Sqlite.open(database_path) do
-    Err( _) -> Err("database_open_failed")
-    Ok( database) -> case Sqlite.execute(database,
-    "CREATE TABLE IF NOT EXISTS encrypted_blobs (record_hash TEXT PRIMARY KEY CHECK(length(record_hash) = 64), ciphertext TEXT NOT NULL CHECK(length(ciphertext) > 0), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT",
-    []) do
-      Err( _) -> do
-        Sqlite.close(database)
-        Err("database_schema_failed")
-      end
-      Ok( _) -> do
-        Sqlite.close(database)
-        Ok(nil)
-      end
-    end
-  end
-end
-
 fn store_envelope(request :: MobileStoreRequest) -> Bytes ! String do
   let envelope = canonical_outer(request.envelope) ?
   if Bytes.length(envelope.ciphertext) < 16 do
@@ -4664,12 +4601,11 @@ fn store_envelope(request :: MobileStoreRequest) -> Bytes ! String do
   else
     ensure_schema(request.database_path) ?
     let record_hash = Bytes.to_hex(Crypto.sha256(request.record_key))
-    let ciphertext = Bytes.to_base64(envelope.ciphertext)
     case Sqlite.open(request.database_path) do
       Err( _) -> Err("database_open_failed")
-      Ok( database) -> case Sqlite.execute(database,
+      Ok( database) -> case Sqlite.execute_values(database,
       "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(record_hash) DO UPDATE SET ciphertext = excluded.ciphertext, updated_at = CURRENT_TIMESTAMP",
-      [record_hash, ciphertext]) do
+      [Text(record_hash), Binary(envelope.ciphertext)]) do
         Err( _) -> do
           Sqlite.close(database)
           Err("database_write_failed")
