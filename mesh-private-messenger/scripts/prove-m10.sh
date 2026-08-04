@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly script_dir
-repo_root="$(cd "$script_dir/../.." && pwd)"
+repo_root="$(cd "$script_dir/../.." && pwd -P)"
 readonly repo_root
 readonly core_dir="$repo_root/mesh-private-messenger/packages/mobile-core"
 readonly module_dir="$repo_root/mesh-private-messenger/apps/mobile/modules/mesh-messenger"
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
-readonly temp_parent="${TMPDIR:-/tmp}"
+temp_parent="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
+readonly temp_parent
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-m10.XXXXXX")"
 readonly temp_dir
 readonly database="$temp_dir/mobile.db"
@@ -36,16 +37,12 @@ encrypted_database_matches() {
 
 cleanup() {
   local status=$?
-  local resolved_parent
-  local resolved_temp
   trap - EXIT INT TERM
   if [[ -d "$temp_dir" && ! -L "$temp_dir" ]]; then
-    resolved_parent="$(realpath "$temp_parent")"
-    resolved_temp="$(realpath "$temp_dir")"
-    case "$resolved_temp" in
-      "$resolved_parent"/whatsdown-m10.*)
-        if [[ "$(find "$resolved_temp" -type l | wc -l | tr -d ' ')" == 0 ]]; then
-          find "$resolved_temp" -depth -delete
+    case "$temp_dir" in
+      "$temp_parent"/whatsdown-m10.*)
+        if [[ "$(find "$temp_dir" -type l | wc -l | tr -d ' ')" == 0 ]]; then
+          find "$temp_dir" -depth -delete
         fi
         ;;
     esac
@@ -103,9 +100,10 @@ prove_bridge() {
       "$module_dir/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt" || \
       fail "Android bridge does not dispatch $symbol"
   done
-  grep -q 'private let lock = NSLock()' "$module_dir/ios/MeshMessengerModule.swift" && \
-    grep -q 'self.lock.lock()' "$module_dir/ios/MeshMessengerModule.swift" || \
+  if ! grep -q 'private let lock = NSLock()' "$module_dir/ios/MeshMessengerModule.swift" || \
+      ! grep -q 'self.lock.lock()' "$module_dir/ios/MeshMessengerModule.swift"; then
     fail "iOS bridge does not serialize native invocations"
+  fi
   grep -q 'synchronized(lock)' \
     "$module_dir/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt" || \
     fail "Android bridge does not serialize native invocations"
@@ -161,14 +159,19 @@ main() {
     --output "$temp_dir/libmessenger_mobile.a"
   prove_bridge
 
-  if [[ "$(uname -s)" == Darwin ]] && command -v xcrun >/dev/null && \
-      [[ -f "$repo_root/mesh-lang/target/aarch64-apple-ios/debug/libmesh_rt.a" ]] && \
-      [[ -f "$repo_root/mesh-lang/target/aarch64-apple-ios-sim/debug/libmesh_rt.a" ]]; then
+  local target_proof="host target only; no iOS toolchain was expected"
+  if [[ "$(uname -s)" == Darwin ]] && command -v xcrun >/dev/null; then
+    [[ -f "$repo_root/mesh-lang/target/aarch64-apple-ios/debug/libmesh_rt.a" ]] || \
+      fail "aarch64-apple-ios runtime is missing; build mesh-rt for that target first"
+    [[ -f "$repo_root/mesh-lang/target/aarch64-apple-ios-sim/debug/libmesh_rt.a" ]] || \
+      fail "aarch64-apple-ios-sim runtime is missing; build mesh-rt for that target first"
     build_ios aarch64-apple-ios iphoneos arm64-apple-ios16.4
     build_ios aarch64-apple-ios-sim iphonesimulator arm64-apple-ios16.4-simulator
+    target_proof="iOS device and simulator targets"
   fi
 
-  printf 'M10 proof passed: encrypted SQLite, native bridge, host lifecycle, static/dynamic libraries, and available iOS targets.\n'
+  printf 'M10 proof passed: encrypted SQLite, native bridge, host lifecycle, static/dynamic libraries, and %s.\n' \
+    "$target_proof"
 }
 
 main "$@"

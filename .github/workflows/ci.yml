@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  MESH_LANG_REVISION: c8c2ffe3c443ceb7e118c69aa61ce74edc27b265
+  MESH_LANG_REVISION: e2a76541651b4114150e1a274d9c00ea4c27972e
   CARGO_INCREMENTAL: "0"
   CARGO_PROFILE_DEV_DEBUG: "0"
   CARGO_PROFILE_TEST_DEBUG: "0"
@@ -68,7 +68,7 @@ jobs:
         timeout-minutes: 10
         with:
           components: rustfmt
-          targets: x86_64-unknown-linux-gnu
+          targets: x86_64-unknown-linux-gnu,aarch64-linux-android,x86_64-linux-android
 
       - name: Cargo cache
         uses: Swatinem/rust-cache@v2
@@ -99,6 +99,23 @@ jobs:
           ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-protocol/tests
           ./target/debug/meshc fmt ../mesh-private-messenger/packages/mobile-core --check
           ../mesh-private-messenger/scripts/prove-m10.sh
+
+      - name: Build Android mobile archives
+        timeout-minutes: 35
+        run: |
+          NDK_BIN="$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -mindepth 2 -maxdepth 2 -type d -name bin -print -quit)"
+          test -n "$NDK_BIN"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android26-clang"
+          export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$NDK_BIN/x86_64-linux-android26-clang"
+          export CC_aarch64_linux_android="$CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER"
+          export CC_x86_64_linux_android="$CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"
+          export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
+          export AR_x86_64_linux_android="$NDK_BIN/llvm-ar"
+          cargo build --locked -p mesh-rt --lib --target aarch64-linux-android
+          cargo build --locked -p mesh-rt --lib --target x86_64-linux-android
+          ../mesh-private-messenger/scripts/build-mobile-native.sh android
+          test -s ../mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/android/arm64-v8a/libmessenger_mobile.a
+          test -s ../mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/android/x86_64/libmessenger_mobile.a
 
       - name: Verify mobile application
         timeout-minutes: 15

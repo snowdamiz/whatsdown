@@ -7,29 +7,26 @@ case "$platform" in
   *) printf 'usage: %s [all|ios|android]\n' "$0" >&2; exit 2 ;;
 esac
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly script_dir
-repo_root="$(cd "$script_dir/../.." && pwd)"
+repo_root="$(cd "$script_dir/../.." && pwd -P)"
 readonly repo_root
 readonly core_dir="$repo_root/mesh-private-messenger/packages/mobile-core"
 readonly module_dir="$repo_root/mesh-private-messenger/apps/mobile/modules/mesh-messenger"
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
-readonly temp_parent="${TMPDIR:-/tmp}"
+temp_parent="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
+readonly temp_parent
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-mobile-native.XXXXXX")"
 readonly temp_dir
 
 cleanup() {
   local status=$?
-  local resolved_parent
-  local resolved_temp
   trap - EXIT INT TERM
   if [[ -d "$temp_dir" && ! -L "$temp_dir" ]]; then
-    resolved_parent="$(realpath "$temp_parent")"
-    resolved_temp="$(realpath "$temp_dir")"
-    case "$resolved_temp" in
-      "$resolved_parent"/whatsdown-mobile-native.*)
-        if [[ "$(find "$resolved_temp" -type l | wc -l | tr -d ' ')" == 0 ]]; then
-          find "$resolved_temp" -depth -delete
+    case "$temp_dir" in
+      "$temp_parent"/whatsdown-mobile-native.*)
+        if [[ "$(find "$temp_dir" -type l | wc -l | tr -d ' ')" == 0 ]]; then
+          find "$temp_dir" -depth -delete
         fi
         ;;
     esac
@@ -38,6 +35,14 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
+
+require_physical_directory() {
+  local path=$1
+  [[ -d "$path" && ! -L "$path" ]] && [[ "$(cd "$path" && pwd -P)" == "$path" ]] || {
+    printf '%s must be a physical directory inside the checkout\n' "$path" >&2
+    return 1
+  }
+}
 
 check_bindings() {
   local extension
@@ -54,21 +59,20 @@ check_bindings() {
 }
 
 build_ios() {
-  local destination="$module_dir/native/ios/MeshMessengerCore.xcframework"
+  local destination_parent="$module_dir/native/ios"
+  local destination="$destination_parent/MeshMessengerCore.xcframework"
   local device="$temp_dir/device/libmessenger_mobile.a"
   local simulator="$temp_dir/simulator/libmessenger_mobile.a"
-  local resolved_destination
 
   [[ "$(uname -s)" == Darwin ]] || { printf 'iOS builds require macOS\n' >&2; return 1; }
   command -v xcodebuild >/dev/null
-  if [[ -e "$destination" ]]; then
-    resolved_destination="$(realpath "$destination")"
-    [[ "$resolved_destination" == "$destination" ]]
-    [[ -d "$resolved_destination" && ! -L "$resolved_destination" ]]
-    [[ "$(find "$resolved_destination" -type l | wc -l | tr -d ' ')" == 0 ]]
-    find "$resolved_destination" -depth -delete
+  mkdir -p "$destination_parent"
+  require_physical_directory "$destination_parent"
+  if [[ -e "$destination" || -L "$destination" ]]; then
+    [[ -d "$destination" && ! -L "$destination" ]]
+    [[ "$(find "$destination" -type l | wc -l | tr -d ' ')" == 0 ]]
+    find "$destination" -depth -delete
   fi
-  mkdir -p "$(dirname "$destination")"
   mkdir -p "$(dirname "$device")" "$(dirname "$simulator")"
   IPHONEOS_DEPLOYMENT_TARGET=16.4 "$meshc_bin" build "$core_dir" \
     --artifact staticlib --target aarch64-apple-ios --output "$device"
@@ -88,8 +92,6 @@ build_android() {
   local abi
   local destination
   local destination_parent
-  local resolved_destination
-  local resolved_parent
 
   [[ -n "$ndk" && -d "$ndk" ]] || {
     printf 'ANDROID_NDK_HOME or ANDROID_NDK_ROOT must name an installed NDK\n' >&2
@@ -103,13 +105,9 @@ build_android() {
     destination="$module_dir/native/android/$abi/libmessenger_mobile.a"
     destination_parent="$(dirname "$destination")"
     mkdir -p "$destination_parent"
-    resolved_parent="$(realpath "$destination_parent")"
-    [[ "$resolved_parent" == "$destination_parent" ]]
-    [[ -d "$resolved_parent" && ! -L "$resolved_parent" ]]
-    if [[ -e "$destination" ]]; then
-      resolved_destination="$(realpath "$destination")"
-      [[ "$resolved_destination" == "$destination" ]]
-      [[ -f "$resolved_destination" && ! -L "$resolved_destination" ]]
+    require_physical_directory "$destination_parent"
+    if [[ -e "$destination" || -L "$destination" ]]; then
+      [[ -f "$destination" && ! -L "$destination" ]]
     fi
     ANDROID_NDK_HOME="$ndk" "$meshc_bin" build "$core_dir" \
       --artifact staticlib --target "$target" --output "$destination"
