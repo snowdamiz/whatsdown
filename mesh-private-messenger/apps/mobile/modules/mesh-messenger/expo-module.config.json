@@ -1,9 +1,12 @@
 {
   "platforms": ["ios", "android"],
   "apple": {
-    "modules": ["MeshMessengerModule"]
+    "modules": ["MeshMessengerModule", "ExpoPushTokenManagerSentinelModule"]
   },
   "android": {
-    "modules": ["expo.modules.meshmessenger.MeshMessengerModule"]
+    "modules": [
+      "expo.modules.meshmessenger.MeshMessengerModule",
+      "expo.modules.meshmessenger.ExpoPushTokenManagerSentinelModule"
+    ]
   }
 }

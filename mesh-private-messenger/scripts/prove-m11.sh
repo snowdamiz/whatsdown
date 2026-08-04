@@ -6,6 +6,7 @@ readonly script_dir
 repo_root="$(cd "$script_dir/../.." && pwd)"
 readonly repo_root
 readonly app_dir="$repo_root/mesh-private-messenger/apps/mobile"
+readonly messenger_module_dir="$app_dir/modules/mesh-messenger"
 readonly temp_parent="${TMPDIR:-/tmp}"
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-m11.XXXXXX")"
 readonly temp_dir
@@ -39,6 +40,66 @@ trap 'exit 130' INT TERM
 
 main() {
   [[ -d "$app_dir/node_modules" ]] || fail "run npm ci in $app_dir"
+  node "$app_dir/scripts/harden-expo-notifications-autolinking.mjs" --check
+  local platform
+  local resolution
+  for platform in apple android; do
+    resolution="$temp_dir/autolinking-$platform.json"
+    (cd "$app_dir" && ./node_modules/.bin/expo-modules-autolinking resolve --platform "$platform" --json) >"$resolution"
+  done
+  node - "$temp_dir/autolinking-apple.json" "$temp_dir/autolinking-android.json" <<'NODE'
+const { readFileSync } = require('node:fs');
+
+const [applePath, androidPath] = process.argv.slice(2);
+const apple = JSON.parse(readFileSync(applePath, 'utf8'));
+const android = JSON.parse(readFileSync(androidPath, 'utf8'));
+const appleNotifications = apple.modules.find((module) => module.packageName === 'expo-notifications');
+const androidNotifications = android.modules.find((module) => module.packageName === 'expo-notifications');
+const appleSentinels = apple.modules.flatMap((module) =>
+  module.modules
+    .filter((candidate) => candidate.class === 'ExpoPushTokenManagerSentinelModule')
+    .map(() => module.packageName),
+);
+const androidSentinels = android.modules.flatMap((module) =>
+  module.projects.flatMap((project) =>
+    project.modules
+      .filter(
+        (candidate) =>
+          candidate.classifier ===
+          'expo.modules.meshmessenger.ExpoPushTokenManagerSentinelModule',
+      )
+      .map(() => module.packageName),
+  ),
+);
+
+if (!appleNotifications || !androidNotifications) {
+  throw new Error('expo-notifications was absent from Expo autolinking resolution');
+}
+if (appleSentinels.length !== 1 || appleSentinels[0] !== 'mesh-messenger') {
+  throw new Error('Apple ExpoPushTokenManager sentinel was not autolinked exactly once locally');
+}
+if (androidSentinels.length !== 1 || androidSentinels[0] !== 'mesh-messenger') {
+  throw new Error('Android ExpoPushTokenManager sentinel was not autolinked exactly once locally');
+}
+if (appleNotifications.modules.some((module) => module.class === 'PushTokenModule')) {
+  throw new Error('Apple PushTokenModule remains in Expo autolinking resolution');
+}
+if (
+  androidNotifications.projects.some((project) =>
+    project.modules.some(
+      (module) => module.classifier === 'expo.modules.notifications.tokens.PushTokenModule',
+    ),
+  )
+) {
+  throw new Error('Android PushTokenModule remains in Expo autolinking resolution');
+}
+NODE
+  if rg -n '\b(AsyncFunction|Function|OnCreate|OnDestroy)\b|getDevicePushTokenAsync|unregister|sendEvent' \
+    "$messenger_module_dir/ios/ExpoPushTokenManagerSentinelModule.swift" \
+    "$messenger_module_dir/android/src/main/java/expo/modules/meshmessenger/ExpoPushTokenManagerSentinelModule.kt" \
+    >/dev/null; then
+    fail "the ExpoPushTokenManager sentinel exposes a raw-token method or emits token events"
+  fi
   "$script_dir/prove-m10.sh"
   npm --prefix "$app_dir" test
   npm --prefix "$app_dir" run typecheck
@@ -49,7 +110,7 @@ main() {
   if rg -n '\buseMemo\b' "$app_dir/src" >/dev/null; then
     fail "the React compiler anti-pattern useMemo was introduced"
   fi
-  printf 'M11 software proof passed: encrypted restart flow, app parsers, strict generic push, typecheck, Expo diagnostics, and iOS bundle.\n'
+  printf 'M11 software proof passed: encrypted restart flow, app parsers, strict generic push, raw-token autolinking exclusion, typecheck, Expo diagnostics, and iOS bundle.\n'
 }
 
 main "$@"
