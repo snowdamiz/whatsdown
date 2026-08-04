@@ -2,6 +2,14 @@ import {
   authorize_device_link_for_set_export,
   create_device_revocation_export,
   directory_entry_export,
+  group_add_export,
+  group_create_export,
+  group_history_export,
+  group_inspect_export,
+  group_key_package_export,
+  group_list_export,
+  group_remove_export,
+  group_send_export,
   inspect_device_set_export,
   load_profile_export,
   mailbox_fetch_export,
@@ -19,9 +27,15 @@ import {
   batchRequest,
   boundedInteger,
   DeviceSetSummary,
+  GroupHistoryMessage,
+  GroupDetails,
+  GroupSummary,
   hexBytes,
   parseByteList,
   parseDeviceSetSummary,
+  parseGroupHistory,
+  parseGroupDetails,
+  parseGroupList,
   parseProfileSummary,
   parsePrekeyCount,
   utf8,
@@ -35,6 +49,7 @@ const baseUrl = (process.env.EXPO_PUBLIC_MESSENGER_BASE_URL ?? 'http://127.0.0.1
   '',
 );
 const synchronizePrekeysByDatabase = createKeyedSingleFlight<string, void>();
+export const GROUP_KEY_PACKAGE_LENGTH = 369;
 
 async function binaryRequest(
   path: string,
@@ -177,6 +192,68 @@ export async function drainOutbox(databasePath: string): Promise<void> {
   }
 }
 
+export async function listGroups(databasePath: string): Promise<GroupSummary[]> {
+  return parseGroupList(await group_list_export(utf8(databasePath)));
+}
+
+export async function createGroup(databasePath: string): Promise<Uint8Array> {
+  const groupId = await group_create_export(utf8(databasePath));
+  if (groupId.length !== 32) throw new Error('Mesh returned an invalid group ID');
+  return groupId;
+}
+
+export async function getGroupKeyPackage(databasePath: string): Promise<Uint8Array> {
+  const keyPackage = await group_key_package_export(utf8(databasePath));
+  if (keyPackage.length !== GROUP_KEY_PACKAGE_LENGTH) {
+    throw new Error('Mesh returned an invalid group key package');
+  }
+  return keyPackage;
+}
+
+export async function loadGroupHistory(
+  databasePath: string,
+  groupId: Uint8Array,
+): Promise<GroupHistoryMessage[]> {
+  return parseGroupHistory(await group_history_export(vectors(utf8(databasePath), groupId)));
+}
+
+export async function inspectGroup(
+  databasePath: string,
+  groupId: Uint8Array,
+): Promise<GroupDetails> {
+  return parseGroupDetails(await group_inspect_export(vectors(utf8(databasePath), groupId)));
+}
+
+export async function addGroupMember(
+  databasePath: string,
+  groupId: Uint8Array,
+  username: string,
+  keyPackage: Uint8Array,
+): Promise<void> {
+  const deviceSet = await resolveDeviceSet(databasePath, username);
+  await group_add_export(vectors(utf8(databasePath), groupId, deviceSet, keyPackage));
+  await drainOutbox(databasePath);
+}
+
+export async function sendGroupMessage(
+  databasePath: string,
+  groupId: Uint8Array,
+  body: string,
+): Promise<void> {
+  await group_send_export(vectors(utf8(databasePath), groupId, utf8(body)));
+  await drainOutbox(databasePath);
+}
+
+export async function removeGroupMember(
+  databasePath: string,
+  groupId: Uint8Array,
+  accountId: Uint8Array,
+  deviceId: Uint8Array,
+): Promise<void> {
+  await group_remove_export(vectors(utf8(databasePath), groupId, accountId, deviceId));
+  await drainOutbox(databasePath);
+}
+
 export async function sendFanout(
   databasePath: string,
   peerUsername: string,
@@ -203,6 +280,6 @@ export async function synchronizeMailbox(databasePath: string): Promise<void> {
   const fetchRequest = await mailbox_fetch_export(utf8(databasePath));
   const batch = await binaryRequest('/v1/mailbox/fetch', fetchRequest);
   const acknowledgement = await process_delivery_batch_export(batchRequest(databasePath, batch));
-  await binaryRequest('/v1/mailbox/ack', acknowledgement);
+  if (acknowledgement.length > 0) await binaryRequest('/v1/mailbox/ack', acknowledgement);
   await synchronizePrekeys(databasePath);
 }

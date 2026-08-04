@@ -36,6 +36,9 @@ import {
   Conversation,
   decodeUtf8,
   DeviceSetSummary,
+  GroupDetails,
+  GroupHistoryMessage,
+  GroupSummary,
   HistoryMessage,
   hex,
   parseConversations,
@@ -51,11 +54,20 @@ import {
   vectors,
 } from './codec';
 import {
+  addGroupMember,
   authorizeDeviceLink,
+  createGroup,
+  getGroupKeyPackage,
+  GROUP_KEY_PACKAGE_LENGTH,
+  inspectGroup,
+  listGroups,
   loadAccountDevices,
+  loadGroupHistory,
   registerDirectory,
+  removeGroupMember,
   revokeDevice,
   sendFanout,
+  sendGroupMessage,
   synchronizeMailbox,
 } from './network';
 import {
@@ -82,8 +94,18 @@ const colors = {
   line: '#3A3D32',
 };
 
-type Screen = 'home' | 'account' | 'scanner' | 'chat' | 'devices' | 'link-device' | 'link-authorization';
-type ScanMode = 'contact' | 'link-request' | 'link-authorization';
+type Screen =
+  | 'home'
+  | 'account'
+  | 'scanner'
+  | 'chat'
+  | 'devices'
+  | 'link-device'
+  | 'link-authorization'
+  | 'groups'
+  | 'group'
+  | 'group-package';
+type ScanMode = 'contact' | 'link-request' | 'link-authorization' | 'group-key-package';
 
 const disappearingOptions = [
   { label: 'Off', value: 0 },
@@ -185,6 +207,14 @@ export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryMessage[]>([]);
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<Uint8Array | null>(null);
+  const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
+  const [groupHistory, setGroupHistory] = useState<GroupHistoryMessage[]>([]);
+  const [groupComposer, setGroupComposer] = useState('');
+  const [groupUsername, setGroupUsername] = useState('');
+  const [groupKeyPackage, setGroupKeyPackage] = useState<Uint8Array | null>(null);
+  const [scannedGroupPackage, setScannedGroupPackage] = useState<Uint8Array | null>(null);
   const [username, setUsername] = useState('');
   const [contactUsername, setContactUsername] = useState('');
   const [firstMessage, setFirstMessage] = useState('');
@@ -205,6 +235,9 @@ export default function App() {
   const [pushError, setPushError] = useState('');
 
   const selected = conversations.find((conversation) => conversation.conversationId.join('.') === selectedId);
+  const selectedGroup = groups.find(
+    (group) => selectedGroupId && hex(group.groupId) === hex(selectedGroupId),
+  );
 
   async function refreshConversations(): Promise<Conversation[]> {
     const encoded = await list_conversations_export(utf8(databasePath));
@@ -216,6 +249,21 @@ export default function App() {
   async function refreshHistory(conversation: Conversation): Promise<void> {
     const encoded = await load_history_export(peerRequest(databasePath, conversation.peerAccountId));
     setHistory(parseHistory(encoded));
+  }
+
+  async function refreshGroups(): Promise<GroupSummary[]> {
+    const next = await listGroups(databasePath);
+    setGroups(next);
+    return next;
+  }
+
+  async function refreshGroup(groupId: Uint8Array): Promise<void> {
+    const [details, nextHistory] = await Promise.all([
+      inspectGroup(databasePath, groupId),
+      loadGroupHistory(databasePath, groupId),
+    ]);
+    setGroupDetails(details);
+    setGroupHistory(nextHistory);
   }
 
   async function refreshDevices(currentProfile: Uint8Array): Promise<DeviceSetSummary> {
@@ -234,8 +282,10 @@ export default function App() {
       await synchronizeMailbox(databasePath);
       const currentDevices = await refreshDevices(profile);
       const next = await refreshConversations();
+      await refreshGroups();
       const active = next.find((conversation) => conversation.conversationId.join('.') === selectedId);
       if (active) await refreshHistory(active);
+      if (selectedGroupId) await refreshGroup(selectedGroupId);
       if (currentDevices.changed) {
         setError('Your account device set changed. Review linked devices.');
         setStatus('Mailbox is current · device change detected');
@@ -276,7 +326,7 @@ export default function App() {
         const loaded = await load_profile_export(utf8(databasePath));
         if (cancelled) return;
         setProfile(loaded);
-        await refreshConversations();
+        await Promise.all([refreshConversations(), refreshGroups()]);
         setStatus('Encrypted identity unlocked');
       } catch {
         if (!cancelled) setStatus('Choose a username to create this device');
@@ -300,7 +350,7 @@ export default function App() {
       removePushListeners();
       appState.remove();
     };
-  }, [profile, selectedId]);
+  }, [profile, selectedGroupId, selectedId]);
 
   useEffect(() => {
     if (!profile) return undefined;
@@ -409,6 +459,7 @@ export default function App() {
     setScanMode(mode);
     setScannedProfile(null);
     setScannedLinkRequest(null);
+    setScannedGroupPackage(null);
     setError('');
     setScreen('scanner');
   }
@@ -430,6 +481,73 @@ export default function App() {
       await refreshDevices(profile);
       setScreen('devices');
       setStatus('Device set verified and cached');
+    });
+  }
+
+  function openGroups(): void {
+    void perform('Loading encrypted groups…', async () => {
+      await refreshGroups();
+      setScreen('groups');
+      setStatus('Group state decrypted on this device');
+    });
+  }
+
+  function openGroup(group: GroupSummary): void {
+    setSelectedGroupId(group.groupId);
+    setGroupDetails(null);
+    setGroupHistory([]);
+    setScreen('group');
+    void perform('Opening encrypted group history…', async () => {
+      await refreshGroup(group.groupId);
+      setStatus('Group history decrypted on this device');
+    });
+  }
+
+  function createNewGroup(): void {
+    void perform('Creating a private group…', async () => {
+      const groupId = await createGroup(databasePath);
+      setSelectedGroupId(groupId);
+      setGroupDetails(null);
+      setGroupHistory([]);
+      await Promise.all([refreshGroups(), refreshGroup(groupId)]);
+      setScreen('group');
+      setStatus('Private group created on this device');
+    });
+  }
+
+  function showGroupKeyPackage(): void {
+    void perform('Preparing this device’s signed group package…', async () => {
+      setGroupKeyPackage(await getGroupKeyPackage(databasePath));
+      setScreen('group-package');
+      setStatus('One-device group package ready');
+    });
+  }
+
+  function scanGroupKeyPackage(): void {
+    const target = groupUsername.trim().toLowerCase();
+    if (!/^[a-z0-9._-]{1,64}$/.test(target)) {
+      setError('Enter the exact lowercase username before scanning their device.');
+      return;
+    }
+    openScanner('group-key-package');
+  }
+
+  function sendGroupText(): void {
+    if (!selectedGroupId || !groupComposer.trim()) return;
+    void perform('Encrypting for every group device…', async () => {
+      await sendGroupMessage(databasePath, selectedGroupId, groupComposer.trim());
+      setGroupComposer('');
+      await Promise.all([refreshGroups(), refreshGroup(selectedGroupId)]);
+      setStatus('Encrypted group message queued');
+    });
+  }
+
+  function removeFromGroup(accountId: Uint8Array, deviceId: Uint8Array): void {
+    if (!selectedGroupId) return;
+    void perform('Removing this device from the group…', async () => {
+      await removeGroupMember(databasePath, selectedGroupId, accountId, deviceId);
+      await Promise.all([refreshGroups(), refreshGroup(selectedGroupId)]);
+      setStatus('Device removed from the group');
     });
   }
 
@@ -458,7 +576,7 @@ export default function App() {
   }
 
   function onQrScanned(result: BarcodeScanningResult): void {
-    if (scannedProfile || scannedLinkRequest) return;
+    if (scannedProfile || scannedLinkRequest || scannedGroupPackage) return;
     if (scanMode === 'contact') {
       try {
         setScannedProfile(profileFromQr(result.data));
@@ -473,7 +591,7 @@ export default function App() {
         setLinkSas(decodeUtf8(await device_link_sas_export(request)));
         setStatus('Compare this code on both devices');
       });
-    } else {
+    } else if (scanMode === 'link-authorization') {
       setScreen('link-device');
       void perform('Verifying account authorization…', async () => {
         const authorization = payloadFromQr(result.data, 'link-authorization', 20_864);
@@ -487,6 +605,30 @@ export default function App() {
         setLinkSas('');
         setScreen('home');
         setStatus('Linked device active and registered');
+      });
+    } else {
+      const groupId = selectedGroupId;
+      const target = groupUsername.trim().toLowerCase();
+      if (!groupId || !target) {
+        setError('Choose a group and enter the exact username before scanning.');
+        return;
+      }
+      void perform('Verifying this device and adding it to the group…', async () => {
+        const keyPackage = payloadFromQr(
+          result.data,
+          'group-key-package',
+          GROUP_KEY_PACKAGE_LENGTH,
+        );
+        setScannedGroupPackage(keyPackage);
+        try {
+          await addGroupMember(databasePath, groupId, target, keyPackage);
+          await Promise.all([refreshGroups(), refreshGroup(groupId)]);
+          setGroupUsername('');
+          setScreen('group');
+          setStatus('Verified device added and group update queued');
+        } finally {
+          setScannedGroupPackage(null);
+        }
       });
     }
   }
@@ -692,6 +834,191 @@ export default function App() {
               ) : null}
               {error ? <StatusNotice error text={error} /> : null}
             </ScrollView>
+          ) : screen === 'group-package' && groupKeyPackage ? (
+            <ScrollView contentContainerStyle={styles.screenContent}>
+              <View style={styles.topRow}>
+                <PrimaryButton label="Back to groups" onPress={() => setScreen('groups')} quiet />
+                <Text style={styles.eyebrow}>THIS DEVICE / GROUP PACKAGE</Text>
+              </View>
+              <Text accessibilityRole="header" style={styles.title}>
+                Let an existing member scan this device.
+              </Text>
+              <Text style={styles.bodyCopy}>
+                This signed one-use package represents only this device. Every linked device shares its
+                own package; usernames are never used as key-package storage.
+              </Text>
+              <View accessibilityLabel="This device’s signed group key package" style={styles.qrFrame}>
+                <QRCode
+                  backgroundColor={colors.paper}
+                  color={colors.background}
+                  quietZone={12}
+                  size={250}
+                  value={payloadQrValue('group-key-package', groupKeyPackage)}
+                />
+              </View>
+              <Text style={styles.monoCaption}>369-BYTE SIGNED PACKAGE · ONE DEVICE ONLY</Text>
+              {error ? <StatusNotice error text={error} /> : null}
+            </ScrollView>
+          ) : screen === 'groups' ? (
+            <ScrollView contentContainerStyle={styles.screenContent}>
+              <View style={styles.topRow}>
+                <PrimaryButton label="Back" onPress={() => setScreen('home')} quiet />
+                <Text style={styles.eyebrow}>PRIVATE GROUPS</Text>
+              </View>
+              <Text accessibilityRole="header" style={styles.title}>
+                Rooms without a server-side roster.
+              </Text>
+              <Text style={styles.bodyCopy}>
+                Membership, epochs, and message history are encrypted and owned by the Mesh core on
+                this device.
+              </Text>
+              <View style={styles.headerActions}>
+                <PrimaryButton label="Create group" onPress={createNewGroup} />
+                <PrimaryButton label="My device package" onPress={showGroupKeyPackage} quiet />
+              </View>
+              <Text style={styles.sectionLabel}>LOCAL GROUP STATE</Text>
+              {groups.length === 0 ? (
+                <View style={styles.emptyPanel}>
+                  <Text style={styles.emptyTitle}>No private groups yet.</Text>
+                  <Text style={styles.emptyText}>Create one here, then add exact verified devices.</Text>
+                </View>
+              ) : (
+                groups.map((group) => (
+                  <Pressable
+                    accessibilityHint="Opens encrypted group history and membership"
+                    accessibilityLabel={`Group with ${group.memberCount} devices at epoch ${group.epoch}`}
+                    accessibilityRole="button"
+                    key={hex(group.groupId)}
+                    onPress={() => openGroup(group)}
+                    style={({ pressed }) => [styles.conversationRow, pressed ? styles.pressed : null]}
+                  >
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>{hex(group.groupId).slice(0, 2).toUpperCase()}</Text>
+                    </View>
+                    <View style={styles.conversationCopy}>
+                      <Text style={styles.conversationName}>Group {hex(group.groupId).slice(0, 10)}</Text>
+                      <Text style={styles.conversationMeta}>
+                        EPOCH {group.epoch} · {group.memberCount} DEVICE
+                        {group.memberCount === 1 ? '' : 'S'}
+                      </Text>
+                    </View>
+                    <Text style={styles.chevron}>→</Text>
+                  </Pressable>
+                ))
+              )}
+              {error ? <StatusNotice error text={error} /> : null}
+            </ScrollView>
+          ) : screen === 'group' && selectedGroupId ? (
+            <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
+              <View style={styles.topRow}>
+                <PrimaryButton label="Back to groups" onPress={() => setScreen('groups')} quiet />
+                <Text style={styles.eyebrow}>ENCRYPTED GROUP</Text>
+              </View>
+              <Text accessibilityRole="header" style={styles.title}>
+                Group {hex(selectedGroupId).slice(0, 10)}
+              </Text>
+              <Text style={styles.monoCaption}>
+                EPOCH {selectedGroup?.epoch ?? '—'} · {selectedGroup?.memberCount ?? '—'} VERIFIED DEVICES
+              </Text>
+              {groupDetails ? (
+                <Text style={styles.monoCaption}>
+                  TREE {hex(groupDetails.treeHash).slice(0, 12)}… · BASELINE{' '}
+                  {hex(groupDetails.checkpointHash).slice(0, 12)}…
+                </Text>
+              ) : null}
+              <View style={styles.newContactPanel}>
+                <Text style={styles.panelKicker}>ADD ONE VERIFIED DEVICE</Text>
+                <Text style={styles.bodyCopy}>
+                  Enter the exact username, then scan that specific device’s signed package.
+                </Text>
+                <Field
+                  label="Exact username"
+                  onChangeText={setGroupUsername}
+                  placeholder="person_name"
+                  value={groupUsername}
+                />
+                <PrimaryButton
+                  disabled={!groupUsername.trim()}
+                  label="Scan device package"
+                  onPress={scanGroupKeyPackage}
+                />
+              </View>
+              <Text style={styles.sectionLabel}>MESH-OWNED MEMBERSHIP</Text>
+              {groupDetails ? (
+                <View style={styles.deviceList}>
+                  {groupDetails.members.map((member) => (
+                    <View key={`${hex(member.accountId)}-${hex(member.deviceId)}`} style={styles.deviceRow}>
+                      <View style={styles.deviceCopy}>
+                        <Text style={styles.deviceTitle}>
+                          {member.local ? 'This device' : `Member leaf ${member.leaf}`}
+                        </Text>
+                        <Text style={styles.monoCaption}>
+                          ACCOUNT {hex(member.accountId).slice(0, 12)}… · DEVICE{' '}
+                          {hex(member.deviceId).slice(0, 12)}…
+                        </Text>
+                        <Text style={styles.monoCaption}>
+                          DIRECTORY {member.directorySequence} · {member.witnessCount} WITNESSES
+                        </Text>
+                      </View>
+                      {!member.local ? (
+                        <PrimaryButton
+                          label="Remove from group"
+                          onPress={() => removeFromGroup(member.accountId, member.deviceId)}
+                          quiet
+                        />
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyPanel}>
+                  <Text style={styles.emptyText}>Loading the signed member summary…</Text>
+                </View>
+              )}
+              <Text style={styles.sectionLabel}>ENCRYPTED HISTORY</Text>
+              {groupHistory.length === 0 ? (
+                <View style={styles.emptyPanel}>
+                  <Text style={styles.emptyText}>No visible group messages yet.</Text>
+                </View>
+              ) : (
+                groupHistory.map((message, index) => (
+                  <View
+                    accessibilityLabel={`${message.direction === 'sent' ? 'Sent' : 'Received'} group message: ${message.body}`}
+                    key={`${message.epoch}-${hex(message.senderDeviceId)}-${index}`}
+                    style={[
+                      styles.message,
+                      message.direction === 'sent' ? styles.messageSent : styles.messageReceived,
+                    ]}
+                  >
+                    <Text style={styles.messageBody}>{message.body}</Text>
+                    <Text style={styles.messageMeta}>
+                      EPOCH {message.epoch} · {message.direction === 'sent' ? 'YOU' : hex(message.senderDeviceId).slice(0, 10)} ·{' '}
+                      {new Date(message.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                ))
+              )}
+              <View style={styles.composerRow}>
+                <TextInput
+                  accessibilityLabel="Group message"
+                  multiline
+                  onChangeText={setGroupComposer}
+                  placeholder="Write to every current member"
+                  placeholderTextColor="#777365"
+                  style={styles.composer}
+                  value={groupComposer}
+                />
+                <PrimaryButton
+                  disabled={!groupComposer.trim()}
+                  label="Send"
+                  onPress={sendGroupText}
+                />
+              </View>
+              {error ? <StatusNotice error text={error} /> : null}
+            </ScrollView>
           ) : screen === 'scanner' ? (
             <View style={styles.cameraScreen}>
               <View style={styles.topRowPadded}>
@@ -703,13 +1030,19 @@ export default function App() {
                         ? 'devices'
                         : scanMode === 'link-authorization'
                           ? 'link-device'
-                          : 'home',
+                          : scanMode === 'group-key-package'
+                            ? 'group'
+                            : 'home',
                     )
                   }
                   quiet
                 />
                 <Text style={styles.eyebrow}>
-                  {scanMode === 'contact' ? 'CONTACT SCANNER' : 'DEVICE LINK SCANNER'}
+                  {scanMode === 'contact'
+                    ? 'CONTACT SCANNER'
+                    : scanMode === 'group-key-package'
+                      ? 'GROUP DEVICE SCANNER'
+                      : 'DEVICE LINK SCANNER'}
                 </Text>
               </View>
               {!cameraPermission?.granted ? (
@@ -761,7 +1094,11 @@ export default function App() {
                 >
                   <View pointerEvents="none" style={styles.reticle}>
                     <View style={styles.reticleInner} />
-                    <Text style={styles.cameraLabel}>CENTER THE CONTACT CODE</Text>
+                    <Text style={styles.cameraLabel}>
+                      {scanMode === 'group-key-package'
+                        ? 'CENTER THE DEVICE PACKAGE'
+                        : 'CENTER THE CONTACT CODE'}
+                    </Text>
                   </View>
                 </CameraView>
               )}
@@ -862,6 +1199,7 @@ export default function App() {
                 </View>
                 <View style={styles.headerActions}>
                   <PrimaryButton label="My QR" onPress={() => setScreen('account')} quiet />
+                  <PrimaryButton label="Groups" onPress={openGroups} quiet />
                   <PrimaryButton label="Devices" onPress={openDevices} quiet />
                   <PrimaryButton label="Scan" onPress={() => openScanner('contact')} quiet />
                 </View>

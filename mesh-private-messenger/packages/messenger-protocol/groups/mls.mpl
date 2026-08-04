@@ -1320,7 +1320,7 @@ pub fn encode_group_welcome(value :: GroupWelcome) -> Bytes ! GroupError do
   Bytes.empty()) ?, byte(value.joiner_path_level) ?, value.joiner_path_secret],
   0,
   Bytes.empty()) ?
-  if Bytes.length(body) > 65531 do
+  if Bytes.length(body) > 65523 do
     Err(InvalidGroup)
   else
     join([byte(1) ?, Bytes.from_utf8("GWL"), body], 0, Bytes.empty())
@@ -1328,7 +1328,7 @@ pub fn encode_group_welcome(value :: GroupWelcome) -> Bytes ! GroupError do
 end
 
 pub fn decode_group_welcome(input :: Bytes) -> GroupWelcome ! GroupError do
-  let commit = wire_vector(wire_start(input, 65535, "GWL") ?, 8200) ?
+  let commit = wire_vector(wire_start(input, 65527, "GWL") ?, 8200) ?
   let member_count = wire_u8(commit.state) ?
   let members = read_members(member_count.state, member_count.value, 0, -1, List.new()) ?
   let extension_count = wire_u8(members.state) ?
@@ -1361,7 +1361,7 @@ pub fn decode_group_welcome(input :: Bytes) -> GroupWelcome ! GroupError do
 end
 
 fn validate_message_shape(value :: GroupMessage) -> Result <(), GroupError > do
-  let valid = value.version == 1 && value.suite == 3 && Bytes.length(value.group_id) == 32 && Bytes.length(value.tree_hash) == 32 && value.sender_leaf >= 0 && value.sender_leaf < 64 && value.generation >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65536 && Bytes.length(value.signature.bytes) == 64
+  let valid = value.version == 1 && value.suite == 3 && Bytes.length(value.group_id) == 32 && Bytes.length(value.tree_hash) == 32 && value.sender_leaf >= 0 && value.sender_leaf < 64 && value.generation >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65362 && Bytes.length(value.signature.bytes) == 64
   if valid do
     Ok(nil)
   else
@@ -1377,7 +1377,7 @@ pub fn encode_group_message(value :: GroupMessage) -> Bytes ! GroupError do
 end
 
 pub fn decode_group_message(input :: Bytes) -> GroupMessage ! GroupError do
-  let version = wire_u8(wire_start(input, 65750, "GMS") ?) ?
+  let version = wire_u8(wire_start(input, 65527, "GMS") ?) ?
   let suite = wire_u16(version.state) ?
   let group_id = wire_fixed(suite.state, 32) ?
   let epoch = wire_u64(group_id.state) ?
@@ -1385,7 +1385,7 @@ pub fn decode_group_message(input :: Bytes) -> GroupMessage ! GroupError do
   let sender = wire_u16(tree.state) ?
   let generation = wire_u32(sender.state) ?
   let nonce = wire_fixed(generation.state, 12) ?
-  let ciphertext = wire_vector(nonce.state, 65536) ?
+  let ciphertext = wire_vector(nonce.state, 65362) ?
   let signature = wire_fixed(ciphertext.state, 64) ?
   wire_end(signature.state) ?
   let value = GroupMessage {
@@ -3215,7 +3215,7 @@ fn prepare_group_message(state :: borrow GroupState,
 signing_key :: borrow SigningPrivateKey,
 plaintext :: Bytes,
 caller_data :: Bytes) -> GroupMessage ! GroupError do
-  if Bytes.length(plaintext) > 65520 || Bytes.length(caller_data) > 4096 || state.next_generation < 0 || state.next_generation >= 4294967295 do
+  if Bytes.length(plaintext) > 65346 || Bytes.length(caller_data) > 4096 || state.next_generation < 0 || state.next_generation >= 4294967295 do
     Err(InvalidGroup)
   else
     let nonce = case Crypto.random_bytes(12) do
@@ -3322,7 +3322,7 @@ caller_data :: Bytes) -> GroupDecryptOutcome do
     Ok( public) -> do
       let wrong_header = message.version != 1 || message.suite != public.suite || !Bytes.secure_equals(message.group_id,
       public.group_id) || U64.compare(message.epoch, public.epoch) != 0 || !Bytes.secure_equals(message.tree_hash,
-      public.tree.hash) || message.sender_leaf < 0 || message.sender_leaf >= 64 || message.generation < 0 || Bytes.length(message.nonce) != 12 || Bytes.length(message.ciphertext) < 16 || Bytes.length(message.ciphertext) > 65536 || Bytes.length(caller_data) > 4096
+      public.tree.hash) || message.sender_leaf < 0 || message.sender_leaf >= 64 || message.generation < 0 || Bytes.length(message.nonce) != 12 || Bytes.length(message.ciphertext) < 16 || Bytes.length(message.ciphertext) > 65362 || Bytes.length(caller_data) > 4096
       if wrong_header do
         MessageRejected(state, InvalidGroup)
       else if message.generation <= public.last_generation do

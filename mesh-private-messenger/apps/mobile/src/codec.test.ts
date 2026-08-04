@@ -7,6 +7,9 @@ import {
   parseConversations,
   parseByteList,
   parseDeviceSetSummary,
+  parseGroupDetails,
+  parseGroupList,
+  parseGroupHistory,
   parseHistory,
   parsePrekeyCount,
   parseProfileSummary,
@@ -132,6 +135,123 @@ test('binary output lists decode each bounded envelope', () => {
   assert.equal(parseByteList(vectors(writeU32(1), boundary), 8, 65_606)[0]?.length, 65_606);
   assert.throws(() => parseByteList(vectors(writeU32(1), boundary), 8, 65_605));
   assert.throws(() => parseByteList(vectors(writeU32(9)), 8, 65_606));
+});
+
+test('Mesh-owned group summaries decode with exact bounded fields', () => {
+  const groupId = new Uint8Array(32).fill(7);
+  const encoded = vectors(
+    writeU32(1),
+    vectors(writeU32(4), Uint8Array.of(1), groupId, u64(9n), writeU32(3)),
+  );
+  const groups = parseGroupList(encoded);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0]?.groupId, groupId);
+  assert.equal(groups[0]?.epoch, 9);
+  assert.equal(groups[0]?.memberCount, 3);
+  assert.throws(() =>
+    parseGroupList(
+      vectors(
+        writeU32(1),
+        vectors(writeU32(4), Uint8Array.of(2), groupId, u64(9n), writeU32(3)),
+      ),
+    ),
+  );
+});
+
+test('Mesh-owned group history decodes bounded text records', () => {
+  const accountId = new Uint8Array(32).fill(8);
+  const deviceId = new Uint8Array(16).fill(9);
+  const record = vectors(
+    writeU32(7),
+    Uint8Array.of(1),
+    Uint8Array.of(2),
+    u64(11n),
+    accountId,
+    deviceId,
+    u64(1_800_000_000_000n),
+    utf8('hello group'),
+  );
+  const history = parseGroupHistory(vectors(writeU32(1), record));
+  assert.equal(history[0]?.direction, 'received');
+  assert.equal(history[0]?.epoch, 11);
+  assert.equal(history[0]?.body, 'hello group');
+  assert.deepEqual(history[0]?.senderDeviceId, deviceId);
+  assert.throws(() =>
+    parseGroupHistory(
+      vectors(
+        writeU32(1),
+        vectors(
+          writeU32(7),
+          Uint8Array.of(1),
+          Uint8Array.of(3),
+          u64(11n),
+          accountId,
+          deviceId,
+          u64(1n),
+          utf8('invalid direction'),
+        ),
+      ),
+    ),
+  );
+  assert.throws(() => parseGroupHistory(new Uint8Array(65_537)));
+});
+
+test('Mesh-owned group inspection marks the local member without exposing routing tokens', () => {
+  const groupId = new Uint8Array(32).fill(10);
+  const accountId = new Uint8Array(32).fill(11);
+  const deviceId = new Uint8Array(16).fill(12);
+  const member = vectors(
+    writeU32(7),
+    Uint8Array.of(1),
+    writeU32(7),
+    Uint8Array.of(1),
+    accountId,
+    deviceId,
+    u64(13n),
+    Uint8Array.of(2),
+  );
+  const details = parseGroupDetails(
+    vectors(
+      writeU32(7),
+      Uint8Array.of(1),
+      groupId,
+      u64(14n),
+      writeU32(0),
+      new Uint8Array(32).fill(15),
+      new Uint8Array(32).fill(16),
+      vectors(writeU32(1), member),
+    ),
+  );
+  assert.equal(details.epoch, 14);
+  assert.equal(details.members[0]?.leaf, 7);
+  assert.equal(details.members[0]?.local, true);
+  assert.deepEqual(details.members[0]?.accountId, accountId);
+  assert.equal('mailboxToken' in (details.members[0] ?? {}), false);
+
+  const invalidMember = vectors(
+    writeU32(7),
+    Uint8Array.of(1),
+    writeU32(7),
+    Uint8Array.of(2),
+    accountId,
+    deviceId,
+    u64(13n),
+    Uint8Array.of(2),
+  );
+  assert.throws(() =>
+    parseGroupDetails(
+      vectors(
+        writeU32(7),
+        Uint8Array.of(1),
+        groupId,
+        u64(14n),
+        writeU32(0),
+        new Uint8Array(32),
+        new Uint8Array(32),
+        vectors(writeU32(1), invalidMember),
+      ),
+    ),
+  );
 });
 
 test('pinned transparency keys require canonical 32-byte hex', () => {

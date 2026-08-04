@@ -83,6 +83,24 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.send_fanout_export(request)
       case "mesh_messenger_send_message":
         return try MeshLibrary.send_message_export(request)
+      case "mesh_messenger_group_key_package":
+        return try MeshLibrary.group_key_package_export(request)
+      case "mesh_messenger_group_create":
+        return try MeshLibrary.group_create_export(request)
+      case "mesh_messenger_group_add":
+        return try MeshLibrary.group_add_export(request)
+      case "mesh_messenger_group_remove":
+        return try MeshLibrary.group_remove_export(request)
+      case "mesh_messenger_group_send":
+        return try MeshLibrary.group_send_export(request)
+      case "mesh_messenger_group_receive":
+        return try MeshLibrary.group_receive_export(request)
+      case "mesh_messenger_group_list":
+        return try MeshLibrary.group_list_export(request)
+      case "mesh_messenger_group_inspect":
+        return try MeshLibrary.group_inspect_export(request)
+      case "mesh_messenger_group_history":
+        return try MeshLibrary.group_history_export(request)
       case "mesh_messenger_receive_message":
         return try MeshLibrary.receive_message_export(request)
       case "mesh_messenger_update_conversation":

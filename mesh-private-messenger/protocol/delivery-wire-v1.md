@@ -20,3 +20,9 @@ wrong magic, invalid lengths, oversized input, truncation, and trailing bytes.
 The server-visible `u16` suite is `1` for classical direct messages, `2` for
 hybrid direct messages, or development-only `3` for group commits, welcomes,
 and messages.
+
+Mobile batch processing may return empty bytes instead of an `ACK` when every
+suite-3 envelope is retryable (for example, a message for a future epoch whose
+commit has not arrived). The client must skip the acknowledgement request in
+that case. A mixed batch contains only the IDs that were durably applied or
+classified as permanent poison; retryable IDs remain absent for redelivery.

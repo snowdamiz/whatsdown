@@ -28,6 +28,15 @@ object MeshLibrary {
     @JvmStatic external fun receive_initial_export(request: ByteArray): ByteArray
     @JvmStatic external fun send_fanout_export(request: ByteArray): ByteArray
     @JvmStatic external fun send_message_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_key_package_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_create_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_add_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_remove_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_send_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_receive_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_list_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_inspect_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_history_export(request: ByteArray): ByteArray
     @JvmStatic external fun receive_message_export(request: ByteArray): ByteArray
     @JvmStatic external fun update_conversation_export(request: ByteArray): ByteArray
     @JvmStatic external fun push_bind_prepare_export(request: ByteArray): ByteArray

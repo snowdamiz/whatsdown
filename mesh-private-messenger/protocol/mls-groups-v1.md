@@ -43,6 +43,13 @@ associated data also binds the negotiated extensions and transparency policy.
 Every member must meet the minimum directory sequence, exact checkpoint,
 witness threshold, and selected extensions.
 
+The mobile core admits a key package only when the accompanying canonical
+`DeviceSet` exactly matches Mesh-verified transparency evidence cached for the
+same checkpoint. A self-signed set that merely repeats a public checkpoint
+hash is insufficient. Each device keeps at most one pending join package; a
+repeat request returns the identical signed package, and accepting its Welcome
+atomically consumes the package and both private join keys.
+
 Messages derive a per-sender, per-generation AEAD key from the epoch secret.
 The signature and AEAD associated data bind the group ID, epoch, tree root,
 sender leaf, generation, nonce, and caller data. Per-sender generations prevent
@@ -62,16 +69,33 @@ reject trailing bytes before cryptographic work.
 | Value | Magic | Maximum encoded bytes |
 |---|---|---:|
 | Commit | `GCM` | 8,200 |
-| Welcome | `GWL` | 65,535 |
-| Group message | `GMS` | 65,750 |
+| Welcome | `GWL` | 65,527 |
+| Group message | `GMS` | 65,527 |
 | Group snapshot | `GST` | 65,535 |
 
 Variable bytes use a `u32` length. Rosters, recipient sets, and unmerged-leaf
 lists are capped at 64; update paths contain exactly six ordered parent nodes;
-extension lists are capped at 16 and strictly increasing; ciphertext is capped
-at 65,536 bytes. Each TreeKEM HPKE ciphertext is exactly 80 bytes. Commit and
-message signatures are exactly 64 bytes. Decoders reject non-canonical counts,
-out-of-range nodes, duplicate or unsorted public lists, and trailing data.
+extension lists are capped at 16 and strictly increasing; group-message
+ciphertext is capped at 65,362 bytes, leaving an exact plaintext maximum of
+65,346 bytes after AEAD and canonical framing. Each TreeKEM HPKE ciphertext is
+exactly 80 bytes. Commit and message signatures are exactly 64 bytes. Decoders
+reject non-canonical counts, out-of-range nodes, duplicate or unsorted public
+lists, and trailing data.
+
+Mobile delivery wraps one canonical group value in `version || "GRP" || kind ||
+u32 length || value`, a nine-byte overhead. Thus every encoder-valid `GMS` and
+`GWL` fits the 65,536-byte `OuterEnvelope.ciphertext` limit exactly. The outer
+suite is `0x0003`; add/remove commits, welcomes, and messages use the same
+encrypted persistent outbox as direct messages.
+
+The Mesh mobile API owns the group records exposed to the thin app bridge.
+`group_list` returns at most 128 summaries; `group_inspect` returns the current
+epoch and at most 64 member summaries; `group_history` returns at most 256
+message records and at most 65,536 encoded bytes, dropping the oldest records
+first to satisfy both bounds. Public records use the existing canonical
+`output_list` framing (a vector-wrapped `u32` count followed by vector-wrapped
+items). History records bind direction, epoch, sender account and device,
+local receipt/send time, and plaintext body.
 
 ## Persistence
 
@@ -89,6 +113,20 @@ available parent private key against the public tree before returning state.
 It rejects rollback, wrong-device use, altered public state, trailing data, or
 failed authentication.
 
+The encrypted group-state blob and bounded group index are committed together
+on create or join. Sending commits the next group state, plaintext history, and
+all encrypted outbox entries in one SQLite transaction. Receiving a message
+commits the replay counter, plaintext history, and group state in one
+transaction, so a crash cannot acknowledge a delivery whose plaintext was
+discarded.
+
+Mailbox processing classifies suite-3 results before producing an ACK. Applied
+deliveries and permanently malformed/authentication-rejected poison entries
+are acknowledged. A future epoch, missing earlier group state, or local durable
+storage failure is omitted so it can be retried; a batch containing only such
+entries returns empty bytes and the app must not submit an ACK. Mixed batches
+acknowledge only the safe envelope IDs.
+
 ## Release gate
 
 The M15 proof covers the RFC 9180 HPKE vector and the
@@ -96,7 +134,10 @@ The M15 proof covers the RFC 9180 HPKE vector and the
 cipher-suite-1 leaf private/public X25519 vector, plus this profile's complete
 path derivation, hostile wire inputs, add/remove, multi-device membership,
 epoch ordering, removal exclusion, private-path recovery, fanout, extension
-negotiation, and mobile-target compilation. This custom profile is not expected
+negotiation, transparency-bound joins, bounded pending packages, persisted
+mobile-core create/add/remove/send/receive fanout, group list/inspection and
+plaintext history, future-epoch retry/ACK behavior, the exact maximum delivery
+boundary, and mobile-target compilation. This custom profile is not expected
 to consume RFC 9420 wire vectors directly. Production activation still
 requires a recorded independent review of the protocol and its final wire
 revision; this repository does not treat its internal proof as that review.

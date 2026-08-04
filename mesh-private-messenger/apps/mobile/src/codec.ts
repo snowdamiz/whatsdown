@@ -43,6 +43,38 @@ export type ProfileSummary = {
   deviceId: Uint8Array;
 };
 
+export type GroupSummary = {
+  groupId: Uint8Array;
+  epoch: number;
+  memberCount: number;
+};
+
+export type GroupHistoryMessage = {
+  direction: 'sent' | 'received';
+  epoch: number;
+  senderAccountId: Uint8Array;
+  senderDeviceId: Uint8Array;
+  timestamp: number;
+  body: string;
+};
+
+export type GroupMemberSummary = {
+  leaf: number;
+  local: boolean;
+  accountId: Uint8Array;
+  deviceId: Uint8Array;
+  directorySequence: number;
+  witnessCount: number;
+};
+
+export type GroupDetails = {
+  groupId: Uint8Array;
+  epoch: number;
+  treeHash: Uint8Array;
+  checkpointHash: Uint8Array;
+  members: GroupMemberSummary[];
+};
+
 export const utf8 = (value: string): Uint8Array => textEncoder.encode(value);
 export const decodeUtf8 = (value: Uint8Array): string => textDecoder.decode(value);
 
@@ -184,6 +216,129 @@ export function parseByteList(
   for (let index = 0; index < count; index += 1) values.push(list.vector(maximumItemLength));
   list.finish();
   return values;
+}
+
+function exactByteList(input: Uint8Array, count: number, maximumItemLength: number): Uint8Array[] {
+  const values = parseByteList(input, count, maximumItemLength);
+  if (values.length !== count) throw new Error('Invalid binary record');
+  return values;
+}
+
+export function parseGroupList(input: Uint8Array): GroupSummary[] {
+  return parseByteList(input, 128, 69).map((record) => {
+    const [version, groupId, epoch, memberCount] = exactByteList(record, 4, 32);
+    if (!version || !groupId || !epoch || !memberCount) throw new Error('Invalid group summary');
+    if (readByte(version) !== 1 || groupId.length !== 32) throw new Error('Invalid group summary');
+    const parsedMemberCount = readU32(memberCount);
+    if (parsedMemberCount > 64) throw new Error('Invalid group member count');
+    return { groupId, epoch: readU64Number(epoch), memberCount: parsedMemberCount };
+  });
+}
+
+export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
+  if (input.length > 65_536) throw new Error('Group history is too large');
+  return parseByteList(input, 256, 65_448).map((record) => {
+    const [version, direction, epoch, senderAccountId, senderDeviceId, timestamp, body] =
+      exactByteList(record, 7, 65_346);
+    if (
+      !version ||
+      !direction ||
+      !epoch ||
+      !senderAccountId ||
+      !senderDeviceId ||
+      !timestamp ||
+      !body
+    ) {
+      throw new Error('Invalid group history');
+    }
+    const directionValue = readByte(direction);
+    if (
+      readByte(version) !== 1 ||
+      (directionValue !== 1 && directionValue !== 2) ||
+      senderAccountId.length !== 32 ||
+      senderDeviceId.length !== 16
+    ) {
+      throw new Error('Invalid group history');
+    }
+    return {
+      direction: directionValue === 1 ? 'sent' : 'received',
+      epoch: readU64Number(epoch),
+      senderAccountId,
+      senderDeviceId,
+      timestamp: readU64Number(timestamp),
+      body: decodeUtf8(body),
+    };
+  });
+}
+
+function parseGroupMember(input: Uint8Array): GroupMemberSummary {
+  const [version, leaf, local, accountId, deviceId, directorySequence, witnessCount] =
+    exactByteList(input, 7, 32);
+  if (
+    !version ||
+    !leaf ||
+    !local ||
+    !accountId ||
+    !deviceId ||
+    !directorySequence ||
+    !witnessCount
+  ) {
+    throw new Error('Invalid group member');
+  }
+  const parsedLeaf = readU32(leaf);
+  const parsedLocal = readByte(local);
+  const parsedWitnessCount = readByte(witnessCount);
+  if (
+    readByte(version) !== 1 ||
+    parsedLeaf >= 64 ||
+    parsedLocal > 1 ||
+    accountId.length !== 32 ||
+    deviceId.length !== 16 ||
+    parsedWitnessCount > 16
+  ) {
+    throw new Error('Invalid group member');
+  }
+  return {
+    leaf: parsedLeaf,
+    local: parsedLocal === 1,
+    accountId,
+    deviceId,
+    directorySequence: readU64Number(directorySequence),
+    witnessCount: parsedWitnessCount,
+  };
+}
+
+export function parseGroupDetails(input: Uint8Array): GroupDetails {
+  if (input.length > 6_745) throw new Error('Group details are too large');
+  const [version, groupId, epoch, localLeaf, treeHash, checkpointHash, encodedMembers] =
+    exactByteList(input, 7, 6_600);
+  if (
+    !version ||
+    !groupId ||
+    !epoch ||
+    !localLeaf ||
+    !treeHash ||
+    !checkpointHash ||
+    !encodedMembers
+  ) {
+    throw new Error('Invalid group details');
+  }
+  if (
+    readByte(version) !== 1 ||
+    groupId.length !== 32 ||
+    readU32(localLeaf) >= 64 ||
+    treeHash.length !== 32 ||
+    checkpointHash.length !== 32
+  ) {
+    throw new Error('Invalid group details');
+  }
+  return {
+    groupId,
+    epoch: readU64Number(epoch),
+    treeHash,
+    checkpointHash,
+    members: parseByteList(encodedMembers, 64, 99).map(parseGroupMember),
+  };
 }
 
 export function parseConversations(input: Uint8Array): Conversation[] {

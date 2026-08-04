@@ -1,4 +1,6 @@
 from Binary.Reader import BinaryReader, finish, read_fixed, read_vector, reader
+from Groups.Mls import CommitApplyOutcome, GroupAddOutcome, GroupCommit, GroupDecryptOutcome, GroupDeliveryTarget, GroupEncryptOutcome, GroupError, GroupMessage, GroupProposal, GroupRemoveOutcome, GroupSnapshotOutcome, GroupState, GroupTransparencyPolicy, GroupWelcome, apply_commit, commit_add, commit_remove, create_group, decode_group_commit, decode_group_message, decode_group_welcome, decrypt_group_message, delivery_targets, encode_group_commit, encode_group_message, encode_group_welcome, encrypt_group_message, group_snapshot, join_from_welcome, restore_group
+from Groups.Tree import GroupMember, IndexedGroupMember, find_member_index, indexed_members, member_at
 from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential, verify_device_link_authorization
 from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, verify_prekey_bundle
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyPublishRequest, decode_prekey_publish_response, encode_prekey_publish, prekey_publish_signing_bytes
@@ -11,8 +13,8 @@ from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_messa
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
 from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
 from Transparency.Client import verify_evidence
-from Transparency.Merkle import WitnessKey
-from Transparency.Wire import TransparencyLookup, decode_checkpoint, decode_transparency_evidence, encode_checkpoint, encode_transparency_lookup
+from Transparency.Merkle import ConsistencyProof, TransparencyCheckpoint, WitnessKey, checkpoint_hash, verify_checkpoint, verify_consistency
+from Transparency.Wire import TransparencyLookup, decode_checkpoint, decode_consistency_proof, decode_transparency_evidence, encode_checkpoint, encode_consistency_proof, encode_transparency_lookup
 
 struct MobileReadBytes do
   state :: BinaryReader
@@ -213,6 +215,96 @@ struct MobileVerifiedDeviceSet do
   profiles :: List < MobileProfile >
 end
 
+struct MobileVerifiedTransparencySet do
+  checkpoint :: Bytes
+  device_set :: Bytes
+end
+
+struct MobileTransparencyView do
+  checkpoint :: Bytes
+  consistency :: Bytes
+  service_public_key :: Bytes
+  witness_a_public_key :: Bytes
+  witness_b_public_key :: Bytes
+end
+
+struct MobileTransparencyManifest do
+  checkpoint :: Bytes
+  consistency_length :: Int
+  consistency_hash :: Bytes
+  chunk_count :: Int
+  service_public_key :: Bytes
+  witness_a_public_key :: Bytes
+  witness_b_public_key :: Bytes
+end
+
+struct MobileTransparencyStorage do
+  labels :: List < String >
+  blobs :: List < Bytes >
+end
+
+struct MobileGroupKeyPackage do
+  account_id :: Bytes
+  device_id :: Bytes
+  init_public_key :: X25519PublicKey
+  leaf_public_key :: X25519PublicKey
+  checkpoint :: Bytes
+  witness_count :: Int
+  signature :: Signature
+end
+
+struct MobileGroupWelcomePacket do
+  baseline_checkpoint :: Bytes
+  welcome :: Bytes
+end
+
+struct MobileGroupAddRequest do
+  database_path :: String
+  group_id :: Bytes
+  device_set :: Bytes
+  key_package :: Bytes
+end
+
+struct MobileGroupRemoveRequest do
+  database_path :: String
+  group_id :: Bytes
+  account_id :: Bytes
+  device_id :: Bytes
+end
+
+struct MobileGroupSendRequest do
+  database_path :: String
+  group_id :: Bytes
+  body :: Bytes
+end
+
+struct MobileGroupPacket do
+  kind :: Int
+  payload :: Bytes
+end
+
+struct MobileGroupReferenceRequest do
+  database_path :: String
+  group_id :: Bytes
+end
+
+struct MobileGroupHistoryEntry do
+  direction :: Int
+  epoch :: U64
+  sender_account_id :: Bytes
+  sender_device_id :: Bytes
+  timestamp :: U64
+  body :: Bytes
+end
+
+type MobileGroupReceiveOutcome do
+  GroupReceiveApplied( output :: Bytes)
+
+  GroupReceiveRetry( error :: String)
+
+  GroupReceiveRejected( error :: String)
+end
+
 fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! String do
   case read_vector(state, maximum) do
     Err( _) -> Err("invalid_store_request")
@@ -232,6 +324,17 @@ fn take_fixed(state :: BinaryReader, length :: Int) -> MobileReadBytes ! String 
       value : value
     })
     Ok( _) -> Err("invalid_fixed_value")
+  end
+end
+
+fn take_group_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! String do
+  case read_vector(state, maximum) do
+    Err( _) -> Err("invalid_group_request")
+    Ok( ( next, value)) -> Ok(MobileReadBytes {
+      state : next,
+      value : value
+    })
+    Ok( _) -> Err("invalid_group_request")
   end
 end
 
@@ -774,6 +877,35 @@ fn store_blobs(database_path :: String, labels :: List < String >, blobs :: List
   end
 end
 
+fn store_updated_blobs(database_path :: String, labels :: List < String >, blobs :: List < Bytes >) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case put_blobs(database, labels, blobs, 0) do
+          Err( error) -> Err(error)
+          Ok( _) -> case Sqlite.commit(database) do
+            Err( _) -> Err("database_write_failed")
+            Ok( _) -> Ok(nil)
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
 fn store_prekey_batch(database_path :: String,
 labels :: List < String >,
 blobs :: List < Bytes >,
@@ -1099,13 +1231,13 @@ fn load_profile(database_path :: String) -> Bytes ! String do
 end
 
 fn parse_profile(encoded :: Bytes) -> MobileProfile ! String do
-  case reader(encoded, 16384) do
+  case reader(encoded, 36134) do
     Err( _) -> Err("invalid_profile")
     Ok( state) -> do
       let username_bytes = take_vector(state, 64) ?
       let account_id = take_vector(username_bytes.state, 32) ?
       let device_id = take_vector(account_id.state, 16) ?
-      let entry_bytes = take_vector(device_id.state, 15000) ?
+      let entry_bytes = take_vector(device_id.state, 36006) ?
       case finish(entry_bytes.state) do
         Err( _) -> Err("invalid_profile")
         Ok( _) -> do
@@ -1158,11 +1290,11 @@ fn peer_account_id(reference :: Bytes) -> Bytes ! String do
 end
 
 fn parse_start_request(input :: Bytes) -> MobileStartRequest ! String do
-  case reader(input, 53260) do
+  case reader(input, 73010) do
     Err( _) -> Err("invalid_start_request")
     Ok( state) -> do
       let path = take_vector(state, 4096) ?
-      let peer_profile = take_vector(path.state, 16384) ?
+      let peer_profile = take_vector(path.state, 36134) ?
       let body = take_vector(peer_profile.state, 32768) ?
       case finish(body.state) do
         Err( _) -> Err("invalid_start_request")
@@ -1184,12 +1316,12 @@ fn parse_start_request(input :: Bytes) -> MobileStartRequest ! String do
 end
 
 fn parse_fanout_request(input :: Bytes) -> MobileFanoutRequest ! String do
-  case reader(input, 609680) do
+  case reader(input, 646632) do
     Err( _) -> Err("invalid_fanout_request")
     Ok( state) -> do
       let path = take_vector(state, 4096) ?
-      let peer_device_set = take_vector(path.state, 286400) ?
-      let local_device_set = take_vector(peer_device_set.state, 286400) ?
+      let peer_device_set = take_vector(path.state, 305260) ?
+      let local_device_set = take_vector(peer_device_set.state, 305260) ?
       let body = take_vector(local_device_set.state, 32000) ?
       case finish(body.state) do
         Err( _) -> Err("invalid_fanout_request")
@@ -1236,11 +1368,11 @@ fn parse_receive_request(input :: Bytes) -> MobileReceiveRequest ! String do
 end
 
 fn parse_policy_request(input :: Bytes) -> MobilePolicyRequest ! String do
-  case reader(input, 20532) do
+  case reader(input, 40251) do
     Err( _) -> Err("invalid_policy_request")
     Ok( state) -> do
       let path = take_vector(state, 4096) ?
-      let peer_profile = take_vector(path.state, 16384) ?
+      let peer_profile = take_vector(path.state, 36134) ?
       let action = take_vector(peer_profile.state, 1) ?
       let value = take_vector(action.state, 4) ?
       case finish(value.state) do
@@ -1257,11 +1389,11 @@ fn parse_policy_request(input :: Bytes) -> MobilePolicyRequest ! String do
 end
 
 fn parse_peer_request(input :: Bytes) -> MobilePeerRequest ! String do
-  case reader(input, 20488) do
+  case reader(input, 40238) do
     Err( _) -> Err("invalid_peer_request")
     Ok( state) -> do
       let path = take_vector(state, 4096) ?
-      let peer_profile = take_vector(path.state, 16384) ?
+      let peer_profile = take_vector(path.state, 36134) ?
       case finish(peer_profile.state) do
         Err( _) -> Err("invalid_peer_request")
         Ok( _) -> Ok(MobilePeerRequest {
@@ -1291,11 +1423,11 @@ fn parse_batch_request(input :: Bytes) -> MobileBatchRequest ! String do
 end
 
 fn parse_payload_request(input :: Bytes) -> MobilePayloadRequest ! String do
-  case reader(input, 290504) do
+  case reader(input, 309364) do
     Err( _) -> Err("invalid_payload_request")
     Ok( state) -> do
       let path = take_vector(state, 4096) ?
-      let payload = take_vector(path.state, 286400) ?
+      let payload = take_vector(path.state, 305260) ?
       case finish(payload.state) do
         Err( _) -> Err("invalid_payload_request")
         Ok( _) -> do
@@ -1344,12 +1476,12 @@ fn parse_push_bind_request(input :: Bytes) -> MobilePayloadRequest ! String do
 end
 
 fn parse_triple_payload_request(input :: Bytes) -> MobileTriplePayloadRequest ! String do
-  case reader(input, 577000) do
+  case reader(input, 614628) do
     Err( _) -> Err("invalid_payload_request")
     Ok( state) -> do
       let path = take_vector(state, 4096) ?
-      let first = take_vector(path.state, 286400) ?
-      let second = take_vector(first.state, 286400) ?
+      let first = take_vector(path.state, 305260) ?
+      let second = take_vector(first.state, 305260) ?
       case finish(second.state) do
         Err( _) -> Err("invalid_payload_request")
         Ok( _) -> do
@@ -1369,13 +1501,119 @@ fn parse_triple_payload_request(input :: Bytes) -> MobileTriplePayloadRequest ! 
   end
 end
 
+fn parse_group_add_request(input :: Bytes) -> MobileGroupAddRequest ! String do
+  case reader(input, 309773) do
+    Err( _) -> Err("invalid_group_request")
+    Ok( state) -> do
+      let path = take_group_vector(state, 4096) ?
+      let group_id = take_group_vector(path.state, 32) ?
+      let device_set = take_group_vector(group_id.state, 305260) ?
+      let key_package = take_group_vector(device_set.state, 369) ?
+      case finish(key_package.state) do
+        Err( _) -> Err("invalid_group_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 || Bytes.length(group_id.value) != 32 || Bytes.length(device_set.value) == 0 || Bytes.length(key_package.value) != 369 do
+            Err("invalid_group_request")
+          else
+            Ok(MobileGroupAddRequest {
+              database_path : database_path,
+              group_id : group_id.value,
+              device_set : device_set.value,
+              key_package : key_package.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_group_remove_request(input :: Bytes) -> MobileGroupRemoveRequest ! String do
+  case reader(input, 4192) do
+    Err( _) -> Err("invalid_group_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let group_id = take_vector(path.state, 32) ?
+      let account_id = take_vector(group_id.state, 32) ?
+      let device_id = take_vector(account_id.state, 16) ?
+      case finish(device_id.state) do
+        Err( _) -> Err("invalid_group_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 || Bytes.length(group_id.value) != 32 || Bytes.length(account_id.value) != 32 || Bytes.length(device_id.value) != 16 do
+            Err("invalid_group_request")
+          else
+            Ok(MobileGroupRemoveRequest {
+              database_path : database_path,
+              group_id : group_id.value,
+              account_id : account_id.value,
+              device_id : device_id.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_group_reference_request(input :: Bytes) -> MobileGroupReferenceRequest ! String do
+  case reader(input, 4136) do
+    Err( _) -> Err("invalid_group_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let group_id = take_vector(path.state, 32) ?
+      case finish(group_id.state) do
+        Err( _) -> Err("invalid_group_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 || Bytes.length(group_id.value) != 32 do
+            Err("invalid_group_request")
+          else
+            Ok(MobileGroupReferenceRequest {
+              database_path : database_path,
+              group_id : group_id.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_group_send_request(input :: Bytes) -> MobileGroupSendRequest ! String do
+  case reader(input, 69487) do
+    Err( _) -> Err("invalid_group_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let group_id = take_vector(path.state, 32) ?
+      let body = take_vector(group_id.state, 65347) ?
+      case finish(body.state) do
+        Err( _) -> Err("invalid_group_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 || Bytes.length(group_id.value) != 32 do
+            Err("invalid_group_request")
+          else
+            Ok(MobileGroupSendRequest {
+              database_path : database_path,
+              group_id : group_id.value,
+              body : body.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
 fn parse_transparency_request(input :: Bytes) -> MobileTransparencyRequest ! String do
-  case reader(input, 554400) do
+  case reader(input, 574554) do
     Err( _) -> Err("invalid_transparency_request")
     Ok( state) -> do
       let path = take_vector(state, 4096) ?
       let username = take_vector(path.state, 64) ?
-      let evidence = take_vector(username.state, 550000) ?
+      let evidence = take_vector(username.state, 570274) ?
       let service_key = take_vector(evidence.state, 32) ?
       let witness_a = take_vector(service_key.state, 32) ?
       let witness_b = take_vector(witness_a.state, 32) ?
@@ -2021,10 +2259,12 @@ fn create_device_link_request(database_path :: String) -> Bytes ! String do
         let device = device_keys() ?
         let request = DeviceLinkRequest {
           version : 1,
+          suite : 1,
           nonce : random_bytes(32) ?,
           device_id : device.device_id,
           signing_public_key : device.signing_public_key.bytes,
           dh_public_key : device.identity_public_key.bytes,
+          post_quantum_public_key : Bytes.empty(),
           capabilities : mobile_wide("1") ?,
           created_at : now,
           expires_at : U64.add(now, mobile_wide("600000") ?) ?
@@ -2510,7 +2750,7 @@ fn parse_initial_plaintext(input :: Bytes) -> MobileInitialPlaintext ! String do
   case reader(input, 65536) do
     Err( _) -> Err("invalid_initial_plaintext")
     Ok( state) -> do
-      let profile = take_vector(state, 16384) ?
+      let profile = take_vector(state, 36134) ?
       let inner = take_vector(profile.state, 49144) ?
       case finish(inner.state) do
         Err( _) -> Err("invalid_initial_plaintext")
@@ -5105,6 +5345,375 @@ fn transparency_checkpoint_bytes(database_path :: String, wrapping_key :: borrow
   end
 end
 
+fn transparency_device_set_label(account_id :: Bytes) -> String do
+  "transparency-device-set/v1/#{Bytes.to_hex(account_id)}"
+end
+
+fn encode_verified_transparency_set(value :: MobileVerifiedTransparencySet) -> Bytes ! String do
+  if Bytes.length(value.checkpoint) != 188 || Bytes.length(value.device_set) == 0 || Bytes.length(value.device_set) > 305260 do
+    Err("invalid_transparency_cache")
+  else
+    let checkpoint = decode_checkpoint(value.checkpoint) ?
+    if !Bytes.secure_equals(encode_checkpoint(checkpoint) ?, value.checkpoint) do
+      Err("invalid_transparency_cache")
+    else
+      mobile_join([mobile_byte(1) ?, Bytes.from_utf8("KTS"), mobile_vector(value.checkpoint) ?, mobile_vector(value.device_set) ?],
+      0,
+      Bytes.empty())
+    end
+  end
+end
+
+fn decode_verified_transparency_set(input :: Bytes) -> MobileVerifiedTransparencySet ! String do
+  case reader(input, 305460) do
+    Err( _) -> Err("invalid_transparency_cache")
+    Ok( state) -> do
+      let version = take_fixed(state, 1) ?
+      let magic = take_fixed(version.state, 3) ?
+      let checkpoint = take_vector(magic.state, 188) ?
+      let device_set = take_vector(checkpoint.state, 305260) ?
+      case finish(device_set.state) do
+        Err( _) -> Err("invalid_transparency_cache")
+        Ok( _) -> do
+          let value = MobileVerifiedTransparencySet {
+            checkpoint : checkpoint.value,
+            device_set : device_set.value
+          }
+          if mobile_read_byte(version.value) ? != 1 || !Bytes.secure_equals(magic.value,
+          Bytes.from_utf8("KTS")) || Bytes.length(checkpoint.value) != 188 || Bytes.length(device_set.value) == 0 || !Bytes.secure_equals(encode_verified_transparency_set(value) ?,
+          input) do
+            Err("invalid_transparency_cache")
+          else
+            Ok(value)
+          end
+        end
+      end
+    end
+  end
+end
+
+fn encode_transparency_view(value :: MobileTransparencyView) -> Bytes ! String do
+  if Bytes.length(value.checkpoint) != 188 || Bytes.length(value.consistency) == 0 || Bytes.length(value.consistency) > 131086 || Bytes.length(value.service_public_key) != 32 || Bytes.length(value.witness_a_public_key) != 32 || Bytes.length(value.witness_b_public_key) != 32 do
+    Err("invalid_transparency_view")
+  else
+    let checkpoint = decode_checkpoint(value.checkpoint) ?
+    let consistency = decode_consistency_proof(value.consistency) ?
+    if !Bytes.secure_equals(encode_checkpoint(checkpoint) ?, value.checkpoint) || !Bytes.secure_equals(encode_consistency_proof(consistency) ?,
+    value.consistency) do
+      Err("invalid_transparency_view")
+    else
+      mobile_join([mobile_byte(1) ?, Bytes.from_utf8("KTV"), value.service_public_key, value.witness_a_public_key, value.witness_b_public_key, mobile_vector(value.checkpoint) ?, mobile_vector(value.consistency) ?],
+      0,
+      Bytes.empty())
+    end
+  end
+end
+
+fn decode_transparency_view(input :: Bytes) -> MobileTransparencyView ! String do
+  case reader(input, 131382) do
+    Err( _) -> Err("invalid_transparency_view")
+    Ok( state) -> do
+      let version = take_fixed(state, 1) ?
+      let magic = take_fixed(version.state, 3) ?
+      let service_key = take_fixed(magic.state, 32) ?
+      let witness_a = take_fixed(service_key.state, 32) ?
+      let witness_b = take_fixed(witness_a.state, 32) ?
+      let checkpoint = take_vector(witness_b.state, 188) ?
+      let consistency = take_vector(checkpoint.state, 131086) ?
+      case finish(consistency.state) do
+        Err( _) -> Err("invalid_transparency_view")
+        Ok( _) -> do
+          let value = MobileTransparencyView {
+            checkpoint : checkpoint.value,
+            consistency : consistency.value,
+            service_public_key : service_key.value,
+            witness_a_public_key : witness_a.value,
+            witness_b_public_key : witness_b.value
+          }
+          if mobile_read_byte(version.value) ? != 1 || !Bytes.secure_equals(magic.value,
+          Bytes.from_utf8("KTV")) || !Bytes.secure_equals(encode_transparency_view(value) ?, input) do
+            Err("invalid_transparency_view")
+          else
+            Ok(value)
+          end
+        end
+      end
+    end
+  end
+end
+
+fn transparency_view_chunk_count(length :: Int) -> Int do
+  (length + 65535) / 65536
+end
+
+fn transparency_view_chunk_label(index :: Int) -> String do
+  "transparency-view-chunk/v1/#{Int.to_string(index)}"
+end
+
+fn encode_transparency_manifest(value :: MobileTransparencyView) -> Bytes ! String do
+  let consistency_length = Bytes.length(value.consistency)
+  let chunk_count = transparency_view_chunk_count(consistency_length)
+  if Bytes.length(value.checkpoint) != 188 || consistency_length == 0 || consistency_length > 131086 || chunk_count < 1 || chunk_count > 3 || Bytes.length(value.service_public_key) != 32 || Bytes.length(value.witness_a_public_key) != 32 || Bytes.length(value.witness_b_public_key) != 32 do
+    Err("invalid_transparency_view")
+  else
+    let checkpoint = decode_checkpoint(value.checkpoint) ?
+    let consistency = decode_consistency_proof(value.consistency) ?
+    if !Bytes.secure_equals(encode_checkpoint(checkpoint) ?, value.checkpoint) || !Bytes.secure_equals(encode_consistency_proof(consistency) ?,
+    value.consistency) do
+      Err("invalid_transparency_view")
+    else
+      mobile_join([mobile_byte(1) ?, Bytes.from_utf8("KVM"), value.service_public_key, value.witness_a_public_key, value.witness_b_public_key, value.checkpoint, mobile_write_u32(consistency_length) ?, mobile_byte(chunk_count) ?, Crypto.sha256(value.consistency)],
+      0,
+      Bytes.empty())
+    end
+  end
+end
+
+fn decode_transparency_manifest(input :: Bytes) -> MobileTransparencyManifest ! String do
+  case reader(input, 325) do
+    Err( _) -> Err("invalid_transparency_view")
+    Ok( state) -> do
+      let version = take_fixed(state, 1) ?
+      let magic = take_fixed(version.state, 3) ?
+      let service_key = take_fixed(magic.state, 32) ?
+      let witness_a = take_fixed(service_key.state, 32) ?
+      let witness_b = take_fixed(witness_a.state, 32) ?
+      let checkpoint = take_fixed(witness_b.state, 188) ?
+      let consistency_length = take_fixed(checkpoint.state, 4) ?
+      let chunk_count = take_fixed(consistency_length.state, 1) ?
+      let consistency_hash = take_fixed(chunk_count.state, 32) ?
+      case finish(consistency_hash.state) do
+        Err( _) -> Err("invalid_transparency_view")
+        Ok( _) -> do
+          let length_value = mobile_read_u32(consistency_length.value) ?
+          let count_value = mobile_read_byte(chunk_count.value) ?
+          let manifest = MobileTransparencyManifest {
+            checkpoint : checkpoint.value,
+            consistency_length : length_value,
+            consistency_hash : consistency_hash.value,
+            chunk_count : count_value,
+            service_public_key : service_key.value,
+            witness_a_public_key : witness_a.value,
+            witness_b_public_key : witness_b.value
+          }
+          if mobile_read_byte(version.value) ? != 1 || !Bytes.secure_equals(magic.value,
+          Bytes.from_utf8("KVM")) || Bytes.length(checkpoint.value) != 188 || length_value == 0 || length_value > 131086 || count_value != transparency_view_chunk_count(length_value) || count_value < 1 || count_value > 3 || Bytes.length(consistency_hash.value) != 32 do
+            Err("invalid_transparency_view")
+          else
+            Ok(manifest)
+          end
+        end
+      end
+    end
+  end
+end
+
+fn seal_transparency_view_chunks(consistency :: Bytes,
+wrapping_key :: borrow StorageKey,
+index :: Int,
+labels :: List < String >,
+blobs :: List < Bytes >) -> MobileTransparencyStorage ! String do
+  if index >= 3 do
+    Ok(MobileTransparencyStorage {
+      labels : labels,
+      blobs : blobs
+    })
+  else
+    let offset = index * 65536
+    let remaining = Bytes.length(consistency) - offset
+    let chunk_length = if remaining <= 0 do
+      0
+    else if remaining > 65536 do
+      65536
+    else
+      remaining
+    end
+    let chunk = if chunk_length == 0 do
+      Bytes.empty()
+    else
+      Bytes.slice(consistency, offset, chunk_length) ?
+    end
+    let label = transparency_view_chunk_label(index)
+    let blob = seal_local(chunk, wrapping_key, local_context(label) ?) ?
+    seal_transparency_view_chunks(consistency,
+    wrapping_key,
+    index + 1,
+    List.append(labels, label),
+    List.append(blobs, blob))
+  end
+end
+
+fn transparency_view_storage(value :: MobileTransparencyView, wrapping_key :: borrow StorageKey) -> MobileTransparencyStorage ! String do
+  let label = "transparency-view/v1"
+  let manifest = encode_transparency_manifest(value) ?
+  let blob = seal_local(manifest, wrapping_key, local_context(label) ?) ?
+  seal_transparency_view_chunks(value.consistency, wrapping_key, 0, [label], [blob])
+end
+
+fn load_transparency_view_chunks(database_path :: String,
+wrapping_key :: borrow StorageKey,
+manifest :: MobileTransparencyManifest,
+index :: Int,
+output :: Bytes) -> Bytes ! String do
+  if index >= 3 do
+    Ok(output)
+  else
+    let label = transparency_view_chunk_label(index)
+    let chunk = open_local(load_blob(database_path, label) ?, wrapping_key, local_context(label) ?) ?
+    let offset = index * 65536
+    let remaining = manifest.consistency_length - offset
+    let expected_length = if index >= manifest.chunk_count do
+      0
+    else if remaining > 65536 do
+      65536
+    else
+      remaining
+    end
+    if expected_length < 0 || Bytes.length(chunk) != expected_length do
+      Err("invalid_transparency_view")
+    else
+      let updated = if index < manifest.chunk_count do
+        mobile_append(output, chunk) ?
+      else
+        output
+      end
+      load_transparency_view_chunks(database_path, wrapping_key, manifest, index + 1, updated)
+    end
+  end
+end
+
+fn transparency_view_bytes(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  let label = "transparency-view/v1"
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(Bytes.empty())
+    else
+      Err(error)
+    end
+    Ok( blob) -> do
+      let manifest = decode_transparency_manifest(open_local(blob,
+      wrapping_key,
+      local_context(label) ?) ?) ?
+      let consistency = load_transparency_view_chunks(database_path,
+      wrapping_key,
+      manifest,
+      0,
+      Bytes.empty()) ?
+      if Bytes.length(consistency) != manifest.consistency_length || !Bytes.secure_equals(Crypto.sha256(consistency),
+      manifest.consistency_hash) do
+        Err("invalid_transparency_view")
+      else
+        encode_transparency_view(MobileTransparencyView {
+          checkpoint : manifest.checkpoint,
+          consistency : consistency,
+          service_public_key : manifest.service_public_key,
+          witness_a_public_key : manifest.witness_a_public_key,
+          witness_b_public_key : manifest.witness_b_public_key
+        })
+      end
+    end
+  end
+end
+
+fn load_transparency_view(database_path :: String, wrapping_key :: borrow StorageKey) -> MobileTransparencyView ! String do
+  let encoded = transparency_view_bytes(database_path, wrapping_key) ?
+  let checkpoint = transparency_checkpoint_bytes(database_path, wrapping_key) ?
+  if Bytes.length(encoded) == 0 || Bytes.length(checkpoint) == 0 do
+    Err("group_transparency_unverified")
+  else
+    let view = decode_transparency_view(encoded) ?
+    if Bytes.secure_equals(view.checkpoint, checkpoint) do
+      Ok(view)
+    else
+      Err("invalid_transparency_view")
+    end
+  end
+end
+
+fn canonical_transparency_checkpoint(input :: Bytes) -> TransparencyCheckpoint ! String do
+  if Bytes.length(input) != 188 do
+    Err("invalid_transparency_checkpoint")
+  else
+    let checkpoint = decode_checkpoint(input) ?
+    if Bytes.secure_equals(encode_checkpoint(checkpoint) ?, input) do
+      Ok(checkpoint)
+    else
+      Err("invalid_transparency_checkpoint")
+    end
+  end
+end
+
+fn transparency_checkpoint_in_view(encoded_checkpoint :: Bytes, view :: MobileTransparencyView) -> Bool ! String do
+  let anchor = canonical_transparency_checkpoint(encoded_checkpoint) ?
+  let current = canonical_transparency_checkpoint(view.checkpoint) ?
+  let full_proof = decode_consistency_proof(view.consistency) ?
+  let anchor_size = U64.to_int(anchor.tree_size) ?
+  let current_size = U64.to_int(current.tree_size) ?
+  let sequence_order = U64.compare(anchor.sequence, current.sequence)
+  let trusted_key = SigningPublicKey { bytes : view.service_public_key }
+  let anchor_proof = ConsistencyProof {
+    old_tree_size : anchor_size,
+    new_tree_size : current_size,
+    leaf_hashes : full_proof.leaf_hashes
+  }
+  let current_proof = ConsistencyProof {
+    old_tree_size : current_size,
+    new_tree_size : current_size,
+    leaf_hashes : full_proof.leaf_hashes
+  }
+  if full_proof.new_tree_size != current_size || full_proof.new_tree_size != List.length(full_proof.leaf_hashes) || anchor_size > current_size || sequence_order > 0 || (sequence_order == 0 && !Bytes.secure_equals(encoded_checkpoint,
+  view.checkpoint)) do
+    Ok(false)
+  else
+    let anchor_valid = verify_checkpoint(anchor, trusted_key) ?
+    let current_valid = verify_checkpoint(current, trusted_key) ?
+    let current_tree_valid = verify_consistency(current.tree_root, current.tree_root, current_proof) ?
+    let prefix_valid = verify_consistency(anchor.tree_root, current.tree_root, anchor_proof) ?
+    Ok(anchor_valid && current_valid && current_tree_valid && prefix_valid)
+  end
+end
+
+fn transparency_checkpoint_precedes(first :: Bytes, second :: Bytes, view :: MobileTransparencyView) -> Bool ! String do
+  let first_checkpoint = canonical_transparency_checkpoint(first) ?
+  let second_checkpoint = canonical_transparency_checkpoint(second) ?
+  let sequence_order = U64.compare(first_checkpoint.sequence, second_checkpoint.sequence)
+  let tree_order = U64.compare(first_checkpoint.tree_size, second_checkpoint.tree_size)
+  if sequence_order > 0 || tree_order > 0 || (sequence_order == 0 && !Bytes.secure_equals(first,
+  second)) do
+    Ok(false)
+  else
+    Ok(transparency_checkpoint_in_view(first, view) ? && transparency_checkpoint_in_view(second,
+    view) ?)
+  end
+end
+
+fn verified_transparency_device_set(database_path :: String,
+wrapping_key :: borrow StorageKey,
+devices :: MobileVerifiedDeviceSet,
+baseline_checkpoint :: Bytes) -> Bytes ! String do
+  let label = transparency_device_set_label(devices.account.account_id)
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Err("group_transparency_unverified")
+    else
+      Err(error)
+    end
+    Ok( blob) -> do
+      let cached = decode_verified_transparency_set(open_local(blob,
+      wrapping_key,
+      local_context(label) ?) ?) ?
+      let view = load_transparency_view(database_path, wrapping_key) ?
+      if Bytes.secure_equals(cached.device_set, devices.wire) && transparency_checkpoint_precedes(baseline_checkpoint,
+      cached.checkpoint,
+      view) ? && transparency_checkpoint_precedes(cached.checkpoint, view.checkpoint, view) ? do
+        Ok(cached.checkpoint)
+      else
+        Err("group_transparency_unverified")
+      end
+    end
+  end
+end
+
 fn transparency_lookup(request :: MobilePayloadRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
   let username = mobile_utf8(request.payload, "invalid_username") ?
@@ -5131,6 +5740,16 @@ fn verify_transparency_response(request :: MobileTransparencyRequest) -> Bytes !
   end ?
   let wrapping_key = platform_key() ?
   let previous = transparency_checkpoint_bytes(request.database_path, wrapping_key) ?
+  let existing_view_bytes = transparency_view_bytes(request.database_path, wrapping_key) ?
+  let trust_matches = if Bytes.length(existing_view_bytes) == 0 do
+    true
+  else
+    let existing_view = decode_transparency_view(existing_view_bytes) ?
+    Bytes.secure_equals(existing_view.checkpoint, previous) && Bytes.secure_equals(existing_view.service_public_key,
+    request.service_public_key) && Bytes.secure_equals(existing_view.witness_a_public_key,
+    request.witness_a_public_key) && Bytes.secure_equals(existing_view.witness_b_public_key,
+    request.witness_b_public_key)
+  end
   let trusted_service_key = SigningPublicKey { bytes : request.service_public_key }
   let trusted_witnesses = [WitnessKey {
     witness_id : "witness-a",
@@ -5139,18 +5758,39 @@ fn verify_transparency_response(request :: MobileTransparencyRequest) -> Bytes !
     witness_id : "witness-b",
     public_key : request.witness_b_public_key
   }]
-  if !verify_evidence(evidence, trusted_service_key, trusted_witnesses, 2, previous) ? do
+  if !trust_matches do
+    Err("transparency_trust_mismatch")
+  else if !verify_evidence(evidence, trusted_service_key, trusted_witnesses, 2, previous) ? do
     Err("transparency_verification_failed")
   else
     let devices = verified_device_set(evidence.entry_bytes) ?
     if devices.value.username != request.username do
       Err("transparency_username_mismatch")
     else
-      let label = "transparency-checkpoint/v1"
-      let sealed = seal_local(encode_checkpoint(evidence.checkpoint) ?,
+      let checkpoint_label = "transparency-checkpoint/v1"
+      let encoded_checkpoint = encode_checkpoint(evidence.checkpoint) ?
+      let encoded_consistency = encode_consistency_proof(evidence.consistency) ?
+      let checkpoint_blob = seal_local(encoded_checkpoint,
       wrapping_key,
-      local_context(label) ?) ?
-      store_updated_session(request.database_path, label, sealed) ?
+      local_context(checkpoint_label) ?) ?
+      let device_set_label = transparency_device_set_label(devices.account.account_id)
+      let device_set_blob = seal_local(encode_verified_transparency_set(MobileVerifiedTransparencySet {
+        checkpoint : encoded_checkpoint,
+        device_set : devices.wire
+      }) ?,
+      wrapping_key,
+      local_context(device_set_label) ?) ?
+      let view_storage = transparency_view_storage(MobileTransparencyView {
+        checkpoint : encoded_checkpoint,
+        consistency : encoded_consistency,
+        service_public_key : request.service_public_key,
+        witness_a_public_key : request.witness_a_public_key,
+        witness_b_public_key : request.witness_b_public_key
+      },
+      wrapping_key) ?
+      store_updated_blobs(request.database_path,
+      List.append(List.append(view_storage.labels, checkpoint_label), device_set_label),
+      List.append(List.append(view_storage.blobs, checkpoint_blob), device_set_blob)) ?
       Ok(evidence.entry_bytes)
     end
   end
@@ -5168,6 +5808,1443 @@ fn mailbox_fetch(database_path :: String) -> Bytes ! String do
   end
 end
 
+fn consume_group_state(value :: consume GroupState) do
+  nil
+end
+
+fn consume_group_private(value :: consume X25519PrivateKey) do
+  nil
+end
+
+fn group_state_label(group_id :: Bytes) -> String ! String do
+  if Bytes.length(group_id) != 32 do
+    Err("invalid_group_id")
+  else
+    Ok("group-state/v1/#{Bytes.to_hex(group_id)}")
+  end
+end
+
+fn group_baseline_label(group_id :: Bytes) -> String ! String do
+  if Bytes.length(group_id) != 32 do
+    Err("invalid_group_id")
+  else
+    Ok("group-baseline/v1/#{Bytes.to_hex(group_id)}")
+  end
+end
+
+fn group_baseline_blob(checkpoint :: Bytes, wrapping_key :: borrow StorageKey, group_id :: Bytes) -> Bytes ! String do
+  let _ = canonical_transparency_checkpoint(checkpoint) ?
+  let label = group_baseline_label(group_id) ?
+  seal_local(checkpoint, wrapping_key, local_context(label) ?)
+end
+
+fn load_group_baseline(database_path :: String,
+wrapping_key :: borrow StorageKey,
+group_id :: Bytes) -> Bytes ! String do
+  let label = group_baseline_label(group_id) ?
+  let checkpoint = open_local(load_blob(database_path, label) ?,
+  wrapping_key,
+  local_context(label) ?) ?
+  let _ = canonical_transparency_checkpoint(checkpoint) ?
+  Ok(checkpoint)
+end
+
+fn contains_group_id(values :: List < Bytes >, group_id :: Bytes, index :: Int) -> Bool do
+  if index >= List.length(values) do
+    false
+  else if Bytes.secure_equals(List.get(values, index), group_id) do
+    true
+  else
+    contains_group_id(values, group_id, index + 1)
+  end
+end
+
+fn decode_group_ids_parts(state :: BinaryReader, count :: Int, index :: Int, ids :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= count do
+    case finish(state) do
+      Err( _) -> Err("invalid_group_index")
+      Ok( _) -> Ok(ids)
+    end
+  else
+    let id = take_vector(state, 32) ?
+    if Bytes.length(id.value) != 32 || contains_group_id(ids, id.value, 0) do
+      Err("invalid_group_index")
+    else
+      decode_group_ids_parts(id.state, count, index + 1, List.append(ids, id.value))
+    end
+  end
+end
+
+fn decode_group_ids(input :: Bytes) -> List < Bytes > ! String do
+  case reader(input, 4616) do
+    Err( _) -> Err("invalid_group_index")
+    Ok( state) -> do
+      let count = take_vector(state, 4) ?
+      let count_value = mobile_read_u32(count.value) ?
+      if count_value > 128 do
+        Err("invalid_group_index")
+      else
+        decode_group_ids_parts(count.state, count_value, 0, List.new())
+      end
+    end
+  end
+end
+
+fn load_group_ids(database_path :: String, wrapping_key :: borrow StorageKey) -> List < Bytes > ! String do
+  let label = "groups/v1"
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(List.new())
+    else
+      Err(error)
+    end
+    Ok( blob) -> decode_group_ids(open_local(blob, wrapping_key, local_context(label) ?) ?)
+  end
+end
+
+fn updated_group_index_blob(database_path :: String,
+wrapping_key :: borrow StorageKey,
+group_id :: Bytes) -> Bytes ! String do
+  let ids = load_group_ids(database_path, wrapping_key) ?
+  let updated = if contains_group_id(ids, group_id, 0) do
+    ids
+  else if List.length(ids) >= 128 do
+    Err("group_limit_reached") ?
+  else
+    List.append(ids, group_id)
+  end
+  seal_local(encode_output_list(updated) ?, wrapping_key, local_context("groups/v1") ?)
+end
+
+fn group_history_label(group_id :: Bytes) -> String do
+  "group-history/v1/#{Bytes.to_hex(group_id)}"
+end
+
+fn encode_group_history_entry(value :: MobileGroupHistoryEntry) -> Bytes ! String do
+  if (value.direction != 1 && value.direction != 2) || Bytes.length(value.sender_account_id) != 32 || Bytes.length(value.sender_device_id) != 16 || Bytes.length(value.body) > 65346 do
+    Err("invalid_group_history")
+  else
+    encode_output_list([mobile_byte(1) ?, mobile_byte(value.direction) ?, mobile_write_u64(value.epoch) ?, value.sender_account_id, value.sender_device_id, mobile_write_u64(value.timestamp) ?, value.body])
+  end
+end
+
+fn decode_group_history_entry(input :: Bytes) -> MobileGroupHistoryEntry ! String do
+  case reader(input, 65448) do
+    Err( _) -> Err("invalid_group_history")
+    Ok( state) -> do
+      let count = take_vector(state, 4) ?
+      let version = take_vector(count.state, 1) ?
+      let direction = take_vector(version.state, 1) ?
+      let epoch = take_vector(direction.state, 8) ?
+      let account_id = take_vector(epoch.state, 32) ?
+      let device_id = take_vector(account_id.state, 16) ?
+      let timestamp = take_vector(device_id.state, 8) ?
+      let body = take_vector(timestamp.state, 65346) ?
+      case finish(body.state) do
+        Err( _) -> Err("invalid_group_history")
+        Ok( _) -> do
+          let direction_value = mobile_read_byte(direction.value) ?
+          if mobile_read_u32(count.value) ? != 7 || mobile_read_byte(version.value) ? != 1 || (direction_value != 1 && direction_value != 2) || Bytes.length(account_id.value) != 32 || Bytes.length(device_id.value) != 16 do
+            Err("invalid_group_history")
+          else
+            Ok(MobileGroupHistoryEntry {
+              direction : direction_value,
+              epoch : mobile_read_u64(epoch.value) ?,
+              sender_account_id : account_id.value,
+              sender_device_id : device_id.value,
+              timestamp : mobile_read_u64(timestamp.value) ?,
+              body : body.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn decode_group_history_parts(state :: BinaryReader,
+count :: Int,
+index :: Int,
+entries :: List < MobileGroupHistoryEntry >) -> List < MobileGroupHistoryEntry > ! String do
+  if index >= count do
+    case finish(state) do
+      Err( _) -> Err("invalid_group_history")
+      Ok( _) -> Ok(entries)
+    end
+  else
+    let entry = take_vector(state, 65448) ?
+    decode_group_history_parts(entry.state,
+    count,
+    index + 1,
+    List.append(entries, decode_group_history_entry(entry.value) ?))
+  end
+end
+
+fn decode_group_history(input :: Bytes) -> List < MobileGroupHistoryEntry > ! String do
+  case reader(input, 65536) do
+    Err( _) -> Err("invalid_group_history")
+    Ok( state) -> do
+      let count = take_vector(state, 4) ?
+      let count_value = mobile_read_u32(count.value) ?
+      if count_value > 256 do
+        Err("invalid_group_history")
+      else
+        decode_group_history_parts(count.state, count_value, 0, List.new())
+      end
+    end
+  end
+end
+
+fn encode_group_history(values :: List < MobileGroupHistoryEntry >) -> Bytes ! String do
+  let bounded = if List.length(values) > 256 do
+    List.drop(values, List.length(values) - 256)
+  else
+    values
+  end
+  encode_bounded_group_history(bounded)
+end
+
+fn encode_bounded_group_history(values :: List < MobileGroupHistoryEntry >) -> Bytes ! String do
+  let encoded = encode_group_history_entries(values, 0, List.new()) ?
+  let output = encode_output_list(encoded) ?
+  if Bytes.length(output) <= 65536 do
+    Ok(output)
+  else if List.length(values) == 0 do
+    Err("invalid_group_history")
+  else
+    encode_bounded_group_history(List.drop(values, 1))
+  end
+end
+
+fn encode_group_history_entries(values :: List < MobileGroupHistoryEntry >,
+index :: Int,
+encoded :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(values) do
+    Ok(encoded)
+  else
+    encode_group_history_entries(values,
+    index + 1,
+    List.append(encoded, encode_group_history_entry(List.get(values, index)) ?))
+  end
+end
+
+fn load_group_history(database_path :: String, wrapping_key :: borrow StorageKey, group_id :: Bytes) -> List < MobileGroupHistoryEntry > ! String do
+  let label = group_history_label(group_id)
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(List.new())
+    else
+      Err(error)
+    end
+    Ok( blob) -> decode_group_history(open_local(blob, wrapping_key, local_context(label) ?) ?)
+  end
+end
+
+fn updated_group_history_blob(database_path :: String,
+wrapping_key :: borrow StorageKey,
+group_id :: Bytes,
+entry :: MobileGroupHistoryEntry) -> Bytes ! String do
+  let label = group_history_label(group_id)
+  let entries = List.append(load_group_history(database_path, wrapping_key, group_id) ?, entry)
+  seal_local(encode_group_history(entries) ?, wrapping_key, local_context(label) ?)
+end
+
+fn group_join_label(kind :: String) -> String do
+  "group-join-#{kind}/v1"
+end
+
+fn group_checkpoint(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  let encoded = transparency_checkpoint_bytes(database_path, wrapping_key) ?
+  if Bytes.length(encoded) == 0 do
+    Err("group_transparency_unverified")
+  else
+    let view = load_transparency_view(database_path, wrapping_key) ?
+    if transparency_checkpoint_in_view(encoded, view) ? do
+      Ok(encoded)
+    else
+      Err("group_transparency_unverified")
+    end
+  end
+end
+
+fn group_member(profile :: MobileProfile,
+init_public_key :: X25519PublicKey,
+leaf_public_key :: X25519PublicKey,
+directory_sequence :: U64,
+checkpoint :: Bytes,
+witness_count :: Int) -> GroupMember do
+  GroupMember {
+    version : 1,
+    account_id : profile.account_id,
+    device_id : profile.device_id,
+    signing_public_key : SigningPublicKey { bytes : profile.credential.signing_public_key },
+    init_public_key : init_public_key,
+    leaf_public_key : leaf_public_key,
+    mailbox_token : profile.entry.mailbox_token,
+    directory_sequence : directory_sequence,
+    transparency_checkpoint_hash : checkpoint,
+    witness_count : witness_count,
+    extensions : [1]
+  }
+end
+
+fn group_key_package_unsigned(value :: MobileGroupKeyPackage) -> Bytes ! String do
+  mobile_join([mobile_byte(1) ?, Bytes.from_utf8("GKP"), value.account_id, value.device_id, value.init_public_key.bytes, value.leaf_public_key.bytes, value.checkpoint, mobile_byte(value.witness_count) ?],
+  0,
+  Bytes.empty())
+end
+
+fn encode_group_key_package(value :: MobileGroupKeyPackage) -> Bytes ! String do
+  let unsigned = group_key_package_unsigned(value) ?
+  if Bytes.length(unsigned) != 305 || Bytes.length(value.signature.bytes) != 64 do
+    Err("invalid_group_key_package")
+  else
+    mobile_append(unsigned, value.signature.bytes)
+  end
+end
+
+fn decode_group_key_package(input :: Bytes) -> MobileGroupKeyPackage ! String do
+  if Bytes.length(input) != 369 do
+    Err("invalid_group_key_package")
+  else
+    let state = case reader(input, 369) do
+      Err( _) -> Err("invalid_group_key_package")
+      Ok( value) -> Ok(value)
+    end ?
+    let version = take_fixed(state, 1) ?
+    let magic = take_fixed(version.state, 3) ?
+    let account_id = take_fixed(magic.state, 32) ?
+    let device_id = take_fixed(account_id.state, 16) ?
+    let init_public = take_fixed(device_id.state, 32) ?
+    let leaf_public = take_fixed(init_public.state, 32) ?
+    let checkpoint = take_fixed(leaf_public.state, 188) ?
+    let witness = take_fixed(checkpoint.state, 1) ?
+    let signature = take_fixed(witness.state, 64) ?
+    case finish(signature.state) do
+      Err( _) -> Err("invalid_group_key_package")
+      Ok( _) -> do
+        let value = MobileGroupKeyPackage {
+          account_id : account_id.value,
+          device_id : device_id.value,
+          init_public_key : X25519PublicKey { bytes : init_public.value },
+          leaf_public_key : X25519PublicKey { bytes : leaf_public.value },
+          checkpoint : checkpoint.value,
+          witness_count : mobile_read_byte(witness.value) ?,
+          signature : Signature { bytes : signature.value }
+        }
+        if mobile_read_byte(version.value) ? != 1 || !Bytes.secure_equals(magic.value,
+        Bytes.from_utf8("GKP")) || Bytes.secure_equals(init_public.value, leaf_public.value) || value.witness_count != 2 || !Bytes.secure_equals(encode_checkpoint(decode_checkpoint(checkpoint.value) ?) ?,
+        checkpoint.value) || !Bytes.secure_equals(encode_group_key_package(value) ?, input) do
+          Err("invalid_group_key_package")
+        else
+          Ok(value)
+        end
+      end
+    end
+  end
+end
+
+fn group_profile(profiles :: List < MobileProfile >,
+account_id :: Bytes,
+device_id :: Bytes,
+index :: Int) -> MobileProfile ! String do
+  if index >= List.length(profiles) do
+    Err("group_member_not_found")
+  else
+    let value = List.get(profiles, index)
+    if Bytes.secure_equals(value.account_id, account_id) && Bytes.secure_equals(value.device_id,
+    device_id) do
+      Ok(value)
+    else
+      group_profile(profiles, account_id, device_id, index + 1)
+    end
+  end
+end
+
+fn verified_group_member(devices :: MobileVerifiedDeviceSet,
+encoded_package :: Bytes,
+proof_checkpoint :: Bytes,
+baseline_checkpoint :: Bytes,
+view :: MobileTransparencyView) -> GroupMember ! String do
+  let package = decode_group_key_package(encoded_package) ?
+  let profile = group_profile(devices.profiles, package.account_id, package.device_id, 0) ?
+  let valid_signature = case Crypto.verify(SigningPublicKey { bytes : profile.credential.signing_public_key },
+  group_key_package_unsigned(package) ?,
+  package.signature) do
+    Err( _) -> false
+    Ok( value) -> value
+  end
+  if !valid_signature || !(transparency_checkpoint_precedes(baseline_checkpoint,
+  package.checkpoint,
+  view) ?) || !(transparency_checkpoint_precedes(package.checkpoint, proof_checkpoint, view) ?) do
+    Err("invalid_group_key_package")
+  else
+    let baseline_hash = checkpoint_hash(canonical_transparency_checkpoint(baseline_checkpoint) ?) ?
+    Ok(group_member(profile,
+    package.init_public_key,
+    package.leaf_public_key,
+    devices.value.sequence,
+    baseline_hash,
+    package.witness_count))
+  end
+end
+
+fn create_group_key_package(database_path :: String) -> Bytes ! String do
+  ensure_schema(database_path) ?
+  let profile = parse_profile(load_profile(database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let checkpoint = group_checkpoint(database_path, wrapping_key) ?
+  let view = load_transparency_view(database_path, wrapping_key) ?
+  let package_label = group_join_label("package")
+  case load_blob(database_path, package_label) do
+    Ok( blob) -> do
+      let encoded = open_local(blob, wrapping_key, local_context(package_label) ?) ?
+      let package = decode_group_key_package(encoded) ?
+      let signature_valid = case Crypto.verify(SigningPublicKey { bytes : profile.credential.signing_public_key },
+      group_key_package_unsigned(package) ?,
+      package.signature) do
+        Err( _) -> false
+        Ok( value) -> value
+      end
+      if signature_valid && Bytes.secure_equals(package.account_id, profile.account_id) && Bytes.secure_equals(package.device_id,
+      profile.device_id) && transparency_checkpoint_precedes(package.checkpoint, checkpoint, view) ? do
+        Ok(encoded)
+      else
+        Err("group_key_package_pending")
+      end
+    end
+    Err( error) -> if error != "local_state_not_found" do
+      Err(error)
+    else
+      let init_keys = case Crypto.x25519_generate() do
+        Err( _) -> Err("group_key_generation_failed")
+        Ok( value) -> Ok(value)
+      end ?
+      let leaf_keys = case Crypto.x25519_generate() do
+        Err( _) -> Err("group_key_generation_failed")
+        Ok( value) -> Ok(value)
+      end ?
+      let unsigned = MobileGroupKeyPackage {
+        account_id : profile.account_id,
+        device_id : profile.device_id,
+        init_public_key : init_keys.public_key,
+        leaf_public_key : leaf_keys.public_key,
+        checkpoint : checkpoint,
+        witness_count : 2,
+        signature : Signature { bytes : Bytes.empty() }
+      }
+      let device = open_device(profile, wrapping_key, database_path) ?
+      let signature = case Crypto.sign(device.signing_private_key,
+      group_key_package_unsigned(unsigned) ?) do
+        Err( _) -> Err("group_key_generation_failed")
+        Ok( value) -> Ok(value)
+      end ?
+      let encoded = encode_group_key_package(% { unsigned | signature : signature }) ?
+      let init_label = group_join_label("init")
+      let leaf_label = group_join_label("leaf")
+      let package_blob = seal_local(encoded, wrapping_key, local_context(package_label) ?) ?
+      let init_blob = seal_x25519(init_keys.private_key,
+      wrapping_key,
+      context(profile.account_id, profile.device_id, init_label, 17) ?) ?
+      let leaf_blob = seal_x25519(leaf_keys.private_key,
+      wrapping_key,
+      context(profile.account_id, profile.device_id, leaf_label, 17) ?) ?
+      consume_group_private(init_keys.private_key)
+      consume_group_private(leaf_keys.private_key)
+      store_blobs(database_path,
+      [package_label, init_label, leaf_label],
+      [package_blob, init_blob, leaf_blob]) ?
+      Ok(encoded)
+    end
+  end
+end
+
+fn group_snapshot_blob(state :: consume GroupState,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey) -> Result <( String, Bytes), String > do
+  let label = group_state_label(state.group_id) ?
+  let version = U64.add(state.snapshot_version, mobile_wide("1") ?) ?
+  case group_snapshot(state, wrapping_key, profile.account_id, profile.device_id, version) do
+    GroupSnapshotRejected( rejected, _) -> do
+      consume_group_state(rejected)
+      Err("group_snapshot_failed")
+    end
+    GroupSnapshotSealed( next, snapshot_blob) -> do
+      let stored = seal_local(snapshot_blob, wrapping_key, local_context(label) ?) ?
+      consume_group_state(next)
+      Ok((label, stored))
+    end
+  end
+end
+
+fn load_group(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+group_id :: Bytes) -> GroupState ! String do
+  let label = group_state_label(group_id) ?
+  let snapshot_blob = open_local(load_blob(database_path, label) ?,
+  wrapping_key,
+  local_context(label) ?) ?
+  case restore_group(snapshot_blob,
+  wrapping_key,
+  profile.account_id,
+  profile.device_id,
+  mobile_wide("1") ?) do
+    Err( _) -> Err("group_state_invalid")
+    Ok( state) -> if Bytes.secure_equals(state.group_id, group_id) do
+      Ok(state)
+    else
+      consume_group_state(state)
+      Err("group_state_invalid")
+    end
+  end
+end
+
+fn group_summary(state :: borrow GroupState) -> Bytes ! String do
+  encode_output_list([mobile_byte(1) ?, state.group_id, mobile_write_u64(state.epoch) ?, mobile_write_u32(List.length(indexed_members(state.tree))) ?])
+end
+
+fn group_member_summary(value :: IndexedGroupMember, local_leaf :: Int) -> Bytes ! String do
+  encode_output_list([mobile_byte(1) ?, mobile_write_u32(value.leaf_index) ?, mobile_byte(if value.leaf_index == local_leaf do
+    1
+  else
+    0
+  end) ?, value.member.account_id, value.member.device_id, mobile_write_u64(value.member.directory_sequence) ?, mobile_byte(value.member.witness_count) ?])
+end
+
+fn group_member_summaries(values :: List < IndexedGroupMember >,
+local_leaf :: Int,
+index :: Int,
+summaries :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(values) do
+    Ok(summaries)
+  else
+    group_member_summaries(values,
+    local_leaf,
+    index + 1,
+    List.append(summaries, group_member_summary(List.get(values, index), local_leaf) ?))
+  end
+end
+
+fn inspect_mobile_group(request :: MobileGroupReferenceRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
+  let members = group_member_summaries(indexed_members(state.tree), state.local_leaf, 0, List.new()) ?
+  let encoded = encode_output_list([mobile_byte(1) ?, state.group_id, mobile_write_u64(state.epoch) ?, mobile_write_u32(state.local_leaf) ?, state.tree_hash_cache, state.policy.checkpoint_hash, encode_output_list(members) ?]) ?
+  consume_group_state(state)
+  Ok(encoded)
+end
+
+fn collect_group_summaries(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+group_ids :: List < Bytes >,
+index :: Int,
+summaries :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(group_ids) do
+    Ok(summaries)
+  else
+    let state = load_group(database_path, profile, wrapping_key, List.get(group_ids, index)) ?
+    let summary = group_summary(state) ?
+    consume_group_state(state)
+    collect_group_summaries(database_path,
+    profile,
+    wrapping_key,
+    group_ids,
+    index + 1,
+    List.append(summaries, summary))
+  end
+end
+
+fn list_mobile_groups(database_path :: String) -> Bytes ! String do
+  if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Err("invalid_database_path")
+  else
+    ensure_schema(database_path) ?
+    let profile = parse_profile(load_profile(database_path) ?) ?
+    let wrapping_key = platform_key() ?
+    encode_output_list(collect_group_summaries(database_path,
+    profile,
+    wrapping_key,
+    load_group_ids(database_path, wrapping_key) ?,
+    0,
+    List.new()) ?)
+  end
+end
+
+fn mobile_group_history(request :: MobileGroupReferenceRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
+  consume_group_state(state)
+  encode_group_history(load_group_history(request.database_path, wrapping_key, request.group_id) ?)
+end
+
+fn encode_group_welcome_packet(value :: MobileGroupWelcomePacket) -> Bytes ! String do
+  if Bytes.length(value.baseline_checkpoint) != 188 || Bytes.length(value.welcome) == 0 || Bytes.length(value.welcome) > 65327 do
+    Err("invalid_group_welcome")
+  else
+    let _ = canonical_transparency_checkpoint(value.baseline_checkpoint) ?
+    mobile_join([mobile_byte(1) ?, Bytes.from_utf8("GWB"), mobile_vector(value.baseline_checkpoint) ?, mobile_vector(value.welcome) ?],
+    0,
+    Bytes.empty())
+  end
+end
+
+fn decode_group_welcome_packet_inner(input :: Bytes) -> MobileGroupWelcomePacket ! String do
+  case reader(input, 65527) do
+    Err( _) -> Err("invalid_group_welcome")
+    Ok( state) -> do
+      let version = take_fixed(state, 1) ?
+      let magic = take_fixed(version.state, 3) ?
+      let baseline = take_vector(magic.state, 188) ?
+      let welcome = take_vector(baseline.state, 65327) ?
+      case finish(welcome.state) do
+        Err( _) -> Err("invalid_group_welcome")
+        Ok( _) -> do
+          let value = MobileGroupWelcomePacket {
+            baseline_checkpoint : baseline.value,
+            welcome : welcome.value
+          }
+          if mobile_read_byte(version.value) ? != 1 || !Bytes.secure_equals(magic.value,
+          Bytes.from_utf8("GWB")) || Bytes.length(baseline.value) != 188 || Bytes.length(welcome.value) == 0 || !Bytes.secure_equals(encode_group_welcome_packet(value) ?,
+          input) do
+            Err("invalid_group_welcome")
+          else
+            Ok(value)
+          end
+        end
+      end
+    end
+  end
+end
+
+fn decode_group_welcome_packet(input :: Bytes) -> MobileGroupWelcomePacket ! String do
+  case decode_group_welcome_packet_inner(input) do
+    Err( _) -> Err("invalid_group_welcome")
+    Ok( value) -> Ok(value)
+  end
+end
+
+fn encode_group_packet(kind :: Int, payload :: Bytes) -> Bytes ! String do
+  if kind < 1 || kind > 3 || Bytes.length(payload) == 0 || Bytes.length(payload) > 65527 do
+    Err("invalid_group_packet")
+  else
+    let encoded = mobile_join([mobile_byte(1) ?, Bytes.from_utf8("GRP"), mobile_byte(kind) ?, mobile_vector(payload) ?],
+    0,
+    Bytes.empty()) ?
+    if Bytes.length(encoded) > 65536 do
+      Err("group_message_too_large")
+    else
+      Ok(encoded)
+    end
+  end
+end
+
+fn decode_group_packet_inner(input :: Bytes) -> MobileGroupPacket ! String do
+  case reader(input, 65536) do
+    Err( _) -> Err("invalid_group_packet")
+    Ok( state) -> do
+      let version = take_fixed(state, 1) ?
+      let magic = take_fixed(version.state, 3) ?
+      let kind = take_fixed(magic.state, 1) ?
+      let payload = take_vector(kind.state, 65527) ?
+      case finish(payload.state) do
+        Err( _) -> Err("invalid_group_packet")
+        Ok( _) -> do
+          let kind_value = mobile_read_byte(kind.value) ?
+          let value = MobileGroupPacket {
+            kind : kind_value,
+            payload : payload.value
+          }
+          if mobile_read_byte(version.value) ? != 1 || !Bytes.secure_equals(magic.value,
+          Bytes.from_utf8("GRP")) || kind_value < 1 || kind_value > 3 || Bytes.length(payload.value) == 0 || !Bytes.secure_equals(encode_group_packet(kind_value,
+          payload.value) ?,
+          input) do
+            Err("invalid_group_packet")
+          else
+            Ok(value)
+          end
+        end
+      end
+    end
+  end
+end
+
+fn decode_group_packet(input :: Bytes) -> MobileGroupPacket ! String do
+  case decode_group_packet_inner(input) do
+    Err( _) -> Err("invalid_group_packet")
+    Ok( value) -> Ok(value)
+  end
+end
+
+fn canonical_group_commit(input :: Bytes) -> GroupCommit ! String do
+  let value = case decode_group_commit(input) do
+    Err( _) -> Err("invalid_group_commit")
+    Ok( decoded) -> Ok(decoded)
+  end ?
+  let encoded = case encode_group_commit(value) do
+    Err( _) -> Err("invalid_group_commit")
+    Ok( output) -> Ok(output)
+  end ?
+  if Bytes.secure_equals(encoded, input) do
+    Ok(value)
+  else
+    Err("invalid_group_commit")
+  end
+end
+
+fn canonical_group_welcome(input :: Bytes) -> GroupWelcome ! String do
+  let value = case decode_group_welcome(input) do
+    Err( _) -> Err("invalid_group_welcome")
+    Ok( decoded) -> Ok(decoded)
+  end ?
+  let encoded = case encode_group_welcome(value) do
+    Err( _) -> Err("invalid_group_welcome")
+    Ok( output) -> Ok(output)
+  end ?
+  if Bytes.secure_equals(encoded, input) do
+    Ok(value)
+  else
+    Err("invalid_group_welcome")
+  end
+end
+
+fn canonical_group_message(input :: Bytes) -> GroupMessage ! String do
+  let value = case decode_group_message(input) do
+    Err( _) -> Err("invalid_group_message")
+    Ok( decoded) -> Ok(decoded)
+  end ?
+  let encoded = case encode_group_message(value) do
+    Err( _) -> Err("invalid_group_message")
+    Ok( output) -> Ok(output)
+  end ?
+  if Bytes.secure_equals(encoded, input) do
+    Ok(value)
+  else
+    Err("invalid_group_message")
+  end
+end
+
+fn group_target_envelopes(targets :: List < GroupDeliveryTarget >,
+packet :: Bytes,
+now :: U64,
+index :: Int,
+output :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(targets) do
+    Ok(output)
+  else
+    group_target_envelopes(targets,
+    packet,
+    now,
+    index + 1,
+    List.append(output, outer_bytes(List.get(targets, index).mailbox_token, 3, packet, now) ?))
+  end
+end
+
+fn group_add_envelopes(targets :: List < GroupDeliveryTarget >,
+recipient_leaf :: Int,
+commit_packet :: Bytes,
+welcome_packet :: Bytes,
+now :: U64,
+index :: Int,
+output :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(targets) do
+    Ok(output)
+  else
+    let target = List.get(targets, index)
+    let packet = if target.leaf_index == recipient_leaf do
+      welcome_packet
+    else
+      commit_packet
+    end
+    group_add_envelopes(targets,
+    recipient_leaf,
+    commit_packet,
+    welcome_packet,
+    now,
+    index + 1,
+    List.append(output, outer_bytes(target.mailbox_token, 3, packet, now) ?))
+  end
+end
+
+fn store_new_group(database_path :: String,
+state_label :: String,
+state_blob :: Bytes,
+index_blob :: Bytes,
+baseline_label :: String,
+baseline_blob :: Bytes) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case insert_blob(database, state_label, state_blob) do
+          Err( error) -> Err(error)
+          Ok( _) -> case insert_blob(database, baseline_label, baseline_blob) do
+            Err( error) -> Err(error)
+            Ok( _) -> case put_blob(database, "groups/v1", index_blob) do
+              Err( error) -> Err(error)
+              Ok( _) -> case Sqlite.commit(database) do
+                Err( _) -> Err("database_write_failed")
+                Ok( _) -> Ok(nil)
+              end
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn store_group_outbound(database_path :: String,
+state_label :: String,
+state_blob :: Bytes,
+outbox_labels :: List < String >,
+outbox_blobs :: List < Bytes >,
+outbox_index_blob :: Bytes) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case put_blob(database, state_label, state_blob) do
+          Err( error) -> Err(error)
+          Ok( _) -> case put_blobs(database, outbox_labels, outbox_blobs, 0) do
+            Err( error) -> Err(error)
+            Ok( _) -> case put_blob(database, "outbox/v1", outbox_index_blob) do
+              Err( error) -> Err(error)
+              Ok( _) -> case Sqlite.commit(database) do
+                Err( _) -> Err("database_write_failed")
+                Ok( _) -> Ok(nil)
+              end
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn store_group_message_outbound(database_path :: String,
+state_label :: String,
+state_blob :: Bytes,
+history_label :: String,
+history_blob :: Bytes,
+outbox_labels :: List < String >,
+outbox_blobs :: List < Bytes >,
+outbox_index_blob :: Bytes) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case put_blob(database, state_label, state_blob) do
+          Err( error) -> Err(error)
+          Ok( _) -> case put_blob(database, history_label, history_blob) do
+            Err( error) -> Err(error)
+            Ok( _) -> case put_blobs(database, outbox_labels, outbox_blobs, 0) do
+              Err( error) -> Err(error)
+              Ok( _) -> case put_blob(database, "outbox/v1", outbox_index_blob) do
+                Err( error) -> Err(error)
+                Ok( _) -> case Sqlite.commit(database) do
+                  Err( _) -> Err("database_write_failed")
+                  Ok( _) -> Ok(nil)
+                end
+              end
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn store_group_state_history(database_path :: String,
+state_label :: String,
+state_blob :: Bytes,
+history_label :: String,
+history_blob :: Bytes) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case put_blob(database, state_label, state_blob) do
+          Err( error) -> Err(error)
+          Ok( _) -> case put_blob(database, history_label, history_blob) do
+            Err( error) -> Err(error)
+            Ok( _) -> case Sqlite.commit(database) do
+              Err( _) -> Err("database_write_failed")
+              Ok( _) -> Ok(nil)
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn store_group_join(database_path :: String,
+state_label :: String,
+state_blob :: Bytes,
+index_blob :: Bytes,
+baseline_label :: String,
+baseline_blob :: Bytes,
+package_label :: String,
+init_label :: String,
+leaf_label :: String) -> Result <(), String > do
+  case Sqlite.open(database_path) do
+    Err( _) -> Err("database_open_failed")
+    Ok( database) -> do
+      let result = case Sqlite.begin(database) do
+        Err( _) -> Err("database_write_failed")
+        Ok( _) -> case insert_blob(database, state_label, state_blob) do
+          Err( error) -> Err(error)
+          Ok( _) -> case insert_blob(database, baseline_label, baseline_blob) do
+            Err( error) -> Err(error)
+            Ok( _) -> case put_blob(database, "groups/v1", index_blob) do
+              Err( error) -> Err(error)
+              Ok( _) -> case delete_blobs(database, [package_label, init_label, leaf_label], 0) do
+                Err( error) -> Err(error)
+                Ok( _) -> case Sqlite.commit(database) do
+                  Err( _) -> Err("database_write_failed")
+                  Ok( _) -> Ok(nil)
+                end
+              end
+            end
+          end
+        end
+      end
+      case result do
+        Err( error) -> do
+          let _ = Sqlite.rollback(database)
+          Sqlite.close(database)
+          Err(error)
+        end
+        Ok( _) -> do
+          Sqlite.close(database)
+          Ok(nil)
+        end
+      end
+    end
+  end
+end
+
+fn create_mobile_group(database_path :: String) -> Bytes ! String do
+  ensure_schema(database_path) ?
+  let profile = parse_profile(load_profile(database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let checkpoint = group_checkpoint(database_path, wrapping_key) ?
+  let checkpoint_hash_value = checkpoint_hash(canonical_transparency_checkpoint(checkpoint) ?) ?
+  let leaf_keys = case Crypto.x25519_generate() do
+    Err( _) -> Err("group_key_generation_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let creator = group_member(profile,
+  X25519PublicKey { bytes : profile.credential.dh_public_key },
+  leaf_keys.public_key,
+  profile.account.directory_sequence,
+  checkpoint_hash_value,
+  2)
+  let state = case create_group(creator,
+  leaf_keys.private_key,
+  [1],
+  GroupTransparencyPolicy {
+    minimum_directory_sequence : profile.account.directory_sequence,
+    checkpoint_hash : checkpoint_hash_value,
+    witness_threshold : 2
+  }) do
+    Err( _) -> Err("group_create_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let group_id = state.group_id
+  let ( label, blob) = group_snapshot_blob(state, profile, wrapping_key) ?
+  let index_blob = updated_group_index_blob(database_path, wrapping_key, group_id) ?
+  let baseline_label = group_baseline_label(group_id) ?
+  let baseline_blob = group_baseline_blob(checkpoint, wrapping_key, group_id) ?
+  store_new_group(database_path, label, blob, index_blob, baseline_label, baseline_blob) ?
+  Ok(group_id)
+end
+
+fn add_mobile_group_member(request :: MobileGroupAddRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
+  let baseline = load_group_baseline(request.database_path, wrapping_key, request.group_id) ?
+  let baseline_hash = checkpoint_hash(canonical_transparency_checkpoint(baseline) ?) ?
+  if !Bytes.secure_equals(baseline_hash, state.policy.checkpoint_hash) do
+    consume_group_state(state)
+    Err("group_state_invalid")
+  else
+    let view = load_transparency_view(request.database_path, wrapping_key) ?
+    let devices = verified_device_set(request.device_set) ?
+    let proof_checkpoint = verified_transparency_device_set(request.database_path,
+    wrapping_key,
+    devices,
+    baseline) ?
+    let member = verified_group_member(devices,
+    request.key_package,
+    proof_checkpoint,
+    baseline,
+    view) ?
+    let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
+    let device = open_device(profile, wrapping_key, request.database_path) ?
+    case commit_add(state, device.signing_private_key, member) do
+      GroupAddRejected( rejected, _) -> do
+        consume_group_state(rejected)
+        Err("group_add_rejected")
+      end
+      GroupMemberAdded( next, commit, welcome) -> do
+        let commit_wire = case encode_group_commit(commit) do
+          Err( _) -> Err("group_commit_encoding_failed")
+          Ok( value) -> Ok(value)
+        end ?
+        let welcome_wire = case encode_group_welcome(welcome) do
+          Err( _) -> Err("group_welcome_encoding_failed")
+          Ok( value) -> Ok(value)
+        end ?
+        let welcome_packet = encode_group_welcome_packet(MobileGroupWelcomePacket {
+          baseline_checkpoint : baseline,
+          welcome : welcome_wire
+        }) ?
+        let targets = case delivery_targets(next.tree, next.local_leaf) do
+          Err( _) -> Err("group_delivery_failed")
+          Ok( value) -> Ok(value)
+        end ?
+        let now = current_time() ?
+        let envelopes = group_add_envelopes(targets,
+        welcome.recipient_leaf,
+        encode_group_packet(2, commit_wire) ?,
+        encode_group_packet(1, welcome_packet) ?,
+        now,
+        0,
+        List.new()) ?
+        let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+        pending_ids,
+        envelopes) ?
+        let ( state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+        store_group_outbound(request.database_path,
+        state_label,
+        state_blob,
+        outbox_labels,
+        outbox_blobs,
+        outbox_index_blob) ?
+        encode_output_list(envelopes)
+      end
+    end
+  end
+end
+
+fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
+  let leaf_index = find_member_index(state.tree, request.account_id, request.device_id)
+  if leaf_index < 0 do
+    consume_group_state(state)
+    Err("group_member_not_found")
+  else
+    let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
+    let device = open_device(profile, wrapping_key, request.database_path) ?
+    case commit_remove(state, device.signing_private_key, leaf_index) do
+      GroupRemoveRejected( rejected, _) -> do
+        consume_group_state(rejected)
+        Err("group_remove_rejected")
+      end
+      GroupMemberRemoved( next, commit) -> do
+        let commit_wire = case encode_group_commit(commit) do
+          Err( _) -> Err("group_commit_encoding_failed")
+          Ok( value) -> Ok(value)
+        end ?
+        let targets = case delivery_targets(next.tree, next.local_leaf) do
+          Err( _) -> Err("group_delivery_failed")
+          Ok( value) -> Ok(value)
+        end ?
+        let envelopes = group_target_envelopes(targets,
+        encode_group_packet(2, commit_wire) ?,
+        current_time() ?,
+        0,
+        List.new()) ?
+        let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+        pending_ids,
+        envelopes) ?
+        let ( state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+        store_group_outbound(request.database_path,
+        state_label,
+        state_blob,
+        outbox_labels,
+        outbox_blobs,
+        outbox_index_blob) ?
+        encode_output_list(envelopes)
+      end
+    end
+  end
+end
+
+fn send_mobile_group_message(request :: MobileGroupSendRequest) -> Bytes ! String do
+  if Bytes.length(request.body) > 65346 do
+    Err("group_message_too_large")
+  else
+    ensure_schema(request.database_path) ?
+    let profile = parse_profile(load_profile(request.database_path) ?) ?
+    let wrapping_key = platform_key() ?
+    let state = load_group(request.database_path, profile, wrapping_key, request.group_id) ?
+    let targets = case delivery_targets(state.tree, state.local_leaf) do
+      Err( _) -> Err("group_delivery_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    if List.length(targets) == 0 do
+      consume_group_state(state)
+      Err("group_has_no_recipients")
+    else
+      let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
+      let device = open_device(profile, wrapping_key, request.database_path) ?
+      let sender = case member_at(state.tree, state.local_leaf) do
+        Err( _) -> Err("group_message_rejected")
+        Ok( value) -> Ok(value)
+      end ?
+      let epoch = state.epoch
+      case encrypt_group_message(state,
+      device.signing_private_key,
+      request.body,
+      Bytes.from_utf8("mesh-mobile-group/v1")) do
+        GroupEncryptRejected( rejected, _) -> do
+          consume_group_state(rejected)
+          Err("group_message_rejected")
+        end
+        GroupMessageEncrypted( next, message) -> do
+          let message_wire = case encode_group_message(message) do
+            Err( _) -> Err("group_message_encoding_failed")
+            Ok( value) -> Ok(value)
+          end ?
+          let now = current_time() ?
+          let envelopes = group_target_envelopes(targets,
+          encode_group_packet(3, message_wire) ?,
+          now,
+          0,
+          List.new()) ?
+          let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+          pending_ids,
+          envelopes) ?
+          let ( state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+          let history_label = group_history_label(request.group_id)
+          let history_blob = updated_group_history_blob(request.database_path,
+          wrapping_key,
+          request.group_id,
+          MobileGroupHistoryEntry {
+            direction : 1,
+            epoch : epoch,
+            sender_account_id : sender.account_id,
+            sender_device_id : sender.device_id,
+            timestamp : now,
+            body : request.body
+          }) ?
+          store_group_message_outbound(request.database_path,
+          state_label,
+          state_blob,
+          history_label,
+          history_blob,
+          outbox_labels,
+          outbox_blobs,
+          outbox_index_blob) ?
+          encode_output_list(envelopes)
+        end
+      end
+    end
+  end
+end
+
+fn welcome_member(value :: GroupWelcome) -> GroupMember ! String do
+  case value.commit.proposal do
+    AddMember( leaf_index, member) -> if leaf_index == value.recipient_leaf do
+      Ok(member)
+    else
+      Err("invalid_group_welcome")
+    end
+    RemoveMember( _) -> Err("invalid_group_welcome")
+  end
+end
+
+fn local_welcome_member(profile :: MobileProfile, member :: GroupMember, welcome :: GroupWelcome) -> Bool do
+  Bytes.secure_equals(member.account_id, profile.account_id) && Bytes.secure_equals(member.device_id,
+  profile.device_id) && Bytes.secure_equals(member.signing_public_key.bytes,
+  profile.credential.signing_public_key) && Bytes.secure_equals(member.mailbox_token,
+  profile.entry.mailbox_token) && Bytes.secure_equals(member.transparency_checkpoint_hash,
+  welcome.policy.checkpoint_hash) && member.witness_count == 2 && welcome.policy.witness_threshold == 2
+end
+
+fn join_mobile_group(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+welcome :: GroupWelcome,
+baseline_checkpoint :: Bytes) -> Bytes ! String do
+  let group_id = welcome.commit.group_id
+  let state_label = group_state_label(group_id) ?
+  let member = welcome_member(welcome) ?
+  let baseline = canonical_transparency_checkpoint(baseline_checkpoint) ?
+  let baseline_hash = checkpoint_hash(baseline) ?
+  let current_checkpoint = group_checkpoint(database_path, wrapping_key) ?
+  let view = load_transparency_view(database_path, wrapping_key) ?
+  if !Bytes.secure_equals(baseline_hash, welcome.policy.checkpoint_hash) || !local_welcome_member(profile,
+  member,
+  welcome) || !(transparency_checkpoint_precedes(baseline_checkpoint, current_checkpoint, view) ?) do
+    Err("group_welcome_rejected")
+  else
+    case load_blob(database_path, state_label) do
+      Ok( _) -> do
+        let stored_baseline = load_group_baseline(database_path, wrapping_key, group_id) ?
+        let existing = load_group(database_path, profile, wrapping_key, group_id) ?
+        let existing_valid = Bytes.secure_equals(stored_baseline, baseline_checkpoint) && Bytes.secure_equals(existing.policy.checkpoint_hash,
+        baseline_hash)
+        consume_group_state(existing)
+        if !existing_valid do
+          Err("group_welcome_rejected")
+        else
+          store_updated_session(database_path,
+          "groups/v1",
+          updated_group_index_blob(database_path, wrapping_key, group_id) ?) ?
+          Ok(group_id)
+        end
+      end
+      Err( error) -> if error != "local_state_not_found" do
+        Err(error)
+      else
+        let package_label = group_join_label("package")
+        let init_label = group_join_label("init")
+        let leaf_label = group_join_label("leaf")
+        let stored_package = decode_group_key_package(open_local(load_blob(database_path,
+        package_label) ?,
+        wrapping_key,
+        local_context(package_label) ?) ?) ?
+        let package_signature_valid = case Crypto.verify(SigningPublicKey { bytes : profile.credential.signing_public_key },
+        group_key_package_unsigned(stored_package) ?,
+        stored_package.signature) do
+          Err( _) -> false
+          Ok( value) -> value
+        end
+        if !package_signature_valid || !Bytes.secure_equals(stored_package.account_id,
+        profile.account_id) || !Bytes.secure_equals(stored_package.device_id, profile.device_id) || !Bytes.secure_equals(stored_package.init_public_key.bytes,
+        member.init_public_key.bytes) || !Bytes.secure_equals(stored_package.leaf_public_key.bytes,
+        member.leaf_public_key.bytes) || !(transparency_checkpoint_precedes(baseline_checkpoint,
+        stored_package.checkpoint,
+        view) ?) || !(transparency_checkpoint_precedes(stored_package.checkpoint,
+        current_checkpoint,
+        view) ?) do
+          Err("group_welcome_rejected")
+        else
+          let init_private = open_x25519(load_blob(database_path, init_label) ?,
+          wrapping_key,
+          context(profile.account_id, profile.device_id, init_label, 17) ?) ?
+          let leaf_private = open_x25519(load_blob(database_path, leaf_label) ?,
+          wrapping_key,
+          context(profile.account_id, profile.device_id, leaf_label, 17) ?) ?
+          let state = case join_from_welcome(welcome, init_private, leaf_private) do
+            Err( _) -> Err("group_welcome_rejected")
+            Ok( value) -> Ok(value)
+          end ?
+          consume_group_private(init_private)
+          let ( label, blob) = group_snapshot_blob(state, profile, wrapping_key) ?
+          let index_blob = updated_group_index_blob(database_path, wrapping_key, group_id) ?
+          let baseline_label = group_baseline_label(group_id) ?
+          let baseline_blob = group_baseline_blob(baseline_checkpoint, wrapping_key, group_id) ?
+          store_group_join(database_path,
+          label,
+          blob,
+          index_blob,
+          baseline_label,
+          baseline_blob,
+          package_label,
+          init_label,
+          leaf_label) ?
+          Ok(group_id)
+        end
+      end
+    end
+  end
+end
+
+fn apply_mobile_group_commit(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+commit :: GroupCommit) -> Bytes ! String do
+  let group_id = commit.group_id
+  let state = load_group(database_path, profile, wrapping_key, group_id) ?
+  let epoch_order = U64.compare(commit.prior_epoch, state.epoch)
+  if epoch_order > 0 do
+    consume_group_state(state)
+    Err("group_future_epoch")
+  else if epoch_order < 0 do
+    consume_group_state(state)
+    Err("group_stale_epoch")
+  else
+    case apply_commit(state, commit) do
+      CommitRejected( rejected, error) -> do
+        consume_group_state(rejected)
+        case error do
+          FutureEpoch -> Err("group_future_epoch")
+          StaleEpoch -> Err("group_stale_epoch")
+          _ -> Err("group_commit_rejected")
+        end
+      end
+      CommitApplied( next) -> do
+        let ( label, blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+        store_updated_session(database_path, label, blob) ?
+        Ok(group_id)
+      end
+    end
+  end
+end
+
+fn open_mobile_group_message(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+message :: GroupMessage) -> Bytes ! String do
+  let state = load_group(database_path, profile, wrapping_key, message.group_id) ?
+  let epoch_order = U64.compare(message.epoch, state.epoch)
+  if epoch_order > 0 do
+    consume_group_state(state)
+    Err("group_future_epoch")
+  else if epoch_order < 0 do
+    consume_group_state(state)
+    Err("group_stale_epoch")
+  else
+    let sender = case member_at(state.tree, message.sender_leaf) do
+      Err( _) -> Err("group_message_rejected")
+      Ok( value) -> Ok(value)
+    end ?
+    case decrypt_group_message(state, message, Bytes.from_utf8("mesh-mobile-group/v1")) do
+      MessageRejected( rejected, error) -> do
+        consume_group_state(rejected)
+        case error do
+          FutureEpoch -> Err("group_future_epoch")
+          StaleEpoch -> Err("group_stale_epoch")
+          _ -> Err("group_message_rejected")
+        end
+      end
+      MessageOpened( next, plaintext) -> do
+        let ( label, blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+        let history_label = group_history_label(message.group_id)
+        let history_blob = updated_group_history_blob(database_path,
+        wrapping_key,
+        message.group_id,
+        MobileGroupHistoryEntry {
+          direction : 2,
+          epoch : message.epoch,
+          sender_account_id : sender.account_id,
+          sender_device_id : sender.device_id,
+          timestamp : current_time() ?,
+          body : plaintext
+        }) ?
+        store_group_state_history(database_path, label, blob, history_label, history_blob) ?
+        Ok(plaintext)
+      end
+    end
+  end
+end
+
+fn receive_mobile_group_result(request :: MobileReceiveRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let outer = canonical_outer(request.outer) ?
+  if outer.suite != 3 || !Bytes.secure_equals(outer.mailbox_token, profile.entry.mailbox_token) do
+    Err("wrong_group_delivery")
+  else
+    let packet = decode_group_packet(outer.ciphertext) ?
+    let wrapping_key = platform_key() ?
+    if packet.kind == 1 do
+      let welcome_packet = decode_group_welcome_packet(packet.payload) ?
+      join_mobile_group(request.database_path,
+      profile,
+      wrapping_key,
+      canonical_group_welcome(welcome_packet.welcome) ?,
+      welcome_packet.baseline_checkpoint)
+    else if packet.kind == 2 do
+      apply_mobile_group_commit(request.database_path,
+      profile,
+      wrapping_key,
+      canonical_group_commit(packet.payload) ?)
+    else
+      open_mobile_group_message(request.database_path,
+      profile,
+      wrapping_key,
+      canonical_group_message(packet.payload) ?)
+    end
+  end
+end
+
+fn permanent_group_delivery_error(error :: String) -> Bool do
+  error == "wrong_group_delivery" || error == "invalid_outer_envelope" || error == "noncanonical_outer_envelope" || error == "invalid_group_packet" || error == "invalid_group_welcome" || error == "group_welcome_rejected" || error == "invalid_group_commit" || error == "group_commit_rejected" || error == "group_stale_epoch" || error == "invalid_group_message" || error == "group_message_rejected" || error == "group_limit_reached"
+end
+
+fn receive_mobile_group_classified(request :: MobileReceiveRequest) -> MobileGroupReceiveOutcome do
+  case receive_mobile_group_result(request) do
+    Ok( output) -> GroupReceiveApplied(output)
+    Err( error) -> if permanent_group_delivery_error(error) do
+      GroupReceiveRejected(error)
+    else
+      GroupReceiveRetry(error)
+    end
+  end
+end
+
+fn receive_mobile_group(request :: MobileReceiveRequest) -> Bytes ! String do
+  case receive_mobile_group_classified(request) do
+    GroupReceiveApplied( output) -> Ok(output)
+    GroupReceiveRetry( error) -> Err(error)
+    GroupReceiveRejected( error) -> Err(error)
+  end
+end
+
 fn process_deliveries(database_path :: String,
 deliveries :: List < DeliveredEnvelope >,
 index :: Int,
@@ -5179,20 +7256,29 @@ envelope_ids :: List < Bytes >) -> List < Bytes > do
     case canonical_outer(delivered.envelope) do
       Err( _) -> process_deliveries(database_path, deliveries, index + 1, envelope_ids)
       Ok( outer) -> do
-        let ignored = case parse_initial_packet(outer.ciphertext) do
-          Ok( _) -> receive_initial_message(MobileReceiveRequest {
-            database_path : database_path,
-            outer : delivered.envelope
-          })
-          Err( _) -> receive_message(MobileReceiveRequest {
-            database_path : database_path,
-            outer : delivered.envelope
-          })
+        let request = MobileReceiveRequest {
+          database_path : database_path,
+          outer : delivered.envelope
+        }
+        let acknowledge = if outer.suite == 3 do
+          case receive_mobile_group_classified(request) do
+            GroupReceiveApplied( _) -> true
+            GroupReceiveRetry( _) -> false
+            GroupReceiveRejected( _) -> true
+          end
+        else
+          let ignored = case parse_initial_packet(outer.ciphertext) do
+            Ok( _) -> receive_initial_message(request)
+            Err( _) -> receive_message(request)
+          end
+          true
         end
-        process_deliveries(database_path,
-        deliveries,
-        index + 1,
-        List.append(envelope_ids, outer.envelope_id))
+        let next_ids = if acknowledge do
+          List.append(envelope_ids, outer.envelope_id)
+        else
+          envelope_ids
+        end
+        process_deliveries(database_path, deliveries, index + 1, next_ids)
       end
     end
   end
@@ -5205,13 +7291,17 @@ fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes ! String do
     Ok( values) -> Ok(values)
   end ?
   let envelope_ids = process_deliveries(request.database_path, deliveries, 0, List.new())
-  case encode_mailbox_ack(MailboxAck {
-    version : 1,
-    mailbox_token : profile.entry.mailbox_token,
-    envelope_ids : envelope_ids
-  }) do
-    Err( _) -> Err("mailbox_ack_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+  if List.length(envelope_ids) == 0 do
+    Ok(Bytes.empty())
+  else
+    case encode_mailbox_ack(MailboxAck {
+      version : 1,
+      mailbox_token : profile.entry.mailbox_token,
+      envelope_ids : envelope_ids
+    }) do
+      Err( _) -> Err("mailbox_ack_encoding_failed")
+      Ok( encoded) -> Ok(encoded)
+    end
   end
 end
 
@@ -5339,6 +7429,52 @@ end
 
 @ export("mesh_messenger_send_message")pub fn send_message_export(request :: Bytes) -> Bytes ! String do
   send_message(parse_start_request(request) ?)
+end
+
+@ export("mesh_messenger_group_key_package")pub fn group_key_package_export(request :: Bytes) -> Bytes ! String do
+  let database_path = mobile_utf8(request, "invalid_database_path") ?
+  if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Err("invalid_database_path")
+  else
+    create_group_key_package(database_path)
+  end
+end
+
+@ export("mesh_messenger_group_create")pub fn group_create_export(request :: Bytes) -> Bytes ! String do
+  let database_path = mobile_utf8(request, "invalid_database_path") ?
+  if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Err("invalid_database_path")
+  else
+    create_mobile_group(database_path)
+  end
+end
+
+@ export("mesh_messenger_group_add")pub fn group_add_export(request :: Bytes) -> Bytes ! String do
+  add_mobile_group_member(parse_group_add_request(request) ?)
+end
+
+@ export("mesh_messenger_group_remove")pub fn group_remove_export(request :: Bytes) -> Bytes ! String do
+  remove_mobile_group_member(parse_group_remove_request(request) ?)
+end
+
+@ export("mesh_messenger_group_send")pub fn group_send_export(request :: Bytes) -> Bytes ! String do
+  send_mobile_group_message(parse_group_send_request(request) ?)
+end
+
+@ export("mesh_messenger_group_receive")pub fn group_receive_export(request :: Bytes) -> Bytes ! String do
+  receive_mobile_group(parse_receive_request(request) ?)
+end
+
+@ export("mesh_messenger_group_list")pub fn group_list_export(request :: Bytes) -> Bytes ! String do
+  list_mobile_groups(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_group_inspect")pub fn group_inspect_export(request :: Bytes) -> Bytes ! String do
+  inspect_mobile_group(parse_group_reference_request(request) ?)
+end
+
+@ export("mesh_messenger_group_history")pub fn group_history_export(request :: Bytes) -> Bytes ! String do
+  mobile_group_history(parse_group_reference_request(request) ?)
 end
 
 @ export("mesh_messenger_receive_message")pub fn receive_message_export(request :: Bytes) -> Bytes ! String do

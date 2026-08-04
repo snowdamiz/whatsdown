@@ -34,6 +34,91 @@ legacy_blob :: Bytes) -> Result <(), String > do
   end
 end
 
+pub fn install_group_checkpoint_for_test(database_path :: String, encoded :: Bytes) -> Bool ! String do
+  let _ = decode_checkpoint(encoded) ?
+  ensure_schema(database_path) ?
+  let wrapping_key = platform_key() ?
+  let checkpoint_label = "transparency-checkpoint/v1"
+  let checkpoint_blob = seal_local(encoded, wrapping_key, local_context(checkpoint_label) ?) ?
+  store_updated_blobs(database_path, [checkpoint_label], [checkpoint_blob]) ?
+  Ok(true)
+end
+
+pub fn install_group_transparency_for_test(database_path :: String,
+encoded_checkpoint :: Bytes,
+encoded_consistency :: Bytes,
+service_public_key :: Bytes,
+witness_a_public_key :: Bytes,
+witness_b_public_key :: Bytes,
+encoded_device_set :: Bytes) -> Bool ! String do
+  let devices = verified_device_set(encoded_device_set) ?
+  let view = MobileTransparencyView {
+    checkpoint : encoded_checkpoint,
+    consistency : encoded_consistency,
+    service_public_key : service_public_key,
+    witness_a_public_key : witness_a_public_key,
+    witness_b_public_key : witness_b_public_key
+  }
+  if !(transparency_checkpoint_in_view(encoded_checkpoint, view) ?) do
+    Err("invalid_transparency_view")
+  else
+    ensure_schema(database_path) ?
+    let wrapping_key = platform_key() ?
+    let checkpoint_label = "transparency-checkpoint/v1"
+    let device_set_label = transparency_device_set_label(devices.account.account_id)
+    let checkpoint_blob = seal_local(encoded_checkpoint,
+    wrapping_key,
+    local_context(checkpoint_label) ?) ?
+    let view_storage = transparency_view_storage(view, wrapping_key) ?
+    let device_set_blob = seal_local(encode_verified_transparency_set(MobileVerifiedTransparencySet {
+      checkpoint : encoded_checkpoint,
+      device_set : devices.wire
+    }) ?,
+    wrapping_key,
+    local_context(device_set_label) ?) ?
+    store_updated_blobs(database_path,
+    List.append(List.append(view_storage.labels, checkpoint_label), device_set_label),
+    List.append(List.append(view_storage.blobs, checkpoint_blob), device_set_blob)) ?
+    Ok(true)
+  end
+end
+
+pub fn replace_group_transparency_chunk_for_test(database_path :: String,
+index :: Int,
+value :: Bytes) -> Bool ! String do
+  if index < 0 || index >= 3 || Bytes.length(value) > 65536 do
+    Err("invalid_transparency_chunk")
+  else
+    let wrapping_key = platform_key() ?
+    let label = transparency_view_chunk_label(index)
+    let blob = seal_local(value, wrapping_key, local_context(label) ?) ?
+    store_updated_blobs(database_path, [label], [blob]) ?
+    Ok(true)
+  end
+end
+
+pub fn remove_group_transparency_chunk_for_test(database_path :: String, index :: Int) -> Bool ! String do
+  if index < 0 || index >= 3 do
+    Err("invalid_transparency_chunk")
+  else
+    case Sqlite.open(database_path) do
+      Err( _) -> Err("database_open_failed")
+      Ok( database) -> do
+        let label = transparency_view_chunk_label(index)
+        let result = delete_blob(database, label)
+        Sqlite.close(database)
+        result ?
+        Ok(true)
+      end
+    end
+  end
+end
+
+pub fn group_transparency_valid_for_test(database_path :: String) -> Bool ! String do
+  let _ = load_transparency_view(database_path, platform_key() ?) ?
+  Ok(true)
+end
+
 pub fn prepare_legacy_prekey_fixture_path(database_path :: String) -> Result <(), String > do
   ensure_schema(database_path) ?
   let profile = parse_profile(load_profile(database_path) ?) ?
