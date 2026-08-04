@@ -1,6 +1,7 @@
 #include <jni.h>
 
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <mutex>
 
@@ -12,12 +13,16 @@ constexpr int32_t kNotFound = 2;
 constexpr int32_t kPlatformFailure = 3;
 constexpr int32_t kOutputTooLarge = 4;
 constexpr int32_t kJavaFailure = 5;
+constexpr size_t kMaximumPushFrameLength = 4362;
+constexpr char kPushSelector[] = "expo/raw/v1";
 
 JavaVM *g_vm = nullptr;
 jclass g_store_class = nullptr;
+jclass g_push_class = nullptr;
 jmethodID g_put = nullptr;
 jmethodID g_get = nullptr;
 jmethodID g_delete = nullptr;
+jmethodID g_consume_push_material = nullptr;
 std::mutex g_store_lock;
 
 JNIEnv *CurrentEnvironment(bool *attached) {
@@ -58,6 +63,15 @@ int32_t JavaStatus(JNIEnv *environment) {
   if (!environment->ExceptionCheck()) return MESH_LIBRARY_OK;
   environment->ExceptionClear();
   return kJavaFailure;
+}
+
+int32_t ZeroByteArray(JNIEnv *environment, jbyteArray bytes, jsize length) {
+  jbyte *data = environment->GetByteArrayElements(bytes, nullptr);
+  if (data == nullptr) return JavaStatus(environment);
+  volatile jbyte *cursor = data;
+  for (jsize index = 0; index < length; ++index) cursor[index] = 0;
+  environment->ReleaseByteArrayElements(bytes, data, 0);
+  return JavaStatus(environment);
 }
 
 int32_t SecureStorePut(void *, const uint8_t *input, uint64_t input_length,
@@ -147,12 +161,71 @@ int32_t SecureStoreDelete(void *, const uint8_t *input, uint64_t input_length,
   return java_status == MESH_LIBRARY_OK ? status : java_status;
 }
 
+int32_t PushGetToken(void *, const uint8_t *input, uint64_t input_length,
+                     uint8_t *output, uint64_t output_capacity,
+                     uint64_t *output_length) {
+  if (input == nullptr || output == nullptr || output_length == nullptr ||
+      input_length != sizeof(kPushSelector) - 1 ||
+      std::memcmp(input, kPushSelector, sizeof(kPushSelector) - 1) != 0) {
+    return kInvalidInput;
+  }
+  *output_length = 0;
+  std::lock_guard<std::mutex> guard(g_store_lock);
+  if (g_push_class == nullptr || g_consume_push_material == nullptr) {
+    return kPlatformFailure;
+  }
+  bool attached;
+  JNIEnv *environment = CurrentEnvironment(&attached);
+  if (environment == nullptr) return kPlatformFailure;
+  auto result = static_cast<jbyteArray>(environment->CallStaticObjectMethod(
+      g_push_class, g_consume_push_material));
+  int32_t java_status = JavaStatus(environment);
+  if (java_status != MESH_LIBRARY_OK) {
+    ReleaseEnvironment(attached);
+    return java_status;
+  }
+  if (result == nullptr) {
+    ReleaseEnvironment(attached);
+    return kNotFound;
+  }
+
+  jsize result_length = environment->GetArrayLength(result);
+  int32_t status = MESH_LIBRARY_OK;
+  if (result_length <= 0 ||
+      static_cast<size_t>(result_length) > kMaximumPushFrameLength) {
+    status = kInvalidInput;
+  } else if (static_cast<uint64_t>(result_length) > output_capacity) {
+    status = kOutputTooLarge;
+  } else {
+    environment->GetByteArrayRegion(result, 0, result_length,
+                                    reinterpret_cast<jbyte *>(output));
+    status = JavaStatus(environment);
+    if (status == MESH_LIBRARY_OK) {
+      *output_length = static_cast<uint64_t>(result_length);
+    }
+  }
+
+  if (result_length > 0) {
+    int32_t zero_status = ZeroByteArray(environment, result, result_length);
+    if (status == MESH_LIBRARY_OK && zero_status != MESH_LIBRARY_OK) {
+      *output_length = 0;
+      status = zero_status;
+    }
+  }
+  environment->DeleteLocalRef(result);
+  ReleaseEnvironment(attached);
+  return status;
+}
+
 void ClearStore(JNIEnv *environment) {
   if (g_store_class != nullptr) environment->DeleteGlobalRef(g_store_class);
+  if (g_push_class != nullptr) environment->DeleteGlobalRef(g_push_class);
   g_store_class = nullptr;
+  g_push_class = nullptr;
   g_put = nullptr;
   g_get = nullptr;
   g_delete = nullptr;
+  g_consume_push_material = nullptr;
 }
 }  // namespace
 
@@ -162,7 +235,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *) {
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_expo_modules_meshmessenger_MeshMessengerHost_registerSecureStore(
+Java_expo_modules_meshmessenger_MeshMessengerHost_registerHostCallbacks(
     JNIEnv *environment, jclass) {
   std::lock_guard<std::mutex> guard(g_store_lock);
   ClearStore(environment);
@@ -183,6 +256,26 @@ Java_expo_modules_meshmessenger_MeshMessengerHost_registerSecureStore(
     ClearStore(environment);
     return kJavaFailure;
   }
+  local = environment->FindClass(
+      "expo/modules/meshmessenger/MeshMessengerPushMaterial");
+  if (local == nullptr) {
+    environment->ExceptionClear();
+    ClearStore(environment);
+    return kJavaFailure;
+  }
+  g_push_class = static_cast<jclass>(environment->NewGlobalRef(local));
+  environment->DeleteLocalRef(local);
+  if (g_push_class == nullptr) {
+    ClearStore(environment);
+    return kJavaFailure;
+  }
+  g_consume_push_material =
+      environment->GetStaticMethodID(g_push_class, "consume", "()[B");
+  if (g_consume_push_material == nullptr) {
+    environment->ExceptionClear();
+    ClearStore(environment);
+    return kJavaFailure;
+  }
 
   MeshLibraryHostCallbacksV1 callbacks = {};
   callbacks.abi_version = MESH_LIBRARY_ABI_VERSION;
@@ -190,13 +283,14 @@ Java_expo_modules_meshmessenger_MeshMessengerHost_registerSecureStore(
   callbacks.secure_store_put = SecureStorePut;
   callbacks.secure_store_get = SecureStoreGet;
   callbacks.secure_store_delete = SecureStoreDelete;
+  callbacks.push_get_token = PushGetToken;
   jint status = mesh_library_register_host_callbacks(&callbacks);
   if (status != MESH_LIBRARY_OK) ClearStore(environment);
   return status;
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_expo_modules_meshmessenger_MeshMessengerHost_unregisterSecureStore(
+Java_expo_modules_meshmessenger_MeshMessengerHost_unregisterHostCallbacks(
     JNIEnv *environment, jclass) {
   std::lock_guard<std::mutex> guard(g_store_lock);
   ClearStore(environment);

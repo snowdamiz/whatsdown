@@ -1,9 +1,11 @@
-from Binary.Reader import BinaryReader, finish, read_vector, reader
+from Binary.Reader import BinaryReader, finish, read_fixed, read_vector, reader
 from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential, verify_device_link_authorization
 from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, verify_prekey_bundle
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyPublishRequest, decode_prekey_publish_response, encode_prekey_publish, prekey_publish_signing_bytes
 from Privacy.Edge import encode_privacy_submission, mint_submission, seal_delivery
 from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceSet, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_set, decode_directory_entry, decode_initial_message, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
+from Push.Binding import PushBindRequest, PushUnbindRequest, decode_push_bind, decode_push_unbind, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
+from Push.Token import seal_provider_token
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
@@ -188,6 +190,22 @@ struct MobilePrivacyRequest do
   difficulty :: Int
 end
 
+struct MobilePushState do
+  revision :: U64
+  mode :: Int
+  wake_token_hash :: Bytes
+  provider_token_hash :: Bytes
+  pending_kind :: Int
+  pending_wire :: Bytes
+end
+
+struct MobileExpoRawToken do
+  platform :: Int
+  development :: Bool
+  app_id :: String
+  device_token :: String
+end
+
 struct MobileVerifiedDeviceSet do
   wire :: Bytes
   value :: DeviceSet
@@ -203,6 +221,17 @@ fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! Strin
       value : value
     })
     Ok( _) -> Err("invalid_store_request")
+  end
+end
+
+fn take_fixed(state :: BinaryReader, length :: Int) -> MobileReadBytes ! String do
+  case read_fixed(state, length) do
+    Err( _) -> Err("invalid_fixed_value")
+    Ok( ( next, value)) -> Ok(MobileReadBytes {
+      state : next,
+      value : value
+    })
+    Ok( _) -> Err("invalid_fixed_value")
   end
 end
 
@@ -1282,6 +1311,35 @@ fn parse_payload_request(input :: Bytes) -> MobilePayloadRequest ! String do
         end
       end
     end
+  end
+end
+
+fn parse_push_bind_request_inner(input :: Bytes) -> MobilePayloadRequest ! String do
+  let state = case reader(input, 4140) do
+    Err( _) -> Err("invalid")
+    Ok( value) -> Ok(value)
+  end ?
+  let path = take_vector(state, 4096) ?
+  let project_id = take_vector(path.state, 36) ?
+  let _ = case finish(project_id.state) do
+    Err( _) -> Err("invalid")
+    Ok( _) -> Ok(nil)
+  end ?
+  let database_path = mobile_utf8(path.value, "invalid") ?
+  if String.length(database_path) == 0 do
+    Err("invalid")
+  else
+    Ok(MobilePayloadRequest {
+      database_path : database_path,
+      payload : project_id.value
+    })
+  end
+end
+
+fn parse_push_bind_request(input :: Bytes) -> MobilePayloadRequest ! String do
+  case parse_push_bind_request_inner(input) do
+    Err( _) -> Err("invalid_payload_request")
+    Ok( value) -> Ok(value)
   end
 end
 
@@ -4488,6 +4546,518 @@ fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
   Ok(Bytes.from_utf8("ok"))
 end
 
+fn canonical_push_material_text(input :: Bytes) -> String ! String do
+  let text = mobile_utf8(input, "invalid") ?
+  if String.trim(text) != text || String.contains(text, "\r") || String.contains(text, "\n") do
+    Err("invalid")
+  else
+    Ok(text)
+  end
+end
+
+fn parse_expo_raw_token_inner(input :: Bytes) -> MobileExpoRawToken ! String do
+  let start = case reader(input, 4362) do
+    Err( _) -> Err("invalid")
+    Ok( value) -> Ok(value)
+  end ?
+  let version = take_fixed(start, 1) ?
+  let platform = take_fixed(version.state, 1) ?
+  let development = take_fixed(platform.state, 1) ?
+  let app_id = take_vector(development.state, 255) ?
+  let device_token = take_vector(app_id.state, 4096) ?
+  let _ = case finish(device_token.state) do
+    Err( _) -> Err("invalid")
+    Ok( _) -> Ok(nil)
+  end ?
+  let version_value = mobile_read_byte(version.value) ?
+  let platform_value = mobile_read_byte(platform.value) ?
+  let development_value = mobile_read_byte(development.value) ?
+  if version_value != 1 || (platform_value != 1 && platform_value != 2) || (development_value != 0 && development_value != 1) || (platform_value == 2 && development_value != 0) || Bytes.length(app_id.value) == 0 || Bytes.length(device_token.value) == 0 do
+    Err("invalid")
+  else
+    Ok(MobileExpoRawToken {
+      platform : platform_value,
+      development : development_value == 1,
+      app_id : canonical_push_material_text(app_id.value) ?,
+      device_token : canonical_push_material_text(device_token.value) ?
+    })
+  end
+end
+
+fn parse_expo_raw_token(input :: Bytes) -> MobileExpoRawToken ! String do
+  case parse_expo_raw_token_inner(input) do
+    Err( _) -> Err("push_material_invalid")
+    Ok( value) -> Ok(value)
+  end
+end
+
+fn expo_project_id(input :: Bytes) -> String ! String do
+  case Bytes.to_utf8(input) do
+    Err( _) -> Err("invalid_push_project_id")
+    Ok( value) -> if Regex.is_match(~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    value) do
+      Ok(value)
+    else
+      Err("invalid_push_project_id")
+    end
+  end
+end
+
+fn expo_device_id(device_id :: Bytes) -> String ! String do
+  if Bytes.length(device_id) != 16 do
+    Err("push_device_id_invalid")
+  else
+    let value = Bytes.to_hex(device_id)
+    Ok(String.slice(value, 0, 8) <> "-" <> String.slice(value, 8, 12) <> "-" <> String.slice(value,
+    12,
+    16) <> "-" <> String.slice(value, 16, 20) <> "-" <> String.slice(value, 20, 32))
+  end
+end
+
+fn expo_registration_body(material :: MobileExpoRawToken, device_id :: Bytes, project_id :: String) -> String ! String do
+  let kind = if material.platform == 1 do
+    "apns"
+  else
+    "fcm"
+  end
+  let development = if material.development do
+    "true"
+  else
+    "false"
+  end
+  Ok("{\"type\":" <> Json.encode_string(kind) <> ",\"deviceId\":" <> Json.encode_string(expo_device_id(device_id) ?) <> ",\"development\":" <> development <> ",\"appId\":" <> Json.encode_string(material.app_id) <> ",\"deviceToken\":" <> Json.encode_string(material.device_token) <> ",\"projectId\":" <> Json.encode_string(project_id) <> "}")
+end
+
+fn expo_provider_token_inner(body :: String) -> Bytes ! String do
+  let root = Json.parse(body) ?
+  let data = (root
+    |> Json.object_get("data")) ?
+  let value = (data
+    |> Json.object_get("expoPushToken")) ?
+  Ok(Bytes.from_utf8((value
+    |> Json.as_string()) ?))
+end
+
+fn expo_provider_token(body :: String) -> Bytes ! String do
+  case expo_provider_token_inner(body) do
+    Err( _) -> Err("push_provider_response_invalid")
+    Ok( value) -> Ok(value)
+  end
+end
+
+fn register_expo_token(material :: MobileExpoRawToken,
+device_id :: Bytes,
+project_id :: String,
+endpoint :: String) -> Bytes ! String do
+  let body = expo_registration_body(material, device_id, project_id) ?
+  let response = case (Http.build(:post, endpoint)
+    |> Http.header("Content-Type", "application/json")
+    |> Http.body(body)
+    |> Http.timeout(5000)
+    |> Http.max_response_bytes(4096)
+    |> Http.max_redirects(0)
+    |> Http.send()) do
+    Err( _) -> Err("push_provider_unavailable")
+    Ok( value) -> Ok(value)
+  end ?
+  if response.status < 200 || response.status >= 300 do
+    Err("push_provider_rejected")
+  else
+    expo_provider_token(response.body)
+  end
+end
+
+fn push_broker_public_key_hex() -> String do
+  ""
+end
+
+fn push_broker_public_key() -> X25519PublicKey ! String do
+  case Bytes.from_hex(push_broker_public_key_hex()) do
+    Err( _) -> Err("push_broker_unconfigured")
+    Ok( value) -> if Bytes.length(value) != 32 do
+      Err("push_broker_unconfigured")
+    else
+      Ok(X25519PublicKey { bytes : value })
+    end
+  end
+end
+
+fn expo_push_endpoint() -> String do
+  "https://exp.host/--/api/v2/push/getExpoPushToken"
+end
+
+fn push_state_context(profile :: MobileProfile) -> Bytes ! String do
+  context(profile.account_id, profile.device_id, "push-binding/v1", 14)
+end
+
+fn push_signature_valid(public_key :: Bytes, signed :: Bytes, signature :: Bytes) -> Bool do
+  case Crypto.verify(SigningPublicKey { bytes : public_key },
+  signed,
+  Signature { bytes : signature }) do
+    Err( _) -> false
+    Ok( valid) -> valid
+  end
+end
+
+fn stored_bind_valid(state :: MobilePushState, profile :: MobileProfile) -> Bool do
+  case decode_push_bind(state.pending_wire) do
+    Err( _) -> false
+    Ok( value) -> case encode_push_bind(value) do
+      Err( _) -> false
+      Ok( canonical) -> case push_bind_signing_bytes(value) do
+        Err( _) -> false
+        Ok( signed) -> Bytes.secure_equals(canonical, state.pending_wire) && Bytes.secure_equals(value.mailbox_token_hash,
+        Crypto.sha256(profile.entry.mailbox_token)) && Bytes.secure_equals(value.wake_token_hash,
+        state.wake_token_hash) && U64.compare(value.revision, state.revision) == 0 && value.provider == 1 && push_signature_valid(profile.credential.signing_public_key,
+        signed,
+        value.signature)
+      end
+    end
+  end
+end
+
+fn stored_unbind_valid(state :: MobilePushState, profile :: MobileProfile) -> Bool do
+  case decode_push_unbind(state.pending_wire) do
+    Err( _) -> false
+    Ok( value) -> case encode_push_unbind(value) do
+      Err( _) -> false
+      Ok( canonical) -> case push_unbind_signing_bytes(value) do
+        Err( _) -> false
+        Ok( signed) -> Bytes.secure_equals(canonical, state.pending_wire) && Bytes.secure_equals(value.mailbox_token_hash,
+        Crypto.sha256(profile.entry.mailbox_token)) && U64.compare(value.revision, state.revision) == 0 && push_signature_valid(profile.credential.signing_public_key,
+        signed,
+        value.signature)
+      end
+    end
+  end
+end
+
+fn push_state_valid(state :: MobilePushState, profile :: MobileProfile) -> Bool ! String do
+  let zero = mobile_zeroes(32) ?
+  let revision_zero = U64.compare(state.revision, mobile_wide("0") ?) == 0
+  let revision_valid = U64.compare(state.revision, mobile_wide("9223372036854775807") ?) <= 0
+  let hashes_zero = Bytes.secure_equals(state.wake_token_hash, zero) && Bytes.secure_equals(state.provider_token_hash,
+  zero)
+  let pending_shape = if state.pending_kind == 0 do
+    Bytes.length(state.pending_wire) == 0
+  else if state.pending_kind == 1 do
+    Bytes.length(state.pending_wire) > 0 && stored_bind_valid(state, profile)
+  else if state.pending_kind == 2 do
+    Bytes.length(state.pending_wire) > 0 && stored_unbind_valid(state, profile)
+  else
+    false
+  end
+  let mode_shape = if state.mode == 0 do
+    hashes_zero && (state.pending_kind == 0 || state.pending_kind == 2)
+  else if state.mode == 1 do
+    Bytes.length(state.wake_token_hash) == 32 && Bytes.length(state.provider_token_hash) == 32 && !Bytes.secure_equals(state.wake_token_hash,
+    zero) && !Bytes.secure_equals(state.provider_token_hash, zero) && !Bytes.secure_equals(state.wake_token_hash,
+    Crypto.sha256(profile.entry.mailbox_token)) && (state.pending_kind == 0 || state.pending_kind == 1)
+  else
+    false
+  end
+  Ok(revision_valid && pending_shape && mode_shape && (!revision_zero || (state.mode == 0 && state.pending_kind == 0)))
+end
+
+fn pristine_push_state() -> MobilePushState ! String do
+  Ok(MobilePushState {
+    revision : mobile_wide("0") ?,
+    mode : 0,
+    wake_token_hash : mobile_zeroes(32) ?,
+    provider_token_hash : mobile_zeroes(32) ?,
+    pending_kind : 0,
+    pending_wire : Bytes.empty()
+  })
+end
+
+fn push_state_bytes(state :: MobilePushState, profile :: MobileProfile) -> Bytes ! String do
+  if !(push_state_valid(state, profile) ?) do
+    Err("push_state_corrupt")
+  else
+    mobile_join([mobile_byte(1) ?, Bytes.from_utf8("PBL"), mobile_write_u64(state.revision) ?, mobile_byte(state.mode) ?, state.wake_token_hash, state.provider_token_hash, mobile_byte(state.pending_kind) ?, mobile_vector(state.pending_wire) ?],
+    0,
+    Bytes.empty())
+  end
+end
+
+fn parse_push_state(input :: Bytes, profile :: MobileProfile) -> MobilePushState ! String do
+  case reader(input, 807) do
+    Err( _) -> Err("push_state_corrupt")
+    Ok( reader_state) -> do
+      let version = take_fixed(reader_state, 1) ?
+      let magic = take_fixed(version.state, 3) ?
+      let revision = take_fixed(magic.state, 8) ?
+      let mode = take_fixed(revision.state, 1) ?
+      let wake_hash = take_fixed(mode.state, 32) ?
+      let provider_hash = take_fixed(wake_hash.state, 32) ?
+      let pending_kind = take_fixed(provider_hash.state, 1) ?
+      let pending_wire = take_vector(pending_kind.state, 725) ?
+      case finish(pending_wire.state) do
+        Err( _) -> Err("push_state_corrupt")
+        Ok( _) -> do
+          let state = MobilePushState {
+            revision : mobile_read_u64(revision.value) ?,
+            mode : mobile_read_byte(mode.value) ?,
+            wake_token_hash : wake_hash.value,
+            provider_token_hash : provider_hash.value,
+            pending_kind : mobile_read_byte(pending_kind.value) ?,
+            pending_wire : pending_wire.value
+          }
+          if mobile_read_byte(version.value) ? != 1 || !Bytes.secure_equals(magic.value,
+          Bytes.from_utf8("PBL")) || !(push_state_valid(state, profile) ?) do
+            Err("push_state_corrupt")
+          else
+            Ok(state)
+          end
+        end
+      end
+    end
+  end
+end
+
+fn decode_push_state(input :: Bytes, profile :: MobileProfile) -> MobilePushState ! String do
+  case parse_push_state(input, profile) do
+    Err( _) -> Err("push_state_corrupt")
+    Ok( state) -> Ok(state)
+  end
+end
+
+fn load_push_state(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey) -> MobilePushState ! String do
+  let label = "push-binding/v1"
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      pristine_push_state()
+    else
+      Err(error)
+    end
+    Ok( blob) -> case open_local(blob, wrapping_key, push_state_context(profile) ?) do
+      Err( _) -> Err("push_state_corrupt")
+      Ok( encoded) -> decode_push_state(encoded, profile)
+    end
+  end
+end
+
+fn store_push_state(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+state :: MobilePushState) -> Result <(), String > do
+  let label = "push-binding/v1"
+  let encoded = push_state_bytes(state, profile) ?
+  let sealed = seal_local(encoded, wrapping_key, push_state_context(profile) ?) ?
+  store_updated_session(database_path, label, sealed)
+end
+
+fn next_push_revision(revision :: U64) -> U64 ! String do
+  if U64.compare(revision, mobile_wide("9223372036854775807") ?) >= 0 do
+    Err("push_revision_exhausted")
+  else
+    U64.add(revision, mobile_wide("1") ?)
+  end
+end
+
+fn signed_push_bind(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+wake_token_hash :: Bytes,
+revision :: U64,
+provider_token_ciphertext :: Bytes) -> Bytes ! String do
+  let unsigned = PushBindRequest {
+    mailbox_token_hash : Crypto.sha256(profile.entry.mailbox_token),
+    wake_token_hash : wake_token_hash,
+    revision : revision,
+    provider : 1,
+    provider_token_ciphertext : provider_token_ciphertext,
+    signature : Bytes.empty()
+  }
+  let device = open_device(profile, wrapping_key, database_path) ?
+  let signature = case Crypto.sign(device.signing_private_key, push_bind_signing_bytes(unsigned) ?) do
+    Err( _) -> Err("push_binding_sign_failed")
+    Ok( value) -> Ok(value.bytes)
+  end ?
+  encode_push_bind(% { unsigned | signature : signature })
+end
+
+fn signed_push_unbind(database_path :: String,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+revision :: U64) -> Bytes ! String do
+  let unsigned = PushUnbindRequest {
+    mailbox_token_hash : Crypto.sha256(profile.entry.mailbox_token),
+    revision : revision,
+    signature : Bytes.empty()
+  }
+  let device = open_device(profile, wrapping_key, database_path) ?
+  let signature = case Crypto.sign(device.signing_private_key,
+  push_unbind_signing_bytes(unsigned) ?) do
+    Err( _) -> Err("push_binding_sign_failed")
+    Ok( value) -> Ok(value.bytes)
+  end ?
+  encode_push_unbind(% { unsigned | signature : signature })
+end
+
+fn prepare_new_push_bind(request :: MobilePayloadRequest,
+profile :: MobileProfile,
+wrapping_key :: borrow StorageKey,
+state :: MobilePushState,
+project_id :: String,
+broker_public_key :: X25519PublicKey,
+endpoint :: String,
+raw_material :: Bytes) -> Bytes ! String do
+  let material = parse_expo_raw_token(raw_material) ?
+  let token = register_expo_token(material, profile.device_id, project_id, endpoint) ?
+  let sealed = case seal_provider_token(token, broker_public_key) do
+    Err( error) -> if error == "invalid provider token" do
+      Err("push_provider_response_invalid")
+    else
+      Err("push_binding_failed")
+    end
+    Ok( value) -> Ok(value)
+  end ?
+  let token_hash = Crypto.sha256(token)
+  if state.mode == 1 && Bytes.secure_equals(state.provider_token_hash, token_hash) do
+    Ok(Bytes.empty())
+  else
+    let revision = next_push_revision(state.revision) ?
+    let wake_hash = if state.mode == 1 do
+      state.wake_token_hash
+    else
+      case Crypto.random_bytes(32) do
+        Err( _) -> Err("push_wake_generation_failed")
+        Ok( random) -> do
+          let generated = Crypto.sha256(random)
+          if Bytes.secure_equals(generated, Crypto.sha256(profile.entry.mailbox_token)) do
+            Err("push_wake_generation_failed")
+          else
+            Ok(generated)
+          end
+        end
+      end ?
+    end
+    let wire = signed_push_bind(request.database_path,
+    profile,
+    wrapping_key,
+    wake_hash,
+    revision,
+    sealed) ?
+    let updated = MobilePushState {
+      revision : revision,
+      mode : 1,
+      wake_token_hash : wake_hash,
+      provider_token_hash : token_hash,
+      pending_kind : 1,
+      pending_wire : wire
+    }
+    store_push_state(request.database_path, profile, wrapping_key, updated) ?
+    Ok(wire)
+  end
+end
+
+fn prepare_push_bind_with_config(request :: MobilePayloadRequest,
+broker_public_key :: Result < X25519PublicKey, String >,
+endpoint :: String) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let profile = parse_profile(load_profile(request.database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let state = load_push_state(request.database_path, profile, wrapping_key) ?
+  if state.pending_kind == 1 do
+    Ok(state.pending_wire)
+  else if state.pending_kind == 2 do
+    Err("push_update_pending")
+  else
+    let project_id = expo_project_id(request.payload) ?
+    let broker_public_key = broker_public_key ?
+    let raw_material = case Host.push_get_token(Bytes.from_utf8("expo/raw/v1")) do
+      Err( _) -> Err("push_material_unavailable")
+      Ok( value) -> Ok(value)
+    end ?
+    prepare_new_push_bind(request,
+    profile,
+    wrapping_key,
+    state,
+    project_id,
+    broker_public_key,
+    endpoint,
+    raw_material)
+  end
+end
+
+fn prepare_push_bind(request :: MobilePayloadRequest) -> Bytes ! String do
+  prepare_push_bind_with_config(request, push_broker_public_key(), expo_push_endpoint())
+end
+
+fn prepare_push_unbind(database_path :: String) -> Bytes ! String do
+  if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Err("invalid_database_path")
+  else
+    ensure_schema(database_path) ?
+    let profile = parse_profile(load_profile(database_path) ?) ?
+    let wrapping_key = platform_key() ?
+    let state = load_push_state(database_path, profile, wrapping_key) ?
+    if state.pending_kind == 2 do
+      Ok(state.pending_wire)
+    else if state.mode == 0 do
+      Ok(Bytes.empty())
+    else
+      let revision = next_push_revision(state.revision) ?
+      let wire = signed_push_unbind(database_path, profile, wrapping_key, revision) ?
+      let updated = MobilePushState {
+        revision : revision,
+        mode : 0,
+        wake_token_hash : mobile_zeroes(32) ?,
+        provider_token_hash : mobile_zeroes(32) ?,
+        pending_kind : 2,
+        pending_wire : wire
+      }
+      store_push_state(database_path, profile, wrapping_key, updated) ?
+      Ok(wire)
+    end
+  end
+end
+
+fn commit_push_update(request :: MobilePayloadRequest) -> Bytes ! String do
+  if Bytes.length(request.payload) > 725 do
+    Err("invalid_push_update")
+  else
+    ensure_schema(request.database_path) ?
+    let profile = parse_profile(load_profile(request.database_path) ?) ?
+    let wrapping_key = platform_key() ?
+    let state = load_push_state(request.database_path, profile, wrapping_key) ?
+    if state.pending_kind == 0 do
+      Err("push_update_not_pending")
+    else if !Bytes.secure_equals(state.pending_wire, request.payload) do
+      Err("push_update_mismatch")
+    else
+      store_push_state(request.database_path,
+      profile,
+      wrapping_key,
+      % { state | pending_kind : 0, pending_wire : Bytes.empty() }) ?
+      Ok(Bytes.empty())
+    end
+  end
+end
+
+fn push_status(database_path :: String) -> Bytes ! String do
+  if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Err("invalid_database_path")
+  else
+    ensure_schema(database_path) ?
+    let profile = parse_profile(load_profile(database_path) ?) ?
+    let wrapping_key = platform_key() ?
+    let state = load_push_state(database_path, profile, wrapping_key) ?
+    if state.pending_kind == 1 do
+      Ok(Bytes.from_utf8("pending-bind"))
+    else if state.pending_kind == 2 do
+      Ok(Bytes.from_utf8("pending-unbind"))
+    else if state.mode == 1 do
+      Ok(Bytes.from_utf8("enabled"))
+    else
+      Ok(Bytes.from_utf8("disabled"))
+    end
+  end
+end
+
 fn import_contact(input :: Bytes) -> Bytes ! String do
   let entry = case decode_directory_entry(input) do
     Err( _) -> Err("invalid_directory_entry")
@@ -4777,6 +5347,22 @@ end
 
 @ export("mesh_messenger_update_conversation")pub fn update_conversation_export(request :: Bytes) -> Bytes ! String do
   update_conversation(parse_policy_request(request) ?)
+end
+
+@ export("mesh_messenger_push_bind_prepare")pub fn push_bind_prepare_export(request :: Bytes) -> Bytes ! String do
+  prepare_push_bind(parse_push_bind_request(request) ?)
+end
+
+@ export("mesh_messenger_push_unbind_prepare")pub fn push_unbind_prepare_export(request :: Bytes) -> Bytes ! String do
+  prepare_push_unbind(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_push_update_commit")pub fn push_update_commit_export(request :: Bytes) -> Bytes ! String do
+  commit_push_update(parse_payload_request(request) ?)
+end
+
+@ export("mesh_messenger_push_status")pub fn push_status_export(request :: Bytes) -> Bytes ! String do
+  push_status(mobile_utf8(request, "invalid_database_path") ?)
 end
 
 @ export("mesh_messenger_list_conversations")pub fn list_conversations_export(request :: Bytes) -> Bytes ! String do

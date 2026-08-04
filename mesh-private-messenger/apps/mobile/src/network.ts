@@ -59,6 +59,16 @@ async function binaryRequest(
   }
 }
 
+export async function submitPushBind(wire: Uint8Array): Promise<void> {
+  if (wire.length === 0) throw new Error('Push bind wire must not be empty');
+  await binaryRequest('/v1/push/bind', wire, 'PUT');
+}
+
+export async function submitPushUnbind(wire: Uint8Array): Promise<void> {
+  if (wire.length === 0) throw new Error('Push unbind wire must not be empty');
+  await binaryRequest('/v1/push/unbind', wire);
+}
+
 export async function registerDirectory(databasePath: string): Promise<void> {
   const entry = await directory_entry_export(utf8(databasePath));
   await binaryRequest('/v1/devices/register', entry, 'PUT');

@@ -1,6 +1,7 @@
 {
   "platforms": ["ios", "android"],
   "apple": {
+    "podspecPath": "MeshMessenger.podspec",
     "modules": ["MeshMessengerModule", "ExpoPushTokenManagerSentinelModule"]
   },
   "android": {

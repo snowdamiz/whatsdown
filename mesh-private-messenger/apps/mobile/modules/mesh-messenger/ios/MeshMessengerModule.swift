@@ -1,12 +1,46 @@
+import EXApplication
 import ExpoModulesCore
+import ExpoNotifications
 import Foundation
+import UIKit
 
-public final class MeshMessengerModule: Module {
+public final class MeshMessengerModule: Module, NotificationDelegate {
   private let lock = NSLock()
   private var started = false
+  private var pushEnabled = false
+  private var pushPromise: Promise?
 
   public func definition() -> ModuleDefinition {
     Name("MeshMessenger")
+
+    Events("onPushRegistrationChanged")
+
+    OnCreate {
+      NotificationCenterManager.shared.addDelegate(self)
+    }
+
+    AsyncFunction("primePushToken") { (promise: Promise) in
+      self.pushPromise?.reject(
+        "E_PUSH_REGISTRATION_REPLACED",
+        "A newer push registration request replaced this one."
+      )
+      self.pushEnabled = true
+      self.pushPromise = promise
+      UIApplication.shared.registerForRemoteNotifications()
+    }
+    .runOnQueue(.main)
+
+    AsyncFunction("clearPushToken") { () in
+      self.pushEnabled = false
+      self.pushPromise?.reject(
+        "E_PUSH_REGISTRATION_CANCELLED",
+        "Push registration was cancelled."
+      )
+      self.pushPromise = nil
+      MeshMessengerClearApplePushToken()
+      UIApplication.shared.unregisterForRemoteNotifications()
+    }
+    .runOnQueue(.main)
 
     AsyncFunction("invoke") { (symbol: String, request: Data) throws -> Data in
       self.lock.lock()
@@ -53,6 +87,14 @@ public final class MeshMessengerModule: Module {
         return try MeshLibrary.receive_message_export(request)
       case "mesh_messenger_update_conversation":
         return try MeshLibrary.update_conversation_export(request)
+      case "mesh_messenger_push_bind_prepare":
+        return try MeshLibrary.push_bind_prepare_export(request)
+      case "mesh_messenger_push_unbind_prepare":
+        return try MeshLibrary.push_unbind_prepare_export(request)
+      case "mesh_messenger_push_update_commit":
+        return try MeshLibrary.push_update_commit_export(request)
+      case "mesh_messenger_push_status":
+        return try MeshLibrary.push_status_export(request)
       case "mesh_messenger_list_conversations":
         return try MeshLibrary.list_conversations_export(request)
       case "mesh_messenger_load_history":
@@ -87,17 +129,46 @@ public final class MeshMessengerModule: Module {
       }
     }
 
-    OnDestroy { [weak self] in self?.stop() }
+    OnDestroy { [weak self] in
+      guard let self else { return }
+      NotificationCenterManager.shared.removeDelegate(self)
+      self.pushEnabled = false
+      self.pushPromise?.reject("E_MODULE_DESTROYED", "MeshMessenger was destroyed.")
+      self.pushPromise = nil
+      MeshMessengerClearApplePushToken()
+      self.stop()
+    }
+  }
+
+  public func didRegister(_ deviceToken: String) {
+    guard pushEnabled else { return }
+    let isRefresh = pushPromise == nil
+    do {
+      try cachePushToken(deviceToken)
+      pushPromise?.resolve(nil)
+      pushPromise = nil
+      if isRefresh {
+        sendEvent("onPushRegistrationChanged", [:])
+      }
+    } catch {
+      pushPromise?.reject(error)
+      pushPromise = nil
+    }
+  }
+
+  public func didFailRegistration(_ error: any Error) {
+    pushPromise?.reject(error)
+    pushPromise = nil
   }
 
   private func startIfNeeded() throws {
     guard !started else { return }
     try MeshLibrary.initialize()
-    let status = MeshMessengerRegisterAppleSecureStore()
+    let status = MeshMessengerRegisterAppleHostCallbacks()
     guard status == MESH_LIBRARY_OK else {
       throw MeshLibraryFailure(
         status: status,
-        payload: Data("secure_store_registration_failed".utf8)
+        payload: Data("host_callback_registration_failed".utf8)
       )
     }
     started = true
@@ -110,4 +181,32 @@ public final class MeshMessengerModule: Module {
     MeshLibrary.shutdown()
     started = false
   }
+
+  private func cachePushToken(_ token: String) throws {
+    guard let applicationID = Bundle.main.bundleIdentifier else {
+      throw PushRegistrationConfigurationError.missingApplicationID
+    }
+    let applicationIDBytes = Data(applicationID.utf8)
+    let tokenBytes = Data(token.utf8)
+    let development = EXProvisioningProfile.main().notificationServiceEnvironment() == "development"
+    let status = applicationIDBytes.withUnsafeBytes { applicationIDBuffer in
+      tokenBytes.withUnsafeBytes { tokenBuffer in
+        MeshMessengerCacheApplePushToken(
+          applicationIDBuffer.bindMemory(to: UInt8.self).baseAddress,
+          UInt64(applicationIDBuffer.count),
+          tokenBuffer.bindMemory(to: UInt8.self).baseAddress,
+          UInt64(tokenBuffer.count),
+          development
+        )
+      }
+    }
+    guard status == MESH_LIBRARY_OK else {
+      throw PushRegistrationConfigurationError.invalidMaterial
+    }
+  }
+}
+
+private enum PushRegistrationConfigurationError: Error {
+  case missingApplicationID
+  case invalidMaterial
 }

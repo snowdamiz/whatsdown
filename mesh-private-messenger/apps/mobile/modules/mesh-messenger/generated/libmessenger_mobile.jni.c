@@ -380,6 +380,78 @@ JNIEXPORT jbyteArray JNICALL Java_mesh_MeshLibrary_update_1conversation_1export(
   return result;
 }
 
+JNIEXPORT jbyteArray JNICALL Java_mesh_MeshLibrary_push_1bind_1prepare_1export(JNIEnv *env, jclass cls, jbyteArray request) {
+  (void)cls;
+  jsize request_len = (*env)->GetArrayLength(env, request);
+  jbyte *request_data = (*env)->GetByteArrayElements(env, request, NULL);
+  MeshLibraryBytes response = {0};
+  int32_t status = mesh_messenger_push_bind_prepare((const uint8_t *)request_data, (uint64_t)request_len, &response);
+  (*env)->ReleaseByteArrayElements(env, request, request_data, JNI_ABORT);
+  if (status != MESH_LIBRARY_OK) {
+    mesh_throw_library_failure(env, status, &response);
+    mesh_library_free_returned_bytes(&response);
+    return NULL;
+  }
+  jbyteArray result = (*env)->NewByteArray(env, (jsize)response.len);
+  if (response.len != 0) (*env)->SetByteArrayRegion(env, result, 0, (jsize)response.len, (const jbyte *)response.data);
+  mesh_library_free_returned_bytes(&response);
+  return result;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_mesh_MeshLibrary_push_1unbind_1prepare_1export(JNIEnv *env, jclass cls, jbyteArray request) {
+  (void)cls;
+  jsize request_len = (*env)->GetArrayLength(env, request);
+  jbyte *request_data = (*env)->GetByteArrayElements(env, request, NULL);
+  MeshLibraryBytes response = {0};
+  int32_t status = mesh_messenger_push_unbind_prepare((const uint8_t *)request_data, (uint64_t)request_len, &response);
+  (*env)->ReleaseByteArrayElements(env, request, request_data, JNI_ABORT);
+  if (status != MESH_LIBRARY_OK) {
+    mesh_throw_library_failure(env, status, &response);
+    mesh_library_free_returned_bytes(&response);
+    return NULL;
+  }
+  jbyteArray result = (*env)->NewByteArray(env, (jsize)response.len);
+  if (response.len != 0) (*env)->SetByteArrayRegion(env, result, 0, (jsize)response.len, (const jbyte *)response.data);
+  mesh_library_free_returned_bytes(&response);
+  return result;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_mesh_MeshLibrary_push_1update_1commit_1export(JNIEnv *env, jclass cls, jbyteArray request) {
+  (void)cls;
+  jsize request_len = (*env)->GetArrayLength(env, request);
+  jbyte *request_data = (*env)->GetByteArrayElements(env, request, NULL);
+  MeshLibraryBytes response = {0};
+  int32_t status = mesh_messenger_push_update_commit((const uint8_t *)request_data, (uint64_t)request_len, &response);
+  (*env)->ReleaseByteArrayElements(env, request, request_data, JNI_ABORT);
+  if (status != MESH_LIBRARY_OK) {
+    mesh_throw_library_failure(env, status, &response);
+    mesh_library_free_returned_bytes(&response);
+    return NULL;
+  }
+  jbyteArray result = (*env)->NewByteArray(env, (jsize)response.len);
+  if (response.len != 0) (*env)->SetByteArrayRegion(env, result, 0, (jsize)response.len, (const jbyte *)response.data);
+  mesh_library_free_returned_bytes(&response);
+  return result;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_mesh_MeshLibrary_push_1status_1export(JNIEnv *env, jclass cls, jbyteArray request) {
+  (void)cls;
+  jsize request_len = (*env)->GetArrayLength(env, request);
+  jbyte *request_data = (*env)->GetByteArrayElements(env, request, NULL);
+  MeshLibraryBytes response = {0};
+  int32_t status = mesh_messenger_push_status((const uint8_t *)request_data, (uint64_t)request_len, &response);
+  (*env)->ReleaseByteArrayElements(env, request, request_data, JNI_ABORT);
+  if (status != MESH_LIBRARY_OK) {
+    mesh_throw_library_failure(env, status, &response);
+    mesh_library_free_returned_bytes(&response);
+    return NULL;
+  }
+  jbyteArray result = (*env)->NewByteArray(env, (jsize)response.len);
+  if (response.len != 0) (*env)->SetByteArrayRegion(env, result, 0, (jsize)response.len, (const jbyte *)response.data);
+  mesh_library_free_returned_bytes(&response);
+  return result;
+}
+
 JNIEXPORT jbyteArray JNICALL Java_mesh_MeshLibrary_list_1conversations_1export(JNIEnv *env, jclass cls, jbyteArray request) {
   (void)cls;
   jsize request_len = (*env)->GetArrayLength(env, request);

@@ -105,3 +105,23 @@ pub fn test_ratchet_tamper_envelope(input :: Bytes) -> Bytes ! String do
   mobile_byte(replacement) ?) ?
   test_encode_ratchet_outer(outer, % { message | ciphertext : ciphertext })
 end
+
+pub fn expo_registration_body_for_test(raw_material :: Bytes,
+device_id :: Bytes,
+project_id :: Bytes) -> String ! String do
+  expo_registration_body(parse_expo_raw_token(raw_material) ?,
+  device_id,
+  expo_project_id(project_id) ?)
+end
+
+pub fn push_bind_prepare_with_test_config(input :: Bytes,
+broker_public_key :: Bytes,
+endpoint :: String) -> Bytes ! String do
+  let request = parse_push_bind_request(input) ?
+  let configured_key = if Bytes.length(broker_public_key) != 32 do
+    Err("invalid push broker key")
+  else
+    Ok(X25519PublicKey { bytes : broker_public_key })
+  end
+  prepare_push_bind_with_config(request, configured_key, endpoint)
+end

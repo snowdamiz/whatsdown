@@ -55,8 +55,8 @@ check_bindings() {
 
 build_ios() {
   local destination="$module_dir/native/ios/MeshMessengerCore.xcframework"
-  local device="$temp_dir/libmessenger_mobile_ios.a"
-  local simulator="$temp_dir/libmessenger_mobile_ios_sim.a"
+  local device="$temp_dir/device/libmessenger_mobile.a"
+  local simulator="$temp_dir/simulator/libmessenger_mobile.a"
   local resolved_destination
 
   [[ "$(uname -s)" == Darwin ]] || { printf 'iOS builds require macOS\n' >&2; return 1; }
@@ -69,6 +69,7 @@ build_ios() {
     find "$resolved_destination" -depth -delete
   fi
   mkdir -p "$(dirname "$destination")"
+  mkdir -p "$(dirname "$device")" "$(dirname "$simulator")"
   IPHONEOS_DEPLOYMENT_TARGET=16.4 "$meshc_bin" build "$core_dir" \
     --artifact staticlib --target aarch64-apple-ios --output "$device"
   IPHONEOS_DEPLOYMENT_TARGET=16.4 "$meshc_bin" build "$core_dir" \

@@ -1,3 +1,5 @@
+import { type EventSubscription, requireNativeModule } from 'expo-modules-core';
+
 export {
   create_account_export,
   create_link_request_export,
@@ -20,6 +22,10 @@ export {
   persist_envelope,
   process_delivery_batch_export,
   privacy_submission_export,
+  push_bind_prepare_export,
+  push_status_export,
+  push_unbind_prepare_export,
+  push_update_commit_export,
   replenish_prekeys_export,
   reconcile_prekeys_export,
   receive_initial_export,
@@ -33,3 +39,22 @@ export {
   validate_outer,
   verify_transparency_export,
 } from './generated/libmessenger_mobile';
+
+type PushNativeModule = {
+  primePushToken(): Promise<void>;
+  clearPushToken(): Promise<void>;
+  addListener(
+    event: 'onPushRegistrationChanged',
+    listener: () => void,
+  ): EventSubscription;
+};
+
+const pushNative = requireNativeModule<PushNativeModule>('MeshMessenger');
+
+export const primePushToken = (): Promise<void> => pushNative.primePushToken();
+export const clearPushToken = (): Promise<void> => pushNative.clearPushToken();
+
+export function onPushRegistrationChanged(listener: () => void): () => void {
+  const subscription = pushNative.addListener('onPushRegistrationChanged', listener);
+  return () => subscription.remove();
+}

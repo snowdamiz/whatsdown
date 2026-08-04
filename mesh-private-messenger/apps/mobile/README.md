@@ -11,10 +11,12 @@ EXPO_PUBLIC_MESSENGER_ABUSE_DIFFICULTY=16 \
 EXPO_PUBLIC_MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX=SERVICE_PUBLIC_KEY \
 EXPO_PUBLIC_MESSENGER_WITNESS_A_PUBLIC_KEY_HEX=WITNESS_A_PUBLIC_KEY \
 EXPO_PUBLIC_MESSENGER_WITNESS_B_PUBLIC_KEY_HEX=WITNESS_B_PUBLIC_KEY \
+EXPO_PUBLIC_MESSENGER_EXPO_PROJECT_ID=YOUR_EAS_PROJECT_UUID \
 npm run ios
 ```
 
 Use a LAN or deployed HTTPS URL on physical devices. `127.0.0.1` only reaches the device itself. A custom development build is required because the app contains the local native module.
+New accounts stay in durable no-push mode until the user explicitly enables generic encrypted-activity notifications from the account screen.
 New development accounts advertise experimental hybrid suite `0x0002`; linked
 classical devices remain on suite `0x0001` until credential rotation. Suite
 `0x0002` is not production-approved until the independent cryptographic review

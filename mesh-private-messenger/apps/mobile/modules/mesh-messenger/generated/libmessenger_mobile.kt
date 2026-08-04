@@ -30,6 +30,10 @@ object MeshLibrary {
     @JvmStatic external fun send_message_export(request: ByteArray): ByteArray
     @JvmStatic external fun receive_message_export(request: ByteArray): ByteArray
     @JvmStatic external fun update_conversation_export(request: ByteArray): ByteArray
+    @JvmStatic external fun push_bind_prepare_export(request: ByteArray): ByteArray
+    @JvmStatic external fun push_unbind_prepare_export(request: ByteArray): ByteArray
+    @JvmStatic external fun push_update_commit_export(request: ByteArray): ByteArray
+    @JvmStatic external fun push_status_export(request: ByteArray): ByteArray
     @JvmStatic external fun list_conversations_export(request: ByteArray): ByteArray
     @JvmStatic external fun load_history_export(request: ByteArray): ByteArray
     @JvmStatic external fun safety_number_export(request: ByteArray): ByteArray

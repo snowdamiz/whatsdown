@@ -26,6 +26,10 @@ export const send_fanout_export = (request: Uint8Array): Promise<Uint8Array> => 
 export const send_message_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_send_message', request);
 export const receive_message_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_receive_message', request);
 export const update_conversation_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_update_conversation', request);
+export const push_bind_prepare_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_push_bind_prepare', request);
+export const push_unbind_prepare_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_push_unbind_prepare', request);
+export const push_update_commit_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_push_update_commit', request);
+export const push_status_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_push_status', request);
 export const list_conversations_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_list_conversations', request);
 export const load_history_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_load_history', request);
 export const safety_number_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_safety_number', request);

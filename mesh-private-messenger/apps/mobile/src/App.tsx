@@ -58,7 +58,15 @@ import {
   sendFanout,
   synchronizeMailbox,
 } from './network';
-import { listenForGenericWakeups } from './push';
+import {
+  disablePushBinding,
+  enablePushBinding,
+  getPushStatus,
+  listenForGenericWakeups,
+  listenForPushRegistrationChanges,
+  recoverPushBinding,
+} from './push';
+import type { PushStatus } from './push-coordinator';
 import { databasePath } from './storage';
 
 const colors = {
@@ -192,6 +200,9 @@ export default function App() {
   const [busy, setBusy] = useState(true);
   const [status, setStatus] = useState('Opening encrypted storage…');
   const [error, setError] = useState('');
+  const [pushStatus, setPushStatus] = useState<PushStatus>('disabled');
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState('');
 
   const selected = conversations.find((conversation) => conversation.conversationId.join('.') === selectedId);
 
@@ -237,6 +248,27 @@ export default function App() {
     }
   }
 
+  async function updatePush(work: () => Promise<PushStatus>): Promise<void> {
+    setPushBusy(true);
+    setPushError('');
+    try {
+      setPushStatus(await work());
+    } catch (caught) {
+      setPushError(friendlyError(caught));
+      try {
+        setPushStatus(await getPushStatus(databasePath));
+      } catch {
+        // Keep the last Mesh-derived status when encrypted storage is unavailable.
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
+  function recoverPush(): void {
+    void updatePush(() => recoverPushBinding(databasePath));
+  }
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -269,6 +301,19 @@ export default function App() {
       appState.remove();
     };
   }, [profile, selectedId]);
+
+  useEffect(() => {
+    if (!profile) return undefined;
+    const removeRegistrationListener = listenForPushRegistrationChanges(recoverPush);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') recoverPush();
+    });
+    recoverPush();
+    return () => {
+      removeRegistrationListener();
+      appState.remove();
+    };
+  }, [profile]);
 
   async function perform(label: string, work: () => Promise<void>): Promise<void> {
     setBusy(true);
@@ -546,6 +591,40 @@ export default function App() {
                 />
               </View>
               <Text style={styles.monoCaption}>VERIFY THE SAFETY NUMBER AFTER CONNECTING</Text>
+              <View style={styles.newContactPanel}>
+                <Text style={styles.panelKicker}>GENERIC NOTIFICATIONS</Text>
+                <Text accessibilityRole="header" style={styles.panelTitle}>
+                  {pushStatus === 'enabled' || pushStatus === 'pending-bind'
+                    ? 'Enabled'
+                    : 'No-push mode'}
+                </Text>
+                <Text style={styles.bodyCopy}>
+                  No-push mode never requests notification permission or registers this device. When
+                  enabled, alerts reveal only generic encrypted activity.
+                </Text>
+                <PrimaryButton
+                  disabled={pushBusy}
+                  label={
+                    pushStatus === 'enabled' || pushStatus === 'pending-bind'
+                      ? 'Use no-push mode'
+                      : 'Enable generic notifications'
+                  }
+                  onPress={() =>
+                    void updatePush(() =>
+                      pushStatus === 'enabled' || pushStatus === 'pending-bind'
+                        ? disablePushBinding(databasePath)
+                        : enablePushBinding(databasePath),
+                    )
+                  }
+                />
+                {pushStatus === 'pending-bind' ? (
+                  <StatusNotice text="Notification enablement will finish when the broker is reachable." />
+                ) : null}
+                {pushStatus === 'pending-unbind' ? (
+                  <StatusNotice text="No-push mode is active; broker removal will retry when connected." />
+                ) : null}
+                {pushError ? <StatusNotice error text={pushError} /> : null}
+              </View>
             </ScrollView>
           ) : screen === 'link-authorization' && linkAuthorization ? (
             <ScrollView contentContainerStyle={styles.screenContent}>
