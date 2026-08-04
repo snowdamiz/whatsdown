@@ -21,12 +21,11 @@ the version 1 classical and experimental hybrid profiles.
 | Group epoch secret | `SecretBytes` | One local group state and epoch | Sealed in the group snapshot |
 | Group TreeKEM leaf and parent private keys | `X25519PrivateKey` | One local group state; replaced when its path is updated | Sealed in the group snapshot |
 | Attachment key | `SecretBytes` | One attachment until upload/download completion or expiry | Sealed while work is pending |
+| Backup recovery secret | `SecretBytes` | User-held recovery capability; until its backup is retired or replaced | Never uploaded or stored in an app snapshot; user-controlled export is not yet integrated |
+| Derived backup content key | `SecretBytes` | One backup creation or restore operation | Never; re-derived from the recovery secret and versioned profile |
 | Skipped message key | `SecretBytes` | One session; at most 1,000 keys for at most 7 days | Sealed in the session snapshot |
 | HKDF or HMAC intermediate | `SecretBytes` | One derivation call; consumed into a named key or tag | Never |
 | Storage wrapping key | `StorageKey` | Platform-backed device capability | Never placed in a Mesh snapshot |
-
-Backup recovery keys are not part of these profiles. They must be added before
-their implementations land.
 
 Every private key, shared secret, ratchet key, message key, and derivation
 output is exactly 32 bytes except the 64-byte ML-KEM-768 seed. An Ed25519
