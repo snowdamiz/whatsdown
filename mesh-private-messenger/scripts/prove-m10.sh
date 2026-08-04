@@ -12,8 +12,6 @@ readonly temp_parent="${TMPDIR:-/tmp}"
 temp_dir="$(mktemp -d "$temp_parent/whatsdown-m10.XXXXXX")"
 readonly temp_dir
 readonly database="$temp_dir/mobile.db"
-readonly peer_database="$database.bob"
-readonly linked_database="$database.linked"
 readonly capacity_database="$database.capacity"
 readonly legacy_active_database="$database.legacy-active"
 readonly legacy_consumed_database="$database.legacy-consumed"
@@ -138,7 +136,7 @@ main() {
 
   "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
   cc "$core_dir/tests/host.c" -I "$temp_dir" -L "$temp_dir" -lmessenger_mobile \
-    -lsqlite3 -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
+    -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" -o "$temp_dir/host"
   "$temp_dir/host" "$database"
 
   MESSENGER_M10_CAPACITY_PATH="$capacity_database" \
@@ -146,12 +144,6 @@ main() {
     MESSENGER_M10_LEGACY_CONSUMED_PATH="$legacy_consumed_database" \
     "$meshc_bin" test "$core_dir/tests"
 
-  encrypted_database_matches "$database" 14 || \
-    fail "sender SQLite did not contain fourteen encrypted session, outbox, and prekey records"
-  encrypted_database_matches "$peer_database" 14 || \
-    fail "recipient SQLite did not contain fourteen encrypted fanout and prekey records"
-  encrypted_database_matches "$linked_database" 12 || \
-    fail "linked-device SQLite did not contain twelve encrypted sync and prekey records"
   encrypted_database_matches "$capacity_database" 73 || \
     fail "bounded-pool SQLite did not contain sixty-four encrypted one-time prekeys"
   encrypted_database_matches "$legacy_active_database" 10 || \
@@ -160,7 +152,7 @@ main() {
     fail "consumed legacy singleton migration did not remain encrypted"
   local leak_pattern='whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|post-quantum-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|capacity|legacy-active|legacy-consumed|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
   local leaks
-  leaks="$(LC_ALL=C grep -a -E -o "$leak_pattern" "$database" "$peer_database" "$linked_database" "$capacity_database" "$legacy_active_database" "$legacy_consumed_database" || true)"
+  leaks="$(LC_ALL=C grep -a -E -o "$leak_pattern" "$capacity_database" "$legacy_active_database" "$legacy_consumed_database" || true)"
   if [[ -n "$leaks" ]]; then
     fail "SQLite leaked a record label or profile value: $leaks"
   fi

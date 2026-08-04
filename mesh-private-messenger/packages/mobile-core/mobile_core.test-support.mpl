@@ -63,3 +63,45 @@ pub fn migrated_prekey_matches_profile_path(database_path :: String) -> Bool ! S
     Ok( public_key) -> Ok(Bytes.secure_equals(public_key.bytes, profile.bundle.one_time_prekey))
   end
 end
+
+fn test_ratchet_outer(input :: Bytes) -> Result <( OuterEnvelope, RatchetMessage), String > do
+  let outer = canonical_outer(input) ?
+  let packet = parse_ratchet_packet(outer.ciphertext) ?
+  case decode_ratchet_message(packet.message) do
+    Err( _) -> Err("invalid_ratchet_message")
+    Ok( message) -> Ok((outer, message))
+  end
+end
+
+fn test_encode_ratchet_outer(outer :: OuterEnvelope, message :: RatchetMessage) -> Bytes ! String do
+  let encoded_message = case encode_ratchet_message(message) do
+    Err( _) -> Err("ratchet_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end ?
+  case encode_outer_envelope(% { outer | ciphertext : encode_ratchet_packet(encoded_message) ? }) do
+    Err( _) -> Err("outer_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+pub fn test_ratchet_jump_envelope(input :: Bytes) -> Bytes ! String do
+  let ( outer, message) = test_ratchet_outer(input) ?
+  test_encode_ratchet_outer(outer, % { message | message_number : 65 })
+end
+
+pub fn test_ratchet_tamper_envelope(input :: Bytes) -> Bytes ! String do
+  let ( outer, message) = test_ratchet_outer(input) ?
+  let length = Bytes.length(message.ciphertext)
+  let last = case Bytes.get(message.ciphertext, length - 1) do
+    Err( _) -> Err("invalid_ratchet_message")
+    Ok( value) -> Ok(value)
+  end ?
+  let replacement = if last == 0 do
+    1
+  else
+    0
+  end
+  let ciphertext = mobile_append(Bytes.slice(message.ciphertext, 0, length - 1) ?,
+  mobile_byte(replacement) ?) ?
+  test_encode_ratchet_outer(outer, % { message | ciphertext : ciphertext })
+end
