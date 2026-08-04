@@ -316,7 +316,7 @@ fn proof() -> Bool ! String do
   end
   case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_jump_envelope(root_reply) ?]) ?) do
     Ok( _) -> assert(false)
-    Err( error) -> assert(error == "message_rejected")
+    Err( error) -> assert(error == "ratchet_retryable")
   end
   case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_tamper_envelope(root_reply) ?]) ?) do
     Ok( _) -> assert(false)

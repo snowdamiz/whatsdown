@@ -191,6 +191,15 @@ pub fn test_ratchet_tamper_envelope(input :: Bytes) -> Bytes ! String do
   test_encode_ratchet_outer(outer, % { message | ciphertext : ciphertext })
 end
 
+pub fn direct_delivery_classification_for_test() -> Bool do
+  let verification = is_retryable_verification_crypto_error(InternalFailure) && !is_retryable_verification_crypto_error(InvalidPublicKey)
+  let session = is_retryable_session_crypto_error(InternalFailure) && !is_retryable_session_crypto_error(InvalidPublicKey) && is_retryable_session_error(PrekeyFailure(InvalidBundle))
+  let ratchet = is_retryable_ratchet_error(CryptoFailure) && is_retryable_ratchet_error(ExcessiveJump) && !is_retryable_ratchet_error(AuthenticationRejected) && !is_retryable_ratchet_error(Replay) && !is_retryable_ratchet_error(InvalidMessage)
+  let skipped = !is_retryable_ratchet_error(skipped_key_error(InvalidKey)) && is_retryable_ratchet_error(skipped_key_error(InternalFailure))
+  let opened = !is_retryable_ratchet_error(ratchet_open_error(AuthenticationFailed)) && is_retryable_ratchet_error(ratchet_open_error(InternalFailure))
+  verification && session && ratchet && skipped && opened && !permanent_direct_delivery_error("initial_crypto_failed") && !permanent_direct_delivery_error("ratchet_retryable")
+end
+
 pub fn expo_registration_body_for_test(raw_material :: Bytes,
 device_id :: Bytes,
 project_id :: Bytes) -> String ! String do

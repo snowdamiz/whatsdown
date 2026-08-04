@@ -8,6 +8,24 @@ pub type IdentityError do
   InvalidCredential
 end
 
+pub fn is_retryable_verification_crypto_error(error :: CryptoError) -> Bool do
+  case error do
+    EntropyUnavailable -> true
+    SecretDestroyed -> true
+    ResourceLimitExceeded -> true
+    UnsupportedOperation -> true
+    InternalFailure -> true
+    _ -> false
+  end
+end
+
+pub fn is_retryable_identity_verification_error(error :: IdentityError) -> Bool do
+  case error do
+    CryptoFailure( crypto_error) -> is_retryable_verification_crypto_error(crypto_error)
+    _ -> false
+  end
+end
+
 pub struct VerificationPolicy do
   current_time :: U64
   minimum_directory_sequence :: U64

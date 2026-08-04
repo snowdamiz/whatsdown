@@ -9,6 +9,28 @@ pub type RatchetError do
   Replay
 end
 
+pub fn is_retryable_ratchet_error(error :: RatchetError) -> Bool do
+  case error do
+    CryptoFailure -> true
+    ExcessiveJump -> true
+    _ -> false
+  end
+end
+
+pub fn skipped_key_error(error :: CryptoError) -> RatchetError do
+  case error do
+    InvalidKey -> Replay
+    _ -> CryptoFailure
+  end
+end
+
+pub fn ratchet_open_error(error :: CryptoError) -> RatchetError do
+  case error do
+    AuthenticationFailed -> AuthenticationRejected
+    _ -> CryptoFailure
+  end
+end
+
 pub struct RatchetMessage do
   version :: Int
   suite :: Int
@@ -470,7 +492,7 @@ message :: RatchetMessage,
 associated_data :: Bytes,
 key_id :: Bytes) -> DecryptOutcome do
   case SecretMap.copy(state.skipped_keys, key_id) do
-    Err(_) -> Rejected(state, Replay)
+    Err(error) -> Rejected(state, skipped_key_error(error))
     Ok(material) -> case aead_key(material) do
         Err(error) -> Rejected(state, error)
         Ok(key) -> case authenticated_data(state.suite,
@@ -485,7 +507,7 @@ key_id :: Bytes) -> DecryptOutcome do
               message.nonce,
               data,
               message.ciphertext) do
-                Err(_) -> reject_key(key, state, AuthenticationRejected)
+                Err(error) -> reject_key(key, state, ratchet_open_error(error))
                 Ok(plaintext) -> commit_skipped(key, state, plaintext, key_id)
               end
           end
@@ -526,11 +548,11 @@ associated_data :: Bytes) -> DecryptOutcome do
   associated_data) do
     Err(error) -> reject_current_candidate(key, candidate, next_chain, state, error)
     Ok(data) -> case Crypto.aead_open(key, message.nonce, data, message.ciphertext) do
-        Err(_) -> reject_current_candidate(key,
+        Err(error) -> reject_current_candidate(key,
           candidate,
           next_chain,
           state,
-          AuthenticationRejected)
+          ratchet_open_error(error))
         Ok(plaintext) -> commit_current(key,
           state,
           candidate,
@@ -616,12 +638,12 @@ associated_data :: Bytes) -> DecryptOutcome do
       state,
       error)
     Ok(data) -> case Crypto.aead_open(key, message.nonce, data, message.ciphertext) do
-        Err(_) -> reject_new_candidate(key,
+        Err(error) -> reject_new_candidate(key,
           candidate,
           root_key,
           next_chain,
           state,
-          AuthenticationRejected)
+          ratchet_open_error(error))
         Ok(plaintext) -> commit_new_chain(key,
           state,
           candidate,
@@ -651,6 +673,7 @@ associated_data :: Bytes) -> DecryptOutcome do
           Err(error) -> reject_map(candidate, state, error)
           Ok(_) -> case Crypto.x25519_shared(state.local_ratchet_private,
             message.ratchet_public_key) do
+              Err( InvalidPublicKey) -> reject_map(candidate, state, InvalidMessage)
               Err(_) -> reject_map(candidate, state, CryptoFailure)
               Ok(dh) -> case ratchet_root(state.root_key,
                 dh,

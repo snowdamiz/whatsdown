@@ -1,15 +1,15 @@
 from Binary.Reader import BinaryReader, finish, read_fixed, read_vector, reader
 from Groups.Mls import CommitApplyOutcome, GroupAddOutcome, GroupCommit, GroupDecryptOutcome, GroupDeliveryTarget, GroupEncryptOutcome, GroupError, GroupMessage, GroupProposal, GroupRemoveOutcome, GroupSnapshotOutcome, GroupState, GroupTransparencyPolicy, GroupWelcome, apply_commit, commit_add, commit_remove, create_group, decode_group_commit, decode_group_message, decode_group_welcome, decrypt_group_message, delivery_targets, encode_group_commit, encode_group_message, encode_group_welcome, encrypt_group_message, group_snapshot, join_from_welcome, restore_group
 from Groups.Tree import GroupMember, IndexedGroupMember, find_member_index, indexed_members, member_at
-from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential, verify_device_link_authorization
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, verify_prekey_bundle
+from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, is_retryable_verification_crypto_error, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential, verify_device_link_authorization
+from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, verify_prekey_bundle
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyPublishRequest, decode_prekey_publish_response, encode_prekey_publish, prekey_publish_signing_bytes
 from Privacy.Edge import encode_privacy_submission, mint_submission, seal_delivery
 from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceSet, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_set, decode_directory_entry, decode_initial_message, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Push.Binding import PushBindRequest, PushUnbindRequest, decode_push_bind, decode_push_unbind, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
 from Push.Token import seal_provider_token
-from Session.Handshake import RatchetState, initiate, receive_initial
-from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
+from Session.Handshake import RatchetState, SessionError, initiate, is_retryable_session_crypto_error, is_retryable_session_error, receive_initial
+from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt, is_retryable_ratchet_error, ratchet_open_error, skipped_key_error
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
 from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
 from Transparency.Client import verify_evidence
@@ -332,6 +332,14 @@ type MobileGroupReceiveOutcome do
   GroupReceiveRejected( error :: String)
 end
 
+type MobileDirectReceiveOutcome do
+  DirectReceiveApplied( output :: Bytes)
+
+  DirectReceiveRetry( error :: String)
+
+  DirectReceiveRejected( error :: String)
+end
+
 fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! String do
   case read_vector(state, maximum) do
     Err( _) -> Err("invalid_store_request")
@@ -343,7 +351,7 @@ fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes ! Strin
   end
 end
 
-fn take_push_vector(state :: BinaryReader, maximum :: Int, error :: String) -> MobileReadBytes ! String do
+fn take_vector_error(state :: BinaryReader, maximum :: Int, error :: String) -> MobileReadBytes ! String do
   case read_vector(state, maximum) do
     Err( _) -> Err(error)
     Ok( ( next, value)) -> Ok(MobileReadBytes {
@@ -1517,8 +1525,8 @@ fn parse_push_intent_request(input :: Bytes) -> MobilePushIntentRequest ! String
   case reader(input, 4105) do
     Err( _) -> Err("invalid_push_intent")
     Ok( state) -> do
-      let path = take_push_vector(state, 4096, "invalid_push_intent") ?
-      let intent = take_push_vector(path.state, 1, "invalid_push_intent") ?
+      let path = take_vector_error(state, 4096, "invalid_push_intent") ?
+      let intent = take_vector_error(path.state, 1, "invalid_push_intent") ?
       let database_path = mobile_utf8(path.value, "invalid_database_path") ?
       let intent_value = mobile_read_byte(intent.value) ?
       if String.length(database_path) == 0 || (intent_value != 0 && intent_value != 1 && intent_value != 2) do
@@ -1540,9 +1548,9 @@ fn parse_push_action_completion(input :: Bytes) -> MobilePushActionCompletion ! 
   case reader(input, 4852) do
     Err( _) -> Err("invalid_push_action_completion")
     Ok( state) -> do
-      let path = take_push_vector(state, 4096, "invalid_push_action_completion") ?
-      let action = take_push_vector(path.state, 743, "invalid_push_action_completion") ?
-      let outcome = take_push_vector(action.state, 1, "invalid_push_action_completion") ?
+      let path = take_vector_error(state, 4096, "invalid_push_action_completion") ?
+      let action = take_vector_error(path.state, 743, "invalid_push_action_completion") ?
+      let outcome = take_vector_error(action.state, 1, "invalid_push_action_completion") ?
       case finish(outcome.state) do
         Err( _) -> Err("invalid_push_action_completion")
         Ok( _) -> do
@@ -2746,28 +2754,36 @@ fn parse_sync_payload(input :: Bytes) -> MobileSyncPayload ! String do
   case reader(input, 32500) do
     Err( _) -> Err("invalid_sync_payload")
     Ok( state) -> do
-      let peer_username = take_vector(state, 64) ?
-      let peer_account_id = take_vector(peer_username.state, 32) ?
-      let conversation_id = take_vector(peer_account_id.state, 16) ?
-      let client_message_id = take_vector(conversation_id.state, 16) ?
-      let client_timestamp = take_vector(client_message_id.state, 8) ?
-      let body = take_vector(client_timestamp.state, 32000) ?
-      let disappearing_seconds = take_vector(body.state, 4) ?
+      let peer_username = take_vector_error(state, 64, "invalid_sync_payload") ?
+      let peer_account_id = take_vector_error(peer_username.state, 32, "invalid_sync_payload") ?
+      let conversation_id = take_vector_error(peer_account_id.state, 16, "invalid_sync_payload") ?
+      let client_message_id = take_vector_error(conversation_id.state, 16, "invalid_sync_payload") ?
+      let client_timestamp = take_vector_error(client_message_id.state, 8, "invalid_sync_payload") ?
+      let body = take_vector_error(client_timestamp.state, 32000, "invalid_sync_payload") ?
+      let disappearing_seconds = take_vector_error(body.state, 4, "invalid_sync_payload") ?
       case finish(disappearing_seconds.state) do
         Err( _) -> Err("invalid_sync_payload")
         Ok( _) -> do
           let username = mobile_utf8(peer_username.value, "invalid_sync_payload") ?
-          if String.length(username) == 0 || Bytes.length(peer_account_id.value) != 32 || Bytes.length(conversation_id.value) != 16 || Bytes.length(client_message_id.value) != 16 do
+          if String.length(username) == 0 || Bytes.length(peer_account_id.value) != 32 || Bytes.length(conversation_id.value) != 16 || Bytes.length(client_message_id.value) != 16 || Bytes.length(client_timestamp.value) != 8 || Bytes.length(disappearing_seconds.value) != 4 do
             Err("invalid_sync_payload")
           else
+            let timestamp = case mobile_read_u64(client_timestamp.value) do
+              Err( _) -> Err("invalid_sync_payload")
+              Ok( value) -> Ok(value)
+            end ?
+            let disappearing = case mobile_read_u32(disappearing_seconds.value) do
+              Err( _) -> Err("invalid_sync_payload")
+              Ok( value) -> Ok(value)
+            end ?
             Ok(MobileSyncPayload {
               peer_username : username,
               peer_account_id : peer_account_id.value,
               conversation_id : conversation_id.value,
               client_message_id : client_message_id.value,
-              client_timestamp : mobile_read_u64(client_timestamp.value) ?,
+              client_timestamp : timestamp,
               body : body.value,
-              disappearing_seconds : mobile_read_u32(disappearing_seconds.value) ?
+              disappearing_seconds : disappearing
             })
           end
         end
@@ -2812,9 +2828,9 @@ fn parse_initial_packet(input :: Bytes) -> MobileInitialPacket ! String do
   case reader(input, 65536) do
     Err( _) -> Err("invalid_initial_packet")
     Ok( state) -> do
-      let kind = take_vector(state, 1) ?
-      let account_identity = take_vector(kind.state, 4096) ?
-      let message = take_vector(account_identity.state, 60000) ?
+      let kind = take_vector_error(state, 1, "invalid_initial_packet") ?
+      let account_identity = take_vector_error(kind.state, 4096, "invalid_initial_packet") ?
+      let message = take_vector_error(account_identity.state, 60000, "invalid_initial_packet") ?
       case finish(message.state) do
         Err( _) -> Err("invalid_initial_packet")
         Ok( _) -> if !Bytes.secure_equals(kind.value, mobile_byte(1) ?) do
@@ -2838,8 +2854,8 @@ fn parse_initial_plaintext(input :: Bytes) -> MobileInitialPlaintext ! String do
   case reader(input, 65536) do
     Err( _) -> Err("invalid_initial_plaintext")
     Ok( state) -> do
-      let profile = take_vector(state, 36134) ?
-      let inner = take_vector(profile.state, 49144) ?
+      let profile = take_vector_error(state, 36134, "invalid_initial_plaintext") ?
+      let inner = take_vector_error(profile.state, 49144, "invalid_initial_plaintext") ?
       case finish(inner.state) do
         Err( _) -> Err("invalid_initial_plaintext")
         Ok( _) -> Ok(MobileInitialPlaintext {
@@ -4122,11 +4138,18 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
       },
       strongest_suite,
       packet.message) do
-        Err( _) -> Err("initial_receive_failed")
+        Err( error) -> if is_retryable_session_error(error) do
+          Err("initial_crypto_failed")
+        else
+          Err("initial_receive_failed")
+        end
         Ok( value) -> Ok(value)
       end ?
       let decoded = parse_initial_plaintext(plaintext) ?
-      let peer = parse_profile(decoded.profile) ?
+      let peer = case parse_profile(decoded.profile) do
+        Err( _) -> Err("invalid_peer_profile")
+        Ok( value) -> Ok(value)
+      end ?
       let inner = case decode_inner_envelope(decoded.inner) do
         Err( _) -> Err("invalid_inner_envelope")
         Ok( value) -> Ok(value)
@@ -4216,8 +4239,8 @@ fn parse_ratchet_packet(input :: Bytes) -> MobileRatchetPacket ! String do
   case reader(input, 65536) do
     Err( _) -> Err("invalid_ratchet_packet")
     Ok( state) -> do
-      let kind = take_vector(state, 1) ?
-      let message = take_vector(kind.state, 65520) ?
+      let kind = take_vector_error(state, 1, "invalid_ratchet_packet") ?
+      let message = take_vector_error(kind.state, 65520, "invalid_ratchet_packet") ?
       case finish(message.state) do
         Err( _) -> Err("invalid_ratchet_packet")
         Ok( _) -> if !Bytes.secure_equals(kind.value, mobile_byte(2) ?) do
@@ -4758,8 +4781,8 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
   end
 end
 
-fn reject_message(state :: consume RatchetState) -> Bytes ! String do
-  Err("message_rejected")
+fn reject_message(state :: consume RatchetState, error :: String) -> Bytes ! String do
+  Err(error)
 end
 
 fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
@@ -4783,7 +4806,11 @@ fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
     let loaded = load_session_record(request.database_path, wrapping_key, message.session_id) ?
     let state = restore_session(loaded, wrapping_key) ?
     case decrypt(state, message, ratchet_aad(loaded.session_id) ?) do
-      Rejected( rejected_state, _) -> reject_message(rejected_state)
+      Rejected( rejected_state, error) -> if is_retryable_ratchet_error(error) do
+        reject_message(rejected_state, "ratchet_retryable")
+      else
+        reject_message(rejected_state, "message_rejected")
+      end
       Opened( next_state, plaintext) -> do
         let inner = case decode_inner_envelope(plaintext) do
           Err( _) -> Err("invalid_inner_envelope")
@@ -4799,7 +4826,7 @@ fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
         local.device_id) || !Bytes.secure_equals(inner.conversation_id,
         loaded.record.conversation_id)
         if mismatch do
-          reject_message(next_state)
+          reject_message(next_state, "message_rejected")
         else
           let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
           if loaded.record.blocked do
@@ -5516,7 +5543,7 @@ fn parse_push_action_frame(input :: Bytes) -> MobilePushActionFrame ! String do
       let kind = take_fixed(magic.state, 1) ?
       let flags = take_fixed(kind.state, 1) ?
       let epoch = take_fixed(flags.state, 8) ?
-      let payload = take_push_vector(epoch.state, 725, "invalid_push_action") ?
+      let payload = take_vector_error(epoch.state, 725, "invalid_push_action") ?
       case finish(payload.state) do
         Err( _) -> Err("invalid_push_action")
         Ok( _) -> do
@@ -7805,6 +7832,28 @@ fn receive_mobile_group(request :: MobileReceiveRequest) -> Bytes ! String do
   end
 end
 
+fn permanent_direct_delivery_error(error :: String) -> Bool do
+  error == "wrong_mailbox" || error == "invalid_outer_envelope" || error == "noncanonical_outer_envelope" || error == "invalid_initial_packet" || error == "invalid_initial_message" || error == "outer_suite_mismatch" || error == "invalid_initiator_account" || error == "invalid_initiator_credential" || error == "initial_receive_failed" || error == "invalid_initial_plaintext" || error == "invalid_peer_profile" || error == "invalid_inner_envelope" || error == "initial_identity_mismatch" || error == "invalid_sync_payload" || error == "sync_conversation_mismatch" || error == "invalid_ratchet_packet" || error == "invalid_ratchet_message" || error == "message_rejected" || error == "one_time_prekey_not_found" || error == "blocked_message"
+end
+
+fn receive_mobile_direct_classified(request :: MobileReceiveRequest) -> MobileDirectReceiveOutcome do
+  let received = case canonical_outer(request.outer) do
+    Err( error) -> Err(error)
+    Ok( outer) -> case parse_initial_packet(outer.ciphertext) do
+      Ok( _) -> receive_initial_message(request)
+      Err( _) -> receive_message(request)
+    end
+  end
+  case received do
+    Ok( output) -> DirectReceiveApplied(output)
+    Err( error) -> if permanent_direct_delivery_error(error) do
+      DirectReceiveRejected(error)
+    else
+      DirectReceiveRetry(error)
+    end
+  end
+end
+
 fn process_deliveries(database_path :: String,
 deliveries :: List < DeliveredEnvelope >,
 index :: Int,
@@ -7827,11 +7876,11 @@ envelope_ids :: List < Bytes >) -> List < Bytes > do
             GroupReceiveRejected( _) -> true
           end
         else
-          let ignored = case parse_initial_packet(outer.ciphertext) do
-            Ok( _) -> receive_initial_message(request)
-            Err( _) -> receive_message(request)
+          case receive_mobile_direct_classified(request) do
+            DirectReceiveApplied( _) -> true
+            DirectReceiveRetry( _) -> false
+            DirectReceiveRejected( _) -> true
           end
-          true
         end
         let next_ids = if acknowledge do
           List.append(envelope_ids, outer.envelope_id)

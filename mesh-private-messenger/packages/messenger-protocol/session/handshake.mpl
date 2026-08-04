@@ -1,4 +1,4 @@
-from Identity.Device import DeviceKeys, IdentityError, VerificationPolicy, verify_device_credential
+from Identity.Device import DeviceKeys, IdentityError, VerificationPolicy, is_retryable_identity_verification_error, verify_device_credential
 from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, verify_prekey_bundle
 from Protocol.V1 import AccountIdentity, DeviceCredential, HandshakeTranscript, InitialMessage, PrekeyBundle, ProtocolError, decode_device_credential, decode_initial_message, encode_device_credential, encode_prekey_bundle, hash_handshake_transcript, negotiate_suites
 
@@ -14,6 +14,22 @@ pub type SessionError do
   ProtocolFailure( error :: ProtocolError)
 
   InvalidHandshake
+end
+
+pub fn is_retryable_session_crypto_error(error :: CryptoError) -> Bool do
+  case error do
+    InvalidPublicKey -> false
+    _ -> true
+  end
+end
+
+pub fn is_retryable_session_error(error :: SessionError) -> Bool do
+  case error do
+    CryptoFailure( crypto_error) -> is_retryable_session_crypto_error(crypto_error)
+    IdentityFailure( identity_error) -> is_retryable_identity_verification_error(identity_error)
+    PrekeyFailure( _) -> true
+    _ -> false
+  end
 end
 
 pub resource struct RatchetState do
@@ -341,16 +357,21 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
         strongest_authenticated_suite,
         responder_policy.current_time,
         responder_policy.minimum_directory_sequence) do
-          Err( _) -> false
-          Ok( value) -> value
-        end
+          Err( error) -> Err(PrekeyFailure(error))
+          Ok(false) -> Err(PrekeyFailure(InvalidBundle))
+          Ok(true) -> Ok(true)
+        end ?
         let credential_valid = case verify_device_credential(initiator_account,
         credential,
         initiator_policy.current_time,
         initiator_policy.minimum_directory_sequence) do
-          Err( _) -> false
-          Ok( value) -> value
-        end
+          Err( error) -> if is_retryable_identity_verification_error(error) do
+            Err(IdentityFailure(error))
+          else
+            Ok(false)
+          end
+          Ok( value) -> Ok(value)
+        end ?
         let identity_key_mismatch = !Bytes.secure_equals(credential.dh_public_key,
         message.initiator_identity_public_key.bytes)
         if !bundle_valid || !credential_valid || identity_key_mismatch do

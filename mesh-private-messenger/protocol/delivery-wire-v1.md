@@ -21,8 +21,20 @@ The server-visible `u16` suite is `1` for classical direct messages, `2` for
 hybrid direct messages, or development-only `3` for group commits, welcomes,
 and messages.
 
-Mobile batch processing may return empty bytes instead of an `ACK` when every
-suite-3 envelope is retryable (for example, a message for a future epoch whose
-commit has not arrived). The client must skip the acknowledgement request in
+For direct suites 1 and 2, mobile batch processing acknowledges an envelope
+only after it was durably applied or classified as a permanent rejection.
+Permanent rejections are malformed or mismatched direct protocol records,
+peer authentication, ratchet replay, invalid peer-controlled profile or sync data,
+replay of a consumed one-time prekey, and a message rejected by persisted
+blocking policy. Local profile, key-store, database, session, history,
+cryptographic-provider failures, and potentially later-applicable ratchet gaps
+are retryable; every unrecognized error is retryable by default.
+
+Suite 3 follows the same durable-apply/permanent-rejection rule. For example, a
+future-epoch group message remains retryable until its commit arrives. Mobile
+batch processing returns empty bytes instead of an `ACK` when every decodable
+envelope is retryable, and the client must skip the acknowledgement request in
 that case. A mixed batch contains only the IDs that were durably applied or
 classified as permanent poison; retryable IDs remain absent for redelivery.
+An undecodable outer envelope has no trusted acknowledgement ID and is not
+acknowledged.
