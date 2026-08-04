@@ -15,15 +15,12 @@ export const replenish_prekeys_export = (request: Uint8Array): Promise<Uint8Arra
 export const reconcile_prekeys_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_reconcile_prekeys', request);
 export const create_link_request_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_create_link_request', request);
 export const device_link_sas_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_device_link_sas', request);
-export const authorize_device_link_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_authorize_device_link', request);
 export const authorize_device_link_for_set_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_authorize_device_link_for_set', request);
 export const complete_device_link_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_complete_device_link', request);
 export const inspect_device_set_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_inspect_device_set', request);
 export const create_device_revocation_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_create_device_revocation', request);
-export const start_conversation_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_start_conversation', request);
 export const receive_initial_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_receive_initial', request);
 export const send_fanout_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_send_fanout', request);
-export const send_message_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_send_message', request);
 export const group_key_package_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_key_package', request);
 export const group_create_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_create', request);
 export const group_add_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_add', request);

@@ -65,8 +65,6 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.create_link_request_export(request)
       case "mesh_messenger_device_link_sas":
         return try MeshLibrary.device_link_sas_export(request)
-      case "mesh_messenger_authorize_device_link":
-        return try MeshLibrary.authorize_device_link_export(request)
       case "mesh_messenger_authorize_device_link_for_set":
         return try MeshLibrary.authorize_device_link_for_set_export(request)
       case "mesh_messenger_complete_device_link":
@@ -75,14 +73,10 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.inspect_device_set_export(request)
       case "mesh_messenger_create_device_revocation":
         return try MeshLibrary.create_device_revocation_export(request)
-      case "mesh_messenger_start_conversation":
-        return try MeshLibrary.start_conversation_export(request)
       case "mesh_messenger_receive_initial":
         return try MeshLibrary.receive_initial_export(request)
       case "mesh_messenger_send_fanout":
         return try MeshLibrary.send_fanout_export(request)
-      case "mesh_messenger_send_message":
-        return try MeshLibrary.send_message_export(request)
       case "mesh_messenger_group_key_package":
         return try MeshLibrary.group_key_package_export(request)
       case "mesh_messenger_group_create":

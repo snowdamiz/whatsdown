@@ -94,9 +94,7 @@ fn proof() -> Bool ! String do
   let path_vector = vector(path_bytes) ?
   let username_vector = vector(username_bytes) ?
   let evidence_vector = vector(evidence) ?
-  let request = join([path_vector, username_vector, evidence_vector],
-  0,
-  Bytes.empty()) ?
+  let request = join([path_vector, username_vector, evidence_vector], 0, Bytes.empty()) ?
   assert(Bytes.secure_equals(verify_transparency_export(request) ?, device_set))
   case verify_transparency_export(request) do
     Err( error) -> assert(error == "transparency_verification_failed")

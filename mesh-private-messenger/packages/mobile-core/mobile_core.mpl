@@ -2542,6 +2542,7 @@ fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes ! String do
   let local = decode_client_profile(load_profile(request.database_path) ?) ?
   let verified = verified_device_set(request.payload) ?
   let wrapping_key = platform_key() ?
+  let _ = require_transparency_device_set(request.database_path, wrapping_key, verified) ?
   let label = device_set_label(verified.account.account_id)
   let changed = cached_device_set_changed(request.database_path, wrapping_key, verified, label) ?
   let sealed = seal_local(verified.wire, wrapping_key, local_context(label) ?) ?
@@ -2579,13 +2580,14 @@ fn authorize_link_for_set(request :: MobileTriplePayloadRequest) -> Bytes ! Stri
   ensure_schema(request.database_path) ?
   let local = decode_client_profile(load_profile(request.database_path) ?) ?
   let devices = verified_device_set(request.first) ?
+  let wrapping_key = platform_key() ?
+  let _ = require_transparency_device_set(request.database_path, wrapping_key, devices) ?
   let requested_device = parse_link_request(request.second) ?
   let now = current_time() ?
   if !local_device_set(local, devices) || U64.compare(requested_device.created_at, now) > 0 || U64.compare(requested_device.expires_at,
   now) < 0 do
     Err("link_authorization_failed")
   else
-    let wrapping_key = platform_key() ?
     let account = open_account(local, wrapping_key, request.database_path) ?
     let authorization = case authorize_device_link(account,
     local.account,
@@ -2604,6 +2606,8 @@ fn create_device_revocation(request :: MobileTriplePayloadRequest) -> Bytes ! St
   ensure_schema(request.database_path) ?
   let local = decode_client_profile(load_profile(request.database_path) ?) ?
   let devices = verified_device_set(request.first) ?
+  let wrapping_key = platform_key() ?
+  let _ = require_transparency_device_set(request.database_path, wrapping_key, devices) ?
   let target = request.second
   let allowed = Bytes.length(target) == 16 && local_device_set(local, devices) && List.length(devices.profiles) > 1 && contains_device_id(devices.profiles,
   target,
@@ -2611,7 +2615,6 @@ fn create_device_revocation(request :: MobileTriplePayloadRequest) -> Bytes ! St
   if !allowed do
     Err("invalid_device_revocation")
   else
-    let wrapping_key = platform_key() ?
     let account = open_account(local, wrapping_key, request.database_path) ?
     let revocation = case issue_device_revocation(account,
     target,
@@ -4436,6 +4439,8 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
     Err("invalid_fanout_device_set")
   else
     let wrapping_key = platform_key() ?
+    let _ = require_transparency_device_set(request.database_path, wrapping_key, peers) ?
+    let _ = require_transparency_device_set(request.database_path, wrapping_key, local_devices) ?
     let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
     let session_ids = load_session_ids(request.database_path, wrapping_key) ?
     let anchor = case find_peer_session(request.database_path,
@@ -6184,14 +6189,13 @@ fn transparency_checkpoint_precedes(first :: Bytes, second :: Bytes, view :: Mob
   end
 end
 
-fn verified_transparency_device_set(database_path :: String,
+fn require_transparency_device_set(database_path :: String,
 wrapping_key :: borrow StorageKey,
-devices :: MobileVerifiedDeviceSet,
-baseline_checkpoint :: Bytes) -> Bytes ! String do
+devices :: MobileVerifiedDeviceSet) -> Bytes ! String do
   let label = transparency_device_set_label(devices.account.account_id)
   case load_blob(database_path, label) do
     Err( error) -> if error == "local_state_not_found" do
-      Err("group_transparency_unverified")
+      Err("device_set_transparency_unverified")
     else
       Err(error)
     end
@@ -6199,15 +6203,43 @@ baseline_checkpoint :: Bytes) -> Bytes ! String do
       let cached = decode_verified_transparency_set(open_local(blob,
       wrapping_key,
       local_context(label) ?) ?) ?
-      let view = load_transparency_view(database_path, wrapping_key) ?
-      if Bytes.secure_equals(cached.device_set, devices.wire) && transparency_checkpoint_precedes(baseline_checkpoint,
-      cached.checkpoint,
-      view) ? && transparency_checkpoint_precedes(cached.checkpoint, view.checkpoint, view) ? do
+      let view = case load_transparency_view(database_path, wrapping_key) do
+        Err( error) -> if error == "group_transparency_unverified" do
+          Err("device_set_transparency_unverified")
+        else
+          Err(error)
+        end
+        Ok( loaded) -> Ok(loaded)
+      end ?
+      if Bytes.secure_equals(cached.device_set, devices.wire) && transparency_checkpoint_in_view(cached.checkpoint,
+      view) ? do
         Ok(cached.checkpoint)
       else
-        Err("group_transparency_unverified")
+        Err("device_set_transparency_unverified")
       end
     end
+  end
+end
+
+fn verified_transparency_device_set(database_path :: String,
+wrapping_key :: borrow StorageKey,
+devices :: MobileVerifiedDeviceSet,
+baseline_checkpoint :: Bytes) -> Bytes ! String do
+  let cached_checkpoint = case require_transparency_device_set(database_path, wrapping_key, devices) do
+    Err( error) -> if error == "device_set_transparency_unverified" do
+      Err("group_transparency_unverified")
+    else
+      Err(error)
+    end
+    Ok( checkpoint) -> Ok(checkpoint)
+  end ?
+  let view = load_transparency_view(database_path, wrapping_key) ?
+  if transparency_checkpoint_precedes(baseline_checkpoint, cached_checkpoint, view) ? && transparency_checkpoint_precedes(cached_checkpoint,
+  view.checkpoint,
+  view) ? do
+    Ok(cached_checkpoint)
+  else
+    Err("group_transparency_unverified")
   end
 end
 
@@ -7915,7 +7947,7 @@ end
   device_link_sas(request)
 end
 
-@ export("mesh_messenger_authorize_device_link")pub fn authorize_device_link_export(request :: Bytes) -> Bytes ! String do
+pub fn authorize_device_link_export(request :: Bytes) -> Bytes ! String do
   authorize_link(parse_payload_request(request) ?)
 end
 
@@ -7935,7 +7967,7 @@ end
   create_device_revocation(parse_triple_payload_request(request) ?)
 end
 
-@ export("mesh_messenger_start_conversation")pub fn start_conversation_export(request :: Bytes) -> Bytes ! String do
+pub fn start_conversation_export(request :: Bytes) -> Bytes ! String do
   start_conversation(parse_start_request(request) ?)
 end
 
@@ -7947,7 +7979,7 @@ end
   send_fanout(parse_fanout_request(request) ?)
 end
 
-@ export("mesh_messenger_send_message")pub fn send_message_export(request :: Bytes) -> Bytes ! String do
+pub fn send_message_export(request :: Bytes) -> Bytes ! String do
   send_message(parse_start_request(request) ?)
 end
 

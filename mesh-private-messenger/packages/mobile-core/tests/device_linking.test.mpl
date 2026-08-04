@@ -1,9 +1,11 @@
 import File
 from Identity.Device import verify_device_link_authorization, verify_device_revocation
-from MobileCore import authorize_device_link_for_set_export, complete_device_link_export, create_account_export, create_device_revocation_export, create_link_request_export, device_link_sas_export, directory_entry_export, inspect_device_set_export, load_profile_export, replenish_prekeys_export
+from MobileCore import authorize_device_link_for_set_export, complete_device_link_export, create_account_export, create_device_revocation_export, create_link_request_export, device_link_sas_export, directory_entry_export, inspect_device_set_export, install_group_transparency_for_test, load_profile_export, replenish_prekeys_export
 from Prekeys.Pool import decode_prekey_publish
 from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceRevocation, DeviceSet, DirectoryEntry, PrekeyBundle, decode_account_identity, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_revocation, decode_directory_entry, decode_prekey_bundle, encode_device_link_request, encode_device_set
+from Tests.GroupConsistencySupport import signed_transparency_view
 from Tests.Support import append, database_path, vector, write_u32
+from Transparency.Merkle import leaf_hash
 
 fn encode_vectors(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! String do
   if index >= List.length(values) do
@@ -153,6 +155,18 @@ fn proof() -> Bool ! String do
     devices : [root_entry],
     revoked_device_ids : List.new()
   }) ?
+  case authorize_device_link_for_set_export(request([Bytes.from_utf8(root_path), root_set, request_wire]) ?) do
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "device_set_transparency_unverified")
+  end
+  let root_view = signed_transparency_view([leaf_hash(root_set) ?]) ?
+  assert(install_group_transparency_for_test(root_path,
+  root_view.checkpoint,
+  root_view.consistency,
+  root_view.service_public_key,
+  root_view.witness_a_public_key,
+  root_view.witness_b_public_key,
+  root_set) ?)
   let authorization_wire = authorize_device_link_for_set_export(request([Bytes.from_utf8(root_path), root_set, request_wire]) ?) ?
   let authorization = link_authorization(authorization_wire) ?
   let linked_credential = credential(authorization.device_credential) ?
@@ -195,12 +209,36 @@ fn proof() -> Bool ! String do
     devices : [root_entry, linked_entry],
     revoked_device_ids : List.new()
   }) ?
+  let unverified_successor = device_set_wire(DeviceSet {
+    version : 1,
+    username : root_entry.username,
+    account_identity : root_entry.account_identity,
+    sequence : wide("3") ?,
+    devices : [root_entry, linked_entry],
+    revoked_device_ids : List.new()
+  }) ?
+  case inspect_device_set_export(request([Bytes.from_utf8(root_path), unverified_successor]) ?) do
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "device_set_transparency_unverified")
+  end
+  case create_device_revocation_export(request([Bytes.from_utf8(root_path), unverified_successor, completed_credential.device_id]) ?) do
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "device_set_transparency_unverified")
+  end
   let expected_linked = inspect_output("alice",
   root_account.account_id,
   wide("2") ?,
   0,
   1,
   [inspect_row(root_credential.device_id, 1, 1) ?, inspect_row(completed_credential.device_id, 1, 0) ?]) ?
+  let linked_view = signed_transparency_view([leaf_hash(linked_set) ?]) ?
+  assert(install_group_transparency_for_test(root_path,
+  linked_view.checkpoint,
+  linked_view.consistency,
+  linked_view.service_public_key,
+  linked_view.witness_a_public_key,
+  linked_view.witness_b_public_key,
+  linked_set) ?)
   assert(Bytes.secure_equals(inspect_device_set_export(request([Bytes.from_utf8(root_path), linked_set]) ?) ?,
   expected_linked))
   let revocation_wire = create_device_revocation_export(request([Bytes.from_utf8(root_path), linked_set, completed_credential.device_id]) ?) ?
@@ -221,6 +259,18 @@ fn proof() -> Bool ! String do
     devices : [root_entry],
     revoked_device_ids : [completed_credential.device_id]
   }) ?
+  case inspect_device_set_export(request([Bytes.from_utf8(root_path), revoked_set]) ?) do
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "device_set_transparency_unverified")
+  end
+  let revoked_view = signed_transparency_view([leaf_hash(revoked_set) ?]) ?
+  assert(install_group_transparency_for_test(root_path,
+  revoked_view.checkpoint,
+  revoked_view.consistency,
+  revoked_view.service_public_key,
+  revoked_view.witness_a_public_key,
+  revoked_view.witness_b_public_key,
+  revoked_set) ?)
   let expected_revoked = inspect_output("alice",
   root_account.account_id,
   wide("3") ?,

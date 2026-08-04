@@ -1,8 +1,12 @@
 import File
-from MobileCore import authorize_device_link_export, complete_device_link_export, create_account_export, create_link_request_export, directory_entry_export, load_history_export, outbox_ack_export, outbox_list_export, receive_initial_export, receive_message_export, replenish_prekeys_export, safety_number_export, send_fanout_export, start_conversation_export, test_ratchet_jump_envelope, test_ratchet_tamper_envelope, update_conversation_export
+from MobileCore import authorize_device_link_export, complete_device_link_export, create_account_export, create_link_request_export, directory_entry_export, install_group_transparency_for_test, load_history_export, outbox_ack_export, outbox_list_export, receive_initial_export, receive_message_export, replenish_prekeys_export, safety_number_export, send_fanout_export, start_conversation_export, test_ratchet_jump_envelope, test_ratchet_tamper_envelope, update_conversation_export
 from Prekeys.Pool import decode_prekey_publish
 from Protocol.V1 import DeviceCredential, DeviceSet, DirectoryEntry, OuterEnvelope, PrekeyBundle, decode_device_credential, decode_directory_entry, decode_outer_envelope, decode_prekey_bundle, encode_device_set, encode_prekey_bundle
-from Tests.Support import append, database_path, vector, write_u32
+from Tests.GroupConsistencyCrypto import checkpoint
+from Tests.GroupConsistencySupport import signed_transparency_view, signing_pair
+from Tests.Support import append, database_path, repeated, vector, write_u32
+from Transparency.Merkle import TransparencyCheckpoint, consistency_proof, leaf_hash
+from Transparency.Wire import encode_checkpoint, encode_consistency_proof
 
 fn encode_vectors(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! String do
   if index >= List.length(values) do
@@ -257,6 +261,52 @@ fn proof() -> Bool ! String do
   safety_number_export(request([Bytes.from_utf8(bob_path), alice_profile]) ?) ?))
   let synced = Bytes.from_utf8("synced hello")
   let fanout_request = request([Bytes.from_utf8(alice_path), bob_set, alice_set, synced]) ?
+  case send_fanout_export(fanout_request) do
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "device_set_transparency_unverified")
+  end
+  let peer_leaf = leaf_hash(bob_set) ?
+  let local_leaf = leaf_hash(alice_set) ?
+  let service_pair = signing_pair() ?
+  let witness_a_pair = signing_pair() ?
+  let witness_b_pair = signing_pair() ?
+  let empty_checkpoint = TransparencyCheckpoint {
+    version : 1,
+    sequence : wide("0") ?,
+    tree_size : wide("0") ?,
+    tree_root : repeated(0, 32) ?,
+    previous_checkpoint_hash : repeated(0, 32) ?,
+    timestamp : wide("0") ?,
+    service_public_key : service_pair.public_key.bytes,
+    signature : repeated(0, 64) ?
+  }
+  let peer_checkpoint = checkpoint(service_pair.private_key,
+  service_pair.public_key.bytes,
+  1,
+  [peer_leaf],
+  empty_checkpoint,
+  false) ?
+  assert(install_group_transparency_for_test(alice_path,
+  encode_checkpoint(peer_checkpoint) ?,
+  encode_consistency_proof(consistency_proof(List.new(), [peer_leaf]) ?) ?,
+  service_pair.public_key.bytes,
+  witness_a_pair.public_key.bytes,
+  witness_b_pair.public_key.bytes,
+  bob_set) ?)
+  let current_leaves = [peer_leaf, local_leaf]
+  let current_checkpoint = checkpoint(service_pair.private_key,
+  service_pair.public_key.bytes,
+  2,
+  current_leaves,
+  peer_checkpoint,
+  true) ?
+  assert(install_group_transparency_for_test(alice_path,
+  encode_checkpoint(current_checkpoint) ?,
+  encode_consistency_proof(consistency_proof(List.new(), current_leaves) ?) ?,
+  service_pair.public_key.bytes,
+  witness_a_pair.public_key.bytes,
+  witness_b_pair.public_key.bytes,
+  alice_set) ?)
   let before_failure = database_fingerprint(alice_path) ?
   set_outbox_failure(alice_path, true) ?
   case send_fanout_export(fanout_request) do
@@ -294,7 +344,27 @@ fn proof() -> Bool ! String do
   assert(Bytes.secure_equals(safety,
   safety_number_export(request([Bytes.from_utf8(linked_path), bob_profile]) ?) ?))
   let reply = Bytes.from_utf8("all alice devices")
-  let encoded_reply = send_fanout_export(request([Bytes.from_utf8(bob_path), claimed_alice_set, bob_set, reply]) ?) ?
+  let reply_request = request([Bytes.from_utf8(bob_path), claimed_alice_set, bob_set, reply]) ?
+  case send_fanout_export(reply_request) do
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "device_set_transparency_unverified")
+  end
+  let bob_view = signed_transparency_view([leaf_hash(claimed_alice_set) ?, leaf_hash(bob_set) ?]) ?
+  assert(install_group_transparency_for_test(bob_path,
+  bob_view.checkpoint,
+  bob_view.consistency,
+  bob_view.service_public_key,
+  bob_view.witness_a_public_key,
+  bob_view.witness_b_public_key,
+  claimed_alice_set) ?)
+  assert(install_group_transparency_for_test(bob_path,
+  bob_view.checkpoint,
+  bob_view.consistency,
+  bob_view.service_public_key,
+  bob_view.witness_a_public_key,
+  bob_view.witness_b_public_key,
+  bob_set) ?)
+  let encoded_reply = send_fanout_export(reply_request) ?
   let replies = output_list(encoded_reply) ?
   assert(List.length(replies) == 2)
   assert(Bytes.secure_equals(outbox_list_export(Bytes.from_utf8(bob_path)) ?, encoded_reply))
@@ -344,7 +414,27 @@ fn proof() -> Bool ! String do
     devices : [alice_entry],
     revoked_device_ids : [linked_credential.device_id]
   }) ?
-  let revoked_fanout = output_list(send_fanout_export(request([Bytes.from_utf8(bob_path), revoked_set, bob_set, Bytes.from_utf8("root only")]) ?) ?) ?
+  let revoked_request = request([Bytes.from_utf8(bob_path), revoked_set, bob_set, Bytes.from_utf8("root only")]) ?
+  case send_fanout_export(revoked_request) do
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "device_set_transparency_unverified")
+  end
+  let revoked_view = signed_transparency_view([leaf_hash(revoked_set) ?, leaf_hash(bob_set) ?]) ?
+  assert(install_group_transparency_for_test(bob_path,
+  revoked_view.checkpoint,
+  revoked_view.consistency,
+  revoked_view.service_public_key,
+  revoked_view.witness_a_public_key,
+  revoked_view.witness_b_public_key,
+  revoked_set) ?)
+  assert(install_group_transparency_for_test(bob_path,
+  revoked_view.checkpoint,
+  revoked_view.consistency,
+  revoked_view.service_public_key,
+  revoked_view.witness_a_public_key,
+  revoked_view.witness_b_public_key,
+  bob_set) ?)
+  let revoked_fanout = output_list(send_fanout_export(revoked_request) ?) ?
   assert(List.length(revoked_fanout) == 1)
   let only_active = List.head(revoked_fanout)
   assert(Bytes.secure_equals(outer(only_active) ?.mailbox_token, alice_entry.mailbox_token))

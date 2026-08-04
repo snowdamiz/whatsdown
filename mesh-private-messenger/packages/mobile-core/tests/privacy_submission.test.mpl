@@ -106,11 +106,7 @@ fn config_validation_proof() -> Bool ! String do
   delivery,
   "8"),
   outer) ?)
-  assert(rejects_config(config_frame(service_hex,
-  first_witness,
-  first_witness,
-  delivery,
-  "8"),
+  assert(rejects_config(config_frame(service_hex, first_witness, first_witness, delivery, "8"),
   outer) ?)
   assert(rejects_config(config_frame(service_hex,
   first_witness,
@@ -118,23 +114,11 @@ fn config_validation_proof() -> Bool ! String do
   Bytes.to_hex(repeated(0, 32) ?),
   "8"),
   outer) ?)
-  assert(rejects_config(config_frame(service_hex,
-  first_witness,
-  second_witness,
-  delivery,
-  "0"),
+  assert(rejects_config(config_frame(service_hex, first_witness, second_witness, delivery, "0"),
   outer) ?)
-  assert(rejects_config(config_frame(service_hex,
-  first_witness,
-  second_witness,
-  delivery,
-  "25"),
+  assert(rejects_config(config_frame(service_hex, first_witness, second_witness, delivery, "25"),
   outer) ?)
-  assert(rejects_config(config_frame(service_hex,
-  first_witness,
-  second_witness,
-  delivery,
-  "08"),
+  assert(rejects_config(config_frame(service_hex, first_witness, second_witness, delivery, "08"),
   outer) ?)
   assert(rejects_config(Bytes.from_utf8("1\n" <> service_hex <> "\n" <> first_witness <> "\n" <> second_witness <> "\n" <> delivery <> "\n8\n"),
   outer) ?)
