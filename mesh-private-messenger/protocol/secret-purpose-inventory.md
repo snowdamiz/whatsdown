@@ -26,6 +26,10 @@ the version 1 classical and experimental hybrid profiles.
 | Skipped message key | `SecretBytes` | One session; at most 1,000 keys for at most 7 days | Sealed in the session snapshot |
 | HKDF or HMAC intermediate | `SecretBytes` | One derivation call; consumed into a named key or tag | Never |
 | Storage wrapping key | `StorageKey` | Platform-backed device capability | Never placed in a Mesh snapshot |
+| Transparency signing key | `SigningPrivateKey` | Directory request transaction | Deployment secret only |
+| Delivery sealing private key | `X25519PrivateKey` | Sealed-delivery request | Deployment secret only |
+| Push broker private key | `X25519PrivateKey` | HTTP request or broker worker actor | Deployment secret only |
+| Witness signing key | `SigningPrivateKey` | One witness run | Deployment secret only |
 
 Every private key, shared secret, ratchet key, message key, and derivation
 output is exactly 32 bytes except the 64-byte ML-KEM-768 seed. An Ed25519
@@ -45,6 +49,9 @@ plaintext to the Mesh heap. Unsealing authenticates first, validates the exact
 purpose-specific length, and constructs the requested resource kind in the
 zeroizing table.
 
-Operational server credentials such as database, TLS, push-provider, and
-transparency signing keys are managed by the deployment secret store. They do
+Server private-key environment values are ingested with `Env.get_secret_hex`
+directly into `SecretBytes`, then consumed into the private-key resource in the
+same actor. They never become Mesh `String` or `Bytes` values and never cross
+actor messages. Other operational credentials such as database, TLS, and
+push-provider tokens remain managed by the deployment secret store; they do
 not enter messenger protocol values or client snapshots.
