@@ -1,5 +1,7 @@
 #include "libmessenger_mobile.h"
 
+/* ABI and lifecycle smoke only. Protocol and state assertions belong in Mesh. */
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>

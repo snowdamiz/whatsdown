@@ -36,3 +36,8 @@ contract, cryptographic profile, and version-negotiation rules.
    exercised by tests and examples.
 10. **Every security assumption is documented.** Key derivation, nonce use,
     limits, version behavior, and fallback policy must be explicit and tested.
+11. **Native languages stop at the ABI boundary.** C, Objective-C, Swift, and
+    Kotlin may own generated bindings, platform callbacks, resources, and
+    runtime lifecycle. Messenger behavior, state and storage semantics, and
+    security proofs belong in Mesh. If Mesh cannot express a proof, extend Mesh
+    instead of adding a native behavioral fallback.
