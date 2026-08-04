@@ -320,3 +320,79 @@ test("signed push binding replays are idempotent without weakening durable deliv
     Ok( value) -> assert(value)
   end
 end
+
+fn unbind_before_bind_proof() -> Bool ! String do
+  let url = Env.get("MESSENGER_TEST_DATABASE_URL",
+  "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
+  let pool = Pool.open(url, 1, 2, 5000) ?
+  let _ = Pool.execute(pool,
+  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_directory, messenger_mailboxes RESTART IDENTITY",
+  []) ?
+  let created_at = current_time() ?
+  let expires_at = U64.add(created_at, U64.parse("31536000000") ?) ?
+  let ( account, identity) = case generate_account(created_at, U64.parse("1") ?) do
+    Err( _) -> Err("account generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let device = case generate_device() do
+    Err( _) -> Err("device generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let mailbox_token = repeated(41, 32) ?
+  let mailbox_token_hash = Crypto.sha256(mailbox_token)
+  case register_device(pool,
+  registration(account, identity, device, mailbox_token, created_at, expires_at) ?) ? do
+    DeviceAccepted -> Ok(nil)
+    _ -> Err("device registration failed")
+  end ?
+  let broker = case Crypto.x25519_from_seed(repeated(44, 32) ?) do
+    Err( _) -> Err("broker key generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let delayed = sign_bind(device.signing_private_key,
+  unsigned_bind(mailbox_token_hash,
+  repeated(42, 32) ?,
+  "1",
+  seal_provider_token(Bytes.from_utf8("ExpoPushToken[delayed]"), broker.public_key) ?) ?) ?
+  let same_revision = sign_bind(device.signing_private_key,
+  unsigned_bind(mailbox_token_hash,
+  repeated(43, 32) ?,
+  "2",
+  seal_provider_token(Bytes.from_utf8("ExpoPushToken[same-revision]"), broker.public_key) ?) ?) ?
+  let newer = sign_bind(device.signing_private_key,
+  unsigned_bind(mailbox_token_hash,
+  repeated(45, 32) ?,
+  "3",
+  seal_provider_token(Bytes.from_utf8("ExpoPushToken[newer]"), broker.public_key) ?) ?) ?
+  let unbind = sign_unbind(device.signing_private_key, unsigned_unbind(mailbox_token_hash, "2") ?) ?
+  assert(unbind_push_request(pool, encode_push_unbind(unbind) ?).status == 200)
+  assert(unbind_push_request(pool, encode_push_unbind(unbind) ?).status == 200)
+  case find_push_binding_for_mailbox(pool, mailbox_token_hash) ? do
+    None -> Ok(nil)
+    Some( _) -> Err("unbind tombstone remained dispatchable")
+  end ?
+  assert(bind_push_request(pool, encode_push_bind(delayed) ?).status == 409)
+  assert(bind_push_request(pool, encode_push_bind(same_revision) ?).status == 409)
+  assert(bind_push_request(pool, encode_push_bind(newer) ?).status == 201)
+  case find_push_binding_for_mailbox(pool, mailbox_token_hash) ? do
+    None -> Err("higher-revision push binding missing")
+    Some( binding) -> if Bytes.secure_equals(binding.wake_token_hash, newer.wake_token_hash) && Bytes.secure_equals(binding.provider_token_ciphertext,
+    newer.provider_token_ciphertext) do
+      Ok(nil)
+    else
+      Err("higher-revision push binding was not activated")
+    end
+  end ?
+  Pool.close(pool)
+  Ok(true)
+end
+
+test("unbind before bind persists a disabled revision tombstone") do
+  case unbind_before_bind_proof() do
+    Err( error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok( value) -> assert(value)
+  end
+end

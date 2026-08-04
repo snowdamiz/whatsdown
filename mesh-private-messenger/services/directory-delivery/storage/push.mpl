@@ -72,6 +72,14 @@ signature :: Bytes) -> Bool ! String do
   end
 end
 
+fn disabled_placeholder(label :: String, mailbox_token_hash :: Bytes) -> Bytes ! String do
+  let material = case Bytes.concat(Bytes.from_utf8(label), mailbox_token_hash) do
+    Err( _) -> Err("push placeholder allocation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  Ok(Crypto.sha256(material))
+end
+
 fn bind_on_connection(conn :: borrow PgConn, request :: PushBindRequest) -> PushWrite ! String do
   if !(authorized(conn,
   request.mailbox_token_hash,
@@ -102,9 +110,13 @@ fn unbind_on_connection(conn :: borrow PgConn, request :: PushUnbindRequest) -> 
   request.signature) ?) do
     Ok(PushUnauthorized)
   else
+    let wake_placeholder = disabled_placeholder("mesh-msg/v1/disabled-push-wake",
+    request.mailbox_token_hash) ?
+    let token_placeholder = disabled_placeholder("mesh-msg/v1/disabled-push-token",
+    request.mailbox_token_hash) ?
     let changed = Pg.execute_values(conn,
-    "UPDATE messenger_push_bindings SET revision = $2::bigint, disabled_at = coalesce(disabled_at, now()) WHERE mailbox_token_hash = $1 AND (revision < $2::bigint OR (revision = $2::bigint AND disabled_at IS NOT NULL))",
-    [Binary(request.mailbox_token_hash), Text(U64.to_string(request.revision))]) ?
+    "INSERT INTO messenger_push_bindings (mailbox_token_hash, wake_token_hash, revision, provider, provider_token_ciphertext, disabled_at) VALUES ($1, $2, $3::bigint, 1, $4, now()) ON CONFLICT (mailbox_token_hash) DO UPDATE SET wake_token_hash = EXCLUDED.wake_token_hash, revision = EXCLUDED.revision, provider = EXCLUDED.provider, provider_token_ciphertext = EXCLUDED.provider_token_ciphertext, disabled_at = coalesce(messenger_push_bindings.disabled_at, EXCLUDED.disabled_at) WHERE messenger_push_bindings.revision < EXCLUDED.revision OR (messenger_push_bindings.revision = EXCLUDED.revision AND messenger_push_bindings.disabled_at IS NOT NULL)",
+    [Binary(request.mailbox_token_hash), Binary(wake_placeholder), Text(U64.to_string(request.revision)), Binary(token_placeholder)]) ?
     if changed == 1 do
       Ok(PushAccepted)
     else
