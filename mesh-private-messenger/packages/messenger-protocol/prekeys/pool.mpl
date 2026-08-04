@@ -16,6 +16,7 @@ pub struct PrekeyClaimRequest do
   account_id :: Bytes
   device_id :: Bytes
   base_bundle_hash :: Bytes
+  reservation_id :: Bytes
 end
 
 pub struct PrekeyPublishResponse do
@@ -239,10 +240,10 @@ fn publish_content(value :: PrekeyPublishRequest) -> Bytes ! String do
 end
 
 fn claim_content(value :: PrekeyClaimRequest) -> Bytes ! String do
-  if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.base_bundle_hash) != 32 do
+  if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.base_bundle_hash) != 32 || Bytes.length(value.reservation_id) != 16 do
     Err("invalid prekey claim")
   else
-    join([byte(1) ?, Bytes.from_utf8("OTQ"), value.account_id, value.device_id, value.base_bundle_hash],
+    join([byte(1) ?, Bytes.from_utf8("OTQ"), value.account_id, value.device_id, value.base_bundle_hash, value.reservation_id],
     0,
     Bytes.empty())
   end
@@ -292,19 +293,21 @@ pub fn encode_prekey_claim(value :: PrekeyClaimRequest) -> Bytes ! String do
 end
 
 pub fn decode_prekey_claim(input :: Bytes) -> PrekeyClaimRequest ! String do
-  let version = take_u8(start(input, 84) ?) ?
+  let version = take_u8(start(input, 100) ?) ?
   let magic = take_fixed(version.state, 3) ?
   let account_id = take_fixed(magic.state, 32) ?
   let device_id = take_fixed(account_id.state, 16) ?
   let base_bundle_hash = take_fixed(device_id.state, 32) ?
-  done(base_bundle_hash.state) ?
+  let reservation_id = take_fixed(base_bundle_hash.state, 16) ?
+  done(reservation_id.state) ?
   if version.value != 1 || !Bytes.secure_equals(magic.value, Bytes.from_utf8("OTQ")) do
     Err("invalid prekey claim wire")
   else
     let value = PrekeyClaimRequest {
       account_id : account_id.value,
       device_id : device_id.value,
-      base_bundle_hash : base_bundle_hash.value
+      base_bundle_hash : base_bundle_hash.value,
+      reservation_id : reservation_id.value
     }
     let _ = claim_content(value) ?
     Ok(value)

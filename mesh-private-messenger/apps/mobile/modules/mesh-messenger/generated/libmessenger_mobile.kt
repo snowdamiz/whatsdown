@@ -24,6 +24,7 @@ object MeshLibrary {
     @JvmStatic external fun inspect_device_set_export(request: ByteArray): ByteArray
     @JvmStatic external fun create_device_revocation_export(request: ByteArray): ByteArray
     @JvmStatic external fun receive_initial_export(request: ByteArray): ByteArray
+    @JvmStatic external fun prepare_fanout_prekeys_export(request: ByteArray): ByteArray
     @JvmStatic external fun send_fanout_export(request: ByteArray): ByteArray
     @JvmStatic external fun group_key_package_export(request: ByteArray): ByteArray
     @JvmStatic external fun group_create_export(request: ByteArray): ByteArray

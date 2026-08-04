@@ -2,8 +2,8 @@ from Binary.Reader import BinaryReader, finish, read_fixed, read_vector, reader
 from Groups.Mls import CommitApplyOutcome, GroupAddOutcome, GroupCommit, GroupDecryptOutcome, GroupDeliveryTarget, GroupEncryptOutcome, GroupError, GroupMessage, GroupProposal, GroupRemoveOutcome, GroupSnapshotOutcome, GroupState, GroupTransparencyPolicy, GroupWelcome, apply_commit, commit_add, commit_remove, create_group, decode_group_commit, decode_group_message, decode_group_welcome, decrypt_group_message, delivery_targets, encode_group_commit, encode_group_message, encode_group_welcome, encrypt_group_message, group_snapshot, join_from_welcome, restore_group
 from Groups.Tree import GroupMember, IndexedGroupMember, find_member_index, indexed_members, member_at
 from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, authorize_device_link, generate_account, generate_device, is_retryable_verification_crypto_error, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential, verify_device_link_authorization
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, verify_prekey_bundle
-from Prekeys.Pool import OneTimePrekeyPublic, PrekeyPublishRequest, decode_prekey_publish_response, encode_prekey_publish, prekey_publish_signing_bytes
+from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle, verify_prekey_bundle
+from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, decode_prekey_claim, decode_prekey_publish_response, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
 from Privacy.Edge import encode_privacy_submission, mint_submission, seal_delivery
 from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceSet, DirectoryEntry, InitialMessage, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_set, decode_directory_entry, decode_initial_message, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Push.Binding import PushBindRequest, PushUnbindRequest, decode_push_bind, decode_push_unbind, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
@@ -59,6 +59,26 @@ struct MobileFanoutRequest do
   peer_device_set :: Bytes
   local_device_set :: Bytes
   body :: Bytes
+end
+
+struct MobileFanoutTargetsRequest do
+  database_path :: String
+  peer_device_set :: Bytes
+  local_device_set :: Bytes
+end
+
+struct MobileFanoutPrepareRequest do
+  database_path :: String
+  peer_device_set :: Bytes
+  local_device_set :: Bytes
+  directory_url :: String
+end
+
+struct MobileFanoutPrekeyReservationRequest do
+  database_path :: String
+  peer_device_set :: Bytes
+  local_device_set :: Bytes
+  claimed_prekey :: Bytes
 end
 
 struct MobileReceiveRequest do
@@ -215,6 +235,11 @@ struct MobileVerifiedDeviceSet do
   value :: DeviceSet
   account :: AccountIdentity
   profiles :: List < ClientProfile >
+end
+
+struct MobileClaimedPrekey do
+  base_bundle :: Bytes
+  profile :: ClientProfile
 end
 
 struct MobileVerifiedTransparencySet do
@@ -1042,6 +1067,7 @@ end
 
 fn store_outbound(database_path :: String,
 prepared :: List < MobilePreparedSend >,
+removed_labels :: List < String >,
 session_index_blob :: Bytes,
 history_key :: String,
 history_blob :: Bytes,
@@ -1063,9 +1089,12 @@ outbox_index_blob :: Bytes) -> Result <(), String > do
                 Err( error) -> Err(error)
                 Ok( _) -> case put_blob(database, "outbox/v1", outbox_index_blob) do
                   Err( error) -> Err(error)
-                  Ok( _) -> case Sqlite.commit(database) do
-                    Err( _) -> Err("database_write_failed")
-                    Ok( _) -> Ok(nil)
+                  Ok( _) -> case delete_blobs(database, removed_labels, 0) do
+                    Err( error) -> Err(error)
+                    Ok( _) -> case Sqlite.commit(database) do
+                      Err( _) -> Err("database_write_failed")
+                      Ok( _) -> Ok(nil)
+                    end
                   end
                 end
               end
@@ -1271,6 +1300,89 @@ fn parse_start_request(input :: Bytes) -> MobileStartRequest ! String do
               database_path : database_path,
               peer_profile : peer_profile.value,
               body : body.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_fanout_targets_request(input :: Bytes) -> MobileFanoutTargetsRequest ! String do
+  case reader(input, 614628) do
+    Err( _) -> Err("invalid_fanout_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let peer_device_set = take_vector(path.state, 305260) ?
+      let local_device_set = take_vector(peer_device_set.state, 305260) ?
+      case finish(local_device_set.state) do
+        Err( _) -> Err("invalid_fanout_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 do
+            Err("invalid_fanout_request")
+          else
+            Ok(MobileFanoutTargetsRequest {
+              database_path : database_path,
+              peer_device_set : peer_device_set.value,
+              local_device_set : local_device_set.value
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_fanout_prepare_request(input :: Bytes) -> MobileFanoutPrepareRequest ! String do
+  case reader(input, 616680) do
+    Err( _) -> Err("invalid_fanout_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let peer_device_set = take_vector(path.state, 305260) ?
+      let local_device_set = take_vector(peer_device_set.state, 305260) ?
+      let directory_url = take_vector(local_device_set.state, 2048) ?
+      case finish(directory_url.state) do
+        Err( _) -> Err("invalid_fanout_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          let url = mobile_utf8(directory_url.value, "invalid_fanout_request") ?
+          if String.length(database_path) == 0 || String.length(url) == 0 do
+            Err("invalid_fanout_request")
+          else
+            Ok(MobileFanoutPrepareRequest {
+              database_path : database_path,
+              peer_device_set : peer_device_set.value,
+              local_device_set : local_device_set.value,
+              directory_url : url
+            })
+          end
+        end
+      end
+    end
+  end
+end
+
+fn parse_fanout_prekey_reservation_request(input :: Bytes) -> MobileFanoutPrekeyReservationRequest ! String do
+  case reader(input, 633944) do
+    Err( _) -> Err("invalid_fanout_request")
+    Ok( state) -> do
+      let path = take_vector(state, 4096) ?
+      let peer_device_set = take_vector(path.state, 305260) ?
+      let local_device_set = take_vector(peer_device_set.state, 305260) ?
+      let claimed_prekey = take_vector(local_device_set.state, 19312) ?
+      case finish(claimed_prekey.state) do
+        Err( _) -> Err("invalid_fanout_request")
+        Ok( _) -> do
+          let database_path = mobile_utf8(path.value, "invalid_database_path") ?
+          if String.length(database_path) == 0 || Bytes.length(claimed_prekey.value) == 0 do
+            Err("invalid_fanout_request")
+          else
+            Ok(MobileFanoutPrekeyReservationRequest {
+              database_path : database_path,
+              peer_device_set : peer_device_set.value,
+              local_device_set : local_device_set.value,
+              claimed_prekey : claimed_prekey.value
             })
           end
         end
@@ -3927,6 +4039,7 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   [outer]) ?
   store_outbound(request.database_path,
   prepared,
+  List.new(),
   index_blob,
   history_key,
   history_blob,
@@ -4214,9 +4327,615 @@ history_blob :: Bytes) -> Result <(), String > do
   end
 end
 
+fn fanout_base_profiles(profiles :: List < ClientProfile >, index :: Int) -> Bool do
+  if index >= List.length(profiles) do
+    true
+  else
+    let profile = List.get(profiles, index)
+    case normalize_prekey_bundle(profile.bundle) do
+      Err( _) -> false
+      Ok( normalized) -> case encode_prekey_bundle(normalized) do
+        Err( _) -> false
+        Ok( encoded) -> Bytes.secure_equals(encoded, profile.entry.prekey_bundle) && fanout_base_profiles(profiles,
+        index + 1)
+      end
+    end
+  end
+end
+
+fn invalid_fanout_sets(local :: ClientProfile,
+peers :: MobileVerifiedDeviceSet,
+local_devices :: MobileVerifiedDeviceSet) -> Bool do
+  !local_device_set(local, local_devices) || Bytes.secure_equals(local.account_id,
+  peers.account.account_id) || List.length(peers.profiles) == 0 || !fanout_base_profiles(peers.profiles,
+  0) || !fanout_base_profiles(local_devices.profiles, 0)
+end
+
+fn append_missing_prekey_claims(database_path :: String,
+wrapping_key :: borrow StorageKey,
+session_ids :: List < Bytes >,
+profiles :: List < ClientProfile >,
+local_device_id :: Bytes,
+skip_local_device :: Bool,
+now :: U64,
+index :: Int,
+claims :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(profiles) do
+    Ok(claims)
+  else
+    let profile = List.get(profiles, index)
+    if skip_local_device && Bytes.secure_equals(profile.device_id, local_device_id) do
+      append_missing_prekey_claims(database_path,
+      wrapping_key,
+      session_ids,
+      profiles,
+      local_device_id,
+      skip_local_device,
+      now,
+      index + 1,
+      claims)
+    else
+      case find_device_session(database_path,
+      wrapping_key,
+      profile.account_id,
+      profile.device_id,
+      session_ids,
+      0) do
+        Ok( _) -> append_missing_prekey_claims(database_path,
+        wrapping_key,
+        session_ids,
+        profiles,
+        local_device_id,
+        skip_local_device,
+        now,
+        index + 1,
+        claims)
+        Err( error) -> if error != "session_not_found" do
+          Err(error)
+        else
+          case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
+            Err( error) -> Err(error)
+            Ok( Some( _)) -> append_missing_prekey_claims(database_path,
+            wrapping_key,
+            session_ids,
+            profiles,
+            local_device_id,
+            skip_local_device,
+            now,
+            index + 1,
+            claims)
+            Ok( None) -> do
+              let claim = case load_fanout_prekey_claim(database_path, wrapping_key, profile) do
+                Err( error) -> Err(error)
+                Ok( Some( value)) -> Ok(value)
+                Ok( None) -> create_fanout_prekey_claim(database_path, wrapping_key, profile)
+              end ?
+              append_missing_prekey_claims(database_path,
+              wrapping_key,
+              session_ids,
+              profiles,
+              local_device_id,
+              skip_local_device,
+              now,
+              index + 1,
+              List.append(claims, claim))
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+fn fanout_prekey_claim_values(request :: MobileFanoutTargetsRequest) -> List < Bytes > ! String do
+  ensure_schema(request.database_path) ?
+  let local = decode_client_profile(load_profile(request.database_path) ?) ?
+  let peers = verified_device_set(request.peer_device_set) ?
+  let local_devices = verified_device_set(request.local_device_set) ?
+  if invalid_fanout_sets(local, peers, local_devices) do
+    Err("invalid_fanout_device_set")
+  else
+    let wrapping_key = platform_key() ?
+    let _ = require_transparency_device_set(request.database_path, wrapping_key, peers) ?
+    let _ = require_transparency_device_set(request.database_path, wrapping_key, local_devices) ?
+    let session_ids = load_session_ids(request.database_path, wrapping_key) ?
+    let now = current_time() ?
+    let peer_claims = append_missing_prekey_claims(request.database_path,
+    wrapping_key,
+    session_ids,
+    peers.profiles,
+    local.device_id,
+    false,
+    now,
+    0,
+    List.new()) ?
+    append_missing_prekey_claims(request.database_path,
+    wrapping_key,
+    session_ids,
+    local_devices.profiles,
+    local.device_id,
+    true,
+    now,
+    0,
+    peer_claims)
+  end
+end
+
+fn fanout_prekey_claims(request :: MobileFanoutTargetsRequest) -> Bytes ! String do
+  encode_output_list(fanout_prekey_claim_values(request) ?)
+end
+
+fn fanout_prekey_bundle(input :: Bytes) -> PrekeyBundle ! String do
+  case decode_prekey_bundle(input) do
+    Err( _) -> Err("invalid_fanout_prekeys")
+    Ok( bundle) -> case encode_prekey_bundle(bundle) do
+      Err( _) -> Err("invalid_fanout_prekeys")
+      Ok( encoded) -> if Bytes.secure_equals(encoded, input) do
+        Ok(bundle)
+      else
+        Err("invalid_fanout_prekeys")
+      end
+    end
+  end
+end
+
+fn fanout_prekey_base(bundle :: PrekeyBundle) -> Bytes ! String do
+  let normalized = case normalize_prekey_bundle(bundle) do
+    Err( _) -> Err("invalid_fanout_prekeys")
+    Ok( value) -> Ok(value)
+  end ?
+  case encode_prekey_bundle(normalized) do
+    Err( _) -> Err("invalid_fanout_prekeys")
+    Ok( value) -> Ok(value)
+  end
+end
+
+fn fanout_prekey_reservation_label(profile :: ClientProfile) -> String do
+  "fanout-prekey-reservation/v1/#{Bytes.to_hex(profile.account_id)}/#{Bytes.to_hex(profile.device_id)}"
+end
+
+fn fanout_prekey_claim_label(profile :: ClientProfile) -> String do
+  "fanout-prekey-claim/v1/#{Bytes.to_hex(profile.account_id)}/#{Bytes.to_hex(profile.device_id)}"
+end
+
+fn load_fanout_prekey_claim(database_path :: String,
+wrapping_key :: borrow StorageKey,
+profile :: ClientProfile) -> Option < Bytes > ! String do
+  let label = fanout_prekey_claim_label(profile)
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(None)
+    else
+      Err(error)
+    end
+    Ok( blob) -> do
+      let input = open_local(blob, wrapping_key, local_context(label) ?) ?
+      let claim = case decode_prekey_claim(input) do
+        Err( _) -> Err("invalid_fanout_prekeys")
+        Ok( value) -> Ok(value)
+      end ?
+      if !Bytes.secure_equals(claim.account_id, profile.account_id) || !Bytes.secure_equals(claim.device_id,
+      profile.device_id) do
+        Err("invalid_fanout_prekeys")
+      else if !Bytes.secure_equals(claim.base_bundle_hash,
+      Crypto.sha256(profile.entry.prekey_bundle)) do
+        Ok(None)
+      else
+        Ok(Some(input))
+      end
+    end
+  end
+end
+
+fn create_fanout_prekey_claim(database_path :: String,
+wrapping_key :: borrow StorageKey,
+profile :: ClientProfile) -> Bytes ! String do
+  let claim = encode_prekey_claim(PrekeyClaimRequest {
+    account_id : profile.account_id,
+    device_id : profile.device_id,
+    base_bundle_hash : Crypto.sha256(profile.entry.prekey_bundle),
+    reservation_id : random_bytes(16) ?
+  }) ?
+  let label = fanout_prekey_claim_label(profile)
+  store_updated_blobs(database_path,
+  [label],
+  [seal_local(claim, wrapping_key, local_context(label) ?) ?]) ?
+  Ok(claim)
+end
+
+fn load_fanout_prekey_reservation(database_path :: String,
+wrapping_key :: borrow StorageKey,
+profile :: ClientProfile,
+now :: U64) -> Option < MobileClaimedPrekey > ! String do
+  let label = fanout_prekey_reservation_label(profile)
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(None)
+    else
+      Err(error)
+    end
+    Ok( blob) -> do
+      let input = open_local(blob, wrapping_key, local_context(label) ?) ?
+      let bundle = fanout_prekey_bundle(input) ?
+      if !Bytes.secure_equals(fanout_prekey_base(bundle) ?, profile.entry.prekey_bundle) do
+        Ok(None)
+      else
+        Ok(Some(validate_claimed_prekey(input, [profile], List.new(), Bytes.empty(), now) ?))
+      end
+    end
+  end
+end
+
+fn store_fanout_prekey_reservation(database_path :: String,
+wrapping_key :: borrow StorageKey,
+claim :: MobileClaimedPrekey,
+now :: U64) -> Result <(), String > do
+  let profile = claim.profile
+  let label = fanout_prekey_reservation_label(profile)
+  case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
+    Err( error) -> Err(error)
+    Ok( Some( existing)) -> if Bytes.secure_equals(existing.profile.entry.prekey_bundle,
+    claim.profile.entry.prekey_bundle) do
+      Ok(nil)
+    else
+      Err("prekey_reservation_exists")
+    end
+    Ok( None) -> store_updated_blobs(database_path,
+    [label],
+    [seal_local(claim.profile.entry.prekey_bundle, wrapping_key, local_context(label) ?) ?])
+  end
+end
+
+fn store_fanout_prekey_reservations(database_path :: String,
+wrapping_key :: borrow StorageKey,
+claims :: List < MobileClaimedPrekey >,
+now :: U64,
+index :: Int) -> Result <(), String > do
+  if index >= List.length(claims) do
+    Ok(nil)
+  else
+    store_fanout_prekey_reservation(database_path, wrapping_key, List.get(claims, index), now) ?
+    store_fanout_prekey_reservations(database_path, wrapping_key, claims, now, index + 1)
+  end
+end
+
+fn fanout_prekey_reservation_labels(claims :: List < MobileClaimedPrekey >,
+index :: Int,
+labels :: List < String >) -> List < String > do
+  if index >= List.length(claims) do
+    labels
+  else
+    let profile = List.get(claims, index).profile
+    fanout_prekey_reservation_labels(claims,
+    index + 1,
+    List.append(List.append(labels, fanout_prekey_reservation_label(profile)),
+    fanout_prekey_claim_label(profile)))
+  end
+end
+
+fn count_prekey_targets(profiles :: List < ClientProfile >,
+base_bundle :: Bytes,
+local_device_id :: Bytes,
+skip_local_device :: Bool,
+index :: Int,
+count :: Int) -> Int do
+  if index >= List.length(profiles) do
+    count
+  else
+    let profile = List.get(profiles, index)
+    let matches = !(skip_local_device && Bytes.secure_equals(profile.device_id, local_device_id)) && Bytes.secure_equals(profile.entry.prekey_bundle,
+    base_bundle)
+    count_prekey_targets(profiles,
+    base_bundle,
+    local_device_id,
+    skip_local_device,
+    index + 1,
+    if matches do
+      count + 1
+    else
+      count
+    end)
+  end
+end
+
+fn find_prekey_target(profiles :: List < ClientProfile >,
+base_bundle :: Bytes,
+local_device_id :: Bytes,
+skip_local_device :: Bool,
+index :: Int) -> ClientProfile ! String do
+  if index >= List.length(profiles) do
+    Err("invalid_fanout_prekeys")
+  else
+    let profile = List.get(profiles, index)
+    if !(skip_local_device && Bytes.secure_equals(profile.device_id, local_device_id)) && Bytes.secure_equals(profile.entry.prekey_bundle,
+    base_bundle) do
+      Ok(profile)
+    else
+      find_prekey_target(profiles, base_bundle, local_device_id, skip_local_device, index + 1)
+    end
+  end
+end
+
+fn claimed_prekey_exists(claims :: List < MobileClaimedPrekey >, base_bundle :: Bytes, index :: Int) -> Bool do
+  if index >= List.length(claims) do
+    false
+  else if Bytes.secure_equals(List.get(claims, index).base_bundle, base_bundle) do
+    true
+  else
+    claimed_prekey_exists(claims, base_bundle, index + 1)
+  end
+end
+
+fn claimed_prekey_profile(claims :: List < MobileClaimedPrekey >,
+base_bundle :: Bytes,
+index :: Int) -> ClientProfile ! String do
+  if index >= List.length(claims) do
+    Err("invalid_fanout_prekeys")
+  else
+    let claim = List.get(claims, index)
+    if Bytes.secure_equals(claim.base_bundle, base_bundle) do
+      Ok(claim.profile)
+    else
+      claimed_prekey_profile(claims, base_bundle, index + 1)
+    end
+  end
+end
+
+fn validate_claimed_prekey(input :: Bytes,
+peers :: List < ClientProfile >,
+local_devices :: List < ClientProfile >,
+local_device_id :: Bytes,
+now :: U64) -> MobileClaimedPrekey ! String do
+  let bundle = fanout_prekey_bundle(input) ?
+  if U64.compare(bundle.one_time_prekey_id, mobile_wide("0") ?) <= 0 || Bytes.length(bundle.one_time_prekey) != 32 do
+    Err("invalid_fanout_prekeys")
+  else
+    let base_bundle = fanout_prekey_base(bundle) ?
+    let peer_count = count_prekey_targets(peers, base_bundle, local_device_id, false, 0, 0)
+    let local_count = count_prekey_targets(local_devices, base_bundle, local_device_id, true, 0, 0)
+    if peer_count + local_count != 1 do
+      Err("invalid_fanout_prekeys")
+    else
+      let target = if peer_count == 1 do
+        find_prekey_target(peers, base_bundle, local_device_id, false, 0) ?
+      else
+        find_prekey_target(local_devices, base_bundle, local_device_id, true, 0) ?
+      end
+      let valid = case verify_prekey_bundle(target.account,
+      bundle,
+      1,
+      now,
+      target.account.directory_sequence) do
+        Err( _) -> false
+        Ok( value) -> value
+      end
+      if !valid do
+        Err("invalid_fanout_prekeys")
+      else
+        let claimed_entry = % { target.entry | prekey_bundle : input }
+        let encoded_profile = case encode_client_profile(claimed_entry,
+        target.account_id,
+        target.device_id) do
+          Err( _) -> Err("invalid_fanout_prekeys")
+          Ok( value) -> Ok(value)
+        end ?
+        let claimed_profile = case decode_client_profile(encoded_profile) do
+          Err( _) -> Err("invalid_fanout_prekeys")
+          Ok( value) -> Ok(value)
+        end ?
+        Ok(MobileClaimedPrekey {
+          base_bundle : base_bundle,
+          profile : claimed_profile
+        })
+      end
+    end
+  end
+end
+
+fn validate_claimed_prekeys(inputs :: List < Bytes >,
+peers :: List < ClientProfile >,
+local_devices :: List < ClientProfile >,
+local_device_id :: Bytes,
+now :: U64,
+index :: Int,
+claims :: List < MobileClaimedPrekey >) -> List < MobileClaimedPrekey > ! String do
+  if index >= List.length(inputs) do
+    Ok(claims)
+  else
+    let claim = validate_claimed_prekey(List.get(inputs, index),
+    peers,
+    local_devices,
+    local_device_id,
+    now) ?
+    if claimed_prekey_exists(claims, claim.base_bundle, 0) do
+      Err("invalid_fanout_prekeys")
+    else
+      validate_claimed_prekeys(inputs,
+      peers,
+      local_devices,
+      local_device_id,
+      now,
+      index + 1,
+      List.append(claims, claim))
+    end
+  end
+end
+
+fn require_claimed_prekeys_sessionless(database_path :: String,
+wrapping_key :: borrow StorageKey,
+session_ids :: List < Bytes >,
+claims :: List < MobileClaimedPrekey >,
+index :: Int) -> Result <(), String > do
+  if index >= List.length(claims) do
+    Ok(nil)
+  else
+    let profile = List.get(claims, index).profile
+    case find_device_session(database_path,
+    wrapping_key,
+    profile.account_id,
+    profile.device_id,
+    session_ids,
+    0) do
+      Ok( _) -> Err("invalid_fanout_prekeys")
+      Err( error) -> if error != "session_not_found" do
+        Err(error)
+      else
+        require_claimed_prekeys_sessionless(database_path,
+        wrapping_key,
+        session_ids,
+        claims,
+        index + 1)
+      end
+    end
+  end
+end
+
+fn reserve_fanout_prekey(request :: MobileFanoutPrekeyReservationRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let local = decode_client_profile(load_profile(request.database_path) ?) ?
+  let peers = verified_device_set(request.peer_device_set) ?
+  let local_devices = verified_device_set(request.local_device_set) ?
+  if invalid_fanout_sets(local, peers, local_devices) do
+    Err("invalid_fanout_device_set")
+  else
+    let wrapping_key = platform_key() ?
+    let _ = require_transparency_device_set(request.database_path, wrapping_key, peers) ?
+    let _ = require_transparency_device_set(request.database_path, wrapping_key, local_devices) ?
+    let now = current_time() ?
+    let claims = validate_claimed_prekeys([request.claimed_prekey],
+    peers.profiles,
+    local_devices.profiles,
+    local.device_id,
+    now,
+    0,
+    List.new()) ?
+    require_claimed_prekeys_sessionless(request.database_path,
+    wrapping_key,
+    load_session_ids(request.database_path, wrapping_key) ?,
+    claims,
+    0) ?
+    store_fanout_prekey_reservations(request.database_path, wrapping_key, claims, now, 0) ?
+    Ok(Bytes.empty())
+  end
+end
+
+fn fetch_fanout_prekey(directory_url :: String, claim :: Bytes) -> Bytes ! String do
+  let response = case (Http.build(:post, directory_url <> "/v1/prekeys/bundle")
+    |> Http.header("Content-Type", "application/octet-stream")
+    |> Http.header("Cache-Control", "no-store")
+    |> Http.body_bytes(claim)
+    |> Http.timeout(8000)
+    |> Http.max_response_bytes(19312)
+    |> Http.max_redirects(0)
+    |> Http.send()) do
+    Err( error) -> if String.contains(error, "RESPONSE_TOO_LARGE") do
+      Err("prekey_claim_too_large")
+    else
+      Err("prekey_claim_failed")
+    end
+    Ok( value) -> Ok(value)
+  end ?
+  if response.status != 200 do
+    Err("prekey_claim_failed")
+  else if Map.get(response.headers, "cache-control") != "no-store" do
+    Err("prekey_claim_cache_policy_invalid")
+  else
+    Ok(response.body_bytes)
+  end
+end
+
+fn prepare_fanout_prekey_claims(request :: MobileFanoutPrepareRequest,
+claims :: List < Bytes >,
+index :: Int) -> Result <(), String > do
+  if index >= List.length(claims) do
+    Ok(nil)
+  else
+    let claimed_prekey = fetch_fanout_prekey(request.directory_url, List.get(claims, index)) ?
+    let _ = reserve_fanout_prekey(MobileFanoutPrekeyReservationRequest {
+      database_path : request.database_path,
+      peer_device_set : request.peer_device_set,
+      local_device_set : request.local_device_set,
+      claimed_prekey : claimed_prekey
+    }) ?
+    prepare_fanout_prekey_claims(request, claims, index + 1)
+  end
+end
+
+fn prepare_fanout_prekeys(request :: MobileFanoutPrepareRequest) -> Bytes ! String do
+  let claims = fanout_prekey_claim_values(MobileFanoutTargetsRequest {
+    database_path : request.database_path,
+    peer_device_set : request.peer_device_set,
+    local_device_set : request.local_device_set
+  }) ?
+  prepare_fanout_prekey_claims(request, claims, 0) ?
+  Ok(Bytes.empty())
+end
+
+fn append_sessionless_prekeys(database_path :: String,
+wrapping_key :: borrow StorageKey,
+session_ids :: List < Bytes >,
+profiles :: List < ClientProfile >,
+local_device_id :: Bytes,
+skip_local_device :: Bool,
+now :: U64,
+claims :: List < MobileClaimedPrekey >,
+index :: Int) -> List < MobileClaimedPrekey > ! String do
+  if index >= List.length(profiles) do
+    Ok(claims)
+  else
+    let profile = List.get(profiles, index)
+    if skip_local_device && Bytes.secure_equals(profile.device_id, local_device_id) do
+      append_sessionless_prekeys(database_path,
+      wrapping_key,
+      session_ids,
+      profiles,
+      local_device_id,
+      skip_local_device,
+      now,
+      claims,
+      index + 1)
+    else
+      case find_device_session(database_path,
+      wrapping_key,
+      profile.account_id,
+      profile.device_id,
+      session_ids,
+      0) do
+        Ok( _) -> append_sessionless_prekeys(database_path,
+        wrapping_key,
+        session_ids,
+        profiles,
+        local_device_id,
+        skip_local_device,
+        now,
+        claims,
+        index + 1)
+        Err( error) -> if error != "session_not_found" do
+          Err(error)
+        else
+          case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
+            Err( error) -> Err(error)
+            Ok( None) -> Err("invalid_fanout_prekeys")
+            Ok( Some( claim)) -> append_sessionless_prekeys(database_path,
+            wrapping_key,
+            session_ids,
+            profiles,
+            local_device_id,
+            skip_local_device,
+            now,
+            List.append(claims, claim),
+            index + 1)
+          end
+        end
+      end
+    end
+  end
+end
+
 fn send_to_device(database_path :: String,
 wrapping_key :: borrow StorageKey,
 session_ids :: List < Bytes >,
+claimed_prekeys :: List < MobileClaimedPrekey >,
 local_device :: borrow DeviceKeys,
 local_encode_client_profile :: Bytes,
 local :: ClientProfile,
@@ -4259,6 +4978,7 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
     Err( error) -> if error != "session_not_found" do
       Err(error)
     else
+      let claimed_peer = claimed_prekey_profile(claimed_prekeys, peer.entry.prekey_bundle, 0) ?
       let plaintext = case encode_initial_plaintext(local_encode_client_profile,
       inner_bytes(inner) ?) do
         Err( _) -> Err("invalid_initial_plaintext")
@@ -4266,9 +4986,9 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
       end ?
       let ( state, initial) = case initiate(local_device,
       local.credential,
-      peer.account,
-      peer.bundle,
-      policy(peer, inner.client_timestamp),
+      claimed_peer.account,
+      claimed_peer.bundle,
+      policy(claimed_peer, inner.client_timestamp),
       0,
       plaintext) do
         Err( _) -> Err("session_start_failed")
@@ -4276,14 +4996,14 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
       end ?
       let packet = encode_packet(InitialPacket(local.entry.account_identity,
       initial_bytes(initial) ?)) ?
-      let outer = outer_bytes(peer.entry.mailbox_token,
+      let outer = outer_bytes(claimed_peer.entry.mailbox_token,
       initial.suite,
       packet,
       inner.client_timestamp) ?
       let ( session_id, label, session_blob) = seal_session(state,
       wrapping_key,
       local,
-      peer,
+      claimed_peer,
       inner.conversation_id,
       1,
       false) ?
@@ -4301,6 +5021,7 @@ end
 fn peer_fanout(database_path :: String,
 wrapping_key :: borrow StorageKey,
 session_ids :: List < Bytes >,
+claimed_prekeys :: List < MobileClaimedPrekey >,
 local_device :: borrow DeviceKeys,
 local_encode_client_profile :: Bytes,
 local :: ClientProfile,
@@ -4335,6 +5056,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
     let prepared = send_to_device(database_path,
     wrapping_key,
     session_ids,
+    claimed_prekeys,
     local_device,
     local_encode_client_profile,
     local,
@@ -4343,6 +5065,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
     peer_fanout(database_path,
     wrapping_key,
     session_ids,
+    claimed_prekeys,
     local_device,
     local_encode_client_profile,
     local,
@@ -4360,6 +5083,7 @@ end
 fn self_fanout(database_path :: String,
 wrapping_key :: borrow StorageKey,
 session_ids :: List < Bytes >,
+claimed_prekeys :: List < MobileClaimedPrekey >,
 local_device :: borrow DeviceKeys,
 local_encode_client_profile :: Bytes,
 local :: ClientProfile,
@@ -4377,6 +5101,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       self_fanout(database_path,
       wrapping_key,
       session_ids,
+      claimed_prekeys,
       local_device,
       local_encode_client_profile,
       local,
@@ -4406,6 +5131,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       let prepared = send_to_device(database_path,
       wrapping_key,
       session_ids,
+      claimed_prekeys,
       local_device,
       local_encode_client_profile,
       local,
@@ -4414,6 +5140,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       self_fanout(database_path,
       wrapping_key,
       session_ids,
+      claimed_prekeys,
       local_device,
       local_encode_client_profile,
       local,
@@ -4433,16 +5160,33 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
   let local = decode_client_profile(local_encode_client_profile) ?
   let peers = verified_device_set(request.peer_device_set) ?
   let local_devices = verified_device_set(request.local_device_set) ?
-  let invalid = !local_device_set(local, local_devices) || Bytes.secure_equals(local.account_id,
-  peers.account.account_id) || List.length(peers.profiles) == 0
-  if invalid do
+  if invalid_fanout_sets(local, peers, local_devices) do
     Err("invalid_fanout_device_set")
   else
     let wrapping_key = platform_key() ?
     let _ = require_transparency_device_set(request.database_path, wrapping_key, peers) ?
     let _ = require_transparency_device_set(request.database_path, wrapping_key, local_devices) ?
-    let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
     let session_ids = load_session_ids(request.database_path, wrapping_key) ?
+    let now = current_time() ?
+    let peer_prekeys = append_sessionless_prekeys(request.database_path,
+    wrapping_key,
+    session_ids,
+    peers.profiles,
+    local.device_id,
+    false,
+    now,
+    List.new(),
+    0) ?
+    let claimed_prekeys = append_sessionless_prekeys(request.database_path,
+    wrapping_key,
+    session_ids,
+    local_devices.profiles,
+    local.device_id,
+    true,
+    now,
+    peer_prekeys,
+    0) ?
+    let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
     let anchor = case find_peer_session(request.database_path,
     wrapping_key,
     peers.account.account_id,
@@ -4479,12 +5223,12 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
     else if anchor.request_state != 1 do
       Err("message_request_pending")
     else
-      let now = current_time() ?
       let client_message_id = random_bytes(16) ?
       let local_device = open_device(local, wrapping_key, request.database_path) ?
       let prepared_peers = peer_fanout(request.database_path,
       wrapping_key,
       session_ids,
+      claimed_prekeys,
       local_device,
       local_encode_client_profile,
       local,
@@ -4520,6 +5264,7 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       let prepared = self_fanout(request.database_path,
       wrapping_key,
       session_ids,
+      claimed_prekeys,
       local_device,
       local_encode_client_profile,
       local,
@@ -4537,6 +5282,7 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       envelopes) ?
       store_outbound(request.database_path,
       prepared,
+      fanout_prekey_reservation_labels(claimed_prekeys, 0, List.new()),
       session_index_blob,
       history_key,
       history_blob,
@@ -4617,6 +5363,7 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
     [outer]) ?
     store_outbound(request.database_path,
     prepared,
+    List.new(),
     seal_session_ids(session_ids, wrapping_key) ?,
     history_key,
     history_blob,
@@ -7973,6 +8720,18 @@ end
 
 @ export("mesh_messenger_receive_initial")pub fn receive_initial_export(request :: Bytes) -> Bytes ! String do
   receive_initial_message(parse_receive_request(request) ?)
+end
+
+pub fn fanout_prekey_claims_export(request :: Bytes) -> Bytes ! String do
+  fanout_prekey_claims(parse_fanout_targets_request(request) ?)
+end
+
+pub fn reserve_fanout_prekey_export(request :: Bytes) -> Bytes ! String do
+  reserve_fanout_prekey(parse_fanout_prekey_reservation_request(request) ?)
+end
+
+@ export("mesh_messenger_prepare_fanout_prekeys")pub fn prepare_fanout_prekeys_export(request :: Bytes) -> Bytes ! String do
+  prepare_fanout_prekeys(parse_fanout_prepare_request(request) ?)
 end
 
 @ export("mesh_messenger_send_fanout")pub fn send_fanout_export(request :: Bytes) -> Bytes ! String do

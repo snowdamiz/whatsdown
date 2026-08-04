@@ -89,6 +89,7 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
                     "mesh_messenger_inspect_device_set" -> MeshLibrary.inspect_device_set_export(request)
                     "mesh_messenger_create_device_revocation" -> MeshLibrary.create_device_revocation_export(request)
                     "mesh_messenger_receive_initial" -> MeshLibrary.receive_initial_export(request)
+                    "mesh_messenger_prepare_fanout_prekeys" -> MeshLibrary.prepare_fanout_prekeys_export(request)
                     "mesh_messenger_send_fanout" -> MeshLibrary.send_fanout_export(request)
                     "mesh_messenger_group_key_package" -> MeshLibrary.group_key_package_export(request)
                     "mesh_messenger_group_create" -> MeshLibrary.group_create_export(request)

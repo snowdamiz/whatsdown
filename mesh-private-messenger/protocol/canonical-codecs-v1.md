@@ -159,15 +159,18 @@ tag:3 = "OTQ"
 account_id:32
 device_id:16
 base_bundle_hash:32
+reservation_id:16
 ```
 
-This request is exactly 84 bytes. `base_bundle_hash` is
+This request is exactly 100 bytes. `base_bundle_hash` is
 `SHA-256(canonical_base_PKB)` and binds the claim to the transparently verified
-device bundle without revealing requester identity. The service atomically
-marks at most one available key consumed and returns the reconstructed `PKB`.
-Concurrent claims cannot receive the same key. Consumed IDs remain tombstones,
-publication cannot reactivate them, exhaustion returns no bundle, and device
-revocation removes that device's pool.
+device bundle without revealing requester identity. `reservation_id` is random,
+generated and durably persisted by Mesh before the HTTP request. The service
+atomically marks at most one available key consumed and returns the reconstructed
+`PKB`; replaying the same reservation returns that exact bundle without consuming
+another key. Concurrent claims cannot receive the same key. Consumed IDs remain
+tombstones, publication cannot reactivate them, exhaustion returns no bundle,
+and device revocation removes that device's pool.
 
 ## Outer envelope (`MSG`)
 

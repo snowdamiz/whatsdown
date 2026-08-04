@@ -1,6 +1,6 @@
 from Identity.Device import verify_device_revocation
 from Prekeys.Pool import OneTimePrekeyPublic
-from Prekeys.Bundle import verify_prekey_bundle
+from Prekeys.Bundle import normalize_prekey_bundle, verify_prekey_bundle
 from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceRevocation, DeviceSet, DirectoryEntry, PrekeyBundle, decode_account_identity, decode_device_credential, decode_prekey_bundle, encode_device_revocation, encode_device_set, encode_directory_entry, encode_prekey_bundle
 from Storage.Prekeys import seed_registration_prekey_on_connection
 from Storage.Transparency import append_entry_on_connection
@@ -52,27 +52,10 @@ fn current_time() -> U64 ! String do
 end
 
 fn normalized_bundle(bundle :: PrekeyBundle) -> PrekeyBundle ! String do
-  let normalized = PrekeyBundle {
-    version : bundle.version,
-    suite : bundle.suite,
-    device_credential : bundle.device_credential,
-    identity_dh_public_key : bundle.identity_dh_public_key,
-    signing_public_key : bundle.signing_public_key,
-    signed_prekey_id : bundle.signed_prekey_id,
-    signed_prekey : bundle.signed_prekey,
-    signed_prekey_signature : bundle.signed_prekey_signature,
-    one_time_prekey_id : U64.parse("0") ?,
-    one_time_prekey : Bytes.empty(),
-    post_quantum_prekey : bundle.post_quantum_prekey,
-    supported_suites : bundle.supported_suites,
-    expires_at : bundle.expires_at,
-    extensions : bundle.extensions
-  }
-  let _ = case encode_prekey_bundle(normalized) do
+  case normalize_prekey_bundle(bundle) do
     Err( _) -> Err("invalid normalized prekey bundle")
-    Ok( output) -> Ok(output)
-  end ?
-  Ok(normalized)
+    Ok( normalized) -> Ok(normalized)
+  end
 end
 
 fn verified_registration(entry :: DirectoryEntry) -> VerifiedRegistration ! String do

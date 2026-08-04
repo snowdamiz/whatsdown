@@ -14,7 +14,7 @@ pub fn build_router() do
     |> HTTP.on_post("/v1/devices/resolve", handle_resolve_devices)
     |> HTTP.on_post("/v1/devices/revoke", handle_revoke_device)
     |> HTTP.on_post("/v1/prekeys/one-time/batch", handle_prekeys_publish)
-    |> HTTP.on_get("/v1/prekeys/bundle", handle_prekey_claim)
+    |> HTTP.on_post("/v1/prekeys/bundle", handle_prekey_claim)
   let router = if direct_delivery_compatibility_enabled(Env.get("MESSENGER_DIRECT_DELIVERY_COMPATIBILITY",
   "")) do
     HTTP.on_post(router, "/v1/envelopes/batch", handle_submit)

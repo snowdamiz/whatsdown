@@ -97,11 +97,13 @@ end
 
 fn unsigned_claim(identity :: AccountIdentity,
 target :: borrow DeviceKeys,
-base_bundle_hash :: Bytes) -> PrekeyClaimRequest do
+base_bundle_hash :: Bytes,
+reservation_id :: Bytes) -> PrekeyClaimRequest do
   PrekeyClaimRequest {
     account_id : identity.account_id,
     device_id : target.device_id,
-    base_bundle_hash : base_bundle_hash
+    base_bundle_hash : base_bundle_hash,
+    reservation_id : reservation_id
   }
 end
 
@@ -125,8 +127,11 @@ fn target_base_bundle(pool :: PoolHandle, mailbox_token :: Bytes) -> Bytes ! Str
   end
 end
 
-fn claim_request(identity :: AccountIdentity, target :: borrow DeviceKeys, base_bundle :: Bytes) -> PrekeyClaimRequest do
-  unsigned_claim(identity, target, Crypto.sha256(base_bundle))
+fn claim_request(identity :: AccountIdentity,
+target :: borrow DeviceKeys,
+base_bundle :: Bytes,
+reservation_id :: Bytes) -> PrekeyClaimRequest do
+  unsigned_claim(identity, target, Crypto.sha256(base_bundle), reservation_id)
 end
 
 fn decoded_bundle(input :: Bytes) -> PrekeyBundle ! String do
@@ -162,6 +167,23 @@ fn await_claim_id(job :: Pid < Int >, normal_exits :: Int) -> Int ! String do
   end
 end
 
+fn record_claim(pool :: PoolHandle, body :: Bytes, claim_order :: Int) -> Int do
+  let response = claim_prekey_request(pool, body)
+  case Pool.execute_values(pool,
+  "INSERT INTO mesh_test_concurrent_claims (claim_order, status, body) VALUES ($1::integer, $2::integer, $3)",
+  [Text(Int.to_string(claim_order)), Text(Int.to_string(response.status)), Binary(response.body)]) do
+    Err( _) -> 0
+    Ok( _) -> response.status
+  end
+end
+
+fn binary_value(value :: DbValue) -> Bytes ! String do
+  case value do
+    Binary( output) -> Ok(output)
+    _ -> Err("invalid concurrent claim body")
+  end
+end
+
 fn prekey_range(start_id :: Int, count :: Int, index :: Int, output :: List < OneTimePrekeyPublic >) -> List < OneTimePrekeyPublic > ! String do
   if index >= count do
     Ok(output)
@@ -190,6 +212,23 @@ fn target_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes)
         Some( output) -> Ok(output)
       end
       _ -> Err("invalid prekey count")
+    end
+  end
+end
+
+fn target_consumed_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes) -> Int ! String do
+  let rows = Pool.query_values(pool,
+  "SELECT count(*)::text AS key_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NOT NULL",
+  [Binary(account_id), Binary(device_id)]) ?
+  if List.length(rows) != 1 do
+    Err("consumed prekey count failed")
+  else
+    case Map.get(List.head(rows), "key_count") do
+      Text( value) -> case String.to_int(value) do
+        None -> Err("invalid consumed prekey count")
+        Some( output) -> Ok(output)
+      end
+      _ -> Err("invalid consumed prekey count")
     end
   end
 end
@@ -236,18 +275,54 @@ fn happy_path() -> Bool ! String do
   let recovery_active = decode_prekey_publish_response(recovery_response.body) ?
   assert(List.length(recovery_active.active_ids) == 1)
   assert(U64.compare(List.head(recovery_active.active_ids), wide("2") ?) == 0)
-  let claim = claim_request(identity, target, target_base)
+  let claim = claim_request(identity, target, target_base, repeated(51, 16) ?)
   let stale_claim = PrekeyClaimRequest {
     account_id : claim.account_id,
     device_id : claim.device_id,
-    base_bundle_hash : repeated(99, 32) ?
+    base_bundle_hash : repeated(99, 32) ?,
+    reservation_id : claim.reservation_id
   }
   assert(claim_prekey_request(pool, encode_prekey_claim(stale_claim) ?).status == 404)
   assert(claim_prekey_request(pool, append_bytes(encode_prekey_claim(claim) ?, repeated(0, 1) ?) ?).status == 400)
+  let _ = Pool.execute(pool, "DROP TABLE IF EXISTS mesh_test_concurrent_claims", []) ?
+  let _ = Pool.execute(pool,
+  "DROP TRIGGER IF EXISTS mesh_test_pause_identical_claim ON messenger_one_time_prekeys",
+  []) ?
+  let _ = Pool.execute(pool, "DROP FUNCTION IF EXISTS mesh_test_pause_identical_claim()", []) ?
+  let _ = Pool.execute(pool,
+  "CREATE UNLOGGED TABLE mesh_test_concurrent_claims (claim_order INTEGER PRIMARY KEY, status INTEGER NOT NULL, body BYTEA NOT NULL)",
+  []) ?
+  let _ = Pool.execute(pool,
+  "CREATE FUNCTION mesh_test_pause_identical_claim() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.25); RETURN NEW; END $$",
+  []) ?
+  let _ = Pool.execute(pool,
+  "CREATE TRIGGER mesh_test_pause_identical_claim BEFORE UPDATE OF claim_id_hash ON messenger_one_time_prekeys FOR EACH ROW WHEN (OLD.claim_id_hash IS NULL AND NEW.claim_id_hash IS NOT NULL) EXECUTE FUNCTION mesh_test_pause_identical_claim()",
+  []) ?
+  let initial_claim_body = encode_prekey_claim(claim) ?
+  let second_initial_claim_body = encode_prekey_claim(claim) ?
+  let initial_job = Job.async(fn () -> record_claim(pool, initial_claim_body, 1) end)
+  let second_initial_job = Job.async(fn () -> record_claim(pool, second_initial_claim_body, 2) end)
+  assert(await_claim_id(initial_job, 0) ? == 200)
+  assert(await_claim_id(second_initial_job, 0) ? == 200)
+  let concurrent_claims = Pool.query_values(pool,
+  "SELECT body FROM mesh_test_concurrent_claims ORDER BY claim_order",
+  []) ?
+  assert(List.length(concurrent_claims) == 2)
+  let first_concurrent_body = binary_value(Map.get(List.get(concurrent_claims, 0), "body")) ?
+  let second_concurrent_body = binary_value(Map.get(List.get(concurrent_claims, 1), "body")) ?
+  assert(Bytes.secure_equals(first_concurrent_body, second_concurrent_body))
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 1)
+  let _ = Pool.execute(pool,
+  "DROP TRIGGER mesh_test_pause_identical_claim ON messenger_one_time_prekeys",
+  []) ?
+  let _ = Pool.execute(pool, "DROP FUNCTION mesh_test_pause_identical_claim()", []) ?
+  let _ = Pool.execute(pool, "DROP TABLE mesh_test_concurrent_claims", []) ?
   let initial_response = claim_prekey_request(pool, encode_prekey_claim(claim) ?)
-  assert(initial_response.status == 200)
   let initial_bundle = decoded_bundle(initial_response.body) ?
   assert(U64.compare(initial_bundle.one_time_prekey_id, wide("2") ?) == 0)
+  let initial_replay = claim_prekey_request(pool, encode_prekey_claim(claim) ?)
+  assert(initial_replay.status == 200)
+  assert(Bytes.secure_equals(initial_replay.body, initial_response.body))
   let unsigned = unsigned_publish(identity,
   target,
   [OneTimePrekeyPublic {
@@ -303,15 +378,34 @@ fn happy_path() -> Bool ! String do
     public_key : repeated(43, 32) ?
   }]) ?) ?
   assert(publish_prekeys_request(pool, encode_prekey_publish(conflicting) ?).status == 409)
-  let claim_body = encode_prekey_claim(claim) ?
-  let first_job = Job.async(fn () -> claimed_id(pool, claim_body) end)
-  let second_job = Job.async(fn () -> claimed_id(pool, claim_body) end)
+  let first_claim_body = encode_prekey_claim(% { claim | reservation_id : repeated(60, 16) ? }) ?
+  let second_claim_body = encode_prekey_claim(% { claim | reservation_id : repeated(61, 16) ? }) ?
+  let first_job = Job.async(fn () -> claimed_id(pool, first_claim_body) end)
+  let second_job = Job.async(fn () -> claimed_id(pool, second_claim_body) end)
   let first_claim_id = await_claim_id(first_job, 0) ?
   let second_claim_id = await_claim_id(second_job, 0) ?
   assert(first_claim_id != second_claim_id)
   let ids_match = (first_claim_id == 100 && second_claim_id == 101) || (first_claim_id == 101 && second_claim_id == 100)
   assert(ids_match)
-  assert(claim_prekey_request(pool, claim_body).status == 409)
+  let first_replay_body = encode_prekey_claim(% { claim | reservation_id : repeated(60, 16) ? }) ?
+  let second_replay_body = encode_prekey_claim(% { claim | reservation_id : repeated(61, 16) ? }) ?
+  let first_replay = claim_prekey_request(pool, first_replay_body)
+  let first_exact_replay = claim_prekey_request(pool,
+  encode_prekey_claim(% { claim | reservation_id : repeated(60, 16) ? }) ?)
+  let second_replay = claim_prekey_request(pool, second_replay_body)
+  let second_exact_replay = claim_prekey_request(pool,
+  encode_prekey_claim(% { claim | reservation_id : repeated(61, 16) ? }) ?)
+  assert(first_replay.status == 200)
+  assert(second_replay.status == 200)
+  assert(Bytes.secure_equals(first_replay.body, first_exact_replay.body))
+  assert(Bytes.secure_equals(second_replay.body, second_exact_replay.body))
+  let first_replay_id = U64.to_int(decoded_bundle(first_replay.body) ?.one_time_prekey_id) ?
+  let second_replay_id = U64.to_int(decoded_bundle(second_replay.body) ?.one_time_prekey_id) ?
+  assert(first_replay_id != second_replay_id)
+  let replay_ids_match = (first_replay_id == 100 && second_replay_id == 101) || (first_replay_id == 101 && second_replay_id == 100)
+  assert(replay_ids_match)
+  let exhausted_claim_body = encode_prekey_claim(% { claim | reservation_id : repeated(62, 16) ? }) ?
+  assert(claim_prekey_request(pool, exhausted_claim_body).status == 409)
   let exhausted_recovery = publish_prekeys_request(pool, encode_prekey_publish(recovery) ?)
   assert(exhausted_recovery.status == 200)
   assert(List.length(decode_prekey_publish_response(exhausted_recovery.body) ?.active_ids) == 0)
@@ -323,10 +417,13 @@ fn happy_path() -> Bool ! String do
     public_key : repeated(45, 32) ?
   }]) ?) ?
   assert(publish_prekeys_request(pool, encode_prekey_publish(replenished) ?).status == 201)
-  let replenished_claim = claim_prekey_request(pool, claim_body)
+  let replenished_claim = claim_prekey_request(pool, exhausted_claim_body)
   assert(replenished_claim.status == 200)
   assert(U64.compare(decoded_bundle(replenished_claim.body) ?.one_time_prekey_id, wide("102") ?) == 0)
-  assert(claim_prekey_request(pool, claim_body).status == 409)
+  assert(U64.compare(decoded_bundle(claim_prekey_request(pool, exhausted_claim_body).body) ?.one_time_prekey_id,
+  wide("102") ?) == 0)
+  assert(claim_prekey_request(pool,
+  encode_prekey_claim(% { claim | reservation_id : repeated(63, 16) ? }) ?).status == 409)
   let bounded_values = prekey_range(200, 64, 0, List.new()) ?
   let bounded = sign_publish(target.signing_private_key,
   unsigned_publish(identity, target, bounded_values) ?) ?
@@ -352,7 +449,7 @@ fn happy_path() -> Bool ! String do
   assert(revoke_device_request(pool, protocol(encode_device_revocation(revocation)) ?).status == 200)
   assert(target_key_count(pool, identity.account_id, target.device_id) ? == 0)
   assert(publish_prekeys_request(pool, encode_prekey_publish(bounded) ?).status == 403)
-  assert(claim_prekey_request(pool, claim_body).status == 404)
+  assert(claim_prekey_request(pool, exhausted_claim_body).status == 404)
   Pool.close(pool)
   Ok(true)
 end

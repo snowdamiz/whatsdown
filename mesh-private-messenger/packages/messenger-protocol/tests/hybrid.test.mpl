@@ -1,5 +1,5 @@
 from Identity.Device import AccountKeys, DeviceKeys, IdentityError, VerificationPolicy, generate_account, generate_device, issue_device_credential, issue_hybrid_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
+from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle
 from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle, ProtocolError, ProtocolExtension, decode_prekey_bundle, encode_initial_message, encode_prekey_bundle, negotiate_suites
 from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, decrypt, encrypt
@@ -134,6 +134,13 @@ fn decoded_bundle(value :: Bytes) -> PrekeyBundle ! String do
   end
 end
 
+fn normalized_bundle(value :: PrekeyBundle) -> PrekeyBundle ! String do
+  case normalize_prekey_bundle(value) do
+    Err( _) -> Err("prekey bundle normalization failed")
+    Ok( normalized) -> Ok(normalized)
+  end
+end
+
 fn maximal_bundle_proof() -> Bool ! String do
   let now = wide("1700000000000") ?
   let expires = wide("1700604800000") ?
@@ -165,6 +172,11 @@ fn maximal_bundle_proof() -> Bool ! String do
   let decoded = decoded_bundle(encoded) ?
   assert(List.length(decoded.extensions) == 16)
   assert(Bytes.secure_equals(encoded_bundle(decoded) ?, encoded))
+  let normalized = normalized_bundle(maximal) ?
+  assert(U64.compare(normalized.one_time_prekey_id, wide("0") ?) == 0)
+  assert(Bytes.length(normalized.one_time_prekey) == 0)
+  assert(Bytes.secure_equals(encoded_bundle(normalized) ?,
+  encoded_bundle(% { maximal | one_time_prekey_id : wide("0") ?, one_time_prekey : Bytes.empty() }) ?))
   Ok(true)
 end
 

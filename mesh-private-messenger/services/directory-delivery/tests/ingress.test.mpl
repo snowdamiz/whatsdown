@@ -35,9 +35,25 @@ actor directory_router() do
     |> HTTP.serve(18994)
 end
 
-test("default directory router does not expose public direct delivery") do
+test("default router exposes neither GET prekey claims nor public direct delivery") do
   let _server = spawn(directory_router)
   Timer.sleep(100)
+  case Http.build(:get, "http://127.0.0.1:18994/v1/prekeys/bundle")
+    |> Http.max_response_bytes(1024)
+    |> Http.send() do
+    Err( _) -> assert(false)
+    Ok( response) -> assert(response.status == 404)
+  end
+  case Http.build(:post, "http://127.0.0.1:18994/v1/prekeys/bundle")
+    |> Http.body_bytes(Bytes.from_utf8("invalid"))
+    |> Http.max_response_bytes(1024)
+    |> Http.send() do
+    Err( _) -> assert(false)
+    Ok( response) -> do
+      assert(response.status == 400)
+      assert(Map.get(response.headers, "cache-control") == "no-store")
+    end
+  end
   case Http.build(:post, "http://127.0.0.1:18994/v1/envelopes/batch")
     |> Http.body_bytes(Bytes.from_utf8("hostile"))
     |> Http.send() do

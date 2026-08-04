@@ -2558,7 +2558,7 @@ GET  /v1/devices/current-set
 GET  /v1/directory/resolve
 PUT  /v1/prekeys/signed
 POST /v1/prekeys/one-time/batch
-GET  /v1/prekeys/bundle
+POST /v1/prekeys/bundle
 ```
 
 Responses include transparency evidence.

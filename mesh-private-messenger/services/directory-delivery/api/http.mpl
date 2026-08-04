@@ -1,9 +1,16 @@
 from Api.Binary import BinaryResult, acknowledge_request, bind_push_request, checkpoint_request, claim_prekey_request, consistency_request, fetch_request, inclusion_request, publish_prekeys_request, register_device_request, register_request, resolve_devices_request, resolve_request, revoke_device_request, submit_configured_sealed_request, submit_request, submit_witness_request, unbind_push_request, witnesses_request
+from Prekeys.Pool import decode_prekey_claim
 from Privacy.Edge import internal_delivery_authorized, internal_delivery_token
 from Runtime.Registry import get_pool
 
 fn respond(result :: BinaryResult) -> Response do
   HTTP.response_bytes(result.status, result.body)
+end
+
+fn respond_no_store(result :: BinaryResult) -> Response do
+  HTTP.response_bytes_with_headers(result.status,
+  result.body,
+  Map.put(Map.new(), "Cache-Control", "no-store"))
 end
 
 pub fn handle_health(_request :: Request) -> Response do
@@ -76,12 +83,13 @@ pub fn handle_prekeys_publish(request :: Request) -> Response do
 end
 
 pub fn handle_prekey_claim(request :: Request) -> Response do
-  case Request.query(request, "request") do
-    None -> HTTP.response(400, "")
-    Some( encoded) -> case Bytes.from_hex(encoded) do
-      Err( _) -> HTTP.response(400, "")
-      Ok( body) -> respond(claim_prekey_request(get_pool(), body))
-    end
+  let body = Request.body_bytes(request)
+  case decode_prekey_claim(body) do
+    Err( _) -> respond_no_store(BinaryResult {
+      status : 400,
+      body : Bytes.empty()
+    })
+    Ok( _) -> respond_no_store(claim_prekey_request(get_pool(), body))
   end
 end
 

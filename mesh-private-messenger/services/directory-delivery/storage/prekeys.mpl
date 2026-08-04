@@ -237,10 +237,7 @@ fn resolved_bundle(encoded :: Bytes, claimed :: OneTimePrekeyPublic) -> PrekeyBu
   Ok(resolved)
 end
 
-fn claim_one(conn :: borrow PgConn, account_id :: Bytes, device_id :: Bytes) -> Option < OneTimePrekeyPublic > ! String do
-  let rows = Pg.query_values(conn,
-  "WITH candidate AS (SELECT prekey_id FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL ORDER BY prekey_id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE messenger_one_time_prekeys AS key SET consumed_at = clock_timestamp() FROM candidate WHERE key.account_id = $1 AND key.device_id = $2 AND key.prekey_id = candidate.prekey_id RETURNING key.prekey_id::text, key.public_key",
-  [Binary(account_id), Binary(device_id)]) ?
+fn claimed_prekey(rows :: List < Map < String, DbValue > >) -> Option < OneTimePrekeyPublic > ! String do
   if List.length(rows) == 0 do
     Ok(None)
   else if List.length(rows) == 1 do
@@ -254,6 +251,40 @@ fn claim_one(conn :: borrow PgConn, account_id :: Bytes, device_id :: Bytes) -> 
   end
 end
 
+fn existing_claim(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option < OneTimePrekeyPublic > ! String do
+  let rows = Pg.query_values(conn,
+  "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND claim_id_hash = $3 AND claim_base_bundle_hash = $4 FOR SHARE",
+  [Binary(request.account_id), Binary(request.device_id), Binary(Crypto.sha256(request.reservation_id)), Binary(request.base_bundle_hash)]) ?
+  claimed_prekey(rows)
+end
+
+fn lock_claim_reservation(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Result <(), String > do
+  let _ = Pg.query_values(conn,
+  "SELECT pg_advisory_xact_lock(hashtextextended(encode($1, 'hex'), 1835365485))",
+  [Binary(Crypto.sha256(request.reservation_id))]) ?
+  Ok(nil)
+end
+
+fn claim_candidate(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option < OneTimePrekeyPublic > ! String do
+  let rows = Pg.query_values(conn,
+  "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL ORDER BY prekey_id FOR UPDATE SKIP LOCKED LIMIT 1",
+  [Binary(request.account_id), Binary(request.device_id)]) ?
+  claimed_prekey(rows)
+end
+
+fn reserve_claim(conn :: borrow PgConn,
+request :: PrekeyClaimRequest,
+claimed :: OneTimePrekeyPublic) -> Result <(), String > do
+  let changed = Pg.execute_values(conn,
+  "UPDATE messenger_one_time_prekeys SET consumed_at = clock_timestamp(), claim_id_hash = $4, claim_base_bundle_hash = $5 WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND consumed_at IS NULL",
+  [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(claimed.id)), Binary(Crypto.sha256(request.reservation_id)), Binary(request.base_bundle_hash)]) ?
+  if changed == 1 do
+    Ok(nil)
+  else
+    Err("prekey claim changed concurrently")
+  end
+end
+
 fn claim_on_connection(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> PrekeyClaimWrite ! String do
   case active_bundle(conn, request.account_id, request.device_id, false) ? do
     None -> Ok(PrekeyClaimMissing)
@@ -261,9 +292,16 @@ fn claim_on_connection(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> 
     request.base_bundle_hash) do
       Ok(PrekeyClaimMissing)
     else
-      case claim_one(conn, request.account_id, request.device_id) ? do
-        None -> Ok(PrekeyClaimExhausted)
+      lock_claim_reservation(conn, request) ?
+      case existing_claim(conn, request) ? do
         Some( claimed) -> Ok(PrekeyClaimed(resolved_bundle(encoded_bundle, claimed) ?))
+        None -> case claim_candidate(conn, request) ? do
+          None -> Ok(PrekeyClaimExhausted)
+          Some( claimed) -> do
+            reserve_claim(conn, request, claimed) ?
+            Ok(PrekeyClaimed(resolved_bundle(encoded_bundle, claimed) ?))
+          end
+        end
       end
     end
   end

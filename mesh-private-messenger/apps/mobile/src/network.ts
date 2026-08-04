@@ -17,6 +17,7 @@ import {
   outbox_list_export,
   privacy_submission_export,
   process_delivery_batch_export,
+  prepare_fanout_prekeys_export,
   reconcile_prekeys_export,
   replenish_prekeys_export,
   send_fanout_export,
@@ -25,10 +26,10 @@ import {
 } from '../modules/mesh-messenger';
 import {
   batchRequest,
-  DeviceSetSummary,
-  GroupHistoryMessage,
-  GroupDetails,
-  GroupSummary,
+  type DeviceSetSummary,
+  type GroupHistoryMessage,
+  type GroupDetails,
+  type GroupSummary,
   parseByteList,
   parseDeviceSetSummary,
   parseGroupHistory,
@@ -51,6 +52,7 @@ const baseUrl = (process.env.EXPO_PUBLIC_MESSENGER_BASE_URL ?? 'http://127.0.0.1
 );
 const synchronizePrekeysByDatabase = createKeyedSingleFlight<string, void>();
 const resolveTransparencyByDatabase = createKeyedSerialQueue<string>();
+const sendFanoutByDatabase = createKeyedSerialQueue<string>();
 export const GROUP_KEY_PACKAGE_LENGTH = 369;
 
 async function binaryRequest(
@@ -245,24 +247,34 @@ export async function removeGroupMember(
   await drainOutbox(databasePath);
 }
 
-export async function sendFanout(
+export function sendFanout(
   databasePath: string,
   peerUsername: string,
   body: string,
 ): Promise<boolean> {
-  const localProfile = await load_profile_export(utf8(databasePath));
-  const peerSet = await resolveDeviceSet(databasePath, peerUsername);
-  const localSet = await resolveDeviceSet(
-    databasePath,
-    parseProfileSummary(localProfile).username,
-  );
-  const peerSummary = await inspectDeviceSet(databasePath, peerSet);
-  await inspectDeviceSet(databasePath, localSet);
-  await send_fanout_export(
-    vectors(utf8(databasePath), peerSet, localSet, utf8(body)),
-  );
-  await drainOutbox(databasePath);
-  return peerSummary.changed;
+  return sendFanoutByDatabase(databasePath, async () => {
+    const localProfile = await load_profile_export(utf8(databasePath));
+    const peerSet = await resolveDeviceSet(databasePath, peerUsername);
+    const localSet = await resolveDeviceSet(
+      databasePath,
+      parseProfileSummary(localProfile).username,
+    );
+    const peerSummary = await inspectDeviceSet(databasePath, peerSet);
+    await inspectDeviceSet(databasePath, localSet);
+    await prepare_fanout_prekeys_export(
+      vectors(utf8(databasePath), peerSet, localSet, utf8(baseUrl)),
+    );
+    await send_fanout_export(
+      vectors(
+        utf8(databasePath),
+        peerSet,
+        localSet,
+        utf8(body),
+      ),
+    );
+    await drainOutbox(databasePath);
+    return peerSummary.changed;
+  });
 }
 
 export async function synchronizeMailbox(databasePath: string): Promise<void> {

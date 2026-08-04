@@ -20,6 +20,7 @@ export const complete_device_link_export = (request: Uint8Array): Promise<Uint8A
 export const inspect_device_set_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_inspect_device_set', request);
 export const create_device_revocation_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_create_device_revocation', request);
 export const receive_initial_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_receive_initial', request);
+export const prepare_fanout_prekeys_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_prepare_fanout_prekeys', request);
 export const send_fanout_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_send_fanout', request);
 export const group_key_package_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_key_package', request);
 export const group_create_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_create', request);

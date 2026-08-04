@@ -37,6 +37,7 @@ export {
   reconcile_prekeys_export,
   receive_initial_export,
   receive_message_export,
+  prepare_fanout_prekeys_export,
   send_fanout_export,
   safety_number_export,
   transparency_lookup_export,

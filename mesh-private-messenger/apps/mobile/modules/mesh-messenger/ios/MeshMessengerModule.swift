@@ -75,6 +75,8 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.create_device_revocation_export(request)
       case "mesh_messenger_receive_initial":
         return try MeshLibrary.receive_initial_export(request)
+      case "mesh_messenger_prepare_fanout_prekeys":
+        return try MeshLibrary.prepare_fanout_prekeys_export(request)
       case "mesh_messenger_send_fanout":
         return try MeshLibrary.send_fanout_export(request)
       case "mesh_messenger_group_key_package":

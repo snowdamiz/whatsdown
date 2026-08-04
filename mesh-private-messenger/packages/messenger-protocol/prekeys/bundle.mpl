@@ -105,8 +105,8 @@ end
 
 pub fn generate_post_quantum_prekey() -> PostQuantumPrekeySecrets ! PrekeyError do
   case Crypto.mlkem_generate() do
-    Err(error) -> Err(CryptoFailure(error))
-    Ok(pair) -> do
+    Err( error) -> Err(CryptoFailure(error))
+    Ok( pair) -> do
       let public_key = pair.public_key
       let private_key = pair.private_key
       Ok(PostQuantumPrekeySecrets {
@@ -162,6 +162,18 @@ supported_suites :: List < Int >) -> PrekeyBundle ! PrekeyError do
   case encode_prekey_bundle(bundle) do
     Err( error) -> Err(ProtocolFailure(error))
     Ok( _) -> Ok(bundle)
+  end
+end
+
+pub fn normalize_prekey_bundle(bundle :: PrekeyBundle) -> PrekeyBundle ! PrekeyError do
+  let zero = case U64.parse("0") do
+    Err( _) -> Err(InvalidBundle)
+    Ok( value) -> Ok(value)
+  end ?
+  let normalized = % { bundle | one_time_prekey_id : zero, one_time_prekey : Bytes.empty() }
+  case encode_prekey_bundle(normalized) do
+    Err( error) -> Err(ProtocolFailure(error))
+    Ok( _) -> Ok(normalized)
   end
 end
 
