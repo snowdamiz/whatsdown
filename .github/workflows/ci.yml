@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MESH_LANG_REVISION: 178293d7f76aeb41bc4286b6b9d53b85d9005d92
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+    working-directory: mesh-lang
+
+jobs:
+  mesh:
+    name: Pinned Mesh and messenger tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 105
+    steps:
+      - name: Checkout Whatsdown
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Mesh
+        uses: actions/checkout@v4
+        with:
+          repository: snowdamiz/mesh-lang
+          ref: ${{ env.MESH_LANG_REVISION }}
+          path: mesh-lang
+
+      - name: Cache LLVM
+        uses: actions/cache@v4
+        id: cache-llvm
+        with:
+          path: ~/llvm
+          key: llvm-21.1.8-v4-x86_64-unknown-linux-gnu
+
+      - name: Install LLVM 21 (Linux x86_64)
+        if: steps.cache-llvm.outputs.cache-hit != 'true'
+        timeout-minutes: 10
+        run: |
+          LLVM_VERSION="21.1.8"
+          LLVM_ARCHIVE="LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
+          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/${LLVM_ARCHIVE}"
+          curl -sSfL "$LLVM_URL" -o llvm.tar.xz
+          mkdir -p "$HOME/llvm"
+          tar xf llvm.tar.xz --strip-components=1 -C "$HOME/llvm"
+          rm llvm.tar.xz
+
+      - name: Set LLVM prefix
+        run: echo "LLVM_SYS_211_PREFIX=$HOME/llvm" >> "$GITHUB_ENV"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        timeout-minutes: 10
+        with:
+          components: rustfmt
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ci-mesh-x86_64-unknown-linux-gnu
+          workspaces: mesh-lang -> target
+
+      - name: Verify formatting and core workspace
+        timeout-minutes: 45
+        run: |
+          cargo fmt --all -- --check
+          cargo test -p mesh-parser --lib --locked
+          cargo test -p mesh-typeck --lib --locked
+          cargo test -p mesh-codegen --lib --locked
+          cargo build --workspace --locked
+
+      - name: Verify messenger protocol
+        timeout-minutes: 20
+        run: |
+          ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/groups --check
+          ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/tests --check
+          ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-protocol/tests
+
+      - name: Verify mobile application
+        timeout-minutes: 15
+        working-directory: mesh-private-messenger/apps/mobile
+        run: |
+          npm ci
+          npm test
+          npm run typecheck

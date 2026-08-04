@@ -10,6 +10,15 @@ The implementation roadmap and security caveats live in [mesh-private-messenger-
 
 Developers may keep a separate `mesh-lang/` checkout in this directory for local reference and integration testing. It is intentionally ignored and is never part of this repository.
 
+The protocol contracts include the [threat model](mesh-private-messenger/protocol/threat-model.md),
+[privacy contract](mesh-private-messenger/protocol/privacy-contract.md),
+[cryptographic profile](mesh-private-messenger/protocol/crypto-profile-v1.md),
+[ratchet wire format](mesh-private-messenger/protocol/ratchet-message-v1.md),
+[delivery wire format](mesh-private-messenger/protocol/delivery-wire-v1.md),
+[sealed-delivery format](mesh-private-messenger/protocol/sealed-delivery-v1.md),
+[secret-purpose inventory](mesh-private-messenger/protocol/secret-purpose-inventory.md),
+and [storage-wrapping format](mesh-private-messenger/protocol/storage-wrapping-v1.md).
+
 ## Development rules
 
 - Reusable capabilities are implemented and reviewed in the separate Mesh repository before the messenger consumes them.
