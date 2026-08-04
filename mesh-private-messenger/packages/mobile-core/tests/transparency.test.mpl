@@ -97,7 +97,14 @@ fn proof() -> Bool ! String do
     Ok( _) -> assert(false)
   end
   let lookup_request = append(path_vector, username_vector) ?
-  let lookup = decode_transparency_lookup(transparency_lookup_export(lookup_request) ?) ?
+  let lookup_bytes = transparency_lookup_export(lookup_request) ?
+  let lookup_output_path = Env.get("MESSENGER_M13_TRANSPARENCY_LOOKUP_PATH", "")
+  if String.length(lookup_output_path) > 0 do
+    File.write_bytes(lookup_output_path, 0, lookup_bytes, true) ?
+  else
+    nil
+  end
+  let lookup = decode_transparency_lookup(lookup_bytes) ?
   assert(lookup.username == "alice")
   assert(lookup.previous_tree_size == 1)
   File.delete(path) ?

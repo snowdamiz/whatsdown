@@ -30,6 +30,7 @@ readonly edge_log="$temp_dir/edge.log"
 readonly witness_log="$temp_dir/witness.log"
 readonly submission="$temp_dir/submission.bin"
 readonly directory_entry="$temp_dir/directory-entry.bin"
+readonly transparency_lookup="$temp_dir/transparency-lookup.bin"
 readonly witness_checkpoint="$temp_dir/witness-checkpoint"
 readonly compose=(docker compose --project-name whatsdown-m13-proof --file "$core_dir/docker-compose.yml")
 
@@ -130,8 +131,10 @@ wait_for_docker() {
 
 build_mobile_submission() {
   MESSENGER_M13_DIRECTORY_ENTRY_PATH="$directory_entry" \
+    MESSENGER_M13_TRANSPARENCY_LOOKUP_PATH="$transparency_lookup" \
     "$meshc_bin" test "$mobile_dir/tests/transparency.test.mpl"
   [[ -s "$directory_entry" ]] || fail "Mesh mobile transparency proof did not produce a directory entry"
+  [[ -s "$transparency_lookup" ]] || fail "Mesh mobile transparency proof did not produce a lookup"
   MESSENGER_M13_SUBMISSION_PATH="$submission" \
     "$meshc_bin" test "$mobile_dir/tests/privacy_submission.test.mpl"
   [[ -s "$submission" ]] || fail "Mesh mobile privacy proof did not produce a submission"
@@ -185,6 +188,10 @@ main() {
     --request PUT --header 'Content-Type: application/octet-stream' \
     --data-binary "@$directory_entry" "http://127.0.0.1:$core_port/v1/devices/register")" == 201 ]] || \
     fail "directory core did not register the native mobile device"
+  [[ "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    --request POST --header 'Content-Type: application/octet-stream' \
+    --data-binary "@$transparency_lookup" "http://127.0.0.1:$core_port/v1/devices/resolve")" == 200 ]] || \
+    fail "directory core did not resolve the native mobile transparency lookup"
   MESSENGER_BASE_URL="http://127.0.0.1:$core_port" \
     MESSENGER_WITNESS_ID=witness-a \
     MESSENGER_WITNESS_CHECKPOINT_PATH="$witness_checkpoint" \
