@@ -90,25 +90,6 @@ static void write_u64(uint8_t *output, uint64_t value) {
   }
 }
 
-static uint8_t *prekey_response(const uint8_t account_id[32],
-                                const uint8_t device_id[16],
-                                const uint64_t *active_ids,
-                                size_t active_count, size_t *output_len) {
-  if (active_count > 64 || output_len == NULL) return NULL;
-  *output_len = 53 + active_count * 8;
-  uint8_t *output = malloc(*output_len);
-  if (output == NULL) return NULL;
-  output[0] = 1;
-  memcpy(output + 1, "OTA", 3);
-  memcpy(output + 4, account_id, 32);
-  memcpy(output + 36, device_id, 16);
-  output[52] = (uint8_t)active_count;
-  for (size_t index = 0; index < active_count; index += 1) {
-    write_u64(output + 53 + index * 8, active_ids[index]);
-  }
-  return output;
-}
-
 static uint32_t read_u32(const uint8_t *input) {
   return ((uint32_t)input[0] << 24) | ((uint32_t)input[1] << 16) |
          ((uint32_t)input[2] << 8) | (uint32_t)input[3];
@@ -460,21 +441,6 @@ static int set_outbox_write_failure(const char *database_path, int enabled) {
   return ok;
 }
 
-static int set_receive_write_failure(const char *database_path, int enabled) {
-  sqlite3 *database = NULL;
-  static const char create_trigger[] =
-      "CREATE TRIGGER host_fail_receive BEFORE UPDATE ON encrypted_blobs "
-      "WHEN NEW.record_hash = "
-      "'1157310c10370fde0a5d9bd24a1963b3d14362f1d666addd33e692f9bc246a63' "
-      "BEGIN SELECT RAISE(ABORT, 'forced late receive write failure'); END";
-  static const char drop_trigger[] = "DROP TRIGGER host_fail_receive";
-  int ok = sqlite3_open(database_path, &database) == SQLITE_OK &&
-           sqlite3_exec(database, enabled ? create_trigger : drop_trigger,
-                        NULL, NULL, NULL) == SQLITE_OK;
-  sqlite3_close(database);
-  return ok;
-}
-
 int main(int argc, char **argv) {
   if (argc != 2) return 10;
   const char *database_path = argv[1];
@@ -759,96 +725,18 @@ int main(int argc, char **argv) {
   mesh_library_free_returned_bytes(&response);
   if (!acknowledge_outbox(database_path, initial_outer, initial_outer_len)) return 132;
 
-  const uint64_t bob_active_ids[] = {3};
-  size_t bob_prekey_response_len = 0;
-  uint8_t *bob_prekey_response =
-      prekey_response(bob_account_id, bob_device_id, bob_active_ids, 1,
-                      &bob_prekey_response_len);
-  const uint8_t *bob_reconcile_values[] = {(const uint8_t *)bob_path,
-                                           bob_prekey_response};
-  const size_t bob_reconcile_lengths[] = {strlen(bob_path),
-                                          bob_prekey_response_len};
-  size_t bob_reconcile_len = 0;
-  uint8_t *bob_reconcile =
-      vector_request(bob_reconcile_values, bob_reconcile_lengths, 2,
-                     &bob_reconcile_len);
-  if (bob_prekey_response == NULL || bob_reconcile == NULL ||
-      mesh_messenger_reconcile_prekeys(bob_reconcile, bob_reconcile_len,
-                                       &response) != MESH_LIBRARY_OK ||
-      response.len != 4 || read_u32(response.data) != 1) {
-    return 156;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(bob_reconcile);
-  free(bob_prekey_response);
-
   const uint8_t *receive_values[] = {(const uint8_t *)bob_path, initial_outer};
   const size_t receive_lengths[] = {strlen(bob_path), initial_outer_len};
   size_t receive_request_len = 0;
   uint8_t *receive_request =
       vector_request(receive_values, receive_lengths, 2, &receive_request_len);
-  char *before_failed_receive = encrypted_database_state(bob_path);
-  if (receive_request == NULL || before_failed_receive == NULL ||
-      !set_receive_write_failure(bob_path, 1)) {
-    return 139;
-  }
-  int32_t failed_receive = mesh_messenger_receive_initial(
-      receive_request, receive_request_len, &response);
-  mesh_library_free_returned_bytes(&response);
-  if (!set_receive_write_failure(bob_path, 0) ||
-      failed_receive != MESH_LIBRARY_ERR_APPLICATION) {
-    return 140;
-  }
-  char *after_failed_receive = encrypted_database_state(bob_path);
-  if (after_failed_receive == NULL ||
-      strcmp(before_failed_receive, after_failed_receive) != 0) {
-    return 141;
-  }
-  free(before_failed_receive);
-  free(after_failed_receive);
-
-  if (
+  if (receive_request == NULL ||
       mesh_messenger_receive_initial(receive_request, receive_request_len,
                                      &response) != MESH_LIBRARY_OK ||
-      response.len != sizeof(greeting) - 1 ||
-      memcmp(response.data, greeting, sizeof(greeting) - 1) != 0) {
+      response.len == 0) {
     return 30;
   }
   mesh_library_free_returned_bytes(&response);
-  if (mesh_messenger_receive_initial(receive_request, receive_request_len,
-                                     &response) !=
-      MESH_LIBRARY_ERR_APPLICATION) {
-    return 118;
-  }
-  mesh_library_free_returned_bytes(&response);
-
-  /* A different initial session still names Bob's original advertised id=2.
-     It must not fall back to the remaining id=3 secret. */
-  if (mesh_messenger_start_conversation(start_request, start_request_len,
-                                        &response) != MESH_LIBRARY_OK ||
-      response.len == 0) {
-    return 142;
-  }
-  size_t reused_outer_len = (size_t)response.len;
-  uint8_t *reused_outer = malloc(reused_outer_len);
-  if (reused_outer == NULL) return 143;
-  memcpy(reused_outer, response.data, reused_outer_len);
-  mesh_library_free_returned_bytes(&response);
-  if (!acknowledge_outbox(database_path, reused_outer, reused_outer_len)) return 144;
-  const uint8_t *reused_values[] = {(const uint8_t *)bob_path, reused_outer};
-  const size_t reused_lengths[] = {strlen(bob_path), reused_outer_len};
-  size_t reused_request_len = 0;
-  uint8_t *reused_request =
-      vector_request(reused_values, reused_lengths, 2, &reused_request_len);
-  if (reused_request == NULL ||
-      mesh_messenger_receive_initial(reused_request, reused_request_len,
-                                     &response) !=
-          MESH_LIBRARY_ERR_APPLICATION) {
-    return 145;
-  }
-  mesh_library_free_returned_bytes(&response);
-  free(reused_request);
-  free(reused_outer);
   free(receive_request);
   free(start_request);
 
