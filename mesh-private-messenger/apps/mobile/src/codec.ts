@@ -163,7 +163,8 @@ export const policyRequest = (
   peerReference: Uint8Array,
   action: number,
   value = 0,
-): Uint8Array => vectors(utf8(databasePath), Uint8Array.of(action), writeU32(value));
+): Uint8Array =>
+  vectors(utf8(databasePath), peerReference, Uint8Array.of(action), writeU32(value));
 
 export const batchRequest = (databasePath: string, batch: Uint8Array): Uint8Array =>
   vectors(utf8(databasePath), batch);

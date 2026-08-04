@@ -12,6 +12,7 @@ import {
   parseProfileSummary,
   payloadFromQr,
   payloadQrValue,
+  policyRequest,
   profileFromQr,
   profileQrValue,
   utf8,
@@ -132,4 +133,13 @@ test('native prekey reconciliation counts stay canonical and bounded', () => {
   assert.equal(parsePrekeyCount(writeU32(64)), 64);
   assert.throws(() => parsePrekeyCount(writeU32(65)));
   assert.throws(() => parsePrekeyCount(Uint8Array.of(0, 1)));
+});
+
+test('policy requests encode the peer reference before the action and value', () => {
+  const peerReference = Uint8Array.of(0xa1, 0xb2, 0xc3);
+
+  assert.deepEqual(
+    policyRequest('/data/mobile.db', peerReference, 4, 3_600),
+    vectors(utf8('/data/mobile.db'), peerReference, Uint8Array.of(4), writeU32(3_600)),
+  );
 });
