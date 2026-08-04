@@ -134,7 +134,10 @@ end
 
 fn main() do
   case witness_once() do
-    Err( error) -> println("witness failed: #{error}")
+    Err( error) -> do
+      io_eprintln("witness failed: #{error}")
+      Process.exit(1)
+    end
     Ok( _) -> println("witness checkpoint accepted")
   end
 end

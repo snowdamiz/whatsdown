@@ -35,6 +35,12 @@ fn proof() -> Bool ! String do
   let account_request = append(vector(path_bytes) ?, vector(username_bytes) ?) ?
   let _ = create_account_export(account_request) ?
   let entry_bytes = directory_entry_export(Bytes.from_utf8(path)) ?
+  let output_path = Env.get("MESSENGER_M13_DIRECTORY_ENTRY_PATH", "")
+  if String.length(output_path) > 0 do
+    File.write_bytes(output_path, 0, entry_bytes, true) ?
+  else
+    nil
+  end
   let entry = case decode_directory_entry(entry_bytes) do
     Err( _) -> Err("directory entry decode failed")
     Ok( value) -> Ok(value)
