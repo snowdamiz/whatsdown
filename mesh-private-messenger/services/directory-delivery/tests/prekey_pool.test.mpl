@@ -260,6 +260,18 @@ fn happy_path() -> Bool ! String do
   let forged = sign_publish(requester.signing_private_key, unsigned) ?
   assert(publish_prekeys_request(pool, encode_prekey_publish(forged) ?).status == 403)
   let published = sign_publish(target.signing_private_key, unsigned) ?
+  let _ = Pool.execute(pool,
+  "CREATE FUNCTION pg_temp.mesh_test_fail_second_prekey() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced second prekey failure'; END $$",
+  []) ?
+  let _ = Pool.execute(pool,
+  "CREATE TRIGGER mesh_test_fail_second_prekey BEFORE INSERT ON messenger_one_time_prekeys FOR EACH ROW WHEN (NEW.prekey_id = 101) EXECUTE FUNCTION pg_temp.mesh_test_fail_second_prekey()",
+  []) ?
+  let fault_response = publish_prekeys_request(pool, encode_prekey_publish(published) ?)
+  let _ = Pool.execute(pool,
+  "DROP TRIGGER mesh_test_fail_second_prekey ON messenger_one_time_prekeys",
+  []) ?
+  assert(fault_response.status == 500)
+  assert(target_key_count(pool, identity.account_id, target.device_id) ? == 1)
   let published_response = publish_prekeys_request(pool, encode_prekey_publish(published) ?)
   assert(published_response.status == 201)
   let published_active = decode_prekey_publish_response(published_response.body) ?

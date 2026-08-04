@@ -52,13 +52,14 @@ cleanup() {
     sed -n '1,200p' "$server_log" >&2
   fi
   if [[ -d "$temp_dir" && ! -L "$temp_dir" ]]; then
-    resolved_parent="$(realpath "$temp_parent")"
-    resolved_temp="$(realpath "$temp_dir")"
-    case "$resolved_temp" in
-      "$resolved_parent"/whatsdown-m9.*)
-        find "$resolved_temp" -depth -delete
-        ;;
-    esac
+    if resolved_parent="$(cd "$temp_parent" && pwd -P)" &&
+      resolved_temp="$(cd "$temp_dir" && pwd -P)"; then
+      case "$resolved_temp" in
+        "$resolved_parent"/whatsdown-m9.*)
+          /usr/bin/find "$resolved_temp" -depth -delete
+          ;;
+      esac
+    fi
   fi
   exit "$status"
 }

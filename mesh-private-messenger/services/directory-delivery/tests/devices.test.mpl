@@ -58,6 +58,22 @@ fn protocol(value :: Result < Bytes, ProtocolError >) -> Bytes ! String do
   end
 end
 
+fn text(value :: DbValue) -> String ! String do
+  case value do
+    Text( output) -> Ok(output)
+    _ -> Err("invalid test row")
+  end
+end
+
+fn scalar(pool :: PoolHandle, sql :: String) -> String ! String do
+  let rows = Pool.query_values(pool, sql, []) ?
+  if List.length(rows) == 1 do
+    text(Map.get(List.head(rows), "value"))
+  else
+    Err("expected one row")
+  end
+end
+
 fn maximal_extensions(index :: Int, output :: List < ProtocolExtension >) -> List < ProtocolExtension > do
   if index >= 16 do
     output
@@ -190,6 +206,19 @@ fn proof() -> Bool ! String do
     username : "alice",
     previous_tree_size : 0
   }) ?).status == 404)
+  let _ = Pool.execute(pool,
+  "CREATE FUNCTION pg_temp.mesh_test_fail_transparency_append() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced transparency append failure'; END $$",
+  []) ?
+  let _ = Pool.execute(pool,
+  "CREATE TRIGGER mesh_test_fail_transparency_append BEFORE INSERT ON transparency_entries FOR EACH ROW EXECUTE FUNCTION pg_temp.mesh_test_fail_transparency_append()",
+  []) ?
+  let registration_fault = register_device_request(pool, protocol(encode_directory_entry(first)) ?)
+  let _ = Pool.execute(pool,
+  "DROP TRIGGER mesh_test_fail_transparency_append ON transparency_entries",
+  []) ?
+  assert(registration_fault.status == 500)
+  assert(scalar(pool,
+  "SELECT concat((SELECT count(*) FROM messenger_accounts), ':', (SELECT count(*) FROM messenger_mailboxes), ':', (SELECT count(*) FROM messenger_devices), ':', (SELECT count(*) FROM messenger_one_time_prekeys), ':', (SELECT count(*) FROM transparency_entries)) AS value") ? == "0:0:0:0:0")
   assert(register_device_request(pool, protocol(encode_directory_entry(first)) ?).status == 201)
   let first_checkpoint = create_checkpoint(pool, transparency_seed) ?
   assert(verify_checkpoint(first_checkpoint,
@@ -267,6 +296,20 @@ fn proof() -> Bool ! String do
     Err( _) -> Err("revocation signing failed")
     Ok( value) -> Ok(value)
   end ?
+  let _ = Pool.execute_values(pool,
+  "INSERT INTO messenger_push_bindings (mailbox_token_hash, wake_token_hash, revision, provider, provider_token_ciphertext) VALUES ($1, $2, 1, 1, $3)",
+  [Binary(Crypto.sha256(second.mailbox_token)), Binary(repeated(61, 32)), Binary(repeated(62, 17))]) ?
+  let _ = Pool.execute(pool,
+  "CREATE TRIGGER mesh_test_fail_transparency_append BEFORE INSERT ON transparency_entries FOR EACH ROW EXECUTE FUNCTION pg_temp.mesh_test_fail_transparency_append()",
+  []) ?
+  let revocation_fault = revoke_device_request(pool,
+  protocol(encode_device_revocation(revocation)) ?)
+  let _ = Pool.execute(pool,
+  "DROP TRIGGER mesh_test_fail_transparency_append ON transparency_entries",
+  []) ?
+  assert(revocation_fault.status == 500)
+  assert(scalar(pool,
+  "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM messenger_revoked_devices), ':', (SELECT count(*) FROM messenger_devices WHERE revoked_at IS NOT NULL), ':', (SELECT count(*) FROM messenger_mailboxes WHERE NOT active), ':', (SELECT count(*) FROM messenger_one_time_prekeys), ':', (SELECT count(*) FROM messenger_push_bindings), ':', (SELECT count(*) FROM transparency_entries), ':', (SELECT count(*) FROM messenger_envelopes), ':', (SELECT count(*) FROM messenger_outbox_events), ':', (SELECT sum(pending_count) FROM messenger_mailboxes)) AS value") ? == "2:0:0:0:2:1:2:1:1:1")
   assert(revoke_device_request(pool, protocol(encode_device_revocation(revocation)) ?).status == 200)
   let updated = resolve_devices_request(pool,
   encode_transparency_lookup(TransparencyLookup {

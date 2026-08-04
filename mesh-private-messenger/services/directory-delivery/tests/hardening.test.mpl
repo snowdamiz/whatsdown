@@ -40,13 +40,6 @@ fn expect(condition :: Bool, message :: String) -> Result <(), String > do
   end
 end
 
-fn crash_after_envelope(conn :: borrow PgConn) -> Int ! String do
-  let _ = Pg.execute(conn,
-  "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext) SELECT mailbox_token_hash, decode('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'hex'), 1, 4102444800000, 256, decode('00', 'hex') FROM messenger_mailboxes LIMIT 1",
-  []) ?
-  Err("simulated crash after envelope insert")
-end
-
 fn push_unavailable(_event :: OutboxEvent) -> PushResult do
   PushRetryable("provider_unavailable")
 end
@@ -88,13 +81,21 @@ fn proof() -> Bool ! String do
     prekey_bundle : Bytes.from_utf8("public-prekey"),
     mailbox_token : token
   }) ?
-  case Repo.transaction(pool, crash_after_envelope) do
-    Ok( _) -> Err("simulated crash committed")
-    Err( _) -> Ok(nil)
-  end ?
+  let _ = Pool.execute(pool,
+  "CREATE FUNCTION pg_temp.mesh_test_fail_outbox() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced outbox write failure'; END $$",
+  []) ?
+  let _ = Pool.execute(pool,
+  "CREATE TRIGGER mesh_test_fail_outbox BEFORE INSERT ON messenger_outbox_events FOR EACH ROW EXECUTE FUNCTION pg_temp.mesh_test_fail_outbox()",
+  []) ?
+  let fault_failed = case enqueue_envelope(pool, envelope(token, 170, "4102444800000") ?) do
+    Err( _) -> true
+    Ok( _) -> false
+  end
+  let _ = Pool.execute(pool, "DROP TRIGGER mesh_test_fail_outbox ON messenger_outbox_events", []) ?
+  expect(fault_failed, "forced outbox failure committed") ?
   expect(scalar(pool,
-  "SELECT count(*)::text AS value FROM messenger_envelopes WHERE envelope_id = decode('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'hex')") ? == "0",
-  "rollback left a partial envelope") ?
+  "SELECT concat((SELECT count(*) FROM messenger_envelopes), ':', (SELECT count(*) FROM messenger_outbox_events), ':', (SELECT count(*) FROM messenger_rate_limits), ':', (SELECT pending_count FROM messenger_mailboxes LIMIT 1)) AS value") ? == "0:0:0:0",
+  "outbox failure left an envelope, rate charge, event, or mailbox reservation") ?
   let durable = envelope(token, 1, "4102444800000") ?
   case enqueue_envelope(pool, durable) ? do
     Accepted -> Ok(nil)
