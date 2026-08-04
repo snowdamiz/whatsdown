@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  MESH_LANG_REVISION: 8cd160cc3dbc171a3fdb2c994d1c237577d18b56
+  MESH_LANG_REVISION: 20f87ec36e9b8257e1a90f473ddc3330e64f952f
   CARGO_INCREMENTAL: "0"
   CARGO_PROFILE_DEV_DEBUG: "0"
   CARGO_PROFILE_TEST_DEBUG: "0"
@@ -110,19 +110,40 @@ jobs:
       - name: Build Android mobile archives
         timeout-minutes: 35
         run: |
+          mesh_workspace="$(pwd -P)"
+          test "$mesh_workspace" = "$(cd "$GITHUB_WORKSPACE/mesh-lang" && pwd -P)"
+          export CARGO_TARGET_DIR="$mesh_workspace/target"
+          test -d "$CARGO_TARGET_DIR"
+          test ! -L "$CARGO_TARGET_DIR"
+          preserved_meshc="$RUNNER_TEMP/meshc"
+          install -m 0755 "$CARGO_TARGET_DIR/debug/meshc" "$preserved_meshc"
+          test -x "$preserved_meshc"
           NDK_BIN="$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -mindepth 2 -maxdepth 2 -type d -name bin -print -quit)"
           test -n "$NDK_BIN"
+          test -x "$NDK_BIN/aarch64-linux-android26-clang"
+          test -x "$NDK_BIN/x86_64-linux-android26-clang"
+          test -x "$NDK_BIN/llvm-ar"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android26-clang"
           export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$NDK_BIN/x86_64-linux-android26-clang"
           export CC_aarch64_linux_android="$CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER"
           export CC_x86_64_linux_android="$CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"
           export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
           export AR_x86_64_linux_android="$NDK_BIN/llvm-ar"
-          cargo build --locked -p mesh-rt --lib --target aarch64-linux-android
-          cargo build --locked -p mesh-rt --lib --target x86_64-linux-android
-          ../mesh-private-messenger/scripts/build-mobile-native.sh android
-          test -s ../mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/android/arm64-v8a/libmessenger_mobile.a
-          test -s ../mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/android/x86_64/libmessenger_mobile.a
+          cargo clean
+          for target in aarch64-linux-android x86_64-linux-android; do
+            case "$target" in
+              aarch64-linux-android) abi=arm64-v8a ;;
+              x86_64-linux-android) abi=x86_64 ;;
+              *) exit 1 ;;
+            esac
+            output="../mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/android/$abi/libmessenger_mobile.a"
+            mkdir -p "$(dirname "$output")"
+            cargo build --locked -p mesh-rt --lib --target "$target"
+            "$preserved_meshc" build ../mesh-private-messenger/packages/mobile-core \
+              --artifact staticlib --target "$target" --output "$output"
+            test -s "$output"
+            cargo clean --target "$target"
+          done
 
       - name: Verify mobile application
         timeout-minutes: 15
