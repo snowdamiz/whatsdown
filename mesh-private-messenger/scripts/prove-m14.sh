@@ -22,9 +22,13 @@ fail() {
 [[ "$(git -C "$repo_root" ls-files mesh-lang | wc -l | tr -d ' ')" == 0 ]] || \
   fail "the separate mesh-lang repository is tracked by the messenger repository"
 
-(cd "$compiler_root" && cargo test -p mesh-rt storage_wrapping)
+(cd "$compiler_root" && CARGO_INCREMENTAL=0 \
+  cargo test --locked -p mesh-rt storage_wrapping)
+(cd "$compiler_root" && CARGO_INCREMENTAL=0 \
+  cargo test --locked -p mesh-rt --lib \
+    crypto::tests::nist_acvp_mlkem768_keygen_tc26_matches_public_key -- --exact)
 (cd "$compiler_root" && \
-  cargo test -p meshc --test e2e_crypto_v2 -- --exact \
+  CARGO_INCREMENTAL=0 cargo test --locked -p meshc --test e2e_crypto_v2 -- --exact \
     crypto_v2_public_api_compiles_and_executes_natively)
 
 started_at=$SECONDS
