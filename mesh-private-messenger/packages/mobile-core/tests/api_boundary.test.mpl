@@ -1,32 +1,7 @@
 import File
 from MobileCore import initialize, persist_envelope, validate_outer
 from Protocol.V1 import OuterEnvelope, encode_outer_envelope
-
-fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
-  case Bytes.concat(left, right) do
-    Err( _) -> Err("test byte concatenation failed")
-    Ok( value) -> Ok(value)
-  end
-end
-
-fn vector(value :: Bytes) -> Bytes ! String do
-  let length = case U64.parse(Int.to_string(Bytes.length(value))) do
-    Err( _) -> Err("test length conversion failed")
-    Ok( parsed) -> Ok(parsed)
-  end ?
-  let prefix = case Bytes.write_u32_be(length) do
-    Err( _) -> Err("test length encoding failed")
-    Ok( encoded) -> Ok(encoded)
-  end ?
-  append(prefix, value)
-end
-
-fn repeated(value :: Int, length :: Int) -> Bytes ! String do
-  case Bytes.repeat(value, length) do
-    Err( _) -> Err("test byte allocation failed")
-    Ok( output) -> Ok(output)
-  end
-end
+from Tests.Support import append, database_path, repeated, vector
 
 fn outer() -> Bytes ! String do
   let expiration = case U64.parse("2000000000") do
@@ -54,12 +29,8 @@ fn store_request(database_path :: String, envelope :: Bytes) -> Bytes ! String d
 end
 
 fn proof() -> Bool ! String do
-  let random = case Crypto.random_bytes(8) do
-    Err( _) -> Err("test path generation failed")
-    Ok( value) -> Ok(value)
-  end ?
-  let database_path = "/tmp/mesh_mobile_api_" <> Bytes.to_hex(random) <> ".db"
-  assert(Bytes.secure_equals(initialize(Bytes.from_utf8(database_path)) ?,
+  let path = database_path("api") ?
+  assert(Bytes.secure_equals(initialize(Bytes.from_utf8(path)) ?,
   Bytes.from_utf8("mesh-messenger-mobile-v1")))
   case initialize(Bytes.empty()) do
     Ok( _) -> assert(false)
@@ -72,9 +43,9 @@ fn proof() -> Bool ! String do
     Ok( _) -> assert(false)
     Err( error) -> assert(error == "invalid_outer_envelope")
   end
-  let record_hash = persist_envelope(store_request(database_path, encoded_outer) ?) ?
+  let record_hash = persist_envelope(store_request(path, encoded_outer) ?) ?
   assert(Bytes.length(record_hash) == 64)
-  let database = Sqlite.open(database_path) ?
+  let database = Sqlite.open(path) ?
   let rows = Sqlite.query_values(database,
   "SELECT ciphertext, typeof(ciphertext) AS storage_type FROM encrypted_blobs WHERE record_hash = ?",
   [Text(case Bytes.to_utf8(record_hash) do
@@ -94,7 +65,7 @@ fn proof() -> Bool ! String do
     Null -> assert(false)
   end
   Sqlite.close(database)
-  File.delete(database_path) ?
+  File.delete(path) ?
   Ok(true)
 end
 

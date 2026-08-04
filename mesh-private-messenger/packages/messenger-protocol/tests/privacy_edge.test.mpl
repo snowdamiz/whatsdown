@@ -1,4 +1,4 @@
-from Privacy.Edge import PrivacySubmission, decode_privacy_submission, encode_privacy_submission, mint_submission, open_delivery, seal_delivery, verify_submission
+from Privacy.Edge import AnonymousAbuseToken, PrivacySubmission, decode_privacy_submission, encode_privacy_submission, mint_submission, open_delivery, seal_delivery, verify_submission
 from Protocol.V1 import OuterEnvelope, encode_outer_envelope
 
 fn repeated(value :: Int, count :: Int) -> Bytes ! String do
@@ -26,6 +26,38 @@ fn key_pair() -> X25519KeyPair ! String do
   end
 end
 
+fn token_rejects_alternate(expires_at :: U64,
+nonce :: Int,
+public_key :: X25519PublicKey,
+attempt :: Int) -> Bool ! String do
+  if attempt >= 16 do
+    Ok(false)
+  else
+    let sealed = seal_delivery(protocol(encode_outer_envelope(OuterEnvelope {
+      version : 1,
+      envelope_id : repeated(4 + attempt, 16) ?,
+      mailbox_token : repeated(2, 32) ?,
+      suite : 1,
+      expiration : wide("4102444800000") ?,
+      padding_bucket : 256,
+      ciphertext : repeated(3, 32) ?
+    })) ?,
+    public_key) ?
+    let encoded = encode_privacy_submission(PrivacySubmission {
+      token : AnonymousAbuseToken {
+        expires_at : expires_at,
+        nonce : nonce
+      },
+      sealed : sealed
+    }) ?
+    if verify_submission(encoded, wide("1000") ?, wide("5000") ?, 8) ? do
+      token_rejects_alternate(expires_at, nonce, public_key, attempt + 1)
+    else
+      Ok(true)
+    end
+  end
+end
+
 fn edge_proof() -> Bool ! String do
   let pair = key_pair() ?
   let public_key = pair.public_key
@@ -44,28 +76,12 @@ fn edge_proof() -> Bool ! String do
   assert(verify_submission(encoded, wide("1000") ?, wide("5000") ?, 8) ?)
   assert(!verify_submission(encoded, wide("2001") ?, wide("5000") ?, 8) ?)
   let decoded = decode_privacy_submission(encoded) ?
+  let token_expires_at = decoded.token.expires_at
+  let token_nonce = decoded.token.nonce
   let opened = open_delivery(decoded.sealed,
   Bytes.from_hex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a") ?) ?
   assert(Bytes.secure_equals(opened, outer))
-  let other = mint_submission(seal_delivery(protocol(encode_outer_envelope(OuterEnvelope {
-    version : 1,
-    envelope_id : repeated(4, 16) ?,
-    mailbox_token : repeated(2, 32) ?,
-    suite : 1,
-    expiration : wide("4102444800000") ?,
-    padding_bucket : 256,
-    ciphertext : repeated(3, 32) ?
-  })) ?,
-  public_key) ?,
-  wide("2000") ?,
-  8) ?
-  assert(!verify_submission(encode_privacy_submission(PrivacySubmission {
-    token : decoded.token,
-    sealed : other.sealed
-  }) ?,
-  wide("1000") ?,
-  wide("5000") ?,
-  8) ?)
+  assert(token_rejects_alternate(token_expires_at, token_nonce, public_key, 0) ?)
   Ok(true)
 end
 

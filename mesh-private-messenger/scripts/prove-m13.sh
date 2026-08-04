@@ -15,7 +15,6 @@ readonly core_port=18090
 readonly edge_port=18091
 readonly database_url="postgres://messenger:messenger@127.0.0.1:$database_port/messenger?sslmode=disable"
 readonly delivery_seed_hex="77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
-readonly delivery_public_key_hex="8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
 readonly transparency_seed_hex="5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b"
 readonly witness_a_public_key_hex="d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
 readonly witness_b_public_key_hex="3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
@@ -94,21 +93,9 @@ wait_for_health() {
 }
 
 build_mobile_submission() {
-  local library
-  local host_system_libs=()
-  if [[ "$(uname -s)" == Darwin ]]; then
-    library="$temp_dir/libmessenger_mobile.dylib"
-    host_system_libs=(-framework Security -framework CoreFoundation)
-  else
-    library="$temp_dir/libmessenger_mobile.so"
-  fi
-  "$meshc_bin" build "$mobile_dir" --artifact cdylib --output "$library"
-  cc "$mobile_dir/tests/privacy_host.c" -I "$temp_dir" -L "$temp_dir" \
-    -lmessenger_mobile -Wl,-rpath,"$temp_dir" "${host_system_libs[@]}" \
-    -o "$temp_dir/privacy_host"
-  "$temp_dir/privacy_host" \
-    "$repo_root/mesh-private-messenger/tests/fixtures/m1/outer-envelope-v1.hex" \
-    "$delivery_public_key_hex" "$submission"
+  MESSENGER_M13_SUBMISSION_PATH="$submission" \
+    "$meshc_bin" test "$mobile_dir/tests/privacy_submission.test.mpl"
+  [[ -s "$submission" ]] || fail "Mesh mobile privacy proof did not produce a submission"
 }
 
 assert_logs_are_not_joinable() {
@@ -125,7 +112,6 @@ assert_logs_are_not_joinable() {
 
 main() {
   [[ -x "$meshc_bin" ]] || fail "Mesh compiler not found at $meshc_bin"
-  command -v cc >/dev/null || fail "a C compiler is required"
   command -v curl >/dev/null || fail "curl is required"
   command -v docker >/dev/null || fail "Docker is required"
 
@@ -144,7 +130,7 @@ main() {
   compose up --detach --wait postgres
   (cd "$core_dir" && MESSENGER_TEST_DATABASE_URL="$database_url" \
     "$meshc_bin" test tests/api.test.mpl)
-  psql -c 'TRUNCATE messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_directory, messenger_mailboxes RESTART IDENTITY;' >/dev/null
+  psql -c 'TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_directory, messenger_mailboxes RESTART IDENTITY;' >/dev/null
   psql -c "INSERT INTO messenger_mailboxes (mailbox_token_hash) VALUES (decode('$mailbox_hash_hex', 'hex'));" >/dev/null
 
   MESSENGER_DATABASE_URL="$database_url" MESSENGER_PORT="$core_port" \
@@ -166,7 +152,7 @@ main() {
   [[ "$(psql -Atc "SELECT count(*) FROM information_schema.columns WHERE table_name = 'messenger_envelopes' AND column_name ILIKE '%sender%';")" == 0 ]] || \
     fail "delivery storage contains sender identity"
   assert_logs_are_not_joinable
-  printf 'M13 proof passed: mobile proof verification, native sealed delivery, anonymous abuse work, split edge/core visibility, and non-joinable service logs.\n'
+  printf 'M13 proof passed: Mesh mobile proof verification, sealed delivery, anonymous abuse work, split edge/core visibility, and non-joinable service logs.\n'
 }
 
 main "$@"

@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  MESH_LANG_REVISION: 178293d7f76aeb41bc4286b6b9d53b85d9005d92
+  MESH_LANG_REVISION: 8007c9a3233e14a9817a500246c86885cd5a1174
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -82,12 +82,14 @@ jobs:
           cargo test -p mesh-codegen --lib --locked
           cargo build --workspace --locked
 
-      - name: Verify messenger protocol
+      - name: Verify Mesh messenger packages
         timeout-minutes: 20
         run: |
           ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/groups --check
           ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/tests --check
           ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-protocol/tests
+          ./target/debug/meshc fmt ../mesh-private-messenger/packages/mobile-core --check
+          ./target/debug/meshc test ../mesh-private-messenger/packages/mobile-core/tests
 
       - name: Verify mobile application
         timeout-minutes: 15
