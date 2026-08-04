@@ -1,4 +1,5 @@
-from Api.Binary import EdgeResult, prepare_submission
+from Api.Binary import EdgeResult, forward_submission, prepare_submission
+from Privacy.Edge import internal_delivery_token
 
 fn fatal(message :: String) do
   io_eprintln(message)
@@ -31,15 +32,11 @@ fn handle_submit(request :: Request) -> Response do
         if prepared.status != 200 do
           respond(prepared)
         else
-          case Http.build(:post,
-          Env.get("MESSENGER_DELIVERY_INTERNAL_URL", "") <> "/internal/v1/envelopes/sealed")
-            |> Http.header("Content-Type", "application/octet-stream")
-            |> Http.body_bytes(prepared.body)
-            |> Http.timeout(5000)
-            |> Http.max_response_bytes(1024)
-            |> Http.send() do
-            Err( _) -> HTTP.response(502, "")
-            Ok( forwarded) -> HTTP.response_bytes(forwarded.status, forwarded.body_bytes)
+          case forward_submission(prepared.body,
+          Env.get("MESSENGER_DELIVERY_INTERNAL_URL", ""),
+          Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+            Err( _) -> HTTP.response(503, "")
+            Ok( forwarded) -> respond(forwarded)
           end
         end
       end
@@ -52,22 +49,25 @@ fn main() do
   let port = Env.get_int("MESSENGER_PRIVACY_EDGE_PORT", 18087)
   let difficulty = Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16)
   let internal_url = Env.get("MESSENGER_DELIVERY_INTERNAL_URL", "")
-  if port <= 0 || port > 65535 do
-    fatal("MESSENGER_PRIVACY_EDGE_PORT must be between 1 and 65535")
-  else if difficulty < 1 || difficulty > 24 do
-    fatal("MESSENGER_ABUSE_DIFFICULTY must be between 1 and 24")
-  else if String.length(internal_url) == 0 do
-    fatal("MESSENGER_DELIVERY_INTERNAL_URL is required")
-  else
-    println("privacy-edge listening on :#{port}")
-    HTTP.serve(HTTP.router()
-      |> HTTP.on_get("/health", handle_health)
-      |> HTTP.on_post("/v1/envelopes/batch", handle_submit),
-    port)
-    if !Process.shutdown_requested() do
-      fatal("privacy-edge HTTP server failed")
+  case internal_delivery_token(Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+    Err( error) -> fatal("privacy-edge configuration failed: #{error}")
+    Ok( _) -> if port <= 0 || port > 65535 do
+      fatal("MESSENGER_PRIVACY_EDGE_PORT must be between 1 and 65535")
+    else if difficulty < 1 || difficulty > 24 do
+      fatal("MESSENGER_ABUSE_DIFFICULTY must be between 1 and 24")
+    else if String.length(internal_url) == 0 do
+      fatal("MESSENGER_DELIVERY_INTERNAL_URL is required")
     else
-      nil
+      println("privacy-edge listening on :#{port}")
+      HTTP.serve(HTTP.router()
+        |> HTTP.on_get("/health", handle_health)
+        |> HTTP.on_post("/v1/envelopes/batch", handle_submit),
+      port)
+      if !Process.shutdown_requested() do
+        fatal("privacy-edge HTTP server failed")
+      else
+        nil
+      end
     end
   end
 end

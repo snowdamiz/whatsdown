@@ -32,6 +32,30 @@ struct ReadWide do
   value :: U64
 end
 
+pub fn internal_delivery_token(value :: String) -> String ! String do
+  if String.length(value) < 32 || String.length(value) > 256 || String.trim(value) != value || String.contains(value,
+  "\r") || String.contains(value, "\n") do
+    Err("invalid internal delivery token")
+  else
+    Ok(value)
+  end
+end
+
+pub fn internal_delivery_authorization(value :: String) -> String ! String do
+  Ok("Bearer " <> internal_delivery_token(value) ?)
+end
+
+pub fn internal_delivery_authorized(header :: Option < String >, secret :: String) -> Bool do
+  case header do
+    None -> false
+    Some( value) -> case internal_delivery_authorization(secret) do
+      Err( _) -> false
+      Ok( expected) -> Bytes.secure_equals(Crypto.sha256(Bytes.from_utf8(value)),
+      Crypto.sha256(Bytes.from_utf8(expected)))
+    end
+  end
+end
+
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
     Err( _) -> Err("privacy allocation failed")
