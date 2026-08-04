@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  linkRequestFromQr,
   parseConversations,
   parseByteList,
   parseDeviceSetSummary,
@@ -84,9 +85,12 @@ test('device summaries and linking QR payloads stay bounded and canonical', () =
   );
   assert.equal(parseProfileSummary(profile).username, 'alice');
 
-  const link = Uint8Array.from({ length: 140 }, (_, index) => index % 251);
-  assert.deepEqual(payloadFromQr(payloadQrValue('link-request', link), 'link-request'), link);
-  assert.throws(() => payloadFromQr(payloadQrValue('link-request', link), 'link-authorization'));
+  const link = Uint8Array.from({ length: 1_326 }, (_, index) => index % 251);
+  assert.deepEqual(linkRequestFromQr(payloadQrValue('link-request', link)), link);
+  assert.throws(() =>
+    linkRequestFromQr(payloadQrValue('link-request', new Uint8Array(1_327))),
+  );
+  assert.throws(() => linkRequestFromQr('mesh://link-request/not-base64!'));
 });
 
 test('conversation and history lists reject trailing bytes and decode policy state', () => {

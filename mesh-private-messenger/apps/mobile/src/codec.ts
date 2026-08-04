@@ -439,5 +439,8 @@ export const profileQrValue = (profile: Uint8Array): string => payloadQrValue('c
 export const profileFromQr = (value: string): Uint8Array =>
   payloadFromQr(value, 'contact', 36_134);
 
+export const linkRequestFromQr = (value: string): Uint8Array =>
+  payloadFromQr(value, 'link-request', 1_326);
+
 export const hex = (value: Uint8Array): string =>
   Array.from(value, (byte) => byte.toString(16).padStart(2, '0')).join('');

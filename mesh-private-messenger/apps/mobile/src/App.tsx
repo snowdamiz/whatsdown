@@ -41,6 +41,7 @@ import {
   GroupSummary,
   HistoryMessage,
   hex,
+  linkRequestFromQr,
   parseConversations,
   parseHistory,
   parseProfileSummary,
@@ -586,7 +587,7 @@ export default function App() {
       }
     } else if (scanMode === 'link-request') {
       void perform('Validating link request…', async () => {
-        const request = payloadFromQr(result.data, 'link-request', 140);
+        const request = linkRequestFromQr(result.data);
         setScannedLinkRequest(request);
         setLinkSas(decodeUtf8(await device_link_sas_export(request)));
         setStatus('Compare this code on both devices');

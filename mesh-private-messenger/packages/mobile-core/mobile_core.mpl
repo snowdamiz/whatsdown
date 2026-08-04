@@ -869,7 +869,7 @@ fn store_linked_blobs(database_path :: String, labels :: List < String >, blobs 
         Ok( _) -> case insert_blobs(database, labels, blobs, 0) do
           Err( error) -> Err(error)
           Ok( _) -> case delete_blobs(database,
-          ["pending-link-request/v1", "pending-device-signing-key/v1", "pending-device-identity-key/v1"],
+          ["pending-link-request/v1", "pending-device-signing-key/v1", "pending-device-identity-key/v1", "pending-post-quantum-prekey/v1"],
           0) do
             Err( error) -> Err(error)
             Ok( _) -> case Sqlite.commit(database) do
@@ -2255,6 +2255,19 @@ database_path :: String) -> DeviceKeys ! String do
   end
 end
 
+fn open_pending_post_quantum_prekey(request :: DeviceLinkRequest,
+wrapping_key :: borrow StorageKey,
+database_path :: String) -> PostQuantumPrekeySecrets ! String do
+  let label = "pending-post-quantum-prekey/v1"
+  let private_key = open_mlkem(load_blob(database_path, label) ?,
+  wrapping_key,
+  pending_context(label, 15) ?) ?
+  Ok(PostQuantumPrekeySecrets {
+    private_key : private_key,
+    public_key : MlKemPublicKey { bytes : request.post_quantum_public_key }
+  })
+end
+
 fn open_prekeys(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String,
@@ -2352,14 +2365,18 @@ fn create_device_link_request(database_path :: String) -> Bytes ! String do
       else
         let now = current_time() ?
         let device = device_keys() ?
+        let post_quantum = case generate_post_quantum_prekey() do
+          Err( _) -> Err("post_quantum_prekey_generation_failed")
+          Ok( value) -> Ok(value)
+        end ?
         let request = DeviceLinkRequest {
-          version : 1,
-          suite : 1,
+          version : 2,
+          suite : 2,
           nonce : random_bytes(32) ?,
           device_id : device.device_id,
           signing_public_key : device.signing_public_key.bytes,
           dh_public_key : device.identity_public_key.bytes,
-          post_quantum_public_key : Bytes.empty(),
+          post_quantum_public_key : post_quantum.public_key.bytes,
           capabilities : mobile_wide("1") ?,
           created_at : now,
           expires_at : U64.add(now, mobile_wide("600000") ?) ?
@@ -2374,9 +2391,12 @@ fn create_device_link_request(database_path :: String) -> Bytes ! String do
         let identity_blob = seal_x25519(device.identity_private_key,
         wrapping_key,
         pending_context("pending-device-identity-key/v1", 8) ?) ?
+        let post_quantum_blob = seal_mlkem(post_quantum.private_key,
+        wrapping_key,
+        pending_context("pending-post-quantum-prekey/v1", 15) ?) ?
         store_blobs(database_path,
-        ["pending-link-request/v1", "pending-device-signing-key/v1", "pending-device-identity-key/v1"],
-        [request_blob, signing_blob, identity_blob]) ?
+        ["pending-link-request/v1", "pending-device-signing-key/v1", "pending-device-identity-key/v1", "pending-post-quantum-prekey/v1"],
+        [request_blob, signing_blob, identity_blob, post_quantum_blob]) ?
         Ok(request_wire)
       end
     end
@@ -2442,7 +2462,10 @@ fn complete_link(request :: MobilePayloadRequest) -> Bytes ! String do
       Err( _) -> Err("prekey_generation_failed")
       Ok( value) -> Ok(value)
     end ?
-    let bundle = case build_prekey_bundle(credential, signed, one_time) do
+    let post_quantum = open_pending_post_quantum_prekey(pending,
+    wrapping_key,
+    request.database_path) ?
+    let bundle = case build_hybrid_prekey_bundle(credential, signed, one_time, post_quantum) do
       Err( _) -> Err("prekey_bundle_failed")
       Ok( value) -> Ok(value)
     end ?
@@ -2470,6 +2493,9 @@ fn complete_link(request :: MobilePayloadRequest) -> Bytes ! String do
     let one_time_prekey_blob = seal_x25519(one_time.private_key,
     wrapping_key,
     context(account.account_id, credential.device_id, one_time_label, 10) ?) ?
+    let post_quantum_prekey_blob = seal_mlkem(post_quantum.private_key,
+    wrapping_key,
+    context(account.account_id, credential.device_id, "post-quantum-prekey/v1", 15) ?) ?
     let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1") ?) ?
     let prekey_index_blob = seal_prekey_pool([MobileOneTimePrekey {
       id : one_time.id,
@@ -2481,8 +2507,8 @@ fn complete_link(request :: MobilePayloadRequest) -> Bytes ! String do
     U64.add(one_time.id, mobile_wide("1") ?) ?,
     wrapping_key) ?
     store_linked_blobs(request.database_path,
-    ["device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", one_time_label, "profile/v1", "one-time-prekeys/v1", "one-time-prekey-active/v1", "one-time-prekey-next-id/v1"],
-    [signing_blob, identity_blob, signed_prekey_blob, one_time_prekey_blob, profile_blob, prekey_index_blob, prekey_active_blob, prekey_next_id_blob]) ?
+    ["device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", one_time_label, "post-quantum-prekey/v1", "profile/v1", "one-time-prekeys/v1", "one-time-prekey-active/v1", "one-time-prekey-next-id/v1"],
+    [signing_blob, identity_blob, signed_prekey_blob, one_time_prekey_blob, post_quantum_prekey_blob, profile_blob, prekey_index_blob, prekey_active_blob, prekey_next_id_blob]) ?
     Ok(profile)
   end
 end
