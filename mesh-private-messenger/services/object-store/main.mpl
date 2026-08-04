@@ -1,5 +1,10 @@
 from Store.Service import ObjectResult, complete, delete_object, get_part, grant, initialize, purge_expired, put_part
 
+fn fatal(message :: String) do
+  io_eprintln(message)
+  Process.exit(1)
+end
+
 struct PartRequest do
   object_id :: Bytes
   part_index :: Int
@@ -163,12 +168,12 @@ fn main() do
   let port = Env.get_int("MESSENGER_OBJECT_PORT", 18089)
   let difficulty = Env.get_int("MESSENGER_OBJECT_WORK_DIFFICULTY", 16)
   if port <= 0 || port > 65535 do
-    println("MESSENGER_OBJECT_PORT must be between 1 and 65535")
+    fatal("MESSENGER_OBJECT_PORT must be between 1 and 65535")
   else if difficulty < 1 || difficulty > 24 do
-    println("MESSENGER_OBJECT_WORK_DIFFICULTY must be between 1 and 24")
+    fatal("MESSENGER_OBJECT_WORK_DIFFICULTY must be between 1 and 24")
   else
     case initialize(database_path(), storage_root()) do
-      Err( _) -> println("object storage configuration is invalid or unavailable")
+      Err( _) -> fatal("object storage configuration is invalid or unavailable")
       Ok( _) -> do
         spawn(expiry_worker, database_path(), storage_root())
         println("object-store listening on :#{port}")
@@ -180,7 +185,11 @@ fn main() do
           |> HTTP.on_post("/v1/attachments/complete", handle_complete)
           |> HTTP.on_post("/v1/attachments/delete", handle_delete),
         port)
-        nil
+        if !Process.shutdown_requested() do
+          fatal("object-store HTTP server failed")
+        else
+          nil
+        end
       end
     end
   end

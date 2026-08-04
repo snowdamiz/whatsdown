@@ -1,5 +1,10 @@
 from Api.Binary import EdgeResult, prepare_submission
 
+fn fatal(message :: String) do
+  io_eprintln(message)
+  Process.exit(1)
+end
+
 fn respond(result :: EdgeResult) -> Response do
   HTTP.response_bytes(result.status, result.body)
 end
@@ -48,17 +53,21 @@ fn main() do
   let difficulty = Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16)
   let internal_url = Env.get("MESSENGER_DELIVERY_INTERNAL_URL", "")
   if port <= 0 || port > 65535 do
-    println("MESSENGER_PRIVACY_EDGE_PORT must be between 1 and 65535")
+    fatal("MESSENGER_PRIVACY_EDGE_PORT must be between 1 and 65535")
   else if difficulty < 1 || difficulty > 24 do
-    println("MESSENGER_ABUSE_DIFFICULTY must be between 1 and 24")
+    fatal("MESSENGER_ABUSE_DIFFICULTY must be between 1 and 24")
   else if String.length(internal_url) == 0 do
-    println("MESSENGER_DELIVERY_INTERNAL_URL is required")
+    fatal("MESSENGER_DELIVERY_INTERNAL_URL is required")
   else
     println("privacy-edge listening on :#{port}")
-    let _ = HTTP.serve(HTTP.router()
+    HTTP.serve(HTTP.router()
       |> HTTP.on_get("/health", handle_health)
       |> HTTP.on_post("/v1/envelopes/batch", handle_submit),
     port)
-    nil
+    if !Process.shutdown_requested() do
+      fatal("privacy-edge HTTP server failed")
+    else
+      nil
+    end
   end
 end

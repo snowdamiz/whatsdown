@@ -107,6 +107,12 @@ jobs:
           ./target/debug/meshc fmt ../mesh-private-messenger/services/transparency-witness --check
           ../mesh-private-messenger/scripts/prove-m13.sh
 
+      - name: Verify service startup failures
+        timeout-minutes: 5
+        run: |
+          bash -n ../mesh-private-messenger/scripts/prove-service-startup.sh
+          ../mesh-private-messenger/scripts/prove-service-startup.sh
+
       - name: Build Android mobile archives
         timeout-minutes: 35
         run: |

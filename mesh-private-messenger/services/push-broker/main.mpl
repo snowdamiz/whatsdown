@@ -2,6 +2,11 @@ from Broker.Expo import BrokerOutcome
 from Broker.Queue import initialize
 from Broker.Service import accept_durable, access_token, authorized, broker_seed, internal_token, outcome_status, provider_url, start_worker
 
+fn fatal(message :: String) do
+  io_eprintln(message)
+  Process.exit(1)
+end
+
 fn configured_seed() -> Bytes ! String do
   broker_seed(Env.get("MESSENGER_PUSH_BROKER_SEED_HEX", ""))
 end
@@ -81,19 +86,23 @@ fn serve(port :: Int) -> Result <(), String > do
     |> HTTP.on_get("/health", handle_health)
     |> HTTP.on_post("/internal/v1/push", handle_push),
   port)
-  Ok(nil)
+  if Process.shutdown_requested() do
+    Ok(nil)
+  else
+    Err("HTTP server failed")
+  end
 end
 
 fn main() do
   Process.install_shutdown_signals()
   let port = Env.get_int("MESSENGER_PUSH_BROKER_PORT", 18088)
   case validate_config() do
-    Err( error) -> println("push-broker configuration failed: #{error}")
+    Err( error) -> fatal("push-broker configuration failed: #{error}")
     Ok( _) -> if port <= 0 || port > 65535 do
-      println("MESSENGER_PUSH_BROKER_PORT must be between 1 and 65535")
+      fatal("MESSENGER_PUSH_BROKER_PORT must be between 1 and 65535")
     else
       case serve(port) do
-        Err( error) -> println("push-broker startup failed: #{error}")
+        Err( error) -> fatal("push-broker startup failed: #{error}")
         Ok( _) -> nil
       end
     end
