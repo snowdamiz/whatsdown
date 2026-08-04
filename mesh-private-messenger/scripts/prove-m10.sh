@@ -127,8 +127,9 @@ main() {
   command -v sqlite3 >/dev/null || fail "sqlite3 is required"
 
   mkdir -p "$legacy_core_dir/storage"
+  cp "$core_dir/main.mpl" "$legacy_core_dir/main.mpl"
   sed -e "\$r $core_dir/tests/legacy_fixture.mesh.inc" \
-    "$core_dir/main.mpl" >"$legacy_core_dir/main.mpl"
+    "$core_dir/mobile_core.mpl" >"$legacy_core_dir/mobile_core.mpl"
   cp "$core_dir/storage/blobs.mpl" "$legacy_core_dir/storage/blobs.mpl"
   sed -e "s|../../../mesh-lang/packages/mesh-binary|$repo_root/mesh-lang/packages/mesh-binary|" \
     -e "s|../messenger-protocol|$repo_root/mesh-private-messenger/packages/messenger-protocol|" \
@@ -139,7 +140,7 @@ main() {
   "$temp_dir/host" "$vector" "$database"
 
   "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
-  "$meshc_bin" test "$core_dir/tests/blob_migration.test.mpl"
+  "$meshc_bin" test "$core_dir/tests"
 
   [[ "$(sqlite3 "$database" "SELECT count(*) = 18 AND min(length(record_hash)) = 64 AND min(length(ciphertext)) > 0 AND min(typeof(ciphertext)) = 'blob' FROM encrypted_blobs;")" == 1 ]] || \
     fail "sender SQLite did not contain eighteen encrypted session, outbox, and prekey records"
