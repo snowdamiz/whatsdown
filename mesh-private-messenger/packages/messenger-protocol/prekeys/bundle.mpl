@@ -88,6 +88,19 @@ expires_at :: U64) -> SignedPrekeySecrets ! PrekeyError do
   end
 end
 
+pub fn reauthorize_signed_prekey(device :: borrow DeviceKeys,
+credential :: DeviceCredential,
+signed_prekey :: consume SignedPrekeySecrets) -> SignedPrekeySecrets ! PrekeyError do
+  let statement = signed_prekey_statement(credential,
+  signed_prekey.id,
+  signed_prekey.public_key,
+  signed_prekey.expires_at) ?
+  case Crypto.sign(device.signing_private_key, statement) do
+    Err( error) -> Err(CryptoFailure(error))
+    Ok( signature) -> Ok(% { signed_prekey | signature : signature })
+  end
+end
+
 pub fn generate_one_time_prekey(id :: U64) -> OneTimePrekeySecrets ! PrekeyError do
   case Crypto.x25519_generate() do
     Err( error) -> Err(CryptoFailure(error))

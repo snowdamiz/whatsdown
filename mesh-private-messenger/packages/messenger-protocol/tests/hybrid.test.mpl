@@ -1,5 +1,5 @@
 from Identity.Device import AccountKeys, DeviceKeys, IdentityError, VerificationPolicy, generate_account, generate_device, issue_device_credential, issue_hybrid_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle
+from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle, reauthorize_signed_prekey, verify_prekey_bundle
 from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle, ProtocolError, ProtocolExtension, decode_prekey_bundle, encode_initial_message, encode_prekey_bundle, negotiate_suites
 from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, decrypt, encrypt
@@ -182,6 +182,45 @@ end
 
 test("maximal hybrid prekey bundle round-trips at the canonical ceiling") do
   case maximal_bundle_proof() do
+    Err( error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok( value) -> assert(value)
+  end
+end
+
+fn signed_prekey_reauthorization_proof() -> Bool ! String do
+  let now = wide("1700000000000") ?
+  let expires = wide("1700604800000") ?
+  let ( account_keys, account_identity) = account(now) ?
+  let device_keys = device() ?
+  let classical = classical_credential(account_keys, device_keys, now, expires) ?
+  let signed = signed_prekey(device_keys, classical, expires) ?
+  let original_id = signed.id
+  let original_public_key = signed.public_key.bytes
+  let post_quantum = post_quantum_prekey() ?
+  let hybrid = hybrid_credential(account_keys, device_keys, post_quantum, now, expires) ?
+  let signed = case reauthorize_signed_prekey(device_keys, hybrid, signed) do
+    Err( _) -> Err("signed prekey reauthorization failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let one_time = one_time_prekey() ?
+  let bundle = hybrid_bundle(hybrid, signed, one_time, post_quantum) ?
+  assert(U64.compare(signed.id, original_id) == 0)
+  assert(Bytes.secure_equals(signed.public_key.bytes, original_public_key))
+  assert(U64.compare(bundle.signed_prekey_id, original_id) == 0)
+  assert(Bytes.secure_equals(bundle.signed_prekey, original_public_key))
+  let valid = case verify_prekey_bundle(account_identity, bundle, 2, now, wide("1") ?) do
+    Err( _) -> Err("reauthorized hybrid bundle verification failed")
+    Ok( value) -> Ok(value)
+  end ?
+  assert(valid)
+  Ok(true)
+end
+
+test("hybrid credential reauthorizes the existing signed prekey") do
+  case signed_prekey_reauthorization_proof() do
     Err( error) -> do
       println(error)
       assert(false)
