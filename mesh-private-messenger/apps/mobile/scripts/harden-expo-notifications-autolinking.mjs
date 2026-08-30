@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
-const EXPECTED_VERSION = '57.0.8';
+const EXPECTED_VERSION = '57.0.15';
 const APPLE_TOKEN_MODULE = 'PushTokenModule';
 const ANDROID_TOKEN_MODULE = 'expo.modules.notifications.tokens.PushTokenModule';
 const UPSTREAM_CONFIG = {

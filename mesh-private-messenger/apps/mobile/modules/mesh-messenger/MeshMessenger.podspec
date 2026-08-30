@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
 
   s.dependency 'ExpoModulesCore'
-  s.dependency 'ExpoNotifications', '57.0.8'
+  s.dependency 'ExpoNotifications', '57.0.15'
   s.dependency 'EXApplication', '57.0.2'
   s.frameworks = 'Security', 'CoreFoundation'
   s.libraries = 'm'

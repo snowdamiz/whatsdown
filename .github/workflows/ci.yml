@@ -156,6 +156,8 @@ jobs:
         timeout-minutes: 15
         working-directory: mesh-private-messenger/apps/mobile
         run: |
-          npm ci
+          npm ci --ignore-scripts=false
+          # Expo 57's xcode build tool still pins uuid 7; block high and critical advisories until upstream updates it.
+          npm audit --audit-level=high
           npm test
           npm run typecheck
