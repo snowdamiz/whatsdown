@@ -1,7 +1,8 @@
 from Api.Binary import checkpoint_request, consistency_request, fetch_request, inclusion_request, register_device_request, resolve_devices_request, revoke_device_request, submit_request, submit_witness_request, validate_transparency_config, witnesses_request
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
-from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, MailboxFetch, OuterEnvelope, PrekeyBundle, ProtocolError, ProtocolExtension, decode_delivery_batch, decode_device_set, encode_account_identity, encode_device_set, encode_directory_entry, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle, encode_device_revocation
+from Identity.Device import AccountKeys, DeviceKeys, credential_signing_bytes, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
+from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, reauthorize_signed_prekey
+from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, MailboxFetch, OuterEnvelope, PrekeyBundle, ProtocolError, ProtocolExtension, decode_delivery_batch, decode_device_credential, decode_device_set, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_set, encode_directory_entry, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle, encode_device_revocation
+from Storage.Devices import resolve_devices
 from Storage.Transparency import create_checkpoint, entry_count, consistency_from, evidence_for_username, inclusion_for_account
 from Transparency.Merkle import WitnessKey, leaf_hash, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
 from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_checkpoint, decode_consistency_proof, decode_inclusion_proof, decode_transparency_evidence, decode_witnesses, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query, encode_witnesses
@@ -170,6 +171,208 @@ sequence :: U64) -> DirectoryEntry ! String do
     username : "alice",
     account_identity : protocol(encode_account_identity(identity)) ?,
     prekey_bundle : encoded,
+    mailbox_token : mailbox_token
+  })
+end
+
+struct RotationEntries do
+  classical :: DirectoryEntry
+  replayed_sequence :: DirectoryEntry
+  first_hybrid :: DirectoryEntry
+  second_hybrid :: DirectoryEntry
+  swapped_signed_prekey :: DirectoryEntry
+  downgrade :: DirectoryEntry
+end
+
+fn bundled_entry(identity :: AccountIdentity, bundle :: PrekeyBundle, mailbox_token :: Bytes) -> DirectoryEntry ! String do
+  Ok(DirectoryEntry {
+    version : 1,
+    username : "alice",
+    account_identity : protocol(encode_account_identity(identity)) ?,
+    prekey_bundle : protocol(encode_prekey_bundle(bundle)) ?,
+    mailbox_token : mailbox_token
+  })
+end
+
+fn rotation_entries(identity :: AccountIdentity,
+account_keys :: borrow AccountKeys,
+primary :: borrow DeviceKeys,
+mailbox_token :: Bytes,
+created_at :: U64,
+expires_at :: U64) -> RotationEntries ! String do
+  let classical_credential = credential(account_keys, primary, created_at, expires_at, wide("1") ?) ?
+  let signed = case generate_signed_prekey(primary, classical_credential, wide("1") ?, expires_at) do
+    Err( _) -> Err("signed prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let one_time = case generate_one_time_prekey(wide("2") ?) do
+    Err( _) -> Err("one-time prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let classical_bundle = case build_prekey_bundle(classical_credential, signed, one_time) do
+    Err( _) -> Err("classical bundle generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let replay_post_quantum = case generate_post_quantum_prekey() do
+    Err( _) -> Err("post-quantum prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let replay_credential = case issue_hybrid_device_credential(account_keys,
+  primary,
+  replay_post_quantum.public_key,
+  wide("3") ?,
+  created_at,
+  expires_at,
+  wide("1") ?) do
+    Err( _) -> Err("hybrid credential generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let signed = case reauthorize_signed_prekey(primary, replay_credential, signed) do
+    Err( _) -> Err("signed prekey reauthorization failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let replay_bundle = case build_hybrid_prekey_bundle(replay_credential,
+  signed,
+  one_time,
+  replay_post_quantum) do
+    Err( _) -> Err("hybrid bundle generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let first_post_quantum = case generate_post_quantum_prekey() do
+    Err( _) -> Err("post-quantum prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let first_credential = case issue_hybrid_device_credential(account_keys,
+  primary,
+  first_post_quantum.public_key,
+  wide("3") ?,
+  created_at,
+  expires_at,
+  wide("2") ?) do
+    Err( _) -> Err("hybrid credential generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let signed = case reauthorize_signed_prekey(primary, first_credential, signed) do
+    Err( _) -> Err("signed prekey reauthorization failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let first_bundle = case build_hybrid_prekey_bundle(first_credential,
+  signed,
+  one_time,
+  first_post_quantum) do
+    Err( _) -> Err("hybrid bundle generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let second_post_quantum = case generate_post_quantum_prekey() do
+    Err( _) -> Err("post-quantum prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let second_credential = case issue_hybrid_device_credential(account_keys,
+  primary,
+  second_post_quantum.public_key,
+  wide("3") ?,
+  created_at,
+  expires_at,
+  wide("2") ?) do
+    Err( _) -> Err("hybrid credential generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let signed = case reauthorize_signed_prekey(primary, second_credential, signed) do
+    Err( _) -> Err("signed prekey reauthorization failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let second_bundle = case build_hybrid_prekey_bundle(second_credential,
+  signed,
+  one_time,
+  second_post_quantum) do
+    Err( _) -> Err("hybrid bundle generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let swapped_signed = case generate_signed_prekey(primary,
+  first_credential,
+  wide("1") ?,
+  expires_at) do
+    Err( _) -> Err("swapped signed prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let swapped_bundle = case build_hybrid_prekey_bundle(first_credential,
+  swapped_signed,
+  one_time,
+  first_post_quantum) do
+    Err( _) -> Err("swapped bundle generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let downgrade_credential = credential(account_keys, primary, created_at, expires_at, wide("3") ?) ?
+  let signed = case reauthorize_signed_prekey(primary, downgrade_credential, signed) do
+    Err( _) -> Err("signed prekey reauthorization failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let downgrade_bundle = case build_prekey_bundle(downgrade_credential, signed, one_time) do
+    Err( _) -> Err("downgrade bundle generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  Ok(RotationEntries {
+    classical : bundled_entry(identity, classical_bundle, mailbox_token) ?,
+    replayed_sequence : bundled_entry(identity, replay_bundle, mailbox_token) ?,
+    first_hybrid : bundled_entry(identity, first_bundle, mailbox_token) ?,
+    second_hybrid : bundled_entry(identity, second_bundle, mailbox_token) ?,
+    swapped_signed_prekey : bundled_entry(identity, swapped_bundle, mailbox_token) ?,
+    downgrade : bundled_entry(identity, downgrade_bundle, mailbox_token) ?
+  })
+end
+
+fn substituted_hybrid_entry(identity :: AccountIdentity,
+account_keys :: borrow AccountKeys,
+device_id :: Bytes,
+substitute :: borrow DeviceKeys,
+mailbox_token :: Bytes,
+created_at :: U64,
+expires_at :: U64,
+sequence :: U64) -> DirectoryEntry ! String do
+  let post_quantum = case generate_post_quantum_prekey() do
+    Err( _) -> Err("post-quantum prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let unsigned = DeviceCredential {
+    version : 1,
+    suite : 2,
+    account_id : identity.account_id,
+    device_id : device_id,
+    signing_public_key : substitute.signing_public_key.bytes,
+    dh_public_key : substitute.identity_public_key.bytes,
+    post_quantum_public_key : post_quantum.public_key.bytes,
+    capabilities : wide("3") ?,
+    created_at : created_at,
+    expires_at : expires_at,
+    directory_sequence : sequence,
+    signature : repeated(0, 64)
+  }
+  let signing_bytes = case credential_signing_bytes(unsigned) do
+    Err( _) -> Err("credential signing bytes failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let signature = case Crypto.sign(account_keys.private_key, signing_bytes) do
+    Err( _) -> Err("credential signing failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let credential = % { unsigned | signature : signature.bytes }
+  let signed = case generate_signed_prekey(substitute, credential, wide("1") ?, expires_at) do
+    Err( _) -> Err("signed prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let one_time = case generate_one_time_prekey(wide("3") ?) do
+    Err( _) -> Err("one-time prekey generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let bundle = case build_hybrid_prekey_bundle(credential, signed, one_time, post_quantum) do
+    Err( _) -> Err("hybrid bundle generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  Ok(DirectoryEntry {
+    version : 1,
+    username : "alice",
+    account_identity : protocol(encode_account_identity(identity)) ?,
+    prekey_bundle : protocol(encode_prekey_bundle(bundle)) ?,
     mailbox_token : mailbox_token
   })
 end
@@ -357,6 +560,209 @@ end
 
 test("device registration, resolution, revocation, and mailbox disabling are atomic") do
   case proof() do
+    Err( error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok( value) -> assert(value)
+  end
+end
+
+fn binary_scalar(pool :: PoolHandle, sql :: String) -> Bytes ! String do
+  let rows = Pool.query_values(pool, sql, []) ?
+  if List.length(rows) == 1 do
+    case Map.get(List.head(rows), "value") do
+      Binary( value) -> Ok(value)
+      _ -> Err("expected binary value")
+    end
+  else
+    Err("expected one row")
+  end
+end
+
+fn reset_rotation_state(pool :: PoolHandle) -> Result <(), String > do
+  let _ = Pool.execute(pool,
+  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_directory, messenger_mailboxes RESTART IDENTITY",
+  []) ?
+  Ok(nil)
+end
+
+fn tombstone_registration_prekey(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes) -> Result <(), String > do
+  let changed = Pool.execute_values(pool,
+  "UPDATE messenger_one_time_prekeys SET consumed_at = '2020-01-01 00:00:00+00', claim_id_hash = $3, claim_base_bundle_hash = $4 WHERE account_id = $1 AND device_id = $2 AND prekey_id = 2",
+  [Binary(account_id), Binary(device_id), Binary(repeated(73, 32)), Binary(repeated(74, 32))]) ?
+  if changed == 1 do
+    Ok(nil)
+  else
+    Err("registration prekey tombstone missing")
+  end
+end
+
+fn mailbox_snapshot(pool :: PoolHandle) -> String ! String do
+  scalar(pool,
+  "SELECT concat(encode(device.mailbox_token, 'hex'), ':', encode(device.mailbox_token_hash, 'hex'), ':', mailbox.active::text) AS value FROM messenger_devices AS device JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = device.mailbox_token_hash WHERE device.revoked_at IS NULL")
+end
+
+fn prekey_snapshot(pool :: PoolHandle) -> String ! String do
+  scalar(pool,
+  "SELECT concat(count(*)::text, ':', count(*) FILTER (WHERE consumed_at IS NULL)::text, ':', string_agg(concat(prekey_id::text, '/', encode(public_key, 'hex'), '/', consumed_at::text, '/', encode(claim_id_hash, 'hex'), '/', encode(claim_base_bundle_hash, 'hex')), ',' ORDER BY prekey_id)) AS value FROM messenger_one_time_prekeys")
+end
+
+fn register_wire_status(pool :: PoolHandle, body :: Bytes) -> Int do
+  register_device_request(pool, body).status
+end
+
+fn await_registration(job :: Pid < Int >) -> Int ! String do
+  case Job.await(job) do
+    Err( error) -> Err("concurrent registration failed: #{error}")
+    Ok( status) -> Ok(status)
+  end
+end
+
+fn credential_rotation_proof() -> Bool ! String do
+  let url = Env.get("MESSENGER_TEST_DATABASE_URL",
+  "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
+  let pool = Pool.open(url, 1, 2, 5000) ?
+  reset_rotation_state(pool) ?
+  let created_at = now() ?
+  let expires_at = U64.add(created_at, wide("31536000000") ?) ?
+  let ( account_keys, identity) = account(created_at) ?
+  let primary = device() ?
+  let substitute = device() ?
+  let mailbox_token = repeated(71, 32)
+  let entries = rotation_entries(identity,
+  account_keys,
+  primary,
+  mailbox_token,
+  created_at,
+  expires_at) ?
+  assert(register_device_request(pool, protocol(encode_directory_entry(entries.classical)) ?).status == 201)
+  tombstone_registration_prekey(pool, identity.account_id, primary.device_id) ?
+  let original_bundle = binary_scalar(pool,
+  "SELECT prekey_bundle AS value FROM messenger_devices WHERE revoked_at IS NULL") ?
+  let original_mailbox = mailbox_snapshot(pool) ?
+  let original_prekeys = prekey_snapshot(pool) ?
+  let _ = Pool.execute(pool,
+  "CREATE FUNCTION pg_temp.mesh_test_fail_rotation_append() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced rotation append failure'; END $$",
+  []) ?
+  let _ = Pool.execute(pool,
+  "CREATE TRIGGER mesh_test_fail_rotation_append BEFORE INSERT ON transparency_entries FOR EACH ROW EXECUTE FUNCTION pg_temp.mesh_test_fail_rotation_append()",
+  []) ?
+  assert(register_device_request(pool, protocol(encode_directory_entry(entries.first_hybrid)) ?).status == 500)
+  let _ = Pool.execute(pool,
+  "DROP TRIGGER mesh_test_fail_rotation_append ON transparency_entries",
+  []) ?
+  assert(Bytes.secure_equals(binary_scalar(pool,
+  "SELECT prekey_bundle AS value FROM messenger_devices WHERE revoked_at IS NULL") ?,
+  original_bundle))
+  assert(mailbox_snapshot(pool) ? == original_mailbox)
+  assert(prekey_snapshot(pool) ? == original_prekeys)
+  assert(scalar(pool,
+  "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value") ? == "1:1")
+  assert(register_device_request(pool,
+  protocol(encode_directory_entry(entries.replayed_sequence)) ?).status == 409)
+  let moved_mailbox = % { entries.first_hybrid | mailbox_token : repeated(72, 32) }
+  assert(register_device_request(pool, protocol(encode_directory_entry(moved_mailbox)) ?).status == 409)
+  let substituted = substituted_hybrid_entry(identity,
+  account_keys,
+  primary.device_id,
+  substitute,
+  mailbox_token,
+  created_at,
+  expires_at,
+  wide("2") ?) ?
+  assert(register_device_request(pool, protocol(encode_directory_entry(substituted)) ?).status == 409)
+  assert(register_device_request(pool,
+  protocol(encode_directory_entry(entries.swapped_signed_prekey)) ?).status == 409)
+  let decoded_hybrid = case decode_prekey_bundle(entries.first_hybrid.prekey_bundle) do
+    Err( _) -> Err("hybrid bundle decode failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let decoded_credential = case decode_device_credential(decoded_hybrid.device_credential) do
+    Err( _) -> Err("hybrid credential decode failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let unsigned_credential = % { decoded_credential | signature : repeated(0, 64) }
+  let unauthorized_bundle = % { decoded_hybrid | device_credential : protocol(encode_device_credential(unsigned_credential)) ? }
+  let unauthorized = % { entries.first_hybrid | prekey_bundle : protocol(encode_prekey_bundle(unauthorized_bundle)) ? }
+  assert(register_device_request(pool, protocol(encode_directory_entry(unauthorized)) ?).status == 400)
+  let first_wire = protocol(encode_directory_entry(entries.first_hybrid)) ?
+  let second_wire = protocol(encode_directory_entry(entries.second_hybrid)) ?
+  let first_job = Job.async(fn () -> register_wire_status(pool, first_wire) end)
+  let second_job = Job.async(fn () -> register_wire_status(pool, second_wire) end)
+  let first_status = await_registration(first_job) ?
+  let second_status = await_registration(second_job) ?
+  let distinct_result = (first_status == 201 && second_status == 409) || (first_status == 409 && second_status == 201)
+  assert(distinct_result)
+  assert(scalar(pool,
+  "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value") ? == "2:2")
+  assert(mailbox_snapshot(pool) ? == original_mailbox)
+  assert(prekey_snapshot(pool) ? == original_prekeys)
+  let accepted = if first_status == 201 do
+    entries.first_hybrid
+  else
+    entries.second_hybrid
+  end
+  assert(register_device_request(pool, protocol(encode_directory_entry(accepted)) ?).status == 200)
+  assert(scalar(pool,
+  "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value") ? == "2:2")
+  assert(register_device_request(pool, protocol(encode_directory_entry(entries.downgrade)) ?).status == 409)
+  let stored_set = case resolve_devices(pool, "alice") ? do
+    None -> Err("rotated device set missing")
+    Some( value) -> Ok(value)
+  end ?
+  let stored_entry = List.head(stored_set.devices)
+  let stored_bundle = case decode_prekey_bundle(stored_entry.prekey_bundle) do
+    Err( _) -> Err("stored hybrid bundle decode failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let stored_credential = case decode_device_credential(stored_bundle.device_credential) do
+    Err( _) -> Err("stored hybrid credential decode failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let classical_bundle = case decode_prekey_bundle(entries.classical.prekey_bundle) do
+    Err( _) -> Err("classical bundle decode failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let classical_credential = case decode_device_credential(classical_bundle.device_credential) do
+    Err( _) -> Err("classical credential decode failed")
+    Ok( value) -> Ok(value)
+  end ?
+  assert(stored_bundle.suite == 2)
+  assert(Bytes.length(stored_bundle.post_quantum_prekey) == 1184)
+  assert(U64.compare(stored_bundle.signed_prekey_id, classical_bundle.signed_prekey_id) == 0)
+  assert(Bytes.secure_equals(stored_bundle.signed_prekey, classical_bundle.signed_prekey))
+  assert(U64.compare(stored_bundle.expires_at, classical_bundle.expires_at) == 0)
+  assert(!Bytes.secure_equals(stored_bundle.signed_prekey_signature,
+  classical_bundle.signed_prekey_signature))
+  assert(Bytes.secure_equals(stored_credential.signing_public_key,
+  classical_credential.signing_public_key))
+  assert(Bytes.secure_equals(stored_credential.dh_public_key, classical_credential.dh_public_key))
+  assert(Bytes.secure_equals(stored_entry.mailbox_token, mailbox_token))
+  assert(U64.compare(stored_set.sequence, wide("2") ?) == 0)
+  assert(entry_count(pool) ? == 2)
+  assert(scalar(pool,
+  "SELECT concat(count(*)::text, ':', count(*) FILTER (WHERE consumed_at IS NULL)::text, ':', count(*) FILTER (WHERE claim_id_hash IS NOT NULL AND claim_base_bundle_hash IS NOT NULL)::text) AS value FROM messenger_one_time_prekeys") ? == "1:0:1")
+  reset_rotation_state(pool) ?
+  assert(register_device_request(pool, protocol(encode_directory_entry(entries.classical)) ?).status == 201)
+  tombstone_registration_prekey(pool, identity.account_id, primary.device_id) ?
+  let identical_wire = protocol(encode_directory_entry(entries.first_hybrid)) ?
+  let identical_first_job = Job.async(fn () -> register_wire_status(pool, identical_wire) end)
+  let identical_second_job = Job.async(fn () -> register_wire_status(pool, identical_wire) end)
+  let identical_first_status = await_registration(identical_first_job) ?
+  let identical_second_status = await_registration(identical_second_job) ?
+  let identical_result = (identical_first_status == 201 && identical_second_status == 200) || (identical_first_status == 200 && identical_second_status == 201)
+  assert(identical_result)
+  assert(scalar(pool,
+  "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value") ? == "2:2")
+  assert(mailbox_snapshot(pool) ? == original_mailbox)
+  assert(prekey_snapshot(pool) ? == original_prekeys)
+  Pool.close(pool)
+  Ok(true)
+end
+
+test("same-device credentials rotate once from classical to hybrid without weakening identity") do
+  case credential_rotation_proof() do
     Err( error) -> do
       println(error)
       assert(false)

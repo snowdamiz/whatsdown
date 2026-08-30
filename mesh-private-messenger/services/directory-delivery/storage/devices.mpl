@@ -201,18 +201,69 @@ initial_prekey :: Option < OneTimePrekeyPublic >) -> DeviceWrite ! String do
         Err("messenger_devices_conflict")
       else
         let existing = Pg.query_values(conn,
-        "SELECT prekey_bundle, mailbox_token_hash FROM messenger_devices WHERE account_id = $1 AND device_id = $2 AND revoked_at IS NULL",
+        "SELECT device.prekey_bundle, device.mailbox_token, device.mailbox_token_hash, mailbox.active::text AS mailbox_active FROM messenger_devices AS device JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = device.mailbox_token_hash WHERE device.account_id = $1 AND device.device_id = $2 AND device.revoked_at IS NULL FOR UPDATE OF device, mailbox",
         [Binary(account.account_id), Binary(credential.device_id)]) ?
         let token_hash = Crypto.sha256(entry.mailbox_token)
         if List.length(existing) > 0 do
           let device_row = List.head(existing)
-          if Bytes.secure_equals(binary(Map.get(device_row, "prekey_bundle")) ?,
-          entry.prekey_bundle) && Bytes.secure_equals(binary(Map.get(device_row,
+          let mailbox_matches = text(Map.get(device_row, "mailbox_active")) ? == "true" && Bytes.secure_equals(binary(Map.get(device_row,
+          "mailbox_token")) ?,
+          entry.mailbox_token) && Bytes.secure_equals(binary(Map.get(device_row,
           "mailbox_token_hash")) ?,
-          token_hash) do
+          token_hash)
+          if Bytes.secure_equals(binary(Map.get(device_row, "prekey_bundle")) ?,
+          entry.prekey_bundle) && mailbox_matches do
             Ok(DeviceUnchanged)
           else
-            Err("messenger_devices_conflict")
+            let stored_bundle = case decode_prekey_bundle(binary(Map.get(device_row,
+            "prekey_bundle")) ?) do
+              Err( _) -> Err("invalid stored prekey bundle")
+              Ok( value) -> Ok(value)
+            end ?
+            let stored_credential = case decode_device_credential(stored_bundle.device_credential) do
+              Err( _) -> Err("invalid stored device credential")
+              Ok( value) -> Ok(value)
+            end ?
+            let proposed_bundle = case decode_prekey_bundle(entry.prekey_bundle) do
+              Err( _) -> Err("invalid proposed prekey bundle")
+              Ok( value) -> Ok(value)
+            end ?
+            let sequence = wide(Map.get(row, "sequence")) ?
+            let next_sequence = U64.add(sequence, U64.parse("1") ?) ?
+            let same_keys = Bytes.secure_equals(stored_credential.signing_public_key,
+            credential.signing_public_key) && Bytes.secure_equals(stored_credential.dh_public_key,
+            credential.dh_public_key)
+            let same_signed_prekey = U64.compare(stored_bundle.signed_prekey_id,
+            proposed_bundle.signed_prekey_id) == 0 && Bytes.secure_equals(stored_bundle.signed_prekey,
+            proposed_bundle.signed_prekey) && U64.compare(stored_bundle.expires_at,
+            proposed_bundle.expires_at) == 0
+            let rotates_to_hybrid = stored_credential.suite == 1 && credential.suite == 2 && Bytes.length(credential.post_quantum_public_key) == 1184
+            if !mailbox_matches || !same_keys || !same_signed_prekey || !rotates_to_hybrid || U64.compare(credential.directory_sequence,
+            next_sequence) != 0 do
+              Err("messenger_devices_conflict")
+            else
+              let changed = Pg.execute_values(conn,
+              "UPDATE messenger_devices SET prekey_bundle = $3 WHERE account_id = $1 AND device_id = $2 AND revoked_at IS NULL",
+              [Binary(account.account_id), Binary(credential.device_id), Binary(entry.prekey_bundle)]) ?
+              let sequence_changed = Pg.execute_values(conn,
+              "UPDATE messenger_accounts SET sequence = $2::bigint, updated_at = now() WHERE account_id = $1 AND sequence = $3::bigint",
+              [Binary(account.account_id), Text(U64.to_string(next_sequence)), Text(U64.to_string(sequence))]) ?
+              if changed == 1 && sequence_changed == 1 do
+                let current = resolve_on_connection(conn, entry.username) ?
+                let device_set = case current do
+                  None -> Err("device set disappeared")
+                  Some( value) -> Ok(value)
+                end ?
+                let encoded = case encode_device_set(device_set) do
+                  Err( _) -> Err("invalid stored device set")
+                  Ok( value) -> Ok(value)
+                end ?
+                let _ = append_entry_on_connection(conn, account.account_id, encoded) ?
+                Ok(DeviceAccepted)
+              else
+                Err("device rotation changed concurrently")
+              end
+            end
           end
         else
           let sequence = wide(Map.get(row, "sequence")) ?

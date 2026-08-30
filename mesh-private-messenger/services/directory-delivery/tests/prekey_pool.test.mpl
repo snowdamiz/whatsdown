@@ -1,9 +1,10 @@
 from Api.Binary import claim_prekey_request, publish_prekeys_request, revoke_device_request
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation
-from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
+from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
+from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, reauthorize_signed_prekey
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, decode_prekey_publish_response, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
 from Protocol.V1 import AccountIdentity, DirectoryEntry, PrekeyBundle, ProtocolError, decode_prekey_bundle, encode_account_identity, encode_device_revocation, encode_directory_entry, encode_prekey_bundle
 from Storage.Devices import DeviceWrite, register_device, resolve_devices
+from Storage.Prekeys import publish_prekeys
 
 fn repeated(value :: Int, length :: Int) -> Bytes ! String do
   case Bytes.repeat(value, length) do
@@ -442,7 +443,8 @@ fn happy_path() -> Bool ! String do
     Err( _) -> Ok(nil)
     Ok( _) -> Err("oversized prekey batch encoded")
   end ?
-  let revocation = case issue_device_revocation(account, target.device_id, wide("3") ?) do
+  rotation_replay_assertions(pool, account, identity, target, target_base, created_at, expires_at) ?
+  let revocation = case issue_device_revocation(account, target.device_id, wide("5") ?) do
     Err( _) -> Err("revocation signing failed")
     Ok( output) -> Ok(output)
   end ?
@@ -452,6 +454,148 @@ fn happy_path() -> Bool ! String do
   assert(claim_prekey_request(pool, exhausted_claim_body).status == 404)
   Pool.close(pool)
   Ok(true)
+end
+
+fn rotation_replay_assertions(pool :: PoolHandle,
+account :: borrow AccountKeys,
+identity :: AccountIdentity,
+other_target :: borrow DeviceKeys,
+other_base :: Bytes,
+created_at :: U64,
+expires_at :: U64) -> Result <(), String > do
+  let target = case generate_device() do
+    Err( _) -> Err("target generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let classical_credential = case issue_device_credential(account,
+  target,
+  wide("1") ?,
+  created_at,
+  expires_at,
+  wide("3") ?) do
+    Err( _) -> Err("classical credential generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let signed = case generate_signed_prekey(target, classical_credential, wide("1") ?, expires_at) do
+    Err( _) -> Err("signed prekey generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let one_time = case generate_one_time_prekey(wide("2") ?) do
+    Err( _) -> Err("one-time prekey generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let classical_bundle = case build_prekey_bundle(classical_credential, signed, one_time) do
+    Err( _) -> Err("classical bundle generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let mailbox_token = repeated(73, 32) ?
+  let classical_entry = DirectoryEntry {
+    version : 1,
+    username : "prekey-account",
+    account_identity : protocol(encode_account_identity(identity)) ?,
+    prekey_bundle : protocol(encode_prekey_bundle(classical_bundle)) ?,
+    mailbox_token : mailbox_token
+  }
+  case register_device(pool, classical_entry) ? do
+    DeviceAccepted -> Ok(nil)
+    _ -> Err("classical registration failed")
+  end ?
+  let classical_base = target_base_bundle(pool, mailbox_token) ?
+  let published = sign_publish(target.signing_private_key,
+  unsigned_publish(identity,
+  target,
+  [OneTimePrekeyPublic {
+    id : wide("100") ?,
+    public_key : repeated(74, 32) ?
+  }, OneTimePrekeyPublic {
+    id : wide("101") ?,
+    public_key : repeated(77, 32) ?
+  }]) ?) ?
+  case publish_prekeys(pool, published) do
+    Err( error) -> Err("rotation prekey publication failed: #{error}")
+    Ok( _) -> Ok(nil)
+  end ?
+  assert(target_key_count(pool, identity.account_id, target.device_id) ? == 3)
+  let reservation_id = repeated(75, 16) ?
+  let claim = claim_request(identity, target, classical_base, reservation_id)
+  let claim_body = encode_prekey_claim(claim) ?
+  let initial = claim_prekey_request(pool, claim_body)
+  assert(initial.status == 200)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 1)
+  let legacy_claim = % { claim | reservation_id : repeated(78, 16) ? }
+  let legacy_body = encode_prekey_claim(legacy_claim) ?
+  let legacy_initial = claim_prekey_request(pool, legacy_body)
+  assert(legacy_initial.status == 200)
+  let legacy_changed = Pool.execute_values(pool,
+  "UPDATE messenger_one_time_prekeys SET claim_response = $4 WHERE account_id = $1 AND device_id = $2 AND claim_id_hash = $3",
+  [Binary(identity.account_id), Binary(target.device_id), Binary(Crypto.sha256(legacy_claim.reservation_id)), Binary(classical_base)]) ?
+  assert(legacy_changed == 1)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 2)
+  let post_quantum = case generate_post_quantum_prekey() do
+    Err( _) -> Err("post-quantum prekey generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let hybrid_credential = case issue_hybrid_device_credential(account,
+  target,
+  post_quantum.public_key,
+  wide("3") ?,
+  created_at,
+  expires_at,
+  wide("4") ?) do
+    Err( _) -> Err("hybrid credential generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let signed = case reauthorize_signed_prekey(target, hybrid_credential, signed) do
+    Err( _) -> Err("signed prekey reauthorization failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let hybrid_bundle = case build_hybrid_prekey_bundle(hybrid_credential,
+  signed,
+  one_time,
+  post_quantum) do
+    Err( _) -> Err("hybrid bundle generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let hybrid_entry = DirectoryEntry {
+    version : 1,
+    username : "prekey-account",
+    account_identity : protocol(encode_account_identity(identity)) ?,
+    prekey_bundle : protocol(encode_prekey_bundle(hybrid_bundle)) ?,
+    mailbox_token : mailbox_token
+  }
+  case register_device(pool, hybrid_entry) ? do
+    DeviceAccepted -> Ok(nil)
+    _ -> Err("hybrid credential rotation failed")
+  end ?
+  let hybrid_base = target_base_bundle(pool, mailbox_token) ?
+  assert(!Bytes.secure_equals(Crypto.sha256(classical_base), Crypto.sha256(hybrid_base)))
+  let replay = claim_prekey_request(pool, claim_body)
+  if replay.status != 200 do
+    Err("cross-rotation claim replay returned #{Int.to_string(replay.status)}")
+  else
+    Ok(nil)
+  end ?
+  assert(Bytes.secure_equals(replay.body, initial.body))
+  assert(decoded_bundle(replay.body) ?.suite == 1)
+  let legacy_replay = claim_prekey_request(pool, legacy_body)
+  assert(legacy_replay.status == 200)
+  assert(Bytes.secure_equals(legacy_replay.body, legacy_initial.body))
+  assert(decoded_bundle(legacy_replay.body) ?.suite == 1)
+  let unknown_stale = % { claim | reservation_id : repeated(76, 16) ? }
+  assert(claim_prekey_request(pool, encode_prekey_claim(unknown_stale) ?).status == 404)
+  let changed_binding = % { claim | base_bundle_hash : Crypto.sha256(hybrid_base) }
+  assert(claim_prekey_request(pool, encode_prekey_claim(changed_binding) ?).status == 404)
+  let other_consumed = target_consumed_key_count(pool, identity.account_id, other_target.device_id) ?
+  let changed_device = PrekeyClaimRequest {
+    account_id : claim.account_id,
+    device_id : other_target.device_id,
+    base_bundle_hash : Crypto.sha256(other_base),
+    reservation_id : claim.reservation_id
+  }
+  assert(claim_prekey_request(pool, encode_prekey_claim(changed_device) ?).status == 404)
+  assert(target_consumed_key_count(pool, identity.account_id, other_target.device_id) ? == other_consumed)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 2)
+  Ok(nil)
 end
 
 test("authenticated publication feeds one atomic bundle claim") do

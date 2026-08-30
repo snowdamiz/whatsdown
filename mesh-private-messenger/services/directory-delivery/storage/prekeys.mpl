@@ -1,4 +1,5 @@
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
+from Prekeys.Bundle import normalize_prekey_bundle
 from Protocol.V1 import PrekeyBundle, decode_device_credential, decode_prekey_bundle, encode_prekey_bundle
 
 pub type PrekeyPublishWrite do
@@ -26,10 +27,26 @@ struct PublicationCheck do
   conflict :: Bool
 end
 
+struct StoredClaim do
+  account_id :: Bytes
+  device_id :: Bytes
+  base_bundle_hash :: Bytes
+  claimed :: OneTimePrekeyPublic
+  response :: Option < Bytes >
+end
+
 fn binary(value :: DbValue) -> Bytes ! String do
   case value do
     Binary( output) -> Ok(output)
     _ -> Err("invalid prekey row")
+  end
+end
+
+fn optional_binary(value :: DbValue) -> Option < Bytes > ! String do
+  case value do
+    Binary( output) -> Ok(Some(output))
+    Null -> Ok(None)
+    _ -> Err("invalid optional prekey row")
   end
 end
 
@@ -251,11 +268,74 @@ fn claimed_prekey(rows :: List < Map < String, DbValue > >) -> Option < OneTimeP
   end
 end
 
-fn existing_claim(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option < OneTimePrekeyPublic > ! String do
+fn stored_claim(rows :: List < Map < String, DbValue > >) -> Option < StoredClaim > ! String do
+  if List.length(rows) == 0 do
+    Ok(None)
+  else if List.length(rows) == 1 do
+    let row = List.head(rows)
+    Ok(Some(StoredClaim {
+      account_id : binary(Map.get(row, "account_id")) ?,
+      device_id : binary(Map.get(row, "device_id")) ?,
+      base_bundle_hash : binary(Map.get(row, "claim_base_bundle_hash")) ?,
+      claimed : OneTimePrekeyPublic {
+        id : wide(Map.get(row, "prekey_id")) ?,
+        public_key : binary(Map.get(row, "public_key")) ?
+      },
+      response : optional_binary(Map.get(row, "claim_response")) ?
+    }))
+  else
+    Err("multiple prekey claims share a reservation")
+  end
+end
+
+fn existing_claim(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option < StoredClaim > ! String do
   let rows = Pg.query_values(conn,
-  "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND claim_id_hash = $3 AND claim_base_bundle_hash = $4 FOR SHARE",
-  [Binary(request.account_id), Binary(request.device_id), Binary(Crypto.sha256(request.reservation_id)), Binary(request.base_bundle_hash)]) ?
-  claimed_prekey(rows)
+  "SELECT account_id, device_id, prekey_id::text, public_key, claim_base_bundle_hash, claim_response FROM messenger_one_time_prekeys WHERE claim_id_hash = $1 FOR SHARE",
+  [Binary(Crypto.sha256(request.reservation_id))]) ?
+  stored_claim(rows)
+end
+
+fn claim_binding_matches(stored :: borrow StoredClaim, request :: PrekeyClaimRequest) -> Bool do
+  Bytes.secure_equals(stored.account_id, request.account_id) && Bytes.secure_equals(stored.device_id,
+  request.device_id) && Bytes.secure_equals(stored.base_bundle_hash, request.base_bundle_hash)
+end
+
+fn encoded_bundle(bundle :: PrekeyBundle) -> Bytes ! String do
+  case encode_prekey_bundle(bundle) do
+    Err( _) -> Err("invalid resolved prekey bundle")
+    Ok( output) -> Ok(output)
+  end
+end
+
+fn stored_response_bundle(stored :: borrow StoredClaim,
+request :: PrekeyClaimRequest,
+encoded :: Bytes) -> PrekeyBundle ! String do
+  let bundle = case decode_prekey_bundle(encoded) do
+    Err( _) -> Err("invalid stored prekey claim response")
+    Ok( output) -> Ok(output)
+  end ?
+  let credential = case decode_device_credential(bundle.device_credential) do
+    Err( _) -> Err("invalid stored prekey claim credential")
+    Ok( output) -> Ok(output)
+  end ?
+  let base = case normalize_prekey_bundle(bundle) do
+    Err( _) -> Err("invalid stored prekey claim base")
+    Ok( output) -> Ok(output)
+  end ?
+  let canonical = encoded_bundle(bundle) ?
+  let base_hash = Crypto.sha256(encoded_bundle(base) ?)
+  let common = Bytes.secure_equals(canonical, encoded) && Bytes.secure_equals(credential.account_id,
+  request.account_id) && Bytes.secure_equals(credential.device_id, request.device_id) && Bytes.secure_equals(base_hash,
+  request.base_bundle_hash)
+  let claimed = U64.compare(bundle.one_time_prekey_id, stored.claimed.id) == 0 && Bytes.secure_equals(bundle.one_time_prekey,
+  stored.claimed.public_key)
+  if common && claimed do
+    Ok(bundle)
+  else if common && Bytes.length(bundle.one_time_prekey) == 0 do
+    resolved_bundle(encoded, stored.claimed)
+  else
+    Err("invalid stored prekey claim binding")
+  end
 end
 
 fn lock_claim_reservation(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Result <(), String > do
@@ -274,10 +354,11 @@ end
 
 fn reserve_claim(conn :: borrow PgConn,
 request :: PrekeyClaimRequest,
-claimed :: OneTimePrekeyPublic) -> Result <(), String > do
+claimed :: OneTimePrekeyPublic,
+response :: Bytes) -> Result <(), String > do
   let changed = Pg.execute_values(conn,
-  "UPDATE messenger_one_time_prekeys SET consumed_at = clock_timestamp(), claim_id_hash = $4, claim_base_bundle_hash = $5 WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND consumed_at IS NULL",
-  [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(claimed.id)), Binary(Crypto.sha256(request.reservation_id)), Binary(request.base_bundle_hash)]) ?
+  "UPDATE messenger_one_time_prekeys SET consumed_at = clock_timestamp(), claim_id_hash = $4, claim_base_bundle_hash = $5, claim_response = $6 WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND consumed_at IS NULL",
+  [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(claimed.id)), Binary(Crypto.sha256(request.reservation_id)), Binary(request.base_bundle_hash), Binary(response)]) ?
   if changed == 1 do
     Ok(nil)
   else
@@ -285,21 +366,72 @@ claimed :: OneTimePrekeyPublic) -> Result <(), String > do
   end
 end
 
+fn store_legacy_claim_response(conn :: borrow PgConn,
+request :: PrekeyClaimRequest,
+claimed :: OneTimePrekeyPublic,
+response :: Bytes) -> Result <(), String > do
+  let changed = Pg.execute_values(conn,
+  "UPDATE messenger_one_time_prekeys SET claim_response = $6 WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND claim_id_hash = $4 AND claim_base_bundle_hash = $5 AND claim_response IS NULL",
+  [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(claimed.id)), Binary(Crypto.sha256(request.reservation_id)), Binary(request.base_bundle_hash), Binary(response)]) ?
+  if changed == 1 do
+    Ok(nil)
+  else
+    Err("legacy prekey claim response changed concurrently")
+  end
+end
+
+fn replace_legacy_claim_response(conn :: borrow PgConn,
+request :: PrekeyClaimRequest,
+claimed :: OneTimePrekeyPublic,
+legacy :: Bytes,
+response :: Bytes) -> Result <(), String > do
+  let changed = Pg.execute_values(conn,
+  "UPDATE messenger_one_time_prekeys SET claim_response = $7 WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND claim_id_hash = $4 AND claim_base_bundle_hash = $5 AND claim_response = $6",
+  [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(claimed.id)), Binary(Crypto.sha256(request.reservation_id)), Binary(request.base_bundle_hash), Binary(legacy), Binary(response)]) ?
+  if changed == 1 do
+    Ok(nil)
+  else
+    Err("legacy prekey claim response changed concurrently")
+  end
+end
+
 fn claim_on_connection(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> PrekeyClaimWrite ! String do
   case active_bundle(conn, request.account_id, request.device_id, false) ? do
     None -> Ok(PrekeyClaimMissing)
-    Some( encoded_bundle) -> if !Bytes.secure_equals(Crypto.sha256(encoded_bundle),
-    request.base_bundle_hash) do
-      Ok(PrekeyClaimMissing)
-    else
+    Some( current_bundle) -> do
       lock_claim_reservation(conn, request) ?
       case existing_claim(conn, request) ? do
-        Some( claimed) -> Ok(PrekeyClaimed(resolved_bundle(encoded_bundle, claimed) ?))
-        None -> case claim_candidate(conn, request) ? do
-          None -> Ok(PrekeyClaimExhausted)
-          Some( claimed) -> do
-            reserve_claim(conn, request, claimed) ?
-            Ok(PrekeyClaimed(resolved_bundle(encoded_bundle, claimed) ?))
+        Some( stored) -> if !claim_binding_matches(stored, request) do
+          Ok(PrekeyClaimMissing)
+        else
+          case stored.response do
+            Some( response) -> do
+              let bundle = stored_response_bundle(stored, request, response) ?
+              let exact = encoded_bundle(bundle) ?
+              if !Bytes.secure_equals(exact, response) do
+                replace_legacy_claim_response(conn, request, stored.claimed, response, exact) ?
+              end
+              Ok(PrekeyClaimed(bundle))
+            end
+            None -> if !Bytes.secure_equals(Crypto.sha256(current_bundle), request.base_bundle_hash) do
+              Ok(PrekeyClaimMissing)
+            else
+              let bundle = resolved_bundle(current_bundle, stored.claimed) ?
+              store_legacy_claim_response(conn, request, stored.claimed, encoded_bundle(bundle) ?) ?
+              Ok(PrekeyClaimed(bundle))
+            end
+          end
+        end
+        None -> if !Bytes.secure_equals(Crypto.sha256(current_bundle), request.base_bundle_hash) do
+          Ok(PrekeyClaimMissing)
+        else
+          case claim_candidate(conn, request) ? do
+            None -> Ok(PrekeyClaimExhausted)
+            Some( claimed) -> do
+              let bundle = resolved_bundle(current_bundle, claimed) ?
+              reserve_claim(conn, request, claimed, encoded_bundle(bundle) ?) ?
+              Ok(PrekeyClaimed(bundle))
+            end
           end
         end
       end

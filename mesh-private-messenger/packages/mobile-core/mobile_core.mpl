@@ -3038,6 +3038,20 @@ end
 
 # ponytail: the MVP scans encrypted session IDs; add an encrypted peer index if measured conversation counts make this slow.
 
+fn preferred_session(first :: MobileLoadedSession, second :: MobileLoadedSession) -> MobileLoadedSession do
+  let first_active = Bytes.length(first.record.snapshot) > 0
+  let second_active = Bytes.length(second.record.snapshot) > 0
+  if second_active && !first_active do
+    second
+  else if first_active && !second_active do
+    first
+  else if second.record.strongest_suite > first.record.strongest_suite do
+    second
+  else
+    first
+  end
+end
+
 fn find_peer_session(database_path :: String,
 wrapping_key :: borrow StorageKey,
 peer_account_id :: Bytes,
@@ -3048,17 +3062,13 @@ index :: Int) -> MobileLoadedSession ! String do
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
     if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) do
-      if Bytes.length(loaded.record.snapshot) > 0 do
-        Ok(loaded)
-      else
-        case find_peer_session(database_path, wrapping_key, peer_account_id, session_ids, index + 1) do
-          Err( error) -> if error == "session_not_found" do
-            Ok(loaded)
-          else
-            Err(error)
-          end
-          Ok( preferred) -> Ok(preferred)
+      case find_peer_session(database_path, wrapping_key, peer_account_id, session_ids, index + 1) do
+        Err( error) -> if error == "session_not_found" do
+          Ok(loaded)
+        else
+          Err(error)
         end
+        Ok( next) -> Ok(preferred_session(loaded, next))
       end
     else
       find_peer_session(database_path, wrapping_key, peer_account_id, session_ids, index + 1)
@@ -3078,7 +3088,19 @@ index :: Int) -> MobileLoadedSession ! String do
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
     if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) && Bytes.secure_equals(loaded.record.peer_device_id,
     peer_device_id) do
-      Ok(loaded)
+      case find_device_session(database_path,
+      wrapping_key,
+      peer_account_id,
+      peer_device_id,
+      session_ids,
+      index + 1) do
+        Err( error) -> if error == "session_not_found" do
+          Ok(loaded)
+        else
+          Err(error)
+        end
+        Ok( next) -> Ok(preferred_session(loaded, next))
+      end
     else
       find_device_session(database_path,
       wrapping_key,
@@ -3115,6 +3137,29 @@ strongest :: Int) -> Int ! String do
     session_ids,
     index + 1,
     next)
+  end
+end
+
+fn device_needs_prekey(database_path :: String,
+wrapping_key :: borrow StorageKey,
+session_ids :: List < Bytes >,
+profile :: ClientProfile) -> Bool ! String do
+  case find_device_session(database_path,
+  wrapping_key,
+  profile.account_id,
+  profile.device_id,
+  session_ids,
+  0) do
+    Err( error) -> if error == "session_not_found" do
+      Ok(true)
+    else
+      Err(error)
+    end
+    Ok( loaded) -> if loaded.record.strongest_suite > profile.bundle.suite do
+      Err("peer_keys_changed")
+    else
+      Ok(loaded.record.strongest_suite < profile.bundle.suite)
+    end
   end
 end
 
@@ -3861,6 +3906,43 @@ key_changed :: Bool) -> Result <( Bytes, String, Bytes), String > do
   end
 end
 
+fn finish_upgraded_session_snapshot(state :: consume RatchetState,
+snapshot_blob :: Bytes,
+wrapping_key :: borrow StorageKey,
+previous :: MobileLoadedSession,
+peer :: ClientProfile,
+session_id :: Bytes,
+label :: String) -> Result <( Bytes, String, Bytes), String > do
+  let record = % { previous.record | snapshot : snapshot_blob, peer_account_id : peer.account_id, peer_device_id : peer.device_id, peer_username : peer.username, peer_mailbox : peer.entry.mailbox_token, strongest_suite : state.suite }
+  Ok((session_id,
+  label,
+  seal_local(updated_session_record(record.snapshot, record) ?,
+  wrapping_key,
+  local_context(label) ?) ?))
+end
+
+fn seal_upgraded_session(state :: consume RatchetState,
+wrapping_key :: borrow StorageKey,
+previous :: MobileLoadedSession,
+peer :: ClientProfile) -> Result <( Bytes, String, Bytes), String > do
+  let session_id = state.session_id
+  let label = session_label(session_id)
+  case snapshot(state,
+  wrapping_key,
+  previous.record.local_account_id,
+  previous.record.local_device_id,
+  mobile_wide("1") ?) do
+    SnapshotRejected( rejected_state, _) -> reject_session_snapshot(rejected_state)
+    SnapshotSealed( next_state, snapshot_blob) -> finish_upgraded_session_snapshot(next_state,
+    snapshot_blob,
+    wrapping_key,
+    previous,
+    peer,
+    session_id,
+    label)
+  end
+end
+
 fn store_new_session(database_path :: String, label :: String, blob :: Bytes, index_blob :: Bytes) -> Result <(), String > do
   case Sqlite.open(database_path) do
     Err( _) -> Err("database_open_failed")
@@ -3897,9 +3979,9 @@ fn store_received_session(database_path :: String,
 label :: String,
 blob :: Bytes,
 index_blob :: Bytes,
-history_key :: String,
-history_blob :: Bytes,
-prekey_label :: String,
+updated_labels :: List < String >,
+updated_blobs :: List < Bytes >,
+removed_labels :: List < String >,
 prekey_index_blob :: Bytes,
 prekey_active_blob :: Bytes) -> Result <(), String > do
   case Sqlite.open(database_path) do
@@ -3911,9 +3993,9 @@ prekey_active_blob :: Bytes) -> Result <(), String > do
           Err( error) -> Err(error)
           Ok( _) -> case put_blob(database, "sessions/v1", index_blob) do
             Err( error) -> Err(error)
-            Ok( _) -> case put_blob(database, history_key, history_blob) do
+            Ok( _) -> case put_blobs(database, updated_labels, updated_blobs, 0) do
               Err( error) -> Err(error)
-              Ok( _) -> case delete_blob(database, prekey_label) do
+              Ok( _) -> case delete_blobs(database, removed_labels, 0) do
                 Err( error) -> Err(error)
                 Ok( _) -> case put_blob(database, "one-time-prekeys/v1", prekey_index_blob) do
                   Err( error) -> Err(error)
@@ -4096,6 +4178,7 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
         Ok( value) -> Ok(value)
       end ?
       let wrapping_key = platform_key() ?
+      let session_ids = load_session_ids(request.database_path, wrapping_key) ?
       let prekeys = load_prekey_pool(local, wrapping_key, request.database_path) ?
       let active_prekeys = load_active_prekey_pool(request.database_path, prekeys, wrapping_key) ?
       let selected_prekey = find_prekey(prekeys, initial.one_time_prekey_id, 0) ?
@@ -4109,7 +4192,7 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
       wrapping_key,
       initiator_account.account_id,
       initiator_credential.device_id,
-      load_session_ids(request.database_path, wrapping_key) ?,
+      session_ids,
       0,
       0) ?
       let ( signed, one_time, post_quantum) = open_prekeys(local,
@@ -4150,23 +4233,41 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
         Err( _) -> Err("invalid_inner_envelope")
         Ok( value) -> Ok(value)
       end ?
+      let previous = case find_peer_session(request.database_path,
+      wrapping_key,
+      peer.account_id,
+      session_ids,
+      0) do
+        Ok( loaded) -> Ok(Some(loaded))
+        Err( error) -> if error == "session_not_found" do
+          Ok(None)
+        else
+          Err(error)
+        end
+      end ?
       let self_sync = inner.message_type == 2 && Bytes.secure_equals(peer.account_id,
       local.account_id)
       let valid_kind = self_sync || (inner.message_type == 1 && !Bytes.secure_equals(peer.account_id,
       local.account_id))
-      let mismatch = !valid_kind || !Bytes.secure_equals(peer.entry.account_identity,
+      let conversation_mismatch = case previous do
+        None -> false
+        Some( loaded) -> !Bytes.secure_equals(inner.conversation_id, loaded.record.conversation_id)
+      end
+      let mismatch = !valid_kind || conversation_mismatch || !Bytes.secure_equals(peer.entry.account_identity,
       packet_account_identity) || !Bytes.secure_equals(inner.sender_account_id, peer.account_id) || !Bytes.secure_equals(inner.sender_device_id,
-      peer.device_id) || !Bytes.secure_equals(inner.recipient_device_id, local.device_id)
+      peer.device_id) || !Bytes.secure_equals(peer.device_id, initiator_credential.device_id) || !Bytes.secure_equals(inner.recipient_device_id,
+      local.device_id)
       if mismatch do
         Err("initial_identity_mismatch")
       else
-        let ( session_id, label, session_blob) = seal_session(state,
-        wrapping_key,
-        local,
-        peer,
-        inner.conversation_id,
-        0,
-        false) ?
+        let blocked = case previous do
+          None -> false
+          Some( loaded) -> loaded.record.blocked
+        end
+        let ( session_id, label, session_blob) = case previous do
+          None -> seal_session(state, wrapping_key, local, peer, inner.conversation_id, 0, false)
+          Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, peer)
+        end ?
         let remaining_prekeys = remove_prekey(prekeys, selected_prekey.id, 0, List.new())
         let prekey_index_blob = seal_prekey_pool(remaining_prekeys, wrapping_key) ?
         let prekey_active_blob = seal_active_prekey_pool(remove_prekey_id(active_prekeys,
@@ -4175,7 +4276,24 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
         List.new()),
         wrapping_key) ?
         let prekey_label = one_time_prekey_label(selected_prekey.id)
-        if self_sync do
+        let removed_labels = List.append(matching_fanout_prekey_state_labels(request.database_path,
+        wrapping_key,
+        peer,
+        initial.suite) ?,
+        prekey_label)
+        if blocked do
+          let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
+          store_received_session(request.database_path,
+          label,
+          session_blob,
+          index_blob,
+          List.new(),
+          List.new(),
+          removed_labels,
+          prekey_index_blob,
+          prekey_active_blob) ?
+          Err("blocked_message")
+        else if self_sync do
           let sync = parse_sync_payload(inner.body) ?
           if Bytes.secure_equals(sync.peer_account_id, local.account_id) do
             Err("invalid_sync_payload")
@@ -4191,9 +4309,9 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
             label,
             session_blob,
             index_blob,
-            history_key,
-            history_blob,
-            prekey_label,
+            [history_key],
+            [history_blob],
+            removed_labels,
             prekey_index_blob,
             prekey_active_blob) ?
             Ok(history_inner.body)
@@ -4208,9 +4326,9 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
           label,
           session_blob,
           index_blob,
-          history_key,
-          history_blob,
-          prekey_label,
+          [history_key],
+          [history_blob],
+          removed_labels,
           prekey_index_blob,
           prekey_active_blob) ?
           Ok(inner.body)
@@ -4401,13 +4519,8 @@ claims :: List < Bytes >) -> List < Bytes > ! String do
       index + 1,
       claims)
     else
-      case find_device_session(database_path,
-      wrapping_key,
-      profile.account_id,
-      profile.device_id,
-      session_ids,
-      0) do
-        Ok( _) -> append_missing_prekey_claims(database_path,
+      if !(device_needs_prekey(database_path, wrapping_key, session_ids, profile) ?) do
+        append_missing_prekey_claims(database_path,
         wrapping_key,
         session_ids,
         profiles,
@@ -4416,12 +4529,25 @@ claims :: List < Bytes >) -> List < Bytes > ! String do
         now,
         index + 1,
         claims)
-        Err( error) -> if error != "session_not_found" do
-          Err(error)
-        else
-          case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
-            Err( error) -> Err(error)
-            Ok( Some( _)) -> append_missing_prekey_claims(database_path,
+      else
+        case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
+          Err( error) -> Err(error)
+          Ok( Some( _)) -> append_missing_prekey_claims(database_path,
+          wrapping_key,
+          session_ids,
+          profiles,
+          local_device_id,
+          skip_local_device,
+          now,
+          index + 1,
+          claims)
+          Ok( None) -> do
+            let claim = case load_fanout_prekey_claim(database_path, wrapping_key, profile) do
+              Err( error) -> Err(error)
+              Ok( Some( value)) -> Ok(value)
+              Ok( None) -> create_fanout_prekey_claim(database_path, wrapping_key, profile)
+            end ?
+            append_missing_prekey_claims(database_path,
             wrapping_key,
             session_ids,
             profiles,
@@ -4429,23 +4555,7 @@ claims :: List < Bytes >) -> List < Bytes > ! String do
             skip_local_device,
             now,
             index + 1,
-            claims)
-            Ok( None) -> do
-              let claim = case load_fanout_prekey_claim(database_path, wrapping_key, profile) do
-                Err( error) -> Err(error)
-                Ok( Some( value)) -> Ok(value)
-                Ok( None) -> create_fanout_prekey_claim(database_path, wrapping_key, profile)
-              end ?
-              append_missing_prekey_claims(database_path,
-              wrapping_key,
-              session_ids,
-              profiles,
-              local_device_id,
-              skip_local_device,
-              now,
-              index + 1,
-              List.append(claims, claim))
-            end
+            List.append(claims, claim))
           end
         end
       end
@@ -4522,6 +4632,31 @@ end
 
 fn fanout_prekey_claim_label(profile :: ClientProfile) -> String do
   "fanout-prekey-claim/v1/#{Bytes.to_hex(profile.account_id)}/#{Bytes.to_hex(profile.device_id)}"
+end
+
+fn matching_fanout_prekey_state_labels(database_path :: String,
+wrapping_key :: borrow StorageKey,
+profile :: ClientProfile,
+accepted_suite :: Int) -> List < String > ! String do
+  let reservation_label = fanout_prekey_reservation_label(profile)
+  case load_blob(database_path, reservation_label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(List.new())
+    else
+      Err(error)
+    end
+    Ok( blob) -> do
+      let reserved = fanout_prekey_bundle(open_local(blob,
+      wrapping_key,
+      local_context(reservation_label) ?) ?) ?
+      if accepted_suite >= reserved.suite && Bytes.secure_equals(fanout_prekey_base(reserved) ?,
+      fanout_prekey_base(profile.bundle) ?) do
+        Ok([reservation_label, fanout_prekey_claim_label(profile)])
+      else
+        Ok(List.new())
+      end
+    end
+  end
 end
 
 fn load_fanout_prekey_claim(database_path :: String,
@@ -4787,7 +4922,7 @@ claims :: List < MobileClaimedPrekey >) -> List < MobileClaimedPrekey > ! String
   end
 end
 
-fn require_claimed_prekeys_sessionless(database_path :: String,
+fn require_claimed_prekeys_needed(database_path :: String,
 wrapping_key :: borrow StorageKey,
 session_ids :: List < Bytes >,
 claims :: List < MobileClaimedPrekey >,
@@ -4796,22 +4931,10 @@ index :: Int) -> Result <(), String > do
     Ok(nil)
   else
     let profile = List.get(claims, index).profile
-    case find_device_session(database_path,
-    wrapping_key,
-    profile.account_id,
-    profile.device_id,
-    session_ids,
-    0) do
-      Ok( _) -> Err("invalid_fanout_prekeys")
-      Err( error) -> if error != "session_not_found" do
-        Err(error)
-      else
-        require_claimed_prekeys_sessionless(database_path,
-        wrapping_key,
-        session_ids,
-        claims,
-        index + 1)
-      end
+    if device_needs_prekey(database_path, wrapping_key, session_ids, profile) ? do
+      require_claimed_prekeys_needed(database_path, wrapping_key, session_ids, claims, index + 1)
+    else
+      Err("invalid_fanout_prekeys")
     end
   end
 end
@@ -4835,7 +4958,7 @@ fn reserve_fanout_prekey(request :: MobileFanoutPrekeyReservationRequest) -> Byt
     now,
     0,
     List.new()) ?
-    require_claimed_prekeys_sessionless(request.database_path,
+    require_claimed_prekeys_needed(request.database_path,
     wrapping_key,
     load_session_ids(request.database_path, wrapping_key) ?,
     claims,
@@ -4897,7 +5020,7 @@ fn prepare_fanout_prekeys(request :: MobileFanoutPrepareRequest) -> Bytes ! Stri
   Ok(Bytes.empty())
 end
 
-fn append_sessionless_prekeys(database_path :: String,
+fn append_needed_prekeys(database_path :: String,
 wrapping_key :: borrow StorageKey,
 session_ids :: List < Bytes >,
 profiles :: List < ClientProfile >,
@@ -4911,7 +5034,7 @@ index :: Int) -> List < MobileClaimedPrekey > ! String do
   else
     let profile = List.get(profiles, index)
     if skip_local_device && Bytes.secure_equals(profile.device_id, local_device_id) do
-      append_sessionless_prekeys(database_path,
+      append_needed_prekeys(database_path,
       wrapping_key,
       session_ids,
       profiles,
@@ -4921,13 +5044,8 @@ index :: Int) -> List < MobileClaimedPrekey > ! String do
       claims,
       index + 1)
     else
-      case find_device_session(database_path,
-      wrapping_key,
-      profile.account_id,
-      profile.device_id,
-      session_ids,
-      0) do
-        Ok( _) -> append_sessionless_prekeys(database_path,
+      if !(device_needs_prekey(database_path, wrapping_key, session_ids, profile) ?) do
+        append_needed_prekeys(database_path,
         wrapping_key,
         session_ids,
         profiles,
@@ -4936,26 +5054,65 @@ index :: Int) -> List < MobileClaimedPrekey > ! String do
         now,
         claims,
         index + 1)
-        Err( error) -> if error != "session_not_found" do
-          Err(error)
-        else
-          case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
-            Err( error) -> Err(error)
-            Ok( None) -> Err("invalid_fanout_prekeys")
-            Ok( Some( claim)) -> append_sessionless_prekeys(database_path,
-            wrapping_key,
-            session_ids,
-            profiles,
-            local_device_id,
-            skip_local_device,
-            now,
-            List.append(claims, claim),
-            index + 1)
-          end
+      else
+        case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
+          Err( error) -> Err(error)
+          Ok( None) -> Err("invalid_fanout_prekeys")
+          Ok( Some( claim)) -> append_needed_prekeys(database_path,
+          wrapping_key,
+          session_ids,
+          profiles,
+          local_device_id,
+          skip_local_device,
+          now,
+          List.append(claims, claim),
+          index + 1)
         end
       end
     end
   end
+end
+
+fn start_device_session(claimed_prekeys :: List < MobileClaimedPrekey >,
+local_device :: borrow DeviceKeys,
+local_encode_client_profile :: Bytes,
+local :: ClientProfile,
+peer :: ClientProfile,
+inner :: InnerEnvelope,
+wrapping_key :: borrow StorageKey,
+previous :: Option < MobileLoadedSession >,
+strongest_suite :: Int) -> MobilePreparedSend ! String do
+  let claimed_peer = claimed_prekey_profile(claimed_prekeys, peer.entry.prekey_bundle, 0) ?
+  let plaintext = case encode_initial_plaintext(local_encode_client_profile, inner_bytes(inner) ?) do
+    Err( _) -> Err("invalid_initial_plaintext")
+    Ok( value) -> Ok(value)
+  end ?
+  let ( state, initial) = case initiate(local_device,
+  local.credential,
+  claimed_peer.account,
+  claimed_peer.bundle,
+  policy(claimed_peer, inner.client_timestamp),
+  strongest_suite,
+  plaintext) do
+    Err( _) -> Err("session_start_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let packet = encode_packet(InitialPacket(local.entry.account_identity, initial_bytes(initial) ?)) ?
+  let outer = outer_bytes(claimed_peer.entry.mailbox_token,
+  initial.suite,
+  packet,
+  inner.client_timestamp) ?
+  let ( session_id, label, session_blob) = case previous do
+    None -> seal_session(state, wrapping_key, local, claimed_peer, inner.conversation_id, 1, false)
+    Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, claimed_peer)
+  end ?
+  Ok(MobilePreparedSend {
+    envelope : outer,
+    session_id : session_id,
+    session_label : label,
+    session_blob : session_blob,
+    new_session : true
+  })
 end
 
 fn send_to_device(database_path :: String,
@@ -4978,6 +5135,19 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
       inner.conversation_id)
       if changed do
         Err("peer_keys_changed")
+      else if loaded.record.strongest_suite > peer.bundle.suite do
+        Err("peer_keys_changed")
+      else if loaded.record.strongest_suite < peer.bundle.suite do
+        let strongest_suite = loaded.record.strongest_suite
+        start_device_session(claimed_prekeys,
+        local_device,
+        local_encode_client_profile,
+        local,
+        peer,
+        inner,
+        wrapping_key,
+        Some(loaded),
+        strongest_suite)
       else
         let state = restore_session(loaded, wrapping_key) ?
         let ( next_state, message) = case encrypt(state,
@@ -5004,42 +5174,15 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
     Err( error) -> if error != "session_not_found" do
       Err(error)
     else
-      let claimed_peer = claimed_prekey_profile(claimed_prekeys, peer.entry.prekey_bundle, 0) ?
-      let plaintext = case encode_initial_plaintext(local_encode_client_profile,
-      inner_bytes(inner) ?) do
-        Err( _) -> Err("invalid_initial_plaintext")
-        Ok( value) -> Ok(value)
-      end ?
-      let ( state, initial) = case initiate(local_device,
-      local.credential,
-      claimed_peer.account,
-      claimed_peer.bundle,
-      policy(claimed_peer, inner.client_timestamp),
-      0,
-      plaintext) do
-        Err( _) -> Err("session_start_failed")
-        Ok( value) -> Ok(value)
-      end ?
-      let packet = encode_packet(InitialPacket(local.entry.account_identity,
-      initial_bytes(initial) ?)) ?
-      let outer = outer_bytes(claimed_peer.entry.mailbox_token,
-      initial.suite,
-      packet,
-      inner.client_timestamp) ?
-      let ( session_id, label, session_blob) = seal_session(state,
-      wrapping_key,
+      start_device_session(claimed_prekeys,
+      local_device,
+      local_encode_client_profile,
       local,
-      claimed_peer,
-      inner.conversation_id,
-      1,
-      false) ?
-      Ok(MobilePreparedSend {
-        envelope : outer,
-        session_id : session_id,
-        session_label : label,
-        session_blob : session_blob,
-        new_session : true
-      })
+      peer,
+      inner,
+      wrapping_key,
+      None,
+      0)
     end
   end
 end
@@ -5194,7 +5337,7 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
     let _ = require_transparency_device_set(request.database_path, wrapping_key, local_devices) ?
     let session_ids = load_session_ids(request.database_path, wrapping_key) ?
     let now = current_time() ?
-    let peer_prekeys = append_sessionless_prekeys(request.database_path,
+    let peer_prekeys = append_needed_prekeys(request.database_path,
     wrapping_key,
     session_ids,
     peers.profiles,
@@ -5203,7 +5346,7 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
     now,
     List.new(),
     0) ?
-    let claimed_prekeys = append_sessionless_prekeys(request.database_path,
+    let claimed_prekeys = append_needed_prekeys(request.database_path,
     wrapping_key,
     session_ids,
     local_devices.profiles,
@@ -5341,6 +5484,10 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
   requested_peer.entry.mailbox_token)
   if changed do
     Err("peer_keys_changed")
+  else if loaded.record.strongest_suite > requested_peer.bundle.suite do
+    Err("peer_keys_changed")
+  else if loaded.record.strongest_suite < requested_peer.bundle.suite do
+    Err("session_upgrade_required")
   else if loaded.record.blocked do
     Err("conversation_blocked")
   else if loaded.record.request_state != 1 do
@@ -5423,6 +5570,11 @@ fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
     end ?
     let wrapping_key = platform_key() ?
     let loaded = load_session_record(request.database_path, wrapping_key, message.session_id) ?
+    let peer_policy = find_peer_session(request.database_path,
+    wrapping_key,
+    loaded.record.peer_account_id,
+    load_session_ids(request.database_path, wrapping_key) ?,
+    0) ?
     let state = restore_session(loaded, wrapping_key) ?
     case decrypt(state, message, session_aad(loaded.session_id) ?) do
       Rejected( rejected_state, error) -> if is_retryable_ratchet_error(error) do
@@ -5448,7 +5600,7 @@ fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
           reject_message(next_state, "message_rejected")
         else
           let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
-          if loaded.record.blocked do
+          if peer_policy.record.blocked do
             store_updated_session(request.database_path, loaded.label, session_blob) ?
             Err("blocked_message")
           else if self_sync do
@@ -5503,20 +5655,63 @@ fn updated_policy(record :: MobileSessionRecord, action :: Int, value :: Int) ->
   end
 end
 
+fn updated_peer_policy_blobs(database_path :: String,
+wrapping_key :: borrow StorageKey,
+peer_account_id :: Bytes,
+session_ids :: List < Bytes >,
+action :: Int,
+value :: Int,
+index :: Int,
+labels :: List < String >,
+blobs :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String > do
+  if index >= List.length(session_ids) do
+    Ok((labels, blobs))
+  else
+    let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
+    if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) do
+      let record = updated_policy(loaded.record, action, value) ?
+      let blob = seal_local(updated_session_record(record.snapshot, record) ?,
+      wrapping_key,
+      local_context(loaded.label) ?) ?
+      updated_peer_policy_blobs(database_path,
+      wrapping_key,
+      peer_account_id,
+      session_ids,
+      action,
+      value,
+      index + 1,
+      List.append(labels, loaded.label),
+      List.append(blobs, blob))
+    else
+      updated_peer_policy_blobs(database_path,
+      wrapping_key,
+      peer_account_id,
+      session_ids,
+      action,
+      value,
+      index + 1,
+      labels,
+      blobs)
+    end
+  end
+end
+
 fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
   let peer_id = peer_account_id(request.peer_profile) ?
   let wrapping_key = platform_key() ?
-  let loaded = find_peer_session(request.database_path,
+  let session_ids = load_session_ids(request.database_path, wrapping_key) ?
+  let _ = find_peer_session(request.database_path, wrapping_key, peer_id, session_ids, 0) ?
+  let ( labels, blobs) = updated_peer_policy_blobs(request.database_path,
   wrapping_key,
   peer_id,
-  load_session_ids(request.database_path, wrapping_key) ?,
-  0) ?
-  let record = updated_policy(loaded.record, request.action, request.value) ?
-  let blob = seal_local(updated_session_record(record.snapshot, record) ?,
-  wrapping_key,
-  local_context(loaded.label) ?) ?
-  store_updated_session(request.database_path, loaded.label, blob) ?
+  session_ids,
+  request.action,
+  request.value,
+  0,
+  List.new(),
+  List.new()) ?
+  store_updated_blobs(request.database_path, labels, blobs) ?
   Ok(Bytes.from_utf8("ok"))
 end
 

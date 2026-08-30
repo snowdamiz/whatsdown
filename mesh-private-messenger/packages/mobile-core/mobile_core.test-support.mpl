@@ -279,3 +279,156 @@ pub fn install_legacy_pending_unbind_push_state_for_test(database_path :: String
   wrapping_key,
   % { state | revision : revision, mode : 0, wake_token_hash : mobile_zeroes(32) ?, provider_token_hash : mobile_zeroes(32) ?, pending_kind : 2, pending_wire : wire })
 end
+
+pub fn install_classical_session_for_test(initiator_path :: String, responder_path :: String) -> Bytes ! String do
+  let wrapping_key = platform_key() ?
+  let initiator = decode_client_profile(load_profile(initiator_path) ?) ?
+  let responder = decode_client_profile(load_profile(responder_path) ?) ?
+  let initiator_device = open_device(initiator, wrapping_key, initiator_path) ?
+  let responder_account = open_account(responder, wrapping_key, responder_path) ?
+  let responder_device = open_device(responder, wrapping_key, responder_path) ?
+  let now = current_time() ?
+  let expires_at = U64.add(now, mobile_wide("31536000000") ?) ?
+  let credential = case issue_device_credential(responder_account,
+  responder_device,
+  mobile_wide("1") ?,
+  now,
+  expires_at,
+  responder.account.directory_sequence) do
+    Err( _) -> Err("classical_credential_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let signed = case generate_signed_prekey(responder_device,
+  credential,
+  mobile_wide("9001") ?,
+  expires_at) do
+    Err( _) -> Err("classical_prekey_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let one_time = case generate_one_time_prekey(mobile_wide("9002") ?) do
+    Err( _) -> Err("classical_prekey_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let bundle = case build_prekey_bundle(credential, signed, one_time) do
+    Err( _) -> Err("classical_bundle_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let bundle_wire = case encode_prekey_bundle(bundle) do
+    Err( _) -> Err("classical_bundle_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let classical_profile = encode_client_profile(% { responder.entry | prekey_bundle : bundle_wire },
+  responder.account_id,
+  responder.device_id) ?
+  let classical_responder = decode_client_profile(classical_profile) ?
+  let ( initiator_state, initial) = case initiate(initiator_device,
+  initiator.credential,
+  responder.account,
+  bundle,
+  policy(classical_responder, now),
+  0,
+  Bytes.from_utf8("classical session fixture")) do
+    Err( _) -> Err("classical_session_start_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let post_quantum = open_post_quantum_prekey(responder, wrapping_key, responder_path) ?
+  let ( responder_state, opened) = case receive_initial(responder_device,
+  responder.account,
+  bundle,
+  signed,
+  one_time,
+  post_quantum,
+  initiator.account,
+  policy(classical_responder, now),
+  policy(initiator, now),
+  0,
+  initial_bytes(initial) ?) do
+    Err( _) -> Err("classical_session_receive_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  if !Bytes.secure_equals(opened, Bytes.from_utf8("classical session fixture")) || initiator_state.suite != 1 || responder_state.suite != 1 || !Bytes.secure_equals(initiator_state.session_id,
+  responder_state.session_id) do
+    Err("classical_session_mismatch")
+  else
+    let conversation_id = random_bytes(16) ?
+    let delayed = InnerEnvelope {
+      version : 1,
+      sender_account_id : responder.account_id,
+      sender_device_id : responder.device_id,
+      recipient_device_id : initiator.device_id,
+      conversation_id : conversation_id,
+      client_message_id : random_bytes(16) ?,
+      client_timestamp : now,
+      message_type : 1,
+      body : Bytes.from_utf8("delayed suite-1"),
+      reply_reference : Bytes.empty(),
+      attachment_manifest : Bytes.empty(),
+      receipt_policy : 0,
+      disappearing_seconds : 0,
+      extensions : List.new()
+    }
+    let session_id = responder_state.session_id
+    let ( next_responder_state, message) = case encrypt(responder_state,
+    inner_bytes(delayed) ?,
+    session_aad(session_id) ?) do
+      Err( _) -> Err("classical_ratchet_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let envelope = outer_bytes(initiator.entry.mailbox_token,
+    message.suite,
+    encode_packet(RatchetPacket(ratchet_bytes(message) ?)) ?,
+    now) ?
+    let ( initiator_session_id, initiator_label, initiator_blob) = seal_session(initiator_state,
+    wrapping_key,
+    initiator,
+    classical_responder,
+    conversation_id,
+    1,
+    false) ?
+    let ( responder_session_id, responder_label, responder_blob) = seal_session(next_responder_state,
+    wrapping_key,
+    responder,
+    initiator,
+    conversation_id,
+    0,
+    false) ?
+    store_new_session(initiator_path,
+    initiator_label,
+    initiator_blob,
+    updated_session_index(initiator_path, wrapping_key, initiator_session_id) ?) ?
+    store_new_session(responder_path,
+    responder_label,
+    responder_blob,
+    updated_session_index(responder_path, wrapping_key, responder_session_id) ?) ?
+    let base = case normalize_prekey_bundle(classical_responder.bundle) do
+      Err( _) -> Err("classical_bundle_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let base_wire = case encode_prekey_bundle(base) do
+      Err( _) -> Err("classical_bundle_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    encode_output_list([envelope, directory_bytes(% { classical_responder.entry | prekey_bundle : base_wire }) ?, classical_profile])
+  end
+end
+
+pub fn has_fanout_prekey_state_for_test(database_path :: String, profile_wire :: Bytes) -> Bool ! String do
+  let profile = decode_client_profile(profile_wire) ?
+  let reservation = case load_blob(database_path, fanout_prekey_reservation_label(profile)) do
+    Ok( _) -> true
+    Err( error) -> if error == "local_state_not_found" do
+      false
+    else
+      return Err(error)
+    end
+  end
+  let claim = case load_blob(database_path, fanout_prekey_claim_label(profile)) do
+    Ok( _) -> true
+    Err( error) -> if error == "local_state_not_found" do
+      false
+    else
+      return Err(error)
+    end
+  end
+  Ok(reservation || claim)
+end
