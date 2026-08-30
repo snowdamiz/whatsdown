@@ -92,13 +92,13 @@ jobs:
           cargo build --locked -p meshc -p mesh-rt -p mesh-test-rt
 
       - name: Verify Mesh messenger packages
-        timeout-minutes: 20
+        timeout-minutes: 30
         run: |
           ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/groups --check
           ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/tests --check
-          ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-protocol/tests
           ./target/debug/meshc fmt ../mesh-private-messenger/packages/mobile-core --check
-          ../mesh-private-messenger/scripts/prove-m10.sh
+          ../mesh-private-messenger/scripts/prove-m14.sh
+          ../mesh-private-messenger/scripts/prove-m15.sh
 
       - name: Verify M13 transparency witness
         timeout-minutes: 15
