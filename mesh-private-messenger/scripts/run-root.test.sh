@@ -9,6 +9,14 @@ readonly test_repo_root
 # shellcheck disable=SC1091
 source "$test_repo_root/run.sh"
 
+compose() {
+  return 0
+}
+(
+  child_pids=()
+  cleanup
+)
+
 built=()
 build_service() {
   built+=("$1")

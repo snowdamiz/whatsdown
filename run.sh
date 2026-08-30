@@ -292,12 +292,14 @@ cleanup() {
   local pid
   trap - EXIT INT TERM
   set +e
-  for pid in "${child_pids[@]}"; do
-    kill "$pid" >/dev/null 2>&1
-  done
-  for pid in "${child_pids[@]}"; do
-    wait "$pid" >/dev/null 2>&1
-  done
+  if ((${#child_pids[@]} > 0)); then
+    for pid in "${child_pids[@]}"; do
+      kill "$pid" >/dev/null 2>&1
+    done
+    for pid in "${child_pids[@]}"; do
+      wait "$pid" >/dev/null 2>&1
+    done
+  fi
   compose down --remove-orphans >/dev/null 2>&1
   exit "$status"
 }
