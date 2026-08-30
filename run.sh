@@ -166,6 +166,8 @@ build_mobile() {
 }
 
 build_all() {
+  require_command rustup
+  PATH="$(dirname "$(rustup which cargo)"):$PATH"
   require_command cargo
   require_command npm
   build_mesh

@@ -35,6 +35,21 @@ configure_environment
 start_services
 [[ "${started[*]}" == "push-broker directory-delivery privacy-edge object-store witness-a witness-b mobile" ]]
 
+(
+  fake_rust_bin="$(mktemp -d)"
+  trap 'rm -rf "$fake_rust_bin"' EXIT
+  ln -s /usr/bin/false "$fake_rust_bin/cargo"
+  ln -s /usr/bin/false "$fake_rust_bin/rustc"
+  PATH="$fake_rust_bin:$PATH"
+  build_mesh() {
+    [[ "$(command -v cargo)" == "$(rustup which cargo)" ]]
+    [[ "$(command -v rustc)" == "$(rustup which rustc)" ]]
+  }
+  build_services() { return 0; }
+  build_mobile() { return 0; }
+  build_all
+)
+
 MESSENGER_PUSH_BROKER_SEED_HEX=invalid
 if configure_environment >/dev/null 2>&1; then
   printf 'malformed development key was accepted\n' >&2
