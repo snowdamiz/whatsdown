@@ -41,6 +41,12 @@ jobs:
           ref: ${{ env.MESH_LANG_REVISION }}
           path: mesh-lang
 
+      - name: Verify root runner
+        working-directory: .
+        run: |
+          bash -n run.sh mesh-private-messenger/scripts/run-root.test.sh
+          bash mesh-private-messenger/scripts/run-root.test.sh
+
       - name: Cache LLVM
         uses: actions/cache@v4
         id: cache-llvm

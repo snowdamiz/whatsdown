@@ -10,6 +10,21 @@ The implementation roadmap and security caveats live in [mesh-private-messenger-
 
 Developers may keep a separate `mesh-lang/` checkout in this directory for local reference and integration testing. It is intentionally ignored and is never part of this repository.
 
+## Run locally
+
+With Docker, Rust, Xcode or the Android NDK, Node.js, and a local `mesh-lang/`
+checkout installed, one command builds and starts PostgreSQL, every backend
+service, both transparency witnesses, and the Expo development server:
+
+```sh
+./run.sh
+```
+
+Use `./run.sh build` to build without starting processes. Ctrl-C stops the
+processes and PostgreSQL container while preserving the development volume.
+Override `MESH_LANG_DIR` when the Mesh checkout lives elsewhere and
+`WHATSDOWN_MOBILE_PLATFORM=ios|android` when platform detection is insufficient.
+
 The protocol contracts include the [threat model](mesh-private-messenger/protocol/threat-model.md),
 [privacy contract](mesh-private-messenger/protocol/privacy-contract.md),
 [cryptographic profile](mesh-private-messenger/protocol/crypto-profile-v1.md),

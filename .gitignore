@@ -18,6 +18,7 @@ mesh-lang/
 /mesh-private-messenger/services/*/output
 /mesh-private-messenger/clients/mesh-cli/output
 /mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/
+/.whatsdown/
 
 *.db
 *.db-shm
