@@ -206,7 +206,7 @@ wait_for_health() {
   local url=$2
   local attempt
   for ((attempt = 0; attempt < 150; attempt += 1)); do
-    if curl --fail --silent --show-error "$url/health" >/dev/null 2>&1; then
+    if curl --max-time 5 --fail --silent --show-error "$url/health" >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.1

@@ -107,7 +107,7 @@ wait_for_health() {
   local url=$1
   local attempt
   for ((attempt = 0; attempt < 100; attempt += 1)); do
-    if curl --fail --silent --show-error "$url/health" >/dev/null 2>&1; then
+    if curl --max-time 5 --fail --silent --show-error "$url/health" >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.1
@@ -160,7 +160,7 @@ wait_for_checkpoint() {
   local attempt
   local status
   for ((attempt = 0; attempt < 1200; attempt += 1)); do
-    status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    status="$(curl --max-time 5 --silent --output /dev/null --write-out '%{http_code}' \
       "http://127.0.0.1:$core_port/v1/transparency/checkpoint" || true)"
     if [[ "$status" == 200 ]]; then
       return 0
@@ -210,15 +210,15 @@ run_live_mobile_proof() {
 
 assert_private_ingress_only() {
   local status
-  status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+  status="$(curl --max-time 5 --silent --output /dev/null --write-out '%{http_code}' \
     --request POST --header 'Content-Type: application/octet-stream' --data-binary @/dev/null \
     "http://127.0.0.1:$core_port/v1/envelopes/batch")"
   [[ "$status" == 404 ]] || fail "public direct-delivery route returned HTTP $status"
-  status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+  status="$(curl --max-time 5 --silent --output /dev/null --write-out '%{http_code}' \
     --request POST --header 'Content-Type: application/octet-stream' --data-binary @/dev/null \
     "http://127.0.0.1:$core_port/internal/v1/envelopes/sealed")"
   [[ "$status" == 401 ]] || fail "unauthenticated sealed ingress returned HTTP $status"
-  status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+  status="$(curl --max-time 5 --silent --output /dev/null --write-out '%{http_code}' \
     --request POST --header 'Content-Type: application/octet-stream' \
     --header 'Authorization: Bearer wrong-internal-token' --data-binary @/dev/null \
     "http://127.0.0.1:$core_port/internal/v1/envelopes/sealed")"

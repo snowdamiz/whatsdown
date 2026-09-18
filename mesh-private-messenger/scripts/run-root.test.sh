@@ -78,4 +78,47 @@ fi
   ' bash "$checkout_fixture"
 )
 
-printf 'root runner topology test passed\n'
+python3 - "$test_repo_root/run.sh" <<'PY'
+import http.server
+import os
+import signal
+import subprocess
+import sys
+import threading
+
+release = threading.Event()
+requests = []
+
+class Health(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        requests.append(self.path)
+        if len(requests) == 1:
+            release.wait()
+            return
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"ok")
+
+    def log_message(self, *_args):
+        pass
+
+server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Health)
+threading.Thread(target=server.serve_forever, daemon=True).start()
+process = subprocess.Popen(
+    ["bash", "-c", 'source "$1"; wait_for_health stalled "$2"', "bash",
+     sys.argv[1], f"http://127.0.0.1:{server.server_port}"],
+    start_new_session=True,
+)
+try:
+    assert process.wait(timeout=15) == 0
+    assert requests == ["/health", "/health"], requests
+finally:
+    if process.poll() is None:
+        os.killpg(process.pid, signal.SIGTERM)
+        process.wait(timeout=5)
+    release.set()
+    server.shutdown()
+    server.server_close()
+PY
+
+printf 'root runner topology and stalled-probe recovery tests passed\n'
