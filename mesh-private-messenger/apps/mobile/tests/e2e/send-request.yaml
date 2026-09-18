@@ -1,0 +1,25 @@
+appId: com.snowdamiz.whatsdown
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "New conversation"
+    timeout: 30000
+- tapOn: "New conversation"
+- tapOn:
+    id: "Username"
+- inputText: ${QA_RECIPIENT}
+- tapOn:
+    id: "First message"
+- inputText: ${QA_MESSAGE}
+- takeScreenshot: composing
+- tapOn: "Send message request"
+- extendedWaitUntil:
+    visible: "Conversation with ${QA_RECIPIENT}.*"
+    timeout: 30000
+- tapOn: "Conversation with ${QA_RECIPIENT}.*"
+- extendedWaitUntil:
+    visible: ${QA_MESSAGE}
+    timeout: 15000
+- takeScreenshot: sent-message
+- tapOn: "Back to chats"
+- takeScreenshot: inbox-with-message

@@ -1,0 +1,48 @@
+appId: com.snowdamiz.whatsdown
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "New conversation"
+    timeout: 30000
+- tapOn: "Sync messages"
+- extendedWaitUntil:
+    visible: "Conversation with ${QA_SENDER}, message request pending"
+    timeout: 30000
+- tapOn: "Message requests"
+- tapOn: "Conversation with ${QA_SENDER}, message request pending"
+- assertVisible: ${QA_MESSAGE}
+- assertVisible: "Accept request"
+- takeScreenshot: message-request
+- tapOn: "Accept request"
+- extendedWaitUntil:
+    notVisible: "Accept request"
+    timeout: 15000
+- tapOn:
+    id: "Message"
+- inputText: ${QA_REPLY}
+- tapOn: "Send"
+- extendedWaitUntil:
+    visible: ${QA_REPLY}
+    timeout: 30000
+- takeScreenshot: conversation
+- tapOn: "Conversation details"
+- assertVisible: "Mark safety number verified"
+- tapOn: "Block contact"
+- extendedWaitUntil:
+    visible: "Unblock contact"
+    timeout: 15000
+- tapOn: "Back"
+- assertVisible: "This contact is blocked.*"
+- tapOn: "Conversation details"
+- tapOn: "Unblock contact"
+- extendedWaitUntil:
+    visible: "Block contact"
+    timeout: 15000
+- tapOn: "Back"
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Conversation with ${QA_SENDER}"
+    timeout: 30000
+- tapOn: "Conversation with ${QA_SENDER}"
+- assertVisible: ${QA_REPLY}

@@ -1,0 +1,23 @@
+appId: com.snowdamiz.whatsdown
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Conversation with qa_bob"
+    timeout: 30000
+- tapOn: "Conversation with qa_bob"
+- tapOn: "Conversation details"
+- tapOn: "Disappear: 1 min"
+- tapOn: "Back"
+- tapOn:
+    id: "Message"
+- inputText: "This note disappears."
+- tapOn: "Send"
+- extendedWaitUntil:
+    visible: "This note disappears."
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible: "This note disappears."
+    timeout: 70000
+- tapOn: "Conversation details"
+- tapOn: "Disappear: Off"
+- tapOn: "Back"

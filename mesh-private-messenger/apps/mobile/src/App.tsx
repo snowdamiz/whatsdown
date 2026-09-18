@@ -538,6 +538,7 @@ export default function App() {
         selected.peerAccountId,
       );
       setComposer("");
+      await refreshConversations();
       await refreshHistory(selected);
       setStatus(
         changed
@@ -1519,6 +1520,7 @@ export default function App() {
           value={groupComposer}
           onChangeText={setGroupComposer}
           onSend={sendGroupText}
+          sendDisabled={(selectedGroup?.memberCount ?? 0) < 2}
         />
       </>
     );

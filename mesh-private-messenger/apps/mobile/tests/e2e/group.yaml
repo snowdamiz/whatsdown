@@ -1,0 +1,33 @@
+appId: com.snowdamiz.whatsdown
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "New conversation"
+    timeout: 30000
+- tapOn:
+    id: "tab-groups"
+- tapOn: "Create group"
+- extendedWaitUntil:
+    visible: "Group details"
+    timeout: 30000
+- takeScreenshot: empty-group
+- tapOn: "Group details"
+- assertVisible: "Invite someone"
+- assertVisible: "This device"
+- tapOn: "Back"
+- tapOn:
+    id: "Group message"
+- inputText: "Welcome to the new Whatsdown."
+- assertVisible:
+    text: "Send"
+    enabled: false
+- takeScreenshot: group-awaiting-member
+- tapOn: "Back to groups"
+- tapOn: "Join a group"
+- extendedWaitUntil:
+    visible: "You’re invited."
+    timeout: 15000
+- takeScreenshot: group-invitation
+- tapOn: "Back"
+- tapOn:
+    id: "tab-home"

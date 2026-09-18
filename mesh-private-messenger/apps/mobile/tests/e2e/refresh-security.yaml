@@ -1,0 +1,17 @@
+appId: com.snowdamiz.whatsdown
+---
+# Start inside an accepted legacy conversation with no identity-bound safety number.
+# Sending must refresh its metadata without a sync, reload, or app restart.
+- tapOn: "Conversation details"
+- assertVisible: "Send a message to refresh security keys"
+- tapOn: "Back"
+- tapOn:
+    id: "Message"
+- inputText: "Refreshing this conversation's security keys."
+- tapOn: "Send"
+- extendedWaitUntil:
+    visible: "Refreshing this conversation's security keys."
+    timeout: 30000
+- tapOn: "Conversation details"
+- assertVisible: "Mark safety number verified"
+- assertNotVisible: "Send a message to refresh security keys"

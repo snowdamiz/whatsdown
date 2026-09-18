@@ -1,0 +1,19 @@
+appId: com.snowdamiz.whatsdown
+---
+# Run on a fresh simulator; this flow never deletes an existing identity.
+- launchApp
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn: "Create account"
+- assertVisible: "Use 3–32 lowercase letters, numbers, or underscores."
+- tapOn: "Link an existing account"
+- extendedWaitUntil:
+    visible: "Scan signed authorization"
+    timeout: 30000
+- tapOn: "Scan signed authorization"
+- assertVisible: "Cancel scan"
+- tapOn: "Cancel scan"
+- assertVisible: "Scan signed authorization"
+- tapOn: "Cancel"
+- assertVisible: "Create account"

@@ -1,0 +1,33 @@
+appId: com.snowdamiz.whatsdown
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Choose your username|New conversation"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Choose your username"
+    commands:
+      - tapOn:
+          id: "Choose your username"
+      - inputText: ${QA_USERNAME}
+      - tapOn: "Create account"
+- extendedWaitUntil:
+    visible: "New conversation"
+    timeout: 30000
+- tapOn:
+    id: "tab-settings"
+- tapOn: "My QR code"
+- assertVisible: "Code .* of .*Keep scanning"
+- takeScreenshot: account-qr
+- tapOn: "Back"
+- tapOn: "Notifications"
+- assertVisible: "No-push mode"
+- tapOn: "Back"
+- tapOn:
+    id: "tab-home"
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "New conversation"
+    timeout: 30000

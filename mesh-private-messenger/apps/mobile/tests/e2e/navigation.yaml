@@ -1,0 +1,31 @@
+appId: com.snowdamiz.whatsdown
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "New conversation"
+    timeout: 30000
+- tapOn: "New conversation"
+- assertVisible: "New message"
+- assertVisible:
+    id: "First message"
+- tapOn: "Back"
+- tapOn:
+    id: "tab-groups"
+- assertVisible: "Join a group"
+- tapOn:
+    id: "tab-settings"
+- tapOn: "My QR code"
+- assertVisible: "Code .* of .*Keep scanning"
+- takeScreenshot: contact-code
+- tapOn: "Back"
+- tapOn: "Linked devices"
+- extendedWaitUntil:
+    visible: "This device"
+    timeout: 15000
+- tapOn: "Back"
+- tapOn: "Notifications"
+- assertVisible: "No-push mode"
+- tapOn: "Back"
+- tapOn:
+    id: "tab-home"
+- takeScreenshot: chats
