@@ -2,6 +2,13 @@
 
 The Expo app calls the local `mesh-messenger` native module; private keys and protocol state never cross into TypeScript.
 
+[Client privacy revision 2](../../protocol/client-privacy-v2.md) binds safety
+numbers to account keys, encrypts initial sender credentials for the recipient,
+and pads new message packets inside encryption. Update mobile and CLI clients
+together. Old verification badges are cleared until a fresh session establishes
+a key-bound safety number. Release builds require HTTPS; debug HTTP is limited
+to loopback and private IPv4 addresses. Redirects are disabled.
+
 ```sh
 npm ci
 EXPO_PUBLIC_MESSENGER_BASE_URL=http://YOUR-MESSENGER-HOST:18086 \

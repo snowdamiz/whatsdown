@@ -1,3 +1,4 @@
+import { fetch } from 'expo/fetch';
 import {
   authorize_device_link_for_set_export,
   create_device_revocation_export,
@@ -55,18 +56,35 @@ const resolveTransparencyByDatabase = createKeyedSerialQueue<string>();
 const sendFanoutByDatabase = createKeyedSerialQueue<string>();
 export const GROUP_KEY_PACKAGE_LENGTH = 369;
 
+function serviceUrl(value: string): string {
+  const url = new URL(value);
+  const octets = url.hostname.split('.').map(Number);
+  const privateIPv4 = octets.length === 4 && octets.every((part) => Number.isInteger(part) && part >= 0 && part <= 255) &&
+    (octets[0] === 127 || octets[0] === 10 ||
+      (octets[0] === 192 && octets[1] === 168) ||
+      (octets[0] === 172 && octets[1]! >= 16 && octets[1]! <= 31));
+  const local = url.hostname === 'localhost' || url.hostname === '[::1]' || privateIPv4;
+  const developmentHttp = typeof __DEV__ !== 'undefined' && __DEV__ && local && url.protocol === 'http:';
+  if ((url.protocol !== 'https:' && !developmentHttp) || url.username || url.password || url.search || url.hash) {
+    throw new Error('Messenger services require HTTPS; local HTTP is allowed only in development builds');
+  }
+  return url.toString().replace(/\/$/, '');
+}
+
 async function binaryRequest(
   path: string,
   body: Uint8Array,
   method = 'POST',
   root = baseUrl,
 ): Promise<Uint8Array> {
+  const url = `${serviceUrl(root)}${path}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   const payload = body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer;
   try {
-    const response = await fetch(`${root}${path}`, {
+    const response = await fetch(url, {
       method,
+      redirect: 'error',
       headers: { 'Content-Type': 'application/octet-stream' },
       body: payload,
       signal: controller.signal,
@@ -170,8 +188,9 @@ export async function revokeDevice(
 export async function submitEnvelope(envelope: Uint8Array): Promise<void> {
   const edgeUrl = process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL?.replace(/\/$/, '');
   if (!edgeUrl) throw new Error('EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL is required');
+  const root = serviceUrl(edgeUrl);
   const submission = await privacy_submission_export(envelope);
-  await binaryRequest('/v1/envelopes/batch', submission, 'POST', edgeUrl);
+  await binaryRequest('/v1/envelopes/batch', submission, 'POST', root);
 }
 
 export async function drainOutbox(databasePath: string): Promise<void> {
@@ -262,7 +281,7 @@ export function sendFanout(
     const peerSummary = await inspectDeviceSet(databasePath, peerSet);
     await inspectDeviceSet(databasePath, localSet);
     await prepare_fanout_prekeys_export(
-      vectors(utf8(databasePath), peerSet, localSet, utf8(baseUrl)),
+      vectors(utf8(databasePath), peerSet, localSet, utf8(serviceUrl(baseUrl))),
     );
     await send_fanout_export(
       vectors(

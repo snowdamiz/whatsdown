@@ -63,6 +63,9 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
   let greetings = output_list(greeting_output) ?
   group_messages_ensure(List.length(greetings) == 2, "greeting delivery count mismatch") ?
   let bob_greeting = envelope_for(greetings, accounts.bob_entry.mailbox_token, 0) ?
+  let padded = outer(bob_greeting) ?
+  group_messages_ensure(Bytes.length(padded.ciphertext) == padded.padding_bucket,
+  "group message does not fill its padding bucket") ?
   let bob_greeting_batch = delivery_batch(bob_greeting) ?
   group_messages_ensure(Bytes.length(process_delivery_batch_export(group_vectors([Bytes.from_utf8(accounts.bob_path), bob_greeting_batch]) ?) ?) == 0,
   "future greeting was not deferred") ?
@@ -93,7 +96,7 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
 end
 
 pub fn exercise_group_message_boundary(accounts :: GroupAccountFixture, group_id :: Bytes) -> Bool ! String do
-  let maximum = repeated(97, 65346) ?
+  let maximum = repeated(97, 65342) ?
   let maximum_output = group_send_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, maximum]) ?) ?
   let maximum_deliveries = output_list(maximum_output) ?
   group_messages_ensure(List.length(maximum_deliveries) == 2, "maximum delivery count mismatch") ?
@@ -111,7 +114,7 @@ pub fn exercise_group_message_boundary(accounts :: GroupAccountFixture, group_id
   "linked maximum receive mismatch") ?
   acknowledge(accounts.alice_path, maximum_deliveries, 0) ?
   case group_send_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, repeated(98,
-  65347) ?]) ?) do
+  65343) ?]) ?) do
     Ok( _) -> Err("oversized group message was accepted") ?
     Err( error) -> group_messages_ensure(error == "group_message_too_large",
     "wrong oversized group message error") ?

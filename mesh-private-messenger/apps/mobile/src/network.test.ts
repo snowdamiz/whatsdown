@@ -44,6 +44,12 @@ const mockModule = [
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (specifier === 'expo/fetch' && context.parentURL?.includes('/src/network.ts')) {
+      return {
+        shortCircuit: true,
+        url: 'data:text/javascript,export const fetch = (...args) => globalThis.fetch(...args);',
+      };
+    }
     if (specifier === '../modules/mesh-messenger' && context.parentURL?.includes('/src/network.ts')) {
       return {
         shortCircuit: true,
@@ -60,7 +66,52 @@ registerHooks({
   },
 });
 
-const { sendFanout } = await import('./network.ts');
+const development = (value: boolean): void => {
+  (globalThis as typeof globalThis & { __DEV__: boolean }).__DEV__ = value;
+};
+development(true);
+const { sendFanout, submitPushBind, submitEnvelope } = await import('./network.ts');
+
+test('rejects cleartext service requests in release builds before network I/O', async (t) => {
+  development(false);
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls += 1;
+    return new Response();
+  });
+  try {
+    await assert.rejects(submitPushBind(Uint8Array.of(1)), /HTTPS/);
+    assert.equal(calls, 0);
+  } finally {
+    development(true);
+  }
+});
+
+test('allows HTTP only for local development and refuses redirects', async (t) => {
+  meshMocks.privacy_submission_export = async (value) => value;
+  const previous = process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL;
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async (_input, init) => {
+    calls += 1;
+    assert.equal(init?.redirect, 'error');
+    return new Response();
+  });
+  try {
+    for (const url of ['http://example.com', 'http://127.0.0.1.example.com', 'https://user:password@example.com', 'https://example.com?token=1']) {
+      process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL = url;
+      await assert.rejects(submitEnvelope(Uint8Array.of(1)));
+    }
+    assert.equal(calls, 0);
+    for (const url of ['http://127.0.0.1:18087', 'http://192.168.1.20:18087', 'https://example.com']) {
+      process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL = url;
+      await submitEnvelope(Uint8Array.of(1));
+    }
+    assert.equal(calls, 3);
+  } finally {
+    if (previous === undefined) delete process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL;
+    else process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL = previous;
+  }
+});
 
 const u64 = (value: bigint): Uint8Array => {
   const bytes = new Uint8Array(8);

@@ -3,7 +3,7 @@ from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, Signe
 from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DirectoryEntry, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
 from Session.Handshake import RatchetState, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
-from Transport.Packet import TransportPacket, decode_packet, encode_packet, session_aad
+from Transport.Packet import TransportPacket, decode_packet, encode_packet, open_initial_packet, seal_initial_packet, session_aad
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
@@ -274,19 +274,14 @@ fn encrypt_message(state :: consume RatchetState, value :: InnerEnvelope, aad ::
   end
 end
 
-fn packet_wire(value :: TransportPacket) -> Bytes ! String do
-  encode_packet(value)
-end
-
-fn outbound(token :: Bytes, packet :: TransportPacket) -> Bytes ! String do
-  let ciphertext = packet_wire(packet) ?
+fn outbound(token :: Bytes, ciphertext :: Bytes) -> Bytes ! String do
   outer_wire(OuterEnvelope {
     version : 1,
     envelope_id : random(16) ?,
     mailbox_token : token,
     suite : 1,
     expiration : wide("1900000000000") ?,
-    padding_bucket : 4096,
+    padding_bucket : Bytes.length(ciphertext),
     ciphertext : ciphertext
   })
 end
@@ -330,7 +325,8 @@ fn run_device_a() -> Int ! String do
   end ?
   let aad = session_aad(alice_session.session_id) ?
   let initial_outer = outbound(directory.mailbox_token,
-  InitialPacket(account_wire(alice_account) ?, initial_wire(initial) ?)) ?
+  seal_initial_packet(account_wire(alice_account) ?, initial_wire(initial) ?,
+  X25519PublicKey { bytes : bob_credential.dh_public_key }) ?) ?
   let _ = submit_envelope(initial_outer, 202) ?
   let _ = submit_envelope(initial_outer, 200) ?
   let first_id = random(16) ?
@@ -361,10 +357,10 @@ fn run_device_a() -> Int ! String do
   "third") ?,
   aad) ?
   let _alice_session = alice_session
-  let third_outer = outbound(directory.mailbox_token, RatchetPacket(ratchet_wire(third) ?)) ?
-  let first_outer = outbound(directory.mailbox_token, RatchetPacket(ratchet_wire(first) ?)) ?
-  let duplicate_outer = outbound(directory.mailbox_token, RatchetPacket(ratchet_wire(second) ?)) ?
-  let second_outer = outbound(directory.mailbox_token, RatchetPacket(ratchet_wire(second) ?)) ?
+  let third_outer = outbound(directory.mailbox_token, encode_packet(RatchetPacket(ratchet_wire(third) ?)) ?) ?
+  let first_outer = outbound(directory.mailbox_token, encode_packet(RatchetPacket(ratchet_wire(first) ?)) ?) ?
+  let duplicate_outer = outbound(directory.mailbox_token, encode_packet(RatchetPacket(ratchet_wire(second) ?)) ?) ?
+  let second_outer = outbound(directory.mailbox_token, encode_packet(RatchetPacket(ratchet_wire(second) ?)) ?) ?
   let _ = submit_envelope(third_outer, 202) ?
   let _ = submit_envelope(first_outer, 202) ?
   let _ = submit_envelope(second_outer, 202) ?
@@ -478,7 +474,7 @@ fn run_device_b() -> Int ! String do
         Err( _) -> Err("invalid initial outer envelope")
         Ok( value) -> Ok(value)
       end ?
-      let ( alice_account, initial) = case decode_packet(first_outer.ciphertext) do
+      let ( alice_account, initial) = case open_initial_packet(first_outer.ciphertext, bob.identity_private_key) do
         Err( _) -> Err("invalid initial transport packet")
         Ok( RatchetPacket( _)) -> Err("expected initial transport packet")
         Ok( InitialPacket( account_bytes, initial_bytes)) -> case decode_account_identity(account_bytes) do

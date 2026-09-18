@@ -1,5 +1,5 @@
 import File
-from MobileCore import create_account_export, directory_entry_export, fanout_prekey_claims_export, has_fanout_prekey_state_for_test, install_classical_session_for_test, install_group_transparency_for_test, load_history_export, outbox_ack_export, receive_initial_export, receive_message_export, reserve_fanout_prekey_export, send_fanout_export, send_message_export, update_conversation_export
+from MobileCore import create_account_export, directory_entry_export, fanout_prekey_claims_export, has_fanout_prekey_state_for_test, install_classical_session_for_test, install_group_transparency_for_test, load_history_export, outbox_ack_export, receive_initial_export, receive_message_export, remove_safety_binding_for_test, reserve_fanout_prekey_export, send_fanout_export, send_message_export, update_conversation_export
 from Prekeys.Bundle import normalize_prekey_bundle
 from Protocol.V1 import DeviceSet, DirectoryEntry, PrekeyBundle, decode_directory_entry, decode_prekey_bundle, encode_device_set, encode_prekey_bundle
 from Tests.GroupConsistencySupport import request, signed_transparency_view, wide
@@ -89,6 +89,7 @@ fn proof() -> Bool ! String do
   let delayed = List.get(classical_fixture, 0)
   let classical_bob = entry(List.get(classical_fixture, 1)) ?
   let classical_bob_profile = List.get(classical_fixture, 2)
+  assert(remove_safety_binding_for_test(alice_path, classical_bob_profile) ?)
   assert(outer(delayed) ?.suite == 1)
   let claimed_alice = entry(directory_entry_export(Bytes.from_utf8(alice_path)) ?) ?
   let claimed_bob_wire = directory_entry_export(Bytes.from_utf8(bob_path)) ?
@@ -115,6 +116,8 @@ fn proof() -> Bool ! String do
     Err( error) -> assert(error == "blocked_message")
   end
   assert(!has_fanout_prekey_state_for_test(bob_path, alice_profile) ?)
+  assert(Bytes.secure_equals(update_conversation_export(request([Bytes.from_utf8(alice_path), bob_profile, byte(4) ?, write_u32(0) ?]) ?) ?,
+  Bytes.from_utf8("ok")))
   assert(Bytes.secure_equals(update_conversation_export(request([Bytes.from_utf8(bob_path), alice_profile, byte(3) ?, write_u32(0) ?]) ?) ?,
   Bytes.from_utf8("ok")))
   let preferred_body = Bytes.from_utf8("suite-2 preferred")

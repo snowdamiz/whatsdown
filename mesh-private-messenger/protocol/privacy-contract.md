@@ -16,14 +16,14 @@ session decryption keys.
 | Attachment filename and MIME type | Encrypted inside the message |
 | Session keys and ratchet state | Never leave the device in plaintext |
 | Local contact names | Never sent to the server |
-| Conversation identifier | Never clear in delivery records |
-| Sender identity | Visible to neither edge payload processing nor delivery in sealed mode |
+| Conversation identifier | Direct conversation IDs are encrypted; group IDs are visible in group packets |
+| Sender identity | Recipient-encrypted initial packets hide direct sender identities; group control records expose membership |
 | Destination | Opaque mailbox token visible to delivery |
 | Username | Visible to the directory in the initial design |
 | Device public keys | Visible to directory and transparency services |
 | Source IP address | Visible to the connection edge |
 | Message timing | Observable in reduced form |
-| Message size | Approximate size is visible; padding reduces precision |
+| Message size | New message packets expose a size bucket; legacy and group-control packets retain length metadata |
 | Push timing | Visible to the push provider |
 | Social graph | Reduced, not eliminated |
 | Local history | Visible to an attacker controlling the endpoint |
@@ -60,3 +60,9 @@ recipient disclosure, screenshots, compelled access to an unlocked device,
 push-provider timing correlation, or long-term metadata correlation without
 cover traffic. A fully compromised sender or recipient device can reveal the
 content available to that device.
+
+The current group protocol exposes group identifiers and membership/control
+metadata to delivery. It does not yet meet the metadata-minimization targets
+above for groups. Direct-message sender sealing and encrypted message padding
+are specified in [client privacy revision 2](client-privacy-v2.md); they do not
+constitute complete sender anonymity or hide all relationships.

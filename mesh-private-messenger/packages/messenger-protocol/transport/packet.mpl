@@ -1,3 +1,5 @@
+from Transport.Padding import pad_message, unpad_message
+from Identity.Device import is_retryable_verification_crypto_error
 from Binary.Reader import BinaryReader, finish, read_fixed, read_u8, read_vector, reader
 from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, PrekeyBundle, decode_account_identity, decode_device_credential, decode_directory_entry, decode_prekey_bundle, encode_directory_entry
 
@@ -106,7 +108,7 @@ pub fn encode_packet(value :: TransportPacket) -> Bytes ! String do
       0,
       Bytes.empty())
     end
-    RatchetPacket( message) -> if Bytes.length(message) == 0 || Bytes.length(message) > 48800 do
+    RatchetPacket( message) -> if Bytes.length(message) == 0 || Bytes.length(message) > 65523 do
       Err("invalid ratchet transport packet")
     else
       join([byte(1) ?, Bytes.from_utf8("M8P"), byte(2) ?, vector(Bytes.empty()) ?, vector(message) ?],
@@ -163,7 +165,7 @@ pub fn decode_packet(input :: Bytes) -> TransportPacket ! String do
   let magic = take_fixed(version.state, 3) ?
   let kind = take_u8(magic.state) ?
   let account = take_vector(kind.state, 16582) ?
-  let message = take_vector(account.state, 48800) ?
+  let message = take_vector(account.state, 65523) ?
   let _ = case finish(message.state) do
     Err( _) -> Err("invalid transport packet")
     Ok( _) -> Ok(nil)
@@ -171,7 +173,7 @@ pub fn decode_packet(input :: Bytes) -> TransportPacket ! String do
   if version.value != 1 || !Bytes.secure_equals(magic.value, Bytes.from_utf8("M8P")) || Bytes.length(message.value) == 0 do
     Err("invalid transport packet")
   else
-    if kind.value == 1 && Bytes.length(account.value) > 0 do
+    if kind.value == 1 && Bytes.length(account.value) > 0 && Bytes.length(message.value) <= 48800 do
       Ok(InitialPacket(account.value, message.value))
     else
       if kind.value == 2 && Bytes.length(account.value) == 0 do
@@ -179,6 +181,60 @@ pub fn decode_packet(input :: Bytes) -> TransportPacket ! String do
       else
         Err("invalid transport packet")
       end
+    end
+  end
+end
+
+pub fn is_sealed_initial_packet(input :: Bytes) -> Bool do
+  if Bytes.length(input) < 52 || Bytes.length(input) > 65536 do
+    false
+  else
+    case Bytes.slice(input, 0, 4) do
+      Err( _) -> false
+      Ok( header) -> Bytes.to_hex(header) == "01534950"
+    end
+  end
+end
+
+pub fn seal_initial_packet(account_identity :: Bytes,
+message :: Bytes,
+recipient :: X25519PublicKey) -> Bytes ! String do
+  let plaintext = pad_message(encode_packet(InitialPacket(account_identity, message)) ?, 52) ?
+  if Bytes.length(plaintext) > 65484 do
+    Err("initial transport packet too large")
+  else
+    let info = Bytes.from_utf8("mesh-msg/v1/recipient-initial")
+    let sealed = case Crypto.hpke_seal(recipient, info, recipient.bytes, plaintext) do
+      Err( _) -> Err("initial packet encryption failed")
+      Ok( value) -> Ok(value)
+    end ?
+    join([byte(1) ?, Bytes.from_utf8("SIP"), sealed], 0, Bytes.empty())
+  end
+end
+
+pub fn open_initial_packet(input :: Bytes,
+recipient :: borrow X25519PrivateKey) -> TransportPacket ! String do
+  if !is_sealed_initial_packet(input) do
+    Err("invalid sealed initial packet")
+  else
+    let public_key = case Crypto.x25519_public(recipient) do
+      Err( _) -> Err("initial_crypto_failed")
+      Ok( value) -> Ok(value)
+    end ?
+    let plaintext = case Crypto.hpke_open(recipient,
+    Bytes.from_utf8("mesh-msg/v1/recipient-initial"),
+    public_key.bytes,
+    Bytes.slice(input, 4, Bytes.length(input) - 4) ?) do
+      Err( error) -> if is_retryable_verification_crypto_error(error) do
+        Err("initial_crypto_failed")
+      else
+        Err("initial packet authentication failed")
+      end
+      Ok( value) -> Ok(value)
+    end ?
+    case decode_packet(unpad_message(plaintext, 52) ?) do
+      Ok( InitialPacket( account, message)) -> Ok(InitialPacket(account, message))
+      _ -> Err("invalid sealed initial packet")
     end
   end
 end

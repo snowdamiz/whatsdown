@@ -1,9 +1,10 @@
 import File
 from MobileCore import create_account_export, direct_delivery_classification_for_test, outbox_ack_export, outbox_list_export, process_delivery_batch_export, receive_initial_export, receive_message_export, reconcile_prekeys_export, replenish_prekeys_export, start_conversation_export
 from Prekeys.Pool import PrekeyPublishResponse, decode_prekey_publish, encode_prekey_publish_response
-from Protocol.V1 import MailboxAck, OuterEnvelope, encode_outer_envelope
+from Protocol.V1 import DirectoryEntry, MailboxAck, OuterEnvelope, encode_outer_envelope
 from Tests.GroupLifecycleWire import ack, delivery_batch, outer
 from Tests.Support import append, database_path, read_u32, repeated, vector, write_u32
+from Transport.Packet import ClientProfile, decode_client_profile
 
 fn encode_vectors(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! String do
   if index >= List.length(values) do
@@ -112,6 +113,11 @@ fn proof() -> Bool ! String do
   let start_request = request([Bytes.from_utf8(alice_path), bob_profile_id2, greeting]) ?
   let initial_outer = start_conversation_export(start_request) ?
   assert(Bytes.length(initial_outer) > 0)
+  let sender = decode_client_profile(alice_profile) ?
+  assert(!String.contains(Bytes.to_hex(initial_outer), Bytes.to_hex(sender.account_id)))
+  assert(!String.contains(Bytes.to_hex(initial_outer), Bytes.to_hex(sender.entry.account_identity)))
+  let padded = outer(initial_outer) ?
+  assert(Bytes.length(padded.ciphertext) == padded.padding_bucket)
   assert(assert_single_outbox(alice_path, initial_outer) ?)
   let malformed_outer = replace_ciphertext(initial_outer, malformed_ratchet_packet() ?) ?
   case receive_message_export(request([Bytes.from_utf8(bob_path), malformed_outer]) ?) do

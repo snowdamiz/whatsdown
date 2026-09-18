@@ -1,5 +1,10 @@
 # Ratchet message v1
 
+This is the historical unpadded format. New sends use authenticated message
+version `2` and encrypted padding as specified in
+[client privacy revision 2](client-privacy-v2.md); receivers still read version
+`1` for previously queued messages.
+
 The Profile A ratchet wire message is canonical, big-endian, and bounded to
 65,630 bytes. It is authenticated by the ratchet AEAD together with the
 conversation-specific associated data; the delivery service stores the bytes

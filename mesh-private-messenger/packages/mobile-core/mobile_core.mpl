@@ -15,7 +15,7 @@ from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
 from Transparency.Client import verify_evidence
 from Transparency.Merkle import ConsistencyProof, TransparencyCheckpoint, WitnessKey, checkpoint_hash, verify_checkpoint, verify_consistency
 from Transparency.Wire import TransparencyLookup, decode_checkpoint, decode_consistency_proof, decode_transparency_evidence, encode_checkpoint, encode_consistency_proof, encode_transparency_lookup
-from Transport.Packet import ClientProfile, TransportPacket, decode_client_profile, decode_initial_plaintext, decode_packet, encode_client_profile, encode_initial_plaintext, encode_packet, session_aad
+from Transport.Packet import ClientProfile, TransportPacket, decode_client_profile, decode_initial_plaintext, decode_packet, encode_client_profile, encode_initial_plaintext, encode_packet, is_sealed_initial_packet, open_initial_packet, seal_initial_packet, session_aad
 
 struct MobileReadBytes do
   state :: BinaryReader
@@ -101,6 +101,7 @@ struct MobileSessionRecord do
   key_changed :: Bool
   disappearing_seconds :: Int
   strongest_suite :: Int
+  safety_number :: Bytes
 end
 
 struct MobileLoadedSession do
@@ -130,6 +131,7 @@ struct MobileSyncPayload do
   client_timestamp :: U64
   body :: Bytes
   disappearing_seconds :: Int
+  safety_number :: Bytes
 end
 
 struct MobilePolicyRequest do
@@ -2774,8 +2776,8 @@ fn inner_bytes(value :: InnerEnvelope) -> Bytes ! String do
   end
 end
 
-fn encode_sync_payload(peer :: ClientProfile, inner :: InnerEnvelope) -> Bytes ! String do
-  mobile_join([mobile_vector(Bytes.from_utf8(peer.username)) ?, mobile_vector(peer.account_id) ?, mobile_vector(inner.conversation_id) ?, mobile_vector(inner.client_message_id) ?, mobile_vector(mobile_write_u64(inner.client_timestamp) ?) ?, mobile_vector(inner.body) ?, mobile_vector(mobile_write_u32(inner.disappearing_seconds) ?) ?],
+fn encode_sync_payload(local :: ClientProfile, peer :: ClientProfile, inner :: InnerEnvelope) -> Bytes ! String do
+  mobile_join([mobile_vector(Bytes.from_utf8(peer.username)) ?, mobile_vector(peer.account_id) ?, mobile_vector(inner.conversation_id) ?, mobile_vector(inner.client_message_id) ?, mobile_vector(mobile_write_u64(inner.client_timestamp) ?) ?, mobile_vector(inner.body) ?, mobile_vector(mobile_write_u32(inner.disappearing_seconds) ?) ?, mobile_vector(safety_number(local, peer) ?) ?],
   0,
   Bytes.empty())
 end
@@ -2791,7 +2793,8 @@ fn parse_sync_payload(input :: Bytes) -> MobileSyncPayload ! String do
       let client_timestamp = take_vector_error(client_message_id.state, 8, "invalid_sync_payload") ?
       let body = take_vector_error(client_timestamp.state, 32000, "invalid_sync_payload") ?
       let disappearing_seconds = take_vector_error(body.state, 4, "invalid_sync_payload") ?
-      case finish(disappearing_seconds.state) do
+      let safety = optional_safety_number(disappearing_seconds.state) ?
+      case finish(safety.state) do
         Err( _) -> Err("invalid_sync_payload")
         Ok( _) -> do
           let username = mobile_utf8(peer_username.value, "invalid_sync_payload") ?
@@ -2813,7 +2816,8 @@ fn parse_sync_payload(input :: Bytes) -> MobileSyncPayload ! String do
               client_message_id : client_message_id.value,
               client_timestamp : timestamp,
               body : body.value,
-              disappearing_seconds : disappearing
+              disappearing_seconds : disappearing,
+              safety_number : safety.value
             })
           end
         end
@@ -2848,9 +2852,13 @@ fn initial_bytes(value :: InitialMessage) -> Bytes ! String do
   end
 end
 
-fn parse_initial_packet(input :: Bytes) -> Result <( Bytes, Bytes), String > do
-  case decode_packet(input) do
-    Err( _) -> Err("invalid_initial_packet")
+fn parse_initial_packet(input :: Bytes, recipient :: borrow X25519PrivateKey) -> Result <( Bytes, Bytes), String > do
+  case open_initial_packet(input, recipient) do
+    Err( error) -> if error == "initial_crypto_failed" do
+      Err(error)
+    else
+      Err("invalid_initial_packet")
+    end
     Ok( RatchetPacket( _)) -> Err("invalid_initial_packet")
     Ok( InitialPacket( account_identity, message)) -> Ok((account_identity, message))
   end
@@ -2871,9 +2879,22 @@ strongest_suite :: Int) -> Bytes ! String do
     1
   else
     0
-  end) ?) ?, mobile_vector(mobile_write_u32(0) ?) ?, mobile_vector(mobile_byte(strongest_suite) ?) ?],
+  end) ?) ?, mobile_vector(mobile_write_u32(0) ?) ?, mobile_vector(mobile_byte(strongest_suite) ?) ?, mobile_vector(safety_number(local, peer) ?) ?],
   0,
   Bytes.empty())
+end
+
+fn optional_safety_number(state :: BinaryReader) -> MobileReadBytes ! String do
+  if state.offset == Bytes.length(state.input) do
+    Ok(MobileReadBytes { state : state, value : Bytes.empty() })
+  else
+    let value = take_vector(state, 64) ?
+    if Bytes.length(value.value) != 0 && Bytes.length(value.value) != 64 do
+      Err("invalid_safety_number")
+    else
+      Ok(value)
+    end
+  end
 end
 
 fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
@@ -2901,7 +2922,8 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
       else
         take_vector(disappearing_seconds.state, 1) ?
       end
-      case finish(strongest_suite.state) do
+      let safety = optional_safety_number(strongest_suite.state) ?
+      case finish(safety.state) do
         Err( _) -> Err("invalid_session_record")
         Ok( _) -> do
           let username = mobile_utf8(peer_username.value, "invalid_session_record") ?
@@ -2926,10 +2948,11 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
               conversation_id : conversation_id.value,
               request_state : request_value,
               blocked : blocked_value == 1,
-              verified : verified_value == 1,
-              key_changed : changed_value == 1,
+              verified : verified_value == 1 && Bytes.length(safety.value) == 64,
+              key_changed : changed_value == 1 || Bytes.length(safety.value) == 0,
               disappearing_seconds : disappearing_value,
-              strongest_suite : strongest_value
+              strongest_suite : strongest_value,
+              safety_number : safety.value
             })
           end
         end
@@ -3047,6 +3070,8 @@ fn preferred_session(first :: MobileLoadedSession, second :: MobileLoadedSession
     first
   else if second.record.strongest_suite > first.record.strongest_suite do
     second
+  else if second.record.strongest_suite == first.record.strongest_suite && Bytes.length(second.record.safety_number) == 64 && !Bytes.secure_equals(first.record.safety_number, second.record.safety_number) do
+    second
   else
     first
   end
@@ -3158,7 +3183,7 @@ profile :: ClientProfile) -> Bool ! String do
     Ok( loaded) -> if loaded.record.strongest_suite > profile.bundle.suite do
       Err("peer_keys_changed")
     else
-      Ok(loaded.record.strongest_suite < profile.bundle.suite)
+      Ok(loaded.record.strongest_suite < profile.bundle.suite || Bytes.length(loaded.record.safety_number) == 0)
     end
   end
 end
@@ -3211,7 +3236,8 @@ sync :: MobileSyncPayload) -> Result <(), String > do
         verified : false,
         key_changed : false,
         disappearing_seconds : sync.disappearing_seconds,
-        strongest_suite : 1
+        strongest_suite : 1,
+        safety_number : sync.safety_number
       }
       let blob = seal_local(updated_session_record(record.snapshot, record) ?,
       wrapping_key,
@@ -3645,21 +3671,22 @@ fn bytes_before(left :: Bytes, right :: Bytes, index :: Int) -> Bool ! String do
   end
 end
 
-fn safety_number(local_account_id :: Bytes, peer_account_id :: Bytes) -> Bytes ! String do
-  let ordered = if bytes_before(local_account_id, peer_account_id, 0) ? do
-    [local_account_id, peer_account_id]
+fn safety_number(local :: ClientProfile, peer :: ClientProfile) -> Bytes ! String do
+  let local_identity = mobile_append(local.account_id, local.account.authorization_public_key) ?
+  let peer_identity = mobile_append(peer.account_id, peer.account.authorization_public_key) ?
+  let ordered = if bytes_before(local_identity, peer_identity, 0) ? do
+    [local_identity, peer_identity]
   else
-    [peer_account_id, local_account_id]
+    [peer_identity, local_identity]
   end
-  Ok(Bytes.from_utf8(Bytes.to_hex(Crypto.sha256(mobile_join([Bytes.from_utf8("mesh-msg/mobile/account-safety/v1"), List.get(ordered,
+  Ok(Bytes.from_utf8(Bytes.to_hex(Crypto.sha256(mobile_join([Bytes.from_utf8("mesh-msg/mobile/account-safety/v2"), List.get(ordered,
   0), List.get(ordered, 1)],
   0,
   Bytes.empty()) ?))))
 end
 
 fn conversation_summary(loaded :: MobileLoadedSession) -> Bytes ! String do
-  mobile_join([mobile_vector(loaded.record.conversation_id) ?, mobile_vector(Bytes.from_utf8(loaded.record.peer_username)) ?, mobile_vector(loaded.record.peer_account_id) ?, mobile_vector(loaded.record.peer_device_id) ?, mobile_vector(safety_number(loaded.record.local_account_id,
-  loaded.record.peer_account_id) ?) ?, mobile_vector(mobile_byte(loaded.record.request_state) ?) ?, mobile_vector(mobile_byte(if loaded.record.blocked do
+  mobile_join([mobile_vector(loaded.record.conversation_id) ?, mobile_vector(Bytes.from_utf8(loaded.record.peer_username)) ?, mobile_vector(loaded.record.peer_account_id) ?, mobile_vector(loaded.record.peer_device_id) ?, mobile_vector(loaded.record.safety_number) ?, mobile_vector(mobile_byte(loaded.record.request_state) ?) ?, mobile_vector(mobile_byte(if loaded.record.blocked do
     1
   else
     0
@@ -3701,7 +3728,8 @@ pub fn decode_conversation_summary(input :: Bytes) -> ConversationSummary ! Stri
       let verified_value = mobile_read_byte(verified.value) ?
       let changed_value = mobile_read_byte(key_changed.value) ?
       let username_value = mobile_utf8(username.value, "invalid_conversation_summary") ?
-      let valid = mobile_read_u32(count.value) ? == 1 && String.length(username_value) > 0 && Bytes.length(conversation_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && Bytes.length(safety.value) == 64 && (request_value == 0 || request_value == 1) && blocked_value <= 1 && verified_value <= 1 && changed_value <= 1
+      let valid_safety = Bytes.length(safety.value) == 64 || (Bytes.length(safety.value) == 0 && verified_value == 0 && changed_value == 1)
+      let valid = mobile_read_u32(count.value) ? == 1 && String.length(username_value) > 0 && Bytes.length(conversation_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && valid_safety && (request_value == 0 || request_value == 1) && blocked_value <= 1 && verified_value <= 1 && changed_value <= 1
       case finish(entry_bytes.state) do
         Err( _) -> Err("invalid_conversation_summary")
         Ok( _) -> case finish(disappearing.state) do
@@ -3855,7 +3883,7 @@ fn conversation_safety(request :: MobilePeerRequest) -> Bytes ! String do
   peer_id,
   load_session_ids(request.database_path, wrapping_key) ?,
   0) ?
-  safety_number(loaded.record.local_account_id, loaded.record.peer_account_id)
+  Ok(loaded.record.safety_number)
 end
 
 fn reject_session_snapshot(state :: consume RatchetState) -> Result <( Bytes, String, Bytes), String > do
@@ -3910,10 +3938,13 @@ fn finish_upgraded_session_snapshot(state :: consume RatchetState,
 snapshot_blob :: Bytes,
 wrapping_key :: borrow StorageKey,
 previous :: MobileLoadedSession,
+local :: ClientProfile,
 peer :: ClientProfile,
 session_id :: Bytes,
 label :: String) -> Result <( Bytes, String, Bytes), String > do
-  let record = % { previous.record | snapshot : snapshot_blob, peer_account_id : peer.account_id, peer_device_id : peer.device_id, peer_username : peer.username, peer_mailbox : peer.entry.mailbox_token, strongest_suite : state.suite }
+  let safety = safety_number(local, peer) ?
+  let changed = !Bytes.secure_equals(previous.record.safety_number, safety)
+  let record = % { previous.record | snapshot : snapshot_blob, peer_account_id : peer.account_id, peer_device_id : peer.device_id, peer_username : peer.username, peer_mailbox : peer.entry.mailbox_token, strongest_suite : state.suite, safety_number : safety, verified : previous.record.verified && !changed, key_changed : previous.record.key_changed || changed }
   Ok((session_id,
   label,
   seal_local(updated_session_record(record.snapshot, record) ?,
@@ -3924,6 +3955,7 @@ end
 fn seal_upgraded_session(state :: consume RatchetState,
 wrapping_key :: borrow StorageKey,
 previous :: MobileLoadedSession,
+local :: ClientProfile,
 peer :: ClientProfile) -> Result <( Bytes, String, Bytes), String > do
   let session_id = state.session_id
   let label = session_label(session_id)
@@ -3937,6 +3969,7 @@ peer :: ClientProfile) -> Result <( Bytes, String, Bytes), String > do
     snapshot_blob,
     wrapping_key,
     previous,
+    local,
     peer,
     session_id,
     label)
@@ -4124,7 +4157,8 @@ fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
     Err( _) -> Err("session_start_failed")
     Ok( value) -> Ok(value)
   end ?
-  let packet = encode_packet(InitialPacket(local.entry.account_identity, initial_bytes(initial) ?)) ?
+  let packet = seal_initial_packet(local.entry.account_identity, initial_bytes(initial) ?,
+  X25519PublicKey { bytes : peer.credential.dh_public_key }) ?
   let outer = outer_bytes(peer.entry.mailbox_token, initial.suite, packet, now) ?
   let ( session_id, label, session_blob) = seal_session(state,
   wrapping_key,
@@ -4165,7 +4199,9 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
   if !Bytes.secure_equals(outer.mailbox_token, local.entry.mailbox_token) do
     Err("wrong_mailbox")
   else
-    let ( packet_account_identity, packet_message) = parse_initial_packet(outer.ciphertext) ?
+    let wrapping_key = platform_key() ?
+    let local_device = open_device(local, wrapping_key, request.database_path) ?
+    let ( packet_account_identity, packet_message) = parse_initial_packet(outer.ciphertext, local_device.identity_private_key) ?
     let initial = case decode_initial_message(packet_message) do
       Err( _) -> Err("invalid_initial_message")
       Ok( value) -> Ok(value)
@@ -4177,13 +4213,11 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
         Err( _) -> Err("invalid_initiator_account")
         Ok( value) -> Ok(value)
       end ?
-      let wrapping_key = platform_key() ?
       let session_ids = load_session_ids(request.database_path, wrapping_key) ?
       let prekeys = load_prekey_pool(local, wrapping_key, request.database_path) ?
       let active_prekeys = load_active_prekey_pool(request.database_path, prekeys, wrapping_key) ?
       let selected_prekey = find_prekey(prekeys, initial.one_time_prekey_id, 0) ?
       let responder_bundle = % { local.bundle | one_time_prekey_id : selected_prekey.id, one_time_prekey : selected_prekey.public_key }
-      let local_device = open_device(local, wrapping_key, request.database_path) ?
       let initiator_credential = case decode_device_credential(initial.initiator_credential) do
         Err( _) -> Err("invalid_initiator_credential")
         Ok( value) -> Ok(value)
@@ -4266,7 +4300,7 @@ fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
         end
         let ( session_id, label, session_blob) = case previous do
           None -> seal_session(state, wrapping_key, local, peer, inner.conversation_id, 0, false)
-          Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, peer)
+          Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, local, peer)
         end ?
         let remaining_prekeys = remove_prekey(prekeys, selected_prekey.id, 0, List.new())
         let prekey_index_blob = seal_prekey_pool(remaining_prekeys, wrapping_key) ?
@@ -4377,7 +4411,7 @@ fn updated_session_record(snapshot_blob :: Bytes, record :: MobileSessionRecord)
     1
   else
     0
-  end) ?) ?, mobile_vector(mobile_write_u32(record.disappearing_seconds) ?) ?, mobile_vector(mobile_byte(record.strongest_suite) ?) ?],
+  end) ?) ?, mobile_vector(mobile_write_u32(record.disappearing_seconds) ?) ?, mobile_vector(mobile_byte(record.strongest_suite) ?) ?, mobile_vector(record.safety_number) ?],
   0,
   Bytes.empty())
 end
@@ -5097,14 +5131,15 @@ strongest_suite :: Int) -> MobilePreparedSend ! String do
     Err( _) -> Err("session_start_failed")
     Ok( value) -> Ok(value)
   end ?
-  let packet = encode_packet(InitialPacket(local.entry.account_identity, initial_bytes(initial) ?)) ?
+  let packet = seal_initial_packet(local.entry.account_identity, initial_bytes(initial) ?,
+  X25519PublicKey { bytes : peer.credential.dh_public_key }) ?
   let outer = outer_bytes(claimed_peer.entry.mailbox_token,
   initial.suite,
   packet,
   inner.client_timestamp) ?
   let ( session_id, label, session_blob) = case previous do
     None -> seal_session(state, wrapping_key, local, claimed_peer, inner.conversation_id, 1, false)
-    Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, claimed_peer)
+    Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, local, claimed_peer)
   end ?
   Ok(MobilePreparedSend {
     envelope : outer,
@@ -5132,12 +5167,12 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
   0) do
     Ok( loaded) -> do
       let changed = !Bytes.secure_equals(loaded.record.peer_mailbox, peer.entry.mailbox_token) || !Bytes.secure_equals(loaded.record.conversation_id,
-      inner.conversation_id)
+      inner.conversation_id) || (Bytes.length(loaded.record.safety_number) == 64 && !Bytes.secure_equals(loaded.record.safety_number, safety_number(local, peer) ?))
       if changed do
         Err("peer_keys_changed")
       else if loaded.record.strongest_suite > peer.bundle.suite do
         Err("peer_keys_changed")
-      else if loaded.record.strongest_suite < peer.bundle.suite do
+      else if loaded.record.strongest_suite < peer.bundle.suite || Bytes.length(loaded.record.safety_number) == 0 do
         let strongest_suite = loaded.record.strongest_suite
         start_device_session(claimed_prekeys,
         local_device,
@@ -5377,7 +5412,8 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
           verified : false,
           key_changed : false,
           disappearing_seconds : 0,
-          strongest_suite : 1
+          strongest_suite : 1,
+          safety_number : safety_number(local, representative) ?
         })
       else
         Err(error)
@@ -5429,7 +5465,7 @@ fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
       wrapping_key,
       history_inner,
       1) ?
-      let sync_body = encode_sync_payload(List.head(peers.profiles), history_inner) ?
+      let sync_body = encode_sync_payload(local, List.head(peers.profiles), history_inner) ?
       let prepared = self_fanout(request.database_path,
       wrapping_key,
       session_ids,
@@ -5481,12 +5517,12 @@ fn send_message(request :: MobileStartRequest) -> Bytes ! String do
   session_ids,
   0) ?
   let changed = !Bytes.secure_equals(loaded.record.peer_device_id, requested_peer.device_id) || !Bytes.secure_equals(loaded.record.peer_mailbox,
-  requested_peer.entry.mailbox_token)
+  requested_peer.entry.mailbox_token) || (Bytes.length(loaded.record.safety_number) == 64 && !Bytes.secure_equals(loaded.record.safety_number, safety_number(local, requested_peer) ?))
   if changed do
     Err("peer_keys_changed")
   else if loaded.record.strongest_suite > requested_peer.bundle.suite do
     Err("peer_keys_changed")
-  else if loaded.record.strongest_suite < requested_peer.bundle.suite do
+  else if loaded.record.strongest_suite < requested_peer.bundle.suite || Bytes.length(loaded.record.safety_number) == 0 do
     Err("session_upgrade_required")
   else if loaded.record.blocked do
     Err("conversation_blocked")
@@ -5646,7 +5682,7 @@ fn updated_policy(record :: MobileSessionRecord, action :: Int, value :: Int) ->
     Ok(% { record | blocked : true })
   else if action == 3 do
     Ok(% { record | blocked : false })
-  else if action == 4 do
+  else if action == 4 && Bytes.length(record.safety_number) == 64 do
     Ok(% { record | verified : true, key_changed : false })
   else if action == 5 && value >= 0 && value <= 2592000 do
     Ok(% { record | disappearing_seconds : value })
@@ -5661,6 +5697,7 @@ peer_account_id :: Bytes,
 session_ids :: List < Bytes >,
 action :: Int,
 value :: Int,
+safety :: Bytes,
 index :: Int,
 labels :: List < String >,
 blobs :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String > do
@@ -5669,7 +5706,11 @@ blobs :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String >
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
     if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) do
-      let record = updated_policy(loaded.record, action, value) ?
+      let record = if action == 4 && !Bytes.secure_equals(loaded.record.safety_number, safety) do
+        Ok(% { loaded.record | verified : false, key_changed : true })
+      else
+        updated_policy(loaded.record, action, value)
+      end ?
       let blob = seal_local(updated_session_record(record.snapshot, record) ?,
       wrapping_key,
       local_context(loaded.label) ?) ?
@@ -5679,6 +5720,7 @@ blobs :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String >
       session_ids,
       action,
       value,
+      safety,
       index + 1,
       List.append(labels, loaded.label),
       List.append(blobs, blob))
@@ -5689,6 +5731,7 @@ blobs :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String >
       session_ids,
       action,
       value,
+      safety,
       index + 1,
       labels,
       blobs)
@@ -5701,13 +5744,19 @@ fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
   let peer_id = peer_account_id(request.peer_profile) ?
   let wrapping_key = platform_key() ?
   let session_ids = load_session_ids(request.database_path, wrapping_key) ?
-  let _ = find_peer_session(request.database_path, wrapping_key, peer_id, session_ids, 0) ?
+  let preferred = find_peer_session(request.database_path, wrapping_key, peer_id, session_ids, 0) ?
+  let _ = if request.action == 4 && Bytes.length(preferred.record.safety_number) != 64 do
+    Err("safety_number_unavailable")
+  else
+    Ok(nil)
+  end ?
   let ( labels, blobs) = updated_peer_policy_blobs(request.database_path,
   wrapping_key,
   peer_id,
   session_ids,
   request.action,
   request.value,
+  preferred.record.safety_number,
   0,
   List.new(),
   List.new()) ?
@@ -8430,7 +8479,7 @@ fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes ! St
 end
 
 fn send_mobile_group_message(request :: MobileGroupSendRequest) -> Bytes ! String do
-  if Bytes.length(request.body) > 65346 do
+  if Bytes.length(request.body) > 65342 do
     Err("group_message_too_large")
   else
     ensure_schema(request.database_path) ?
@@ -8750,9 +8799,10 @@ end
 fn receive_mobile_direct_classified(request :: MobileReceiveRequest) -> MobileDirectReceiveOutcome do
   let received = case canonical_outer(request.outer) do
     Err( error) -> Err(error)
-    Ok( outer) -> case parse_initial_packet(outer.ciphertext) do
-      Ok( _) -> receive_initial_message(request)
-      Err( _) -> receive_message(request)
+    Ok( outer) -> if is_sealed_initial_packet(outer.ciphertext) do
+      receive_initial_message(request)
+    else
+      receive_message(request)
     end
   end
   case received do

@@ -1,3 +1,4 @@
+from Transport.Padding import pad_message, unpad_message
 from Binary.Reader import BinaryReader, finish, read_fixed, read_u16_be, read_u8, read_vector, reader
 from Session.Handshake import RatchetState
 
@@ -155,7 +156,7 @@ end
 
 fn validate_message(value :: RatchetMessage) -> Result<(), RatchetError> do
   let valid_suite = value.suite == 1 || value.suite == 2
-  let valid = value.version == 1 && valid_suite && Bytes.length(value.session_id) == 32 && Bytes.length(value.ratchet_public_key.bytes) == 32 && value.previous_chain_length >= 0 && value.message_number >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65536
+  let valid = (value.version == 1 || value.version == 2) && valid_suite && Bytes.length(value.session_id) == 32 && Bytes.length(value.ratchet_public_key.bytes) == 32 && value.previous_chain_length >= 0 && value.message_number >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65536
   if valid do
     Ok(nil)
   else
@@ -216,14 +217,15 @@ message_number :: Int) -> Bytes ! RatchetError do
   keyed_info("mesh-msg/v1/skipped-key", ratchet_public_key, message_number)
 end
 
-fn authenticated_data(suite :: Int,
+fn authenticated_data(version :: Int,
+suite :: Int,
 session_id :: Bytes,
 ratchet_public_key :: X25519PublicKey,
 previous_chain_length :: Int,
 message_number :: Int,
 nonce :: Bytes,
 caller_data :: Bytes) -> Bytes ! RatchetError do
-  let value = append(Bytes.from_utf8("mesh-msg/v1/ratchet-message"), write_u16(1) ?) ?
+  let value = append(Bytes.from_utf8("mesh-msg/v1/ratchet-message"), write_u16(version) ?) ?
   let value = append(value, write_u16(suite) ?) ?
   let value = append(value, session_id) ?
   let value = append(value, ratchet_public_key.bytes) ?
@@ -351,19 +353,23 @@ associated_data :: Bytes) -> Result <( RatchetState, RatchetMessage), RatchetErr
     Err(_) -> Err(CryptoFailure)
     Ok(value) -> Ok(value)
   end ?
-  let authenticated = authenticated_data(state.suite,
+  let authenticated = authenticated_data(2, state.suite,
   state.session_id,
   state.local_ratchet_public,
   state.previous_chain_length,
   message_number,
   nonce,
   associated_data) ?
-  let ciphertext = case Crypto.aead_seal(key, nonce, authenticated, plaintext) do
+  let padded = case pad_message(plaintext, 123) do
+    Err(_) -> Err(InvalidMessage)
+    Ok(value) -> Ok(value)
+  end ?
+  let ciphertext = case Crypto.aead_seal(key, nonce, authenticated, padded) do
     Err(_) -> Err(CryptoFailure)
     Ok(value) -> Ok(value)
   end ?
   let message = RatchetMessage {
-    version: 1,
+    version: 2,
     suite: state.suite,
     session_id: state.session_id,
     ratchet_public_key: state.local_ratchet_public,
@@ -409,7 +415,7 @@ end
 pub fn encrypt(state :: consume RatchetState,
 plaintext :: Bytes,
 associated_data :: Bytes) -> Result <( RatchetState, RatchetMessage), RatchetError > do
-  if state.version != 1 || !(state.suite == 1 || state.suite == 2) || Bytes.length(plaintext) > 65520 || state.sent_count < 0 do
+  if state.version != 1 || !(state.suite == 1 || state.suite == 2) || Bytes.length(plaintext) > 65409 || state.sent_count < 0 do
     Err(InvalidMessage)
   else if state.pending_send_ratchet do
     encrypt_rotated(state, plaintext, associated_data)
@@ -477,6 +483,21 @@ error :: RatchetError) -> DecryptOutcome do
   Rejected(state, error)
 end
 
+fn open_message(key :: borrow AeadKey, message :: RatchetMessage, data :: Bytes) -> Bytes ! RatchetError do
+  let plaintext = case Crypto.aead_open(key, message.nonce, data, message.ciphertext) do
+    Err(error) -> Err(ratchet_open_error(error))
+    Ok(value) -> Ok(value)
+  end ?
+  if message.version == 1 do
+    Ok(plaintext)
+  else
+    case unpad_message(plaintext, 123) do
+      Err(_) -> Err(InvalidMessage)
+      Ok(value) -> Ok(value)
+    end
+  end
+end
+
 fn commit_skipped(key :: consume AeadKey,
 state :: consume RatchetState,
 plaintext :: Bytes,
@@ -495,7 +516,7 @@ key_id :: Bytes) -> DecryptOutcome do
     Err(error) -> Rejected(state, skipped_key_error(error))
     Ok(material) -> case aead_key(material) do
         Err(error) -> Rejected(state, error)
-        Ok(key) -> case authenticated_data(state.suite,
+        Ok(key) -> case authenticated_data(message.version, state.suite,
           state.session_id,
           message.ratchet_public_key,
           message.previous_chain_length,
@@ -503,11 +524,8 @@ key_id :: Bytes) -> DecryptOutcome do
           message.nonce,
           associated_data) do
             Err(error) -> reject_key(key, state, error)
-            Ok(data) -> case Crypto.aead_open(key,
-              message.nonce,
-              data,
-              message.ciphertext) do
-                Err(error) -> reject_key(key, state, ratchet_open_error(error))
+            Ok(data) -> case open_message(key, message, data) do
+                Err(error) -> reject_key(key, state, error)
                 Ok(plaintext) -> commit_skipped(key, state, plaintext, key_id)
               end
           end
@@ -539,7 +557,7 @@ candidate :: consume SecretMap,
 next_chain :: consume SecretBytes,
 message :: RatchetMessage,
 associated_data :: Bytes) -> DecryptOutcome do
-  case authenticated_data(state.suite,
+  case authenticated_data(message.version, state.suite,
   state.session_id,
   message.ratchet_public_key,
   message.previous_chain_length,
@@ -547,12 +565,12 @@ associated_data :: Bytes) -> DecryptOutcome do
   message.nonce,
   associated_data) do
     Err(error) -> reject_current_candidate(key, candidate, next_chain, state, error)
-    Ok(data) -> case Crypto.aead_open(key, message.nonce, data, message.ciphertext) do
+    Ok(data) -> case open_message(key, message, data) do
         Err(error) -> reject_current_candidate(key,
           candidate,
           next_chain,
           state,
-          ratchet_open_error(error))
+          error)
         Ok(plaintext) -> commit_current(key,
           state,
           candidate,
@@ -624,7 +642,7 @@ root_key :: consume SecretBytes,
 next_chain :: consume SecretBytes,
 message :: RatchetMessage,
 associated_data :: Bytes) -> DecryptOutcome do
-  case authenticated_data(state.suite,
+  case authenticated_data(message.version, state.suite,
   state.session_id,
   message.ratchet_public_key,
   message.previous_chain_length,
@@ -637,13 +655,13 @@ associated_data :: Bytes) -> DecryptOutcome do
       next_chain,
       state,
       error)
-    Ok(data) -> case Crypto.aead_open(key, message.nonce, data, message.ciphertext) do
+    Ok(data) -> case open_message(key, message, data) do
         Err(error) -> reject_new_candidate(key,
           candidate,
           root_key,
           next_chain,
           state,
-          ratchet_open_error(error))
+          error)
         Ok(plaintext) -> commit_new_chain(key,
           state,
           candidate,
@@ -723,7 +741,7 @@ end
 pub fn decrypt(state :: consume RatchetState,
 message :: RatchetMessage,
 associated_data :: Bytes) -> DecryptOutcome do
-  let wrong_header = message.version != 1 || !(state.suite == 1 || state.suite == 2) || message.suite != state.suite || !Bytes.secure_equals(message.session_id,
+  let wrong_header = !(message.version == 1 || message.version == 2) || !(state.suite == 1 || state.suite == 2) || message.suite != state.suite || !Bytes.secure_equals(message.session_id,
   state.session_id) || Bytes.length(message.ratchet_public_key.bytes) != 32 || message.previous_chain_length < 0 || message.message_number < 0 || Bytes.length(message.nonce) != 12 || Bytes.length(message.ciphertext) > 65536
   if wrong_header do
     Rejected(state, InvalidMessage)

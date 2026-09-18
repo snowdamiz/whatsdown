@@ -1168,7 +1168,7 @@ export default function App() {
                     onPress={() => updatePolicy(selected.blocked ? 3 : 2)}
                     quiet
                   />
-                  <PrimaryButton label="Mark safety number verified" onPress={() => updatePolicy(4)} quiet />
+                  <PrimaryButton label={selected.safetyNumber ? "Mark safety number verified" : "Send a message to refresh security keys"} onPress={() => updatePolicy(4)} disabled={!selected.safetyNumber} quiet />
                   {disappearingOptions.map((option) => (
                     <PrimaryButton
                       key={option.value}

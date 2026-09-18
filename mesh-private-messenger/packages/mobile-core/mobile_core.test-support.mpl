@@ -1,3 +1,15 @@
+pub fn remove_safety_binding_for_test(database_path :: String, peer_profile :: Bytes) -> Bool ! String do
+  let peer = decode_client_profile(peer_profile) ?
+  let wrapping_key = platform_key() ?
+  let loaded = find_peer_session(database_path, wrapping_key, peer.account_id,
+  load_session_ids(database_path, wrapping_key) ?, 0) ?
+  let record = updated_session_record(loaded.record.snapshot, % { loaded.record | verified : true }) ?
+  let legacy = Bytes.slice(record, 0, Bytes.length(record) - 68) ?
+  let blob = seal_local(legacy, wrapping_key, local_context(loaded.label) ?) ?
+  store_updated_session(database_path, loaded.label, blob) ?
+  Ok(true)
+end
+
 fn store_legacy_prekey_fixture(database_path :: String,
 prekey_label :: String,
 legacy_blob :: Bytes) -> Result <(), String > do

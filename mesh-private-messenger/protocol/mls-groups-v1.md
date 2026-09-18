@@ -2,6 +2,11 @@
 
 Status: implemented for development testing. Group suite `0x0003` must not be enabled in a production release until an independent protocol review of the final revision is recorded.
 
+New application messages use version `2` with encrypted padding; see
+[client privacy revision 2](client-privacy-v2.md). That revision supersedes the
+message plaintext limit below with 65,342 bytes. Membership-control formats
+remain unchanged, and existing version-1 messages remain readable.
+
 This profile applies MLS concepts and the RFC 9420 ciphersuite primitives, but
 it is not an RFC 9420 wire-compatible implementation. It uses RFC 9180 base
 mode HPKE with X25519, HKDF-SHA256, and ChaCha20-Poly1305; Ed25519 authenticates

@@ -1,3 +1,4 @@
+from Transport.Padding import pad_message, unpad_message
 from Binary.Reader import BinaryReader, finish, read_fixed, read_u16_be, read_u8, read_vector, reader
 from Groups.Tree import GroupMember, GroupTree, GroupTreeError, IndexedGroupMember, TreeKemParentNode, TreeKemResolutionNode, apply_update_path, copath, direct_path, empty_tree, encode_member, indexed_members, insert_member, member_at, node_contains_leaf, public_parent_nodes, remove_member, resolution, tree_from_members, tree_from_public, tree_hash, update_leaf_public_key, validate_member
 
@@ -1361,7 +1362,7 @@ pub fn decode_group_welcome(input :: Bytes) -> GroupWelcome ! GroupError do
 end
 
 fn validate_message_shape(value :: GroupMessage) -> Result <(), GroupError > do
-  let valid = value.version == 1 && value.suite == 3 && Bytes.length(value.group_id) == 32 && Bytes.length(value.tree_hash) == 32 && value.sender_leaf >= 0 && value.sender_leaf < 64 && value.generation >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65362 && Bytes.length(value.signature.bytes) == 64
+  let valid = (value.version == 1 || value.version == 2) && value.suite == 3 && Bytes.length(value.group_id) == 32 && Bytes.length(value.tree_hash) == 32 && value.sender_leaf >= 0 && value.sender_leaf < 64 && value.generation >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65362 && Bytes.length(value.signature.bytes) == 64
   if valid do
     Ok(nil)
   else
@@ -3109,7 +3110,8 @@ pub fn apply_commit(state :: consume GroupState, commit :: GroupCommit) -> Commi
   end
 end
 
-fn message_context(suite :: Int,
+fn message_context(version :: Int,
+suite :: Int,
 group_id :: Bytes,
 epoch :: U64,
 current_tree_hash :: Bytes,
@@ -3117,7 +3119,7 @@ sender_leaf :: Int,
 generation :: Int,
 nonce :: Bytes,
 caller_data :: Bytes) -> Bytes ! GroupError do
-  join([Bytes.from_utf8("mesh-mls/v1/group-message"), byte(1) ?, write_u16(suite) ?, group_id, write_u64(epoch) ?, current_tree_hash, write_u16(sender_leaf) ?, write_u32(generation) ?, nonce, caller_data],
+  join([Bytes.from_utf8("mesh-mls/v1/group-message"), byte(version) ?, write_u16(suite) ?, group_id, write_u64(epoch) ?, current_tree_hash, write_u16(sender_leaf) ?, write_u32(generation) ?, nonce, caller_data],
   0,
   Bytes.empty())
 end
@@ -3186,7 +3188,7 @@ secret :: borrow SecretBytes) -> GroupMessage ! GroupError do
           Err( error) -> Err(CryptoFailure(error))
           Ok( ciphertext) -> do
             let unsigned = GroupMessage {
-              version : 1,
+              version : 2,
               suite : metadata.suite,
               group_id : metadata.group_id,
               epoch : metadata.epoch,
@@ -3215,7 +3217,7 @@ fn prepare_group_message(state :: borrow GroupState,
 signing_key :: borrow SigningPrivateKey,
 plaintext :: Bytes,
 caller_data :: Bytes) -> GroupMessage ! GroupError do
-  if Bytes.length(plaintext) > 65346 || Bytes.length(caller_data) > 4096 || state.next_generation < 0 || state.next_generation >= 4294967295 do
+  if Bytes.length(plaintext) > 65342 || Bytes.length(caller_data) > 4096 || state.next_generation < 0 || state.next_generation >= 4294967295 do
     Err(InvalidGroup)
   else
     let nonce = case Crypto.random_bytes(12) do
@@ -3231,7 +3233,7 @@ caller_data :: Bytes) -> GroupMessage ! GroupError do
       generation : state.next_generation
     }
     let info = message_info(metadata.sender_leaf, metadata.generation) ?
-    let context = message_context(metadata.suite,
+    let context = message_context(2, metadata.suite,
     metadata.group_id,
     metadata.epoch,
     metadata.tree_hash,
@@ -3239,8 +3241,12 @@ caller_data :: Bytes) -> GroupMessage ! GroupError do
     metadata.generation,
     nonce,
     caller_data) ?
+    let padded = case pad_message(plaintext, 190) do
+      Err(_) -> Err(InvalidGroup)
+      Ok(value) -> Ok(value)
+    end ?
     let message = seal_epoch_message(signing_key,
-    plaintext,
+    padded,
     nonce,
     info,
     context,
@@ -3314,13 +3320,28 @@ output :: List < SenderGeneration >) -> List < SenderGeneration > do
   end
 end
 
+fn open_group_plaintext(key :: borrow AeadKey, message :: GroupMessage, context :: Bytes) -> Bytes ! GroupError do
+  let plaintext = case Crypto.aead_open(key, message.nonce, context, message.ciphertext) do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
+  end ?
+  if message.version == 1 do
+    Ok(plaintext)
+  else
+    case unpad_message(plaintext, 190) do
+      Err(_) -> Err(InvalidGroup)
+      Ok(value) -> Ok(value)
+    end
+  end
+end
+
 pub fn decrypt_group_message(state :: consume GroupState,
 message :: GroupMessage,
 caller_data :: Bytes) -> GroupDecryptOutcome do
   case open_message_context(state, message) do
     Err( error) -> MessageRejected(state, error)
     Ok( public) -> do
-      let wrong_header = message.version != 1 || message.suite != public.suite || !Bytes.secure_equals(message.group_id,
+      let wrong_header = !(message.version == 1 || message.version == 2) || message.suite != public.suite || !Bytes.secure_equals(message.group_id,
       public.group_id) || U64.compare(message.epoch, public.epoch) != 0 || !Bytes.secure_equals(message.tree_hash,
       public.tree.hash) || message.sender_leaf < 0 || message.sender_leaf >= 64 || message.generation < 0 || Bytes.length(message.nonce) != 12 || Bytes.length(message.ciphertext) < 16 || Bytes.length(message.ciphertext) > 65362 || Bytes.length(caller_data) > 4096
       if wrong_header do
@@ -3328,7 +3349,7 @@ caller_data :: Bytes) -> GroupDecryptOutcome do
       else if message.generation <= public.last_generation do
         MessageRejected(state, Replay)
       else
-        case message_context(public.suite,
+        case message_context(message.version, public.suite,
         public.group_id,
         public.epoch,
         public.tree.hash,
@@ -3354,10 +3375,10 @@ caller_data :: Bytes) -> GroupDecryptOutcome do
                   Ok( material) -> case message_key(material) do
                     Err( error) -> MessageRejected(state, error)
                     Ok( key) -> do
-                      let opened = Crypto.aead_open(key, message.nonce, context, message.ciphertext)
+                      let opened = open_group_plaintext(key, message, context)
                       consume_message_key(key)
                       case opened do
-                        Err( error) -> MessageRejected(state, CryptoFailure(error))
+                        Err( error) -> MessageRejected(state, error)
                         Ok( plaintext) -> do
                           let generations = record_generation(state.received_generations,
                           message.sender_leaf,
