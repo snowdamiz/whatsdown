@@ -1,25 +1,25 @@
-import { IBMPlexMono_400Regular } from '@expo-google-fonts/ibm-plex-mono/400Regular';
-import { Newsreader_400Regular } from '@expo-google-fonts/newsreader/400Regular';
-import { Newsreader_600SemiBold } from '@expo-google-fonts/newsreader/600SemiBold';
-import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
-import { useFonts } from 'expo-font';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import {
+  BarcodeScanningResult,
+  CameraView,
+  useCameraPermissions,
+} from "expo-camera";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   FlatList,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
-} from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import {
   complete_device_link_export,
@@ -30,7 +30,8 @@ import {
   load_history_export,
   load_profile_export,
   update_conversation_export,
-} from '../modules/mesh-messenger';
+} from "../modules/mesh-messenger";
+import { buildChatRows } from "./chat-rows";
 import {
   accountRequest,
   Conversation,
@@ -53,7 +54,9 @@ import {
   profileQrValue,
   utf8,
   vectors,
-} from './codec';
+} from "./codec";
+import { formatInboxTime, groupDigits } from "./format";
+import { historyRefreshDelay } from "./expiry";
 import {
   addGroupMember,
   authorizeDeviceLink,
@@ -70,7 +73,7 @@ import {
   sendFanout,
   sendGroupMessage,
   synchronizeMailbox,
-} from './network';
+} from "./network";
 import {
   disablePushBinding,
   enablePushBinding,
@@ -79,189 +82,219 @@ import {
   listenForPushRegistrationChanges,
   recoverPushBinding,
   type PushStatus,
-} from './push';
-import { databasePath } from './storage';
-import { historyRefreshDelay } from './expiry';
-
-const colors = {
-  background: '#11120F',
-  panel: '#1A1C17',
-  panelRaised: '#24261F',
-  paper: '#F0E7D2',
-  muted: '#AAA38F',
-  amber: '#FFBE45',
-  amberDark: '#5E4318',
-  green: '#8CCF9A',
-  red: '#FF766C',
-  line: '#3A3D32',
-};
+} from "./push";
+import { createQrCollector } from "./qr";
+import { databasePath } from "./storage";
+import { colors, fonts, type, useAppFonts } from "./theme";
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  ChatHeader,
+  Chip,
+  CodeDisplay,
+  AppGlyph,
+  Composer,
+  ConversationRow,
+  DayDivider,
+  EmptyState,
+  FeatureRow,
+  Field,
+  GroupRow,
+  Header,
+  Hero,
+  Icon,
+  IconButton,
+  KeyValue,
+  LargeHeader,
+  MessageBubble,
+  Notice,
+  QrCard,
+  Reticle,
+  Reveal,
+  Row,
+  RowGroup,
+  SearchField,
+  Section,
+  Segmented,
+  TabBar,
+  Tap,
+  Toast,
+  layout,
+} from "./ui";
 
 type Screen =
-  | 'home'
-  | 'account'
-  | 'scanner'
-  | 'chat'
-  | 'devices'
-  | 'link-device'
-  | 'link-authorization'
-  | 'groups'
-  | 'group'
-  | 'group-package';
-type ScanMode = 'contact' | 'link-request' | 'link-authorization' | 'group-key-package';
+  | "home"
+  | "settings"
+  | "notifications"
+  | "new-chat"
+  | "chat-info"
+  | "group-info"
+  | "account"
+  | "scanner"
+  | "chat"
+  | "devices"
+  | "link-device"
+  | "link-authorization"
+  | "groups"
+  | "group"
+  | "group-package";
+type ScanMode =
+  "contact" | "link-request" | "link-authorization" | "group-key-package";
 
 const disappearingOptions = [
-  { label: 'Off', value: 0 },
-  { label: '1 min', value: 60 },
-  { label: '1 hour', value: 3_600 },
-  { label: '1 day', value: 86_400 },
+  { label: "Off", value: 0 },
+  { label: "1 min", value: 60 },
+  { label: "1 hour", value: 3_600 },
+  { label: "1 day", value: 86_400 },
 ];
+
+const tabs = [
+  { key: "home", title: "Chats", icon: "chat" },
+  { key: "groups", title: "Groups", icon: "groups" },
+  { key: "settings", title: "You", icon: "person" },
+] as const;
 
 const friendlyError = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes('peer_keys_changed')) return 'Their security keys changed. Verify before sending.';
-  if (message.includes('message_request_pending')) return 'Accept this message request before replying.';
-  if (message.includes('conversation_blocked')) return 'Unblock this conversation before sending.';
-  if (message.includes('404')) return 'No exact username match was found.';
-  if (message.includes('AbortError')) return 'The server did not respond. Try again when connected.';
-  return message || 'Something went wrong.';
+  if (message.includes("peer_keys_changed"))
+    return "Their security keys changed. Verify before sending.";
+  if (message.includes("message_request_pending"))
+    return "Accept this message request before replying.";
+  if (message.includes("conversation_blocked"))
+    return "Unblock this conversation before sending.";
+  if (message.includes("404")) return "No exact username match was found.";
+  if (message.includes("AbortError"))
+    return "The server did not respond. Try again when connected.";
+  return message || "Something went wrong.";
 };
 
-function PrimaryButton({
-  label,
-  onPress,
-  disabled = false,
-  quiet = false,
-}: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  quiet?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        quiet ? styles.buttonQuiet : styles.buttonPrimary,
-        pressed && !disabled ? styles.pressed : null,
-        disabled ? styles.disabled : null,
-      ]}
-    >
-      <Text style={[styles.buttonText, quiet ? styles.buttonQuietText : null]}>{label}</Text>
-    </Pressable>
-  );
-}
+const groupName = (groupId: Uint8Array): string =>
+  `Group ${hex(groupId).slice(0, 6)}`;
 
-function StatusNotice({ text, error = false }: { text: string; error?: boolean }) {
-  return (
-    <View
-      accessibilityLiveRegion={error ? 'assertive' : 'polite'}
-      style={[styles.notice, error ? styles.noticeError : null]}
-    >
-      <Text style={[styles.noticeText, error ? styles.noticeErrorText : null]}>{text}</Text>
-    </View>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  multiline = false,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  placeholder: string;
-  multiline?: boolean;
-}) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        autoCapitalize="none"
-        autoCorrect={false}
-        multiline={multiline}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#777365"
-        style={[styles.input, multiline ? styles.inputMultiline : null]}
-        value={value}
-      />
-    </View>
-  );
-}
+const pushSummary = (pushStatus: PushStatus): string =>
+  pushStatus === "enabled"
+    ? "Private alerts enabled"
+    : pushStatus === "disabled"
+      ? "No-push mode"
+      : "Update pending";
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
-    Newsreader_400Regular,
-    Newsreader_600SemiBold,
-    IBMPlexMono_400Regular,
-  });
+  const fontsReady = useAppFonts();
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [requestsOnly, setRequestsOnly] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [qrCollector] = useState(createQrCollector);
   const [profile, setProfile] = useState<Uint8Array | null>(null);
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreen] = useState<Screen>("home");
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [previews, setPreviews] = useState<Record<string, HistoryMessage>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryMessage[]>([]);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<Uint8Array | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<Uint8Array | null>(
+    null,
+  );
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
   const [groupHistory, setGroupHistory] = useState<GroupHistoryMessage[]>([]);
-  const [groupComposer, setGroupComposer] = useState('');
-  const [groupUsername, setGroupUsername] = useState('');
-  const [groupKeyPackage, setGroupKeyPackage] = useState<Uint8Array | null>(null);
-  const [scannedGroupPackage, setScannedGroupPackage] = useState<Uint8Array | null>(null);
-  const [username, setUsername] = useState('');
-  const [contactUsername, setContactUsername] = useState('');
-  const [firstMessage, setFirstMessage] = useState('');
-  const [composer, setComposer] = useState('');
+  const [groupComposer, setGroupComposer] = useState("");
+  const [groupUsername, setGroupUsername] = useState("");
+  const [groupKeyPackage, setGroupKeyPackage] = useState<Uint8Array | null>(
+    null,
+  );
+  const [scannedGroupPackage, setScannedGroupPackage] =
+    useState<Uint8Array | null>(null);
+  const [username, setUsername] = useState("");
+  const [contactUsername, setContactUsername] = useState("");
+  const [firstMessage, setFirstMessage] = useState("");
+  const [composer, setComposer] = useState("");
   const [scannedProfile, setScannedProfile] = useState<Uint8Array | null>(null);
-  const [scanMode, setScanMode] = useState<ScanMode>('contact');
-  const [scannedLinkRequest, setScannedLinkRequest] = useState<Uint8Array | null>(null);
+  const [scanMode, setScanMode] = useState<ScanMode>("contact");
+  const [scannedLinkRequest, setScannedLinkRequest] =
+    useState<Uint8Array | null>(null);
   const [linkRequest, setLinkRequest] = useState<Uint8Array | null>(null);
-  const [linkAuthorization, setLinkAuthorization] = useState<Uint8Array | null>(null);
-  const [linkSas, setLinkSas] = useState('');
+  const [linkAuthorization, setLinkAuthorization] = useState<Uint8Array | null>(
+    null,
+  );
+  const [linkSas, setLinkSas] = useState("");
   const [deviceSet, setDeviceSet] = useState<Uint8Array | null>(null);
   const [devices, setDevices] = useState<DeviceSetSummary | null>(null);
   const [busy, setBusy] = useState(true);
-  const [status, setStatus] = useState('Opening encrypted storage…');
-  const [error, setError] = useState('');
-  const [pushStatus, setPushStatus] = useState<PushStatus>('disabled');
+  const [status, setStatus] = useState("Opening encrypted storage…");
+  const [error, setError] = useState("");
+  const [pushStatus, setPushStatus] = useState<PushStatus>("disabled");
   const [pushBusy, setPushBusy] = useState(false);
-  const [pushError, setPushError] = useState('');
+  const [pushError, setPushError] = useState("");
 
-  const selected = conversations.find((conversation) => conversation.conversationId.join('.') === selectedId);
+  const selected = conversations.find(
+    (conversation) => conversation.conversationId.join(".") === selectedId,
+  );
   const selectedGroup = groups.find(
     (group) => selectedGroupId && hex(group.groupId) === hex(selectedGroupId),
   );
+
+  function rememberPreview(
+    conversation: Conversation,
+    messages: HistoryMessage[],
+  ): void {
+    const last = messages.at(-1);
+    const key = hex(conversation.conversationId);
+    setPreviews((previous) => {
+      if (!last) {
+        if (!(key in previous)) return previous;
+        const { [key]: _removed, ...rest } = previous;
+        return rest;
+      }
+      return { ...previous, [key]: last };
+    });
+  }
+
+  async function refreshPreviews(list: Conversation[]): Promise<void> {
+    await Promise.all(
+      list.map(async (conversation) => {
+        try {
+          const encoded = await load_history_export(
+            peerRequest(databasePath, conversation.peerAccountId),
+          );
+          rememberPreview(conversation, parseHistory(encoded));
+        } catch {
+          // A conversation without readable history simply shows no preview.
+        }
+      }),
+    );
+  }
 
   async function refreshConversations(): Promise<Conversation[]> {
     const encoded = await list_conversations_export(utf8(databasePath));
     const next = parseConversations(encoded);
     setConversations(next);
+    void refreshPreviews(next);
     return next;
   }
 
   async function refreshHistory(conversation: Conversation): Promise<void> {
-    const encoded = await load_history_export(peerRequest(databasePath, conversation.peerAccountId));
-    setHistory(parseHistory(encoded));
+    const encoded = await load_history_export(
+      peerRequest(databasePath, conversation.peerAccountId),
+    );
+    const messages = parseHistory(encoded);
+    setHistory(messages);
+    rememberPreview(conversation, messages);
   }
 
   useEffect(() => {
-    if (screen !== 'chat' || !selected) return;
+    if (screen !== "chat" || !selected) return;
     const delay = historyRefreshDelay(history, Date.now());
     if (delay === undefined) return;
     let cancelled = false;
     const timer = setTimeout(() => {
       void load_history_export(peerRequest(databasePath, selected.peerAccountId))
         .then((encoded) => {
-          if (!cancelled) setHistory(parseHistory(encoded));
+          if (cancelled) return;
+          const messages = parseHistory(encoded);
+          setHistory(messages);
+          rememberPreview(selected, messages);
         })
         .catch((caught) => {
           if (!cancelled) setError(friendlyError(caught));
@@ -288,7 +321,9 @@ export default function App() {
     setGroupHistory(nextHistory);
   }
 
-  async function refreshDevices(currentProfile: Uint8Array): Promise<DeviceSetSummary> {
+  async function refreshDevices(
+    currentProfile: Uint8Array,
+  ): Promise<DeviceSetSummary> {
     const loaded = await loadAccountDevices(databasePath, currentProfile);
     setDeviceSet(loaded.wire);
     setDevices(loaded.summary);
@@ -297,32 +332,34 @@ export default function App() {
 
   async function synchronize(): Promise<void> {
     if (!profile) return;
-    setError('');
-    setStatus('Checking the encrypted mailbox…');
+    setError("");
+    setStatus("Checking the encrypted mailbox…");
     try {
       await registerDirectory(databasePath);
       await synchronizeMailbox(databasePath);
       const currentDevices = await refreshDevices(profile);
       const next = await refreshConversations();
       await refreshGroups();
-      const active = next.find((conversation) => conversation.conversationId.join('.') === selectedId);
+      const active = next.find(
+        (conversation) => conversation.conversationId.join(".") === selectedId,
+      );
       if (active) await refreshHistory(active);
       if (selectedGroupId) await refreshGroup(selectedGroupId);
       if (currentDevices.changed) {
-        setError('Your account device set changed. Review linked devices.');
-        setStatus('Mailbox is current · device change detected');
+        setError("Your account device set changed. Review linked devices.");
+        setStatus("Mailbox is current · device change detected");
       } else {
-        setStatus('Mailbox is current');
+        setStatus("Mailbox is current");
       }
     } catch (caught) {
       setError(friendlyError(caught));
-      setStatus('Offline — messages stay queued on the server');
+      setStatus("Offline — messages stay queued on the server");
     }
   }
 
   async function updatePush(work: () => Promise<PushStatus>): Promise<void> {
     setPushBusy(true);
-    setPushError('');
+    setPushError("");
     try {
       setPushStatus(await work());
     } catch (caught) {
@@ -349,11 +386,14 @@ export default function App() {
         if (cancelled) return;
         setProfile(loaded);
         await Promise.all([refreshConversations(), refreshGroups()]);
-        setStatus('Encrypted identity unlocked');
+        setStatus("Encrypted identity unlocked");
       } catch {
-        if (!cancelled) setStatus('Choose a username to create this device');
+        if (!cancelled) setStatus("Choose a username to create this device");
       } finally {
-        if (!cancelled) setBusy(false);
+        if (!cancelled) {
+          setBusy(false);
+          setInitialLoading(false);
+        }
       }
     })();
     return () => {
@@ -363,9 +403,11 @@ export default function App() {
 
   useEffect(() => {
     if (!profile) return undefined;
-    const removePushListeners = listenForGenericWakeups(() => void synchronize());
-    const appState = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void synchronize();
+    const removePushListeners = listenForGenericWakeups(
+      () => void synchronize(),
+    );
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") void synchronize();
     });
     void synchronize();
     return () => {
@@ -376,9 +418,10 @@ export default function App() {
 
   useEffect(() => {
     if (!profile) return undefined;
-    const removeRegistrationListener = listenForPushRegistrationChanges(recoverPush);
-    const appState = AppState.addEventListener('change', (state) => {
-      if (state === 'active') recoverPush();
+    const removeRegistrationListener =
+      listenForPushRegistrationChanges(recoverPush);
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") recoverPush();
     });
     recoverPush();
     return () => {
@@ -387,13 +430,17 @@ export default function App() {
     };
   }, [profile]);
 
-  async function perform(label: string, work: () => Promise<void>): Promise<void> {
+  async function perform(
+    label: string,
+    work: () => Promise<void>,
+  ): Promise<void> {
     setBusy(true);
-    setError('');
+    setError("");
     setStatus(label);
     try {
       await work();
     } catch (caught) {
+      qrCollector.reset();
       setError(friendlyError(caught));
     } finally {
       setBusy(false);
@@ -401,117 +448,159 @@ export default function App() {
   }
 
   function openConversation(conversation: Conversation): void {
-    setSelectedId(conversation.conversationId.join('.'));
-    setScreen('chat');
-    void perform('Opening encrypted history…', async () => {
+    setSelectedId(conversation.conversationId.join("."));
+    setScreen("chat");
+    void perform("Opening encrypted history…", async () => {
       await refreshHistory(conversation);
-      setStatus('Messages decrypted on this device');
+      setStatus("Messages decrypted on this device");
     });
   }
 
   function createAccount(): void {
     const normalized = username.trim().toLowerCase();
     if (!/^[a-z0-9_]{3,32}$/.test(normalized)) {
-      setError('Use 3–32 lowercase letters, numbers, or underscores.');
+      setError("Use 3–32 lowercase letters, numbers, or underscores.");
       return;
     }
-    void perform('Generating device keys…', async () => {
-      const created = await create_account_export(accountRequest(databasePath, normalized));
+    void perform("Generating device keys…", async () => {
+      const created = await create_account_export(
+        accountRequest(databasePath, normalized),
+      );
       setProfile(created);
       await registerDirectory(databasePath);
       await refreshDevices(created);
-      setUsername('');
-      setStatus('Identity created and public keys registered');
+      setUsername("");
+      setStatus("Identity created and public keys registered");
     });
   }
 
   function startWithProfile(contact: Uint8Array, body: string): void {
     if (!body.trim()) {
-      setError('Write a first message.');
+      setError("Write a first message.");
       return;
     }
-    void perform('Sealing the first message…', async () => {
+    void perform("Sealing the first message…", async () => {
       const peer = parseProfileSummary(contact);
-      const changed = await sendFanout(databasePath, peer.username, body.trim(), peer.accountId);
+      const changed = await sendFanout(
+        databasePath,
+        peer.username,
+        body.trim(),
+        peer.accountId,
+      );
       await refreshConversations();
-      setFirstMessage('');
+      setFirstMessage("");
       setScannedProfile(null);
-      setStatus(changed ? 'Encrypted message queued · device change detected' : 'Encrypted message queued');
-      if (changed) setError('Their signed device set changed. Review linked devices and verify again.');
-      setScreen('home');
+      setStatus(
+        changed
+          ? "Encrypted message queued · device change detected"
+          : "Encrypted message queued",
+      );
+      if (changed)
+        setError(
+          "Their signed device set changed. Review linked devices and verify again.",
+        );
+      setScreen("home");
     });
   }
 
   function startByUsername(): void {
     const target = contactUsername.trim().toLowerCase();
-    void perform('Resolving exact username…', async () => {
-      const changed = await sendFanout(databasePath, target, firstMessage.trim());
+    void perform("Resolving exact username…", async () => {
+      const changed = await sendFanout(
+        databasePath,
+        target,
+        firstMessage.trim(),
+      );
       await refreshConversations();
-      setContactUsername('');
-      setFirstMessage('');
-      setStatus(changed ? 'Encrypted message queued · device change detected' : 'Encrypted message queued');
-      if (changed) setError('Their signed device set changed. Review linked devices and verify again.');
+      Keyboard.dismiss();
+      setContactUsername("");
+      setFirstMessage("");
+      setScreen("home");
+      setStatus(
+        changed
+          ? "Encrypted message queued · device change detected"
+          : "Encrypted message queued",
+      );
+      if (changed)
+        setError(
+          "Their signed device set changed. Review linked devices and verify again.",
+        );
     });
   }
 
   function sendMessage(): void {
     if (!selected || !composer.trim()) return;
-    void perform('Encrypting message…', async () => {
-      const changed = await sendFanout(databasePath, selected.username, composer.trim(), selected.peerAccountId);
-      setComposer('');
+    void perform("Encrypting message…", async () => {
+      const changed = await sendFanout(
+        databasePath,
+        selected.username,
+        composer.trim(),
+        selected.peerAccountId,
+      );
+      setComposer("");
       await refreshHistory(selected);
-      setStatus(changed ? 'Encrypted message queued · device change detected' : 'Encrypted message queued');
-      if (changed) setError('Their signed device set changed. Review linked devices and verify again.');
+      setStatus(
+        changed
+          ? "Encrypted message queued · device change detected"
+          : "Encrypted message queued",
+      );
+      if (changed)
+        setError(
+          "Their signed device set changed. Review linked devices and verify again.",
+        );
     });
   }
 
   function updatePolicy(action: number, value = 0): void {
     if (!selected) return;
-    void perform('Updating local conversation policy…', async () => {
+    void perform("Updating local conversation policy…", async () => {
       await update_conversation_export(
         policyRequest(databasePath, selected.peerAccountId, action, value),
       );
       const next = await refreshConversations();
-      const active = next.find((conversation) => conversation.conversationId.join('.') === selectedId);
+      const active = next.find(
+        (conversation) => conversation.conversationId.join(".") === selectedId,
+      );
       if (active) await refreshHistory(active);
-      setStatus('Conversation policy updated on this device');
+      setStatus("Conversation policy updated on this device");
     });
   }
 
   function openScanner(mode: ScanMode): void {
+    qrCollector.reset();
     setScanMode(mode);
     setScannedProfile(null);
     setScannedLinkRequest(null);
     setScannedGroupPackage(null);
-    setError('');
-    setScreen('scanner');
+    setError("");
+    setScreen("scanner");
   }
 
   function beginDeviceLink(): void {
-    void perform('Preparing a one-time link request…', async () => {
+    void perform("Preparing a one-time link request…", async () => {
       const request = await create_link_request_export(utf8(databasePath));
       const sas = decodeUtf8(await device_link_sas_export(request));
       setLinkRequest(request);
       setLinkSas(sas);
-      setScreen('link-device');
-      setStatus('Link request expires in ten minutes');
+      setScreen("link-device");
+      setStatus("Link request expires in ten minutes");
     });
   }
 
   function openDevices(): void {
     if (!profile) return;
-    void perform('Loading signed device set…', async () => {
+    void perform("Loading signed device set…", async () => {
       await refreshDevices(profile);
-      setScreen('devices');
-      setStatus('Device set verified and cached');
+      setScreen("devices");
+      setStatus("Device set verified and cached");
     });
   }
 
   function openGroups(): void {
-    void perform('Loading encrypted groups…', async () => {
+    void perform("Loading encrypted groups…", async () => {
       await refreshGroups();
-      setScreen('groups');
-      setStatus('Group state decrypted on this device');
+      setScreen("groups");
+      setStatus("Group state decrypted on this device");
     });
   }
 
@@ -519,64 +608,75 @@ export default function App() {
     setSelectedGroupId(group.groupId);
     setGroupDetails(null);
     setGroupHistory([]);
-    setScreen('group');
-    void perform('Opening encrypted group history…', async () => {
+    setScreen("group");
+    void perform("Opening encrypted group history…", async () => {
       await refreshGroup(group.groupId);
-      setStatus('Group history decrypted on this device');
+      setStatus("Group history decrypted on this device");
     });
   }
 
   function createNewGroup(): void {
-    void perform('Creating a private group…', async () => {
+    void perform("Creating a private group…", async () => {
       const groupId = await createGroup(databasePath);
       setSelectedGroupId(groupId);
       setGroupDetails(null);
       setGroupHistory([]);
       await Promise.all([refreshGroups(), refreshGroup(groupId)]);
-      setScreen('group');
-      setStatus('Private group created on this device');
+      setScreen("group");
+      setStatus("Private group created on this device");
     });
   }
 
   function showGroupKeyPackage(): void {
-    void perform('Preparing this device’s signed group package…', async () => {
+    void perform("Preparing this device’s signed group package…", async () => {
       setGroupKeyPackage(await getGroupKeyPackage(databasePath));
-      setScreen('group-package');
-      setStatus('One-device group package ready');
+      setScreen("group-package");
+      setStatus("One-device group package ready");
     });
   }
 
   function scanGroupKeyPackage(): void {
     const target = groupUsername.trim().toLowerCase();
     if (!/^[a-z0-9._-]{1,64}$/.test(target)) {
-      setError('Enter the exact lowercase username before scanning their device.');
+      setError(
+        "Enter the exact lowercase username before scanning their device.",
+      );
       return;
     }
-    openScanner('group-key-package');
+    openScanner("group-key-package");
   }
 
   function sendGroupText(): void {
     if (!selectedGroupId || !groupComposer.trim()) return;
-    void perform('Encrypting for every group device…', async () => {
-      await sendGroupMessage(databasePath, selectedGroupId, groupComposer.trim());
-      setGroupComposer('');
+    void perform("Encrypting for every group device…", async () => {
+      await sendGroupMessage(
+        databasePath,
+        selectedGroupId,
+        groupComposer.trim(),
+      );
+      setGroupComposer("");
       await Promise.all([refreshGroups(), refreshGroup(selectedGroupId)]);
-      setStatus('Encrypted group message queued');
+      setStatus("Encrypted group message queued");
     });
   }
 
   function removeFromGroup(accountId: Uint8Array, deviceId: Uint8Array): void {
     if (!selectedGroupId) return;
-    void perform('Removing this device from the group…', async () => {
-      await removeGroupMember(databasePath, selectedGroupId, accountId, deviceId);
+    void perform("Removing this device from the group…", async () => {
+      await removeGroupMember(
+        databasePath,
+        selectedGroupId,
+        accountId,
+        deviceId,
+      );
       await Promise.all([refreshGroups(), refreshGroup(selectedGroupId)]);
-      setStatus('Device removed from the group');
+      setStatus("Device removed from the group");
     });
   }
 
   function authorizeScannedDevice(): void {
     if (!profile || !scannedLinkRequest) return;
-    void perform('Authorizing this exact device set change…', async () => {
+    void perform("Authorizing this exact device set change…", async () => {
       const loaded = await loadAccountDevices(databasePath, profile);
       const authorization = await authorizeDeviceLink(
         databasePath,
@@ -584,40 +684,69 @@ export default function App() {
         scannedLinkRequest,
       );
       setLinkAuthorization(authorization);
-      setScreen('link-authorization');
-      setStatus('Authorization signed by your account key');
+      setScreen("link-authorization");
+      setStatus("Authorization signed by your account key");
     });
+  }
+
+  function confirmRevoke(deviceId: Uint8Array): void {
+    Alert.alert(
+      "Remove this device?",
+      "It will permanently lose access to your account and future messages.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Revoke device",
+          style: "destructive",
+          onPress: () => revokeLinkedDevice(deviceId),
+        },
+      ],
+    );
   }
 
   function revokeLinkedDevice(deviceId: Uint8Array): void {
     if (!profile || !deviceSet) return;
-    void perform('Revoking device and disabling its mailbox…', async () => {
+    void perform("Revoking device and disabling its mailbox…", async () => {
       await revokeDevice(databasePath, deviceSet, deviceId);
       await refreshDevices(profile);
-      setStatus('Device permanently revoked');
+      setStatus("Device permanently revoked");
     });
   }
 
   function onQrScanned(result: BarcodeScanningResult): void {
     if (scannedProfile || scannedLinkRequest || scannedGroupPackage) return;
-    if (scanMode === 'contact') {
+    let data: string;
+    try {
+      const assembled = qrCollector.scan(result.data);
+      if (assembled === null) return;
+      data = assembled;
+    } catch (caught) {
+      qrCollector.reset();
+      setError(friendlyError(caught));
+      return;
+    }
+    if (scanMode === "contact") {
       try {
-        setScannedProfile(profileFromQr(result.data));
-        setError('');
+        const contact = profileFromQr(data);
+        parseProfileSummary(contact);
+        setScannedProfile(contact);
+        setError("");
       } catch (caught) {
+        qrCollector.reset();
         setError(friendlyError(caught));
       }
-    } else if (scanMode === 'link-request') {
-      void perform('Validating link request…', async () => {
-        const request = linkRequestFromQr(result.data);
+    } else if (scanMode === "link-request") {
+      void perform("Validating link request…", async () => {
+        const request = linkRequestFromQr(data);
+        const sas = decodeUtf8(await device_link_sas_export(request));
         setScannedLinkRequest(request);
-        setLinkSas(decodeUtf8(await device_link_sas_export(request)));
-        setStatus('Compare this code on both devices');
+        setLinkSas(sas);
+        setStatus("Compare this code on both devices");
       });
-    } else if (scanMode === 'link-authorization') {
-      setScreen('link-device');
-      void perform('Verifying account authorization…', async () => {
-        const authorization = payloadFromQr(result.data, 'link-authorization', 20_864);
+    } else if (scanMode === "link-authorization") {
+      setScreen("link-device");
+      void perform("Verifying account authorization…", async () => {
+        const authorization = payloadFromQr(data, "link-authorization", 20_864);
         const linkedProfile = await complete_device_link_export(
           vectors(utf8(databasePath), authorization),
         );
@@ -625,942 +754,1239 @@ export default function App() {
         await registerDirectory(databasePath);
         await refreshDevices(linkedProfile);
         setLinkRequest(null);
-        setLinkSas('');
-        setScreen('home');
-        setStatus('Linked device active and registered');
+        setLinkSas("");
+        setScreen("home");
+        setStatus("Linked device active and registered");
       });
     } else {
       const groupId = selectedGroupId;
       const target = groupUsername.trim().toLowerCase();
       if (!groupId || !target) {
-        setError('Choose a group and enter the exact username before scanning.');
+        setError(
+          "Choose a group and enter the exact username before scanning.",
+        );
         return;
       }
-      void perform('Verifying this device and adding it to the group…', async () => {
-        const keyPackage = payloadFromQr(
-          result.data,
-          'group-key-package',
-          GROUP_KEY_PACKAGE_LENGTH,
-        );
-        setScannedGroupPackage(keyPackage);
-        try {
-          await addGroupMember(databasePath, groupId, target, keyPackage);
-          await Promise.all([refreshGroups(), refreshGroup(groupId)]);
-          setGroupUsername('');
-          setScreen('group');
-          setStatus('Verified device added and group update queued');
-        } finally {
-          setScannedGroupPackage(null);
-        }
-      });
+      void perform(
+        "Verifying this device and adding it to the group…",
+        async () => {
+          const keyPackage = payloadFromQr(
+            data,
+            "group-key-package",
+            GROUP_KEY_PACKAGE_LENGTH,
+          );
+          setScannedGroupPackage(keyPackage);
+          try {
+            await addGroupMember(databasePath, groupId, target, keyPackage);
+            await Promise.all([refreshGroups(), refreshGroup(groupId)]);
+            setGroupUsername("");
+            setScreen("group");
+            setStatus("Verified device added and group update queued");
+          } finally {
+            qrCollector.reset();
+            setScannedGroupPackage(null);
+          }
+        },
+      );
     }
   }
 
-  if (!fontsLoaded || busy) {
+  const ownUsername = profile ? parseProfileSummary(profile).username : "";
+  const mainScreen = profile && ["home", "groups", "settings"].includes(screen);
+  const pendingCount = conversations.filter((item) => item.requestPending).length;
+  const previewOf = (conversation: Conversation) =>
+    previews[hex(conversation.conversationId)];
+  const filteredConversations = conversations
+    .filter(
+      (item) =>
+        item.username.includes(search.trim().toLowerCase()) &&
+        (!requestsOnly || item.requestPending),
+    )
+    .sort(
+      (a, b) =>
+        (previewOf(b)?.timestamp ?? 0) - (previewOf(a)?.timestamp ?? 0),
+    );
+  const go = (next: Screen) => {
+    Keyboard.dismiss();
+    setError("");
+    setScreen(next);
+  };
+  const backToScannerOrigin = () =>
+    go(
+      scanMode === "link-request"
+        ? "devices"
+        : scanMode === "link-authorization"
+          ? "link-device"
+          : scanMode === "group-key-package"
+            ? "group-info"
+            : "new-chat",
+    );
+
+  function previewText(conversation: Conversation): string {
+    if (conversation.blocked) return "Blocked";
+    const last = previewOf(conversation);
+    if (last) return last.direction === "sent" ? `You: ${last.body}` : last.body;
+    if (conversation.requestPending) return "Wants to start a conversation";
+    return "Encrypted conversation";
+  }
+
+  function conversationStatus(conversation: Conversation) {
+    if (conversation.blocked)
+      return { text: "Blocked", icon: "block", color: colors.text3 } as const;
+    if (conversation.requestPending)
+      return { text: "Message request", icon: "info", color: colors.accent } as const;
+    if (conversation.keyChanged)
+      return {
+        text: "Safety number changed",
+        icon: "warning",
+        color: colors.warning,
+      } as const;
+    if (conversation.verified)
+      return { text: "Verified · End-to-end encrypted", icon: "shield", color: colors.success } as const;
+    return { text: "End-to-end encrypted", icon: "lock", color: colors.text2 } as const;
+  }
+
+  function renderOnboarding() {
     return (
-      <SafeAreaProvider>
-        <SafeAreaView style={styles.loading}>
-          <ActivityIndicator color={colors.amber} size="large" />
-          <Text accessibilityLiveRegion="polite" style={styles.loadingText}>
-            {status}
+      <ScrollView
+        contentContainerStyle={styles.onboarding}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Reveal>
+          <AppGlyph size={56} />
+        </Reveal>
+        <Reveal delay={60} style={styles.heroBlock}>
+          <Text accessibilityRole="header" style={type.largeTitle}>
+            Private messaging,{"\n"}made simple.
           </Text>
-        </SafeAreaView>
-      </SafeAreaProvider>
+          <Text style={type.body}>
+            Pick a username and start talking. No phone number, no contact
+            upload. Your private keys stay protected on your devices.
+          </Text>
+        </Reveal>
+        <Reveal delay={120} style={styles.features}>
+          <FeatureRow
+            icon="lock"
+            title="End-to-end encrypted"
+            body="Only you and the people you write to can read your messages."
+          />
+          <FeatureRow
+            icon="person"
+            title="Just a username"
+            body="Share your username without sharing your phone number."
+          />
+          <FeatureRow
+            icon="shield"
+            title="Verify your contacts"
+            body="Compare safety numbers to rule out anyone in the middle."
+          />
+        </Reveal>
+        <View style={layout.flex} />
+        <Reveal delay={180} style={layout.stackLoose}>
+          <Field
+            label="Choose your username"
+            value={username}
+            onChangeText={setUsername}
+            placeholder="your_name"
+            prefix="@"
+            hint="3–32 lowercase letters, numbers, or underscores."
+          />
+          <View style={layout.stack}>
+            <Button label="Create account" onPress={createAccount} />
+            <Button
+              label="Link an existing account"
+              onPress={beginDeviceLink}
+              variant="ghost"
+            />
+          </View>
+        </Reveal>
+      </ScrollView>
     );
   }
 
-  const onboarding = !profile;
+  function renderLinkDevice(request: Uint8Array) {
+    return (
+      <>
+        <Header
+          title="Link this device"
+          onBack={() => go("home")}
+          backLabel="Cancel"
+        />
+        <ScrollView contentContainerStyle={layout.content}>
+          <View style={layout.stack}>
+            <Text style={type.title}>Bring your account along.</Text>
+            <Text style={type.body}>
+              On your trusted device, open You → Linked devices and scan this
+              code.
+            </Text>
+          </View>
+          <QrCard value={payloadQrValue("link-request", request)} />
+          <View style={layout.center}>
+            <Text style={type.sectionTitle}>Match this code on both devices</Text>
+            <CodeDisplay value={linkSas} />
+            <Text style={[type.caption, layout.centerText]}>
+              The request expires in 10 minutes.
+            </Text>
+          </View>
+          <Button
+            label="Scan signed authorization"
+            icon="scan"
+            onPress={() => openScanner("link-authorization")}
+          />
+        </ScrollView>
+      </>
+    );
+  }
 
+  function renderScanner() {
+    return (
+      <>
+        <Header
+          title="Scan a code"
+          onBack={backToScannerOrigin}
+          backLabel="Cancel scan"
+        />
+        {scannedProfile ? (
+          <ScrollView
+            contentContainerStyle={layout.content}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Hero
+              name={parseProfileSummary(scannedProfile).username}
+              title={`@${parseProfileSummary(scannedProfile).username}`}
+              badge={<Badge label="Contact code captured" icon="check" />}
+            />
+            <Notice text="Compare safety numbers together after connecting." />
+            <Field
+              label="First message"
+              multiline
+              value={firstMessage}
+              onChangeText={setFirstMessage}
+              placeholder="Say hello…"
+            />
+            <View style={layout.stack}>
+              <Button
+                label="Send message request"
+                disabled={!firstMessage.trim()}
+                onPress={() => startWithProfile(scannedProfile, firstMessage)}
+              />
+              <Button
+                label="Scan again"
+                onPress={() => openScanner("contact")}
+                variant="ghost"
+              />
+            </View>
+          </ScrollView>
+        ) : scannedLinkRequest ? (
+          <ScrollView contentContainerStyle={layout.content}>
+            <View style={layout.stack}>
+              <Text style={type.title}>Do these codes match?</Text>
+              <Text style={type.body}>
+                Check the code shown on the new device before giving it access
+                to your account.
+              </Text>
+            </View>
+            <Card tone="accent" style={layout.center}>
+              <CodeDisplay value={linkSas} />
+            </Card>
+            <View style={layout.stack}>
+              <Button
+                label="Authorize this device"
+                icon="check"
+                onPress={authorizeScannedDevice}
+              />
+              <Button
+                label="Reject and scan again"
+                onPress={() => openScanner("link-request")}
+                variant="ghost"
+              />
+            </View>
+          </ScrollView>
+        ) : !cameraPermission?.granted ? (
+          <EmptyState
+            icon="camera"
+            title="Camera access"
+            body="Scan contact and device codes. Camera frames never leave your device."
+            action={
+              <Button
+                label="Allow camera"
+                onPress={() => void requestCameraPermission()}
+              />
+            }
+          />
+        ) : (
+          <View style={styles.camera}>
+            <CameraView
+              barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+              onBarcodeScanned={onQrScanned}
+              style={StyleSheet.absoluteFill}
+            />
+            <Reticle hint="Hold the code inside the frame" />
+          </View>
+        )}
+      </>
+    );
+  }
+
+  function renderNewChat() {
+    return (
+      <>
+        <Header title="New message" onBack={() => go("home")} />
+        <View style={styles.recipient}>
+          <Text style={styles.recipientLabel}>To</Text>
+          <View style={styles.recipientShell}>
+            <Text style={styles.recipientPrefix}>@</Text>
+            <TextInput
+              accessibilityLabel="Username"
+              testID="Username"
+              value={contactUsername}
+              onChangeText={setContactUsername}
+              placeholder="exact username"
+              placeholderTextColor={colors.text3}
+              selectionColor={colors.accent}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              style={styles.recipientInput}
+            />
+          </View>
+          <IconButton
+            name="scan"
+            label="Scan contact code"
+            variant="tonal"
+            onPress={() => openScanner("contact")}
+          />
+        </View>
+        <View style={layout.flex}>
+          <EmptyState
+            icon="lock"
+            title="A private conversation."
+            body="Your first message arrives as a request. Only they can choose to accept it."
+          />
+        </View>
+        <Composer
+          label="First message"
+          sendLabel="Send message request"
+          value={firstMessage}
+          onChangeText={setFirstMessage}
+          onSend={startByUsername}
+          sendDisabled={!contactUsername.trim()}
+          placeholder="Write a message…"
+        />
+      </>
+    );
+  }
+
+  function renderAccount(currentProfile: Uint8Array) {
+    return (
+      <>
+        <Header title="My QR code" onBack={() => go("settings")} />
+        <ScrollView contentContainerStyle={layout.content}>
+          <Hero
+            name={ownUsername}
+            title={`@${ownUsername}`}
+            subtitle="Have a friend scan this to connect."
+          />
+          <QrCard
+            value={profileQrValue(currentProfile)}
+            caption="Only your public contact details are shared"
+          />
+          <Notice text="Keep the whole code in view while it cycles. Verify safety numbers together after connecting." />
+        </ScrollView>
+      </>
+    );
+  }
+
+  function renderSettings() {
+    const activeDevices = devices?.devices.filter((device) => device.active).length;
+    return (
+      <>
+        <LargeHeader title="You" />
+        <ScrollView contentContainerStyle={layout.contentTight}>
+          <Tap
+            label="My QR code"
+            onPress={() => go("account")}
+            style={styles.profileCard}
+            scaleTo={0.985}
+          >
+            <Avatar name={ownUsername} size={64} />
+            <View style={layout.flex}>
+              <Text numberOfLines={1} style={type.title2}>
+                @{ownUsername}
+              </Text>
+              <Text style={type.footnote}>Show my QR code</Text>
+            </View>
+            <View style={styles.profileQr}>
+              <Icon name="qr" size={22} color={colors.onAccent} strokeWidth={2} />
+            </View>
+          </Tap>
+          <Section title="Account">
+            <RowGroup>
+              <Row
+                icon="device"
+                title="Linked devices"
+                subtitle={
+                  activeDevices
+                    ? `${activeDevices} active ${activeDevices === 1 ? "device" : "devices"}`
+                    : "Manage account access"
+                }
+                onPress={openDevices}
+              />
+              <Row
+                icon="bell"
+                title="Notifications"
+                subtitle={pushSummary(pushStatus)}
+                onPress={() => go("notifications")}
+                tone="danger"
+              />
+            </RowGroup>
+          </Section>
+          <Section title="Privacy">
+            <RowGroup>
+              <Row
+                icon="lock"
+                title="Everything stays on this device"
+                subtitle="Keys and message history are encrypted locally. Alerts never include a sender or a preview."
+                tone="success"
+              />
+            </RowGroup>
+          </Section>
+        </ScrollView>
+      </>
+    );
+  }
+
+  function renderNotifications() {
+    const enabled = pushStatus === "enabled" || pushStatus === "pending-bind";
+    return (
+      <>
+        <Header title="Notifications" onBack={() => go("settings")} />
+        <ScrollView contentContainerStyle={layout.content}>
+          <Card style={layout.center}>
+            <View style={styles.bigIcon}>
+              <Icon name="bell" size={28} color={colors.accent} />
+            </View>
+            <Text style={[type.title2, layout.centerText]}>
+              {pushStatus === "enabled"
+                ? "Private alerts are on"
+                : pushStatus === "pending-bind"
+                  ? "Enabling notifications…"
+                  : pushStatus === "pending-unbind"
+                    ? "Disabling notifications…"
+                    : "No-push mode"}
+            </Text>
+            <Text style={[type.body, layout.centerText]}>
+              {enabled
+                ? "Alerts only say that there is encrypted activity. Open Whatsdown to read your messages."
+                : "This device isn’t registered for notifications. Open the app to check for new messages."}
+            </Text>
+          </Card>
+          <Button
+            disabled={pushBusy}
+            variant={enabled ? "secondary" : "primary"}
+            label={
+              enabled
+                ? "Use no-push mode"
+                : pushStatus === "pending-unbind"
+                  ? "Retry notification cleanup"
+                  : "Enable private notifications"
+            }
+            onPress={() =>
+              void updatePush(() =>
+                pushStatus === "pending-unbind"
+                  ? recoverPushBinding(databasePath)
+                  : pushStatus !== "disabled"
+                    ? disablePushBinding(databasePath)
+                    : enablePushBinding(databasePath),
+              )
+            }
+          />
+          {pushStatus === "pending-bind" ? (
+            <Notice text="Enablement will finish when the notification service is reachable." />
+          ) : null}
+          {pushStatus === "pending-unbind" ? (
+            <Notice text="Cleanup will retry until notification registration is fully removed." />
+          ) : null}
+          {pushError ? <Notice tone="error" text={pushError} /> : null}
+          <Text style={[type.caption, layout.centerText]}>
+            Alerts never include a sender or message preview.
+          </Text>
+        </ScrollView>
+      </>
+    );
+  }
+
+  function renderDevices() {
+    return (
+      <>
+        <Header title="Linked devices" onBack={() => go("settings")} />
+        <ScrollView contentContainerStyle={layout.content}>
+          <Text style={type.body}>
+            Only these devices can receive your messages. Remove any device you
+            no longer trust.
+          </Text>
+          {devices?.changed ? (
+            <Notice
+              tone="warning"
+              text="Your device list changed since your last review."
+            />
+          ) : null}
+          {!devices?.canManage ? (
+            <Notice text="Use your original device to link or remove other devices." />
+          ) : null}
+          {devices ? (
+            <RowGroup>
+              {devices.devices.map((device) => (
+                <Row
+                  key={hex(device.deviceId)}
+                  icon="device"
+                  tone={device.active ? (device.current ? "accent" : "muted") : "danger"}
+                  title={
+                    device.current
+                      ? "This device"
+                      : device.active
+                        ? "Linked device"
+                        : "Revoked device"
+                  }
+                  subtitle={hex(device.deviceId).slice(0, 16)}
+                  trailing={
+                    devices.canManage && device.active && !device.current ? (
+                      <Button
+                        label="Revoke"
+                        variant="danger"
+                        size="sm"
+                        onPress={() => confirmRevoke(device.deviceId)}
+                      />
+                    ) : (
+                      <Icon
+                        name={device.active ? "check" : "close"}
+                        color={device.active ? colors.success : colors.text3}
+                        size={18}
+                      />
+                    )
+                  }
+                />
+              ))}
+            </RowGroup>
+          ) : null}
+          {devices?.canManage ? (
+            <Button
+              label="Link another device"
+              icon="scan"
+              onPress={() => openScanner("link-request")}
+            />
+          ) : null}
+          <Text style={type.caption}>
+            Revocation is permanent. A removed device can’t rejoin with its old
+            identity.
+          </Text>
+        </ScrollView>
+      </>
+    );
+  }
+
+  function renderLinkAuthorization(authorization: Uint8Array) {
+    return (
+      <>
+        <Header
+          title="Approve the connection"
+          onBack={() => go("devices")}
+          backLabel="Close"
+        />
+        <ScrollView contentContainerStyle={layout.content}>
+          <View style={layout.stack}>
+            <Text style={type.title}>One last scan.</Text>
+            <Text style={type.body}>
+              Use the new device to scan this authorization. Only continue if
+              the codes match on both screens.
+            </Text>
+          </View>
+          <QrCard value={payloadQrValue("link-authorization", authorization)} />
+          <View style={layout.center}>
+            <Text style={type.sectionTitle}>Both screens should show</Text>
+            <CodeDisplay value={linkSas} />
+          </View>
+        </ScrollView>
+      </>
+    );
+  }
+
+  function renderGroupPackage(keyPackage: Uint8Array) {
+    return (
+      <>
+        <Header title="Join a group" onBack={() => go("groups")} />
+        <ScrollView contentContainerStyle={layout.content}>
+          <View style={layout.stack}>
+            <Text style={type.title}>You’re invited.</Text>
+            <Text style={type.body}>
+              Ask a group member to scan this code from their group details to
+              add this device.
+            </Text>
+          </View>
+          <QrCard value={payloadQrValue("group-key-package", keyPackage)} />
+          <Notice text="This invitation code is for this device only. Share a separate code for each linked device you want to add." />
+        </ScrollView>
+      </>
+    );
+  }
+
+  function renderGroups() {
+    return (
+      <>
+        <LargeHeader
+          title="Groups"
+          actions={
+            <>
+              <Button
+                label="Join a group"
+                variant="secondary"
+                size="sm"
+                icon="qr"
+                onPress={showGroupKeyPackage}
+              />
+              <IconButton
+                name="plus"
+                label="Create group"
+                variant="filled"
+                onPress={createNewGroup}
+              />
+            </>
+          }
+        />
+        <FlatList
+          contentContainerStyle={layout.list}
+          data={groups}
+          keyExtractor={(group) => hex(group.groupId)}
+          ListEmptyComponent={
+            <EmptyState
+              icon="groups"
+              title="No groups yet."
+              body="Create a private group, or show your device code to join one."
+              action={<Button label="Start a group" onPress={createNewGroup} />}
+            />
+          }
+          renderItem={({ item }) => (
+            <GroupRow
+              name={groupName(item.groupId)}
+              label={groupName(item.groupId)}
+              subtitle={`${item.memberCount} ${item.memberCount === 1 ? "device" : "devices"} · Epoch ${item.epoch}`}
+              onPress={() => openGroup(item)}
+            />
+          )}
+        />
+      </>
+    );
+  }
+
+  function renderGroupInfo(groupId: Uint8Array) {
+    return (
+      <>
+        <Header title="Group details" onBack={() => go("group")} />
+        <ScrollView
+          contentContainerStyle={layout.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Hero
+            name={groupName(groupId)}
+            group
+            title={groupName(groupId)}
+            badge={
+              <Badge
+                label={`${selectedGroup?.memberCount ?? "—"} devices · Encrypted`}
+                tone="muted"
+                icon="lock"
+              />
+            }
+          />
+          <Card>
+            <Text style={type.title2}>Invite someone</Text>
+            <Text style={type.body}>
+              Enter their exact username, then scan the code on their device.
+            </Text>
+            <Field
+              label="Exact username"
+              value={groupUsername}
+              onChangeText={setGroupUsername}
+              placeholder="their_name"
+              prefix="@"
+            />
+            <Button
+              label="Scan device package"
+              icon="scan"
+              disabled={!groupUsername.trim()}
+              onPress={scanGroupKeyPackage}
+            />
+          </Card>
+          <Section title={`Members · ${selectedGroup?.memberCount ?? "—"} devices`}>
+            {groupDetails ? (
+              <RowGroup>
+                {groupDetails.members.map((member) => (
+                  <Row
+                    key={`${hex(member.accountId)}-${hex(member.deviceId)}`}
+                    icon="device"
+                    tone={member.local ? "accent" : "muted"}
+                    title={member.local ? "This device" : `Member ${member.leaf + 1}`}
+                    subtitle={`${hex(member.deviceId).slice(0, 16)} · ${member.witnessCount} witnesses`}
+                    trailing={
+                      member.local ? (
+                        <Icon name="check" color={colors.success} size={18} />
+                      ) : (
+                        <Button
+                          label="Remove"
+                          variant="secondary"
+                          size="sm"
+                          onPress={() =>
+                            removeFromGroup(member.accountId, member.deviceId)
+                          }
+                        />
+                      )
+                    }
+                  />
+                ))}
+              </RowGroup>
+            ) : (
+              <Card style={layout.center}>
+                <ActivityIndicator color={colors.accent} />
+              </Card>
+            )}
+          </Section>
+          <Section title="Security">
+            <Card>
+              <KeyValue label="Epoch" value={String(selectedGroup?.epoch ?? "—")} />
+              <KeyValue
+                label="Tree hash"
+                value={groupDetails ? hex(groupDetails.treeHash) : "Loading…"}
+              />
+              <KeyValue
+                label="Checkpoint"
+                value={groupDetails ? hex(groupDetails.checkpointHash) : "Loading…"}
+              />
+            </Card>
+          </Section>
+        </ScrollView>
+      </>
+    );
+  }
+
+  function renderGroup(groupId: Uint8Array) {
+    const rows = buildChatRows(
+      groupHistory,
+      (message, index) =>
+        `${message.epoch}-${hex(message.senderDeviceId)}-${index}`,
+    ).reverse();
+    return (
+      <>
+        <ChatHeader
+          name={groupName(groupId)}
+          group
+          status={`${selectedGroup?.memberCount ?? "—"} devices · Encrypted`}
+          statusIcon="lock"
+          onBack={() => go("groups")}
+          backLabel="Back to groups"
+          onInfo={() => go("group-info")}
+          infoLabel="Group details"
+        />
+        <FlatList
+          inverted
+          data={rows}
+          contentContainerStyle={layout.messages}
+          keyExtractor={(row) => row.key}
+          ListEmptyComponent={
+            <View style={styles.flipped}>
+              <EmptyState
+                icon="lock"
+                title="Nothing here yet."
+                body="Add people from group details, then send your first message."
+              />
+            </View>
+          }
+          renderItem={({ item }) =>
+            item.kind === "day" ? (
+              <DayDivider label={item.label} />
+            ) : (
+              <MessageBubble
+                body={item.message.body}
+                timestamp={item.message.timestamp}
+                sent={item.message.direction === "sent"}
+                tail={item.tail}
+                spaced={item.spaced}
+              />
+            )
+          }
+        />
+        <Composer
+          group
+          value={groupComposer}
+          onChangeText={setGroupComposer}
+          onSend={sendGroupText}
+        />
+      </>
+    );
+  }
+
+  function renderChatInfo(conversation: Conversation) {
+    const digitGroups = groupDigits(conversation.safetyNumber, 5);
+    return (
+      <>
+        <Header title="Conversation details" onBack={() => go("chat")} />
+        <ScrollView contentContainerStyle={layout.content}>
+          <Hero
+            name={conversation.username}
+            title={`@${conversation.username}`}
+            badge={
+              conversation.blocked ? (
+                <Badge label="Blocked" tone="danger" icon="block" />
+              ) : conversation.verified ? (
+                <Badge label="Safety number verified" tone="success" icon="shield" />
+              ) : (
+                <Badge label="End-to-end encrypted" tone="muted" icon="lock" />
+              )
+            }
+          />
+          <Card>
+            <View style={layout.row}>
+              <View style={styles.cardIcon}>
+                <Icon name="shield" size={18} color={colors.white} strokeWidth={2.2} />
+              </View>
+              <Text style={[type.headline, layout.flex]}>Safety number</Text>
+            </View>
+            <Text style={type.body}>
+              {conversation.safetyNumber
+                ? "Compare this number together, in person or through a channel you trust."
+                : "Send a new message to refresh this conversation’s security keys before verifying."}
+            </Text>
+            {digitGroups.length ? (
+              <View style={styles.safetyGrid}>
+                {digitGroups.map((group, index) => (
+                  <Text key={index} selectable style={styles.safetyGroup}>
+                    {group}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+            {conversation.verified ? (
+              <View style={layout.row}>
+                <Icon name="check" size={16} color={colors.success} strokeWidth={2.4} />
+                <Text style={[type.label, { color: colors.success }]}>
+                  Verified on this device
+                </Text>
+              </View>
+            ) : (
+              <Button
+                label={
+                  conversation.safetyNumber
+                    ? "Mark safety number verified"
+                    : "Send a message to refresh security keys"
+                }
+                variant="secondary"
+                icon="check"
+                onPress={() => updatePolicy(4)}
+                disabled={!conversation.safetyNumber}
+              />
+            )}
+          </Card>
+          <Section title="Disappearing messages">
+            <Text style={type.body}>
+              Choose how long messages remain visible on this device.
+            </Text>
+            <View style={layout.wrap}>
+              {disappearingOptions.map((option) => (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  accessibilityLabel={`Disappear: ${option.label}`}
+                  selected={conversation.disappearingSeconds === option.value}
+                  onPress={() => updatePolicy(5, option.value)}
+                />
+              ))}
+            </View>
+          </Section>
+          <Button
+            label={conversation.blocked ? "Unblock contact" : "Block contact"}
+            icon="block"
+            onPress={() => updatePolicy(conversation.blocked ? 3 : 2)}
+            variant="danger"
+          />
+        </ScrollView>
+      </>
+    );
+  }
+
+  function renderChat(conversation: Conversation) {
+    const rows = buildChatRows(history, (message) => hex(message.messageId)).reverse();
+    const chatStatus = conversationStatus(conversation);
+    return (
+      <>
+        <ChatHeader
+          name={conversation.username}
+          status={chatStatus.text}
+          statusIcon={chatStatus.icon}
+          statusColor={chatStatus.color}
+          onBack={() => go("home")}
+          backLabel="Back to chats"
+          onInfo={() => go("chat-info")}
+          infoLabel="Conversation details"
+        />
+        {conversation.requestPending ? (
+          <Card tone="accent" style={styles.banner}>
+            <Text style={type.headline}>Message request</Text>
+            <Text style={type.body}>
+              @{conversation.username} wants to start a conversation. Accept to
+              reply, or block to never hear from them.
+            </Text>
+            <View style={layout.row}>
+              <View style={layout.flex}>
+                <Button label="Accept request" onPress={() => updatePolicy(1)} />
+              </View>
+              <Button
+                label="Block"
+                variant="secondary"
+                onPress={() => updatePolicy(2)}
+              />
+            </View>
+          </Card>
+        ) : null}
+        {conversation.keyChanged ? (
+          <View style={styles.bannerNotice}>
+            <Notice
+              tone="warning"
+              text="Security keys changed. Compare your safety number again before sending."
+            />
+          </View>
+        ) : null}
+        {conversation.blocked ? (
+          <View style={styles.bannerNotice}>
+            <Notice text="This contact is blocked. You can unblock them in conversation details." />
+          </View>
+        ) : null}
+        <FlatList
+          inverted
+          data={rows}
+          contentContainerStyle={layout.messages}
+          keyExtractor={(row) => row.key}
+          ListEmptyComponent={
+            <View style={styles.flipped}>
+              <EmptyState
+                icon="chat"
+                title="Say hello."
+                body="Your messages are encrypted from the first word."
+              />
+            </View>
+          }
+          renderItem={({ item }) =>
+            item.kind === "day" ? (
+              <DayDivider label={item.label} />
+            ) : (
+              <MessageBubble
+                body={item.message.body}
+                timestamp={item.message.timestamp}
+                sent={item.message.direction === "sent"}
+                disappearing={!!item.message.disappearingSeconds}
+                tail={item.tail}
+                spaced={item.spaced}
+              />
+            )
+          }
+        />
+        <Composer
+          value={composer}
+          onChangeText={setComposer}
+          onSend={sendMessage}
+          disabled={conversation.blocked || conversation.requestPending}
+          placeholder={
+            conversation.blocked
+              ? "Contact blocked"
+              : conversation.requestPending
+                ? "Accept the request to reply"
+                : "Message"
+          }
+        />
+      </>
+    );
+  }
+
+  function renderHome() {
+    return (
+      <>
+        <LargeHeader
+          title="Chats"
+          actions={
+            <>
+              <IconButton
+                name="refresh"
+                label="Sync messages"
+                variant="tonal"
+                onPress={() => void synchronize()}
+              />
+              <IconButton
+                name="compose"
+                label="New conversation"
+                variant="filled"
+                onPress={() => go("new-chat")}
+              />
+            </>
+          }
+        />
+        <SearchField
+          label="Search conversations"
+          placeholder="Search"
+          value={search}
+          onChangeText={setSearch}
+        />
+        <Segmented
+          value={requestsOnly ? "requests" : "all"}
+          onChange={(key) => setRequestsOnly(key === "requests")}
+          options={[
+            { key: "all", label: "All" },
+            {
+              key: "requests",
+              label: "Requests",
+              accessibilityLabel: "Message requests",
+              count: pendingCount,
+            },
+          ]}
+        />
+        <FlatList
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={layout.list}
+          data={filteredConversations}
+          keyExtractor={(item) => hex(item.conversationId)}
+          ListEmptyComponent={
+            <EmptyState
+              icon={requestsOnly ? "shield" : "chat"}
+              title={
+                search
+                  ? "No matches."
+                  : requestsOnly
+                    ? "No requests waiting."
+                    : "No conversations yet."
+              }
+              body={
+                search
+                  ? "Try a different username."
+                  : requestsOnly
+                    ? "Messages from new people will wait here until you accept them."
+                    : "Start with a username, or scan a friend’s contact code."
+              }
+              action={
+                !search && !requestsOnly ? (
+                  <>
+                    <Button
+                      label="New message"
+                      icon="compose"
+                      onPress={() => go("new-chat")}
+                    />
+                    <Button
+                      label="Scan a contact code"
+                      variant="ghost"
+                      onPress={() => openScanner("contact")}
+                    />
+                  </>
+                ) : undefined
+              }
+            />
+          }
+          renderItem={({ item }) => {
+            const last = previewOf(item);
+            return (
+              <ConversationRow
+                name={item.username}
+                preview={previewText(item)}
+                time={last ? formatInboxTime(last.timestamp) : ""}
+                requestPending={item.requestPending}
+                blocked={item.blocked}
+                verified={item.verified}
+                keyChanged={item.keyChanged}
+                onPress={() => openConversation(item)}
+              />
+            );
+          }}
+        />
+      </>
+    );
+  }
+
+  function renderScreen() {
+    if (!profile && screen !== "scanner" && screen !== "link-device")
+      return renderOnboarding();
+    if (screen === "link-device" && linkRequest) return renderLinkDevice(linkRequest);
+    if (screen === "scanner") return renderScanner();
+    if (screen === "new-chat") return renderNewChat();
+    if (screen === "account" && profile) return renderAccount(profile);
+    if (screen === "settings") return renderSettings();
+    if (screen === "notifications") return renderNotifications();
+    if (screen === "devices") return renderDevices();
+    if (screen === "link-authorization" && linkAuthorization)
+      return renderLinkAuthorization(linkAuthorization);
+    if (screen === "group-package" && groupKeyPackage)
+      return renderGroupPackage(groupKeyPackage);
+    if (screen === "groups") return renderGroups();
+    if (screen === "group-info" && selectedGroupId) return renderGroupInfo(selectedGroupId);
+    if (screen === "group" && selectedGroupId) return renderGroup(selectedGroupId);
+    if (screen === "chat-info" && selected) return renderChatInfo(selected);
+    if (screen === "chat" && selected) return renderChat(selected);
+    return renderHome();
+  }
+
+  if (!fontsReady) return <View style={layout.screen} />;
+  if (initialLoading)
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <SafeAreaView style={styles.loading}>
+          <Reveal style={layout.center}>
+            <AppGlyph size={76} />
+            <Text style={[type.title2, { marginTop: 8 }]}>Whatsdown</Text>
+          </Reveal>
+          <View style={styles.loadingStatus}>
+            <ActivityIndicator color={colors.accent} />
+            <Text style={type.caption}>{status}</Text>
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView
+        edges={
+          mainScreen
+            ? ["top", "left", "right"]
+            : ["top", "left", "right", "bottom"]
+        }
+        style={layout.screen}
+      >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={layout.flex}
         >
-          {onboarding && screen === 'link-device' && linkRequest ? (
-            <ScrollView contentContainerStyle={styles.screenContent}>
-              <View style={styles.topRow}>
-                <PrimaryButton label="Cancel" onPress={() => setScreen('home')} quiet />
-                <Text style={styles.eyebrow}>LINK THIS DEVICE</Text>
-              </View>
-              <Text accessibilityRole="header" style={styles.title}>
-                Scan this from a trusted device.
-              </Text>
-              <Text style={styles.bodyCopy}>
-                Compare the short code on both screens before authorizing. This request expires in ten
-                minutes.
-              </Text>
-              <View accessibilityLabel="One-time device link QR code" style={styles.qrFrame}>
-                <QRCode
-                  backgroundColor={colors.paper}
-                  color={colors.background}
-                  quietZone={12}
-                  size={250}
-                  value={payloadQrValue('link-request', linkRequest)}
-                />
-              </View>
-              <Text style={styles.sas}>{linkSas}</Text>
-              <PrimaryButton
-                label="Scan signed authorization"
-                onPress={() => openScanner('link-authorization')}
-              />
-              {error ? <StatusNotice error text={error} /> : null}
-            </ScrollView>
-          ) : onboarding ? (
-            <ScrollView contentContainerStyle={styles.onboarding} keyboardShouldPersistTaps="handled">
-              <Text style={styles.eyebrow}>PRIVATE MESSENGER / DEVICE 01</Text>
-              <Text accessibilityRole="header" style={styles.heroTitle}>
-                A quiet line to the people you trust.
-              </Text>
-              <Text style={styles.heroBody}>
-                Your private keys stay in this device’s secure hardware. A phone number is never
-                required.
-              </Text>
-              <View style={styles.rule} />
-              <Field
-                label="Choose your username"
-                onChangeText={setUsername}
-                placeholder="river_stone"
-                value={username}
-              />
-              {error ? <StatusNotice error text={error} /> : null}
-              <PrimaryButton label="Create encrypted identity" onPress={createAccount} />
-              <PrimaryButton label="Link an existing account" onPress={beginDeviceLink} quiet />
-              <Text style={styles.finePrint}>
-                Losing this device without a linked device or recovery export means losing encrypted
-                history.
-              </Text>
-            </ScrollView>
-          ) : screen === 'account' ? (
-            <ScrollView contentContainerStyle={styles.screenContent}>
-              <View style={styles.topRow}>
-                <PrimaryButton label="Back" onPress={() => setScreen('home')} quiet />
-                <Text style={styles.eyebrow}>MY CONTACT CODE</Text>
-              </View>
-              <Text accessibilityRole="header" style={styles.title}>
-                Let them scan. Nothing else.
-              </Text>
-              <Text style={styles.bodyCopy}>
-                This code contains public identity and prekey material. It never contains a private key
-                or message history.
-              </Text>
-              <View accessibilityLabel="Your Whatsdown contact QR code" style={styles.qrFrame}>
-                <QRCode
-                  backgroundColor={colors.paper}
-                  color={colors.background}
-                  quietZone={12}
-                  size={250}
-                  value={profileQrValue(profile)}
-                />
-              </View>
-              <Text style={styles.monoCaption}>VERIFY THE SAFETY NUMBER AFTER CONNECTING</Text>
-              <View style={styles.newContactPanel}>
-                <Text style={styles.panelKicker}>GENERIC NOTIFICATIONS</Text>
-                <Text accessibilityRole="header" style={styles.panelTitle}>
-                  {pushStatus === 'enabled'
-                    ? 'Enabled'
-                    : pushStatus === 'pending-bind'
-                      ? 'Enabling notifications…'
-                    : pushStatus === 'pending-unbind'
-                      ? 'Disabling notifications…'
-                      : 'No-push mode'}
-                </Text>
-                <Text style={styles.bodyCopy}>
-                  No-push mode never requests notification permission or registers this device. When
-                  enabled, alerts reveal only generic encrypted activity.
-                </Text>
-                <PrimaryButton
-                  disabled={pushBusy}
-                  label={
-                    pushStatus === 'enabled' || pushStatus === 'pending-bind'
-                      ? 'Use no-push mode'
-                      : pushStatus === 'pending-unbind'
-                        ? 'Retry notification cleanup'
-                        : 'Enable generic notifications'
-                  }
-                  onPress={() =>
-                    void updatePush(() => {
-                      if (pushStatus === 'pending-unbind') {
-                        return recoverPushBinding(databasePath);
-                      }
-                      if (pushStatus !== 'disabled') return disablePushBinding(databasePath);
-                      return enablePushBinding(databasePath);
-                    })
-                  }
-                />
-                {pushStatus === 'pending-bind' ? (
-                  <StatusNotice text="Notification enablement will finish when the broker is reachable." />
-                ) : null}
-                {pushStatus === 'pending-unbind' ? (
-                  <StatusNotice text="Notification cleanup is pending and will retry until local token removal and broker unbinding both finish." />
-                ) : null}
-                {pushError ? <StatusNotice error text={pushError} /> : null}
-              </View>
-            </ScrollView>
-          ) : screen === 'link-authorization' && linkAuthorization ? (
-            <ScrollView contentContainerStyle={styles.screenContent}>
-              <View style={styles.topRow}>
-                <PrimaryButton label="Close" onPress={() => setScreen('devices')} quiet />
-                <Text style={styles.eyebrow}>SIGNED DEVICE LINK</Text>
-              </View>
-              <Text accessibilityRole="header" style={styles.title}>
-                Return this authorization to the new device.
-              </Text>
-              <Text style={styles.bodyCopy}>
-                Scan only after the short code matches on both screens. The signature is bound to that
-                exact one-time request.
-              </Text>
-              <View accessibilityLabel="Signed device authorization QR code" style={styles.qrFrame}>
-                <QRCode
-                  backgroundColor={colors.paper}
-                  color={colors.background}
-                  quietZone={12}
-                  size={250}
-                  value={payloadQrValue('link-authorization', linkAuthorization)}
-                />
-              </View>
-              <Text style={styles.sas}>{linkSas}</Text>
-            </ScrollView>
-          ) : screen === 'devices' ? (
-            <ScrollView contentContainerStyle={styles.screenContent}>
-              <View style={styles.topRow}>
-                <PrimaryButton label="Back" onPress={() => setScreen('home')} quiet />
-                <Text style={styles.eyebrow}>ACCOUNT DEVICES</Text>
-              </View>
-              <Text accessibilityRole="header" style={styles.title}>
-                Devices that can receive your messages.
-              </Text>
-              <Text style={styles.bodyCopy}>
-                Revocation is permanent. A lost device cannot silently rejoin with the same identity.
-              </Text>
-              {devices?.changed ? (
-                <StatusNotice error text="The signed device sequence changed since your last review." />
-              ) : null}
-              {devices && !devices.canManage ? (
-                <StatusNotice text="This linked device can receive messages but does not hold the account authority key needed to link or revoke devices." />
-              ) : null}
-              <View style={styles.deviceList}>
-                {devices?.devices.map((device) => (
-                  <View key={hex(device.deviceId)} style={styles.deviceRow}>
-                    <View style={styles.deviceCopy}>
-                      <Text style={styles.deviceTitle}>
-                        {device.current ? 'This device' : device.active ? 'Linked device' : 'Revoked device'}
-                      </Text>
-                      <Text style={styles.monoCaption}>{hex(device.deviceId).slice(0, 20)}…</Text>
-                    </View>
-                    {devices?.canManage && device.active && !device.current ? (
-                      <PrimaryButton
-                        label="Revoke permanently"
-                        onPress={() => revokeLinkedDevice(device.deviceId)}
-                        quiet
-                      />
-                    ) : null}
-                  </View>
-                ))}
-              </View>
-              {devices?.canManage ? (
-                <PrimaryButton label="Link another device" onPress={() => openScanner('link-request')} />
-              ) : null}
-              {error ? <StatusNotice error text={error} /> : null}
-            </ScrollView>
-          ) : screen === 'group-package' && groupKeyPackage ? (
-            <ScrollView contentContainerStyle={styles.screenContent}>
-              <View style={styles.topRow}>
-                <PrimaryButton label="Back to groups" onPress={() => setScreen('groups')} quiet />
-                <Text style={styles.eyebrow}>THIS DEVICE / GROUP PACKAGE</Text>
-              </View>
-              <Text accessibilityRole="header" style={styles.title}>
-                Let an existing member scan this device.
-              </Text>
-              <Text style={styles.bodyCopy}>
-                This signed one-use package represents only this device. Every linked device shares its
-                own package; usernames are never used as key-package storage.
-              </Text>
-              <View accessibilityLabel="This device’s signed group key package" style={styles.qrFrame}>
-                <QRCode
-                  backgroundColor={colors.paper}
-                  color={colors.background}
-                  quietZone={12}
-                  size={250}
-                  value={payloadQrValue('group-key-package', groupKeyPackage)}
-                />
-              </View>
-              <Text style={styles.monoCaption}>369-BYTE SIGNED PACKAGE · ONE DEVICE ONLY</Text>
-              {error ? <StatusNotice error text={error} /> : null}
-            </ScrollView>
-          ) : screen === 'groups' ? (
-            <ScrollView contentContainerStyle={styles.screenContent}>
-              <View style={styles.topRow}>
-                <PrimaryButton label="Back" onPress={() => setScreen('home')} quiet />
-                <Text style={styles.eyebrow}>PRIVATE GROUPS</Text>
-              </View>
-              <Text accessibilityRole="header" style={styles.title}>
-                Rooms without a server-side roster.
-              </Text>
-              <Text style={styles.bodyCopy}>
-                Membership, epochs, and message history are encrypted and owned by the Mesh core on
-                this device.
-              </Text>
-              <View style={styles.headerActions}>
-                <PrimaryButton label="Create group" onPress={createNewGroup} />
-                <PrimaryButton label="My device package" onPress={showGroupKeyPackage} quiet />
-              </View>
-              <Text style={styles.sectionLabel}>LOCAL GROUP STATE</Text>
-              {groups.length === 0 ? (
-                <View style={styles.emptyPanel}>
-                  <Text style={styles.emptyTitle}>No private groups yet.</Text>
-                  <Text style={styles.emptyText}>Create one here, then add exact verified devices.</Text>
-                </View>
-              ) : (
-                groups.map((group) => (
-                  <Pressable
-                    accessibilityHint="Opens encrypted group history and membership"
-                    accessibilityLabel={`Group with ${group.memberCount} devices at epoch ${group.epoch}`}
-                    accessibilityRole="button"
-                    key={hex(group.groupId)}
-                    onPress={() => openGroup(group)}
-                    style={({ pressed }) => [styles.conversationRow, pressed ? styles.pressed : null]}
-                  >
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{hex(group.groupId).slice(0, 2).toUpperCase()}</Text>
-                    </View>
-                    <View style={styles.conversationCopy}>
-                      <Text style={styles.conversationName}>Group {hex(group.groupId).slice(0, 10)}</Text>
-                      <Text style={styles.conversationMeta}>
-                        EPOCH {group.epoch} · {group.memberCount} DEVICE
-                        {group.memberCount === 1 ? '' : 'S'}
-                      </Text>
-                    </View>
-                    <Text style={styles.chevron}>→</Text>
-                  </Pressable>
-                ))
-              )}
-              {error ? <StatusNotice error text={error} /> : null}
-            </ScrollView>
-          ) : screen === 'group' && selectedGroupId ? (
-            <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
-              <View style={styles.topRow}>
-                <PrimaryButton label="Back to groups" onPress={() => setScreen('groups')} quiet />
-                <Text style={styles.eyebrow}>ENCRYPTED GROUP</Text>
-              </View>
-              <Text accessibilityRole="header" style={styles.title}>
-                Group {hex(selectedGroupId).slice(0, 10)}
-              </Text>
-              <Text style={styles.monoCaption}>
-                EPOCH {selectedGroup?.epoch ?? '—'} · {selectedGroup?.memberCount ?? '—'} VERIFIED DEVICES
-              </Text>
-              {groupDetails ? (
-                <Text style={styles.monoCaption}>
-                  TREE {hex(groupDetails.treeHash).slice(0, 12)}… · BASELINE{' '}
-                  {hex(groupDetails.checkpointHash).slice(0, 12)}…
-                </Text>
-              ) : null}
-              <View style={styles.newContactPanel}>
-                <Text style={styles.panelKicker}>ADD ONE VERIFIED DEVICE</Text>
-                <Text style={styles.bodyCopy}>
-                  Enter the exact username, then scan that specific device’s signed package.
-                </Text>
-                <Field
-                  label="Exact username"
-                  onChangeText={setGroupUsername}
-                  placeholder="person_name"
-                  value={groupUsername}
-                />
-                <PrimaryButton
-                  disabled={!groupUsername.trim()}
-                  label="Scan device package"
-                  onPress={scanGroupKeyPackage}
-                />
-              </View>
-              <Text style={styles.sectionLabel}>MESH-OWNED MEMBERSHIP</Text>
-              {groupDetails ? (
-                <View style={styles.deviceList}>
-                  {groupDetails.members.map((member) => (
-                    <View key={`${hex(member.accountId)}-${hex(member.deviceId)}`} style={styles.deviceRow}>
-                      <View style={styles.deviceCopy}>
-                        <Text style={styles.deviceTitle}>
-                          {member.local ? 'This device' : `Member leaf ${member.leaf}`}
-                        </Text>
-                        <Text style={styles.monoCaption}>
-                          ACCOUNT {hex(member.accountId).slice(0, 12)}… · DEVICE{' '}
-                          {hex(member.deviceId).slice(0, 12)}…
-                        </Text>
-                        <Text style={styles.monoCaption}>
-                          DIRECTORY {member.directorySequence} · {member.witnessCount} WITNESSES
-                        </Text>
-                      </View>
-                      {!member.local ? (
-                        <PrimaryButton
-                          label="Remove from group"
-                          onPress={() => removeFromGroup(member.accountId, member.deviceId)}
-                          quiet
-                        />
-                      ) : null}
-                    </View>
-                  ))}
-                </View>
-              ) : (
-                <View style={styles.emptyPanel}>
-                  <Text style={styles.emptyText}>Loading the signed member summary…</Text>
-                </View>
-              )}
-              <Text style={styles.sectionLabel}>ENCRYPTED HISTORY</Text>
-              {groupHistory.length === 0 ? (
-                <View style={styles.emptyPanel}>
-                  <Text style={styles.emptyText}>No visible group messages yet.</Text>
-                </View>
-              ) : (
-                groupHistory.map((message, index) => (
-                  <View
-                    accessibilityLabel={`${message.direction === 'sent' ? 'Sent' : 'Received'} group message: ${message.body}`}
-                    key={`${message.epoch}-${hex(message.senderDeviceId)}-${index}`}
-                    style={[
-                      styles.message,
-                      message.direction === 'sent' ? styles.messageSent : styles.messageReceived,
-                    ]}
-                  >
-                    <Text style={styles.messageBody}>{message.body}</Text>
-                    <Text style={styles.messageMeta}>
-                      EPOCH {message.epoch} · {message.direction === 'sent' ? 'YOU' : hex(message.senderDeviceId).slice(0, 10)} ·{' '}
-                      {new Date(message.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
-                  </View>
-                ))
-              )}
-              <View style={styles.composerRow}>
-                <TextInput
-                  accessibilityLabel="Group message"
-                  multiline
-                  onChangeText={setGroupComposer}
-                  placeholder="Write to every current member"
-                  placeholderTextColor="#777365"
-                  style={styles.composer}
-                  value={groupComposer}
-                />
-                <PrimaryButton
-                  disabled={!groupComposer.trim()}
-                  label="Send"
-                  onPress={sendGroupText}
-                />
-              </View>
-              {error ? <StatusNotice error text={error} /> : null}
-            </ScrollView>
-          ) : screen === 'scanner' ? (
-            <View style={styles.cameraScreen}>
-              <View style={styles.topRowPadded}>
-                <PrimaryButton
-                  label="Cancel scan"
-                  onPress={() =>
-                    setScreen(
-                      scanMode === 'link-request'
-                        ? 'devices'
-                        : scanMode === 'link-authorization'
-                          ? 'link-device'
-                          : scanMode === 'group-key-package'
-                            ? 'group'
-                            : 'home',
-                    )
-                  }
-                  quiet
-                />
-                <Text style={styles.eyebrow}>
-                  {scanMode === 'contact'
-                    ? 'CONTACT SCANNER'
-                    : scanMode === 'group-key-package'
-                      ? 'GROUP DEVICE SCANNER'
-                      : 'DEVICE LINK SCANNER'}
-                </Text>
-              </View>
-              {!cameraPermission?.granted ? (
-                <View style={styles.permissionPanel}>
-                  <Text accessibilityRole="header" style={styles.title}>
-                    Camera access is only used for Whatsdown QR codes.
-                  </Text>
-                  <Text style={styles.bodyCopy}>No frames are uploaded or stored.</Text>
-                  <PrimaryButton label="Allow camera" onPress={() => void requestCameraPermission()} />
-                </View>
-              ) : scannedProfile ? (
-                <ScrollView contentContainerStyle={styles.screenContent}>
-                  <StatusNotice text="Contact code captured and validated by the Mesh core." />
-                  <Field
-                    label="First message"
-                    multiline
-                    onChangeText={setFirstMessage}
-                    placeholder="Say hello without sharing more than you mean to."
-                    value={firstMessage}
-                  />
-                  <PrimaryButton
-                    label="Send encrypted request"
-                    onPress={() => startWithProfile(scannedProfile, firstMessage)}
-                  />
-                  <PrimaryButton label="Scan again" onPress={() => setScannedProfile(null)} quiet />
-                </ScrollView>
-              ) : scannedLinkRequest ? (
-                <ScrollView contentContainerStyle={styles.screenContent}>
-                  <StatusNotice text="Link request validated by the Mesh core." />
-                  <Text accessibilityRole="header" style={styles.title}>
-                    Do these codes match?
-                  </Text>
-                  <Text style={styles.sas}>{linkSas}</Text>
-                  <Text style={styles.bodyCopy}>
-                    Confirm the same code is visible on the new device before signing.
-                  </Text>
-                  <PrimaryButton label="Authorize this device" onPress={authorizeScannedDevice} />
-                  <PrimaryButton
-                    label="Reject and scan again"
-                    onPress={() => setScannedLinkRequest(null)}
-                    quiet
-                  />
-                </ScrollView>
-              ) : (
-                <CameraView
-                  barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                  onBarcodeScanned={onQrScanned}
-                  style={styles.camera}
-                >
-                  <View pointerEvents="none" style={styles.reticle}>
-                    <View style={styles.reticleInner} />
-                    <Text style={styles.cameraLabel}>
-                      {scanMode === 'group-key-package'
-                        ? 'CENTER THE DEVICE PACKAGE'
-                        : 'CENTER THE CONTACT CODE'}
-                    </Text>
-                  </View>
-                </CameraView>
-              )}
-              {error ? <StatusNotice error text={error} /> : null}
-            </View>
-          ) : screen === 'chat' && selected ? (
-            <View style={styles.flex}>
-              <View style={styles.chatHeader}>
-                <PrimaryButton label="Back to conversations" onPress={() => setScreen('home')} quiet />
-                <View style={styles.chatIdentity}>
-                  <Text accessibilityRole="header" style={styles.chatTitle}>
-                    @{selected.username}
-                  </Text>
-                  <Text style={styles.monoCaption}>
-                    {selected.verified ? 'VERIFIED' : 'NOT YET VERIFIED'} ·{' '}
-                    {selected.safetyNumber.slice(0, 12)}…
-                  </Text>
-                </View>
-              </View>
-              {selected.requestPending ? (
-                <View style={styles.warningPanel}>
-                  <Text style={styles.warningTitle}>Message request</Text>
-                  <Text style={styles.warningBody}>Replying is disabled until you accept.</Text>
-                  <PrimaryButton label="Accept request" onPress={() => updatePolicy(1)} />
-                </View>
-              ) : null}
-              {selected.keyChanged ? (
-                <StatusNotice error text="Security keys changed. Compare the safety number again." />
-              ) : null}
-              <FlatList
-                contentContainerStyle={styles.messageList}
-                data={history}
-                keyExtractor={(message) => message.messageId.join('.')}
-                ListEmptyComponent={<Text style={styles.emptyText}>No visible messages yet.</Text>}
-                renderItem={({ item }) => (
-                  <View
-                    accessibilityLabel={`${item.direction === 'sent' ? 'Sent' : 'Received'} message: ${item.body}`}
-                    style={[
-                      styles.message,
-                      item.direction === 'sent' ? styles.messageSent : styles.messageReceived,
-                    ]}
-                  >
-                    <Text style={styles.messageBody}>{item.body}</Text>
-                    <Text style={styles.messageMeta}>
-                      {new Date(item.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {item.disappearingSeconds ? ' · DISAPPEARS' : ''}
-                    </Text>
-                  </View>
-                )}
-              />
-              <View style={styles.policyStrip}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <PrimaryButton
-                    label={selected.blocked ? 'Unblock' : 'Block'}
-                    onPress={() => updatePolicy(selected.blocked ? 3 : 2)}
-                    quiet
-                  />
-                  <PrimaryButton label={selected.safetyNumber ? "Mark safety number verified" : "Send a message to refresh security keys"} onPress={() => updatePolicy(4)} disabled={!selected.safetyNumber} quiet />
-                  {disappearingOptions.map((option) => (
-                    <PrimaryButton
-                      key={option.value}
-                      label={`Disappear: ${option.label}`}
-                      onPress={() => updatePolicy(5, option.value)}
-                      quiet={selected.disappearingSeconds !== option.value}
-                    />
-                  ))}
-                </ScrollView>
-              </View>
-              <View style={styles.composerRow}>
-                <TextInput
-                  accessibilityLabel="Message"
-                  editable={!selected.blocked && !selected.requestPending}
-                  multiline
-                  onChangeText={setComposer}
-                  placeholder={selected.requestPending ? 'Accept this request to reply' : 'Write a message'}
-                  placeholderTextColor="#777365"
-                  style={styles.composer}
-                  value={composer}
-                />
-                <PrimaryButton
-                  disabled={!composer.trim() || selected.blocked || selected.requestPending}
-                  label="Send"
-                  onPress={sendMessage}
-                />
-              </View>
-            </View>
-          ) : (
-            <ScrollView contentContainerStyle={styles.home} keyboardShouldPersistTaps="handled">
-              <View style={styles.homeHeader}>
-                <View>
-                  <Text style={styles.eyebrow}>WHATSDOWN / ENCRYPTED</Text>
-                  <Text accessibilityRole="header" style={styles.title}>
-                    Conversations
-                  </Text>
-                </View>
-                <View style={styles.headerActions}>
-                  <PrimaryButton label="My QR" onPress={() => setScreen('account')} quiet />
-                  <PrimaryButton label="Groups" onPress={openGroups} quiet />
-                  <PrimaryButton label="Devices" onPress={openDevices} quiet />
-                  <PrimaryButton label="Scan" onPress={() => openScanner('contact')} quiet />
-                </View>
-              </View>
-              <View style={styles.statusLine}>
-                <View style={styles.statusDot} />
-                <Text style={styles.statusText}>{status}</Text>
-                <PrimaryButton label="Sync" onPress={() => void synchronize()} quiet />
-              </View>
-              {error ? <StatusNotice error text={error} /> : null}
-              <View style={styles.newContactPanel}>
-                <Text style={styles.panelKicker}>EXACT USERNAME</Text>
-                <Text style={styles.panelTitle}>Start a private line</Text>
-                <Field
-                  label="Username"
-                  onChangeText={setContactUsername}
-                  placeholder="person_name"
-                  value={contactUsername}
-                />
-                <Field
-                  label="First message"
-                  multiline
-                  onChangeText={setFirstMessage}
-                  placeholder="This arrives as a message request."
-                  value={firstMessage}
-                />
-                <PrimaryButton
-                  disabled={!contactUsername.trim() || !firstMessage.trim()}
-                  label="Resolve and encrypt"
-                  onPress={startByUsername}
-                />
-              </View>
-              <Text style={styles.sectionLabel}>LOCAL CONVERSATIONS</Text>
-              {conversations.length === 0 ? (
-                <View style={styles.emptyPanel}>
-                  <Text style={styles.emptyTitle}>No conversation metadata to show.</Text>
-                  <Text style={styles.emptyText}>Scan a code or use an exact username to begin.</Text>
-                </View>
-              ) : (
-                conversations.map((conversation) => (
-                  <Pressable
-                    accessibilityHint="Opens encrypted message history"
-                    accessibilityLabel={`Conversation with ${conversation.username}${conversation.requestPending ? ', message request pending' : ''}`}
-                    accessibilityRole="button"
-                    key={conversation.conversationId.join('.')}
-                    onPress={() => openConversation(conversation)}
-                    style={({ pressed }) => [styles.conversationRow, pressed ? styles.pressed : null]}
-                  >
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{conversation.username.slice(0, 2).toUpperCase()}</Text>
-                    </View>
-                    <View style={styles.conversationCopy}>
-                      <Text style={styles.conversationName}>@{conversation.username}</Text>
-                      <Text style={styles.conversationMeta}>
-                        {conversation.requestPending
-                          ? 'MESSAGE REQUEST'
-                          : conversation.keyChanged
-                            ? 'KEY CHANGE — VERIFY'
-                            : conversation.verified
-                              ? 'SAFETY NUMBER VERIFIED'
-                              : 'ENCRYPTED SESSION'}
-                      </Text>
-                    </View>
-                    <Text style={styles.chevron}>→</Text>
-                  </Pressable>
-                ))
-              )}
-              <Text style={styles.finePrint}>
-                Push alerts contain only a generic encrypted-activity wakeup. Sender and message text are
-                fetched after unlock.
-              </Text>
-            </ScrollView>
-          )}
+          <View style={layout.flex} pointerEvents={busy ? "none" : "auto"}>
+            {renderScreen()}
+          </View>
+          {busy ? <Toast text={status} busy /> : null}
+          {error ? (
+            <Toast text={error} error onDismiss={() => setError("")} />
+          ) : null}
         </KeyboardAvoidingView>
+        {mainScreen ? (
+          <TabBar
+            tabs={tabs}
+            current={screen as (typeof tabs)[number]["key"]}
+            onSelect={(key) => (key === "groups" ? openGroups() : go(key))}
+          />
+        ) : null}
       </SafeAreaView>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  safeArea: { backgroundColor: colors.background, flex: 1 },
   loading: {
-    alignItems: 'center',
-    backgroundColor: colors.background,
     flex: 1,
-    gap: 18,
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 28,
+    backgroundColor: colors.canvas,
   },
-  loadingText: { color: colors.muted, fontFamily: 'IBMPlexMono_400Regular', fontSize: 12 },
-  onboarding: { flexGrow: 1, justifyContent: 'center', padding: 28 },
-  screenContent: { flexGrow: 1, gap: 22, padding: 24 },
-  home: { gap: 20, padding: 20, paddingBottom: 56 },
-  eyebrow: {
-    color: colors.amber,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 11,
-    letterSpacing: 1.6,
+  loadingStatus: { alignItems: "center", gap: 12 },
+  onboarding: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 16,
+    gap: 22,
   },
-  heroTitle: {
-    color: colors.paper,
-    fontFamily: 'Newsreader_600SemiBold',
-    fontSize: 48,
-    letterSpacing: -1.7,
-    lineHeight: 49,
-    marginTop: 18,
+  heroBlock: { gap: 10 },
+  features: { gap: 16 },
+  camera: {
+    flex: 1,
+    margin: 16,
+    marginTop: 4,
+    borderRadius: 28,
+    overflow: "hidden",
+    backgroundColor: colors.black,
   },
-  heroBody: {
-    color: colors.muted,
-    fontFamily: 'Newsreader_400Regular',
-    fontSize: 20,
-    lineHeight: 28,
-    marginTop: 20,
+  recipient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  title: {
-    color: colors.paper,
-    fontFamily: 'Newsreader_600SemiBold',
-    fontSize: 38,
-    letterSpacing: -1,
-    lineHeight: 41,
-  },
-  bodyCopy: { color: colors.muted, fontFamily: 'Newsreader_400Regular', fontSize: 18, lineHeight: 25 },
-  rule: { backgroundColor: colors.amber, height: 2, marginVertical: 28, width: 72 },
-  field: { gap: 8 },
-  fieldLabel: {
-    color: colors.paper,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 11,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  input: {
-    backgroundColor: colors.panel,
-    borderColor: colors.line,
-    borderRadius: 3,
+  recipientLabel: { ...type.label, color: colors.text2 },
+  recipientShell: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    minHeight: 46,
+    paddingHorizontal: 14,
+    borderRadius: 23,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    color: colors.paper,
-    fontFamily: 'Newsreader_400Regular',
-    fontSize: 19,
-    minHeight: 52,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    borderColor: colors.line,
   },
-  inputMultiline: { minHeight: 92, textAlignVertical: 'top' },
-  button: {
-    alignItems: 'center',
-    borderRadius: 3,
-    justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: 16,
+  recipientPrefix: { fontFamily: fonts.medium, fontSize: 16, color: colors.text3 },
+  recipientInput: {
+    flex: 1,
+    fontFamily: fonts.regular,
+    fontSize: 16,
+    color: colors.text,
+    paddingVertical: 0,
   },
-  buttonPrimary: { backgroundColor: colors.amber },
-  buttonQuiet: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderWidth: 1 },
-  buttonText: {
-    color: colors.background,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 12,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  buttonQuietText: { color: colors.paper },
-  pressed: { opacity: 0.68 },
-  disabled: { opacity: 0.38 },
-  finePrint: {
-    color: colors.muted,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 10,
-    lineHeight: 16,
-    marginTop: 10,
-  },
-  notice: {
-    backgroundColor: colors.amberDark,
-    borderLeftColor: colors.amber,
-    borderLeftWidth: 3,
-    padding: 14,
-  },
-  noticeError: { backgroundColor: '#4A2320', borderLeftColor: colors.red },
-  noticeText: { color: colors.paper, fontFamily: 'IBMPlexMono_400Regular', fontSize: 11, lineHeight: 17 },
-  noticeErrorText: { color: '#FFD0CC' },
-  topRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  topRowPadded: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  profileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
     padding: 16,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
   },
-  qrFrame: { alignItems: 'center', backgroundColor: colors.paper, padding: 18 },
-  monoCaption: {
-    color: colors.muted,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 10,
-    letterSpacing: 0.8,
-    lineHeight: 16,
+  profileQr: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  sas: {
-    color: colors.amber,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 28,
-    letterSpacing: 4,
-    textAlign: 'center',
+  bigIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    backgroundColor: colors.accentSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
-  cameraScreen: { backgroundColor: colors.background, flex: 1 },
-  camera: { flex: 1 },
-  reticle: { alignItems: 'center', flex: 1, gap: 24, justifyContent: 'center' },
-  reticleInner: { borderColor: colors.amber, borderWidth: 2, height: 246, width: 246 },
-  cameraLabel: {
-    backgroundColor: colors.background,
-    color: colors.amber,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 11,
-    letterSpacing: 1,
-    padding: 10,
+  cardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: colors.success,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  permissionPanel: { flex: 1, gap: 20, justifyContent: 'center', padding: 28 },
-  homeHeader: { alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'space-between' },
-  headerActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' },
-  statusLine: {
-    alignItems: 'center',
-    borderBottomColor: colors.line,
-    borderBottomWidth: 1,
-    borderTopColor: colors.line,
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: 9,
-    paddingVertical: 10,
+  safetyGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    paddingVertical: 4,
   },
-  statusDot: { backgroundColor: colors.green, borderRadius: 4, height: 7, width: 7 },
-  statusText: { color: colors.muted, flex: 1, fontFamily: 'IBMPlexMono_400Regular', fontSize: 10 },
-  newContactPanel: { backgroundColor: colors.panel, gap: 14, padding: 18 },
-  panelKicker: {
-    color: colors.amber,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 10,
-    letterSpacing: 1.2,
-  },
-  panelTitle: { color: colors.paper, fontFamily: 'Newsreader_600SemiBold', fontSize: 27 },
-  sectionLabel: {
-    color: colors.muted,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 10,
-    letterSpacing: 1.3,
-    marginTop: 8,
-  },
-  emptyPanel: { borderColor: colors.line, borderStyle: 'dashed', borderWidth: 1, gap: 8, padding: 24 },
-  emptyTitle: { color: colors.paper, fontFamily: 'Newsreader_600SemiBold', fontSize: 20 },
-  emptyText: { color: colors.muted, fontFamily: 'Newsreader_400Regular', fontSize: 16, lineHeight: 22 },
-  deviceList: { borderTopColor: colors.line, borderTopWidth: 1 },
-  deviceRow: {
-    alignItems: 'center',
-    borderBottomColor: colors.line,
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    minHeight: 78,
-    paddingVertical: 12,
-  },
-  deviceCopy: { flex: 1, gap: 5 },
-  deviceTitle: { color: colors.paper, fontFamily: 'Newsreader_600SemiBold', fontSize: 20 },
-  conversationRow: {
-    alignItems: 'center',
-    borderBottomColor: colors.line,
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    gap: 14,
-    minHeight: 76,
-    paddingVertical: 12,
-  },
-  avatar: {
-    alignItems: 'center',
-    backgroundColor: colors.amberDark,
-    borderRadius: 24,
-    height: 48,
-    justifyContent: 'center',
-    width: 48,
-  },
-  avatarText: { color: colors.amber, fontFamily: 'IBMPlexMono_400Regular', fontSize: 12 },
-  conversationCopy: { flex: 1, gap: 5 },
-  conversationName: { color: colors.paper, fontFamily: 'Newsreader_600SemiBold', fontSize: 21 },
-  conversationMeta: {
-    color: colors.muted,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 9,
-    letterSpacing: 0.7,
-  },
-  chevron: { color: colors.amber, fontFamily: 'Newsreader_400Regular', fontSize: 26 },
-  chatHeader: {
-    alignItems: 'center',
-    borderBottomColor: colors.line,
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    gap: 14,
-    padding: 14,
-  },
-  chatIdentity: { flex: 1 },
-  chatTitle: { color: colors.paper, fontFamily: 'Newsreader_600SemiBold', fontSize: 25 },
-  warningPanel: { backgroundColor: colors.amberDark, gap: 8, padding: 16 },
-  warningTitle: { color: colors.amber, fontFamily: 'Newsreader_600SemiBold', fontSize: 20 },
-  warningBody: { color: colors.paper, fontFamily: 'Newsreader_400Regular', fontSize: 16 },
-  messageList: { gap: 10, padding: 16 },
-  message: { borderRadius: 4, maxWidth: '84%', padding: 13 },
-  messageSent: { alignSelf: 'flex-end', backgroundColor: colors.amberDark },
-  messageReceived: { alignSelf: 'flex-start', backgroundColor: colors.panelRaised },
-  messageBody: { color: colors.paper, fontFamily: 'Newsreader_400Regular', fontSize: 18, lineHeight: 24 },
-  messageMeta: {
-    color: colors.muted,
-    fontFamily: 'IBMPlexMono_400Regular',
-    fontSize: 8,
-    marginTop: 6,
-  },
-  policyStrip: { borderTopColor: colors.line, borderTopWidth: 1, padding: 8 },
-  composerRow: {
-    alignItems: 'flex-end',
-    borderTopColor: colors.line,
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: 8,
-    padding: 10,
-  },
-  composer: {
-    backgroundColor: colors.panel,
-    borderColor: colors.line,
-    borderRadius: 3,
-    borderWidth: 1,
-    color: colors.paper,
-    flex: 1,
-    fontFamily: 'Newsreader_400Regular',
+  safetyGroup: {
+    fontFamily: fonts.mono,
     fontSize: 17,
-    maxHeight: 120,
-    minHeight: 48,
-    paddingHorizontal: 13,
-    paddingVertical: 10,
+    lineHeight: 24,
+    letterSpacing: 1.5,
+    color: colors.text,
+    fontVariant: ["tabular-nums"],
+    width: "30%",
   },
+  banner: { marginHorizontal: 16, marginTop: 12 },
+  bannerNotice: { paddingHorizontal: 16, paddingTop: 12 },
+  flipped: { flex: 1, transform: [{ scaleY: -1 }] },
 });
