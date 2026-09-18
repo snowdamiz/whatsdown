@@ -270,6 +270,7 @@ export function sendFanout(
   databasePath: string,
   peerUsername: string,
   body: string,
+  expectedAccountId?: Uint8Array,
 ): Promise<boolean> {
   return sendFanoutByDatabase(databasePath, async () => {
     const localProfile = await load_profile_export(utf8(databasePath));
@@ -279,6 +280,10 @@ export function sendFanout(
       parseProfileSummary(localProfile).username,
     );
     const peerSummary = await inspectDeviceSet(databasePath, peerSet);
+    if (expectedAccountId && (expectedAccountId.length !== 32 ||
+      expectedAccountId.some((byte, index) => byte !== peerSummary.accountId[index]))) {
+      throw new Error('The contact identity changed. Verify the contact before sending.');
+    }
     await inspectDeviceSet(databasePath, localSet);
     await prepare_fanout_prekeys_export(
       vectors(utf8(databasePath), peerSet, localSet, utf8(serviceUrl(baseUrl))),

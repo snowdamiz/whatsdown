@@ -410,7 +410,8 @@ export default function App() {
       return;
     }
     void perform('Sealing the first message…', async () => {
-      const changed = await sendFanout(databasePath, parseProfileSummary(contact).username, body.trim());
+      const peer = parseProfileSummary(contact);
+      const changed = await sendFanout(databasePath, peer.username, body.trim(), peer.accountId);
       await refreshConversations();
       setFirstMessage('');
       setScannedProfile(null);
@@ -435,7 +436,7 @@ export default function App() {
   function sendMessage(): void {
     if (!selected || !composer.trim()) return;
     void perform('Encrypting message…', async () => {
-      const changed = await sendFanout(databasePath, selected.username, composer.trim());
+      const changed = await sendFanout(databasePath, selected.username, composer.trim(), selected.peerAccountId);
       setComposer('');
       await refreshHistory(selected);
       setStatus(changed ? 'Encrypted message queued · device change detected' : 'Encrypted message queued');

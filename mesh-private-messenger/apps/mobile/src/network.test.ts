@@ -187,6 +187,27 @@ test('delegates bounded prekey preparation to Mesh before fanout', async (t) => 
   ]);
 });
 
+test('binds sends to the account selected by a saved chat or contact code', async (t) => {
+  const prepared: Uint8Array[] = [];
+  const sent: Uint8Array[] = [];
+  t.mock.method(globalThis, 'fetch', async () => new Response(Uint8Array.of(1)));
+
+  for (const accountId of [new Uint8Array(32).fill(9), new Uint8Array()]) {
+    installFanoutMocks(prepared, sent);
+    await assert.rejects(
+      sendFanout('/data/mobile.db', 'peer', 'private message', accountId),
+      /contact identity/i,
+    );
+    assert.equal(prepared.length, 0);
+    assert.equal(sent.length, 0);
+  }
+
+  installFanoutMocks(prepared, sent);
+  await sendFanout('/data/mobile.db', 'peer', 'private message', new Uint8Array(32).fill(4));
+  assert.equal(prepared.length, 1);
+  assert.equal(sent.length, 1);
+});
+
 test('serializes the complete fanout transaction for one database', async (t) => {
   installFanoutMocks([], []);
   let profileLoads = 0;
