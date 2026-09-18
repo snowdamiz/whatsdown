@@ -81,6 +81,7 @@ import {
   type PushStatus,
 } from './push';
 import { databasePath } from './storage';
+import { historyRefreshDelay } from './expiry';
 
 const colors = {
   background: '#11120F',
@@ -251,6 +252,26 @@ export default function App() {
     const encoded = await load_history_export(peerRequest(databasePath, conversation.peerAccountId));
     setHistory(parseHistory(encoded));
   }
+
+  useEffect(() => {
+    if (screen !== 'chat' || !selected) return;
+    const delay = historyRefreshDelay(history, Date.now());
+    if (delay === undefined) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void load_history_export(peerRequest(databasePath, selected.peerAccountId))
+        .then((encoded) => {
+          if (!cancelled) setHistory(parseHistory(encoded));
+        })
+        .catch((caught) => {
+          if (!cancelled) setError(friendlyError(caught));
+        });
+    }, delay);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [history, screen, selected]);
 
   async function refreshGroups(): Promise<GroupSummary[]> {
     const next = await listGroups(databasePath);
