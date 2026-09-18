@@ -56,4 +56,26 @@ if configure_environment >/dev/null 2>&1; then
   exit 1
 fi
 
+(
+  checkout_fixture="$(mktemp -d)"
+  trap 'rm -rf "$checkout_fixture"' EXIT
+  cp "$test_repo_root/run.sh" "$checkout_fixture/run.sh"
+  mkdir "$checkout_fixture/external"
+  touch "$checkout_fixture/external/Cargo.toml"
+  MESH_LANG_DIR="$checkout_fixture/external" bash -c '
+    source "$1/run.sh"
+    cargo() { [[ "$PWD" == "$mesh_root" ]] || fail "Mesh compiler configuration was not loaded from its checkout"; }
+    build_mesh
+    [[ -L "$script_dir/mesh-lang" ]] || fail "external Mesh dependencies were not linked"
+    [[ "$(cd "$script_dir/mesh-lang" && pwd -P)" == "$mesh_root" ]]
+    build_mesh
+    rm "$script_dir/mesh-lang"
+    mkdir "$script_dir/mesh-lang"
+    if build_mesh >/dev/null 2>&1; then
+      fail "a conflicting Mesh checkout was accepted"
+    fi
+    [[ -d "$script_dir/mesh-lang" && ! -L "$script_dir/mesh-lang" ]]
+  ' bash "$checkout_fixture"
+)
+
 printf 'root runner topology test passed\n'

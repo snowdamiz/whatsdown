@@ -1,8 +1,14 @@
 import Foundation
 
-public struct MeshLibraryFailure: Error {
+public struct MeshLibraryFailure: LocalizedError {
   public let status: Int32
   public let payload: Data
+
+  public var errorDescription: String? {
+    let summary = "Mesh library call failed (status=\(status))"
+    guard let message = String(data: payload, encoding: .utf8), !message.isEmpty else { return summary }
+    return "\(summary): \(message)"
+  }
 }
 
 public enum MeshLibrary {

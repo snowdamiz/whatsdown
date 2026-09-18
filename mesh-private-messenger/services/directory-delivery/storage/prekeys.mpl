@@ -152,7 +152,7 @@ end
 
 fn active_prekey_ids(conn :: borrow PgConn, account_id :: Bytes, device_id :: Bytes) -> List < U64 > ! String do
   let rows = Pg.query_values(conn,
-  "SELECT prekey_id::text FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL ORDER BY prekey_id",
+  "SELECT prekey_id::text FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL ORDER BY messenger_one_time_prekeys.prekey_id",
   [Binary(account_id), Binary(device_id)]) ?
   if List.length(rows) > 64 do
     Err("prekey pool overflow")
@@ -347,7 +347,7 @@ end
 
 fn claim_candidate(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option < OneTimePrekeyPublic > ! String do
   let rows = Pg.query_values(conn,
-  "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL ORDER BY prekey_id FOR UPDATE SKIP LOCKED LIMIT 1",
+  "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL ORDER BY messenger_one_time_prekeys.prekey_id FOR UPDATE SKIP LOCKED LIMIT 1",
   [Binary(request.account_id), Binary(request.device_id)]) ?
   claimed_prekey(rows)
 end

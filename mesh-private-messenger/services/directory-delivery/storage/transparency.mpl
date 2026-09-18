@@ -98,7 +98,7 @@ end
 
 fn checkpoint_rows(conn :: borrow PgConn) -> List < Map < String, DbValue > > ! String do
   Pg.query_values(conn,
-  "SELECT sequence::text, tree_size::text, tree_root, previous_checkpoint_hash, timestamp_ms::text, service_public_key, service_signature FROM transparency_checkpoints ORDER BY sequence DESC LIMIT 1 FOR UPDATE",
+  "SELECT sequence::text, tree_size::text, tree_root, previous_checkpoint_hash, timestamp_ms::text, service_public_key, service_signature FROM transparency_checkpoints ORDER BY transparency_checkpoints.sequence DESC LIMIT 1 FOR UPDATE",
   [])
 end
 
@@ -271,7 +271,7 @@ end
 
 pub fn latest_checkpoint(pool :: PoolHandle) -> Option < TransparencyCheckpoint > ! String do
   let rows = Pool.query_values(pool,
-  "SELECT sequence::text, tree_size::text, tree_root, previous_checkpoint_hash, timestamp_ms::text, service_public_key, service_signature FROM transparency_checkpoints ORDER BY sequence DESC LIMIT 1",
+  "SELECT sequence::text, tree_size::text, tree_root, previous_checkpoint_hash, timestamp_ms::text, service_public_key, service_signature FROM transparency_checkpoints ORDER BY transparency_checkpoints.sequence DESC LIMIT 1",
   []) ?
   if List.length(rows) == 0 do
     Ok(None)

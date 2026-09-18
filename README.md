@@ -22,8 +22,9 @@ service, both transparency witnesses, and the Expo development server:
 
 Use `./run.sh build` to build without starting processes. Ctrl-C stops the
 processes and PostgreSQL container while preserving the development volume.
-Override `MESH_LANG_DIR` when the Mesh checkout lives elsewhere and
-`WHATSDOWN_MOBILE_PLATFORM=ios|android` when platform detection is insufficient.
+Override `MESH_LANG_DIR` when the Mesh checkout lives elsewhere; the launcher
+links it at `mesh-lang` for package dependencies and rejects a conflicting checkout.
+Set `WHATSDOWN_MOBILE_PLATFORM=ios|android` when platform detection is insufficient.
 
 The protocol contracts include the [threat model](mesh-private-messenger/protocol/threat-model.md),
 [privacy contract](mesh-private-messenger/protocol/privacy-contract.md),

@@ -111,9 +111,23 @@ mobile_platform() {
 }
 
 build_mesh() {
-  [[ -f "$mesh_root/Cargo.toml" ]] || fail "Mesh checkout not found at $mesh_root"
-  CARGO_INCREMENTAL=0 cargo build --locked --manifest-path "$mesh_root/Cargo.toml" -p meshc
-  CARGO_INCREMENTAL=0 cargo build --locked --manifest-path "$mesh_root/Cargo.toml" -p mesh-rt --lib
+  [[ -f "$mesh_root/Cargo.toml" ]] || { fail "Mesh checkout not found at $mesh_root"; return 1; }
+  local dependency_root="$script_dir/mesh-lang"
+  local resolved_mesh_root
+  resolved_mesh_root="$(cd "$mesh_root" && pwd -P)" || return 1
+  if [[ ! -e "$dependency_root" && ! -L "$dependency_root" ]]; then
+    ln -s "$resolved_mesh_root" "$dependency_root" || return 1
+  fi
+  if [[ ! -d "$dependency_root" ]] || \
+    [[ "$(cd "$dependency_root" && pwd -P)" != "$resolved_mesh_root" ]]; then
+    fail "$dependency_root must resolve to MESH_LANG_DIR ($resolved_mesh_root)"
+    return 1
+  fi
+  (
+    cd "$mesh_root"
+    CARGO_INCREMENTAL=0 cargo build --locked -p meshc
+    CARGO_INCREMENTAL=0 cargo build --locked -p mesh-rt --lib
+  )
 }
 
 build_service() {

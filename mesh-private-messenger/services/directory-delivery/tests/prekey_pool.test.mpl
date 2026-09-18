@@ -425,10 +425,14 @@ fn happy_path() -> Bool ! String do
   wide("102") ?) == 0)
   assert(claim_prekey_request(pool,
   encode_prekey_claim(% { claim | reservation_id : repeated(63, 16) ? }) ?).status == 409)
-  let bounded_values = prekey_range(200, 64, 0, List.new()) ?
+  let bounded_values = prekey_range(980, 64, 0, List.new()) ?
   let bounded = sign_publish(target.signing_private_key,
   unsigned_publish(identity, target, bounded_values) ?) ?
-  assert(publish_prekeys_request(pool, encode_prekey_publish(bounded) ?).status == 201)
+  let bounded_response = publish_prekeys_request(pool, encode_prekey_publish(bounded) ?)
+  assert(bounded_response.status == 201)
+  let bounded_active = decode_prekey_publish_response(bounded_response.body) ?
+  assert(U64.compare(List.get(bounded_active.active_ids, 0), wide("980") ?) == 0)
+  assert(U64.compare(List.get(bounded_active.active_ids, 63), wide("1043") ?) == 0)
   assert(publish_prekeys_request(pool, encode_prekey_publish(bounded) ?).status == 200)
   let overflow = sign_publish(target.signing_private_key,
   unsigned_publish(identity,
@@ -521,6 +525,7 @@ expires_at :: U64) -> Result <(), String > do
   let claim_body = encode_prekey_claim(claim) ?
   let initial = claim_prekey_request(pool, claim_body)
   assert(initial.status == 200)
+  assert(U64.compare(decoded_bundle(initial.body) ?.one_time_prekey_id, wide("2") ?) == 0)
   assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 1)
   let legacy_claim = % { claim | reservation_id : repeated(78, 16) ? }
   let legacy_body = encode_prekey_claim(legacy_claim) ?
