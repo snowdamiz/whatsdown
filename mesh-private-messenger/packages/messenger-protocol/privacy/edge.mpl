@@ -1,5 +1,5 @@
 from Binary.Reader import BinaryReader, finish, read_fixed, read_vector, reader
-from Protocol.V1 import decode_outer_envelope, encode_outer_envelope
+from Protocol.EnvelopeWire import decode_outer_envelope, encode_outer_envelope
 
 pub struct SealedDelivery do
   ephemeral_public_key :: Bytes

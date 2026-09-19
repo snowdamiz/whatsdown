@@ -1,5 +1,11 @@
 import File
-from MobileCore import group_key_package_export, group_transparency_valid_for_test, install_group_transparency_for_test, remove_group_transparency_chunk_for_test, replace_group_transparency_chunk_for_test
+from MobileCore import (
+  group_key_package_export,
+  group_transparency_valid_for_test,
+  install_group_transparency_for_test,
+  remove_group_transparency_chunk_for_test,
+  replace_group_transparency_chunk_for_test
+)
 from Tests.GroupConsistencyCrypto import checkpoint, tamper_last
 from Tests.GroupConsistencySupport import account_fixture, evidence_bytes, signing_pair, verify_for, wide
 from Tests.Support import repeated

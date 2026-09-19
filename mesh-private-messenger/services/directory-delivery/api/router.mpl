@@ -1,4 +1,4 @@
-from Api.Http import handle_acknowledge, handle_fetch, handle_health, handle_prekey_claim, handle_prekeys_publish, handle_push_bind, handle_push_unbind, handle_register, handle_register_device, handle_resolve, handle_resolve_devices, handle_revoke_device, handle_sealed_submit, handle_submit, handle_transparency_checkpoint, handle_transparency_consistency, handle_transparency_inclusion, handle_transparency_witness_submit, handle_transparency_witnesses
+from Api.Http import handle_jobs, handle_witness_job, handle_acknowledge, handle_fetch, handle_health, handle_prekey_claim, handle_prekeys_publish, handle_push_bind, handle_push_unbind, handle_register, handle_register_device, handle_resolve, handle_resolve_devices, handle_revoke_device, handle_sealed_submit, handle_submit, handle_transparency_checkpoint, handle_transparency_consistency, handle_transparency_inclusion, handle_transparency_witness_submit, handle_transparency_witnesses
 
 pub fn direct_delivery_compatibility_enabled(value :: String) -> Bool do
   value == "enabled"
@@ -22,6 +22,8 @@ pub fn build_router() do
     router
   end
   router
+    |> HTTP.on_post("/internal/v1/jobs/directory", handle_jobs)
+    |> HTTP.on_post("/internal/v1/jobs/witness", handle_witness_job)
     |> HTTP.on_post("/internal/v1/envelopes/sealed", handle_sealed_submit)
     |> HTTP.on_post("/v1/mailbox/fetch", handle_fetch)
     |> HTTP.on_post("/v1/mailbox/ack", handle_acknowledge)

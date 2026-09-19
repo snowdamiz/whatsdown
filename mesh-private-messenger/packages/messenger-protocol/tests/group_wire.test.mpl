@@ -1,4 +1,21 @@
-from Groups.Mls import GroupAddOutcome, GroupDecryptOutcome, GroupEncryptOutcome, GroupError, GroupProposal, GroupState, GroupTransparencyPolicy, create_group, commit_add, decode_group_commit, decode_group_message, decode_group_welcome, decrypt_group_message, encode_group_commit, encode_group_message, encode_group_welcome, encrypt_group_message, join_from_welcome
+from Groups.CommitWire import decode_group_commit, encode_group_commit
+from Groups.GroupMessages import (
+  decode_group_message,
+  decrypt_group_message,
+  encode_group_message,
+  encrypt_group_message
+)
+from Groups.Membership import commit_add, create_group, join_from_welcome
+from Groups.Mls import (
+  GroupAddOutcome,
+  GroupDecryptOutcome,
+  GroupEncryptOutcome,
+  GroupError,
+  GroupProposal,
+  GroupState,
+  GroupTransparencyPolicy
+)
+from Groups.WelcomeWire import decode_group_welcome, encode_group_welcome
 from Groups.Tree import GroupMember
 
 fn repeated(value :: Int, length :: Int) -> Bytes do

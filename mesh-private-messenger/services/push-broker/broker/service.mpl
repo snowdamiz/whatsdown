@@ -1,5 +1,27 @@
 from Broker.Expo import BrokerOutcome, classify_expo_receipt, parse_expo_ticket, prepare_expo_request_with_key, receipt_message
 from Broker.Queue import EnqueueOutcome, QueueJob, complete_job, enqueue_with_key, mark_terminal, next_job, purge_tombstones, record_ticket, retry_job, tombstone_cutoff_ms
+from Broker.Queue import next_work_at
+import RuntimeJobs
+
+fn drain_due(path :: String,
+private_key :: borrow X25519PrivateKey,
+token :: String,
+remaining :: Int) -> Result <(), String > do
+  if remaining <= 0 do
+    Ok(nil)
+  else if process_once_with_key(path, private_key, token, DateTime.to_unix_ms(DateTime.utc_now())) ? do
+    drain_due(path, private_key, token, remaining - 1)
+  else
+    Ok(nil)
+  end
+end
+
+pub fn run_scheduled(path :: String, token :: String) -> Int ! String do
+  let private_key = broker_private_key() ?
+  drain_due(path, private_key, token, 4) ?
+  let _ = purge_tombstones(path, tombstone_cutoff_ms(DateTime.to_unix_ms(DateTime.utc_now())), 256) ?
+  next_work_at(path)
+end
 
 pub fn expo_send_url() -> String do
   "https://exp.host/--/api/v2/push/send"
@@ -201,7 +223,9 @@ actor push_worker(path :: String, token :: String) do
 end
 
 pub fn start_worker(path :: String, token :: String) do
-  spawn(push_worker, path, token)
+  if !RuntimeJobs.enabled() do
+    spawn(push_worker, path, token)
+  end
   nil
 end
 

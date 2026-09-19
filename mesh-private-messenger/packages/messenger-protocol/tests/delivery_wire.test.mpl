@@ -1,4 +1,26 @@
-from Protocol.V1 import DeliveredEnvelope, DirectoryEntry, MailboxAck, MailboxFetch, OuterEnvelope, ProtocolError, decode_delivery_batch, decode_directory_entry, decode_directory_lookup, decode_mailbox_ack, decode_mailbox_fetch, encode_delivery_batch, encode_directory_entry, encode_directory_lookup, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope
+from Protocol.DirectoryWire import (
+  decode_directory_entry,
+  decode_directory_lookup,
+  encode_directory_entry,
+  encode_directory_lookup
+)
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.MailboxWire import (
+  decode_delivery_batch,
+  decode_mailbox_ack,
+  decode_mailbox_fetch,
+  encode_delivery_batch,
+  encode_mailbox_ack,
+  encode_mailbox_fetch
+)
+from Protocol.V1 import (
+  DeliveredEnvelope,
+  DirectoryEntry,
+  MailboxAck,
+  MailboxFetch,
+  OuterEnvelope,
+  ProtocolError
+)
 
 fn wide(value :: Int) -> U64 ! ProtocolError do
   let text = value

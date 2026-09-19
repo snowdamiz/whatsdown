@@ -1,0 +1,87 @@
+name: Backend release
+
+on:
+  push:
+    branches: [release]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Test and deploy Cloudflare backend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: production
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: morse_storage_test
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Checkout protocol's pinned Mesh dependency
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: snowdamiz/mesh-lang
+          ref: 14dd84d464e62f0a220eecf6ccc6126c338a8214
+          path: mesh-lang
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mesh-private-messenger/ops/cloudflare/package-lock.json
+      - name: Prepare Linux build runner
+        run: |
+          # This backend-only job does not need the runner's Android SDK or .NET.
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y postgresql-client libxml2-dev libffi-dev libsqlite3-dev
+          npm ci --prefix mesh-private-messenger/ops/cloudflare
+      - name: Build the pinned compiler once for tests and deployment
+        run: |
+          docker build --target compiler-tools --output "type=local,dest=$RUNNER_TEMP/mesh-tools" \
+            --file mesh-private-messenger/ops/cloudflare/Dockerfile .
+          echo "MESHC=$RUNNER_TEMP/mesh-tools/meshc" >> "$GITHUB_ENV"
+          echo "MESH_RT_LIB_PATH=$RUNNER_TEMP/mesh-tools/libmesh_rt.a" >> "$GITHUB_ENV"
+      - name: Verify backend behavior and event-driven processing
+        env:
+          MESSENGER_STORAGE_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:55439/morse_storage_test?sslmode=disable
+        run: |
+          "$MESHC" test mesh-private-messenger/packages/messenger-protocol/tests
+          "$MESHC" test mesh-private-messenger/services/push-broker/tests
+          "$MESHC" test mesh-private-messenger/services/object-store/tests/object_store.test.mpl
+          "$MESHC" test mesh-private-messenger/services/object-store/tests/postgres.test.mpl
+          npm test --prefix mesh-private-messenger/ops/cloudflare
+      - name: Migrate and deploy all backend services
+        working-directory: mesh-private-messenger/ops/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          MESSENGER_DATABASE_URL: ${{ secrets.MESSENGER_DATABASE_URL }}
+          MORSE_BACKEND_URL: ${{ vars.MORSE_BACKEND_URL }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$MESSENGER_DATABASE_URL"
+          test -n "$MORSE_BACKEND_URL"
+          node migrate.mjs
+          npm run deploy -- --containers-rollout=immediate
+          curl --fail --silent --show-error --retry 90 --retry-max-time 960 --retry-delay 10 --retry-all-errors --max-time 30 "$MORSE_BACKEND_URL/health"
+          node smoke.mjs

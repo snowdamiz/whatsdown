@@ -1,4 +1,16 @@
-from Groups.Mls import CommitApplyOutcome, GroupAddOutcome, GroupDecryptOutcome, GroupEncryptOutcome, GroupError, GroupRemoveOutcome, GroupState, GroupTransparencyPolicy, apply_commit, commit_add, commit_remove, create_group, decrypt_group_message, delivery_targets, encrypt_group_message, join_from_welcome, negotiate_group_extensions
+from Groups.GroupCodec import delivery_targets, negotiate_group_extensions
+from Groups.GroupMessages import decrypt_group_message, encrypt_group_message
+from Groups.Membership import apply_commit, commit_add, commit_remove, create_group, join_from_welcome
+from Groups.Mls import (
+  CommitApplyOutcome,
+  GroupAddOutcome,
+  GroupDecryptOutcome,
+  GroupEncryptOutcome,
+  GroupError,
+  GroupRemoveOutcome,
+  GroupState,
+  GroupTransparencyPolicy
+)
 from Groups.Tree import GroupMember, member_count
 
 fn repeated(value :: Int, length :: Int) -> Bytes do

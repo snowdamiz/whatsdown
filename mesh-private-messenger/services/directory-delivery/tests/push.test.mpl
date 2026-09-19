@@ -1,7 +1,9 @@
 from Api.Binary import bind_push_request, unbind_push_request
 from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential
 from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DirectoryEntry, OuterEnvelope, ProtocolError, encode_account_identity, encode_prekey_bundle
+from Protocol.IdentityWire import encode_account_identity
+from Protocol.PrekeyWire import encode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DirectoryEntry, OuterEnvelope, ProtocolError
 from Push.Binding import PushBindRequest, PushUnbindRequest, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
 from Push.Token import seal_provider_token
 from Runtime.FakePushProvider import generic_push_payload

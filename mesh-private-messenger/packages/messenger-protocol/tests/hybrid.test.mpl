@@ -1,6 +1,16 @@
 from Identity.Device import AccountKeys, DeviceKeys, IdentityError, VerificationPolicy, generate_account, generate_device, issue_device_credential, issue_hybrid_device_credential
 from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle, reauthorize_signed_prekey, verify_prekey_bundle
-from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle, ProtocolError, ProtocolExtension, decode_prekey_bundle, encode_initial_message, encode_prekey_bundle, negotiate_suites
+from Protocol.HandshakeWire import encode_initial_message
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  InitialMessage,
+  PrekeyBundle,
+  ProtocolError,
+  ProtocolExtension,
+  negotiate_suites
+)
 from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
 from Session.Ratchet import DecryptOutcome, decrypt, encrypt
 

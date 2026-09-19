@@ -1,5 +1,15 @@
-from MobileCore import group_add_export, group_history_export, group_key_package_export, group_receive_export, group_send_export, process_delivery_batch_export
-from Protocol.V1 import DirectoryEntry, MailboxAck, OuterEnvelope, encode_outer_envelope
+from MobileCore import (
+  group_add_export,
+  group_history_export,
+  group_key_package_export,
+  group_receive_export,
+  group_send_export,
+  presentation_save_export,
+  presentation_load_export,
+  process_delivery_batch_export
+)
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.V1 import DirectoryEntry, MailboxAck, OuterEnvelope
 from Tests.GroupLifecycleSupport import GroupAccountFixture
 from Tests.GroupLifecycleWire import ack, acknowledge, delivery_batch, envelope_for, group_vectors, outer, output_list
 from Tests.Support import append, repeated, vector, write_u32
@@ -59,6 +69,9 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
   group_id),
   "linked welcome receive mismatch") ?
   let greeting = Bytes.from_utf8("hello every device")
+  let presentation_key = Bytes.from_utf8("user/" <> Bytes.to_hex(accounts.alice_account.account_id))
+  let presentation = group_vectors([Bytes.from_utf8("alice"), Bytes.from_utf8("data:image/jpeg;base64,/9j/2Q==")]) ?
+  presentation_save_export(group_vectors([Bytes.from_utf8(accounts.alice_path), presentation_key, presentation]) ?) ?
   let greeting_output = group_send_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, greeting]) ?) ?
   let greetings = output_list(greeting_output) ?
   group_messages_ensure(List.length(greetings) == 2, "greeting delivery count mismatch") ?
@@ -86,6 +99,8 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
   let bob_greeting_record = output_list(List.head(bob_greeting_history)) ?
   group_messages_ensure(Bytes.secure_equals(List.get(bob_greeting_record, 6), greeting),
   "bob greeting history body mismatch") ?
+  group_messages_ensure(Bytes.secure_equals(presentation_load_export(group_vectors([Bytes.from_utf8(accounts.bob_path), presentation_key]) ?) ?, presentation),
+  "sender presentation did not travel with the encrypted message") ?
   group_messages_ensure(Bytes.secure_equals(group_receive_export(group_vectors([Bytes.from_utf8(accounts.linked_path), envelope_for(greetings,
   accounts.linked_entry.mailbox_token,
   0) ?]) ?) ?,

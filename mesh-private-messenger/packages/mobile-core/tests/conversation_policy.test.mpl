@@ -1,7 +1,23 @@
 import File
-from MobileCore import ConversationSummary, create_account_export, decode_conversation_summary, list_conversations_export, load_history_export, outbox_ack_export, receive_initial_export, receive_message_export, remove_safety_binding_for_test, safety_number_export, send_message_export, start_conversation_export, update_conversation_export
+from Mobile.History import decode_conversation_summary
+from Mobile.Types import ConversationSummary
+from MobileCore import (
+  create_account_export,
+  list_conversations_export,
+  load_history_export,
+  outbox_ack_export,
+  receive_initial_export,
+  receive_message_export,
+  remove_safety_binding_for_test,
+  safety_number_export,
+  send_message_export,
+  start_conversation_export,
+  update_conversation_export
+)
 from Tests.Support import append, database_path, vector, write_u32
-from Protocol.V1 import AccountIdentity, DirectoryEntry, OuterEnvelope, decode_outer_envelope, encode_account_identity
+from Protocol.EnvelopeWire import decode_outer_envelope
+from Protocol.IdentityWire import encode_account_identity
+from Protocol.V1 import AccountIdentity, DirectoryEntry, OuterEnvelope
 from Transport.Packet import ClientProfile, decode_client_profile, encode_client_profile
 
 fn encode_vectors(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! String do
@@ -71,8 +87,10 @@ fn proof() -> Bool ! String do
   let alice_fingerprint = append(alice_identity.account_id, alice_identity.authorization_public_key) ?
   let bob_fingerprint = append(bob_identity.account_id, bob_identity.authorization_public_key) ?
   let label = Bytes.from_utf8("mesh-msg/mobile/account-safety/v2")
-  let forward = Bytes.from_utf8(Bytes.to_hex(Crypto.sha256(append(label, append(alice_fingerprint, bob_fingerprint) ?) ?)))
-  let reverse = Bytes.from_utf8(Bytes.to_hex(Crypto.sha256(append(label, append(bob_fingerprint, alice_fingerprint) ?) ?)))
+  let forward = Bytes.from_utf8(Bytes.to_hex(Crypto.sha256(append(label,
+  append(alice_fingerprint, bob_fingerprint) ?) ?)))
+  let reverse = Bytes.from_utf8(Bytes.to_hex(Crypto.sha256(append(label,
+  append(bob_fingerprint, alice_fingerprint) ?) ?)))
   assert(Bytes.secure_equals(alice_safety, forward) || Bytes.secure_equals(alice_safety, reverse))
   assert(assert_summary(decode_conversation_summary(list_conversations_export(Bytes.from_utf8(bob_path)) ?) ?,
   "alice",
@@ -135,18 +153,20 @@ fn proof() -> Bool ! String do
   let legacy = decode_conversation_summary(list_conversations_export(Bytes.from_utf8(bob_path)) ?) ?
   assert(!legacy.verified && legacy.key_changed && Bytes.length(legacy.safety_number) == 0)
   case policy(bob_path, alice_profile, 4, 0) do
-    Ok(_) -> assert(false)
-    Err(_) -> assert(true)
+    Ok( _) -> assert(false)
+    Err( _) -> assert(true)
   end
   let replacement = case encode_account_identity(% { bob_identity | authorization_public_key : alice_identity.authorization_public_key }) do
-    Err(_) -> Err("test account encoding failed")
-    Ok(value) -> Ok(value)
+    Err( _) -> Err("test account encoding failed")
+    Ok( value) -> Ok(value)
   end ?
   let bob = decode_client_profile(bob_profile) ?
-  let changed_profile = encode_client_profile(% { bob.entry | account_identity : replacement }, bob.account_id, bob.device_id) ?
+  let changed_profile = encode_client_profile(% { bob.entry | account_identity : replacement },
+  bob.account_id,
+  bob.device_id) ?
   case send_message_export(request([Bytes.from_utf8(alice_path), changed_profile, Bytes.from_utf8("must not send")]) ?) do
-    Ok(_) -> assert(false)
-    Err(error) -> assert(error == "peer_keys_changed")
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "peer_keys_changed")
   end
   File.delete(alice_path) ?
   File.delete(bob_path) ?

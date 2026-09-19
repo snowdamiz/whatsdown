@@ -4,7 +4,7 @@
 !.env.example
 *.log
 
-node_modules/
+node_modules
 dist/
 build/
 coverage/
@@ -23,3 +23,7 @@ target/
 *.db
 *.db-shm
 *.db-wal
+
+# Local runtime and deployment state
+.morse/
+.wrangler/

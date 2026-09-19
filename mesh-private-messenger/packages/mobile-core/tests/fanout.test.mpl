@@ -1,8 +1,34 @@
 import File
-from MobileCore import authorize_device_link_export, complete_device_link_export, create_account_export, create_link_request_export, directory_entry_export, fanout_prekey_claims_export, install_group_transparency_for_test, load_history_export, outbox_ack_export, outbox_list_export, prepare_fanout_prekeys_export, receive_initial_export, receive_message_export, replenish_prekeys_export, reserve_fanout_prekey_export, safety_number_export, send_fanout_export, start_conversation_export, test_ratchet_jump_envelope, test_ratchet_tamper_envelope, update_conversation_export
+from MobileCore import (
+  authorize_device_link_export,
+  complete_device_link_export,
+  create_account_export,
+  create_link_request_export,
+  directory_entry_export,
+  fanout_prekey_claims_export,
+  install_group_transparency_for_test,
+  load_history_export,
+  outbox_ack_export,
+  outbox_list_export,
+  prepare_fanout_prekeys_export,
+  receive_initial_export,
+  receive_message_export,
+  replenish_prekeys_export,
+  reserve_fanout_prekey_export,
+  safety_number_export,
+  send_fanout_export,
+  start_conversation_export,
+  test_ratchet_jump_envelope,
+  test_ratchet_tamper_envelope,
+  update_conversation_export
+)
 from Prekeys.Bundle import normalize_prekey_bundle
 from Prekeys.Pool import decode_prekey_claim, decode_prekey_publish
-from Protocol.V1 import DeviceCredential, DeviceSet, DirectoryEntry, OuterEnvelope, PrekeyBundle, decode_device_credential, decode_directory_entry, decode_outer_envelope, decode_prekey_bundle, encode_device_set, encode_prekey_bundle
+from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
+from Protocol.EnvelopeWire import decode_outer_envelope
+from Protocol.IdentityWire import decode_device_credential
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import DeviceCredential, DeviceSet, DirectoryEntry, OuterEnvelope, PrekeyBundle
 from Tests.GroupConsistencyCrypto import checkpoint
 from Tests.GroupConsistencySupport import signed_transparency_view, signing_pair
 from Tests.Support import append, database_path, repeated, vector, write_u32

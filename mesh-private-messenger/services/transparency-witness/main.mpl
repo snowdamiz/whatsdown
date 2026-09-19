@@ -48,17 +48,32 @@ fn post(path :: String, body :: Bytes) -> HttpResponse ! String do
     |> Http.send()
 end
 
-fn fetch_checkpoint() -> TransparencyCheckpoint ! String do
+fn fetch_checkpoint() -> Option < TransparencyCheckpoint > ! String do
   let response = get("/v1/transparency/checkpoint") ?
-  if response.status != 200 do
+  if response.status == 404 do
+    Ok(None)
+  else if response.status != 200 do
     Err("checkpoint request returned #{response.status}")
   else
-    decode_checkpoint(response.body_bytes)
+    Ok(Some(decode_checkpoint(response.body_bytes) ?))
   end
 end
 
 fn cached_checkpoint(path :: String) -> Option < TransparencyCheckpoint > ! String do
-  if !File.exists(path) do
+  if String.starts_with(path, "http://") || String.starts_with(path, "https://") do
+    let request = Http.build(:get, path)
+      |> Http.header("Accept-Encoding", "identity")
+      |> Http.timeout(10000)
+      |> Http.max_response_bytes(4096)
+    let response = Http.send(request) ?
+    if response.status == 404 do
+      Ok(None)
+    else if response.status == 200 do
+      Ok(Some(decode_checkpoint(response.body_bytes) ?))
+    else
+      Err("witness checkpoint read failed")
+    end
+  else if !File.exists(path) do
     Ok(None)
   else
     case File.read(path) do
@@ -101,7 +116,32 @@ trusted_log_key :: SigningPublicKey) -> Result <(), String > do
   end
 end
 
-fn save_checkpoint(path :: String, value :: TransparencyCheckpoint) -> Result <(), String > do
+fn save_checkpoint(path :: String,
+previous :: Option < TransparencyCheckpoint >,
+value :: TransparencyCheckpoint) -> Result <(), String > do
+  if String.starts_with(path, "http://") || String.starts_with(path, "https://") do
+    let expected = case previous do
+      None -> "none"
+      Some( prior) -> Bytes.to_hex(Crypto.sha256(encode_checkpoint(prior) ?))
+    end
+    let request = Http.build(:put, path)
+      |> Http.header("Accept-Encoding", "identity")
+      |> Http.header("If-Match", expected)
+      |> Http.body_bytes(encode_checkpoint(value) ?)
+      |> Http.timeout(10000)
+      |> Http.max_response_bytes(1024)
+    let response = Http.send(request) ?
+    if response.status == 204 do
+      Ok(nil)
+    else
+      Err("witness checkpoint write failed")
+    end
+  else
+    save_local_checkpoint(path, value)
+  end
+end
+
+fn save_local_checkpoint(path :: String, value :: TransparencyCheckpoint) -> Result <(), String > do
   case File.write(path, Bytes.to_base64(encode_checkpoint(value) ?)) do
     Err( _) -> Err("witness checkpoint write failed")
     Ok( _) -> Ok(nil)
@@ -115,25 +155,30 @@ fn witness_once() -> Result <(), String > do
     Err("invalid witness configuration")
   else
     let trusted_log_key = SigningPublicKey { bytes : configured_public_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX") ? }
-    let checkpoint = fetch_checkpoint() ?
-    if !verify_checkpoint(checkpoint, trusted_log_key) ? do
-      Err("transparency checkpoint signature failed")
-    else
-      case cached_checkpoint(checkpoint_path) ? do
+    let signer = configured_signer() ?
+    if !Bytes.secure_equals(signer.public_key.bytes,
+    configured_public_key("MESSENGER_WITNESS_PUBLIC_KEY_HEX") ?) do
+      return Err("witness signing key does not match pinned public key")
+    end
+    let previous = cached_checkpoint(checkpoint_path) ?
+    case fetch_checkpoint() ? do
+      None -> case previous do
         None -> Ok(nil)
-        Some( previous) -> verify_history(previous, checkpoint, trusted_log_key)
-      end ?
-      let signer = configured_signer() ?
-      if !Bytes.secure_equals(signer.public_key.bytes,
-      configured_public_key("MESSENGER_WITNESS_PUBLIC_KEY_HEX") ?) do
-        Err("witness signing key does not match pinned public key")
+        Some( _) -> Err("checkpoint missing after initialization")
+      end
+      Some( checkpoint) -> if !verify_checkpoint(checkpoint, trusted_log_key) ? do
+        Err("transparency checkpoint signature failed")
       else
+        case previous do
+          None -> Ok(nil)
+          Some( prior) -> verify_history(prior, checkpoint, trusted_log_key)
+        end ?
         let response = post("/v1/transparency/witnesses",
         encode_witnesses([sign_witness(witness_id, signer.private_key, checkpoint) ?]) ?) ?
         if response.status != 201 do
           Err("witness submission returned #{response.status}")
         else
-          save_checkpoint(checkpoint_path, checkpoint)
+          save_checkpoint(checkpoint_path, previous, checkpoint)
         end
       end
     end
@@ -146,6 +191,6 @@ fn main() do
       io_eprintln("witness failed: #{error}")
       Process.exit(1)
     end
-    Ok( _) -> println("witness checkpoint accepted")
+    Ok( _) -> println("witness check completed")
   end
 end

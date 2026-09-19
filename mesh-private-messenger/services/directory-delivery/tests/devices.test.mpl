@@ -1,7 +1,26 @@
 from Api.Binary import checkpoint_request, consistency_request, fetch_request, inclusion_request, register_device_request, resolve_devices_request, revoke_device_request, submit_request, submit_witness_request, validate_transparency_config, witnesses_request
 from Identity.Device import AccountKeys, DeviceKeys, credential_signing_bytes, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
 from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, reauthorize_signed_prekey
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, MailboxFetch, OuterEnvelope, PrekeyBundle, ProtocolError, ProtocolExtension, decode_delivery_batch, decode_device_credential, decode_device_set, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_set, encode_directory_entry, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle, encode_device_revocation
+from Protocol.DirectoryWire import (
+  decode_device_set,
+  encode_device_revocation,
+  encode_device_set,
+  encode_directory_entry
+)
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.IdentityWire import decode_device_credential, encode_account_identity, encode_device_credential
+from Protocol.MailboxWire import decode_delivery_batch, encode_mailbox_fetch
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  DirectoryEntry,
+  MailboxFetch,
+  OuterEnvelope,
+  PrekeyBundle,
+  ProtocolError,
+  ProtocolExtension
+)
 from Storage.Devices import resolve_devices
 from Storage.Transparency import append_entry_on_connection, create_checkpoint, entry_count, consistency_from, evidence_for_username, inclusion_for_account
 from Transparency.Merkle import WitnessKey, leaf_hash, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
@@ -554,12 +573,20 @@ fn proof() -> Bool ! String do
     ciphertext : Bytes.from_utf8("opaque")
   })) ?
   assert(submit_request(pool, revoked_delivery).status == 410)
-  assert_checkpoint_order(pool, transparency_seed, identity.account_id, updated_evidence.entry_bytes, 4) ?
+  assert_checkpoint_order(pool,
+  transparency_seed,
+  identity.account_id,
+  updated_evidence.entry_bytes,
+  4) ?
   Pool.close(pool)
   Ok(true)
 end
 
-fn assert_checkpoint_order(pool :: PoolHandle, seed :: Bytes, account_id :: Bytes, entry :: Bytes, sequence :: Int) -> Result <(), String > do
+fn assert_checkpoint_order(pool :: PoolHandle,
+seed :: Bytes,
+account_id :: Bytes,
+entry :: Bytes,
+sequence :: Int) -> Result <(), String > do
   if sequence > 12 do
     Ok(nil)
   else

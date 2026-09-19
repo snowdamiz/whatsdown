@@ -1,5 +1,6 @@
 from Privacy.Edge import AnonymousAbuseToken, PrivacySubmission, decode_privacy_submission, encode_privacy_submission, mint_submission, open_delivery_with_key, seal_delivery, verify_submission
-from Protocol.V1 import OuterEnvelope, encode_outer_envelope
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.V1 import OuterEnvelope
 
 fn repeated(value :: Int, count :: Int) -> Bytes ! String do
   case Bytes.repeat(value, count) do

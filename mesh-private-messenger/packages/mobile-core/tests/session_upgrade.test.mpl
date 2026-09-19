@@ -1,7 +1,25 @@
 import File
-from MobileCore import create_account_export, directory_entry_export, fanout_prekey_claims_export, has_fanout_prekey_state_for_test, install_classical_session_for_test, install_group_transparency_for_test, load_history_export, outbox_ack_export, receive_initial_export, receive_message_export, remove_safety_binding_for_test, reserve_fanout_prekey_export, send_fanout_export, send_message_export, update_conversation_export
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  fanout_prekey_claims_export,
+  has_fanout_prekey_state_for_test,
+  install_classical_session_for_test,
+  install_group_transparency_for_test,
+  load_history_export,
+  outbox_ack_export,
+  receive_initial_export,
+  receive_message_export,
+  remove_safety_binding_for_test,
+  reserve_fanout_prekey_export,
+  send_fanout_export,
+  send_message_export,
+  update_conversation_export
+)
 from Prekeys.Bundle import normalize_prekey_bundle
-from Protocol.V1 import DeviceSet, DirectoryEntry, PrekeyBundle, decode_directory_entry, decode_prekey_bundle, encode_device_set, encode_prekey_bundle
+from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import DeviceSet, DirectoryEntry, PrekeyBundle
 from Tests.GroupConsistencySupport import request, signed_transparency_view, wide
 from Tests.GroupLifecycleWire import outer, output_list
 from Tests.Support import database_path, write_u32

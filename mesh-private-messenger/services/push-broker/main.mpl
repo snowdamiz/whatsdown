@@ -1,6 +1,7 @@
+import RuntimeJobs
 from Broker.Expo import BrokerOutcome
-from Broker.Queue import initialize
-from Broker.Service import accept_durable_with_key, access_token, authorized, broker_private_key, internal_token, outcome_status, provider_url, start_worker
+from Broker.Queue import initialize, transaction_in_progress
+from Broker.Service import run_scheduled, accept_durable_with_key, access_token, broker_private_key, internal_token, outcome_status, provider_url, start_worker
 
 fn fatal(message :: String) do
   io_eprintln(message)
@@ -24,9 +25,10 @@ fn configured_internal_token() -> String ! String do
 end
 
 fn configured_queue_path() -> String ! String do
-  let path = Env.get("MESSENGER_PUSH_BROKER_DB_PATH", "push-broker.db")
-  if String.length(path) == 0 || String.length(path) > 4096 || path == ":memory:" do
-    Err("invalid broker queue path")
+  let path = Env.get("MESSENGER_PUSH_BROKER_DATABASE_URL", "")
+  if String.length(path) > 4096 || !(String.starts_with(path, "postgres://") || String.starts_with(path,
+  "postgresql://")) do
+    Err("invalid broker database URL")
   else
     Ok(path)
   end
@@ -57,10 +59,7 @@ fn handle_push(request :: Request) -> Response do
   case configured_internal_token() do
     Err( _) -> HTTP.response(503, "")
     Ok( secret) -> do
-      let permitted = case Request.header(request, "Authorization") do
-        None -> false
-        Some( value) -> authorized(Some(value), secret)
-      end
+      let permitted = RuntimeJobs.internal_request_authorized(request, secret)
       if !permitted do
         HTTP.response(401, "")
       else
@@ -77,9 +76,14 @@ fn serve(port :: Int) -> Result <(), String > do
   let path = configured_queue_path() ?
   let token = configured_token() ?
   start_worker(path, token)
-  println("push-broker listening on :#{port} with one worker")
+  if RuntimeJobs.enabled() do
+    println("push-broker listening on :#{port} with scheduled jobs")
+  else
+    println("push-broker listening on :#{port} with one worker")
+  end
   let _ = HTTP.serve(HTTP.router()
     |> HTTP.on_get("/health", handle_health)
+    |> HTTP.on_post("/internal/v1/jobs/push", handle_jobs)
     |> HTTP.on_post("/internal/v1/push", handle_push),
   port)
   if Process.shutdown_requested() do
@@ -100,6 +104,27 @@ fn main() do
       case serve(port) do
         Err( error) -> fatal("push-broker startup failed: #{error}")
         Ok( _) -> nil
+      end
+    end
+  end
+end
+
+fn handle_jobs(request :: Request) -> Response do
+  if !RuntimeJobs.internal_request_authorized(request, Env.get("MESSENGER_PUSH_BROKER_INTERNAL_TOKEN", "")) do
+    HTTP.response(401, "")
+  else
+    case configured_queue_path() do
+      Err( _) -> HTTP.response(503, "")
+      Ok( path) -> case transaction_in_progress(path, Request.body(request)) do
+        Err( _) -> HTTP.response(503, "")
+        Ok( true) -> HTTP.response(202, "")
+        Ok( false) -> case configured_token() do
+          Err( _) -> HTTP.response(503, "")
+          Ok( token) -> case run_scheduled(path, token) do
+            Err( _) -> HTTP.response(503, "")
+            Ok( due) -> HTTP.response(200, Int.to_string(due))
+          end
+        end
       end
     end
   end

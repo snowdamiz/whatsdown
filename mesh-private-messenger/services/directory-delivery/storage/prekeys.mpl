@@ -1,6 +1,8 @@
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
 from Prekeys.Bundle import normalize_prekey_bundle
-from Protocol.V1 import PrekeyBundle, decode_device_credential, decode_prekey_bundle, encode_prekey_bundle
+from Protocol.IdentityWire import decode_device_credential
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import PrekeyBundle
 
 pub type PrekeyPublishWrite do
   PrekeysPublished( active_ids :: List < U64 >)
@@ -11,7 +13,7 @@ pub type PrekeyPublishWrite do
 
   PrekeysConflict
 
-  PrekeyPoolFull
+  PrekeyPoolFull( active_ids :: List < U64 >)
 end
 
 pub type PrekeyClaimWrite do
@@ -184,7 +186,7 @@ fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest)
           if List.length(counts) != 1 do
             Err("prekey pool count failed")
           else if integer(Map.get(List.head(counts), "available_count")) ? + checked.new_count > 64 do
-            Ok(PrekeyPoolFull)
+            Ok(PrekeyPoolFull(active_prekey_ids(conn, request.account_id, request.device_id) ?))
           else
             if checked.new_count > 0 do
               insert_prekeys(conn, request, 0) ?

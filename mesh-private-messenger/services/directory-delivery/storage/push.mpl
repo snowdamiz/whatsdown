@@ -1,4 +1,6 @@
-from Protocol.V1 import decode_device_credential, decode_prekey_bundle
+from Protocol.V1 import DeviceCredential, PrekeyBundle
+from Protocol.IdentityWire import decode_device_credential
+from Protocol.PrekeyWire import decode_prekey_bundle
 from Push.Binding import PushBindRequest, PushUnbindRequest, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
 
 pub type PushWrite do

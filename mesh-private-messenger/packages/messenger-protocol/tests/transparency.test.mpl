@@ -1,7 +1,8 @@
 from Transparency.Client import verify_evidence
 from Transparency.Merkle import WitnessAttestation, WitnessKey, checkpoint_conflict, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, merkle_root, sign_checkpoint, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
 from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_transparency_evidence, decode_transparency_lookup, decode_transparency_tree_query, decode_witnesses, encode_checkpoint, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query, encode_witnesses
-from Protocol.V1 import DeviceSet, DirectoryEntry, encode_device_set
+from Protocol.DirectoryWire import encode_device_set
+from Protocol.V1 import DeviceSet, DirectoryEntry
 
 fn signing_pair() -> SigningKeyPair ! String do
   case Crypto.signing_generate() do

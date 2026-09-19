@@ -1,5 +1,7 @@
 from MobileCore import outbox_ack_export
-from Protocol.V1 import DeliveredEnvelope, MailboxAck, OuterEnvelope, decode_mailbox_ack, decode_outer_envelope, encode_delivery_batch
+from Protocol.EnvelopeWire import decode_outer_envelope
+from Protocol.MailboxWire import decode_mailbox_ack, encode_delivery_batch
+from Protocol.V1 import DeliveredEnvelope, MailboxAck, OuterEnvelope
 from Tests.Support import append, vector
 
 fn group_request_parts(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! String do

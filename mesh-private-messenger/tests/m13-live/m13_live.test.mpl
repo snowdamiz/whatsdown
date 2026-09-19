@@ -1,5 +1,14 @@
-from MobileCore import create_account_export, directory_entry_export, prepare_fanout_prekeys_export, privacy_submission_export, send_fanout_export, transparency_lookup_export, verify_transparency_export
-from Protocol.V1 import OuterEnvelope, decode_outer_envelope
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  prepare_fanout_prekeys_export,
+  privacy_submission_export,
+  send_fanout_export,
+  transparency_lookup_export,
+  verify_transparency_export
+)
+from Protocol.EnvelopeWire import decode_outer_envelope
+from Protocol.V1 import OuterEnvelope
 from Transparency.Wire import TransparencyTreeQuery, decode_transparency_lookup, decode_witnesses, encode_transparency_tree_query
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do

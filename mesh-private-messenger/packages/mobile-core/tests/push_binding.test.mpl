@@ -1,6 +1,23 @@
 import File
-from MobileCore import create_account_export, directory_entry_export, expo_registration_body_for_test, install_legacy_disabled_push_state_for_test, install_legacy_enabled_push_state_for_test, install_legacy_pending_unbind_push_state_for_test, push_action_complete_with_test_config, push_action_export, push_bind_prepare_with_test_config, push_intent_export, push_status_export, push_unbind_prepare_export, push_update_commit_export
-from Protocol.V1 import DeviceCredential, DirectoryEntry, PrekeyBundle, decode_device_credential, decode_directory_entry, decode_prekey_bundle
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  expo_registration_body_for_test,
+  install_legacy_disabled_push_state_for_test,
+  install_legacy_enabled_push_state_for_test,
+  install_legacy_pending_unbind_push_state_for_test,
+  push_action_complete_with_test_config,
+  push_action_export,
+  push_bind_prepare_with_test_config,
+  push_intent_export,
+  push_status_export,
+  push_unbind_prepare_export,
+  push_update_commit_export
+)
+from Protocol.DirectoryWire import decode_directory_entry
+from Protocol.IdentityWire import decode_device_credential
+from Protocol.PrekeyWire import decode_prekey_bundle
+from Protocol.V1 import DeviceCredential, DirectoryEntry, PrekeyBundle
 from Push.Binding import PushBindRequest, PushUnbindRequest, decode_push_bind, decode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
 from Push.Token import open_provider_token
 from Tests.Support import append, database_path, repeated, vector
@@ -198,7 +215,7 @@ expected_project_id :: String) -> Bool ! String do
   let device_id = request_string(root, "deviceId") ?
   let device_token = request_string(root, "deviceToken") ?
   Ok(Request.method(request) == "POST" && Request.path(request) == path && content_type && Regex.is_match(~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-  device_id) && request_string(root, "appId") ? == "com.example.whatsdown" && request_string(root,
+  device_id) && request_string(root, "appId") ? == "com.example.morse" && request_string(root,
   "projectId") ? == expected_project_id && ((kind == "apns" && development) || (kind == "fcm" && !development)) && device_token == expected_token)
 end
 
@@ -544,7 +561,7 @@ fn proof() -> Bool ! String do
   let attacker_seed = seed(8) ?
   let project_id = Bytes.from_utf8("01234567-89ab-cdef-0123-456789abcdef")
   let rotated_project_id = Bytes.from_utf8("fedcba98-7654-3210-fedc-ba9876543210")
-  let app_id = Bytes.from_utf8("com.example.whatsdown")
+  let app_id = Bytes.from_utf8("com.example.morse")
   let first_raw_token = Bytes.from_utf8("apns-device-token")
   let first_frame = raw_push_frame(1, 1, app_id, first_raw_token) ?
   let endpoint = "http://127.0.0.1:18997/--/api/v2/push/getExpoPushToken"
@@ -555,7 +572,7 @@ fn proof() -> Bool ! String do
   let rebound_endpoint = "http://127.0.0.1:18997/rebound"
   let rotated_endpoint = "http://127.0.0.1:18997/rotated"
   let device_fixture = Bytes.from_hex("00112233445566778899aabbccddeeff") ?
-  assert(expo_registration_body_for_test(first_frame, device_fixture, project_id) ? == "{\"type\":\"apns\",\"deviceId\":\"00112233-4455-6677-8899-aabbccddeeff\",\"development\":true,\"appId\":\"com.example.whatsdown\",\"deviceToken\":\"apns-device-token\",\"projectId\":\"01234567-89ab-cdef-0123-456789abcdef\"}")
+  assert(expo_registration_body_for_test(first_frame, device_fixture, project_id) ? == "{\"type\":\"apns\",\"deviceId\":\"00112233-4455-6677-8899-aabbccddeeff\",\"development\":true,\"appId\":\"com.example.morse\",\"deviceToken\":\"apns-device-token\",\"projectId\":\"01234567-89ab-cdef-0123-456789abcdef\"}")
   assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path)) ?,
   Bytes.from_utf8("disabled")))
   let _server = spawn(expo_registration_server)

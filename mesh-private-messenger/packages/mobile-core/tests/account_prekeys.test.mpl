@@ -1,5 +1,12 @@
 import File
-from MobileCore import create_account_export, load_profile_export, migrated_prekey_matches_profile_path, prepare_legacy_prekey_fixture_path, reconcile_prekeys_export, replenish_prekeys_export
+from MobileCore import (
+  create_account_export,
+  load_profile_export,
+  migrated_prekey_matches_profile_path,
+  prepare_legacy_prekey_fixture_path,
+  reconcile_prekeys_export,
+  replenish_prekeys_export
+)
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyPublishRequest, PrekeyPublishResponse, decode_prekey_publish, encode_prekey_publish_response
 from Tests.Support import append, database_path, read_u32, vector, write_u32
 

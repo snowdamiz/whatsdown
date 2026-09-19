@@ -3,4 +3,5 @@ name = "directory-delivery"
 version = "0.1.0"
 
 [dependencies]
+service-jobs = { path = "../../packages/service-jobs" }
 messenger-protocol = { path = "../../packages/messenger-protocol" }

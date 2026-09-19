@@ -2,6 +2,35 @@ from Api.Binary import BinaryResult, acknowledge_request, bind_push_request, che
 from Prekeys.Pool import decode_prekey_claim
 from Privacy.Edge import internal_delivery_authorized, internal_delivery_token
 from Runtime.Registry import get_pool
+from Runtime.Workers import run_scheduled, transaction_in_progress
+import RuntimeJobs
+
+fn run_jobs(request :: Request, witness_only :: Bool) -> Response do
+  if !RuntimeJobs.internal_request_authorized(request, Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+    HTTP.response(401, "")
+  else
+    case transaction_in_progress(get_pool(), Request.body(request)) do
+      Err( _) -> HTTP.response(503, "")
+      Ok( true) -> HTTP.response(202, "")
+      Ok( false) -> if witness_only do
+        HTTP.response(200, "0")
+      else
+        case run_scheduled(get_pool()) do
+          Err( _) -> HTTP.response(503, "")
+          Ok( due) -> HTTP.response(200, Int.to_string(due))
+        end
+      end
+    end
+  end
+end
+
+pub fn handle_jobs(request :: Request) -> Response do
+  run_jobs(request, false)
+end
+
+pub fn handle_witness_job(request :: Request) -> Response do
+  run_jobs(request, true)
+end
 
 fn respond(result :: BinaryResult) -> Response do
   HTTP.response_bytes(result.status, result.body)

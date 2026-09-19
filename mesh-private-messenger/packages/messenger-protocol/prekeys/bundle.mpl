@@ -1,5 +1,7 @@
 from Identity.Device import DeviceKeys, IdentityError, verify_device_credential
-from Protocol.V1 import AccountIdentity, DeviceCredential, PrekeyBundle, ProtocolError, decode_device_credential, encode_device_credential, encode_prekey_bundle, negotiate_suites
+from Protocol.IdentityWire import decode_device_credential, encode_device_credential
+from Protocol.PrekeyWire import encode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeviceCredential, PrekeyBundle, ProtocolError, negotiate_suites
 
 pub type PrekeyError do
   CryptoFailure( error :: CryptoError)

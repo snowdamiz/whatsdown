@@ -1,5 +1,13 @@
-from MobileCore import group_history_export, group_inspect_export, group_receive_export, group_remove_export, group_send_export, outbox_list_export
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, OuterEnvelope, encode_outer_envelope
+from MobileCore import (
+  group_history_export,
+  group_inspect_export,
+  group_receive_export,
+  group_remove_export,
+  group_send_export,
+  outbox_list_export
+)
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, OuterEnvelope
 from Tests.GroupLifecycleSupport import GroupAccountFixture
 from Tests.GroupLifecycleWire import acknowledge, group_vectors, outer, output_list
 

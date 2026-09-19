@@ -2,7 +2,10 @@ from Api.Binary import claim_prekey_request, publish_prekeys_request, revoke_dev
 from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
 from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, reauthorize_signed_prekey
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, decode_prekey_publish_response, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
-from Protocol.V1 import AccountIdentity, DirectoryEntry, PrekeyBundle, ProtocolError, decode_prekey_bundle, encode_account_identity, encode_device_revocation, encode_directory_entry, encode_prekey_bundle
+from Protocol.DirectoryWire import encode_device_revocation, encode_directory_entry
+from Protocol.IdentityWire import encode_account_identity
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DirectoryEntry, PrekeyBundle, ProtocolError
 from Storage.Devices import DeviceWrite, register_device, resolve_devices
 from Storage.Prekeys import publish_prekeys
 
@@ -441,7 +444,13 @@ fn happy_path() -> Bool ! String do
     id : wide("400") ?,
     public_key : repeated(46, 32) ?
   }]) ?) ?
-  assert(publish_prekeys_request(pool, encode_prekey_publish(overflow) ?).status == 429)
+  let overflow_response = publish_prekeys_request(pool, encode_prekey_publish(overflow) ?)
+  assert(overflow_response.status == 429)
+  let overflow_active = decode_prekey_publish_response(overflow_response.body) ?
+  assert(List.length(overflow_active.active_ids) == 64)
+  assert(Bytes.secure_equals(overflow_active.account_id, identity.account_id))
+  assert(Bytes.secure_equals(overflow_active.device_id, target.device_id))
+  assert(Bytes.secure_equals(overflow_response.body, bounded_response.body))
   let oversized = unsigned_publish(identity, target, prekey_range(500, 65, 0, List.new()) ?) ?
   case encode_prekey_publish(oversized) do
     Err( _) -> Ok(nil)

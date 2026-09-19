@@ -31,27 +31,33 @@ days are purged in batches of at most 256.
   it with `Env.get_secret_hex`; it never becomes a Mesh `String` or `Bytes`.
 - `MESSENGER_PUSH_BROKER_INTERNAL_TOKEN` — required 32–256 character service
   credential. Configure the exact same value on directory delivery.
-- `MESSENGER_PUSH_BROKER_DB_PATH` — durable SQLite queue path; defaults to
-  `push-broker.db`.
+- `MESSENGER_PUSH_BROKER_DATABASE_URL` — required PostgreSQL connection URL
+  for the durable queue. Existing SQLite queues are not imported or deleted.
 - `MESSENGER_EXPO_PUSH_URL` — optional compatibility setting. If present it
   must exactly equal `https://exp.host/--/api/v2/push/send`; redirects and
   alternate hosts are not accepted.
 - `MESSENGER_EXPO_ACCESS_TOKEN` — optional Expo access token sent as a bearer
   token. Newlines, surrounding whitespace, and values over 2 KiB are rejected.
 - `MESSENGER_PUSH_BROKER_PORT` — optional listen port; defaults to `18088`.
+- `MESSENGER_JOBS_URL` — optional private durable scheduler. When set, queue
+  changes register a wakeup before committing, and alarms run sends, receipt
+  checks, retries, and tombstone expiry. The local polling worker is disabled.
 
 Directory delivery must set `MESSENGER_PUSH_MODE=broker`,
 `MESSENGER_PUSH_BROKER_URL`, and the matching
 `MESSENGER_PUSH_BROKER_INTERNAL_TOKEN`. Keep the endpoint on the private service
-network, terminate TLS at its edge, and restrict filesystem access to the queue
-and its WAL files. The broker stores the sealed `PWK` plus opaque hashes and
+network and give its database role access only to the queue schema. The broker stores the sealed `PWK` plus opaque hashes and
 queue state. It never stores plaintext provider tokens and never logs request
 bodies, hashes, provider tokens, or credentials.
 
 ## Verify
 
 ```sh
+export MESSENGER_STORAGE_TEST_DATABASE_URL='postgres://localhost/morse_storage_test?sslmode=disable'
 meshc test tests/broker.test.mpl
 meshc test tests/queue.test.mpl
 meshc build .
 ```
+
+Use an isolated test database. Run one broker instance: queue processing does
+not yet lease jobs across replicas.

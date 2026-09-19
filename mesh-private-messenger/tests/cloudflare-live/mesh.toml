@@ -1,0 +1,6 @@
+[package]
+name = "messenger-cloudflare-live-proof"
+version = "0.1.0"
+
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }

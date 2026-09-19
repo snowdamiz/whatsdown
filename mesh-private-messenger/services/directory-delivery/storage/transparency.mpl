@@ -1,3 +1,4 @@
+import RuntimeJobs
 from Transparency.Merkle import ConsistencyProof, InclusionProof, TransparencyCheckpoint, WitnessAttestation, WitnessKey, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint, verify_witnesses
 from Transparency.Wire import TransparencyEvidence
 
@@ -191,6 +192,7 @@ signing_public_key :: Bytes) -> TransparencyCheckpoint ! String do
       "INSERT INTO transparency_checkpoints (sequence, tree_size, tree_root, previous_checkpoint_hash, timestamp_ms, service_public_key, service_signature) VALUES ($1::bigint, $2::bigint, $3, $4, $5::bigint, $6, $7)",
       [Text(U64.to_string(checkpoint.sequence)), Text(U64.to_string(checkpoint.tree_size)), Binary(checkpoint.tree_root), Binary(checkpoint.previous_checkpoint_hash), Text(U64.to_string(checkpoint.timestamp)), Binary(checkpoint.service_public_key), Binary(checkpoint.signature)]) ?
       if changed == 1 do
+        RuntimeJobs.notify(conn, "witness") ?
         Ok(checkpoint)
       else
         Err("transparency checkpoint insert failed")

@@ -1,6 +1,13 @@
 import File
-from MobileCore import create_account_export, directory_entry_export, transparency_lookup_export, verify_transparency_export
-from Protocol.V1 import DeviceSet, decode_account_identity, decode_directory_entry, encode_device_set
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  transparency_lookup_export,
+  verify_transparency_export
+)
+from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
+from Protocol.IdentityWire import decode_account_identity
+from Protocol.V1 import DeviceSet
 from Tests.Support import append, database_path, install_security_config, repeated, vector
 from Transparency.Merkle import consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint, sign_witness
 from Transparency.Wire import TransparencyEvidence, decode_transparency_lookup, encode_transparency_evidence

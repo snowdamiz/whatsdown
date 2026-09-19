@@ -1,4 +1,5 @@
-from Protocol.V1 import DirectoryEntry, encode_directory_entry, encode_directory_lookup
+from Protocol.DirectoryWire import encode_directory_entry, encode_directory_lookup
+from Protocol.V1 import DirectoryEntry
 
 fn protocol_ok(value :: Result < Bytes, ProtocolError >) -> Result <(), String > do
   case value do

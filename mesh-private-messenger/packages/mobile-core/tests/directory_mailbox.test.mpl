@@ -1,6 +1,14 @@
+from Protocol.V1 import DirectoryEntry, MailboxFetch
 import File
-from MobileCore import create_account_export, directory_entry_export, directory_lookup_export, import_contact_export, mailbox_fetch_export
-from Protocol.V1 import decode_directory_entry, decode_directory_lookup, decode_mailbox_fetch
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  directory_lookup_export,
+  import_contact_export,
+  mailbox_fetch_export
+)
+from Protocol.DirectoryWire import decode_directory_entry, decode_directory_lookup
+from Protocol.MailboxWire import decode_mailbox_fetch
 from Tests.Support import append, database_path, vector
 
 fn account_request(path :: String, username :: String) -> Bytes ! String do

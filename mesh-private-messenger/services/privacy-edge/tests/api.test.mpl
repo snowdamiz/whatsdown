@@ -1,6 +1,7 @@
 from Api.Binary import prepare_submission
 from Privacy.Edge import encode_privacy_submission, encode_sealed_delivery, mint_submission, seal_delivery
-from Protocol.V1 import OuterEnvelope, encode_outer_envelope
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.V1 import OuterEnvelope
 
 fn repeated(value :: Int, count :: Int) -> Bytes ! String do
   case Bytes.repeat(value, count) do

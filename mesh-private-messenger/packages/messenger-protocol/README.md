@@ -8,10 +8,10 @@ by exactly that many bytes. Decoders reject unsupported versions or suites,
 oversized vectors, truncation, duplicate extension IDs, unknown mandatory
 extensions, and trailing bytes.
 
-`Protocol.V1` exports codecs for `AccountIdentity`, `DeviceCredential`,
-`PrekeyBundle`, `OuterEnvelope`, `InnerEnvelope`, `HandshakeTranscript`, and
-`InitialMessage`, plus the bounded directory, mailbox-fetch, delivery-batch,
-and acknowledgement records used by the CLI services.
+`Protocol.V1` defines the shared records and suite negotiation. Canonical
+codecs live in `Protocol.IdentityWire`, `PrekeyWire`, `EnvelopeWire`,
+`HandshakeWire`, `DirectoryWire`, and `MailboxWire`; shared binary operations
+and extension validation live in `WirePrimitives` and `ExtensionWire`.
 `negotiate_suites` prefers suite `0x0002` and enforces the authenticated
 strongest-suite floor. `hash_handshake_transcript` hashes the canonical
 transcript with the exact `mesh-msg/v1/handshake` domain label.
@@ -27,9 +27,10 @@ the bounded canonical binary form used by HTTP delivery; decoding rejects
 wrong magic, unsupported profiles, oversized ciphertext, truncation, and
 trailing bytes.
 
-`Groups.Mls` exports the development-only suite `0x0003`: bounded immutable
-membership trees, signed add/remove commits, HPKE welcomes, epoch messages,
-delivery fanout, extension negotiation, and purpose-16 sealed snapshots.
+`Groups.Mls` defines the development-only suite `0x0003` records and resources.
+`Groups.KeySchedule` manages epochs; `Membership` applies member changes;
+`GroupMessages` handles encryption and fanout. `CommitWire`, `WelcomeWire`,
+`GroupSnapshot`, and `GroupCodec` own their respective codecs and shared helpers.
 Epoch secrets use storage purpose 16; TreeKEM leaf and direct-path private keys
 use purpose 17.
 Commit, welcome, message, and snapshot decoders are canonical and reject

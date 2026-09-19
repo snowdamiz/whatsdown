@@ -1,6 +1,9 @@
 from Api.Binary import acknowledge_request, fetch_request, register_request, resolve_request, submit_request, submit_sealed_request
 from Privacy.Edge import encode_sealed_delivery, seal_delivery
-from Protocol.V1 import DirectoryEntry, MailboxAck, MailboxFetch, OuterEnvelope, decode_delivery_batch, decode_outer_envelope, encode_directory_entry, encode_directory_lookup, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope
+from Protocol.DirectoryWire import encode_directory_entry, encode_directory_lookup
+from Protocol.EnvelopeWire import decode_outer_envelope, encode_outer_envelope
+from Protocol.MailboxWire import decode_delivery_batch, encode_mailbox_ack, encode_mailbox_fetch
+from Protocol.V1 import DirectoryEntry, MailboxAck, MailboxFetch, OuterEnvelope
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do

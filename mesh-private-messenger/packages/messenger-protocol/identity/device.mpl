@@ -1,4 +1,22 @@
-from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceRevocation, ProtocolError, decode_account_identity, decode_device_credential, encode_account_identity, encode_device_credential, encode_device_link_authorization, encode_device_link_request, encode_device_revocation
+from Protocol.DirectoryWire import (
+  encode_device_link_authorization,
+  encode_device_link_request,
+  encode_device_revocation
+)
+from Protocol.IdentityWire import (
+  decode_account_identity,
+  decode_device_credential,
+  encode_account_identity,
+  encode_device_credential
+)
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  DeviceLinkAuthorization,
+  DeviceLinkRequest,
+  DeviceRevocation,
+  ProtocolError
+)
 
 pub type IdentityError do
   CryptoFailure( error :: CryptoError)
@@ -201,7 +219,11 @@ capabilities :: U64,
 created_at :: U64,
 expires_at :: U64,
 directory_sequence :: U64) -> DeviceCredential ! IdentityError do
-  let expected_post_quantum_length = if suite == 2 do 1184 else 0 end
+  let expected_post_quantum_length = if suite == 2 do
+    1184
+  else
+    0
+  end
   if Bytes.length(device_id) != 16 || Bytes.length(signing_public_key) != 32 || Bytes.length(dh_public_key) != 32 || Bytes.length(post_quantum_public_key) != expected_post_quantum_length do
     Err(InvalidCredential)
   else

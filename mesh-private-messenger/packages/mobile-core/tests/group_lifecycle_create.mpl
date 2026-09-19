@@ -1,4 +1,12 @@
-from MobileCore import group_add_export, group_create_export, group_inspect_export, group_key_package_export, group_list_export, group_receive_export, outbox_list_export
+from MobileCore import (
+  group_add_export,
+  group_create_export,
+  group_inspect_export,
+  group_key_package_export,
+  group_list_export,
+  group_receive_export,
+  outbox_list_export
+)
 from Protocol.V1 import OuterEnvelope
 from Tests.GroupConsistencySupport import SignedTransparencyViewFixture
 from Tests.GroupLifecycleSupport import GroupAccountFixture, install_group_lifecycle_transparency, install_signed_transparency
