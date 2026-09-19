@@ -9,8 +9,8 @@ ENV PATH="/root/.cargo/bin:/opt/llvm/bin:${PATH}" LLVM_SYS_211_PREFIX=/opt/llvm 
 RUN curl -fsSL https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/LLVM-21.1.8-Linux-X64.tar.xz -o /tmp/llvm.tar.xz \
     && echo 'b3b7f2801d15d50736acea3c73982994d025b01c2f035b91ae3b49d1b575732b  /tmp/llvm.tar.xz' | sha256sum -c - \
     && mkdir /opt/llvm && tar -xf /tmp/llvm.tar.xz --strip-components=1 -C /opt/llvm && rm /tmp/llvm.tar.xz
-ARG MESH_LANG_REVISION=14dd84d464e62f0a220eecf6ccc6126c338a8214
-RUN git init /build/mesh-lang && cd /build/mesh-lang \
+ARG MESH_LANG_REVISION
+RUN test -n "$MESH_LANG_REVISION" && git init /build/mesh-lang && cd /build/mesh-lang \
     && git remote add origin https://github.com/snowdamiz/mesh-lang.git \
     && git fetch --depth 1 origin "$MESH_LANG_REVISION" && git checkout --detach FETCH_HEAD
 WORKDIR /build/mesh-lang

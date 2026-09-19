@@ -4,8 +4,10 @@
   "type": "module",
   "scripts": {
     "test": "node --test *.test.mjs",
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "predeploy": "node prepare-build.mjs",
+    "deploy": "wrangler deploy --config wrangler.build.json",
+    "predev": "node prepare-build.mjs",
+    "dev": "wrangler dev --config wrangler.build.json"
   },
   "dependencies": {
     "@cloudflare/containers": "0.3.7"

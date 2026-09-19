@@ -36,12 +36,17 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7.0.1
-      - name: Checkout protocol's pinned Mesh dependency
+      - name: Checkout the latest Mesh main commit
         uses: actions/checkout@v7.0.1
         with:
           repository: snowdamiz/mesh-lang
-          ref: 14dd84d464e62f0a220eecf6ccc6126c338a8214
+          ref: main
           path: mesh-lang
+      - name: Record the compiler commit for this release
+        run: |
+          mesh_revision="$(git -C mesh-lang rev-parse HEAD)"
+          echo "MESH_LANG_REVISION=$mesh_revision" >> "$GITHUB_ENV"
+          echo "Mesh compiler commit: $mesh_revision" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: '24'
@@ -54,9 +59,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y postgresql-client libxml2-dev libffi-dev libsqlite3-dev
           npm ci --prefix mesh-private-messenger/ops/cloudflare
-      - name: Build the pinned compiler once for tests and deployment
+      - name: Build the resolved compiler once for tests and deployment
         run: |
           docker build --target compiler-tools --output "type=local,dest=$RUNNER_TEMP/mesh-tools" \
+            --build-arg "MESH_LANG_REVISION=$MESH_LANG_REVISION" \
             --file mesh-private-messenger/ops/cloudflare/Dockerfile .
           printf '%s\n' "MESHC=$RUNNER_TEMP/mesh-tools/meshc" \
             "MESH_RT_LIB_PATH=$RUNNER_TEMP/mesh-tools/libmesh_rt.a" \

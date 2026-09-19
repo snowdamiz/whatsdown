@@ -56,7 +56,16 @@ migrations. `psql` must be installed. The runner applies numbered SQL migrations
 transactionally and checks their recorded checksums; applied files must not change.
 Object and push schemas initialize idempotently when their services start.
 
-The image builds a pinned Mesh compiler and all service binaries for Linux amd64.
+Each release checks out the latest GitHub commit on `snowdamiz/mesh-lang`'s `main`
+branch and records its SHA in the Actions summary. That exact commit is used for
+the protocol dependency, native tests, and all six container images. A newer SHA
+invalidates the compiler's Docker build cache automatically. Language changes
+must be pushed to GitHub before the backend release starts; pushing the language
+repository alone does not trigger a backend deployment.
+
+`npm run deploy` also resolves the latest Mesh `main` commit unless
+`MESH_LANG_REVISION` supplies a full commit SHA for a reproducible rebuild. It
+writes an ignored `wrangler.build.json` with that build argument for every image.
 The first build on an Apple Silicon workstation runs under emulation and is slow;
 Docker caches the compiler for subsequent builds. CI uses an amd64 runner.
 
@@ -88,7 +97,7 @@ alone cannot change them. The privacy edge uses proof-of-work difficulty `16`.
 
 ## GitHub Actions
 
-Pushes to `release` run `.github/workflows/backend-release.yml`: build the pinned
+Pushes to `release` run `.github/workflows/backend-release.yml`: resolve and build the latest Mesh
 compiler, run protocol/storage/event-driven integration tests, apply migrations,
 deploy all six containers and the Worker, then verify live health and WebSocket
 authorization. Pushes to `main` run the ordinary CI tests without deploying.

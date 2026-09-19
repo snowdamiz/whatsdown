@@ -27,3 +27,4 @@ target/
 # Local runtime and deployment state
 .morse/
 .wrangler/
+/mesh-private-messenger/ops/cloudflare/wrangler.build.json
