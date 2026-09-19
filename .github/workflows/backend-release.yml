@@ -58,8 +58,9 @@ jobs:
         run: |
           docker build --target compiler-tools --output "type=local,dest=$RUNNER_TEMP/mesh-tools" \
             --file mesh-private-messenger/ops/cloudflare/Dockerfile .
-          echo "MESHC=$RUNNER_TEMP/mesh-tools/meshc" >> "$GITHUB_ENV"
-          echo "MESH_RT_LIB_PATH=$RUNNER_TEMP/mesh-tools/libmesh_rt.a" >> "$GITHUB_ENV"
+          printf '%s\n' "MESHC=$RUNNER_TEMP/mesh-tools/meshc" \
+            "MESH_RT_LIB_PATH=$RUNNER_TEMP/mesh-tools/libmesh_rt.a" \
+            "MESH_TEST_RT_LIB_PATH=$RUNNER_TEMP/mesh-tools/libmesh_test_rt.a" >> "$GITHUB_ENV"
       - name: Verify backend behavior and event-driven processing
         env:
           MESSENGER_STORAGE_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:55439/morse_storage_test?sslmode=disable

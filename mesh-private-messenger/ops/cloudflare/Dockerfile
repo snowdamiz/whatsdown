@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y libffi-dev libx
     && rm -rf /var/lib/apt/lists/*
 RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/mesh-lang/target \
-    cargo build --locked --release -p meshc -p mesh-rt \
-    && mkdir /opt/mesh && cp target/release/meshc target/release/libmesh_rt.a /opt/mesh/
+    cargo build --locked --release -p meshc -p mesh-rt -p mesh-test-rt \
+    && mkdir /opt/mesh && cp target/release/meshc target/release/libmesh_rt.a target/release/libmesh_test_rt.a /opt/mesh/
 ENV MESH_RT_LIB_PATH=/opt/mesh/libmesh_rt.a
 
 FROM scratch AS compiler-tools
