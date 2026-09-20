@@ -197,7 +197,7 @@ fn proof() -> Bool ! String do
   "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000) ?
   let _ = Pool.execute(pool,
-  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+  "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
   let created_at = current_time() ?
   let expires_at = U64.add(created_at, U64.parse("31536000000") ?) ?
@@ -329,7 +329,7 @@ fn unbind_before_bind_proof() -> Bool ! String do
   "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000) ?
   let _ = Pool.execute(pool,
-  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+  "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
   let created_at = current_time() ?
   let expires_at = U64.add(created_at, U64.parse("31536000000") ?) ?

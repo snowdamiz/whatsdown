@@ -516,7 +516,9 @@ fn proof() -> Bool ! String do
   case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_jump_envelope(alice_path,
   root_reply) ?]) ?) do
     Ok( _) -> assert(false)
-    Err( error) -> assert(error == "ratchet_retryable")
+    # Final, not something to try again: the messages in between are never
+    # coming, and an envelope left unacknowledged would hold up the mailbox.
+    Err( error) -> assert(error == "message_rejected")
   end
   case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_tamper_envelope(alice_path,
   root_reply) ?]) ?) do

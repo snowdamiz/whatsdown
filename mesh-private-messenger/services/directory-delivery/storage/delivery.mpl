@@ -1,6 +1,7 @@
 from Protocol.EnvelopeWire import encode_outer_envelope
 from Protocol.V1 import DeliveredEnvelope, OuterEnvelope
 from Storage.MailboxAuth import MailboxOwner
+from Storage.ContactAddress import resolve_deposit_address
 from Storage.RateLimit import allow_request_on_connection
 import RuntimeJobs
 
@@ -50,8 +51,27 @@ fn valid_outer(value :: OuterEnvelope) -> Result <(), String > do
   end
 end
 
+# Contacts and strangers are limited separately, so a stranger who exhausts the
+# deposit rate cannot stop a contact's envelope getting through.
+
+fn deposit_rate_allowed(conn :: borrow PgConn, mailbox_hash :: Bytes, contact :: Bool) -> Bool ! String do
+  if contact do
+    allow_request_on_connection(conn, mailbox_hash, 32, 60)
+  else
+    let bucket = case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/stranger-deposits"), mailbox_hash) do
+      Err( _) -> Err("rate bucket allocation failed")
+      Ok( joined) -> Ok(Crypto.sha256(joined))
+    end ?
+    allow_request_on_connection(conn, bucket, 24, 60)
+  end
+end
+
+# An envelope addressed to a device's contact address belongs to the same
+# mailbox, so it is stored under the mailbox's own hash: fetch, acknowledgement,
+# deduplication and the delivered envelope are all unchanged.
+
 fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryInsert ! String do
-  let token_hash = Crypto.sha256(value.mailbox_token)
+  let ( token_hash, contact) = resolve_deposit_address(conn, Crypto.sha256(value.mailbox_token)) ?
   let existing = Pg.query_values(conn,
   "SELECT sequence::text FROM messenger_envelopes WHERE mailbox_token_hash = $1 AND envelope_id = $2",
   [Binary(token_hash), Binary(value.envelope_id)]) ?
@@ -59,9 +79,13 @@ fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryIns
     Ok(Duplicate)
   else
     let _ = Pg.execute_values(conn,
-    "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6)",
-    [Binary(token_hash), Binary(value.envelope_id), Text(Int.to_string(value.suite)), Text(U64.to_string(value.expiration)), Text(Int.to_string(value.padding_bucket)), Binary(value.ciphertext)]) ?
-    if allow_request_on_connection(conn, token_hash, 32, 60) ? do
+    "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext, contact) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6, $7::boolean)",
+    [Binary(token_hash), Binary(value.envelope_id), Text(Int.to_string(value.suite)), Text(U64.to_string(value.expiration)), Text(Int.to_string(value.padding_bucket)), Binary(value.ciphertext), Text(if contact do
+      "true"
+    else
+      "false"
+    end)]) ?
+    if deposit_rate_allowed(conn, token_hash, contact) ? do
       let _ = Pg.execute_values(conn,
       "INSERT INTO messenger_outbox_events (mailbox_token_hash, envelope_id) VALUES ($1, $2)",
       [Binary(token_hash), Binary(value.envelope_id)]) ?
@@ -73,10 +97,11 @@ fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryIns
   end
 end
 
-# A mailbox holds 64 envelopes and anyone may deposit into it, so an envelope
-# that never expires would hold its slot until the owner next comes online. A
-# client gives its envelopes 30 days; delivery accepts that plus a day of clock
-# skew, and nothing already expired, so a full mailbox always drains by itself.
+# A mailbox holds a bounded amount and anyone may deposit into it, so an
+# envelope that never expires would hold its space until the owner next comes
+# online. A client gives its envelopes 30 days; delivery accepts that plus a day
+# of clock skew, and nothing already expired, so a full mailbox always drains by
+# itself.
 
 fn expiry_acceptable(expiration :: U64) -> Bool ! String do
   let now = U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()))) ?
@@ -96,6 +121,12 @@ pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryI
     else if String.contains(error, "messenger_mailbox_capacity") do
       Ok(MailboxFull)
     else if String.contains(error, "messenger_mailbox_inactive") do
+      Ok(MailboxRevoked)
+    else if String.contains(error, "messenger_mailbox_registration") do
+      # An address nothing was ever registered under is as final as a revoked
+      # one. Answering both alike tells nobody which addresses ever existed, and
+      # a sender must be able to give up: a server error would make it retry
+      # forever, holding up everything it has queued.
       Ok(MailboxRevoked)
     else if String.contains(error, "messenger_rate_limited") do
       Ok(RateLimited)

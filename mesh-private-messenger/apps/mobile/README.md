@@ -122,9 +122,17 @@ body. The device formats ordinary message previews and “@sender mentioned you�
 alerts after decryption; the push provider sees only `kind=encrypted-wakeup`.
 Tapping a mobile message notification opens its conversation. The visible chat,
 blocked contacts, your own messages, and repeated wakeups do not create alerts.
-The local notification journal stores opaque message IDs, never message text.
+The journals of what was read, announced and acknowledged hold opaque message
+IDs and times, never message text. They still say which chats exist and when
+they were used, so the core seals them in the database (`Mobile.Journal`), one
+record per chat, instead of leaving them as JSON beside it; copies an older
+build kept in the clear are imported once and removed.
 Disappearing messages use a generic preview so their text does not outlive them
-in OS notification history.
+in OS notification history. You → Notifications show sets how much any alert
+says, because an alert is read by whoever holds the phone: the name and the
+message, the name only, or neither (“Morse: New message”). It is applied on the
+device, to foreground and headless alerts alike, and is kept per account beside
+the other local choices.
 
 A message's menu holds its emoji reactions, Reply and Copy. Long-press a bubble
 on a phone, or swipe it right to reply; on desktop, rest the pointer on it for
@@ -154,7 +162,7 @@ a direct message, an ordinary group message and an exact @mention while locked,
 tap each alert, retry a wake, restart, and disable notifications. Check the same
 flows with background activity restricted and document the observed OS limits.
 
-Outbound session state, history, and the encrypted outbox commit atomically. Submission is at-least-once with server deduplication; only a durable 2xx response permits local acknowledgement. The iOS and Android bridges serialize native calls.
+Outbound session state, history, the encrypted outbox (up to 256 envelopes), and the record linking each envelope to its message commit atomically. Submission is at-least-once with server deduplication; only a durable 2xx response permits local acknowledgement. An envelope the service refuses for good leaves the outbox through `outbox_fail`, which counts it against its message, and one a mailbox cannot take right now waits without holding up other recipients (`protocol/delivery-wire-v1.md`). The iOS and Android bridges serialize native calls.
 
 Each device keeps at most 64 server-active and 64 retired/in-flight
 storage-wrapped one-time prekey secrets, indexed by their public `prekey_id`.

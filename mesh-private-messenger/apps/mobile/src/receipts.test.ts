@@ -9,10 +9,12 @@ const u64 = (value: number) => {
   return bytes;
 };
 // History order is arrival order; the timestamp is the sender's clock.
-const entry = (direction: 1 | 2, body: string, timestamp: number) => vectors(
+// The last field is the core's delivery state: 0 left, 1 waiting, 2 refused for good.
+const entry = (direction: 1 | 2, body: string, timestamp: number, delivery = 0) => vectors(
   Uint8Array.of(direction), new Uint8Array(16).fill(timestamp % 251), u64(timestamp), utf8(body), writeU32(0), new Uint8Array(),
+  Uint8Array.of(delivery),
 );
-const sent = (body: string, timestamp: number) => entry(1, body, timestamp);
+const sent = (body: string, timestamp: number, delivery = 0) => entry(1, body, timestamp, delivery);
 const received = (body: string, timestamp: number) => entry(2, body, timestamp);
 const history = (...entries: Uint8Array[]) => parseHistory(vectors(writeU32(entries.length), ...entries));
 const states = (...entries: Uint8Array[]) => history(...entries).map((message) => [message.body, message.receipt]);
@@ -87,36 +89,44 @@ test('a receipt is due only for received messages this account has not yet ackno
   assert.equal(receiptDue(history(received(encodeReceipt(1, 5), 30)), 1), undefined);
 });
 
-test('a sent message is pending from the oldest queued envelope onward, until a receipt proves otherwise', () => {
-  const [first, second] = history(sent('first', 10), sent('second', 20));
-  assert.equal(messageStatus(first!, null), 'sent');
-  assert.equal(messageStatus(first!, 20), 'sent');
-  assert.equal(messageStatus(second!, 20), 'pending');
-  assert.equal(messageStatus(second!, 21), 'sent');
-  // The peer has it, so it left this device whatever the queue says.
-  const [acknowledged, incoming] = history(sent('acknowledged', 30),
-    received(encodeReceipt(1, 30), 31), received('incoming', 40));
-  assert.equal(messageStatus(acknowledged!, 5), 'delivered');
-  assert.equal(messageStatus(incoming!, 5), undefined);
+test('a sent message shows what became of its own envelopes, until a receipt proves otherwise', () => {
+  // One envelope waiting for a recipient who cannot take it now says nothing
+  // about the messages sent after it: each has its own state.
+  const [waiting, left, refused] = history(sent('waiting', 10, 1), sent('left', 20), sent('refused', 30, 2));
+  assert.equal(messageStatus(waiting!), 'pending');
+  assert.equal(messageStatus(left!), 'sent');
+  assert.equal(messageStatus(refused!), 'failed');
+  // The peer has it, so it arrived whatever one of their devices refused.
+  const [acknowledged, incoming] = history(sent('acknowledged', 40, 2),
+    received(encodeReceipt(1, 40), 41), received('incoming', 50));
+  assert.equal(messageStatus(acknowledged!), 'delivered');
+  assert.equal(messageStatus(incoming!), undefined);
 });
 
 test('turning read receipts off also hides the other side’s, as it does in other messengers', () => {
   const [message] = history(sent('hello', 10), received(encodeReceipt(2, 10), 11));
-  assert.equal(messageStatus(message!, null), 'read');
-  assert.equal(messageStatus(message!, null, false), 'delivered');
+  assert.equal(messageStatus(message!), 'read');
+  assert.equal(messageStatus(message!, false), 'delivered');
 });
 
-test('group messages carry a sending state but no receipts', () => {
-  const fields = [Uint8Array.of(1), Uint8Array.of(1), u64(1), new Uint8Array(32).fill(1), new Uint8Array(16).fill(1),
-    u64(10), utf8('hello'), new Uint8Array(), new Uint8Array(32).fill(7)];
-  const [mine] = parseGroupHistory(vectors(writeU32(1), vectors(writeU32(fields.length), ...fields)));
-  assert.equal(messageStatus(mine!, 10), 'pending');
-  assert.equal(messageStatus(mine!, null), 'sent');
+test('group messages carry a delivery state but no receipts', () => {
+  const group = (delivery?: number) => {
+    const fields = [Uint8Array.of(1), Uint8Array.of(1), u64(1), new Uint8Array(32).fill(1), new Uint8Array(16).fill(1),
+      u64(10), utf8('hello'), new Uint8Array(), new Uint8Array(32).fill(7),
+      ...(delivery === undefined ? [] : [Uint8Array.of(delivery)])];
+    return parseGroupHistory(vectors(writeU32(1), vectors(writeU32(fields.length), ...fields)))[0]!;
+  };
+  assert.equal(messageStatus(group(1)), 'pending');
+  assert.equal(messageStatus(group(2)), 'failed');
+  assert.equal(messageStatus(group(0)), 'sent');
+  // History stored before delivery was tracked has no such field.
+  assert.equal(messageStatus(group()), 'sent');
+  assert.throws(() => group(3), /delivery state/);
 });
 
 test('every state has words for people who cannot see the glyph', () => {
-  assert.deepEqual((['pending', 'sent', 'delivered', 'read'] as const).map(describeStatus),
-    ['Sending', 'Sent', 'Delivered', 'Read']);
+  assert.deepEqual((['pending', 'sent', 'delivered', 'read', 'failed'] as const).map(describeStatus),
+    ['Sending', 'Sent', 'Delivered', 'Read', 'Not delivered']);
 });
 
 test('the oldest queued envelope tells when sending stalled', () => {
@@ -136,8 +146,8 @@ test('an acknowledgement outlives the receipt that carried it, but not the messa
     received(encodeReceipt(2, 10), 21), received(encodeReceipt(1, 20), 22)));
   assert.deepEqual(marks, [20, 10]);
   const expired = history(sent('one', 10), sent('two', 20), sent('three', 30));
-  assert.deepEqual(expired.map((message) => messageStatus(message, null, true, marks)), ['read', 'delivered', 'sent']);
-  assert.deepEqual(expired.map((message) => messageStatus(message, null, false, marks)), ['delivered', 'delivered', 'sent']);
+  assert.deepEqual(expired.map((message) => messageStatus(message, true, marks)), ['read', 'delivered', 'sent']);
+  assert.deepEqual(expired.map((message) => messageStatus(message, false, marks)), ['delivered', 'delivered', 'sent']);
   assert.deepEqual(advanceReceiptMarks(expired, marks), [20, 10]);
   // Once the acknowledged messages are gone, nothing about them is kept.
   assert.deepEqual(advanceReceiptMarks(history(sent('three', 30)), marks), [0, 0]);

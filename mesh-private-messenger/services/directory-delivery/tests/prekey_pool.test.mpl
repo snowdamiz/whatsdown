@@ -85,6 +85,7 @@ fn sign_publish(key :: borrow SigningPrivateKey, request :: PrekeyPublishRequest
     device_id : request.device_id,
     prekeys : request.prekeys,
     last_resort : request.last_resort,
+    contact_address_hash : request.contact_address_hash,
     signature : signature.bytes
   })
 end
@@ -97,6 +98,7 @@ prekeys :: List < OneTimePrekeyPublic >) -> PrekeyPublishRequest ! String do
     device_id : device.device_id,
     prekeys : prekeys,
     last_resort : None,
+    contact_address_hash : None,
     signature : repeated(0, 64) ?
   })
 end
@@ -244,7 +246,7 @@ fn happy_path() -> Bool ! String do
   "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000) ?
   let _ = Pool.execute(pool,
-  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+  "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
@@ -374,6 +376,7 @@ fn happy_path() -> Bool ! String do
       public_key : repeated(44, 32) ?
     }],
     last_resort : None,
+    contact_address_hash : None,
     signature : published.signature
   }
   assert(publish_prekeys_request(pool, encode_prekey_publish(tampered) ?).status == 403)
@@ -637,7 +640,7 @@ fn last_resort_path() -> Bool ! String do
   "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000) ?
   let _ = Pool.execute(pool,
-  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+  "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
@@ -697,6 +700,61 @@ fn last_resort_path() -> Bool ! String do
   assert(claimed_id(pool,
   encode_prekey_claim(claim_request(identity, target, base, repeated(66, 16) ?)) ?) == 12)
   Ok(true)
+end
+
+# The device's signed publication is how its contact address reaches the
+# directory: only the device can name one, and only for its own mailbox.
+
+fn contact_address_path() -> Bool ! String do
+  let url = Env.get("MESSENGER_TEST_DATABASE_URL",
+  "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
+  let pool = Pool.open(url, 1, 2, 5000) ?
+  let _ = Pool.execute(pool,
+  "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+  []) ?
+  let created_at = now() ?
+  let expires_at = U64.add(created_at, wide("31536000000") ?) ?
+  let ( account, identity) = case generate_account(created_at, wide("1") ?) do
+    Err( _) -> Err("account generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let target = case generate_device() do
+    Err( _) -> Err("target generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let mailbox = repeated(41, 32) ?
+  case register_device(pool,
+  registration(account, identity, target, mailbox, "1", created_at, expires_at) ?) ? do
+    DeviceAccepted -> Ok(nil)
+    _ -> Err("target registration failed")
+  end ?
+  let address = repeated(42, 32) ?
+  let named = % { unsigned_publish(identity, target, List.new()) ? | contact_address_hash : Some(Crypto.sha256(address)) }
+  let signed = sign_publish(target.signing_private_key, named) ?
+  assert(publish_prekeys_request(pool, encode_prekey_publish(signed) ?).status == 201)
+  assert(publish_prekeys_request(pool, encode_prekey_publish(signed) ?).status == 200)
+  let rows = Pool.query_values(pool,
+  "SELECT 1 AS found FROM messenger_mailbox_aliases WHERE alias_hash = $1 AND mailbox_token_hash = $2 AND retired_at IS NULL",
+  [Binary(Crypto.sha256(address)), Binary(Crypto.sha256(mailbox))]) ?
+  assert(List.length(rows) == 1)
+  # The signature covers the address: a publication altered to name another is refused.
+  let forged = % { signed | contact_address_hash : Some(Crypto.sha256(repeated(43, 32) ?)) }
+  assert(publish_prekeys_request(pool, encode_prekey_publish(forged) ?).status == 403)
+  # Nobody may name an address that already routes somewhere.
+  let taken = sign_publish(target.signing_private_key,
+  % { unsigned_publish(identity, target, List.new()) ? | contact_address_hash : Some(Crypto.sha256(mailbox)) }) ?
+  assert(publish_prekeys_request(pool, encode_prekey_publish(taken) ?).status == 409)
+  Ok(true)
+end
+
+test("a signed publication names the device's contact address") do
+  case contact_address_path() do
+    Err( error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok( value) -> assert(value)
+  end
 end
 
 test("an exhausted pool falls back to the reusable last-resort prekey") do

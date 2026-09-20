@@ -1,4 +1,6 @@
 from Mobile.Attachments import attachment_summary, group_attachment_reference
+from Mobile.ContactAddress import deposit_address
+from Mobile.Delivery import DeliveryRecord, delivery_state, load_delivery
 from Mobile.Transparency import fresh_account_device_set
 from Mobile.Transport import sealed_outer_bytes
 from Mobile.Presentation import presented_message_writes
@@ -191,13 +193,22 @@ fn encode_group_history_entry(value :: MobileGroupHistoryEntry) -> Bytes ! Strin
 end
 
 # Exported entries replace the opaque local reference with its opened manifest summary.
+# The last field says what became of a sent message: 0 sent, 1 still waiting
+# to leave, 2 refused for good by every device it was addressed to.
 
-fn encode_group_history_summary(device :: borrow DeviceKeys, value :: MobileGroupHistoryEntry) -> Bytes ! String do
+fn encode_group_history_summary(device :: borrow DeviceKeys,
+value :: MobileGroupHistoryEntry,
+delivery :: List < DeliveryRecord >) -> Bytes ! String do
   if !valid_group_history_entry(value) do
     Err("invalid_group_history")
   else
+    let state = if value.direction == 1 && Bytes.length(value.message_id) == 32 do
+      delivery_state(delivery, value.message_id)
+    else
+      0
+    end
     encode_output_list([mobile_byte(1) ?, mobile_byte(value.direction) ?, mobile_write_u64(value.epoch) ?, value.sender_account_id, value.sender_device_id, mobile_write_u64(value.timestamp) ?, value.body, attachment_summary(device,
-    value.attachment), value.message_id])
+    value.attachment), value.message_id, mobile_byte(state) ?])
   end
 end
 
@@ -324,6 +335,7 @@ end
 
 fn encode_group_history_summaries(device :: borrow DeviceKeys,
 values :: List < MobileGroupHistoryEntry >,
+delivery :: List < DeliveryRecord >,
 index :: Int,
 encoded :: List < Bytes >) -> List < Bytes > ! String do
   if index >= List.length(values) do
@@ -331,8 +343,9 @@ encoded :: List < Bytes >) -> List < Bytes > ! String do
   else
     encode_group_history_summaries(device,
     values,
+    delivery,
     index + 1,
-    List.append(encoded, encode_group_history_summary(device, List.get(values, index)) ?))
+    List.append(encoded, encode_group_history_summary(device, List.get(values, index), delivery) ?))
   end
 end
 
@@ -745,7 +758,11 @@ pub fn mobile_group_history(request :: MobileGroupReferenceRequest) -> Bytes ! S
   consume_group_state(state)
   let entries = load_group_history(request.database_path, wrapping_key, request.group_id) ?
   let device = open_device(profile, wrapping_key, request.database_path) ?
-  encode_output_list(encode_group_history_summaries(device, entries, 0, List.new()) ?)
+  encode_output_list(encode_group_history_summaries(device,
+  entries,
+  load_delivery(request.database_path, wrapping_key) ?,
+  0,
+  List.new()) ?)
 end
 
 pub fn encode_group_welcome_packet(value :: MobileGroupWelcomePacket) -> Bytes ! String do
@@ -901,7 +918,11 @@ packet :: Bytes,
 now :: U64) -> Bytes ! String do
   let devices = fresh_account_device_set(path, key, target.account_id) ?
   let recipient = group_profile(devices.profiles, target.account_id, target.device_id, 0) ?
-  sealed_outer_bytes(recipient.entry.mailbox_token, packet, recipient.credential.dh_public_key, now)
+  # A member who is also a contact has handed over a better address than the public one.
+  sealed_outer_bytes(deposit_address(path, key, recipient.entry.mailbox_token) ?,
+  packet,
+  recipient.credential.dh_public_key,
+  now)
 end
 
 # Attachment keys wrap to each member's stable identity key, not to rotating TreeKEM leaves.

@@ -107,8 +107,10 @@ jobs:
           }
           assert.equal(JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json')).version, version);
           NODE
+      # Signing must not block releases yet: until WINDOWS_SIGN_COMMAND is set, Windows
+      # installers ship unsigned. Setting it turns signing and its verification back on.
       - name: Configure Windows release signer
-        if: runner.os == 'Windows' && env.RELEASE_BUILD == 'true'
+        if: runner.os == 'Windows' && env.RELEASE_BUILD == 'true' && vars.WINDOWS_SIGN_COMMAND != ''
         env:
           WINDOWS_SIGN_COMMAND: ${{ vars.WINDOWS_SIGN_COMMAND }}
           WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WINDOWS_SIGNER_THUMBPRINT }}
@@ -218,15 +220,18 @@ jobs:
           for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
             if [[ -z "${!name:-}" ]]; then unset "$name"; fi
           done
-          if [[ "$RELEASE_BUILD" == true && "$RUNNER_OS" == Windows ]]; then
+          if [[ -f "$RUNNER_TEMP/windows-signing.json" ]]; then
             npm run build -- --config "$RUNNER_TEMP/windows-signing.json" --bundles "$BUNDLES"
           elif [[ "$RELEASE_BUILD" == true ]]; then
+            if [[ "$RUNNER_OS" == Windows ]]; then
+              echo "::warning::WINDOWS_SIGN_COMMAND is not set; this Windows installer is unsigned"
+            fi
             npm run build -- --bundles "$BUNDLES"
           else
             npm run build -- --debug --config '{"identifier":"io.morseapp.desktop.preview","productName":"Morse Preview"}' --bundles "$BUNDLES"
           fi
       - name: Verify Windows installer signature
-        if: runner.os == 'Windows' && env.RELEASE_BUILD == 'true'
+        if: runner.os == 'Windows' && env.RELEASE_BUILD == 'true' && vars.WINDOWS_SIGN_COMMAND != ''
         shell: pwsh
         env:
           WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WINDOWS_SIGNER_THUMBPRINT }}
@@ -269,12 +274,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Checkout empties a workspace that is not yet a repository, so it runs
+      # before the installers are downloaded into it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: morse-*
           path: installers
           merge-multiple: true
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Require verified candidate
         working-directory: .
         env:
@@ -282,6 +289,15 @@ jobs:
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
         run: MESH_LANG_REVISION="$(cat mesh-private-messenger/mesh-revision)" node mesh-private-messenger/scripts/release-verification.mjs
+      # install.sh and install.ps1 request exactly these names and refuse a download
+      # without a matching SHA256SUMS entry, so a renamed installer fails here instead
+      # of publishing a release the install commands cannot use.
+      - name: Checksum the installers
+        working-directory: installers
+        run: |
+          version="${GITHUB_REF_NAME#desktop-v}"
+          find . -mindepth 2 -type f -exec mv {} . \;
+          sha256sum "Morse_${version}_aarch64.dmg" "Morse_${version}_x64.dmg" "Morse_${version}_x64-setup.exe" > SHA256SUMS
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           files: installers/**/*

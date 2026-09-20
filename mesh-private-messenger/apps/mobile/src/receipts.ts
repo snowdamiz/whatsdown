@@ -1,8 +1,13 @@
 // 1 is delivered to one of the recipient's devices; 2 is read.
 export type ReceiptState = 1 | 2;
-export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read';
+export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
-type Receipted = { direction: 'sent' | 'received'; timestamp: number; receipt?: ReceiptState };
+type Receipted = {
+  direction: 'sent' | 'received';
+  timestamp: number;
+  receipt?: ReceiptState;
+  delivery?: 'pending' | 'failed';
+};
 
 const prefix = 'MORSE-RECEIPT/1\n';
 type Update = [state: ReceiptState, through: number];
@@ -89,19 +94,19 @@ export function parseReceiptMarks(input: string | null): Record<string, ReceiptM
   }
 }
 
-// `queuedSince` is when the oldest envelope still in the outbox was queued. The
-// outbox drains in order, so everything sent from then on is still waiting.
+// `delivery` is the core's own record of what became of the message's
+// envelopes. A receipt outranks it: whatever one device refused, the other side
+// has said the message arrived.
 export function messageStatus(
   message: Receipted,
-  queuedSince: number | null,
   showRead = true,
   marks: ReceiptMarks = [0, 0],
 ): MessageStatus | undefined {
   if (message.direction !== 'sent') return undefined;
   const read = message.receipt === 2 || message.timestamp <= marks[1];
   if (read || message.receipt || message.timestamp <= marks[0]) return read && showRead ? 'read' : 'delivered';
-  return queuedSince !== null && message.timestamp >= queuedSince ? 'pending' : 'sent';
+  return message.delivery ?? 'sent';
 }
 
 export const describeStatus = (status: MessageStatus): string =>
-  ({ pending: 'Sending', sent: 'Sent', delivered: 'Delivered', read: 'Read' })[status];
+  ({ pending: 'Sending', sent: 'Sent', delivered: 'Delivered', read: 'Read', failed: 'Not delivered' })[status];

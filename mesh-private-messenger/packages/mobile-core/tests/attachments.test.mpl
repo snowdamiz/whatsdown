@@ -214,7 +214,10 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool ! 
   let dave_history = output_list(load_history_export(group_vectors([Bytes.from_utf8(dave_path), carol_profile]) ?) ?) ?
   ensure(List.length(dave_history) == 1, "dave history count mismatch") ?
   let dave_entry = vector_items(List.head(dave_history), 0, List.new()) ?
-  ensure(List.length(dave_entry) == 6, "dave history entry shape mismatch") ?
+  ensure(List.length(dave_entry) == 7, "dave history entry shape mismatch") ?
+  # The last field is what became of a sent message; a received one has nothing to say.
+  ensure(Bytes.secure_equals(List.get(dave_entry, 6), mobile_byte(0) ?),
+  "received message carries a delivery state") ?
   ensure(Bytes.length(List.get(dave_entry, 3)) == 0, "dave history body mismatch") ?
   let dave_summaries = vector_items(List.get(dave_entry, 5), 8, []) ?
   ensure(List.length(dave_summaries) == 10, "receiver lost album photos") ?
@@ -258,7 +261,10 @@ fn exercise_group_message(accounts :: GroupAccountFixture, group_id :: Bytes) ->
   let bob_history = output_list(group_history_export(group_vectors([Bytes.from_utf8(accounts.bob_path), group_id]) ?) ?) ?
   ensure(List.length(bob_history) == 1, "bob group history count mismatch") ?
   let bob_record = output_list(List.head(bob_history)) ?
-  ensure(List.length(bob_record) == 9, "bob group history record shape mismatch") ?
+  ensure(List.length(bob_record) == 10, "bob group history record shape mismatch") ?
+  # The last field is what became of a sent message; a received one has nothing to say.
+  ensure(Bytes.secure_equals(List.get(bob_record, 9), mobile_byte(0) ?),
+  "received group message carries a delivery state") ?
   ensure(Bytes.secure_equals(List.get(bob_record, 6), body), "bob group history body mismatch") ?
   let bob_reference = assert_summary(List.get(bob_record, 7), prepared, "trail.jpg", 1000, 1) ?
   ensure(!Bytes.secure_equals(bob_reference, prepared.reference),

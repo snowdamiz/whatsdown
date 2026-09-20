@@ -3,8 +3,9 @@ from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, Preke
 from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle
 from Protocol.HandshakeWire import encode_initial_message
 from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
-from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
+from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt, is_retryable_ratchet_error
 from Session.Snapshot import ReplacementOutcome, SnapshotError, SnapshotOutcome, replace_session, restore, snapshot
+from Session.SnapshotV1 import SnapshotOutcomeV1, snapshot_v1
 
 type ProofError do
   CryptoProblem( error :: CryptoError)
@@ -203,6 +204,73 @@ associated_data :: Bytes) -> RatchetState do
   end
 end
 
+# A key kept for a message that never came must not be kept for ever: whoever
+# held the message back could open it after taking the device much later. The
+# refusal has to be final, or the envelope would wait in the mailbox instead.
+
+fn expect_aged(state :: consume RatchetState, message :: RatchetMessage, associated_data :: Bytes) -> RatchetState do
+  case decrypt(state, message, associated_data) do
+    Opened( next, _) -> do
+      println("aged:opened")
+      next
+    end
+    Rejected( next, error) -> do
+      if is_retryable_ratchet_error(error) do
+        println("aged:retryable")
+      else
+        println("aged:ok")
+      end
+      next
+    end
+  end
+end
+
+fn quiet_accept(state :: consume RatchetState, message :: RatchetMessage, associated_data :: Bytes) -> RatchetState do
+  case decrypt(state, message, associated_data) do
+    Opened( next, _) -> next
+    Rejected( next, _) -> do
+      println("round-trip:rejected")
+      next
+    end
+  end
+end
+
+fn sent(state :: consume RatchetState, text :: String, associated_data :: Bytes) -> Result <( RatchetState, RatchetMessage), ProofError > do
+  case encrypt(state, Bytes.from_utf8(text), associated_data) do
+    Err( error) -> Err(RatchetProblem(error))
+    Ok( value) -> Ok(value)
+  end
+end
+
+# Sends `count` messages and hands back only the last: the rest are lost.
+
+fn burn(state :: consume RatchetState, count :: Int, associated_data :: Bytes) -> Result <( RatchetState, RatchetMessage), ProofError > do
+  let ( next, message) = sent(state, "lost", associated_data) ?
+  if count <= 1 do
+    Ok((next, message))
+  else
+    burn(next, count - 1, associated_data)
+  end
+end
+
+# Each turn gives both sides a new receiving chain, except that the first gives
+# the replier's peer one only if the replier had a chain to answer.
+
+fn round_trips(alice :: consume RatchetState,
+bob :: consume RatchetState,
+count :: Int,
+associated_data :: Bytes) -> Result <( RatchetState, RatchetState), ProofError > do
+  if count <= 0 do
+    Ok((alice, bob))
+  else
+    let ( bob, reply) = sent(bob, "reply", associated_data) ?
+    let alice = quiet_accept(alice, reply, associated_data)
+    let ( alice, next) = sent(alice, "next", associated_data) ?
+    let bob = quiet_accept(bob, next, associated_data)
+    round_trips(alice, bob, count - 1, associated_data)
+  end
+end
+
 fn storage_key() -> StorageKey ! ProofError do
   case StorageKey.ephemeral() do
     Err( error) -> Err(CryptoProblem(error))
@@ -274,6 +342,132 @@ device_id :: Bytes) -> RatchetState do
       state
     end
   end
+end
+
+# Skipped keys age out. Bob misses one message, and the record of it has to
+# survive being stored. Five receiving chains later its key is gone, while a
+# key skipped one chain after it still opens its message.
+
+fn skipped_keys_age_out(alice_session :: consume RatchetState,
+bob_session :: consume RatchetState,
+wrapping_key :: borrow StorageKey,
+account_id :: Bytes,
+device_id :: Bytes,
+associated_data :: Bytes) -> Result <( RatchetState, RatchetState), ProofError > do
+  let ( alice_session, lost_early) = sent(alice_session, "early", associated_data) ?
+  let ( alice_session, kept) = sent(alice_session, "kept", associated_data) ?
+  let bob_session = accept_message(bob_session, kept, associated_data, Bytes.from_utf8("kept"))
+  let ( _stored_session, blob) = sealed(bob_session,
+  wrapping_key,
+  account_id,
+  device_id,
+  wide("3") ?) ?
+  let bob_session = restored(blob, wrapping_key, account_id, device_id, wide("3") ?) ?
+  let ( bob_session, reply) = sent(bob_session, "reply", associated_data) ?
+  let alice_session = quiet_accept(alice_session, reply, associated_data)
+  let ( alice_session, late) = sent(alice_session, "late", associated_data) ?
+  let ( alice_session, next) = sent(alice_session, "next", associated_data) ?
+  let bob_session = quiet_accept(bob_session, next, associated_data)
+  let ( alice_session, bob_session) = round_trips(alice_session, bob_session, 4, associated_data) ?
+  let bob_session = expect_aged(bob_session, lost_early, associated_data)
+  let bob_session = accept_message(bob_session, late, associated_data, Bytes.from_utf8("late"))
+  Ok((alice_session, bob_session))
+end
+
+# More skipped keys than a session keeps push out the oldest instead of
+# stopping the session, and what is left still ages out afterwards.
+
+fn oldest_keys_are_pushed_out(alice_session :: consume RatchetState,
+bob_session :: consume RatchetState,
+associated_data :: Bytes) -> Result <( RatchetState, RatchetState), ProofError > do
+  let lost = Bytes.from_utf8("lost")
+  let ( bob_session, pushed_out) = sent(bob_session, "lost", associated_data) ?
+  let ( bob_session, _) = burn(bob_session, 52, associated_data) ?
+  let ( bob_session, oldest_kept) = sent(bob_session, "lost", associated_data) ?
+  let ( bob_session, _) = burn(bob_session, 4, associated_data) ?
+  let ( bob_session, used) = sent(bob_session, "lost", associated_data) ?
+  let ( bob_session, sixtieth) = sent(bob_session, "lost", associated_data) ?
+  let alice_session = accept_message(alice_session, sixtieth, associated_data, lost)
+  # A key that is used leaves the list too, or the list would run ahead of the
+  # map and lose track of the oldest key still kept.
+  let alice_session = accept_message(alice_session, used, associated_data, lost)
+  let ( bob_session, survivor) = burn(bob_session, 58, associated_data) ?
+  let ( bob_session, newest) = sent(bob_session, "lost", associated_data) ?
+  let ( bob_session, last) = sent(bob_session, "lost", associated_data) ?
+  let alice_session = accept_message(alice_session, last, associated_data, lost)
+  let alice_session = expect_replay(alice_session, pushed_out, associated_data)
+  let alice_session = accept_message(alice_session, newest, associated_data, lost)
+  let ( alice_session, bob_session) = round_trips(alice_session, bob_session, 6, associated_data) ?
+  let alice_session = expect_aged(alice_session, oldest_kept, associated_data)
+  let alice_session = expect_aged(alice_session, survivor, associated_data)
+  Ok((alice_session, bob_session))
+end
+
+# Forty messages lost at the end of one chain and forty at the start of the
+# next are each within the limit, but more than a session keeps together. That
+# is a jump, which is final, not a fault to try again.
+
+fn combined_jump_is_final(alice_session :: consume RatchetState,
+bob_session :: consume RatchetState,
+associated_data :: Bytes) -> Result <( RatchetState, RatchetState), ProofError > do
+  let ( alice_session, _) = burn(alice_session, 40, associated_data) ?
+  let ( bob_session, reply) = sent(bob_session, "reply", associated_data) ?
+  let alice_session = quiet_accept(alice_session, reply, associated_data)
+  let ( alice_session, beyond) = burn(alice_session, 41, associated_data) ?
+  let bob_session = expect_jump_rejection(bob_session, beyond, associated_data)
+  Ok((alice_session, bob_session))
+end
+
+# A snapshot written before version 2 is still read. It cannot say which
+# skipped keys it holds, so those are left behind, and the session carries on.
+
+fn sealed_v1(state :: consume RatchetState,
+wrapping_key :: borrow StorageKey,
+account_id :: Bytes,
+device_id :: Bytes,
+version :: U64) -> Result <( RatchetState, Bytes), ProofError > do
+  case snapshot_v1(state, wrapping_key, account_id, device_id, version) do
+    SnapshotSealedV1( next, blob) -> Ok((next, blob))
+    SnapshotRejectedV1( rejected, _) -> do
+      println("snapshot:seal-rejected")
+      Ok((rejected, Bytes.empty()))
+    end
+  end
+end
+
+fn sealed_format(blob :: Bytes) -> Int do
+  case Bytes.get(blob, 0) do
+    Err( _) -> 0
+    Ok( value) -> value
+  end
+end
+
+fn version_one_snapshot_is_read(alice_session :: consume RatchetState,
+bob_session :: consume RatchetState,
+wrapping_key :: borrow StorageKey,
+account_id :: Bytes,
+device_id :: Bytes,
+associated_data :: Bytes) -> Int ! ProofError do
+  let ( bob_session, skipped) = sent(bob_session, "skipped", associated_data) ?
+  let ( bob_session, earlier) = sent(bob_session, "earlier", associated_data) ?
+  let alice_session = accept_message(alice_session,
+  earlier,
+  associated_data,
+  Bytes.from_utf8("earlier"))
+  let ( _stored_session, blob) = sealed_v1(alice_session,
+  wrapping_key,
+  account_id,
+  device_id,
+  wide("1") ?) ?
+  println("migration:format-" <> Int.to_string(sealed_format(blob)))
+  let alice_session = restored(blob, wrapping_key, account_id, device_id, wide("1") ?) ?
+  let alice_session = expect_replay(alice_session, skipped, associated_data)
+  let ( _bob_session, later) = sent(bob_session, "later", associated_data) ?
+  let _alice_session = accept_message(alice_session,
+  later,
+  associated_data,
+  Bytes.from_utf8("later"))
+  Ok(0)
 end
 
 fn proof() -> Int ! ProofError do
@@ -379,12 +573,29 @@ fn proof() -> Int ! ProofError do
   Bytes.from_utf8("wrong-conversation"))
   let bob_session = accept_message(bob_session, fourth_message, associated_data, fourth)
   let response = Bytes.from_utf8("ratcheted response")
-  let ( _bob_session, response_message) = case encrypt(bob_session, response, associated_data) do
+  let ( bob_session, response_message) = case encrypt(bob_session, response, associated_data) do
     Err( error) -> Err(RatchetProblem(error))
     Ok( value) -> Ok(value)
   end ?
-  let _alice_session = accept_message(alice_session, response_message, associated_data, response)
-  Ok(0)
+  let alice_session = accept_message(alice_session, response_message, associated_data, response)
+  let ( alice_session, bob_session) = skipped_keys_age_out(alice_session,
+  bob_session,
+  wrapping_key,
+  bob_account.account_id,
+  bob_credential.device_id,
+  associated_data) ?
+  let ( alice_session, bob_session) = oldest_keys_are_pushed_out(alice_session,
+  bob_session,
+  associated_data) ?
+  let ( alice_session, bob_session) = combined_jump_is_final(alice_session,
+  bob_session,
+  associated_data) ?
+  version_one_snapshot_is_read(alice_session,
+  bob_session,
+  wrapping_key,
+  alice_account.account_id,
+  alice_credential.device_id,
+  associated_data)
 end
 
 fn main() do

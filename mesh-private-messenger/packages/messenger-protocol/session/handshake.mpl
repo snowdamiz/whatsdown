@@ -57,6 +57,11 @@ pub resource struct RatchetState do
   sent_count :: Int
   received_count :: Int
   skipped_keys :: SecretMap
+  # The map cannot be listed, so this names what it holds, oldest first: 40
+  # bytes a key, the chain's ratchet key, the message number, and
+  # `receive_generation` as it was when the key was set aside.
+  skipped_index :: Bytes
+  receive_generation :: Int
   pending_send_ratchet :: Bool
   snapshot_version :: U64
 end
@@ -311,6 +316,8 @@ plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > d
         sent_count : 0,
         received_count : 0,
         skipped_keys : skipped_keys,
+        skipped_index : Bytes.empty(),
+        receive_generation : 0,
         pending_send_ratchet : true,
         snapshot_version : initial_snapshot_version() ?
       },
@@ -466,6 +473,8 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
               sent_count : 0,
               received_count : 0,
               skipped_keys : skipped_keys,
+              skipped_index : Bytes.empty(),
+              receive_generation : 0,
               pending_send_ratchet : false,
               snapshot_version : initial_snapshot_version() ?
             },

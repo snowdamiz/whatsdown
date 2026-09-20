@@ -11,8 +11,10 @@ there is no unversioned production path.
 - Experimental hybrid suite: `0x0002` (`mesh-msg/profile-b/v1`)
 - Development group suite: `0x0003` (`mesh-mls/v1`), internally verified per candidate and
   not an RFC 9420 wire profile
-- Envelope, encrypted payload, credential, prekey bundle, transcript, ratchet
-  snapshot, and extension encodings each carry version `1`.
+- Envelope, encrypted payload, credential, prekey bundle, transcript, and
+  extension encodings each carry version `1`. The ratchet snapshot is at
+  version `2`; version `1` is still read (`compatibility-matrix.md`), and the
+  direct-security ratchet proof covers that migration.
 
 Hybrid credentials and bundles advertise `[0x0002, 0x0001]`; classical values
 advertise only `[0x0001]`. Negotiation selects `0x0002` when both peers support

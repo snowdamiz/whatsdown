@@ -58,6 +58,7 @@ test('replies can be reacted to, and reactions are never quoted', () => {
 test('direct replies resolve through 16-byte message IDs', () => {
   const entry = (direction: number, body: string, serial: number) => vectors(
     Uint8Array.of(direction), id(serial, 16), u64(serial), utf8(body), writeU32(0), new Uint8Array(),
+    Uint8Array.of(0),
   );
   const [, reply] = parseHistory(vectors(writeU32(2), entry(2, 'Call me', 1), entry(1, encodeReply(hex(id(1, 16)), 'In five'), 2)));
   assert.equal(reply?.body, 'In five');

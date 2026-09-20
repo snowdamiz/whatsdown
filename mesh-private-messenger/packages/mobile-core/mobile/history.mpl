@@ -1,4 +1,6 @@
 from Mobile.Attachments import attachment_summary
+from Mobile.ContactAddress import rotated_contact_address_writes
+from Mobile.Delivery import DeliveryRecord, delivery_state, load_delivery
 from Mobile.Presentation import presented_message_writes
 from Binary.Reader import BinaryReader, finish, reader
 from Identity.Device import DeviceKeys
@@ -338,15 +340,26 @@ visible :: List < MobileHistoryEntry >) -> List < MobileHistoryEntry > ! String 
   end
 end
 
-fn history_summary(device :: borrow DeviceKeys, value :: MobileHistoryEntry) -> Bytes ! String do
+# The last field says what became of a sent message: 0 sent, 1 still waiting
+# to leave, 2 refused for good by every device it was addressed to.
+
+fn history_summary(device :: borrow DeviceKeys,
+value :: MobileHistoryEntry,
+delivery :: List < DeliveryRecord >) -> Bytes ! String do
+  let state = if value.direction == 1 do
+    delivery_state(delivery, value.inner.client_message_id)
+  else
+    0
+  end
   mobile_join([mobile_vector(mobile_byte(value.direction) ?) ?, mobile_vector(value.inner.client_message_id) ?, mobile_vector(mobile_write_u64(value.inner.client_timestamp) ?) ?, mobile_vector(value.inner.body) ?, mobile_vector(mobile_write_u32(value.inner.disappearing_seconds) ?) ?, mobile_vector(attachment_summary(device,
-  value.inner.attachment_manifest)) ?],
+  value.inner.attachment_manifest)) ?, mobile_vector(mobile_byte(state) ?) ?],
   0,
   Bytes.empty())
 end
 
 fn history_summaries(device :: borrow DeviceKeys,
 values :: List < MobileHistoryEntry >,
+delivery :: List < DeliveryRecord >,
 index :: Int,
 summaries :: List < Bytes >) -> List < Bytes > ! String do
   if index >= List.length(values) do
@@ -354,8 +367,9 @@ summaries :: List < Bytes >) -> List < Bytes > ! String do
   else
     history_summaries(device,
     values,
+    delivery,
     index + 1,
-    List.append(summaries, history_summary(device, List.get(values, index)) ?))
+    List.append(summaries, history_summary(device, List.get(values, index), delivery) ?))
   end
 end
 
@@ -379,7 +393,11 @@ pub fn load_visible_history(request :: MobilePeerRequest) -> Bytes ! String do
     nil
   end
   let device = open_device(local, wrapping_key, request.database_path) ?
-  encode_output_list(history_summaries(device, visible, 0, List.new()) ?)
+  encode_output_list(history_summaries(device,
+  visible,
+  load_delivery(request.database_path, wrapping_key) ?,
+  0,
+  List.new()) ?)
 end
 
 pub fn conversation_safety(request :: MobilePeerRequest) -> Bytes ! String do
@@ -479,6 +497,16 @@ pub fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
   0,
   List.new(),
   List.new()) ?
-  store_updated_blobs(request.database_path, labels, blobs) ?
+  # Blocking someone also takes back what they were handed: this device gets a
+  # new contact address, the directory retires the old one on the next
+  # publication, and everyone else is handed the new one with the next message.
+  let ( rotation_labels, rotation_blobs) = if request.action == 2 do
+    rotated_contact_address_writes(wrapping_key)
+  else
+    Ok((List.new(), List.new()))
+  end ?
+  store_updated_blobs(request.database_path,
+  List.concat(labels, rotation_labels),
+  List.concat(blobs, rotation_blobs)) ?
   Ok(Bytes.from_utf8("ok"))
 end

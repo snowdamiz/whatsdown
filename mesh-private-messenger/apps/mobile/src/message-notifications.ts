@@ -4,8 +4,8 @@ import { inspectGroup, listGroups, loadGroupHistory, sendFanout, synchronizeMail
 import { loadPresentation } from './presentation-store';
 import { getPushStatus } from './push';
 import { showMessageNotification } from './notification-delivery';
-import { planNotifications, type NotificationThread, type ReceiptPeer } from './notification-policy';
-import { loadNotificationState, loadReceiptMarks, saveNotificationState, saveReceiptMarks } from './read-state-store';
+import { planNotifications, redactNotification, type NotificationThread, type ReceiptPeer } from './notification-policy';
+import { loadNotificationPreview, loadNotificationState, loadReceiptMarks, saveNotificationState, saveReceiptMarks } from './read-state-store';
 import { advanceReceiptMarks, encodeReceipt } from './receipts';
 import { createKeyedSerialQueue } from './single-flight';
 
@@ -42,15 +42,15 @@ async function loadThreads(path: string): Promise<NotificationThread[]> {
 
 // What the other side acknowledged has to outlive its receipts; see ReceiptMarks.
 // Every receipt arrives through a sync, so this is the only writer.
-function rememberReceipts(account: string, threads: NotificationThread[]): void {
+async function rememberReceipts(account: string, threads: NotificationThread[]): Promise<void> {
   try {
-    const previous = loadReceiptMarks(account);
+    const previous = await loadReceiptMarks(account);
     const next = Object.fromEntries(threads.flatMap((thread) => {
       if (!thread.scope.startsWith('chat/')) return [];
       const marks = advanceReceiptMarks(thread.messages, previous[thread.scope]);
       return marks[0] ? [[thread.scope, marks]] : [];
     }));
-    if (JSON.stringify(next) !== JSON.stringify(previous)) saveReceiptMarks(account, next);
+    if (JSON.stringify(next) !== JSON.stringify(previous)) await saveReceiptMarks(account, next);
   } catch { /* Ticks may go backwards; messages must still arrive. */ }
 }
 
@@ -74,10 +74,10 @@ export function synchronizeWithNotifications(path: string): Promise<{ receipts: 
     const own = { accountId: hex(profile.accountId), username: profile.username };
     let previous;
     try {
-      previous = loadNotificationState(own.accountId);
+      previous = await loadNotificationState(own.accountId);
       if (previous === null) {
         previous = planNotifications(await loadThreads(path), {}, own, null).state;
-        saveNotificationState(own.accountId, previous);
+        await saveNotificationState(own.accountId, previous);
       }
     } catch (error) {
       // Notification metadata must never prevent receiving messages.
@@ -89,19 +89,19 @@ export function synchronizeWithNotifications(path: string): Promise<{ receipts: 
       await synchronizeMailbox(path);
     } finally {
       const threads = await loadThreads(path);
-      rememberReceipts(own.accountId, threads);
+      await rememberReceipts(own.accountId, threads);
       const plan = planNotifications(threads, previous, own, activeScope, readScope);
       if (await getPushStatus(path) === 'enabled') {
         for (const notification of plan.notifications) {
           if (await getPushStatus(path) !== 'enabled') break;
-          await showMessageNotification(notification);
+          await showMessageNotification(redactNotification(notification, loadNotificationPreview(own.accountId)));
           // Persist each success so a later failure cannot replay the whole batch.
           const key = notification.id.slice(notification.scope.length + 1);
           previous[notification.scope] = [...(previous[notification.scope] ?? []), key].slice(-256);
-          saveNotificationState(own.accountId, previous);
+          await saveNotificationState(own.accountId, previous);
         }
       }
-      saveNotificationState(own.accountId, plan.state);
+      await saveNotificationState(own.accountId, plan.state);
       deliveries = plan.deliveries;
     }
     // Only reached when the sync succeeded, so a dead network is not retried per chat.

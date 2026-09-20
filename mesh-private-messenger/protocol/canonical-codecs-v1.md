@@ -107,7 +107,7 @@ base bundle remains unchanged, so its transparency evidence remains valid.
 ## One-time prekey publication (`OTB`)
 
 ```text
-version:u8 = 2
+version:u8 = 3
 tag:3 = "OTB"
 account_id:32
 device_id:16
@@ -119,18 +119,23 @@ last_resort:u8 (0 or 1)
 if last_resort = 1:
   prekey_id:u64 (1..2^63-1, not one of the batch IDs)
   public_key:32
+contact_address:u8 (0 or 1)
+if contact_address = 1:
+  contact_address_hash:32
 signature:64
 ```
 
 The device Ed25519 signature covers:
 
 ```text
-ASCII("mesh-msg/v2/one-time-prekey-batch") ||
+ASCII("mesh-msg/v3/one-time-prekey-batch") ||
 canonical_OTB_fields_before_signature
 ```
 
-The encoded size is `118 + 40 * count` bytes, plus 40 with a last-resort key,
-and is at most 2,718 bytes. Version 1 had no last-resort field and is refused.
+The encoded size is `119 + 40 * count` bytes, plus 40 with a last-resort key
+and 32 with a contact address, and is at most 2,751 bytes. Versions 1 and 2
+lacked these fields and are refused. `contact_address_hash` is SHA-256 of the
+device's secret second deposit address; see `contact-address-v1.md`.
 An empty batch is an authenticated recovery query that inserts no one-time key
 and asks for the current active set.
 

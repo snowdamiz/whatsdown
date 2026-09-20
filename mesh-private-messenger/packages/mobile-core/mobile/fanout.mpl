@@ -2,6 +2,7 @@ from Mobile.Attachments import rewrap_reference
 from Mobile.Presentation import present_message
 from Identity.Device import DeviceKeys, VerificationPolicy
 from Mobile.Codec import current_time, encode_output_list, random_bytes
+from Mobile.ContactAddress import deposit_address, outgoing_extensions
 from Mobile.DeviceSet import verified_device_set
 from Mobile.FanoutPrekeys import (
   claimed_prekey_profile,
@@ -10,7 +11,7 @@ from Mobile.FanoutPrekeys import (
   load_fanout_prekey_reservation
 )
 from Mobile.History import updated_history
-from Mobile.Outbox import load_outbox_ids, prepare_outbox_writes
+from Mobile.Outbox import load_outbox_ids, outbox_capacity, prepare_outbox_writes
 from Mobile.Profile import load_profile, open_device, policy
 from Mobile.Transport import sealed_outer_bytes
 from Mobile.Sessions import (
@@ -129,7 +130,8 @@ peer :: ClientProfile,
 inner :: InnerEnvelope,
 wrapping_key :: borrow StorageKey,
 previous :: Option < MobileLoadedSession >,
-strongest_suite :: Int) -> MobilePreparedSend ! String do
+strongest_suite :: Int,
+deposit :: Bytes) -> MobilePreparedSend ! String do
   let claimed_peer = claimed_prekey_profile(claimed_prekeys, peer.entry.prekey_bundle, 0) ?
   let plaintext = case encode_initial_plaintext(local_encode_client_profile, inner_bytes(inner) ?) do
     Err( _) -> Err("invalid_initial_plaintext")
@@ -146,7 +148,7 @@ strongest_suite :: Int) -> MobilePreparedSend ! String do
     Ok( value) -> Ok(value)
   end ?
   let packet = encode_packet(InitialPacket(local.entry.account_identity, initial_bytes(initial) ?)) ?
-  let outer = sealed_outer_bytes(claimed_peer.entry.mailbox_token,
+  let outer = sealed_outer_bytes(deposit,
   packet,
   peer.credential.dh_public_key,
   inner.client_timestamp) ?
@@ -196,7 +198,8 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
         inner,
         wrapping_key,
         Some(loaded),
-        strongest_suite)
+        strongest_suite,
+        deposit_address(database_path, wrapping_key, peer.entry.mailbox_token) ?)
       else
         let state = restore_session(loaded, wrapping_key) ?
         let ( next_state, message) = case encrypt_sealed(state,
@@ -206,7 +209,9 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
           Ok( value) -> Ok(value)
         end ?
         let packet = encode_packet(RatchetPacket(ratchet_bytes(message) ?)) ?
-        let outer = sealed_outer_bytes(peer.entry.mailbox_token,
+        let outer = sealed_outer_bytes(deposit_address(database_path,
+        wrapping_key,
+        peer.entry.mailbox_token) ?,
         packet,
         peer.credential.dh_public_key,
         inner.client_timestamp) ?
@@ -231,7 +236,8 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
       inner,
       wrapping_key,
       None,
-      0)
+      0,
+      deposit_address(database_path, wrapping_key, peer.entry.mailbox_token) ?)
     end
   end
 end
@@ -257,6 +263,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
     Ok(output)
   else
     let peer = List.get(profiles, index)
+    let handed_over = outgoing_extensions(database_path, wrapping_key) ?
     let inner = InnerEnvelope {
       version : 1,
       sender_account_id : local.account_id,
@@ -273,7 +280,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       peer.credential.dh_public_key) ?,
       receipt_policy : 0,
       disappearing_seconds : disappearing_seconds,
-      extensions : List.new()
+      extensions : handed_over
     }
     let prepared = send_to_device(database_path,
     wrapping_key,
@@ -338,6 +345,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       index + 1,
       output)
     else
+      let handed_over = outgoing_extensions(database_path, wrapping_key) ?
       let inner = InnerEnvelope {
         version : 1,
         sender_account_id : local.account_id,
@@ -354,7 +362,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
         peer.credential.dh_public_key) ?,
         receipt_policy : 0,
         disappearing_seconds : 0,
-        extensions : List.new()
+        extensions : handed_over
       }
       let prepared = send_to_device(database_path,
       wrapping_key,
@@ -466,7 +474,7 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
     else
       0
     end
-    if List.length(pending_ids) + added_count > 64 do
+    if List.length(pending_ids) + added_count > outbox_capacity() do
       Err("outbox_full")
     else if anchor.blocked do
       Err("conversation_blocked")
@@ -543,9 +551,20 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
       let envelopes = prepared_envelopes(prepared, 0, List.new())
       let session_index_blob = seal_session_ids(prepared_session_ids(prepared, 0, session_ids),
       wrapping_key) ?
+      # The peer's devices come first; envelopes for this account's own devices
+      # follow and say nothing about whether the message arrived.
+      let tracked = if message_type == 1 do
+        List.length(prepared_peers)
+      else
+        0
+      end
       let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
       pending_ids,
-      envelopes) ?
+      envelopes,
+      request.database_path,
+      client_message_id,
+      0,
+      tracked) ?
       store_outbound(request.database_path,
       prepared,
       fanout_prekey_reservation_labels(claimed_prekeys, 0, List.new()),

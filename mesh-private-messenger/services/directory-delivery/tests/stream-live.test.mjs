@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { on, once } from 'node:events';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(new URL('../../../apps/mobile/package.json', import.meta.url));
 const WebSocket = require('ws');
@@ -15,7 +16,7 @@ const u64 = (value) => { const b = Buffer.alloc(8); b.writeBigUInt64BE(BigInt(va
 const vector = (value) => Buffer.concat([u32(value.length), value]);
 // Pre-hardening request shape: the public mailbox address as a bearer credential.
 const unsignedFetchFrame = (token) => frame('FET', token, u64(0));
-const cli = process.env.MESSENGER_CLI ?? new URL('../../../clients/mesh-cli/output', import.meta.url).pathname;
+const cli = process.env.MESSENGER_CLI ?? fileURLToPath(new URL('../../../clients/mesh-cli/output', import.meta.url));
 
 async function request(path, body, status, method = 'POST') {
   const response = await fetch(`${http}${path}`, {

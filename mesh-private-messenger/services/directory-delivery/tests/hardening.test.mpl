@@ -161,9 +161,16 @@ fn proof() -> Bool ! String do
   wide("0") ?) ?
   expect(List.length(fetched) == 2, "expired envelope was returned") ?
   expect(purge_envelopes(reopened, 3600, 128) ? == 1, "expired envelope was not purged") ?
-  let _ = Pool.execute_values(reopened,
-  "UPDATE messenger_rate_limits SET request_count = 32, window_started_at = clock_timestamp() WHERE bucket_key = $1",
-  [Binary(Crypto.sha256(token))]) ?
+  # A deposit to the public address is a stranger's: its own bucket, 24 a minute.
+  let stranger_bucket = case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/stranger-deposits"),
+  Crypto.sha256(token)) do
+    Err( _) -> Err("rate bucket allocation failed")
+    Ok( joined) -> Ok(Crypto.sha256(joined))
+  end ?
+  let limited = Pool.execute_values(reopened,
+  "UPDATE messenger_rate_limits SET request_count = 24, window_started_at = clock_timestamp() WHERE bucket_key = $1",
+  [Binary(stranger_bucket)]) ?
+  expect(limited == 1, "stranger deposit bucket was not the one in use") ?
   case enqueue_envelope(reopened, envelope(token, 4, soon() ?) ?) ? do
     RateLimited -> Ok(nil)
     _ -> Err("delivery rate limit was not enforced")

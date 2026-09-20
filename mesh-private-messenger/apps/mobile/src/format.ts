@@ -50,6 +50,7 @@ const knownErrors: readonly [RegExp, string][] = [
   [/peer_keys_changed/, 'Their security keys changed. Verify before sending.'],
   [/message_request_pending/, 'Accept this message request before replying.'],
   [/conversation_blocked/, 'Unblock this conversation before sending.'],
+  [/recipient_unavailable/, 'Someone can’t receive more messages right now. Yours will send on its own when they can.'],
   [/\b404\b/, 'No exact username match was found.'],
   [/AbortError/, 'The server did not respond. Try again when connected.'],
   [

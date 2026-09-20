@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { planNotifications, type NotificationThread } from './notification-policy.ts';
+import { parseNotificationPreview, planNotifications, redactNotification, type NotificationThread } from './notification-policy.ts';
 
 const own = { accountId: '01', username: 'sam.k' };
 const message = { messageId: Uint8Array.of(9), direction: 'received' as const, body: 'Hi @sam.k!', timestamp: 1,
@@ -46,4 +46,16 @@ test('newly arrived direct messages are answered with one cumulative delivery re
   assert.deepEqual(planNotifications([acknowledged], {}, own, null).deliveries, []);
   // Requests and blocked chats carry no peer; strangers learn nothing. Groups send no receipts.
   assert.deepEqual(planNotifications([{ ...chat, peer: undefined }, group], {}, own, null).deliveries, []);
+});
+
+test('a notification shows only as much as the person chose to let a locked screen show', () => {
+  const alert = planNotifications([group], {}, own, null).notifications[0]!;
+  assert.deepEqual(redactNotification(alert, 'full'), alert);
+  // Who, but not what: not the text, the sender inside a group, or that it was a mention of them.
+  assert.deepEqual(redactNotification(alert, 'sender'), { ...alert, body: 'New message' });
+  // Neither: nothing of the chat is left but the identifiers the app itself routes by.
+  assert.deepEqual(redactNotification(alert, 'none'), { ...alert, title: 'Morse', body: 'New message' });
+  // Anything but a known choice, a missing file included, is what the app did before there was one.
+  assert.deepEqual(['full', 'sender', 'none', 'off', '', null].map(parseNotificationPreview),
+    ['full', 'sender', 'none', 'full', 'full', 'full']);
 });

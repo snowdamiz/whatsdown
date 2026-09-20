@@ -108,7 +108,9 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
   group_messages_ensure(List.length(bob_greeting_history) == 1,
   "bob greeting history count mismatch") ?
   let bob_greeting_record = output_list(List.head(bob_greeting_history)) ?
-  group_messages_ensure(List.length(bob_greeting_record) == 9,
+  # Nine fields end with the message ID; the tenth says what became of a sent message.
+  group_messages_ensure(List.length(bob_greeting_record) == 10 && Bytes.length(List.get(bob_greeting_record,
+  8)) == 32,
   "group history must expose a stable message ID") ?
   let alice_greeting_history = output_list(group_history_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id]) ?) ?) ?
   let alice_greeting_record = output_list(List.head(alice_greeting_history)) ?

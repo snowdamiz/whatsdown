@@ -1,6 +1,6 @@
 {
   "protocol_m5": "suite:1\nnegotiation-duplicate\nnegotiation-unsupported\nnegotiation-downgrade\nnegotiation-invalid-history\naccount-roundtrip\naccount-mandatory\naccount-duplicate\naccount-limit\ndecoder-hostile-matrix\nprekey-roundtrip\nprekey-invalid-length\ninner-properties\ninner-golden\ninner-limit\ntranscript-roundtrip\n",
   "handshake": "credential-domain:bound\ninitial-plaintext-limit:rejected\naccount-rollback:rejected\nexpired-bundle:rejected\nfuture-credential:rejected\ninvalid-signature:rejected\ninitial-truncated:rejected\ninitial-hostile:rejected\ninitial-limit:rejected\ninitial-ciphertext-boundary:accepted\ninitial-ciphertext-limit:rejected\noffline-handshake:ok\nexpired-credential:rejected\ncredential-rollback:rejected\nfailed-auth:no-session\n",
-  "ratchet": "ratchet:ok\nsnapshot:restored\nratchet:ok\nratchet:ok\nsnapshot:replaced\nsnapshot:rollback-ok\nreplay:ok\njump:ok\nauthentication:ok\nratchet:ok\nratchet:ok\n",
+  "ratchet": "ratchet:ok\nsnapshot:restored\nratchet:ok\nratchet:ok\nsnapshot:replaced\nsnapshot:rollback-ok\nreplay:ok\njump:ok\nauthentication:ok\nratchet:ok\nratchet:ok\nratchet:ok\nsnapshot:restored\naged:ok\nratchet:ok\nratchet:ok\nratchet:ok\nratchet:ok\nreplay:ok\nratchet:ok\naged:ok\naged:ok\njump:ok\nratchet:ok\nmigration:format-1\nsnapshot:restored\nreplay:ok\nratchet:ok\n",
   "protocol": "outer-encode\nouter-decode\nouter-trailing\nouter-oversized\nouter-hostile\ncredential-encode\ncredential-decode\ncredential-trailing\ncredential-oversized\ncredential-hostile\n"
 }

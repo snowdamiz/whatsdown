@@ -6,6 +6,36 @@ The implementation roadmap and security caveats live in [mesh-private-messenger-
 
 The [security hardening and verification plan](mesh-private-messenger-security-plan.md) defines the next implementation slices, adversarial tests, and internal release criteria without requiring outside-audit approval.
 
+## Install
+
+macOS (Apple silicon or Intel):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/snowdamiz/whatsdown/main/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/snowdamiz/whatsdown/main/install.ps1 | iex
+```
+
+Each command downloads the newest [desktop release](https://github.com/snowdamiz/whatsdown/releases),
+checks it against that release's `SHA256SUMS`, installs Morse, and opens it. Run
+it again to update. Afterwards, start Morse with `open -a Morse` or from the
+Start menu.
+
+[install.sh](install.sh) installs only an app that passes Gatekeeper, meaning it
+is Developer ID-signed and notarized. Windows releases are not code signed yet:
+[install.ps1](install.ps1) says so and installs them, but refuses an installer
+whose signature is present and invalid. The checksum comes from the same release
+as the download, so it detects a damaged download, not a compromised release.
+
+Set `MORSE_VERSION=0.1.0` to install a specific release, `MORSE_NO_LAUNCH=1` to
+skip opening the app, or `MORSE_INSTALL_DIR` to choose where `Morse.app` goes
+(default `/Applications`, or `~/Applications` when that is not writable). With
+`curl`, set them on the `sh` side of the pipe: `curl ... | MORSE_NO_LAUNCH=1 sh`.
+
 ## Repository layout
 
 - `mesh-private-messenger/` — protocol, services, clients, mobile app, and infrastructure
@@ -27,8 +57,9 @@ the desktop app, and the iOS simulator app:
 ./run.sh
 ```
 
-The launcher opens Docker Desktop if needed, installs missing/outdated npm
-dependencies, and reuses healthy services and an open desktop app. Running it
+The launcher opens Docker Desktop if needed, creates the database container on
+first use, installs missing/outdated npm dependencies, and reuses healthy
+services and an open desktop app. Running it
 again while the launcher is active exits without starting duplicates. Logs are
 in `.morse/logs/`, including `desktop.log` and `mobile.log` for each app's build
 and startup. The mobile command builds and installs the app, opens the simulator,
@@ -43,6 +74,12 @@ the database too, without deleting its data:
 ```sh
 docker compose -p whatsdown-dev -f mesh-private-messenger/services/directory-delivery/docker-compose.yml stop
 ```
+
+PostgreSQL applies `services/directory-delivery/migrations/` when it first
+creates the database and never again, so the launcher reports a migration added
+since then rather than letting the services fail on a stale schema. `./run.sh
+reset` deletes that database, losing its development data, so the next run
+rebuilds it from every migration.
 
 Override `MESH_LANG_DIR` when the Mesh checkout lives elsewhere; the launcher
 links it at `mesh-lang` for package dependencies and rejects a conflicting checkout.

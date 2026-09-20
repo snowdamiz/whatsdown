@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 test('C8 publication requires successful verification of both exact commits, including OTA', () => {
   const valid = {
@@ -8,7 +9,7 @@ test('C8 publication requires successful verification of both exact commits, inc
     VERIFIED_MORSE_REVISION: 'a'.repeat(40), VERIFIED_MESH_REVISION: 'b'.repeat(40),
     VERIFICATION_RESULT: 'success',
   };
-  const run = overrides => spawnSync(process.execPath, [new URL('./release-verification.mjs', import.meta.url).pathname], {
+  const run = overrides => spawnSync(process.execPath, [fileURLToPath(new URL('./release-verification.mjs', import.meta.url))], {
     env: { PATH: process.env.PATH, ...valid, ...overrides }, encoding: 'utf8',
   });
   assert.equal(run({}).status, 0);

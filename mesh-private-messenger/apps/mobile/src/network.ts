@@ -25,7 +25,8 @@ import {
   load_profile_export,
   mailbox_fetch_export,
   outbox_ack_export,
-  outbox_list_export,
+  outbox_fail_export,
+  outbox_page_export,
   privacy_submission_export,
   process_delivery_batch_export,
   prepare_fanout_prekeys_export,
@@ -257,38 +258,56 @@ function undeliverable(error: unknown, envelope: Uint8Array): Undeliverable | nu
   return permanent ? { status: error.status, queuedAt: envelopeQueuedAt(envelope) } : null;
 }
 
+// Bytes 20..52 of an envelope are the mailbox it is addressed to.
+const mailboxOf = (envelope: Uint8Array): string => hex(envelope.subarray(20, 52));
+
+// Envelopes leave in the order they were queued, with two exceptions that never
+// let one overtake another for the same recipient. One the service will never
+// accept is refused in the core, which marks its message as not delivered. One
+// the service cannot take right now (429: that mailbox is full, or being sent
+// to too fast) stays queued, along with everything behind it for that mailbox,
+// while other recipients carry on. Anything else stops the pass.
 async function drainOutboxOnce(databasePath: string): Promise<void> {
+  const waiting = new Set<string>();
+  let kept = 0; // Envelopes left queued ahead of the next page.
+  let turnedAway: unknown;
   for (;;) {
-    const envelopes = parseByteList(await outbox_list_export(utf8(databasePath)), 8, 65_606);
-    if (envelopes.length === 0) return;
+    const page = await outbox_page_export(batchRequest(databasePath, writeU32(kept)));
+    const envelopes = parseByteList(page, 8, 65_606);
+    if (envelopes.length === 0) break;
     for (const envelope of envelopes) {
-      let report: Undeliverable | null = null;
+      const mailbox = mailboxOf(envelope);
+      if (waiting.has(mailbox)) {
+        kept += 1;
+        continue;
+      }
       try {
         await submitEnvelope(envelope);
       } catch (error) {
-        report = undeliverable(error, envelope);
-        if (!report) throw error;
+        const report = undeliverable(error, envelope);
+        if (report) {
+          await outbox_fail_export(batchRequest(databasePath, envelope));
+          for (const listener of undeliverableListeners) {
+            // A listener that throws must not stall the outbox.
+            try { listener(report); } catch { /* Reporting is best effort. */ }
+          }
+          continue;
+        }
+        if (!(error instanceof ServerStatusError) || error.status !== 429) throw error;
+        waiting.add(mailbox);
+        kept += 1;
+        turnedAway = error;
+        continue;
       }
       await outbox_ack_export(batchRequest(databasePath, envelope));
-      if (report) {
-        for (const listener of undeliverableListeners) {
-          // A listener that throws must not stall the outbox.
-          try { listener(report); } catch { /* Reporting is best effort. */ }
-        }
-      }
     }
   }
+  // Something is still queued, so say so: callers retry later, as they always have.
+  if (turnedAway) throw new Error('recipient_unavailable', { cause: turnedAway });
 }
 
 export function drainOutbox(databasePath: string): Promise<void> {
   return drainOutboxByDatabase(databasePath, () => drainOutboxOnce(databasePath));
-}
-
-// When the oldest envelope still waiting to leave was queued, or null when nothing
-// waits. The outbox drains in order, so every later send is waiting behind it.
-export async function outboxQueuedSince(databasePath: string): Promise<number | null> {
-  const [oldest] = parseByteList(await outbox_list_export(utf8(databasePath)), 8, 65_606);
-  return oldest ? envelopeQueuedAt(oldest) : null;
 }
 
 export async function listGroups(databasePath: string): Promise<GroupSummary[]> {
@@ -571,18 +590,32 @@ export function completeGroupInvitations(databasePath: string): Promise<void> {
   });
 }
 
+// The service hands over the oldest unacknowledged envelopes first, and Mesh
+// leaves one it cannot open yet unacknowledged. Mesh therefore asks past what it
+// has set aside, and a pass runs until the mailbox has nothing more behind it;
+// stopping at the first batch it could not finish would let a few such
+// envelopes, which anyone can send, be all this device ever receives.
 async function receiveMailbox(databasePath: string): Promise<void> {
-  for (;;) {
+  let setAside = false;
+  let asked: string | undefined;
+  // 1,024 batches is twice what the largest mailbox holds.
+  for (let batches = 0; batches < 1_024; batches += 1) {
     const fetchRequest = await mailbox_fetch_export(utf8(databasePath));
     const batch = await binaryRequest('/v1/mailbox/fetch', fetchRequest);
     const acknowledgement = await process_delivery_batch_export(batchRequest(databasePath, batch));
-    if (acknowledgement.length === 0) {
-      // Mesh has validated this BAT frame; byte 4 is its delivery count.
-      if (batch[4] !== 0) throw new Error('Message processing is pending. Retrying…');
-      return;
-    }
-    await binaryRequest('/v1/mailbox/ack', acknowledgement);
+    if (acknowledgement.length > 0) await binaryRequest('/v1/mailbox/ack', acknowledgement);
+    // Mesh has validated both frames: byte 4 of a BAT is its delivery count,
+    // byte 44 of an ACK how many of them Mesh is done with.
+    const delivered = batch[4] ?? 0;
+    if (delivered === 0) break;
+    if ((acknowledgement[44] ?? 0) < delivered) setAside = true;
+    // Bytes 36..44 of a FET are where it asks from. Nothing taken and the same
+    // place asked again means Mesh is not getting past them: try again later.
+    const position = hex(fetchRequest.subarray(36, 44));
+    if (acknowledgement.length === 0 && position === asked) break;
+    asked = position;
   }
+  if (setAside) throw new Error('Message processing is pending. Retrying…');
 }
 
 export function synchronizeMailbox(databasePath: string): Promise<void> {

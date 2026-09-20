@@ -28,7 +28,9 @@ const meshExports = [
   'load_profile_export',
   'mailbox_fetch_export',
   'outbox_ack_export',
+  'outbox_fail_export',
   'outbox_list_export',
+  'outbox_page_export',
   'privacy_submission_export',
   'prepare_fanout_prekeys_export',
   'process_delivery_batch_export',
@@ -254,7 +256,7 @@ function installFanoutMocks(
     sent.push(request);
     return new Uint8Array();
   };
-  meshMocks.outbox_list_export = async () => vectors(writeU32(0));
+  meshMocks.outbox_page_export = async () => vectors(writeU32(0));
 }
 
 test('delegates bounded prekey preparation to Mesh before fanout', async (t) => {
@@ -372,9 +374,12 @@ test('one mailbox wakeup drains every batch and still receives when outbox deliv
   const { synchronizeMailbox } = await import('./network.ts');
   let fetches = 0;
   let applied = 0;
-  meshMocks.outbox_list_export = async () => { throw new Error('outbox unavailable'); };
+  meshMocks.outbox_page_export = async () => { throw new Error('outbox unavailable'); };
   meshMocks.mailbox_fetch_export = async () => Uint8Array.of(1);
-  meshMocks.process_delivery_batch_export = async () => ++applied < 3 ? Uint8Array.of(2) : new Uint8Array();
+  // A real acknowledgement says at byte 44 how many envelopes Mesh is done with: all eight.
+  const acknowledgedAll = new Uint8Array(125);
+  acknowledgedAll[44] = 8;
+  meshMocks.process_delivery_batch_export = async () => ++applied < 3 ? acknowledgedAll : new Uint8Array();
   meshMocks.replenish_prekeys_export = async () => Uint8Array.of(3);
   meshMocks.reconcile_prekeys_export = async () => writeU32(64);
   meshMocks.group_invitations_export = async () => vectors(writeU32(0));
@@ -392,7 +397,7 @@ test('one mailbox wakeup drains every batch and still receives when outbox deliv
 
 test('retries unprocessed deliveries instead of treating a nonempty mailbox as current', async (t) => {
   const { synchronizeMailbox } = await import('./network.ts');
-  meshMocks.outbox_list_export = async () => vectors(writeU32(0));
+  meshMocks.outbox_page_export = async () => vectors(writeU32(0));
   meshMocks.mailbox_fetch_export = async () => Uint8Array.of(1);
   meshMocks.process_delivery_batch_export = async () => new Uint8Array();
   meshMocks.replenish_prekeys_export = async () => Uint8Array.of(3);
@@ -400,6 +405,42 @@ test('retries unprocessed deliveries instead of treating a nonempty mailbox as c
   meshMocks.group_invitations_export = async () => vectors(writeU32(0));
   t.mock.method(globalThis, 'fetch', async () => new Response(Uint8Array.of(1, 66, 65, 84, 1)));
   await assert.rejects(synchronizeMailbox('/data/retry.db'), /processing.*retry/i);
+});
+
+// Envelopes that cannot be opened yet stay unacknowledged, and the service hands
+// the oldest unacknowledged ones over first. A pass must reach what is behind them.
+test('envelopes set aside for later do not keep a pass from what is queued behind them', async (t) => {
+  const { synchronizeMailbox } = await import('./network.ts');
+  const positions: number[] = [];
+  let acknowledged = 0;
+  // Mesh asks from 0, then past the eight it set aside, then past the two it took.
+  const frame = (after: number): Uint8Array => {
+    const bytes = new Uint8Array(116);
+    new DataView(bytes.buffer).setBigUint64(36, BigInt(after));
+    return bytes;
+  };
+  const ack = (count: number): Uint8Array => { const bytes = new Uint8Array(125); bytes[44] = count; return bytes; };
+  meshMocks.outbox_page_export = async () => vectors(writeU32(0));
+  meshMocks.mailbox_fetch_export = async () => frame([0, 8, 10][positions.length] ?? 10);
+  meshMocks.process_delivery_batch_export = async (request) => (request.at(-1) === 8 ? new Uint8Array() : request.at(-1) === 2 ? ack(2) : new Uint8Array());
+  meshMocks.replenish_prekeys_export = async () => Uint8Array.of(3);
+  meshMocks.reconcile_prekeys_export = async () => writeU32(64);
+  meshMocks.group_invitations_export = async () => vectors(writeU32(0));
+  t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/v1/mailbox/fetch')) {
+      const after = Number(new DataView(init?.body as ArrayBuffer).getBigUint64(36));
+      positions.push(after);
+      return new Response(Uint8Array.of(1, 66, 65, 84, after === 0 ? 8 : after === 8 ? 2 : 0));
+    }
+    if (url.endsWith('/v1/mailbox/ack')) acknowledged += 1;
+    return new Response();
+  });
+  // Something is still waiting, so the caller is told to come back, but only
+  // after everything that could be taken was taken.
+  await assert.rejects(synchronizeMailbox('/data/set-aside.db'), /processing.*retry/i);
+  assert.deepEqual(positions, [0, 8, 10]);
+  assert.equal(acknowledged, 1);
 });
 
 test('connects the stream with opaque mailbox authorization and enforces TLS', async (t) => {
@@ -477,7 +518,7 @@ test('group sending refreshes each account once and waits for every authorizatio
   };
   const requests: Uint8Array[] = [];
   meshMocks.group_send_export = async request => { assert.equal(verified, 2); sends++; requests.push(request); return Uint8Array.of(1); };
-  meshMocks.outbox_list_export = async () => vectors(writeU32(0));
+  meshMocks.outbox_page_export = async () => vectors(writeU32(0));
   t.mock.method(globalThis, 'fetch', async () => new Response(Uint8Array.of(1)));
   await assert.rejects(sendGroupMessage('/group-test.db', groupId, 'pending'), /transparency_stale/);
   assert.equal(sends, 0);
@@ -528,12 +569,15 @@ test('sending ten attachments calls send once; partial uploads are cleaned and q
 });
 
 // The outbox sends in order. An envelope the service will never accept must not
-// hold up what is queued behind it, and must not vanish without a trace either.
+// hold up what is queued behind it, and must not vanish without a trace either;
+// one a recipient cannot take right now must hold up nobody but that recipient.
 const { drainOutbox, onUndeliverable } = await import('./network.ts');
 
-function queuedEnvelope(id: number, expiresAt: number): Uint8Array {
+// Bytes 20..52 of an envelope are the mailbox it is addressed to.
+function queuedEnvelope(id: number, expiresAt: number, mailbox = 1): Uint8Array {
   const envelope = new Uint8Array(70).fill(id);
   envelope.set([1, 0x4d, 0x53, 0x47]); // version 1, "MSG"
+  envelope.fill(mailbox, 20, 52);
   new DataView(envelope.buffer).setBigUint64(54, BigInt(expiresAt));
   return envelope;
 }
@@ -542,17 +586,23 @@ function queuedEnvelope(id: number, expiresAt: number): Uint8Array {
 // how the service answers each envelope, by its first payload byte.
 function outboxFixture(t: test.TestContext, queue: Uint8Array[], statusFor: (id: number) => number | 'offline') {
   const submitted: number[] = [];
+  const refused: number[] = [];
   const reports: { status: number; queuedAt: number }[] = [];
-  meshMocks.privacy_submission_export = async (value) => value;
-  meshMocks.outbox_list_export = async () => vectors(writeU32(Math.min(queue.length, 8)), ...queue.slice(0, 8));
-  meshMocks.outbox_ack_export = async (request) => {
+  const remove = (request: Uint8Array): number => {
     const index = queue.findIndex((envelope) => hexOf(request).endsWith(hexOf(envelope)));
-    assert.notEqual(index, -1, 'acknowledged an envelope that is not queued');
-    queue.splice(index, 1);
-    return new Uint8Array();
+    assert.notEqual(index, -1, 'settled an envelope that is not queued');
+    return queue.splice(index, 1)[0]![4]!;
   };
+  meshMocks.privacy_submission_export = async (value) => value;
+  meshMocks.outbox_page_export = async (request) => {
+    const offset = new DataView(request.buffer, request.byteOffset + request.length - 4).getUint32(0);
+    const page = queue.slice(offset, offset + 8);
+    return vectors(writeU32(page.length), ...page);
+  };
+  meshMocks.outbox_ack_export = async (request) => { remove(request); return new Uint8Array(); };
+  meshMocks.outbox_fail_export = async (request) => { refused.push(remove(request)); return new Uint8Array(); };
   t.mock.method(globalThis, 'fetch', async (_input, init) => {
-    const id = new Uint8Array(init?.body as ArrayBuffer)[4];
+    const id = new Uint8Array(init?.body as ArrayBuffer)[4]!;
     submitted.push(id);
     const status = statusFor(id);
     if (status === 'offline') throw new TypeError('Network request failed');
@@ -566,27 +616,30 @@ function outboxFixture(t: test.TestContext, queue: Uint8Array[], statusFor: (id:
     if (previous === undefined) delete process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL;
     else process.env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL = previous;
   });
-  return { submitted, reports };
+  return { submitted, refused, reports };
 }
 
 const inThirtyDays = (): number => Date.now() + 2_592_000_000;
+const ids = (queue: Uint8Array[]): number[] => queue.map((envelope) => envelope[4]!);
 
-test('an envelope for a revoked mailbox is reported and does not hold up the queue', async (t) => {
+test('an envelope for a revoked mailbox is refused in the core, reported, and holds nothing up', async (t) => {
   const queue = [queuedEnvelope(7, inThirtyDays()), queuedEnvelope(8, inThirtyDays())];
-  const { submitted, reports } = outboxFixture(t, queue, (id) => (id === 7 ? 410 : 202));
+  const { submitted, refused, reports } = outboxFixture(t, queue, (id) => (id === 7 ? 410 : 202));
   await drainOutbox('/data/outbox-revoked.db');
   assert.deepEqual(submitted, [7, 8]);
+  assert.deepEqual(refused, [7]); // The core marks its message as not delivered; 8 was acknowledged.
   assert.equal(queue.length, 0);
   assert.equal(reports.length, 1);
-  assert.equal(reports[0].status, 410);
+  assert.equal(reports[0]!.status, 410);
 });
 
-test('an envelope that expired while queued is reported and does not hold up the queue', async (t) => {
+test('an envelope that expired while queued is refused in the core, reported, and holds nothing up', async (t) => {
   const expired = Date.now() - 1_000;
   const queue = [queuedEnvelope(7, expired), queuedEnvelope(8, inThirtyDays())];
-  const { submitted, reports } = outboxFixture(t, queue, (id) => (id === 7 ? 400 : 202));
+  const { submitted, refused, reports } = outboxFixture(t, queue, (id) => (id === 7 ? 400 : 202));
   await drainOutbox('/data/outbox-expired.db');
   assert.deepEqual(submitted, [7, 8]);
+  assert.deepEqual(refused, [7]);
   assert.equal(queue.length, 0);
   assert.deepEqual(reports, [{ status: 400, queuedAt: expired - 2_592_000_000 }]);
 });
@@ -594,14 +647,37 @@ test('an envelope that expired while queued is reported and does not hold up the
 // A 400 the device cannot explain may mean the service refuses everything this
 // build sends (a version or clock mismatch). Discarding on that would empty the
 // outbox for good, so it waits like any other failure, and order is kept.
-test('an unexplained refusal or a transient failure keeps every envelope, in order', async (t) => {
-  for (const failure of [400, 429, 500, 502, 'offline'] as const) {
-    const queue = [queuedEnvelope(7, inThirtyDays()), queuedEnvelope(8, inThirtyDays())];
-    const { submitted, reports } = outboxFixture(t, queue, (id) => (id === 7 ? failure : 202));
+test('an unexplained refusal or an outage keeps every envelope, in order', async (t) => {
+  for (const failure of [400, 500, 502, 'offline'] as const) {
+    const queue = [queuedEnvelope(7, inThirtyDays()), queuedEnvelope(8, inThirtyDays(), 2)];
+    const { submitted, refused, reports } = outboxFixture(t, queue, (id) => (id === 7 ? failure : 202));
     await assert.rejects(drainOutbox(`/data/outbox-${failure}.db`));
     assert.deepEqual(submitted, [7], `envelope 8 overtook a ${failure}`);
-    assert.equal(queue.length, 2);
+    assert.deepEqual(ids(queue), [7, 8]);
+    assert.deepEqual(refused, []);
     assert.deepEqual(reports, []);
     t.mock.restoreAll();
   }
+});
+
+test('a recipient who cannot take an envelope now holds up nobody else, and keeps their own order', async (t) => {
+  // 7 and 8 are for one recipient, 9 for another. 7 is turned away for now.
+  const queue = [queuedEnvelope(7, inThirtyDays(), 1), queuedEnvelope(8, inThirtyDays(), 1), queuedEnvelope(9, inThirtyDays(), 2)];
+  const { submitted, refused, reports } = outboxFixture(t, queue, (id) => (id === 7 ? 429 : 202));
+  await assert.rejects(drainOutbox('/data/outbox-full-mailbox.db'), /recipient_unavailable/);
+  // 8 must not overtake 7, so it was not even offered; 9 went out.
+  assert.deepEqual(submitted, [7, 9]);
+  assert.deepEqual(ids(queue), [7, 8]);
+  assert.deepEqual(refused, []);
+  assert.deepEqual(reports, []);
+});
+
+test('envelopes that must wait cannot hide the ones queued behind the first page', async (t) => {
+  // Nine for a recipient who is turned away fill more than the first page of eight.
+  const queue = [...Array.from({ length: 9 }, (_, index) => queuedEnvelope(10 + index, inThirtyDays(), 1)),
+    queuedEnvelope(99, inThirtyDays(), 2)];
+  const { submitted } = outboxFixture(t, queue, (id) => (id === 99 ? 202 : 429));
+  await assert.rejects(drainOutbox('/data/outbox-paged.db'), /recipient_unavailable/);
+  assert.deepEqual(submitted, [10, 99]);
+  assert.equal(queue.length, 9);
 });

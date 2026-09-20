@@ -52,11 +52,15 @@ export const mailbox_fetch_export = (request: Uint8Array): Promise<Uint8Array> =
 export const process_delivery_batch_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_process_delivery_batch', request);
 export const outbox_list_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_outbox_list', request);
 export const outbox_ack_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_outbox_ack', request);
+export const outbox_fail_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_outbox_fail', request);
+export const outbox_page_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_outbox_page', request);
 
 export const primePushToken = async (): Promise<void> => { throw new Error("Desktop uses live updates while open"); };
 export const clearPushToken = async (): Promise<void> => {};
 export const onPushRegistrationChanged = (_listener: () => void): (() => void) => () => {};
 
+export const journal_load_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_journal_load', request);
+export const journal_save_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_journal_save', request);
 export const presentation_load_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_presentation_load', request);
 export const presentation_save_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_presentation_save', request);
 export const attachment_prepare_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_attachment_prepare', request);

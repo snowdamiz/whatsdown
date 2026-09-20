@@ -62,6 +62,13 @@ Lookups, mailbox access, and messaging are unaffected. Alert on the entry count
 well before 3,584: reaching it closes registration for the deployment, and the
 reserved 512 entries are what let existing accounts keep revoking devices.
 
+## Mailbox capacity
+
+- A mailbox holds at most 4 MiB of waiting envelopes (each counted as its padding bucket) and at most 4,096 of them; migration `014` replaced the flat limit of 64 and backfills the byte count from the envelopes already waiting. The worst case per device is unchanged (64 envelopes of 64 KiB were 4 MiB); an ordinary message is a few hundred bytes, so an offline device now holds thousands instead of turning its senders away after 64.
+- `429` on `POST /v1/envelopes/batch` means that mailbox is full or is being sent to faster than 32 envelopes a minute. Clients leave those envelopes queued and keep sending to everyone else, so a sustained `429` rate for one mailbox is an offline or abandoned device, not an outage. `410` is a revoked mailbox; clients drop those envelopes and mark the message as not delivered.
+- Storage to plan for is 4 MiB times the number of devices with waiting mail, bounded further by the 30-day envelope lifetime and the retention job.
+- Migration `015` adds contact addresses (`protocol/contact-address-v1.md`). Envelopes sent to a mailbox's public address may hold three quarters of it (3 MiB, 3,072 envelopes) at 24 a minute; the rest is kept for the secret address a device hands to its contacts, which may use all of it at 32 a minute. `messenger_mailbox_aliases` holds only hashes and keeps retired ones for good, one row per rotation per device, so a retired address keeps routing as a stranger's would. A deposit to an address nothing is registered under now answers `410` like a revoked mailbox; it used to answer `500`, which made a sender retry forever.
+
 ## Anonymous request cost
 
 - `PUT /v1/devices/register`, `POST /v1/devices/resolve` and `POST /v1/prekeys/bundle` require proof of work (`PWR`, see `protocol/sealed-delivery-v1.md`). `MESSENGER_ABUSE_DIFFICULTY` (1 to 24, default 16) now governs `directory-delivery` as well as `privacy-edge`; the service refuses to start outside that range. It must equal the difficulty in the signed native configuration shipped to devices: a device configured lower is refused with `429`, one configured higher simply does more work than needed. Change both together.

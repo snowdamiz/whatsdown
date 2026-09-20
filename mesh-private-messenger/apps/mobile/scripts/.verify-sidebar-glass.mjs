@@ -47,10 +47,10 @@ async function open({ scheme = 'dark', account = true, creator = true, width = 1
       state.calls.push(symbol || command);
       if (symbol === 'mesh_messenger_load_profile') { if (!state.account) throw Error('profile_not_found'); return profile; }
       if (symbol === 'mesh_messenger_create_account') { state.account = true; return profile; }
-      if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_verify_transparency') return [1];
+      if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_resolve_request' || symbol === 'mesh_messenger_verify_transparency') return [1];
       if (symbol === 'mesh_messenger_inspect_device_set') return vectors(text(creator ? 'alice' : 'maya'), id(self), u64(1), [0], [1], list(vectors(id(self, 16), [1], [1])));
       if (symbol === 'mesh_messenger_list_conversations') return contact ? list(vectors(id(20, 16), text('alex_1987'), id(2), id(2, 16), text('1234'.repeat(16)), [1], [0], [0], [0], u32(0))) : list();
-      if (symbol === 'mesh_messenger_load_history' || symbol === 'mesh_messenger_group_invitations' || symbol === 'mesh_messenger_outbox_list') return list();
+      if (symbol === 'mesh_messenger_load_history' || symbol === 'mesh_messenger_group_invitations' || symbol === 'mesh_messenger_outbox_list' || symbol === 'mesh_messenger_outbox_page') return list();
       if (symbol === 'mesh_messenger_group_list') return list(...state.groups.map((g) => list([1], g.id, u64(1), u32(g.count))));
       if (symbol === 'mesh_messenger_group_create') { state.creates++; const g = { id: id(80 + state.creates), count: 1 }; state.groups.push(g); return g.id; }
       if (symbol === 'mesh_messenger_presentation_load') return state.saved[decode(fields(request)[1])] || [];
@@ -63,6 +63,20 @@ async function open({ scheme = 'dark', account = true, creator = true, width = 1
       if (symbol === 'mesh_messenger_group_history') return list(...[
         [2, 'Sunday works for me.'], [3, 'I’ll bring coffee.'], [1, 'See you both there!'],
       ].map(([sender, body], i) => list([1], [2], u64(1), id(sender), id(sender, 16), u64(Date.now() - (3 - i) * 60_000), text(body), [])));
+      // The sealed journals, kept where a reload leaves them alone, as the database would.
+      if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_save') {
+        const bytes = Array.from(args), parts = [];
+        for (let at = 0; at < bytes.length;) {
+          const size = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
+          parts.push(new Uint8Array(bytes.slice(at + 4, at + 4 + size)));
+          at += 4 + size;
+        }
+        const label = `sealed-journal/${new TextDecoder().decode(parts[1])}`;
+        if (symbol.endsWith('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
+        if (parts[2].length === 1 && parts[2][0] === 0) localStorage.removeItem(label);
+        else localStorage.setItem(label, new TextDecoder().decode(parts[2]));
+        return [];
+      }
       throw Error('Offline test boundary');
     } };
   }, { scheme, account, creator, contact });

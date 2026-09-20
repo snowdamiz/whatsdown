@@ -7,13 +7,24 @@ from Mobile.Codec import (
   mobile_write_u32,
   take_vector
 )
+from Mobile.ContactAddress import refused_address_removals
+from Mobile.Delivery import resolved_delivery, tracked_delivery
 from Mobile.Types import MobilePayloadRequest, MobileReadBytes
 from Protocol.V1 import OuterEnvelope
 from Storage.Blobs import ensure_schema, load_blob, put_blob
 from Storage.Keys import local_context, open_local, platform_key, seal_local
-from Storage.Records import delete_blob
+from Storage.Records import delete_blob, delete_blobs, put_blobs
 
 ##! Mobile.Outbox implementation.
+# ponytail: a count, so the worst case is 256 envelopes of 64 KiB (16 MiB) on
+# this device; ordinary messages are a few hundred bytes. Budget bytes instead,
+# with sizes kept in the index, if that ever matters. It is this large because
+# an envelope for a recipient who cannot take it now waits here, for up to
+# thirty days, while everything else keeps flowing past it.
+
+pub fn outbox_capacity() -> Int do
+  256
+end
 
 fn decode_outbox_ids_parts(state :: BinaryReader, count :: Int, index :: Int, ids :: List < Bytes >) -> List < Bytes > ! String do
   if index >= count do
@@ -32,12 +43,12 @@ fn decode_outbox_ids_parts(state :: BinaryReader, count :: Int, index :: Int, id
 end
 
 fn decode_outbox_ids(input :: Bytes) -> List < Bytes > ! String do
-  case reader(input, 2048) do
+  case reader(input, 8192) do
     Err( _) -> Err("invalid_outbox")
     Ok( state) -> do
       let count = take_vector(state, 4) ?
       let count_value = mobile_read_u32(count.value) ?
-      if count_value > 64 do
+      if count_value > outbox_capacity() do
         Err("invalid_outbox")
       else
         decode_outbox_ids_parts(count.state, count_value, 0, List.new())
@@ -129,10 +140,27 @@ blobs :: List < Bytes >) -> Result <( List < Bytes >, List < String >, List < By
   end
 end
 
+fn slice(values :: List < Bytes >, start :: Int, stop :: Int, output :: List < Bytes >) -> List < Bytes > do
+  if start >= stop || start >= List.length(values) do
+    output
+  else
+    slice(values, start + 1, stop, List.append(output, List.get(values, start)))
+  end
+end
+
+# `tracked_count` envelopes, starting at `tracked_from`, are the ones addressed
+# to the other side of `message_id`: what happens to them decides whether the
+# conversation shows the message as sent. Pass an empty identifier and zero for
+# envelopes that carry no message a person would look for.
+
 pub fn prepare_outbox_writes(wrapping_key :: borrow StorageKey,
 existing_ids :: List < Bytes >,
-envelopes :: List < Bytes >) -> Result <( List < String >, List < Bytes >, Bytes), String > do
-  if List.length(existing_ids) + List.length(envelopes) > 64 do
+envelopes :: List < Bytes >,
+database_path :: String,
+message_id :: Bytes,
+tracked_from :: Int,
+tracked_count :: Int) -> Result <( List < String >, List < Bytes >, Bytes), String > do
+  if List.length(existing_ids) + List.length(envelopes) > outbox_capacity() do
     Err("outbox_full")
   else
     let ( ids, labels, blobs) = prepare_outbox(envelopes,
@@ -144,7 +172,12 @@ envelopes :: List < Bytes >) -> Result <( List < String >, List < Bytes >, Bytes
     let index_blob = seal_local(encode_output_list(ids) ?,
     wrapping_key,
     local_context("outbox/v1") ?) ?
-    Ok((labels, blobs, index_blob))
+    let first = List.length(existing_ids) + tracked_from
+    let ( delivery_labels, delivery_blobs) = tracked_delivery(database_path,
+    wrapping_key,
+    message_id,
+    slice(ids, first, first + tracked_count, List.new())) ?
+    Ok((List.concat(labels, delivery_labels), List.concat(blobs, delivery_blobs), index_blob))
   end
 end
 
@@ -190,7 +223,7 @@ wrapping_key :: borrow StorageKey,
 ids :: List < Bytes >,
 index :: Int,
 entries :: List < Bytes >) -> List < Bytes > ! String do
-  if index >= List.length(ids) || index >= 8 do
+  if index >= List.length(ids) || List.length(entries) >= 8 do
     Ok(entries)
   else
     load_outbox_entries(database_path,
@@ -222,7 +255,10 @@ end
 fn store_outbox_ack(database_path :: String,
 id :: Bytes,
 remaining :: List < Bytes >,
-index_blob :: Bytes) -> Result <(), String > do
+index_blob :: Bytes,
+delivery_labels :: List < String >,
+delivery_blobs :: List < Bytes >,
+removed_labels :: List < String >) -> Result <(), String > do
   case Sqlite.open(database_path) do
     Err( _) -> Err("database_open_failed")
     Ok( database) -> do
@@ -234,9 +270,15 @@ index_blob :: Bytes) -> Result <(), String > do
             Err( error) -> Err(error)
             Ok( _) -> case update_outbox_index(database, remaining, index_blob) do
               Err( error) -> Err(error)
-              Ok( _) -> case Sqlite.commit(database) do
-                Err( _) -> Err("database_write_failed")
-                Ok( _) -> Ok(nil)
+              Ok( _) -> case put_blobs(database, delivery_labels, delivery_blobs, 0) do
+                Err( error) -> Err(error)
+                Ok( _) -> case delete_blobs(database, removed_labels, 0) do
+                  Err( error) -> Err(error)
+                  Ok( _) -> case Sqlite.commit(database) do
+                    Err( _) -> Err("database_write_failed")
+                    Ok( _) -> Ok(nil)
+                  end
+                end
               end
             end
           end
@@ -267,7 +309,32 @@ pub fn list_outbox(database_path :: String) -> Bytes ! String do
   List.new()) ?)
 end
 
+# Entries from `offset` on, eight at a time. A sender that leaves an envelope
+# queued, because its recipient cannot take it now, passes it by counting it.
+
+pub fn page_outbox(request :: MobilePayloadRequest) -> Bytes ! String do
+  ensure_schema(request.database_path) ?
+  let offset = mobile_read_u32(request.payload) ?
+  let wrapping_key = platform_key() ?
+  encode_output_list(load_outbox_entries(request.database_path,
+  wrapping_key,
+  load_outbox_ids(request.database_path, wrapping_key) ?,
+  offset,
+  List.new()) ?)
+end
+
 pub fn acknowledge_outbox(request :: MobilePayloadRequest) -> Bytes ! String do
+  settle_outbox(request, true)
+end
+
+# The service will never accept this envelope. It leaves the outbox like an
+# accepted one, but counts against its message instead of for it.
+
+pub fn fail_outbox(request :: MobilePayloadRequest) -> Bytes ! String do
+  settle_outbox(request, false)
+end
+
+fn settle_outbox(request :: MobilePayloadRequest, accepted :: Bool) -> Bytes ! String do
   ensure_schema(request.database_path) ?
   let envelope = canonical_outer(request.payload) ?
   let wrapping_key = platform_key() ?
@@ -286,7 +353,24 @@ pub fn acknowledge_outbox(request :: MobilePayloadRequest) -> Bytes ! String do
     else
       seal_local(encode_output_list(remaining) ?, wrapping_key, local_context("outbox/v1") ?) ?
     end
-    store_outbox_ack(request.database_path, envelope.envelope_id, remaining, index_blob) ?
+    let ( delivery_labels, delivery_blobs) = resolved_delivery(request.database_path,
+    wrapping_key,
+    envelope.envelope_id,
+    accepted) ?
+    # An address the directory refuses for good is not used again: if it was a
+    # contact address someone handed over, the next message goes to their public one.
+    let removed_labels = if accepted do
+      List.new()
+    else
+      refused_address_removals(request.database_path, wrapping_key, envelope.mailbox_token) ?
+    end
+    store_outbox_ack(request.database_path,
+    envelope.envelope_id,
+    remaining,
+    index_blob,
+    delivery_labels,
+    delivery_blobs,
+    removed_labels) ?
     Ok(Bytes.empty())
   end
 end

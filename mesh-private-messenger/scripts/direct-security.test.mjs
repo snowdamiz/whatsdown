@@ -24,6 +24,8 @@ for (const [name, stdout] of Object.entries(expected)) {
     const packages = join(project, '.mesh/packages');
     mkdirSync(packages, { recursive: true });
     cpSync(protocol, join(packages, 'messenger-protocol@0.1.0'), { recursive: true });
+    // The frozen version 1 snapshot writer, which only the migration proof may call.
+    cpSync(join(proofs, 'fixtures/snapshot_v1.mpl'), join(packages, 'messenger-protocol@0.1.0/session/snapshot_v1.mpl'));
     cpSync(join(root, 'mesh-lang/packages/mesh-binary'), join(packages, 'mesh-binary@0.1.0'), { recursive: true });
     let source = readFileSync(join(proofs, `${name}.mpl`), 'utf8').replace(/__(\w+)_HEX__/g, (_, key) => readFileSync(join(fixtures, `${vectors[key]}.hex`), 'utf8').trim());
     writeFileSync(join(project, 'mesh.toml'), '[package]\nname = "direct-security-proof"\nversion = "0.1.0"\n');

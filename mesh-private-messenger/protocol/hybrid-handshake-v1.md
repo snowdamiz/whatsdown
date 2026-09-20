@@ -39,7 +39,13 @@ and fails initial AEAD authentication without producing a session.
 Suite 1 wire vectors are unchanged. The compiler proof pins the ML-KEM-768 key
 generation result to NIST ACVP FIPS 203 `tcId 26`; messenger tests cover hybrid
 establishment, ratcheting, ciphertext alteration, explicit classical fallback,
-and downgrade rejection.
+and downgrade rejection. `mlkem_interop.test.mpl` checks the runtime's ML-KEM,
+one Rust crate with no outside audit, against OpenSSL 3.6, which shares no code
+with it: a fixed seed gives the same public key byte for byte, a ciphertext
+OpenSSL made decapsulates to the same shared secret, and an altered ciphertext
+decapsulates to a different one without an error. The shared secret cannot be
+read out of the runtime, so it is compared by what it seals. This is agreement
+between two implementations on one vector each way, not an audit of either.
 
 ## Limits and release verification
 

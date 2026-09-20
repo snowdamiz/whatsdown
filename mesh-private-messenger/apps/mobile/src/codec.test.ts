@@ -137,6 +137,7 @@ test('conversation and history lists reject trailing bytes and decode policy sta
     utf8('hello'),
     writeU32(30),
     new Uint8Array(),
+    Uint8Array.of(0),
   );
   const history = parseHistory(vectors(writeU32(1), message));
   assert.equal(history[0]?.direction, 'received');
@@ -161,7 +162,7 @@ const attachmentSummary = (size: number, chunkCount = Math.ceil(size / 65_536)):
 
 test('history entries expose opened attachment manifests next to their opaque reference', () => {
   const message = vectors(Uint8Array.of(1), new Uint8Array(16), u64(1_800_000_000_000n), new Uint8Array(), writeU32(0),
-    attachmentSummary(70_000));
+    attachmentSummary(70_000), Uint8Array.of(0));
   const [entry] = parseHistory(vectors(writeU32(1), message));
   assert.equal(entry?.body, '');
   assert.deepEqual(entry?.attachments, [{
@@ -350,7 +351,7 @@ test('ten attachments remain ordered in one direct or group history message', ()
     1, 65, 84, 66, ...writeU32(10),
     ...vectors(...Array.from({ length: 10 }, (_, index) => attachmentSummary(index + 1))),
   ]);
-  const direct = vectors(Uint8Array.of(1), new Uint8Array(16), u64(1n), utf8('album'), writeU32(0), batch);
+  const direct = vectors(Uint8Array.of(1), new Uint8Array(16), u64(1n), utf8('album'), writeU32(0), batch, Uint8Array.of(0));
   const group = vectors(writeU32(8), Uint8Array.of(1), Uint8Array.of(1), u64(1n), new Uint8Array(32),
     new Uint8Array(16), u64(1n), utf8('album'), batch);
   for (const messages of [parseHistory(vectors(writeU32(1), direct)), parseGroupHistory(vectors(writeU32(1), group))]) {
@@ -372,7 +373,7 @@ test('attachment lists reject invalid counts, empty references, truncation, and 
   const valid = batch(2, summary, summary);
   for (const invalid of [batch(11, ...Array(11).fill(summary)), batch(1, summary), batch(2, summary, new Uint8Array()),
     valid.subarray(0, valid.length - 1), new Uint8Array([...valid, 0])]) {
-    const message = vectors(Uint8Array.of(1), new Uint8Array(16), u64(1n), new Uint8Array(), writeU32(0), invalid);
+    const message = vectors(Uint8Array.of(1), new Uint8Array(16), u64(1n), new Uint8Array(), writeU32(0), invalid, Uint8Array.of(0));
     assert.throws(() => parseHistory(vectors(writeU32(1), message)));
   }
 });

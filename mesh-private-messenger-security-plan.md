@@ -54,23 +54,67 @@ Resolved since:
   limit. **The two native dispatch lines for the new exports (Kotlin, Swift)
   were not compiled here.**
 
+- **Strangers crowding out contacts.** A device publishes the hash of a secret
+  second deposit address and hands the address to contacts inside the encrypted
+  channel; envelopes sent to the public address may hold three quarters of a
+  mailbox, the rest is kept for contacts. No wire format changed. A mailbox is
+  also bounded by bytes now (4 MiB, 4,096 envelopes) instead of 64 envelopes
+  (`contact_address.test` on the server and in the core, `prekey_pool.test`,
+  `storage.test`). Not covered: group members who are not direct contacts still
+  use the public address, rotation only happens on blocking, and a contact who
+  turns hostile can fill the mailbox until blocked.
+
+- **A mailbox that a few envelopes could freeze.** A fetch always began at the
+  oldest unacknowledged envelope, and one that could not be opened yet was
+  never acknowledged, so eight of them, which any contact can send, were all a
+  device received until they expired. A pass now asks past what it has set
+  aside; a message numbered more than 64 ahead is refused for good instead of
+  being tried again; and an envelope is given up on only after sixteen tries
+  and a day, so the device's own passing trouble cannot lose a message
+  (`inbox_poison.test`, `network.test.ts`).
+- **Skipped message keys never aged out.** A session now lists the keys it
+  keeps and forgets one five receiving chains after it was set aside; ratchet
+  snapshot `2` stores the list (the direct-security ratchet proof, which also
+  covers reading a version `1` snapshot through a frozen version `1` writer).
+- **What a notification shows** is the user's choice: name and message, name
+  only, or neither (`message-notifications.test.ts`).
+- **The read, notification and receipt journals** were plain JSON beside the
+  database (files on a phone, `localStorage` on the desktop). The core now
+  seals them in the database, one record per chat, under labels only it can
+  name; the clear copies are imported once and removed (`journal.test`,
+  `journal-store.test.ts`, and the unread and receipts browser checks).
+  **The two native dispatch lines for the new exports (Kotlin, Swift) were not
+  compiled here.**
+
 Still open from that review, in priority order:
 
-3. No sender authorization: any sender can deposit into any mailbox. A
-   separate, smaller quota for senders who cannot present a contact-held
-   access key would stop strangers crowding out contacts.
 4. Signed prekeys are issued for a year and never rotated, and the ML-KEM key
    is fixed for the life of a credential; there is no post-quantum ratchet.
-   Skipped message keys never age out.
-5. Compact transparency proofs, a way for a user to monitor their own key
-   history, and independently operated witnesses.
+   The last-resort prekey, the one prekey secret that use does not destroy, is
+   now replaced weekly and its old secret destroyed 35 days after the directory
+   confirms the new key (`last_resort_prekey.test`); that needed no wire change.
+   Both keys sit inside the transparency-logged device set, and a client
+   matches a claimed bundle to a logged device by the bytes of the bundle, so
+   rotating them means publishing them outside the log, as one-time prekeys
+   already are.
+5. Compact transparency proofs, and independently operated witnesses. The
+   second is operational, not code: `services/transparency-witness` already
+   keeps its own key and last checkpoint, checks the log's signature and a
+   consistency proof against that checkpoint, and refuses a conflict before it
+   co-signs, but every witness in use today is run by the log's own operator.
+   A user's own key history is already watched: at every sync a device
+   resolves its own account with transparency evidence, treats a rollback or
+   two different sets at one sequence as an error, and warns when the set
+   advances (`cached_device_set_changed`). There is no view of past changes.
 6. Group application messages are signed with the long-term device key and are
    therefore non-repudiable.
-7. HPKE is composed by hand in the runtime with one known-answer vector; the
-   ML-KEM crate is unaudited; secrets are not memory-locked.
-8. App lock, incognito keyboard, a notification-preview setting, view-once,
-   delete-for-everyone, disappearing messages in groups, and sealing the
-   read-state journals.
+7. HPKE is composed by hand in the runtime. It is single-shot, so its one
+   RFC 9180 vector (A.2.1, sequence zero) does cover the whole key schedule it
+   uses. The ML-KEM crate is unaudited; it is now checked against OpenSSL for
+   key generation from a seed and for decapsulation (`mlkem_interop.test`),
+   which is agreement on a vector, not an audit. Secrets are not memory-locked.
+8. App lock, incognito keyboard, view-once, delete-for-everyone, and
+   disappearing messages in groups.
 
 Audience: engineers implementing Morse and its shared Mesh runtime, and a future outside auditor. The deliverable is a reproducible security evidence package for a specific release, backed by implemented controls and adversarial tests.
 

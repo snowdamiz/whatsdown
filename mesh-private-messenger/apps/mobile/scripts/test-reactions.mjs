@@ -40,7 +40,7 @@ try {
       }
       return out;
     };
-    const direct = (body, serial, direction = 1) => vectors([direction], id(serial, 16), u64(Date.now()), text(body), u32(0), []);
+    const direct = (body, serial, direction = 1) => vectors([direction], id(serial, 16), u64(Date.now()), text(body), u32(0), [], [0]);
     const group = (body, serial, sender = 1) => list([1], [sender === 1 ? 1 : 2], u64(1), id(sender), id(sender, 16), u64(Date.now()), text(body), [], id(serial));
     const saved = JSON.parse(sessionStorage.getItem('reactions-test') || 'null');
     const policy = new URLSearchParams(location.search);
@@ -64,8 +64,8 @@ try {
         const key = decode(fields(request)[1]);
         return key.startsWith('group/') ? vectors(text('Reaction group'), []) : [];
       }
-      if (['mesh_messenger_group_invitations', 'mesh_messenger_outbox_list'].includes(symbol)) return list();
-      if (symbol === 'mesh_messenger_transparency_lookup') return fields(request)[1];
+      if (['mesh_messenger_group_invitations', 'mesh_messenger_outbox_list', 'mesh_messenger_outbox_page'].includes(symbol)) return list();
+      if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_resolve_request') return fields(request)[1];
       if (symbol === 'mesh_messenger_verify_transparency') return fields(request)[1];
       if (symbol === 'mesh_messenger_inspect_device_set') {
         const peer = decode(fields(request)[1]) === 'bob';
@@ -82,6 +82,20 @@ try {
         messages.push(isGroup ? group(body, messages.length + 30) : direct(body, messages.length + 30));
         sessionStorage.setItem('reactions-test', JSON.stringify({ direct: state.direct, group: state.group }));
         return list();
+      }
+      // The sealed journals, kept where a reload leaves them alone, as the database would.
+      if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_save') {
+        const bytes = Array.from(args), parts = [];
+        for (let at = 0; at < bytes.length;) {
+          const size = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
+          parts.push(new Uint8Array(bytes.slice(at + 4, at + 4 + size)));
+          at += 4 + size;
+        }
+        const label = `sealed-journal/${new TextDecoder().decode(parts[1])}`;
+        if (symbol.endsWith('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
+        if (parts[2].length === 1 && parts[2][0] === 0) localStorage.removeItem(label);
+        else localStorage.setItem(label, new TextDecoder().decode(parts[2]));
+        return [];
       }
       throw Error('Offline test boundary');
     } };

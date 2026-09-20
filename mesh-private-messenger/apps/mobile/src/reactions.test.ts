@@ -11,6 +11,7 @@ const u64 = (value: number) => {
 };
 const entry = (direction: number, body: string, serial = 1) => vectors(
   Uint8Array.of(direction), new Uint8Array(16).fill(serial), u64(serial), utf8(body), writeU32(0), new Uint8Array(),
+  Uint8Array.of(0),
 );
 const history = (...entries: Uint8Array[]) => parseHistory(vectors(writeU32(entries.length), ...entries));
 const reaction = (emoji: string, revision: number, target = hex(id)) =>

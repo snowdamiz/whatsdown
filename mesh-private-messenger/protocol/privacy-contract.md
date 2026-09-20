@@ -19,6 +19,7 @@ session decryption keys.
 | Conversation identifier | Encrypted. Session IDs, ratchet headers, and group IDs travel inside the [recipient-sealed transport](recipient-transport-v1.md); legacy bare ratchet and group packets exposed them |
 | Sender identity | Every packet is recipient-sealed; delivery learns neither the sender nor group membership |
 | Destination | Opaque mailbox token visible to delivery |
+| Whether the sender is a contact | One bit per envelope: delivery sees whether it arrived at the device's public address or at the secret [contact address](contact-address-v1.md) the device hands to contacts. It does not see which contact, and the edge sees neither |
 | Username | Visible to the directory in the initial design |
 | Device public keys | Visible to directory and transparency services |
 | Source IP address | Visible to the connection edge |

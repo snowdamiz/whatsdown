@@ -13,6 +13,7 @@ from Mobile.Codec import (
   mobile_append,
   mobile_byte,
   mobile_join,
+  mobile_read_u64,
   mobile_utf8,
   mobile_vector,
   mobile_wide,
@@ -24,6 +25,7 @@ from Mobile.Codec import (
 from Mobile.DeviceSet import device_set_label, verified_device_set
 from Mobile.FanoutPrekeys import fanout_prekey_claim_label, fanout_prekey_reservation_label
 from Mobile.Inbox import permanent_direct_delivery_error
+from Mobile.InboxState import inbox_state_writes, load_delivery_attempts, load_fetch_cursor
 from Mobile.Platform import expo_project_id, expo_registration_body, parse_expo_raw_token
 from Mobile.Prekeys import load_prekey_pool
 from Mobile.Profile import (
@@ -129,6 +131,7 @@ from Storage.Keys import (
   local_context,
   one_time_prekey_context,
   one_time_prekey_label,
+  open_local,
   open_x25519,
   platform_key,
   seal_local,
@@ -420,10 +423,94 @@ pub fn test_sealed_tamper_envelope(input :: Bytes) -> Bytes ! String do
   end
 end
 
+# Makes every envelope the device has set aside look as if it was first set
+# aside that much earlier. A test cannot wait a day.
+
+fn earlier(moment :: U64, milliseconds :: Int) -> Bytes ! String do
+  case U64.to_int(moment) do
+    Err( _) -> Err("invalid_delivery_attempts")
+    Ok( value) -> mobile_write_u64(mobile_wide(Int.to_string(value - milliseconds)) ?)
+  end
+end
+
+fn aged_attempts(records :: Bytes, offset :: Int, milliseconds :: Int, output :: Bytes) -> Bytes ! String do
+  if offset >= Bytes.length(records) do
+    Ok(output)
+  else
+    let first = mobile_read_u64(Bytes.slice(records, offset + 17, 8) ?) ?
+    let kept = mobile_append(output, Bytes.slice(records, offset, 17) ?) ?
+    aged_attempts(records,
+    offset + 25,
+    milliseconds,
+    mobile_append(kept, earlier(first, milliseconds) ?) ?)
+  end
+end
+
+pub fn age_delivery_attempts_for_test(database_path :: String, milliseconds :: Int) -> Result <(), String > do
+  let wrapping_key = platform_key() ?
+  let records = load_delivery_attempts(database_path, wrapping_key) ?
+  let aged = aged_attempts(records, 0, milliseconds, Bytes.empty()) ?
+  let ( labels, blobs) = inbox_state_writes(wrapping_key,
+  aged,
+  load_fetch_cursor(database_path, wrapping_key) ?) ?
+  store_updated_blobs(database_path, labels, blobs)
+end
+
+# Makes the device's last-resort key look that much older, and the keys it
+# replaced look confirmed that much earlier. A test cannot wait five weeks.
+
+fn aged_retired(records :: Bytes, offset :: Int, milliseconds :: Int, output :: Bytes) -> Bytes ! String do
+  if offset >= Bytes.length(records) do
+    Ok(output)
+  else
+    let confirmed = mobile_read_u64(Bytes.slice(records, offset + 40, 8) ?) ?
+    let moment = if U64.compare(confirmed, mobile_wide("0") ?) == 0 do
+      mobile_write_u64(confirmed) ?
+    else
+      earlier(confirmed, milliseconds) ?
+    end
+    aged_retired(records,
+    offset + 48,
+    milliseconds,
+    mobile_append(mobile_append(output, Bytes.slice(records, offset, 40) ?) ?, moment) ?)
+  end
+end
+
+fn sealed_state(database_path :: String, wrapping_key :: borrow StorageKey, label :: String) -> Bytes ! String do
+  case load_blob(database_path, label) do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(Bytes.empty())
+    else
+      Err(error)
+    end
+    Ok( blob) -> open_local(blob, wrapping_key, local_context(label) ?)
+  end
+end
+
+pub fn age_last_resort_for_test(database_path :: String, milliseconds :: Int) -> Result <(), String > do
+  let wrapping_key = platform_key() ?
+  let current = sealed_state(database_path, wrapping_key, "last-resort-prekey/v1") ?
+  let retired = sealed_state(database_path, wrapping_key, "last-resort-retired/v1") ?
+  if Bytes.length(current) != 48 do
+    Err("no dated last-resort key")
+  else
+    let made = mobile_read_u64(Bytes.slice(current, 40, 8) ?) ?
+    let aged = mobile_append(Bytes.slice(current, 0, 40) ?, earlier(made, milliseconds) ?) ?
+    store_updated_blobs(database_path,
+    ["last-resort-prekey/v1", "last-resort-retired/v1"],
+    [seal_local(aged, wrapping_key, local_context("last-resort-prekey/v1") ?) ?, seal_local(aged_retired(retired,
+    0,
+    milliseconds,
+    Bytes.empty()) ?,
+    wrapping_key,
+    local_context("last-resort-retired/v1") ?) ?])
+  end
+end
+
 pub fn direct_delivery_classification_for_test() -> Bool do
   let verification = is_retryable_verification_crypto_error(InternalFailure) && !is_retryable_verification_crypto_error(InvalidPublicKey)
   let session = is_retryable_session_crypto_error(InternalFailure) && !is_retryable_session_crypto_error(InvalidPublicKey) && is_retryable_session_error(PrekeyFailure(InvalidBundle))
-  let ratchet = is_retryable_ratchet_error(CryptoFailure) && is_retryable_ratchet_error(ExcessiveJump) && !is_retryable_ratchet_error(AuthenticationRejected) && !is_retryable_ratchet_error(Replay) && !is_retryable_ratchet_error(InvalidMessage)
+  let ratchet = is_retryable_ratchet_error(CryptoFailure) && !is_retryable_ratchet_error(ExcessiveJump) && !is_retryable_ratchet_error(AuthenticationRejected) && !is_retryable_ratchet_error(Replay) && !is_retryable_ratchet_error(InvalidMessage)
   let skipped = !is_retryable_ratchet_error(skipped_key_error(InvalidKey)) && is_retryable_ratchet_error(skipped_key_error(InternalFailure))
   let opened = !is_retryable_ratchet_error(ratchet_open_error(AuthenticationFailed)) && is_retryable_ratchet_error(ratchet_open_error(InternalFailure))
   verification && session && ratchet && skipped && opened && !permanent_direct_delivery_error("initial_crypto_failed") && !permanent_direct_delivery_error("ratchet_retryable")

@@ -1,5 +1,6 @@
 from Identity.Device import DeviceKeys
 from Mobile.Codec import (
+  current_time,
   mobile_append,
   mobile_join,
   mobile_read_u64,
@@ -7,6 +8,7 @@ from Mobile.Codec import (
   mobile_write_u32,
   mobile_write_u64
 )
+from Mobile.ContactAddress import confirmed_contact_address_writes, published_contact_address
 from Mobile.Profile import load_profile, open_device
 from Mobile.Types import MobileOneTimePrekey, MobilePrekeyReconcileRequest, MobilePrekeyRequest
 from Prekeys.Bundle import OneTimePrekeySecrets, PrekeyError, generate_one_time_prekey
@@ -30,7 +32,7 @@ from Storage.Keys import (
   seal_local,
   seal_x25519
 )
-from Storage.Records import store_last_resort_prekey, store_prekey_batch, store_prekey_reconciliation
+from Storage.Records import store_last_resort_prekey, store_prekey_batch, store_prekey_reconciliation, store_record_changes
 from Transport.Packet import ClientProfile, decode_client_profile
 
 ##! Mobile.Prekeys implementation.
@@ -256,9 +258,24 @@ end
 # storage, so the handshake treats it like any other prekey; only this device
 # knows it must survive being used. Its identifiers start at 2^62 + 1, far above
 # any one-time identifier a device will ever count up to, and only grow.
+#
+# It is the one prekey whose secret is not destroyed by use, so it is not kept
+# for ever either. A week after it was made, the next publication names a new
+# one. The old secret has to outlive that: the directory may go on handing the
+# old key out until it has answered a publication naming the new one, and a
+# first message sealed to it can then sit in the mailbox for up to 31 days. So
+# the old secret is destroyed 35 days after the directory's answer, not before.
+
+fn last_resort_lifetime() -> U64 ! String do
+  mobile_wide("604800000")
+end
+
+fn last_resort_grace() -> U64 ! String do
+  mobile_wide("3024000000")
+end
 
 fn decode_last_resort(encoded :: Bytes) -> MobileOneTimePrekey ! String do
-  if Bytes.length(encoded) != 40 do
+  if Bytes.length(encoded) < 40 do
     Err("invalid_last_resort_prekey")
   else
     let id = mobile_read_u64(Bytes.slice(encoded, 0, 8) ?) ?
@@ -273,45 +290,207 @@ fn decode_last_resort(encoded :: Bytes) -> MobileOneTimePrekey ! String do
   end
 end
 
-pub fn load_last_resort_prekey(database_path :: String, wrapping_key :: borrow StorageKey) -> Option < MobileOneTimePrekey > ! String do
-  case load_blob(database_path, "last-resort-prekey/v1") do
+fn load_last_resort_state(database_path :: String,
+wrapping_key :: borrow StorageKey,
+label :: String) -> Bytes ! String do
+  case load_blob(database_path, label) do
     Err( error) -> if error == "local_state_not_found" do
-      Ok(None)
+      Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( blob) -> Ok(Some(decode_last_resort(open_local(blob,
-    wrapping_key,
-    local_context("last-resort-prekey/v1") ?) ?) ?))
+    Ok( blob) -> open_local(blob, wrapping_key, local_context(label) ?)
   end
+end
+
+# The key being handed out: identifier, public key and, since keys are replaced,
+# when it was made. A record from before then has no time and counts as due.
+
+fn load_last_resort_record(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  let stored = load_last_resort_state(database_path, wrapping_key, "last-resort-prekey/v1") ?
+  if Bytes.length(stored) == 0 || Bytes.length(stored) == 40 || Bytes.length(stored) == 48 do
+    Ok(stored)
+  else
+    Err("invalid_last_resort_prekey")
+  end
+end
+
+# Replaced keys whose secrets are still kept, oldest first: 48 bytes each, the
+# identifier, the public key, and when the directory confirmed the successor
+# (zero until it has).
+
+fn load_last_resort_retired(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes ! String do
+  let stored = load_last_resort_state(database_path, wrapping_key, "last-resort-retired/v1") ?
+  if Bytes.length(stored) % 48 != 0 do
+    Err("invalid_last_resort_prekey")
+  else
+    Ok(stored)
+  end
+end
+
+fn retired_last_resort(retired :: Bytes, id :: U64, offset :: Int) -> Option < MobileOneTimePrekey > ! String do
+  if offset >= Bytes.length(retired) do
+    Ok(None)
+  else
+    let candidate = decode_last_resort(Bytes.slice(retired, offset, 40) ?) ?
+    if U64.compare(candidate.id, id) == 0 do
+      Ok(Some(candidate))
+    else
+      retired_last_resort(retired, id, offset + 48)
+    end
+  end
+end
+
+# The reusable key a first message names, if it names one: the key being handed
+# out, or one replaced recently enough that its messages may still arrive.
+
+pub fn find_last_resort_prekey(database_path :: String,
+wrapping_key :: borrow StorageKey,
+id :: U64) -> Option < MobileOneTimePrekey > ! String do
+  let stored = load_last_resort_record(database_path, wrapping_key) ?
+  if Bytes.length(stored) == 0 do
+    Ok(None)
+  else
+    let current = decode_last_resort(stored) ?
+    if U64.compare(current.id, id) == 0 do
+      Ok(Some(current))
+    else
+      retired_last_resort(load_last_resort_retired(database_path, wrapping_key) ?, id, 0)
+    end
+  end
+end
+
+fn new_last_resort_prekey(profile :: ClientProfile,
+wrapping_key :: borrow StorageKey,
+database_path :: String,
+id :: U64,
+now :: U64,
+retired :: Bytes,
+removed_labels :: List < String >) -> MobileOneTimePrekey ! String do
+  let generated = case generate_one_time_prekey(id) do
+    Err( _) -> Err("prekey_generation_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let secret = seal_x25519(generated.private_key,
+  wrapping_key,
+  one_time_prekey_context(profile, id) ?) ?
+  let public_key = generated.public_key.bytes
+  let retired_blob = if Bytes.length(retired) == 0 do
+    Bytes.empty()
+  else
+    seal_local(retired, wrapping_key, local_context("last-resort-retired/v1") ?) ?
+  end
+  store_last_resort_prekey(database_path,
+  one_time_prekey_label(id),
+  secret,
+  seal_local(mobile_join([mobile_write_u64(id) ?, public_key, mobile_write_u64(now) ?],
+  0,
+  Bytes.empty()) ?,
+  wrapping_key,
+  local_context("last-resort-prekey/v1") ?) ?,
+  retired_blob,
+  removed_labels) ?
+  Ok(MobileOneTimePrekey {
+    id : id,
+    public_key : public_key
+  })
 end
 
 fn ensure_last_resort_prekey(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String) -> MobileOneTimePrekey ! String do
-  case load_last_resort_prekey(database_path, wrapping_key) ? do
-    Some( value) -> Ok(value)
-    None -> do
-      let id = mobile_wide("4611686018427387905") ?
-      let generated = case generate_one_time_prekey(id) do
-        Err( _) -> Err("prekey_generation_failed")
-        Ok( value) -> Ok(value)
-      end ?
-      let secret = seal_x25519(generated.private_key,
-      wrapping_key,
-      one_time_prekey_context(profile, id) ?) ?
-      let public_key = generated.public_key.bytes
-      store_last_resort_prekey(database_path,
-      one_time_prekey_label(id),
-      secret,
-      seal_local(mobile_join([mobile_write_u64(id) ?, public_key], 0, Bytes.empty()) ?,
-      wrapping_key,
-      local_context("last-resort-prekey/v1") ?) ?) ?
-      Ok(MobileOneTimePrekey {
-        id : id,
-        public_key : public_key
-      })
+  let stored = load_last_resort_record(database_path, wrapping_key) ?
+  let now = current_time() ?
+  if Bytes.length(stored) == 0 do
+    new_last_resort_prekey(profile,
+    wrapping_key,
+    database_path,
+    mobile_wide("4611686018427387905") ?,
+    now,
+    Bytes.empty(),
+    List.new())
+  else
+    let current = decode_last_resort(stored) ?
+    let made = if Bytes.length(stored) == 48 do
+      mobile_read_u64(Bytes.slice(stored, 40, 8) ?) ?
+    else
+      mobile_wide("0") ?
     end
+    if U64.compare(now, U64.add(made, last_resort_lifetime() ?) ?) < 0 do
+      Ok(current)
+    else
+      let kept = load_last_resort_retired(database_path, wrapping_key) ?
+      # ponytail: sixteen replaced keys at most. A device the directory never
+      # answers would otherwise add one a week; the oldest goes first.
+      let dropped = if Bytes.length(kept) >= 768 do
+        [one_time_prekey_label(decode_last_resort(Bytes.slice(kept, 0, 40) ?) ?.id)]
+      else
+        List.new()
+      end
+      let bounded = if Bytes.length(kept) >= 768 do
+        Bytes.slice(kept, 48, Bytes.length(kept) - 48) ?
+      else
+        kept
+      end
+      let retired = mobile_join([bounded, Bytes.slice(stored, 0, 40) ?, mobile_write_u64(mobile_wide("0") ?) ?],
+      0,
+      Bytes.empty()) ?
+      new_last_resort_prekey(profile,
+      wrapping_key,
+      database_path,
+      U64.add(current.id, mobile_wide("1") ?) ?,
+      now,
+      retired,
+      dropped)
+    end
+  end
+end
+
+# The directory has answered a publication, so from now on it hands out the key
+# that publication named. Replaced keys start their last 35 days here, and
+# those that have had them lose their secrets.
+
+fn settled_retired(retired :: Bytes,
+offset :: Int,
+now :: U64,
+kept :: Bytes,
+removed :: List < String >) -> Result <( Bytes, List < String >), String > do
+  if offset >= Bytes.length(retired) do
+    Ok((kept, removed))
+  else
+    let record = Bytes.slice(retired, offset, 40) ?
+    let confirmed = mobile_read_u64(Bytes.slice(retired, offset + 40, 8) ?) ?
+    if U64.compare(confirmed, mobile_wide("0") ?) == 0 do
+      settled_retired(retired,
+      offset + 48,
+      now,
+      mobile_join([kept, record, mobile_write_u64(now) ?], 0, Bytes.empty()) ?,
+      removed)
+    else if U64.compare(now, U64.add(confirmed, last_resort_grace() ?) ?) >= 0 do
+      settled_retired(retired,
+      offset + 48,
+      now,
+      kept,
+      List.append(removed, one_time_prekey_label(decode_last_resort(record) ?.id)))
+    else
+      settled_retired(retired,
+      offset + 48,
+      now,
+      mobile_append(kept, Bytes.slice(retired, offset, 48) ?) ?,
+      removed)
+    end
+  end
+end
+
+fn settled_last_resort_writes(database_path :: String, wrapping_key :: borrow StorageKey) -> Result <( List < String >, List < Bytes >, List < String >), String > do
+  let retired = load_last_resort_retired(database_path, wrapping_key) ?
+  let ( kept, removed) = settled_retired(retired, 0, current_time() ?, Bytes.empty(), List.new()) ?
+  if Bytes.secure_equals(kept, retired) do
+    Ok((List.new(), List.new(), List.new()))
+  else
+    Ok((["last-resort-retired/v1"],
+    [seal_local(kept, wrapping_key, local_context("last-resort-retired/v1") ?) ?],
+    removed))
   end
 end
 
@@ -485,7 +664,8 @@ fn signed_prekey_publication(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String,
 entries :: List < MobileOneTimePrekey >,
-reusable :: MobileOneTimePrekey) -> Bytes ! String do
+reusable :: MobileOneTimePrekey,
+contact_address :: Bytes) -> Bytes ! String do
   let unsigned = PrekeyPublishRequest {
     account_id : profile.account_id,
     device_id : profile.device_id,
@@ -494,6 +674,7 @@ reusable :: MobileOneTimePrekey) -> Bytes ! String do
       id : reusable.id,
       public_key : reusable.public_key
     }),
+    contact_address_hash : Some(Crypto.sha256(contact_address)),
     signature : Bytes.empty()
   }
   let device = open_device(profile, wrapping_key, database_path) ?
@@ -513,8 +694,22 @@ pub fn replenish_prekeys(request :: MobilePrekeyRequest) -> Bytes ! String do
   let active_ids = load_active_prekey_pool(request.database_path, existing, wrapping_key) ?
   let inactive = inactive_prekeys(existing, active_ids, 0, List.new())
   let reusable = ensure_last_resort_prekey(profile, wrapping_key, request.database_path) ?
+  # A new contact address is stored before the publication that names it leaves,
+  # so the directory's answer finds it waiting to be confirmed.
+  let ( contact_address, address_labels, address_blobs) = published_contact_address(request.database_path,
+  wrapping_key) ?
+  let _ = if List.length(address_labels) > 0 do
+    store_record_changes(request.database_path, address_labels, address_blobs, List.new())
+  else
+    Ok(nil)
+  end ?
   if request.count == 0 do
-    signed_prekey_publication(profile, wrapping_key, request.database_path, inactive, reusable)
+    signed_prekey_publication(profile,
+    wrapping_key,
+    request.database_path,
+    inactive,
+    reusable,
+    contact_address)
   else if List.length(active_ids) + request.count > 64 do
     Err("prekey_pool_full")
   else
@@ -532,7 +727,8 @@ pub fn replenish_prekeys(request :: MobilePrekeyRequest) -> Bytes ! String do
     wrapping_key,
     request.database_path,
     generated,
-    reusable) ?
+    reusable,
+    contact_address) ?
     let retired_overflow = if List.length(inactive) + request.count > 64 do
       List.length(inactive) + request.count - 64
     else
@@ -633,6 +829,25 @@ pub fn reconcile_prekeys(request :: MobilePrekeyReconcileRequest) -> Bytes ! Str
       removed_labels,
       seal_prekey_pool(retained, wrapping_key) ?,
       seal_active_prekey_pool(response.active_ids, wrapping_key) ?) ?
+      let ( settled_labels, settled_blobs, settled_removals) = settled_last_resort_writes(request.database_path,
+      wrapping_key) ?
+      let _ = if List.length(settled_labels) > 0 do
+        store_record_changes(request.database_path, settled_labels, settled_blobs, settled_removals)
+      else
+        Ok(nil)
+      end ?
+      # The directory answered, so the contact address the publication named is
+      # live and may be handed to contacts.
+      let ( confirmed_labels, confirmed_blobs, confirmed_removals) = confirmed_contact_address_writes(request.database_path,
+      wrapping_key) ?
+      let _ = if List.length(confirmed_labels) > 0 do
+        store_record_changes(request.database_path,
+        confirmed_labels,
+        confirmed_blobs,
+        confirmed_removals)
+      else
+        Ok(nil)
+      end ?
       mobile_write_u32(List.length(response.active_ids))
     end
   end

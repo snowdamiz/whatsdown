@@ -11,11 +11,13 @@ readonly desktop_dir="$messenger_root/apps/desktop"
 readonly landing_dir="$messenger_root/apps/landing"
 readonly service_root="$messenger_root/services"
 readonly compose_file="$service_root/directory-delivery/docker-compose.yml"
+readonly migrations_dir="$service_root/directory-delivery/migrations"
 # Keep the database volume stable across product renames.
 readonly compose_project="whatsdown-dev"
 readonly state_dir="${MORSE_STATE_DIR:-$script_dir/.morse}"
 readonly log_dir="$state_dir/logs"
 readonly runner_lock="$state_dir/run.lock"
+readonly schema_stamp="$state_dir/postgres-migrations"
 
 child_pids=()
 child_names=()
@@ -25,13 +27,14 @@ owns_lock=false
 
 usage() {
   printf '%s\n' \
-    "Usage: ./run.sh [run|desktop|mobile|build]" \
+    "Usage: ./run.sh [run|landing|desktop|mobile|build|reset]" \
     "" \
     "  run      Start the backend, landing page, desktop, and mobile simulator app (default)." \
     "  landing  Serve the landing page only." \
     "  desktop  Start the backend and desktop only." \
     "  mobile   Start the backend and mobile simulator app only." \
     "  build    Build the backend and desktop without starting them." \
+    "  reset    Delete the development database so the next run rebuilds it." \
     "" \
     "Set MESH_LANG_DIR to a separate Mesh checkout or MORSE_MOBILE_PLATFORM to ios/android."
 }
@@ -145,6 +148,60 @@ build_mesh() {
   )
 }
 
+# Replaces a literal string in a file under apps/mobile that npm or Expo
+# regenerates, so every launch reapplies it. A file with neither form changed
+# upstream: say so now, because the simulator build otherwise fails minutes
+# later with an error that does not name the cause.
+patch_generated() {
+  local file="$app_dir/$1"
+  [[ -f "$file" ]] || return 0
+  if grep -qF -- "$3" "$file"; then return 0; fi
+  if ! grep -qF -- "$2" "$file"; then
+    printf 'morse: %s no longer matches its patch in patch_external_checkout\n' "$file" >&2
+    return 0
+  fi
+  OLD=$2 NEW=$3 perl -pi -e 's/\Q$ENV{OLD}\E/$ENV{NEW}/g' "$file"
+}
+
+# Lets the simulator build run from a checkout on an external volume, which
+# trips React Native and Expo in two ways. Both are unfixed upstream.
+# shellcheck disable=SC2016
+patch_external_checkout() {
+  local template_call quoted_call
+  # ExFAT has no extended attributes, so macOS keeps them in binary "._name"
+  # files, which Xcode writes beside each Swift interface mid-build. Expo's globs
+  # match those too, and its sed stops on one with "illegal byte sequence".
+  patch_generated node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh \
+    '.swiftmodule" -' ".swiftmodule\" ! -name '._*' -"
+  # A space in the volume name: these split the project path.
+  patch_generated node_modules/expo-constants/scripts/get-app-config-ios.sh \
+    '$(basename $PROJECT_DIR)' '$(basename "$PROJECT_DIR")'
+  patch_generated node_modules/expo-constants/ios/EXConstants.podspec \
+    'bash -l -c \"#{env_vars}$PODS_TARGET_SRCROOT/' '#{env_vars}bash -l \"$PODS_TARGET_SRCROOT/'
+  patch_generated node_modules/expo-updates/ios/EXUpdates.podspec \
+    'bash -l -c "$PODS_TARGET_SRCROOT/' 'bash -l "$PODS_TARGET_SRCROOT/'
+  # CocoaPods copied those two commands into any project it installed earlier,
+  # and Expo reinstalls pods only when package.json changes.
+  patch_generated ios/Pods/Pods.xcodeproj/project.pbxproj \
+    'bash -l -c \"$PODS_TARGET_SRCROOT/' 'bash -l \"$PODS_TARGET_SRCROOT/'
+  # React Native's app template runs a printed path from bare backticks.
+  IFS= read -r template_call <<'EOF'
+`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`
+EOF
+  quoted_call="${template_call#?}"
+  patch_generated ios/Morse.xcodeproj/project.pbxproj \
+    "$template_call" "\\\"\$(${quoted_call%?})\\\""
+}
+
+npm_install() {
+  local dir=$1
+  shift
+  if [[ ! -f "$dir/node_modules/.package-lock.json" \
+    || "$dir/package-lock.json" -nt "$dir/node_modules/.package-lock.json" ]]; then
+    npm --prefix "$dir" ci "$@"
+  fi
+}
+
 build_service() {
   local name=$1
   "$meshc_bin" build "$service_root/$name" --output "$service_root/$name/output"
@@ -163,7 +220,7 @@ build_mobile() {
   local platform
   local target
   platform="$(mobile_platform)"
-  npm --prefix "$app_dir" ci --ignore-scripts=false
+  npm_install "$app_dir" --ignore-scripts=false
   require_command rustup
   if [[ "$platform" == ios ]]; then
     for target in aarch64-apple-ios aarch64-apple-ios-sim; do
@@ -192,16 +249,20 @@ build_mobile() {
     done
   fi
   MESHC="$meshc_bin" "$messenger_root/scripts/build-mobile-native.sh" "$platform"
+  # Expo otherwise generates ios/ while it builds, too late to patch.
+  if [[ "$platform" == ios && ! -d "$app_dir/ios" ]]; then
+    npm --prefix "$app_dir" exec -- expo prebuild "$app_dir" --platform ios --no-install
+  fi
+  patch_external_checkout
   # External macOS volumes create AppleDouble files that Expo mistakes for podspecs.
+  # Patching writes more of them, so this stays last.
   find "$app_dir" -type f -name '._*' -delete
 }
 
 build_desktop() {
   local dir
   for dir in "$app_dir" "$desktop_dir"; do
-    if [[ ! -f "$dir/node_modules/.package-lock.json" || "$dir/package-lock.json" -nt "$dir/node_modules/.package-lock.json" ]]; then
-      npm --prefix "$dir" ci
-    fi
+    npm_install "$dir"
   done
   MESHC="$meshc_bin" npm --prefix "$desktop_dir" run native -- --development
 }
@@ -230,18 +291,63 @@ compose() {
   docker compose --project-name "$compose_project" --file "$compose_file" "$@"
 }
 
+# A stopped Docker Desktop leaves a socket that accepts connections and never
+# answers, so an unbounded `docker info` hangs the launcher before it prints
+# anything. Bound every probe; the caller owns the overall deadline.
+docker_ready() {
+  local pid attempt
+  docker info >/dev/null 2>&1 &
+  pid=$!
+  for ((attempt = 0; attempt < 50; attempt += 1)); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      wait "$pid" && return 0
+      return 1
+    fi
+    sleep 0.1
+  done
+  kill -9 "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  return 1
+}
+
 ensure_docker() {
   require_command docker
-  if docker info >/dev/null 2>&1; then return; fi
+  docker compose version >/dev/null 2>&1 || { fail "docker compose v2 is required"; return 1; }
+  if docker_ready; then return; fi
   [[ "$(uname -s)" == Darwin ]] || { fail "Start your Docker daemon, then rerun ./run.sh"; return 1; }
   printf 'Starting Docker Desktop...\n'
-  open -g -a Docker
-  local attempt
-  for ((attempt = 0; attempt < 120; attempt += 1)); do
-    if docker info >/dev/null 2>&1; then return; fi
+  open -g -a Docker || { fail "no Docker Desktop to open; start your Docker daemon, then rerun ./run.sh"; return 1; }
+  local deadline=$((SECONDS + 120))
+  while ((SECONDS < deadline)); do
+    if docker_ready; then return; fi
     sleep 1
   done
   fail "Docker Desktop did not become ready within 120 seconds"
+}
+
+# PostgreSQL seeds migrations/ into a new volume once and never again, so a
+# database created before a migration was added keeps a stale schema, and the
+# services then fail with errors that do not name the cause. Record the
+# migration set whenever this launcher creates the volume, and report drift.
+start_database() {
+  local applied fresh=false
+  applied="$(cd "$migrations_dir" && printf '%s\n' *.sql)"
+  docker volume inspect "${compose_project}_messenger-postgres" >/dev/null 2>&1 || fresh=true
+  compose up --detach --wait postgres
+  if [[ "$fresh" == true || ! -f "$schema_stamp" ]]; then
+    printf '%s\n' "$applied" >"$schema_stamp"
+  elif [[ "$applied" != "$(cat "$schema_stamp")" ]]; then
+    printf '%s\n' \
+      "morse: migrations changed since this development database was created." \
+      "       Run ./run.sh reset to rebuild it." >&2
+  fi
+}
+
+reset_database() {
+  ensure_docker
+  compose down --volumes
+  rm -f "$schema_stamp"
+  printf 'Development database deleted; ./run.sh recreates it.\n'
 }
 
 start_process() {
@@ -452,7 +558,7 @@ run_all() {
   fi
   ensure_docker
   build_all
-  compose up --detach --wait postgres
+  start_database
   start_services
   if [[ "$client" == both ]]; then
     start_landing
@@ -484,6 +590,7 @@ main() {
     desktop) configure_environment; run_all ;;
     mobile) client=mobile; configure_environment; run_all ;;
     build) configure_environment; build_all build ;;
+    reset) reset_database ;;
     -h|--help|help) usage ;;
     *) usage >&2; return 2 ;;
   esac

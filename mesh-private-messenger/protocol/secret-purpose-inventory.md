@@ -9,8 +9,9 @@ the version 1 classical and experimental hybrid profiles.
 | Account authorization private key | `SigningPrivateKey` | Account device; until rotation or revocation | Sealed |
 | Device signing private key | `SigningPrivateKey` | Device; until revocation | Sealed |
 | Device identity DH private key | `X25519PrivateKey` | Device; until rotation or revocation | Sealed |
-| Signed-prekey private key | `X25519PrivateKey` | Device; current key plus the bounded overlap window | Sealed |
+| Signed-prekey private key | `X25519PrivateKey` | Device; one key for the life of its credential (a year). It is not rotated yet, so there is no overlap window | Sealed |
 | One-time-prekey private key | `X25519PrivateKey` | Device; consumed by one accepted establishment | Sealed until consumed |
+| Last-resort-prekey private key | `X25519PrivateKey` | Device; handed out for a week, then kept until 35 days after the directory confirms its replacement; at most sixteen replaced keys | Sealed until destroyed |
 | Post-quantum prekey seed | `MlKemPrivateKey` | Device; current hybrid prekey | Sealed |
 | ML-KEM shared secret | `SecretBytes` | Hybrid establishment operation only | Never |
 | Handshake shared secret | `SecretBytes` | Establishment operation only | Never |
@@ -23,7 +24,7 @@ the version 1 classical and experimental hybrid profiles.
 | Attachment key | `SecretBytes` | One attachment until upload/download completion or expiry | Sealed while work is pending |
 | Backup recovery secret | `SecretBytes` | User-held recovery capability; until its backup is retired or replaced | Never uploaded or stored in an app snapshot; user-controlled export is not yet integrated |
 | Derived backup content key | `SecretBytes` | One backup creation or restore operation | Never; re-derived from the recovery secret and versioned profile |
-| Skipped message key | `SecretBytes` | One session; at most 1,000 keys for at most 7 days | Sealed in the session snapshot |
+| Skipped message key | `SecretBytes` | One session; at most 64 keys, each until its message arrives, five further receiving chains begin, or newer keys push it out | Sealed in the session snapshot |
 | HKDF or HMAC intermediate | `SecretBytes` | One derivation call; consumed into a named key or tag | Never |
 | Storage wrapping key | `StorageKey` | Platform-backed device capability | Never placed in a Mesh snapshot |
 | Transparency signing key | `SigningPrivateKey` | Directory request transaction | Deployment secret only |

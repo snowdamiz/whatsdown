@@ -57,6 +57,10 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.persist_envelope(request)
       case "mesh_messenger_create_account":
         return try MeshLibrary.create_account_export(request)
+      case "mesh_messenger_journal_load":
+        return try MeshLibrary.journal_load_export(request)
+      case "mesh_messenger_journal_save":
+        return try MeshLibrary.journal_save_export(request)
       case "mesh_messenger_presentation_load":
         return try MeshLibrary.presentation_load_export(request)
       case "mesh_messenger_presentation_save":
@@ -153,6 +157,10 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.outbox_list_export(request)
       case "mesh_messenger_outbox_ack":
         return try MeshLibrary.outbox_ack_export(request)
+      case "mesh_messenger_outbox_fail":
+        return try MeshLibrary.outbox_fail_export(request)
+      case "mesh_messenger_outbox_page":
+        return try MeshLibrary.outbox_page_export(request)
       case "mesh_messenger_attachment_prepare":
         return try MeshLibrary.attachment_prepare_export(request)
       case "mesh_messenger_attachment_seal_chunk":

@@ -60,6 +60,10 @@ object MeshLibrary {
     @JvmStatic external fun process_delivery_batch_export(request: ByteArray): ByteArray
     @JvmStatic external fun outbox_list_export(request: ByteArray): ByteArray
     @JvmStatic external fun outbox_ack_export(request: ByteArray): ByteArray
+    @JvmStatic external fun outbox_fail_export(request: ByteArray): ByteArray
+    @JvmStatic external fun outbox_page_export(request: ByteArray): ByteArray
+    @JvmStatic external fun journal_load_export(request: ByteArray): ByteArray
+    @JvmStatic external fun journal_save_export(request: ByteArray): ByteArray
     @JvmStatic external fun presentation_load_export(request: ByteArray): ByteArray
     @JvmStatic external fun presentation_save_export(request: ByteArray): ByteArray
     @JvmStatic external fun attachment_prepare_export(request: ByteArray): ByteArray

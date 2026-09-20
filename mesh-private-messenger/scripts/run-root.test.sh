@@ -90,6 +90,25 @@ fi
   ' bash "$checkout_fixture"
 )
 
+# A stopped Docker Desktop answers its socket and then never replies, so the
+# probe has to give up rather than hang the launcher before it prints anything.
+(
+  stalled_docker="$(mktemp -d)"
+  trap 'rm -rf "$stalled_docker"' EXIT
+  printf '#!/bin/bash\nexec sleep 300\n' >"$stalled_docker/docker"
+  chmod +x "$stalled_docker/docker"
+  PATH="$stalled_docker:$PATH"
+  probe_started=$SECONDS
+  if docker_ready; then
+    printf 'a stalled daemon was reported ready\n' >&2
+    exit 1
+  fi
+  if ((SECONDS - probe_started > 15)); then
+    printf 'a stalled daemon probe was not bounded\n' >&2
+    exit 1
+  fi
+)
+
 python3 - "$test_repo_root/run.sh" <<'PY'
 import http.server
 import os
@@ -150,6 +169,10 @@ with tempfile.TemporaryDirectory(prefix="morse runner ") as temp:
     services = root / "mesh-private-messenger/services"
     for name in ("directory-delivery", "privacy-edge", "push-broker", "object-store", "transparency-witness"):
         (services / name).mkdir(parents=True)
+    migrations = services / "directory-delivery/migrations"
+    migrations.mkdir()
+    for name in ("001_initial.sql", "002_durable_backend.sql"):
+        (migrations / name).write_text("SELECT 1;\n")
     scripts = root / "mesh-private-messenger/scripts"
     scripts.mkdir()
     mobile = root / "mesh-private-messenger/apps/mobile"
@@ -157,6 +180,48 @@ with tempfile.TemporaryDirectory(prefix="morse runner ") as temp:
     podspecs.mkdir(parents=True)
     (podspecs / "Example.podspec").write_text("real podspec\n")
     (podspecs / "._Example.podspec").write_bytes(b"AppleDouble metadata")
+    # Expo's xcframework script, reduced to the two globs that meet AppleDouble
+    # files. Xcode writes those mid-build, after the launcher's cleanup has run.
+    expo_script = mobile / "node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh"
+    expo_script.parent.mkdir(parents=True)
+    expo_script.write_text('''#!/bin/bash
+modules_dir="$1"
+PACKAGE_NAME=Fixture
+find "${modules_dir}/${PACKAGE_NAME}.swiftmodule" -type f \\
+  \\( -name '*.private.swiftinterface' -o -name '*.package.swiftinterface' \\) -delete
+find "${modules_dir}/${PACKAGE_NAME}.swiftmodule" -name '*.swiftinterface'
+''')
+    swiftmodule = root / "Fixture.swiftmodule"
+    swiftmodule.mkdir()
+    for name in ("arm64.swiftinterface", "arm64.private.swiftinterface"):
+        (swiftmodule / name).write_text("// swift-interface-format-version: 1.0\n")
+        (swiftmodule / f"._{name}").write_bytes(b"\x00\x05\x16\x07AppleDouble metadata")
+    # This fixture's path has a space. React Native and Expo split such a project
+    # path in these lines, each shown as upstream ships it and as it must become.
+    assert " " in str(mobile)
+    spaced_path_lines = {
+        "node_modules/expo-constants/ios/EXConstants.podspec": (
+            r'''    :script => "bash -l -c \"#{env_vars}$PODS_TARGET_SRCROOT/../scripts/get-app-config-ios.sh\"",''',
+            r'''    :script => "#{env_vars}bash -l \"$PODS_TARGET_SRCROOT/../scripts/get-app-config-ios.sh\"",'''),
+        "node_modules/expo-constants/scripts/get-app-config-ios.sh": (
+            r'''PROJECT_DIR_BASENAME=$(basename $PROJECT_DIR)''',
+            r'''PROJECT_DIR_BASENAME=$(basename "$PROJECT_DIR")'''),
+        "node_modules/expo-updates/ios/EXUpdates.podspec": (
+            r'''      :script => force_bundling_flag + 'bash -l -c "$PODS_TARGET_SRCROOT/../scripts/create-updates-resources-ios.sh"',''',
+            r'''      :script => force_bundling_flag + 'bash -l "$PODS_TARGET_SRCROOT/../scripts/create-updates-resources-ios.sh"','''),
+        "ios/Pods/Pods.xcodeproj/project.pbxproj": (
+            r'''			shellScript = "bash -l -c \"$PODS_TARGET_SRCROOT/../scripts/get-app-config-ios.sh\"";''',
+            r'''			shellScript = "bash -l \"$PODS_TARGET_SRCROOT/../scripts/get-app-config-ios.sh\"";'''),
+        "ios/Morse.xcodeproj/project.pbxproj": (
+            r'''			shellScript = "export SKIP_BUNDLING=1\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n";''',
+            r'''			shellScript = "export SKIP_BUNDLING=1\n\"$(\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\")\"\n";'''),
+    }
+    # `expo prebuild` writes ios/, so a first launch has nothing there to patch yet.
+    prebuilt = root / "prebuilt"
+    for path, (upstream, _) in spaced_path_lines.items():
+        target = (prebuilt if path.startswith("ios/") else mobile) / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(upstream + "\n")
     landing = root / "mesh-private-messenger/apps/landing"
     landing.mkdir(parents=True)
     (landing / "index.html").write_text("landing fixture\n")
@@ -178,6 +243,8 @@ with tempfile.TemporaryDirectory(prefix="morse runner ") as temp:
     executable(commands / "docker", '''
 echo "$*" >> "$MORSE_STATE_DIR/docker-calls"
 if [[ "$1" == info ]]; then test -f "$MORSE_STATE_DIR/docker-ready"; fi
+if [[ "$1 ${2:-}" == "volume inspect" ]]; then test -f "$MORSE_STATE_DIR/docker-volume"; fi
+if [[ "$*" == *"up --detach --wait postgres" ]]; then touch "$MORSE_STATE_DIR/docker-volume"; fi
 ''')
     executable(commands / "curl", '''
 case "${!#}" in
@@ -203,7 +270,9 @@ chmod +x "$4"
 ''')
     executable(commands / "npm", '''
 echo "$*" >> "$MORSE_STATE_DIR/npm-calls"
-if [[ "$*" == *"run dev" ]]; then
+if [[ "$*" == *"expo prebuild"* ]]; then
+  cp -R "$FIXTURE/prebuilt/ios" "$FIXTURE/mesh-private-messenger/apps/mobile/ios"
+elif [[ "$*" == *"run dev" ]]; then
   echo $$ > "$MORSE_STATE_DIR/desktop.pid"
   exec sleep 300
 elif [[ "$*" == *"run ios" ]]; then
@@ -243,7 +312,18 @@ touch "$MORSE_STATE_DIR/mobile-built"
         assert landing_contents() == b"landing fixture\n", output.read_text()
         assert not (podspecs / "._Example.podspec").exists(), "AppleDouble podspec breaks CocoaPods autolinking"
         assert (podspecs / "Example.podspec").read_text() == "real podspec\n"
+        interfaces = subprocess.run(["bash", str(expo_script), str(root)], capture_output=True, text=True, check=True).stdout
+        assert interfaces == f"{swiftmodule / 'arm64.swiftinterface'}\n", \
+            "Expo's sed fails the iOS build on a binary AppleDouble interface:\n" + interfaces
+        assert not (swiftmodule / "arm64.private.swiftinterface").exists(), "private interfaces must still be removed"
+        assert (swiftmodule / "._arm64.private.swiftinterface").exists(), \
+            "the volume removes a sidecar with its file, so deleting it again fails Expo's find"
+        for path, (_, quoted) in spaced_path_lines.items():
+            assert (mobile / path).read_text() == quoted + "\n", f"{path} still splits a project path that has a space"
         assert not (state / "privacy-edge.pid").exists(), "duplicated a healthy service"
+        assert (state / "postgres-migrations").read_text() == "001_initial.sql\n002_durable_backend.sql\n", \
+            "the database this launch created was not recorded:\n" + output.read_text()
+        assert "migrations changed" not in output.read_text(), "reported drift for a database it just created"
         second = subprocess.run(["bash", str(root / "run.sh")], env=env, capture_output=True, text=True, timeout=5)
         assert second.returncode == 0 and "already running" in second.stdout, second
         assert (state / "npm-calls").read_text().count("run dev") == 1
@@ -269,6 +349,7 @@ touch "$MORSE_STATE_DIR/mobile-built"
         runner.terminate()
         runner.wait(timeout=10)
         previous_npm = (state / "npm-calls").read_text()
+        (migrations / "003_added_later.sql").write_text("SELECT 1;\n")
         executable(commands / "ps", 'echo "$FIXTURE/mesh-private-messenger/apps/desktop/src-tauri/target/debug/Morse"\n')
         with output.open("w") as log:
             runner = subprocess.Popen(["bash", str(root / "run.sh"), "desktop"], env=env, stdout=log,
@@ -277,6 +358,8 @@ touch "$MORSE_STATE_DIR/mobile-built"
         while "Morse desktop is already running" not in output.read_text() and runner.poll() is None and time.monotonic() < deadline:
             time.sleep(0.05)
         assert "Morse desktop is already running" in output.read_text(), output.read_text()
+        assert "migrations changed" in output.read_text(), \
+            "a migration added after the database was created was not reported:\n" + output.read_text()
         assert (state / "npm-calls").read_text() == previous_npm, "rebuilt an open desktop app"
         runner.terminate()
         runner.wait(timeout=10)
@@ -302,4 +385,4 @@ fi
                 pass
 PY
 
-printf 'root runner topology, Docker startup, reuse, shutdown, and stalled-probe tests passed\n'
+printf 'root runner topology, Docker startup, database recording, reuse, shutdown, and stalled-probe tests passed\n'

@@ -14,10 +14,15 @@ pub type RatchetError do
   Replay
 end
 
+# A message too far ahead is final, not something to try again. A mailbox hands
+# envelopes over in order and a sender never lets one overtake another, so the
+# messages in between are never coming. Treating it as temporary would leave it
+# unacknowledged at the head of the mailbox, where a few of them, which any
+# contact can send, used to be all a device received until they expired.
+
 pub fn is_retryable_ratchet_error(error :: RatchetError) -> Bool do
   case error do
     CryptoFailure -> true
-    ExcessiveJump -> true
     _ -> false
   end
 end
@@ -232,6 +237,112 @@ end
 
 fn skipped_key_id(ratchet_public_key :: X25519PublicKey, message_number :: Int) -> Bytes ! RatchetError do
   keyed_info("mesh-msg/v1/skipped-key", ratchet_public_key, message_number)
+end
+
+# A key kept for a message that has not come is a key an attacker who held
+# that message back could use after taking the device, so none is kept for
+# ever. The state lists the keys it keeps, oldest first, with the number of
+# receiving chains the session had seen when each was set aside. A key is
+# forgotten once its message arrives, once five more chains have begun, or
+# when 64 newer ones have pushed it out.
+
+fn slice(value :: Bytes, start :: Int, length :: Int) -> Bytes ! RatchetError do
+  case Bytes.slice(value, start, length) do
+    Err( _) -> Err(CryptoFailure)
+    Ok( part) -> Ok(part)
+  end
+end
+
+fn read_u32(value :: Bytes, offset :: Int) -> Int ! RatchetError do
+  case Bytes.read_u32_be(value, offset) do
+    Err( _) -> Err(CryptoFailure)
+    Ok( wide) -> case U64.to_int(wide) do
+      Err( _) -> Err(CryptoFailure)
+      Ok( number) -> Ok(number)
+    end
+  end
+end
+
+fn skipped_records(index :: Bytes,
+ratchet_public_key :: X25519PublicKey,
+current :: Int,
+target :: Int,
+generation :: Int) -> Bytes ! RatchetError do
+  if current >= target do
+    Ok(index)
+  else
+    let record = append(append(ratchet_public_key.bytes, write_u32(current) ?) ?,
+    write_u32(generation) ?) ?
+    skipped_records(append(index, record) ?, ratchet_public_key, current + 1, target, generation)
+  end
+end
+
+# A merge that overfills the secret map drops its oldest keys. The list drops
+# the same ones, so the two never disagree.
+
+fn newest_records(index :: Bytes) -> Bytes ! RatchetError do
+  let excess = Bytes.length(index) - 2560
+  if excess <= 0 do
+    Ok(index)
+  else
+    slice(index, excess, 2560)
+  end
+end
+
+fn index_after_new_chain(index :: Bytes,
+previous_public_key :: X25519PublicKey,
+received_count :: Int,
+generation :: Int,
+message :: RatchetMessage) -> Bytes ! RatchetError do
+  let previous = skipped_records(index,
+  previous_public_key,
+  received_count,
+  message.previous_chain_length,
+  generation) ?
+  newest_records(skipped_records(previous,
+  message.ratchet_public_key,
+  0,
+  message.message_number,
+  generation + 1) ?)
+end
+
+fn without_record(index :: Bytes,
+ratchet_public_key :: X25519PublicKey,
+message_number :: Int,
+offset :: Int) -> Bytes ! RatchetError do
+  if offset + 40 > Bytes.length(index) do
+    Ok(index)
+  else
+    let owner = slice(index, offset, 32) ?
+    let number = read_u32(index, offset + 32) ?
+    if number == message_number && Bytes.secure_equals(owner, ratchet_public_key.bytes) do
+      append(slice(index, 0, offset) ?,
+      slice(index, offset + 40, Bytes.length(index) - offset - 40) ?)
+    else
+      without_record(index, ratchet_public_key, message_number, offset + 40)
+    end
+  end
+end
+
+# The list is in the order the keys were set aside, so the ones that are too
+# old are at its head.
+
+fn forget_aged(skipped :: borrow SecretMap, index :: Bytes, generation :: Int) -> Bytes ! RatchetError do
+  if Bytes.length(index) < 40 do
+    Ok(index)
+  else
+    let set_aside = read_u32(index, 36) ?
+    if set_aside > generation - 5 do
+      Ok(index)
+    else
+      let owner = slice(index, 0, 32) ?
+      let key_id = skipped_key_id(X25519PublicKey { bytes : owner }, read_u32(index, 32) ?) ?
+      case SecretMap.delete(skipped, key_id) do
+        Err( _) -> Err(CryptoFailure)
+        Ok( _) -> forget_aged(skipped, slice(index, 40, Bytes.length(index) - 40) ?, generation)
+      end
+    end
+  end
 end
 
 fn authenticated_data(version :: Int,
@@ -541,10 +652,14 @@ end
 fn commit_skipped(key :: consume AeadKey,
 state :: consume RatchetState,
 plaintext :: Bytes,
-key_id :: Bytes) -> DecryptOutcome do
-  case SecretMap.delete(state.skipped_keys, key_id) do
-    Err( _) -> Rejected(state, CryptoFailure)
-    Ok( _) -> Opened(state, plaintext)
+key_id :: Bytes,
+message :: RatchetMessage) -> DecryptOutcome do
+  case without_record(state.skipped_index, message.ratchet_public_key, message.message_number, 0) do
+    Err( error) -> Rejected(state, error)
+    Ok( index) -> case SecretMap.delete(state.skipped_keys, key_id) do
+      Err( _) -> Rejected(state, CryptoFailure)
+      Ok( _) -> Opened(% { state | skipped_index : index }, plaintext)
+    end
   end
 end
 
@@ -567,7 +682,7 @@ key_id :: Bytes) -> DecryptOutcome do
         Err( error) -> reject_key(key, state, error)
         Ok( data) -> case open_message(key, message, data) do
           Err( error) -> reject_key(key, state, error)
-          Ok( plaintext) -> commit_skipped(key, state, plaintext, key_id)
+          Ok( plaintext) -> commit_skipped(key, state, plaintext, key_id, message)
         end
       end
     end
@@ -580,11 +695,21 @@ candidate :: consume SecretMap,
 next_chain :: consume SecretBytes,
 plaintext :: Bytes,
 message_number :: Int) -> DecryptOutcome do
-  case SecretMap.merge(state.skipped_keys, candidate) do
-    Err( _) -> reject_chain_key(key, next_chain, state, CryptoFailure)
-    Ok( _) -> do
-      let next = % { state | receiving_chain_key : next_chain, received_count : message_number + 1 }
-      Opened(next, plaintext)
+  case skipped_records(state.skipped_index,
+  state.remote_ratchet_public,
+  state.received_count,
+  message_number,
+  state.receive_generation) do
+    Err( error) -> reject_current_candidate(key, candidate, next_chain, state, error)
+    Ok( listed) -> case newest_records(listed) do
+      Err( error) -> reject_current_candidate(key, candidate, next_chain, state, error)
+      Ok( index) -> case SecretMap.merge(state.skipped_keys, candidate) do
+        Err( _) -> reject_chain_key(key, next_chain, state, CryptoFailure)
+        Ok( _) -> do
+          let next = % { state | receiving_chain_key : next_chain, received_count : message_number + 1, skipped_index : index }
+          Opened(next, plaintext)
+        end
+      end
     end
   end
 end
@@ -651,11 +776,22 @@ root_key :: consume SecretBytes,
 next_chain :: consume SecretBytes,
 plaintext :: Bytes,
 message :: RatchetMessage) -> DecryptOutcome do
-  case SecretMap.merge(state.skipped_keys, candidate) do
-    Err( _) -> reject_new_key_material(key, root_key, next_chain, state, CryptoFailure)
-    Ok( _) -> do
-      let next = % { state | root_key : root_key, receiving_chain_key : next_chain, remote_ratchet_public : message.ratchet_public_key, received_count : message.message_number + 1, pending_send_ratchet : true }
-      Opened(next, plaintext)
+  let generation = state.receive_generation + 1
+  case index_after_new_chain(state.skipped_index,
+  state.remote_ratchet_public,
+  state.received_count,
+  state.receive_generation,
+  message) do
+    Err( error) -> reject_new_candidate(key, candidate, root_key, next_chain, state, error)
+    Ok( listed) -> case SecretMap.merge(state.skipped_keys, candidate) do
+      Err( _) -> reject_new_key_material(key, root_key, next_chain, state, CryptoFailure)
+      Ok( _) -> case forget_aged(state.skipped_keys, listed, generation) do
+        Err( error) -> reject_new_key_material(key, root_key, next_chain, state, error)
+        Ok( index) -> do
+          let next = % { state | root_key : root_key, receiving_chain_key : next_chain, remote_ratchet_public : message.ratchet_public_key, received_count : message.message_number + 1, skipped_index : index, receive_generation : generation, pending_send_ratchet : true }
+          Opened(next, plaintext)
+        end
+      end
     end
   end
 end
@@ -739,8 +875,11 @@ end
 fn decrypt_new_chain(state :: consume RatchetState,
 message :: RatchetMessage,
 associated_data :: Bytes) -> DecryptOutcome do
+  # Both gaps are set aside together, and together they must fit what a
+  # session keeps. More is a jump, not a fault to try again.
   let old_gap = message.previous_chain_length - state.received_count
-  if old_gap > 64 || message.message_number > 64 do
+  let too_far = old_gap > 64 || message.message_number > 64 || (old_gap > 0 && old_gap + message.message_number > 64)
+  if too_far do
     Rejected(state, ExcessiveJump)
   else
     case SecretMap.new(64) do

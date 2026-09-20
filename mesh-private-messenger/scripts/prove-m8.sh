@@ -284,7 +284,7 @@ main() {
   compose down --volumes --remove-orphans >/dev/null 2>&1
   compose up --detach --wait postgres
   (cd "$service_dir" && MESSENGER_TEST_DATABASE_URL="$database_url" "$meshc_bin" test tests)
-  psql -c 'TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY;' >/dev/null
+  psql -c 'TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY;' >/dev/null
 
   start_service
   MESSENGER_ROLE=device-b MESSENGER_BASE_URL="$base_url" MESSENGER_FETCH_DELAY_MS=25000 \

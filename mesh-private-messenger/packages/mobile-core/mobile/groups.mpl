@@ -209,7 +209,11 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
         List.new()) ?
         let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
         pending_ids,
-        envelopes) ?
+        envelopes,
+        request.database_path,
+        Bytes.empty(),
+        0,
+        0) ?
         let ( state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
         store_group_outbound(request.database_path,
         state_label,
@@ -267,7 +271,11 @@ pub fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes 
         List.new()) ?
         let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
         pending_ids,
-        envelopes) ?
+        envelopes,
+        request.database_path,
+        Bytes.empty(),
+        0,
+        0) ?
         let ( state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
         store_group_outbound(request.database_path,
         state_label,
@@ -411,9 +419,14 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes ! Str
           now,
           0,
           refresh_envelopes) ?
+          # Membership refreshes lead the list; the message's own envelopes follow.
           let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
           pending_ids,
-          envelopes) ?
+          envelopes,
+          request.database_path,
+          Crypto.sha256(message_wire),
+          List.length(refresh_envelopes),
+          List.length(envelopes) - List.length(refresh_envelopes)) ?
           let ( state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
           let ( history_labels, history_blobs) = updated_group_history_blob(request.database_path,
           wrapping_key,

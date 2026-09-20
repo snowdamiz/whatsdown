@@ -80,12 +80,14 @@ try {
         const request = args instanceof Uint8Array ? [...args] : [];
         if (symbol === 'mesh_messenger_load_profile') return vectors(text('alice'), id(1), id(1, 16), []);
         if (symbol === 'mesh_messenger_list_conversations') return list(vectors(id(20, 16), text('bob'), id(2), id(2, 16), text('1234'.repeat(16)), [1], [0], [0], [0], u32(0)));
-        if (symbol === 'mesh_messenger_load_history') return list(...state.direct.map((m) => vectors([m.direction], id(m.id, 16), u64(m.time), text(m.body), u32(0), [])));
-        if (symbol === 'mesh_messenger_outbox_list') return list(...state.outbox);
+        if (symbol === 'mesh_messenger_load_history') return list(...state.direct.map((m) => vectors([m.direction], id(m.id, 16), u64(m.time), text(m.body), u32(0), [],
+          // A message is waiting while the envelope queued with it has not left.
+          [m.direction === 1 && state.outbox.length > 0 && m.time >= now - 20_000 ? 1 : 0])));
+        if (symbol === 'mesh_messenger_outbox_list' || symbol === 'mesh_messenger_outbox_page') return list(...state.outbox.slice(request.at(-1)));
         if (symbol === 'mesh_messenger_privacy_submission') { if (state.stuck) throw Error('Could not connect'); return [1]; }
         if (symbol === 'mesh_messenger_outbox_ack') { state.outbox.shift(); return []; }
         if (symbol === 'mesh_messenger_reconcile_prekeys') return u32(64);
-        if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_verify_transparency') return fields(request)[1];
+        if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_resolve_request' || symbol === 'mesh_messenger_verify_transparency') return fields(request)[1];
         if (symbol === 'mesh_messenger_inspect_device_set') {
           const peer = decode(fields(request)[1]) === 'bob';
           return vectors(text(peer ? 'bob' : 'alice'), id(peer ? 2 : 1), u64(1), [0], [1], list());
@@ -98,8 +100,22 @@ try {
           return list();
         }
         if (['mesh_messenger_group_list', 'mesh_messenger_group_invitations'].includes(symbol)) return list();
-        if (['mesh_messenger_presentation_load', 'mesh_messenger_directory_entry', 'mesh_messenger_replenish_prekeys',
+        if (['mesh_messenger_presentation_load', 'mesh_messenger_directory_entry', 'mesh_messenger_register_request', 'mesh_messenger_replenish_prekeys',
           'mesh_messenger_mailbox_fetch', 'mesh_messenger_process_delivery_batch', 'mesh_messenger_prepare_fanout_prekeys'].includes(symbol)) return [];
+        // The sealed journals, kept where a reload leaves them alone, as the database would.
+        if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_save') {
+          const bytes = Array.from(args), parts = [];
+          for (let at = 0; at < bytes.length;) {
+            const size = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
+            parts.push(new Uint8Array(bytes.slice(at + 4, at + 4 + size)));
+            at += 4 + size;
+          }
+          const label = `sealed-journal/${new TextDecoder().decode(parts[1])}`;
+          if (symbol.endsWith('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
+          if (parts[2].length === 1 && parts[2][0] === 0) localStorage.removeItem(label);
+          else localStorage.setItem(label, new TextDecoder().decode(parts[2]));
+          return [];
+        }
         throw Error(`Unexpected IPC: ${symbol || command}`);
       },
     };

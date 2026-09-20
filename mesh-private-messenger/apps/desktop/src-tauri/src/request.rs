@@ -403,6 +403,17 @@ mod tests {
         assert!(validate("mesh_messenger_register_request", b"/tmp/other.db", db).is_err());
         assert!(validate("mesh_messenger_resolve_request", &account, db).is_ok());
         assert!(validate("mesh_messenger_resolve_request", &account, b"other").is_err());
+        // Settling and paging the outbox carry the database path like any other call.
+        // So do the sealed journals: which record they name is the core's to check.
+        for symbol in [
+            "mesh_messenger_outbox_fail",
+            "mesh_messenger_outbox_page",
+            "mesh_messenger_journal_load",
+            "mesh_messenger_journal_save",
+        ] {
+            assert!(validate(symbol, &account, db).is_ok());
+            assert!(validate(symbol, &account, b"other").is_err());
+        }
         assert!(validate("mesh_messenger_load_profile", b"/tmp/other.db", db).is_err());
         assert!(validate("mesh_messenger_create_account", &account, b"other").is_err());
         assert!(validate("mesh_messenger_create_account", &[255; 4], db).is_err());

@@ -3,6 +3,7 @@ from Prekeys.Bundle import normalize_prekey_bundle
 from Protocol.IdentityWire import decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 from Protocol.V1 import PrekeyBundle
+from Storage.ContactAddress import ContactAddressWrite, publish_contact_address_on_connection
 
 pub type PrekeyPublishWrite do
   PrekeysPublished( active_ids :: List < U64 >)
@@ -203,6 +204,31 @@ fn publish_last_resort(conn :: borrow PgConn, request :: PrekeyPublishRequest) -
   end
 end
 
+# The hash of the device's contact address, for its own mailbox only: 0
+# unchanged, 1 published, 2 conflict.
+
+fn publish_contact_address_hash(conn :: borrow PgConn, request :: PrekeyPublishRequest) -> Int ! String do
+  case request.contact_address_hash do
+    None -> Ok(0)
+    Some( hash) -> do
+      let rows = Pg.query_values(conn,
+      "SELECT mailbox_token_hash FROM messenger_devices WHERE account_id = $1 AND device_id = $2 AND revoked_at IS NULL",
+      [Binary(request.account_id), Binary(request.device_id)]) ?
+      if List.length(rows) != 1 do
+        Ok(2)
+      else
+        case publish_contact_address_on_connection(conn,
+        binary(Map.get(List.head(rows), "mailbox_token_hash")) ?,
+        hash) ? do
+          ContactAddressPublished -> Ok(1)
+          ContactAddressUnchanged -> Ok(0)
+          _ -> Ok(2)
+        end
+      end
+    end
+  end
+end
+
 fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest) -> PrekeyPublishWrite ! String do
   case active_bundle(conn, request.account_id, request.device_id, true) ? do
     None -> Ok(PrekeysUnauthorized)
@@ -222,7 +248,12 @@ fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest)
         else
           publish_last_resort(conn, request) ?
         end
-        if reusable == 2 do
+        let contact = if reusable == 2 do
+          2
+        else
+          publish_contact_address_hash(conn, request) ?
+        end
+        if reusable == 2 || contact == 2 do
           Ok(PrekeysConflict)
         else
           let counts = Pg.query_values(conn,
@@ -237,7 +268,7 @@ fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest)
               insert_prekeys(conn, request, 0) ?
             end
             let active_ids = active_prekey_ids(conn, request.account_id, request.device_id) ?
-            if checked.new_count == 0 && reusable == 0 do
+            if checked.new_count == 0 && reusable == 0 && contact == 0 do
               Ok(PrekeysUnchanged(active_ids))
             else
               Ok(PrekeysPublished(active_ids))

@@ -317,7 +317,7 @@ main() {
     "$meshc_bin" test tests/api.test.mpl)
   (cd "$core_dir" && MESSENGER_TEST_DATABASE_URL="$database_url" \
     "$meshc_bin" test tests/prekey_pool.test.mpl)
-  psql -c 'TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY;' >/dev/null
+  psql -c 'TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY;' >/dev/null
 
   MESSENGER_DATABASE_URL="$database_url" MESSENGER_PORT="$core_port" \
     MESSENGER_STREAM_PORT="$stream_port" \

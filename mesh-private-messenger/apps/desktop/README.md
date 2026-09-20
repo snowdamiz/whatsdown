@@ -143,7 +143,11 @@ Keep `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` ver
 aligned, update the lockfiles, then push `desktop-v<VERSION>` (initially
 `desktop-v0.1.0`). Release builds reject missing pins and non-TLS endpoints.
 After all three builds pass, the workflow publishes `.dmg` installers for both
-Mac architectures and a Windows `.exe` installer to that GitHub Release.
+Mac architectures, a Windows `.exe` installer, and their `SHA256SUMS` to that
+GitHub Release. The root [install.sh](../../../install.sh) and
+[install.ps1](../../../install.ps1) commands request those exact file names and
+require a matching `SHA256SUMS` entry, so the release job fails rather than
+publish an installer under another name.
 Mobile EAS/TestFlight/OTA releases continue through the existing mobile workflow.
 
 macOS releases require these GitHub Actions secrets:
@@ -160,9 +164,10 @@ Never use the normal Apple Account password.
 The workflow imports the certificate into a temporary keychain, signs the Mesh
 library and app with hardened runtime enabled, notarizes and staples the app,
 and verifies the signature/ticket before publishing. It deletes the temporary
-keychain afterward. Missing credentials fail the release; PR previews remain unsigned/ad-hoc
-signed. Windows Authenticode signing is not configured, so Windows production
-packaging remains blocked; the two macOS jobs run independently.
+keychain afterward. Missing Mac credentials fail the release; PR previews remain unsigned/ad-hoc
+signed. Windows Authenticode signing is not configured and does not block a
+release: until it is, the Windows installer is published unsigned, the build
+logs a warning, and `install.ps1` warns before installing it.
 Desktop updates are installed from a new release; there is no desktop OTA updater.
 
 For a local signed build with the installed certificate:
@@ -190,11 +195,14 @@ The Windows DLL support and its CI proof are pinned to Mesh commit
 main CI, and `scripts/eas-build-native.sh` aligned.
 
 
-Release-branch and tagged Windows builds require `WINDOWS_SIGN_COMMAND` (the issuer's supported
-Tauri custom signer, including `%1` for the file) and
-`WINDOWS_SIGNER_THUMBPRINT` repository variables. Provision the issuer's tool
+Release-branch and tagged Windows builds are signed once the `WINDOWS_SIGN_COMMAND`
+(the issuer's supported Tauri custom signer, including `%1` for the file) and
+`WINDOWS_SIGNER_THUMBPRINT` repository variables are set; setting the command
+without a valid thumbprint fails the build. Provision the issuer's tool
 and credentials through its hardware/cloud signing integration on the release
-runner; no exportable PFX key is assumed. Packaging fails if signing fails,
-and publication requires a valid Windows Authenticode signature from the
-configured publisher. A command that merely exits successfully cannot bypass
-that verification. Windows signing execution is not verified by macOS tests.
+runner; no exportable PFX key is assumed. With a signer configured, packaging
+fails if signing fails, and publication requires a valid Windows Authenticode
+signature from the configured publisher. A command that merely exits
+successfully cannot bypass that verification. Once Windows releases are signed,
+delete the `NotSigned` branch in `install.ps1` so it requires a valid signature.
+Windows signing execution is not verified by macOS tests.

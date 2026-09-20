@@ -45,11 +45,21 @@ receipts are always sent.
 
 ## What the sender sees
 
-A sent bubble shows one of four states. *Sending* means the message is at or after
-the oldest envelope still in the outbox: the core stamps an envelope to expire 30
-days after the timestamp of the message it carries, and the outbox drains in order,
-so that expiry dates the stall. Then *sent*, *delivered* and *read*. A receipt
-outranks the queue: the other side has the message, whatever is still waiting.
+A sent bubble shows one of five states, and the first three come from the core's
+own record of what became of the message's envelopes. One message fans out to
+several envelopes; the ones addressed to the other side are linked to it when
+they are queued. *Sending*: none of them has been accepted yet and some still
+wait. *Sent*: at least one was accepted, or none was addressed outward. *Not
+delivered*: every one of them was refused for good, because its mailbox was
+revoked or it waited out its 30 days. That state is stored, so it survives a
+restart, and a message that reached any one of the other side's devices never
+shows it. Then *delivered* and *read*. A receipt outranks all three: the other
+side has the message, whatever one device refused.
+
+The state used to be inferred from the oldest envelope still queued. That stops
+being true once an envelope for a recipient who cannot take it now is allowed
+to wait while later ones leave, which is what keeps one full mailbox from
+holding up everybody else.
 
 Each side's disappearing timer stamps only what it sends, so a receipt can expire
 long before the message it acknowledged. To keep a message's state from going

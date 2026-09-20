@@ -55,11 +55,18 @@ fn fingerprint_rows(rows :: List < Map < String, DbValue > >, index :: Int, outp
   end
 end
 
+fn record_hash(label :: String) -> String do
+  Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
+end
+
+# Everything the device keeps, except its note of which envelopes it has set
+# aside: a receive that fails is meant to leave that note and nothing else.
+
 fn database_fingerprint(path :: String) -> String ! String do
   let database = Sqlite.open(path) ?
   case Sqlite.query_values(database,
-  "SELECT record_hash, hex(ciphertext) AS ciphertext_hex FROM encrypted_blobs ORDER BY record_hash",
-  []) do
+  "SELECT record_hash, hex(ciphertext) AS ciphertext_hex FROM encrypted_blobs WHERE record_hash NOT IN (?, ?) ORDER BY record_hash",
+  [Text(record_hash("delivery-retries/v1")), Text(record_hash("inbox-cursor/v1"))]) do
     Err( error) -> do
       Sqlite.close(database)
       Err(error)

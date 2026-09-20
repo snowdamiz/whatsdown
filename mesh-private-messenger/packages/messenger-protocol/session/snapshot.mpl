@@ -37,6 +37,7 @@ struct ReadWide do
 end
 
 struct ParsedSnapshot do
+  format :: Int
   suite :: Int
   session_id :: Bytes
   snapshot_version :: U64
@@ -46,6 +47,8 @@ struct ParsedSnapshot do
   sent_count :: Int
   received_count :: Int
   pending_send_ratchet :: Bool
+  receive_generation :: Int
+  skipped_index :: Bytes
   root_key :: Bytes
   sending_chain_key :: Bytes
   receiving_chain_key :: Bytes
@@ -110,9 +113,17 @@ fn zero() -> U64 ! SnapshotError do
   end
 end
 
+# Version 2 adds what the ratchet needs to age its skipped keys: the number of
+# receiving chains seen, and the list of kept keys, 40 bytes each and at most
+# 64. Both are in the header, so every sealed part is bound to them.
+
+fn valid_index(index :: Bytes) -> Bool do
+  Bytes.length(index) <= 2560 && Bytes.length(index) % 40 == 0
+end
+
 fn encode_header(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes ! SnapshotError do
   let valid_suite = state.suite == 1 || state.suite == 2
-  let valid = state.version == 1 && valid_suite && Bytes.length(state.session_id) == 32 && Bytes.length(state.local_ratchet_public.bytes) == 32 && Bytes.length(state.remote_ratchet_public.bytes) == 32 && state.previous_chain_length >= 0 && state.sent_count >= 0 && state.received_count >= 0 && U64.compare(snapshot_version,
+  let valid = state.version == 1 && valid_suite && Bytes.length(state.session_id) == 32 && Bytes.length(state.local_ratchet_public.bytes) == 32 && Bytes.length(state.remote_ratchet_public.bytes) == 32 && state.previous_chain_length >= 0 && state.sent_count >= 0 && state.received_count >= 0 && state.receive_generation >= 0 && valid_index(state.skipped_index) && U64.compare(snapshot_version,
   zero() ?) > 0
   if !valid do
     Err(InvalidSnapshot)
@@ -122,7 +133,7 @@ fn encode_header(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes
     else
       0
     end
-    join([byte(1) ?, Bytes.from_utf8("RST"), write_u16(state.suite) ?, state.session_id, write_u64(snapshot_version) ?, state.local_ratchet_public.bytes, state.remote_ratchet_public.bytes, write_u32(state.previous_chain_length) ?, write_u32(state.sent_count) ?, write_u32(state.received_count) ?, byte(pending) ?],
+    join([byte(2) ?, Bytes.from_utf8("RST"), write_u16(state.suite) ?, state.session_id, write_u64(snapshot_version) ?, state.local_ratchet_public.bytes, state.remote_ratchet_public.bytes, write_u32(state.previous_chain_length) ?, write_u32(state.sent_count) ?, write_u32(state.received_count) ?, byte(pending) ?, write_u32(state.receive_generation) ?, vector(state.skipped_index) ?],
     0,
     Bytes.empty())
   end
@@ -216,7 +227,7 @@ snapshot_version :: U64) -> SnapshotOutcome do
 end
 
 fn open_reader(input :: Bytes) -> BinaryReader ! SnapshotError do
-  case reader(input, 66300) do
+  case reader(input, 68900) do
     Err( _) -> Err(InvalidSnapshot)
     Ok( state) -> Ok(state)
   end
@@ -306,6 +317,30 @@ fn require_end(state :: BinaryReader) -> Result <(), SnapshotError > do
   end
 end
 
+struct ReadAging do
+  state :: BinaryReader
+  generation :: Int
+  index :: Bytes
+end
+
+fn take_aging(state :: BinaryReader, format :: Int) -> ReadAging ! SnapshotError do
+  if format == 2 do
+    let generation = take_u32(state) ?
+    let index = take_vector(generation.state, 2560) ?
+    Ok(ReadAging {
+      state : index.state,
+      generation : generation.value,
+      index : index.value
+    })
+  else
+    Ok(ReadAging {
+      state : state,
+      generation : 0,
+      index : Bytes.empty()
+    })
+  end
+end
+
 fn decode_snapshot(input :: Bytes) -> ParsedSnapshot ! SnapshotError do
   let version = take_u8(open_reader(input) ?) ?
   let magic = take_fixed(version.state, 3) ?
@@ -318,19 +353,22 @@ fn decode_snapshot(input :: Bytes) -> ParsedSnapshot ! SnapshotError do
   let sent_count = take_u32(previous_chain_length.state) ?
   let received_count = take_u32(sent_count.state) ?
   let pending = take_u8(received_count.state) ?
-  let root_key = take_vector(pending.state, 99) ?
+  let aging = take_aging(pending.state, version.value) ?
+  let root_key = take_vector(aging.state, 99) ?
   let sending_chain_key = take_vector(root_key.state, 99) ?
   let receiving_chain_key = take_vector(sending_chain_key.state, 99) ?
   let local_private = take_vector(receiving_chain_key.state, 99) ?
   let skipped_keys = take_vector(local_private.state, 65603) ?
   require_end(skipped_keys.state) ?
   let valid_suite = suite.value == 1 || suite.value == 2
-  let valid = version.value == 1 && Bytes.secure_equals(magic.value, Bytes.from_utf8("RST")) && valid_suite && pending.value >= 0 && pending.value <= 1 && U64.compare(snapshot_version.value,
+  let valid = (version.value == 1 || version.value == 2) && Bytes.secure_equals(magic.value,
+  Bytes.from_utf8("RST")) && valid_suite && pending.value >= 0 && pending.value <= 1 && valid_index(aging.index) && U64.compare(snapshot_version.value,
   zero() ?) > 0
   if !valid do
     Err(InvalidSnapshot)
   else
     Ok(ParsedSnapshot {
+      format : version.value,
       suite : suite.value,
       session_id : session_id.value,
       snapshot_version : snapshot_version.value,
@@ -340,6 +378,8 @@ fn decode_snapshot(input :: Bytes) -> ParsedSnapshot ! SnapshotError do
       sent_count : sent_count.value,
       received_count : received_count.value,
       pending_send_ratchet : pending.value == 1,
+      receive_generation : aging.generation,
+      skipped_index : aging.index,
       root_key : root_key.value,
       sending_chain_key : sending_chain_key.value,
       receiving_chain_key : receiving_chain_key.value,
@@ -355,9 +395,16 @@ fn parsed_header(value :: ParsedSnapshot) -> Bytes ! SnapshotError do
   else
     0
   end
-  join([byte(1) ?, Bytes.from_utf8("RST"), write_u16(value.suite) ?, value.session_id, write_u64(value.snapshot_version) ?, value.local_ratchet_public, value.remote_ratchet_public, write_u32(value.previous_chain_length) ?, write_u32(value.sent_count) ?, write_u32(value.received_count) ?, byte(pending) ?],
+  let header = join([byte(value.format) ?, Bytes.from_utf8("RST"), write_u16(value.suite) ?, value.session_id, write_u64(value.snapshot_version) ?, value.local_ratchet_public, value.remote_ratchet_public, write_u32(value.previous_chain_length) ?, write_u32(value.sent_count) ?, write_u32(value.received_count) ?, byte(pending) ?],
   0,
-  Bytes.empty())
+  Bytes.empty()) ?
+  if value.format == 1 do
+    Ok(header)
+  else
+    join([header, write_u32(value.receive_generation) ?, vector(value.skipped_index) ?],
+    0,
+    Bytes.empty())
+  end
 end
 
 fn unseal_secret(blob :: Bytes, wrapping_key :: borrow StorageKey, context :: Bytes) -> SecretBytes ! SnapshotError do
@@ -381,6 +428,27 @@ fn unseal_map(blob :: Bytes, wrapping_key :: borrow StorageKey, context :: Bytes
   end
 end
 
+# A version 1 snapshot does not say which skipped keys it holds, so they could
+# never be aged out. They are left behind: their messages, if any were still
+# coming, are lost, and every key kept from here on is accounted for.
+
+fn restored_skipped_keys(value :: ParsedSnapshot,
+wrapping_key :: borrow StorageKey,
+account_id :: Bytes,
+device_id :: Bytes,
+header :: Bytes) -> SecretMap ! SnapshotError do
+  if value.format == 1 do
+    case SecretMap.new(64) do
+      Err( error) -> Err(CryptoFailure(error))
+      Ok( empty) -> Ok(empty)
+    end
+  else
+    unseal_map(value.skipped_keys,
+    wrapping_key,
+    storage_context(account_id, device_id, value.session_id, header, 12, value.snapshot_version) ?)
+  end
+end
+
 fn restore_parsed(value :: ParsedSnapshot,
 wrapping_key :: borrow StorageKey,
 account_id :: Bytes,
@@ -398,9 +466,7 @@ device_id :: Bytes) -> RatchetState ! SnapshotError do
   let local_ratchet_private = unseal_private(value.local_ratchet_private,
   wrapping_key,
   storage_context(account_id, device_id, value.session_id, header, 13, value.snapshot_version) ?) ?
-  let skipped_keys = unseal_map(value.skipped_keys,
-  wrapping_key,
-  storage_context(account_id, device_id, value.session_id, header, 12, value.snapshot_version) ?) ?
+  let skipped_keys = restored_skipped_keys(value, wrapping_key, account_id, device_id, header) ?
   Ok(RatchetState {
     version : 1,
     suite : value.suite,
@@ -415,6 +481,8 @@ device_id :: Bytes) -> RatchetState ! SnapshotError do
     sent_count : value.sent_count,
     received_count : value.received_count,
     skipped_keys : skipped_keys,
+    skipped_index : value.skipped_index,
+    receive_generation : value.receive_generation,
     pending_send_ratchet : value.pending_send_ratchet,
     snapshot_version : value.snapshot_version
   })

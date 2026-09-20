@@ -101,22 +101,34 @@ try {
           if (symbol === 'mesh_messenger_load_history') {
             const peer = fields(Array.from(args))[1][0];
             const messages = peer === 2 ? state.messages : [{ id: peer, direction: 1, body: peer === 3 ? 'See you tomorrow.' : 'Thanks for the heads up!', time: now - peer * 60000 }];
-            return list(...messages.map((m) => vectors([m.direction], id(m.id, 16), u64(m.time), text(m.body), u32(0), [])));
+            return list(...messages.map((m) => vectors([m.direction], id(m.id, 16), u64(m.time), text(m.body), u32(0), [], [0])));
           }
           if (symbol === 'mesh_messenger_group_list') return list(list([1], id(80), u64(1), u32(2)));
           if (symbol === 'mesh_messenger_group_history') return list(...state.groups.map((m, index) =>
             list([1], [2], u64(1), id(m.sender), id(m.sender, 16), u64(m.time), text(m.body), [], id(index + 100))));
           if (symbol === 'mesh_messenger_group_inspect') return list([1], id(80), u64(1), u32(0), id(9), id(10),
             list(...[1, 2].map((n) => list([1], u32(n - 1), [n === 1 ? 1 : 0], id(n), id(n, 16), u64(1), [2], text(n === 1 ? 'alice' : 'alex')))));
+          // The sealed journals. They outlive a reload, as the database they stand for would,
+          // so the stand-in keeps them where a reload leaves them alone.
+          if (symbol === 'mesh_messenger_journal_load') {
+            return text(localStorage.getItem(`/test/unread.db/sealed/${decode(fields(Array.from(args))[1])}`) ?? '');
+          }
+          if (symbol === 'mesh_messenger_journal_save') {
+            const [, key, data] = fields(Array.from(args));
+            const label = `/test/unread.db/sealed/${decode(key)}`;
+            if (data.length === 1 && data[0] === 0) localStorage.removeItem(label);
+            else localStorage.setItem(label, decode(data));
+            return [];
+          }
           if (symbol === 'mesh_messenger_presentation_load') {
             const key = decode(fields(Array.from(args))[1]);
             return key.startsWith('group/') ? vectors(text('Weekend walks'), []) : [];
           }
           if (symbol === 'mesh_messenger_reconcile_prekeys') return u32(64);
           if (symbol === 'mesh_messenger_inspect_device_set') return vectors(text('alice'), id(1), u64(1), [0], [1], vectors(u32(0)));
-          if (['mesh_messenger_group_invitations', 'mesh_messenger_outbox_list', 'mesh_messenger_group_send'].includes(symbol)) return list();
-          if (['mesh_messenger_directory_entry', 'mesh_messenger_replenish_prekeys', 'mesh_messenger_mailbox_fetch',
-            'mesh_messenger_process_delivery_batch', 'mesh_messenger_transparency_lookup', 'mesh_messenger_verify_transparency'].includes(symbol)) return [];
+          if (['mesh_messenger_group_invitations', 'mesh_messenger_outbox_list', 'mesh_messenger_outbox_page', 'mesh_messenger_group_send'].includes(symbol)) return list();
+          if (['mesh_messenger_directory_entry', 'mesh_messenger_register_request', 'mesh_messenger_replenish_prekeys', 'mesh_messenger_mailbox_fetch',
+            'mesh_messenger_process_delivery_batch', 'mesh_messenger_transparency_lookup', 'mesh_messenger_resolve_request', 'mesh_messenger_verify_transparency'].includes(symbol)) return [];
           throw Error(`Unexpected IPC: ${symbol || command}`);
         },
       };
@@ -151,7 +163,7 @@ try {
     await page.reload();
     await chat(0).waitFor();
     await page.waitForFunction(() => window.unreadTest.channel !== null);
-    await page.waitForFunction(() => localStorage.getItem(`/test/unread.db/notification-state/v1/${'01'.repeat(32)}`) !== null);
+    await page.waitForFunction(() => localStorage.getItem('/test/unread.db/sealed/notification-state/index') !== null);
     assert.deepEqual(await page.evaluate(() => window.unreadTest.notifications), [], 'Restart must not replay old messages');
     // A late message with an older sender timestamp must still become unread.
     await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -204,8 +216,12 @@ try {
     await page.waitForFunction((before) => window.unreadTest.reloads > before, beforeRepeat);
     assert.deepEqual(await page.evaluate(() => window.unreadTest.notifications), notifications, 'Repeated wakeups must not repeat alerts');
     if (screenshots) await page.screenshot({ path: `${screenshots}/groups-unread-${scheme}.png` });
-    const saved = await page.evaluate(() => localStorage.getItem(`/test/unread.db/read-state/v1/${'01'.repeat(32)}`));
-    assert.ok(saved);
+    // Read state goes to the core to be sealed; nothing of it is left in the clear.
+    const readJournal = () => JSON.stringify(Object.entries(localStorage)
+      .filter(([key]) => key.startsWith('/test/unread.db/sealed/read-state/')).sort());
+    const saved = await page.evaluate(readJournal);
+    assert.notEqual(saved, '[]');
+    assert.equal(await page.evaluate(() => localStorage.getItem(`/test/unread.db/read-state/v1/${'01'.repeat(32)}`)), null);
     assert.equal(saved.includes('Coffee'), false, 'Read metadata must never persist message text');
     if (process.argv.includes('--notifications')) {
       await page.getByRole('button', { name: 'Notifications', exact: true }).click();
@@ -296,7 +312,7 @@ try {
     assert.equal(await page.getByRole('button', { name: 'Close window', exact: true }).count(), Number(windowsHost));
     assert.equal(await sample.isChecked(), true);
     await sample.click();
-    assert.equal(await page.evaluate(() => localStorage.getItem(`/test/unread.db/read-state/v1/${'01'.repeat(32)}`)), saved);
+    assert.equal(await page.evaluate(readJournal), saved);
     await sample.click();
     await page.getByRole('tab', { name: /^Chats/ }).click();
     await sampleChat(2).waitFor();

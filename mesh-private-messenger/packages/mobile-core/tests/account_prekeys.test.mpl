@@ -126,8 +126,8 @@ end
 fn stable_database_state(path :: String) -> Bytes ! String do
   let database = Sqlite.open(path) ?
   case Sqlite.query_values(database,
-  "SELECT record_hash, ciphertext FROM encrypted_blobs WHERE record_hash NOT IN (?, ?, ?, ?, ?, ?, ?) ORDER BY record_hash",
-  [Text(record_hash("one-time-prekey/v1")), Text(record_hash("one-time-prekey/v1/2")), Text(record_hash("one-time-prekeys/v1")), Text(record_hash("one-time-prekey-active/v1")), Text(record_hash("one-time-prekey-next-id/v1")), Text(record_hash("last-resort-prekey/v1")), Text(record_hash("one-time-prekey/v1/4611686018427387905"))]) do
+  "SELECT record_hash, ciphertext FROM encrypted_blobs WHERE record_hash NOT IN (?, ?, ?, ?, ?, ?, ?, ?, ?) ORDER BY record_hash",
+  [Text(record_hash("one-time-prekey/v1")), Text(record_hash("one-time-prekey/v1/2")), Text(record_hash("one-time-prekeys/v1")), Text(record_hash("one-time-prekey-active/v1")), Text(record_hash("one-time-prekey-next-id/v1")), Text(record_hash("last-resort-prekey/v1")), Text(record_hash("one-time-prekey/v1/4611686018427387905")), Text(record_hash("contact-address-pending/v1")), Text(record_hash("contact-address/v1"))]) do
     Err( error) -> do
       Sqlite.close(database)
       Err(error)
@@ -189,10 +189,11 @@ end
 
 fn assert_legacy_fixture_layout(path :: String) -> Bool ! String do
   # The fixture rewinds the one-time pool only. The account already published
-  # once, so its last-resort prekey (secret and record) is present and must
-  # survive the migration untouched.
-  assert(database_record_count(path) ? == 9)
+  # once, so its last-resort prekey (secret and record) and the contact address
+  # that publication named are present and must survive the migration untouched.
+  assert(database_record_count(path) ? == 10)
   assert(database_has_record(path, "last-resort-prekey/v1") ?)
+  assert(database_has_record(path, "contact-address-pending/v1") ?)
   assert(database_has_record(path, "one-time-prekey/v1") ?)
   assert(!(database_has_record(path, "one-time-prekey/v1/2") ?))
   assert(!(database_has_record(path, "one-time-prekeys/v1") ?))
@@ -202,9 +203,10 @@ fn assert_legacy_fixture_layout(path :: String) -> Bool ! String do
 end
 
 fn assert_migrated_legacy_layout(path :: String) -> Bool ! String do
-  # The first publication also creates the reusable last-resort prekey: its
-  # sealed secret and its record.
-  assert(database_record_count(path) ? == 12)
+  # The first publication also creates the reusable last-resort prekey (its
+  # sealed secret and its record) and the contact address it names, which
+  # waits there until the directory answers.
+  assert(database_record_count(path) ? == 13)
   assert(database_has_record(path, "last-resort-prekey/v1") ?)
   assert(database_has_record(path, "one-time-prekey/v1/4611686018427387905") ?)
   assert(!(database_has_record(path, "one-time-prekey/v1") ?))
@@ -382,7 +384,7 @@ fn legacy_consumed_proof() -> Bool ! String do
   assert(same_publication_identity(replacement, migrated))
   let replacement_state = database_state(path) ?
   assert(!(Bytes.secure_equals(replacement_state, consumed_state)))
-  assert(database_record_count(path) ? == 13)
+  assert(database_record_count(path) ? == 14)
   assert(database_has_record(path, "one-time-prekey/v1/2") ?)
   assert(database_has_record(path, "one-time-prekey/v1/3") ?)
   assert(reconcile(path, migrated.account_id, migrated.device_id, ids(3, 1) ?) ? == 1)

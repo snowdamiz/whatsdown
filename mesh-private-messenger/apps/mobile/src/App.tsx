@@ -126,7 +126,6 @@ import {
   loadAccountDevices,
   loadGroupHistory,
   onUndeliverable,
-  outboxQueuedSince,
   registerDirectory,
   removeGroupMember,
   revokeDevice,
@@ -148,7 +147,8 @@ import {
 import { createQrCollector } from "./qr";
 import { databasePath } from "./storage";
 import { receivedMessageKeys, unreadCount, type ReadState } from "./read-state";
-import { loadReadReceipts, loadReadState, loadReceiptMarks, saveReadReceipts, saveReadState } from "./read-state-store";
+import { loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveNotificationPreview, saveReadReceipts, saveReadState } from "./read-state-store";
+import type { NotificationPreview } from "./notification-policy";
 import { describeSafety } from "./safety";
 import { StartupScreen } from "./StartupScreen";
 import { ResizableSidebar } from "./ResizableSidebar";
@@ -245,6 +245,12 @@ const disappearingOptions = [
   { label: "1 day", short: "1d", value: 86_400 },
 ];
 
+const notificationPreviewOptions: { value: NotificationPreview; label: string; short: string }[] = [
+  { value: "full", label: "Name and message", short: "All" },
+  { value: "sender", label: "Name only", short: "Name" },
+  { value: "none", label: "No name or message", short: "None" },
+];
+
 const appearanceOptions: { value: Appearance; label: string; icon: IconName }[] = [
   { value: "system", label: "Match system", icon: "contrast" },
   { value: "light", label: "Light", icon: "sun" },
@@ -315,10 +321,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   const [previewReadState, setPreviewReadState] = useState<ReadState>({});
   // Off until the choice has loaded: an unreadable preference must not leak reading.
   const [readReceipts, setReadReceipts] = useState(false);
+  const [notificationPreview, setNotificationPreview] = useState<NotificationPreview>("full");
   // What each chat's other side has acknowledged, kept by the sync that received the receipts.
   const [receiptMarks, setReceiptMarks] = useState<Record<string, ReceiptMarks>>({});
-  // When the oldest envelope still in the outbox was queued; sends from then on are waiting.
-  const [queuedSince, setQueuedSince] = useState<number | null>(null);
   const [foreground, setForeground] = useState(() => Platform.OS === "web"
     ? document.visibilityState === "visible" && document.hasFocus()
     : AppState.currentState === "active" || AppState.currentState === null);
@@ -448,16 +453,26 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
 
   useEffect(() => {
     if (!accountId) return;
-    try {
-      setReadState(loadReadState(accountId));
-      setReadReceipts(loadReadReceipts(accountId));
-      setReceiptMarks(loadReceiptMarks(accountId));
-    } catch {
-      setReadState({});
-      setReadReceipts(false);
-      setError("Couldn’t load read status on this device.");
-    }
-    setReadAccount(accountId);
+    let current = true;
+    // The journals are sealed in the database, so they come back a moment later
+    // than the choices kept beside it. Unread counts wait for them.
+    void (async () => {
+      try {
+        const [read, marks] = await Promise.all([loadReadState(accountId), loadReceiptMarks(accountId)]);
+        if (!current) return;
+        setReadState(read);
+        setReceiptMarks(marks);
+        setReadReceipts(loadReadReceipts(accountId));
+        setNotificationPreview(loadNotificationPreview(accountId));
+      } catch {
+        if (!current) return;
+        setReadState({});
+        setReadReceipts(false);
+        setError("Couldn’t load read status on this device.");
+      }
+      if (current) setReadAccount(accountId);
+    })();
+    return () => { current = false; };
   }, [accountId]);
 
   useEffect(() => {
@@ -498,8 +513,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     if (preview) setPreviewReadState(next);
     else {
       setReadState(next);
-      try { saveReadState(accountId, next); }
-      catch { setError("Read status couldn’t be saved. Unread badges may return after restarting."); }
+      saveReadState(accountId, next)
+        .catch(() => setError("Read status couldn’t be saved. Unread badges may return after restarting."));
       // One cumulative receipt for what was just read. Best effort: the next covers a lost one.
       const through = screen === "chat" && selected && readReceipts && !selected.blocked && !selected.requestPending
         ? receiptDue(history, 2) : undefined;
@@ -512,11 +527,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     historyFor, groupHistoryFor, history, groupHistory, preview, previewReadState, readState, readReceipts]);
 
   const read = preview ? previewReadState : readState;
-  const chatUnread = (conversation: Conversation) => conversation.blocked ? 0 : unreadCount(
+  // Until the sealed journal is back, nothing is known to be unread: better no
+  // badge for a moment than every chat flashing as new.
+  const readKnown = preview !== null || readAccount === accountId;
+  const chatUnread = (conversation: Conversation) => conversation.blocked || !readKnown ? 0 : unreadCount(
     receivedMessageKeys((preview?.histories ?? previews)[hex(conversation.conversationId)] ?? []),
     read[`chat/${hex(conversation.conversationId)}`],
   );
-  const groupUnread = (group: GroupSummary) => unreadCount(
+  const groupUnread = (group: GroupSummary) => !readKnown ? 0 : unreadCount(
     receivedMessageKeys((preview?.groupHistories ?? groupPreviews)[hex(group.groupId)] ?? [], accountId ?? undefined),
     read[`group/${hex(group.groupId)}`],
   );
@@ -637,10 +655,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
 
   function refreshLocalData(): Promise<void> {
     return reloadByDatabase(databasePath, async () => {
-      try { if (accountId) setReceiptMarks(loadReceiptMarks(accountId)); }
+      try { if (accountId) setReceiptMarks(await loadReceiptMarks(accountId)); }
       catch { /* Keep the last known marks. */ }
-      const results = await Promise.allSettled([refreshConversations(), refreshGroups(),
-        outboxQueuedSince(databasePath).then(setQueuedSince)]);
+      const results = await Promise.allSettled([refreshConversations(), refreshGroups()]);
       const failure = results.find((result) => result.status === "rejected");
       if (failure?.status === "rejected") throw failure.reason;
     });
@@ -2049,6 +2066,23 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
                 }
               />
               <Row
+                icon="bell"
+                title="Notifications show"
+                subtitle={notificationPreviewOptions.find((option) => option.value === notificationPreview)?.label}
+                trailing={
+                  <Segmented
+                    label="Notifications show"
+                    options={notificationPreviewOptions}
+                    value={notificationPreview}
+                    onSelect={(chosen) => {
+                      setNotificationPreview(chosen);
+                      try { if (accountId) saveNotificationPreview(accountId, chosen); }
+                      catch { setError("That choice couldn’t be saved. It applies until you restart."); }
+                    }}
+                  />
+                }
+              />
+              <Row
                 icon="checks"
                 title="Read receipts"
                 subtitle={readReceipts ? "People see when you’ve read their messages" : "Off. You won’t see theirs either"}
@@ -2574,7 +2608,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
                 timestamp={item.message.timestamp}
                 sent={item.message.direction === "sent" || (ownProfile !== null && hex(item.message.senderAccountId) === hex(ownProfile.accountId))}
                 // Groups send no receipts. A linked device's message reached here, so it was sent.
-                status={item.message.direction === "sent" ? messageStatus(item.message, preview ? null : queuedSince)
+                status={item.message.direction === "sent" ? messageStatus(item.message)
                   : ownProfile !== null && hex(item.message.senderAccountId) === hex(ownProfile.accountId) ? "sent" : undefined}
                 tail={item.tail}
                 spaced={item.spaced}
@@ -2798,7 +2832,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
                 body={item.message.body}
                 timestamp={item.message.timestamp}
                 sent={item.message.direction === "sent"}
-                status={messageStatus(item.message, preview ? null : queuedSince, preview !== null || readReceipts,
+                status={messageStatus(item.message, preview !== null || readReceipts,
                   preview ? undefined : receiptMarks[`chat/${hex(conversation.conversationId)}`])}
                 disappearing={!!item.message.disappearingSeconds}
                 reactions={item.message.reactions}

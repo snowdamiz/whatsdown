@@ -109,14 +109,25 @@ delete_legacy :: Bool) -> Result <(), String > do
   end)
 end
 
+# A new last-resort key with, when it replaces one, the list of the keys it and
+# its predecessors replaced, and the secret of any dropped from that list.
+
 pub fn store_last_resort_prekey(database_path :: String,
 secret_label :: String,
 secret_blob :: Bytes,
-record_blob :: Bytes) -> Result <(), String > do
+record_blob :: Bytes,
+retired_blob :: Bytes,
+removed_labels :: List < String >) -> Result <(), String > do
   with_record_transaction(database_path,
   fn (database) do
     insert_blob(database, secret_label, secret_blob) ?
-    put_blob(database, "last-resort-prekey/v1", record_blob)
+    put_blob(database, "last-resort-prekey/v1", record_blob) ?
+    delete_blobs(database, removed_labels, 0) ?
+    if Bytes.length(retired_blob) == 0 do
+      Ok(nil)
+    else
+      put_blob(database, "last-resort-retired/v1", retired_blob)
+    end
   end)
 end
 

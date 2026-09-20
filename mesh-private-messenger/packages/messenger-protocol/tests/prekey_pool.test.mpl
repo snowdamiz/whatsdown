@@ -55,9 +55,10 @@ fn proof() -> Bool ! String do
     device_id : response.device_id,
     prekeys : List.new(),
     last_resort : None,
+    contact_address_hash : None,
     signature : repeated(3, 64) ?
   }) ?
-  assert(Bytes.length(recovery) == 118)
+  assert(Bytes.length(recovery) == 119)
   assert(List.length(decode_prekey_publish(recovery) ?.prekeys) == 0)
   Ok(true)
 end
@@ -82,10 +83,23 @@ fn last_resort_proof() -> Bool ! String do
       id : U64.parse("9") ?,
       public_key : repeated(8, 32) ?
     }),
+    contact_address_hash : Some(repeated(9, 32) ?),
     signature : repeated(3, 64) ?
   }
   let encoded = encode_prekey_publish(request) ?
-  assert(Bytes.length(encoded) == 198)
+  assert(Bytes.length(encoded) == 231)
+  # The publication also names the hash of the device's contact address, and
+  # the device signature covers it.
+  case decode_prekey_publish(encoded) ?.contact_address_hash do
+    None -> assert(false)
+    Some( value) -> assert(Bytes.secure_equals(value, repeated(9, 32) ?))
+  end
+  assert(!Bytes.secure_equals(prekey_publish_signing_bytes(request) ?,
+  prekey_publish_signing_bytes(% { request | contact_address_hash : None }) ?))
+  case encode_prekey_publish(% { request | contact_address_hash : Some(repeated(9, 31) ?) }) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
   case decode_prekey_publish(encoded) ?.last_resort do
     None -> assert(false)
     Some( value) -> do

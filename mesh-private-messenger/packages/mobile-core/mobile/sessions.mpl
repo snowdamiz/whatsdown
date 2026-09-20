@@ -178,10 +178,10 @@ fn optional_safety_number(state :: BinaryReader) -> MobileReadBytes ! String do
 end
 
 fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
-  case reader(input, 68000) do
+  case reader(input, 70600) do
     Err( _) -> Err("invalid_session_record")
     Ok( state) -> do
-      let snapshot_blob = take_vector(state, 66300) ?
+      let snapshot_blob = take_vector(state, 68900) ?
       let local_account_id = take_vector(snapshot_blob.state, 32) ?
       let local_device_id = take_vector(local_account_id.state, 16) ?
       let peer_account_id = take_vector(local_device_id.state, 32) ?

@@ -2,15 +2,16 @@ from Mobile.Attachments import rewrap_reference
 from Mobile.Presentation import presented_body
 from Identity.Device import DeviceKeys, VerificationPolicy
 from Mobile.Codec import canonical_outer, current_time, random_bytes
+from Mobile.ContactAddress import deposit_address, learned_contact_address_writes, outgoing_extensions
 from Mobile.FanoutPrekeys import matching_fanout_prekey_state_labels
 from Mobile.History import updated_history
 from Mobile.GroupInvitesState import received_invitation_writes
-from Mobile.Outbox import load_outbox_ids, prepare_outbox_writes
+from Mobile.Outbox import load_outbox_ids, outbox_capacity, prepare_outbox_writes
 from Mobile.Prekeys import (
   find_prekey,
   last_resort_replayed,
   load_active_prekey_pool,
-  load_last_resort_prekey,
+  find_last_resort_prekey,
   load_prekey_pool,
   remove_prekey,
   remove_prekey_id,
@@ -92,6 +93,7 @@ from Storage.Keys import one_time_prekey_label, platform_key
 from Storage.Records import (
   store_outbound,
   store_received_session,
+  store_record_changes,
   store_updated_session,
   store_updated_blobs,
   store_updated_session_and_history
@@ -115,7 +117,7 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   let peer = decode_client_profile(request.peer_profile) ?
   let wrapping_key = platform_key() ?
   let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
-  let _ = if List.length(pending_ids) >= 64 do
+  let _ = if List.length(pending_ids) >= outbox_capacity() do
     Err("outbox_full")
   else
     Ok(nil)
@@ -141,9 +143,11 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
     disappearing_seconds : 0,
     extensions : List.new()
   }
-  let inner = % { history_inner | attachment_manifest : rewrap_reference(local_device,
-  request.attachment,
-  peer.credential.dh_public_key) ? }
+  # What goes to the peer differs from what history keeps: the attachment key is
+  # re-addressed, and the message hands over this device's contact address.
+  let rewrapped = rewrap_reference(local_device, request.attachment, peer.credential.dh_public_key) ?
+  let handed_over = outgoing_extensions(request.database_path, wrapping_key) ?
+  let inner = % { history_inner | attachment_manifest : rewrapped, extensions : handed_over }
   let plaintext = case encode_initial_plaintext(local_encode_client_profile, inner_bytes(inner) ?) do
     Err( _) -> Err("invalid_initial_plaintext")
     Ok( value) -> Ok(value)
@@ -166,7 +170,9 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
     Ok( value) -> Ok(value)
   end ?
   let packet = encode_packet(InitialPacket(local.entry.account_identity, initial_bytes(initial) ?)) ?
-  let outer = sealed_outer_bytes(peer.entry.mailbox_token,
+  let outer = sealed_outer_bytes(deposit_address(request.database_path,
+  wrapping_key,
+  peer.entry.mailbox_token) ?,
   packet,
   peer.credential.dh_public_key,
   now) ?
@@ -191,7 +197,11 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   1) ?
   let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
   pending_ids,
-  [outer]) ?
+  [outer],
+  request.database_path,
+  history_inner.client_message_id,
+  0,
+  1) ?
   store_outbound(request.database_path,
   prepared,
   List.new(),
@@ -230,6 +240,31 @@ fanout_labels :: List < String >) -> Result <( List < String >, List < String >,
   end
 end
 
+# A message that was authenticated and is from the device it claims to be from
+# may hand over that device's contact address. It is kept at once, in its own
+# write: the message may be delivered again, and the address is as true then.
+# A blocked peer is not listened to.
+
+fn keep_contact_address(database_path :: String,
+wrapping_key :: borrow StorageKey,
+blocked :: Bool,
+public_address :: Bytes,
+inner :: InnerEnvelope) -> Result <(), String > do
+  if blocked do
+    Ok(nil)
+  else
+    let ( labels, blobs, removed) = learned_contact_address_writes(database_path,
+    wrapping_key,
+    public_address,
+    inner.extensions) ?
+    if List.length(labels) == 0 do
+      Ok(nil)
+    else
+      store_record_changes(database_path, labels, blobs, removed)
+    end
+  end
+end
+
 pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
   let local_encode_client_profile = load_profile(request.database_path) ?
@@ -263,17 +298,15 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
       let session_ids = load_session_ids(request.database_path, wrapping_key) ?
       let prekeys = load_prekey_pool(local, wrapping_key, request.database_path) ?
       let active_prekeys = load_active_prekey_pool(request.database_path, prekeys, wrapping_key) ?
-      let last_resort = load_last_resort_prekey(request.database_path, wrapping_key) ?
+      let last_resort = find_last_resort_prekey(request.database_path,
+      wrapping_key,
+      initial.one_time_prekey_id) ?
       let reusable = case last_resort do
         None -> false
-        Some( value) -> U64.compare(value.id, initial.one_time_prekey_id) == 0
+        Some( _) -> true
       end
       let selected_prekey = case last_resort do
-        Some( value) -> if reusable do
-          Ok(value)
-        else
-          find_prekey(prekeys, initial.one_time_prekey_id, 0)
-        end
+        Some( value) -> Ok(value)
         None -> find_prekey(prekeys, initial.one_time_prekey_id, 0)
       end ?
       let _ = if reusable && last_resort_replayed(request.database_path,
@@ -364,6 +397,11 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
           None -> false
           Some( loaded) -> loaded.record.blocked
         end
+        keep_contact_address(request.database_path,
+        wrapping_key,
+        blocked,
+        peer.entry.mailbox_token,
+        inner) ?
         let ( session_id, label, session_blob) = case previous do
           None -> seal_session(state, wrapping_key, local, peer, inner.conversation_id, 0, false)
           Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, local, peer)
@@ -458,7 +496,7 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes ! String do
   let requested_peer = decode_client_profile(request.peer_profile) ?
   let wrapping_key = platform_key() ?
   let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
-  let _ = if List.length(pending_ids) >= 64 do
+  let _ = if List.length(pending_ids) >= outbox_capacity() do
     Err("outbox_full")
   else
     Ok(nil)
@@ -509,14 +547,18 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes ! String do
       request.attachment,
       requested_peer.credential.dh_public_key) ? })
     end ?
+    # The sent copy hands over this device's contact address; history does not keep it.
+    let handed_over = outgoing_extensions(request.database_path, wrapping_key) ?
     let ( next_state, message) = case encrypt_sealed(state,
-    inner_bytes(inner) ?,
+    inner_bytes(% { inner | extensions : handed_over }) ?,
     session_aad(loaded.session_id) ?) do
       Err( _) -> Err("message_encryption_failed")
       Ok( value) -> Ok(value)
     end ?
     let packet = encode_packet(RatchetPacket(ratchet_bytes(message) ?)) ?
-    let outer = sealed_outer_bytes(loaded.record.peer_mailbox,
+    let outer = sealed_outer_bytes(deposit_address(request.database_path,
+    wrapping_key,
+    loaded.record.peer_mailbox) ?,
     packet,
     requested_peer.credential.dh_public_key,
     now) ?
@@ -534,7 +576,11 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes ! String do
     }]
     let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
     pending_ids,
-    [outer]) ?
+    [outer],
+    request.database_path,
+    history_inner.client_message_id,
+    0,
+    1) ?
     store_outbound(request.database_path,
     prepared,
     List.new(),
@@ -605,6 +651,11 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
           reject_message(next_state, "message_rejected")
         else
           let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
+          keep_contact_address(request.database_path,
+          wrapping_key,
+          peer_policy.record.blocked,
+          loaded.record.peer_mailbox,
+          inner) ?
           if peer_policy.record.blocked do
             store_updated_session(request.database_path, loaded.label, session_blob) ?
             Err("blocked_message")

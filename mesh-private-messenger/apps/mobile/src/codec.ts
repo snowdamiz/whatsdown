@@ -32,7 +32,18 @@ export type AttachmentSummary = {
   expiresAt: number;
 };
 
+// What became of a sent message, from the core's own record of its envelopes:
+// still waiting to leave, or refused for good by every device it was addressed
+// to. Absent once it has left.
+export type Delivery = 'pending' | 'failed';
+
+function parseDelivery(state: number): { delivery?: Delivery } {
+  if (state > 2) throw new Error('Invalid delivery state');
+  return state === 1 ? { delivery: 'pending' } : state === 2 ? { delivery: 'failed' } : {};
+}
+
 export type HistoryMessage = {
+  delivery?: Delivery;
   reactions?: Reaction[];
   // The message this one answers, quoted from this device's own history.
   reply?: Reply<Omit<HistoryMessage, 'reply'>>;
@@ -82,6 +93,7 @@ export type GroupInvitation = {
 };
 
 export type GroupHistoryMessage = {
+  delivery?: Delivery;
   messageId?: Uint8Array;
   reactions?: Reaction[];
   reply?: Reply<Omit<GroupHistoryMessage, 'reply'>>;
@@ -330,9 +342,9 @@ export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
   // The stored history is bounded to 64 KiB; opened attachment manifests add to the export.
   if (input.length > 65_536 + 256 * MAXIMUM_ATTACHMENT_SUMMARIES) throw new Error('Group history is too large');
   const messages: GroupHistoryMessage[] = parseByteList(input, 256, 65_484 + MAXIMUM_ATTACHMENT_SUMMARIES).map((record) => {
-    const fields = parseByteList(record, 9, 65_346);
-    if (fields.length !== 8 && fields.length !== 9) throw new Error('Invalid group history');
-    const [version, direction, epoch, senderAccountId, senderDeviceId, timestamp, body, attachment, messageId] = fields;
+    const fields = parseByteList(record, 10, 65_346);
+    if (fields.length < 8) throw new Error('Invalid group history');
+    const [version, direction, epoch, senderAccountId, senderDeviceId, timestamp, body, attachment, messageId, delivery] = fields;
     if (messageId?.length && messageId.length !== 32) throw new Error('Invalid group message ID');
     if (
       !version ||
@@ -357,6 +369,7 @@ export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
     }
     const attachments = parseAttachmentSummaries(attachment);
     return {
+      ...(delivery ? parseDelivery(readByte(delivery)) : {}),
       ...(messageId?.length ? { messageId } : {}),
       direction: directionValue === 1 ? 'sent' : 'received',
       epoch: readU64Number(epoch),
@@ -493,9 +506,11 @@ export function parseHistory(input: Uint8Array): HistoryMessage[] {
     const body = decodeUtf8(entry.vector(32_768));
     const disappearingSeconds = readU32(entry.vector(4));
     const attachments = parseAttachmentSummaries(entry.vector(MAXIMUM_ATTACHMENT_SUMMARIES));
+    const delivery = parseDelivery(readByte(entry.vector(1)));
     entry.finish();
     if (direction !== 1 && direction !== 2) throw new Error('Invalid message direction');
     messages.push({
+      ...delivery,
       direction: direction === 1 ? 'sent' : 'received',
       messageId,
       timestamp,

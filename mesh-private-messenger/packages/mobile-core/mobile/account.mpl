@@ -78,6 +78,7 @@ from Protocol.V1 import (
   DirectoryEntry,
   PrekeyBundle
 )
+from Mobile.InboxState import load_fetch_cursor
 from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import (
   context,
@@ -594,9 +595,11 @@ pub fn mailbox_fetch(database_path :: String) -> Bytes ! String do
   let profile = decode_client_profile(load_profile(database_path) ?) ?
   let wrapping_key = platform_key() ?
   let device = open_device(profile, wrapping_key, database_path) ?
+  # Past whatever the current pass has set aside, so that it cannot hold up the
+  # envelopes behind it; zero otherwise.
   case sign_mailbox_fetch(device.signing_private_key,
   Crypto.sha256(profile.entry.mailbox_token),
-  mobile_wide("0") ?,
+  load_fetch_cursor(database_path, wrapping_key) ?,
   current_time() ?) do
     Err( _) -> Err("mailbox_fetch_encoding_failed")
     Ok( encoded) -> Ok(encoded)

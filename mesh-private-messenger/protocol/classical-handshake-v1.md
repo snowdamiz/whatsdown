@@ -33,6 +33,17 @@ one-time key. The responder therefore remembers the transcript hash of every
 first message that used the key (the newest 1,024) and permanently refuses a
 repeat, which a deleted one-time secret makes impossible by itself.
 
+The last-resort secret is the one prekey secret that use does not destroy, so
+it is not kept for ever either. A week after a device made its key, its next
+publication names a new one with the next identifier, which the directory puts
+in the old one's place. The old secret has to outlive that. The directory may go
+on handing the old key out until it has answered a publication that names the
+new one, and a first message sealed to it can then wait in a mailbox for up to
+31 days, so the device destroys the old secret 35 days after that answer and
+not before, however long it was offline in between. It keeps at most sixteen
+replaced keys. A last-resort secret therefore lives about six weeks, not the
+life of the installation.
+
 Device credential signatures cover the exact bytes
 `"mesh-msg/v1/device-credential" || canonical_unsigned_credential`, where the
 unsigned encoding retains the 64-byte signature field filled with zeroes.

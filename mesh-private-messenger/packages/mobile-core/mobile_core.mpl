@@ -45,9 +45,10 @@ from Mobile.History import (
 )
 from Mobile.Inbox import process_delivery_batch
 from Mobile.Messages import receive_initial_message, receive_message, send_message, start_conversation
-from Mobile.Outbox import acknowledge_outbox, list_outbox
+from Mobile.Outbox import acknowledge_outbox, fail_outbox, list_outbox, page_outbox
 from Mobile.Platform import privacy_submission, stamped_request
 from Mobile.Prekeys import reconcile_prekeys, replenish_prekeys
+from Mobile.Journal import load_journal, save_journal
 from Mobile.Presentation import load_presentation
 from Mobile.Profile import load_profile
 from Mobile.Push import complete_push_action, push_action, push_intent, push_status
@@ -369,6 +370,31 @@ end
 
 @ export("mesh_messenger_outbox_ack")pub fn outbox_ack_export(request :: Bytes) -> Bytes ! String do
   acknowledge_outbox(parse_payload_request(request) ?)
+end
+
+# The service refused this envelope for good. It leaves the outbox, and counts
+# against its message rather than for it.
+
+@ export("mesh_messenger_outbox_fail")pub fn outbox_fail_export(request :: Bytes) -> Bytes ! String do
+  fail_outbox(parse_payload_request(request) ?)
+end
+
+# Up to eight queued envelopes starting at a four-byte offset, so a sender can
+# pass by envelopes it is leaving queued.
+
+@ export("mesh_messenger_outbox_page")pub fn outbox_page_export(request :: Bytes) -> Bytes ! String do
+  page_outbox(parse_payload_request(request) ?)
+end
+
+# The app's read, notification and receipt journals, sealed like everything else
+# it keeps; see `Mobile.Journal` for what may be named.
+
+@ export("mesh_messenger_journal_load")pub fn journal_load_export(request :: Bytes) -> Bytes ! String do
+  load_journal(parse_payload_request(request) ?)
+end
+
+@ export("mesh_messenger_journal_save")pub fn journal_save_export(request :: Bytes) -> Bytes ! String do
+  save_journal(parse_triple_payload_request(request) ?)
 end
 
 @ export("mesh_messenger_presentation_load")pub fn presentation_load_export(request :: Bytes) -> Bytes ! String do

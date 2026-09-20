@@ -5,6 +5,16 @@ import { mentionSpans } from './mentions.ts';
 import { receiptDue } from './receipts.ts';
 
 export type MessageNotification = { id: string; scope: string; title: string; body: string; mention: boolean };
+// How much of a message its notification shows, since a notification is read by
+// whoever holds the phone, locked or not: who and what, who only, or neither.
+export type NotificationPreview = 'full' | 'sender' | 'none';
+export const parseNotificationPreview = (saved: unknown): NotificationPreview =>
+  saved === 'sender' || saved === 'none' ? saved : 'full';
+export function redactNotification(notification: MessageNotification, preview: NotificationPreview): MessageNotification {
+  if (preview === 'full') return notification;
+  // The body names the sender inside a group and says when it is a mention, so it goes whole.
+  return { ...notification, body: 'New message', title: preview === 'none' ? 'Morse' : notification.title };
+}
 export type ReceiptPeer = { username: string; accountId: Uint8Array };
 export type NotificationThread = {
   scope: string;

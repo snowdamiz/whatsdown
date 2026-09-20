@@ -50,7 +50,7 @@ test('sample content includes read, single-unread and multiple-unread conversati
 
 test('sample chats show each delivery state a synced bubble can take', () => {
   const [messages] = Object.values(createDevPreview(1_800_000_000_000).histories);
-  assert.deepEqual(new Set(messages!.flatMap((message) => messageStatus(message, null) ?? [])),
+  assert.deepEqual(new Set(messages!.flatMap((message) => messageStatus(message) ?? [])),
     new Set(['sent', 'delivered', 'read']));
   assert.ok(messages!.every((message) => message.direction === 'sent' || !message.receipt));
 });

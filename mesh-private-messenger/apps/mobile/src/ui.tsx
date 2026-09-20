@@ -3049,7 +3049,7 @@ export function MessageBubble({
               style={status === "read" && styles.bubbleRead}
             >
               <Icon
-                name={status === "pending" ? "clock" : status === "sent" ? "check" : "checks"}
+                name={status === "pending" ? "clock" : status === "sent" ? "check" : status === "failed" ? "warning" : "checks"}
                 size={sizes.icon.xs}
                 color={status === "read" ? colors.accentDeep : metaColor}
                 strokeWidth={2.4}

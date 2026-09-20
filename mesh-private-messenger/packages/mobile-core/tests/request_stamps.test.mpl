@@ -51,14 +51,15 @@ fn proof() -> Bool ! String do
   36006) ?
   assert(Bytes.secure_equals(entry, directory_entry_export(Bytes.from_utf8(path)) ?))
   assert(paid_for(register, entry, register_stamp) ?)
-  assert(!(paid_for(resolve, entry, register_stamp) ?))
-  # So does a lookup, and its work is no good for registering.
+  # So does a lookup, under its own endpoint's label.
   let lookup_request = request([Bytes.from_utf8(path), Bytes.from_utf8("bob")], 0, Bytes.empty()) ?
   let ( resolve_stamp, lookup) = decode_stamped_request(resolve_request_export(lookup_request) ?,
   76) ?
   assert(Bytes.secure_equals(lookup, transparency_lookup_export(lookup_request) ?))
   assert(paid_for(resolve, lookup, resolve_stamp) ?)
-  assert(!(paid_for(register, lookup, resolve_stamp) ?))
+  # That work for one endpoint buys nothing at another is proved on fixed
+  # inputs in the protocol's `privacy_edge.test.mpl`. Here the inputs are live,
+  # and at this difficulty one stamp in 256 suits the other label by chance.
   File.delete(path) ?
   Ok(true)
 end

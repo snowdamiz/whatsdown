@@ -41,13 +41,27 @@ try {
       if (command === 'save_attachment') { state.saves.push({ bytes: [...args], name: decodeURIComponent(options.headers['X-File-Name']) }); return true; }
       const symbol = options?.headers?.['X-Mesh-Symbol'];
       if (symbol === 'mesh_messenger_load_profile') return vectors(text('alice'), id(1), id(1, 16), []);
-      if (['mesh_messenger_list_conversations', 'mesh_messenger_group_invitations', 'mesh_messenger_outbox_list'].includes(symbol)) return list();
+      if (['mesh_messenger_list_conversations', 'mesh_messenger_group_invitations', 'mesh_messenger_outbox_list', 'mesh_messenger_outbox_page'].includes(symbol)) return list();
       if (symbol === 'mesh_messenger_group_list') return list(list([1], id(80), u64(1), u32(2)));
       if (symbol === 'mesh_messenger_presentation_load') return vectors(text('Test files'), []);
       if (symbol === 'mesh_messenger_group_inspect') return list([1], id(80), u64(1), u32(0), id(4), id(5),
         list(...[1, 2].map((n) => list([1], u32(n - 1), [n === 1 ? 1 : 0], id(n), id(n, 16), u64(1), [2]))));
       if (symbol === 'mesh_messenger_group_history') return list(list([1], [2], u64(1), id(2), id(2, 16), u64(1800000000000), text('Ten files together'), album));
       if (symbol === 'mesh_messenger_attachment_open_chunk') return png;
+      // The sealed journals, kept where a reload leaves them alone, as the database would.
+      if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_save') {
+        const bytes = Array.from(args), parts = [];
+        for (let at = 0; at < bytes.length;) {
+          const size = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
+          parts.push(new Uint8Array(bytes.slice(at + 4, at + 4 + size)));
+          at += 4 + size;
+        }
+        const label = `sealed-journal/${new TextDecoder().decode(parts[1])}`;
+        if (symbol.endsWith('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
+        if (parts[2].length === 1 && parts[2][0] === 0) localStorage.removeItem(label);
+        else localStorage.setItem(label, new TextDecoder().decode(parts[2]));
+        return [];
+      }
       throw Error('Offline test boundary');
     } };
   }, png);
