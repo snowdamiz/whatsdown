@@ -1,6 +1,17 @@
+from Mobile.Codec import current_time
 import File
-from MobileCore import create_account_export, directory_entry_export, group_add_export, group_create_export, group_key_package_export, group_receive_export, verify_transparency_export
-from Protocol.V1 import AccountIdentity, DeviceSet, DirectoryEntry, decode_account_identity, decode_directory_entry, encode_device_set
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  group_add_export,
+  group_create_export,
+  group_key_package_export,
+  group_receive_export,
+  verify_transparency_export
+)
+from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
+from Protocol.IdentityWire import decode_account_identity
+from Protocol.V1 import AccountIdentity, DeviceSet, DirectoryEntry
 from Tests.Support import append, database_path, install_security_config, repeated, vector
 from Transparency.Merkle import TransparencyCheckpoint, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint, sign_witness
 from Transparency.Wire import TransparencyEvidence, encode_checkpoint, encode_consistency_proof, encode_transparency_evidence
@@ -58,7 +69,7 @@ pub fn signed_transparency_view(leaves :: List < Bytes >) -> SignedTransparencyV
     wide(1) ?,
     leaves,
     repeated(0, 32) ?,
-    wide(1001) ?) ?
+    current_time() ?) ?
     Ok(SignedTransparencyViewFixture {
       checkpoint : encode_checkpoint(checkpoint) ?,
       consistency : encode_consistency_proof(consistency_proof(List.new(), leaves) ?) ?,

@@ -2,7 +2,10 @@ from Api.Binary import claim_prekey_request, publish_prekeys_request, revoke_dev
 from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
 from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, reauthorize_signed_prekey
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, decode_prekey_publish_response, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
-from Protocol.V1 import AccountIdentity, DirectoryEntry, PrekeyBundle, ProtocolError, decode_prekey_bundle, encode_account_identity, encode_device_revocation, encode_directory_entry, encode_prekey_bundle
+from Protocol.DirectoryWire import encode_device_revocation, encode_directory_entry
+from Protocol.IdentityWire import encode_account_identity
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DirectoryEntry, PrekeyBundle, ProtocolError
 from Storage.Devices import DeviceWrite, register_device, resolve_devices
 from Storage.Prekeys import publish_prekeys
 
@@ -81,6 +84,7 @@ fn sign_publish(key :: borrow SigningPrivateKey, request :: PrekeyPublishRequest
     account_id : request.account_id,
     device_id : request.device_id,
     prekeys : request.prekeys,
+    last_resort : request.last_resort,
     signature : signature.bytes
   })
 end
@@ -92,6 +96,7 @@ prekeys :: List < OneTimePrekeyPublic >) -> PrekeyPublishRequest ! String do
     account_id : identity.account_id,
     device_id : device.device_id,
     prekeys : prekeys,
+    last_resort : None,
     signature : repeated(0, 64) ?
   })
 end
@@ -239,7 +244,7 @@ fn happy_path() -> Bool ! String do
   "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000) ?
   let _ = Pool.execute(pool,
-  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_directory, messenger_mailboxes RESTART IDENTITY",
+  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
@@ -368,6 +373,7 @@ fn happy_path() -> Bool ! String do
       id : wide("100") ?,
       public_key : repeated(44, 32) ?
     }],
+    last_resort : None,
     signature : published.signature
   }
   assert(publish_prekeys_request(pool, encode_prekey_publish(tampered) ?).status == 403)
@@ -441,7 +447,13 @@ fn happy_path() -> Bool ! String do
     id : wide("400") ?,
     public_key : repeated(46, 32) ?
   }]) ?) ?
-  assert(publish_prekeys_request(pool, encode_prekey_publish(overflow) ?).status == 429)
+  let overflow_response = publish_prekeys_request(pool, encode_prekey_publish(overflow) ?)
+  assert(overflow_response.status == 429)
+  let overflow_active = decode_prekey_publish_response(overflow_response.body) ?
+  assert(List.length(overflow_active.active_ids) == 64)
+  assert(Bytes.secure_equals(overflow_active.account_id, identity.account_id))
+  assert(Bytes.secure_equals(overflow_active.device_id, target.device_id))
+  assert(Bytes.secure_equals(overflow_response.body, bounded_response.body))
   let oversized = unsigned_publish(identity, target, prekey_range(500, 65, 0, List.new()) ?) ?
   case encode_prekey_publish(oversized) do
     Err( _) -> Ok(nil)
@@ -601,6 +613,100 @@ expires_at :: U64) -> Result <(), String > do
   assert(target_consumed_key_count(pool, identity.account_id, other_target.device_id) ? == other_consumed)
   assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 2)
   Ok(nil)
+end
+
+fn last_resort(id :: String, fill :: Int) -> Option < OneTimePrekeyPublic > ! String do
+  Ok(Some(OneTimePrekeyPublic {
+    id : wide(id) ?,
+    public_key : repeated(fill, 32) ?
+  }))
+end
+
+fn publish_status(pool :: PoolHandle,
+identity :: AccountIdentity,
+device :: borrow DeviceKeys,
+prekeys :: List < OneTimePrekeyPublic >,
+reusable :: Option < OneTimePrekeyPublic >) -> Int ! String do
+  let unsigned = unsigned_publish(identity, device, prekeys) ?
+  let signed = sign_publish(device.signing_private_key, % { unsigned | last_resort : reusable }) ?
+  Ok(publish_prekeys_request(pool, encode_prekey_publish(signed) ?).status)
+end
+
+fn last_resort_path() -> Bool ! String do
+  let url = Env.get("MESSENGER_TEST_DATABASE_URL",
+  "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
+  let pool = Pool.open(url, 1, 2, 5000) ?
+  let _ = Pool.execute(pool,
+  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+  []) ?
+  let created_at = now() ?
+  let expires_at = U64.add(created_at, wide("31536000000") ?) ?
+  let ( account, identity) = case generate_account(created_at, wide("1") ?) do
+    Err( _) -> Err("account generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  let target = case generate_device() do
+    Err( _) -> Err("target generation failed")
+    Ok( output) -> Ok(output)
+  end ?
+  case register_device(pool,
+  registration(account, identity, target, repeated(33, 32) ?, "1", created_at, expires_at) ?) ? do
+    DeviceAccepted -> Ok(nil)
+    _ -> Err("target registration failed")
+  end ?
+  let base = target_base_bundle(pool, repeated(33, 32) ?) ?
+  # Registration seeded one-time prekey 2. Once it is claimed the pool is empty,
+  # and a device that never published a last-resort key blocks new sessions.
+  assert(claimed_id(pool,
+  encode_prekey_claim(claim_request(identity, target, base, repeated(61, 16) ?)) ?) == 2)
+  let blocked = encode_prekey_claim(claim_request(identity, target, base, repeated(62, 16) ?)) ?
+  assert(claim_prekey_request(pool, blocked).status == 409)
+  # With a last-resort key, every later claimant still gets a usable bundle and
+  # the key is never consumed.
+  assert(publish_status(pool, identity, target, List.new(), last_resort("9", 90) ?) ? == 201)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("9", 90) ?) ? == 200)
+  assert(claimed_id(pool, blocked) == 9)
+  let third = encode_prekey_claim(claim_request(identity, target, base, repeated(63, 16) ?)) ?
+  let reusable = decoded_bundle(claim_prekey_request(pool, third).body) ?
+  assert(U64.compare(reusable.one_time_prekey_id, wide("9") ?) == 0)
+  assert(Bytes.secure_equals(reusable.one_time_prekey, repeated(90, 32) ?))
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 1)
+  # It is not part of the one-time pool the device reconciles against.
+  let recovery = sign_publish(target.signing_private_key,
+  unsigned_publish(identity, target, List.new()) ?) ?
+  let active = decode_prekey_publish_response(publish_prekeys_request(pool,
+  encode_prekey_publish(recovery) ?).body) ?
+  assert(List.length(active.active_ids) == 0)
+  # A replenished pool takes priority again; the last-resort key waits behind it.
+  assert(publish_status(pool,
+  identity,
+  target,
+  prekey_range(10, 1, 0, List.new()) ?,
+  last_resort("9", 90) ?) ? == 201)
+  assert(claimed_id(pool,
+  encode_prekey_claim(claim_request(identity, target, base, repeated(64, 16) ?)) ?) == 10)
+  assert(claimed_id(pool,
+  encode_prekey_claim(claim_request(identity, target, base, repeated(65, 16) ?)) ?) == 9)
+  # A newer key retires the old one. An older or re-keyed identifier is refused,
+  # and replaying the retired publication does not bring the old key back.
+  assert(publish_status(pool, identity, target, List.new(), last_resort("12", 120) ?) ? == 201)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("11", 110) ?) ? == 409)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("12", 121) ?) ? == 409)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("10", 100) ?) ? == 409)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("9", 90) ?) ? == 200)
+  assert(claimed_id(pool,
+  encode_prekey_claim(claim_request(identity, target, base, repeated(66, 16) ?)) ?) == 12)
+  Ok(true)
+end
+
+test("an exhausted pool falls back to the reusable last-resort prekey") do
+  case last_resort_path() do
+    Err( error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok( value) -> assert(value)
+  end
 end
 
 test("authenticated publication feeds one atomic bundle claim") do

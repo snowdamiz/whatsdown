@@ -1,10 +1,28 @@
 from Api.Binary import checkpoint_request, consistency_request, fetch_request, inclusion_request, register_device_request, resolve_devices_request, revoke_device_request, submit_request, submit_witness_request, validate_transparency_config, witnesses_request
 from Identity.Device import AccountKeys, DeviceKeys, credential_signing_bytes, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
 from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, reauthorize_signed_prekey
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, MailboxFetch, OuterEnvelope, PrekeyBundle, ProtocolError, ProtocolExtension, decode_delivery_batch, decode_device_credential, decode_device_set, decode_prekey_bundle, encode_account_identity, encode_device_credential, encode_device_set, encode_directory_entry, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle, encode_device_revocation
+from Protocol.DirectoryWire import (
+  decode_device_set,
+  encode_device_revocation,
+  encode_device_set,
+  encode_directory_entry
+)
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.IdentityWire import decode_device_credential, encode_account_identity, encode_device_credential
+from Tests.MailboxSupport import signed_fetch
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  DirectoryEntry,
+  OuterEnvelope,
+  PrekeyBundle,
+  ProtocolError,
+  ProtocolExtension
+)
 from Storage.Devices import resolve_devices
-from Storage.Transparency import append_entry_on_connection, create_checkpoint, entry_count, consistency_from, evidence_for_username, inclusion_for_account
-from Transparency.Merkle import WitnessKey, leaf_hash, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
+from Storage.Transparency import latest_checkpoint, append_entry_on_connection, create_checkpoint, entry_count, consistency_from, evidence_for_username, inclusion_for_account
+from Transparency.Merkle import checkpoint_hash, sign_checkpoint, WitnessKey, leaf_hash, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
 from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_checkpoint, decode_consistency_proof, decode_inclusion_proof, decode_transparency_evidence, decode_witnesses, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query, encode_witnesses
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
@@ -383,7 +401,7 @@ fn proof() -> Bool ! String do
   let pool = Pool.open(url, 1, 2, 5000) ?
   let _ = validate_transparency_config() ?
   let _ = Pool.execute(pool,
-  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_directory, messenger_mailboxes RESTART IDENTITY",
+  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
   let transparency_seed = repeated(91, 32)
   let created_at = now() ?
@@ -465,6 +483,17 @@ fn proof() -> Bool ! String do
   transparency_seed) ?) ?) ?
   let resolved = resolve_devices_request(pool, lookup)
   assert(resolved.status == 200)
+  let by_account = resolve_devices_request(pool,
+  encode_transparency_lookup(TransparencyLookup {
+    username : "@" <> Bytes.to_hex(identity.account_id),
+    previous_tree_size : 1
+  }) ?)
+  assert(by_account.status == 200 && Bytes.secure_equals(by_account.body, resolved.body))
+  assert(resolve_devices_request(pool,
+  encode_transparency_lookup(TransparencyLookup {
+    username : "@" <> Bytes.to_hex(repeated(0, 32)),
+    previous_tree_size : 1
+  }) ?).status == 404)
   let evidence = decode_transparency_evidence(resolved.body) ?
   assert(verify_witnesses(evidence.checkpoint,
   evidence.witnesses,
@@ -490,7 +519,7 @@ fn proof() -> Bool ! String do
     envelope_id : repeated(33, 16),
     mailbox_token : second.mailbox_token,
     suite : 1,
-    expiration : expires_at,
+    expiration : U64.add(created_at, wide("3600000") ?) ?,
     padding_bucket : 256,
     ciphertext : Bytes.from_utf8("queued")
   })) ?
@@ -533,38 +562,85 @@ fn proof() -> Bool ! String do
   third_checkpoint.tree_root,
   consistency_from(pool, U64.to_int(second_checkpoint.tree_size) ?) ?) ?)
   assert(register_device_request(pool, protocol(encode_directory_entry(second)) ?).status == 409)
-  let revoked_fetch = fetch_request(pool,
-  protocol(encode_mailbox_fetch(MailboxFetch {
-    version : 1,
-    mailbox_token : second.mailbox_token,
-    after_sequence : wide("0") ?
-  })) ?)
-  let revoked_deliveries = case decode_delivery_batch(revoked_fetch.body) do
-    Err( _) -> Err("invalid revoked mailbox response")
-    Ok( values) -> Ok(values)
-  end ?
-  assert(List.length(revoked_deliveries) == 0)
+  # Revocation also ends the revoked device's authority to read its mailbox.
+  assert(fetch_request(pool, signed_fetch(second_device, second.mailbox_token) ?).status == 403)
+  assert(fetch_request(pool, signed_fetch(first_device, first.mailbox_token) ?).status == 200)
   let revoked_delivery = protocol(encode_outer_envelope(OuterEnvelope {
     version : 1,
     envelope_id : repeated(34, 16),
     mailbox_token : second.mailbox_token,
     suite : 1,
-    expiration : expires_at,
+    expiration : U64.add(created_at, wide("3600000") ?) ?,
     padding_bucket : 256,
     ciphertext : Bytes.from_utf8("opaque")
   })) ?
   assert(submit_request(pool, revoked_delivery).status == 410)
-  assert_checkpoint_order(pool, transparency_seed, identity.account_id, updated_evidence.entry_bytes, 4) ?
+  assert_checkpoint_order(pool,
+  transparency_seed,
+  identity.account_id,
+  updated_evidence.entry_bytes,
+  4) ?
+  assert_checkpoint_refresh(pool, transparency_seed) ?
   Pool.close(pool)
   Ok(true)
 end
 
-fn assert_checkpoint_order(pool :: PoolHandle, seed :: Bytes, account_id :: Bytes, entry :: Bytes, sequence :: Int) -> Result <(), String > do
+fn checkpoint_hashes(rows :: List < Map < String, DbValue > >,
+index :: Int,
+output :: List < Bytes >) -> List < Bytes > ! String do
+  if index >= List.length(rows) do
+    Ok(output)
+  else
+    case Map.get(List.get(rows, index), "leaf_hash") do
+      Binary( value) -> checkpoint_hashes(rows, index + 1, List.append(output, value))
+      _ -> Err("invalid test leaf hash")
+    end
+  end
+end
+
+fn assert_checkpoint_refresh(pool :: PoolHandle, seed :: Bytes) -> Result <(), String > do
+  let prior = case latest_checkpoint(pool) ? do
+    Some( value) -> Ok(value)
+    None -> Err("missing test checkpoint")
+  end ?
+  let signer = case Crypto.signing_from_seed(seed) do
+    Ok( value) -> Ok(value)
+    Err( _) -> Err("test signing seed failed")
+  end ?
+  let hashes = checkpoint_hashes(Pool.query_values(pool,
+  "SELECT leaf_hash FROM transparency_entries ORDER BY sequence",
+  []) ?,
+  0,
+  List.new()) ?
+  let stale = sign_checkpoint(signer.private_key,
+  signer.public_key.bytes,
+  prior.sequence,
+  hashes,
+  prior.previous_checkpoint_hash,
+  wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()) - 241000)) ?) ?
+  let _ = Pool.execute_values(pool,
+  "UPDATE transparency_checkpoints SET timestamp_ms = $1::bigint, service_signature = $2 WHERE sequence = $3::bigint",
+  [Text(U64.to_string(stale.timestamp)), Binary(stale.signature), Text(U64.to_string(stale.sequence))]) ?
+  let refreshed = create_checkpoint(pool, seed) ?
+  assert(U64.to_int(refreshed.sequence) ? == U64.to_int(stale.sequence) ? + 1)
+  assert(Bytes.secure_equals(refreshed.tree_root, stale.tree_root))
+  assert(Bytes.secure_equals(refreshed.previous_checkpoint_hash, checkpoint_hash(stale) ?))
+  assert(verify_checkpoint(refreshed, SigningPublicKey { bytes : signer.public_key.bytes }) ?)
+  assert(Bytes.secure_equals(checkpoint_hash(refreshed) ?,
+  checkpoint_hash(create_checkpoint(pool, seed) ?) ?))
+  Ok(nil)
+end
+
+fn assert_checkpoint_order(pool :: PoolHandle,
+seed :: Bytes,
+account_id :: Bytes,
+entry :: Bytes,
+sequence :: Int) -> Result <(), String > do
   if sequence > 12 do
     Ok(nil)
   else
     let _ = Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> append_entry_on_connection(conn, account_id, entry) end) ?
+    fn (conn :: borrow PgConn) -> append_entry_on_connection(conn, account_id, entry, false) end) ?
     let checkpoint = create_checkpoint(pool, seed) ?
     assert(U64.to_int(checkpoint.sequence) ? == sequence)
     let response = checkpoint_request(pool)
@@ -598,7 +674,7 @@ end
 
 fn reset_rotation_state(pool :: PoolHandle) -> Result <(), String > do
   let _ = Pool.execute(pool,
-  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_directory, messenger_mailboxes RESTART IDENTITY",
+  "TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
   Ok(nil)
 end

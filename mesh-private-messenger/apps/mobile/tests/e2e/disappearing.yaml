@@ -1,4 +1,4 @@
-appId: com.snowdamiz.whatsdown
+appId: io.morseapp
 ---
 - launchApp
 - extendedWaitUntil:
@@ -6,7 +6,7 @@ appId: com.snowdamiz.whatsdown
     timeout: 30000
 - tapOn: "Conversation with qa_bob"
 - tapOn: "Conversation details"
-- tapOn: "Disappear: 1 min"
+- tapOn: "Disappear: 1 minute"
 - tapOn: "Back"
 - tapOn:
     id: "Message"

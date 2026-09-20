@@ -1,5 +1,23 @@
-from MobileCore import create_account_export, directory_entry_export, prepare_fanout_prekeys_export, privacy_submission_export, send_fanout_export, transparency_lookup_export, verify_transparency_export
-from Protocol.V1 import OuterEnvelope, decode_outer_envelope
+from MobileCore import (
+  create_account_export,
+  group_create_export,
+  group_add_export,
+  group_send_export,
+  group_history_export,
+  group_key_package_export,
+  mailbox_fetch_export,
+  process_delivery_batch_export,
+  presentation_save_export,
+  register_request_export,
+  prepare_fanout_prekeys_export,
+  privacy_submission_export,
+  send_fanout_export,
+  resolve_request_export,
+  verify_transparency_export
+)
+from Privacy.Edge import RequestStamp, decode_stamped_request
+from Protocol.EnvelopeWire import decode_outer_envelope
+from Protocol.V1 import OuterEnvelope
 from Transparency.Wire import TransparencyTreeQuery, decode_transparency_lookup, decode_witnesses, encode_transparency_tree_query
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
@@ -167,14 +185,31 @@ fn verified_set(base_url :: String,
 database_path :: String,
 username :: String,
 expected_previous_size :: Int) -> Bytes ! String do
-  let lookup = transparency_lookup_export(request([Bytes.from_utf8(database_path), Bytes.from_utf8(username)]) ?) ?
-  assert(decode_transparency_lookup(lookup) ?.previous_tree_size == expected_previous_size)
+  let lookup = resolve_request_export(request([Bytes.from_utf8(database_path), Bytes.from_utf8(username)]) ?) ?
+  # The lookup leaves the core wrapped in proof of work; the request inside is
+  # what names the previous tree size.
+  let ( _stamp, inner_lookup) = decode_stamped_request(lookup, 76) ?
+  assert(decode_transparency_lookup(inner_lookup) ?.previous_tree_size == expected_previous_size)
   let response = post(base_url, "/v1/devices/resolve", lookup) ?
   if response.status != 200 do
     Err("live transparency resolution returned #{response.status}")
   else
     verify_transparency_export(request([Bytes.from_utf8(database_path), Bytes.from_utf8(username), response.body_bytes]) ?)
   end
+end
+
+fn submit_and_receive_group(core_url :: String,
+edge_url :: String,
+bob_path :: String,
+envelopes :: Bytes) -> Bool ! String do
+  let values = output_list(envelopes) ?
+  assert(List.length(values) == 1)
+  assert(post(edge_url, "/v1/envelopes/batch", privacy_submission_export(List.head(values)) ?) ?.status == 202)
+  let batch = post(core_url, "/v1/mailbox/fetch", mailbox_fetch_export(Bytes.from_utf8(bob_path)) ?) ?
+  assert(batch.status == 200)
+  assert(Bytes.length(process_delivery_batch_export(request([Bytes.from_utf8(bob_path), batch.body_bytes]) ?) ?) > 0)
+  # Leave rows queued so the harness can inspect delivery's decrypted storage boundary.
+  Ok(true)
 end
 
 fn proof() -> Bool ! String do
@@ -196,10 +231,10 @@ fn proof() -> Bool ! String do
     let _bob = create_account_export(request([Bytes.from_utf8(bob_path), Bytes.from_utf8("bob")]) ?) ?
     assert(put(core_url,
     "/v1/devices/register",
-    directory_entry_export(Bytes.from_utf8(alice_path)) ?) ?.status == 201)
+    register_request_export(Bytes.from_utf8(alice_path)) ?) ?.status == 201)
     assert(put(core_url,
     "/v1/devices/register",
-    directory_entry_export(Bytes.from_utf8(bob_path)) ?) ?.status == 201)
+    register_request_export(Bytes.from_utf8(bob_path)) ?) ?.status == 201)
     assert(post(core_url,
     "/v1/transparency/consistency",
     encode_transparency_tree_query(TransparencyTreeQuery { previous_tree_size : 0 }) ?) ?.status == 200)
@@ -211,9 +246,26 @@ fn proof() -> Bool ! String do
     let sent = output_list(send_fanout_export(request([Bytes.from_utf8(alice_path), bob_set, alice_set, message]) ?) ?) ?
     assert(List.length(sent) == 1)
     let envelope = List.head(sent)
-    assert(outer(envelope) ?.suite == 2)
+    # Delivery sees only the recipient-sealed transport, never the protocol suite.
+    assert(outer(envelope) ?.suite == 4)
     let submission = privacy_submission_export(envelope) ?
     assert(post(edge_url, "/v1/envelopes/batch", submission) ?.status == 202)
+    let _ = verified_set(core_url, bob_path, "bob", 0) ?
+    let _ = verified_set(core_url, bob_path, "alice", 2) ?
+    let group_id = group_create_export(Bytes.from_utf8(alice_path)) ?
+    let key_package = group_key_package_export(Bytes.from_utf8(bob_path)) ?
+    assert(submit_and_receive_group(core_url,
+    edge_url,
+    bob_path,
+    group_add_export(request([Bytes.from_utf8(alice_path), group_id, bob_set, key_package]) ?) ?) ?)
+    let group_name = Bytes.from_utf8("private-group-name-9d128aa39099")
+    presentation_save_export(request([Bytes.from_utf8(alice_path), Bytes.from_utf8("group/" <> Bytes.to_hex(group_id)), request([group_name, Bytes.empty()]) ?]) ?) ?
+    assert(submit_and_receive_group(core_url,
+    edge_url,
+    bob_path,
+    group_send_export(request([Bytes.from_utf8(alice_path), group_id, Bytes.from_utf8("private-group-body-373bc740b242")]) ?) ?) ?)
+    assert(List.length(output_list(group_history_export(request([Bytes.from_utf8(bob_path), group_id]) ?) ?) ?) == 1)
+    println("PRIVACY_GROUP_ID=" <> Bytes.to_hex(group_id))
     Ok(true)
   end
 end

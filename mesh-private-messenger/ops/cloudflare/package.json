@@ -1,0 +1,20 @@
+{
+  "name": "morse-cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test *.test.mjs",
+    "deploy": "node ../../scripts/release-verification.mjs && node prepare-build.mjs --isolated && wrangler deploy --config wrangler.build.json",
+    "dev": "node prepare-build.mjs && wrangler dev --config wrangler.build.json",
+    "deploy:edge": "node ../../scripts/release-verification.mjs && node prepare-build.mjs --edge && wrangler deploy --config wrangler.build.json",
+    "deploy:witness-a": "node ../../scripts/release-verification.mjs && node prepare-build.mjs --witness-a && wrangler deploy --config wrangler.build.json",
+    "deploy:witness-b": "node ../../scripts/release-verification.mjs && node prepare-build.mjs --witness-b && wrangler deploy --config wrangler.build.json"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7"
+  },
+  "devDependencies": {
+    "miniflare": "5.20260918.0-alpha",
+    "wrangler": "4.135.0"
+  }
+}

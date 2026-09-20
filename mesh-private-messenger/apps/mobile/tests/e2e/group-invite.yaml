@@ -1,0 +1,22 @@
+appId: io.morseapp
+---
+- launchApp
+- tapOn:
+    id: "tab-groups"
+- tapOn: "Create group"
+- tapOn:
+    id: "Group name"
+- inputText: "Weekend walks"
+- tapOn: "Create group"
+- extendedWaitUntil:
+    visible: "Group details"
+    timeout: 30000
+- tapOn:
+    id: "Exact username"
+- inputText: ${QA_RECIPIENT}
+- tapOn: "Send group invitation"
+- extendedWaitUntil:
+    visible: "@${QA_RECIPIENT}"
+    timeout: 30000
+- assertVisible: "Waiting for them to accept"
+- takeScreenshot: group-invitation-sent

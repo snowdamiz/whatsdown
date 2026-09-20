@@ -1,4 +1,27 @@
 from Store.Service import ObjectResult, complete, delete_object, get_part, grant, initialize, purge_expired, put_part
+from Store.Service import next_expiry, transaction_in_progress
+import RuntimeJobs
+
+fn run_expiry() -> Int ! String do
+  let _ = purge_expired(database_path(), storage_root(), current_time() ?, 1) ?
+  next_expiry(database_path())
+end
+
+fn handle_jobs(request :: Request) -> Response do
+  if !RuntimeJobs.internal_request_authorized(request,
+  Env.get("MESSENGER_OBJECT_INTERNAL_TOKEN", "")) do
+    HTTP.response(401, "")
+  else
+    case transaction_in_progress(database_path(), Request.body(request)) do
+      Err( _) -> HTTP.response(503, "")
+      Ok( true) -> HTTP.response(202, "")
+      Ok( false) -> case run_expiry() do
+        Err( _) -> HTTP.response(503, "")
+        Ok( due) -> HTTP.response(200, Int.to_string(due))
+      end
+    end
+  end
+end
 
 fn fatal(message :: String) do
   io_eprintln(message)
@@ -12,7 +35,7 @@ struct PartRequest do
 end
 
 fn database_path() -> String do
-  Env.get("MESSENGER_OBJECT_DATABASE_PATH", "")
+  Env.get("MESSENGER_OBJECT_DATABASE_URL", "")
 end
 
 fn storage_root() -> String do
@@ -56,7 +79,11 @@ fn part_request(request :: Request) -> PartRequest ! String do
       end
     end
   end ?
-  let capability = case Request.header(request, "X-Object-Capability") do
+  let capability_header = case Request.header(request, "X-Object-Capability") do
+    None -> Request.header(request, "x-object-capability")
+    Some( value) -> Some(value)
+  end
+  let capability = case capability_header do
     None -> Err("invalid object request")
     Some( value) -> hex32(value)
   end ?
@@ -175,10 +202,13 @@ fn main() do
     case initialize(database_path(), storage_root()) do
       Err( _) -> fatal("object storage configuration is invalid or unavailable")
       Ok( _) -> do
-        spawn(expiry_worker, database_path(), storage_root())
+        if !RuntimeJobs.enabled() do
+          spawn(expiry_worker, database_path(), storage_root())
+        end
         println("object-store listening on :#{port}")
         let _ = HTTP.serve(HTTP.router()
           |> HTTP.on_get("/health", handle_health)
+          |> HTTP.on_post("/internal/v1/jobs/objects", handle_jobs)
           |> HTTP.on_post("/v1/attachments/grant", handle_grant)
           |> HTTP.on_put("/v1/objects/:object_id/parts/:part_index", handle_put)
           |> HTTP.on_get("/v1/objects/:object_id/parts/:part_index", handle_get)

@@ -77,3 +77,27 @@ Non-final plaintext chunks are exactly `chunk_size`; the final plaintext chunk
 is exactly the manifest-derived remainder. The maximum encoded encrypted chunk
 is 65,576 bytes. All decoders reject oversized input, truncation, unsupported
 versions, invalid indices or sizes, and trailing bytes before decryption.
+
+## Multiple attachments in messages
+
+A message may carry up to ten files of any MIME type, subject to the existing
+16 MiB per-file and encrypted-message size limits. A single attachment retains
+its `ATR` reference or `ATG` group-envelope encoding. Multiple attachments use:
+
+```
+0x01 | "ATB" | count:u32 | count × (length:u32 | attachment bytes)
+```
+
+The count must be 2–10. Empty entries, nested batches, trailing bytes, and
+truncated entries are rejected. Direct messages and local history contain `ATR`
+entries, each bounded to 1024 bytes; each key is rewrapped for its recipient as
+before. Group messages contain `ATG` entries, from which each recipient extracts
+its own reference. History exports use the same `ATB` framing around the opened
+summaries, preserving selection order in one message. Group albums still fit
+within the existing group-message byte ceiling; recipient key wraps count
+against that ceiling.
+
+Both clients need a native core and UI that understand `ATB` to exchange albums.
+Existing single-file messages remain readable. Failed partial uploads are
+removed; once sending starts, objects are retained until expiry because the
+native outbox may already contain the message even if delivery reports failure.

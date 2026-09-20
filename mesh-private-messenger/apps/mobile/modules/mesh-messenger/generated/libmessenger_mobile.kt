@@ -27,6 +27,11 @@ object MeshLibrary {
     @JvmStatic external fun prepare_fanout_prekeys_export(request: ByteArray): ByteArray
     @JvmStatic external fun send_fanout_export(request: ByteArray): ByteArray
     @JvmStatic external fun group_key_package_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_invite_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_invitation_accept_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_invitation_complete_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_invitation_decline_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_invitations_export(request: ByteArray): ByteArray
     @JvmStatic external fun group_create_export(request: ByteArray): ByteArray
     @JvmStatic external fun group_add_export(request: ByteArray): ByteArray
     @JvmStatic external fun group_remove_export(request: ByteArray): ByteArray
@@ -47,10 +52,17 @@ object MeshLibrary {
     @JvmStatic external fun directory_entry_export(request: ByteArray): ByteArray
     @JvmStatic external fun directory_lookup_export(request: ByteArray): ByteArray
     @JvmStatic external fun transparency_lookup_export(request: ByteArray): ByteArray
+    @JvmStatic external fun register_request_export(request: ByteArray): ByteArray
+    @JvmStatic external fun resolve_request_export(request: ByteArray): ByteArray
     @JvmStatic external fun verify_transparency_export(request: ByteArray): ByteArray
     @JvmStatic external fun privacy_submission_export(request: ByteArray): ByteArray
     @JvmStatic external fun mailbox_fetch_export(request: ByteArray): ByteArray
     @JvmStatic external fun process_delivery_batch_export(request: ByteArray): ByteArray
     @JvmStatic external fun outbox_list_export(request: ByteArray): ByteArray
     @JvmStatic external fun outbox_ack_export(request: ByteArray): ByteArray
+    @JvmStatic external fun presentation_load_export(request: ByteArray): ByteArray
+    @JvmStatic external fun presentation_save_export(request: ByteArray): ByteArray
+    @JvmStatic external fun attachment_prepare_export(request: ByteArray): ByteArray
+    @JvmStatic external fun attachment_seal_chunk_export(request: ByteArray): ByteArray
+    @JvmStatic external fun attachment_open_chunk_export(request: ByteArray): ByteArray
 }

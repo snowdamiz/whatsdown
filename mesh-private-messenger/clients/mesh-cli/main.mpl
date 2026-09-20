@@ -1,9 +1,35 @@
 from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeliveredEnvelope, DeviceCredential, DirectoryEntry, InnerEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_delivery_batch, decode_device_credential, decode_directory_entry, decode_inner_envelope, decode_outer_envelope, decode_prekey_bundle, encode_account_identity, encode_directory_entry, encode_directory_lookup, encode_initial_message, encode_inner_envelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope, encode_prekey_bundle
+from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle
+from Prekeys.Pool import PrekeyClaimRequest, encode_prekey_claim
+from Privacy.Edge import RequestStamp, encode_stamped_request, mint_request_stamp
+from Protocol.DirectoryWire import decode_device_set, encode_directory_entry
+from Protocol.EnvelopeWire import (
+  decode_inner_envelope,
+  decode_outer_envelope,
+  encode_inner_envelope,
+  encode_outer_envelope
+)
+from Protocol.HandshakeWire import encode_initial_message
+from Protocol.IdentityWire import decode_account_identity, decode_device_credential, encode_account_identity
+from Protocol.MailboxWire import decode_delivery_batch, sign_mailbox_ack, sign_mailbox_fetch
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import (
+  AccountIdentity,
+  DeliveredEnvelope,
+  DeviceCredential,
+  DeviceSet,
+  DirectoryEntry,
+  InnerEnvelope,
+  OuterEnvelope,
+  PrekeyBundle
+)
 from Session.Handshake import RatchetState, initiate, receive_initial
-from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt
-from Transport.Packet import TransportPacket, decode_packet, encode_packet, open_initial_packet, seal_initial_packet, session_aad
+from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt_sealed, ratchet_transport_matches
+from Transparency.Client import checkpoint_fresh_at, verify_evidence
+from Transparency.Merkle import TransparencyCheckpoint, WitnessKey
+from Transparency.Wire import TransparencyEvidence, TransparencyLookup, decode_transparency_evidence, encode_transparency_lookup
+from Transport.Packet import TransportPacket, decode_packet, encode_packet, session_aad
+from Transport.Recipient import open_recipient_packet, seal_recipient_packet
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
@@ -120,29 +146,34 @@ fn outer_wire(value :: OuterEnvelope) -> Bytes ! String do
   end
 end
 
-fn lookup_wire(username :: String) -> Bytes ! String do
-  case encode_directory_lookup(username) do
-    Err( _) -> Err("directory lookup encoding failed")
-    Ok( output) -> Ok(output)
-  end
+fn clock() -> U64 ! String do
+  wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
-fn fetch_wire(value :: MailboxFetch) -> Bytes ! String do
-  case encode_mailbox_fetch(value) do
-    Err( _) -> Err("mailbox fetch encoding failed")
-    Ok( output) -> Ok(output)
-  end
-end
-
-fn ack_wire(value :: MailboxAck) -> Bytes ! String do
-  case encode_mailbox_ack(value) do
-    Err( _) -> Err("mailbox ack encoding failed")
-    Ok( output) -> Ok(output)
+fn pinned_key(name :: String) -> Bytes ! String do
+  let value = Bytes.from_hex(Env.get(name, "")) ?
+  if Bytes.length(value) == 32 do
+    Ok(value)
+  else
+    Err("#{name} must be a pinned 32-byte public key")
   end
 end
 
 fn base_url() -> String do
   Env.get("MESSENGER_BASE_URL", "http://127.0.0.1:18086")
+end
+
+# Register, resolve and prekey claim are anonymous, so the directory wants proof
+# of work minted for that endpoint. This client has no signed native
+# configuration, so it reads the difficulty the deployment publishes.
+
+fn stamped(label :: String, payload :: Bytes) -> Bytes ! String do
+  let expires_at = U64.add(clock() ?, U64.parse("240000") ?) ?
+  encode_stamped_request(mint_request_stamp(label,
+  payload,
+  expires_at,
+  Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16)) ?,
+  payload)
 end
 
 fn post(path :: String, body :: Bytes) -> HttpResponse ! String do
@@ -164,27 +195,115 @@ fn put(path :: String, body :: Bytes) -> HttpResponse ! String do
 end
 
 fn register_entry(entry :: DirectoryEntry) -> Int ! String do
-  let response = put("/v1/directory/register", directory_wire(entry) ?) ?
+  let response = put("/v1/devices/register",
+  stamped("mesh-msg/v1/work/register", directory_wire(entry) ?) ?) ?
   if response.status == 201 do
     Ok(response.status)
   else
-    Err("directory registration returned #{response.status}")
+    Err("device registration returned #{response.status}")
   end
 end
 
-fn resolve_entry(attempt :: Int) -> DirectoryEntry ! String do
-  let response = post("/v1/directory/resolve", lookup_wire("device-b") ?) ?
-  if response.status == 200 do
-    case decode_directory_entry(response.body_bytes) do
-      Err( _) -> Err("invalid directory response")
-      Ok( entry) -> Ok(entry)
-    end
+# The directory is untrusted: an entry is used only with a fresh checkpoint
+# signed by the pinned service key, an inclusion proof, and both pinned witnesses.
+
+fn evidence_verified(evidence :: TransparencyEvidence) -> Bool ! String do
+  let witnesses = [WitnessKey {
+    witness_id : "witness-a",
+    public_key : pinned_key("MESSENGER_WITNESS_A_PUBLIC_KEY_HEX") ?
+  }, WitnessKey {
+    witness_id : "witness-b",
+    public_key : pinned_key("MESSENGER_WITNESS_B_PUBLIC_KEY_HEX") ?
+  }]
+  let service_key_bytes = pinned_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX") ?
+  let service_key = SigningPublicKey { bytes : service_key_bytes }
+  if !checkpoint_fresh_at(evidence.checkpoint.timestamp, clock() ?) do
+    Ok(false)
   else
-    if response.status == 404 && attempt < 20 do
-      Timer.sleep(250)
-      resolve_entry(attempt + 1)
+    verify_evidence(evidence, service_key, witnesses, 2, Bytes.empty())
+  end
+end
+
+fn verified_entry(evidence :: TransparencyEvidence, username :: String) -> DirectoryEntry ! String do
+  let device_set = case decode_device_set(evidence.entry_bytes) do
+    Err( _) -> Err("invalid transparent device set")
+    Ok( value) -> Ok(value)
+  end ?
+  if device_set.username != username || List.length(device_set.devices) != 1 do
+    Err("unexpected transparent device set")
+  else
+    Ok(List.head(device_set.devices))
+  end
+end
+
+fn retry_resolution(username :: String, attempt :: Int, reason :: String) -> DirectoryEntry ! String do
+  if attempt < 240 do
+    Timer.sleep(250)
+    resolve_entry(username, attempt + 1)
+  else
+    Err(reason)
+  end
+end
+
+fn resolve_entry(username :: String, attempt :: Int) -> DirectoryEntry ! String do
+  let lookup = encode_transparency_lookup(TransparencyLookup {
+    username : username,
+    previous_tree_size : 0
+  }) ?
+  let response = post("/v1/devices/resolve", stamped("mesh-msg/v1/work/resolve", lookup) ?) ?
+  if response.status == 404 do
+    retry_resolution(username, attempt, "device resolution returned 404")
+  else if response.status != 200 do
+    Err("device resolution returned #{response.status}")
+  else
+    let evidence = decode_transparency_evidence(response.body_bytes) ?
+    if evidence_verified(evidence) ? do
+      verified_entry(evidence, username)
     else
-      Err("directory resolution returned #{response.status}")
+      # Witnesses countersign asynchronously; unverified evidence is never used.
+      retry_resolution(username, attempt, "transparency evidence was not verified")
+    end
+  end
+end
+
+# The transparent base bundle carries no one-time prekey. A claimed bundle is
+# used only if clearing its one-time prekey reproduces the verified base exactly.
+
+fn claim_prekey_bundle(base_bundle :: Bytes) -> PrekeyBundle ! String do
+  let base = case decode_prekey_bundle(base_bundle) do
+    Err( _) -> Err("invalid base prekey bundle")
+    Ok( value) -> Ok(value)
+  end ?
+  let owner = case decode_device_credential(base.device_credential) do
+    Err( _) -> Err("invalid base device credential")
+    Ok( value) -> Ok(value)
+  end ?
+  let claim = encode_prekey_claim(PrekeyClaimRequest {
+    account_id : owner.account_id,
+    device_id : owner.device_id,
+    base_bundle_hash : Crypto.sha256(base_bundle),
+    reservation_id : random(16) ?
+  }) ?
+  let response = post("/v1/prekeys/bundle", stamped("mesh-msg/v1/work/prekey-claim", claim) ?) ?
+  if response.status != 200 do
+    Err("prekey claim returned #{response.status}")
+  else
+    let claimed = case decode_prekey_bundle(response.body_bytes) do
+      Err( _) -> Err("invalid claimed prekey bundle")
+      Ok( value) -> Ok(value)
+    end ?
+    let normalized = case normalize_prekey_bundle(claimed) do
+      Err( _) -> Err("invalid claimed prekey bundle")
+      Ok( value) -> Ok(value)
+    end ?
+    let normalized_bytes = case encode_prekey_bundle(normalized) do
+      Err( _) -> Err("invalid claimed prekey bundle")
+      Ok( value) -> Ok(value)
+    end ?
+    if Bytes.secure_equals(normalized_bytes, base_bundle) do
+      Ok(claimed)
+    else
+      Err("claimed prekey bundle does not match the verified base")
     end
   end
 end
@@ -198,16 +317,18 @@ fn submit_envelope(encoded :: Bytes, expected :: Int) -> Int ! String do
   end
 end
 
-fn fetch_envelopes(token :: Bytes, attempt :: Int) -> List < DeliveredEnvelope > ! String do
-  let body = fetch_wire(MailboxFetch {
-    version : 1,
-    mailbox_token : token,
-    after_sequence : wide("0") ?
-  }) ?
+fn fetch_envelopes(device_keys :: borrow DeviceKeys, token :: Bytes, attempt :: Int) -> List < DeliveredEnvelope > ! String do
+  let body = case sign_mailbox_fetch(device_keys.signing_private_key,
+  Crypto.sha256(token),
+  wide("0") ?,
+  clock() ?) do
+    Err( _) -> Err("mailbox fetch signing failed")
+    Ok( value) -> Ok(value)
+  end ?
   case post("/v1/mailbox/fetch", body) do
     Err( _) -> if attempt < 2 do
       Timer.sleep(250)
-      fetch_envelopes(token, attempt + 1)
+      fetch_envelopes(device_keys, token, attempt + 1)
     else
       Err("mailbox fetch failed")
     end
@@ -222,13 +343,15 @@ fn fetch_envelopes(token :: Bytes, attempt :: Int) -> List < DeliveredEnvelope >
   end
 end
 
-fn acknowledge(token :: Bytes, ids :: List < Bytes >) -> Int ! String do
-  let response = post("/v1/mailbox/ack",
-  ack_wire(MailboxAck {
-    version : 1,
-    mailbox_token : token,
-    envelope_ids : ids
-  }) ?) ?
+fn acknowledge(device_keys :: borrow DeviceKeys, token :: Bytes, ids :: List < Bytes >) -> Int ! String do
+  let body = case sign_mailbox_ack(device_keys.signing_private_key,
+  Crypto.sha256(token),
+  clock() ?,
+  ids) do
+    Err( _) -> Err("mailbox acknowledgement signing failed")
+    Ok( value) -> Ok(value)
+  end ?
+  let response = post("/v1/mailbox/ack", body) ?
   if response.status == 200 do
     Ok(response.status)
   else
@@ -268,21 +391,25 @@ body :: String) -> InnerEnvelope ! String do
 end
 
 fn encrypt_message(state :: consume RatchetState, value :: InnerEnvelope, aad :: Bytes) -> Result <( RatchetState, RatchetMessage), String > do
-  case encrypt(state, inner_wire(value) ?, aad) do
+  case encrypt_sealed(state, inner_wire(value) ?, aad) do
     Err( _) -> Err("ratchet encryption failed")
     Ok( output) -> Ok(output)
   end
 end
 
-fn outbound(token :: Bytes, ciphertext :: Bytes) -> Bytes ! String do
+# Every packet is sealed to the recipient device: delivery sees outer suite 4,
+# a size bucket, and opaque bytes, never the session or the packet kind.
+
+fn outbound(token :: Bytes, packet :: Bytes, recipient_dh_public_key :: Bytes) -> Bytes ! String do
+  let sealed = seal_recipient_packet(packet, X25519PublicKey { bytes : recipient_dh_public_key }) ?
   outer_wire(OuterEnvelope {
     version : 1,
     envelope_id : random(16) ?,
     mailbox_token : token,
-    suite : 1,
-    expiration : wide("1900000000000") ?,
-    padding_bucket : Bytes.length(ciphertext),
-    ciphertext : ciphertext
+    suite : 4,
+    expiration : U64.add(clock() ?, wide("86400000") ?) ?,
+    padding_bucket : Bytes.length(sealed),
+    ciphertext : sealed
   })
 end
 
@@ -290,15 +417,12 @@ fn run_device_a() -> Int ! String do
   let created_at = wide("1700000000000") ?
   let now = wide("1800000000000") ?
   let expires_at = wide("1900000000000") ?
-  let directory = resolve_entry(0) ?
+  let directory = resolve_entry("device-b", 0) ?
   let bob_account = case decode_account_identity(directory.account_identity) do
     Err( _) -> Err("invalid responder account")
     Ok( value) -> Ok(value)
   end ?
-  let bob_bundle = case decode_prekey_bundle(directory.prekey_bundle) do
-    Err( _) -> Err("invalid responder prekey bundle")
-    Ok( value) -> Ok(value)
-  end ?
+  let bob_bundle = claim_prekey_bundle(directory.prekey_bundle) ?
   let bob_credential = case decode_device_credential(bob_bundle.device_credential) do
     Err( _) -> Err("invalid responder credential")
     Ok( value) -> Ok(value)
@@ -325,8 +449,8 @@ fn run_device_a() -> Int ! String do
   end ?
   let aad = session_aad(alice_session.session_id) ?
   let initial_outer = outbound(directory.mailbox_token,
-  seal_initial_packet(account_wire(alice_account) ?, initial_wire(initial) ?,
-  X25519PublicKey { bytes : bob_credential.dh_public_key }) ?) ?
+  encode_packet(InitialPacket(account_wire(alice_account) ?, initial_wire(initial) ?)) ?,
+  bob_credential.dh_public_key) ?
   let _ = submit_envelope(initial_outer, 202) ?
   let _ = submit_envelope(initial_outer, 200) ?
   let first_id = random(16) ?
@@ -357,10 +481,18 @@ fn run_device_a() -> Int ! String do
   "third") ?,
   aad) ?
   let _alice_session = alice_session
-  let third_outer = outbound(directory.mailbox_token, encode_packet(RatchetPacket(ratchet_wire(third) ?)) ?) ?
-  let first_outer = outbound(directory.mailbox_token, encode_packet(RatchetPacket(ratchet_wire(first) ?)) ?) ?
-  let duplicate_outer = outbound(directory.mailbox_token, encode_packet(RatchetPacket(ratchet_wire(second) ?)) ?) ?
-  let second_outer = outbound(directory.mailbox_token, encode_packet(RatchetPacket(ratchet_wire(second) ?)) ?) ?
+  let third_outer = outbound(directory.mailbox_token,
+  encode_packet(RatchetPacket(ratchet_wire(third) ?)) ?,
+  bob_credential.dh_public_key) ?
+  let first_outer = outbound(directory.mailbox_token,
+  encode_packet(RatchetPacket(ratchet_wire(first) ?)) ?,
+  bob_credential.dh_public_key) ?
+  let duplicate_outer = outbound(directory.mailbox_token,
+  encode_packet(RatchetPacket(ratchet_wire(second) ?)) ?,
+  bob_credential.dh_public_key) ?
+  let second_outer = outbound(directory.mailbox_token,
+  encode_packet(RatchetPacket(ratchet_wire(second) ?)) ?,
+  bob_credential.dh_public_key) ?
   let _ = submit_envelope(third_outer, 202) ?
   let _ = submit_envelope(first_outer, 202) ?
   let _ = submit_envelope(second_outer, 202) ?
@@ -379,7 +511,12 @@ fn display(value :: Bytes) do
   end
 end
 
+fn opened_packet(outer :: OuterEnvelope, recipient :: borrow DeviceKeys) -> TransportPacket ! String do
+  decode_packet(open_recipient_packet(outer.ciphertext, recipient.identity_private_key) ?)
+end
+
 fn process_deliveries(state :: consume RatchetState,
+recipient :: borrow DeviceKeys,
 deliveries :: List < DeliveredEnvelope >,
 index :: Int,
 aad :: Bytes) -> RatchetState do
@@ -390,38 +527,52 @@ aad :: Bytes) -> RatchetState do
     case decode_outer_envelope(delivered.envelope) do
       Err( _) -> do
         println("device-b:invalid-outer")
-        process_deliveries(state, deliveries, index + 1, aad)
+        process_deliveries(state, recipient, deliveries, index + 1, aad)
       end
-      Ok( outer) -> case decode_packet(outer.ciphertext) do
+      Ok( outer) -> case opened_packet(outer, recipient) do
         Err( _) -> do
           println("device-b:invalid-packet")
-          process_deliveries(state, deliveries, index + 1, aad)
+          process_deliveries(state, recipient, deliveries, index + 1, aad)
         end
         Ok( InitialPacket( _, _)) -> do
           println("device-b:unexpected-initial")
-          process_deliveries(state, deliveries, index + 1, aad)
+          process_deliveries(state, recipient, deliveries, index + 1, aad)
         end
         Ok( RatchetPacket( message)) -> case decode_ratchet_message(message) do
           Err( _) -> do
             println("device-b:invalid-ratchet")
-            process_deliveries(state, deliveries, index + 1, aad)
+            process_deliveries(state, recipient, deliveries, index + 1, aad)
           end
-          Ok( decoded) -> case decrypt(state, decoded, aad) do
-            Rejected( next, Replay) -> do
-              println("dedup:suppressed")
-              process_deliveries(next, deliveries, index + 1, aad)
-            end
-            Rejected( next, _) -> do
-              println("device-b:ratchet-rejected")
-              process_deliveries(next, deliveries, index + 1, aad)
-            end
-            Opened( next, plaintext) -> do
-              display(plaintext)
-              process_deliveries(next, deliveries, index + 1, aad)
-            end
+          Ok( decoded) -> if !ratchet_transport_matches(decoded, true) do
+            println("device-b:invalid-ratchet")
+            process_deliveries(state, recipient, deliveries, index + 1, aad)
+          else
+            received_ratchet(state, recipient, deliveries, index, aad, decoded)
           end
         end
       end
+    end
+  end
+end
+
+fn received_ratchet(state :: consume RatchetState,
+recipient :: borrow DeviceKeys,
+deliveries :: List < DeliveredEnvelope >,
+index :: Int,
+aad :: Bytes,
+decoded :: RatchetMessage) -> RatchetState do
+  case decrypt(state, decoded, aad) do
+    Rejected( next, Replay) -> do
+      println("dedup:suppressed")
+      process_deliveries(next, recipient, deliveries, index + 1, aad)
+    end
+    Rejected( next, _) -> do
+      println("device-b:ratchet-rejected")
+      process_deliveries(next, recipient, deliveries, index + 1, aad)
+    end
+    Opened( next, plaintext) -> do
+      display(plaintext)
+      process_deliveries(next, recipient, deliveries, index + 1, aad)
     end
   end
 end
@@ -465,7 +616,7 @@ fn run_device_b() -> Int ! String do
     Err("MESSENGER_FETCH_DELAY_MS must be between 0 and 60000")
   else
     Timer.sleep(delay)
-    let deliveries = fetch_envelopes(token, 0) ?
+    let deliveries = fetch_envelopes(bob, token, 0) ?
     if List.length(deliveries) == 0 do
       Err("mailbox was empty")
     else
@@ -474,7 +625,7 @@ fn run_device_b() -> Int ! String do
         Err( _) -> Err("invalid initial outer envelope")
         Ok( value) -> Ok(value)
       end ?
-      let ( alice_account, initial) = case open_initial_packet(first_outer.ciphertext, bob.identity_private_key) do
+      let ( alice_account, initial) = case opened_packet(first_outer, bob) do
         Err( _) -> Err("invalid initial transport packet")
         Ok( RatchetPacket( _)) -> Err("expected initial transport packet")
         Ok( InitialPacket( account_bytes, initial_bytes)) -> case decode_account_identity(account_bytes) do
@@ -498,13 +649,47 @@ fn run_device_b() -> Int ! String do
       end ?
       display(initial_plaintext)
       let aad = session_aad(bob_session.session_id) ?
-      let _bob_session = process_deliveries(bob_session, deliveries, 1, aad)
+      let _bob_session = process_deliveries(bob_session, bob, deliveries, 1, aad)
       let ids = envelope_ids(deliveries, 0, List.new())
-      let _ = acknowledge(token, ids) ?
+      let _ = acknowledge(bob, token, ids) ?
       println("device-b:acked=#{List.length(ids)}")
       Ok(0)
     end
   end
+end
+
+# Live-service tests in other languages need a registered device and a fetch
+# frame signed by it; both come from the Mesh protocol code rather than a
+# second implementation. The frame authorizes fetch and stream for five minutes.
+
+fn run_stream_fixture() -> Int ! String do
+  let created_at = wide("1700000000000") ?
+  let expires_at = wide("1900000000000") ?
+  let ( account_keys, identity) = account(created_at) ?
+  let keys = device() ?
+  let issued = credential(account_keys, keys, created_at, expires_at) ?
+  let published = bundle(issued, signed_prekey(keys, issued, expires_at) ?, one_time_prekey() ?) ?
+  let token = random(32) ?
+  let _ = register_entry(DirectoryEntry {
+    version : 1,
+    username : "stream_" <> Bytes.to_hex(random(8) ?),
+    account_identity : account_wire(identity) ?,
+    prekey_bundle : case encode_prekey_bundle(published) do
+      Err( _) -> Err("prekey bundle encoding failed")
+      Ok( value) -> Ok(value)
+    end ?,
+    mailbox_token : token
+  }) ?
+  let fetch = case sign_mailbox_fetch(keys.signing_private_key,
+  Crypto.sha256(token),
+  wide("0") ?,
+  clock() ?) do
+    Err( _) -> Err("mailbox fetch signing failed")
+    Ok( value) -> Ok(value)
+  end ?
+  println("stream-fixture:token=" <> Bytes.to_hex(token))
+  println("stream-fixture:fetch=" <> Bytes.to_hex(fetch))
+  Ok(0)
 end
 
 fn report(role :: String, result :: Result < Int, String >) do
@@ -521,8 +706,10 @@ fn main() do
   else
     if role == "device-b" do
       report(role, run_device_b())
+    else if role == "stream-fixture" do
+      report(role, run_stream_fixture())
     else
-      println("MESSENGER_ROLE must be device-a or device-b")
+      println("MESSENGER_ROLE must be device-a, device-b, or stream-fixture")
     end
   end
 end

@@ -1,5 +1,5 @@
 {
-  "name": "whatsdown-mobile",
+  "name": "morse-mobile",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,26 +9,46 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "postinstall": "node scripts/harden-expo-notifications-autolinking.mjs",
+    "eas-build-pre-install": "bash ../../scripts/eas-build-native.sh",
+    "render-icons": "node scripts/render-icons.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/*.test.ts scripts/*.test.mjs"
+    "test:preview-bundles": "node scripts/test-preview-bundles.mjs",
+    "test:startup": "node scripts/test-startup.mjs",
+    "test": "node --experimental-strip-types --test src/*.test.ts scripts/*.test.mjs",
+    "test:attachments": "node scripts/test-attachments.mjs",
+    "test:profiles": "node scripts/test-profiles.mjs",
+    "test:receipts": "node scripts/test-receipts.mjs",
+    "test:notifications": "node scripts/test-unread.mjs --notifications"
   },
   "dependencies": {
     "@expo-google-fonts/geist": "0.4.2",
     "@expo-google-fonts/geist-mono": "0.4.3",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-notification": "2.4.0",
     "expo": "~57.0.18",
     "expo-camera": "~57.0.4",
     "expo-file-system": "~57.0.6",
     "expo-font": "~57.0.2",
+    "expo-glass-effect": "~57.0.3",
+    "expo-image-manipulator": "~57.0.19",
+    "expo-image-picker": "~57.0.19",
     "expo-notifications": "57.0.15",
+    "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
+    "expo-task-manager": "~57.0.19",
+    "expo-updates": "~57.0.23",
     "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-svg": "15.15.4"
+    "react-native-svg": "15.15.4",
+    "react-native-web": "0.21.2"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "@types/react": "~19.2.2",
+    "playwright": "1.63.0",
     "typescript": "~6.0.3"
   },
   "overrides": {

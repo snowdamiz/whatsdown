@@ -218,9 +218,43 @@ fn valid_username(value :: Bytes, index :: Int) -> Bool do
   end
 end
 
+# Internal reference syntax; account lookups have their own fixed-size KTA wire frame.
+
+pub fn account_lookup_id(reference :: String) -> Bytes ! String do
+  if !String.starts_with(reference, "@") do
+    Ok(Bytes.empty())
+  else if String.length(reference) != 65 do
+    Err("invalid account lookup")
+  else
+    let suffix = case Bytes.slice(Bytes.from_utf8(reference), 1, 64) do
+      Ok( value) -> Ok(value)
+      Err( _) -> Err("invalid account lookup")
+    end ?
+    let text = case Bytes.to_utf8(suffix) do
+      Ok( value) -> Ok(value)
+      Err( _) -> Err("invalid account lookup")
+    end ?
+    case Bytes.from_hex(text) do
+      Ok( value) -> if Bytes.length(value) == 32 && Bytes.to_hex(value) == text do
+        Ok(value)
+      else
+        Err("invalid account lookup")
+      end
+      Err( _) -> Err("invalid account lookup")
+    end
+  end
+end
+
 pub fn encode_transparency_lookup(value :: TransparencyLookup) -> Bytes ! String do
   let username = Bytes.from_utf8(value.username)
-  if !valid_username(username, 0) || value.previous_tree_size < 0 || value.previous_tree_size > 4096 do
+  let account_id = account_lookup_id(value.username) ?
+  if value.previous_tree_size < 0 || value.previous_tree_size > 4096 do
+    Err("invalid transparency lookup")
+  else if Bytes.length(account_id) == 32 do
+    join([byte(1) ?, Bytes.from_utf8("KTA"), account_id, write_u32(value.previous_tree_size) ?],
+    0,
+    Bytes.empty())
+  else if !valid_username(username, 0) do
     Err("invalid transparency lookup")
   else
     join([byte(1) ?, Bytes.from_utf8("KTQ"), vector(username) ?, write_u32(value.previous_tree_size) ?],
@@ -230,18 +264,40 @@ pub fn encode_transparency_lookup(value :: TransparencyLookup) -> Bytes ! String
 end
 
 pub fn decode_transparency_lookup(input :: Bytes) -> TransparencyLookup ! String do
-  let username = take_vector(start(input, 76, "KTQ") ?, 64) ?
-  let previous = take_u32(username.state) ?
-  done(previous.state) ?
-  if !valid_username(username.value, 0) || previous.value > 4096 do
-    Err("invalid transparency lookup")
+  let account_frame = if Bytes.length(input) == 40 do
+    case Bytes.slice(input, 1, 3) do
+      Ok( tag) -> Bytes.secure_equals(tag, Bytes.from_utf8("KTA"))
+      Err( _) -> false
+    end
   else
-    case Bytes.to_utf8(username.value) do
-      Err( _) -> Err("invalid transparency lookup")
-      Ok( value) -> Ok(TransparencyLookup {
-        username : value,
+    false
+  end
+  if account_frame do
+    let account = take_fixed(start(input, 40, "KTA") ?, 32) ?
+    let previous = take_u32(account.state) ?
+    done(previous.state) ?
+    if previous.value > 4096 do
+      Err("invalid transparency lookup")
+    else
+      Ok(TransparencyLookup {
+        username : "@" <> Bytes.to_hex(account.value),
         previous_tree_size : previous.value
       })
+    end
+  else
+    let username = take_vector(start(input, 76, "KTQ") ?, 64) ?
+    let previous = take_u32(username.state) ?
+    done(previous.state) ?
+    if !valid_username(username.value, 0) || previous.value > 4096 do
+      Err("invalid transparency lookup")
+    else
+      case Bytes.to_utf8(username.value) do
+        Err( _) -> Err("invalid transparency lookup")
+        Ok( value) -> Ok(TransparencyLookup {
+          username : value,
+          previous_tree_size : previous.value
+        })
+      end
     end
   end
 end

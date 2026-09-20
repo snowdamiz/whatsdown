@@ -6,12 +6,17 @@ on:
     branches:
       - main
   workflow_dispatch:
+  workflow_call:
+    outputs:
+      morse-revision:
+        value: ${{ jobs.mesh.outputs.morse-revision }}
+      mesh-revision:
+        value: ${{ jobs.mesh.outputs.mesh-revision }}
 
 permissions:
   contents: read
 
 env:
-  MESH_LANG_REVISION: b37e1b69c1b2df905a341e4ca07550b83086e67e
   CARGO_INCREMENTAL: "0"
   CARGO_PROFILE_DEV_DEBUG: "0"
   CARGO_PROFILE_TEST_DEBUG: "0"
@@ -29,13 +34,38 @@ jobs:
   mesh:
     name: Pinned Mesh and messenger tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 105
+    timeout-minutes: 150
+    outputs:
+      morse-revision: ${{ steps.verified.outputs.morse-revision }}
+      mesh-revision: ${{ steps.verified.outputs.mesh-revision }}
+    env:
+      MESSENGER_STORAGE_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:55439/morse_storage_test?sslmode=disable
+    services:
+      storage-postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: morse_storage_test
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
-      - name: Checkout Whatsdown
-        uses: actions/checkout@v4
+      - name: Checkout Morse
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Read pinned Mesh revision
+        working-directory: .
+        run: |
+          revision="$(cat mesh-private-messenger/mesh-revision)"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          echo "MESH_LANG_REVISION=$revision" >> "$GITHUB_ENV"
 
       - name: Checkout pinned Mesh
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: snowdamiz/mesh-lang
           ref: ${{ env.MESH_LANG_REVISION }}
@@ -48,7 +78,7 @@ jobs:
           bash mesh-private-messenger/scripts/run-root.test.sh
 
       - name: Cache LLVM
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: cache-llvm
         with:
           path: ~/llvm
@@ -62,6 +92,7 @@ jobs:
           LLVM_ARCHIVE="LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
           LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/${LLVM_ARCHIVE}"
           curl -sSfL "$LLVM_URL" -o llvm.tar.xz
+          echo "b3b7f2801d15d50736acea3c73982994d025b01c2f035b91ae3b49d1b575732b  llvm.tar.xz" | sha256sum -c -
           mkdir -p "$HOME/llvm"
           tar xf llvm.tar.xz --strip-components=1 -C "$HOME/llvm"
           rm llvm.tar.xz
@@ -70,14 +101,15 @@ jobs:
         run: echo "LLVM_SYS_211_PREFIX=$HOME/llvm" >> "$GITHUB_ENV"
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         timeout-minutes: 10
         with:
+          toolchain: 1.97.0
           components: rustfmt
           targets: x86_64-unknown-linux-gnu,aarch64-linux-android,x86_64-linux-android
 
       - name: Cargo cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           key: ci-mesh-x86_64-unknown-linux-gnu
           workspaces: mesh-lang -> target
@@ -119,6 +151,20 @@ jobs:
           ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/object_store.test.mpl
           bash -n ../mesh-private-messenger/scripts/prove-service-startup.sh
           ../mesh-private-messenger/scripts/prove-service-startup.sh
+
+      - name: Set up Node for Cloudflare tests
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Verify Cloudflare storage and routing
+        timeout-minutes: 10
+        run: |
+          ./target/debug/meshc test ../mesh-private-messenger/services/push-broker/tests
+          ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/postgres.test.mpl
+          node --test ../mesh-private-messenger/scripts/*.test.mjs
+          npm ci --prefix ../mesh-private-messenger/ops/cloudflare
+          MESHC="$PWD/target/debug/meshc" npm test --prefix ../mesh-private-messenger/ops/cloudflare
 
       - name: Build Android mobile archives
         timeout-minutes: 35
@@ -167,3 +213,12 @@ jobs:
           npm audit --audit-level=high
           npm test
           npm run typecheck
+
+      - name: Record verified revisions
+        id: verified
+        working-directory: .
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C mesh-lang rev-parse HEAD)" = "$MESH_LANG_REVISION"
+          echo "morse-revision=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "mesh-revision=$MESH_LANG_REVISION" >> "$GITHUB_OUTPUT"

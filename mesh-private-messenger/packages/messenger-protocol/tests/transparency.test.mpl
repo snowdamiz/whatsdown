@@ -1,7 +1,8 @@
-from Transparency.Client import verify_evidence
+from Transparency.Client import checkpoint_fresh_at, verify_evidence
 from Transparency.Merkle import WitnessAttestation, WitnessKey, checkpoint_conflict, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, merkle_root, sign_checkpoint, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
 from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_transparency_evidence, decode_transparency_lookup, decode_transparency_tree_query, decode_witnesses, encode_checkpoint, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query, encode_witnesses
-from Protocol.V1 import DeviceSet, DirectoryEntry, encode_device_set
+from Protocol.DirectoryWire import encode_device_set
+from Protocol.V1 import DeviceSet, DirectoryEntry
 
 fn signing_pair() -> SigningKeyPair ! String do
   case Crypto.signing_generate() do
@@ -300,5 +301,50 @@ test("maximal witness sets round-trip at the exact wire ceiling") do
       assert(false)
     end
     Ok( value) -> assert(value)
+  end
+end
+
+fn freshness_proof() -> Bool ! String do
+  assert(checkpoint_fresh_at(wide("1000000") ?, wide("1300000") ?))
+  assert(!checkpoint_fresh_at(wide("1000000") ?, wide("1300001") ?))
+  assert(checkpoint_fresh_at(wide("1060000") ?, wide("1000000") ?))
+  assert(!checkpoint_fresh_at(wide("1060001") ?, wide("1000000") ?))
+  Ok(true)
+end
+
+test("C4 outbound authorization accepts at most five minutes of age and one minute of clock skew") do
+  case freshness_proof() do
+    Ok( value) -> assert(value)
+    Err( _) -> assert(false)
+  end
+end
+
+fn account_lookup_proof() -> Bool ! String do
+  let reference = "@1111111111111111111111111111111111111111111111111111111111111111"
+  let encoded = encode_transparency_lookup(TransparencyLookup {
+    username : reference,
+    previous_tree_size : 7
+  }) ?
+  assert(Bytes.length(encoded) == 40)
+  case Bytes.slice(encoded, 1, 3) do
+    Ok( tag) -> assert(Bytes.secure_equals(tag, Bytes.from_utf8("KTA")))
+    Err( _) -> assert(false)
+  end
+  let decoded = decode_transparency_lookup(encoded) ?
+  assert(decoded.username == reference && decoded.previous_tree_size == 7)
+  case encode_transparency_lookup(TransparencyLookup {
+    username : "@alice",
+    previous_tree_size : 0
+  }) do
+    Ok( _) -> assert(false)
+    Err( _) -> nil
+  end
+  Ok(true)
+end
+
+test("C4 account-bound lookup refreshes group recipients without trusting a supplied username") do
+  case account_lookup_proof() do
+    Ok( value) -> assert(value)
+    Err( _) -> assert(false)
   end
 end

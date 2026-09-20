@@ -1417,7 +1417,7 @@ For direct Mesh crypto implementations:
 - Run timing-distribution tests.
 - Verify all supported optimization levels.
 - Verify every supported architecture.
-- Obtain external specialist review.
+- Record internal verification for the exact candidate; seek external specialist review as additional scrutiny.
 
 ## 16.5 Migration order
 
@@ -1470,9 +1470,9 @@ Add:
 
 ## 17.3 Production-target profile C
 
-Purpose: audited production profile.
+Purpose: internally verified production-target profile. No independent audit is claimed.
 
-Select after external review:
+Select using behavioral evidence for the release candidate:
 
 - Exact post-quantum initial key-establishment profile
 - Exact ratchet profile
@@ -3331,7 +3331,7 @@ Add hybrid post-quantum protection.
 - Classical-only fallback is explicit
 - Downgrade attempts fail
 - Mobile performance is acceptable
-- External cryptographic review completed before production activation
+- Exact-candidate internal security and applicable platform verification completed
 
 ---
 
@@ -3364,7 +3364,7 @@ Implement MLS-based groups in Mesh.
 - Epoch reordering handled
 - Removed member cannot decrypt future epochs
 - State recovery and persistence tested
-- External protocol review completed
+- Exact-candidate internal protocol and applicable platform verification completed
 
 ---
 

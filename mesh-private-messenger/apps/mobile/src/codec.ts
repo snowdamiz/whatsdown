@@ -1,3 +1,7 @@
+import { applyReactions, type Reaction } from './reactions.ts';
+import { applyReceipts, type ReceiptState } from './receipts.ts';
+import { applyReplies, type Reply } from './replies.ts';
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
 
@@ -14,12 +18,32 @@ export type Conversation = {
   disappearingSeconds: number;
 };
 
+// The opened manifest of one attachment, next to the opaque reference that the
+// native core needs back to decrypt its chunks.
+export type AttachmentSummary = {
+  reference: Uint8Array;
+  objectId: Uint8Array;
+  downloadCapability: Uint8Array;
+  filename: string;
+  mimeType: string;
+  size: number;
+  chunkCount: number;
+  chunkSize: number;
+  expiresAt: number;
+};
+
 export type HistoryMessage = {
+  reactions?: Reaction[];
+  // The message this one answers, quoted from this device's own history.
+  reply?: Reply<Omit<HistoryMessage, 'reply'>>;
+  // The furthest the other side has acknowledged a sent message, or this account a received one.
+  receipt?: ReceiptState;
   direction: 'sent' | 'received';
   messageId: Uint8Array;
   timestamp: number;
   body: string;
   disappearingSeconds: number;
+  attachments?: AttachmentSummary[];
 };
 
 export type DeviceSummary = {
@@ -49,16 +73,29 @@ export type GroupSummary = {
   memberCount: number;
 };
 
+export type GroupInvitation = {
+  reference: Uint8Array;
+  groupId: Uint8Array;
+  username: string;
+  accountId: Uint8Array;
+  state: number;
+};
+
 export type GroupHistoryMessage = {
+  messageId?: Uint8Array;
+  reactions?: Reaction[];
+  reply?: Reply<Omit<GroupHistoryMessage, 'reply'>>;
   direction: 'sent' | 'received';
   epoch: number;
   senderAccountId: Uint8Array;
   senderDeviceId: Uint8Array;
   timestamp: number;
   body: string;
+  attachments?: AttachmentSummary[];
 };
 
 export type GroupMemberSummary = {
+  username?: string;
   leaf: number;
   local: boolean;
   accountId: Uint8Array;
@@ -103,7 +140,7 @@ export const vector = (value: Uint8Array): Uint8Array => concat([writeU32(value.
 export const vectors = (...values: readonly Uint8Array[]): Uint8Array =>
   concat(values.map(vector));
 
-class Reader {
+export class Reader {
   private offset = 0;
   private readonly input: Uint8Array;
 
@@ -198,6 +235,72 @@ function exactByteList(input: Uint8Array, count: number, maximumItemLength: numb
   return values;
 }
 
+export const ATTACHMENT_CHUNK_SIZE = 65_536;
+export const MAXIMUM_ATTACHMENT_SIZE = 256 * ATTACHMENT_CHUNK_SIZE;
+// A summary with its opened manifest fields; the reference alone is under 1 KiB.
+const MAXIMUM_ATTACHMENT_SUMMARY = 2_048;
+export const MAXIMUM_ATTACHMENTS = 10;
+const MAXIMUM_ATTACHMENT_SUMMARIES = 8 + MAXIMUM_ATTACHMENTS * (4 + MAXIMUM_ATTACHMENT_SUMMARY);
+
+export function parseAttachmentSummary(input: Uint8Array): AttachmentSummary | undefined {
+  if (input.length === 0) return undefined;
+  const [reference, objectId, downloadCapability, filename, mimeType, size, chunkCount, chunkSize, expiresAt] =
+    exactByteList(input, 9, 1_024);
+  if (!reference || !objectId || !downloadCapability || !filename || !mimeType || !size || !chunkCount || !chunkSize || !expiresAt) {
+    throw new Error('Invalid attachment');
+  }
+  const summary: AttachmentSummary = {
+    reference,
+    objectId,
+    downloadCapability,
+    filename: decodeUtf8(filename),
+    mimeType: decodeUtf8(mimeType),
+    size: readU32(size),
+    chunkCount: readU32(chunkCount),
+    chunkSize: readU32(chunkSize),
+    expiresAt: readU64Number(expiresAt),
+  };
+  if (
+    reference.length === 0 ||
+    objectId.length !== 32 ||
+    downloadCapability.length !== 32 ||
+    summary.mimeType.length === 0 ||
+    summary.size === 0 ||
+    summary.size > MAXIMUM_ATTACHMENT_SIZE ||
+    summary.chunkSize !== ATTACHMENT_CHUNK_SIZE ||
+    summary.chunkCount !== Math.ceil(summary.size / ATTACHMENT_CHUNK_SIZE)
+  ) {
+    throw new Error('Invalid attachment');
+  }
+  return summary;
+}
+
+// ATB framing is only used for multiple files; old single-file histories still decode.
+export function encodeAttachmentReferences(references: Uint8Array[]): Uint8Array {
+  if (references.length > MAXIMUM_ATTACHMENTS) throw new Error('You can attach up to 10 files per message.');
+  if (references.some((reference) => reference.length === 0 || reference.length > 1_024)) throw new Error('Invalid attachment');
+  if (references.length <= 1) return references[0] ?? new Uint8Array();
+  return new Uint8Array([1, 65, 84, 66, ...writeU32(references.length), ...vectors(...references)]);
+}
+
+function parseAttachmentSummaries(input: Uint8Array): AttachmentSummary[] {
+  if (input.length === 0) return [];
+  if (input[0] !== 1 || input[1] !== 65 || input[2] !== 84 || input[3] !== 66) {
+    return [parseAttachmentSummary(input)!];
+  }
+  const reader = new Reader(input.subarray(8));
+  const count = readU32(input.subarray(4, 8));
+  if (count < 2 || count > MAXIMUM_ATTACHMENTS) throw new Error('Invalid attachment count');
+  const summaries: AttachmentSummary[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const summary = parseAttachmentSummary(reader.vector(MAXIMUM_ATTACHMENT_SUMMARY));
+    if (!summary) throw new Error('Invalid attachment');
+    summaries.push(summary);
+  }
+  reader.finish();
+  return summaries;
+}
+
 export function parseGroupList(input: Uint8Array): GroupSummary[] {
   return parseByteList(input, 128, 69).map((record) => {
     const [version, groupId, epoch, memberCount] = exactByteList(record, 4, 32);
@@ -209,11 +312,28 @@ export function parseGroupList(input: Uint8Array): GroupSummary[] {
   });
 }
 
+export function parseGroupInvitations(input: Uint8Array): GroupInvitation[] {
+  return parseByteList(input, 128, 189).map((record) => {
+    const [reference, groupId, usernameBytes, accountId, stateBytes] = exactByteList(record, 5, 64);
+    if (!reference || !groupId || !usernameBytes || !accountId || !stateBytes ||
+      reference.length !== 32 || groupId.length !== 32 || accountId.length !== 32) {
+      throw new Error('Invalid group invitation');
+    }
+    const state = readByte(stateBytes);
+    const username = decodeUtf8(usernameBytes);
+    if (state > 3 || !/^[a-z0-9._-]{1,64}$/.test(username)) throw new Error('Invalid group invitation');
+    return { reference, groupId, username, accountId, state };
+  });
+}
+
 export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
-  if (input.length > 65_536) throw new Error('Group history is too large');
-  return parseByteList(input, 256, 65_448).map((record) => {
-    const [version, direction, epoch, senderAccountId, senderDeviceId, timestamp, body] =
-      exactByteList(record, 7, 65_346);
+  // The stored history is bounded to 64 KiB; opened attachment manifests add to the export.
+  if (input.length > 65_536 + 256 * MAXIMUM_ATTACHMENT_SUMMARIES) throw new Error('Group history is too large');
+  const messages: GroupHistoryMessage[] = parseByteList(input, 256, 65_484 + MAXIMUM_ATTACHMENT_SUMMARIES).map((record) => {
+    const fields = parseByteList(record, 9, 65_346);
+    if (fields.length !== 8 && fields.length !== 9) throw new Error('Invalid group history');
+    const [version, direction, epoch, senderAccountId, senderDeviceId, timestamp, body, attachment, messageId] = fields;
+    if (messageId?.length && messageId.length !== 32) throw new Error('Invalid group message ID');
     if (
       !version ||
       !direction ||
@@ -221,7 +341,8 @@ export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
       !senderAccountId ||
       !senderDeviceId ||
       !timestamp ||
-      !body
+      !body ||
+      !attachment
     ) {
       throw new Error('Invalid group history');
     }
@@ -234,20 +355,28 @@ export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
     ) {
       throw new Error('Invalid group history');
     }
+    const attachments = parseAttachmentSummaries(attachment);
     return {
+      ...(messageId?.length ? { messageId } : {}),
       direction: directionValue === 1 ? 'sent' : 'received',
       epoch: readU64Number(epoch),
       senderAccountId,
       senderDeviceId,
       timestamp: readU64Number(timestamp),
       body: decodeUtf8(body),
+      ...(attachments.length ? { attachments } : {}),
     };
   });
+  const keyOf = (message: GroupHistoryMessage) => message.messageId ? hex(message.messageId) : '';
+  return applyReplies(applyReactions(messages, keyOf, (message) => hex(message.senderAccountId)), keyOf);
 }
 
 function parseGroupMember(input: Uint8Array): GroupMemberSummary {
-  const [version, leaf, local, accountId, deviceId, directorySequence, witnessCount] =
-    exactByteList(input, 7, 32);
+  const fields = parseByteList(input, 8, 64);
+  if (fields.length !== 7 && fields.length !== 8) throw new Error('Invalid group member');
+  const [version, leaf, local, accountId, deviceId, directorySequence, witnessCount, usernameBytes] = fields;
+  const username = usernameBytes ? decodeUtf8(usernameBytes) : '';
+  if (username && !/^[a-z0-9._-]{1,64}$/.test(username)) throw new Error('Invalid group username');
   if (
     !version ||
     !leaf ||
@@ -279,13 +408,14 @@ function parseGroupMember(input: Uint8Array): GroupMemberSummary {
     deviceId,
     directorySequence: readU64Number(directorySequence),
     witnessCount: parsedWitnessCount,
+    ...(username ? { username } : {}),
   };
 }
 
 export function parseGroupDetails(input: Uint8Array): GroupDetails {
-  if (input.length > 6_745) throw new Error('Group details are too large');
+  if (input.length > 11_097) throw new Error('Group details are too large');
   const [version, groupId, epoch, localLeaf, treeHash, checkpointHash, encodedMembers] =
-    exactByteList(input, 7, 6_600);
+    exactByteList(input, 7, 10_952);
   if (
     !version ||
     !groupId ||
@@ -311,7 +441,7 @@ export function parseGroupDetails(input: Uint8Array): GroupDetails {
     epoch: readU64Number(epoch),
     treeHash,
     checkpointHash,
-    members: parseByteList(encodedMembers, 64, 99).map(parseGroupMember),
+    members: parseByteList(encodedMembers, 64, 167).map(parseGroupMember),
   };
 }
 
@@ -362,6 +492,7 @@ export function parseHistory(input: Uint8Array): HistoryMessage[] {
     const timestamp = readU64Number(entry.vector(8));
     const body = decodeUtf8(entry.vector(32_768));
     const disappearingSeconds = readU32(entry.vector(4));
+    const attachments = parseAttachmentSummaries(entry.vector(MAXIMUM_ATTACHMENT_SUMMARIES));
     entry.finish();
     if (direction !== 1 && direction !== 2) throw new Error('Invalid message direction');
     messages.push({
@@ -370,11 +501,26 @@ export function parseHistory(input: Uint8Array): HistoryMessage[] {
       timestamp,
       body,
       disappearingSeconds,
+      ...(attachments.length ? { attachments } : {}),
     });
   }
   list.finish();
-  return messages;
+  const keyOf = (message: HistoryMessage) => hex(message.messageId);
+  return applyReplies(applyReactions(applyReceipts(messages), keyOf, (message) => message.direction), keyOf);
 }
+
+// The core stamps an envelope to expire 30 days after the timestamp of the message
+// it carries, so the expiry of a queued envelope dates the send. Delivery wire 1:
+// version, "MSG", envelope ID (16), mailbox token (32), suite (2), expiry (8).
+export function envelopeExpiresAt(envelope: Uint8Array): number {
+  if (envelope.length < 62 || envelope[0] !== 1 || decodeUtf8(envelope.subarray(1, 4)) !== 'MSG') {
+    throw new Error('Invalid envelope');
+  }
+  return readU64Number(envelope.subarray(54, 62));
+}
+
+// Mesh gives every envelope thirty days from the moment it is queued.
+export const envelopeQueuedAt = (envelope: Uint8Array): number => envelopeExpiresAt(envelope) - 2_592_000_000;
 
 export function parseDeviceSetSummary(input: Uint8Array): DeviceSetSummary {
   const summary = new Reader(input);
@@ -426,7 +572,7 @@ export const payloadQrValue = (kind: string, payload: Uint8Array): string =>
 
 export function payloadFromQr(value: string, kind: string, maximum = 305_260): Uint8Array {
   const prefix = `mesh://${kind}/`;
-  if (!value.startsWith(prefix)) throw new Error(`Not a Whatsdown ${kind} code`);
+  if (!value.startsWith(prefix)) throw new Error(`Not a Morse ${kind} code`);
   const encoded = value.slice(prefix.length).replaceAll('-', '+').replaceAll('_', '/');
   const decoded = atob(encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '='));
   const payload = Uint8Array.from(decoded, (character) => character.charCodeAt(0));

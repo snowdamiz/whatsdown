@@ -25,7 +25,7 @@ end
 
 fn generic_payload() -> Bool ! String do
   let message = expo_message(Bytes.from_utf8("ExponentPushToken[opaque-device-token]")) ?
-  assert(message == "{\"to\":\"ExponentPushToken[opaque-device-token]\",\"body\":\"New encrypted activity\",\"data\":{\"kind\":\"encrypted-wakeup\"}}")
+  assert(message == "{\"to\":\"ExponentPushToken[opaque-device-token]\",\"contentAvailable\":true,\"priority\":\"normal\",\"data\":{\"kind\":\"encrypted-wakeup\"}}")
   Ok(true)
 end
 

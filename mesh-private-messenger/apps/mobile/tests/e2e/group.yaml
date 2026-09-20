@@ -1,4 +1,4 @@
-appId: com.snowdamiz.whatsdown
+appId: io.morseapp
 ---
 - launchApp
 - extendedWaitUntil:
@@ -7,23 +7,28 @@ appId: com.snowdamiz.whatsdown
 - tapOn:
     id: "tab-groups"
 - tapOn: "Create group"
+- tapOn:
+    id: "Group name"
+- inputText: "Weekend walks"
+- tapOn: "Create group"
 - extendedWaitUntil:
     visible: "Group details"
     timeout: 30000
 - takeScreenshot: empty-group
-- tapOn: "Group details"
 - assertVisible: "Invite someone"
-- assertVisible: "This device"
+- assertVisible: "Send group invitation"
+- assertVisible: "You"
+- assertVisible: "Created the group"
 - tapOn: "Back"
 - tapOn:
     id: "Group message"
-- inputText: "Welcome to the new Whatsdown."
+- inputText: "Welcome to the new Morse."
 - assertVisible:
     text: "Send"
     enabled: false
 - takeScreenshot: group-awaiting-member
 - tapOn: "Back to groups"
-- tapOn: "Join a group"
+- tapOn: "Join with QR"
 - extendedWaitUntil:
     visible: "You’re invited."
     timeout: 15000

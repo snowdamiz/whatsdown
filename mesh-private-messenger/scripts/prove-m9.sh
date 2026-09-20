@@ -8,7 +8,9 @@ readonly repo_root
 readonly service_dir="$repo_root/mesh-private-messenger/services/directory-delivery"
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
 readonly database_port=55435
-readonly service_port=18089
+# Overridable so the proof can run beside a local ./run.sh stack on the default ports.
+readonly service_port="${M9_SERVICE_PORT:-18089}"
+readonly stream_port="${M9_STREAM_PORT:-18094}"
 readonly database_url="postgres://messenger:messenger@127.0.0.1:$database_port/messenger?sslmode=disable"
 readonly base_url="http://127.0.0.1:$service_port"
 # Deterministic proof-only keys; deployments inject unrelated secrets.
@@ -18,10 +20,10 @@ readonly witness_b_public_key_hex="3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec49
 readonly delivery_sealing_seed_hex="77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
 readonly internal_delivery_token="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 readonly temp_parent="${TMPDIR:-/tmp}"
-temp_dir="$(mktemp -d "$temp_parent/whatsdown-m9.XXXXXX")"
+temp_dir="$(mktemp -d "$temp_parent/morse-m9.XXXXXX")"
 readonly temp_dir
 readonly server_log="$temp_dir/server.log"
-readonly compose=(docker compose --project-name whatsdown-m9-proof --file "$service_dir/docker-compose.yml")
+readonly compose=(docker compose --project-name morse-m9-proof --file "$service_dir/docker-compose.yml")
 
 service_pid=""
 
@@ -56,7 +58,7 @@ cleanup() {
     if resolved_parent="$(cd "$temp_parent" && pwd -P)" &&
       resolved_temp="$(cd "$temp_dir" && pwd -P)"; then
       case "$resolved_temp" in
-        "$resolved_parent"/whatsdown-m9.*)
+        "$resolved_parent"/morse-m9.*)
           /usr/bin/find "$resolved_temp" -depth -delete
           ;;
       esac
@@ -144,6 +146,7 @@ main() {
   psql -c "UPDATE messenger_outbox_events SET status = 'pending', attempts = 0, available_at = now(), completed_at = NULL, lease_owner = NULL, lease_expires_at = NULL, last_error_code = NULL WHERE envelope_id = decode('02020202020202020202020202020202', 'hex');" >/dev/null
   (cd "$service_dir" && "$meshc_bin" build .)
   MESSENGER_DATABASE_URL="$database_url" MESSENGER_PORT="$service_port" \
+    MESSENGER_STREAM_PORT="$stream_port" \
     MESSENGER_DELIVERY_INTERNAL_TOKEN="$internal_delivery_token" \
     "$service_dir/output" >"$server_log" 2>&1 &
   service_pid=$!

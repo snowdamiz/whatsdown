@@ -1,13 +1,23 @@
-import { fetch } from 'expo/fetch';
+import { attachmentSelectionError } from './attachments.ts';
+import { fetch, openMailboxSocket, isDevelopmentBuild } from './transport';
+import type { MailboxSocket } from './mailbox-sync';
 import {
+  attachment_open_chunk_export,
+  attachment_prepare_export,
+  attachment_seal_chunk_export,
   authorize_device_link_for_set_export,
   create_device_revocation_export,
-  directory_entry_export,
+  register_request_export,
   group_add_export,
   group_create_export,
   group_history_export,
   group_inspect_export,
   group_key_package_export,
+  group_invite_export,
+  group_invitation_accept_export,
+  group_invitation_complete_export,
+  group_invitation_decline_export,
+  group_invitations_export,
   group_list_export,
   group_remove_export,
   group_send_export,
@@ -22,20 +32,28 @@ import {
   reconcile_prekeys_export,
   replenish_prekeys_export,
   send_fanout_export,
-  transparency_lookup_export,
+  resolve_request_export,
   verify_transparency_export,
 } from '../modules/mesh-messenger';
 import {
+  ATTACHMENT_CHUNK_SIZE,
+  encodeAttachmentReferences,
+  envelopeExpiresAt,
+  envelopeQueuedAt,
+  type AttachmentSummary,
   batchRequest,
+  hex,
   type DeviceSetSummary,
   type GroupHistoryMessage,
   type GroupDetails,
   type GroupSummary,
+  type GroupInvitation,
   parseByteList,
   parseDeviceSetSummary,
   parseGroupHistory,
   parseGroupDetails,
   parseGroupList,
+  parseGroupInvitations,
   parseProfileSummary,
   parsePrekeyCount,
   utf8,
@@ -51,7 +69,11 @@ const baseUrl = (process.env.EXPO_PUBLIC_MESSENGER_BASE_URL ?? 'http://127.0.0.1
   /\/$/,
   '',
 );
+// Encrypted attachment parts live in the object store, which production serves from the messenger origin.
+const objectUrl = (process.env.EXPO_PUBLIC_MESSENGER_OBJECT_URL || baseUrl).replace(/\/$/, '');
 const synchronizePrekeysByDatabase = createKeyedSingleFlight<string, void>();
+const synchronizeMailboxByDatabase = createKeyedSingleFlight<string, void>();
+const drainOutboxByDatabase = createKeyedSingleFlight<string, void>();
 const resolveTransparencyByDatabase = createKeyedSerialQueue<string>();
 const sendFanoutByDatabase = createKeyedSerialQueue<string>();
 export const GROUP_KEY_PACKAGE_LENGTH = 369;
@@ -64,11 +86,20 @@ function serviceUrl(value: string): string {
       (octets[0] === 192 && octets[1] === 168) ||
       (octets[0] === 172 && octets[1]! >= 16 && octets[1]! <= 31));
   const local = url.hostname === 'localhost' || url.hostname === '[::1]' || privateIPv4;
-  const developmentHttp = typeof __DEV__ !== 'undefined' && __DEV__ && local && url.protocol === 'http:';
+  const developmentHttp = isDevelopmentBuild() && local && url.protocol === 'http:';
   if ((url.protocol !== 'https:' && !developmentHttp) || url.username || url.password || url.search || url.hash) {
     throw new Error('Messenger services require HTTPS; local HTTP is allowed only in development builds');
   }
   return url.toString().replace(/\/$/, '');
+}
+
+class ServerStatusError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Server returned ${status}`);
+    this.status = status;
+  }
 }
 
 async function binaryRequest(
@@ -76,6 +107,7 @@ async function binaryRequest(
   body: Uint8Array,
   method = 'POST',
   root = baseUrl,
+  headers: Record<string, string> = {},
 ): Promise<Uint8Array> {
   const url = `${serviceUrl(root)}${path}`;
   const controller = new AbortController();
@@ -85,11 +117,13 @@ async function binaryRequest(
     const response = await fetch(url, {
       method,
       redirect: 'error',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body: payload,
+      headers: { 'Content-Type': 'application/octet-stream', ...headers },
+      ...(method === 'GET' ? {} : { body: payload }),
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    // A full pool still returns its active IDs for native identity/key validation.
+    const prekeyRecovery = path === '/v1/prekeys/one-time/batch' && response.status === 429;
+    if (!response.ok && !prekeyRecovery) throw new ServerStatusError(response.status);
     return new Uint8Array(await response.arrayBuffer());
   } finally {
     clearTimeout(timeout);
@@ -107,9 +141,19 @@ export async function submitPushUnbind(wire: Uint8Array): Promise<void> {
 }
 
 export async function registerDirectory(databasePath: string): Promise<void> {
-  const entry = await directory_entry_export(utf8(databasePath));
+  // Anonymous directory requests leave Mesh already wrapped in proof of work.
+  const entry = await register_request_export(utf8(databasePath));
   await binaryRequest('/v1/devices/register', entry, 'PUT');
   await synchronizePrekeys(databasePath);
+}
+
+export async function connectMailboxStream(databasePath: string): Promise<MailboxSocket> {
+  const configured = process.env.EXPO_PUBLIC_MESSENGER_STREAM_URL ?? `${baseUrl}/v1/mailbox/stream`;
+  const url = serviceUrl(configured.replace(/^ws:/, 'http:').replace(/^wss:/, 'https:'))
+    .replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+  await registerDirectory(databasePath);
+  const request = await mailbox_fetch_export(utf8(databasePath));
+  return openMailboxSocket(url, `MeshMailbox ${hex(request)}`);
 }
 
 async function publishPrekeys(databasePath: string, count: number): Promise<number> {
@@ -138,7 +182,7 @@ export async function resolveDeviceSet(
   username: string,
 ): Promise<Uint8Array> {
   return resolveTransparencyByDatabase(databasePath, async () => {
-    const lookup = await transparency_lookup_export(
+    const lookup = await resolve_request_export(
       batchRequest(databasePath, utf8(username)),
     );
     const evidence = await binaryRequest('/v1/devices/resolve', lookup);
@@ -193,15 +237,58 @@ export async function submitEnvelope(envelope: Uint8Array): Promise<void> {
   await binaryRequest('/v1/envelopes/batch', submission, 'POST', root);
 }
 
-export async function drainOutbox(databasePath: string): Promise<void> {
+// An envelope the service will never accept is removed so it cannot hold up the
+// queue, and reported so it does not vanish without the person knowing.
+export type Undeliverable = { status: number; queuedAt: number };
+const undeliverableListeners = new Set<(report: Undeliverable) => void>();
+
+export function onUndeliverable(listener: (report: Undeliverable) => void): () => void {
+  undeliverableListeners.add(listener);
+  return () => { undeliverableListeners.delete(listener); };
+}
+
+// The service will never accept this envelope: its mailbox was revoked (410), or
+// it expired while it waited, which explains a 400. Any other refusal may be
+// about this build or this clock rather than this envelope, so it waits like a
+// transient failure: discarding on it could empty the outbox for good.
+function undeliverable(error: unknown, envelope: Uint8Array): Undeliverable | null {
+  if (!(error instanceof ServerStatusError)) return null;
+  const permanent = error.status === 410 || (error.status === 400 && Date.now() >= envelopeExpiresAt(envelope));
+  return permanent ? { status: error.status, queuedAt: envelopeQueuedAt(envelope) } : null;
+}
+
+async function drainOutboxOnce(databasePath: string): Promise<void> {
   for (;;) {
     const envelopes = parseByteList(await outbox_list_export(utf8(databasePath)), 8, 65_606);
     if (envelopes.length === 0) return;
     for (const envelope of envelopes) {
-      await submitEnvelope(envelope);
+      let report: Undeliverable | null = null;
+      try {
+        await submitEnvelope(envelope);
+      } catch (error) {
+        report = undeliverable(error, envelope);
+        if (!report) throw error;
+      }
       await outbox_ack_export(batchRequest(databasePath, envelope));
+      if (report) {
+        for (const listener of undeliverableListeners) {
+          // A listener that throws must not stall the outbox.
+          try { listener(report); } catch { /* Reporting is best effort. */ }
+        }
+      }
     }
   }
+}
+
+export function drainOutbox(databasePath: string): Promise<void> {
+  return drainOutboxByDatabase(databasePath, () => drainOutboxOnce(databasePath));
+}
+
+// When the oldest envelope still waiting to leave was queued, or null when nothing
+// waits. The outbox drains in order, so every later send is waiting behind it.
+export async function outboxQueuedSince(databasePath: string): Promise<number | null> {
+  const [oldest] = parseByteList(await outbox_list_export(utf8(databasePath)), 8, 65_606);
+  return oldest ? envelopeQueuedAt(oldest) : null;
 }
 
 export async function listGroups(databasePath: string): Promise<GroupSummary[]> {
@@ -209,6 +296,8 @@ export async function listGroups(databasePath: string): Promise<GroupSummary[]> 
 }
 
 export async function createGroup(databasePath: string): Promise<Uint8Array> {
+  const profile = parseProfileSummary(await load_profile_export(utf8(databasePath)));
+  await resolveDeviceSet(databasePath, profile.username);
   const groupId = await group_create_export(utf8(databasePath));
   if (groupId.length !== 32) throw new Error('Mesh returned an invalid group ID');
   return groupId;
@@ -236,6 +325,18 @@ export async function inspectGroup(
   return parseGroupDetails(await group_inspect_export(vectors(utf8(databasePath), groupId)));
 }
 
+async function refreshGroupAuthorizations(
+  databasePath: string,
+  groupId: Uint8Array,
+  removed?: { accountId: Uint8Array; deviceId: Uint8Array },
+): Promise<void> {
+  const group = await inspectGroup(databasePath, groupId);
+  const members = group.members.filter(member => !removed || hex(member.accountId) !== hex(removed.accountId) || hex(member.deviceId) !== hex(removed.deviceId));
+  for (const accountId of new Set(members.map(member => hex(member.accountId)))) {
+    await resolveDeviceSet(databasePath, `@${accountId}`);
+  }
+}
+
 export async function addGroupMember(
   databasePath: string,
   groupId: Uint8Array,
@@ -243,6 +344,7 @@ export async function addGroupMember(
   keyPackage: Uint8Array,
 ): Promise<void> {
   const deviceSet = await resolveDeviceSet(databasePath, username);
+  await refreshGroupAuthorizations(databasePath, groupId);
   await group_add_export(vectors(utf8(databasePath), groupId, deviceSet, keyPackage));
   await drainOutbox(databasePath);
 }
@@ -251,9 +353,130 @@ export async function sendGroupMessage(
   databasePath: string,
   groupId: Uint8Array,
   body: string,
+  attachment?: Uint8Array,
 ): Promise<void> {
-  await group_send_export(vectors(utf8(databasePath), groupId, utf8(body)));
+  await refreshGroupAuthorizations(databasePath, groupId);
+  await group_send_export(vectors(utf8(databasePath), groupId, utf8(body), ...(attachment ? [attachment] : [])));
   await drainOutbox(databasePath);
+}
+
+export type OutgoingAttachment = {
+  filename: string;
+  mimeType: string;
+  bytes: Uint8Array;
+};
+
+export type UploadedAttachment = {
+  // Opaque local reference: it travels in the message and unlocks the chunks on this device.
+  reference: Uint8Array;
+  // The stored object, as history will later name it.
+  objectId: Uint8Array;
+  // Removes the object again when the message it belongs to never leaves.
+  discard: () => Promise<void>;
+};
+
+export type TransferProgress = (completed: number, total: number) => void;
+
+// Every object grant carries a proof of work at the service's configured difficulty.
+function objectWorkDifficulty(): number {
+  const configured = process.env.EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY || '16';
+  const value = Number(configured);
+  if (!/^\d+$/.test(configured) || value < 1 || value > 24) {
+    throw new Error('EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY must be between 1 and 24');
+  }
+  return value;
+}
+
+const objectRequest = (path: string, body: Uint8Array, method = 'POST', capability?: Uint8Array): Promise<Uint8Array> =>
+  binaryRequest(path, body, method, objectUrl, capability ? { 'X-Object-Capability': hex(capability) } : {});
+
+export function describeAttachmentLimit(size: number): string | undefined {
+  return attachmentSelectionError([size]);
+}
+
+// Encrypts and uploads one file: the sealed manifest is part 0 and each 64 KiB
+// chunk follows. The object is completed only once every part is stored.
+export async function uploadAttachment(
+  databasePath: string,
+  file: OutgoingAttachment,
+  onProgress?: TransferProgress,
+): Promise<UploadedAttachment> {
+  const limit = describeAttachmentLimit(file.bytes.length);
+  if (limit) throw new Error(limit);
+  const [reference, objectId, uploadCapability, grant, complete, remove, manifest] = parseByteList(
+    await attachment_prepare_export(vectors(
+      utf8(databasePath), utf8(file.filename), utf8(file.mimeType), writeU32(file.bytes.length), writeU32(objectWorkDifficulty()),
+    )),
+    7,
+    1_024,
+  );
+  if (!reference || !objectId || !uploadCapability || !grant || !complete || !remove || !manifest ||
+    objectId.length !== 32 || uploadCapability.length !== 32) {
+    throw new Error('Mesh returned an invalid attachment');
+  }
+  const discard = async (): Promise<void> => { await objectRequest('/v1/attachments/delete', remove); };
+  const parts = `/v1/objects/${hex(objectId)}/parts/`;
+  const chunkCount = Math.ceil(file.bytes.length / ATTACHMENT_CHUNK_SIZE);
+  await objectRequest('/v1/attachments/grant', grant);
+  try {
+    await objectRequest(`${parts}0`, manifest, 'PUT', uploadCapability);
+    for (let index = 0; index < chunkCount; index += 1) {
+      const chunk = file.bytes.subarray(index * ATTACHMENT_CHUNK_SIZE, (index + 1) * ATTACHMENT_CHUNK_SIZE);
+      const sealed = await attachment_seal_chunk_export(vectors(utf8(databasePath), reference, writeU32(index), chunk));
+      await objectRequest(`${parts}${index + 1}`, sealed, 'PUT', uploadCapability);
+      onProgress?.(index + 1, chunkCount);
+    }
+    await objectRequest('/v1/attachments/complete', complete);
+  } catch (error) {
+    await discard().catch(() => {});
+    throw error;
+  }
+  return { reference, objectId, discard };
+}
+
+// Upload the whole selection before creating one message. Failed uploads can be
+// removed; a failed send may already be in the durable outbox, so keep its objects.
+export async function sendWithAttachments(
+  databasePath: string,
+  files: OutgoingAttachment[],
+  send: (reference?: Uint8Array) => Promise<void>,
+  onProgress?: TransferProgress,
+): Promise<UploadedAttachment[]> {
+  const error = attachmentSelectionError(files.map((file) => file.bytes.length));
+  if (error) throw new Error(error);
+  const uploaded: UploadedAttachment[] = [];
+  try {
+    for (const file of files) {
+      uploaded.push(await uploadAttachment(databasePath, file, (completed, total) =>
+        onProgress?.(uploaded.length + completed / total, files.length)));
+    }
+  } catch (error) {
+    await Promise.allSettled(uploaded.map((file) => file.discard()));
+    throw error;
+  }
+  await send(uploaded.length ? encodeAttachmentReferences(uploaded.map((file) => file.reference)) : undefined);
+  return uploaded;
+}
+
+// Fetches and decrypts every chunk of a received attachment into one buffer.
+export async function downloadAttachment(
+  databasePath: string,
+  attachment: AttachmentSummary,
+  onProgress?: TransferProgress,
+): Promise<Uint8Array> {
+  const output = new Uint8Array(attachment.size);
+  const parts = `/v1/objects/${hex(attachment.objectId)}/parts/`;
+  let offset = 0;
+  for (let index = 0; index < attachment.chunkCount; index += 1) {
+    const sealed = await objectRequest(`${parts}${index + 1}`, new Uint8Array(), 'GET', attachment.downloadCapability);
+    const chunk = await attachment_open_chunk_export(vectors(utf8(databasePath), attachment.reference, writeU32(index), sealed));
+    if (offset + chunk.length > output.length) throw new Error('The attachment does not match its manifest');
+    output.set(chunk, offset);
+    offset += chunk.length;
+    onProgress?.(index + 1, attachment.chunkCount);
+  }
+  if (offset !== output.length) throw new Error('The attachment does not match its manifest');
+  return output;
 }
 
 export async function removeGroupMember(
@@ -262,15 +485,18 @@ export async function removeGroupMember(
   accountId: Uint8Array,
   deviceId: Uint8Array,
 ): Promise<void> {
+  await refreshGroupAuthorizations(databasePath, groupId, { accountId, deviceId });
   await group_remove_export(vectors(utf8(databasePath), groupId, accountId, deviceId));
   await drainOutbox(databasePath);
 }
 
-export function sendFanout(
+function sendWithDevices(
   databasePath: string,
   peerUsername: string,
-  body: string,
+  body: Uint8Array,
+  send: (request: Uint8Array) => Promise<Uint8Array>,
   expectedAccountId?: Uint8Array,
+  attachment?: Uint8Array,
 ): Promise<boolean> {
   return sendFanoutByDatabase(databasePath, async () => {
     const localProfile = await load_profile_export(utf8(databasePath));
@@ -288,12 +514,13 @@ export function sendFanout(
     await prepare_fanout_prekeys_export(
       vectors(utf8(databasePath), peerSet, localSet, utf8(serviceUrl(baseUrl))),
     );
-    await send_fanout_export(
+    await send(
       vectors(
         utf8(databasePath),
         peerSet,
         localSet,
-        utf8(body),
+        body,
+        ...(attachment ? [attachment] : []),
       ),
     );
     await drainOutbox(databasePath);
@@ -301,11 +528,71 @@ export function sendFanout(
   });
 }
 
-export async function synchronizeMailbox(databasePath: string): Promise<void> {
-  await drainOutbox(databasePath);
-  const fetchRequest = await mailbox_fetch_export(utf8(databasePath));
-  const batch = await binaryRequest('/v1/mailbox/fetch', fetchRequest);
-  const acknowledgement = await process_delivery_batch_export(batchRequest(databasePath, batch));
-  if (acknowledgement.length > 0) await binaryRequest('/v1/mailbox/ack', acknowledgement);
-  await synchronizePrekeys(databasePath);
+export function sendFanout(
+  databasePath: string,
+  username: string,
+  body: string,
+  expectedAccountId?: Uint8Array,
+  attachment?: Uint8Array,
+): Promise<boolean> {
+  return sendWithDevices(databasePath, username, utf8(body), send_fanout_export, expectedAccountId, attachment);
+}
+
+export function inviteToGroup(databasePath: string, groupId: Uint8Array, username: string): Promise<boolean> {
+  return sendWithDevices(databasePath, username, groupId, group_invite_export);
+}
+
+export function acceptGroupInvitation(databasePath: string, invitation: GroupInvitation): Promise<boolean> {
+  return sendWithDevices(databasePath, invitation.username, invitation.reference, group_invitation_accept_export, invitation.accountId);
+}
+
+export async function declineGroupInvitation(databasePath: string, reference: Uint8Array): Promise<void> {
+  await group_invitation_decline_export(vectors(utf8(databasePath), reference));
+}
+
+export async function listGroupInvitations(databasePath: string): Promise<GroupInvitation[]> {
+  return parseGroupInvitations(await group_invitations_export(utf8(databasePath)));
+}
+
+export function completeGroupInvitations(databasePath: string): Promise<void> {
+  return sendFanoutByDatabase(databasePath, async () => {
+    const invitations = await listGroupInvitations(databasePath);
+    const failures: unknown[] = [];
+    for (const invitation of invitations.filter((item) => item.state === 3)) {
+      try {
+        const devices = await resolveDeviceSet(databasePath, invitation.username);
+        await group_invitation_complete_export(vectors(utf8(databasePath), devices, invitation.reference));
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    await drainOutbox(databasePath);
+    if (failures.length) throw failures[0];
+  });
+}
+
+async function receiveMailbox(databasePath: string): Promise<void> {
+  for (;;) {
+    const fetchRequest = await mailbox_fetch_export(utf8(databasePath));
+    const batch = await binaryRequest('/v1/mailbox/fetch', fetchRequest);
+    const acknowledgement = await process_delivery_batch_export(batchRequest(databasePath, batch));
+    if (acknowledgement.length === 0) {
+      // Mesh has validated this BAT frame; byte 4 is its delivery count.
+      if (batch[4] !== 0) throw new Error('Message processing is pending. Retrying…');
+      return;
+    }
+    await binaryRequest('/v1/mailbox/ack', acknowledgement);
+  }
+}
+
+export function synchronizeMailbox(databasePath: string): Promise<void> {
+  return synchronizeMailboxByDatabase(databasePath, async () => {
+    // A failed submission must not prevent receiving already-delivered messages.
+    const results = await Promise.allSettled([
+      receiveMailbox(databasePath), drainOutbox(databasePath), synchronizePrekeys(databasePath),
+    ]);
+    results.push(...await Promise.allSettled([completeGroupInvitations(databasePath)]));
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure?.status === 'rejected') throw failure.reason;
+  });
 }

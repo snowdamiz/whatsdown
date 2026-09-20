@@ -1,6 +1,11 @@
 import { type EventSubscription, requireNativeModule } from 'expo-modules-core';
 
 export {
+  attachment_open_chunk_export,
+  attachment_prepare_export,
+  attachment_seal_chunk_export,
+  presentation_load_export,
+  presentation_save_export,
   create_account_export,
   create_link_request_export,
   device_link_sas_export,
@@ -11,6 +16,11 @@ export {
   group_history_export,
   group_inspect_export,
   group_key_package_export,
+  group_invite_export,
+  group_invitation_accept_export,
+  group_invitation_complete_export,
+  group_invitation_decline_export,
+  group_invitations_export,
   group_list_export,
   group_receive_export,
   group_remove_export,
@@ -41,6 +51,8 @@ export {
   send_fanout_export,
   safety_number_export,
   transparency_lookup_export,
+  register_request_export,
+  resolve_request_export,
   update_conversation_export,
   validate_outer,
   verify_transparency_export,

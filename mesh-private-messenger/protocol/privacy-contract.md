@@ -3,7 +3,7 @@
 Status: development contract. It states the intended visibility boundaries; it
 is not a production-security claim.
 
-Whatsdown encrypts message content on user devices. Delivery services store and
+Morse encrypts message content on user devices. Delivery services store and
 forward opaque envelopes and must never possess message, attachment, backup, or
 session decryption keys.
 
@@ -16,14 +16,15 @@ session decryption keys.
 | Attachment filename and MIME type | Encrypted inside the message |
 | Session keys and ratchet state | Never leave the device in plaintext |
 | Local contact names | Never sent to the server |
-| Conversation identifier | Direct conversation IDs are encrypted; group IDs are visible in group packets |
-| Sender identity | Recipient-encrypted initial packets hide direct sender identities; group control records expose membership |
+| Conversation identifier | Encrypted. Session IDs, ratchet headers, and group IDs travel inside the [recipient-sealed transport](recipient-transport-v1.md); legacy bare ratchet and group packets exposed them |
+| Sender identity | Every packet is recipient-sealed; delivery learns neither the sender nor group membership |
 | Destination | Opaque mailbox token visible to delivery |
 | Username | Visible to the directory in the initial design |
 | Device public keys | Visible to directory and transparency services |
 | Source IP address | Visible to the connection edge |
 | Message timing | Observable in reduced form |
-| Message size | New message packets expose a size bucket; legacy and group-control packets retain length metadata |
+| Message size | A power-of-two size bucket; legacy packets may expose exact lengths |
+| Packet kind and protocol suite | Hidden: every new envelope is outer suite `4`. Only the size bucket hints at kind; legacy outer suites `1`-`3` named it |
 | Push timing | Visible to the push provider |
 | Social graph | Reduced, not eliminated |
 | Local history | Visible to an attacker controlling the endpoint |
@@ -55,14 +56,27 @@ the [sealed-delivery contract](sealed-delivery-v1.md).
 
 ## Residual risks and non-claims
 
-Whatsdown does not claim to prevent global traffic analysis, endpoint malware,
+Morse does not claim to prevent global traffic analysis, endpoint malware,
 recipient disclosure, screenshots, compelled access to an unlocked device,
 push-provider timing correlation, or long-term metadata correlation without
 cover traffic. A fully compromised sender or recipient device can reveal the
 content available to that device.
 
-The current group protocol exposes group identifiers and membership/control
-metadata to delivery. It does not yet meet the metadata-minimization targets
-above for groups. Direct-message sender sealing and encrypted message padding
+New group control and application packets use recipient HPKE transport, described
+in [group schedule revision 2](group-schedule-v2.md#recipient-transport). Queued
+legacy packets still expose their original identifiers and membership fields.
+Later compromise of a recipient device DH key exposes captured wrapper metadata. Direct-message sender sealing and encrypted message padding
 are specified in [client privacy revision 2](client-privacy-v2.md); they do not
 constitute complete sender anonymity or hide all relationships.
+
+## Paths and correlation
+
+Only message submission uses the privacy edge. Directory and prekey lookups,
+mailbox fetch/stream/ACK, object reads/uploads, and push registration connect to
+their configured service endpoints. Those services see the connection IP and
+request timing; directory lookups include the requested username or account ID,
+mailbox fetch, stream, and acknowledgement carry a device signature over the
+hashed mailbox address (the published address alone authorizes only deposits),
+object operations carry the object capability, and push registration associates a mailbox with a push binding.
+Shared infrastructure or colluding operators can correlate those paths. Sending
+through the privacy edge does not conceal this traffic.

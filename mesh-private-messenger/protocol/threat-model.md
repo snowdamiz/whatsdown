@@ -14,7 +14,10 @@ User devices perform protocol state transitions and hold decryption keys.
 Directory and transparency services hold public identity material. Delivery
 services and PostgreSQL hold opaque mailbox envelopes. The connection edge can
 observe source addresses and timing, and the push provider can observe generic
-wakeup timing. No server component should automatically possess all metadata.
+wakeup timing. No server component should automatically possess all metadata;
+this holds only under the separated edge, witness, and backend deployments
+described in the operations guide, and never against one operator who controls
+all of them.
 
 ## Adversaries in scope
 
@@ -22,6 +25,9 @@ wakeup timing. No server component should automatically possess all metadata.
   node
 - A network attacker or denial-of-service attacker
 - A malicious sender, recipient, or unauthenticated client
+- Any third party who knows a username, and therefore that account's public
+  device credentials and mailbox addresses, attempting to read, watch, or
+  remove another device's queued envelopes
 - A dependency supply-chain attacker
 - An operator who accidentally logs secrets
 - A server attempting silent device-key substitution or protocol downgrade

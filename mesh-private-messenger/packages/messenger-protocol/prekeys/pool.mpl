@@ -5,10 +5,14 @@ pub struct OneTimePrekeyPublic do
   public_key :: Bytes
 end
 
+## `last_resort` is the one reusable prekey the directory hands out when the
+## one-time pool is empty, so an exhausted pool never blocks new sessions.
+
 pub struct PrekeyPublishRequest do
   account_id :: Bytes
   device_id :: Bytes
   prekeys :: List < OneTimePrekeyPublic >
+  last_resort :: Option < OneTimePrekeyPublic >
   signature :: Bytes
 end
 
@@ -48,6 +52,11 @@ end
 struct ReadIds do
   state :: BinaryReader
   value :: List < U64 >
+end
+
+struct ReadLastResort do
+  state :: BinaryReader
+  value :: Option < OneTimePrekeyPublic >
 end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
@@ -201,6 +210,49 @@ output :: List < OneTimePrekeyPublic >) -> ReadPrekeys ! String do
   end
 end
 
+fn contains_prekey(values :: List < OneTimePrekeyPublic >, id :: U64, index :: Int) -> Bool do
+  if index >= List.length(values) do
+    false
+  else
+    U64.compare(List.get(values, index).id, id) == 0 || contains_prekey(values, id, index + 1)
+  end
+end
+
+fn encode_last_resort(value :: PrekeyPublishRequest) -> Bytes ! String do
+  case value.last_resort do
+    None -> byte(0)
+    Some( key) -> if !(valid_id(key.id) ?) || Bytes.length(key.public_key) != 32 || contains_prekey(value.prekeys,
+    key.id,
+    0) do
+      Err("invalid last-resort prekey")
+    else
+      join([byte(1) ?, write_u64(key.id) ?, key.public_key], 0, Bytes.empty())
+    end
+  end
+end
+
+fn decode_last_resort(state :: BinaryReader) -> ReadLastResort ! String do
+  let present = take_u8(state) ?
+  if present.value == 0 do
+    Ok(ReadLastResort {
+      state : present.state,
+      value : None
+    })
+  else if present.value == 1 do
+    let id = take_u64(present.state) ?
+    let public_key = take_fixed(id.state, 32) ?
+    Ok(ReadLastResort {
+      state : public_key.state,
+      value : Some(OneTimePrekeyPublic {
+        id : id.value,
+        public_key : public_key.value
+      })
+    })
+  else
+    Err("invalid last-resort prekey flag")
+  end
+end
+
 fn encode_ids(values :: List < U64 >, index :: Int, output :: Bytes) -> Bytes ! String do
   if index >= List.length(values) do
     Ok(output)
@@ -232,10 +284,10 @@ fn publish_content(value :: PrekeyPublishRequest) -> Bytes ! String do
   U64.parse("0") ?) ?) do
     Err("invalid prekey publication")
   else
-    let prefix = join([byte(1) ?, Bytes.from_utf8("OTB"), value.account_id, value.device_id, byte(count) ?],
+    let prefix = join([byte(2) ?, Bytes.from_utf8("OTB"), value.account_id, value.device_id, byte(count) ?],
     0,
     Bytes.empty()) ?
-    encode_prekeys(value.prekeys, 0, prefix)
+    append(encode_prekeys(value.prekeys, 0, prefix) ?, encode_last_resort(value) ?)
   end
 end
 
@@ -250,7 +302,7 @@ fn claim_content(value :: PrekeyClaimRequest) -> Bytes ! String do
 end
 
 pub fn prekey_publish_signing_bytes(value :: PrekeyPublishRequest) -> Bytes ! String do
-  append(Bytes.from_utf8("mesh-msg/v1/one-time-prekey-batch"), publish_content(value) ?)
+  append(Bytes.from_utf8("mesh-msg/v2/one-time-prekey-batch"), publish_content(value) ?)
 end
 
 pub fn encode_prekey_publish(value :: PrekeyPublishRequest) -> Bytes ! String do
@@ -262,29 +314,29 @@ pub fn encode_prekey_publish(value :: PrekeyPublishRequest) -> Bytes ! String do
 end
 
 pub fn decode_prekey_publish(input :: Bytes) -> PrekeyPublishRequest ! String do
-  let version = take_u8(start(input, 2677) ?) ?
+  let version = take_u8(start(input, 2718) ?) ?
   let magic = take_fixed(version.state, 3) ?
   let account_id = take_fixed(magic.state, 32) ?
   let device_id = take_fixed(account_id.state, 16) ?
   let count = take_u8(device_id.state) ?
-  if count.value > 64 do
+  if version.value != 2 || !Bytes.secure_equals(magic.value, Bytes.from_utf8("OTB")) do
+    Err("invalid prekey publication wire")
+  else if count.value > 64 do
     Err("invalid prekey publication count")
   else
     let prekeys = decode_prekeys(count.state, count.value, U64.parse("0") ?, List.new()) ?
-    let signature = take_fixed(prekeys.state, 64) ?
+    let last_resort = decode_last_resort(prekeys.state) ?
+    let signature = take_fixed(last_resort.state, 64) ?
     done(signature.state) ?
-    if version.value != 1 || !Bytes.secure_equals(magic.value, Bytes.from_utf8("OTB")) do
-      Err("invalid prekey publication wire")
-    else
-      let value = PrekeyPublishRequest {
-        account_id : account_id.value,
-        device_id : device_id.value,
-        prekeys : prekeys.value,
-        signature : signature.value
-      }
-      let _ = publish_content(value) ?
-      Ok(value)
-    end
+    let value = PrekeyPublishRequest {
+      account_id : account_id.value,
+      device_id : device_id.value,
+      prekeys : prekeys.value,
+      last_resort : last_resort.value,
+      signature : signature.value
+    }
+    let _ = publish_content(value) ?
+    Ok(value)
   end
 end
 

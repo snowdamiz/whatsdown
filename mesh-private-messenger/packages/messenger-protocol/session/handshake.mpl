@@ -1,6 +1,17 @@
 from Identity.Device import DeviceKeys, IdentityError, VerificationPolicy, is_retryable_identity_verification_error, verify_device_credential
 from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, verify_prekey_bundle
-from Protocol.V1 import AccountIdentity, DeviceCredential, HandshakeTranscript, InitialMessage, PrekeyBundle, ProtocolError, decode_device_credential, decode_initial_message, encode_device_credential, encode_prekey_bundle, hash_handshake_transcript, negotiate_suites
+from Protocol.HandshakeWire import decode_initial_message, hash_handshake_transcript
+from Protocol.IdentityWire import decode_device_credential, encode_device_credential
+from Protocol.PrekeyWire import encode_prekey_bundle
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  HandshakeTranscript,
+  InitialMessage,
+  PrekeyBundle,
+  ProtocolError,
+  negotiate_suites
+)
 
 pub type SessionError do
   AuthenticationRejected
@@ -52,28 +63,26 @@ end
 
 fn initial_snapshot_version() -> U64 ! SessionError do
   case U64.parse("0") do
-    Err(_) -> Err(InvalidHandshake)
-    Ok(value) -> Ok(value)
+    Err( _) -> Err(InvalidHandshake)
+    Ok( value) -> Ok(value)
   end
 end
 
-fn chain_key(root_key :: borrow SecretBytes,
-session_id :: Bytes,
-label :: String) -> SecretBytes ! SessionError do
+fn chain_key(root_key :: borrow SecretBytes, session_id :: Bytes, label :: String) -> SecretBytes ! SessionError do
   let info = case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/chain/"), Bytes.from_utf8(label)) do
-    Err(_) -> Err(InvalidHandshake)
-    Ok(value) -> Ok(value)
+    Err( _) -> Err(InvalidHandshake)
+    Ok( value) -> Ok(value)
   end ?
   case Crypto.hkdf_sha256(root_key, session_id, info, 32) do
-    Err(error) -> Err(CryptoFailure(error))
-    Ok(value) -> Ok(value)
+    Err( error) -> Err(CryptoFailure(error))
+    Ok( value) -> Ok(value)
   end
 end
 
 fn skipped_key_store() -> SecretMap ! SessionError do
   case SecretMap.new(64) do
-    Err(error) -> Err(CryptoFailure(error))
-    Ok(value) -> Ok(value)
+    Err( error) -> Err(CryptoFailure(error))
+    Ok( value) -> Ok(value)
   end
 end
 
@@ -94,7 +103,11 @@ fourth :: SecretBytes) -> SecretBytes ! SessionError do
 end
 
 fn supported_suites(credential :: DeviceCredential) -> List < Int > do
-  if credential.suite == 2 do [2, 1] else [1] end
+  if credential.suite == 2 do
+    [2, 1]
+  else
+    [1]
+  end
 end
 
 fn selected_suite(credential :: DeviceCredential,
@@ -103,19 +116,17 @@ strongest_authenticated_suite :: Int) -> Int ! SessionError do
   case negotiate_suites(supported_suites(credential),
   bundle.supported_suites,
   strongest_authenticated_suite) do
-    Err(error) -> Err(ProtocolFailure(error))
-    Ok(value) -> Ok(value)
+    Err( error) -> Err(ProtocolFailure(error))
+    Ok( value) -> Ok(value)
   end
 end
 
-fn initiator_ikm(suite :: Int,
-classical_ikm :: SecretBytes,
-bundle :: PrekeyBundle) -> Result <( Bytes, SecretBytes), SessionError > do
+fn initiator_ikm(suite :: Int, classical_ikm :: SecretBytes, bundle :: PrekeyBundle) -> Result <( Bytes, SecretBytes), SessionError > do
   if suite == 2 do
     case Crypto.mlkem_encapsulate(MlKemPublicKey { bytes : bundle.post_quantum_prekey }) do
-      Err(error) -> Err(CryptoFailure(error))
-      Ok(value) -> do
-        let (ciphertext, shared_secret) = value
+      Err( error) -> Err(CryptoFailure(error))
+      Ok( value) -> do
+        let ( ciphertext, shared_secret) = value
         Ok((ciphertext.bytes, concat(classical_ikm, shared_secret) ?))
       end
     end
@@ -131,8 +142,8 @@ ciphertext :: Bytes) -> SecretBytes ! SessionError do
   if suite == 2 do
     let shared_secret = case Crypto.mlkem_decapsulate(post_quantum_prekey.private_key,
     MlKemCiphertext { bytes : ciphertext }) do
-      Err(error) -> Err(CryptoFailure(error))
-      Ok(value) -> Ok(value)
+      Err( error) -> Err(CryptoFailure(error))
+      Ok( value) -> Ok(value)
     end ?
     concat(classical_ikm, shared_secret)
   else
@@ -203,11 +214,13 @@ responder_bundle :: PrekeyBundle,
 responder_policy :: VerificationPolicy,
 strongest_authenticated_suite :: Int,
 plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > do
-  let suite = selected_suite(initiator_credential,
-  responder_bundle,
-  strongest_authenticated_suite) ?
+  let suite = selected_suite(initiator_credential, responder_bundle, strongest_authenticated_suite) ?
   let credential_length = Bytes.length(encoded_credential(initiator_credential) ?)
-  let post_quantum_length = if suite == 2 do 1088 else 0 end
+  let post_quantum_length = if suite == 2 do
+    1088
+  else
+    0
+  end
   let maximum_plaintext = 65382 - credential_length - post_quantum_length
   if Bytes.length(plaintext) > maximum_plaintext do
     Err(InvalidHandshake)
@@ -249,9 +262,7 @@ plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), SessionError > d
         Ok( value) -> Ok(value)
       end ?
       let classical_ikm = combine_dh(dh1, dh2, dh3, dh4) ?
-      let (post_quantum_ciphertext, ikm) = initiator_ikm(suite,
-      classical_ikm,
-      responder_bundle) ?
+      let ( post_quantum_ciphertext, ikm) = initiator_ikm(suite, classical_ikm, responder_bundle) ?
       let transcript = transcript_for(initiator_credential,
       responder_bundle,
       ephemeral_public,
@@ -338,9 +349,7 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
     Err( _) -> Err(InvalidHandshake)
     Ok( message) -> do
       let credential = decoded_credential(message.initiator_credential) ?
-      let suite = selected_suite(credential,
-      responder_bundle,
-      strongest_authenticated_suite) ?
+      let suite = selected_suite(credential, responder_bundle, strongest_authenticated_suite) ?
       let wrong_version = message.version != 1 || message.suite != suite
       let wrong_ids = U64.compare(message.signed_prekey_id, signed_prekey.id) != 0 || U64.compare(message.one_time_prekey_id,
       one_time_prekey.id) != 0
@@ -358,8 +367,8 @@ message_bytes :: Bytes) -> Result <( RatchetState, Bytes), SessionError > do
         responder_policy.current_time,
         responder_policy.minimum_directory_sequence) do
           Err( error) -> Err(PrekeyFailure(error))
-          Ok(false) -> Err(PrekeyFailure(InvalidBundle))
-          Ok(true) -> Ok(true)
+          Ok( false) -> Err(PrekeyFailure(InvalidBundle))
+          Ok( true) -> Ok(true)
         end ?
         let credential_valid = case verify_device_credential(initiator_account,
         credential,

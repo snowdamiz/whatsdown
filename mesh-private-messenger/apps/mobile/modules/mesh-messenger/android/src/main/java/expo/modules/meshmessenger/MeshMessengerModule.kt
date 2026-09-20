@@ -23,6 +23,11 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
 
         OnCreate {
             addTokenListener(this@MeshMessengerModule)
+            MeshMessengerScreenSecurity.protect(appContext.currentActivity)
+        }
+
+        OnActivityEntersForeground {
+            MeshMessengerScreenSecurity.protect(appContext.currentActivity)
         }
 
         AsyncFunction("primePushToken") { promise: Promise ->
@@ -79,6 +84,8 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
                     "mesh_messenger_validate_outer" -> MeshLibrary.validate_outer(request)
                     "mesh_messenger_store_envelope" -> MeshLibrary.persist_envelope(request)
                     "mesh_messenger_create_account" -> MeshLibrary.create_account_export(request)
+                    "mesh_messenger_presentation_load" -> MeshLibrary.presentation_load_export(request)
+                    "mesh_messenger_presentation_save" -> MeshLibrary.presentation_save_export(request)
                     "mesh_messenger_load_profile" -> MeshLibrary.load_profile_export(request)
                     "mesh_messenger_replenish_prekeys" -> MeshLibrary.replenish_prekeys_export(request)
                     "mesh_messenger_reconcile_prekeys" -> MeshLibrary.reconcile_prekeys_export(request)
@@ -91,6 +98,11 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
                     "mesh_messenger_receive_initial" -> MeshLibrary.receive_initial_export(request)
                     "mesh_messenger_prepare_fanout_prekeys" -> MeshLibrary.prepare_fanout_prekeys_export(request)
                     "mesh_messenger_send_fanout" -> MeshLibrary.send_fanout_export(request)
+                    "mesh_messenger_group_invite" -> MeshLibrary.group_invite_export(request)
+                    "mesh_messenger_group_invitation_accept" -> MeshLibrary.group_invitation_accept_export(request)
+                    "mesh_messenger_group_invitation_complete" -> MeshLibrary.group_invitation_complete_export(request)
+                    "mesh_messenger_group_invitation_decline" -> MeshLibrary.group_invitation_decline_export(request)
+                    "mesh_messenger_group_invitations" -> MeshLibrary.group_invitations_export(request)
                     "mesh_messenger_group_key_package" -> MeshLibrary.group_key_package_export(request)
                     "mesh_messenger_group_create" -> MeshLibrary.group_create_export(request)
                     "mesh_messenger_group_add" -> MeshLibrary.group_add_export(request)
@@ -112,12 +124,17 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
                     "mesh_messenger_directory_entry" -> MeshLibrary.directory_entry_export(request)
                     "mesh_messenger_directory_lookup" -> MeshLibrary.directory_lookup_export(request)
                     "mesh_messenger_transparency_lookup" -> MeshLibrary.transparency_lookup_export(request)
+                    "mesh_messenger_register_request" -> MeshLibrary.register_request_export(request)
+                    "mesh_messenger_resolve_request" -> MeshLibrary.resolve_request_export(request)
                     "mesh_messenger_verify_transparency" -> MeshLibrary.verify_transparency_export(request)
                     "mesh_messenger_privacy_submission" -> MeshLibrary.privacy_submission_export(request)
                     "mesh_messenger_mailbox_fetch" -> MeshLibrary.mailbox_fetch_export(request)
                     "mesh_messenger_process_delivery_batch" -> MeshLibrary.process_delivery_batch_export(request)
                     "mesh_messenger_outbox_list" -> MeshLibrary.outbox_list_export(request)
                     "mesh_messenger_outbox_ack" -> MeshLibrary.outbox_ack_export(request)
+                    "mesh_messenger_attachment_prepare" -> MeshLibrary.attachment_prepare_export(request)
+                    "mesh_messenger_attachment_seal_chunk" -> MeshLibrary.attachment_seal_chunk_export(request)
+                    "mesh_messenger_attachment_open_chunk" -> MeshLibrary.attachment_open_chunk_export(request)
                     else -> throw IllegalArgumentException("unknown_export")
                 }
             }
@@ -182,9 +199,9 @@ internal object MeshMessengerHost {
 }
 
 internal object MeshMessengerPushMaterial {
-    private const val PROJECT_ID_METADATA = "app.whatsdown.mesh.EXPO_PROJECT_ID"
-    private const val BROKER_KEY_METADATA = "app.whatsdown.mesh.PUSH_BROKER_PUBLIC_KEY_HEX"
-    private const val SECURITY_CONFIG_METADATA = "app.whatsdown.mesh.SECURITY_CONFIG"
+    private const val PROJECT_ID_METADATA = "app.morse.mesh.EXPO_PROJECT_ID"
+    private const val BROKER_KEY_METADATA = "app.morse.mesh.PUSH_BROKER_PUBLIC_KEY_HEX"
+    private const val SECURITY_CONFIG_METADATA = "app.morse.mesh.SECURITY_CONFIG"
     private const val MAX_APPLICATION_ID_BYTES = 255
     private const val MAX_TOKEN_BYTES = 4096
     private const val MAX_FRAME_BYTES = 4362

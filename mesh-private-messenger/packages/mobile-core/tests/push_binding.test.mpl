@@ -1,6 +1,24 @@
 import File
-from MobileCore import create_account_export, directory_entry_export, expo_registration_body_for_test, install_legacy_disabled_push_state_for_test, install_legacy_enabled_push_state_for_test, install_legacy_pending_unbind_push_state_for_test, push_action_complete_with_test_config, push_action_export, push_bind_prepare_with_test_config, push_intent_export, push_status_export, push_unbind_prepare_export, push_update_commit_export
-from Protocol.V1 import DeviceCredential, DirectoryEntry, PrekeyBundle, decode_device_credential, decode_directory_entry, decode_prekey_bundle
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  expo_registration_body_for_test,
+  push_install_id_for_test,
+  install_legacy_disabled_push_state_for_test,
+  install_legacy_enabled_push_state_for_test,
+  install_legacy_pending_unbind_push_state_for_test,
+  push_action_complete_with_test_config,
+  push_action_export,
+  push_bind_prepare_with_test_config,
+  push_intent_export,
+  push_status_export,
+  push_unbind_prepare_export,
+  push_update_commit_export
+)
+from Protocol.DirectoryWire import decode_directory_entry
+from Protocol.IdentityWire import decode_device_credential
+from Protocol.PrekeyWire import decode_prekey_bundle
+from Protocol.V1 import DeviceCredential, DirectoryEntry, PrekeyBundle
 from Push.Binding import PushBindRequest, PushUnbindRequest, decode_push_bind, decode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
 from Push.Token import open_provider_token
 from Tests.Support import append, database_path, repeated, vector
@@ -179,6 +197,17 @@ fn request_string(root, name :: String) -> String ! String do
     |> Json.as_string())
 end
 
+fn expo_device_id_record() -> String do
+  "/tmp/mesh_mobile_expo_last_device_id"
+end
+
+fn uuid_text(value :: Bytes) -> String do
+  let hex = Bytes.to_hex(value)
+  String.slice(hex, 0, 8) <> "-" <> String.slice(hex, 8, 12) <> "-" <> String.slice(hex, 12, 16) <> "-" <> String.slice(hex,
+  16,
+  20) <> "-" <> String.slice(hex, 20, 32)
+end
+
 fn valid_expo_request_for_project(request :: Request,
 path :: String,
 expected_token :: String,
@@ -197,8 +226,11 @@ expected_project_id :: String) -> Bool ! String do
   let kind = request_string(root, "type") ?
   let device_id = request_string(root, "deviceId") ?
   let device_token = request_string(root, "deviceToken") ?
+  # Keep what the provider was told, so the proof can show it is not the
+  # public protocol device identifier.
+  let _ = File.write(expo_device_id_record(), device_id)
   Ok(Request.method(request) == "POST" && Request.path(request) == path && content_type && Regex.is_match(~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-  device_id) && request_string(root, "appId") ? == "com.example.whatsdown" && request_string(root,
+  device_id) && request_string(root, "appId") ? == "com.example.morse" && request_string(root,
   "projectId") ? == expected_project_id && ((kind == "apns" && development) || (kind == "fcm" && !development)) && device_token == expected_token)
 end
 
@@ -544,7 +576,7 @@ fn proof() -> Bool ! String do
   let attacker_seed = seed(8) ?
   let project_id = Bytes.from_utf8("01234567-89ab-cdef-0123-456789abcdef")
   let rotated_project_id = Bytes.from_utf8("fedcba98-7654-3210-fedc-ba9876543210")
-  let app_id = Bytes.from_utf8("com.example.whatsdown")
+  let app_id = Bytes.from_utf8("com.example.morse")
   let first_raw_token = Bytes.from_utf8("apns-device-token")
   let first_frame = raw_push_frame(1, 1, app_id, first_raw_token) ?
   let endpoint = "http://127.0.0.1:18997/--/api/v2/push/getExpoPushToken"
@@ -555,7 +587,7 @@ fn proof() -> Bool ! String do
   let rebound_endpoint = "http://127.0.0.1:18997/rebound"
   let rotated_endpoint = "http://127.0.0.1:18997/rotated"
   let device_fixture = Bytes.from_hex("00112233445566778899aabbccddeeff") ?
-  assert(expo_registration_body_for_test(first_frame, device_fixture, project_id) ? == "{\"type\":\"apns\",\"deviceId\":\"00112233-4455-6677-8899-aabbccddeeff\",\"development\":true,\"appId\":\"com.example.whatsdown\",\"deviceToken\":\"apns-device-token\",\"projectId\":\"01234567-89ab-cdef-0123-456789abcdef\"}")
+  assert(expo_registration_body_for_test(first_frame, device_fixture, project_id) ? == "{\"type\":\"apns\",\"deviceId\":\"00112233-4455-6677-8899-aabbccddeeff\",\"development\":true,\"appId\":\"com.example.morse\",\"deviceToken\":\"apns-device-token\",\"projectId\":\"01234567-89ab-cdef-0123-456789abcdef\"}")
   assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path)) ?,
   Bytes.from_utf8("disabled")))
   let _server = spawn(expo_registration_server)
@@ -645,6 +677,15 @@ fn proof() -> Bool ! String do
   endpoint) ?
   assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path)) ?,
   Bytes.from_utf8("pending-bind")))
+  # Expo is given a random installation identifier, never the protocol device
+  # ID: that one is public in the directory and would tie the push token it
+  # accompanies to this account.
+  let install_id = push_install_id_for_test(path) ?
+  assert(Bytes.length(install_id) == 16)
+  assert(!Bytes.secure_equals(install_id, credential.device_id))
+  let told_expo = File.read(expo_device_id_record()) ?
+  assert(told_expo == uuid_text(install_id))
+  assert(told_expo != uuid_text(credential.device_id))
   let first = decode_push_bind(first_wire) ?
   assert(U64.compare(first.revision, U64.parse("1") ?) == 0)
   assert(first.provider == 1)
@@ -687,6 +728,9 @@ fn proof() -> Bool ! String do
   let second_wire = push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   second_endpoint) ?
+  # A rotated token re-registers under the same installation identifier.
+  assert(Bytes.secure_equals(push_install_id_for_test(path) ?, install_id))
+  assert(File.read(expo_device_id_record()) ? == uuid_text(install_id))
   let second = decode_push_bind(second_wire) ?
   assert(U64.compare(second.revision, U64.parse("2") ?) == 0)
   assert(Bytes.secure_equals(second.wake_token_hash, first.wake_token_hash))

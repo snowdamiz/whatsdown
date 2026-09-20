@@ -52,3 +52,12 @@ test('groups consecutive messages from one side and tails only the last', () => 
 test('returns no rows for an empty history', () => {
   assert.deepEqual(buildChatRows([], () => 'x', now), []);
 });
+
+test('starts a new group run when the account changes, but not when its device changes', () => {
+  const messages = ['alice', 'alice', 'bob', 'alice'].map((sender, index) => ({
+    ...message('received', at(0, index), String(index)), sender,
+  }));
+  const rows = buildChatRows(messages, (item) => item.body, now, (item) => item.sender);
+  assert.deepEqual(rows.flatMap((row) => row.kind === 'message' ? [[row.spaced, row.tail]] : []),
+    [[true, false], [false, true], [true, true], [true, true]]);
+});

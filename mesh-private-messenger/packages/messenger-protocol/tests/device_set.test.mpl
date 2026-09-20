@@ -1,5 +1,23 @@
 from Identity.Device import IdentityError, authorize_device_link, generate_account, issue_device_revocation, verify_device_link_authorization, verify_device_revocation
-from Protocol.V1 import DeviceLinkAuthorization, DeviceLinkRequest, DeviceRevocation, DeviceSet, DirectoryEntry, ProtocolError, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_revocation, decode_device_set, encode_device_link_authorization, encode_device_link_request, encode_device_revocation, encode_device_set
+from Protocol.DirectoryWire import (
+  decode_device_link_authorization,
+  decode_device_link_request,
+  decode_device_revocation,
+  decode_device_set,
+  encode_device_link_authorization,
+  encode_device_link_request,
+  encode_device_revocation,
+  encode_device_set
+)
+from Protocol.IdentityWire import decode_device_credential
+from Protocol.V1 import (
+  DeviceLinkAuthorization,
+  DeviceLinkRequest,
+  DeviceRevocation,
+  DeviceSet,
+  DirectoryEntry,
+  ProtocolError
+)
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do

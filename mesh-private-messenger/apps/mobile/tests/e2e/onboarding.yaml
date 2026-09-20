@@ -1,4 +1,4 @@
-appId: com.snowdamiz.whatsdown
+appId: io.morseapp
 ---
 # Run on a fresh simulator; this flow never deletes an existing identity.
 - launchApp
@@ -9,11 +9,11 @@ appId: com.snowdamiz.whatsdown
 - assertVisible: "Use 3–32 lowercase letters, numbers, or underscores."
 - tapOn: "Link an existing account"
 - extendedWaitUntil:
-    visible: "Scan signed authorization"
+    visible: "Scan the approval code"
     timeout: 30000
-- tapOn: "Scan signed authorization"
+- tapOn: "Scan the approval code"
 - assertVisible: "Cancel scan"
 - tapOn: "Cancel scan"
-- assertVisible: "Scan signed authorization"
+- assertVisible: "Scan the approval code"
 - tapOn: "Cancel"
 - assertVisible: "Create account"

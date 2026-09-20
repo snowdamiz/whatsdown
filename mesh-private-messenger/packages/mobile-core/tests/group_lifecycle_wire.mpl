@@ -1,5 +1,7 @@
 from MobileCore import outbox_ack_export
-from Protocol.V1 import DeliveredEnvelope, MailboxAck, OuterEnvelope, decode_mailbox_ack, decode_outer_envelope, encode_delivery_batch
+from Protocol.EnvelopeWire import decode_outer_envelope
+from Protocol.MailboxWire import decode_mailbox_ack, encode_delivery_batch
+from Protocol.V1 import DeliveredEnvelope, MailboxAck, OuterEnvelope
 from Tests.Support import append, vector
 
 fn group_request_parts(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! String do
@@ -105,5 +107,20 @@ pub fn acknowledge(path :: String, envelopes :: List < Bytes >, index :: Int) ->
     else
       acknowledge(path, envelopes, index + 1)
     end
+  end
+end
+
+# Inspect what delivery sees after the privacy edge opens its envelope.
+
+pub fn assert_group_transport(envelope :: Bytes, group_id :: Bytes, account_id :: Bytes) -> Bool ! String do
+  let ciphertext = outer(envelope) ?.ciphertext
+  let captured = Bytes.to_hex(ciphertext)
+  # Group packets use the same sealed transport and outer suite as direct
+  # packets, so delivery cannot tell that an envelope belongs to a group at all.
+  if (!String.starts_with(captured, "01524350") || outer(envelope) ?.suite != 4 || String.contains(captured,
+  Bytes.to_hex(group_id)) || String.contains(captured, Bytes.to_hex(account_id)) || Bytes.length(ciphertext) != outer(envelope) ?.padding_bucket) do
+    Err("group transport exposed metadata or used the wrong padding bucket")
+  else
+    Ok(true)
   end
 end

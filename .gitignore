@@ -18,8 +18,16 @@ target/
 /mesh-private-messenger/services/*/output
 /mesh-private-messenger/clients/mesh-cli/output
 /mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/
-/.whatsdown/
+/mesh-private-messenger/apps/mobile/ios/
+/mesh-private-messenger/apps/mobile/android/
+.morse/
+/mesh-private-messenger/apps/desktop/src-tauri/native/
+/mesh-private-messenger/apps/desktop/src-tauri/gen/
 
 *.db
 *.db-shm
 *.db-wal
+
+.wrangler/
+/mesh-private-messenger/ops/cloudflare/wrangler.build.json
+.security-evidence/

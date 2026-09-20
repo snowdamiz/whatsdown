@@ -16,7 +16,7 @@ readonly module_dir="$repo_root/mesh-private-messenger/apps/mobile/modules/mesh-
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
 temp_parent="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
 readonly temp_parent
-temp_dir="$(mktemp -d "$temp_parent/whatsdown-mobile-native.XXXXXX")"
+temp_dir="$(mktemp -d "$temp_parent/morse-mobile-native.XXXXXX")"
 readonly temp_dir
 
 cleanup() {
@@ -24,7 +24,7 @@ cleanup() {
   trap - EXIT INT TERM
   if [[ -d "$temp_dir" && ! -L "$temp_dir" ]]; then
     case "$temp_dir" in
-      "$temp_parent"/whatsdown-mobile-native.*)
+      "$temp_parent"/morse-mobile-native.*)
         if [[ "$(find "$temp_dir" -type l | wc -l | tr -d ' ')" == 0 ]]; then
           find "$temp_dir" -depth -delete
         fi

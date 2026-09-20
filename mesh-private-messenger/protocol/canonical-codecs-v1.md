@@ -107,7 +107,7 @@ base bundle remains unchanged, so its transparency evidence remains valid.
 ## One-time prekey publication (`OTB`)
 
 ```text
-version:u8 = 1
+version:u8 = 2
 tag:3 = "OTB"
 account_id:32
 device_id:16
@@ -115,19 +115,34 @@ count:u8 (0..64)
 repeat count times:
   prekey_id:u64 (1..2^63-1, strictly increasing)
   public_key:32
+last_resort:u8 (0 or 1)
+if last_resort = 1:
+  prekey_id:u64 (1..2^63-1, not one of the batch IDs)
+  public_key:32
 signature:64
 ```
 
 The device Ed25519 signature covers:
 
 ```text
-ASCII("mesh-msg/v1/one-time-prekey-batch") ||
+ASCII("mesh-msg/v2/one-time-prekey-batch") ||
 canonical_OTB_fields_before_signature
 ```
 
-The encoded size is `117 + 40 * count` bytes and is at most 2,677 bytes. An
-empty batch is an authenticated recovery query that inserts nothing and asks
-for the current active set. Decoders reject oversized batches, duplicate or unsorted IDs,
+The encoded size is `118 + 40 * count` bytes, plus 40 with a last-resort key,
+and is at most 2,718 bytes. Version 1 had no last-resort field and is refused.
+An empty batch is an authenticated recovery query that inserts no one-time key
+and asks for the current active set.
+
+The last-resort key is the one reusable prekey of a device. The directory
+returns it from an `OTQ` claim only when the one-time pool is empty and never
+consumes it, so draining a pool cannot stop new sessions. Every publication
+repeats the current key; repeating it is idempotent. Publishing a key with a
+higher identifier retires the previous one. A lower identifier, or a known
+identifier with different key bytes, is a conflict, so replaying a retired
+publication cannot bring an old key back. Mobile identifiers start at
+`2^62 + 1`, outside the range one-time identifiers count through. The key never
+appears in an `OTA` active list. Decoders reject oversized batches, duplicate or unsorted IDs,
 out-of-range IDs, wrong key or signature lengths, unsupported tags or
 versions, truncation, and trailing bytes. Replaying an identical signed batch
 is idempotent. Reusing an ID with different public-key bytes is a conflict and
@@ -169,8 +184,10 @@ generated and durably persisted by Mesh before the HTTP request. The service
 atomically marks at most one available key consumed and returns the reconstructed
 `PKB`; replaying the same reservation returns that exact bundle without consuming
 another key. Concurrent claims cannot receive the same key. Consumed IDs remain
-tombstones, publication cannot reactivate them, exhaustion returns no bundle,
-and device revocation removes that device's pool.
+tombstones and publication cannot reactivate them. An empty pool returns the
+device's last-resort key in the one-time slot without reserving or consuming
+anything; only a device that never published one returns no bundle. Device
+revocation removes that device's pool, last-resort key included.
 
 ## Outer envelope (`MSG`)
 

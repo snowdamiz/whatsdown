@@ -17,22 +17,31 @@ import {
 } from './push-action-executor';
 import { submitPushBind, submitPushUnbind } from './network';
 
-import { isGenericWakeupContent } from './push-policy';
+import { BACKGROUND_NOTIFICATION_TASK, GENERIC_PUSH_BODY, isGenericWakeupContent, notificationScope } from './push-policy';
 import { createKeyedSerialQueue } from './single-flight';
 
 export type { PushStatus } from './push-action-executor';
 
 const coordinateByDatabase = createKeyedSerialQueue<string>();
 
-async function requestNotificationPermission(): Promise<void> {
+async function configureNotificationChannels(): Promise<void> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('encrypted-wakeups', {
       name: 'Encrypted activity',
       importance: Notifications.AndroidImportance.DEFAULT,
     });
+    await Notifications.setNotificationChannelAsync('messages', {
+      name: 'Messages and mentions', importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default', lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+    });
   }
+}
+
+async function requestNotificationPermission(): Promise<void> {
+  await configureNotificationChannels();
   const permission = await Notifications.requestPermissionsAsync();
   if (!permission.granted) throw new Error('Notification permission was not granted');
+  await Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK);
 }
 
 export async function getPushStatus(databasePath: string): Promise<PushStatus> {
@@ -70,8 +79,14 @@ function runPushIntent(databasePath: string, intent: 0 | 1 | 2): Promise<PushSta
   return coordinateByDatabase(databasePath, () => executePushActions(pushOperations(databasePath, intent)));
 }
 
-export const recoverPushBinding = (databasePath: string): Promise<PushStatus> =>
-  runPushIntent(databasePath, 0);
+export async function recoverPushBinding(databasePath: string): Promise<PushStatus> {
+  const status = await runPushIntent(databasePath, 0);
+  if (status === 'enabled') {
+    await configureNotificationChannels();
+    await Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK);
+  }
+  return status;
+}
 
 export async function enablePushBinding(databasePath: string): Promise<PushStatus> {
   const status = await runPushIntent(databasePath, 1);
@@ -82,6 +97,7 @@ export async function enablePushBinding(databasePath: string): Promise<PushStatu
 export async function disablePushBinding(databasePath: string): Promise<PushStatus> {
   const status = await runPushIntent(databasePath, 2);
   if (status !== 'disabled') throw new Error('Mesh push binding did not converge to disabled');
+  await Notifications.unregisterTaskAsync(BACKGROUND_NOTIFICATION_TASK);
   return status;
 }
 
@@ -94,9 +110,10 @@ export function isGenericWakeup(notification: Notifications.Notification): boole
 
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
-    const show = isGenericWakeup(notification);
+    const message = notificationScope(notification.request.content.data) !== null;
+    const show = message || (isGenericWakeup(notification) && notification.request.content.body === GENERIC_PUSH_BODY);
     return {
-      shouldPlaySound: false,
+      shouldPlaySound: message,
       shouldSetBadge: false,
       shouldShowBanner: show,
       shouldShowList: show,
@@ -106,7 +123,8 @@ Notifications.setNotificationHandler({
 
 export function listenForGenericWakeups(onWake: () => void): () => void {
   const received = Notifications.addNotificationReceivedListener((notification) => {
-    if (isGenericWakeup(notification)) onWake();
+    const trigger = notification.request.trigger;
+    if (trigger && 'type' in trigger && trigger.type === 'push' && isGenericWakeup(notification)) onWake();
   });
   const response = Notifications.addNotificationResponseReceivedListener((event) => {
     if (isGenericWakeup(event.notification)) onWake();
@@ -115,4 +133,18 @@ export function listenForGenericWakeups(onWake: () => void): () => void {
     received.remove();
     response.remove();
   };
+}
+
+export function listenForNotificationOpens(open: (scope: string) => void): () => void {
+  const handle = (response: Notifications.NotificationResponse | null) => {
+    if (!response) return;
+    const scope = notificationScope(response.notification.request.content.data);
+    if (scope) {
+      open(scope);
+      void Notifications.clearLastNotificationResponseAsync();
+    }
+  };
+  handle(Notifications.getLastNotificationResponse());
+  const subscription = Notifications.addNotificationResponseReceivedListener(handle);
+  return () => subscription.remove();
 }

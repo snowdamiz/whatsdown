@@ -6,8 +6,8 @@
 
 > This is a development profile for the classical encrypted-envelope vertical
 > slice. It has not received independent cryptographic review and must not be
-> represented as production-grade privacy. Production Profile C will be chosen
-> after external review.
+> represented as independently audited. Release candidates require internal
+> verification of the exact revision and applicable platform evidence.
 
 ## Primitive suite
 
@@ -63,13 +63,22 @@ These limits are part of Profile A and are enforced before expensive work:
 |---|---:|
 | Padded ciphertext bucket | At most 65,536 bytes |
 | Padding buckets | 256, 512, 1,024, 2,048, 4,096, 8,192, 16,384, 32,768, 65,536 bytes |
-| Skipped message keys per session | 1,000 |
-| Message-number jump | 1,000 |
-| Previous receiving chains retained | 5 |
-| Skipped-key age | 7 days |
-| Established sessions per remote device | 2 |
+| Skipped message keys per session | 64, shared by every receiving chain |
+| Message-number jump | 64 within a chain; 64 remaining in the previous chain plus 64 in a new chain |
 | Initial messages consuming one one-time prekey | 1 |
-| Signed-prekey lifetime | 7 days |
+| Initial messages accepted through the reusable last-resort prekey | Unbounded; each transcript accepted once (newest 1,024 remembered) |
+
+The 64-key bound matches the 64-envelope mailbox capacity: a larger gap cannot
+be queued for one device at a time. A message that would exceed it returns
+`ExcessiveJump` without changing session state.
+
+Not yet enforced, and therefore not claimed: skipped keys do not expire by age
+and are not evicted per receiving chain, so a skipped key persists until its
+message arrives or the session is replaced; signed prekeys are issued with the
+device credential's one-year lifetime and are not rotated. Both are tracked as
+hardening work. Earlier revisions of this table stated 1,000-key limits, a
+five-chain and seven-day skipped-key policy, a two-session cap, and a seven-day
+signed-prekey lifetime that the implementation never had.
 
 Content that does not fit the 64 KiB ciphertext bucket uses encrypted
 attachments. Decoders also enforce canonical integer widths, bounded vectors
@@ -89,6 +98,6 @@ Unsupported higher suites fail explicitly.
 
 Suite `0x0002` is the experimental hybrid Profile B defined in
 [`hybrid-handshake-v1.md`](hybrid-handshake-v1.md). It is implemented for
-interoperability and performance testing but is not release-approved.
-Production activation remains blocked until an independent cryptographic review
-of the final revision is recorded.
+interoperability and performance testing and is reachable in the application.
+Release readiness uses the internal criteria in the security plan. Independent
+cryptographic review has not been recorded and is not a release prerequisite.

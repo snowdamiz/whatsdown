@@ -1,0 +1,149 @@
+name: Mobile release
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: What to release
+        type: choice
+        options: [all, build, update]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-production
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+    working-directory: mesh-private-messenger/apps/mobile
+
+env:
+  EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+  CI: '1'
+
+jobs:
+  verification:
+    uses: ./.github/workflows/ci.yml
+
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mesh-private-messenger/apps/mobile/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - name: Check EAS project configuration
+        run: |
+          if [[ ! "$EXPO_PROJECT_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+            echo '::error::Set the EXPO_PROJECT_ID repository variable to the EAS project UUID.'
+            exit 1
+          fi
+
+  build:
+    needs: [verify, verification]
+    if: github.ref == 'refs/heads/release' && (github.event_name == 'push' || inputs.operation != 'update')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, android]
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mesh-private-messenger/apps/mobile/package-lock.json
+      - uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9
+        with:
+          eas-version: '24.7.0'
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+      - run: npm ci
+      - name: Check TestFlight configuration
+        if: matrix.platform == 'ios' && env.ASC_APP_ID != ''
+        run: |
+          if [[ ! "$ASC_APP_ID" =~ ^[0-9]+$ ]]; then
+            echo '::error::Create the app in App Store Connect and set the ASC_APP_ID repository variable.'
+            exit 1
+          fi
+      - name: Require verified candidate
+        working-directory: .
+        env:
+          VERIFICATION_RESULT: ${{ needs.verification.result }}
+          VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
+          VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
+        run: MESH_LANG_REVISION="$(cat mesh-private-messenger/mesh-revision)" node mesh-private-messenger/scripts/release-verification.mjs
+      - name: Check production configuration
+        # Pull the same production values used by the remote build and OTA export.
+        run: eas env:exec production 'node scripts/check-release-config.mjs' --non-interactive
+      - name: Wait for the native build
+        run: eas build --platform "$PLATFORM" --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"
+      - name: Submit this iOS build to TestFlight
+        if: matrix.platform == 'ios' && env.ASC_APP_ID != ''
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const config = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+          config.submit.production.ios.ascAppId = process.env.ASC_APP_ID;
+          fs.writeFileSync('eas.json', JSON.stringify(config, null, 2) + '\n');
+          NODE
+          build_id="$(jq -er '.[0] | select(.platform == "IOS" and .status == "FINISHED") | .id' "$RUNNER_TEMP/eas-build.json")"
+          eas submit --platform ios --profile production --id "$build_id" --non-interactive --wait
+
+  update:
+    environment: ota-signing
+    needs: [verify, verification]
+    # Enable after upgrading the personal EAS account to a plan with code signing.
+    if: vars.MORSE_OTA_ENABLED == 'true' && github.ref == 'refs/heads/release' && (github.event_name == 'push' || inputs.operation != 'build')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mesh-private-messenger/apps/mobile/package-lock.json
+      - uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9
+        with:
+          eas-version: '24.7.0'
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+      - run: npm ci
+      - name: Require verified candidate
+        working-directory: .
+        env:
+          VERIFICATION_RESULT: ${{ needs.verification.result }}
+          VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
+          VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
+        run: MESH_LANG_REVISION="$(cat mesh-private-messenger/mesh-revision)" node mesh-private-messenger/scripts/release-verification.mjs
+      - name: Check production configuration
+        run: eas env:exec production 'node scripts/check-release-config.mjs' --non-interactive
+      - name: Publish signed production OTA update
+        env:
+          MORSE_OTA_PRIVATE_KEY: ${{ secrets.MORSE_OTA_PRIVATE_KEY }}
+        run: |
+          test -n "$MORSE_OTA_PRIVATE_KEY"
+          umask 077
+          signing_key="$RUNNER_TEMP/morse-ota-key.pem"
+          trap 'rm -f "$signing_key"' EXIT
+          printf '%s' "$MORSE_OTA_PRIVATE_KEY" > "$signing_key"
+          unset MORSE_OTA_PRIVATE_KEY
+          eas update --channel production --environment production --platform all --message "$GITHUB_SHA" --private-key-path "$signing_key" --non-interactive

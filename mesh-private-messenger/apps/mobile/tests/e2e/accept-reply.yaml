@@ -1,14 +1,15 @@
-appId: com.snowdamiz.whatsdown
+appId: io.morseapp
 ---
 - launchApp
 - extendedWaitUntil:
     visible: "New conversation"
     timeout: 30000
-- tapOn: "Sync messages"
+- assertNotVisible: "Sync messages"
 - extendedWaitUntil:
     visible: "Conversation with ${QA_SENDER}, message request pending"
     timeout: 30000
-- tapOn: "Message requests"
+- assertVisible: "Message requests"
+- assertVisible: "Accept request from ${QA_SENDER}"
 - tapOn: "Conversation with ${QA_SENDER}, message request pending"
 - assertVisible: ${QA_MESSAGE}
 - assertVisible: "Accept request"

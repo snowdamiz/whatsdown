@@ -1,4 +1,4 @@
-appId: com.snowdamiz.whatsdown
+appId: io.morseapp
 ---
 - launchApp
 - extendedWaitUntil:
@@ -20,9 +20,6 @@ appId: com.snowdamiz.whatsdown
 - tapOn: "My QR code"
 - assertVisible: "Code .* of .*Keep scanning"
 - takeScreenshot: account-qr
-- tapOn: "Back"
-- tapOn: "Notifications"
-- assertVisible: "No-push mode"
 - tapOn: "Back"
 - tapOn:
     id: "tab-home"

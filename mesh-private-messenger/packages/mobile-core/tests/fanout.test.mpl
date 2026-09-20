@@ -1,11 +1,38 @@
 import File
-from MobileCore import authorize_device_link_export, complete_device_link_export, create_account_export, create_link_request_export, directory_entry_export, fanout_prekey_claims_export, install_group_transparency_for_test, load_history_export, outbox_ack_export, outbox_list_export, prepare_fanout_prekeys_export, receive_initial_export, receive_message_export, replenish_prekeys_export, reserve_fanout_prekey_export, safety_number_export, send_fanout_export, start_conversation_export, test_ratchet_jump_envelope, test_ratchet_tamper_envelope, update_conversation_export
+from MobileCore import (
+  authorize_device_link_export,
+  complete_device_link_export,
+  create_account_export,
+  create_link_request_export,
+  directory_entry_export,
+  fanout_prekey_claims_export,
+  install_group_transparency_for_test,
+  load_history_export,
+  outbox_ack_export,
+  outbox_list_export,
+  prepare_fanout_prekeys_export,
+  receive_initial_export,
+  receive_message_export,
+  replenish_prekeys_export,
+  reserve_fanout_prekey_export,
+  safety_number_export,
+  send_fanout_export,
+  start_conversation_export,
+  test_ratchet_jump_envelope,
+  test_ratchet_tamper_envelope,
+  test_sealed_tamper_envelope,
+  update_conversation_export
+)
 from Prekeys.Bundle import normalize_prekey_bundle
 from Prekeys.Pool import decode_prekey_claim, decode_prekey_publish
-from Protocol.V1 import DeviceCredential, DeviceSet, DirectoryEntry, OuterEnvelope, PrekeyBundle, decode_device_credential, decode_directory_entry, decode_outer_envelope, decode_prekey_bundle, encode_device_set, encode_prekey_bundle
+from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
+from Protocol.EnvelopeWire import decode_outer_envelope
+from Protocol.IdentityWire import decode_device_credential
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import DeviceCredential, DeviceSet, DirectoryEntry, OuterEnvelope, PrekeyBundle
 from Tests.GroupConsistencyCrypto import checkpoint
 from Tests.GroupConsistencySupport import signed_transparency_view, signing_pair
-from Tests.Support import append, database_path, repeated, vector, write_u32
+from Tests.Support import append, database_path, install_security_config, repeated, vector, write_u32
 from Transparency.Merkle import TransparencyCheckpoint, consistency_proof, leaf_hash
 from Transparency.Wire import encode_checkpoint, encode_consistency_proof
 
@@ -228,8 +255,29 @@ actor oversized_prekey_server() do
     |> HTTP.serve(18996)
 end
 
+fn signing_pair() -> SigningKeyPair ! String do
+  case Crypto.signing_generate() do
+    Err( _) -> Err("test signing key generation failed")
+    Ok( value) -> Ok(value)
+  end
+end
+
 fn proof() -> Bool ! String do
   assert(Test.install_in_memory_secure_store())
+  # A prekey claim leaves the device wrapped in proof of work, whose difficulty
+  # comes from the signed native configuration every real device carries.
+  let service_pair = signing_pair() ?
+  let witness_a = signing_pair() ?
+  let witness_b = signing_pair() ?
+  let delivery_pair = case Crypto.x25519_generate() do
+    Err( _) -> Err("test delivery key generation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  assert(install_security_config(service_pair.public_key.bytes,
+  witness_a.public_key.bytes,
+  witness_b.public_key.bytes,
+  delivery_pair.public_key.bytes,
+  8))
   let alice_path = database_path("fanout-alice") ?
   let linked_path = database_path("fanout-linked") ?
   let bob_path = database_path("fanout-bob") ?
@@ -459,11 +507,19 @@ fn proof() -> Bool ! String do
   else
     second_reply
   end
-  case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_jump_envelope(root_reply) ?]) ?) do
+  # Without a key, delivery can only damage the seal: permanent poison that
+  # never reaches, and so never disturbs, the ratchet.
+  case receive_message_export(request([Bytes.from_utf8(alice_path), test_sealed_tamper_envelope(root_reply) ?]) ?) do
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "invalid_recipient_packet")
+  end
+  case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_jump_envelope(alice_path,
+  root_reply) ?]) ?) do
     Ok( _) -> assert(false)
     Err( error) -> assert(error == "ratchet_retryable")
   end
-  case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_tamper_envelope(root_reply) ?]) ?) do
+  case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_tamper_envelope(alice_path,
+  root_reply) ?]) ?) do
     Ok( _) -> assert(false)
     Err( error) -> assert(error == "message_rejected")
   end

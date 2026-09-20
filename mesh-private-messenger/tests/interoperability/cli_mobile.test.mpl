@@ -1,6 +1,12 @@
 import File
 from Interop.Client import interop_state_suite, open_mobile_reply, opened_body, start_mobile_session
-from MobileCore import create_account_export, outbox_ack_export, receive_initial_export, send_message_export, update_conversation_export
+from MobileCore import (
+  create_account_export,
+  outbox_ack_export,
+  receive_initial_export,
+  send_message_export,
+  update_conversation_export
+)
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
@@ -61,7 +67,7 @@ fn proof() -> Bool ! String do
   let mobile_profile = create_account_export(request([Bytes.from_utf8(path), Bytes.from_utf8("mobile")]) ?) ?
   let greeting = Bytes.from_utf8("m10-cli-greeting-opaque")
   let reply = Bytes.from_utf8("m10-mobile-reply-opaque")
-  let ( cli_state, cli_session, cli_profile, initial_outer) = start_mobile_session(mobile_profile,
+  let ( cli_state, cli_device, cli_session, cli_profile, initial_outer) = start_mobile_session(mobile_profile,
   greeting) ?
   assert(interop_state_suite(cli_state) == 2)
   assert(cli_session.suite == 2)
@@ -72,7 +78,13 @@ fn proof() -> Bool ! String do
   Bytes.from_utf8("ok")))
   let reply_outer = send_message_export(request([Bytes.from_utf8(path), cli_profile, reply]) ?) ?
   assert(!String.contains(Bytes.to_hex(reply_outer), Bytes.to_hex(reply)))
-  assert(Bytes.secure_equals(opened_body(open_mobile_reply(cli_state, cli_session, reply_outer)) ?,
+  # Neither direction shows delivery the session both sides share.
+  assert(!String.contains(Bytes.to_hex(initial_outer), Bytes.to_hex(cli_session.session_id)))
+  assert(!String.contains(Bytes.to_hex(reply_outer), Bytes.to_hex(cli_session.session_id)))
+  assert(Bytes.secure_equals(opened_body(open_mobile_reply(cli_state,
+  cli_device,
+  cli_session,
+  reply_outer)) ?,
   reply))
   let _ = outbox_ack_export(request([Bytes.from_utf8(path), reply_outer]) ?) ?
   if String.length(Env.get("MESSENGER_M10_INTEROP_PATH", "")) == 0 do

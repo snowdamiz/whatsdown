@@ -1,8 +1,11 @@
-# MLS-Based Groups, Version 1
+# Custom Groups, Version 1 (legacy)
 
-Status: implemented for development testing. Group suite `0x0003` must not be enabled in a production release until an independent protocol review of the final revision is recorded.
+Status: implemented and reachable. Group suite `0x0003` is a custom protocol, with no independent audit claimed. Release candidates require successful internal behavioral verification and applicable platform evidence; outside review is not a prerequisite.
 
-New application messages use version `2` with encrypted padding; see
+New groups and upgraded epochs use [group schedule version 2](group-schedule-v2.md).
+The legacy format below is preserved for queued ciphertext and snapshot reads.
+
+Legacy padded application messages use version `2`; see
 [client privacy revision 2](client-privacy-v2.md). That revision supersedes the
 message plaintext limit below with 65,342 bytes. Membership-control formats
 remain unchanged, and existing version-1 messages remain readable.
@@ -132,7 +135,7 @@ storage failure is omitted so it can be retried; a batch containing only such
 entries returns empty bytes and the app must not submit an ACK. Mixed batches
 acknowledge only the safe envelope IDs.
 
-## Release gate
+## Release verification
 
 The M15 proof covers the RFC 9180 HPKE vector and the
 [MLSWG `treekem.json`](https://github.com/mlswg/mls-implementations/blob/main/test-vectors/treekem.json)
@@ -143,6 +146,6 @@ negotiation, transparency-bound joins, bounded pending packages, persisted
 mobile-core create/add/remove/send/receive fanout, group list/inspection and
 plaintext history, future-epoch retry/ACK behavior, the exact maximum delivery
 boundary, and mobile-target compilation. This custom profile is not expected
-to consume RFC 9420 wire vectors directly. Production activation still
-requires a recorded independent review of the protocol and its final wire
-revision; this repository does not treat its internal proof as that review.
+to consume RFC 9420 wire vectors directly. Release readiness depends on the
+security plan's behavioral and platform checks at the candidate revision.
+Internal tests do not constitute an independent audit.

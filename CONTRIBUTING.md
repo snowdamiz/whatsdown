@@ -1,9 +1,13 @@
-# Contributing to Whatsdown
+# Contributing to Morse
 
-Whatsdown exists to prove that a private messenger can be implemented through
+Morse exists to prove that a private messenger can be implemented through
 public Mesh language and runtime capabilities. Start behavioral changes with a
 focused failing test, make the smallest change that passes it, and run the
 relevant Mesh and messenger verification before submitting the change.
+
+Use [the Mesh feature inventory](MESH_LANGUAGE_FEATURES.md) when writing or
+refactoring `.mpl` code. Prefer supported language and library features over
+manual nesting or traversal, while preserving ownership and cleanup behavior.
 
 Do not describe the development profiles as production-grade cryptography.
 Security-critical behavior must match the published threat model, privacy

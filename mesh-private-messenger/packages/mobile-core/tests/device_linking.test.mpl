@@ -1,8 +1,44 @@
 import File
 from Identity.Device import verify_device_link_authorization, verify_device_revocation
-from MobileCore import authorize_device_link_for_set_export, complete_device_link_export, create_account_export, create_device_revocation_export, create_link_request_export, device_link_sas_export, directory_entry_export, inspect_device_set_export, install_group_transparency_for_test, load_profile_export, receive_initial_export, replenish_prekeys_export, start_conversation_export
+from MobileCore import (
+  authorize_device_link_for_set_export,
+  complete_device_link_export,
+  create_account_export,
+  create_device_revocation_export,
+  create_link_request_export,
+  device_link_sas_export,
+  directory_entry_export,
+  inspect_device_set_export,
+  install_group_transparency_for_test,
+  load_profile_export,
+  receive_initial_export,
+  replenish_prekeys_export,
+  test_inner_suite,
+  start_conversation_export
+)
 from Prekeys.Pool import decode_prekey_publish
-from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceLinkAuthorization, DeviceLinkRequest, DeviceRevocation, DeviceSet, DirectoryEntry, OuterEnvelope, PrekeyBundle, decode_account_identity, decode_device_credential, decode_device_link_authorization, decode_device_link_request, decode_device_revocation, decode_directory_entry, decode_outer_envelope, decode_prekey_bundle, encode_device_link_request, encode_device_set
+from Protocol.DirectoryWire import (
+  decode_device_link_authorization,
+  decode_device_link_request,
+  decode_device_revocation,
+  decode_directory_entry,
+  encode_device_link_request,
+  encode_device_set
+)
+from Protocol.EnvelopeWire import decode_outer_envelope
+from Protocol.IdentityWire import decode_account_identity, decode_device_credential
+from Protocol.PrekeyWire import decode_prekey_bundle
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  DeviceLinkAuthorization,
+  DeviceLinkRequest,
+  DeviceRevocation,
+  DeviceSet,
+  DirectoryEntry,
+  OuterEnvelope,
+  PrekeyBundle
+)
 from Tests.GroupConsistencySupport import signed_transparency_view
 from Tests.Support import append, database_path, vector, write_u32
 from Transparency.Merkle import leaf_hash
@@ -222,7 +258,8 @@ fn proof() -> Bool ! String do
   let sender_profile = create_account_export(request([Bytes.from_utf8(sender_path), Bytes.from_utf8("bob")]) ?) ?
   let linked_message = Bytes.from_utf8("hybrid linked device")
   let linked_initial = start_conversation_export(request([Bytes.from_utf8(sender_path), linked_profile, linked_message]) ?) ?
-  assert(outer(linked_initial) ?.suite == 2)
+  assert(outer(linked_initial) ?.suite == 4)
+  assert(test_inner_suite(linked_path, linked_initial) ? == 2)
   assert(Bytes.secure_equals(receive_initial_export(request([Bytes.from_utf8(linked_path), linked_initial]) ?) ?,
   linked_message))
   assert(Bytes.length(sender_profile) > 0)

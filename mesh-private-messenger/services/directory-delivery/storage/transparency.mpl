@@ -1,5 +1,6 @@
+import RuntimeJobs
 from Transparency.Merkle import ConsistencyProof, InclusionProof, TransparencyCheckpoint, WitnessAttestation, WitnessKey, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint, verify_witnesses
-from Transparency.Wire import TransparencyEvidence
+from Transparency.Wire import account_lookup_id, TransparencyEvidence
 
 fn binary(value :: DbValue) -> Bytes ! String do
   case value do
@@ -48,10 +49,47 @@ fn account_commitment(account_id :: Bytes) -> Bytes ! String do
   end
 end
 
-pub fn append_entry_on_connection(conn :: borrow PgConn, account_id :: Bytes, entry_bytes :: Bytes) -> Int ! String do
+# Proofs carry every leaf commitment, which lets a client check any earlier
+# checkpoint against its cached view offline, and bounds the log. Registration
+# is anonymous, so that bound has to fail safe: an append past it used to
+# succeed and then make every lookup fail for every account.
+#
+# Appends now stop at the ceiling, and new accounts stop earlier. A flood can
+# close registration; it cannot take the directory down, and existing accounts
+# keep the reserved room to link, rotate, and above all revoke devices.
+
+pub fn transparency_proof_ceiling() -> Int do
+  4096
+end
+
+pub fn transparency_new_account_ceiling() -> Int do
+  3584
+end
+
+fn log_size_on_connection(conn :: borrow PgConn) -> Int ! String do
+  let rows = Pg.query_values(conn, "SELECT count(*)::text AS count FROM transparency_entries", []) ?
+  if List.length(rows) != 1 do
+    Err("transparency count failed")
+  else
+    integer(Map.get(List.head(rows), "count"))
+  end
+end
+
+pub fn append_entry_on_connection(conn :: borrow PgConn,
+account_id :: Bytes,
+entry_bytes :: Bytes,
+new_account :: Bool) -> Int ! String do
   let commitment = account_commitment(account_id) ?
   let hash = leaf_hash(entry_bytes) ?
   let _ = Pg.query_values(conn, "SELECT pg_advisory_xact_lock(1835365485)", []) ?
+  let ceiling = if new_account do
+    transparency_new_account_ceiling()
+  else
+    transparency_proof_ceiling()
+  end
+  if log_size_on_connection(conn) ? >= ceiling do
+    return Err("transparency_log_full")
+  end
   let rows = Pg.query_values(conn,
   "INSERT INTO transparency_entries (account_commitment, entry_bytes, leaf_hash) VALUES ($1, $2, $3) RETURNING sequence::text",
   [Binary(commitment), Binary(entry_bytes), Binary(hash)]) ?
@@ -155,6 +193,16 @@ pub fn validate_signing_config() -> Result <(), String > do
   Ok(nil)
 end
 
+fn checkpoint_recent(value :: TransparencyCheckpoint, now :: U64) -> Bool do
+  case U64.to_int(value.timestamp) do
+    Err( _) -> false
+    Ok( stamp) -> case U64.to_int(now) do
+      Err( _) -> false
+      Ok( current) -> current >= stamp && current - stamp < 240000
+    end
+  end
+end
+
 fn create_checkpoint_on_connection(conn :: borrow PgConn,
 signing_key :: borrow SigningPrivateKey,
 signing_public_key :: Bytes) -> TransparencyCheckpoint ! String do
@@ -165,7 +213,8 @@ signing_public_key :: Bytes) -> TransparencyCheckpoint ! String do
   else
     let previous_rows = checkpoint_rows(conn) ?
     if List.length(previous_rows) > 0 && U64.to_int(wide(Map.get(List.head(previous_rows),
-    "tree_size")) ?) ? == List.length(leaf_hashes) do
+    "tree_size")) ?) ? == List.length(leaf_hashes) && checkpoint_recent(checkpoint_from_row(List.head(previous_rows)) ?,
+    current_time() ?) do
       checkpoint_from_row(List.head(previous_rows))
     else
       let previous = if List.length(previous_rows) == 0 do
@@ -191,6 +240,7 @@ signing_public_key :: Bytes) -> TransparencyCheckpoint ! String do
       "INSERT INTO transparency_checkpoints (sequence, tree_size, tree_root, previous_checkpoint_hash, timestamp_ms, service_public_key, service_signature) VALUES ($1::bigint, $2::bigint, $3, $4, $5::bigint, $6, $7)",
       [Text(U64.to_string(checkpoint.sequence)), Text(U64.to_string(checkpoint.tree_size)), Binary(checkpoint.tree_root), Binary(checkpoint.previous_checkpoint_hash), Text(U64.to_string(checkpoint.timestamp)), Binary(checkpoint.service_public_key), Binary(checkpoint.signature)]) ?
       if changed == 1 do
+        RuntimeJobs.notify(conn, "witness") ?
         Ok(checkpoint)
       else
         Err("transparency checkpoint insert failed")
@@ -392,4 +442,20 @@ end
 pub fn store_witness(pool :: PoolHandle, attestation :: WitnessAttestation, trusted :: WitnessKey) -> Result <(), String > do
   Repo.transaction(pool,
   fn (conn :: borrow PgConn) -> store_witness_on_connection(conn, attestation, trusted) end)
+end
+
+pub fn transparency_username(pool :: PoolHandle, reference :: String) -> Option < String > ! String do
+  let account_id = account_lookup_id(reference) ?
+  if Bytes.length(account_id) == 0 do
+    Ok(Some(reference))
+  else
+    let rows = Pool.query_values(pool,
+    "SELECT username FROM messenger_accounts WHERE account_id = $1",
+    [Binary(account_id)]) ?
+    if List.length(rows) == 0 do
+      Ok(None)
+    else
+      Ok(Some(text(Map.get(List.head(rows), "username")) ?))
+    end
+  end
 end

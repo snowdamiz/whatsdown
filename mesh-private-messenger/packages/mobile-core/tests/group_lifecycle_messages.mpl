@@ -1,7 +1,17 @@
-from MobileCore import group_add_export, group_history_export, group_key_package_export, group_receive_export, group_send_export, process_delivery_batch_export
-from Protocol.V1 import DirectoryEntry, MailboxAck, OuterEnvelope, encode_outer_envelope
+from MobileCore import (
+  group_add_export,
+  group_history_export,
+  group_key_package_export,
+  group_receive_export,
+  group_send_export,
+  presentation_save_export,
+  presentation_load_export,
+  process_delivery_batch_export
+)
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.V1 import AccountIdentity, DirectoryEntry, MailboxAck, OuterEnvelope
 from Tests.GroupLifecycleSupport import GroupAccountFixture
-from Tests.GroupLifecycleWire import ack, acknowledge, delivery_batch, envelope_for, group_vectors, outer, output_list
+from Tests.GroupLifecycleWire import ack, acknowledge, assert_group_transport, delivery_batch, envelope_for, group_vectors, outer, output_list
 from Tests.Support import append, repeated, vector, write_u32
 
 fn group_messages_ensure(value :: Bool, error :: String) -> Result <(), String > do
@@ -50,6 +60,8 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
   group_messages_ensure(List.length(linked_deliveries) == 2, "linked welcome count mismatch") ?
   let bob_commit = envelope_for(linked_deliveries, accounts.bob_entry.mailbox_token, 0) ?
   let linked_welcome = envelope_for(linked_deliveries, accounts.linked_entry.mailbox_token, 0) ?
+  assert_group_transport(bob_commit, group_id, accounts.alice_account.account_id) ?
+  assert_group_transport(linked_welcome, group_id, accounts.alice_account.account_id) ?
   acknowledge(accounts.alice_path, linked_deliveries, 0) ?
   assert_poison_ack(accounts.bob_path,
   replace_group_ciphertext(bob_commit, malformed_group_packet() ?) ?) ?
@@ -58,11 +70,23 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
   group_messages_ensure(Bytes.secure_equals(group_receive_export(group_vectors([Bytes.from_utf8(accounts.linked_path), linked_welcome]) ?) ?,
   group_id),
   "linked welcome receive mismatch") ?
+  let group_key = Bytes.from_utf8("group/" <> Bytes.to_hex(group_id))
+  let group_presentation = group_vectors([Bytes.from_utf8("Weekend walks"), Bytes.empty()]) ?
+  case presentation_save_export(group_vectors([Bytes.from_utf8(accounts.bob_path), group_key, group_presentation]) ?) do
+    Ok( _) -> Err("non-creator changed group presentation") ?
+    Err( error) -> group_messages_ensure(error == "group_creator_required",
+    "wrong group permission error") ?
+  end
+  presentation_save_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_key, group_presentation]) ?) ?
   let greeting = Bytes.from_utf8("hello every device")
+  let presentation_key = Bytes.from_utf8("user/" <> Bytes.to_hex(accounts.alice_account.account_id))
+  let presentation = group_vectors([Bytes.from_utf8("alice"), Bytes.from_utf8("data:image/jpeg;base64,/9j/2Q==")]) ?
+  presentation_save_export(group_vectors([Bytes.from_utf8(accounts.alice_path), presentation_key, presentation]) ?) ?
   let greeting_output = group_send_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, greeting]) ?) ?
   let greetings = output_list(greeting_output) ?
   group_messages_ensure(List.length(greetings) == 2, "greeting delivery count mismatch") ?
   let bob_greeting = envelope_for(greetings, accounts.bob_entry.mailbox_token, 0) ?
+  assert_group_transport(bob_greeting, group_id, accounts.alice_account.account_id) ?
   let padded = outer(bob_greeting) ?
   group_messages_ensure(Bytes.length(padded.ciphertext) == padded.padding_bucket,
   "group message does not fill its padding bucket") ?
@@ -84,24 +108,48 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
   group_messages_ensure(List.length(bob_greeting_history) == 1,
   "bob greeting history count mismatch") ?
   let bob_greeting_record = output_list(List.head(bob_greeting_history)) ?
+  group_messages_ensure(List.length(bob_greeting_record) == 9,
+  "group history must expose a stable message ID") ?
+  let alice_greeting_history = output_list(group_history_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id]) ?) ?) ?
+  let alice_greeting_record = output_list(List.head(alice_greeting_history)) ?
+  group_messages_ensure(Bytes.length(List.get(bob_greeting_record, 8)) == 32 && Bytes.secure_equals(List.get(bob_greeting_record,
+  8),
+  List.get(alice_greeting_record, 8)),
+  "sender and recipient group message IDs differ") ?
   group_messages_ensure(Bytes.secure_equals(List.get(bob_greeting_record, 6), greeting),
   "bob greeting history body mismatch") ?
+  group_messages_ensure(Bytes.secure_equals(presentation_load_export(group_vectors([Bytes.from_utf8(accounts.bob_path), presentation_key]) ?) ?,
+  presentation),
+  "sender presentation did not travel with the encrypted message") ?
+  group_messages_ensure(Bytes.secure_equals(presentation_load_export(group_vectors([Bytes.from_utf8(accounts.bob_path), group_key]) ?) ?,
+  group_presentation),
+  "group presentation did not travel with the encrypted message") ?
   group_messages_ensure(Bytes.secure_equals(group_receive_export(group_vectors([Bytes.from_utf8(accounts.linked_path), envelope_for(greetings,
   accounts.linked_entry.mailbox_token,
   0) ?]) ?) ?,
   greeting),
   "linked greeting receive mismatch") ?
   acknowledge(accounts.alice_path, greetings, 0) ?
+  let announcement = output_list(group_send_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, Bytes.empty()]) ?) ?) ?
+  group_receive_export(group_vectors([Bytes.from_utf8(accounts.bob_path), envelope_for(announcement,
+  accounts.bob_entry.mailbox_token,
+  0) ?]) ?) ?
+  group_receive_export(group_vectors([Bytes.from_utf8(accounts.linked_path), envelope_for(announcement,
+  accounts.linked_entry.mailbox_token,
+  0) ?]) ?) ?
+  group_messages_ensure(List.length(output_list(group_history_export(group_vectors([Bytes.from_utf8(accounts.bob_path), group_id]) ?) ?) ?) == 1,
+  "photo announcement appeared as an empty chat message") ?
+  acknowledge(accounts.alice_path, announcement, 0) ?
   Ok(true)
 end
 
 pub fn exercise_group_message_boundary(accounts :: GroupAccountFixture, group_id :: Bytes) -> Bool ! String do
-  let maximum = repeated(97, 65342) ?
+  let maximum = repeated(97, 65290) ?
   let maximum_output = group_send_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, maximum]) ?) ?
   let maximum_deliveries = output_list(maximum_output) ?
   group_messages_ensure(List.length(maximum_deliveries) == 2, "maximum delivery count mismatch") ?
   let maximum_for_bob = envelope_for(maximum_deliveries, accounts.bob_entry.mailbox_token, 0) ?
-  group_messages_ensure(outer(maximum_for_bob) ?.suite == 3, "maximum delivery suite mismatch") ?
+  group_messages_ensure(outer(maximum_for_bob) ?.suite == 4, "maximum delivery suite mismatch") ?
   group_messages_ensure(Bytes.length(outer(maximum_for_bob) ?.ciphertext) == 65536,
   "maximum ciphertext length mismatch") ?
   group_messages_ensure(Bytes.secure_equals(group_receive_export(group_vectors([Bytes.from_utf8(accounts.bob_path), maximum_for_bob]) ?) ?,
@@ -114,7 +162,7 @@ pub fn exercise_group_message_boundary(accounts :: GroupAccountFixture, group_id
   "linked maximum receive mismatch") ?
   acknowledge(accounts.alice_path, maximum_deliveries, 0) ?
   case group_send_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, repeated(98,
-  65343) ?]) ?) do
+  65291) ?]) ?) do
     Ok( _) -> Err("oversized group message was accepted") ?
     Err( error) -> group_messages_ensure(error == "group_message_too_large",
     "wrong oversized group message error") ?

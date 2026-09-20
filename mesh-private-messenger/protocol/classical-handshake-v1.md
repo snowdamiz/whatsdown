@@ -2,7 +2,7 @@
 
 Profile A uses the four X25519 calculations and asynchronous prekey roles from
 the [X3DH specification](https://signal.org/docs/specifications/x3dh/), adapted
-to Whatsdown's separate Ed25519 credential key and X25519 device identity key.
+to Morse's separate Ed25519 credential key and X25519 device identity key.
 This is a development construction pending independent protocol review.
 
 ## Published bundle
@@ -18,9 +18,20 @@ u16(version) || u16(suite) || account_id || device_id ||
 u64(signed_prekey_id) || signed_prekey_public || u64(expires_at)
 ```
 
-Profile A initial messages require a one-time prekey. Bundle fetch and claim
-must be atomic at the directory; an accepted or rejected receive attempt burns
-the locally claimed private one-time prekey.
+Profile A initial messages require a prekey in the one-time slot. Bundle fetch
+and claim must be atomic at the directory; an accepted or rejected receive
+attempt burns the locally claimed private one-time prekey.
+
+When a device's one-time pool is empty the directory fills that slot with the
+device's reusable last-resort prekey instead of refusing the claim, so draining
+a pool cannot stop new sessions. The handshake is unchanged and the initiator
+cannot tell the difference. The responder keeps that secret after use, and
+because it is also the responder's first ratchet key, forward secrecy for such a
+session's first chain rests on the last-resort key until the first Diffie-Hellman
+ratchet step, exactly as it rests on the signed prekey in X3DH without a
+one-time key. The responder therefore remembers the transcript hash of every
+first message that used the key (the newest 1,024) and permanently refuses a
+repeat, which a deleted one-time secret makes impossible by itself.
 
 Device credential signatures cover the exact bytes
 `"mesh-msg/v1/device-credential" || canonical_unsigned_credential`, where the

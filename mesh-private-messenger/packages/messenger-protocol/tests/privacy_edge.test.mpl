@@ -1,5 +1,6 @@
-from Privacy.Edge import AnonymousAbuseToken, PrivacySubmission, decode_privacy_submission, encode_privacy_submission, mint_submission, open_delivery_with_key, seal_delivery, verify_submission
-from Protocol.V1 import OuterEnvelope, encode_outer_envelope
+from Privacy.Edge import AnonymousAbuseToken, PrivacySubmission, RequestStamp, decode_privacy_submission, decode_stamped_request, encode_privacy_submission, encode_stamped_request, mint_request_stamp, mint_submission, open_delivery_with_key, request_stamp_key, seal_delivery, verify_request_stamp, verify_submission
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.V1 import OuterEnvelope
 
 fn repeated(value :: Int, count :: Int) -> Bytes ! String do
   case Bytes.repeat(value, count) do
@@ -86,6 +87,79 @@ end
 
 test("privacy edge cannot read sealed delivery and anonymous work tokens bind exact ciphertext") do
   case edge_proof() do
+    Err( error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok( value) -> assert(value)
+  end
+end
+
+fn stamp_proof() -> Bool ! String do
+  let now = wide("1700000000000") ?
+  let window = wide("300000") ?
+  let expires_at = wide("1700000060000") ?
+  let payload = repeated(7, 100) ?
+  let stamp = mint_request_stamp("mesh-msg/v1/work/resolve", payload, expires_at, 8) ?
+  assert(verify_request_stamp("mesh-msg/v1/work/resolve", payload, stamp, now, window, 8) ?)
+  # Work done for one endpoint buys nothing at another, and nothing for other bytes.
+  assert(!(verify_request_stamp("mesh-msg/v1/work/register", payload, stamp, now, window, 8) ?))
+  assert(!(verify_request_stamp("mesh-msg/v1/work/resolve",
+  repeated(8, 100) ?,
+  stamp,
+  now,
+  window,
+  8) ?))
+  # It is only good inside its window, so it cannot be stockpiled.
+  assert(!(verify_request_stamp("mesh-msg/v1/work/resolve",
+  payload,
+  stamp,
+  wide("1700000060001") ?,
+  window,
+  8) ?))
+  assert(!(verify_request_stamp("mesh-msg/v1/work/resolve",
+  payload,
+  stamp,
+  wide("1699999000000") ?,
+  window,
+  8) ?))
+  assert(!(verify_request_stamp("mesh-msg/v1/work/resolve", payload, stamp, now, window, 0) ?))
+  case mint_request_stamp("mesh-msg/v1/work/resolve", payload, expires_at, 25) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+  let wire = encode_stamped_request(stamp, payload) ?
+  assert(Bytes.length(wire) == 120)
+  let ( decoded, body) = decode_stamped_request(wire, 100) ?
+  assert(Bytes.secure_equals(body, payload))
+  assert(U64.compare(decoded.expires_at, expires_at) == 0)
+  assert(decoded.nonce == stamp.nonce)
+  case decode_stamped_request(wire, 99) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+  # Known answer computed independently (Python hashlib) from the documented
+  # layout: SHA-256(label || u64be expires_at || u32be nonce || SHA-256(payload)).
+  # It pins the label, field order, widths and byte order against silent drift.
+  let known = RequestStamp {
+    expires_at : expires_at,
+    nonce : 4955
+  }
+  assert(Bytes.to_hex(request_stamp_key("mesh-msg/v1/work/resolve", payload, known) ?) == "00023b3d0a240d4533a3e38336235c04f53b49c378093ffa92de14159221d639")
+  assert(verify_request_stamp("mesh-msg/v1/work/resolve", payload, known, now, window, 14) ?)
+  assert(!(verify_request_stamp("mesh-msg/v1/work/resolve", payload, known, now, window, 15) ?))
+  # The key that marks a stamp as spent is unique to the stamp and the endpoint.
+  let spent = request_stamp_key("mesh-msg/v1/work/resolve", payload, stamp) ?
+  assert(Bytes.length(spent) == 32)
+  assert(!Bytes.secure_equals(spent,
+  request_stamp_key("mesh-msg/v1/work/register", payload, stamp) ?))
+  assert(!Bytes.secure_equals(spent,
+  request_stamp_key("mesh-msg/v1/work/resolve", payload, % { stamp | nonce : stamp.nonce + 1 }) ?))
+  Ok(true)
+end
+
+test("request stamps bind work to one endpoint, one request and one window") do
+  case stamp_proof() do
     Err( error) -> do
       println(error)
       assert(false)

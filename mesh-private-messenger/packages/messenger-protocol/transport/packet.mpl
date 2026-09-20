@@ -1,7 +1,10 @@
 from Transport.Padding import pad_message, unpad_message
 from Identity.Device import is_retryable_verification_crypto_error
 from Binary.Reader import BinaryReader, finish, read_fixed, read_u8, read_vector, reader
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, PrekeyBundle, decode_account_identity, decode_device_credential, decode_directory_entry, decode_prekey_bundle, encode_directory_entry
+from Protocol.DirectoryWire import decode_directory_entry, encode_directory_entry
+from Protocol.IdentityWire import decode_account_identity, decode_device_credential
+from Protocol.PrekeyWire import decode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, PrekeyBundle
 
 pub type TransportPacket do
   InitialPacket( account_identity :: Bytes, message :: Bytes)
@@ -212,8 +215,7 @@ recipient :: X25519PublicKey) -> Bytes ! String do
   end
 end
 
-pub fn open_initial_packet(input :: Bytes,
-recipient :: borrow X25519PrivateKey) -> TransportPacket ! String do
+pub fn open_initial_packet(input :: Bytes, recipient :: borrow X25519PrivateKey) -> TransportPacket ! String do
   if !is_sealed_initial_packet(input) do
     Err("invalid sealed initial packet")
   else

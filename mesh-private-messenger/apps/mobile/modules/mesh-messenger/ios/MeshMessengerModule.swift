@@ -17,6 +17,8 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
 
     OnCreate {
       NotificationCenterManager.shared.addDelegate(self)
+      MeshMessengerDataProtection.excludeAppDataFromBackup()
+      MeshMessengerDataProtection.startCoveringInactiveWindow()
     }
 
     AsyncFunction("primePushToken") { (promise: Promise) in
@@ -55,6 +57,10 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.persist_envelope(request)
       case "mesh_messenger_create_account":
         return try MeshLibrary.create_account_export(request)
+      case "mesh_messenger_presentation_load":
+        return try MeshLibrary.presentation_load_export(request)
+      case "mesh_messenger_presentation_save":
+        return try MeshLibrary.presentation_save_export(request)
       case "mesh_messenger_load_profile":
         return try MeshLibrary.load_profile_export(request)
       case "mesh_messenger_replenish_prekeys":
@@ -79,6 +85,16 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.prepare_fanout_prekeys_export(request)
       case "mesh_messenger_send_fanout":
         return try MeshLibrary.send_fanout_export(request)
+      case "mesh_messenger_group_invite":
+        return try MeshLibrary.group_invite_export(request)
+      case "mesh_messenger_group_invitation_accept":
+        return try MeshLibrary.group_invitation_accept_export(request)
+      case "mesh_messenger_group_invitation_complete":
+        return try MeshLibrary.group_invitation_complete_export(request)
+      case "mesh_messenger_group_invitation_decline":
+        return try MeshLibrary.group_invitation_decline_export(request)
+      case "mesh_messenger_group_invitations":
+        return try MeshLibrary.group_invitations_export(request)
       case "mesh_messenger_group_key_package":
         return try MeshLibrary.group_key_package_export(request)
       case "mesh_messenger_group_create":
@@ -121,6 +137,10 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.directory_lookup_export(request)
       case "mesh_messenger_transparency_lookup":
         return try MeshLibrary.transparency_lookup_export(request)
+      case "mesh_messenger_register_request":
+        return try MeshLibrary.register_request_export(request)
+      case "mesh_messenger_resolve_request":
+        return try MeshLibrary.resolve_request_export(request)
       case "mesh_messenger_verify_transparency":
         return try MeshLibrary.verify_transparency_export(request)
       case "mesh_messenger_privacy_submission":
@@ -133,6 +153,12 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.outbox_list_export(request)
       case "mesh_messenger_outbox_ack":
         return try MeshLibrary.outbox_ack_export(request)
+      case "mesh_messenger_attachment_prepare":
+        return try MeshLibrary.attachment_prepare_export(request)
+      case "mesh_messenger_attachment_seal_chunk":
+        return try MeshLibrary.attachment_seal_chunk_export(request)
+      case "mesh_messenger_attachment_open_chunk":
+        return try MeshLibrary.attachment_open_chunk_export(request)
       default:
         throw MeshLibraryFailure(
           status: MESH_LIBRARY_ERR_INVALID_ARGUMENT,
@@ -144,6 +170,7 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
     OnDestroy { [weak self] in
       guard let self else { return }
       NotificationCenterManager.shared.removeDelegate(self)
+      MeshMessengerDataProtection.stop()
       self.pushEnabled = false
       self.pushPromise?.reject("E_MODULE_DESTROYED", "MeshMessenger was destroyed.")
       self.pushPromise = nil

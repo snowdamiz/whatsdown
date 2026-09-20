@@ -1,6 +1,8 @@
 from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
 from Prekeys.Bundle import normalize_prekey_bundle
-from Protocol.V1 import PrekeyBundle, decode_device_credential, decode_prekey_bundle, encode_prekey_bundle
+from Protocol.IdentityWire import decode_device_credential
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import PrekeyBundle
 
 pub type PrekeyPublishWrite do
   PrekeysPublished( active_ids :: List < U64 >)
@@ -11,7 +13,7 @@ pub type PrekeyPublishWrite do
 
   PrekeysConflict
 
-  PrekeyPoolFull
+  PrekeyPoolFull( active_ids :: List < U64 >)
 end
 
 pub type PrekeyClaimWrite do
@@ -152,12 +154,52 @@ end
 
 fn active_prekey_ids(conn :: borrow PgConn, account_id :: Bytes, device_id :: Bytes) -> List < U64 > ! String do
   let rows = Pg.query_values(conn,
-  "SELECT prekey_id::text FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL ORDER BY messenger_one_time_prekeys.prekey_id",
+  "SELECT prekey_id::text FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL AND NOT last_resort ORDER BY messenger_one_time_prekeys.prekey_id",
   [Binary(account_id), Binary(device_id)]) ?
   if List.length(rows) > 64 do
     Err("prekey pool overflow")
   else
     prekey_row_ids(rows, 0, List.new())
+  end
+end
+
+# The reusable key: 0 unchanged, 1 replaced, 2 conflict. Identifiers only grow,
+# so replaying a retired publication cannot bring an old key back.
+
+fn publish_last_resort(conn :: borrow PgConn, request :: PrekeyPublishRequest) -> Int ! String do
+  case request.last_resort do
+    None -> Ok(0)
+    Some( value) -> do
+      let key = [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(value.id))]
+      let rows = Pg.query_values(conn,
+      "SELECT public_key, last_resort::text AS last_resort FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint",
+      key) ?
+      if List.length(rows) > 0 do
+        let row = List.head(rows)
+        if text(Map.get(row, "last_resort")) ? == "true" && Bytes.secure_equals(binary(Map.get(row,
+        "public_key")) ?,
+        value.public_key) do
+          Ok(0)
+        else
+          Ok(2)
+        end
+      else
+        let newer = Pg.query_values(conn,
+        "SELECT 1 AS found FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND last_resort AND prekey_id > $3::bigint LIMIT 1",
+        key) ?
+        if List.length(newer) > 0 do
+          Ok(2)
+        else
+          let _ = Pg.execute_values(conn,
+          "UPDATE messenger_one_time_prekeys SET consumed_at = clock_timestamp() WHERE account_id = $1 AND device_id = $2 AND last_resort AND consumed_at IS NULL",
+          [Binary(request.account_id), Binary(request.device_id)]) ?
+          let _ = Pg.execute_values(conn,
+          "INSERT INTO messenger_one_time_prekeys (account_id, device_id, prekey_id, public_key, last_resort) VALUES ($1, $2, $3::bigint, $4, true)",
+          [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(value.id)), Binary(value.public_key)]) ?
+          Ok(1)
+        end
+      end
+    end
   end
 end
 
@@ -175,22 +217,27 @@ fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest)
         Ok(PrekeysUnauthorized)
       else
         let checked = publication_check(conn, request, 0, 0) ?
-        if checked.conflict do
+        let reusable = if checked.conflict do
+          2
+        else
+          publish_last_resort(conn, request) ?
+        end
+        if reusable == 2 do
           Ok(PrekeysConflict)
         else
           let counts = Pg.query_values(conn,
-          "SELECT count(*)::text AS available_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL",
+          "SELECT count(*)::text AS available_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL AND NOT last_resort",
           [Binary(request.account_id), Binary(request.device_id)]) ?
           if List.length(counts) != 1 do
             Err("prekey pool count failed")
           else if integer(Map.get(List.head(counts), "available_count")) ? + checked.new_count > 64 do
-            Ok(PrekeyPoolFull)
+            Ok(PrekeyPoolFull(active_prekey_ids(conn, request.account_id, request.device_id) ?))
           else
             if checked.new_count > 0 do
               insert_prekeys(conn, request, 0) ?
             end
             let active_ids = active_prekey_ids(conn, request.account_id, request.device_id) ?
-            if checked.new_count == 0 do
+            if checked.new_count == 0 && reusable == 0 do
               Ok(PrekeysUnchanged(active_ids))
             else
               Ok(PrekeysPublished(active_ids))
@@ -347,7 +394,17 @@ end
 
 fn claim_candidate(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option < OneTimePrekeyPublic > ! String do
   let rows = Pg.query_values(conn,
-  "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL ORDER BY messenger_one_time_prekeys.prekey_id FOR UPDATE SKIP LOCKED LIMIT 1",
+  "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL AND NOT last_resort ORDER BY messenger_one_time_prekeys.prekey_id FOR UPDATE SKIP LOCKED LIMIT 1",
+  [Binary(request.account_id), Binary(request.device_id)]) ?
+  claimed_prekey(rows)
+end
+
+# Handed out only when the one-time pool is empty, and never consumed: there is
+# nothing to reserve, so a retried claim simply reads it again.
+
+fn last_resort_candidate(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option < OneTimePrekeyPublic > ! String do
+  let rows = Pg.query_values(conn,
+  "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND last_resort AND consumed_at IS NULL",
   [Binary(request.account_id), Binary(request.device_id)]) ?
   claimed_prekey(rows)
 end
@@ -426,7 +483,10 @@ fn claim_on_connection(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> 
           Ok(PrekeyClaimMissing)
         else
           case claim_candidate(conn, request) ? do
-            None -> Ok(PrekeyClaimExhausted)
+            None -> case last_resort_candidate(conn, request) ? do
+              None -> Ok(PrekeyClaimExhausted)
+              Some( reusable) -> Ok(PrekeyClaimed(resolved_bundle(current_bundle, reusable) ?))
+            end
             Some( claimed) -> do
               let bundle = resolved_bundle(current_bundle, claimed) ?
               reserve_claim(conn, request, claimed, encoded_bundle(bundle) ?) ?

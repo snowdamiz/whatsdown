@@ -1,0 +1,14 @@
+{
+  "name": "morse-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "native": "node scripts/build-native.mjs",
+    "web": "node scripts/build-web.mjs",
+    "dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
+    "build": "tauri build",
+    "test": "node --test scripts/*.test.mjs && cargo test --manifest-path src-tauri/Cargo.toml --locked"
+  },
+  "devDependencies": { "@tauri-apps/cli": "2.11.4" }
+}

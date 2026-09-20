@@ -35,3 +35,19 @@ previous_checkpoint_bytes :: Bytes) -> Bool ! String do
     end
   end
 end
+
+# Authorization uses the signed timestamp, never the time a replay arrived.
+
+pub fn checkpoint_fresh_at(timestamp :: U64, now :: U64) -> Bool do
+  case U64.to_int(timestamp) do
+    Err( _) -> false
+    Ok( stamp) -> case U64.to_int(now) do
+      Err( _) -> false
+      Ok( current) -> if stamp > current do
+        stamp - current <= 60000
+      else
+        current - stamp <= 300000
+      end
+    end
+  end
+end

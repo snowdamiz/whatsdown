@@ -1,5 +1,8 @@
-from Protocol.V1 import DeliveredEnvelope, MailboxAck, MailboxFetch, OuterEnvelope, encode_mailbox_ack, encode_mailbox_fetch, encode_outer_envelope
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.V1 import DeliveredEnvelope, OuterEnvelope
+from Storage.MailboxAuth import MailboxOwner
 from Storage.RateLimit import allow_request_on_connection
+import RuntimeJobs
 
 pub type DeliveryInsert do
   Accepted
@@ -11,6 +14,8 @@ pub type DeliveryInsert do
   MailboxRevoked
 
   RateLimited
+
+  ExpiryRejected
 end deriving(Eq, Debug)
 
 fn binary(value :: DbValue) -> Bytes ! String do
@@ -60,6 +65,7 @@ fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryIns
       let _ = Pg.execute_values(conn,
       "INSERT INTO messenger_outbox_events (mailbox_token_hash, envelope_id) VALUES ($1, $2)",
       [Binary(token_hash), Binary(value.envelope_id)]) ?
+      RuntimeJobs.notify(conn, "directory") ?
       Ok(Accepted)
     else
       Err("messenger_rate_limited")
@@ -67,38 +73,40 @@ fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryIns
   end
 end
 
+# A mailbox holds 64 envelopes and anyone may deposit into it, so an envelope
+# that never expires would hold its slot until the owner next comes online. A
+# client gives its envelopes 30 days; delivery accepts that plus a day of clock
+# skew, and nothing already expired, so a full mailbox always drains by itself.
+
+fn expiry_acceptable(expiration :: U64) -> Bool ! String do
+  let now = U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()))) ?
+  let latest = U64.add(now, U64.parse("2678400000") ?) ?
+  Ok(U64.compare(expiration, now) > 0 && U64.compare(expiration, latest) <= 0)
+end
+
 pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryInsert ! String do
   valid_outer(value) ?
+  if !(expiry_acceptable(value.expiration) ?) do
+    return Ok(ExpiryRejected)
+  end
   case Repo.transaction(pool, fn (conn :: borrow PgConn) -> insert_envelope(conn, value) end) do
     Ok( result) -> Ok(result)
     Err( error) -> if String.contains(error, "messenger_envelopes_mailbox_envelope_key") do
       Ok(Duplicate)
+    else if String.contains(error, "messenger_mailbox_capacity") do
+      Ok(MailboxFull)
+    else if String.contains(error, "messenger_mailbox_inactive") do
+      Ok(MailboxRevoked)
+    else if String.contains(error, "messenger_rate_limited") do
+      Ok(RateLimited)
     else
-      if String.contains(error, "messenger_mailbox_capacity") do
-        Ok(MailboxFull)
-      else
-        if String.contains(error, "messenger_mailbox_inactive") do
-          Ok(MailboxRevoked)
-        else
-          if String.contains(error, "messenger_rate_limited") do
-            Ok(RateLimited)
-          else
-            Err(error)
-          end
-        end
-      end
+      Err(error)
     end
   end
 end
 
-fn deliveries(rows :: List < Map < String, DbValue > >,
-token :: Bytes,
-index :: Int,
-output :: List < DeliveredEnvelope >) -> List < DeliveredEnvelope > ! String do
-  if index >= List.length(rows) do
-    Ok(output)
-  else
-    let row = List.get(rows, index)
+fn deliveries(rows :: List < Map < String, DbValue > >, token :: Bytes) -> List < DeliveredEnvelope > ! String do
+  let values = for row in rows do
     let envelope = OuterEnvelope {
       version : 1,
       envelope_id : binary(Map.get(row, "envelope_id")) ?,
@@ -112,26 +120,32 @@ output :: List < DeliveredEnvelope >) -> List < DeliveredEnvelope > ! String do
       Err( _) -> Err("invalid stored envelope")
       Ok( value) -> Ok(value)
     end ?
-    deliveries(rows,
-    token,
-    index + 1,
-    List.append(output,
     DeliveredEnvelope {
       sequence : wide(Map.get(row, "sequence")) ?,
       envelope : encoded
-    }))
+    }
   end
+  Ok(values)
 end
 
-pub fn fetch_mailbox(pool :: PoolHandle, request :: MailboxFetch) -> List < DeliveredEnvelope > ! String do
-  case encode_mailbox_fetch(request) do
-    Err( _) -> Err("invalid mailbox fetch")
-    Ok( _) -> Ok(nil)
-  end ?
+## Reads require the `MailboxOwner` produced by `Storage.MailboxAuth`: knowing a
+## mailbox address is never enough to read or acknowledge its envelopes.
+
+pub fn fetch_mailbox(pool :: PoolHandle, owner :: MailboxOwner, after_sequence :: U64) -> List < DeliveredEnvelope > ! String do
   let rows = Pool.query_values(pool,
   "SELECT envelope.sequence::text, envelope.envelope_id, envelope.suite::text, envelope.expiration_ms::text, envelope.padding_bucket::text, envelope.ciphertext FROM messenger_envelopes AS envelope JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = envelope.mailbox_token_hash AND mailbox.active WHERE envelope.mailbox_token_hash = $1 AND envelope.sequence > $2::bigint AND envelope.acknowledged_at IS NULL AND envelope.expiration_ms > floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint ORDER BY envelope.sequence LIMIT 8",
-  [Binary(Crypto.sha256(request.mailbox_token)), Text(U64.to_string(request.after_sequence))]) ?
-  deliveries(rows, request.mailbox_token, 0, List.new())
+  [Binary(Crypto.sha256(owner.mailbox_token)), Text(U64.to_string(after_sequence))]) ?
+  deliveries(rows, owner.mailbox_token)
+end
+
+fn acknowledge_one(conn :: borrow PgConn, token_hash :: Bytes, id :: Bytes) -> Int ! String do
+  let changed = Pg.execute_values(conn,
+  "UPDATE messenger_envelopes SET acknowledged_at = now() WHERE mailbox_token_hash = $1 AND envelope_id = $2 AND acknowledged_at IS NULL",
+  [Binary(token_hash), Binary(id)]) ?
+  if changed > 0 do
+    RuntimeJobs.notify(conn, "directory") ?
+  end
+  Ok(changed)
 end
 
 fn acknowledge_ids(pool :: PoolHandle,
@@ -142,17 +156,14 @@ count :: Int) -> Int ! String do
   if index >= List.length(ids) do
     Ok(count)
   else
-    let changed = Pool.execute_values(pool,
-    "UPDATE messenger_envelopes SET acknowledged_at = now() WHERE mailbox_token_hash = $1 AND envelope_id = $2 AND acknowledged_at IS NULL",
-    [Binary(token_hash), Binary(List.get(ids, index))]) ?
+    let changed = Repo.transaction(pool,
+    fn (conn :: borrow PgConn) -> acknowledge_one(conn, token_hash, List.get(ids, index)) end) ?
     acknowledge_ids(pool, token_hash, ids, index + 1, count + changed)
   end
 end
 
-pub fn acknowledge_mailbox(pool :: PoolHandle, ack :: MailboxAck) -> Int ! String do
-  case encode_mailbox_ack(ack) do
-    Err( _) -> Err("invalid mailbox acknowledgement")
-    Ok( _) -> Ok(nil)
-  end ?
-  acknowledge_ids(pool, Crypto.sha256(ack.mailbox_token), ack.envelope_ids, 0, 0)
+pub fn acknowledge_mailbox(pool :: PoolHandle,
+owner :: MailboxOwner,
+envelope_ids :: List < Bytes >) -> Int ! String do
+  acknowledge_ids(pool, Crypto.sha256(owner.mailbox_token), envelope_ids, 0, 0)
 end

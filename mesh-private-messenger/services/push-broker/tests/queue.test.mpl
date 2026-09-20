@@ -1,4 +1,4 @@
-from Broker.Queue import EnqueueOutcome, complete_job, enqueue_with_key, initialize, mark_terminal, next_job, purge_tombstones, record_ticket, retry_delay_ms, retry_job, tombstone_cutoff_ms
+from Broker.Queue import EnqueueOutcome, complete_job, enqueue_with_key, initialize, mark_terminal, next_job, next_work_at, purge_tombstones, record_ticket, retry_delay_ms, retry_job, tombstone_cutoff_ms
 from Push.Token import PushWakeRequest, encode_push_wake, seal_provider_token
 
 fn seed(value :: Int) -> Bytes ! String do
@@ -14,7 +14,7 @@ fn queue_proof() -> Bool ! String do
     Ok( value) -> Ok(value)
   end ?
   let suffix = Bytes.to_hex(random)
-  let path = "/tmp/mesh-push-broker-#{suffix}.db"
+  let path = Env.get("MESSENGER_STORAGE_TEST_DATABASE_URL", "")
   let private_seed = seed(13) ?
   let broker = case Crypto.x25519_from_seed(private_seed) do
     Err( _) -> Err("broker key failed")
@@ -25,7 +25,7 @@ fn queue_proof() -> Bool ! String do
   broker.public_key) ?
   let first = encode_push_wake(PushWakeRequest {
     version : 1,
-    wake_token_hash : Crypto.sha256(Bytes.from_utf8("queue-wake")),
+    wake_token_hash : Crypto.sha256(Bytes.from_utf8("queue-wake-" <> suffix)),
     provider : 1,
     sealed_provider_token : first_sealed
   }) ?
@@ -34,6 +34,7 @@ fn queue_proof() -> Bool ! String do
     QueueCoalesced -> false
   end
   assert(first_accepted)
+  assert(next_work_at(path) ? == 1000)
   let duplicate_coalesced = case enqueue_with_key(path, first, broker.private_key, 1001) ? do
     QueueAccepted -> false
     QueueCoalesced -> true
@@ -62,7 +63,7 @@ fn queue_proof() -> Bool ! String do
   changed_broker.public_key) ?
   let changed = encode_push_wake(PushWakeRequest {
     version : 1,
-    wake_token_hash : Crypto.sha256(Bytes.from_utf8("queue-wake")),
+    wake_token_hash : Crypto.sha256(Bytes.from_utf8("queue-wake-" <> suffix)),
     provider : 1,
     sealed_provider_token : changed_sealed
   }) ?
@@ -77,6 +78,7 @@ fn queue_proof() -> Bool ! String do
   end ?
   assert(Bytes.secure_equals(changed_job.sealed_request, changed))
   record_ticket(path, changed_job, "ticket-queued", 1005) ?
+  assert(next_work_at(path) ? == 901005)
   case next_job(path, 901004) ? do
     None -> nil
     Some( _) -> assert(false)
@@ -88,6 +90,7 @@ fn queue_proof() -> Bool ! String do
   assert(receipt_job.state == "receipt")
   assert(receipt_job.ticket_id == "ticket-queued")
   retry_job(path, receipt_job, 901005) ?
+  assert(next_work_at(path) ? == 902005)
   case next_job(path, 902004) ? do
     None -> nil
     Some( _) -> assert(false)
@@ -101,6 +104,7 @@ fn queue_proof() -> Bool ! String do
   assert(retry_delay_ms(0) == 1000)
   assert(retry_delay_ms(30) == 900000)
   complete_job(path, retry, 902006) ?
+  assert(next_work_at(path) ? == 605702007)
   case next_job(path, 902006) ? do
     None -> nil
     Some( _) -> assert(false)
@@ -124,6 +128,13 @@ fn queue_proof() -> Bool ! String do
     QueueAccepted -> nil
     QueueCoalesced -> assert(false)
   end
+  let last_job = case next_job(path, 902010) ? do
+    None -> Err("requeued wake missing")
+    Some( value) -> Ok(value)
+  end ?
+  mark_terminal(path, last_job.wake_hash, last_job.request_hash, 902011) ?
+  assert(purge_tombstones(path, 902012, 1) ? == 1)
+  assert(next_work_at(path) ? == 0)
   Ok(true)
 end
 

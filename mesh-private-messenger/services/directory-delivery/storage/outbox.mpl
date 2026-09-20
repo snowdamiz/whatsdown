@@ -33,22 +33,15 @@ fn integer(value :: DbValue) -> Int ! String do
   end
 end
 
-fn decode_events(rows :: List < Map < String, DbValue > >,
-index :: Int,
-events :: List < OutboxEvent >) -> List < OutboxEvent > ! String do
-  if index >= List.length(rows) do
-    Ok(events)
-  else
-    let row = List.get(rows, index)
-    decode_events(rows,
-    index + 1,
-    List.append(events,
+fn decode_events(rows :: List < Map < String, DbValue > >) -> List < OutboxEvent > ! String do
+  let events = for row in rows do
     OutboxEvent {
       event_id : text(Map.get(row, "event_id")) ?,
       mailbox_token_hash : binary(Map.get(row, "mailbox_token_hash")) ?,
       attempts : integer(Map.get(row, "attempts")) ?
-    }))
+    }
   end
+  Ok(events)
 end
 
 fn valid_lease(owner :: String, limit :: Int, lease_seconds :: Int) -> Result <(), String > do
@@ -64,7 +57,7 @@ pub fn lease_outbox(pool :: PoolHandle, owner :: String, limit :: Int, lease_sec
   let rows = Pool.query_values(pool,
   "WITH exhausted AS (UPDATE messenger_outbox_events SET status = 'permanent_failure', completed_at = clock_timestamp(), lease_owner = NULL, lease_expires_at = NULL, last_error_code = 'lease_attempts_exhausted' WHERE status = 'leased' AND attempts >= 5 AND lease_expires_at <= clock_timestamp()), candidates AS (SELECT event_id FROM messenger_outbox_events WHERE completed_at IS NULL AND attempts < 5 AND available_at <= clock_timestamp() AND (status IN ('pending', 'retryable_failure') OR (status = 'leased' AND lease_expires_at <= clock_timestamp())) ORDER BY created_at, event_id FOR UPDATE SKIP LOCKED LIMIT $2::integer) UPDATE messenger_outbox_events AS event SET status = 'leased', lease_owner = $1, lease_expires_at = clock_timestamp() + ($3::integer * interval '1 second'), attempts = event.attempts + 1, last_error_code = NULL FROM candidates WHERE event.event_id = candidates.event_id RETURNING event.event_id::text, event.mailbox_token_hash, event.attempts::text",
   [Text(owner), Text(Int.to_string(limit)), Text(Int.to_string(lease_seconds))]) ?
-  decode_events(rows, 0, List.new())
+  decode_events(rows)
 end
 
 fn expect_fenced_update(changed :: Int) -> Result <(), String > do

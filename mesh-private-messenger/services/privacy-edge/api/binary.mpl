@@ -23,9 +23,7 @@ pub fn prepare_submission(body :: Bytes, now :: U64, maximum_future :: U64, diff
   end
 end
 
-pub fn forward_submission(body :: Bytes,
-internal_url :: String,
-internal_token :: String) -> EdgeResult ! String do
+pub fn forward_submission(body :: Bytes, internal_url :: String, internal_token :: String) -> EdgeResult ! String do
   let authorization = internal_delivery_authorization(internal_token) ?
   case Http.build(:post, internal_url <> "/internal/v1/envelopes/sealed")
     |> Http.header("Content-Type", "application/octet-stream")

@@ -3,11 +3,13 @@
 Run the local stack with `./run.sh` from the repository root, then install its iOS development build on a simulator. These flows use Maestro and the live local services. They never erase an identity or clear a keychain.
 
 - `onboarding.yaml`: fresh device; username validation and device-link scanner navigation.
-- `account.yaml`: create `QA_USERNAME` if needed, render the multipart contact code, inspect no-push mode, and reopen the saved identity.
-- `navigation.yaml`: existing account; compose, groups, contact code, linked devices, and notifications.
+- `account.yaml`: create `QA_USERNAME` if needed, render the multipart contact code, and reopen the saved identity.
+- `navigation.yaml`: existing account; compose, groups, contact code, and linked devices.
 - `send-request.yaml`: send `QA_MESSAGE` to `QA_RECIPIENT`, inspect encrypted history, and return to the inbox.
 - `accept-reply.yaml`: recipient account; fetch `QA_MESSAGE` from `QA_SENDER`, accept the request, send `QA_REPLY`, block/unblock, and verify history after restart.
 - `group.yaml`: create a group, inspect membership, confirm Send stays disabled until another device joins, and display the invitation code.
+- `group-invite.yaml`: inviter sends an invitation to `QA_RECIPIENT` by username without camera access.
+- `group-accept.yaml`: recipient automatically receives and accepts the invitation from `QA_SENDER` and verifies the waiting state survives restart. Keep the inviter offline during this flow; afterward open the inviter's app to finish joining automatically.
 - `disappearing.yaml`: send a one-minute message and leave the conversation open until it disappears.
 - `refresh-security.yaml`: start inside an accepted conversation saved by a pre-identity-binding build, with no safety number; send a message and confirm the safety number becomes available immediately. This needs a legacy database fixture and must run before manually syncing or reloading the conversation.
 

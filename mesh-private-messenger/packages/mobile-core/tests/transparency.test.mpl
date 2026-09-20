@@ -1,6 +1,14 @@
+from Mobile.Codec import current_time
 import File
-from MobileCore import create_account_export, directory_entry_export, transparency_lookup_export, verify_transparency_export
-from Protocol.V1 import DeviceSet, decode_account_identity, decode_directory_entry, encode_device_set
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  transparency_lookup_export,
+  verify_transparency_export
+)
+from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
+from Protocol.IdentityWire import decode_account_identity
+from Protocol.V1 import DeviceSet
 from Tests.Support import append, database_path, install_security_config, repeated, vector
 from Transparency.Merkle import consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint, sign_witness
 from Transparency.Wire import TransparencyEvidence, decode_transparency_lookup, encode_transparency_evidence
@@ -73,12 +81,36 @@ fn proof() -> Bool ! String do
   witness_b.public_key.bytes,
   delivery_pair.public_key.bytes,
   8))
-  let checkpoint = sign_checkpoint(service_pair.private_key,
+  let stale = sign_checkpoint(service_pair.private_key,
   service_pair.public_key.bytes,
   wide("1") ?,
   leaves,
   repeated(0, 32) ?,
   wide("1000") ?) ?
+  let stale_evidence = encode_transparency_evidence(TransparencyEvidence {
+    entry_bytes : device_set,
+    inclusion : inclusion_proof(leaves, 0) ?,
+    consistency : consistency_proof(List.new(), leaves) ?,
+    checkpoint : stale,
+    witnesses : [sign_witness("witness-a", witness_a.private_key, stale) ?, sign_witness("witness-b",
+    witness_b.private_key,
+    stale) ?]
+  }) ?
+  case verify_transparency_export(join([vector(path_bytes) ?, vector(username_bytes) ?, vector(stale_evidence) ?],
+  0,
+  Bytes.empty()) ?) do
+    Err( error) -> assert(error == "transparency_stale")
+    Ok( _) -> assert(false)
+  end
+  let unchanged_lookup = decode_transparency_lookup(transparency_lookup_export(append(vector(path_bytes) ?,
+  vector(username_bytes) ?) ?) ?) ?
+  assert(unchanged_lookup.previous_tree_size == 0)
+  let checkpoint = sign_checkpoint(service_pair.private_key,
+  service_pair.public_key.bytes,
+  wide("1") ?,
+  leaves,
+  repeated(0, 32) ?,
+  current_time() ?) ?
   let evidence = case encode_transparency_evidence(TransparencyEvidence {
     entry_bytes : device_set,
     inclusion : inclusion_proof(leaves, 0) ?,
@@ -95,7 +127,18 @@ fn proof() -> Bool ! String do
   let username_vector = vector(username_bytes) ?
   let evidence_vector = vector(evidence) ?
   let request = join([path_vector, username_vector, evidence_vector], 0, Bytes.empty()) ?
-  assert(Bytes.secure_equals(verify_transparency_export(request) ?, device_set))
+  let wrong_reference = vector(Bytes.from_utf8("@" <> Bytes.to_hex(repeated(0, 32) ?))) ?
+  case verify_transparency_export(join([path_vector, wrong_reference, evidence_vector],
+  0,
+  Bytes.empty()) ?) do
+    Err( error) -> assert(error == "transparency_username_mismatch")
+    Ok( _) -> assert(false)
+  end
+  let account_reference = vector(Bytes.from_utf8("@" <> Bytes.to_hex(account.account_id))) ?
+  assert(Bytes.secure_equals(verify_transparency_export(join([path_vector, account_reference, evidence_vector],
+  0,
+  Bytes.empty()) ?) ?,
+  device_set))
   case verify_transparency_export(request) do
     Err( error) -> assert(error == "transparency_verification_failed")
     Ok( _) -> assert(false)

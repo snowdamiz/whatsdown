@@ -1,0 +1,118 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "morse-backend",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-09-18",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": false
+  },
+  "triggers": {
+    "crons": []
+  },
+  "r2_buckets": [
+    {
+      "binding": "OBJECTS",
+      "bucket_name": "morse-encrypted-objects"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DIRECTORY",
+        "class_name": "Directory"
+      },
+      {
+        "name": "PRIVACY_EDGE",
+        "class_name": "PrivacyEdge"
+      },
+      {
+        "name": "OBJECT_STORE",
+        "class_name": "ObjectStore"
+      },
+      {
+        "name": "PUSH_BROKER",
+        "class_name": "PushBroker"
+      },
+      {
+        "name": "WITNESS_A",
+        "class_name": "WitnessA"
+      },
+      {
+        "name": "WITNESS_B",
+        "class_name": "WitnessB"
+      },
+      {
+        "name": "WITNESS_STATE",
+        "class_name": "CheckpointStore"
+      },
+      {
+        "name": "JOBS",
+        "class_name": "JobScheduler"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "Directory",
+        "PrivacyEdge",
+        "ObjectStore",
+        "PushBroker",
+        "WitnessA",
+        "WitnessB",
+        "CheckpointStore",
+        "JobScheduler"
+      ]
+    }
+  ],
+  "containers": [
+    {
+      "class_name": "Directory",
+      "image": "./Dockerfile",
+      "image_build_context": "../../..",
+      "max_instances": 1,
+      "instance_type": "basic"
+    },
+    {
+      "class_name": "PrivacyEdge",
+      "image": "./Dockerfile",
+      "image_build_context": "../../..",
+      "max_instances": 1,
+      "instance_type": "lite"
+    },
+    {
+      "class_name": "ObjectStore",
+      "image": "./Dockerfile",
+      "image_build_context": "../../..",
+      "max_instances": 1,
+      "instance_type": "lite"
+    },
+    {
+      "class_name": "PushBroker",
+      "image": "./Dockerfile",
+      "image_build_context": "../../..",
+      "max_instances": 1,
+      "instance_type": "lite"
+    },
+    {
+      "class_name": "WitnessA",
+      "image": "./Dockerfile",
+      "image_build_context": "../../..",
+      "max_instances": 1,
+      "instance_type": "lite"
+    },
+    {
+      "class_name": "WitnessB",
+      "image": "./Dockerfile",
+      "image_build_context": "../../..",
+      "max_instances": 1,
+      "instance_type": "lite"
+    }
+  ],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ]
+}

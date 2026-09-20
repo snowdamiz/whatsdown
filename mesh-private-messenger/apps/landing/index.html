@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morse — Private messaging, made simple</title>
+<meta name="description" content="Morse is a private messenger for iPhone, Android, Mac and Windows. Pick a username and start talking: no phone number, and only the people in a chat can read it.">
+<meta name="theme-color" content="#F6F2EA">
+<meta property="og:title" content="Morse — Private messaging, made simple">
+<meta property="og:description" content="Pick a username and start talking. No phone number, no contact upload, and only the people in a chat can read it. Not even us.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z'/%3E%3C/svg%3E">
+<script>document.documentElement.classList.add("js")</script>
+<style>
+/* Self-hosted, the same files the app ships: a privacy page shouldn't introduce
+   its visitors to a third party. Geist is SIL OFL 1.1 (fonts/OFL.txt).
+   ponytail: raw TTF, ~95 KB each; subset to Latin and convert to WOFF2 (~25 KB) before real traffic. */
+@font-face{font-family:"Geist";font-weight:400;font-display:swap;src:url(fonts/Geist_400Regular.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:500;font-display:swap;src:url(fonts/Geist_500Medium.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:600;font-display:swap;src:url(fonts/Geist_600SemiBold.ttf) format("truetype")}
+
+/* ---------------------------------------------------------------------------
+   Warm paper, big plain type, and the real product. Every section is one idea
+   with one picture. Structure comes from large flat fields of colour with a
+   bubble's corner radius, never from borders or boxes. The mock screens copy
+   the app (apps/mobile/src): its bubbles, handles, avatars and wording.
+--------------------------------------------------------------------------- */
+:root{
+  --paper:#F6F2EA;
+  --ink:#0B0B0F; --ink-2:#4A4A55; --ink-3:#6B6B77;
+  --blue:#2459D0; --blue-2:#2F6BEA; --blue-3:#6AA6FF;   /* the app's blue ramp */
+  --butter:#FFE8AD; --peach:#FFD9C6; --lilac:#E4DCFF; --mint:#CBEDD8; --sky:#D5E2FF;
+  --night:#0B0D14;
+  --green:#178A4E; --red:#D8323A;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --gutter:clamp(20px,4vw,48px);
+  --edge:clamp(10px,1.6vw,24px);
+  --page:1200px;
+  --r:clamp(28px,3.4vw,48px);
+  --lift:0 34px 56px -34px rgba(11,11,15,.38);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-padding-top:96px}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 1.0625rem/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:clip}
+h1,h2,h3,p,ul,ol,figure{margin:0}
+ul,ol{padding:0;list-style:none}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+svg{display:block}
+::selection{background:var(--blue-2);color:#fff}
+:focus-visible{outline:2.5px solid var(--blue-2);outline-offset:3px;border-radius:6px}
+.night :focus-visible,.bluecard :focus-visible,footer :focus-visible{outline-color:#fff}
+.wrap{width:min(100% - 2*var(--gutter),var(--page));margin-inline:auto}
+.skip{position:absolute;left:16px;top:-60px;z-index:100;padding:10px 18px;border-radius:999px;background:var(--ink);color:#fff;font-weight:500;transition:top .2s var(--ease)}
+.skip:focus{top:12px}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ------------------------------------------------------------ Type */
+h1,h2{font-weight:600;text-wrap:balance}
+h1{font-size:clamp(3rem,7.2vw,6.5rem);line-height:.97;letter-spacing:-.05em}
+h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
+.lead{margin-top:clamp(20px,2.2vw,28px);max-width:27em;font-size:clamp(1.125rem,1.45vw,1.3125rem);line-height:1.5;color:var(--ink-2);text-wrap:pretty}
+.go{display:inline-flex;align-items:center;gap:8px;margin-top:28px;padding-bottom:3px;font-weight:500;border-bottom:2px solid var(--blue-2)}
+.go .ic{width:18px;height:18px;transition:transform .25s var(--ease)}
+.go:hover .ic{transform:translateX(4px)}
+.go.down:hover .ic{transform:translateY(3px)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:56px;padding:0 28px;border-radius:999px;font-weight:500;font-size:1.0625rem;letter-spacing:-.01em;white-space:nowrap;transition:transform .2s var(--ease),background-color .2s,color .2s}
+.btn:active{transform:scale(.98)}
+.btn .ic{width:19px;height:19px}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.dark:hover{background:#26262F}
+.btn.light{background:#fff;color:var(--ink)}
+.btn.light:hover{background:#EAF0FF}
+.btn.line{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55);color:#fff}
+.btn.line:hover{background:rgba(255,255,255,.12)}
+.btn.sm{height:44px;padding:0 20px;font-size:.98rem}
+
+/* Text and pictures arrive once, as their section does. */
+.js .reveal{opacity:0;transform:translateY(28px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.js .reveal.in{opacity:1;transform:none}
+
+/* ------------------------------------------------------------ Nav */
+.nav{position:sticky;top:0;z-index:50;background:var(--paper)}
+.nav .wrap{display:flex;align-items:center;gap:40px;height:76px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:1.3rem;letter-spacing:-.035em}
+.tile{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--blue-2)}
+.tile svg{width:56%;fill:#fff}
+.nav nav{display:flex;gap:32px;margin-right:auto}
+.nav nav a{font-weight:500;font-size:1rem;color:var(--ink-2);transition:color .15s}
+.nav nav a:hover{color:var(--ink)}
+@media (max-width:860px){.nav nav{display:none}.nav .btn{margin-left:auto}.nav .wrap{height:68px}}
+
+/* ------------------------------------------------------------ Big cards */
+.card{position:relative;width:min(100% - 2*var(--edge),1376px);margin-inline:auto;border-radius:var(--r);overflow:hidden}
+.bluecard{background:var(--blue);color:#fff}
+.bluecard .lead{color:rgba(255,255,255,.9)}
+.bluecard .go{border-color:#fff}
+
+/* ------------------------------------------------------------ Hero */
+.hero-card{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);min-height:clamp(780px,calc(100svh - 100px),860px)}
+.hero-copy{position:relative;z-index:2;align-self:center;padding:clamp(36px,5.6vw,88px);padding-right:0}
+.cta{display:flex;flex-wrap:wrap;align-items:center;gap:14px 28px;margin-top:clamp(28px,3vw,40px)}
+.cta .go{margin-top:0}
+.plats{margin-top:26px;font-size:.98rem;color:rgba(255,255,255,.86)}
+/* The mark at the scale of a building: a dot above a dash, flush left, with
+   the phone standing in front of it. */
+.hero-art{position:relative;min-width:0}
+.rig{position:absolute;z-index:1;top:50%;left:50%;width:min(320px,100% - 32px);translate:-50% -50%}
+.rig .phone{width:100%}
+.shape{position:absolute;z-index:-1;left:-190px;border-radius:999px;background:var(--blue-2)}
+.shape.dot{top:-50px;width:360px;height:360px}
+.shape.dash{top:441px;width:1080px;height:360px}
+.float{position:absolute;z-index:2;display:flex;align-items:center;gap:9px;padding:11px 18px 11px 13px;border-radius:999px;background:#fff;color:var(--ink);font-weight:500;font-size:.92rem;white-space:nowrap;box-shadow:0 16px 36px -14px rgba(6,12,40,.55)}
+.float .ic{width:19px;height:19px}
+.f1{right:-104px;top:154px}
+.f1 .ic{color:var(--green)}
+.f2{left:-112px;top:300px}
+.f2 .ic{color:var(--blue-2)}
+.js .hero h1,.js .hero .lead,.js .hero .cta,.js .hero .plats{animation:rise .95s var(--ease) both}
+.js .hero .lead{animation-delay:.1s}.js .hero .cta{animation-delay:.18s}.js .hero .plats{animation-delay:.24s}
+.js .rig .phone{animation:phone-in 1.15s var(--ease) .1s both}
+.js .float{animation:pop .6s var(--ease) both,bob 6s ease-in-out infinite alternate}
+.js .f1{animation-delay:1.9s,2.5s}.js .f2{animation-delay:2.3s,2.9s}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}}
+@keyframes phone-in{from{opacity:0;transform:translateY(90px)}}
+@keyframes pop{from{opacity:0;scale:.8}to{opacity:1}}
+@keyframes bob{to{translate:0 -9px}}
+@media (min-width:961px) and (max-width:1240px){
+  .float{padding:9px 15px 9px 11px;font-size:.84rem}
+  .f1{right:-48px;top:528px}.f2{left:-64px}
+}
+@media (min-width:961px) and (max-width:1100px){.f2{display:none}}
+@media (max-width:960px){
+  h1{font-size:clamp(2.5rem,11.5vw,4rem)}
+  .hero-card{grid-template-columns:minmax(0,1fr);min-height:0}
+  .hero-copy{padding:clamp(32px,7vw,64px) clamp(24px,6vw,64px) 0}
+  .hero-art{height:748px}
+}
+@media (max-width:640px){.float{display:none}}
+@media (max-width:560px){.cta .btn{flex:1 1 100%}}
+
+/* ------------------------------------------------------------ The phone */
+.phone{position:relative;flex:none;width:min(318px,100%);padding:10px;border-radius:54px;background:#0E0E12;
+  box-shadow:inset 0 0 0 1.5px #2C2C36,0 60px 90px -44px rgba(8,10,24,.6),0 22px 44px -24px rgba(8,10,24,.45)}
+.phone::before{content:"";position:absolute;z-index:3;top:21px;left:50%;width:88px;height:26px;margin-left:-44px;border-radius:999px;background:#0E0E12}
+.screen{position:relative;display:flex;flex-direction:column;height:640px;border-radius:44px;overflow:hidden;background:#fff;color:#0A0A0C;font-size:14.5px;line-height:1.36;letter-spacing:-.006em}
+.screen::after{content:"";position:absolute;left:50%;bottom:7px;width:112px;height:4px;margin-left:-56px;border-radius:9px;background:currentColor;opacity:.2}
+.status{display:flex;align-items:center;justify-content:space-between;flex:none;height:50px;padding:6px 30px 0;font-weight:600;font-size:13.5px}
+.status>span+span{display:flex;align-items:center;gap:5px}
+.status .ic{width:17px;height:12px;fill:currentColor;stroke:none}
+.bat{position:relative;width:24px;height:11.5px;border-radius:3.5px;box-shadow:inset 0 0 0 1.2px currentColor;opacity:.85}
+.bat::after{content:"";position:absolute;inset:2.4px 6px 2.4px 2.4px;border-radius:1.5px;background:currentColor}
+.chead{position:relative;display:flex;align-items:center;gap:10px;flex:none;padding:6px 14px 10px}
+.chead>.ic,.view>.ic{width:22px;height:22px}
+.chead b{font-weight:600;font-size:15.5px;letter-spacing:-.02em;line-height:1.2}
+.chead small{display:block;font-size:11.5px;color:#63636D}
+.chead .end{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;box-shadow:0 1px 5px rgba(10,10,12,.14)}
+.chead .end .ic{width:17px;height:17px}
+.ava{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:12px;letter-spacing:.01em}
+.ava .ic{width:52%;height:52%}
+.t0{--a:#5B9DFF;--b:#3462FF}.t1{--a:#B57BFF;--b:#7B4DFF}.t2{--a:#FF7DBA;--b:#F0468C}.t3{--a:#FFB35C;--b:#FF7A3D}
+.t4{--a:#5EE39B;--b:#22AD6C}.t5{--a:#4FD6E6;--b:#2492B3}.t6{--a:#FF8A75;--b:#E8553F}
+.thread{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:0;padding:8px 12px 12px}
+.day{align-self:center;margin-bottom:5px;padding:4px 11px;border-radius:999px;background:#F2F2F5;font-size:11px;color:#63636D}
+.b{position:relative;max-width:82%;padding:8px 13px 6px;border-radius:20px}
+.b.in{align-self:flex-start;background:#E9E9EE;border-bottom-left-radius:6px}
+.b.out{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:6px}
+.b small{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:1px;font-size:10.5px;opacity:.6}
+.b small .ic{width:13px;height:13px}
+.b.file .doc{display:flex;align-items:center;gap:10px;padding:2px 2px 3px 0}
+.b.file .doc i{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:rgba(0,0,0,.16)}
+.b.file .doc .ic{width:18px;height:18px}
+.b.file b{display:block;font-weight:500;font-size:13.5px}
+.doc>span>span{display:block;font-size:11.5px;opacity:.75}
+.composer{display:flex;align-items:center;gap:9px;flex:none;height:44px;margin:0 12px 22px;padding:0 6px 0 13px;border-radius:999px;box-shadow:inset 0 0 0 1px #DFDFE6,0 2px 8px rgba(10,10,12,.05);color:#8E8E98}
+.composer .ic{width:18px;height:18px}
+.composer span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.composer i{display:grid;place-items:center;width:32px;height:32px;margin-left:auto;border-radius:50%;background:#A9C1F3;color:#fff}
+.composer i .ic{width:16px;height:16px;stroke-width:2.4}
+/* Messages land one after another, the way they do in a chat. */
+.js .live .thread>*{opacity:0}
+.js .live.in .thread>*{animation:land .55s var(--ease) calc(var(--i,0)*.42s + .5s) both}
+@keyframes land{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1}}
+
+/* ------------------------------------------------------------ Rows */
+.row{padding-block:clamp(56px,7.4vw,112px)}
+.hero+.row{padding-top:clamp(72px,9vw,140px)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:clamp(40px,7vw,112px);align-items:center}
+.flip .two{grid-template-columns:minmax(0,1.12fr) minmax(0,1fr)}
+.flip .copy{order:2}
+.field{position:relative;display:flex;justify-content:center;height:clamp(500px,47vw,640px);border-radius:var(--r);overflow:hidden}
+.field.tall{flex-direction:column;align-items:center;justify-content:center;height:auto;min-height:clamp(500px,47vw,640px);padding:clamp(32px,4.4vw,56px) 0}
+.butter{background:var(--butter)}.sky{background:var(--sky)}.peach{background:var(--peach)}.lilac{background:var(--lilac)}.mint{background:var(--mint)}
+@media (max-width:960px){
+  .two,.flip .two{grid-template-columns:minmax(0,1fr)}
+  .flip .copy{order:0}
+}
+
+/* art — just a username: the app's own new-message screen and request card */
+.sheet{border-radius:28px;background:#fff;color:#0A0A0C;box-shadow:var(--lift)}
+.newmsg{width:min(80%,440px);margin-right:8%;padding:26px 26px 34px;text-align:center}
+.newmsg>p{text-align:left;font-weight:600;font-size:1.05rem;letter-spacing:-.02em}
+.newmsg>.ic{width:30px;height:30px;margin:38px auto 12px;color:#63636D;stroke-width:1.7}
+.newmsg b{display:block;font-weight:600;font-size:1.22rem;letter-spacing:-.03em}
+.newmsg>span{display:block;margin-top:4px;font-size:.95rem;color:#63636D}
+.to{display:flex;align-items:center;gap:12px;height:54px;margin-top:22px;padding:0 18px;border-radius:16px;background:#F2F2F5;box-shadow:inset 0 0 0 2px var(--blue-2);text-align:left;font-size:1.1rem}
+.to em{font-style:normal;color:#63636D}
+.to i{display:inline-block;width:2px;height:1.25em;margin-left:2px;vertical-align:-.22em;background:var(--blue-2);animation:caret 1.1s steps(1) infinite}
+@keyframes caret{50%{opacity:0}}
+.request{position:relative;align-self:flex-end;width:min(76%,350px);margin:-22px 6% 0 0;padding:22px 22px 20px;background:#E6EEFF;rotate:-3deg}
+.request b{font-weight:600;font-size:1.05rem;letter-spacing:-.02em}
+.request p{margin-top:5px;font-size:.93rem;line-height:1.45;color:#2B2B36}
+.request div{display:flex;gap:8px;margin-top:16px}
+.request div span{display:grid;place-items:center;height:40px;padding:0 17px;border-radius:12px;background:var(--blue);color:#fff;font-weight:500;font-size:.92rem}
+.request div span+span{background:#fff;color:#0A0A0C}
+.js .field .request{opacity:0}
+.js .field.in .request{animation:drop .8s var(--ease) .7s both}
+@keyframes drop{from{opacity:0;transform:translateY(40px) rotate(4deg)}to{opacity:1}}
+
+/* art — groups */
+/* ponytail: `zoom` scales the mock to fit its field; Firefox before 126 ignores it and the field crops the phone instead. */
+.field .phone{align-self:center;zoom:.84}
+.gmsg{display:flex;align-items:flex-end;gap:7px;max-width:88%}
+.gmsg .ava{width:26px;height:26px;font-size:9.5px}
+.gmsg .b{max-width:none}
+.b .who{display:block;margin-bottom:1px;font-weight:600;font-size:12.5px}
+.b .at{font-weight:600}
+.b .quote{display:block;margin:2px 0 5px;padding:1px 0 1px 8px;border-left:2.5px solid #AD2D69;font-size:12.5px;line-height:1.3;color:#3A3A44}
+.b .quote b{display:block;font-weight:600;color:#AD2D69}
+.react{position:absolute;left:12px;bottom:-13px;display:flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:#fff;box-shadow:0 1px 5px rgba(10,10,12,.18);font-size:12px;font-weight:500;color:#3A3A44}
+.gmsg.reacted,.b.reacted{margin-bottom:12px}
+
+/* art — disappearing: messages arrive, then go, oldest first, and it starts over */
+.lilac{flex-direction:column;align-items:center;justify-content:center;gap:clamp(36px,4vw,56px)}
+.timer{display:flex;align-items:center;gap:13px;width:min(84%,400px);padding:15px 15px 15px 17px;border-radius:22px;background:#fff;color:#0A0A0C;box-shadow:var(--lift)}
+.timer>i{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:10px;background:var(--blue-2);color:#fff}
+.timer>i .ic{width:19px;height:19px}
+.timer b{display:block;font-weight:500;font-size:1rem;line-height:1.25;letter-spacing:-.015em}
+.timer small{font-size:.84rem;color:#63636D}
+.pick{display:flex;margin-left:auto;padding:3px;border-radius:999px;background:#E9E9EE;font-size:.84rem;font-weight:500;color:#63636D}
+.pick span{padding:6px 10px;border-radius:999px}
+.pick .on{background:#fff;color:#0A0A0C;box-shadow:0 1px 3px rgba(10,10,12,.16)}
+.fade{position:relative;display:flex;flex-direction:column;gap:9px;width:min(84%,400px);font-size:1.06rem;line-height:1.36}
+.fade .b{padding:11px 16px 8px;border-radius:24px}
+.fade .b.in{background:#fff;border-bottom-left-radius:7px}
+.fade .b.out{border-bottom-right-radius:7px}
+.fade .b small{font-size:.72rem}
+.allclear{position:absolute;left:0;right:0;top:50%;translate:0 -50%;text-align:center;font-weight:500;font-size:1.06rem;color:#5B4A99;opacity:0}
+.js .field.in .fade .b{animation:visit 12s var(--ease) infinite both}
+.js .field.in .fade .b:nth-child(3){animation-name:visit2}
+.js .field.in .fade .b:nth-child(4){animation-name:visit3}
+.js .field.in .allclear{animation:allclear 12s ease infinite both}
+@keyframes visit{0%,3%{opacity:0;transform:translateY(12px) scale(.96);filter:none}8%,46%{opacity:1;transform:none;filter:none}54%,100%{opacity:0;transform:scale(.97);filter:blur(7px)}}
+@keyframes visit2{0%,12%{opacity:0;transform:translateY(12px) scale(.96);filter:none}17%,58%{opacity:1;transform:none;filter:none}66%,100%{opacity:0;transform:scale(.97);filter:blur(7px)}}
+@keyframes visit3{0%,21%{opacity:0;transform:translateY(12px) scale(.96);filter:none}26%,70%{opacity:1;transform:none;filter:none}78%,100%{opacity:0;transform:scale(.97);filter:blur(7px)}}
+@keyframes allclear{0%,80%{opacity:0}86%,95%{opacity:1}100%{opacity:0}}
+
+/* art — safety numbers: the same sixteen groups on both screens */
+.sn{position:absolute;top:7%;left:6%;width:min(62%,300px);padding:20px 20px 22px;rotate:-4deg}
+.sn+.sn{top:auto;left:auto;right:6%;bottom:13%;rotate:3.5deg}
+.sn header{display:flex;align-items:center;gap:10px}
+.sn header b{font-weight:600;font-size:.98rem;letter-spacing:-.02em;line-height:1.2}
+.sn header small{display:block;font-weight:400;font-size:.78rem;color:#63636D}
+.digits{display:grid;grid-template-columns:repeat(4,1fr);gap:9px 4px;margin-top:16px;padding:16px 10px;border-radius:14px;background:#F2F2F5;text-align:center;font-size:.95rem;font-variant-numeric:tabular-nums;letter-spacing:.04em;color:#63636D}
+.digits span{border-radius:6px}
+.digits span:nth-child(odd){font-weight:600;color:#0A0A0C}
+.js .field.in .digits span{animation:match .7s ease calc(var(--i)*75ms + .6s) both}
+@keyframes match{40%{background:#9FE0BC}}
+.verified{position:absolute;z-index:2;left:50%;bottom:5.5%;display:flex;align-items:center;gap:9px;padding:13px 22px 13px 16px;translate:-50% 0;border-radius:999px;background:var(--green);color:#fff;font-weight:500;white-space:nowrap;box-shadow:0 18px 32px -18px rgba(11,11,15,.5)}
+.verified .ic{width:20px;height:20px;stroke-width:2.4}
+.js .field .verified{opacity:0}
+.js .field.in .verified{animation:pop .6s var(--ease) 2s both}
+
+/* ------------------------------------------------------------ Privacy */
+.night{background:var(--night);color:#fff;padding:clamp(36px,5.6vw,88px)}
+.night h2 em{font-style:normal;color:var(--blue-3)}
+.night .lead{color:rgba(255,255,255,.74)}
+.demo{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:clamp(36px,6vw,96px);align-items:center}
+.seg{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;margin-top:clamp(28px,3vw,40px);padding:5px;border-radius:999px;background:rgba(255,255,255,.1)}
+.seg::before{content:"";position:absolute;top:5px;bottom:5px;left:5px;width:calc(50% - 5px);border-radius:999px;background:#fff;transition:transform .5s var(--ease)}
+.seg[data-view=server]::before{transform:translateX(100%)}
+.seg button{position:relative;padding:14px 24px;border-radius:999px;font-weight:500;color:rgba(255,255,255,.72);transition:color .3s}
+.seg button[aria-pressed=true]{color:var(--ink)}
+.facts{display:grid;gap:15px;margin-top:clamp(32px,3.6vw,48px);max-width:30em}
+.facts li{display:flex;gap:14px;font-size:1.125rem;line-height:1.42;color:rgba(255,255,255,.86)}
+.facts .ic{width:22px;height:22px;margin-top:2px;color:var(--blue-3)}
+.stage{display:flex;flex-direction:column;align-items:center;gap:22px}
+.cap{min-height:3em;max-width:19em;text-align:center;font-size:.98rem;line-height:1.5;color:rgba(255,255,255,.62);text-wrap:balance}
+.phone.dark{box-shadow:inset 0 0 0 1.5px #2C2C36,0 0 0 1.5px rgba(255,255,255,.1),0 60px 90px -44px #000}
+.dark .screen{background:#0A0A0C;color:#F2F2F4}
+.dark .chead small{color:#8E8E98}
+.dark .chead .end{box-shadow:inset 0 0 0 1px #27272F}
+.dark .day{background:#15151A;color:#8E8E98}
+.dark .b.in{background:#1E1E25}
+.dark .b.out{background:var(--blue-2)}
+.dark .composer{box-shadow:inset 0 0 0 1px #27272F;background:#15151A;color:#63636D}
+.dark .composer i{background:#23427F;color:#9DB6EA}
+/* One chat, two views. On our servers every bubble becomes a sealed strip:
+   no words, no side of the conversation, and a standard size. */
+.view{display:flex;align-items:center;gap:10px;transition:opacity .4s}
+.view.srv{position:absolute;inset:6px 14px 10px;opacity:0}
+.srv>i{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:11px;box-shadow:inset 0 0 0 1px #27272F;color:#9C9CA6}
+.srv>i .ic{width:18px;height:18px;stroke-width:1.7}
+.msg{width:var(--w,fit-content);height:var(--h,auto);overflow:hidden;transition:width .75s var(--ease),height .75s var(--ease),max-width .75s var(--ease),border-radius .75s var(--ease),background-color .5s}
+.msg .t{display:block;transition:opacity .3s .3s}
+.msg .z{position:absolute;inset:0;display:flex;align-items:center;padding:0 14px;overflow:hidden;color:rgba(255,255,255,.34);opacity:0;transition:opacity .3s}
+.mc{--u:5px;display:inline-flex;align-items:center;gap:calc(var(--u)*.8);flex:none}
+.mc i{flex:none;width:var(--u);height:var(--u);border-radius:999px;background:currentColor}
+.mc i.D{width:calc(var(--u)*3)}
+.mc i.g{width:calc(var(--u)*1.2);background:none}
+.mc i.G{width:calc(var(--u)*4);background:none}
+.dark[data-view=server] .b.msg{width:100%;max-width:100%;height:38px;border-radius:10px;background:#171A24}
+.dark[data-view=server] .b.msg.file{height:66px}
+[data-view=server] .msg .t{opacity:0;transition-delay:0s}
+[data-view=server] .msg .z{opacity:1;transition-delay:.35s}
+[data-view=server] .view.dev,[data-view=server] .composer,[data-view=server] .day{opacity:0}
+[data-view=server] .view.srv{opacity:1}
+.dark .composer,.dark .day{transition:opacity .4s}
+@media (max-width:960px){
+  .demo{grid-template-columns:minmax(0,1fr)}
+  .stage{margin-top:12px}
+}
+@media (max-width:420px){.seg{display:grid}.seg button{padding:14px 10px}}
+
+/* ------------------------------------------------------------ Built on Mesh */
+.points{display:grid;gap:18px;margin-top:clamp(24px,2.6vw,34px);max-width:31em}
+.points li{font-size:1.0625rem;line-height:1.5;color:var(--ink-2);text-wrap:pretty}
+.points b{font-weight:600;color:var(--ink)}
+/* Four of Morse's real server jobs, each keying away on its own line. One trips and picks itself
+   up; the other three never notice. That is the whole idea, so it is the whole picture. */
+.works{width:min(100% - 40px,520px);padding:26px 30px 28px;border-radius:30px;background:#fff;box-shadow:var(--lift)}
+.works>p{font-weight:500;font-size:.98rem;color:var(--ink-3)}
+.works ul{margin-top:12px}
+.works li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px 16px;padding:16px 0 18px;border-top:1px solid #EFEBE3}
+.works b{font-weight:500;font-size:clamp(1.02rem,1.5vw,1.2rem);letter-spacing:-.022em}
+.works em{display:inline-grid;min-width:82px;padding:5px 11px;border-radius:999px;background:#E1F4E9;color:var(--green);font-style:normal;font-weight:600;font-size:.78rem;text-align:center}
+.works em span{grid-area:1/1}
+.works em span+span{opacity:0}
+.line{grid-column:1/-1;overflow:hidden;color:var(--blue-2);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+.line div{display:flex;width:max-content}
+.line .mc{--u:6px;padding-right:calc(var(--u)*.8)}
+.js .field.in .line div{animation:key var(--t,18s) linear infinite}
+@keyframes key{to{transform:translateX(-50%)}}
+.js .field.in .trip .line{animation:trip-line 12s ease infinite}
+.js .field.in .trip em{animation:trip-pill 12s ease infinite}
+.js .field.in .trip em span:nth-child(1){animation:trip-a 12s ease infinite}
+.js .field.in .trip em span:nth-child(2){animation:trip-b 12s ease infinite}
+.js .field.in .trip em span:nth-child(3){animation:trip-c 12s ease infinite}
+@keyframes trip-line{0%,48%,80%,100%{opacity:1;color:var(--blue-2)}52%,66%{opacity:.22;color:var(--red)}}
+@keyframes trip-pill{0%,48%,86%,100%{background:#E1F4E9;color:var(--green)}52%,66%{background:#FBEAEB;color:var(--red)}70%,82%{background:#E3ECFF;color:var(--blue)}}
+@keyframes trip-a{0%,48%,86%,100%{opacity:1}52%,82%{opacity:0}}
+@keyframes trip-b{0%,48%,70%,100%{opacity:0}52%,66%{opacity:1}}
+@keyframes trip-c{0%,66%,86%,100%{opacity:0}70%,82%{opacity:1}}
+.works .after{padding-top:18px;border-top:1px solid #EFEBE3;font-weight:400;font-size:.98rem;line-height:1.5;color:var(--ink-2)}
+
+/* ------------------------------------------------------------ Straight answers */
+.answers .wrap{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(36px,7vw,112px);align-items:start}
+.answers .copy{position:sticky;top:112px}
+.qa details{border-top:1.5px solid rgba(11,11,15,.13)}
+.qa details:last-child{border-bottom:1.5px solid rgba(11,11,15,.13)}
+.qa summary{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:25px 0;font-weight:500;font-size:clamp(1.15rem,1.8vw,1.4rem);line-height:1.25;letter-spacing:-.026em;cursor:pointer;list-style:none}
+.qa summary::-webkit-details-marker{display:none}
+.qa summary .ic{width:24px;height:24px;color:var(--ink-3);transition:transform .35s var(--ease),color .2s}
+.qa summary:hover .ic{color:var(--ink)}
+.qa details[open] summary .ic{transform:rotate(45deg)}
+.qa details>p,.qa details>ul{max-width:37em;padding-bottom:28px;color:var(--ink-2);text-wrap:pretty}
+.qa details>p+p{margin-top:-14px}
+.qa details li a{display:inline-flex;align-items:center;gap:8px;padding:5px 0;color:var(--ink);font-weight:500}
+.qa details li a .ic{width:16px;height:16px;color:var(--blue-2);transition:transform .25s var(--ease)}
+.qa details li a:hover .ic{transform:translate(2px,-2px)}
+@media (max-width:960px){.answers .wrap{grid-template-columns:minmax(0,1fr)}.answers .copy{position:static}}
+
+/* ------------------------------------------------------------ Get Morse */
+.get{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:clamp(520px,46vw,640px)}
+.get .copy{position:relative;z-index:1;align-self:center;padding:clamp(36px,5.6vw,88px);padding-right:0}
+.get h2{font-size:clamp(2.2rem,4.1vw,3.55rem)}
+.get .note{margin-top:24px;max-width:30em;font-size:.95rem;color:rgba(255,255,255,.86)}
+/* The desktop app, drawn to the real window's own measurements (apps/mobile/src/desktop-layout.ts,
+   tauri.conf.json): its 720x560 minimum size, a 280px sidebar floating 12px inside the window, the
+   macOS buttons overlaid on that sidebar's 48px toolbar, and the pane header centred on the same line.
+   ponytail: `zoom` fits the whole window into the card; Firefox before 126 ignores it and the card crops the window instead. */
+.mac{position:absolute;right:clamp(28px,4.4vw,72px);top:50%;translate:0 -50%;zoom:.88}
+.win{display:flex;width:720px;height:560px;border-radius:12px;overflow:hidden;background:#fff;color:#0A0A0C;font-size:15px;line-height:1.36;letter-spacing:-.006em;box-shadow:0 0 0 1px rgba(4,10,50,.14),0 50px 90px -36px rgba(4,10,50,.7)}
+.side{display:flex;flex-direction:column;flex:none;width:280px;margin:12px 0 12px 12px;border-radius:16px;background:#F5F5F7;box-shadow:inset 0 0 0 1px #E6E6EC,0 10px 26px -14px rgba(10,10,12,.22)}
+.bar{display:flex;align-items:center;flex:none;height:48px;margin-bottom:8px;padding:0 10px 0 16px}
+.lights{display:flex;gap:8px;margin-right:19px}
+.lights i{width:12px;height:12px;border-radius:50%;background:#FF5F57;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.14)}
+.lights i+i{background:#FEBC2E}.lights i+i+i{background:#28C840}
+.tabs{display:flex;height:28px;padding:2px;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 1px #E4E4EA}
+.tabs span{display:flex;align-items:center;justify-content:center;gap:5px;min-width:34px;padding:0 9px;border-radius:999px;color:#63636D}
+.tabs .on{background:#DCE6FB;color:var(--blue)}
+.tabs .ic{width:15px;height:15px}
+.tabs i{width:6px;height:6px;border-radius:50%;background:var(--blue-2)}
+.round{display:grid;place-items:center;width:28px;height:28px;margin-left:auto;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(10,10,12,.16)}
+.round .ic{width:15px;height:15px}
+.conv{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:0 10px;flex:none;height:56px;margin:0 8px 2px;padding:0 12px 0 8px;border-radius:999px}
+.conv.on{background:#DDE4F5}
+.conv .ava{grid-row:1/3;width:40px;height:40px;font-size:14.5px}
+.conv b{align-self:end;font-weight:600;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv u{align-self:end;padding-bottom:1px;text-decoration:none;font-size:12.5px;color:#8E8E98}
+.conv em{grid-column:2;align-self:start;font-style:normal;font-size:14px;color:#63636D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv s{display:grid;place-items:center;align-self:start;justify-self:end;min-width:19px;height:19px;border-radius:999px;background:var(--blue-2);color:#fff;font-weight:600;font-size:11.5px;text-decoration:none}
+.conv.new b{font-weight:700}.conv.new u{font-weight:600;color:var(--blue-2)}.conv.new em{color:#0A0A0C}
+.me{display:flex;align-items:center;gap:10px;flex:none;height:50px;margin-top:auto;padding:0 16px;border-top:1px solid #E4E4EA;font-weight:600;font-size:14px}
+.me .ava{width:28px;height:28px;font-size:10px}
+.me .ic{width:17px;height:17px;margin-left:auto;color:#3A3A44}
+.pane{display:flex;flex-direction:column;flex:1;min-width:0}
+.phead{display:flex;align-items:center;gap:10px;flex:none;height:72px;padding:0 16px 0 28px}
+.phead .ava{width:28px;height:28px;font-size:10px}
+.phead b{font-weight:700;font-size:16px;letter-spacing:-.02em}
+.pane .thread{gap:8px;padding:0 24px 14px 36px}
+.pane .day{margin-bottom:8px;font-size:12.5px}
+.pane .b{max-width:78%;padding:9px 13px 7px}
+.pane .b small{font-size:11.5px}
+.pane .composer{height:40px;margin:0 32px 16px 36px;font-size:15px}
+.pane .composer i{width:26px;height:26px}
+@media (max-width:1359px){.mac{zoom:.78}}
+@media (max-width:1199px){.mac{zoom:.68}}
+@media (max-width:1079px){.mac{zoom:.6}}
+@media (max-width:699px){.get .mac{zoom:.62}}
+@media (max-width:559px){.get .mac{zoom:.5}}
+@media (max-width:439px){.get .mac{zoom:.42}}
+@media (max-width:359px){.get .mac{zoom:.36}}
+@media (max-width:960px){
+  .get{grid-template-columns:minmax(0,1fr);min-height:0}
+  .get .copy{padding:clamp(32px,7vw,64px) clamp(24px,6vw,64px) 0}
+  .mac{position:relative;right:auto;top:auto;translate:none;zoom:.8;width:max-content;margin:44px auto clamp(28px,7vw,56px)}
+}
+
+/* ------------------------------------------------------------ Footer */
+footer{margin-top:clamp(64px,8vw,120px);padding:clamp(56px,6vw,88px) 0 44px;background:var(--ink);color:rgba(255,255,255,.62)}
+footer .wrap{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));gap:40px clamp(24px,4vw,64px)}
+footer .brand{color:#fff}
+footer .mc{--u:3.5px;margin-top:18px;color:rgba(255,255,255,.34)}
+footer h3{margin-bottom:14px;font-weight:400;font-size:.88rem;color:rgba(255,255,255,.46)}
+footer li a{display:block;padding:5px 0;color:#fff;transition:color .15s}
+footer li a:hover{color:var(--blue-3)}
+.quiet{grid-column:1/-1;padding-top:28px;border-top:1px solid rgba(255,255,255,.13);font-size:.92rem}
+@media (max-width:760px){footer .wrap{grid-template-columns:repeat(2,minmax(0,1fr))}footer .wrap>div:first-child{grid-column:1/-1}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .js .reveal,.js .live .thread>*,.js .field .request,.js .field .verified{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="248 304 528 416"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></symbol>
+  <symbol id="i-signal" viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="4.6" y="5.5" width="3" height="6.5" rx=".8"/><rect x="9.2" y="3" width="3" height="9" rx=".8"/><rect x="13.8" y="0" width="3" height="12" rx=".8"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 17 12"><path d="M8.5 2.6c2.3 0 4.4.9 6 2.4l1.1-1.2A10.3 10.3 0 0 0 8.5.9C5.7.9 3.2 2 1.4 3.8l1.1 1.2a8.6 8.6 0 0 1 6-2.4Zm0 3.5c1.4 0 2.7.5 3.7 1.4l1.1-1.2a7.1 7.1 0 0 0-9.6 0l1.1 1.2c1-.9 2.3-1.4 3.7-1.4Zm0 3.4c.6 0 1.2.2 1.6.6L8.5 11.8 6.9 10.1c.4-.4 1-.6 1.6-.6Z"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+  <symbol id="i-get" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8h.01"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m20 11.5-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></symbol>
+  <symbol id="i-checks" viewBox="0 0 24 24"><path d="m2 12.5 4.5 4.5 9-9.5M12 16l1 1 9-9.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5ZM14 3v5h5"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.3 1.4M9.5 3h5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.5 2.8v5.7c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.8L12 3Z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.6"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="7.5" r="3.5"/><path d="M20.5 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.2a3.5 3.5 0 0 1 0 6.6"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 15.5a2 2 0 0 1-2 2H9l-5 3.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9.5Z"/></symbol>
+  <symbol id="i-compose" viewBox="0 0 24 24"><path d="M12 5H6.5A2.5 2.5 0 0 0 4 7.5v10A2.5 2.5 0 0 0 6.5 20h10a2.5 2.5 0 0 0 2.5-2.5V12"/><path d="M17.6 3.9a2 2 0 0 1 2.8 2.8L12 15l-3.8 1 1-3.8 8.4-8.3Z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></symbol>
+</svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Morse, home"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+    <nav aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#built">How it’s built</a>
+      <a href="#answers">Straight answers</a>
+    </nav>
+    <a class="btn dark sm" href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" id="top">
+  <div class="card bluecard hero-card">
+    <div class="hero-copy">
+      <h1>Private messaging, made simple.</h1>
+      <p class="lead">Pick a username and start talking. No phone number, no contact upload, and only the people in a chat can read it. Not even us.</p>
+      <div class="cta">
+        <a class="btn light" href="https://github.com/snowdamiz/whatsdown/releases"><svg class="ic" aria-hidden="true"><use href="#i-get"/></svg>Get Morse</a>
+        <a class="go down" href="#privacy">See what we can’t see<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></a>
+      </div>
+      <p class="plats">Made for iPhone, Android, Mac and Windows.</p>
+    </div>
+
+    <div class="hero-art live in" aria-hidden="true">
+      <div class="rig">
+      <i class="shape dot"></i><i class="shape dash"></i>
+      <div class="phone">
+        <div class="screen">
+          <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t0">AD</span><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+          <div class="thread">
+            <p class="day">Today</p>
+            <p class="b in" style="--i:0">Did the scans arrive?<small>9:24 AM</small></p>
+            <p class="b out" style="--i:1">All four. Sending the signed copy now.<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+            <div class="b out file" style="--i:2"><span class="doc"><i><svg class="ic"><use href="#i-file"/></svg></i><span><b>lease-signed.pdf</b><span>2.4 MB</span></span></span><small>9:25 AM<svg class="ic"><use href="#i-checks"/></svg></small></div>
+            <p class="b in" style="--i:3">Perfect, thank you. Dinner on Friday?<small>9:31 AM</small></p>
+            <p class="b out reacted" style="--i:4">Yes! I’ll book the place by the river.<small>9:32 AM<svg class="ic"><use href="#i-checks"/></svg></small><span class="react">❤️</span></p>
+            <p class="b in" style="--i:5">See you at 7.<small>9:33 AM</small></p>
+          </div>
+          <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+        </div>
+      </div>
+      <p class="float f1"><svg class="ic"><use href="#i-shield"/></svg>Safety number verified</p>
+      <p class="float f2"><svg class="ic"><use href="#i-timer"/></svg>Disappears in 1 day</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row" id="features">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>Just a username.</h2>
+      <p class="lead">No phone number, no email, no address book. Pick a name and you’re in. And nobody lands in your chats uninvited: a first message waits as a request until you accept it.</p>
+    </div>
+    <div class="field butter tall reveal" aria-hidden="true">
+      <div class="sheet newmsg">
+        <p>New message</p>
+        <svg class="ic"><use href="#i-compose"/></svg>
+        <b>Start a private conversation.</b>
+        <span>Only they can accept your first message.</span>
+        <div class="to"><em>To</em><span>@ada<i></i></span></div>
+      </div>
+      <div class="sheet request">
+        <b>Message request</b>
+        <p>@sam_r wants to start a conversation. Accept to reply, or block to never hear from them.</p>
+        <div><span>Accept request</span><span>Block</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="privacy">
+  <div class="card night">
+    <div class="demo">
+      <div class="copy reveal">
+        <h2>We can’t read <em>a word</em> of it.</h2>
+        <p class="lead">Messages are locked on your phone and unlocked on theirs. Flip the switch to see the same chat the way our servers see it.</p>
+        <div class="seg" id="view" data-view="device" role="group" aria-label="Whose view of this chat to show">
+          <button type="button" data-set="device" aria-pressed="true">On your phone</button>
+          <button type="button" data-set="server" aria-pressed="false">On our servers</button>
+        </div>
+        <ul class="facts">
+          <li><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>We can’t read your messages, your photos, or even your file names.</li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>We can’t see who sent them.</li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>We can’t tell “OK” from a full sentence. Messages are padded to standard sizes.</li>
+        </ul>
+      </div>
+      <div class="stage reveal">
+        <div class="phone dark" id="demo" data-view="device" aria-hidden="true">
+          <div class="screen">
+            <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+            <div class="chead">
+              <div class="view dev"><svg class="ic"><use href="#i-back"/></svg><span class="ava t0">AD</span><b>@ada</b></div>
+              <div class="view srv"><i><svg class="ic"><use href="#i-server"/></svg></i><div><b>Our delivery queue</b><small>6 sealed envelopes</small></div></div>
+            </div>
+            <div class="thread">
+              <p class="day">Today</p>
+              <p class="b in msg"><span class="t">Did the scans arrive?<small>9:24 AM</small></span><span class="z"><span class="mc" data-morse="DID THE SCANS COME THROUGH"></span></span></p>
+              <p class="b out msg"><span class="t">All four. Sending the signed copy now.<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></span><span class="z"><span class="mc" data-morse="ALL FOUR SENDING THE SIGNED COPY"></span></span></p>
+              <div class="b out file msg"><span class="t"><span class="doc"><i><svg class="ic"><use href="#i-file"/></svg></i><span><b>lease-signed.pdf</b><span>2.4 MB</span></span></span><small>9:25 AM<svg class="ic"><use href="#i-checks"/></svg></small></span><span class="z"><span class="mc" data-morse="LEASE SIGNED PDF TWO MEGABYTES"></span></span></div>
+              <p class="b in msg"><span class="t">Perfect, thank you. Dinner on Friday?<small>9:31 AM</small></span><span class="z"><span class="mc" data-morse="PERFECT DINNER ON FRIDAY THEN"></span></span></p>
+              <p class="b out msg"><span class="t">Yes! I’ll book the place by the river.<small>9:32 AM<svg class="ic"><use href="#i-checks"/></svg></small></span><span class="z"><span class="mc" data-morse="YES ILL BOOK THE PLACE BY THE RIVER"></span></span></p>
+              <p class="b in msg"><span class="t">See you at 7.<small>9:33 AM</small></span><span class="z"><span class="mc" data-morse="SEE YOU AT SEVEN THEN MY FRIEND"></span></span></p>
+            </div>
+            <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+          </div>
+        </div>
+        <p class="cap" id="cap" aria-live="polite">Readable here and on @ada’s phone. Nowhere else.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="row flip">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>Groups, without the audience.</h2>
+      <p class="lead">Plan the trip, run the team, settle the dinner debate, with replies, reactions and @mentions. We can’t see who’s in your groups, or even what they’re called.</p>
+    </div>
+    <div class="field peach tall live reveal" aria-hidden="true">
+      <div class="phone">
+        <div class="screen">
+          <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t6"><svg class="ic"><use href="#i-users"/></svg></span><div><b>Roof team</b><small>5 members</small></div><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+          <div class="thread">
+            <p class="day">Today</p>
+            <div class="gmsg reacted" style="--i:0"><span class="ava t2">NA</span><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b>Rain from ten tomorrow. Start at eight?<small>7:52 AM</small><span class="react">👍 3</span></p></div>
+            <div class="gmsg" style="--i:1"><span class="ava t5">JO</span><p class="b in"><b class="who" style="color:#1A687B">@jonah</b>Works for me. I’ll bring the ladder.<small>7:55 AM</small></p></div>
+            <p class="b out" style="--i:2"><span class="at">@nadia</span> can you grab the sealant?<small>8:02 AM<svg class="ic"><use href="#i-check"/></svg></small></p>
+            <div class="gmsg" style="--i:3"><span class="ava t2">NA</span><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b><span class="quote"><b>You</b>@nadia can you grab the sealant?</span>Already in the van.<small>8:03 AM</small></p></div>
+          </div>
+          <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message · @mention someone</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>Gone when you want it gone.</h2>
+      <p class="lead">Put a timer on any one-to-one chat. A minute, an hour or a day later, the messages delete themselves.</p>
+    </div>
+    <div class="field lilac reveal" aria-hidden="true">
+      <div class="timer"><i><svg class="ic"><use href="#i-timer"/></svg></i><div><b>Timer</b><small>1 hour</small></div><div class="pick"><span>Off</span><span>1m</span><span class="on">1h</span><span>1d</span></div></div>
+      <div class="fade">
+        <p class="allclear">Nothing left to find.</p>
+        <p class="b in">Door code is 4471 until Sunday.<small><svg class="ic"><use href="#i-timer"/></svg>9:40 AM</small></p>
+        <p class="b out">Got it. Won’t write it down.<small><svg class="ic"><use href="#i-timer"/></svg>9:41 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+        <p class="b in">It’ll be gone in an hour anyway.<small><svg class="ic"><use href="#i-timer"/></svg>9:41 AM</small></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row flip">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>Know it’s really them.</h2>
+      <p class="lead">Every chat has a safety number. Compare it with your friend, in person or somewhere you already trust. If it matches, nobody is sitting in the middle. If their keys ever change, Morse tells you.</p>
+    </div>
+    <div class="field mint reveal" aria-hidden="true">
+      <div class="sheet sn">
+        <header><span class="ava t0">AD</span><b>@ada<small>On your screen</small></b></header>
+        <div class="digits"><span>3f9a</span><span>1c07</span><span>b82e</span><span>64d1</span><span>09ab</span><span>e5f2</span><span>7a30</span><span>c418</span><span>d6e9</span><span>20bf</span><span>8c53</span><span>f1a4</span><span>4b7d</span><span>9e06</span><span>a2c8</span><span>517f</span></div>
+      </div>
+      <div class="sheet sn">
+        <header><span class="ava t4">YO</span><b>@you<small>On @ada’s screen</small></b></header>
+        <div class="digits"><span>3f9a</span><span>1c07</span><span>b82e</span><span>64d1</span><span>09ab</span><span>e5f2</span><span>7a30</span><span>c418</span><span>d6e9</span><span>20bf</span><span>8c53</span><span>f1a4</span><span>4b7d</span><span>9e06</span><span>a2c8</span><span>517f</span></div>
+      </div>
+      <p class="verified"><svg class="ic"><use href="#i-check"/></svg>Safety number verified</p>
+    </div>
+  </div>
+</section>
+
+<section class="row" id="built">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>Built like the phone network.</h2>
+      <p class="lead">Morse is written in Mesh, our own programming language. Its big idea comes from Erlang and Elixir, the technology that keeps phone exchanges and some of the world’s biggest chat apps running.</p>
+      <ul class="points">
+        <li><b>Everything at once.</b> Delivering messages, clearing expired ones and waking your phone each run as their own tiny worker, so one slow job never holds up the rest.</li>
+        <li><b>Trouble stays small.</b> Workers share nothing and talk only by passing messages. If one fails the others carry on, and Mesh can start it again on the spot.</li>
+        <li><b>One core, everywhere.</b> Mesh compiles to native code, and the same core runs inside the iPhone, Android, Mac and Windows apps.</li>
+      </ul>
+      <a class="go" href="https://meshlang.dev">Meet the Mesh language<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a>
+    </div>
+    <div class="field sky tall reveal" aria-hidden="true">
+      <div class="works">
+        <p>One server. Four jobs. All at once.</p>
+        <ul>
+          <li><b>Delivering messages</b><em><span>Running</span></em><div class="line" style="--t:19s"><div><span class="mc" data-morse="SEALED AND SENT  ON ITS WAY  "></span><span class="mc" data-morse="SEALED AND SENT  ON ITS WAY  "></span></div></div></li>
+          <li class="trip"><b>Clearing expired messages</b><em><span>Running</span><span>Stumbled</span><span>Back up</span></em><div class="line" style="--t:23s"><div><span class="mc" data-morse="GONE WHEN YOU WANT IT GONE  "></span><span class="mc" data-morse="GONE WHEN YOU WANT IT GONE  "></span></div></div></li>
+          <li><b>Clearing expired files</b><em><span>Running</span></em><div class="line" style="--t:27s"><div><span class="mc" data-morse="NOTHING LEFT TO FIND  ALL CLEAR  "></span><span class="mc" data-morse="NOTHING LEFT TO FIND  ALL CLEAR  "></span></div></div></li>
+          <li><b>Waking phones</b><em><span>Running</span></em><div class="line" style="--t:21s"><div><span class="mc" data-morse="NEW ENCRYPTED ACTIVITY  WAKE UP  "></span><span class="mc" data-morse="NEW ENCRYPTED ACTIVITY  WAKE UP  "></span></div></div></li>
+        </ul>
+        <p class="after">One stumbles and starts again. The other three never noticed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row answers" id="answers">
+  <div class="wrap">
+    <div class="copy reveal">
+      <h2>Straight answers.</h2>
+      <p class="lead">Security marketing loves absolutes. We’d rather show you where the edges are.</p>
+    </div>
+    <div class="qa reveal">
+      <details open>
+        <summary>Do I need a phone number?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>No. Your account is a username: 3 to 32 lowercase letters, numbers or underscores. No phone number, no email, and Morse never uploads your contacts.</p>
+      </details>
+      <details>
+        <summary>Can strangers message me?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>They can ask. They need your exact username, and their first message waits as a request. Accept it to reply, or block them and never hear from them again. They aren’t told.</p>
+      </details>
+      <details>
+        <summary>Can I use it on my phone and my computer?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>Yes. You can link up to eight devices to one account. The new device shows a code, and you approve it from a device you already trust.</p>
+      </details>
+      <details>
+        <summary>What can’t Morse protect me from?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>A phone that’s already compromised, or unlocked in someone else’s hand. The person you’re talking to taking a screenshot or forwarding what you said. And someone who can watch the whole internet can still see when you’re active, and may work out who you talk to from timing alone. Hiding the sender isn’t the same as being anonymous.</p>
+      </details>
+      <details>
+        <summary>What doesn’t Morse do?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>There are no voice or video calls, no voice messages, no stickers and no message search. Disappearing messages work in one-to-one chats, not in groups.</p>
+      </details>
+      <details>
+        <summary>Isn’t writing your own programming language risky?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>It’s a trade, and we think a good one. Mesh rules out whole families of mistakes before the app is ever built, including code that would log, copy or leak an encryption key. And because a young language can have bugs of its own, every change we make ships with a test that fails without it.</p>
+      </details>
+      <details>
+        <summary>Where can I check all this?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>Everything on this page traces back to a working document, not a marketing page.</p>
+        <ul>
+          <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/privacy-contract.md">Exactly what our servers can see<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+          <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/threat-model.md">What we assume an attacker can do<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+          <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/crypto-profile-v1.md">The encryption we use<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+          <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/recipient-transport-v1.md">How a message travels<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+          <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/key-transparency-v1.md">How key swaps are caught<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+          <li><a href="https://github.com/snowdamiz/whatsdown/security/advisories/new">Report a vulnerability<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section id="get">
+  <div class="card bluecard get">
+    <div class="copy reveal">
+      <h2>Start a conversation nobody else is part of.</h2>
+      <div class="cta">
+        <a class="btn light" href="https://github.com/snowdamiz/whatsdown/releases"><svg class="ic" aria-hidden="true"><use href="#i-get"/></svg>Get Morse</a>
+        <a class="btn line" href="https://github.com/snowdamiz/whatsdown">Read the source</a>
+      </div>
+      <p class="note">Made for iPhone, Android, Mac and Windows. Downloads are published on GitHub as each one is ready.</p>
+    </div>
+    <div class="mac reveal" aria-hidden="true">
+      <div class="win">
+        <div class="side">
+          <div class="bar">
+            <span class="lights"><i></i><i></i><i></i></span>
+            <span class="tabs"><span class="on"><i></i><svg class="ic"><use href="#i-chat"/></svg></span><span><svg class="ic"><use href="#i-users"/></svg></span></span>
+            <span class="round"><svg class="ic"><use href="#i-compose"/></svg></span>
+          </div>
+          <div class="conv on"><span class="ava t0">AD</span><b>@ada</b><u>9:33 AM</u><em>See you at 7.</em></div>
+          <div class="conv new"><span class="ava t2">NA</span><b>@nadia</b><u>8:03 AM</u><em>Already in the van.</em><s>1</s></div>
+          <div class="conv"><span class="ava t3">MU</span><b>@mum</b><u>Tue</u><em>call me when you can</em></div>
+          <div class="conv"><span class="ava t1">TK</span><b>@theo_k</b><u>Mon</u><em>You: Got the photos, thank you!</em></div>
+          <div class="me"><span class="ava t4">YO</span>@you<svg class="ic"><use href="#i-sliders"/></svg></div>
+        </div>
+        <div class="pane">
+          <div class="phead"><span class="ava t0">AD</span><b>@ada</b><span class="round"><svg class="ic"><use href="#i-info"/></svg></span></div>
+          <div class="thread">
+            <p class="day">Today</p>
+            <p class="b in">Did the scans arrive?<small>9:24 AM</small></p>
+            <p class="b out">All four. Sending the signed copy now.<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+            <p class="b in">Perfect, thank you. Dinner on Friday?<small>9:31 AM</small></p>
+            <p class="b out">Yes! I’ll book the place by the river.<small>9:32 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+            <p class="b in">See you at 7.<small>9:33 AM</small></p>
+          </div>
+          <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <a class="brand" href="#top"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+      <span class="mc" data-morse="MORSE" aria-hidden="true"></span>
+    </div>
+    <div>
+      <h3>Morse</h3>
+      <ul><li><a href="#features">Features</a></li><li><a href="#privacy">Privacy</a></li><li><a href="#built">How it’s built</a></li><li><a href="#answers">Straight answers</a></li></ul>
+    </div>
+    <div>
+      <h3>The fine print</h3>
+      <ul>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/privacy-contract.md">Privacy contract</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/threat-model.md">Threat model</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/security/advisories/new">Report a vulnerability</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Project</h3>
+      <ul><li><a href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a></li><li><a href="https://github.com/snowdamiz/whatsdown">GitHub</a></li><li><a href="https://meshlang.dev">Mesh language</a></li></ul>
+    </div>
+    <p class="quiet">This page sets no cookies and loads nothing from third parties: no trackers, no analytics, no hosted fonts.</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---- International Morse. A dot is <i>, a dash <i class=D>, as in the mark.
+  const M = {A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--.."};
+  // Same spelling as MORSE_CODE_WORDMARK in apps/mobile/src/brand.ts.
+  console.assert([..."MORSE"].map(c => M[c]).join(" ") === "-- --- .-. ... .", "Morse table drifted from the brand wordmark");
+  for (const el of $$("[data-morse]")) {
+    const chars = [...el.dataset.morse];
+    el.innerHTML = chars.map((ch, n) => ch === " " ? '<i class="G"></i>'
+      : [...M[ch]].map(s => s === "-" ? '<i class="D"></i>' : "<i></i>").join("") + (chars[n + 1] && chars[n + 1] !== " " ? '<i class="g"></i>' : "")).join("");
+  }
+
+  // ---- Sections arrive once.
+  const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting && (e.target.classList.add("in"), io.unobserve(e.target))), {rootMargin: "0px 0px -12% 0px"});
+  $$(".reveal").forEach(el => io.observe(el));
+  $$(".digits span").forEach((el, n) => el.style.setProperty("--i", n % 16));
+
+  // ---- One chat, two views. Each bubble's size is pinned just before it
+  // morphs, because a width can't be animated from `fit-content`.
+  const demo = $("#demo"), seg = $("#view"), cap = $("#cap"), msgs = $$(".msg", demo);
+  const captions = {
+    device: "Readable here and on @ada’s phone. Nowhere else.",
+    server: "The same chat, as we see it. No names, no words, just sealed envelopes.",
+  };
+  let unpin;
+  function show(view) {
+    if (demo.dataset.view === view) return;
+    clearTimeout(unpin);
+    if (view === "server") {
+      for (const m of msgs) { m.style.setProperty("--w", m.offsetWidth + "px"); m.style.setProperty("--h", m.offsetHeight + "px"); }
+      void demo.offsetWidth;
+    } else unpin = setTimeout(() => msgs.forEach(m => { m.style.removeProperty("--w"); m.style.removeProperty("--h"); }), 900);
+    demo.dataset.view = seg.dataset.view = view;
+    $$("button", seg).forEach(b => b.setAttribute("aria-pressed", b.dataset.set === view));
+    cap.textContent = captions[view];
+  }
+  // It flips by itself while it's on screen, until someone takes the switch.
+  let seen = false, auto = calm ? 0 : setInterval(() => seen && !document.hidden && show(demo.dataset.view === "device" ? "server" : "device"), 4600);
+  new IntersectionObserver(es => seen = es[0].isIntersecting, {threshold: .5}).observe(demo);
+  seg.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    clearInterval(auto); auto = 0; show(b.dataset.set);
+  });
+})();
+</script>
+</body>
+</html>

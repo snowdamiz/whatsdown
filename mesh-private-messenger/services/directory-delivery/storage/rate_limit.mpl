@@ -22,3 +22,17 @@ pub fn allow_request(pool :: PoolHandle, key :: Bytes, limit :: Int, window_seco
   Repo.transaction(pool,
   fn (conn :: borrow PgConn) -> allow_request_on_connection(conn, key, limit, window_seconds) end)
 end
+
+# No policy keeps a window longer than a day, so an older row can never affect
+# a decision again. Buckets also record spent request stamps, one per request,
+# so without this the table grows without bound.
+
+pub fn purge_rate_limits(pool :: PoolHandle, limit :: Int) -> Int ! String do
+  if limit <= 0 || limit > 1000 do
+    Err("invalid rate-limit purge")
+  else
+    Pool.execute_values(pool,
+    "WITH doomed AS (SELECT bucket_key FROM messenger_rate_limits WHERE window_started_at <= clock_timestamp() - interval '1 day' ORDER BY window_started_at FOR UPDATE SKIP LOCKED LIMIT $1::integer) DELETE FROM messenger_rate_limits AS bucket USING doomed WHERE bucket.bucket_key = doomed.bucket_key",
+    [Text(Int.to_string(limit))])
+  end
+end

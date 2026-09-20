@@ -13,8 +13,10 @@ readonly edge_dir="$repo_root/mesh-private-messenger/services/privacy-edge"
 readonly witness_dir="$repo_root/mesh-private-messenger/services/transparency-witness"
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
 readonly database_port=55436
-readonly core_port=18090
-readonly edge_port=18091
+# Overridable so the proof can run beside a local ./run.sh stack on the default ports.
+readonly core_port="${M13_CORE_PORT:-18090}"
+readonly edge_port="${M13_EDGE_PORT:-18091}"
+readonly stream_port="${M13_STREAM_PORT:-18092}"
 readonly database_url="postgres://messenger:messenger@127.0.0.1:$database_port/messenger?sslmode=disable"
 readonly delivery_seed_hex="77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
 readonly transparency_seed_hex="5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b"
@@ -24,9 +26,13 @@ readonly witness_a_public_key_hex="d75a980182b10ab7d54bfed3c964073a0ee172f3daa62
 readonly witness_b_signing_seed_hex="4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb"
 readonly witness_b_public_key_hex="3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
 readonly internal_delivery_token="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+# Register, resolve and prekey claim need proof of work. Every process in the
+# proof (directory, edge, clients) must agree on the difficulty; acceptance
+# proofs use 8.
+export MESSENGER_ABUSE_DIFFICULTY=8
 readonly proof_plaintext="m13 live private suite-2 message"
 readonly temp_parent="${TMPDIR:-/tmp}"
-temp_dir="$(mktemp -d "$temp_parent/whatsdown-m13.XXXXXX")"
+temp_dir="$(mktemp -d "$temp_parent/morse-m13.XXXXXX")"
 readonly temp_dir
 readonly core_log="$temp_dir/core.log"
 readonly edge_log="$temp_dir/edge.log"
@@ -39,7 +45,7 @@ readonly witness_a_checkpoint="$temp_dir/witness-a-checkpoint"
 readonly witness_b_checkpoint="$temp_dir/witness-b-checkpoint"
 readonly alice_database="$temp_dir/alice.db"
 readonly bob_database="$temp_dir/bob.db"
-readonly compose=(docker compose --project-name "whatsdown-m13-proof-$$" --file "$core_dir/docker-compose.yml")
+readonly compose=(docker compose --project-name "morse-m13-proof-$$" --file "$core_dir/docker-compose.yml")
 
 core_pid=""
 edge_pid=""
@@ -91,7 +97,7 @@ cleanup() {
     resolved_parent="$(cd "$temp_parent" && pwd -P)"
     resolved_temp="$(cd "$temp_dir" && pwd -P)"
     case "$resolved_temp" in
-      "$resolved_parent"/whatsdown-m13.*)
+      "$resolved_parent"/morse-m13.*)
         [[ "$(find "$resolved_temp" -type l | wc -l | tr -d ' ')" == 0 ]] && \
           find "$resolved_temp" -depth -delete
         ;;
@@ -241,14 +247,17 @@ assert_live_database_private() {
     fail "live fanout did not consume exactly Bob's claimed one-time prekey"
   result="$(psql -Atc "
     SELECT concat(count(*), '|',
-      count(*) FILTER (WHERE envelope.suite = 2), '|',
+      count(*) FILTER (WHERE envelope.suite = 4 AND substring(envelope.ciphertext from 1 for 4) = '\\x01524350'), '|',
       count(*) FILTER (WHERE account.username = 'bob'))
     FROM messenger_envelopes AS envelope
     LEFT JOIN messenger_devices AS device
       ON device.mailbox_token_hash = envelope.mailbox_token_hash
     LEFT JOIN messenger_accounts AS account
       ON account.account_id = device.account_id;")"
-  [[ "$result" == '1|1|1' ]] || fail "unexpected sealed-delivery database proof: $result"
+  # Three envelopes reach Bob: the direct message, the group welcome, and the
+  # group message. Delivery must not be able to tell them apart: every one is
+  # recipient-sealed under outer suite 4.
+  [[ "$result" == '3|3|3' ]] || fail "unexpected sealed-delivery database proof: $result"
   psql -qAtc 'COPY (SELECT ciphertext FROM messenger_envelopes) TO STDOUT WITH (FORMAT binary);' >"$envelope_dump"
   if grep -aFq -- "$proof_plaintext" "$envelope_dump"; then
     fail "delivery storage exposed message plaintext"
@@ -290,7 +299,9 @@ main() {
   export MESSENGER_WITNESS_B_PUBLIC_KEY_HEX="$witness_b_public_key_hex"
   export MESSENGER_DELIVERY_SEALING_SEED_HEX="$delivery_seed_hex"
 
-  "$meshc_bin" test "$protocol_dir"
+  # security/group-schedule.test.mpl is an oracle driven by scripts/group-oracle.test.mjs,
+  # so only the self-contained protocol tests run here.
+  "$meshc_bin" test "$protocol_dir/tests"
   "$meshc_bin" test "$fanout_test"
   "$meshc_bin" test "$edge_dir/tests/api.test.mpl"
   (cd "$core_dir" && "$meshc_bin" build .)
@@ -306,9 +317,10 @@ main() {
     "$meshc_bin" test tests/api.test.mpl)
   (cd "$core_dir" && MESSENGER_TEST_DATABASE_URL="$database_url" \
     "$meshc_bin" test tests/prekey_pool.test.mpl)
-  psql -c 'TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_directory, messenger_mailboxes RESTART IDENTITY;' >/dev/null
+  psql -c 'TRUNCATE messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY;' >/dev/null
 
   MESSENGER_DATABASE_URL="$database_url" MESSENGER_PORT="$core_port" \
+    MESSENGER_STREAM_PORT="$stream_port" \
     MESSENGER_DIRECT_DELIVERY_COMPATIBILITY="" \
     MESSENGER_DELIVERY_INTERNAL_TOKEN="$internal_delivery_token" \
     "$core_dir/output" >"$core_log" 2>&1 &
@@ -327,7 +339,7 @@ main() {
   [[ "$(psql -Atc "SELECT count(*) FROM information_schema.columns WHERE table_name = 'messenger_envelopes' AND column_name ILIKE '%sender%';")" == 0 ]] || \
     fail "delivery storage contains sender identity"
   assert_logs_are_not_joinable
-  printf 'M13 proof passed: two live Mesh accounts, exact transparency caches, two independent witnesses, a claimed prekey, one suite-2 fanout, sealed authenticated ingress, opaque storage, and non-joinable logs.\n'
+  printf 'M13 proof passed: two live Mesh accounts, exact transparency caches, two independent witnesses, a claimed prekey, one recipient-sealed fanout, sealed authenticated ingress, opaque storage, and non-joinable logs.\n'
 }
 
 main "$@"

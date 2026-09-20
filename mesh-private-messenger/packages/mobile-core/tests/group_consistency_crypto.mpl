@@ -1,3 +1,4 @@
+from Mobile.Codec import current_time
 from MobileCore import group_add_export
 from Tests.GroupConsistencySupport import ConsistencyAccount, evidence_bytes, request, verify_for, wide
 from Tests.Support import append, repeated
@@ -40,7 +41,7 @@ has_previous :: Bool) -> TransparencyCheckpoint ! String do
   wide(sequence) ?,
   leaves,
   previous_hash,
-  wide(1000 + sequence) ?)
+  current_time() ?)
 end
 
 pub fn expect_group_key_rejection(path :: String,

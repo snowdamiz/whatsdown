@@ -1,7 +1,26 @@
 import File
-from MobileCore import create_account_export, directory_entry_export, fanout_prekey_claims_export, has_fanout_prekey_state_for_test, install_classical_session_for_test, install_group_transparency_for_test, load_history_export, outbox_ack_export, receive_initial_export, receive_message_export, remove_safety_binding_for_test, reserve_fanout_prekey_export, send_fanout_export, send_message_export, update_conversation_export
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  fanout_prekey_claims_export,
+  has_fanout_prekey_state_for_test,
+  install_classical_session_for_test,
+  install_group_transparency_for_test,
+  load_history_export,
+  outbox_ack_export,
+  receive_initial_export,
+  receive_message_export,
+  remove_safety_binding_for_test,
+  reserve_fanout_prekey_export,
+  send_fanout_export,
+  send_message_export,
+  test_inner_suite,
+  update_conversation_export
+)
 from Prekeys.Bundle import normalize_prekey_bundle
-from Protocol.V1 import DeviceSet, DirectoryEntry, PrekeyBundle, decode_directory_entry, decode_prekey_bundle, encode_device_set, encode_prekey_bundle
+from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
+from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.V1 import DeviceSet, DirectoryEntry, PrekeyBundle
 from Tests.GroupConsistencySupport import request, signed_transparency_view, wide
 from Tests.GroupLifecycleWire import outer, output_list
 from Tests.Support import database_path, write_u32
@@ -103,7 +122,9 @@ fn proof() -> Bool ! String do
   assert(Bytes.length(reserve_fanout_prekey_export(request([Bytes.from_utf8(alice_path), bob_set, alice_set, claimed_bob.prekey_bundle]) ?) ?) == 0)
   let upgraded_body = Bytes.from_utf8("suite-2 upgrade")
   let upgraded = List.head(output_list(send_fanout_export(request([Bytes.from_utf8(alice_path), bob_set, alice_set, upgraded_body]) ?) ?) ?)
-  assert(outer(upgraded) ?.suite == 2)
+  # Delivery sees only the sealed transport; the recipient alone reads suite 2.
+  assert(outer(upgraded) ?.suite == 4)
+  assert(test_inner_suite(bob_path, upgraded) ? == 2)
   assert(acknowledge(alice_path, upgraded) ?)
   let bob_claims_request = request([Bytes.from_utf8(bob_path), alice_set, bob_set]) ?
   assert(List.length(output_list(fanout_prekey_claims_export(bob_claims_request) ?) ?) == 1)
@@ -122,7 +143,8 @@ fn proof() -> Bool ! String do
   Bytes.from_utf8("ok")))
   let preferred_body = Bytes.from_utf8("suite-2 preferred")
   let preferred = List.head(output_list(send_fanout_export(request([Bytes.from_utf8(alice_path), bob_set, alice_set, preferred_body]) ?) ?) ?)
-  assert(outer(preferred) ?.suite == 2)
+  assert(outer(preferred) ?.suite == 4)
+  assert(test_inner_suite(bob_path, preferred) ? == 2)
   assert(acknowledge(alice_path, preferred) ?)
   assert(Bytes.secure_equals(receive_message_export(request([Bytes.from_utf8(bob_path), preferred]) ?) ?,
   preferred_body))

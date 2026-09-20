@@ -1,4 +1,4 @@
-from Protocol.V1 import decode_device_credential, decode_prekey_bundle
+from Storage.MailboxAuth import bundle_signing_public_key
 from Push.Binding import PushBindRequest, PushUnbindRequest, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
 
 pub type PushWrite do
@@ -43,15 +43,7 @@ fn active_signing_key(conn :: borrow PgConn, mailbox_token_hash :: Bytes) -> Opt
   if List.length(rows) == 0 do
     Ok(None)
   else if List.length(rows) == 1 do
-    let bundle = case decode_prekey_bundle(binary(Map.get(List.head(rows), "prekey_bundle")) ?) do
-      Err( _) -> Err("invalid stored prekey bundle")
-      Ok( output) -> Ok(output)
-    end ?
-    let credential = case decode_device_credential(bundle.device_credential) do
-      Err( _) -> Err("invalid stored device credential")
-      Ok( output) -> Ok(output)
-    end ?
-    Ok(Some(credential.signing_public_key))
+    Ok(Some(bundle_signing_public_key(binary(Map.get(List.head(rows), "prekey_bundle")) ?) ?))
   else
     Err("duplicate active mailbox device")
   end

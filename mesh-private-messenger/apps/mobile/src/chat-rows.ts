@@ -11,6 +11,7 @@ export function buildChatRows<T extends Timed>(
   messages: readonly T[],
   keyOf: (message: T, index: number) => string,
   now = Date.now(),
+  senderOf: (message: T) => string = (message) => message.direction,
 ): ChatRow<T>[] {
   const rows: ChatRow<T>[] = [];
   messages.forEach((message, index) => {
@@ -28,10 +29,10 @@ export function buildChatRows<T extends Timed>(
       kind: 'message',
       key: keyOf(message, index),
       message,
-      spaced: newDay || previous!.direction !== message.direction,
+      spaced: newDay || senderOf(previous!) !== senderOf(message),
       tail:
         !next ||
-        next.direction !== message.direction ||
+        senderOf(next) !== senderOf(message) ||
         !sameDay(next.timestamp, message.timestamp),
     });
   });

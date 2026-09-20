@@ -1,4 +1,4 @@
-appId: com.snowdamiz.whatsdown
+appId: io.morseapp
 ---
 - launchApp
 - extendedWaitUntil:

@@ -1,6 +1,6 @@
 # Client privacy revision 2
 
-Development protocol; independent cryptographic review is still required.
+Development protocol; release readiness requires internal verification of the exact candidate. No independent cryptographic audit is claimed.
 
 ## Account safety numbers
 
@@ -61,8 +61,10 @@ New ratchet and group messages carry message version `2`; that version is
 included in authenticated associated data (and group signatures). Version `1`
 messages remain readable for queued messages and existing history, but new
 sends always use version `2`. Group membership-control packets are not padded
-by this revision. Ratchet headers and group routing/control metadata are still
-visible to delivery; this is not a complete metadata-anonymity protocol.
+by this revision. Under this revision ratchet headers, including a session ID
+shared by both peers, remained visible to delivery. The
+[recipient-sealed transport](recipient-transport-v1.md) supersedes it and seals
+every packet; this is still not a complete metadata-anonymity protocol.
 
 ## Rollout and transport
 

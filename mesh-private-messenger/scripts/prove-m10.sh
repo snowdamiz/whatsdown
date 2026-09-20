@@ -13,7 +13,7 @@ readonly module_dir="$repo_root/mesh-private-messenger/apps/mobile/modules/mesh-
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
 temp_parent="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
 readonly temp_parent
-temp_dir="$(mktemp -d "$temp_parent/whatsdown-m10.XXXXXX")"
+temp_dir="$(mktemp -d "$temp_parent/morse-m10.XXXXXX")"
 readonly temp_dir
 readonly database="$temp_dir/mobile.db"
 readonly capacity_database="$database.capacity"
@@ -47,7 +47,7 @@ cleanup() {
   trap - EXIT INT TERM
   if [[ -d "$temp_dir" && ! -L "$temp_dir" ]]; then
     case "$temp_dir" in
-      "$temp_parent"/whatsdown-m10.*)
+      "$temp_parent"/morse-m10.*)
         if [[ "$(find "$temp_dir" -type l | wc -l | tr -d ' ')" == 0 ]]; then
           find "$temp_dir" -depth -delete
         fi
@@ -184,7 +184,7 @@ main() {
     fail "active legacy singleton migration did not remain encrypted"
   encrypted_database_matches "$legacy_consumed_database" 11 || \
     fail "consumed legacy singleton migration did not remain encrypted"
-  local leak_pattern='whatsdown-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|post-quantum-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|capacity|legacy-active|legacy-consumed|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
+  local leak_pattern='morse-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|post-quantum-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|capacity|legacy-active|legacy-consumed|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
   local leaks
   leaks="$(LC_ALL=C grep -a -E -o "$leak_pattern" "$capacity_database" "$legacy_active_database" "$legacy_consumed_database" || true)"
   if [[ -n "$leaks" ]]; then

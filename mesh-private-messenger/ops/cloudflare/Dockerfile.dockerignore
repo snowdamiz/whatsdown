@@ -1,0 +1,13 @@
+**
+!mesh-private-messenger/
+!mesh-private-messenger/packages/
+!mesh-private-messenger/packages/messenger-protocol/
+!mesh-private-messenger/packages/messenger-protocol/**
+!mesh-private-messenger/packages/service-jobs/
+!mesh-private-messenger/packages/service-jobs/**
+!mesh-private-messenger/services/
+!mesh-private-messenger/services/**
+**/output
+**/node_modules
+**/.env*
+**/*.db*

@@ -7,25 +7,16 @@ const {
 const IOS_PROJECT_ID = 'MeshMessengerExpoProjectID';
 const IOS_BROKER_KEY = 'MeshMessengerPushBrokerPublicKeyHex';
 const IOS_SECURITY_CONFIG = 'MeshMessengerSecurityConfig';
-const ANDROID_PROJECT_ID = 'app.whatsdown.mesh.EXPO_PROJECT_ID';
-const ANDROID_BROKER_KEY = 'app.whatsdown.mesh.PUSH_BROKER_PUBLIC_KEY_HEX';
-const ANDROID_SECURITY_CONFIG = 'app.whatsdown.mesh.SECURITY_CONFIG';
-const SECURITY_FIELDS = [
-  'MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX',
-  'MESSENGER_WITNESS_A_PUBLIC_KEY_HEX',
-  'MESSENGER_WITNESS_B_PUBLIC_KEY_HEX',
-  'MESSENGER_DELIVERY_PUBLIC_KEY_HEX',
-  'MESSENGER_ABUSE_DIFFICULTY',
-];
+const ANDROID_PROJECT_ID = 'app.morse.mesh.EXPO_PROJECT_ID';
+const ANDROID_BROKER_KEY = 'app.morse.mesh.PUSH_BROKER_PUBLIC_KEY_HEX';
+const ANDROID_SECURITY_CONFIG = 'app.morse.mesh.SECURITY_CONFIG';
+const securityConfig = require('./security-config.cjs');
 
 module.exports = function withMeshPushConfig(config, environment = process.env) {
   const projectID = environment.MESSENGER_EXPO_PROJECT_ID;
   const brokerPublicKeyHex = environment.MESSENGER_PUSH_BROKER_PUBLIC_KEY_HEX;
   const provisioned = projectID !== undefined || brokerPublicKeyHex !== undefined;
-  const securityProvisioned = SECURITY_FIELDS.some(
-    (name) => environment[name] !== undefined,
-  );
-  let securityFrame;
+  const securityFrame = securityConfig(environment);
   if (
     provisioned &&
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
@@ -39,31 +30,6 @@ module.exports = function withMeshPushConfig(config, environment = process.env) 
       'MESSENGER_PUSH_BROKER_PUBLIC_KEY_HEX must be a 32-byte lowercase-hex key',
     );
   }
-  if (securityProvisioned) {
-    for (const name of SECURITY_FIELDS.slice(0, 4)) {
-      if (!/^[0-9a-f]{64}$/.test(environment[name] ?? '')) {
-        throw new Error(`${name} must be a 32-byte lowercase-hex key`);
-      }
-    }
-    if (
-      !/^([1-9]|1[0-9]|2[0-4])$/.test(
-        environment.MESSENGER_ABUSE_DIFFICULTY ?? '',
-      )
-    ) {
-      throw new Error(
-        'MESSENGER_ABUSE_DIFFICULTY must be a canonical integer from 1 through 24',
-      );
-    }
-    if (
-      environment.MESSENGER_WITNESS_A_PUBLIC_KEY_HEX ===
-      environment.MESSENGER_WITNESS_B_PUBLIC_KEY_HEX
-    ) {
-      throw new Error('MESSENGER witness public keys must be distinct');
-    }
-    securityFrame = `1\n${SECURITY_FIELDS.map((name) => environment[name]).join(
-      '\n',
-    )}`;
-  }
 
   config = withInfoPlist(config, (current) => {
     if (provisioned) {
@@ -73,7 +39,7 @@ module.exports = function withMeshPushConfig(config, environment = process.env) 
       delete current.modResults[IOS_PROJECT_ID];
       delete current.modResults[IOS_BROKER_KEY];
     }
-    if (securityProvisioned) {
+    if (securityFrame) {
       current.modResults[IOS_SECURITY_CONFIG] = securityFrame;
     } else {
       delete current.modResults[IOS_SECURITY_CONFIG];
@@ -105,7 +71,7 @@ module.exports = function withMeshPushConfig(config, environment = process.env) 
         ANDROID_BROKER_KEY,
       );
     }
-    if (securityProvisioned) {
+    if (securityFrame) {
       AndroidConfig.Manifest.addMetaDataItemToMainApplication(
         application,
         ANDROID_SECURITY_CONFIG,

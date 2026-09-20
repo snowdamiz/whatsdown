@@ -30,10 +30,10 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 async function inspect(environment, seeded = false) {
   const base = {
-    name: 'Whatsdown',
-    slug: 'whatsdown',
+    name: 'Morse',
+    slug: 'morse',
     ios: {
-      bundleIdentifier: 'com.snowdamiz.whatsdown',
+      bundleIdentifier: 'com.snowdamiz.morse',
       infoPlist: seeded
         ? {
             MeshMessengerExpoProjectID: projectID,
@@ -42,7 +42,7 @@ async function inspect(environment, seeded = false) {
           }
         : {},
     },
-    android: { package: 'com.snowdamiz.whatsdown' },
+    android: { package: 'com.snowdamiz.morse' },
   };
   let configured = withMeshPushConfig(base, environment);
   if (seeded) {
@@ -52,17 +52,17 @@ async function inspect(environment, seeded = false) {
       );
       AndroidConfig.Manifest.addMetaDataItemToMainApplication(
         application,
-        'app.whatsdown.mesh.EXPO_PROJECT_ID',
+        'app.morse.mesh.EXPO_PROJECT_ID',
         projectID,
       );
       AndroidConfig.Manifest.addMetaDataItemToMainApplication(
         application,
-        'app.whatsdown.mesh.PUSH_BROKER_PUBLIC_KEY_HEX',
+        'app.morse.mesh.PUSH_BROKER_PUBLIC_KEY_HEX',
         brokerPublicKeyHex,
       );
       AndroidConfig.Manifest.addMetaDataItemToMainApplication(
         application,
-        'app.whatsdown.mesh.SECURITY_CONFIG',
+        'app.morse.mesh.SECURITY_CONFIG',
         securityFrame,
       );
       return current;
@@ -91,14 +91,14 @@ test('canonical push pins land in signed iOS and Android resources', async () =>
   assert.equal(
     AndroidConfig.Manifest.getMainApplicationMetaDataValue(
       manifest,
-      'app.whatsdown.mesh.EXPO_PROJECT_ID',
+      'app.morse.mesh.EXPO_PROJECT_ID',
     ),
     projectID,
   );
   assert.equal(
     AndroidConfig.Manifest.getMainApplicationMetaDataValue(
       manifest,
-      'app.whatsdown.mesh.PUSH_BROKER_PUBLIC_KEY_HEX',
+      'app.morse.mesh.PUSH_BROKER_PUBLIC_KEY_HEX',
     ),
     brokerPublicKeyHex,
   );
@@ -106,10 +106,10 @@ test('canonical push pins land in signed iOS and Android resources', async () =>
   const iosFrame = `1\n${config.ios.infoPlist.MeshMessengerExpoProjectID}\n${config.ios.infoPlist.MeshMessengerPushBrokerPublicKeyHex}`;
   const androidFrame = `1\n${AndroidConfig.Manifest.getMainApplicationMetaDataValue(
     manifest,
-    'app.whatsdown.mesh.EXPO_PROJECT_ID',
+    'app.morse.mesh.EXPO_PROJECT_ID',
   )}\n${AndroidConfig.Manifest.getMainApplicationMetaDataValue(
     manifest,
-    'app.whatsdown.mesh.PUSH_BROKER_PUBLIC_KEY_HEX',
+    'app.morse.mesh.PUSH_BROKER_PUBLIC_KEY_HEX',
   )}`;
   assert.equal(Buffer.byteLength(expectedFrame), 103);
   assert.equal(iosFrame, expectedFrame);
@@ -129,7 +129,7 @@ test('messenger security policy lands in one canonical signed native frame', asy
   assert.equal(
     AndroidConfig.Manifest.getMainApplicationMetaDataValue(
       manifest,
-      'app.whatsdown.mesh.SECURITY_CONFIG',
+      'app.morse.mesh.SECURITY_CONFIG',
     ),
     securityFrame,
   );
@@ -149,21 +149,21 @@ test('absent native configuration removes stale signed resource values', async (
   assert.equal(
     AndroidConfig.Manifest.findMetaDataItem(
       application,
-      'app.whatsdown.mesh.EXPO_PROJECT_ID',
+      'app.morse.mesh.EXPO_PROJECT_ID',
     ),
     -1,
   );
   assert.equal(
     AndroidConfig.Manifest.findMetaDataItem(
       application,
-      'app.whatsdown.mesh.PUSH_BROKER_PUBLIC_KEY_HEX',
+      'app.morse.mesh.PUSH_BROKER_PUBLIC_KEY_HEX',
     ),
     -1,
   );
   assert.equal(
     AndroidConfig.Manifest.findMetaDataItem(
       application,
-      'app.whatsdown.mesh.SECURITY_CONFIG',
+      'app.morse.mesh.SECURITY_CONFIG',
     ),
     -1,
   );

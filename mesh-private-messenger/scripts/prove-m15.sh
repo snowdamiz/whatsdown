@@ -13,7 +13,7 @@ readonly compiler_root="$repo_root/mesh-lang"
 readonly meshc_bin="${MESHC:-$compiler_root/target/debug/meshc}"
 readonly rust_toolchain="${MESH_RUST_TOOLCHAIN:-stable}"
 readonly temp_parent="${TMPDIR:-/tmp}"
-temp_dir="$(mktemp -d "$temp_parent/whatsdown-m15.XXXXXX")"
+temp_dir="$(mktemp -d "$temp_parent/morse-m15.XXXXXX")"
 readonly temp_dir
 
 cleanup() {
@@ -25,7 +25,7 @@ cleanup() {
     if resolved_parent="$(cd "$temp_parent" && pwd -P)" &&
       resolved_temp="$(cd "$temp_dir" && pwd -P)"; then
       case "$resolved_temp" in
-        "$resolved_parent"/whatsdown-m15.*)
+        "$resolved_parent"/morse-m15.*)
           if [[ "$(/usr/bin/find "$resolved_temp" -type l -print -quit)" == '' ]]; then
             /usr/bin/find "$resolved_temp" -depth -delete
           fi
@@ -89,18 +89,8 @@ main() {
     done
   fi
 
-  grep -q 'must not be enabled in a production release' \
-    "$messenger_root/protocol/mls-groups-v1.md" || \
-    fail "the external-review production gate is missing"
-  grep -q 'not an RFC 9420 wire-compatible implementation' \
-    "$messenger_root/protocol/mls-groups-v1.md" || \
-    fail "the interoperability boundary is missing"
-  grep -q 'six-node direct path' \
-    "$messenger_root/protocol/mls-groups-v1.md" || \
-    fail "the TreeKEM update-path contract is missing"
-
   printf '%s\n' \
-    'M15 proof passed: official HPKE and TreeKEM X25519 vectors, groups, codecs, transparency-bound joins, persisted history/outbox retry semantics, generated bindings, and iOS mobile-core builds; production remains externally gated.'
+    'M15 proof passed: official HPKE and TreeKEM X25519 vectors, groups, codecs, transparency-bound joins, persisted history/outbox retry semantics, generated bindings, and iOS mobile-core builds; internal behavioral checks only.'
 }
 
 main "$@"

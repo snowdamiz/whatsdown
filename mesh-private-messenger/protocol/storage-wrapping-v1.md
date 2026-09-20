@@ -93,10 +93,19 @@ Each platform `StorageKey` record also holds a random 4-byte nonce prefix and a
 monotonic 64-bit next-counter initialized to zero. A seal atomically returns
 the current counter and increments the durable record, encodes the nonce as
 `prefix || counter_u64_be`, and never reuses a reserved counter,
-including after failure. Key bytes, prefix, and counter are backed up and
-restored as one platform record; if atomic counter continuity cannot be proven,
-the device creates a new `StorageKey` and reseals its live state. The key is
-rotated before the counter is exhausted.
+including after failure. The platform record `mesh/storage-key/v2` contains the 32-byte key, 4-byte
+prefix, and 8-byte big-endian next-counter. Each reservation replaces that whole
+record before sealing. Complete legacy key/counter pairs migrate without changing
+the key or resetting the counter; the old key is deleted before its old counter,
+after v2 is durable. Interrupted migration resumes from v2. Incomplete or
+conflicting legacy records fail without being overwritten. An older application
+cannot use the retired v1 key to restart its counter; rollback to such a binary
+is unsupported.
+
+Counter exhaustion fails before encryption. Complete rollback of all records
+cannot be detected from the key store alone. Database continuity checks and
+recovery/resealing remain part of the security-plan acceptance work; the atomic
+record does not by itself establish rollback resistance.
 
 The native reservation callback and its context are host-owned and remain valid
 and thread-safe until runtime shutdown. The callback atomically persists the

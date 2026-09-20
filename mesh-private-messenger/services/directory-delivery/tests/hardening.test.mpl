@@ -1,6 +1,6 @@
-from Protocol.V1 import DirectoryEntry, MailboxFetch, OuterEnvelope
+from Protocol.V1 import OuterEnvelope
 from Storage.Delivery import DeliveryInsert, enqueue_envelope, fetch_mailbox
-from Storage.Directory import register_directory
+from Storage.MailboxAuth import MailboxOwner
 from Storage.Outbox import OutboxEvent, PushResult, finish_outbox, lease_outbox
 from Storage.RateLimit import allow_request
 from Storage.Retention import purge_envelopes
@@ -48,6 +48,14 @@ fn push_delivered(_event :: OutboxEvent) -> PushResult do
   PushDelivered
 end
 
+# Delivery bounds how long an envelope may wait, so fixtures expire relative to
+# the real clock.
+
+fn soon() -> String ! String do
+  let now = U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()))) ?
+  Ok(U64.to_string(U64.add(now, U64.parse("3600000") ?) ?))
+end
+
 fn envelope(token :: Bytes, id_byte :: Int, expiration :: String) -> OuterEnvelope ! String do
   Ok(OuterEnvelope {
     version : 1,
@@ -70,24 +78,18 @@ fn proof() -> Bool ! String do
   let _ = Pool.execute(pool, "DELETE FROM messenger_devices", []) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_revoked_devices", []) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_accounts", []) ?
-  let _ = Pool.execute(pool, "DELETE FROM messenger_directory", []) ?
   let _ = Pool.execute(pool, "DELETE FROM messenger_mailboxes", []) ?
   let token = repeated(7, 32)
-  let _ = register_directory(pool,
-  DirectoryEntry {
-    version : 1,
-    username : "hardening-device",
-    account_identity : Bytes.from_utf8("public-account"),
-    prekey_bundle : Bytes.from_utf8("public-prekey"),
-    mailbox_token : token
-  }) ?
+  let _ = Pool.execute_values(pool,
+  "INSERT INTO messenger_mailboxes (mailbox_token_hash) VALUES ($1)",
+  [Binary(Crypto.sha256(token))]) ?
   let _ = Pool.execute(pool,
   "CREATE FUNCTION pg_temp.mesh_test_fail_outbox() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced outbox write failure'; END $$",
   []) ?
   let _ = Pool.execute(pool,
   "CREATE TRIGGER mesh_test_fail_outbox BEFORE INSERT ON messenger_outbox_events FOR EACH ROW EXECUTE FUNCTION pg_temp.mesh_test_fail_outbox()",
   []) ?
-  let fault_failed = case enqueue_envelope(pool, envelope(token, 170, "4102444800000") ?) do
+  let fault_failed = case enqueue_envelope(pool, envelope(token, 170, soon() ?) ?) do
     Err( _) -> true
     Ok( _) -> false
   end
@@ -96,7 +98,7 @@ fn proof() -> Bool ! String do
   expect(scalar(pool,
   "SELECT concat((SELECT count(*) FROM messenger_envelopes), ':', (SELECT count(*) FROM messenger_outbox_events), ':', (SELECT count(*) FROM messenger_rate_limits), ':', (SELECT pending_count FROM messenger_mailboxes LIMIT 1)) AS value") ? == "0:0:0:0",
   "outbox failure left an envelope, rate charge, event, or mailbox reservation") ?
-  let durable = envelope(token, 1, "4102444800000") ?
+  let durable = envelope(token, 1, soon() ?) ?
   case enqueue_envelope(pool, durable) ? do
     Accepted -> Ok(nil)
     _ -> Err("durable envelope was not accepted")
@@ -137,7 +139,7 @@ fn proof() -> Bool ! String do
   expect(scalar(reopened,
   "SELECT concat(status, ':', attempts::text, ':', completed_at IS NOT NULL, ':', (SELECT count(*) FROM messenger_envelopes)) AS value FROM messenger_outbox_events") ? == "permanent_failure:5:t:1",
   "retry bound or message retention failed") ?
-  let delivered = envelope(token, 2, "4102444800000") ?
+  let delivered = envelope(token, 2, soon() ?) ?
   let _ = enqueue_envelope(reopened, delivered) ?
   let delivery_attempt = lease_outbox(reopened, "worker-d", 1, 60) ?
   expect(List.length(delivery_attempt) == 1, "successful push event was not processed") ?
@@ -146,20 +148,23 @@ fn proof() -> Bool ! String do
   expect(scalar(reopened,
   "SELECT count(*)::text AS value FROM messenger_outbox_events WHERE status = 'delivered'") ? == "1",
   "successful push was not completed") ?
-  let expired = envelope(token, 3, "1") ?
-  let _ = enqueue_envelope(reopened, expired) ?
+  # Delivery refuses an envelope that is already expired, so this is one that
+  # expired while it was queued.
+  let _ = Pool.execute_values(reopened,
+  "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext) VALUES ($1, $2, 1, 1, 256, $3)",
+  [Binary(Crypto.sha256(token)), Binary(repeated(3, 16)), Binary(Bytes.from_utf8("opaque"))]) ?
   let fetched = fetch_mailbox(reopened,
-  MailboxFetch {
-    version : 1,
+  MailboxOwner {
     mailbox_token : token,
-    after_sequence : wide("0") ?
-  }) ?
+    signing_public_key : repeated(0, 32)
+  },
+  wide("0") ?) ?
   expect(List.length(fetched) == 2, "expired envelope was returned") ?
   expect(purge_envelopes(reopened, 3600, 128) ? == 1, "expired envelope was not purged") ?
   let _ = Pool.execute_values(reopened,
   "UPDATE messenger_rate_limits SET request_count = 32, window_started_at = clock_timestamp() WHERE bucket_key = $1",
   [Binary(Crypto.sha256(token))]) ?
-  case enqueue_envelope(reopened, envelope(token, 4, "4102444800000") ?) ? do
+  case enqueue_envelope(reopened, envelope(token, 4, soon() ?) ?) ? do
     RateLimited -> Ok(nil)
     _ -> Err("delivery rate limit was not enforced")
   end ?

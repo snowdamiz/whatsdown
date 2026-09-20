@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { formatDayLabel, formatInboxTime, groupDigits, sameDay } from './format.ts';
+import {
+  formatDayLabel,
+  formatInboxTime,
+  friendlyError,
+  groupDigits,
+  sameDay,
+} from './format.ts';
 
 const day = 86_400_000;
 // A Wednesday at 15:04 local time keeps every relative label on a known weekday.
@@ -34,4 +40,57 @@ test('formatInboxTime is a clock today and shortens older activity', () => {
 test('groupDigits splits a safety number into fixed-width groups', () => {
   assert.deepEqual(groupDigits('123456789012', 5), ['12345', '67890', '12']);
   assert.deepEqual(groupDigits('', 5), []);
+});
+
+test('friendlyError maps known protocol and network failures to plain language', () => {
+  assert.equal(
+    friendlyError(new Error('Mesh library call failed (status=7): peer_keys_changed')),
+    'Their security keys changed. Verify before sending.',
+  );
+  assert.equal(
+    friendlyError(new Error('message_request_pending')),
+    'Accept this message request before replying.',
+  );
+  assert.equal(
+    friendlyError(new Error('conversation_blocked')),
+    'Unblock this conversation before sending.',
+  );
+  assert.equal(friendlyError(new Error('Server returned 404')), 'No exact username match was found.');
+  assert.equal(
+    friendlyError(new Error('AbortError: request timed out')),
+    'The server did not respond. Try again when connected.',
+  );
+  assert.equal(
+    friendlyError(
+      new Error(
+        'fetch failed: UnexpectedException: Could not connect to the server. (at ExpoModulesCore/Promise.swift:56)',
+      ),
+    ),
+    'Can’t reach the server. Check your connection and try again.',
+  );
+  assert.equal(
+    friendlyError(new Error('Server returned 500')),
+    'The server hit a problem. Try again in a moment.',
+  );
+});
+
+test('friendlyError strips native noise from unknown failures and keeps app copy intact', () => {
+  assert.equal(
+    friendlyError(
+      new Error(
+        'UnexpectedException: Mesh library call failed (status=9): transparency_verification_failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:126)',
+      ),
+    ),
+    'Transparency verification failed.',
+  );
+  assert.equal(
+    friendlyError('Use 3–32 lowercase letters, numbers, or underscores.'),
+    'Use 3–32 lowercase letters, numbers, or underscores.',
+  );
+  assert.equal(friendlyError(''), 'Something went wrong.');
+  assert.equal(friendlyError(undefined), 'Something went wrong.');
+});
+
+test('stale authorization explains how to refresh before sending', () => {
+  assert.equal(friendlyError('transparency_stale'), 'Security information is out of date. Reconnect and refresh before sending.');
 });

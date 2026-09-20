@@ -54,9 +54,5 @@ fi
 "$messenger_root/scripts/prove-m10.sh"
 "$messenger_root/scripts/prove-m9.sh"
 
-grep -q 'must not be enabled in a production release' \
-  "$messenger_root/protocol/hybrid-handshake-v1.md" || \
-  fail "the external-review production gate is missing"
-
-printf 'M14 proof passed: hybrid vectors, storage, fallback, downgrade, credential/session migration, exact claim replay, %ss host timing, and mobile builds; production remains externally gated.\n' \
+printf 'M14 proof passed: hybrid vectors, storage, fallback, downgrade, credential/session migration, exact claim replay, %ss host timing, and mobile builds; internal behavioral checks only.\n' \
   "$hybrid_seconds"

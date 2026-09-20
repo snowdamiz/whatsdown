@@ -2,13 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  encodeAttachmentReferences,
   linkRequestFromQr,
+  parseAttachmentSummary,
   parseConversations,
   parseByteList,
   parseDeviceSetSummary,
   parseGroupDetails,
   parseGroupList,
   parseGroupHistory,
+  parseGroupInvitations,
   parseHistory,
   parsePrekeyCount,
   parseProfileSummary,
@@ -28,6 +31,21 @@ const u64 = (value: bigint): Uint8Array => {
   new DataView(bytes.buffer).setBigUint64(0, value, false);
   return bytes;
 };
+
+test('group invitations expose a bounded device reference and explicit acceptance state', () => {
+  const reference = new Uint8Array(32).fill(1);
+  const groupId = new Uint8Array(32).fill(2);
+  const accountId = new Uint8Array(32).fill(3);
+  const invitation = vectors(writeU32(5), reference, groupId, utf8('alice'), accountId, Uint8Array.of(1));
+  assert.deepEqual(parseGroupInvitations(vectors(writeU32(1), invitation)), [{
+    reference, groupId, username: 'alice', accountId, state: 1,
+  }]);
+  assert.throws(() => parseGroupInvitations(vectors(writeU32(1),
+    vectors(writeU32(5), reference, groupId, utf8('alice'), accountId, Uint8Array.of(9)))));
+  assert.throws(() => parseGroupInvitations(vectors(writeU32(1),
+    vectors(writeU32(5), reference.slice(1), groupId, utf8('alice'), accountId, Uint8Array.of(1)))));
+  assert.throws(() => parseGroupInvitations(vectors(writeU32(129))));
+});
 
 test('contact QR values round trip binary profiles', () => {
   const profile = Uint8Array.from({ length: 257 }, (_, index) => index % 251);
@@ -118,12 +136,49 @@ test('conversation and history lists reject trailing bytes and decode policy sta
     u64(1_800_000_000_000n),
     utf8('hello'),
     writeU32(30),
+    new Uint8Array(),
   );
   const history = parseHistory(vectors(writeU32(1), message));
   assert.equal(history[0]?.direction, 'received');
   assert.equal(history[0]?.body, 'hello');
+  assert.equal('attachments' in history[0]!, false);
   assert.throws(() => parseHistory(new Uint8Array([...vectors(writeU32(0)), 1])));
   assert.equal(vector(utf8('ok')).length, 6);
+});
+
+const attachmentSummary = (size: number, chunkCount = Math.ceil(size / 65_536)): Uint8Array => vectors(
+  writeU32(9),
+  Uint8Array.of(1, 65, 84, 82, 5),
+  new Uint8Array(32).fill(1),
+  new Uint8Array(32).fill(2),
+  utf8('photo.jpg'),
+  utf8('image/jpeg'),
+  writeU32(size),
+  writeU32(chunkCount),
+  writeU32(65_536),
+  u64(1_800_000_600_000n),
+);
+
+test('history entries expose opened attachment manifests next to their opaque reference', () => {
+  const message = vectors(Uint8Array.of(1), new Uint8Array(16), u64(1_800_000_000_000n), new Uint8Array(), writeU32(0),
+    attachmentSummary(70_000));
+  const [entry] = parseHistory(vectors(writeU32(1), message));
+  assert.equal(entry?.body, '');
+  assert.deepEqual(entry?.attachments, [{
+    reference: Uint8Array.of(1, 65, 84, 82, 5),
+    objectId: new Uint8Array(32).fill(1),
+    downloadCapability: new Uint8Array(32).fill(2),
+    filename: 'photo.jpg',
+    mimeType: 'image/jpeg',
+    size: 70_000,
+    chunkCount: 2,
+    chunkSize: 65_536,
+    expiresAt: 1_800_000_600_000,
+  }]);
+  assert.deepEqual(parseAttachmentSummary(new Uint8Array()), undefined);
+  assert.throws(() => parseAttachmentSummary(attachmentSummary(70_000, 1)));
+  assert.throws(() => parseAttachmentSummary(attachmentSummary(0)));
+  assert.throws(() => parseAttachmentSummary(attachmentSummary(256 * 65_536 + 1)));
 });
 
 test('binary output lists decode each bounded envelope', () => {
@@ -164,7 +219,7 @@ test('Mesh-owned group history decodes bounded text records', () => {
   const accountId = new Uint8Array(32).fill(8);
   const deviceId = new Uint8Array(16).fill(9);
   const record = vectors(
-    writeU32(7),
+    writeU32(8),
     Uint8Array.of(1),
     Uint8Array.of(2),
     u64(11n),
@@ -172,18 +227,23 @@ test('Mesh-owned group history decodes bounded text records', () => {
     deviceId,
     u64(1_800_000_000_000n),
     utf8('hello group'),
+    new Uint8Array(),
   );
   const history = parseGroupHistory(vectors(writeU32(1), record));
   assert.equal(history[0]?.direction, 'received');
   assert.equal(history[0]?.epoch, 11);
   assert.equal(history[0]?.body, 'hello group');
   assert.deepEqual(history[0]?.senderDeviceId, deviceId);
+  assert.equal('attachments' in history[0]!, false);
+  const withAttachment = vectors(writeU32(8), Uint8Array.of(1), Uint8Array.of(1), u64(11n), accountId, deviceId,
+    u64(1_800_000_000_000n), new Uint8Array(), attachmentSummary(10));
+  assert.equal(parseGroupHistory(vectors(writeU32(1), withAttachment))[0]?.attachments?.[0]?.filename, 'photo.jpg');
   assert.throws(() =>
     parseGroupHistory(
       vectors(
         writeU32(1),
         vectors(
-          writeU32(7),
+          writeU32(8),
           Uint8Array.of(1),
           Uint8Array.of(3),
           u64(11n),
@@ -191,11 +251,12 @@ test('Mesh-owned group history decodes bounded text records', () => {
           deviceId,
           u64(1n),
           utf8('invalid direction'),
+          new Uint8Array(),
         ),
       ),
     ),
   );
-  assert.throws(() => parseGroupHistory(new Uint8Array(65_537)));
+  assert.throws(() => parseGroupHistory(new Uint8Array(65_536 + 256 * 2_048 + 1)));
 });
 
 test('Mesh-owned group inspection marks the local member without exposing routing tokens', () => {
@@ -262,6 +323,19 @@ test('native prekey reconciliation counts stay canonical and bounded', () => {
   assert.throws(() => parsePrekeyCount(Uint8Array.of(0, 1)));
 });
 
+test('group inspection exposes a separate verified username and accepts older member records', () => {
+  const member = (username?: string) => vectors(writeU32(username === undefined ? 7 : 8), Uint8Array.of(1), writeU32(0),
+    Uint8Array.of(0), new Uint8Array(32), new Uint8Array(16), u64(1n), Uint8Array.of(2),
+    ...(username === undefined ? [] : [utf8(username)]));
+  const details = (records: Uint8Array[]) => vectors(writeU32(7), Uint8Array.of(1), new Uint8Array(32), u64(1n),
+    writeU32(0), new Uint8Array(32), new Uint8Array(32), vectors(writeU32(records.length), ...records));
+  assert.equal(parseGroupDetails(details([member('maya_1987')])).members[0]?.username, 'maya_1987');
+  assert.equal(parseGroupDetails(details([member()])).members[0]?.username, undefined);
+  assert.equal(parseGroupDetails(details([member('')])).members[0]?.username, undefined);
+  assert.equal(parseGroupDetails(details(Array.from({ length: 64 }, () => member('a'.repeat(64))))).members.length, 64);
+  assert.throws(() => parseGroupDetails(details([member('Maya Chen')])));
+});
+
 test('policy requests encode the peer reference before the action and value', () => {
   const peerReference = Uint8Array.of(0xa1, 0xb2, 0xc3);
 
@@ -269,4 +343,36 @@ test('policy requests encode the peer reference before the action and value', ()
     policyRequest('/data/mobile.db', peerReference, 4, 3_600),
     vectors(utf8('/data/mobile.db'), peerReference, Uint8Array.of(4), writeU32(3_600)),
   );
+});
+
+test('ten attachments remain ordered in one direct or group history message', () => {
+  const batch = new Uint8Array([
+    1, 65, 84, 66, ...writeU32(10),
+    ...vectors(...Array.from({ length: 10 }, (_, index) => attachmentSummary(index + 1))),
+  ]);
+  const direct = vectors(Uint8Array.of(1), new Uint8Array(16), u64(1n), utf8('album'), writeU32(0), batch);
+  const group = vectors(writeU32(8), Uint8Array.of(1), Uint8Array.of(1), u64(1n), new Uint8Array(32),
+    new Uint8Array(16), u64(1n), utf8('album'), batch);
+  for (const messages of [parseHistory(vectors(writeU32(1), direct)), parseGroupHistory(vectors(writeU32(1), group))]) {
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0]?.body, 'album');
+    assert.deepEqual(messages[0]?.attachments?.map((file) => file.size), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  }
+});
+
+
+test('attachment lists reject invalid counts, empty references, truncation, and trailing bytes', () => {
+  const references = Array.from({ length: 10 }, (_, index) => Uint8Array.of(index + 1));
+  assert.deepEqual(encodeAttachmentReferences([]), new Uint8Array());
+  assert.equal(encodeAttachmentReferences([references[0]!]), references[0]);
+  assert.throws(() => encodeAttachmentReferences([...references, references[0]!]), /up to 10/);
+  assert.throws(() => encodeAttachmentReferences([new Uint8Array()]));
+  const summary = attachmentSummary(10);
+  const batch = (count: number, ...parts: Uint8Array[]) => new Uint8Array([1, 65, 84, 66, ...writeU32(count), ...vectors(...parts)]);
+  const valid = batch(2, summary, summary);
+  for (const invalid of [batch(11, ...Array(11).fill(summary)), batch(1, summary), batch(2, summary, new Uint8Array()),
+    valid.subarray(0, valid.length - 1), new Uint8Array([...valid, 0])]) {
+    const message = vectors(Uint8Array.of(1), new Uint8Array(16), u64(1n), new Uint8Array(), writeU32(0), invalid);
+    assert.throws(() => parseHistory(vectors(writeU32(1), message)));
+  }
 });

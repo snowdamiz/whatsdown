@@ -7,7 +7,7 @@
 
 #import "libmessenger_mobile.h"
 
-static NSString *const MeshMessengerKeychainService = @"app.whatsdown.mesh";
+static NSString *const MeshMessengerKeychainService = @"app.morse.mesh";
 static NSString *const MeshMessengerExpoProjectIDKey =
     @"MeshMessengerExpoProjectID";
 static NSString *const MeshMessengerPushBrokerPublicKeyHexKey =

@@ -8,28 +8,35 @@ The canonical protocol is [opaque-object-wire-v1.md](../../protocol/opaque-objec
 
 | Variable | Meaning |
 | --- | --- |
-| `MESSENGER_OBJECT_DATABASE_PATH` | SQLite metadata database path; required and not `:memory:` |
-| `MESSENGER_OBJECT_STORAGE_ROOT` | Existing absolute local directory; required |
+| `MESSENGER_OBJECT_DATABASE_URL` | PostgreSQL connection URL; required |
+| `MESSENGER_OBJECT_STORAGE_ROOT` | Existing absolute local directory or private HTTP storage endpoint; required, without a trailing slash |
 | `MESSENGER_OBJECT_PORT` | HTTP port, default `18089` |
 | `MESSENGER_OBJECT_WORK_DIFFICULTY` | Leading-zero proof-of-work bits, 1 through 24; default `16` |
+| `MESSENGER_JOBS_URL` | Optional private durable scheduler; enables event-driven expiry |
+| `MESSENGER_OBJECT_INTERNAL_TOKEN` | Required with external scheduling; authenticates private expiry execution |
 
-Startup fails closed when the database path or storage root is invalid. The service does not create the storage root. Provision it with the intended owner and permissions before starting the process. Initialization transactionally upgrades stores that use the previous 65,576-byte part and 16,777,216-byte aggregate checks, preserving object and part rows; repeated initialization is idempotent, and unrecognized ceiling constraint values fail closed.
+Startup fails closed when the database URL or storage root is invalid. Provision the database role and, when using local files, the storage directory before starting the process. Initialization creates the PostgreSQL tables idempotently. Existing SQLite databases are not imported or deleted; migrate their data separately before switching an existing installation.
 
-Each part is a local file named only `{64 lowercase object-ID hex}.{index}`, where the index is 0 through 256. A single part is at most 65,608 bytes and an object is at most 16,795,830 bytes across 1 through 257 parts. The aggregate ceiling is exactly one 182-byte encrypted backup manifest plus 256 maximum-size 65,608-byte encrypted backup chunks; attachment objects remain below the same shared bound. SQLite stores typed BLOB identifiers and hashes; it never stores raw capabilities, object bytes, filenames, MIME types, keys, identities, mailboxes, devices, or conversations.
+Each part is named only `{64 lowercase object-ID hex}.{index}`, where the index is 0 through 256. A single part is at most 65,608 bytes and an object is at most 16,795,830 bytes across 1 through 257 parts. The aggregate ceiling is exactly one 182-byte encrypted backup manifest plus 256 maximum-size 65,608-byte encrypted backup chunks; attachment objects remain below the same shared bound. PostgreSQL stores typed BYTEA identifiers and hashes; it never stores raw capabilities, object bytes, filenames, MIME types, keys, identities, mailboxes, devices, or conversations.
 
-The process starts one shutdown-aware expiry worker. Once per minute it locks the metadata writer, removes at most 32 expired objects, and yields between runs. Upload, completion, deletion, and purge mutations use an immediate SQLite writer transaction so concurrent first uploads cannot overwrite or remove a committed replay.
+Completion verifies every part’s exact file size and stored SHA-256 hash. Downloads reject missing, truncated, extended, or changed part files.
+
+Local operation starts one shutdown-aware expiry worker that removes at most 32 expired objects per minute. With `MESSENGER_JOBS_URL`, grant transactions register durable wakeups before committing; Cloudflare alarms invoke bounded expiry work only when due. A PostgreSQL transaction advisory lock serializes storage operations, including part I/O, so concurrent first uploads cannot overwrite or remove a committed replay. This limits throughput; use per-object locks if that becomes a measured bottleneck.
 
 ## Production storage boundary
 
-This version intentionally has no storage-provider abstraction: local filesystem calls are the simplest complete implementation and remain in one service module.
+Local filesystem and private HTTP calls live in `store/files.mpl`, PostgreSQL metadata
+in `store/database.mpl`, and request handling in `store/service.mpl`. The service
+has no storage-provider abstraction.
 
-A production S3 deployment belongs behind the same opaque part contract at the storage boundary only. It must use a fixed operator-configured bucket and prefix; use only `{object_id_hex}.{index}` as the variable key leaf; disable user-controlled object metadata; keep capabilities and their hashes out of S3; preserve exact-body conditional creation/replay behavior; and keep grant authorization, completion state, expiry, and typed metadata in this service. The public wire and clients must not vary by storage provider. Add that backend only with integration coverage for concurrent conditional writes and bounded deletion.
+The [Cloudflare deployment](../../ops/cloudflare/README.md) routes the private HTTP endpoint to R2. Only the object-store container can use it. It uses a fixed bucket and `opaque/` prefix, conditional creation, exact-byte replay checks, bounded bodies, and idempotent deletion. Authorization and metadata stay in this service. R2 lifecycle expiry after eight days removes orphan parts beyond the protocol's seven-day maximum lifetime. The public wire is unchanged.
 
 ## Development
 
 ```sh
+export MESSENGER_STORAGE_TEST_DATABASE_URL='postgres://localhost/morse_storage_test?sslmode=disable'
 ../mesh-lang/target/debug/meshc test services/object-store/tests/object_store.test.mpl
 ../mesh-lang/target/debug/meshc build services/object-store
 ```
 
-The focused tests cover anonymous grant denial, exact and changed replay, concurrent first upload, exact and one-byte-over part and aggregate limits on fresh and migrated stores, lossless and idempotent legacy-schema upgrade, incomplete completion, download authorization, metadata opacity, delete authorization, expiry equality, and bounded purge.
+Use an isolated test database. The focused tests cover anonymous grant denial, exact and changed replay, concurrent first upload, part and aggregate limits, repeated initialization, incomplete or corrupted completion, trailing-file corruption, download authorization, metadata opacity, delete authorization, expiry equality, and bounded purge. The Cloudflare tests exercise R2 through both JavaScript and the native Mesh HTTP storage boundary.

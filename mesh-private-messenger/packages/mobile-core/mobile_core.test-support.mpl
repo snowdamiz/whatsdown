@@ -1,8 +1,169 @@
+from Groups.Mls import GroupError
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  VerificationPolicy,
+  is_retryable_verification_crypto_error,
+  issue_device_credential
+)
+from Mobile.Codec import (
+  canonical_outer,
+  current_time,
+  encode_output_list,
+  mobile_append,
+  mobile_byte,
+  mobile_join,
+  mobile_utf8,
+  mobile_vector,
+  mobile_wide,
+  mobile_write_u64,
+  mobile_zeroes,
+  outer_bytes,
+  random_bytes
+)
+from Mobile.DeviceSet import device_set_label, verified_device_set
+from Mobile.FanoutPrekeys import fanout_prekey_claim_label, fanout_prekey_reservation_label
+from Mobile.Inbox import permanent_direct_delivery_error
+from Mobile.Platform import expo_project_id, expo_registration_body, parse_expo_raw_token
+from Mobile.Prekeys import load_prekey_pool
+from Mobile.Profile import (
+  directory_bytes,
+  load_profile,
+  open_account,
+  open_device,
+  open_post_quantum_prekey,
+  policy
+)
+from Mobile.Push import complete_push_action_with_config
+from Mobile.PushState import (
+  commit_push_update,
+  load_push_state,
+  next_push_revision,
+  prepare_push_bind_with_config,
+  prepare_push_unbind,
+  push_install_id,
+  push_state_context,
+  signed_push_unbind
+)
+from Mobile.Requests import (
+  parse_payload_request,
+  parse_push_action_completion,
+  parse_push_bind_request
+)
+from Mobile.Sessions import (
+  find_peer_session,
+  initial_bytes,
+  inner_bytes,
+  load_session_ids,
+  parse_ratchet_packet,
+  ratchet_bytes,
+  seal_session,
+  updated_session_index,
+  updated_session_record
+)
+from Mobile.Transparency import (
+  encode_verified_transparency_set,
+  load_transparency_view,
+  transparency_checkpoint_in_view,
+  transparency_device_set_label,
+  transparency_view_chunk_label,
+  transparency_view_storage
+)
+from Mobile.Types import (
+  MobileExpoRawToken,
+  MobileLoadedSession,
+  MobileOneTimePrekey,
+  MobilePayloadRequest,
+  MobilePushActionCompletion,
+  MobilePushState,
+  MobileSessionRecord,
+  MobileTransparencyStorage,
+  MobileTransparencyView,
+  MobileVerifiedDeviceSet,
+  MobileVerifiedTransparencySet
+)
+from Prekeys.Bundle import (
+  OneTimePrekeySecrets,
+  PostQuantumPrekeySecrets,
+  PrekeyError,
+  SignedPrekeySecrets,
+  build_prekey_bundle,
+  generate_one_time_prekey,
+  generate_signed_prekey,
+  normalize_prekey_bundle
+)
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.PrekeyWire import encode_prekey_bundle
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  DeviceSet,
+  DirectoryEntry,
+  InitialMessage,
+  InnerEnvelope,
+  OuterEnvelope,
+  PrekeyBundle
+)
+from Session.Handshake import (
+  RatchetState,
+  SessionError,
+  initiate,
+  is_retryable_session_crypto_error,
+  is_retryable_session_error,
+  receive_initial
+)
+from Session.Ratchet import (
+  RatchetError,
+  RatchetMessage,
+  decode_ratchet_message,
+  encode_ratchet_message,
+  encrypt,
+  is_retryable_ratchet_error,
+  ratchet_open_error,
+  skipped_key_error
+)
+from Session.Snapshot import SnapshotOutcome, snapshot
+from Storage.Blobs import ensure_schema, insert_blob, load_blob
+from Storage.Keys import (
+  context,
+  local_context,
+  one_time_prekey_context,
+  one_time_prekey_label,
+  open_x25519,
+  platform_key,
+  seal_local,
+  seal_x25519
+)
+from Storage.Records import (
+  delete_blob,
+  delete_blobs,
+  store_new_session,
+  store_updated_blobs,
+  store_updated_session
+)
+from Transparency.Merkle import TransparencyCheckpoint
+from Transparency.Wire import decode_checkpoint
+from Transport.Packet import (
+  ClientProfile,
+  TransportPacket,
+  decode_client_profile,
+  decode_packet,
+  encode_client_profile,
+  encode_packet,
+  session_aad
+)
+from Transport.Recipient import seal_recipient_packet
+from Mobile.Transport import MobileOpenedPacket, open_outer_packet
+from Protocol.HandshakeWire import decode_initial_message
+
 pub fn remove_safety_binding_for_test(database_path :: String, peer_profile :: Bytes) -> Bool ! String do
   let peer = decode_client_profile(peer_profile) ?
   let wrapping_key = platform_key() ?
-  let loaded = find_peer_session(database_path, wrapping_key, peer.account_id,
-  load_session_ids(database_path, wrapping_key) ?, 0) ?
+  let loaded = find_peer_session(database_path,
+  wrapping_key,
+  peer.account_id,
+  load_session_ids(database_path, wrapping_key) ?,
+  0) ?
   let record = updated_session_record(loaded.record.snapshot, % { loaded.record | verified : true }) ?
   let legacy = Bytes.slice(record, 0, Bytes.length(record) - 68) ?
   let blob = seal_local(legacy, wrapping_key, local_context(loaded.label) ?) ?
@@ -161,33 +322,66 @@ pub fn migrated_prekey_matches_profile_path(database_path :: String) -> Bool ! S
   end
 end
 
-fn test_ratchet_outer(input :: Bytes) -> Result <( OuterEnvelope, RatchetMessage), String > do
+# Delivery cannot read or alter a sealed packet, so these fixtures act as the
+# only parties who can: they open an envelope with the recipient's own device
+# key, and reseal whatever they change.
+
+fn test_opened_packet(recipient_path :: String, outer :: OuterEnvelope) -> MobileOpenedPacket ! String do
+  let profile = decode_client_profile(load_profile(recipient_path) ?) ?
+  let device = open_device(profile, platform_key() ?, recipient_path) ?
+  open_outer_packet(outer, device.identity_private_key)
+end
+
+## The protocol suite inside a sealed envelope: visible to its recipient only.
+
+pub fn test_inner_suite(recipient_path :: String, input :: Bytes) -> Int ! String do
+  let opened = test_opened_packet(recipient_path, canonical_outer(input) ?) ?
+  case decode_packet(opened.packet) do
+    Err( _) -> Err("invalid_test_packet")
+    Ok( InitialPacket( _, message)) -> case decode_initial_message(message) do
+      Err( _) -> Err("invalid_initial_message")
+      Ok( initial) -> Ok(initial.suite)
+    end
+    Ok( RatchetPacket( message)) -> case decode_ratchet_message(message) do
+      Err( _) -> Err("invalid_ratchet_message")
+      Ok( ratchet) -> Ok(ratchet.suite)
+    end
+  end
+end
+
+fn test_ratchet_outer(recipient_path :: String, input :: Bytes) -> Result <( OuterEnvelope, RatchetMessage), String > do
   let outer = canonical_outer(input) ?
-  let packet_message = parse_ratchet_packet(outer.ciphertext) ?
+  let opened = test_opened_packet(recipient_path, outer) ?
+  let packet_message = parse_ratchet_packet(opened.packet) ?
   case decode_ratchet_message(packet_message) do
     Err( _) -> Err("invalid_ratchet_message")
     Ok( message) -> Ok((outer, message))
   end
 end
 
-fn test_encode_ratchet_outer(outer :: OuterEnvelope, message :: RatchetMessage) -> Bytes ! String do
+fn test_encode_ratchet_outer(recipient_path :: String,
+outer :: OuterEnvelope,
+message :: RatchetMessage) -> Bytes ! String do
   let encoded_message = case encode_ratchet_message(message) do
     Err( _) -> Err("ratchet_encoding_failed")
     Ok( encoded) -> Ok(encoded)
   end ?
-  case encode_outer_envelope(% { outer | ciphertext : encode_packet(RatchetPacket(encoded_message)) ? }) do
+  let recipient = decode_client_profile(load_profile(recipient_path) ?) ?
+  let sealed = seal_recipient_packet(encode_packet(RatchetPacket(encoded_message)) ?,
+  X25519PublicKey { bytes : recipient.credential.dh_public_key }) ?
+  case encode_outer_envelope(% { outer | ciphertext : sealed }) do
     Err( _) -> Err("outer_encoding_failed")
     Ok( encoded) -> Ok(encoded)
   end
 end
 
-pub fn test_ratchet_jump_envelope(input :: Bytes) -> Bytes ! String do
-  let ( outer, message) = test_ratchet_outer(input) ?
-  test_encode_ratchet_outer(outer, % { message | message_number : 65 })
+pub fn test_ratchet_jump_envelope(recipient_path :: String, input :: Bytes) -> Bytes ! String do
+  let ( outer, message) = test_ratchet_outer(recipient_path, input) ?
+  test_encode_ratchet_outer(recipient_path, outer, % { message | message_number : 65 })
 end
 
-pub fn test_ratchet_tamper_envelope(input :: Bytes) -> Bytes ! String do
-  let ( outer, message) = test_ratchet_outer(input) ?
+pub fn test_ratchet_tamper_envelope(recipient_path :: String, input :: Bytes) -> Bytes ! String do
+  let ( outer, message) = test_ratchet_outer(recipient_path, input) ?
   let length = Bytes.length(message.ciphertext)
   let last = case Bytes.get(message.ciphertext, length - 1) do
     Err( _) -> Err("invalid_ratchet_message")
@@ -200,7 +394,30 @@ pub fn test_ratchet_tamper_envelope(input :: Bytes) -> Bytes ! String do
   end
   let ciphertext = mobile_append(Bytes.slice(message.ciphertext, 0, length - 1) ?,
   mobile_byte(replacement) ?) ?
-  test_encode_ratchet_outer(outer, % { message | ciphertext : ciphertext })
+  test_encode_ratchet_outer(recipient_path, outer, % { message | ciphertext : ciphertext })
+end
+
+## What a delivery service or network attacker can do: flip a byte of the sealed
+## envelope without any key.
+
+pub fn test_sealed_tamper_envelope(input :: Bytes) -> Bytes ! String do
+  let outer = canonical_outer(input) ?
+  let length = Bytes.length(outer.ciphertext)
+  let last = case Bytes.get(outer.ciphertext, length - 1) do
+    Err( _) -> Err("invalid_outer_envelope")
+    Ok( value) -> Ok(value)
+  end ?
+  let replacement = if last == 0 do
+    1
+  else
+    0
+  end
+  let ciphertext = mobile_append(Bytes.slice(outer.ciphertext, 0, length - 1) ?,
+  mobile_byte(replacement) ?) ?
+  case encode_outer_envelope(% { outer | ciphertext : ciphertext }) do
+    Err( _) -> Err("outer_encoding_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
 end
 
 pub fn direct_delivery_classification_for_test() -> Bool do
@@ -210,6 +427,10 @@ pub fn direct_delivery_classification_for_test() -> Bool do
   let skipped = !is_retryable_ratchet_error(skipped_key_error(InvalidKey)) && is_retryable_ratchet_error(skipped_key_error(InternalFailure))
   let opened = !is_retryable_ratchet_error(ratchet_open_error(AuthenticationFailed)) && is_retryable_ratchet_error(ratchet_open_error(InternalFailure))
   verification && session && ratchet && skipped && opened && !permanent_direct_delivery_error("initial_crypto_failed") && !permanent_direct_delivery_error("ratchet_retryable")
+end
+
+pub fn push_install_id_for_test(database_path :: String) -> Bytes ! String do
+  push_install_id(database_path, platform_key() ?)
 end
 
 pub fn expo_registration_body_for_test(raw_material :: Bytes,

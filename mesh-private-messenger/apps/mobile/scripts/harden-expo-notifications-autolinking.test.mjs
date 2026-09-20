@@ -11,7 +11,7 @@ const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const installedPackage = resolve(scriptsDirectory, '../node_modules/expo-notifications');
 
 test('raw push-token autolinking is removed idempotently and drift fails closed', async () => {
-  const temporaryDirectory = await mkdtemp(resolve(tmpdir(), 'whatsdown-expo-notifications-'));
+  const temporaryDirectory = await mkdtemp(resolve(tmpdir(), 'morse-expo-notifications-'));
   const fixture = resolve(temporaryDirectory, 'expo-notifications');
 
   try {

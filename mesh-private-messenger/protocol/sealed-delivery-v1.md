@@ -63,11 +63,80 @@ proof can only replay the exact envelope, whose mailbox/envelope key is
 idempotent. Add a short-lived edge replay cache if measured replay traffic
 becomes material.
 
+## Stamped directory requests
+
+Device registration, device lookup and prekey claim are anonymous. The backend
+never sees a network address, because the Worker forwards no client headers,
+and a limit keyed on the name being registered or looked up would let anyone
+lock a victim out of their own name. These three requests therefore cost the
+caller work instead. Signed requests (prekey publication, mailbox fetch and
+acknowledgement, revocation, push binding) are already attributable to a device
+and carry no stamp.
+
+`StampedRequest` (`PWR`, at most the inner body plus 20 bytes):
+
+```text
+u8 version = 1
+bytes[3] magic = "PWR"
+u64 expires_at_ms
+u32 work_nonce
+vector inner_request
+```
+
+The stamp is valid when this digest has the configured number of leading zero
+bits. All integers are big-endian:
+
+```text
+SHA-256(
+  label ||
+  expires_at_ms ||
+  work_nonce ||
+  SHA-256(inner_request)
+)
+```
+
+| Endpoint | Label | Largest inner request |
+|---|---|---:|
+| `PUT /v1/devices/register` | `mesh-msg/v1/work/register` | 36,006 |
+| `POST /v1/devices/resolve` | `mesh-msg/v1/work/resolve` | 76 |
+| `POST /v1/prekeys/bundle` | `mesh-msg/v1/work/prekey-claim` | 100 |
+
+The label makes work done for one endpoint worthless at another, the payload
+hash ties it to one request, and the expiry stops it being stockpiled. The
+directory accepts an expiry between its clock and five minutes ahead; clients
+mint four minutes ahead, leaving a minute for a fast device clock. The
+difficulty is the same `MESSENGER_ABUSE_DIFFICULTY` the edge uses, which devices
+read from their signed native configuration, so one setting governs both.
+
+Unlike a sealed delivery, replaying a lookup is not idempotent work for the
+service: it is a free read. The directory therefore records each stamp's digest
+as spent and admits it once. The work is checked before the database is
+touched, so a caller who has done none cannot cause a write. A malformed frame
+returns `400`; missing, insufficient, expired or spent work returns `429`, and
+the client mints a fresh stamp. Spent stamps are purged after a day, long after
+they expire.
+
+This raises the cost of draining prekey pools, filling the transparency log and
+scraping the directory; it does not make them impossible. A determined attacker
+with hardware still gets through at the configured rate, which is why a drained
+pool falls back to the last-resort prekey and a full log fails safe.
+
 ## Service boundary
 
+The separation is real only when the edge and the delivery core are separate
+deployments: the edge sees the source connection and must never hold the
+delivery core's static private key; the delivery core holds that key and must
+never see the source connection. The production build therefore deploys the
+edge on its own with a single secret (its bearer credential), and the backend
+without any edge. A combined deployment, used for local development, provides
+no such separation. One operator controlling both deployments, or the platform
+terminating TLS for both, can still correlate them by timing; see the
+[Cloudflare guide](../ops/cloudflare/README.md#separate-privacy-edge-deployment).
+
 - Public mobile sends use the privacy edge `POST /v1/envelopes/batch`.
-- The edge forwards only `SED` bytes to delivery
-  `POST /internal/v1/envelopes/sealed`.
+- The edge forwards only `SED` bytes and its bearer credential to delivery
+  `POST /internal/v1/envelopes/sealed`, reached across deployments as the
+  backend's `POST /v1/ingress/sealed`. No client-supplied header is forwarded.
 - The direct delivery `POST /v1/envelopes/batch` is absent by default. It is
   registered only when `MESSENGER_DIRECT_DELIVERY_COMPATIBILITY=enabled`; that
   compatibility flag is forbidden in production.

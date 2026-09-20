@@ -9,7 +9,7 @@ there is no unversioned production path.
 - Protocol version: `1`
 - Classical suite: `0x0001` (`mesh-msg/profile-a/v1`)
 - Experimental hybrid suite: `0x0002` (`mesh-msg/profile-b/v1`)
-- Development group suite: `0x0003` (`mesh-mls/v1`), independently gated and
+- Development group suite: `0x0003` (`mesh-mls/v1`), internally verified per candidate and
   not an RFC 9420 wire profile
 - Envelope, encrypted payload, credential, prekey bundle, transcript, ratchet
   snapshot, and extension encodings each carry version `1`.

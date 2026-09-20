@@ -1,4 +1,4 @@
-appId: com.snowdamiz.whatsdown
+appId: io.morseapp
 ---
 # Start inside an accepted legacy conversation with no identity-bound safety number.
 # Sending must refresh its metadata without a sync, reload, or app restart.

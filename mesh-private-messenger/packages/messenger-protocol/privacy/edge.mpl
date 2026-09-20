@@ -1,5 +1,5 @@
 from Binary.Reader import BinaryReader, finish, read_fixed, read_vector, reader
-from Protocol.V1 import decode_outer_envelope, encode_outer_envelope
+from Protocol.EnvelopeWire import decode_outer_envelope, encode_outer_envelope
 
 pub struct SealedDelivery do
   ephemeral_public_key :: Bytes
@@ -8,6 +8,13 @@ pub struct SealedDelivery do
 end
 
 pub struct AnonymousAbuseToken do
+  expires_at :: U64
+  nonce :: Int
+end
+
+## Proof of work attached to an unauthenticated directory request.
+
+pub struct RequestStamp do
   expires_at :: U64
   nonce :: Int
 end
@@ -308,10 +315,17 @@ pub fn decode_sealed_delivery(input :: Bytes) -> SealedDelivery ! String do
   end
 end
 
-fn work_hash(sealed_bytes :: Bytes, expires_at :: U64, nonce :: Int) -> Bytes ! String do
-  Ok(Crypto.sha256(join([Bytes.from_utf8("mesh-msg/v1/anonymous-abuse-token"), write_u64(expires_at) ?, write_u32(nonce) ?, Crypto.sha256(sealed_bytes)],
+# The label names what the work pays for, so work done for one purpose buys
+# nothing at another. The payload is hashed once by the caller, not per attempt.
+
+fn work_hash(label :: String, payload_hash :: Bytes, expires_at :: U64, nonce :: Int) -> Bytes ! String do
+  Ok(Crypto.sha256(join([Bytes.from_utf8(label), write_u64(expires_at) ?, write_u32(nonce) ?, payload_hash],
   0,
   Bytes.empty()) ?))
+end
+
+fn sealed_delivery_label() -> String do
+  "mesh-msg/v1/anonymous-abuse-token"
 end
 
 fn power_of_two(exponent :: Int, value :: Int) -> Int do
@@ -337,16 +351,16 @@ fn leading_zero_bits(hash :: Bytes, index :: Int, remaining :: Int) -> Bool do
   end
 end
 
-fn mine(sealed_bytes :: Bytes, expires_at :: U64, difficulty :: Int, nonce :: Int) -> AnonymousAbuseToken ! String do
+fn mine(label :: String, payload_hash :: Bytes, expires_at :: U64, difficulty :: Int, nonce :: Int) -> AnonymousAbuseToken ! String do
   if nonce >= 2147483647 do
     Err("abuse token search exhausted")
-  else if leading_zero_bits(work_hash(sealed_bytes, expires_at, nonce) ?, 0, difficulty) do
+  else if leading_zero_bits(work_hash(label, payload_hash, expires_at, nonce) ?, 0, difficulty) do
     Ok(AnonymousAbuseToken {
       expires_at : expires_at,
       nonce : nonce
     })
   else
-    mine(sealed_bytes, expires_at, difficulty, nonce + 1)
+    mine(label, payload_hash, expires_at, difficulty, nonce + 1)
   end
 end
 
@@ -355,7 +369,11 @@ pub fn mint_submission(sealed :: SealedDelivery, expires_at :: U64, difficulty :
     Err("invalid abuse difficulty")
   else
     Ok(PrivacySubmission {
-      token : mine(encode_sealed_delivery(sealed) ?, expires_at, difficulty, 0) ?,
+      token : mine(sealed_delivery_label(),
+      Crypto.sha256(encode_sealed_delivery(sealed) ?),
+      expires_at,
+      difficulty,
+      0) ?,
       sealed : sealed
     })
   end
@@ -374,7 +392,8 @@ pub fn verify_submission(input :: Bytes, now :: U64, maximum_future :: U64, diff
       Err( _) -> Err("invalid abuse token window")
       Ok( value) -> Ok(value)
     end ?
-    Ok(U64.compare(expires_at.value, now) >= 0 && U64.compare(expires_at.value, latest) <= 0 && leading_zero_bits(work_hash(sealed.value,
+    Ok(U64.compare(expires_at.value, now) >= 0 && U64.compare(expires_at.value, latest) <= 0 && leading_zero_bits(work_hash(sealed_delivery_label(),
+    Crypto.sha256(sealed.value),
     expires_at.value,
     nonce.value) ?,
     0,
@@ -409,4 +428,66 @@ pub fn decode_privacy_submission(input :: Bytes) -> PrivacySubmission ! String d
     },
     sealed : decode_sealed_delivery(sealed.value) ?
   })
+end
+
+# Request stamps make unauthenticated directory requests cost the caller work
+# without identifying the caller: the backend never sees a network address, and
+# a per-name limit would let anyone lock a victim out of their own name.
+
+pub fn mint_request_stamp(label :: String, payload :: Bytes, expires_at :: U64, difficulty :: Int) -> RequestStamp ! String do
+  if difficulty < 1 || difficulty > 24 do
+    Err("invalid abuse difficulty")
+  else
+    let token = mine(label, Crypto.sha256(payload), expires_at, difficulty, 0) ?
+    Ok(RequestStamp {
+      expires_at : token.expires_at,
+      nonce : token.nonce
+    })
+  end
+end
+
+pub fn verify_request_stamp(label :: String,
+payload :: Bytes,
+stamp :: RequestStamp,
+now :: U64,
+maximum_future :: U64,
+difficulty :: Int) -> Bool ! String do
+  if difficulty < 1 || difficulty > 24 do
+    Ok(false)
+  else
+    let latest = case U64.add(now, maximum_future) do
+      Err( _) -> Err("invalid abuse token window")
+      Ok( value) -> Ok(value)
+    end ?
+    Ok(U64.compare(stamp.expires_at, now) >= 0 && U64.compare(stamp.expires_at, latest) <= 0 && leading_zero_bits(work_hash(label,
+    Crypto.sha256(payload),
+    stamp.expires_at,
+    stamp.nonce) ?,
+    0,
+    difficulty))
+  end
+end
+
+# What a service records to refuse a second use of the same stamp.
+
+pub fn request_stamp_key(label :: String, payload :: Bytes, stamp :: RequestStamp) -> Bytes ! String do
+  work_hash(label, Crypto.sha256(payload), stamp.expires_at, stamp.nonce)
+end
+
+pub fn encode_stamped_request(stamp :: RequestStamp, payload :: Bytes) -> Bytes ! String do
+  join([byte(1) ?, Bytes.from_utf8("PWR"), write_u64(stamp.expires_at) ?, write_u32(stamp.nonce) ?, vector(payload) ?],
+  0,
+  Bytes.empty())
+end
+
+pub fn decode_stamped_request(input :: Bytes, maximum_payload :: Int) -> Result <( RequestStamp, Bytes), String > do
+  let expires_at = take_u64(start(input, maximum_payload + 20, "PWR") ?) ?
+  let nonce = take_u32(expires_at.state) ?
+  let payload = take_vector(nonce.state, maximum_payload) ?
+  done(payload.state) ?
+  Ok((RequestStamp {
+    expires_at : expires_at.value,
+    nonce : nonce.value
+  },
+  payload.value))
 end

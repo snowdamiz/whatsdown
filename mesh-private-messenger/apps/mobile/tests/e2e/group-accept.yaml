@@ -1,0 +1,19 @@
+appId: io.morseapp
+---
+- launchApp
+- tapOn:
+    id: "tab-groups"
+- assertNotVisible: "Sync group invitations"
+- extendedWaitUntil:
+    visible: "@${QA_SENDER} invited you.*"
+    timeout: 30000
+- tapOn: "Accept group invitation"
+- extendedWaitUntil:
+    visible: "Accepted. Joining when @${QA_SENDER} next connects."
+    timeout: 30000
+- stopApp
+- launchApp
+- tapOn:
+    id: "tab-groups"
+- assertVisible: "Accepted. Joining when @${QA_SENDER} next connects."
+- takeScreenshot: group-invitation-accepted

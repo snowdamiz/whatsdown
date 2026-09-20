@@ -24,13 +24,25 @@ pub fn broker_authorization(value :: String) -> String ! String do
   end
 end
 
-fn send_broker_push(binding :: ProviderPushBinding, broker_url :: String, authorization :: String) -> PushResult do
-  let wake = encode_push_wake(PushWakeRequest {
+pub fn broker_wake_request(binding :: ProviderPushBinding, event_id :: String) -> Bytes ! String do
+  let material = case Bytes.concat(binding.wake_token_hash,
+  Bytes.from_utf8("mesh-msg/v1/push-event/" <> event_id)) do
+    Err( _) -> Err("wake allocation failed")
+    Ok( value) -> Ok(value)
+  end ?
+  encode_push_wake(PushWakeRequest {
     version : 1,
-    wake_token_hash : binding.wake_token_hash,
+    wake_token_hash : Crypto.sha256(material),
     provider : binding.provider,
     sealed_provider_token : binding.provider_token_ciphertext
   })
+end
+
+fn send_broker_push(binding :: ProviderPushBinding,
+event_id :: String,
+broker_url :: String,
+authorization :: String) -> PushResult do
+  let wake = broker_wake_request(binding, event_id)
   case wake do
     Err( _) -> PushPermanent("invalid_provider_request")
     Ok( body) -> case Http.build(:post, broker_url)
@@ -64,7 +76,10 @@ broker_token :: String) -> PushResult ! String do
     else
       case broker_authorization(broker_token) do
         Err( _) -> Ok(PushRetryable("broker_auth_unconfigured"))
-        Ok( authorization) -> Ok(send_broker_push(binding, broker_url, authorization))
+        Ok( authorization) -> Ok(send_broker_push(binding,
+        event.event_id,
+        broker_url,
+        authorization))
       end
     end
   end

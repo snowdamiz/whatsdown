@@ -13,7 +13,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 internal object MeshMessengerSecureStore {
-    private const val ALIAS = "app.whatsdown.mesh.storage.v1"
+    private const val ALIAS = "app.morse.mesh.storage.v1"
     private const val PREFERENCES = "mesh_messenger_secure_store"
     private const val OK = 0
     private const val INVALID_INPUT = 1

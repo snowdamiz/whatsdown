@@ -1,4 +1,4 @@
-appId: com.snowdamiz.whatsdown
+appId: io.morseapp
 ---
 - launchApp
 - extendedWaitUntil:
@@ -9,9 +9,11 @@ appId: com.snowdamiz.whatsdown
 - assertVisible:
     id: "First message"
 - tapOn: "Back"
+- assertNotVisible: "Sync messages"
 - tapOn:
     id: "tab-groups"
-- assertVisible: "Join a group"
+- assertVisible: "Join with QR"
+- assertNotVisible: "Sync group invitations"
 - tapOn:
     id: "tab-settings"
 - tapOn: "My QR code"
@@ -22,9 +24,6 @@ appId: com.snowdamiz.whatsdown
 - extendedWaitUntil:
     visible: "This device"
     timeout: 15000
-- tapOn: "Back"
-- tapOn: "Notifications"
-- assertVisible: "No-push mode"
 - tapOn: "Back"
 - tapOn:
     id: "tab-home"

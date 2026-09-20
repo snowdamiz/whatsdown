@@ -1,9 +1,27 @@
 from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_hybrid_device_credential
 from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_hybrid_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, InitialMessage, InnerEnvelope, OuterEnvelope, PrekeyBundle, decode_initial_message, decode_inner_envelope, decode_outer_envelope, encode_account_identity, encode_initial_message, encode_inner_envelope, encode_outer_envelope, encode_prekey_bundle
+from Protocol.EnvelopeWire import (
+  decode_inner_envelope,
+  decode_outer_envelope,
+  encode_inner_envelope,
+  encode_outer_envelope
+)
+from Protocol.HandshakeWire import decode_initial_message, encode_initial_message
+from Protocol.IdentityWire import encode_account_identity
+from Protocol.PrekeyWire import encode_prekey_bundle
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  DirectoryEntry,
+  InitialMessage,
+  InnerEnvelope,
+  OuterEnvelope,
+  PrekeyBundle
+)
 from Session.Handshake import RatchetState, initiate
-from Session.Ratchet import DecryptOutcome, decode_ratchet_message, decrypt
-from Transport.Packet import TransportPacket, decode_client_profile, decode_packet, encode_client_profile, encode_initial_plaintext, encode_packet, is_sealed_initial_packet, seal_initial_packet, session_aad
+from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, ratchet_transport_matches
+from Transport.Packet import TransportPacket, decode_client_profile, decode_packet, encode_client_profile, encode_initial_plaintext, encode_packet, session_aad
+from Transport.Recipient import is_recipient_packet, open_recipient_packet, seal_recipient_packet
 
 pub struct InteropSession do
   local_account_id :: Bytes
@@ -214,11 +232,13 @@ fn initial_matches(state :: borrow RatchetState,
 outer :: OuterEnvelope,
 peer_mailbox :: Bytes,
 local_account_wire :: Bytes) -> Bool ! String do
-  Ok(outer.suite == 2 && state.suite == 2 && is_sealed_initial_packet(outer.ciphertext) && Bytes.secure_equals(outer.mailbox_token,
-  peer_mailbox) && !String.contains(Bytes.to_hex(outer.ciphertext), Bytes.to_hex(local_account_wire)))
+  # Delivery sees only the sealed transport (outer suite 4), never suite 2.
+  Ok(outer.suite == 4 && state.suite == 2 && is_recipient_packet(outer.ciphertext) && Bytes.secure_equals(outer.mailbox_token,
+  peer_mailbox) && !String.contains(Bytes.to_hex(outer.ciphertext),
+  Bytes.to_hex(local_account_wire)))
 end
 
-pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result <( RatchetState, InteropSession, Bytes, Bytes), String > do
+pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result <( RatchetState, DeviceKeys, InteropSession, Bytes, Bytes), String > do
   let peer = decode_client_profile(peer_profile) ?
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
@@ -273,9 +293,10 @@ pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result <( R
     Err( _) -> Err("interop session start failed")
     Ok( value) -> Ok(value)
   end ?
-  let packet = seal_initial_packet(local_account_wire, initial_wire(initial) ?,
+  let packet = seal_recipient_packet(encode_packet(InitialPacket(local_account_wire,
+  initial_wire(initial) ?)) ?,
   X25519PublicKey { bytes : peer.credential.dh_public_key }) ?
-  let outer = outer_wire(peer.entry.mailbox_token, initial.suite, packet, created_at) ?
+  let outer = outer_wire(peer.entry.mailbox_token, 4, packet, created_at) ?
   if !initial_matches(state, canonical_outer(outer) ?, peer.entry.mailbox_token, local_account_wire) ? do
     Err("interop initial invariants failed")
   else
@@ -289,7 +310,7 @@ pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result <( R
       session_id : state.session_id,
       suite : state.suite
     }
-    Ok((state, session, local_profile, outer))
+    Ok((state, device_keys, session, local_profile, outer))
   end
 end
 
@@ -303,38 +324,62 @@ fn validate_reply_inner(value :: InnerEnvelope, session :: InteropSession) -> Bo
   session.local_device_id) && Bytes.secure_equals(value.conversation_id, session.conversation_id)
 end
 
-pub fn open_mobile_reply(state :: consume RatchetState, session :: InteropSession, input :: Bytes) -> InteropOpenOutcome do
+fn opened_reply_message(outer :: OuterEnvelope, recipient :: borrow DeviceKeys) -> RatchetMessage ! String do
+  let packet = case decode_packet(open_recipient_packet(outer.ciphertext,
+  recipient.identity_private_key) ?) do
+    Err( _) -> Err("invalid interop ratchet packet")
+    Ok( value) -> Ok(value)
+  end ?
+  case packet do
+    InitialPacket( _, _) -> Err("invalid interop ratchet packet")
+    RatchetPacket( message_bytes) -> case decode_ratchet_message(message_bytes) do
+      Err( _) -> Err("invalid interop ratchet message")
+      Ok( message) -> if ratchet_transport_matches(message, true) do
+        Ok(message)
+      else
+        Err("invalid interop ratchet message")
+      end
+    end
+  end
+end
+
+fn open_reply_message(state :: consume RatchetState,
+session :: InteropSession,
+message :: RatchetMessage) -> InteropOpenOutcome do
+  if message.suite != 2 || !Bytes.secure_equals(message.session_id, session.session_id) || !Bytes.secure_equals(message.session_id,
+  state.session_id) do
+    reject(state, session, "interop reply session mismatch")
+  else
+    case session_aad(state.session_id) do
+      Err( error) -> reject(state, session, error)
+      Ok( aad) -> case decrypt(state, message, aad) do
+        Rejected( next, _) -> ReplyRejected(next, session, "interop reply rejected")
+        Opened( next, plaintext) -> case decode_inner_envelope(plaintext) do
+          Err( _) -> ReplyRejected(next, session, "invalid interop reply inner envelope")
+          Ok( inner) -> if validate_reply_inner(inner, session) do
+            ReplyOpened(next, session, inner.body)
+          else
+            ReplyRejected(next, session, "interop reply identity mismatch")
+          end
+        end
+      end
+    end
+  end
+end
+
+pub fn open_mobile_reply(state :: consume RatchetState,
+recipient :: borrow DeviceKeys,
+session :: InteropSession,
+input :: Bytes) -> InteropOpenOutcome do
   case canonical_outer(input) do
     Err( error) -> reject(state, session, error)
-    Ok( outer) -> if outer.suite != 2 || session.suite != 2 || state.suite != 2 || !Bytes.secure_equals(outer.mailbox_token,
+    Ok( outer) -> if outer.suite != 4 || session.suite != 2 || state.suite != 2 || !Bytes.secure_equals(outer.mailbox_token,
     session.local_mailbox) do
       reject(state, session, "interop reply outer mismatch")
     else
-      case decode_packet(outer.ciphertext) do
-        Err( _) -> reject(state, session, "invalid interop ratchet packet")
-        Ok( InitialPacket( _, _)) -> reject(state, session, "invalid interop ratchet packet")
-        Ok( RatchetPacket( message_bytes)) -> case decode_ratchet_message(message_bytes) do
-          Err( _) -> reject(state, session, "invalid interop ratchet message")
-          Ok( message) -> if message.suite != 2 || !Bytes.secure_equals(message.session_id,
-          session.session_id) || !Bytes.secure_equals(message.session_id, state.session_id) do
-            reject(state, session, "interop reply session mismatch")
-          else
-            case session_aad(state.session_id) do
-              Err( error) -> reject(state, session, error)
-              Ok( aad) -> case decrypt(state, message, aad) do
-                Rejected( next, _) -> ReplyRejected(next, session, "interop reply rejected")
-                Opened( next, plaintext) -> case decode_inner_envelope(plaintext) do
-                  Err( _) -> ReplyRejected(next, session, "invalid interop reply inner envelope")
-                  Ok( inner) -> if validate_reply_inner(inner, session) do
-                    ReplyOpened(next, session, inner.body)
-                  else
-                    ReplyRejected(next, session, "interop reply identity mismatch")
-                  end
-                end
-              end
-            end
-          end
-        end
+      case opened_reply_message(outer, recipient) do
+        Err( error) -> reject(state, session, error)
+        Ok( message) -> open_reply_message(state, session, message)
       end
     end
   end

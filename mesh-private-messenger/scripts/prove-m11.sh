@@ -8,7 +8,7 @@ readonly repo_root
 readonly app_dir="$repo_root/mesh-private-messenger/apps/mobile"
 readonly messenger_module_dir="$app_dir/modules/mesh-messenger"
 readonly temp_parent="${TMPDIR:-/tmp}"
-temp_dir="$(mktemp -d "$temp_parent/whatsdown-m11.XXXXXX")"
+temp_dir="$(mktemp -d "$temp_parent/morse-m11.XXXXXX")"
 readonly temp_dir
 
 fail() {
@@ -25,7 +25,7 @@ cleanup() {
     if resolved_parent="$(cd "$temp_parent" && pwd -P)" &&
       resolved_temp="$(cd "$temp_dir" && pwd -P)"; then
       case "$resolved_temp" in
-        "$resolved_parent"/whatsdown-m11.*)
+        "$resolved_parent"/morse-m11.*)
           if [[ "$(/usr/bin/find "$resolved_temp" -type l -print -quit)" == '' ]]; then
             /usr/bin/find "$resolved_temp" -depth -delete
           fi

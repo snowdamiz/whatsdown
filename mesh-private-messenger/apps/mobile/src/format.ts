@@ -44,3 +44,34 @@ export function formatInboxTime(timestamp: number, now = Date.now()): string {
 
 export const groupDigits = (value: string, size: number): string[] =>
   value.match(new RegExp(`.{1,${size}}`, 'g')) ?? [];
+
+const knownErrors: readonly [RegExp, string][] = [
+  [/transparency_stale/, 'Security information is out of date. Reconnect and refresh before sending.'],
+  [/peer_keys_changed/, 'Their security keys changed. Verify before sending.'],
+  [/message_request_pending/, 'Accept this message request before replying.'],
+  [/conversation_blocked/, 'Unblock this conversation before sending.'],
+  [/\b404\b/, 'No exact username match was found.'],
+  [/AbortError/, 'The server did not respond. Try again when connected.'],
+  [
+    /Could not connect|Network request failed|fetch failed|ECONNREFUSED/i,
+    'Can’t reach the server. Check your connection and try again.',
+  ],
+  [/\b5\d\d\b/, 'The server hit a problem. Try again in a moment.'],
+];
+
+export function friendlyError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : error == null ? '' : String(error);
+  for (const [pattern, message] of knownErrors) {
+    if (pattern.test(raw)) return message;
+  }
+  const cleaned = raw
+    .replace(/\s*\(at [^)]*\)\s*$/, '')
+    .replace(/^(?:[A-Za-z]*(?:Exception|Error)):\s*/, '')
+    .replace(/^Mesh library call failed \(status=\d+\):\s*/, '')
+    .trim();
+  if (/^[a-z0-9_]+$/.test(cleaned)) {
+    const words = cleaned.replace(/_/g, ' ');
+    return `${words.charAt(0).toUpperCase()}${words.slice(1)}.`;
+  }
+  return cleaned || 'Something went wrong.';
+}

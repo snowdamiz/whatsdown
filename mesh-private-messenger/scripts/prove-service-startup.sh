@@ -8,7 +8,7 @@ readonly repo_root
 readonly messenger_root="$repo_root/mesh-private-messenger"
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
 readonly temp_parent="${TMPDIR:-/tmp}"
-temp_dir="$(mktemp -d "$temp_parent/whatsdown-service-startup.XXXXXX")"
+temp_dir="$(mktemp -d "$temp_parent/morse-service-startup.XXXXXX")"
 readonly temp_dir
 edge_pid=""
 
@@ -31,7 +31,7 @@ cleanup() {
     resolved_parent="$(cd "$temp_parent" && pwd -P)" &&
     resolved_temp="$(cd "$temp_dir" && pwd -P)"; then
     case "$resolved_temp" in
-      "$resolved_parent"/whatsdown-service-startup.*)
+      "$resolved_parent"/morse-service-startup.*)
         /usr/bin/find "$resolved_temp" -depth -delete
         ;;
     esac

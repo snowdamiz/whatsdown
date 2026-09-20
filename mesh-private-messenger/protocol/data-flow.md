@@ -1,6 +1,6 @@
 # Data Flow and Trust Boundaries
 
-Whatsdown performs identity, session, ratchet, and message processing on user
+Morse performs identity, session, ratchet, and message processing on user
 devices. Services route public directory data and opaque ciphertext. The first
 deployment may combine logical services into one Mesh process and one
 PostgreSQL instance with separate schemas; the visibility boundaries remain.
@@ -115,7 +115,9 @@ device ID, and conversation-local ordering data.
 | Object store | Random object ID, encrypted bytes, approximate size, timing, and expiry |
 | Transparency service and witnesses | Public commitments, proofs, and checkpoints |
 
-Application payloads are canonical binary. WebSocket events carry mailbox
-authentication, cursors, acknowledgements, wakeups, rate-limit status, and
-shutdown notices; they never carry plaintext or server-interpreted message
-types.
+Application payloads are canonical binary. The foreground WebSocket uses the
+native device-signed mailbox fetch frame in its authorization header and sends only `ready`
+and `encrypted-wakeup` text control events. Fetching and acknowledging ciphertext
+remain on the binary HTTP API. Subscribing before catch-up and catching up on
+every reconnect avoid gaps; the stream never carries message content or IDs.
+See the [stream deployment contract](../ops/runbook.md#foreground-mailbox-stream).

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Morse",
+  "version": "0.1.0",
+  "identifier": "io.morseapp.desktop",
+  "build": {
+    "beforeDevCommand": "npm run web",
+    "beforeBuildCommand": "npm run web",
+    "beforeBundleCommand": "node scripts/sign-native.mjs",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "visible": false,
+        "title": "Morse",
+        "width": 1160,
+        "height": 800,
+        "minWidth": 720,
+        "minHeight": 560,
+        "backgroundColor": "#0A0A0C",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 28, "y": 38 },
+        "dragDropEnabled": false,
+        "contentProtected": true
+      }
+    ],
+    "security": {
+      "dangerousDisableAssetCspModification": ["style-src"],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost; media-src 'self' blob:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": ["native/*"],
+    "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
+    "macOS": { "minimumSystemVersion": "12.0", "hardenedRuntime": true },
+    "windows": { "nsis": { "installMode": "currentUser" } }
+  }
+}

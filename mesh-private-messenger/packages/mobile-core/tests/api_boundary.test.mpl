@@ -1,6 +1,7 @@
 import File
 from MobileCore import initialize, persist_envelope, validate_outer
-from Protocol.V1 import OuterEnvelope, encode_outer_envelope
+from Protocol.EnvelopeWire import encode_outer_envelope
+from Protocol.V1 import OuterEnvelope
 from Tests.Support import append, database_path, repeated, vector
 
 fn outer(ciphertext :: Bytes, padding_bucket :: Int) -> Bytes ! String do

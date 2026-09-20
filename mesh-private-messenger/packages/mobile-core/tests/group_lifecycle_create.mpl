@@ -1,8 +1,16 @@
-from MobileCore import group_add_export, group_create_export, group_inspect_export, group_key_package_export, group_list_export, group_receive_export, outbox_list_export
-from Protocol.V1 import OuterEnvelope
+from MobileCore import (
+  group_add_export,
+  group_create_export,
+  group_inspect_export,
+  group_key_package_export,
+  group_list_export,
+  group_receive_export,
+  outbox_list_export
+)
+from Protocol.V1 import AccountIdentity, OuterEnvelope
 from Tests.GroupConsistencySupport import SignedTransparencyViewFixture
 from Tests.GroupLifecycleSupport import GroupAccountFixture, install_group_lifecycle_transparency, install_signed_transparency
-from Tests.GroupLifecycleWire import acknowledge, group_vectors, outer, output_list, read_u32_at
+from Tests.GroupLifecycleWire import acknowledge, assert_group_transport, group_vectors, outer, output_list, read_u32_at
 from Tests.Support import repeated
 
 fn group_create_ensure(value :: Bool, error :: String) -> Result <(), String > do
@@ -47,6 +55,11 @@ fn assert_group_creator(alice_path :: Bytes, group_id :: Bytes) -> Bool ! String
                     group_create_ensure(Bytes.secure_equals(List.get(first_member, 2),
                     creator_marker),
                     "creator marker mismatch") ?
+                    group_create_ensure(List.length(first_member) == 8,
+                    "missing verified member username") ?
+                    group_create_ensure(Bytes.secure_equals(List.get(first_member, 7),
+                    Bytes.from_utf8("alice")),
+                    "member username must come from the verified identity") ?
                     Ok(true)
                   end
                 end
@@ -104,7 +117,8 @@ bob_package :: Bytes) -> Bool ! String do
   group_create_ensure(Bytes.secure_equals(outbox_list_export(Bytes.from_utf8(accounts.alice_path)) ?,
   bob_welcome_output),
   "bob welcome outbox mismatch") ?
-  group_create_ensure(outer(List.head(bob_welcome)) ?.suite == 3, "bob welcome suite mismatch") ?
+  group_create_ensure(outer(List.head(bob_welcome)) ?.suite == 4, "bob welcome suite mismatch") ?
+  assert_group_transport(List.head(bob_welcome), group_id, accounts.alice_account.account_id) ?
   acknowledge(accounts.alice_path, bob_welcome, 0) ?
   group_create_ensure(Bytes.secure_equals(group_receive_export(group_vectors([Bytes.from_utf8(accounts.bob_path), List.head(bob_welcome)]) ?) ?,
   group_id),
@@ -124,5 +138,7 @@ pub fn create_group_with_bob(accounts :: GroupAccountFixture) -> Bytes ! String 
   let bob_package = bob_package_for_group(accounts, group_id) ?
   group_create_ensure(add_bob_to_group(accounts, transparency, group_id, bob_package) ?,
   "add bob check failed") ?
+  let _ = install_signed_transparency(accounts.bob_path, transparency, accounts.alice_set) ?
+  let _ = install_signed_transparency(accounts.linked_path, transparency, accounts.bob_set) ?
   Ok(group_id)
 end
