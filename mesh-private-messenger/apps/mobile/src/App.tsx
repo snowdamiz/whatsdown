@@ -313,6 +313,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   // Every desktop window is wide enough for the sidebar-plus-pane layout;
   // onboarding still uses the whole window.
   const split = usesSplitLayout(Platform.OS, width) && profile !== null;
+  // Until there is an account the pane belongs to onboarding, except while
+  // it has pushed the scanner or the device-linking screen over it.
+  const onboardingActive = !profile && screen !== "scanner" && screen !== "link-device";
   const [storedConversations, setConversations] = useState<Conversation[]>([]);
   const [previews, setPreviews] = useState<Record<string, HistoryMessage[]>>({});
   const [groupPreviews, setGroupPreviews] = useState<Record<string, GroupHistoryMessage[]>>({});
@@ -359,12 +362,28 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     useState<Uint8Array | null>(null);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  // Onboarding is two screens — what the app is, then who you are — so
+  // neither has to scroll. Moving between them steers the same transition the
+  // route does, since only one of the two ever changes at a time.
+  const [onboardingStep, setOnboardingStep] = useState<"welcome" | "profile">("welcome");
+  const goOnboarding = (step: "welcome" | "profile") => {
+    setOnboardingStep(step);
+    setRoute((current) => ({
+      ...current,
+      direction: step === "profile" ? "forward" : "backward",
+    }));
+  };
   const [nameEditor, setNameEditor] = useState<{ key: string; value: string } | null>(null);
   const [nameError, setNameError] = useState("");
   const editingNickname = nameEditor?.key.startsWith("nickname/") ?? false;
   const nameEditorTitle = editingNickname ? "Private nickname" : "Display name";
   const [pickingPhoto, setPickingPhoto] = useState(false);
   const [accountAvatar, setAccountAvatar] = useState<string>();
+  // Every other avatar hashes its colour from an account or group ID; before
+  // an account exists there is none, and hashing the name instead repainted
+  // the placeholder on every keystroke. So it draws one tone at random and
+  // keeps it, while the initials go on following what is typed.
+  const [avatarSeed] = useState(() => Math.random().toString(36).slice(2));
   const [presentations, setPresentations] = useState<Record<string, Presentation | undefined>>({});
   const [groupDraftName, setGroupDraftName] = useState("");
   const [groupDraftAvatar, setGroupDraftAvatar] = useState<string>();
@@ -1280,10 +1299,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   }
 
   // The picture beside the way to clear it, for a form that edits a photo in place.
-  function renderPhotoEditor(name: string, avatar: string | undefined, onChange: (value: string | undefined) => void, group = false) {
+  function renderPhotoEditor(name: string, avatar: string | undefined, onChange: (value: string | undefined) => void, seed?: string) {
     return (
       <View style={styles.photoEditor}>
-        {renderPhotoButton(name, avatar, onChange, { group, size: size.avatar["2xl"] })}
+        {renderPhotoButton(name, avatar, onChange, { size: size.avatar["2xl"], seed })}
         {avatar ? renderRemovePhoto(() => onChange(undefined)) : null}
       </View>
     );
@@ -1660,13 +1679,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     return undefined;
   }
 
-  function renderOnboarding() {
+  // What the app is, before anything is asked of you: the mark, the promise,
+  // and the three things worth knowing, with the way in at the foot of the
+  // screen. Nothing here scrolls, so the buttons are always in reach.
+  function renderWelcome() {
     return (
-      <ScrollView
-        contentContainerStyle={[styles.onboarding, isDesktop && styles.onboardingDesktop]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={[styles.onboarding, isDesktop && styles.onboardingDesktop]}>
         <Reveal>
           <AppGlyph size={isDesktop ? size.mark.sm : size.mark.md} />
         </Reveal>
@@ -1675,10 +1693,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
             Private messaging,{"\n"}made simple.
           </Text>
           <Text style={type.body}>
-            Pick a username and start talking. No phone number, no contact
-            upload. Your private keys stay protected on your devices.
+            Pick a username and start talking.
           </Text>
         </Reveal>
+        {/* The slack on a tall phone is split, so the features float between
+            the promise above them and the buttons below. */}
+        {isDesktop ? null : <View style={layout.flex} />}
         <Reveal delay={120} style={styles.features}>
           <FeatureRow
             icon="lock"
@@ -1688,7 +1708,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
           <FeatureRow
             icon="person"
             title="Just a username"
-            body="Share your username without sharing your phone number."
+            body="No phone number, no contact upload."
           />
           <FeatureRow
             icon="shield"
@@ -1696,28 +1716,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
             body="Compare safety numbers to rule out anyone in the middle."
           />
         </Reveal>
-        {/* A phone pins the form to the bottom; a desktop window centres the whole column. */}
         {isDesktop ? null : <View style={layout.flex} />}
-        <Reveal delay={180} style={layout.stackLoose}>
-          {renderPhotoEditor(displayName || username, accountAvatar, setAccountAvatar)}
-          <Field
-            label="Choose your username"
-            value={username}
-            onChangeText={setUsername}
-            placeholder="your_name"
-            prefix="@"
-            hint="3–32 lowercase letters, numbers, or underscores."
-          />
-          <Field
-            label="Display name (optional)"
-            value={displayName}
-            onChangeText={setDisplayName}
-            placeholder="What people call you"
-            maxLength={96}
-            hint="Shown to people you message. You can change it later."
-          />
+        <Reveal delay={180}>
           <Actions>
-            <Button label="Create account" disabled={busy || pickingPhoto} onPress={createAccount} />
+            <Button label="Get started" onPress={() => goOnboarding("profile")} />
             <Button
               label="Link an existing account"
               onPress={beginDeviceLink}
@@ -1725,7 +1727,62 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
             />
           </Actions>
         </Reveal>
-      </ScrollView>
+      </View>
+    );
+  }
+
+  // Who you are: the picture, the name people find you by, and nothing else.
+  // It keeps a header so the welcome screen is one tap back.
+  function renderProfileSetup() {
+    return (
+      <Page
+        header={
+          <Header
+            title="Your profile"
+            onBack={() => goOnboarding("welcome")}
+            {...sheetHeader}
+          />
+        }
+      >
+        <ScrollView
+          contentContainerStyle={[layout.content, sheetContent, styles.onboardingForm]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Reveal style={styles.profileHead}>
+            {renderPhotoEditor(displayName || username, accountAvatar, setAccountAvatar, avatarSeed)}
+            <Text accessibilityRole="header" style={type.title}>
+              Pick a username.
+            </Text>
+            <Text style={type.body}>
+              It is how people reach you. Your private keys stay on your devices.
+            </Text>
+          </Reveal>
+          <Reveal delay={60} style={layout.stackLoose}>
+            <Field
+              label="Choose your username"
+              value={username}
+              onChangeText={setUsername}
+              placeholder="your_name"
+              prefix="@"
+              hint="3–32 lowercase letters, numbers, or underscores."
+            />
+            <Field
+              label="Display name (optional)"
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholder="What people call you"
+              maxLength={96}
+              hint="Shown to people you message. You can change it later."
+            />
+          </Reveal>
+          <Reveal delay={120}>
+            <Actions>
+              <Button label="Create account" disabled={busy || pickingPhoto} onPress={createAccount} />
+            </Actions>
+          </Reveal>
+        </ScrollView>
+      </Page>
     );
   }
 
@@ -3081,8 +3138,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   }
 
   function renderScreen() {
-    if (!profile && screen !== "scanner" && screen !== "link-device")
-      return renderOnboarding();
+    if (onboardingActive)
+      return onboardingStep === "profile" ? renderProfileSetup() : renderWelcome();
     if (screen === "link-device" && linkRequest) return renderLinkDevice(linkRequest);
     if (screen === "scanner") return renderScanner();
     if (screen === "new-chat") return renderNewChat();
@@ -3103,8 +3160,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   }
 
   const ready = fontsReady && !initialLoading;
-  const screenKey: ScreenKey =
-    !profile && screen !== "scanner" && screen !== "link-device" ? "onboarding" : screen;
+  const screenKey: ScreenKey = onboardingActive
+    ? onboardingStep === "profile"
+      ? "onboarding-profile"
+      : "onboarding"
+    : screen;
   const pane = (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -3245,8 +3305,10 @@ const useStyles = themed(({ colors, type, space, radius, size, elevation }) => S
   confirmActions: isDesktop
     ? { flexDirection: "row", justifyContent: "flex-end", gap: space[2], marginTop: space[1] }
     : { gap: space[2.5] },
+  // The welcome step fills the pane rather than scrolling in it, so the
+  // buttons stay where a thumb expects them.
   onboarding: {
-    flexGrow: 1,
+    flex: 1,
     paddingHorizontal: space[6],
     paddingTop: space[3],
     paddingBottom: space[4],
@@ -3259,6 +3321,10 @@ const useStyles = themed(({ colors, type, space, radius, size, elevation }) => S
     gap: space[6],
   },
   heroBlock: { gap: space[2.5] },
+  profileHead: { gap: space[2.5] },
+  // Two short fields read as a form, not as a page of prose, so on desktop
+  // they take a sheet's measure rather than the full reading column.
+  onboardingForm: isDesktop ? { maxWidth: 440 } : {},
   features: { gap: space[4] },
   // Full bleed: the header floats over the feed and the reticle frames it.
   camera: { flex: 1, backgroundColor: colors.black },

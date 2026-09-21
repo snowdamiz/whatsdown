@@ -107,6 +107,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       #root { display: flex; flex: 1; }
       #morse-launch { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: ${gray[1000]}; }
       #morse-launch svg { width: 200px; height: 200px; }
+      @media (prefers-color-scheme: light) { html, body, #root, #morse-launch { background: ${gray[0]}; } }
     </style>
   </head>
   <body>

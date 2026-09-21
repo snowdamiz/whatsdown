@@ -90,6 +90,27 @@ fi
   ' bash "$checkout_fixture"
 )
 
+# A cached witness checkpoint outlives the database it attests, and the witness
+# then refuses to sign a log that went backwards, so reset must clear both.
+(
+  reset_fixture="$(mktemp -d)"
+  trap 'rm -rf "$reset_fixture"' EXIT
+  MORSE_STATE_DIR="$reset_fixture" bash -c '
+    source "$1/run.sh"
+    ensure_docker() { :; }
+    compose() { printf "%s\n" "$*" >>"$state_dir/compose-calls"; }
+    mkdir -p "$state_dir/objects"
+    touch "$state_dir/objects/blob" "$state_dir/witness-a.checkpoint" \
+      "$state_dir/witness-b.checkpoint" "$schema_stamp"
+    reset_database >/dev/null
+    [[ "$(cat "$state_dir/compose-calls")" == "down --volumes" ]] || fail "reset kept the database volume"
+    [[ ! -e "$state_dir/witness-a.checkpoint" && ! -e "$state_dir/witness-b.checkpoint" ]] ||
+      fail "reset kept a witness checkpoint that outranks the new database"
+    [[ ! -e "$state_dir/objects" ]] || fail "reset kept objects whose rows are gone"
+    [[ ! -e "$schema_stamp" ]] || fail "reset kept the migration record"
+  ' bash "$test_repo_root"
+)
+
 # A stopped Docker Desktop answers its socket and then never replies, so the
 # probe has to give up rather than hang the launcher before it prints anything.
 (

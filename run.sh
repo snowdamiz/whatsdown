@@ -325,6 +325,24 @@ ensure_docker() {
   fail "Docker Desktop did not become ready within 120 seconds"
 }
 
+# Docker Desktop corrupts its VM when a build fills the disk, and then wedges
+# until its backend is killed, so name a shortfall before the build rather than
+# ten minutes into it. Both volumes matter: the checkout holds Cargo's target
+# directory, the home volume holds Docker's disk image and Xcode's caches.
+check_disk_space() {
+  local path filesystem free previous=""
+  for path in "$script_dir" "$HOME"; do
+    read -r filesystem free <<<"$(df -Pk "$path" | awk 'NR == 2 { print $1, $4 }')"
+    if [[ "$filesystem" != "$previous" ]]; then
+      previous=$filesystem
+      if ((free < 15 * 1024 * 1024)); then
+        printf 'morse: %s GiB free on %s; a full build needs more room and Docker corrupts its VM when the disk fills.\n' \
+          "$((free / 1024 / 1024))" "$filesystem" >&2
+      fi
+    fi
+  done
+}
+
 # PostgreSQL seeds migrations/ into a new volume once and never again, so a
 # database created before a migration was added keeps a stale schema, and the
 # services then fail with errors that do not name the cause. Record the
@@ -346,8 +364,9 @@ start_database() {
 reset_database() {
   ensure_docker
   compose down --volumes
-  rm -f "$schema_stamp"
-  printf 'Development database deleted; ./run.sh recreates it.\n'
+  rm -f "$schema_stamp" "$state_dir"/witness-*.checkpoint
+  rm -rf "${state_dir:?}/objects"
+  printf 'Development database, witness checkpoints and stored objects deleted;\n./run.sh recreates them.\n'
 }
 
 start_process() {
@@ -557,6 +576,7 @@ run_all() {
     return
   fi
   ensure_docker
+  check_disk_space
   build_all
   start_database
   start_services
