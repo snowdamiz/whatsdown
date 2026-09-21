@@ -90,6 +90,9 @@ jobs:
         run: |
           npm ci --prefix ../mobile
           npm ci
+          # The job's production endpoints and pins are for the native build; the
+          # unit tests assume their local development defaults.
+          for name in $(compgen -e | awk '/^(EXPO_PUBLIC_MESSENGER_|MESSENGER_)/'); do unset "$name"; done
           npm test --prefix ../mobile
           npm run typecheck --prefix ../mobile
           node --test scripts/*.test.mjs
@@ -303,7 +306,9 @@ jobs:
         run: |
           find . -mindepth 2 -type f -exec mv {} . \;
           # The builds stamped the release version into the installer names.
-          version="$(ls Morse_*_aarch64.dmg | sed 's/^Morse_//; s/_aarch64\.dmg$//')"
+          set -- Morse_*_aarch64.dmg
+          test "$#" -eq 1
+          version="${1#Morse_}" && version="${version%_aarch64.dmg}"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then test "desktop-v$version" = "$GITHUB_REF_NAME"; fi
           sha256sum "Morse_${version}_aarch64.dmg" "Morse_${version}_x64.dmg" "Morse_${version}_x64-setup.exe" > SHA256SUMS
           echo "MORSE_VERSION=$version" >> "$GITHUB_ENV"
