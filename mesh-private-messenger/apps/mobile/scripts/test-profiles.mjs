@@ -85,6 +85,12 @@ async function open({ scheme = 'dark', account = true, creator = true, width = 1
   return page;
 }
 
+// Onboarding opens on the welcome step; the profile form is one tap in.
+async function startProfile(page) {
+  await page.getByRole('button', { name: 'Get started', exact: true }).click();
+  await page.getByLabel('Choose your username', { exact: true }).waitFor();
+}
+
 async function choosePhoto(page) {
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: /^(Add|Change) photo$/ }).click();
@@ -94,6 +100,7 @@ async function choosePhoto(page) {
 
 try {
   const named = await open({ account: false });
+  await startProfile(named);
   await named.getByLabel('Choose your username', { exact: true }).fill('alice');
   await named.getByLabel('Display name (optional)', { exact: true }).fill('Alice Chen');
   await named.getByRole('button', { name: 'Create account', exact: true }).click();
@@ -221,8 +228,28 @@ try {
   assert.ok(await member.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'The minimum desktop width must not overflow');
   await member.close();
   const onboarding = await open({ account: false });
-  await choosePhoto(onboarding);
+  await startProfile(onboarding);
+  // The window buttons reach 80px in before there is a sidebar to hold them,
+  // so a header spanning the window has to start clear of them.
+  if (await onboarding.evaluate(() => /Mac/.test(navigator.userAgent))) {
+    const back = await onboarding.getByRole('button', { name: 'Back', exact: true }).boundingBox();
+    assert.ok(back.x >= 100, `The back button must clear the window buttons, not start at ${back.x}`);
+  }
+  // The welcome step is one back tap away, and the form keeps what was typed.
   await onboarding.getByLabel('Choose your username', { exact: true }).fill('alice');
+  await onboarding.getByRole('button', { name: 'Back', exact: true }).click();
+  await onboarding.getByRole('button', { name: 'Get started', exact: true }).click();
+  assert.equal(await onboarding.getByLabel('Choose your username', { exact: true }).inputValue(), 'alice', 'Stepping back and forward must keep the username');
+  // The placeholder has no account ID to hash a colour from yet, so it must
+  // hold the one it drew rather than repaint itself as the name is typed.
+  const tone = () => onboarding.evaluate(() => document.querySelector('linearGradient[id^="avatar-"]')?.id);
+  const placeholder = await tone();
+  assert.ok(placeholder, 'The placeholder avatar draws a gradient');
+  const shown = onboarding.getByLabel('Display name (optional)', { exact: true });
+  await shown.fill('Alice Chen');
+  assert.equal(await tone(), placeholder, 'Typing a display name must not repaint the placeholder avatar');
+  await shown.fill('');
+  await choosePhoto(onboarding);
   await onboarding.getByRole('button', { name: 'Create account', exact: true }).click();
   await onboarding.getByRole('button', { name: 'Settings', exact: true }).waitFor();
   const saved = await onboarding.evaluate(() => window.profileTest.saved[`user/${'01'.repeat(32)}`]);

@@ -16,7 +16,7 @@ export type Screen =
   | 'group-package';
 
 // Pseudo-screens that only exist for the transition system.
-export type ScreenKey = Screen | 'loading' | 'onboarding';
+export type ScreenKey = Screen | 'loading' | 'onboarding' | 'onboarding-profile';
 
 export type Direction = 'forward' | 'backward' | 'lateral';
 
@@ -26,6 +26,7 @@ export type Direction = 'forward' | 'backward' | 'lateral';
 const depth: Record<ScreenKey, number> = {
   loading: 0,
   onboarding: 0,
+  'onboarding-profile': 1,
   home: 0,
   groups: 0,
   settings: 0,

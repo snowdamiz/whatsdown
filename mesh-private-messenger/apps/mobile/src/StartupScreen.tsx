@@ -5,13 +5,12 @@ import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, Text, View }
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { MARK_CANVAS, MARK_GRADIENT, MARK_PATH, MORSE_CODE_WORDMARK } from './brand';
-import { motion, space, themes } from './theme';
+import { motion, space, themed, useTheme } from './theme';
 
 // Keep the OS launch screen until the branded React surface has laid out.
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 SplashScreen.setOptions({ fade: false });
 
-const { colors, type } = themes.dark;
 const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient);
 // Two cosine waves soften the highlight's edges and meet smoothly at the loop seam.
 const highlightStops = Array.from({ length: 33 }, (_, index) => ({
@@ -24,6 +23,9 @@ export function StartupScreen({ ready = false, fontsReady = false, error }: {
   fontsReady?: boolean;
   error?: string;
 }) {
+  // The cover follows the device's scheme, like the app it lifts to reveal.
+  const { scheme, type } = useTheme();
+  const styles = useStyles();
   const [visible, setVisible] = useState(true);
   const [opacity] = useState(() => new Animated.Value(1));
   const [flow] = useState(() => new Animated.Value(0));
@@ -83,7 +85,7 @@ export function StartupScreen({ ready = false, fontsReady = false, error }: {
       }}
       style={[styles.screen, { opacity }]}
     >
-      <StatusBar style="light" />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Svg width={200} height={200} viewBox={`0 0 ${MARK_CANVAS} ${MARK_CANVAS}`} accessible={false}>
         <Defs>
           <AnimatedGradient
@@ -110,10 +112,10 @@ export function StartupScreen({ ready = false, fontsReady = false, error }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = themed(({ colors, type }) => StyleSheet.create({
   screen: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas, zIndex: 100 },
   // Keep the mark at the exact centre, matching the OS splash and HTML.
   caption: { position: 'absolute', top: '50%', marginTop: 100, alignItems: 'center', gap: space[2], paddingHorizontal: space[6] },
   code: { ...type.monoSmall, color: colors.text3, letterSpacing: 1.5 },
   error: { color: colors.text2, textAlign: 'center', maxWidth: 320 },
-});
+}));

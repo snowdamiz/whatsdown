@@ -391,7 +391,9 @@ export function Tap({
 }
 
 // Fades and lifts a block into place once. Chunks of a screen stagger by
-// passing increasing delays.
+// passing increasing delays. Where Liquid Glass is drawn the block only
+// lifts: fading an ancestor stops UIKit rendering any glass inside it, which
+// left glass buttons invisible but still tappable.
 export function Reveal({
   children,
   delay = 0,
@@ -403,6 +405,7 @@ export function Reveal({
   distance?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+  const fade = !useLiquidGlass();
   const [progress] = useState(() => new Animated.Value(0));
   useEffect(() => {
     const animation = Animated.timing(progress, {
@@ -420,7 +423,7 @@ export function Reveal({
       style={[
         style,
         {
-          opacity: progress,
+          ...(fade && { opacity: progress }),
           transform: [
             {
               translateY: progress.interpolate({
@@ -1085,7 +1088,11 @@ function PaneHeader({
           styles[variant],
           isDesktop && {
             paddingHorizontal: paneHeaderPadding,
-            paddingLeft: Math.max(paneHeaderPadding, inset),
+            // `inset` is how far the window buttons reach into the row, not
+            // where the row may start: a round control set beside the round
+            // window buttons needs more than the row's own margin to read as
+            // the app's rather than the window's.
+            paddingLeft: inset ? inset + paneHeaderPadding + space[2.5] : paneHeaderPadding,
             paddingRight: paneHeaderPadding + (windowsChrome ? WINDOWS_CONTROLS_WIDTH : 0),
           },
         ]}
@@ -4224,7 +4231,7 @@ const useStyles = themed(({ colors, type, elevation }) =>
     flexDirection: "row",
     alignItems: "center",
   },
-  header: { paddingHorizontal: space[3], gap: space[2] },
+  header: { paddingHorizontal: space[3], gap: space[3] },
   largeHeader: { paddingHorizontal: screenInset, gap: space[3] },
   chatHeader: { paddingHorizontal: space[2.5], gap: space[2.5] },
   // Either side reserves an icon button's width so the title stays centred.
