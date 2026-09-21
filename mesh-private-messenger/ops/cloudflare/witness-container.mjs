@@ -9,10 +9,12 @@ export class Witness extends Container {
     if (this.pending) throw new Error('Witness is busy; retry attestation');
     const current = Promise.resolve().then(async () => {
       if (!this.ctx.container.running) await this.start();
-      const process = await this.ctx.container.exec(['/app/transparency-witness'], { env: this.envVars });
+      const process = await this.ctx.container.exec(['/app/transparency-witness'], { env: this.envVars, stderr: 'pipe' });
       const output = await process.output();
       if (output.exitCode !== 0) {
-        throw new Error(`Witness attestation failed (${output.exitCode})`);
+        // The witness names the step that failed; it prints no keys or user data.
+        const reason = new TextDecoder().decode(output.stderr).trim().slice(0, 300);
+        throw new Error(`Witness attestation failed (${output.exitCode}): ${reason}`);
       }
     });
     this.pending = current;

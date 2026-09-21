@@ -681,3 +681,27 @@ test('envelopes that must wait cannot hide the ones queued behind the first page
   assert.deepEqual(submitted, [10, 99]);
   assert.equal(queue.length, 9);
 });
+
+test('a lookup waits for the witnesses to sign a new checkpoint, and only for that', async (t) => {
+  const { resolveDeviceSet } = await import('./network.ts');
+  let lookups = 0;
+  let unwitnessed = 2;
+  meshMocks.resolve_request_export = async () => { lookups++; return Uint8Array.of(1); };
+  meshMocks.verify_transparency_export = async () => {
+    if (unwitnessed-- > 0) throw new Error('Mesh library call failed (status=9): transparency_verification_failed');
+    return Uint8Array.of(9);
+  };
+  t.mock.method(globalThis, 'fetch', async () => new Response(Uint8Array.of(1)));
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const resolved = resolveDeviceSet('/data/witness-wait.db', 'alice');
+  for (let tick = 0; tick < 2; tick++) {
+    await new Promise((resolve) => setImmediate(resolve));
+    t.mock.timers.tick(5_000);
+  }
+  assert.deepEqual(await resolved, Uint8Array.of(9));
+  assert.equal(lookups, 3);
+  // Any other refusal is final.
+  meshMocks.verify_transparency_export = async () => { throw new Error('transparency_stale'); };
+  await assert.rejects(resolveDeviceSet('/data/witness-wait.db', 'alice'), /transparency_stale/);
+  assert.equal(lookups, 4);
+});

@@ -17,8 +17,10 @@ test('C7 witness invocation cannot sign supplied data, read checkpoints, or bypa
     [request('/attest?checkpoint=forged', { Authorization: `Bearer ${token}` }), 404],
     [request('/attest', { Authorization: `Bearer ${token}` }, 'forged'), 400],
     [request('/attest', { Authorization: `Bearer ${token}` }), 204],
+    // Deployed Workers hand a bodiless POST an empty stream, not null.
+    [request('/attest', { Authorization: `Bearer ${token}` }, ''), 204],
   ]) assert.equal((await witnessRequest(req, env)).status, status);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
   assert.equal((await witnessRequest(request('/attest'), { ...env, WITNESS_INVOKE_TOKEN: '' })).status, 503);
 });
 
