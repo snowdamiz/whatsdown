@@ -83,6 +83,15 @@ test('friendlyError strips native noise from unknown failures and keeps app copy
     ),
     'Transparency verification failed.',
   );
+  // Android wraps the same failure in Expo's call-site notice and a Java class name.
+  assert.equal(
+    friendlyError(
+      new Error(
+        "Call to function 'MeshMessenger.invoke' has been rejected.\n→ Caused by: java.lang.IllegalStateException: Mesh library call failed (status=9): transparency_verification_failed",
+      ),
+    ),
+    'Transparency verification failed.',
+  );
   assert.equal(
     friendlyError('Use 3–32 lowercase letters, numbers, or underscores.'),
     'Use 3–32 lowercase letters, numbers, or underscores.',

@@ -66,8 +66,9 @@ export function friendlyError(error: unknown): string {
     if (pattern.test(raw)) return message;
   }
   const cleaned = raw
+    .replace(/^Call to function '[^']*' has been rejected\.\s*→ Caused by:\s*/, '')
     .replace(/\s*\(at [^)]*\)\s*$/, '')
-    .replace(/^(?:[A-Za-z]*(?:Exception|Error)):\s*/, '')
+    .replace(/^(?:[A-Za-z.]*(?:Exception|Error)):\s*/, '')
     .replace(/^Mesh library call failed \(status=\d+\):\s*/, '')
     .trim();
   if (/^[a-z0-9_]+$/.test(cleaned)) {

@@ -178,18 +178,31 @@ export function synchronizePrekeys(databasePath: string): Promise<void> {
   return synchronizePrekeysByDatabase(databasePath, () => synchronizePrekeysOnce(databasePath));
 }
 
+// The witnesses sign a checkpoint seconds after the directory makes one (on a
+// new account, or after four idle minutes). Until both signatures land its
+// evidence cannot verify, so look again; unwitnessed evidence is never used.
+const WITNESS_WAIT_MS = [1_000, 2_000, 3_000, 4_000, 5_000, 5_000];
+
 export async function resolveDeviceSet(
   databasePath: string,
   username: string,
 ): Promise<Uint8Array> {
   return resolveTransparencyByDatabase(databasePath, async () => {
-    const lookup = await resolve_request_export(
-      batchRequest(databasePath, utf8(username)),
-    );
-    const evidence = await binaryRequest('/v1/devices/resolve', lookup);
-    return verify_transparency_export(
-      vectors(utf8(databasePath), utf8(username), evidence),
-    );
+    for (let attempt = 0; ; attempt++) {
+      const lookup = await resolve_request_export(
+        batchRequest(databasePath, utf8(username)),
+      );
+      const evidence = await binaryRequest('/v1/devices/resolve', lookup);
+      try {
+        return await verify_transparency_export(
+          vectors(utf8(databasePath), utf8(username), evidence),
+        );
+      } catch (error) {
+        const wait = WITNESS_WAIT_MS[attempt];
+        if (wait === undefined || !String(error).includes('transparency_verification_failed')) throw error;
+        await new Promise((resolve) => setTimeout(resolve, wait));
+      }
+    }
   });
 }
 

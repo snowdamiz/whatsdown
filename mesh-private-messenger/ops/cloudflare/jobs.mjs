@@ -81,7 +81,8 @@ export class JobScheduler extends DurableObject {
           this.sql.exec('UPDATE state SET due = ?, failures = 0 WHERE singleton = 1', due);
         });
       }
-    } catch {
+    } catch (error) {
+      console.error('Scheduled job failed', String(error).slice(0, 500));
       failed = true;
       this.sql.exec('UPDATE state SET failures = min(failures + 1, 20) WHERE singleton = 1');
     } finally {

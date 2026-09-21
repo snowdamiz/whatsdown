@@ -937,8 +937,10 @@ export function IconButton({
 // underneath the glass. These are the heights content must leave clear.
 const tabHeight = control["2xl"];
 const tabPillPadding = space[1.5];
-// The pill rests on the home indicator's inset where there is one.
-const tabBarPadding = Math.max((initialWindowMetrics?.insets.bottom ?? 0) - space[1.5], screenInset);
+// The pill rests on the home indicator's inset where there is one. Android's
+// navigation bar has no indicator to rest on, so the pill clears it instead.
+const tabBarPadding = Math.max((initialWindowMetrics?.insets.bottom ?? 0) - space[1.5], screenInset) +
+  (Platform.OS === "android" ? space[2.5] : 0);
 const tabBarHeight = tabHeight + 2 * (tabPillPadding + 1);
 const paneHeaderPadding = space[4];
 // Centre pane controls on the inset sidebar's toolbar.

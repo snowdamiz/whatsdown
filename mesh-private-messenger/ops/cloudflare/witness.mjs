@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { boundedBody } from './storage.mjs';
 
 export function httpsOrigin(value) {
   let url;
@@ -20,7 +21,7 @@ export async function attestWitnesses(env, fetcher = fetch) {
       headers: { Authorization: `Bearer ${token}` },
     });
     await response.body?.cancel();
-    if (response.status !== 204) throw new Error(`Witness ${name} attestation failed`);
+    if (response.status !== 204) throw new Error(`Witness ${name} attestation failed (${response.status})`);
   }));
 }
 
@@ -36,11 +37,13 @@ export async function witnessRequest(request, env) {
   const expectedBytes = encoder.encode(expected);
   if (suppliedBytes.length !== expectedBytes.length || !timingSafeEqual(suppliedBytes, expectedBytes)) return new Response(null, { status: 401 });
   // No caller-supplied checkpoint or message reaches the signing process.
-  if (request.body) return new Response(null, { status: 400 });
+  // Deployed Workers give every POST a body stream, so only bytes are refused.
+  if (!(await boundedBody(request, 0))) return new Response(null, { status: 400 });
   try {
     await env.WITNESS.getByName('primary').attest();
     return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
-  } catch {
+  } catch (error) {
+    console.error(String(error).slice(0, 500));
     return new Response(null, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 }
