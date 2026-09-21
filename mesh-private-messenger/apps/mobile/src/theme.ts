@@ -164,7 +164,9 @@ function elevationFor(scheme: ColorScheme, colors: Palette): Elevation {
       ? { shadowColor: colors.black, shadowOpacity: raisedOpacity, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } }
       : isDesktop
         ? { boxShadow: `0 ${space[2]}px ${space[6]}px ${withAlpha(colors.black, dark ? 0.45 : 0.16)}` }
-        : { elevation: 8 };
+        // Android's elevation is one heavy smudge at any tone; this is the
+        // shadow iOS draws, as a box shadow.
+        : { boxShadow: `0 ${space[2]}px ${space[4]}px ${withAlpha(colors.black, raisedOpacity)}` };
   return {
     raised,
     thumb: { boxShadow: `0 1px 2px ${withAlpha(colors.black, dark ? 0.35 : 0.14)}` },

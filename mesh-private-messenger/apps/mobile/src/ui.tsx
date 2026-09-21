@@ -4612,7 +4612,7 @@ const useStyles = themed(({ colors, type, elevation }) =>
   ),
   composerShellSurface: desk(
     {
-      backgroundColor: colors.raised,
+      backgroundColor: colors.thumb,
       borderWidth: 1,
       borderColor: colors.lineStrong,
       ...elevation.raised,
@@ -5233,11 +5233,12 @@ const useStyles = themed(({ colors, type, elevation }) =>
     paddingRight: space[3.5],
     paddingVertical: space[2.5],
   },
+  // The pill has a lane of its own, so it is never lifted over content (and
+  // the lane would clip a shadow).
   statusPillSurface: {
-    backgroundColor: colors.elevated,
+    backgroundColor: colors.thumb,
     borderWidth: 1,
     borderColor: colors.lineStrong,
-    ...elevation.raised,
   },
   statusPillError: {
     backgroundColor: colors.dangerSurface,
@@ -5275,8 +5276,10 @@ const useStyles = themed(({ colors, type, elevation }) =>
     padding: tabPillPadding,
     borderRadius: radius.pill,
   },
+  // Where there is no glass, floating chrome is the lifted thumb pane: white
+  // over light content, as glass reads there, rather than a grey slab.
   tabPillSurface: {
-    backgroundColor: colors.raised,
+    backgroundColor: colors.thumb,
     borderWidth: 1,
     borderColor: colors.line,
     ...elevation.raised,
