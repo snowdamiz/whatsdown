@@ -17,6 +17,14 @@ target/
 /mesh-lang
 /mesh-private-messenger/services/*/output
 /mesh-private-messenger/clients/mesh-cli/output
+# `meshc build <dir>` without --output leaves <dir>/<dir-name> and an object file.
+/mesh-private-messenger/services/*/directory-delivery
+/mesh-private-messenger/services/*/object-store
+/mesh-private-messenger/services/*/privacy-edge
+/mesh-private-messenger/services/*/push-broker
+/mesh-private-messenger/services/*/transparency-witness
+/mesh-private-messenger/clients/mesh-cli/mesh-cli
+*.o
 /mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/
 /mesh-private-messenger/apps/mobile/ios/
 /mesh-private-messenger/apps/mobile/android/

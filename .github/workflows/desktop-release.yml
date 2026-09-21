@@ -106,6 +106,10 @@ jobs:
             assert.equal(process.env.GITHUB_REF_NAME, `desktop-v${version}`, 'Update both desktop versions before tagging');
           }
           assert.equal(JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json')).version, version);
+          // Each release-branch push publishes its own patch version, so install.sh finds it as the newest.
+          const release = process.env.GITHUB_REF === 'refs/heads/release'
+            ? version.replace(/\d+$/, process.env.GITHUB_RUN_NUMBER) : version;
+          fs.appendFileSync(process.env.GITHUB_ENV, `MORSE_VERSION=${release}\n`);
           NODE
       # Signing must not block releases yet: until WINDOWS_SIGN_COMMAND is set, Windows
       # installers ship unsigned. Setting it turns signing and its verification back on.
@@ -220,13 +224,15 @@ jobs:
           for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
             if [[ -z "${!name:-}" ]]; then unset "$name"; fi
           done
+          version_config="$RUNNER_TEMP/version.json"
+          printf '{"version":"%s"}' "${MORSE_VERSION:-}" > "$version_config"
           if [[ -f "$RUNNER_TEMP/windows-signing.json" ]]; then
-            npm run build -- --config "$RUNNER_TEMP/windows-signing.json" --bundles "$BUNDLES"
+            npm run build -- --config "$RUNNER_TEMP/windows-signing.json" --config "$version_config" --bundles "$BUNDLES"
           elif [[ "$RELEASE_BUILD" == true ]]; then
             if [[ "$RUNNER_OS" == Windows ]]; then
               echo "::warning::WINDOWS_SIGN_COMMAND is not set; this Windows installer is unsigned"
             fi
-            npm run build -- --bundles "$BUNDLES"
+            npm run build -- --config "$version_config" --bundles "$BUNDLES"
           else
             npm run build -- --debug --config '{"identifier":"io.morseapp.desktop.preview","productName":"Morse Preview"}' --bundles "$BUNDLES"
           fi
@@ -268,7 +274,7 @@ jobs:
           rm -f "$RUNNER_TEMP/morse-signing.p12"
 
   release:
-    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    if: github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/tags/desktop-v')
     needs: [build, verification]
     runs-on: ubuntu-latest
     permissions:
@@ -295,11 +301,16 @@ jobs:
       - name: Checksum the installers
         working-directory: installers
         run: |
-          version="${GITHUB_REF_NAME#desktop-v}"
           find . -mindepth 2 -type f -exec mv {} . \;
+          # The builds stamped the release version into the installer names.
+          version="$(ls Morse_*_aarch64.dmg | sed 's/^Morse_//; s/_aarch64\.dmg$//')"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then test "desktop-v$version" = "$GITHUB_REF_NAME"; fi
           sha256sum "Morse_${version}_aarch64.dmg" "Morse_${version}_x64.dmg" "Morse_${version}_x64-setup.exe" > SHA256SUMS
+          echo "MORSE_VERSION=$version" >> "$GITHUB_ENV"
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
+          tag_name: desktop-v${{ env.MORSE_VERSION }}
+          target_commitish: ${{ github.sha }}
           files: installers/**/*
           fail_on_unmatched_files: true
           generate_release_notes: true

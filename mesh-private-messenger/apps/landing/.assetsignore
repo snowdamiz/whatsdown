@@ -1,0 +1,4 @@
+check.mjs
+wrangler.jsonc
+.wrangler
+._*

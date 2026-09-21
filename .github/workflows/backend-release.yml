@@ -91,17 +91,55 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           MESSENGER_DATABASE_URL: ${{ secrets.MESSENGER_DATABASE_URL }}
           MORSE_BACKEND_URL: ${{ vars.MORSE_BACKEND_URL }}
+          MORSE_EDGE_URL: ${{ vars.MORSE_EDGE_URL }}
           WITNESS_A_URL: ${{ vars.WITNESS_A_URL }}
           WITNESS_B_URL: ${{ vars.WITNESS_B_URL }}
           VERIFICATION_RESULT: ${{ needs.verification.result }}
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
         run: |
-          test -n "$CLOUDFLARE_API_TOKEN"
-          test -n "$CLOUDFLARE_ACCOUNT_ID"
-          test -n "$MESSENGER_DATABASE_URL"
-          test -n "$MORSE_BACKEND_URL"
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID MESSENGER_DATABASE_URL MORSE_BACKEND_URL MORSE_EDGE_URL WITNESS_A_URL WITNESS_B_URL; do
+            test -n "${!name}" || { echo "::error::Set $name for the production deployment"; exit 1; }
+          done
+          # The witnesses and privacy edge are separate Workers holding their own
+          # secrets. They go first: the backend attests through the witnesses.
+          MORSE_DIRECTORY_URL="$MORSE_BACKEND_URL" npm run deploy:witness-a -- --containers-rollout=immediate
+          MORSE_DIRECTORY_URL="$MORSE_BACKEND_URL" npm run deploy:witness-b -- --containers-rollout=immediate
+          MORSE_DELIVERY_URL="$MORSE_BACKEND_URL" npm run deploy:edge -- --containers-rollout=immediate
           node migrate.mjs
           npm run deploy -- --containers-rollout=immediate
           curl --fail --silent --show-error --retry 90 --retry-max-time 960 --retry-delay 10 --retry-all-errors --max-time 30 "$MORSE_BACKEND_URL/health"
           node smoke.mjs
+
+  landing:
+    name: Check and deploy landing page
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    defaults:
+      run:
+        shell: bash
+        working-directory: mesh-private-messenger/apps/landing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            mesh-private-messenger/apps/mobile/package-lock.json
+            mesh-private-messenger/ops/cloudflare/package-lock.json
+      - name: Check the page
+        run: |
+          # check.mjs takes Playwright from the mobile app.
+          npm ci --prefix ../mobile
+          (cd ../mobile && npx playwright install --with-deps chromium)
+          node check.mjs
+      - name: Deploy the page
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm ci --prefix ../../ops/cloudflare
+          ../../ops/cloudflare/node_modules/.bin/wrangler deploy

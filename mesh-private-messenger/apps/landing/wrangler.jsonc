@@ -1,0 +1,9 @@
+{
+  // Static landing page, deployed by .github/workflows/backend-release.yml.
+  "name": "morse-landing",
+  "compatibility_date": "2026-09-18",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "assets": { "directory": "." }
+}
