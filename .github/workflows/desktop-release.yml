@@ -37,12 +37,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # The app bundle is kept beside the DMG so its signature and notarization
+          # can be verified; with dmg alone Tauri deletes it after packaging.
           - os: macos-15
             platform: macos-arm64
-            bundles: dmg
+            bundles: app,dmg
           - os: macos-15-intel
             platform: macos-x64
-            bundles: dmg
+            bundles: app,dmg
           - os: windows-2022
             platform: windows-x64
             bundles: nsis
