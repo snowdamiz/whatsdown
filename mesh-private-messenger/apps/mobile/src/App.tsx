@@ -24,7 +24,7 @@ import {
   useWindowDimensions,
   type TextInput,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from "react-native-safe-area-context";
 
 import {
   group_send_export,
@@ -3166,8 +3166,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
       : "onboarding"
     : screen;
   const pane = (
+    // Keyboard frames are in screen coordinates but the pane starts under the
+    // top inset, which the view's own layout frame leaves out.
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "web" ? undefined : "padding"}
+      keyboardVerticalOffset={initialWindowMetrics?.insets.top ?? 0}
       style={[layout.flex, isDesktop && screenKey === "onboarding" && styles.desktopOnboarding]}
     >
       <ScreenTransition
