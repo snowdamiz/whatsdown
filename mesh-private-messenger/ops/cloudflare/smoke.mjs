@@ -29,8 +29,14 @@ const checks = [
   ] : [[origin, '/v1/envelopes/batch', 'POST', 400]]),
 ];
 for (const [base, path, method, expected] of checks) {
-  const response = await fetch(new URL(path, base), { method, signal: AbortSignal.timeout(45_000) });
-  await response.body?.cancel();
+  let response;
+  // A container created by this deployment answers 503 until it has started.
+  for (let attempt = 1; ; attempt++) {
+    response = await fetch(new URL(path, base), { method, signal: AbortSignal.timeout(45_000) });
+    await response.body?.cancel();
+    if (response.status !== 503 || attempt === 30) break;
+    await new Promise(resolve => setTimeout(resolve, 10_000));
+  }
   assert.equal(response.status, expected, `${method} ${base.origin}${path}`);
 }
 

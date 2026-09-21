@@ -1,18 +1,31 @@
 # Mobile releases
 
 The [Mobile release workflow](../../../.github/workflows/mobile-release.yml)
-runs on every push to `release`. It verifies the candidate, then starts iOS
-and Android EAS cloud builds. Android produces an AAB in EAS. Setting the
-optional `ASC_APP_ID` repository variable also submits that exact iOS build
-to TestFlight; without it, the IPA remains available in EAS.
+runs on every push to `release`. It verifies the candidate, then builds the
+`staging` profile in EAS: an internal-distribution Android APK that uses the
+production EAS environment, so it talks to the deployed backend and its
+database. Each run's summary links the EAS build page, which carries the
+install link and QR code.
+
+iOS staging builds are not enabled yet. Internal iOS builds install only on
+devices in their ad hoc provisioning profile, which a non-interactive CI run
+cannot create. To enable them, run this once (and again after adding a device)
+from this directory, then add `ios` to the staging matrix in the workflow:
+
+```sh
+npx eas-cli@24.7.0 device:create                  # open the link on each iPhone
+npx eas-cli@24.7.0 credentials --platform ios     # staging → set up build credentials (Apple sign-in)
+```
 
 Signed OTA publishing to the `production` channel is configured but disabled:
 `MORSE_OTA_ENABLED=false` in GitHub. After upgrading the personal EAS account
 to a plan supporting update code signing, set that repository variable to
 `true`. Native builds remain enabled while OTA publishing is disabled.
 
-Run the workflow manually with `all`, `build`, or `update` to retry a release
-or publish just an OTA update. Production runs are serialized; an active
+Run the workflow manually with `staging` to rebuild those, `production` for
+store builds (an Android AAB and an iOS IPA, submitted to TestFlight when the
+optional `ASC_APP_ID` repository variable is set), or `update` to publish just
+an OTA update. Production runs are serialized; an active
 release is not canceled by a later push. GitHub keeps at most one pending run,
 so rapid pushes can coalesce into the newest pending revision.
 
@@ -93,7 +106,7 @@ Run the commands below from `mesh-private-messenger/apps/mobile`.
    no-push mode. The workflow checks release configuration before sending a
    build or update.
 
-5. Run **Mobile release → build** on the `release` branch from GitHub Actions.
+5. Run **Mobile release → production** on the `release` branch from GitHub Actions.
    Download the AAB and IPA from EAS. When TestFlight submission is configured,
    check the iOS build in TestFlight after Apple processing.
    TestFlight tester groups and Apple's required app information are managed

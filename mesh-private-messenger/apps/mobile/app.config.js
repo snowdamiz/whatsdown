@@ -43,10 +43,11 @@ export default {
     },
     plugins: [
       ['expo-splash-screen', {
-        backgroundColor: '#0A0A0C',
+        backgroundColor: '#FFFFFF',
         image: './assets/splash.png',
         imageWidth: 200,
         resizeMode: 'contain',
+        dark: { backgroundColor: '#0A0A0C', image: './assets/splash.png' },
       }],
       [
         'expo-camera',

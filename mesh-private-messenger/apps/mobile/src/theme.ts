@@ -229,7 +229,7 @@ export const themes: Record<ColorScheme, Theme> = {
   light: buildTheme("light"),
 };
 
-const ThemeContext = createContext<Theme>(themes.dark);
+const ThemeContext = createContext<Theme>(themes[resolveScheme("system", SystemAppearance.getColorScheme())]);
 
 export function useTheme(): Theme {
   return useContext(ThemeContext);

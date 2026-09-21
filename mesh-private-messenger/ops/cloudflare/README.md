@@ -180,9 +180,13 @@ alone cannot change them. The privacy edge uses proof-of-work difficulty `16`.
 ## GitHub Actions
 
 Pushes to `release` run `.github/workflows/backend-release.yml`: build the pinned Mesh
-compiler, run protocol/storage/event-driven integration tests, apply migrations,
-deploy the four service containers and delivery Worker, then verify live health and WebSocket
-authorization. Pushes to `main` run the ordinary CI tests without deploying.
+compiler, run protocol/storage/event-driven integration tests, deploy both witness
+Workers and the privacy-edge Worker, apply migrations, deploy the backend's service
+containers and delivery Worker, then verify live health, the edge's routes, and WebSocket
+authorization. The separate Workers keep the secrets provisioned on them; CI only
+ships their code. A parallel job runs `apps/landing/check.mjs` and publishes the
+landing page as the static `morse-landing` Worker
+(`https://morse-landing.snowdamiz.workers.dev`). Pushes to `main` run the ordinary CI tests without deploying.
 Deployments serialize in the `cloudflare-production` concurrency group and use
 the `production` environment, restricted to the `release` branch.
 
@@ -191,7 +195,7 @@ release workflow and its dependencies are committed on `release`; the app checko
 can remain on `main`. Do not force-push `main` over `release`.
 
 Repeat the read-only live checks with
-`MORSE_BACKEND_URL=https://morse-backend.snowdamiz.workers.dev node smoke.mjs`.
+`MORSE_BACKEND_URL=https://morse-backend.snowdamiz.workers.dev MORSE_EDGE_URL=https://morse-privacy-edge.snowdamiz.workers.dev node smoke.mjs`.
 
 Repository secrets:
 
@@ -202,6 +206,7 @@ Repository variables:
 
 - `CLOUDFLARE_ACCOUNT_ID`
 - `MORSE_BACKEND_URL` (the deployed HTTPS origin, without a trailing slash)
+- `MORSE_EDGE_URL` (the privacy-edge Worker's HTTPS origin)
 - `WITNESS_A_URL`, `WITNESS_B_URL` (the isolated witness HTTPS origins)
 
 The API token is restricted to this Cloudflare account, with Account permissions

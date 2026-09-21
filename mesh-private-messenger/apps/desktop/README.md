@@ -118,8 +118,11 @@ temporary database. Build the native library before running them.
 
 [Desktop build and release](../../../.github/workflows/desktop-release.yml)
 builds and tests Windows x64, macOS Intel, and macOS Apple silicon on native
-runners. Every push to `release` produces production installers as workflow
-artifacts, using the deployed backend and release signing. PRs and manual runs
+runners. Every push to `release` builds production installers against the
+deployed backend with release signing, and publishes them as GitHub Release
+`desktop-v<MAJOR>.<MINOR>.<RUN>`: the version in `package.json` with the
+workflow run number as its patch. The install commands then pick it up as the
+newest release. PRs and manual runs
 on other branches produce debug installers using local endpoints; those
 previews require your local backend.
 Previews use `io.morseapp.desktop.preview` with separate credentials and data,
@@ -140,8 +143,9 @@ and match the mobile EAS production environment:
 | `MESSENGER_ABUSE_DIFFICULTY` | Canonical integer 1–24 |
 
 Keep `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` versions
-aligned, update the lockfiles, then push `desktop-v<VERSION>` (initially
-`desktop-v0.1.0`). Release builds reject missing pins and non-TLS endpoints.
+aligned; bump the major or minor version there. To publish an exact version
+instead, update the lockfiles and push `desktop-v<VERSION>`. Release builds
+reject missing pins and non-TLS endpoints.
 After all three builds pass, the workflow publishes `.dmg` installers for both
 Mac architectures, a Windows `.exe` installer, and their `SHA256SUMS` to that
 GitHub Release. The root [install.sh](../../../install.sh) and

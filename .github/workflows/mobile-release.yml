@@ -8,8 +8,8 @@ on:
       operation:
         description: What to release
         type: choice
-        options: [all, build, update]
-        default: all
+        options: [staging, production, update]
+        default: staging
 
 permissions:
   contents: read
@@ -53,15 +53,18 @@ jobs:
 
   build:
     needs: [verify, verification]
-    if: github.ref == 'refs/heads/release' && (github.event_name == 'push' || inputs.operation != 'update')
+    # Pushes build the staging profile: internal-distribution builds on the production backend.
+    if: github.ref == 'refs/heads/release' && inputs.operation != 'update'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        platform: [ios, android]
+        # iOS staging waits for an ad hoc profile (RELEASING.md); production builds both.
+        platform: ${{ fromJSON(inputs.operation == 'production' && '["ios","android"]' || '["android"]') }}
     env:
       PLATFORM: ${{ matrix.platform }}
+      PROFILE: ${{ inputs.operation == 'production' && 'production' || 'staging' }}
       ASC_APP_ID: ${{ vars.ASC_APP_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -77,7 +80,7 @@ jobs:
           packager: npm
       - run: npm ci
       - name: Check TestFlight configuration
-        if: matrix.platform == 'ios' && env.ASC_APP_ID != ''
+        if: matrix.platform == 'ios' && env.PROFILE == 'production' && env.ASC_APP_ID != ''
         run: |
           if [[ ! "$ASC_APP_ID" =~ ^[0-9]+$ ]]; then
             echo '::error::Create the app in App Store Connect and set the ASC_APP_ID repository variable.'
@@ -94,9 +97,11 @@ jobs:
         # Pull the same production values used by the remote build and OTA export.
         run: eas env:exec production 'node scripts/check-release-config.mjs' --non-interactive
       - name: Wait for the native build
-        run: eas build --platform "$PLATFORM" --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"
+        run: |
+          eas build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"
+          jq -r '.[0] | "[\(.platform) \(.buildProfile) build](https://expo.dev/accounts/120356aa-user/projects/morse/builds/\(.id))"' "$RUNNER_TEMP/eas-build.json" >> "$GITHUB_STEP_SUMMARY"
       - name: Submit this iOS build to TestFlight
-        if: matrix.platform == 'ios' && env.ASC_APP_ID != ''
+        if: matrix.platform == 'ios' && env.PROFILE == 'production' && env.ASC_APP_ID != ''
         run: |
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
@@ -111,7 +116,7 @@ jobs:
     environment: ota-signing
     needs: [verify, verification]
     # Enable after upgrading the personal EAS account to a plan with code signing.
-    if: vars.MORSE_OTA_ENABLED == 'true' && github.ref == 'refs/heads/release' && (github.event_name == 'push' || inputs.operation != 'build')
+    if: vars.MORSE_OTA_ENABLED == 'true' && github.ref == 'refs/heads/release' && (github.event_name == 'push' || inputs.operation == 'update')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

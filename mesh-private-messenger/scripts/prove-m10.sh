@@ -178,11 +178,14 @@ main() {
     MESSENGER_M10_LEGACY_CONSUMED_PATH="$legacy_consumed_database" \
     "$meshc_bin" test "$core_dir/tests"
 
-  encrypted_database_matches "$capacity_database" 73 || \
-    fail "bounded-pool SQLite did not contain sixty-four encrypted one-time prekeys"
-  encrypted_database_matches "$legacy_active_database" 10 || \
+  # Beside its one-time prekeys (64, 1, and 2 below), each database holds 12
+  # records: 9 key, profile, and pool records, the last-resort prekey secret
+  # and record, and the confirmed contact address.
+  encrypted_database_matches "$capacity_database" 76 || \
+    fail "bounded-pool SQLite did not hold exactly 64 one-time prekeys and 12 other encrypted records"
+  encrypted_database_matches "$legacy_active_database" 13 || \
     fail "active legacy singleton migration did not remain encrypted"
-  encrypted_database_matches "$legacy_consumed_database" 11 || \
+  encrypted_database_matches "$legacy_consumed_database" 14 || \
     fail "consumed legacy singleton migration did not remain encrypted"
   local leak_pattern='morse-mobile-record-key|account-signing-key|device-signing-key|device-identity-key|signed-prekey|one-time-prekey|post-quantum-prekey|pending-link|profile/v1|device-set/v1|sessions/v1|session/v1|history/v1|capacity|legacy-active|legacy-consumed|hello bob|hello alice|synced hello|all alice devices|blocked message|gone soon'
   local leaks
