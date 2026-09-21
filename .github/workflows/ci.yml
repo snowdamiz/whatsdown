@@ -125,7 +125,10 @@ jobs:
         timeout-minutes: 10
         run: |
           sudo apt-get update
-          # The live Worker test runs pg_dump, which refuses a server newer than itself.
+          # The live Worker test runs pg_dump, which refuses a server newer than itself;
+          # PostgreSQL's own apt repository has the client for the 17 service.
+          sudo apt-get install --no-install-recommends -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install --no-install-recommends -y libsqlite3-dev sqlite3 postgresql-client-17
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
 

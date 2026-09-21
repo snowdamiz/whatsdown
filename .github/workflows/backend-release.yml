@@ -58,6 +58,8 @@ jobs:
           # This backend-only job does not need the runner's Android SDK or .NET.
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet
           sudo apt-get update
+          sudo apt-get install --no-install-recommends -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install --no-install-recommends -y postgresql-client-17 libxml2-dev libffi-dev libsqlite3-dev
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
           npm ci --prefix mesh-private-messenger/ops/cloudflare
