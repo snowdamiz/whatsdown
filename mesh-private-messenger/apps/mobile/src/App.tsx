@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
+  BackHandler,
   FlatList,
   KeyboardAvoidingView,
   Keyboard,
@@ -1626,6 +1627,28 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   const sheet = isDesktop && !split;
   const sheetHeader = { inset: sheet ? lightsInset : 0 };
   const sheetContent = sheet ? layout.sheet : null;
+
+  // Android's back gesture steps back through the app the way the on-screen
+  // back button does, and leaves it only from a root screen.
+  useEffect(() => {
+    if (Platform.OS !== "android") return undefined;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (membersOpen) {
+        setMembersOpen(false);
+        return true;
+      }
+      if (onboardingActive) {
+        if (onboardingStep !== "profile") return false;
+        goOnboarding("welcome");
+        return true;
+      }
+      const target = dismissTarget();
+      if (!target) return false;
+      go(target);
+      return true;
+    });
+    return () => subscription.remove();
+  });
 
   useEffect(() => {
     if (!split) return undefined;
