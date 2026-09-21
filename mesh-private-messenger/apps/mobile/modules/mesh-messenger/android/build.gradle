@@ -31,6 +31,7 @@ android {
 }
 
 dependencies {
-  implementation project(':expo-notifications')
+  // Expo links expo-notifications as its prebuilt artifact, not a Gradle project.
+  implementation 'host.exp.exponent:expo.modules.notifications:57.0.15'
   implementation 'com.google.firebase:firebase-messaging:25.0.1'
 }
