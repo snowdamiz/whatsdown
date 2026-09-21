@@ -175,7 +175,15 @@ jobs:
           "$env:USERPROFILE\llvm\bin" >> $env:GITHUB_PATH
       - name: Build the pinned Mesh compiler and runtime
         working-directory: mesh-lang
-        run: cargo build --locked -p meshc -p mesh-rt
+        run: |
+          cargo build --locked -p mesh-rt
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            # Windows gives the main thread 1 MiB, and the debug compiler overflows
+            # it on the mobile core (exit 0xC00000FD); macOS and Linux give 8 MiB.
+            cargo rustc --locked -p meshc --bin meshc -- -C link-arg=/STACK:16777216
+          else
+            cargo build --locked -p meshc
+          fi
       - name: Build native messenger library
         run: |
           if [[ "$RELEASE_BUILD" == true ]]; then
@@ -187,6 +195,8 @@ jobs:
           fi
       - name: Verify native bridge and networking boundaries
         run: |
+          # generate_context! embeds the web bundle, so it must exist to compile.
+          npm run web
           cargo test --manifest-path src-tauri/Cargo.toml --locked
           cargo clippy --manifest-path src-tauri/Cargo.toml --locked -- -D warnings
       - name: Import Mac release identity
