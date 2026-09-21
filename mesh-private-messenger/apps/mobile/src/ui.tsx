@@ -937,6 +937,7 @@ export function IconButton({
 // underneath the glass. These are the heights content must leave clear.
 const tabHeight = control["2xl"];
 const tabPillPadding = space[1.5];
+const tabGap = space[3];
 // The pill rests on the home indicator's inset where there is one. Android's
 // navigation bar has no indicator to rest on, so the pill clears it instead.
 const tabBarPadding = Math.max((initialWindowMetrics?.insets.bottom ?? 0) - space[1.5], screenInset) +
@@ -3749,34 +3750,20 @@ export function TabBar<T extends string>({
   const { colors } = useTheme();
   const styles = useStyles();
   const liquid = useLiquidGlass();
-  const [trackWidth, setTrackWidth] = useState(0);
   const index = Math.max(0, tabs.findIndex((tab) => tab.key === current));
   const position = useSprung(index);
-  const itemWidth = trackWidth / tabs.length;
   return (
     <View style={[styles.tabBarWrap, { paddingBottom: tabBarPadding }]}>
       <ScrollEdge side="bottom" height={chrome.tabBar + tabBarPadding + 40} />
-      <Glass
-        style={styles.tabPill}
-        fallback={styles.tabPillSurface}
-        onLayout={(event) =>
-          // The surface fallback adds a hairline the glass pill does not have.
-          setTrackWidth(event.nativeEvent.layout.width - 2 * (tabPillPadding + (liquid ? 0 : 1)))
-        }
-      >
-        {trackWidth > 0 ? (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.tabIndicator,
-              liquid && styles.tabIndicatorGlass,
-              {
-                width: itemWidth,
-                transform: [{ translateX: Animated.multiply(position, itemWidth) }],
-              },
-            ]}
-          />
-        ) : null}
+      <Glass style={styles.tabPill} fallback={styles.tabPillSurface}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.tabIndicator,
+            liquid && styles.tabIndicatorGlass,
+            { transform: [{ translateX: Animated.multiply(position, tabHeight + tabGap) }] },
+          ]}
+        />
         {tabs.map((tab) => {
           const active = tab.key === current;
           return (
@@ -3787,10 +3774,9 @@ export function TabBar<T extends string>({
               accessibilityLabel={`${tab.title}${tab.badge ? `, ${tab.badge} needing attention` : ""}`}
               accessibilityState={{ selected: active }}
               onPress={() => onSelect(tab.key)}
-              style={({ pressed }) => [
-                styles.tabItem,
-                pressed && !active && styles.tabItemPressed,
-              ]}
+              // The gaps and the pill's rim still belong to the nearest tab.
+              hitSlop={{ left: tabGap / 2, right: tabGap / 2, top: tabPillPadding, bottom: tabPillPadding }}
+              style={({ pressed }) => [styles.tabItem, pressed && !active && styles.tabItemPressed]}
             >
               <View>
                 <Icon
@@ -3801,7 +3787,6 @@ export function TabBar<T extends string>({
                 />
                 {tab.badge ? <View style={styles.tabBadge}><UnreadBadge count={tab.badge} /></View> : null}
               </View>
-              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.title}</Text>
             </Pressable>
           );
         })}
@@ -5282,8 +5267,11 @@ const useStyles = themed(({ colors, type, elevation }) =>
     paddingHorizontal: screenInset,
     paddingTop: space[2.5],
   },
+  // Sized to its icon-only tabs, the end circles concentric with its ends.
   tabPill: {
     flexDirection: "row",
+    alignSelf: "center",
+    gap: tabGap,
     padding: tabPillPadding,
     borderRadius: radius.pill,
   },
@@ -5298,22 +5286,19 @@ const useStyles = themed(({ colors, type, elevation }) =>
     position: "absolute",
     top: tabPillPadding,
     left: tabPillPadding,
+    width: tabHeight,
     height: tabHeight,
     borderRadius: radius.pill,
     backgroundColor: colors.accentSoft,
   },
   tabItem: {
-    flex: 1,
+    width: tabHeight,
     height: tabHeight,
     borderRadius: radius.pill,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: space[1.5],
   },
   tabItemPressed: { backgroundColor: colors.highlight },
-  tabLabel: { ...type.label, ...singleLine },
-  tabLabelActive: { color: colors.accent, fontFamily: fonts.semibold },
 
   feature: { flexDirection: "row", alignItems: "center", gap: space[4] },
   featureIcon: {
