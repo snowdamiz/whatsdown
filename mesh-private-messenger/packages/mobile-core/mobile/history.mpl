@@ -476,6 +476,59 @@ blobs :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String >
   end
 end
 
+fn accepted_request_blobs(database_path :: String,
+wrapping_key :: borrow StorageKey,
+peer_account_id :: Bytes,
+session_ids :: List < Bytes >,
+index :: Int,
+labels :: List < String >,
+blobs :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String > do
+  if index >= List.length(session_ids) do
+    Ok((labels, blobs))
+  else
+    let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
+    if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) && loaded.record.request_state != 1 do
+      let record = % { loaded.record | request_state : 1 }
+      let blob = seal_local(updated_session_record(record.snapshot, record) ?,
+      wrapping_key,
+      local_context(loaded.label) ?) ?
+      accepted_request_blobs(database_path,
+      wrapping_key,
+      peer_account_id,
+      session_ids,
+      index + 1,
+      List.append(labels, loaded.label),
+      List.append(blobs, blob))
+    else
+      accepted_request_blobs(database_path,
+      wrapping_key,
+      peer_account_id,
+      session_ids,
+      index + 1,
+      labels,
+      blobs)
+    end
+  end
+end
+
+# A message this account sent, seen through a sibling device, means that
+# device had accepted the peer's request; this device's records catch up.
+# Only records still waiting are rewritten, and nothing can be sending to
+# such a peer from this device meanwhile.
+
+pub fn accepted_request_writes(database_path :: String,
+wrapping_key :: borrow StorageKey,
+peer_account_id :: Bytes,
+session_ids :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String > do
+  accepted_request_blobs(database_path,
+  wrapping_key,
+  peer_account_id,
+  session_ids,
+  0,
+  List.new(),
+  List.new())
+end
+
 pub fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
   ensure_schema(request.database_path) ?
   let peer_id = peer_account_id(request.peer_profile) ?

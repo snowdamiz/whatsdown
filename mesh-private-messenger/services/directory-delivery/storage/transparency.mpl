@@ -100,6 +100,16 @@ new_account :: Bool) -> Int ! String do
   end
 end
 
+## A deleted account's leaves stay, since every proof covers the whole tree.
+## The entries behind them name the account and its devices, and go with it.
+
+pub fn forget_account_entries_on_connection(conn :: borrow PgConn, account_id :: Bytes) -> Result <(), String > do
+  let _ = Pg.execute_values(conn,
+  "UPDATE transparency_entries SET entry_bytes = NULL WHERE account_commitment = $1",
+  [Binary(account_commitment(account_id) ?)]) ?
+  Ok(nil)
+end
+
 fn hashes(rows :: List < Map < String, DbValue > >, index :: Int, output :: List < Bytes >) -> List < Bytes > ! String do
   if index >= List.length(rows) do
     Ok(output)

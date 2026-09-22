@@ -20,6 +20,9 @@ test('public ingress routes each API and excludes private endpoints including en
   assert.equal(route('/v1/directory/resolve', 'GET'), null);
   assert.equal(route('/v1/devices/register', 'PUT'), 'DIRECTORY');
   assert.equal(route('/v1/devices/resolve', 'POST'), 'DIRECTORY');
+  assert.equal(route('/v1/accounts/delete', 'POST'), 'DIRECTORY');
+  assert.equal(route('/v1/accounts/delete', 'GET'), null);
+  assert.equal(route('/v1/devices/leave', 'POST'), 'DIRECTORY');
 });
 
 test('public health reports cached job failures without starting services or signers', async () => {

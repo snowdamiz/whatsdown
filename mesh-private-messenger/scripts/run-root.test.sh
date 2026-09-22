@@ -243,6 +243,10 @@ find "${modules_dir}/${PACKAGE_NAME}.swiftmodule" -name '*.swiftinterface'
         target = (prebuilt if path.startswith("ios/") else mobile) / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(upstream + "\n")
+    # pod install writes the checkout's absolute path into ios/Pods.
+    vfs_overlay = "ios/Pods/React-Core-prebuilt/React-VFS.yaml"
+    (prebuilt / vfs_overlay).parent.mkdir(parents=True)
+    (prebuilt / vfs_overlay).write_text(f"  - name: '{mobile}/ios/Pods/React-Core-prebuilt/React.xcframework/Headers'\n")
     landing = root / "mesh-private-messenger/apps/landing"
     landing.mkdir(parents=True)
     (landing / "index.html").write_text("landing fixture\n")
@@ -260,7 +264,9 @@ find "${modules_dir}/${PACKAGE_NAME}.swiftmodule" -name '*.swiftinterface'
     executable(commands / "uname", "echo Darwin\n")
     executable(commands / "open", 'touch "$MORSE_STATE_DIR/docker-ready"\n')
     executable(commands / "python3", 'echo $$ > "$MORSE_STATE_DIR/landing.pid"\nexec "$REAL_PYTHON" "$@"\n')
-    executable(commands / "ps", "echo /CoreSimulator/Devices/example/Morse.app/Morse\n")
+    # Neither the simulator app nor the installed release app is the development desktop.
+    executable(commands / "ps", "echo /CoreSimulator/Devices/example/Morse.app/Morse\n"
+                                "echo /Applications/Morse.app/Contents/MacOS/Morse\n")
     executable(commands / "docker", '''
 echo "$*" >> "$MORSE_STATE_DIR/docker-calls"
 if [[ "$1" == info ]]; then test -f "$MORSE_STATE_DIR/docker-ready"; fi
@@ -341,6 +347,7 @@ touch "$MORSE_STATE_DIR/mobile-built"
             "the volume removes a sidecar with its file, so deleting it again fails Expo's find"
         for path, (_, quoted) in spaced_path_lines.items():
             assert (mobile / path).read_text() == quoted + "\n", f"{path} still splits a project path that has a space"
+        assert (mobile / vfs_overlay).exists(), "reinstalled pods that this checkout installed"
         assert not (state / "privacy-edge.pid").exists(), "duplicated a healthy service"
         assert (state / "postgres-migrations").read_text() == "001_initial.sql\n002_durable_backend.sql\n", \
             "the database this launch created was not recorded:\n" + output.read_text()
@@ -371,7 +378,8 @@ touch "$MORSE_STATE_DIR/mobile-built"
         runner.wait(timeout=10)
         previous_npm = (state / "npm-calls").read_text()
         (migrations / "003_added_later.sql").write_text("SELECT 1;\n")
-        executable(commands / "ps", 'echo "$FIXTURE/mesh-private-messenger/apps/desktop/src-tauri/target/debug/Morse"\n')
+        # A Cargo target directory outside the checkout still holds the development desktop.
+        executable(commands / "ps", 'echo /Users/example/Library/Caches/morse-desktop/target/debug/Morse\n')
         with output.open("w") as log:
             runner = subprocess.Popen(["bash", str(root / "run.sh"), "desktop"], env=env, stdout=log,
                                       stderr=subprocess.STDOUT, start_new_session=True)
@@ -390,11 +398,15 @@ if [[ "$*" == *"run ios" ]]; then
   exit 17
 fi
 ''')
+        # The checkout moved (here, its volume was renamed) after pod install.
+        (mobile / vfs_overlay).write_text(
+            "  - name: '/Volumes/SSK SSD/whatsdown/mesh-private-messenger/apps/mobile/ios/Pods/React-Core-prebuilt/React.xcframework/Headers'\n")
         failed = subprocess.run(["bash", str(root / "run.sh")], env=env,
                                 capture_output=True, text=True, timeout=15)
         assert failed.returncode != 0, failed
         assert "simulator fixture build failure" in failed.stderr, "app failure was hidden in a log file"
         assert not (state / "run.lock").exists(), "failed launch left a stale lock"
+        assert not (mobile / "ios/Pods").exists(), "kept pods that name another checkout path, so Xcode cannot find them"
     finally:
         if runner.poll() is None:
             runner.terminate()

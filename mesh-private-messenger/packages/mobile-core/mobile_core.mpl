@@ -1,12 +1,16 @@
 from Mobile.Account import (
+  account_deletion,
   authorize_link,
   authorize_link_for_set,
   complete_link,
   create_account,
   create_device_link_request,
   create_device_revocation,
+  device_departure,
   device_link_sas,
   directory_entry_for,
+  erase_account,
+  forget_on_proof,
   directory_lookup,
   import_contact,
   inspect_device_set,
@@ -181,6 +185,22 @@ end
 
 @ export("mesh_messenger_create_device_revocation")pub fn create_device_revocation_export(request :: Bytes) -> Bytes ! String do
   create_device_revocation(parse_triple_payload_request(request) ?)
+end
+
+@ export("mesh_messenger_account_deletion")pub fn account_deletion_export(request :: Bytes) -> Bytes ! String do
+  account_deletion(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_erase_account")pub fn erase_account_export(request :: Bytes) -> Bytes ! String do
+  erase_account(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_device_departure")pub fn device_departure_export(request :: Bytes) -> Bytes ! String do
+  device_departure(mobile_utf8(request, "invalid_database_path") ?)
+end
+
+@ export("mesh_messenger_forget_on_proof")pub fn forget_on_proof_export(request :: Bytes) -> Bytes ! String do
+  forget_on_proof(parse_payload_request(request) ?)
 end
 
 pub fn start_conversation_export(request :: Bytes) -> Bytes ! String do

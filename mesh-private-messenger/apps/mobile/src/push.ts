@@ -103,6 +103,12 @@ export async function disablePushBinding(databasePath: string): Promise<PushStat
 
 export const listenForPushRegistrationChanges = onPushRegistrationChanged;
 
+// After an account is erased: its delivered notifications may quote its
+// messages, and its push token has no binding left to serve.
+export async function forgetPush(_databasePath: string): Promise<void> {
+  await Promise.allSettled([Notifications.dismissAllNotificationsAsync(), clearPushToken()]);
+}
+
 export function isGenericWakeup(notification: Notifications.Notification): boolean {
   const { body } = notification.request.content;
   return isGenericWakeupContent(body, notification.request.content.data);

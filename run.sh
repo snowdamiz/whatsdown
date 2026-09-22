@@ -219,6 +219,7 @@ build_mobile() {
   local ndk_bin
   local platform
   local target
+  local vfs_overlay
   platform="$(mobile_platform)"
   npm_install "$app_dir" --ignore-scripts=false
   require_command rustup
@@ -252,6 +253,14 @@ build_mobile() {
   # Expo otherwise generates ios/ while it builds, too late to patch.
   if [[ "$platform" == ios && ! -d "$app_dir/ios" ]]; then
     npm --prefix "$app_dir" exec -- expo prebuild "$app_dir" --platform ios --no-install
+  fi
+  # pod install writes this checkout's absolute path all through ios/Pods, so
+  # after the checkout moves or its volume is renamed, Xcode reads files that
+  # are gone. Expo reinstalls pods when the folder is missing.
+  vfs_overlay="$app_dir/ios/Pods/React-Core-prebuilt/React-VFS.yaml"
+  if [[ -f "$vfs_overlay" ]] && ! grep -qF "$app_dir/ios/Pods/" "$vfs_overlay"; then
+    printf 'morse: ios/Pods was installed at another path; reinstalling it\n' >&2
+    rm -rf "$app_dir/ios/Pods"
   fi
   patch_external_checkout
   # External macOS volumes create AppleDouble files that Expo mistakes for podspecs.
@@ -440,8 +449,11 @@ witness_loop() {
 desktop_running() {
   local executable
   while IFS= read -r executable; do
+    # Only the development build (io.morseapp.desktop.dev) counts. It runs from
+    # Cargo's target directory, which may sit outside the checkout. An installed
+    # Morse.app is the release identity with its own data and runs beside it.
     case "$executable" in
-      "$desktop_dir"/*/Morse|*/Morse.app/Contents/MacOS/Morse) return 0 ;;
+      */debug/Morse) return 0 ;;
     esac
   done < <(ps -axo comm=)
   return 1

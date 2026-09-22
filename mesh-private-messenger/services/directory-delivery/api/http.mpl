@@ -1,4 +1,4 @@
-from Api.Binary import Admission, BinaryResult, CheckedRequest, acknowledge_request, admission_failure, check_request, bind_push_request, checkpoint_request, claim_prekey_request, consistency_request, fetch_request, inclusion_request, publish_prekeys_request, register_device_request, resolve_devices_request, revoke_device_request, spend_request, submit_configured_sealed_request, submit_request, submit_witness_request, unbind_push_request, witnesses_request
+from Api.Binary import Admission, BinaryResult, CheckedRequest, acknowledge_request, admission_failure, check_request, bind_push_request, checkpoint_request, claim_prekey_request, consistency_request, delete_account_request, fetch_request, leave_device_request, inclusion_request, publish_prekeys_request, register_device_request, resolve_devices_request, revoke_device_request, spend_request, submit_configured_sealed_request, submit_request, submit_witness_request, unbind_push_request, witnesses_request
 from Prekeys.Pool import decode_prekey_claim
 from Privacy.Edge import internal_delivery_authorized, internal_delivery_token
 from Runtime.Registry import get_pool
@@ -79,6 +79,18 @@ end
 
 pub fn handle_revoke_device(request :: Request) -> Response do
   respond(revoke_device_request(get_pool(), Request.body_bytes(request)))
+end
+
+# Signed by the account key, like a revocation, so it needs no proof of work.
+
+pub fn handle_delete_account(request :: Request) -> Response do
+  respond(delete_account_request(get_pool(), Request.body_bytes(request)))
+end
+
+# Signed by the departing device's own key, so it needs no proof of work either.
+
+pub fn handle_leave_device(request :: Request) -> Response do
+  respond(leave_device_request(get_pool(), Request.body_bytes(request)))
 end
 
 pub fn handle_submit(request :: Request) -> Response do

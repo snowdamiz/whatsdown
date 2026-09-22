@@ -52,6 +52,8 @@ export function createJournalStore(load: Load, save: Save) {
     async load(name: JournalName, legacy?: LegacyJournal): Promise<string | null> {
       const index = await load(`${name}/index`);
       if (!index) {
+        // Nothing is sealed, whatever this store wrote before the account was erased.
+        sealed.delete(name);
         const clear = legacy?.read() ?? null;
         if (clear === null) return null;
         const moved = parseObject(clear);

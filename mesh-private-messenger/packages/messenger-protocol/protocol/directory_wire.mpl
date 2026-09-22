@@ -1,4 +1,4 @@
-##! Directory, device linking, sets, and revocation codecs.
+##! Directory, device linking, sets, revocation, departure, and account deletion codecs.
 
 from Binary.Reader import BinaryReader
 from Protocol.WirePrimitives import (
@@ -22,6 +22,8 @@ from Protocol.WirePrimitives import (
   protocol_write_u64
 )
 from Protocol.V1 import (
+  AccountDeletion,
+  DeviceDeparture,
   DeviceLinkAuthorization,
   DeviceLinkRequest,
   DeviceRevocation,
@@ -438,6 +440,86 @@ pub fn decode_device_revocation(input :: Bytes) -> DeviceRevocation ! ProtocolEr
       signature : signature.value
     }
     validate_device_revocation(value) ?
+    Ok(value)
+  end
+end
+
+fn validate_account_deletion(value :: AccountDeletion) -> Result <(), ProtocolError > do
+  if value.version != 1 do
+    Err(UnsupportedVersion)
+  else if Bytes.length(value.account_id) != 32 || Bytes.length(value.signature) != 64 do
+    Err(InvalidFieldLength)
+  else
+    Ok(nil)
+  end
+end
+
+pub fn encode_account_deletion(value :: AccountDeletion) -> Bytes ! ProtocolError do
+  validate_account_deletion(value) ?
+  protocol_join([protocol_byte(value.version) ?, Bytes.from_utf8("ADL"), value.account_id, protocol_write_u64(value.issued_at) ?, value.signature],
+  0,
+  Bytes.empty())
+end
+
+pub fn decode_account_deletion(input :: Bytes) -> AccountDeletion ! ProtocolError do
+  let version = protocol_take_u8(protocol_open(input, 108) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = protocol_take_fixed(version.state, 3) ?
+    protocol_valid_magic(magic.value, "ADL") ?
+    let account_id = protocol_take_fixed(magic.state, 32) ?
+    let issued_at = protocol_take_u64(account_id.state) ?
+    let signature = protocol_take_fixed(issued_at.state, 64) ?
+    protocol_require_end(signature.state) ?
+    let value = AccountDeletion {
+      version : version.value,
+      account_id : account_id.value,
+      issued_at : issued_at.value,
+      signature : signature.value
+    }
+    validate_account_deletion(value) ?
+    Ok(value)
+  end
+end
+
+fn validate_device_departure(value :: DeviceDeparture) -> Result <(), ProtocolError > do
+  if value.version != 1 do
+    Err(UnsupportedVersion)
+  else if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signature) != 64 do
+    Err(InvalidFieldLength)
+  else
+    Ok(nil)
+  end
+end
+
+pub fn encode_device_departure(value :: DeviceDeparture) -> Bytes ! ProtocolError do
+  validate_device_departure(value) ?
+  protocol_join([protocol_byte(value.version) ?, Bytes.from_utf8("DPT"), value.account_id, value.device_id, protocol_write_u64(value.issued_at) ?, value.signature],
+  0,
+  Bytes.empty())
+end
+
+pub fn decode_device_departure(input :: Bytes) -> DeviceDeparture ! ProtocolError do
+  let version = protocol_take_u8(protocol_open(input, 124) ?) ?
+  if version.value != 1 do
+    Err(UnsupportedVersion)
+  else
+    let magic = protocol_take_fixed(version.state, 3) ?
+    protocol_valid_magic(magic.value, "DPT") ?
+    let account_id = protocol_take_fixed(magic.state, 32) ?
+    let device_id = protocol_take_fixed(account_id.state, 16) ?
+    let issued_at = protocol_take_u64(device_id.state) ?
+    let signature = protocol_take_fixed(issued_at.state, 64) ?
+    protocol_require_end(signature.state) ?
+    let value = DeviceDeparture {
+      version : version.value,
+      account_id : account_id.value,
+      device_id : device_id.value,
+      issued_at : issued_at.value,
+      signature : signature.value
+    }
+    validate_device_departure(value) ?
     Ok(value)
   end
 end

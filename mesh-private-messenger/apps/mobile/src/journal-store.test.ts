@@ -55,3 +55,14 @@ test('what was kept in the clear before is sealed once and then removed', async 
   await assert.rejects(failing.load('notification-state', { read: () => kept, remove: () => { kept = null; } }));
   assert.notEqual(kept, null);
 });
+
+test('a journal erased underneath the store is written out in full again', async () => {
+  const sealed = core();
+  const store = createJournalStore(sealed.load, sealed.save);
+  await store.save('read-state', { [chat]: ['01'] });
+  // The account is deleted and the app carries on with a new one.
+  sealed.records.clear();
+  assert.equal(await store.load('read-state'), null);
+  await store.save('read-state', { [chat]: ['01'] });
+  assert.deepEqual(JSON.parse((await createJournalStore(sealed.load, sealed.save).load('read-state'))!), { [chat]: ['01'] });
+});

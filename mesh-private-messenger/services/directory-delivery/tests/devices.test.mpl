@@ -561,7 +561,11 @@ fn proof() -> Bool ! String do
   assert(verify_consistency(second_checkpoint.tree_root,
   third_checkpoint.tree_root,
   consistency_from(pool, U64.to_int(second_checkpoint.tree_size) ?) ?) ?)
-  assert(register_device_request(pool, protocol(encode_directory_entry(second)) ?).status == 409)
+  # The removed device is told so with the account's own revocation, which it
+  # checks before it erases itself.
+  let removed = register_device_request(pool, protocol(encode_directory_entry(second)) ?)
+  assert(removed.status == 410 && Bytes.secure_equals(removed.body,
+  protocol(encode_device_revocation(revocation)) ?))
   # Revocation also ends the revoked device's authority to read its mailbox.
   assert(fetch_request(pool, signed_fetch(second_device, second.mailbox_token) ?).status == 403)
   assert(fetch_request(pool, signed_fetch(first_device, first.mailbox_token) ?).status == 200)

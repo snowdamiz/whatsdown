@@ -40,6 +40,7 @@ import {
 } from "../modules/mesh-messenger";
 import {
   attachmentPreviewUri,
+  discardPreviews,
   listenForIncomingFiles,
   pickAttachmentFiles,
   releasePreviewUri,
@@ -110,6 +111,7 @@ import {
   type ScreenKey,
 } from "./navigation";
 import {
+  RemovedFromAccount,
   addGroupMember,
   acceptGroupInvitation,
   declineGroupInvitation,
@@ -119,15 +121,20 @@ import {
   drainOutbox,
   createGroup,
   connectMailboxStream,
+  deleteAccount,
   downloadAttachment,
+  eraseAccount,
+  forgetOnProof,
   getGroupKeyPackage,
   GROUP_KEY_PACKAGE_LENGTH,
+  holdsAccountKey,
   inspectGroup,
   listGroups,
   loadAccountDevices,
   loadGroupHistory,
   onUndeliverable,
   registerDirectory,
+  type Removal,
   removeGroupMember,
   revokeDevice,
   sendFanout,
@@ -138,6 +145,7 @@ import {
 import {
   disablePushBinding,
   enablePushBinding,
+  forgetPush,
   getPushStatus,
   listenForGenericWakeups,
   listenForNotificationOpens,
@@ -148,7 +156,7 @@ import {
 import { createQrCollector } from "./qr";
 import { databasePath } from "./storage";
 import { receivedMessageKeys, unreadCount, type ReadState } from "./read-state";
-import { loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveNotificationPreview, saveReadReceipts, saveReadState } from "./read-state-store";
+import { forgetPreferences, loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveNotificationPreview, saveReadReceipts, saveReadState } from "./read-state-store";
 import type { NotificationPreview } from "./notification-policy";
 import { describeSafety } from "./safety";
 import { StartupScreen } from "./StartupScreen";
@@ -233,6 +241,14 @@ type StagedAttachment = { id: string; scope: string; file: OutgoingAttachment; p
 const ATTACHMENT_CACHE_LIMIT = 64 * 1_048_576;
 
 type Route = { screen: Screen; direction: Direction };
+// A destructive action, held until it is confirmed.
+type Confirmation = { title: string; body: string; action: string; run: () => void };
+// Why a device erased itself, said on the screen it starts over on.
+const removalNotices: Record<Removal, string> = {
+  "account-deleted": "Your account was deleted on another device, so its messages and keys were erased from this one too.",
+  "device-removed": "This device was removed from your account on another device, so its messages and keys were erased from it.",
+  "device-left": "This device left your account, so its messages and keys were erased from it.",
+};
 
 // Keyboard shortcuts continue to follow the host during a UI preview.
 const userAgent = Platform.OS === "web" ? navigator.userAgent : "";
@@ -276,9 +292,13 @@ const pushSummary = (pushStatus: PushStatus): string =>
         ? "Turning on once the notification service is reachable"
         : "Turning off; cleanup retries until registration is removed";
 
-export default function App({ windowsPreview = false, onWindowsPreviewChange }: {
+export default function App({ windowsPreview = false, onWindowsPreviewChange, onAccountErased, notice }: {
   windowsPreview?: boolean;
   onWindowsPreviewChange?: (enabled: boolean) => Promise<void>;
+  // Starts the app over with nothing in memory: erasing the account empties
+  // storage, not state. The notice says why, on the screen it starts over on.
+  onAccountErased: (notice?: string) => void;
+  notice?: string;
 }) {
   const previewWindows = isDesktop && isDevelopmentBuild() && windowsPreview;
   const lightsInset = isDesktop && !previewWindows ? trafficLightInset(userAgent) : 0;
@@ -290,7 +310,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   // The status bar's glyphs are the opposite of the canvas behind them.
   const statusBar = scheme === "dark" ? "light" : "dark";
   const [pastedCode, setPastedCode] = useState("");
-  const [pendingRevoke, setPendingRevoke] = useState<Uint8Array | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<Confirmation | null>(null);
+  // Set while the account is being deleted, which stops syncing and push upkeep first.
+  const [leaving, setLeaving] = useState(false);
   const fontsReady = useAppFonts();
   const [initialLoading, setInitialLoading] = useState(true);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -758,7 +780,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   }, []);
 
   useEffect(() => {
-    if (!profile) return undefined;
+    if (!profile || leaving) return undefined;
     const sync = createMailboxSync(
       () => connectMailboxStream(databasePath),
       async () => {
@@ -774,6 +796,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
         }
       },
       (caught) => {
+        if (caught instanceof RemovedFromAccount) {
+          forgetOnProofOfRemoval(caught.statement);
+          return;
+        }
         setSyncError(caught ? friendlyError(caught) : "");
         if (!caught) setDismissedSyncError("");
       },
@@ -791,10 +817,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
       removePushListeners();
       appState.remove();
     };
-  }, [profile]);
+  }, [profile, leaving]);
 
   useEffect(() => {
-    if (!profile) return undefined;
+    if (!profile || leaving) return undefined;
     const removeRegistrationListener =
       listenForPushRegistrationChanges(recoverPush);
     const appState = AppState.addEventListener("change", (state) => {
@@ -805,7 +831,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
       removeRegistrationListener();
       appState.remove();
     };
-  }, [profile]);
+  }, [profile, leaving]);
 
   async function perform(
     label: string,
@@ -861,12 +887,25 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
       const created = await create_account_export(
         accountRequest(databasePath, normalized),
       );
+      // A name the directory refuses would leave an account no server takes,
+      // and no way back to choosing another, so it is undone before anyone sees
+      // it. An outage keeps the account: connecting registers it later.
+      let unregistered: unknown = null;
+      try {
+        await registerDirectory(databasePath);
+      } catch (caught) {
+        if (caught instanceof Error && caught.message === "registration_refused") {
+          await eraseAccount(databasePath);
+          throw new Error("username_taken");
+        }
+        unregistered = caught;
+      }
       setProfile(created);
       enterApp();
       const key = `user/${hex(parseProfileSummary(created).accountId)}`;
       const saved = await savePresentation(databasePath, key, presentation);
       setPresentations((previous) => ({ ...previous, [key]: saved }));
-      await registerDirectory(databasePath);
+      if (unregistered) throw unregistered;
       await refreshDevices(created);
       setUsername("");
       setDisplayName("");
@@ -1425,20 +1464,87 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     });
   }
 
+  // The system alert asks on a phone; the desktop has its own dialog.
+  function confirm(confirmation: Confirmation): void {
+    if (Platform.OS === "web") { setPendingConfirm(confirmation); return; }
+    Alert.alert(confirmation.title, confirmation.body, [
+      { text: "Cancel", style: "cancel" },
+      { text: confirmation.action, style: "destructive", onPress: confirmation.run },
+    ]);
+  }
+
   function confirmRevoke(deviceId: Uint8Array): void {
-    if (Platform.OS === "web") { setPendingRevoke(deviceId); return; }
-    Alert.alert(
-      "Remove this device?",
-      "It will permanently lose access to your account and future messages.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove device",
-          style: "destructive",
-          onPress: () => revokeLinkedDevice(deviceId),
-        },
-      ],
+    confirm({
+      title: "Remove this device?",
+      body: "It permanently loses access to your account and future messages, and erases its own messages and keys the next time it’s online.",
+      action: "Remove device",
+      run: () => revokeLinkedDevice(deviceId),
+    });
+  }
+
+  // The device that created the account deletes it everywhere. A linked device
+  // holds no account key, so it leaves the account and erases only itself.
+  function confirmDeleteAccount(): void {
+    void holdsAccountKey(databasePath).then(
+      (everywhere) => confirm(everywhere ? {
+        title: "Delete your account?",
+        body: "Your username, messages and keys are erased from the server, from this device, and from your linked devices as soon as they’re online. No one can reach this account again. This can’t be undone.",
+        action: "Delete account",
+        run: deleteAccountNow,
+      } : {
+        title: "Erase this device?",
+        body: "This device leaves your account, and its messages and keys are erased from it. The account stays on your other devices.",
+        action: "Erase device",
+        run: deleteAccountNow,
+      }),
+      (caught) => setError(friendlyError(caught)),
     );
+  }
+
+  function deleteAccountNow(): void {
+    const erased = accountId;
+    setLeaving(true);
+    setBusy(true);
+    setError("");
+    setStatus("Deleting your account…");
+    void deleteAccount(databasePath).then(
+      () => finishErasing(erased),
+      (caught) => {
+        // Nothing was erased, so the account is whole and this can be tried again.
+        setError(friendlyError(caught));
+        setLeaving(false);
+        setBusy(false);
+      },
+    );
+  }
+
+  // This device is out of its account: the account was deleted, or the device
+  // removed, on the device that created it. The directory hands over the signed
+  // statement that did it, and only that erases this copy: a server that merely
+  // claims so changes nothing.
+  function forgetOnProofOfRemoval(statement: Uint8Array): void {
+    const erased = accountId;
+    void forgetOnProof(databasePath, statement).then(
+      (removal) => {
+        setLeaving(true);
+        return finishErasing(erased, removalNotices[removal]);
+      },
+      (caught) => setSyncError(friendlyError(caught)),
+    );
+  }
+
+  // The account is gone; what follows only tidies what it left on the device,
+  // and nothing it does may keep the app from starting over.
+  async function finishErasing(erased: string | null, reason?: string): Promise<void> {
+    try {
+      discardPreviews();
+      if (erased) forgetPreferences(erased);
+      await forgetPush(databasePath);
+    } catch {
+      // Tidying only: the account itself is already gone.
+    } finally {
+      onAccountErased(reason);
+    }
   }
 
   function revokeLinkedDevice(deviceId: Uint8Array): void {
@@ -1654,7 +1760,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     if (!split) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       // A dialog owns the keyboard while it is open.
-      if (pendingRevoke !== null || document.querySelector('[aria-modal="true"]')) return;
+      if (pendingConfirm !== null || document.querySelector('[aria-modal="true"]')) return;
       const shortcut = desktopShortcut(event, macDesktop);
       if (!shortcut) return;
       if (membersOpen) {
@@ -1740,6 +1846,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
           />
         </Reveal>
         {isDesktop ? null : <View style={layout.flex} />}
+        {notice ? <Notice text={notice} /> : null}
         <Reveal delay={180}>
           <Actions>
             <Button label="Get started" onPress={() => goOnboarding("profile")} />
@@ -2178,6 +2285,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
                     }}
                   />
                 }
+              />
+              <Row
+                icon="warning"
+                tone="danger"
+                emphasis="danger"
+                title={devices?.canManage === false ? "Erase this device" : "Delete account"}
+                subtitle={devices?.canManage === false
+                  ? "Leaves your account and erases this device"
+                  : "Erases your username and messages everywhere"}
+                onPress={preview || busy ? undefined : confirmDeleteAccount}
               />
             </RowGroup>
           </Section>
@@ -3273,16 +3390,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
           </ScrollView>
         </Dialog>
       ) : null}
-      <Modal visible={pendingRevoke !== null} transparent onRequestClose={() => setPendingRevoke(null)}>
+      <Modal visible={pendingConfirm !== null} transparent onRequestClose={() => setPendingConfirm(null)}>
         <View style={styles.confirmOverlay}>
           <Card style={styles.confirmCard}>
-            <Text style={type.title2}>Remove this device?</Text>
-            <Text style={type.body}>It will permanently lose access to your account and future messages.</Text>
+            <Text style={type.title2}>{pendingConfirm?.title}</Text>
+            <Text style={type.body}>{pendingConfirm?.body}</Text>
             <View style={styles.confirmActions}>
-              <Button label="Cancel" variant="secondary" onPress={() => setPendingRevoke(null)} />
-              <Button label="Remove device" variant="danger" onPress={() => {
-                if (pendingRevoke) revokeLinkedDevice(pendingRevoke);
-                setPendingRevoke(null);
+              <Button label="Cancel" variant="secondary" onPress={() => setPendingConfirm(null)} />
+              <Button label={pendingConfirm?.action ?? ""} variant="danger" onPress={() => {
+                pendingConfirm?.run();
+                setPendingConfirm(null);
               }} />
             </View>
           </Card>

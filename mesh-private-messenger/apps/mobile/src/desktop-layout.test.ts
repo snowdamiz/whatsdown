@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
+  SIDEBAR_EDGE_INSET,
   SIDEBAR_INSET,
   SIDEBAR_LIST_TOP,
   SIDEBAR_MIN_WIDTH,
@@ -19,7 +20,7 @@ test('native window buttons stay centred in the inset sidebar toolbar', () => {
   const config = JSON.parse(readFileSync(new URL('../../desktop/src-tauri/tauri.conf.json', import.meta.url), 'utf8'));
   const { trafficLightPosition } = config.app.windows[0];
   assert.equal(trafficLightPosition.y - 2, SIDEBAR_INSET + TOOLBAR_HEIGHT / 2);
-  assert.equal(trafficLightPosition.x, SIDEBAR_INSET + space[4]);
+  assert.equal(trafficLightPosition.x, SIDEBAR_EDGE_INSET + space[4]);
 });
 
 test('the split layout fills every desktop window and never appears on phones or tablets', () => {

@@ -5,11 +5,15 @@ import test from 'node:test';
 import { utf8, vectors, writeU32 } from './codec.ts';
 
 const meshExports = [
+  'account_deletion_export',
   'attachment_open_chunk_export',
   'attachment_prepare_export',
   'attachment_seal_chunk_export',
   'authorize_device_link_for_set_export',
   'create_device_revocation_export',
+  'device_departure_export',
+  'erase_account_export',
+  'forget_on_proof_export',
   'register_request_export',
   'group_add_export',
   'group_create_export',
@@ -704,4 +708,82 @@ test('a lookup waits for the witnesses to sign a new checkpoint, and only for th
   meshMocks.verify_transparency_export = async () => { throw new Error('transparency_stale'); };
   await assert.rejects(resolveDeviceSet('/data/witness-wait.db', 'alice'), /transparency_stale/);
   assert.equal(lookups, 4);
+});
+
+test('this device is erased only once the directory has let the account go', async (t) => {
+  const { deleteAccount } = await import('./network.ts');
+  const database = '/data/delete.db';
+  const calls: string[] = [];
+  let statement = Uint8Array.of(1, 65, 68, 76);
+  meshMocks.account_deletion_export = async (request) => {
+    assert.deepEqual(request, utf8(database));
+    calls.push('sign');
+    return statement;
+  };
+  meshMocks.erase_account_export = async (request) => {
+    assert.deepEqual(request, utf8(database));
+    calls.push('erase');
+    return new Uint8Array();
+  };
+  let status = 500;
+  t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {
+    calls.push(`${init?.method} ${new URL(String(input)).pathname} ${hexOf(new Uint8Array(init?.body as ArrayBuffer))}`);
+    return new Response(null, { status });
+  });
+  // Unless the directory says the account is gone, it is kept whole: its key is
+  // still here to try again with. A 404 is a directory without this route.
+  for (const [answer, error] of [[500, /Server returned 500/], [404, /account_deletion_unsupported/]] as const) {
+    calls.length = 0;
+    status = answer;
+    await assert.rejects(deleteAccount(database), error);
+    assert.deepEqual(calls, ['sign', 'POST /v1/accounts/delete 0141444c']);
+  }
+  calls.length = 0;
+  status = 204;
+  await deleteAccount(database);
+  assert.deepEqual(calls, ['sign', 'POST /v1/accounts/delete 0141444c', 'erase']);
+  // A linked device holds no account key. It leaves the account on its own key
+  // instead, so that no one keeps sending to a device that is gone.
+  meshMocks.device_departure_export = async (request) => {
+    assert.deepEqual(request, utf8(database));
+    calls.push('depart');
+    return Uint8Array.of(1, 68, 80, 84);
+  };
+  statement = new Uint8Array();
+  for (const [answer, erased] of [[404, false], [204, true]] as const) {
+    calls.length = 0;
+    status = answer;
+    if (erased) await deleteAccount(database);
+    else await assert.rejects(deleteAccount(database), /account_deletion_unsupported/);
+    assert.deepEqual(calls, ['sign', 'depart', 'POST /v1/devices/leave 01445054', ...(erased ? ['erase'] : [])]);
+  }
+});
+
+test('a device no longer in its account hears it with signed proof, and erases only on it', async (t) => {
+  const { RemovedFromAccount, forgetOnProof, registerDirectory } = await import('./network.ts');
+  const statement = Uint8Array.of(1, 68, 86, 82, 9);
+  meshMocks.register_request_export = async () => Uint8Array.of(1);
+  t.mock.method(globalThis, 'fetch', async () => new Response(statement, { status: 410 }));
+  await assert.rejects(registerDirectory('/data/left.db'),
+    (error) => error instanceof RemovedFromAccount && error.message === 'removed_from_account' && hexOf(error.statement) === '014456520' + '9');
+  // The core says which proof it checked: the account deleted, this device
+  // removed by the account, or this device leaving on its own key.
+  const forgotten: Uint8Array[] = [];
+  for (const [kind, removal] of [[1, 'account-deleted'], [2, 'device-removed'], [3, 'device-left']] as const) {
+    meshMocks.forget_on_proof_export = async (request) => { forgotten.push(request); return Uint8Array.of(kind); };
+    assert.equal(await forgetOnProof('/data/left.db', statement), removal);
+  }
+  assert.deepEqual(forgotten[0], vectors(utf8('/data/left.db'), statement));
+});
+
+test('a registration the directory will never take is told apart from an outage', async (t) => {
+  const { registerDirectory } = await import('./network.ts');
+  meshMocks.register_request_export = async () => Uint8Array.of(1);
+  let status = 409;
+  t.mock.method(globalThis, 'fetch', async () => new Response(null, { status }));
+  await assert.rejects(registerDirectory('/data/refused.db'), /registration_refused/);
+  status = 410;
+  await assert.rejects(registerDirectory('/data/refused.db'), /removed_from_account/);
+  status = 503;
+  await assert.rejects(registerDirectory('/data/refused.db'), /Server returned 503/);
 });

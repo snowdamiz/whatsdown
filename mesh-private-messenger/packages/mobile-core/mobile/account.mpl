@@ -1,8 +1,14 @@
 from Identity.Device import (
   AccountKeys,
   DeviceKeys,
+  IdentityError,
   authorize_device_link,
+  issue_account_deletion,
+  issue_device_departure,
   issue_device_revocation,
+  verify_account_deletion,
+  verify_device_departure,
+  verify_device_revocation,
   issue_hybrid_device_credential,
   verify_device_link_authorization
 )
@@ -54,9 +60,14 @@ from Prekeys.Bundle import (
   generate_signed_prekey
 )
 from Protocol.DirectoryWire import (
+  decode_account_deletion,
+  decode_device_departure,
   decode_device_link_authorization,
   decode_device_link_request,
+  decode_device_revocation,
   decode_directory_entry,
+  encode_account_deletion,
+  encode_device_departure,
   encode_device_link_authorization,
   encode_device_link_request,
   encode_device_revocation,
@@ -94,8 +105,10 @@ from Storage.Keys import (
 )
 from Storage.Records import (
   ensure_account_missing,
+  erase_local_state,
   store_blobs,
   store_linked_blobs,
+  store_new_account,
   store_updated_session
 )
 from Transport.Packet import ClientProfile, decode_client_profile, encode_client_profile
@@ -208,7 +221,7 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
     let prekey_next_id_blob = seal_prekey_wide("one-time-prekey-next-id/v1",
     U64.add(one_time.id, mobile_wide("1") ?) ?,
     wrapping_key) ?
-    store_blobs(database_path,
+    store_new_account(database_path,
     ["account-signing-key/v1", "device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", one_time_label, "post-quantum-prekey/v1", "profile/v1", "one-time-prekeys/v1", "one-time-prekey-active/v1", "one-time-prekey-next-id/v1"],
     [account_blob, device_signing_blob, device_identity_blob, signed_prekey_blob, one_time_prekey_blob, post_quantum_prekey_blob, profile_blob, prekey_index_blob, prekey_active_blob, prekey_next_id_blob]) ?
     Ok(profile)
@@ -420,7 +433,7 @@ pub fn complete_link(request :: MobilePayloadRequest) -> Bytes ! String do
     let prekey_next_id_blob = seal_prekey_wide("one-time-prekey-next-id/v1",
     U64.add(one_time.id, mobile_wide("1") ?) ?,
     wrapping_key) ?
-    store_linked_blobs(request.database_path,
+    store_new_account(request.database_path,
     ["device-signing-key/v1", "device-identity-key/v1", "signed-prekey/v1", one_time_label, "post-quantum-prekey/v1", "profile/v1", "one-time-prekeys/v1", "one-time-prekey-active/v1", "one-time-prekey-next-id/v1"],
     [signing_blob, identity_blob, signed_prekey_blob, one_time_prekey_blob, post_quantum_prekey_blob, profile_blob, prekey_index_blob, prekey_active_blob, prekey_next_id_blob]) ?
     Ok(profile)
@@ -550,6 +563,123 @@ pub fn create_device_revocation(request :: MobileTriplePayloadRequest) -> Bytes 
       Err( _) -> Err("invalid_device_revocation")
       Ok( encoded) -> Ok(encoded)
     end
+  end
+end
+
+## The statement that deletes this account from the directory, signed now.
+## Empty on a linked device: only the device that created the account holds the
+## account key, so a linked device can erase only its own copy.
+
+pub fn account_deletion(database_path :: String) -> Bytes ! String do
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
+  case load_blob(database_path, "account-signing-key/v1") do
+    Err( error) -> if error == "local_state_not_found" do
+      Ok(Bytes.empty())
+    else
+      Err(error)
+    end
+    Ok( _) -> do
+      let wrapping_key = platform_key() ?
+      let account = open_account(profile, wrapping_key, database_path) ?
+      let deletion = case issue_account_deletion(account, current_time() ?) do
+        Err( _) -> Err("account_deletion_failed")
+        Ok( value) -> Ok(value)
+      end ?
+      case encode_account_deletion(deletion) do
+        Err( _) -> Err("account_deletion_failed")
+        Ok( encoded) -> Ok(encoded)
+      end
+    end
+  end
+end
+
+pub fn erase_account(database_path :: String) -> Bytes ! String do
+  erase_local_state(database_path) ?
+  Ok(Bytes.empty())
+end
+
+## The statement that takes this device out of its account, signed now by the
+## device's own key: a linked device sends it before it erases itself, so that
+## no one goes on sending to a device that is gone.
+
+pub fn device_departure(database_path :: String) -> Bytes ! String do
+  let profile = decode_client_profile(load_profile(database_path) ?) ?
+  let wrapping_key = platform_key() ?
+  let device = open_device(profile, wrapping_key, database_path) ?
+  let departure = case issue_device_departure(device, profile.account_id, current_time() ?) do
+    Err( _) -> Err("device_departure_failed")
+    Ok( value) -> Ok(value)
+  end ?
+  case encode_device_departure(departure) do
+    Err( _) -> Err("device_departure_failed")
+    Ok( encoded) -> Ok(encoded)
+  end
+end
+
+fn proven(result :: Result < Bool, IdentityError >) -> Bool do
+  case result do
+    Err( _) -> false
+    Ok( valid) -> valid
+  end
+end
+
+fn deletion_proven(profile :: ClientProfile, statement :: Bytes) -> Bool do
+  case decode_account_deletion(statement) do
+    Err( _) -> false
+    Ok( deletion) -> proven(verify_account_deletion(profile.account, deletion))
+  end
+end
+
+fn revocation_proven(profile :: ClientProfile, statement :: Bytes) -> Bool do
+  case decode_device_revocation(statement) do
+    Err( _) -> false
+    Ok( revocation) -> do
+      let this_device = Bytes.secure_equals(revocation.device_id, profile.device_id)
+      this_device && proven(verify_device_revocation(profile.account, revocation))
+    end
+  end
+end
+
+fn departure_proven(profile :: ClientProfile, statement :: Bytes) -> Bool do
+  case decode_device_departure(statement) do
+    Err( _) -> false
+    Ok( departure) -> do
+      let this_device = Bytes.secure_equals(departure.account_id, profile.account_id) && Bytes.secure_equals(departure.device_id,
+      profile.device_id)
+      let own_key = profile.credential.signing_public_key
+      this_device && proven(verify_device_departure(own_key, departure))
+    end
+  end
+end
+
+## What a statement proves about this device: 1 its account was deleted with the
+## account key, 2 the account key removed this device, 3 this device left on its
+## own key. 0 when it proves none of them.
+
+fn removal_kind(profile :: ClientProfile, statement :: Bytes) -> Int do
+  if deletion_proven(profile, statement) do
+    1
+  else if revocation_proven(profile, statement) do
+    2
+  else if departure_proven(profile, statement) do
+    3
+  else
+    0
+  end
+end
+
+## Erases this device's copy of its account when the directory says the device
+## no longer belongs to it, but only on signed proof, and answers which one. A
+## claim that does not verify against the keys this device knows changes nothing.
+
+pub fn forget_on_proof(request :: MobilePayloadRequest) -> Bytes ! String do
+  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
+  let kind = removal_kind(profile, request.payload)
+  if kind == 0 do
+    Err("unproven_removal")
+  else
+    erase_local_state(request.database_path) ?
+    mobile_byte(kind)
   end
 end
 

@@ -19,6 +19,9 @@ export async function enablePushBinding(path: string): Promise<PushStatus> {
   localStorage.setItem(key(path), 'true');
   return 'enabled';
 }
+export async function forgetPush(path: string): Promise<void> {
+  localStorage.removeItem(key(path));
+}
 export const listenForGenericWakeups = (_listener: () => void) => () => {};
 export const listenForPushRegistrationChanges = listenForGenericWakeups;
 // The desktop notification plugin has no notification-action API.

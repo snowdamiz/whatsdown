@@ -36,6 +36,11 @@ export function saveNotificationPreview(account: string, preview: NotificationPr
   localStorage.setItem(previewKey(account), preview);
 }
 
+export function forgetPreferences(account: string): void {
+  localStorage.removeItem(receiptsKey(account));
+  localStorage.removeItem(previewKey(account));
+}
+
 // How far each chat's other side has acknowledged; see ReceiptMarks.
 export const loadReceiptMarks = async (account: string): Promise<Record<string, ReceiptMarks>> =>
   parseReceiptMarks(await journals.load('receipt-marks', legacy(`${databasePath}/receipt-marks/v1/${account}`)));

@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
-import { SIDEBAR_INSET, SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, sidebarWidth } from './desktop-layout';
+import { SIDEBAR_EDGE_INSET, SIDEBAR_INSET, SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, sidebarWidth } from './desktop-layout';
 
 export function ResizableSidebar({ children, style }: { children: ReactNode; style: StyleProp<ViewStyle> }) {
   const id = useId();
@@ -11,7 +11,7 @@ export function ResizableSidebar({ children, style }: { children: ReactNode; sty
   const maximum = sidebarWidth(windowWidth, SIDEBAR_MAX_WIDTH);
 
   return (
-    <View style={{ width, flexShrink: 0, margin: SIDEBAR_INSET }}>
+    <View style={{ width, flexShrink: 0, margin: SIDEBAR_INSET, marginLeft: SIDEBAR_EDGE_INSET, marginBottom: SIDEBAR_EDGE_INSET }}>
       <View nativeID={id} style={[style, { flex: 1 }]}>{children}</View>
       <div
         role="separator"

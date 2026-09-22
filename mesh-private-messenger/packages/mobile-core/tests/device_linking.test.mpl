@@ -8,6 +8,7 @@ from MobileCore import (
   create_link_request_export,
   device_link_sas_export,
   directory_entry_export,
+  forget_on_proof_export,
   inspect_device_set_export,
   install_group_transparency_for_test,
   load_profile_export,
@@ -346,6 +347,19 @@ fn proof() -> Bool ! String do
   [inspect_row(root_credential.device_id, 1, 1) ?, inspect_row(completed_credential.device_id, 0, 0) ?]) ?
   assert(Bytes.secure_equals(inspect_device_set_export(request([Bytes.from_utf8(root_path), revoked_set]) ?) ?,
   expected_revoked))
+  # The removed device erases itself on the account's revocation of it. The
+  # root keeps everything: the revocation names another device.
+  case forget_on_proof_export(request([Bytes.from_utf8(root_path), revocation_wire]) ?) do
+    Ok( _) -> assert(false)
+    Err( error) -> assert(error == "unproven_removal")
+  end
+  assert(Bytes.secure_equals(forget_on_proof_export(request([Bytes.from_utf8(linked_path), revocation_wire]) ?) ?,
+  byte(2) ?))
+  case load_profile_export(Bytes.from_utf8(linked_path)) do
+    Ok( _) -> assert(false)
+    Err( _) -> assert(true)
+  end
+  assert(Bytes.length(load_profile_export(Bytes.from_utf8(root_path)) ?) > 0)
   File.delete(root_path) ?
   File.delete(linked_path) ?
   File.delete(sender_path) ?

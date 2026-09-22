@@ -185,6 +185,21 @@ pub struct DeviceRevocation do
   signature :: Bytes
 end
 
+pub struct AccountDeletion do
+  version :: Int
+  account_id :: Bytes
+  issued_at :: U64
+  signature :: Bytes
+end
+
+pub struct DeviceDeparture do
+  version :: Int
+  account_id :: Bytes
+  device_id :: Bytes
+  issued_at :: U64
+  signature :: Bytes
+end
+
 pub struct MailboxFetch do
   version :: Int
   mailbox_token_hash :: Bytes

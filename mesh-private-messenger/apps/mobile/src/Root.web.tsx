@@ -128,6 +128,8 @@ type Boot = { appearance: Appearance } | { error: string } | null;
 export default function Root() {
   const [boot, setBoot] = useState<Boot>(null);
   const [windowsPreview, setWindowsPreview] = useState(false);
+  // An erased account restarts the app, so nothing of it stays in memory.
+  const [session, setSession] = useState<{ generation: number; notice?: string }>({ generation: 0 });
   const preview = isDevelopmentBuild() && windowsPreview;
   const windowsUI = windowsHost || preview;
   const toggleWindowsPreview = async (enabled: boolean) => {
@@ -153,7 +155,9 @@ export default function Root() {
         <DocumentTheme />
         <WindowsChromeContext.Provider value={windowsUI}>
           <View style={{ flex: 1 }}>
-            <App windowsPreview={preview} onWindowsPreviewChange={toggleWindowsPreview} />
+            <App key={session.generation} notice={session.notice} windowsPreview={preview}
+              onWindowsPreviewChange={toggleWindowsPreview}
+              onAccountErased={(notice) => setSession(({ generation }) => ({ generation: generation + 1, notice }))} />
             {windowsUI ? <WindowsWindowControls /> : null}
           </View>
         </WindowsChromeContext.Provider>

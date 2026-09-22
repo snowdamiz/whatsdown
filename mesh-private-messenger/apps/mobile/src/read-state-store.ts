@@ -47,6 +47,10 @@ export function saveNotificationPreview(account: string, preview: NotificationPr
   file.write(preview);
 }
 
+export function forgetPreferences(account: string): void {
+  for (const file of [receiptsFile(account), previewFile(account)]) if (file.exists) file.delete();
+}
+
 // How far each chat's other side has acknowledged; see ReceiptMarks. Timestamps of
 // messages still in history only, and gone when they are.
 export const loadReceiptMarks = async (account: string): Promise<Record<string, ReceiptMarks>> =>

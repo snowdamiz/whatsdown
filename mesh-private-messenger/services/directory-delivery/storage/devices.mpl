@@ -1,19 +1,28 @@
-from Identity.Device import verify_device_revocation
+from Identity.Device import verify_account_deletion, verify_device_departure, verify_device_revocation
 from Prekeys.Pool import OneTimePrekeyPublic
 from Prekeys.Bundle import normalize_prekey_bundle, verify_prekey_bundle
-from Protocol.DirectoryWire import encode_device_revocation, encode_device_set, encode_directory_entry
+from Protocol.DirectoryWire import encode_account_deletion, encode_device_departure, encode_device_revocation, encode_device_set, encode_directory_entry
 from Protocol.IdentityWire import decode_account_identity, decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
+from Protocol.MailboxWire import mailbox_request_is_fresh
 from Protocol.V1 import (
+  AccountDeletion,
   AccountIdentity,
   DeviceCredential,
+  DeviceDeparture,
   DeviceRevocation,
   DeviceSet,
   DirectoryEntry,
   PrekeyBundle
 )
+from Storage.MailboxAuth import bundle_signing_public_key
 from Storage.Prekeys import seed_registration_prekey_on_connection
-from Storage.Transparency import append_entry_on_connection
+from Storage.Transparency import append_entry_on_connection, forget_account_entries_on_connection
+
+# DeviceRemoved: the account was deleted, or this device removed from it, for
+# good. It carries the signed statement that did it, which the device checks
+# before it erases its own copy. DeviceRetired: a device was just taken out of
+# its account; it names the mailbox to wake so the device hears it at once.
 
 pub type DeviceWrite do
   DeviceAccepted
@@ -25,6 +34,21 @@ pub type DeviceWrite do
   DeviceInvalid
 
   DeviceLogFull
+
+  DeviceRemoved( statement :: Bytes)
+
+  DeviceRetired( mailbox :: Bytes)
+end deriving(Eq, Debug)
+
+# AccountRemoved is also the answer for an account that is already gone, or
+# was never registered: either way nothing of it is left, and a retry after a
+# lost answer succeeds. It lists the mailboxes to wake, so that devices still
+# listening learn at once.
+
+pub type AccountRemoval do
+  AccountRemoved( mailboxes :: List < Bytes >)
+
+  AccountRemovalRefused
 end deriving(Eq, Debug)
 
 struct VerifiedRegistration do
@@ -132,6 +156,45 @@ fn ids(rows :: List < Map < String, DbValue > >) -> List < Bytes > ! String do
     binary(Map.get(row, "device_id")) ?
   end
   Ok(values)
+end
+
+fn mailbox_hashes(rows :: List < Map < String, DbValue > >) -> List < Bytes > ! String do
+  let values = for row in rows do
+    binary(Map.get(row, "mailbox_token_hash")) ?
+  end
+  Ok(values)
+end
+
+fn removal_statement(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes) -> Bytes ! String do
+  let rows = Pool.query_values(pool,
+  "SELECT statement FROM messenger_revoked_devices WHERE account_id = $1 AND device_id = $2 AND statement IS NOT NULL",
+  [Binary(account_id), Binary(device_id)]) ?
+  if List.length(rows) != 1 do
+    Err("removed device missing")
+  else
+    binary(Map.get(List.head(rows), "statement"))
+  end
+end
+
+## A kept statement says how a device was removed, and the device is shown it.
+## One removed before statements were kept is only refused.
+
+fn revoked_error(row :: Map < String, DbValue >) -> String do
+  case Map.get(row, "statement") do
+    Binary( _) -> "messenger_device_revoked"
+    _ -> "messenger_devices_conflict"
+  end
+end
+
+fn deletion_statement(pool :: PoolHandle, account_id :: Bytes) -> Bytes ! String do
+  let rows = Pool.query_values(pool,
+  "SELECT statement FROM messenger_deleted_accounts WHERE account_id = $1",
+  [Binary(account_id)]) ?
+  if List.length(rows) != 1 do
+    Err("deleted account missing")
+  else
+    binary(Map.get(List.head(rows), "statement"))
+  end
 end
 
 fn resolve_on_connection(conn :: borrow PgConn, username :: String) -> Option < DeviceSet > ! String do
@@ -242,6 +305,13 @@ initial_prekey :: Option < OneTimePrekeyPublic >) -> DeviceWrite ! String do
   let _ = Pg.execute_values(conn,
   "INSERT INTO messenger_accounts (username, account_id, account_identity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
   [Text(entry.username), Binary(account.account_id), Binary(entry.account_identity)]) ?
+  # After the insert, which waits out a deletion of this account in progress.
+  let deleted = Pg.query_values(conn,
+  "SELECT account_id FROM messenger_deleted_accounts WHERE account_id = $1",
+  [Binary(account.account_id)]) ?
+  if List.length(deleted) > 0 do
+    return Err("messenger_account_deleted")
+  end
   let accounts = Pg.query_values(conn,
   "SELECT username, account_id, account_identity, sequence::text, (SELECT count(*)::text FROM messenger_devices WHERE account_id = messenger_accounts.account_id AND revoked_at IS NULL) AS active_count FROM messenger_accounts WHERE username = $1 OR account_id = $2 FOR UPDATE",
   [Text(entry.username), Binary(account.account_id)]) ?
@@ -257,10 +327,10 @@ initial_prekey :: Option < OneTimePrekeyPublic >) -> DeviceWrite ! String do
     return Err("messenger_devices_conflict")
   end
   let revoked = Pg.query_values(conn,
-  "SELECT sequence::text FROM messenger_revoked_devices WHERE account_id = $1 AND device_id = $2",
+  "SELECT statement FROM messenger_revoked_devices WHERE account_id = $1 AND device_id = $2",
   [Binary(account.account_id), Binary(credential.device_id)]) ?
   if List.length(revoked) > 0 do
-    return Err("messenger_devices_conflict")
+    return Err(revoked_error(List.head(revoked)))
   end
   let existing = Pg.query_values(conn,
   "SELECT device.prekey_bundle, device.mailbox_token, device.mailbox_token_hash, mailbox.active::text AS mailbox_active FROM messenger_devices AS device JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = device.mailbox_token_hash WHERE device.account_id = $1 AND device.device_id = $2 AND device.revoked_at IS NULL FOR UPDATE OF device, mailbox",
@@ -321,6 +391,12 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
       verified.initial_prekey) end) do
         Err( error) -> if String.contains(error, "transparency_log_full") do
           Ok(DeviceLogFull)
+        else if String.contains(error, "messenger_account_deleted") do
+          Ok(DeviceRemoved(deletion_statement(pool, verified.account.account_id) ?))
+        else if String.contains(error, "messenger_device_revoked") do
+          Ok(DeviceRemoved(removal_statement(pool,
+          verified.account.account_id,
+          verified.credential.device_id) ?))
         else if String.contains(error, "messenger_devices_") || String.contains(error,
         "duplicate key") do
           Ok(DeviceConflict)
@@ -371,22 +447,49 @@ fn revoke_on_connection(conn :: borrow PgConn, value :: DeviceRevocation) -> Dev
   if integer(Map.get(device, "active_count")) ? <= 1 do
     return Err("messenger_revoked_devices_conflict")
   end
+  let statement = case encode_device_revocation(value) do
+    Err( _) -> Err("invalid device revocation")
+    Ok( encoded) -> Ok(encoded)
+  end ?
+  retire_on_connection(conn,
+  value.account_id,
+  value.device_id,
+  binary(Map.get(device, "mailbox_token_hash")) ?,
+  text(Map.get(row, "username")) ?,
+  sequence,
+  value.sequence,
+  statement)
+end
+
+## Takes one device out of its account's logged device set: its ID is revoked
+## for good, its mailbox stops taking envelopes, and its prekeys go. The signed
+## statement that removed it is kept to show the device.
+
+fn retire_on_connection(conn :: borrow PgConn,
+account_id :: Bytes,
+device_id :: Bytes,
+mailbox_token_hash :: Bytes,
+username :: String,
+sequence :: U64,
+next_sequence :: U64,
+statement :: Bytes) -> DeviceWrite ! String do
   let _ = Pg.execute_values(conn,
-  "INSERT INTO messenger_revoked_devices (account_id, device_id, sequence) VALUES ($1, $2, $3::bigint)",
-  [Binary(value.account_id), Binary(value.device_id), Text(U64.to_string(value.sequence))]) ?
+  "INSERT INTO messenger_revoked_devices (account_id, device_id, sequence, statement) VALUES ($1, $2, $3::bigint, $4)",
+  [Binary(account_id), Binary(device_id), Text(U64.to_string(next_sequence)), Binary(statement)]) ?
   let changed = Pg.execute_values(conn,
   "UPDATE messenger_devices SET revoked_at = now() WHERE account_id = $1 AND device_id = $2 AND revoked_at IS NULL",
-  [Binary(value.account_id), Binary(value.device_id)]) ?
+  [Binary(account_id), Binary(device_id)]) ?
   let mailbox_changed = Pg.execute_values(conn,
   "UPDATE messenger_mailboxes SET active = false WHERE mailbox_token_hash = $1 AND active",
-  [Binary(binary(Map.get(device, "mailbox_token_hash")) ?)]) ?
+  [Binary(mailbox_token_hash)]) ?
   let sequence_changed = Pg.execute_values(conn,
   "UPDATE messenger_accounts SET sequence = $2::bigint, updated_at = now() WHERE account_id = $1 AND sequence = $3::bigint",
-  [Binary(value.account_id), Text(U64.to_string(value.sequence)), Text(U64.to_string(sequence))]) ?
+  [Binary(account_id), Text(U64.to_string(next_sequence)), Text(U64.to_string(sequence))]) ?
   if changed != 1 || mailbox_changed != 1 || sequence_changed != 1 do
     return Err("device revocation changed concurrently")
   end
-  record_device_set(conn, value.account_id, text(Map.get(row, "username")) ?, false)
+  let _ = record_device_set(conn, account_id, username, false) ?
+  Ok(DeviceRetired(mailbox_token_hash))
 end
 
 pub fn revoke_device(pool :: PoolHandle, value :: DeviceRevocation) -> DeviceWrite ! String do
@@ -394,6 +497,128 @@ pub fn revoke_device(pool :: PoolHandle, value :: DeviceRevocation) -> DeviceWri
     Err( _) -> Ok(DeviceInvalid)
     Ok( _) -> case Repo.transaction(pool,
     fn (conn :: borrow PgConn) -> revoke_on_connection(conn, value) end) do
+      Err( error) -> if String.contains(error, "transparency_log_full") do
+        Ok(DeviceLogFull)
+      else if String.contains(error, "messenger_revoked_devices_") || String.contains(error,
+      "duplicate key") do
+        Ok(DeviceConflict)
+      else
+        Err(error)
+      end
+      Ok( result) -> Ok(result)
+    end
+  end
+end
+
+fn delete_on_connection(conn :: borrow PgConn, value :: AccountDeletion) -> AccountRemoval ! String do
+  let accounts = Pg.query_values(conn,
+  "SELECT account_identity FROM messenger_accounts WHERE account_id = $1 FOR UPDATE",
+  [Binary(value.account_id)]) ?
+  if List.length(accounts) != 1 do
+    return Ok(AccountRemoved([]))
+  end
+  let account = case decode_account_identity(binary(Map.get(List.head(accounts), "account_identity")) ?) do
+    Err( _) -> Err("invalid stored account identity")
+    Ok( decoded) -> Ok(decoded)
+  end ?
+  let signed = case verify_account_deletion(account, value) do
+    Err( _) -> false
+    Ok( result) -> result
+  end
+  if !signed do
+    return Ok(AccountRemovalRefused)
+  end
+  let statement = case encode_account_deletion(value) do
+    Err( _) -> Err("invalid account deletion")
+    Ok( encoded) -> Ok(encoded)
+  end ?
+  let listening = mailbox_hashes(Pg.query_values(conn,
+  "SELECT mailbox_token_hash FROM messenger_devices WHERE account_id = $1 AND revoked_at IS NULL",
+  [Binary(value.account_id)]) ?) ?
+  # Envelopes before the mailboxes they are queued in. Prekeys go with their
+  # devices, and push bindings and contact addresses with their mailboxes.
+  let _ = Pg.execute_values(conn,
+  "DELETE FROM messenger_envelopes WHERE mailbox_token_hash IN (SELECT mailbox_token_hash FROM messenger_devices WHERE account_id = $1)",
+  [Binary(value.account_id)]) ?
+  let _ = Pg.execute_values(conn,
+  "WITH devices AS (DELETE FROM messenger_devices WHERE account_id = $1 RETURNING mailbox_token_hash) DELETE FROM messenger_mailboxes WHERE mailbox_token_hash IN (SELECT mailbox_token_hash FROM devices)",
+  [Binary(value.account_id)]) ?
+  let _ = Pg.execute_values(conn,
+  "DELETE FROM messenger_revoked_devices WHERE account_id = $1",
+  [Binary(value.account_id)]) ?
+  let _ = Pg.execute_values(conn,
+  "DELETE FROM messenger_accounts WHERE account_id = $1",
+  [Binary(value.account_id)]) ?
+  let _ = Pg.execute_values(conn,
+  "INSERT INTO messenger_deleted_accounts (account_id, statement) VALUES ($1, $2)",
+  [Binary(value.account_id), Binary(statement)]) ?
+  forget_account_entries_on_connection(conn, value.account_id) ?
+  Ok(AccountRemoved(listening))
+end
+
+## Deletes an account on a fresh statement signed by its own key. Freshness is
+## checked first, so a stale or replayed statement costs no query.
+
+pub fn delete_account(pool :: PoolHandle, value :: AccountDeletion) -> AccountRemoval ! String do
+  if !mailbox_request_is_fresh(value.issued_at, current_time() ?) do
+    Ok(AccountRemovalRefused)
+  else
+    Repo.transaction(pool, fn (conn :: borrow PgConn) -> delete_on_connection(conn, value) end)
+  end
+end
+
+fn leave_on_connection(conn :: borrow PgConn, value :: DeviceDeparture) -> DeviceWrite ! String do
+  let accounts = Pg.query_values(conn,
+  "SELECT username, sequence::text FROM messenger_accounts WHERE account_id = $1 FOR UPDATE",
+  [Binary(value.account_id)]) ?
+  if List.length(accounts) != 1 do
+    return Ok(DeviceUnchanged)
+  end
+  let row = List.head(accounts)
+  let devices = Pg.query_values(conn,
+  "SELECT prekey_bundle, mailbox_token_hash, (SELECT count(*)::text FROM messenger_devices WHERE account_id = $1 AND revoked_at IS NULL) AS active_count FROM messenger_devices WHERE account_id = $1 AND device_id = $2 AND revoked_at IS NULL",
+  [Binary(value.account_id), Binary(value.device_id)]) ?
+  if List.length(devices) != 1 do
+    return Ok(DeviceUnchanged)
+  end
+  let device = List.head(devices)
+  let signed = case verify_device_departure(bundle_signing_public_key(binary(Map.get(device,
+  "prekey_bundle")) ?) ?,
+  value) do
+    Err( _) -> false
+    Ok( result) -> result
+  end
+  if !signed do
+    return Ok(DeviceInvalid)
+  end
+  # The last device deletes the account instead of leaving one with no device.
+  if integer(Map.get(device, "active_count")) ? <= 1 do
+    return Err("messenger_revoked_devices_conflict")
+  end
+  let sequence = wide(Map.get(row, "sequence")) ?
+  let statement = case encode_device_departure(value) do
+    Err( _) -> Err("invalid device departure")
+    Ok( encoded) -> Ok(encoded)
+  end ?
+  retire_on_connection(conn,
+  value.account_id,
+  value.device_id,
+  binary(Map.get(device, "mailbox_token_hash")) ?,
+  text(Map.get(row, "username")) ?,
+  sequence,
+  U64.add(sequence, U64.parse("1") ?) ?,
+  statement)
+end
+
+## A device leaves its account on a fresh statement signed by its own key, and
+## is revoked like a removed one. An account or device already gone answers as
+## if it had just left, so a retry succeeds.
+
+pub fn leave_device(pool :: PoolHandle, value :: DeviceDeparture) -> DeviceWrite ! String do
+  if !mailbox_request_is_fresh(value.issued_at, current_time() ?) do
+    Ok(DeviceInvalid)
+  else
+    case Repo.transaction(pool, fn (conn :: borrow PgConn) -> leave_on_connection(conn, value) end) do
       Err( error) -> if String.contains(error, "transparency_log_full") do
         Ok(DeviceLogFull)
       else if String.contains(error, "messenger_revoked_devices_") || String.contains(error,

@@ -72,6 +72,27 @@ test('friendlyError maps known protocol and network failures to plain language',
     friendlyError(new Error('Server returned 500')),
     'The server hit a problem. Try again in a moment.',
   );
+  assert.equal(friendlyError(new Error('username_taken')), 'That username is taken. Try another.');
+  assert.equal(
+    friendlyError(new Error('account_deletion_unsupported')),
+    'This server can’t delete accounts yet. Nothing was erased.',
+  );
+  assert.equal(
+    friendlyError(new Error('unproven_removal')),
+    'The server says this device is no longer in its account but can’t prove it. Nothing was erased.',
+  );
+  assert.equal(
+    friendlyError(new Error('account_deletion_refused')),
+    'The server refused to delete the account. Check this device’s date and time, then try again.',
+  );
+  assert.equal(
+    friendlyError(new Error('removed_from_account')),
+    'This device is no longer part of its account. Erase it in You to start again.',
+  );
+  assert.equal(
+    friendlyError(new Error('registration_refused')),
+    'The server won’t register this device. If it was removed from your account, erase it in You to start again.',
+  );
 });
 
 test('friendlyError strips native noise from unknown failures and keeps app copy intact', () => {

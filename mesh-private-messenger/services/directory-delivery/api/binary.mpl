@@ -1,5 +1,5 @@
 from Storage.Transparency import transparency_username
-from Protocol.DirectoryWire import decode_device_revocation, decode_directory_entry
+from Protocol.DirectoryWire import decode_account_deletion, decode_device_departure, decode_device_revocation, decode_directory_entry
 from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.MailboxWire import decode_mailbox_ack, decode_mailbox_fetch, encode_delivery_batch
 from Protocol.PrekeyWire import encode_prekey_bundle
@@ -9,7 +9,8 @@ from Privacy.Edge import RequestStamp, decode_sealed_delivery, decode_stamped_re
 from Push.Binding import decode_push_bind, decode_push_unbind
 from Storage.Delivery import DeliveryInsert, acknowledge_mailbox, enqueue_envelope, fetch_mailbox
 from Storage.MailboxAuth import authorize_mailbox_ack, authorize_mailbox_fetch
-from Storage.Devices import DeviceWrite, register_device, resolve_devices, revoke_device
+from Runtime.MailboxStream import wake_mailbox
+from Storage.Devices import AccountRemoval, DeviceWrite, delete_account, leave_device, register_device, resolve_devices, revoke_device
 from Storage.Push import PushWrite, bind_push, unbind_push
 from Storage.RateLimit import allow_request
 from Storage.Prekeys import PrekeyClaimWrite, PrekeyPublishWrite, claim_prekey, publish_prekeys
@@ -120,6 +121,8 @@ fn device_write(result :: Result < DeviceWrite, String >) -> BinaryResult do
     # The transparency log has no room for this transition. Nothing was
     # committed; lookups and existing accounts are unaffected.
     Ok( DeviceLogFull) -> empty(507)
+    Ok( DeviceRemoved( statement)) -> response(410, statement)
+    Ok( DeviceRetired( _)) -> empty(500)
   end
 end
 
@@ -289,6 +292,47 @@ pub fn revoke_device_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult 
       Ok( DeviceConflict) -> empty(409)
       Ok( DeviceInvalid) -> empty(400)
       Ok( DeviceLogFull) -> empty(507)
+      Ok( DeviceRemoved( _)) -> empty(410)
+      Ok( DeviceRetired( mailbox)) -> do
+        # The removed device fetches at once, fails, reconnects, and is told why.
+        wake_mailbox(mailbox)
+        empty(200)
+      end
+    end
+  end
+end
+
+# 204 once the account is gone: deleted now, earlier, or never registered, so a
+# retry after a lost answer succeeds. A client erases its copy only on 204; the
+# 404 of a directory without this route must leave the account whole.
+
+pub fn delete_account_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
+  case decode_account_deletion(body) do
+    Err( _) -> empty(400)
+    Ok( deletion) -> case delete_account(pool, deletion) do
+      Err( _) -> empty(500)
+      Ok( AccountRemoved( mailboxes)) -> do
+        # Its other devices fetch at once, fail, reconnect, and are told why.
+        let _ = List.map(mailboxes, fn (mailbox) -> wake_mailbox(mailbox) end)
+        empty(204)
+      end
+      Ok( AccountRemovalRefused) -> empty(403)
+    end
+  end
+end
+
+# 204 once the device is out of its account, also when it or the account
+# already was. 409 for the last device, which deletes the account instead.
+
+pub fn leave_device_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
+  case decode_device_departure(body) do
+    Err( _) -> empty(400)
+    Ok( departure) -> case leave_device(pool, departure) do
+      Err( _) -> empty(500)
+      Ok( DeviceInvalid) -> empty(403)
+      Ok( DeviceConflict) -> empty(409)
+      Ok( DeviceLogFull) -> empty(507)
+      Ok( _) -> empty(204)
     end
   end
 end

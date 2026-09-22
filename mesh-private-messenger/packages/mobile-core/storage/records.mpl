@@ -64,6 +64,55 @@ blobs :: List < Bytes >) -> Result <(), String > do
   end)
 end
 
+fn delete_every_record(database :: SqliteConn) -> Result <(), String > do
+  case Sqlite.execute(database, "DELETE FROM encrypted_blobs", []) do
+    Err( _) -> Err("database_write_failed")
+    Ok( _) -> Ok(nil)
+  end
+end
+
+## A new account's records replace whatever else the table holds. With no
+## profile that can only be what an erased or abandoned account left, and a
+## leftover under one of the new labels would otherwise refuse every new account.
+## An existing profile is never replaced.
+
+pub fn store_new_account(database_path :: String,
+labels :: List < String >,
+blobs :: List < Bytes >) -> Result <(), String > do
+  with_record_transaction(database_path,
+  fn (database) do
+    let profiles = case Sqlite.query_values(database,
+    "SELECT record_hash FROM encrypted_blobs WHERE record_hash = ?",
+    [Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("profile/v1"))))]) do
+      Err( _) -> Err("database_read_failed")
+      Ok( rows) -> Ok(rows)
+    end ?
+    if List.length(profiles) > 0 do
+      Err("account_already_exists")
+    else
+      delete_every_record(database) ?
+      insert_blobs(database, labels, blobs, 0)
+    end
+  end)
+end
+
+## Everything this device stores for its account, in one transaction. VACUUM
+## then rewrites the file so the records do not linger in its free pages; it
+## needs spare disk, and the erase stands without it.
+
+pub fn erase_local_state(database_path :: String) -> Result <(), String > do
+  ensure_schema(database_path) ?
+  with_record_transaction(database_path, fn (database) do delete_every_record(database) end) ?
+  case Sqlite.open(database_path) do
+    Err( _) -> Ok(nil)
+    Ok( database) -> do
+      let _ = Sqlite.execute(database, "VACUUM", [])
+      Sqlite.close(database)
+      Ok(nil)
+    end
+  end
+end
+
 pub fn store_blobs(database_path :: String, labels :: List < String >, blobs :: List < Bytes >) -> Result <(), String > do
   with_record_transaction(database_path,
   fn (database) do insert_blobs(database, labels, blobs, 0) end)

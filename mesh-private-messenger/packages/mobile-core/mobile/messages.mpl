@@ -4,7 +4,7 @@ from Identity.Device import DeviceKeys, VerificationPolicy
 from Mobile.Codec import canonical_outer, current_time, random_bytes
 from Mobile.ContactAddress import deposit_address, learned_contact_address_writes, outgoing_extensions
 from Mobile.FanoutPrekeys import matching_fanout_prekey_state_labels
-from Mobile.History import updated_history
+from Mobile.History import accepted_request_writes, updated_history
 from Mobile.GroupInvitesState import received_invitation_writes
 from Mobile.Outbox import load_outbox_ids, outbox_capacity, prepare_outbox_writes
 from Mobile.Prekeys import (
@@ -22,6 +22,7 @@ from Mobile.Prekeys import (
 from Mobile.Profile import load_profile, open_device, open_prekeys, policy
 from Mobile.Transport import MobileOpenedPacket, open_outer_packet, sealed_outer_bytes
 from Mobile.Sessions import (
+  direct_conversation_id,
   ensure_conversation_alias,
   find_peer_session,
   initial_bytes,
@@ -40,6 +41,7 @@ from Mobile.Sessions import (
   seal_session_ids,
   seal_updated_session,
   seal_upgraded_session,
+  self_sync_conversation_id,
   strongest_device_suite,
   sync_history_inner,
   updated_session_index
@@ -125,7 +127,7 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   let session_ids = load_session_ids(request.database_path, wrapping_key) ?
   let local_device = open_device(local, wrapping_key, request.database_path) ?
   let now = current_time() ?
-  let conversation_id = random_bytes(16) ?
+  let conversation_id = direct_conversation_id(local.account_id, peer.account_id) ?
   # The peer copy re-addresses the attachment key to the peer device; history keeps the local copy.
   let history_inner = InnerEnvelope {
     version : 1,
@@ -382,9 +384,22 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
       local.account_id)
       let valid_kind = self_sync || ((inner.message_type == 1 || inner.message_type == 3 || inner.message_type == 4) && !Bytes.secure_equals(peer.account_id,
       local.account_id))
-      let conversation_mismatch = case previous do
-        None -> false
+      let expected_conversation = if self_sync do
+        self_sync_conversation_id(local.account_id) ?
+      else
+        direct_conversation_id(local.account_id, peer.account_id) ?
+      end
+      # A conversation from before names were derived still goes by the name
+      # in this device's record, so what was in flight at an upgrade arrives.
+      let conversation_mismatch = !Bytes.secure_equals(inner.conversation_id, expected_conversation) && case previous do
+        None -> true
         Some( loaded) -> !Bytes.secure_equals(inner.conversation_id, loaded.record.conversation_id)
+      end
+      # The name this device files the conversation under is its own records'
+      # business; a wire name only ever adds to what is already here.
+      let conversation_key = case previous do
+        None -> inner.conversation_id
+        Some( loaded) -> loaded.record.conversation_id
       end
       let mismatch = !valid_kind || conversation_mismatch || !Bytes.secure_equals(peer.entry.account_identity,
       packet_account_identity) || !Bytes.secure_equals(inner.sender_account_id, peer.account_id) || !Bytes.secure_equals(inner.sender_device_id,
@@ -434,19 +449,29 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
           if Bytes.secure_equals(sync.peer_account_id, local.account_id) do
             Err("invalid_sync_payload")
           else
-            let history_inner = sync_history_inner(local, sync, inner.attachment_manifest) ?
-            ensure_conversation_alias(request.database_path, wrapping_key, local, sync) ?
+            let synced_key = ensure_conversation_alias(request.database_path,
+            wrapping_key,
+            local,
+            sync,
+            session_ids) ?
+            let synced = sync_history_inner(local, sync, inner.attachment_manifest) ?
+            let history_inner = % { synced | conversation_id : synced_key }
             let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
             let ( history_keys, history_blobs) = updated_history(request.database_path,
             wrapping_key,
             history_inner,
             1) ?
+            # A sibling device could only send this once the request was accepted there.
+            let ( accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
+            wrapping_key,
+            sync.peer_account_id,
+            session_ids) ?
             store_received_session(request.database_path,
             label,
             session_blob,
             index_blob,
-            history_keys,
-            history_blobs,
+            List.concat(history_keys, accepted_labels),
+            List.concat(history_blobs, accepted_blobs),
             removed_labels,
             prekey_labels,
             prekey_blobs) ?
@@ -472,7 +497,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
           let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
           let ( history_keys, history_blobs) = updated_history(request.database_path,
           wrapping_key,
-          inner,
+          % { inner | conversation_id : conversation_key },
           2) ?
           store_received_session(request.database_path,
           label,
@@ -549,8 +574,9 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes ! String do
     end ?
     # The sent copy hands over this device's contact address; history does not keep it.
     let handed_over = outgoing_extensions(request.database_path, wrapping_key) ?
+    let wire_conversation_id = direct_conversation_id(local.account_id, requested_peer.account_id) ?
     let ( next_state, message) = case encrypt_sealed(state,
-    inner_bytes(% { inner | extensions : handed_over }) ?,
+    inner_bytes(% { inner | conversation_id : wire_conversation_id, extensions : handed_over }) ?,
     session_aad(loaded.session_id) ?) do
       Err( _) -> Err("message_encryption_failed")
       Ok( value) -> Ok(value)
@@ -621,10 +647,11 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
       Ok(nil)
     end ?
     let loaded = load_session_record(request.database_path, wrapping_key, message.session_id) ?
+    let session_ids = load_session_ids(request.database_path, wrapping_key) ?
     let peer_policy = find_peer_session(request.database_path,
     wrapping_key,
     loaded.record.peer_account_id,
-    load_session_ids(request.database_path, wrapping_key) ?,
+    session_ids,
     0) ?
     let state = restore_session(loaded, wrapping_key) ?
     case decrypt(state, message, session_aad(loaded.session_id) ?) do
@@ -642,11 +669,16 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
         local.account_id)
         let valid_kind = self_sync || ((inner.message_type == 1 || inner.message_type == 3 || inner.message_type == 4) && !Bytes.secure_equals(loaded.record.peer_account_id,
         local.account_id))
+        let expected_conversation = if self_sync do
+          self_sync_conversation_id(local.account_id) ?
+        else
+          direct_conversation_id(local.account_id, loaded.record.peer_account_id) ?
+        end
         let mismatch = !valid_kind || !Bytes.secure_equals(inner.sender_account_id,
         loaded.record.peer_account_id) || !Bytes.secure_equals(inner.sender_device_id,
         loaded.record.peer_device_id) || !Bytes.secure_equals(inner.recipient_device_id,
-        local.device_id) || !Bytes.secure_equals(inner.conversation_id,
-        loaded.record.conversation_id)
+        local.device_id) || (!Bytes.secure_equals(inner.conversation_id, expected_conversation) && !Bytes.secure_equals(inner.conversation_id,
+        loaded.record.conversation_id))
         if mismatch do
           reject_message(next_state, "message_rejected")
         else
@@ -674,23 +706,33 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
             if Bytes.secure_equals(sync.peer_account_id, local.account_id) do
               Err("invalid_sync_payload")
             else
-              let history_inner = sync_history_inner(local, sync, inner.attachment_manifest) ?
-              ensure_conversation_alias(request.database_path, wrapping_key, local, sync) ?
+              let synced_key = ensure_conversation_alias(request.database_path,
+              wrapping_key,
+              local,
+              sync,
+              session_ids) ?
+              let synced = sync_history_inner(local, sync, inner.attachment_manifest) ?
+              let history_inner = % { synced | conversation_id : synced_key }
               let ( history_keys, history_blobs) = updated_history(request.database_path,
               wrapping_key,
               history_inner,
               1) ?
+              # A sibling device could only send this once the request was accepted there.
+              let ( accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
+              wrapping_key,
+              sync.peer_account_id,
+              session_ids) ?
               store_updated_session_and_history(request.database_path,
               loaded.label,
               session_blob,
-              history_keys,
-              history_blobs) ?
+              List.concat(history_keys, accepted_labels),
+              List.concat(history_blobs, accepted_blobs)) ?
               Ok(presented_body(history_inner.body))
             end
           else
             let ( history_keys, history_blobs) = updated_history(request.database_path,
             wrapping_key,
-            inner,
+            % { inner | conversation_id : loaded.record.conversation_id },
             2) ?
             store_updated_session_and_history(request.database_path,
             loaded.label,

@@ -1,4 +1,6 @@
 from Protocol.DirectoryWire import (
+  encode_account_deletion,
+  encode_device_departure,
   encode_device_link_authorization,
   encode_device_link_request,
   encode_device_revocation
@@ -10,8 +12,10 @@ from Protocol.IdentityWire import (
   encode_device_credential
 )
 from Protocol.V1 import (
+  AccountDeletion,
   AccountIdentity,
   DeviceCredential,
+  DeviceDeparture,
   DeviceLinkAuthorization,
   DeviceLinkRequest,
   DeviceRevocation,
@@ -449,5 +453,71 @@ pub fn verify_device_revocation(account :: AccountIdentity, value :: DeviceRevoc
       Err( error) -> Err(CryptoFailure(error))
       Ok( valid) -> Ok(valid)
     end
+  end
+end
+
+fn deletion_signing_bytes(value :: AccountDeletion) -> Bytes ! IdentityError do
+  identity_append(Bytes.from_utf8("mesh-msg/v1/account-deletion"),
+  protocol_bytes(encode_account_deletion(% { value | signature : empty_signature() ? })) ?)
+end
+
+## Deletes the whole account: every device, the username, and all it left on
+## the directory. The time is signed so a verifier can refuse a stale statement.
+
+pub fn issue_account_deletion(account :: borrow AccountKeys, issued_at :: U64) -> AccountDeletion ! IdentityError do
+  let unsigned = AccountDeletion {
+    version : 1,
+    account_id : account.account_id,
+    issued_at : issued_at,
+    signature : empty_signature() ?
+  }
+  case Crypto.sign(account.private_key, deletion_signing_bytes(unsigned) ?) do
+    Err( error) -> Err(CryptoFailure(error))
+    Ok( signature) -> Ok(% { unsigned | signature : signature.bytes })
+  end
+end
+
+pub fn verify_account_deletion(account :: AccountIdentity, value :: AccountDeletion) -> Bool ! IdentityError do
+  if !Bytes.secure_equals(account.account_id, value.account_id) do
+    Ok(false)
+  else
+    case Crypto.verify(SigningPublicKey { bytes : account.authorization_public_key },
+    deletion_signing_bytes(value) ?,
+    Signature { bytes : value.signature }) do
+      Err( error) -> Err(CryptoFailure(error))
+      Ok( valid) -> Ok(valid)
+    end
+  end
+end
+
+fn departure_signing_bytes(value :: DeviceDeparture) -> Bytes ! IdentityError do
+  identity_append(Bytes.from_utf8("mesh-msg/v1/device-departure"),
+  protocol_bytes(encode_device_departure(% { value | signature : empty_signature() ? })) ?)
+end
+
+## Takes one device out of its account, signed by that device alone: it can
+## only ever remove itself. Linked devices hold no account key, so this is how
+## one leaves instead of lingering as a device that no one can reach.
+
+pub fn issue_device_departure(device :: borrow DeviceKeys, account_id :: Bytes, issued_at :: U64) -> DeviceDeparture ! IdentityError do
+  let unsigned = DeviceDeparture {
+    version : 1,
+    account_id : account_id,
+    device_id : device.device_id,
+    issued_at : issued_at,
+    signature : empty_signature() ?
+  }
+  case Crypto.sign(device.signing_private_key, departure_signing_bytes(unsigned) ?) do
+    Err( error) -> Err(CryptoFailure(error))
+    Ok( signature) -> Ok(% { unsigned | signature : signature.bytes })
+  end
+end
+
+pub fn verify_device_departure(signing_public_key :: Bytes, value :: DeviceDeparture) -> Bool ! IdentityError do
+  case Crypto.verify(SigningPublicKey { bytes : signing_public_key },
+  departure_signing_bytes(value) ?,
+  Signature { bytes : value.signature }) do
+    Err( error) -> Err(CryptoFailure(error))
+    Ok( valid) -> Ok(valid)
   end
 end

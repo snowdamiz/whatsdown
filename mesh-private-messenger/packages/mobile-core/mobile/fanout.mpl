@@ -16,6 +16,7 @@ from Mobile.Profile import load_profile, open_device, policy
 from Mobile.Transport import sealed_outer_bytes
 from Mobile.Sessions import (
   device_needs_prekey,
+  direct_conversation_id,
   encode_sync_payload,
   find_device_session,
   find_peer_session,
@@ -128,6 +129,7 @@ local_encode_client_profile :: Bytes,
 local :: ClientProfile,
 peer :: ClientProfile,
 inner :: InnerEnvelope,
+conversation_id :: Bytes,
 wrapping_key :: borrow StorageKey,
 previous :: Option < MobileLoadedSession >,
 strongest_suite :: Int,
@@ -153,7 +155,7 @@ deposit :: Bytes) -> MobilePreparedSend ! String do
   peer.credential.dh_public_key,
   inner.client_timestamp) ?
   let ( session_id, label, session_blob) = case previous do
-    None -> seal_session(state, wrapping_key, local, claimed_peer, inner.conversation_id, 1, false)
+    None -> seal_session(state, wrapping_key, local, claimed_peer, conversation_id, 1, false)
     Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, local, claimed_peer)
   end ?
   Ok(MobilePreparedSend {
@@ -173,7 +175,8 @@ local_device :: borrow DeviceKeys,
 local_encode_client_profile :: Bytes,
 local :: ClientProfile,
 peer :: ClientProfile,
-inner :: InnerEnvelope) -> MobilePreparedSend ! String do
+inner :: InnerEnvelope,
+conversation_id :: Bytes) -> MobilePreparedSend ! String do
   case find_device_session(database_path,
   wrapping_key,
   peer.account_id,
@@ -181,8 +184,7 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
   session_ids,
   0) do
     Ok( loaded) -> do
-      let changed = !Bytes.secure_equals(loaded.record.peer_mailbox, peer.entry.mailbox_token) || !Bytes.secure_equals(loaded.record.conversation_id,
-      inner.conversation_id) || (Bytes.length(loaded.record.safety_number) == 64 && !Bytes.secure_equals(loaded.record.safety_number,
+      let changed = !Bytes.secure_equals(loaded.record.peer_mailbox, peer.entry.mailbox_token) || (Bytes.length(loaded.record.safety_number) == 64 && !Bytes.secure_equals(loaded.record.safety_number,
       safety_number(local, peer) ?))
       if changed do
         Err("peer_keys_changed")
@@ -196,6 +198,7 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
         local,
         peer,
         inner,
+        conversation_id,
         wrapping_key,
         Some(loaded),
         strongest_suite,
@@ -234,6 +237,7 @@ inner :: InnerEnvelope) -> MobilePreparedSend ! String do
       local,
       peer,
       inner,
+      conversation_id,
       wrapping_key,
       None,
       0,
@@ -269,7 +273,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       sender_account_id : local.account_id,
       sender_device_id : local.device_id,
       recipient_device_id : peer.device_id,
-      conversation_id : conversation_id,
+      conversation_id : direct_conversation_id(local.account_id, peer.account_id) ?,
       client_message_id : client_message_id,
       client_timestamp : now,
       message_type : message_type,
@@ -290,7 +294,8 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
     local_encode_client_profile,
     local,
     peer,
-    inner) ?
+    inner,
+    conversation_id) ?
     peer_fanout(database_path,
     wrapping_key,
     session_ids,
@@ -372,7 +377,8 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
       local_encode_client_profile,
       local,
       peer,
-      inner) ?
+      inner,
+      inner.conversation_id) ?
       self_fanout(database_path,
       wrapping_key,
       session_ids,
@@ -455,7 +461,7 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
           peer_device_id : representative.device_id,
           peer_username : representative.username,
           peer_mailbox : representative.entry.mailbox_token,
-          conversation_id : random_bytes(16) ?,
+          conversation_id : direct_conversation_id(local.account_id, representative.account_id) ?,
           request_state : 1,
           blocked : false,
           verified : false,

@@ -484,25 +484,44 @@ pub fn self_sync_conversation_id(account_id :: Bytes) -> Bytes ! String do
   end
 end
 
+## A direct conversation is named after the two accounts in it, so every device
+## of either account arrives at the same name with nothing to coordinate, and a
+## receiver checks the name instead of trusting it.
+
+pub fn direct_conversation_id(local_account_id :: Bytes, peer_account_id :: Bytes) -> Bytes ! String do
+  let ordered = if bytes_before(local_account_id, peer_account_id, 0) ? do
+    [local_account_id, peer_account_id]
+  else
+    [peer_account_id, local_account_id]
+  end
+  case Bytes.slice(Crypto.sha256(mobile_join([Bytes.from_utf8("mesh-msg/mobile/conversation/v2"), List.get(ordered,
+  0), List.get(ordered, 1)],
+  0,
+  Bytes.empty()) ?),
+  0,
+  16) do
+    Err( _) -> Err("conversation_id_failed")
+    Ok( value) -> Ok(value)
+  end
+end
+
+## The key this device files a conversation under. Its own records decide: a
+## conversation from before names were derived keeps the name it has. Only a
+## peer this device knows nothing about takes the name a sibling device sent,
+## kept in an alias record so the peer's first message lands in the same place.
+
 pub fn ensure_conversation_alias(database_path :: String,
 wrapping_key :: borrow StorageKey,
 local :: ClientProfile,
-sync :: MobileSyncPayload) -> Result <(), String > do
-  let alias_id = conversation_alias_id(sync.peer_account_id) ?
-  let label = session_label(alias_id)
-  case load_blob(database_path, label) do
-    Ok( _) -> do
-      let existing = load_session_record(database_path, wrapping_key, alias_id) ?
-      if Bytes.secure_equals(existing.record.conversation_id, sync.conversation_id) && Bytes.secure_equals(existing.record.peer_account_id,
-      sync.peer_account_id) do
-        Ok(nil)
-      else
-        Err("sync_conversation_mismatch")
-      end
-    end
-    Err( error) -> if error != "local_state_not_found" do
+sync :: MobileSyncPayload,
+session_ids :: List < Bytes >) -> Bytes ! String do
+  case find_peer_session(database_path, wrapping_key, sync.peer_account_id, session_ids, 0) do
+    Ok( existing) -> Ok(existing.record.conversation_id)
+    Err( error) -> if error != "session_not_found" do
       Err(error)
     else
+      let alias_id = conversation_alias_id(sync.peer_account_id) ?
+      let label = session_label(alias_id)
       let record = MobileSessionRecord {
         snapshot : Bytes.empty(),
         local_account_id : local.account_id,
@@ -524,7 +543,8 @@ sync :: MobileSyncPayload) -> Result <(), String > do
       wrapping_key,
       local_context(label) ?) ?
       let index_blob = updated_session_index(database_path, wrapping_key, alias_id) ?
-      store_new_session(database_path, label, blob, index_blob)
+      store_new_session(database_path, label, blob, index_blob) ?
+      Ok(sync.conversation_id)
     end
   end
 end

@@ -1,9 +1,13 @@
-from Identity.Device import IdentityError, authorize_device_link, generate_account, issue_device_revocation, verify_device_link_authorization, verify_device_revocation
+from Identity.Device import IdentityError, authorize_device_link, generate_account, generate_device, issue_account_deletion, issue_device_departure, issue_device_revocation, verify_account_deletion, verify_device_departure, verify_device_link_authorization, verify_device_revocation
 from Protocol.DirectoryWire import (
+  decode_account_deletion,
+  decode_device_departure,
   decode_device_link_authorization,
   decode_device_link_request,
   decode_device_revocation,
   decode_device_set,
+  encode_account_deletion,
+  encode_device_departure,
   encode_device_link_authorization,
   encode_device_link_request,
   encode_device_revocation,
@@ -310,6 +314,87 @@ end
 
 test("account authorization preserves hybrid device-link credentials and rejects stripped downgrades") do
   case hybrid_identity_proof() do
+    Err( _) -> assert(false)
+    Ok( value) -> assert(value)
+  end
+end
+
+fn account_deletion_proof() -> Bool ! IdentityError do
+  let now = identity_wide(1000) ?
+  let ( account, identity) = generate_account(now, identity_wide(1) ?) ?
+  let ( stranger, _) = generate_account(now, identity_wide(1) ?) ?
+  let deletion = issue_account_deletion(account, now) ?
+  assert(Bytes.secure_equals(deletion.account_id, identity.account_id))
+  assert(verify_account_deletion(identity, deletion) ?)
+  # The time is signed, so a verifier's freshness check cannot be walked around.
+  assert(!verify_account_deletion(identity, % { deletion | issued_at : identity_wide(1001) ? }) ?)
+  let forged = issue_account_deletion(stranger, now) ?
+  assert(!verify_account_deletion(identity, % { forged | account_id : identity.account_id }) ?)
+  let wire = case encode_account_deletion(deletion) do
+    Err( _) -> Err(InvalidCredential)
+    Ok( value) -> Ok(value)
+  end ?
+  assert(Bytes.length(wire) == 108)
+  let decoded = case decode_account_deletion(wire) do
+    Err( _) -> Err(InvalidCredential)
+    Ok( value) -> Ok(value)
+  end ?
+  assert(verify_account_deletion(identity, decoded) ?)
+  let trailing = case Bytes.concat(wire, Bytes.from_utf8("x")) do
+    Err( _) -> Err(InvalidCredential)
+    Ok( value) -> Ok(value)
+  end ?
+  case decode_account_deletion(trailing) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+  Ok(true)
+end
+
+test("only the account key deletes an account, at the time it signed") do
+  case account_deletion_proof() do
+    Err( _) -> assert(false)
+    Ok( value) -> assert(value)
+  end
+end
+
+fn device_departure_proof() -> Bool ! IdentityError do
+  let now = identity_wide(1000) ?
+  let device = generate_device() ?
+  let stranger = generate_device() ?
+  let account_id = repeated(51, 32)
+  let departure = issue_device_departure(device, account_id, now) ?
+  assert(Bytes.secure_equals(departure.device_id, device.device_id))
+  assert(verify_device_departure(device.signing_public_key.bytes, departure) ?)
+  # Only the departing device's own key, for its own account, at the signed time.
+  assert(!verify_device_departure(stranger.signing_public_key.bytes, departure) ?)
+  assert(!verify_device_departure(device.signing_public_key.bytes,
+  % { departure | account_id : repeated(52, 32) }) ?)
+  assert(!verify_device_departure(device.signing_public_key.bytes,
+  % { departure | issued_at : identity_wide(1001) ? }) ?)
+  let wire = case encode_device_departure(departure) do
+    Err( _) -> Err(InvalidCredential)
+    Ok( value) -> Ok(value)
+  end ?
+  assert(Bytes.length(wire) == 124)
+  let decoded = case decode_device_departure(wire) do
+    Err( _) -> Err(InvalidCredential)
+    Ok( value) -> Ok(value)
+  end ?
+  assert(verify_device_departure(device.signing_public_key.bytes, decoded) ?)
+  let trailing = case Bytes.concat(wire, Bytes.from_utf8("x")) do
+    Err( _) -> Err(InvalidCredential)
+    Ok( value) -> Ok(value)
+  end ?
+  case decode_device_departure(trailing) do
+    Err( _) -> assert(true)
+    Ok( _) -> assert(false)
+  end
+  Ok(true)
+end
+
+test("only a device's own key takes it out of its account, at the time it signed") do
+  case device_departure_proof() do
     Err( _) -> assert(false)
     Ok( value) -> assert(value)
   end

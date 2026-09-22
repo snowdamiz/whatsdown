@@ -1,5 +1,6 @@
 const directoryRoutes = new Set([
   'PUT /v1/devices/register', 'POST /v1/devices/resolve', 'POST /v1/devices/revoke',
+  'POST /v1/accounts/delete', 'POST /v1/devices/leave',
   'POST /v1/prekeys/one-time/batch', 'POST /v1/prekeys/bundle',
   'POST /v1/mailbox/fetch', 'POST /v1/mailbox/ack',
   'PUT /v1/push/bind', 'POST /v1/push/unbind',

@@ -17,6 +17,7 @@
     "test": "node --experimental-strip-types --test src/*.test.ts scripts/*.test.mjs",
     "test:attachments": "node scripts/test-attachments.mjs",
     "test:profiles": "node scripts/test-profiles.mjs",
+    "test:account-deletion": "node scripts/test-account-deletion.mjs",
     "test:receipts": "node scripts/test-receipts.mjs",
     "test:notifications": "node scripts/test-unread.mjs --notifications"
   },

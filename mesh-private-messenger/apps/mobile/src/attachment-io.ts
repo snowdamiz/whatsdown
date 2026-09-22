@@ -42,8 +42,10 @@ let previewsPrepared = false;
 // A decrypted picture is shown from a cache file, and previews live for one
 // session. Whatever an earlier run left behind is removed as soon as the app
 // starts, not when it next happens to show a picture: otherwise decrypted
-// pictures outlive the session for as long as nobody opens another one.
-function discardPreviews(): void {
+// pictures outlive the session for as long as nobody opens another one. They
+// also go with an erased account.
+export function discardPreviews(): void {
+  previewsPrepared = false;
   try {
     if (previews.exists) previews.delete();
   } catch {
