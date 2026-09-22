@@ -33,29 +33,29 @@ from Transport.Recipient import open_recipient_packet, seal_recipient_packet
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( _) -> Err("invalid wide integer")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("invalid wide integer")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 fn random(length :: Int) -> Bytes ! String do
   case Crypto.random_bytes(length) do
-    Err( _) -> Err("random generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("random generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
-fn account(created_at :: U64) -> Result <( AccountKeys, AccountIdentity), String > do
+fn account(created_at :: U64) -> Result <(AccountKeys, AccountIdentity), String > do
   case generate_account(created_at, wide("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn device() -> DeviceKeys ! String do
   case generate_device() do
-    Err( _) -> Err("device generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -69,29 +69,29 @@ expires_at :: U64) -> DeviceCredential ! String do
   created_at,
   expires_at,
   wide("1") ?) do
-    Err( _) -> Err("credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("credential generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn signed_prekey(device_keys :: borrow DeviceKeys, value :: DeviceCredential, expires_at :: U64) -> SignedPrekeySecrets ! String do
   case generate_signed_prekey(device_keys, value, wide("1") ?, expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn one_time_prekey() -> OneTimePrekeySecrets ! String do
   case generate_one_time_prekey(wide("2") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn post_quantum_prekey() -> PostQuantumPrekeySecrets ! String do
   case generate_post_quantum_prekey() do
-    Err( _) -> Err("post-quantum prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("post-quantum prekey generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -99,50 +99,50 @@ fn bundle(value :: DeviceCredential,
 signed :: borrow SignedPrekeySecrets,
 one_time :: borrow OneTimePrekeySecrets) -> PrekeyBundle ! String do
   case build_prekey_bundle(value, signed, one_time) do
-    Err( _) -> Err("prekey bundle generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("prekey bundle generation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn account_wire(value :: AccountIdentity) -> Bytes ! String do
   case encode_account_identity(value) do
-    Err( _) -> Err("account encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("account encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn directory_wire(value :: DirectoryEntry) -> Bytes ! String do
   case encode_directory_entry(value) do
-    Err( _) -> Err("directory encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("directory encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn inner_wire(value :: InnerEnvelope) -> Bytes ! String do
   case encode_inner_envelope(value) do
-    Err( _) -> Err("inner envelope encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("inner envelope encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn initial_wire(value :: InitialMessage) -> Bytes ! String do
   case encode_initial_message(value) do
-    Err( _) -> Err("initial message encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("initial message encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn ratchet_wire(value :: RatchetMessage) -> Bytes ! String do
   case encode_ratchet_message(value) do
-    Err( _) -> Err("ratchet message encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("ratchet message encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn outer_wire(value :: OuterEnvelope) -> Bytes ! String do
   case encode_outer_envelope(value) do
-    Err( _) -> Err("outer envelope encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("outer envelope encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -226,8 +226,8 @@ end
 
 fn verified_entry(evidence :: TransparencyEvidence, username :: String) -> DirectoryEntry ! String do
   let device_set = case decode_device_set(evidence.entry_bytes) do
-    Err( _) -> Err("invalid transparent device set")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid transparent device set")
+    Ok(value) -> Ok(value)
   end ?
   if device_set.username != username || List.length(device_set.devices) != 1 do
     Err("unexpected transparent device set")
@@ -271,12 +271,12 @@ end
 
 fn claim_prekey_bundle(base_bundle :: Bytes) -> PrekeyBundle ! String do
   let base = case decode_prekey_bundle(base_bundle) do
-    Err( _) -> Err("invalid base prekey bundle")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid base prekey bundle")
+    Ok(value) -> Ok(value)
   end ?
   let owner = case decode_device_credential(base.device_credential) do
-    Err( _) -> Err("invalid base device credential")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid base device credential")
+    Ok(value) -> Ok(value)
   end ?
   let claim = encode_prekey_claim(PrekeyClaimRequest {
     account_id : owner.account_id,
@@ -289,16 +289,16 @@ fn claim_prekey_bundle(base_bundle :: Bytes) -> PrekeyBundle ! String do
     Err("prekey claim returned #{response.status}")
   else
     let claimed = case decode_prekey_bundle(response.body_bytes) do
-      Err( _) -> Err("invalid claimed prekey bundle")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid claimed prekey bundle")
+      Ok(value) -> Ok(value)
     end ?
     let normalized = case normalize_prekey_bundle(claimed) do
-      Err( _) -> Err("invalid claimed prekey bundle")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid claimed prekey bundle")
+      Ok(value) -> Ok(value)
     end ?
     let normalized_bytes = case encode_prekey_bundle(normalized) do
-      Err( _) -> Err("invalid claimed prekey bundle")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid claimed prekey bundle")
+      Ok(value) -> Ok(value)
     end ?
     if Bytes.secure_equals(normalized_bytes, base_bundle) do
       Ok(claimed)
@@ -322,22 +322,22 @@ fn fetch_envelopes(device_keys :: borrow DeviceKeys, token :: Bytes, attempt :: 
   Crypto.sha256(token),
   wide("0") ?,
   clock() ?) do
-    Err( _) -> Err("mailbox fetch signing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("mailbox fetch signing failed")
+    Ok(value) -> Ok(value)
   end ?
   case post("/v1/mailbox/fetch", body) do
-    Err( _) -> if attempt < 2 do
+    Err(_) -> if attempt < 2 do
       Timer.sleep(250)
       fetch_envelopes(device_keys, token, attempt + 1)
     else
       Err("mailbox fetch failed")
     end
-    Ok( response) -> if response.status != 200 do
+    Ok(response) -> if response.status != 200 do
       Err("mailbox fetch returned #{response.status}")
     else
       case decode_delivery_batch(response.body_bytes) do
-        Err( _) -> Err("invalid mailbox response")
-        Ok( deliveries) -> Ok(deliveries)
+        Err(_) -> Err("invalid mailbox response")
+        Ok(deliveries) -> Ok(deliveries)
       end
     end
   end
@@ -348,8 +348,8 @@ fn acknowledge(device_keys :: borrow DeviceKeys, token :: Bytes, ids :: List < B
   Crypto.sha256(token),
   clock() ?,
   ids) do
-    Err( _) -> Err("mailbox acknowledgement signing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("mailbox acknowledgement signing failed")
+    Ok(value) -> Ok(value)
   end ?
   let response = post("/v1/mailbox/ack", body) ?
   if response.status == 200 do
@@ -390,10 +390,10 @@ body :: String) -> InnerEnvelope ! String do
   })
 end
 
-fn encrypt_message(state :: consume RatchetState, value :: InnerEnvelope, aad :: Bytes) -> Result <( RatchetState, RatchetMessage), String > do
+fn encrypt_message(state :: consume RatchetState, value :: InnerEnvelope, aad :: Bytes) -> Result <(RatchetState, RatchetMessage), String > do
   case encrypt_sealed(state, inner_wire(value) ?, aad) do
-    Err( _) -> Err("ratchet encryption failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("ratchet encryption failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -419,15 +419,15 @@ fn run_device_a() -> Int ! String do
   let expires_at = wide("1900000000000") ?
   let directory = resolve_entry("device-b", 0) ?
   let bob_account = case decode_account_identity(directory.account_identity) do
-    Err( _) -> Err("invalid responder account")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid responder account")
+    Ok(value) -> Ok(value)
   end ?
   let bob_bundle = claim_prekey_bundle(directory.prekey_bundle) ?
   let bob_credential = case decode_device_credential(bob_bundle.device_credential) do
-    Err( _) -> Err("invalid responder credential")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid responder credential")
+    Ok(value) -> Ok(value)
   end ?
-  let ( alice_account_keys, alice_account) = account(created_at) ?
+  let (alice_account_keys, alice_account) = account(created_at) ?
   let alice = device() ?
   let alice_credential = credential(alice_account_keys, alice, created_at, expires_at) ?
   let conversation_id = random(16) ?
@@ -437,15 +437,15 @@ fn run_device_a() -> Int ! String do
   conversation_id,
   random(16) ?,
   "initial") ?
-  let ( alice_session, initial) = case initiate(alice,
+  let (alice_session, initial) = case initiate(alice,
   alice_credential,
   bob_account,
   bob_bundle,
   policy(now) ?,
   1,
   inner_wire(initial_inner) ?) do
-    Err( _) -> Err("initial handshake failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("initial handshake failed")
+    Ok(value) -> Ok(value)
   end ?
   let aad = session_aad(alice_session.session_id) ?
   let initial_outer = outbound(directory.mailbox_token,
@@ -456,7 +456,7 @@ fn run_device_a() -> Int ! String do
   let first_id = random(16) ?
   let second_id = random(16) ?
   let third_id = random(16) ?
-  let ( alice_session, first) = encrypt_message(alice_session,
+  let (alice_session, first) = encrypt_message(alice_session,
   inner(alice_account.account_id,
   alice_credential.device_id,
   bob_credential.device_id,
@@ -464,7 +464,7 @@ fn run_device_a() -> Int ! String do
   first_id,
   "first") ?,
   aad) ?
-  let ( alice_session, second) = encrypt_message(alice_session,
+  let (alice_session, second) = encrypt_message(alice_session,
   inner(alice_account.account_id,
   alice_credential.device_id,
   bob_credential.device_id,
@@ -472,7 +472,7 @@ fn run_device_a() -> Int ! String do
   second_id,
   "second") ?,
   aad) ?
-  let ( alice_session, third) = encrypt_message(alice_session,
+  let (alice_session, third) = encrypt_message(alice_session,
   inner(alice_account.account_id,
   alice_credential.device_id,
   bob_credential.device_id,
@@ -503,10 +503,10 @@ end
 
 fn display(value :: Bytes) do
   case decode_inner_envelope(value) do
-    Err( _) -> println("device-b:invalid-inner")
-    Ok( inner_value) -> case Bytes.to_utf8(inner_value.body) do
-      Err( _) -> println("device-b:invalid-body")
-      Ok( body) -> println("display:#{body}")
+    Err(_) -> println("device-b:invalid-inner")
+    Ok(inner_value) -> case Bytes.to_utf8(inner_value.body) do
+      Err(_) -> println("device-b:invalid-body")
+      Ok(body) -> println("display:#{body}")
     end
   end
 end
@@ -525,25 +525,25 @@ aad :: Bytes) -> RatchetState do
   else
     let delivered = List.get(deliveries, index)
     case decode_outer_envelope(delivered.envelope) do
-      Err( _) -> do
+      Err(_) -> do
         println("device-b:invalid-outer")
         process_deliveries(state, recipient, deliveries, index + 1, aad)
       end
-      Ok( outer) -> case opened_packet(outer, recipient) do
-        Err( _) -> do
+      Ok(outer) -> case opened_packet(outer, recipient) do
+        Err(_) -> do
           println("device-b:invalid-packet")
           process_deliveries(state, recipient, deliveries, index + 1, aad)
         end
-        Ok( InitialPacket( _, _)) -> do
+        Ok(InitialPacket(_, _)) -> do
           println("device-b:unexpected-initial")
           process_deliveries(state, recipient, deliveries, index + 1, aad)
         end
-        Ok( RatchetPacket( message)) -> case decode_ratchet_message(message) do
-          Err( _) -> do
+        Ok(RatchetPacket(message)) -> case decode_ratchet_message(message) do
+          Err(_) -> do
             println("device-b:invalid-ratchet")
             process_deliveries(state, recipient, deliveries, index + 1, aad)
           end
-          Ok( decoded) -> if !ratchet_transport_matches(decoded, true) do
+          Ok(decoded) -> if !ratchet_transport_matches(decoded, true) do
             println("device-b:invalid-ratchet")
             process_deliveries(state, recipient, deliveries, index + 1, aad)
           else
@@ -562,15 +562,15 @@ index :: Int,
 aad :: Bytes,
 decoded :: RatchetMessage) -> RatchetState do
   case decrypt(state, decoded, aad) do
-    Rejected( next, Replay) -> do
+    Rejected(next, Replay) -> do
       println("dedup:suppressed")
       process_deliveries(next, recipient, deliveries, index + 1, aad)
     end
-    Rejected( next, _) -> do
+    Rejected(next, _) -> do
       println("device-b:ratchet-rejected")
       process_deliveries(next, recipient, deliveries, index + 1, aad)
     end
-    Opened( next, plaintext) -> do
+    Opened(next, plaintext) -> do
       display(plaintext)
       process_deliveries(next, recipient, deliveries, index + 1, aad)
     end
@@ -582,8 +582,8 @@ fn envelope_ids(deliveries :: List < DeliveredEnvelope >, index :: Int, ids :: L
     ids
   else
     case decode_outer_envelope(List.get(deliveries, index).envelope) do
-      Err( _) -> envelope_ids(deliveries, index + 1, ids)
-      Ok( outer) -> envelope_ids(deliveries, index + 1, List.append(ids, outer.envelope_id))
+      Err(_) -> envelope_ids(deliveries, index + 1, ids)
+      Ok(outer) -> envelope_ids(deliveries, index + 1, List.append(ids, outer.envelope_id))
     end
   end
 end
@@ -592,7 +592,7 @@ fn run_device_b() -> Int ! String do
   let created_at = wide("1700000000000") ?
   let now = wide("1800000000000") ?
   let expires_at = wide("1900000000000") ?
-  let ( bob_account_keys, bob_account) = account(created_at) ?
+  let (bob_account_keys, bob_account) = account(created_at) ?
   let bob = device() ?
   let bob_credential = credential(bob_account_keys, bob, created_at, expires_at) ?
   let signed = signed_prekey(bob, bob_credential, expires_at) ?
@@ -605,8 +605,8 @@ fn run_device_b() -> Int ! String do
     username : "device-b",
     account_identity : account_wire(bob_account) ?,
     prekey_bundle : case encode_prekey_bundle(published) do
-      Err( _) -> Err("prekey bundle encoding failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey bundle encoding failed")
+      Ok(value) -> Ok(value)
     end ?,
     mailbox_token : token
   }) ?
@@ -622,18 +622,18 @@ fn run_device_b() -> Int ! String do
     else
       let first_delivery = List.head(deliveries)
       let first_outer = case decode_outer_envelope(first_delivery.envelope) do
-        Err( _) -> Err("invalid initial outer envelope")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid initial outer envelope")
+        Ok(value) -> Ok(value)
       end ?
-      let ( alice_account, initial) = case opened_packet(first_outer, bob) do
-        Err( _) -> Err("invalid initial transport packet")
-        Ok( RatchetPacket( _)) -> Err("expected initial transport packet")
-        Ok( InitialPacket( account_bytes, initial_bytes)) -> case decode_account_identity(account_bytes) do
-          Err( _) -> Err("invalid initiator account")
-          Ok( account_value) -> Ok((account_value, initial_bytes))
+      let (alice_account, initial) = case opened_packet(first_outer, bob) do
+        Err(_) -> Err("invalid initial transport packet")
+        Ok(RatchetPacket(_)) -> Err("expected initial transport packet")
+        Ok(InitialPacket(account_bytes, initial_bytes)) -> case decode_account_identity(account_bytes) do
+          Err(_) -> Err("invalid initiator account")
+          Ok(account_value) -> Ok((account_value, initial_bytes))
         end
       end ?
-      let ( bob_session, initial_plaintext) = case receive_initial(bob,
+      let (bob_session, initial_plaintext) = case receive_initial(bob,
       bob_account,
       published,
       signed,
@@ -644,8 +644,8 @@ fn run_device_b() -> Int ! String do
       policy(now) ?,
       1,
       initial) do
-        Err( _) -> Err("initial receive failed")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("initial receive failed")
+        Ok(value) -> Ok(value)
       end ?
       display(initial_plaintext)
       let aad = session_aad(bob_session.session_id) ?
@@ -665,7 +665,7 @@ end
 fn run_stream_fixture() -> Int ! String do
   let created_at = wide("1700000000000") ?
   let expires_at = wide("1900000000000") ?
-  let ( account_keys, identity) = account(created_at) ?
+  let (account_keys, identity) = account(created_at) ?
   let keys = device() ?
   let issued = credential(account_keys, keys, created_at, expires_at) ?
   let published = bundle(issued, signed_prekey(keys, issued, expires_at) ?, one_time_prekey() ?) ?
@@ -675,8 +675,8 @@ fn run_stream_fixture() -> Int ! String do
     username : "stream_" <> Bytes.to_hex(random(8) ?),
     account_identity : account_wire(identity) ?,
     prekey_bundle : case encode_prekey_bundle(published) do
-      Err( _) -> Err("prekey bundle encoding failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey bundle encoding failed")
+      Ok(value) -> Ok(value)
     end ?,
     mailbox_token : token
   }) ?
@@ -684,8 +684,8 @@ fn run_stream_fixture() -> Int ! String do
   Crypto.sha256(token),
   wide("0") ?,
   clock() ?) do
-    Err( _) -> Err("mailbox fetch signing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("mailbox fetch signing failed")
+    Ok(value) -> Ok(value)
   end ?
   println("stream-fixture:token=" <> Bytes.to_hex(token))
   println("stream-fixture:fetch=" <> Bytes.to_hex(fetch))
@@ -694,8 +694,8 @@ end
 
 fn report(role :: String, result :: Result < Int, String >) do
   case result do
-    Err( error) -> println("#{role}:error:#{error}")
-    Ok( _) -> println("#{role}:ok")
+    Err(error) -> println("#{role}:error:#{error}")
+    Ok(_) -> println("#{role}:ok")
   end
 end
 

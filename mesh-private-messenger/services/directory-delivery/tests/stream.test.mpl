@@ -3,8 +3,8 @@ from Tests.MailboxSupport import mailbox_test_now, register_test_mailbox, signed
 
 fn rejected(value :: String ! String) -> Bool do
   case value do
-    Err( _) -> true
-    Ok( _) -> false
+    Err(_) -> true
+    Ok(_) -> false
   end
 end
 
@@ -14,12 +14,12 @@ end
 
 fn legacy_frame(token :: Bytes) -> Bytes ! String do
   let header = case Bytes.from_list([1, 70, 69, 84]) do
-    Err( _) -> Err("test frame construction failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test frame construction failed")
+    Ok(value) -> Ok(value)
   end ?
   let cursor = case Bytes.from_list([0, 0, 0, 0, 0, 0, 0, 0]) do
-    Err( _) -> Err("test frame construction failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test frame construction failed")
+    Ok(value) -> Ok(value)
   end ?
   Bytes.concat(Bytes.concat(header, token) ?, cursor)
 end
@@ -34,12 +34,12 @@ fn proof() -> Bool ! String do
   "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
   let token = case Crypto.random_bytes(32) do
-    Err( _) -> Err("randomness failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("randomness failed")
+    Ok(value) -> Ok(value)
   end ?
   let other_token = case Crypto.random_bytes(32) do
-    Err( _) -> Err("randomness failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("randomness failed")
+    Ok(value) -> Ok(value)
   end ?
   let hash = Crypto.sha256(token)
   let owner = register_test_mailbox(pool, "stream-owner", token) ?
@@ -80,10 +80,10 @@ end
 
 test("stream subscriptions require a fresh frame signed by the mailbox's own device") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

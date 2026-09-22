@@ -13,7 +13,7 @@ pub type BackupError do
 
   AuthenticationRejected
 
-  CryptoFailure( error :: CryptoError)
+  CryptoFailure(error :: CryptoError)
 end
 
 pub struct BackupProfile do
@@ -65,8 +65,8 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! BackupError do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidManifest)
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -80,8 +80,8 @@ end
 
 fn byte(value :: Int) -> Bytes ! BackupError do
   case Bytes.from_list([value]) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidManifest)
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -90,20 +90,20 @@ fn write_u32(value :: Int) -> Bytes ! BackupError do
     Err(InvalidManifest)
   else
     let wide = case U64.parse(Int.to_string(value)) do
-      Err( _) -> Err(InvalidManifest)
-      Ok( output) -> Ok(output)
+      Err(_) -> Err(InvalidManifest)
+      Ok(output) -> Ok(output)
     end ?
     case Bytes.write_u32_be(wide) do
-      Err( _) -> Err(InvalidManifest)
-      Ok( output) -> Ok(output)
+      Err(_) -> Err(InvalidManifest)
+      Ok(output) -> Ok(output)
     end
   end
 end
 
 fn write_u64(value :: U64) -> Bytes ! BackupError do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidManifest)
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -113,20 +113,19 @@ end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! BackupError do
   case read_fixed(state, length) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err(InvalidManifest)
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidManifest)
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt ! BackupError do
   let encoded = take_fixed(state, 1) ?
   case Bytes.get(encoded.value, 0) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( value) -> Ok(ReadInt {
+    Err(_) -> Err(InvalidManifest)
+    Ok(value) -> Ok(ReadInt {
       state : encoded.state,
       value : value
     })
@@ -136,12 +135,12 @@ end
 fn take_u32(state :: BinaryReader) -> ReadInt ! BackupError do
   let encoded = take_fixed(state, 4) ?
   let wide = case Bytes.read_u32_be(encoded.value, 0) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidManifest)
+    Ok(output) -> Ok(output)
   end ?
   case U64.to_int(wide) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( value) -> Ok(ReadInt {
+    Err(_) -> Err(InvalidManifest)
+    Ok(value) -> Ok(ReadInt {
       state : encoded.state,
       value : value
     })
@@ -151,8 +150,8 @@ end
 fn take_u64(state :: BinaryReader) -> ReadWide ! BackupError do
   let encoded = take_fixed(state, 8) ?
   case Bytes.read_u64_be(encoded.value, 0) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( value) -> Ok(ReadWide {
+    Err(_) -> Err(InvalidManifest)
+    Ok(value) -> Ok(ReadWide {
       state : encoded.state,
       value : value
     })
@@ -161,12 +160,11 @@ end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes ! BackupError do
   case read_vector(state, maximum) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err(InvalidManifest)
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidManifest)
   end
 end
 
@@ -175,8 +173,8 @@ fn start(input :: Bytes, maximum :: Int, magic_value :: String) -> BinaryReader 
     Err(InvalidManifest)
   else
     let initial = case reader(input, maximum) do
-      Err( _) -> Err(InvalidManifest)
-      Ok( output) -> Ok(output)
+      Err(_) -> Err(InvalidManifest)
+      Ok(output) -> Ok(output)
     end ?
     let version = take_u8(initial) ?
     let magic = take_fixed(version.state, 3) ?
@@ -190,8 +188,8 @@ end
 
 fn done(state :: BinaryReader) -> Result <(), BackupError > do
   case finish(state) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err(InvalidManifest)
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -211,7 +209,7 @@ fn encode_profile(value :: BackupProfile) -> Bytes ! BackupError do
   Bytes.empty())
 end
 
-fn decode_profile(state :: BinaryReader) -> Result <( BinaryReader, BackupProfile), BackupError > do
+fn decode_profile(state :: BinaryReader) -> Result <(BinaryReader, BackupProfile), BackupError > do
   let version = take_u8(state) ?
   let salt = take_fixed(version.state, 16) ?
   let memory = take_u32(salt.state) ?
@@ -296,34 +294,34 @@ end
 
 fn nonce() -> Bytes ! BackupError do
   case Crypto.random_bytes(12) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
 fn content_key(key :: borrow SecretBytes, backup_id :: Bytes, label :: Bytes) -> AeadKey ! BackupError do
   let material = case Crypto.hkdf_sha256(key, backup_id, label, 32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(output) -> Ok(output)
   end ?
   case Crypto.aead_key(material) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
 fn seal(key :: borrow AeadKey, nonce_value :: Bytes, aad :: Bytes, plaintext :: Bytes) -> Bytes ! BackupError do
   case Crypto.aead_seal(key, nonce_value, aad, plaintext) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
 fn open(key :: borrow AeadKey, nonce_value :: Bytes, aad :: Bytes, ciphertext :: Bytes) -> Bytes ! BackupError do
   case Crypto.aead_open(key, nonce_value, aad, ciphertext) do
-    Err( AuthenticationFailed) -> Err(AuthenticationRejected)
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( output) -> Ok(output)
+    Err(AuthenticationFailed) -> Err(AuthenticationRejected)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -339,7 +337,7 @@ fn encode_sealed_manifest(value :: SealedBackupManifest) -> Bytes ! BackupError 
 end
 
 fn decode_sealed_manifest(input :: Bytes) -> SealedBackupManifest ! BackupError do
-  let ( state, profile) = decode_profile(start(input, 182, "EBM") ?) ?
+  let (state, profile) = decode_profile(start(input, 182, "EBM") ?) ?
   let backup_id = take_fixed(state, 32) ?
   let nonce_value = take_fixed(backup_id.state, 12) ?
   let ciphertext = take_vector(nonce_value.state, 104) ?
@@ -397,15 +395,15 @@ end
 
 pub fn generate_recovery_secret() -> SecretBytes ! BackupError do
   case Secret.random(32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
 pub fn create_backup_profile() -> BackupProfile ! BackupError do
   let salt = case Crypto.random_bytes(16) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(output) -> Ok(output)
   end ?
   Ok(BackupProfile {
     version : 1,
@@ -425,15 +423,15 @@ pub fn derive_backup_key(recovery :: borrow SecretBytes, profile :: BackupProfil
   profile.iterations,
   profile.parallelism,
   32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
 pub fn generate_backup_id() -> Bytes ! BackupError do
   case Crypto.random_bytes(32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -497,8 +495,8 @@ expected_index :: Int,
 input :: Bytes) -> Bytes ! BackupError do
   let expected_size = expected_chunk_size(manifest, expected_index) ?
   let sealed = case decode_chunk(input) do
-    Err( _) -> Err(InvalidChunk)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidChunk)
+    Ok(output) -> Ok(output)
   end ?
   if !Bytes.secure_equals(sealed.backup_id, manifest.backup_id) do
     Err(InvalidChunk)
@@ -522,8 +520,8 @@ end
 
 pub fn verify_backup_snapshot(manifest :: BackupManifest, plaintext :: Bytes) -> Bool do
   case validate_manifest(manifest) do
-    Err( _) -> false
-    Ok( _) -> Bytes.length(plaintext) == manifest.plaintext_size && Bytes.secure_equals(Crypto.sha256(plaintext),
+    Err(_) -> false
+    Ok(_) -> Bytes.length(plaintext) == manifest.plaintext_size && Bytes.secure_equals(Crypto.sha256(plaintext),
     manifest.snapshot_hash)
   end
 end

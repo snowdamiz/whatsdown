@@ -38,8 +38,8 @@ end
 pub fn delete_blob(database :: SqliteConn, label :: String) -> Result <(), String > do
   let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
   case Sqlite.execute(database, "DELETE FROM encrypted_blobs WHERE record_hash = ?", [record_hash]) do
-    Err( _) -> Err("database_write_failed")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("database_write_failed")
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -66,8 +66,8 @@ end
 
 fn delete_every_record(database :: SqliteConn) -> Result <(), String > do
   case Sqlite.execute(database, "DELETE FROM encrypted_blobs", []) do
-    Err( _) -> Err("database_write_failed")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("database_write_failed")
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -84,8 +84,8 @@ blobs :: List < Bytes >) -> Result <(), String > do
     let profiles = case Sqlite.query_values(database,
     "SELECT record_hash FROM encrypted_blobs WHERE record_hash = ?",
     [Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("profile/v1"))))]) do
-      Err( _) -> Err("database_read_failed")
-      Ok( rows) -> Ok(rows)
+      Err(_) -> Err("database_read_failed")
+      Ok(rows) -> Ok(rows)
     end ?
     if List.length(profiles) > 0 do
       Err("account_already_exists")
@@ -104,8 +104,8 @@ pub fn erase_local_state(database_path :: String) -> Result <(), String > do
   ensure_schema(database_path) ?
   with_record_transaction(database_path, fn (database) do delete_every_record(database) end) ?
   case Sqlite.open(database_path) do
-    Err( _) -> Ok(nil)
-    Ok( database) -> do
+    Err(_) -> Ok(nil)
+    Ok(database) -> do
       let _ = Sqlite.execute(database, "VACUUM", [])
       Sqlite.close(database)
       Ok(nil)
@@ -231,8 +231,8 @@ end
 
 pub fn ensure_account_missing(database_path :: String) -> Result <(), String > do
   case load_blob(database_path, "profile/v1") do
-    Ok( _) -> Err("account_already_exists")
-    Err( error) -> if error == "local_state_not_found" do
+    Ok(_) -> Err("account_already_exists")
+    Err(error) -> if error == "local_state_not_found" do
       Ok(nil)
     else
       Err(error)
@@ -272,13 +272,13 @@ end
 
 pub fn store_updated_session(database_path :: String, label :: String, blob :: Bytes) -> Result <(), String > do
   case Sqlite.open(database_path) do
-    Err( _) -> Err("database_open_failed")
-    Ok( database) -> case put_blob(database, label, blob) do
-      Err( error) -> do
+    Err(_) -> Err("database_open_failed")
+    Ok(database) -> case put_blob(database, label, blob) do
+      Err(error) -> do
         Sqlite.close(database)
         Err(error)
       end
-      Ok( _) -> do
+      Ok(_) -> do
         Sqlite.close(database)
         Ok(nil)
       end
@@ -306,15 +306,15 @@ pub fn store_envelope(request :: MobileStoreRequest) -> Bytes ! String do
     ensure_schema(request.database_path) ?
     let record_hash = Bytes.to_hex(Crypto.sha256(request.record_key))
     case Sqlite.open(request.database_path) do
-      Err( _) -> Err("database_open_failed")
-      Ok( database) -> case Sqlite.execute_values(database,
+      Err(_) -> Err("database_open_failed")
+      Ok(database) -> case Sqlite.execute_values(database,
       "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(record_hash) DO UPDATE SET ciphertext = excluded.ciphertext, updated_at = CURRENT_TIMESTAMP",
       [Text(record_hash), Binary(envelope.ciphertext)]) do
-        Err( _) -> do
+        Err(_) -> do
           Sqlite.close(database)
           Err("database_write_failed")
         end
-        Ok( _) -> do
+        Ok(_) -> do
           Sqlite.close(database)
           Ok(Bytes.from_utf8(record_hash))
         end
@@ -325,27 +325,27 @@ end
 
 ## The callback's `?` returns here, so rollback and close run for every outcome.
 
-fn with_record_transaction(path :: String, operation :: Fun( SqliteConn) -> Result <(), String >) -> Result <(), String > do
+fn with_record_transaction(path :: String, operation :: Fun(SqliteConn) -> Result <(), String >) -> Result <(), String > do
   let database = case Sqlite.open(path) do
-    Err( _) -> Err("database_open_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("database_open_failed")
+    Ok(value) -> Ok(value)
   end ?
   let result = case Sqlite.begin(database) do
-    Err( _) -> Err("database_write_failed")
-    Ok( _) -> case operation(database) do
-      Err( error) -> Err(error)
-      Ok( _) -> case Sqlite.commit(database) do
-        Err( _) -> Err("database_write_failed")
-        Ok( _) -> Ok(nil)
+    Err(_) -> Err("database_write_failed")
+    Ok(_) -> case operation(database) do
+      Err(error) -> Err(error)
+      Ok(_) -> case Sqlite.commit(database) do
+        Err(_) -> Err("database_write_failed")
+        Ok(_) -> Ok(nil)
       end
     end
   end
   case result do
-    Err( _) -> do
+    Err(_) -> do
       let _ = Sqlite.rollback(database)
       nil
     end
-    Ok( _) -> nil
+    Ok(_) -> nil
   end
   Sqlite.close(database)
   result

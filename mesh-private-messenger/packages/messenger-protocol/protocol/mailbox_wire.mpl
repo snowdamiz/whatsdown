@@ -27,8 +27,8 @@ from Transparency.Client import checkpoint_fresh_at
 
 fn mailbox_signature(signing_key :: borrow SigningPrivateKey, signing_bytes :: Bytes) -> Bytes ! ProtocolError do
   case Crypto.sign(signing_key, signing_bytes) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( signature) -> Ok(signature.bytes)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(signature) -> Ok(signature.bytes)
   end
 end
 
@@ -78,7 +78,7 @@ issued_at :: U64) -> Bytes ! ProtocolError do
     signature : Bytes.empty()
   }
   let signature = mailbox_signature(signing_key, mailbox_fetch_signing_bytes(unsigned) ?) ?
-  encode_mailbox_fetch(% { unsigned | signature : signature })
+  encode_mailbox_fetch(% {unsigned | signature : signature })
 end
 
 pub fn decode_mailbox_fetch(input :: Bytes) -> MailboxFetch ! ProtocolError do
@@ -247,7 +247,7 @@ envelope_ids :: List < Bytes >) -> Bytes ! ProtocolError do
     signature : Bytes.empty()
   }
   let signature = mailbox_signature(signing_key, mailbox_ack_signing_bytes(unsigned) ?) ?
-  encode_mailbox_ack(% { unsigned | signature : signature })
+  encode_mailbox_ack(% {unsigned | signature : signature })
 end
 
 pub fn decode_mailbox_ack(input :: Bytes) -> MailboxAck ! ProtocolError do

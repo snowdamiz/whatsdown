@@ -11,7 +11,7 @@ pub type AttachmentError do
 
   AuthenticationRejected
 
-  CryptoFailure( error :: CryptoError)
+  CryptoFailure(error :: CryptoError)
 end
 
 pub struct AttachmentManifest do
@@ -54,8 +54,8 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! AttachmentError do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidManifest)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -69,8 +69,8 @@ end
 
 fn byte(value :: Int) -> Bytes ! AttachmentError do
   case Bytes.from_list([value]) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidManifest)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -79,10 +79,10 @@ fn write_u32(value :: Int) -> Bytes ! AttachmentError do
     Err(InvalidManifest)
   else
     case U64.parse(Int.to_string(value)) do
-      Err( _) -> Err(InvalidManifest)
-      Ok( wide) -> case Bytes.write_u32_be(wide) do
-        Err( _) -> Err(InvalidManifest)
-        Ok( encoded) -> Ok(encoded)
+      Err(_) -> Err(InvalidManifest)
+      Ok(wide) -> case Bytes.write_u32_be(wide) do
+        Err(_) -> Err(InvalidManifest)
+        Ok(encoded) -> Ok(encoded)
       end
     end
   end
@@ -90,8 +90,8 @@ end
 
 fn write_u64(value :: U64) -> Bytes ! AttachmentError do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidManifest)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -101,33 +101,31 @@ end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! AttachmentError do
   case read_fixed(state, length) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err(InvalidManifest)
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidManifest)
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes ! AttachmentError do
   case read_vector(state, maximum) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err(InvalidManifest)
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidManifest)
   end
 end
 
 fn take_u32(state :: BinaryReader) -> ReadInt ! AttachmentError do
   let encoded = take_fixed(state, 4) ?
   case Bytes.read_u32_be(encoded.value, 0) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( value) -> case U64.to_int(value) do
-      Err( _) -> Err(InvalidManifest)
-      Ok( parsed) -> Ok(ReadInt {
+    Err(_) -> Err(InvalidManifest)
+    Ok(value) -> case U64.to_int(value) do
+      Err(_) -> Err(InvalidManifest)
+      Ok(parsed) -> Ok(ReadInt {
         state : encoded.state,
         value : parsed
       })
@@ -138,8 +136,8 @@ end
 fn take_u64(state :: BinaryReader) -> ReadWide ! AttachmentError do
   let encoded = take_fixed(state, 8) ?
   case Bytes.read_u64_be(encoded.value, 0) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( value) -> Ok(ReadWide {
+    Err(_) -> Err(InvalidManifest)
+    Ok(value) -> Ok(ReadWide {
       state : encoded.state,
       value : value
     })
@@ -151,8 +149,8 @@ fn start(input :: Bytes, maximum :: Int, expected :: String) -> BinaryReader ! A
     Err(InvalidManifest)
   else
     case reader(input, maximum) do
-      Err( _) -> Err(InvalidManifest)
-      Ok( initial) -> do
+      Err(_) -> Err(InvalidManifest)
+      Ok(initial) -> do
         let version = take_fixed(initial, 1) ?
         let magic = take_fixed(version.state, 3) ?
         if Bytes.secure_equals(version.value, byte(1) ?) && Bytes.secure_equals(magic.value,
@@ -168,8 +166,8 @@ end
 
 fn done(state :: BinaryReader) -> Result <(), AttachmentError > do
   case finish(state) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err(InvalidManifest)
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -246,19 +244,19 @@ end
 
 fn derive_key(secret :: borrow SecretBytes, salt :: Bytes, info :: Bytes) -> AeadKey ! AttachmentError do
   let material = case Crypto.hkdf_sha256(secret, salt, info, 32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   case Crypto.aead_key(material) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn nonce() -> Bytes ! AttachmentError do
   case Crypto.random_bytes(12) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -267,8 +265,8 @@ nonce_value :: Bytes,
 authenticated_data :: Bytes,
 plaintext :: Bytes) -> Bytes ! AttachmentError do
   case Crypto.aead_seal(key, nonce_value, authenticated_data, plaintext) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -277,9 +275,9 @@ nonce_value :: Bytes,
 authenticated_data :: Bytes,
 ciphertext :: Bytes) -> Bytes ! AttachmentError do
   case Crypto.aead_open(key, nonce_value, authenticated_data, ciphertext) do
-    Err( AuthenticationFailed) -> Err(AuthenticationRejected)
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(AuthenticationFailed) -> Err(AuthenticationRejected)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -348,15 +346,15 @@ end
 
 pub fn generate_attachment_key() -> SecretBytes ! AttachmentError do
   case Secret.random(32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn generate_attachment_id() -> Bytes ! AttachmentError do
   case Crypto.random_bytes(32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 

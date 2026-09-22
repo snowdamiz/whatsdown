@@ -33,8 +33,8 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("push binding allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("push binding allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -48,23 +48,23 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("invalid push binding byte")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid push binding byte")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn write_u64(value :: U64) -> Bytes ! String do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err("invalid push binding revision")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid push binding revision")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn vector(value :: Bytes) -> Bytes ! String do
   let length = U64.parse(Int.to_string(Bytes.length(value))) ?
   let prefix = case Bytes.write_u32_be(length) do
-    Err( _) -> Err("invalid push binding length")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid push binding length")
+    Ok(output) -> Ok(output)
   end ?
   join([prefix, value], 0, Bytes.empty())
 end
@@ -74,39 +74,37 @@ fn start(input :: Bytes, maximum :: Int) -> BinaryReader ! String do
     Err("push binding wire oversized")
   else
     case reader(input, maximum) do
-      Err( _) -> Err("invalid push binding wire")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("invalid push binding wire")
+      Ok(output) -> Ok(output)
     end
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! String do
   case read_fixed(state, length) do
-    Err( _) -> Err("invalid push binding wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid push binding wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid push binding wire")
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt ! String do
   case read_u8(state) do
-    Err( _) -> Err("invalid push binding wire")
-    Ok( ( next, value)) -> Ok(ReadInt {
+    Err(_) -> Err("invalid push binding wire")
+    Ok((next, value)) -> Ok(ReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid push binding wire")
   end
 end
 
 fn take_u64(state :: BinaryReader) -> ReadWide ! String do
   let value = take_fixed(state, 8) ?
   case Bytes.read_u64_be(value.value, 0) do
-    Err( _) -> Err("invalid push binding revision")
-    Ok( revision) -> Ok(ReadWide {
+    Err(_) -> Err("invalid push binding revision")
+    Ok(revision) -> Ok(ReadWide {
       state : value.state,
       value : revision
     })
@@ -115,19 +113,18 @@ end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes ! String do
   case read_vector(state, maximum) do
-    Err( _) -> Err("invalid push binding wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid push binding wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid push binding wire")
   end
 end
 
 fn done(state :: BinaryReader) -> Result <(), String > do
   case finish(state) do
-    Err( _) -> Err("invalid push binding wire")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("invalid push binding wire")
+    Ok(_) -> Ok(nil)
   end
 end
 

@@ -34,8 +34,8 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("test byte allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test byte allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -101,8 +101,8 @@ fn proof() -> Bool ! String do
   let reply = Bytes.from_utf8("hello alice")
   let reply_request = request([Bytes.from_utf8(bob_path), alice_profile, reply]) ?
   case send_message_export(reply_request) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "message_request_pending")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "message_request_pending")
   end
   assert(Bytes.secure_equals(policy(bob_path, alice_profile, 1, 0) ?, Bytes.from_utf8("ok")))
   assert(assert_summary(decode_conversation_summary(list_conversations_export(Bytes.from_utf8(bob_path)) ?) ?,
@@ -113,8 +113,8 @@ fn proof() -> Bool ! String do
   0))
   let reply_outer = send_message_export(reply_request) ?
   let padded = case decode_outer_envelope(reply_outer) do
-    Err( _) -> Err("invalid test envelope")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid test envelope")
+    Ok(value) -> Ok(value)
   end ?
   assert(Bytes.length(padded.ciphertext) == padded.padding_bucket)
   assert(acknowledge(bob_path, reply_outer) ?)
@@ -130,8 +130,8 @@ fn proof() -> Bool ! String do
   let blocked_outer = send_message_export(request([Bytes.from_utf8(alice_path), bob_profile, Bytes.from_utf8("blocked")]) ?) ?
   assert(acknowledge(alice_path, blocked_outer) ?)
   case receive_message_export(request([Bytes.from_utf8(bob_path), blocked_outer]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "blocked_message")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "blocked_message")
   end
   assert(Bytes.secure_equals(policy(bob_path, alice_profile, 3, 0) ?, Bytes.from_utf8("ok")))
   let history_request = request([Bytes.from_utf8(bob_path), alice_profile]) ?
@@ -146,27 +146,27 @@ fn proof() -> Bool ! String do
   Timer.sleep(2000)
   assert(Bytes.secure_equals(load_history_export(history_request) ?, history_before))
   case decode_conversation_summary(Bytes.empty()) do
-    Ok( _) -> assert(false)
-    Err( _) -> assert(true)
+    Ok(_) -> assert(false)
+    Err(_) -> assert(true)
   end
   assert(remove_safety_binding_for_test(bob_path, alice_profile) ?)
   let legacy = decode_conversation_summary(list_conversations_export(Bytes.from_utf8(bob_path)) ?) ?
   assert(!legacy.verified && legacy.key_changed && Bytes.length(legacy.safety_number) == 0)
   case policy(bob_path, alice_profile, 4, 0) do
-    Ok( _) -> assert(false)
-    Err( _) -> assert(true)
+    Ok(_) -> assert(false)
+    Err(_) -> assert(true)
   end
-  let replacement = case encode_account_identity(% { bob_identity | authorization_public_key : alice_identity.authorization_public_key }) do
-    Err( _) -> Err("test account encoding failed")
-    Ok( value) -> Ok(value)
+  let replacement = case encode_account_identity(% {bob_identity | authorization_public_key : alice_identity.authorization_public_key }) do
+    Err(_) -> Err("test account encoding failed")
+    Ok(value) -> Ok(value)
   end ?
   let bob = decode_client_profile(bob_profile) ?
-  let changed_profile = encode_client_profile(% { bob.entry | account_identity : replacement },
+  let changed_profile = encode_client_profile(% {bob.entry | account_identity : replacement },
   bob.account_id,
   bob.device_id) ?
   case send_message_export(request([Bytes.from_utf8(alice_path), changed_profile, Bytes.from_utf8("must not send")]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "peer_keys_changed")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "peer_keys_changed")
   end
   File.delete(alice_path) ?
   File.delete(bob_path) ?
@@ -175,10 +175,10 @@ end
 
 test("mobile conversation policy and disappearing history are proven in Mesh") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

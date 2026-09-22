@@ -72,22 +72,22 @@ fn proof() -> Bool ! String do
   assert(group_transparency_valid_for_test(account.path) ?)
   assert(remove_group_transparency_chunk_for_test(account.path, 2) ?)
   case group_transparency_valid_for_test(account.path) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "local_state_not_found")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "local_state_not_found")
   end
   assert(replace_group_transparency_chunk_for_test(account.path, 2, maximum_chunk_2) ?)
   assert(replace_group_transparency_chunk_for_test(account.path, 0, maximum_chunk_1) ?)
   assert(replace_group_transparency_chunk_for_test(account.path, 1, maximum_chunk_0) ?)
   case group_transparency_valid_for_test(account.path) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_transparency_view")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_transparency_view")
   end
   assert(replace_group_transparency_chunk_for_test(account.path, 0, maximum_chunk_0) ?)
   assert(replace_group_transparency_chunk_for_test(account.path, 1, maximum_chunk_1) ?)
   assert(replace_group_transparency_chunk_for_test(account.path, 2, tamper_last(maximum_chunk_2) ?) ?)
   case group_transparency_valid_for_test(account.path) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_transparency_view")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_transparency_view")
   end
   assert(replace_group_transparency_chunk_for_test(account.path, 2, maximum_chunk_2) ?)
   assert(group_transparency_valid_for_test(account.path) ?)
@@ -108,12 +108,12 @@ fn proof() -> Bool ! String do
   account.device_set) ?)
   assert(replace_group_transparency_chunk_for_test(account.path, 1, Bytes.from_utf8("extra")) ?)
   case group_transparency_valid_for_test(account.path) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_transparency_view")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_transparency_view")
   end
   case consistency_proof(List.new(), List.append(leaves, filler)) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_consistency_proof")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_consistency_proof")
   end
   File.delete(account.path) ?
   Ok(true)
@@ -121,10 +121,10 @@ end
 
 test("mobile transparency preserves 4096 proof leaves and rejects 4097 without truncation") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

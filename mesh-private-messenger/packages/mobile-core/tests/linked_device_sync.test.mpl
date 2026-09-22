@@ -36,36 +36,36 @@ from Transparency.Merkle import leaf_hash
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("test byte encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("test byte encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn entry(input :: Bytes) -> DirectoryEntry ! String do
   case decode_directory_entry(input) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn bundle(input :: Bytes) -> PrekeyBundle ! String do
   case decode_prekey_bundle(input) do
-    Err( _) -> Err("prekey bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("prekey bundle decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn outer(input :: Bytes) -> OuterEnvelope ! String do
   case decode_outer_envelope(input) do
-    Err( _) -> Err("outer envelope decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("outer envelope decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn bundle_wire(value :: PrekeyBundle) -> Bytes ! String do
   case encode_prekey_bundle(value) do
-    Err( _) -> Err("prekey bundle encode failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("prekey bundle encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -73,32 +73,32 @@ end
 
 fn base_entry(claimed :: DirectoryEntry) -> DirectoryEntry ! String do
   case normalize_prekey_bundle(bundle(claimed.prekey_bundle) ?) do
-    Err( _) -> Err("prekey bundle normalization failed")
-    Ok( normalized) -> Ok(% { claimed | prekey_bundle : bundle_wire(normalized) ? })
+    Err(_) -> Err("prekey bundle normalization failed")
+    Ok(normalized) -> Ok(% {claimed | prekey_bundle : bundle_wire(normalized) ? })
   end
 end
 
 fn device_set_wire(value :: DeviceSet) -> Bytes ! String do
   case encode_device_set(value) do
-    Err( _) -> Err("device set encode failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("device set encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn read_u32_at(input :: Bytes, offset :: Int) -> Int ! String do
   case Bytes.read_u32_be(input, offset) do
-    Err( _) -> Err("output list decode failed")
-    Ok( value) -> case U64.to_int(value) do
-      Err( _) -> Err("output list decode failed")
-      Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("output list decode failed")
+    Ok(value) -> case U64.to_int(value) do
+      Err(_) -> Err("output list decode failed")
+      Ok(parsed) -> Ok(parsed)
     end
   end
 end
 
 fn slice(input :: Bytes, offset :: Int, length :: Int) -> Bytes ! String do
   case Bytes.slice(input, offset, length) do
-    Err( _) -> Err("output list decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("output list decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -191,7 +191,7 @@ end
 fn fresh_bundle(path :: String, claimed :: PrekeyBundle) -> Bytes ! String do
   let publication = decode_prekey_publish(replenish_prekeys_export(request([Bytes.from_utf8(path), write_u32(1) ?]) ?) ?) ?
   let prekey = List.head(publication.prekeys)
-  bundle_wire(% { claimed | one_time_prekey_id : prekey.id, one_time_prekey : prekey.public_key })
+  bundle_wire(% {claimed | one_time_prekey_id : prekey.id, one_time_prekey : prekey.public_key })
 end
 
 fn reserve(path :: String, peer_set :: Bytes, local_set :: Bytes, claimed :: Bytes) -> Bool ! String do
@@ -248,8 +248,8 @@ fn proof() -> Bool ! String do
   let witness_a = signing_pair() ?
   let witness_b = signing_pair() ?
   let delivery_pair = case Crypto.x25519_generate() do
-    Err( _) -> Err("test delivery key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test delivery key generation failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(install_security_config(service_pair.public_key.bytes,
   witness_a.public_key.bytes,
@@ -409,10 +409,10 @@ end
 
 test("a linked device shares every direct conversation with its siblings") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

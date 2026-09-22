@@ -41,15 +41,15 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("test byte encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("test byte encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn raw_push_frame(platform :: Int, development :: Int, app_id :: Bytes, device_token :: Bytes) -> Bytes ! String do
   let header = case Bytes.from_list([1, platform, development]) do
-    Err( _) -> Err("test byte encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test byte encoding failed")
+    Ok(value) -> Ok(value)
   end ?
   append(append(header, vector(app_id) ?) ?, vector(device_token) ?)
 end
@@ -66,19 +66,19 @@ end
 
 fn push_action_byte(action :: Bytes, index :: Int) -> Int ! String do
   case Bytes.get(action, index) do
-    Err( _) -> Err("invalid push action fixture")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid push action fixture")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn push_action_kind(action :: Bytes) -> Int ! String do
   let magic = case Bytes.slice(action, 0, 4) do
-    Err( _) -> Err("invalid push action fixture")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid push action fixture")
+    Ok(value) -> Ok(value)
   end ?
   let expected = case Bytes.from_list([1, 80, 70, 65]) do
-    Err( _) -> Err("invalid push action fixture")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid push action fixture")
+    Ok(value) -> Ok(value)
   end ?
   if Bytes.length(action) < 18 || !Bytes.secure_equals(magic, expected) do
     Err("invalid push action fixture")
@@ -92,8 +92,8 @@ fn push_action_payload(action :: Bytes) -> Bytes ! String do
     Err("invalid push action fixture")
   else
     case Bytes.slice(action, 18, Bytes.length(action) - 18) do
-      Err( _) -> Err("invalid push action fixture")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid push action fixture")
+      Ok(value) -> Ok(value)
     end
   end
 end
@@ -103,8 +103,8 @@ fn push_action_epoch(action :: Bytes) -> U64 ! String do
     Err("invalid push action fixture")
   else
     case Bytes.read_u64_be(action, 6) do
-      Err( _) -> Err("invalid push action fixture")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid push action fixture")
+      Ok(value) -> Ok(value)
     end
   end
 end
@@ -139,8 +139,8 @@ end
 
 fn seed(value :: Int) -> Bytes ! String do
   case Bytes.repeat(value, 32) do
-    Err( _) -> Err("seed allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("seed allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -148,8 +148,8 @@ fn signature_valid(public_key :: Bytes, signed :: Bytes, signature :: Bytes) -> 
   case Crypto.verify(SigningPublicKey { bytes : public_key },
   signed,
   Signature { bytes : signature }) do
-    Err( _) -> Ok(false)
-    Ok( value) -> Ok(value)
+    Err(_) -> Ok(false)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -163,22 +163,22 @@ end
 
 fn directory_entry(input :: Bytes) -> DirectoryEntry ! String do
   case decode_directory_entry(input) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn prekey_bundle(input :: Bytes) -> PrekeyBundle ! String do
   case decode_prekey_bundle(input) do
-    Err( _) -> Err("prekey bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("prekey bundle decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn device_credential(input :: Bytes) -> DeviceCredential ! String do
   case decode_device_credential(input) do
-    Err( _) -> Err("device credential decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device credential decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -215,9 +215,9 @@ expected_project_id :: String) -> Bool ! String do
   let content_type = case Request.header(request, "Content-Type") do
     None -> case Request.header(request, "content-type") do
       None -> false
-      Some( value) -> value == "application/json"
+      Some(value) -> value == "application/json"
     end
-    Some( value) -> value == "application/json"
+    Some(value) -> value == "application/json"
   end
   let root = Json.parse(Request.body(request)) ?
   let development = ((root
@@ -243,9 +243,9 @@ body :: String) -> Response do
   path,
   expected_token,
   "01234567-89ab-cdef-0123-456789abcdef") do
-    Err( _) -> HTTP.response(400, "{}")
-    Ok( false) -> HTTP.response(400, "{}")
-    Ok( true) -> HTTP.response(status, body)
+    Err(_) -> HTTP.response(400, "{}")
+    Ok(false) -> HTTP.response(400, "{}")
+    Ok(true) -> HTTP.response(status, body)
   end
 end
 
@@ -294,9 +294,9 @@ fn expo_rotated(request :: Request) -> Response do
   "/rotated",
   "rotated-device-token",
   "fedcba98-7654-3210-fedc-ba9876543210") do
-    Err( _) -> HTTP.response(400, "{}")
-    Ok( false) -> HTTP.response(400, "{}")
-    Ok( true) -> HTTP.response(200,
+    Err(_) -> HTTP.response(400, "{}")
+    Ok(false) -> HTTP.response(400, "{}")
+    Ok(true) -> HTTP.response(200,
     "{\"data\":{\"expoPushToken\":\"ExpoPushToken[rotated-device-token]\"}}")
   end
 end
@@ -326,43 +326,43 @@ endpoint :: String) -> Bool ! String do
   0,
   0) ?)
   case push_intent_export(request([Bytes.from_utf8(path), byte(1) ?, project_id, broker_public_key]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_push_intent")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_push_intent")
   end
   case push_intent_export(request([Bytes.from_utf8(path), byte(0) ?, project_id]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_push_intent")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_push_intent")
   end
   case push_intent_export(request([Bytes.from_utf8(path), byte(1) ?]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_configuration_required")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_configuration_required")
   end
   let valid_config_frame = push_config_frame(project_id, broker_public_key) ?
   assert(Test.set_push_token(Bytes.from_utf8("expo/config/v1"),
   append(Bytes.from_utf8("2"),
   Bytes.slice(valid_config_frame, 1, Bytes.length(valid_config_frame) - 1) ?) ?))
   case push_intent_export(request([Bytes.from_utf8(path), byte(1) ?]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_push_configuration")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_push_configuration")
   end
   assert(Test.set_push_token(Bytes.from_utf8("expo/config/v1"),
   push_config_frame(Bytes.from_utf8("01234567-89AB-cdef-0123-456789abcdef"), broker_public_key) ?))
   case push_intent_export(request([Bytes.from_utf8(path), byte(1) ?]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_push_project_id")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_push_project_id")
   end
   assert(Test.set_push_token(Bytes.from_utf8("expo/config/v1"),
   append(append(append(Bytes.from_utf8("1\n"), project_id) ?, Bytes.from_utf8("\n")) ?,
   Bytes.from_utf8("AB" <> String.slice(Bytes.to_hex(broker_public_key), 2, 64))) ?))
   case push_intent_export(request([Bytes.from_utf8(path), byte(1) ?]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_push_broker_public_key")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_push_broker_public_key")
   end
   assert(Test.set_push_token(Bytes.from_utf8("expo/config/v1"),
   push_config_frame(project_id, repeated(0, 32) ?) ?))
   case push_intent_export(request([Bytes.from_utf8(path), byte(1) ?]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_push_broker_public_key")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_push_broker_public_key")
   end
   assert(install_push_config(project_id, broker_public_key) ?)
   let permission_action = push_intent_export(request([Bytes.from_utf8(path), byte(1) ?]) ?) ?
@@ -425,8 +425,8 @@ endpoint :: String) -> Bool ! String do
   assert(U64.compare(unbind.revision, bind.revision) > 0)
   assert(Bytes.secure_equals(push_action_export(Bytes.from_utf8(path)) ?, disable_during_unbind))
   case complete_push_action_for_test(path, tamper_last_byte(disable_during_unbind) ?, 0, endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_action_mismatch")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_action_mismatch")
   end
   let unbind_failed = complete_push_action_for_test(path, disable_during_unbind, 1, endpoint) ?
   assert(push_done_matches(unbind_failed, 3, 1) ?)
@@ -489,16 +489,16 @@ endpoint_b :: String) -> Bool ! String do
   raw_push_frame(1, 1, app_id, Bytes.from_utf8("rebound-device-token")) ?))
   assert(install_push_config(project_b, broker_b_public_key) ?)
   case complete_push_action_for_test(path, prime_a, 0, endpoint_a) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_configuration_changed")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_configuration_changed")
   end
   assert(install_push_config(project_a, broker_a_public_key) ?)
   let bind_a_action = complete_push_action_for_test(path, prime_a, 0, endpoint_a) ?
   let bind_a = decode_push_bind(push_action_payload(bind_a_action) ?) ?
   assert(install_push_config(project_b, broker_b_public_key) ?)
   case complete_push_action_for_test(path, bind_a_action, 0, endpoint_b) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_configuration_changed")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_configuration_changed")
   end
   assert(install_push_config(project_b, broker_b_public_key) ?)
   let clear = push_intent_export(request([Bytes.from_utf8(path), byte(1) ?]) ?) ?
@@ -525,8 +525,8 @@ endpoint_b :: String) -> Bool ! String do
   assert(Bytes.secure_equals(open_provider_token(bind_b.provider_token_ciphertext, broker_b_seed) ?,
   Bytes.from_utf8("ExpoPushToken[rotated-device-token]")))
   case open_provider_token(bind_b.provider_token_ciphertext, broker_a_seed) do
-    Ok( _) -> assert(false)
-    Err( _) -> assert(true)
+    Ok(_) -> assert(false)
+    Err(_) -> assert(true)
   end
   assert(install_push_config(project_b, broker_b_public_key) ?)
   assert(push_done_matches(complete_push_action_for_test(path, bind_b_action, 0, endpoint_b) ?,
@@ -545,8 +545,8 @@ endpoint_b :: String) -> Bool ! String do
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), Bytes.from_utf8("unused")))
   assert(Test.set_push_token(Bytes.from_utf8("expo/config/v1"), Bytes.empty()))
   case push_intent_export(request([Bytes.from_utf8(path), byte(0) ?]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_push_configuration")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_push_configuration")
   end
   assert(install_push_config(project_b, broker_b_public_key) ?)
   let legacy_clear = push_intent_export(request([Bytes.from_utf8(path), byte(0) ?]) ?) ?
@@ -565,13 +565,13 @@ fn proof() -> Bool ! String do
   let mailbox_hash = Crypto.sha256(entry.mailbox_token)
   let broker_seed = seed(7) ?
   let broker = case Crypto.x25519_from_seed(broker_seed) do
-    Err( _) -> Err("broker key failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("broker key failed")
+    Ok(value) -> Ok(value)
   end ?
   let rotated_broker_seed = seed(9) ?
   let rotated_broker = case Crypto.x25519_from_seed(rotated_broker_seed) do
-    Err( _) -> Err("rotated broker key failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("rotated broker key failed")
+    Ok(value) -> Ok(value)
   end ?
   let attacker_seed = seed(8) ?
   let project_id = Bytes.from_utf8("01234567-89ab-cdef-0123-456789abcdef")
@@ -610,64 +610,64 @@ fn proof() -> Bool ! String do
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_material_invalid")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_material_invalid")
   end
   let trailing_frame = append(first_frame, byte(0) ?) ?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), trailing_frame))
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_material_invalid")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_material_invalid")
   end
   let invalid_utf8 = raw_push_frame(1, 1, app_id, byte(255) ?) ?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), invalid_utf8))
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_material_invalid")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_material_invalid")
   end
   let padded_frame = raw_push_frame(1, 1, app_id, Bytes.from_utf8(" apns-device-token")) ?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), padded_frame))
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_material_invalid")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_material_invalid")
   end
   let oversized_frame = raw_push_frame(1, 1, app_id, repeated(97, 4097) ?) ?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), oversized_frame))
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_material_invalid")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_material_invalid")
   end
   let status_frame = raw_push_frame(1, 1, app_id, Bytes.from_utf8("status-device-token")) ?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), status_frame))
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   status_endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_provider_rejected")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_provider_rejected")
   end
   let malformed_response = raw_push_frame(1, 1, app_id, Bytes.from_utf8("malformed-response-token")) ?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), malformed_response))
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   malformed_endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_provider_response_invalid")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_provider_response_invalid")
   end
   let invalid_provider = raw_push_frame(1, 1, app_id, Bytes.from_utf8("invalid-provider-token")) ?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), invalid_provider))
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   invalid_endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_provider_response_invalid")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_provider_response_invalid")
   end
   assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path)) ?,
   Bytes.from_utf8("disabled")))
@@ -696,8 +696,8 @@ fn proof() -> Bool ! String do
   assert(Bytes.secure_equals(open_provider_token(first.provider_token_ciphertext, broker_seed) ?,
   first_token))
   case open_provider_token(first.provider_token_ciphertext, attacker_seed) do
-    Ok( _) -> assert(false)
-    Err( _) -> assert(true)
+    Ok(_) -> assert(false)
+    Err(_) -> assert(true)
   end
   assert(valid_bind_signature(first, credential.signing_public_key) ?)
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), Bytes.from_utf8("invalid")))
@@ -706,8 +706,8 @@ fn proof() -> Bool ! String do
   "not a url") ?,
   first_wire))
   case commit_push_wire_for_test(path, Bytes.from_utf8("wrong")) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_update_mismatch")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_update_mismatch")
   end
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), first_frame))
   assert(Bytes.secure_equals(push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
@@ -755,8 +755,8 @@ fn proof() -> Bool ! String do
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id]) ?,
   broker.public_key.bytes,
   endpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_update_pending")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_update_pending")
   end
   let committed_unbind = commit_push_wire_for_test(path, unbind_wire) ?
   assert(Bytes.length(committed_unbind) == 0)
@@ -782,8 +782,8 @@ fn proof() -> Bool ! String do
   assert(Bytes.secure_equals(push_unbind_prepare_export(Bytes.from_utf8(path)) ?,
   cancel_rebound_wire))
   case commit_push_wire_for_test(path, rebound_wire) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_update_mismatch")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_update_mismatch")
   end
   assert(raw_token_absent(path, first_token) ?)
   assert(raw_token_absent(path, second_token) ?)
@@ -800,8 +800,8 @@ fn proof() -> Bool ! String do
   [Binary(Bytes.from_utf8("corrupt")), Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("push-binding/v1"))))]) ?
   Sqlite.close(database)
   case push_unbind_prepare_export(Bytes.from_utf8(path)) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "push_state_corrupt")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "push_state_corrupt")
   end
   File.delete(path) ?
   Ok(true)
@@ -809,10 +809,10 @@ end
 
 test("Mesh registers and binds push tokens without exposing raw platform material") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

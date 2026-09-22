@@ -18,12 +18,12 @@ end
 
 fn load_address(database_path :: String, wrapping_key :: borrow StorageKey, label :: String) -> Bytes ! String do
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( blob) -> do
+    Ok(blob) -> do
       let value = open_local(blob, wrapping_key, local_context(label) ?) ?
       if Bytes.length(value) != 32 do
         Err("invalid_contact_address")
@@ -49,7 +49,7 @@ end
 # What the next publication names, and what must be stored before it is sent:
 # the address still awaiting an answer, else the confirmed one, else a new one.
 
-pub fn published_contact_address(database_path :: String, wrapping_key :: borrow StorageKey) -> Result <( Bytes, List < String >, List < Bytes >), String > do
+pub fn published_contact_address(database_path :: String, wrapping_key :: borrow StorageKey) -> Result <(Bytes, List < String >, List < Bytes >), String > do
   let pending = load_address(database_path, wrapping_key, "contact-address-pending/v1") ?
   if Bytes.length(pending) == 32 do
     Ok((pending, List.new(), List.new()))
@@ -68,7 +68,7 @@ end
 
 # The directory answered a publication, so whatever address it named is live.
 
-pub fn confirmed_contact_address_writes(database_path :: String, wrapping_key :: borrow StorageKey) -> Result <( List < String >, List < Bytes >, List < String >), String > do
+pub fn confirmed_contact_address_writes(database_path :: String, wrapping_key :: borrow StorageKey) -> Result <(List < String >, List < Bytes >, List < String >), String > do
   let pending = load_address(database_path, wrapping_key, "contact-address-pending/v1") ?
   if Bytes.length(pending) != 32 do
     Ok((List.new(), List.new(), List.new()))
@@ -84,7 +84,7 @@ end
 # address until they are handed the new one; that is the point when a
 # conversation is blocked.
 
-pub fn rotated_contact_address_writes(wrapping_key :: borrow StorageKey) -> Result <( List < String >, List < Bytes >), String > do
+pub fn rotated_contact_address_writes(wrapping_key :: borrow StorageKey) -> Result <(List < String >, List < Bytes >), String > do
   Ok((["contact-address-pending/v1"],
   [sealed_address(random_bytes(32) ?, wrapping_key, "contact-address-pending/v1") ?]))
 end
@@ -147,7 +147,7 @@ end
 pub fn learned_contact_address_writes(database_path :: String,
 wrapping_key :: borrow StorageKey,
 public_address :: Bytes,
-extensions :: List < ProtocolExtension >) -> Result <( List < String >, List < Bytes >, List < String >), String > do
+extensions :: List < ProtocolExtension >) -> Result <(List < String >, List < Bytes >, List < String >), String > do
   let offered = extension_value(extensions, 0)
   if Bytes.length(offered) != 32 || Bytes.length(public_address) != 32 || Bytes.secure_equals(offered,
   public_address) do

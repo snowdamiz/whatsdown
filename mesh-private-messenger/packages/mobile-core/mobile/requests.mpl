@@ -50,8 +50,8 @@ pub fn parse_store_request(input :: Bytes) -> MobileStoreRequest ! String do
     let envelope = take_vector(record_key.state, 65606) ?
     mobile_finish(envelope.state, "invalid_store_request") ?
     case Bytes.to_utf8(path.value) do
-      Err( _) -> Err("invalid_database_path")
-      Ok( database_path) -> if String.length(database_path) == 0 || Bytes.length(record_key.value) == 0 do
+      Err(_) -> Err("invalid_database_path")
+      Ok(database_path) -> if String.length(database_path) == 0 || Bytes.length(record_key.value) == 0 do
         Err("invalid_store_request")
       else
         Ok(MobileStoreRequest {
@@ -302,8 +302,8 @@ end
 
 pub fn parse_push_bind_request(input :: Bytes) -> MobilePayloadRequest ! String do
   case parse_push_bind_request_inner(input) do
-    Err( _) -> Err("invalid_payload_request")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_payload_request")
+    Ok(value) -> Ok(value)
   end
 end
 

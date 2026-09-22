@@ -93,10 +93,10 @@ from Groups.WelcomeWire import (
 fn apply_proposal(tree :: GroupTree, proposal :: GroupProposal) -> GroupTree ! GroupError do
   case proposal do
     UpdateKeys -> Ok(tree)
-    AddMember( leaf_index, member) -> case insert_member(tree, member) do
-      Err( error) -> Err(TreeFailure(error))
-      Ok( value) -> do
-        let ( next, actual_leaf) = value
+    AddMember(leaf_index, member) -> case insert_member(tree, member) do
+      Err(error) -> Err(TreeFailure(error))
+      Ok(value) -> do
+        let (next, actual_leaf) = value
         if actual_leaf == leaf_index do
           Ok(next)
         else
@@ -104,23 +104,23 @@ fn apply_proposal(tree :: GroupTree, proposal :: GroupProposal) -> GroupTree ! G
         end
       end
     end
-    RemoveMember( leaf_index) -> case remove_member(tree, leaf_index) do
-      Err( error) -> Err(TreeFailure(error))
-      Ok( next) -> Ok(next)
+    RemoveMember(leaf_index) -> case remove_member(tree, leaf_index) do
+      Err(error) -> Err(TreeFailure(error))
+      Ok(next) -> Ok(next)
     end
   end
 end
 
 fn verify_commit(value :: GroupCommit, prior_tree :: GroupTree) -> Result <(), GroupError > do
   let committer = case member_at(prior_tree, value.committer_leaf) do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( member) -> Ok(member)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(member) -> Ok(member)
   end ?
   let valid = case Crypto.verify(committer.signing_public_key,
   group_commit_unsigned(value) ?,
   value.signature) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( result) -> Ok(result)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(result) -> Ok(result)
   end ?
   if valid do
     Ok(nil)
@@ -147,36 +147,36 @@ policy :: GroupTransparencyPolicy) -> GroupState ! GroupError do
     Err(InvalidGroup)
   else
     case group_validate_member_policy(creator, extensions, policy) do
-      Err( error) -> do
+      Err(error) -> do
         group_destroy_private(leaf_private_key)
         Err(error)
       end
-      Ok( _) -> case Crypto.x25519_public(leaf_private_key) do
-        Err( error) -> do
+      Ok(_) -> case Crypto.x25519_public(leaf_private_key) do
+        Err(error) -> do
           group_destroy_private(leaf_private_key)
           Err(CryptoFailure(error))
         end
-        Ok( public_key) -> if !Bytes.secure_equals(public_key.bytes, creator.leaf_public_key.bytes) do
+        Ok(public_key) -> if !Bytes.secure_equals(public_key.bytes, creator.leaf_public_key.bytes) do
           group_destroy_private(leaf_private_key)
           Err(AuthenticationRejected)
         else
           let group_id = case Crypto.random_bytes(32) do
-            Err( error) -> Err(CryptoFailure(error))
-            Ok( value) -> Ok(value)
+            Err(error) -> Err(CryptoFailure(error))
+            Ok(value) -> Ok(value)
           end ?
           let secret = case Secret.random(32) do
-            Err( error) -> Err(CryptoFailure(error))
-            Ok( value) -> Ok(value)
+            Err(error) -> Err(CryptoFailure(error))
+            Ok(value) -> Ok(value)
           end ?
           let inserted = case insert_member(case empty_tree() do
-            Err( error) -> Err(TreeFailure(error))
-            Ok( value) -> Ok(value)
+            Err(error) -> Err(TreeFailure(error))
+            Ok(value) -> Ok(value)
           end ?,
           creator) do
-            Err( error) -> Err(TreeFailure(error))
-            Ok( value) -> Ok(value)
+            Err(error) -> Err(TreeFailure(error))
+            Ok(value) -> Ok(value)
           end ?
-          let ( tree, creator_leaf) = inserted
+          let (tree, creator_leaf) = inserted
           if creator_leaf != 0 do
             group_destroy_private(leaf_private_key)
             Secret.destroy(secret)
@@ -213,10 +213,10 @@ signing_key :: borrow SigningPrivateKey,
 member :: GroupMember) -> PreparedGroupAdd ! GroupError do
   group_validate_member_policy(member, state.extensions, state.policy) ?
   let inserted = case insert_member(state.tree, member) do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(value) -> Ok(value)
   end ?
-  let ( proposal_tree, recipient_leaf) = inserted
+  let (proposal_tree, recipient_leaf) = inserted
   let epoch = group_next_epoch(state.epoch) ?
   let proposal = AddMember(recipient_leaf, member)
   let generated = group_generate_treekem_path(state.local_leaf) ?
@@ -266,10 +266,10 @@ member :: GroupMember) -> PreparedGroupAdd ! GroupError do
     signature : Signature { bytes : Bytes.empty() }
   }
   let signature = case Crypto.sign(signing_key, group_commit_unsigned(unsigned) ?) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
-  let commit = % { unsigned | signature : signature }
+  let commit = % {unsigned | signature : signature }
   verify_commit(commit, state.tree) ?
   let transcript_hash = Crypto.sha256(group_signed_commit_bytes(commit) ?)
   let level = group_joiner_level(state.local_leaf, recipient_leaf, 0) ?
@@ -292,8 +292,8 @@ member :: GroupMember) -> PreparedGroupAdd ! GroupError do
     Bytes.from_utf8("mesh-mls/v2/welcome-epoch"),
     group_signed_commit_bytes(commit) ?,
     secret) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end ?
   }
   Ok(PreparedGroupAdd {
@@ -311,13 +311,13 @@ pub fn commit_add(state :: consume GroupState,
 signing_key :: borrow SigningPrivateKey,
 member :: GroupMember) -> GroupAddOutcome do
   case prepare_add(state, signing_key, member) do
-    Err( error) -> GroupAddRejected(state, error)
-    Ok( prepared) -> do
+    Err(error) -> GroupAddRejected(state, error)
+    Ok(prepared) -> do
       let tree = prepared.tree
       let commit = prepared.commit
       let welcome = prepared.welcome
       let transcript_hash = prepared.transcript_hash
-      let next = % { state | version : 2, epoch : commit.epoch, tree : tree, tree_hash_cache : tree_hash(tree), transcript_hash : transcript_hash, key_material : prepared.key_material, next_generation : 0, received_generations : List.new() }
+      let next = % {state | version : 2, epoch : commit.epoch, tree : tree, tree_hash_cache : tree_hash(tree), transcript_hash : transcript_hash, key_material : prepared.key_material, next_generation : 0, received_generations : List.new() }
       GroupMemberAdded(next, commit, welcome)
     end
   end
@@ -333,8 +333,8 @@ leaf_index :: Int) -> PreparedGroupRemove ! GroupError do
       Ok(state.tree)
     else
       case remove_member(state.tree, leaf_index) do
-        Err( error) -> Err(TreeFailure(error))
-        Ok( value) -> Ok(value)
+        Err(error) -> Err(TreeFailure(error))
+        Ok(value) -> Ok(value)
       end
     end ?
     let epoch = group_next_epoch(state.epoch) ?
@@ -392,10 +392,10 @@ leaf_index :: Int) -> PreparedGroupRemove ! GroupError do
       signature : Signature { bytes : Bytes.empty() }
     }
     let signature = case Crypto.sign(signing_key, group_commit_unsigned(unsigned) ?) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end ?
-    let commit = % { unsigned | signature : signature }
+    let commit = % {unsigned | signature : signature }
     verify_commit(commit, state.tree) ?
     let transcript_hash = Crypto.sha256(group_signed_commit_bytes(commit) ?)
     Ok(PreparedGroupRemove {
@@ -413,12 +413,12 @@ pub fn commit_remove(state :: consume GroupState,
 signing_key :: borrow SigningPrivateKey,
 leaf_index :: Int) -> GroupRemoveOutcome do
   case prepare_remove(state, signing_key, leaf_index) do
-    Err( error) -> GroupRemoveRejected(state, error)
-    Ok( prepared) -> do
+    Err(error) -> GroupRemoveRejected(state, error)
+    Ok(prepared) -> do
       let tree = prepared.tree
       let commit = prepared.commit
       let transcript_hash = prepared.transcript_hash
-      let next = % { state | version : 2, epoch : commit.epoch, tree : tree, tree_hash_cache : tree_hash(tree), transcript_hash : transcript_hash, key_material : prepared.key_material, next_generation : 0, received_generations : List.new() }
+      let next = % {state | version : 2, epoch : commit.epoch, tree : tree, tree_hash_cache : tree_hash(tree), transcript_hash : transcript_hash, key_material : prepared.key_material, next_generation : 0, received_generations : List.new() }
       GroupMemberRemoved(next, commit)
     end
   end
@@ -427,8 +427,8 @@ end
 fn transition_tree(prior_tree :: GroupTree, commit :: GroupCommit) -> GroupTree ! GroupError do
   let proposal_tree = apply_proposal(prior_tree, commit.proposal) ?
   let excluded = case commit.proposal do
-    AddMember( leaf, _) -> leaf
-    RemoveMember( _) -> -1
+    AddMember(leaf, _) -> leaf
+    RemoveMember(_) -> -1
     UpdateKeys -> -1
   end
   group_validate_update_recipients(proposal_tree,
@@ -466,8 +466,8 @@ leaf_public_key :: X25519PublicKey) -> PreparedJoin ! GroupError do
       Err(AuthenticationRejected)
     else
       let init_public_key = case Crypto.x25519_public(init_private_key) do
-        Err( error) -> Err(CryptoFailure(error))
-        Ok( value) -> Ok(value)
+        Err(error) -> Err(CryptoFailure(error))
+        Ok(value) -> Ok(value)
       end ?
       let recipient = group_tree_member_error(member_at(tree, welcome.recipient_leaf)) ?
       if !Bytes.secure_equals(recipient.init_public_key.bytes, init_public_key.bytes) || !Bytes.secure_equals(recipient.leaf_public_key.bytes,
@@ -490,8 +490,8 @@ leaf_public_key :: X25519PublicKey) -> PreparedJoin ! GroupError do
         welcome.joiner_path_level,
         63 + welcome.recipient_leaf) ?,
         welcome.joiner_path_secret) do
-          Err( error) -> Err(CryptoFailure(error))
-          Ok( value) -> Ok(value)
+          Err(error) -> Err(CryptoFailure(error))
+          Ok(value) -> Ok(value)
         end ?
         Ok(PreparedJoin {
           tree : tree,
@@ -508,23 +508,23 @@ pub fn join_from_welcome(welcome :: GroupWelcome,
 init_private_key :: borrow X25519PrivateKey,
 leaf_private_key :: consume X25519PrivateKey) -> GroupState ! GroupError do
   case Crypto.x25519_public(leaf_private_key) do
-    Err( error) -> do
+    Err(error) -> do
       group_destroy_private(leaf_private_key)
       Err(CryptoFailure(error))
     end
-    Ok( leaf_public_key) -> do
+    Ok(leaf_public_key) -> do
       case prepare_join(welcome, init_private_key, leaf_public_key) do
-        Err( error) -> do
+        Err(error) -> do
           group_destroy_private(leaf_private_key)
           Err(error)
         end
-        Ok( prepared) -> do
+        Ok(prepared) -> do
           let tree = prepared.tree
           let path_level = prepared.path_level
           let context = prepared.context
           let placeholder_epoch = case Secret.random(32) do
-            Err( error) -> Err(CryptoFailure(error))
-            Ok( value) -> Ok(value)
+            Err(error) -> Err(CryptoFailure(error))
+            Ok(value) -> Ok(value)
           end ?
           let base = group_base_key_material(placeholder_epoch, leaf_private_key) ?
           let patch = group_derive_verified_patch(prepared.path_secret,
@@ -537,8 +537,8 @@ leaf_private_key :: consume X25519PrivateKey) -> GroupState ! GroupError do
             Bytes.from_utf8("mesh-mls/v2/welcome-epoch"),
             group_signed_commit_bytes(welcome.commit) ?,
             welcome.joiner_epoch_secret) do
-              Err( error) -> Err(CryptoFailure(error))
-              Ok( value) -> Ok(value)
+              Err(error) -> Err(CryptoFailure(error))
+              Ok(value) -> Ok(value)
             end ?
             group_verify_confirmation(seed, context, welcome.commit.confirmation) ?
             let keys = group_epoch_keys(seed, welcome.commit.group_id, tree) ?
@@ -587,8 +587,8 @@ fn apply_verified_commit(state :: borrow GroupState, commit :: GroupCommit) -> P
     let next_members = indexed_members(next_tree)
     group_validate_members(next_members, state.extensions, state.policy, 0) ?
     case member_at(next_tree, state.local_leaf) do
-      Err( _) -> Err(RemovedMember)
-      Ok( _) -> do
+      Err(_) -> Err(RemovedMember)
+      Ok(_) -> do
         let context = group_update_path_context(commit.version,
         commit.suite,
         commit.group_id,
@@ -610,23 +610,23 @@ end
 
 pub fn apply_commit(state :: consume GroupState, commit :: GroupCommit) -> CommitApplyOutcome do
   case apply_verified_commit(state, commit) do
-    Err( error) -> CommitRejected(state, error)
-    Ok( prepared) -> case group_signed_commit_bytes(commit) do
-      Err( error) -> CommitRejected(state, error)
-      Ok( signed) -> case group_open_update_path(commit.update_path.nodes,
+    Err(error) -> CommitRejected(state, error)
+    Ok(prepared) -> case group_signed_commit_bytes(commit) do
+      Err(error) -> CommitRejected(state, error)
+      Ok(signed) -> case group_open_update_path(commit.update_path.nodes,
       0,
       state.key_material,
       state.local_leaf,
       prepared.context) do
-        Err( error) -> CommitRejected(state, error)
-        Ok( opened) -> do
+        Err(error) -> CommitRejected(state, error)
+        Ok(opened) -> do
           let opened_level = opened.level
           case group_derive_verified_patch(opened.secret,
           opened_level,
           commit.update_path.nodes,
           prepared.context) do
-            Err( error) -> CommitRejected(state, error)
-            Ok( patch) -> apply_prepared_patch(state, commit, prepared, signed, patch)
+            Err(error) -> CommitRejected(state, error)
+            Ok(patch) -> apply_prepared_patch(state, commit, prepared, signed, patch)
           end
         end
       end
@@ -648,9 +648,9 @@ patch :: consume TreeKemPathPatch) -> CommitApplyOutcome do
     prepared.tree,
     prepared.context,
     commit.confirmation) do
-      Err( error) -> CommitRejected(state, error)
-      Ok( value) -> do
-        let ( patch, keys) = value
+      Err(error) -> CommitRejected(state, error)
+      Ok(value) -> do
+        let (patch, keys) = value
         finish_applied(state, commit, prepared, signed, patch, Some(keys))
       end
     end
@@ -672,7 +672,7 @@ keys :: Option < GroupEpochKeys >) -> CommitApplyOutcome do
   let material = group_merge_key_material(state.key_material, patch)
   let material = case keys do
     None -> material
-    Some( value) -> group_install_epoch(material, value)
+    Some(value) -> group_install_epoch(material, value)
   end
   CommitApplied(GroupState {
     version : commit.version,

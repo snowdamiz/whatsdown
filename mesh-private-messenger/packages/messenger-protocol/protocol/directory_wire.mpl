@@ -41,8 +41,8 @@ fn validate_username_bytes(value :: Bytes, index :: Int) -> Result <(), Protocol
     Ok(nil)
   else
     case Bytes.get(value, index) do
-      Err( _) -> Err(MalformedEncoding)
-      Ok( next) -> if valid_username_byte(next) do
+      Err(_) -> Err(MalformedEncoding)
+      Ok(next) -> if valid_username_byte(next) do
         validate_username_bytes(value, index + 1)
       else
         Err(InvalidFieldLength)
@@ -67,8 +67,8 @@ fn decode_username(value :: Bytes) -> String ! ProtocolError do
   else
     validate_username_bytes(value, 0) ?
     case Bytes.to_utf8(value) do
-      Err( _) -> Err(MalformedEncoding)
-      Ok( decoded) -> Ok(decoded)
+      Err(_) -> Err(MalformedEncoding)
+      Ok(decoded) -> Ok(decoded)
     end
   end
 end

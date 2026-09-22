@@ -4,9 +4,9 @@ fn accepts_authenticated_delivery(request :: Request) -> Response do
   let authorized = case Request.header(request, "Authorization") do
     None -> case Request.header(request, "authorization") do
       None -> false
-      Some( value) -> value == "Bearer 0123456789abcdef0123456789abcdef"
+      Some(value) -> value == "Bearer 0123456789abcdef0123456789abcdef"
     end
-    Some( value) -> value == "Bearer 0123456789abcdef0123456789abcdef"
+    Some(value) -> value == "Bearer 0123456789abcdef0123456789abcdef"
   end
   if authorized && Bytes.secure_equals(Request.body_bytes(request), Bytes.from_utf8("sealed")) do
     HTTP.response(202, "")
@@ -27,8 +27,8 @@ test("privacy edge sends the matching internal bearer credential") do
   case forward_submission(Bytes.from_utf8("sealed"),
   "http://127.0.0.1:18995",
   "0123456789abcdef0123456789abcdef") do
-    Err( _) -> assert(false)
-    Ok( response) -> assert(response.status == 202)
+    Err(_) -> assert(false)
+    Ok(response) -> assert(response.status == 202)
   end
   Process.request_shutdown()
   Timer.sleep(50)

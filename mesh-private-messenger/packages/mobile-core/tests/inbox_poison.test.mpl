@@ -44,8 +44,8 @@ end
 
 fn batch(sequence :: String, envelopes :: List < Bytes >) -> Bytes ! String do
   case encode_delivery_batch(entries(U64.parse(sequence) ?, envelopes, 0, List.new())) do
-    Err( _) -> Err("delivery batch encode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("delivery batch encode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -59,8 +59,8 @@ fn settled(path :: String, deliveries :: Bytes) -> Int ! String do
     Ok(0)
   else
     case decode_mailbox_ack(answer) do
-      Err( _) -> Err("mailbox ack decode failed")
-      Ok( value) -> Ok(List.length(value.envelope_ids))
+      Err(_) -> Err("mailbox ack decode failed")
+      Ok(value) -> Ok(List.length(value.envelope_ids))
     end
   end
 end
@@ -69,8 +69,8 @@ end
 
 fn asks_after(path :: String) -> String ! String do
   case decode_mailbox_fetch(mailbox_fetch_export(Bytes.from_utf8(path)) ?) do
-    Err( _) -> Err("mailbox fetch decode failed")
-    Ok( value) -> Ok(U64.to_string(value.after_sequence))
+    Err(_) -> Err("mailbox fetch decode failed")
+    Ok(value) -> Ok(U64.to_string(value.after_sequence))
   end
 end
 
@@ -144,10 +144,10 @@ end
 
 test("an envelope that cannot be opened yet holds nothing else up and is given up on") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

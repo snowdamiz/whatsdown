@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { palettes, parseAppearance, resolveScheme, type Palette } from './appearance.ts';
+import { palettes, parseAppearance, resolveScheme, withAlpha, type Palette } from './appearance.ts';
+import { opacity } from './tokens.ts';
 import { contrast } from './wcag.ts';
 
 // Glass is a stack of washes over the pane behind it, and `contrast` reads
@@ -81,6 +82,16 @@ for (const [scheme, colors] of Object.entries(palettes) as [string, Palette][]) 
   test(`${scheme} palette sets the glass sidebar a shade off the canvas`, () => {
     const pane = flatten(colors.canvas, colors.sidebarGlass);
     assert.ok(apart(pane, colors.canvas) >= 15, `sidebar pane ${pane} against canvas ${colors.canvas}`);
+  });
+
+  // The desktop draws accent-tinted glass (a primary button, a filled
+  // toolbar disc) as a wash of the accent over whatever lies behind it. A
+  // thin wash left white labels on pale blue, which read as disabled.
+  test(`${scheme} palette keeps labels legible on accent-tinted glass`, () => {
+    for (const pane of [colors.canvas, colors.sidebar]) {
+      const fill = flatten(pane, withAlpha(colors.accent, opacity.wash));
+      assert.ok(contrast(colors.onAccent, fill) >= 3, `label on tinted glass over ${pane}: ${contrast(colors.onAccent, fill)}`);
+    }
   });
 
   test(`${scheme} palette keeps the printed card legible in both schemes`, () => {

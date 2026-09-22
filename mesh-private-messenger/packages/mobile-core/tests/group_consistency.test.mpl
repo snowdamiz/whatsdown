@@ -8,10 +8,10 @@ from Transparency.Merkle import TransparencyCheckpoint, leaf_hash
 
 fn read_u32_at(input :: Bytes, offset :: Int) -> Int ! String do
   case Bytes.read_u32_be(input, offset) do
-    Err( _) -> Err("output decode failed")
-    Ok( value) -> case U64.to_int(value) do
-      Err( _) -> Err("output decode failed")
-      Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("output decode failed")
+    Ok(value) -> case U64.to_int(value) do
+      Err(_) -> Err("output decode failed")
+      Ok(parsed) -> Ok(parsed)
     end
   end
 end
@@ -231,8 +231,8 @@ fn proof() -> Bool ! String do
   repeated(9, 32) ?,
   witness_a_public_key,
   witness_b_public_key) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "transparency_trust_mismatch")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "transparency_trust_mismatch")
   end
   let welcome_output = group_add_export(request([Bytes.from_utf8(alice.path), group_id, bob.device_set, bob_package]) ?) ?
   let welcome = welcome_envelope(welcome_output) ?
@@ -247,10 +247,10 @@ end
 
 test("mobile groups accept portable signed checkpoint prefixes without bounded ancestry") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

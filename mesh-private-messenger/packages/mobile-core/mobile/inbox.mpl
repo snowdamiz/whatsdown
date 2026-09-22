@@ -69,8 +69,8 @@ fn receive_mobile_direct_classified(request :: MobileReceiveRequest, kind :: Int
     receive_message(request)
   end
   case received do
-    Ok( output) -> DirectReceiveApplied(output)
-    Err( error) -> if permanent_direct_delivery_error(error) do
+    Ok(output) -> DirectReceiveApplied(output)
+    Err(error) -> if permanent_direct_delivery_error(error) do
       DirectReceiveRejected(error)
     else
       DirectReceiveRetry(error)
@@ -90,17 +90,17 @@ encoded :: Bytes) -> Bool do
     outer : encoded
   }
   case delivery_kind(database_path, profile, outer) do
-    Err( error) -> permanent_direct_delivery_error(error)
-    Ok( 3) -> case receive_mobile_group_classified(request) do
-      GroupReceiveApplied( _) -> true
-      GroupReceiveRetry( _) -> false
-      GroupReceiveRejected( _) -> true
+    Err(error) -> permanent_direct_delivery_error(error)
+    Ok(3) -> case receive_mobile_group_classified(request) do
+      GroupReceiveApplied(_) -> true
+      GroupReceiveRetry(_) -> false
+      GroupReceiveRejected(_) -> true
     end
-    Ok( 0) -> true
-    Ok( kind) -> case receive_mobile_direct_classified(request, kind) do
-      DirectReceiveApplied( _) -> true
-      DirectReceiveRetry( _) -> false
-      DirectReceiveRejected( _) -> true
+    Ok(0) -> true
+    Ok(kind) -> case receive_mobile_direct_classified(request, kind) do
+      DirectReceiveApplied(_) -> true
+      DirectReceiveRetry(_) -> false
+      DirectReceiveRejected(_) -> true
     end
   end
 end
@@ -169,8 +169,8 @@ pass :: InboxPass) -> InboxPass ! String do
   else
     let delivered = List.get(deliveries, index)
     case canonical_outer(delivered.envelope) do
-      Err( _) -> process_deliveries(database_path, profile, deliveries, index + 1, pass)
-      Ok( outer) -> process_deliveries(database_path,
+      Err(_) -> process_deliveries(database_path, profile, deliveries, index + 1, pass)
+      Ok(outer) -> process_deliveries(database_path,
       profile,
       deliveries,
       index + 1,
@@ -182,8 +182,8 @@ end
 pub fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes ! String do
   let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let deliveries = case decode_delivery_batch(request.batch) do
-    Err( _) -> Err("invalid_delivery_batch")
-    Ok( values) -> Ok(values)
+    Err(_) -> Err("invalid_delivery_batch")
+    Ok(values) -> Ok(values)
   end ?
   let wrapping_key = platform_key() ?
   let zero = U64.parse("0") ?
@@ -207,7 +207,7 @@ pub fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes ! String d
   else
     zero
   end
-  let ( labels, blobs) = inbox_state_writes(wrapping_key, pass.attempts, cursor) ?
+  let (labels, blobs) = inbox_state_writes(wrapping_key, pass.attempts, cursor) ?
   store_updated_blobs(request.database_path, labels, blobs) ?
   let envelope_ids = pass.envelope_ids
   if List.length(envelope_ids) == 0 do
@@ -218,8 +218,8 @@ pub fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes ! String d
     Crypto.sha256(profile.entry.mailbox_token),
     current_time() ?,
     envelope_ids) do
-      Err( _) -> Err("mailbox_ack_encoding_failed")
-      Ok( encoded) -> Ok(encoded)
+      Err(_) -> Err("mailbox_ack_encoding_failed")
+      Ok(encoded) -> Ok(encoded)
     end
   end
 end

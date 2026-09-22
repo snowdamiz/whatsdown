@@ -70,7 +70,7 @@ import {
   TOOLBAR_HEIGHT,
   WINDOWS_CONTROLS_WIDTH,
 } from "./desktop-layout";
-import { formatClock, groupDigits } from "./format";
+import { formatClock, groupDigits, initials } from "./format";
 import { Glass, glassBackdrop, useLiquidGlass, useMaterialized } from "./glass";
 import type { Direction } from "./navigation";
 import { qrFrames } from "./qr";
@@ -660,15 +660,18 @@ export function Glow({
 export function FocusRing({
   progress,
   radius: ringRadius,
+  color,
 }: {
   progress: Animated.Value;
   radius: number;
+  // A field in error keeps its error colour while focused.
+  color?: string;
 }) {
   const styles = useStyles();
   return (
     <Animated.View
       pointerEvents="none"
-      style={[styles.focusRing, { borderRadius: ringRadius, opacity: progress }]}
+      style={[styles.focusRing, { borderRadius: ringRadius, opacity: progress }, color ? { borderColor: color } : null]}
     />
   );
 }
@@ -1331,14 +1334,6 @@ export function ChatHeader({
   );
 }
 
-const initials = (name: string): string => {
-  name = name.replace(/^@/, "");
-  const parts = name.split(/[._\-\s]+/).filter(Boolean);
-  const letters =
-    parts.length >= 2 ? `${parts[0]![0]}${parts[1]![0]}` : name.slice(0, 2);
-  return letters.toUpperCase();
-};
-
 export function Avatar({
   name,
   uri,
@@ -1361,10 +1356,11 @@ export function Avatar({
   const tone = avatarTone(colorSeed ?? name);
   const [failedUri, setFailedUri] = useState<string>();
   if (uri && uri !== failedUri) return (
-    <Image source={{ uri }} accessibilityLabel={`${name} photo`} onError={() => setFailedUri(uri)}
+    <Image source={{ uri }} accessibilityLabel={name ? `${name} photo` : "Photo"} onError={() => setFailedUri(uri)}
       style={{ width: size, height: size, borderRadius: size / 2 }} resizeMode="cover" />
   );
   const gradientId = `avatar-${tone.index}`;
+  const letters = initials(name);
   return (
     <View style={{ width: size, height: size }}>
       <Svg width={size} height={size} viewBox="0 0 100 100">
@@ -1379,8 +1375,8 @@ export function Avatar({
         <Circle cx={50} cy={50} r={49} stroke={withAlpha(colors.white, 0.14)} strokeWidth={2} fill="none" />
       </Svg>
       <View style={styles.avatarOverlay}>
-        {group ? (
-          <Icon name="groups" size={size * 0.48} color={colors.white} strokeWidth={2.2} />
+        {group || !letters ? (
+          <Icon name={group ? "groups" : "person"} size={size * 0.48} color={colors.white} strokeWidth={2.2} />
         ) : (
           <Text
             style={{
@@ -1390,7 +1386,7 @@ export function Avatar({
               color: colors.white,
             }}
           >
-            {initials(name)}
+            {letters}
           </Text>
         )}
       </View>
@@ -1590,6 +1586,8 @@ export function Field({
   hint,
   autoFocus = false,
   maxLength,
+  error,
+  onSubmitEditing,
 }: {
   label: string;
   value: string;
@@ -1600,6 +1598,9 @@ export function Field({
   hint?: string;
   autoFocus?: boolean;
   maxLength?: number;
+  // What is wrong with the value, said where the hint would be.
+  error?: string;
+  onSubmitEditing?: () => void;
 }) {
   const { colors, type } = useTheme();
   const styles = useStyles();
@@ -1612,6 +1613,7 @@ export function Field({
         style={[
           styles.inputShell,
           multiline && styles.inputShellMultiline,
+          error ? { borderColor: colors.danger } : null,
           {
             backgroundColor: focus.interpolate({
               inputRange: [0, 1],
@@ -1620,7 +1622,11 @@ export function Field({
           },
         ]}
       >
-        <FocusRing progress={focus} radius={isDesktop ? 8 : radius.md} />
+        <FocusRing
+          progress={focus}
+          radius={(isDesktop ? radius.xs : radius.lg) + 1}
+          color={error ? colors.danger : undefined}
+        />
         {prefix ? <Text style={styles.inputPrefix}>{prefix}</Text> : null}
         <TextInput
           accessibilityLabel={label}
@@ -1633,6 +1639,7 @@ export function Field({
           onBlur={() => setFocused(false)}
           onChangeText={onChangeText}
           onFocus={() => setFocused(true)}
+          onSubmitEditing={onSubmitEditing}
           placeholder={placeholder}
           placeholderTextColor={colors.text3}
           selectionColor={colors.accent}
@@ -1640,7 +1647,11 @@ export function Field({
           value={value}
         />
       </Animated.View>
-      {hint ? <Text style={type.caption}>{hint}</Text> : null}
+      {error ? (
+        <Text aria-live="polite" style={[type.caption, { color: colors.danger }]}>{error}</Text>
+      ) : hint ? (
+        <Text style={type.caption}>{hint}</Text>
+      ) : null}
     </View>
   );
 }
@@ -3903,30 +3914,6 @@ export function AccountBar({
   );
 }
 
-export function FeatureRow({
-  icon,
-  title,
-  body,
-}: {
-  icon: IconName;
-  title: string;
-  body: string;
-}) {
-  const { colors, type } = useTheme();
-  const styles = useStyles();
-  return (
-    <View style={styles.feature}>
-      <View style={styles.featureIcon}>
-        <Icon name={icon} size={sizes.icon.xl} color={colors.accent} strokeWidth={2} />
-      </View>
-      <View style={[layout.flex, { gap: space[0.5] }]}>
-        <Text style={type.headline}>{title}</Text>
-        <Text style={type.subhead}>{body}</Text>
-      </View>
-    </View>
-  );
-}
-
 export function KeyValue({ label, value }: { label: string; value: string }) {
   const { type } = useTheme();
   const styles = useStyles();
@@ -5302,16 +5289,6 @@ const useStyles = themed(({ colors, type, elevation }) =>
     justifyContent: "center",
   },
   tabItemPressed: { backgroundColor: colors.highlight },
-
-  feature: { flexDirection: "row", alignItems: "center", gap: space[4] },
-  featureIcon: {
-    width: sizes.well.sm,
-    height: sizes.well.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 
   keyValue: { gap: space[1] },
   // On desktop the code sits in a recessed well so it reads as one object to

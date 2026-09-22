@@ -21,14 +21,14 @@ end deriving(Eq, Debug)
 
 fn binary(value :: DbValue) -> Bytes ! String do
   case value do
-    Binary( bytes) -> Ok(bytes)
+    Binary(bytes) -> Ok(bytes)
     _ -> Err("invalid delivery row")
   end
 end
 
 fn text(value :: DbValue) -> String ! String do
   case value do
-    Text( output) -> Ok(output)
+    Text(output) -> Ok(output)
     _ -> Err("invalid delivery row")
   end
 end
@@ -36,7 +36,7 @@ end
 fn integer(value :: DbValue) -> Int ! String do
   case String.to_int(text(value) ?) do
     None -> Err("invalid delivery integer")
-    Some( output) -> Ok(output)
+    Some(output) -> Ok(output)
   end
 end
 
@@ -46,8 +46,8 @@ end
 
 fn valid_outer(value :: OuterEnvelope) -> Result <(), String > do
   case encode_outer_envelope(value) do
-    Err( _) -> Err("invalid outer envelope")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("invalid outer envelope")
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -59,8 +59,8 @@ fn deposit_rate_allowed(conn :: borrow PgConn, mailbox_hash :: Bytes, contact ::
     allow_request_on_connection(conn, mailbox_hash, 32, 60)
   else
     let bucket = case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/stranger-deposits"), mailbox_hash) do
-      Err( _) -> Err("rate bucket allocation failed")
-      Ok( joined) -> Ok(Crypto.sha256(joined))
+      Err(_) -> Err("rate bucket allocation failed")
+      Ok(joined) -> Ok(Crypto.sha256(joined))
     end ?
     allow_request_on_connection(conn, bucket, 24, 60)
   end
@@ -71,7 +71,7 @@ end
 # deduplication and the delivered envelope are all unchanged.
 
 fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryInsert ! String do
-  let ( token_hash, contact) = resolve_deposit_address(conn, Crypto.sha256(value.mailbox_token)) ?
+  let (token_hash, contact) = resolve_deposit_address(conn, Crypto.sha256(value.mailbox_token)) ?
   let existing = Pg.query_values(conn,
   "SELECT sequence::text FROM messenger_envelopes WHERE mailbox_token_hash = $1 AND envelope_id = $2",
   [Binary(token_hash), Binary(value.envelope_id)]) ?
@@ -115,8 +115,8 @@ pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryI
     return Ok(ExpiryRejected)
   end
   case Repo.transaction(pool, fn (conn :: borrow PgConn) -> insert_envelope(conn, value) end) do
-    Ok( result) -> Ok(result)
-    Err( error) -> if String.contains(error, "messenger_envelopes_mailbox_envelope_key") do
+    Ok(result) -> Ok(result)
+    Err(error) -> if String.contains(error, "messenger_envelopes_mailbox_envelope_key") do
       Ok(Duplicate)
     else if String.contains(error, "messenger_mailbox_capacity") do
       Ok(MailboxFull)
@@ -148,8 +148,8 @@ fn deliveries(rows :: List < Map < String, DbValue > >, token :: Bytes) -> List 
       ciphertext : binary(Map.get(row, "ciphertext")) ?
     }
     let encoded = case encode_outer_envelope(envelope) do
-      Err( _) -> Err("invalid stored envelope")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid stored envelope")
+      Ok(value) -> Ok(value)
     end ?
     DeliveredEnvelope {
       sequence : wide(Map.get(row, "sequence")) ?,

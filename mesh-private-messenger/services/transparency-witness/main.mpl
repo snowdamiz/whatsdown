@@ -3,8 +3,8 @@ from Transparency.Wire import TransparencyTreeQuery, decode_checkpoint, decode_c
 
 fn configured_public_key(name :: String) -> Bytes ! String do
   case Bytes.from_hex(Env.get(name, "")) do
-    Err( _) -> Err("invalid witness configuration")
-    Ok( value) -> if Bytes.length(value) == 32 do
+    Err(_) -> Err("invalid witness configuration")
+    Ok(value) -> if Bytes.length(value) == 32 do
       Ok(value)
     else
       Err("invalid witness configuration")
@@ -14,12 +14,12 @@ end
 
 fn configured_signer() -> SigningKeyPair ! String do
   let material = case Env.get_secret_hex("MESSENGER_WITNESS_SIGNING_SEED_HEX") do
-    Err( _) -> Err("invalid witness signing seed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid witness signing seed")
+    Ok(value) -> Ok(value)
   end ?
   case Crypto.signing_from_secret(material) do
-    Err( _) -> Err("invalid witness signing seed")
-    Ok( signer) -> Ok(signer)
+    Err(_) -> Err("invalid witness signing seed")
+    Ok(signer) -> Ok(signer)
   end
 end
 
@@ -77,10 +77,10 @@ fn cached_checkpoint(path :: String) -> Option < TransparencyCheckpoint > ! Stri
     Ok(None)
   else
     case File.read(path) do
-      Err( _) -> Err("witness checkpoint read failed")
-      Ok( encoded) -> case Bytes.from_base64(encoded) do
-        Err( _) -> Err("invalid cached witness checkpoint")
-        Ok( bytes) -> Ok(Some(decode_checkpoint(bytes) ?))
+      Err(_) -> Err("witness checkpoint read failed")
+      Ok(encoded) -> case Bytes.from_base64(encoded) do
+        Err(_) -> Err("invalid cached witness checkpoint")
+        Ok(bytes) -> Ok(Some(decode_checkpoint(bytes) ?))
       end
     end
   end
@@ -122,7 +122,7 @@ value :: TransparencyCheckpoint) -> Result <(), String > do
   if String.starts_with(path, "http://") || String.starts_with(path, "https://") do
     let expected = case previous do
       None -> "none"
-      Some( prior) -> Bytes.to_hex(Crypto.sha256(encode_checkpoint(prior) ?))
+      Some(prior) -> Bytes.to_hex(Crypto.sha256(encode_checkpoint(prior) ?))
     end
     let request = Http.build(:put, path)
       |> Http.header("Accept-Encoding", "identity")
@@ -143,8 +143,8 @@ end
 
 fn save_local_checkpoint(path :: String, value :: TransparencyCheckpoint) -> Result <(), String > do
   case File.write(path, Bytes.to_base64(encode_checkpoint(value) ?)) do
-    Err( _) -> Err("witness checkpoint write failed")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("witness checkpoint write failed")
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -164,14 +164,14 @@ fn witness_once() -> Result <(), String > do
     case fetch_checkpoint() ? do
       None -> case previous do
         None -> Ok(nil)
-        Some( _) -> Err("checkpoint missing after initialization")
+        Some(_) -> Err("checkpoint missing after initialization")
       end
-      Some( checkpoint) -> if !verify_checkpoint(checkpoint, trusted_log_key) ? do
+      Some(checkpoint) -> if !verify_checkpoint(checkpoint, trusted_log_key) ? do
         Err("transparency checkpoint signature failed")
       else
         case previous do
           None -> Ok(nil)
-          Some( prior) -> if verify_checkpoint(prior, trusted_log_key) ? do
+          Some(prior) -> if verify_checkpoint(prior, trusted_log_key) ? do
             verify_history(prior, checkpoint, trusted_log_key)
           else
             Err("cached witness checkpoint signature failed")
@@ -193,10 +193,10 @@ end
 
 fn main() do
   case witness_once() do
-    Err( error) -> do
+    Err(error) -> do
       io_eprintln("witness failed: #{error}")
       Process.exit(1)
     end
-    Ok( _) -> println("witness check completed")
+    Ok(_) -> println("witness check completed")
   end
 end

@@ -25,8 +25,8 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("push token allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("push token allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -40,16 +40,16 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("invalid push token byte")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid push token byte")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn vector(value :: Bytes) -> Bytes ! String do
   let length = U64.parse(Int.to_string(Bytes.length(value))) ?
   let prefix = case Bytes.write_u32_be(length) do
-    Err( _) -> Err("invalid push token length")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid push token length")
+    Ok(output) -> Ok(output)
   end ?
   join([prefix, value], 0, Bytes.empty())
 end
@@ -59,49 +59,46 @@ fn start(input :: Bytes, maximum :: Int) -> BinaryReader ! String do
     Err("push token wire oversized")
   else
     case reader(input, maximum) do
-      Err( _) -> Err("invalid push token wire")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("invalid push token wire")
+      Ok(output) -> Ok(output)
     end
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! String do
   case read_fixed(state, length) do
-    Err( _) -> Err("invalid push token wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid push token wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid push token wire")
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt ! String do
   case read_u8(state) do
-    Err( _) -> Err("invalid push token wire")
-    Ok( ( next, value)) -> Ok(ReadInt {
+    Err(_) -> Err("invalid push token wire")
+    Ok((next, value)) -> Ok(ReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid push token wire")
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes ! String do
   case read_vector(state, maximum) do
-    Err( _) -> Err("invalid push token wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid push token wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid push token wire")
   end
 end
 
 fn done(state :: BinaryReader) -> Result <(), String > do
   case finish(state) do
-    Err( _) -> Err("invalid push token wire")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("invalid push token wire")
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -110,10 +107,10 @@ fn matches(input :: Bytes, expected :: Bytes, index :: Int) -> Bool do
     true
   else
     case Bytes.get(input, index) do
-      Err( _) -> false
-      Ok( actual) -> case Bytes.get(expected, index) do
-        Err( _) -> false
-        Ok( wanted) -> actual == wanted && matches(input, expected, index + 1)
+      Err(_) -> false
+      Ok(actual) -> case Bytes.get(expected, index) do
+        Err(_) -> false
+        Ok(wanted) -> actual == wanted && matches(input, expected, index + 1)
       end
     end
   end
@@ -124,8 +121,8 @@ fn printable(input :: Bytes, index :: Int) -> Bool do
     true
   else
     case Bytes.get(input, index) do
-      Err( _) -> false
-      Ok( value) -> value >= 33 && value <= 126 && printable(input, index + 1)
+      Err(_) -> false
+      Ok(value) -> value >= 33 && value <= 126 && printable(input, index + 1)
     end
   end
 end
@@ -138,8 +135,8 @@ fn valid_provider_token(token :: Bytes) -> Bool do
     false
   else
     case Bytes.get(token, length - 1) do
-      Err( _) -> false
-      Ok( ending) -> ending == 93 && (matches(token, expo, 0) || matches(token, exponent, 0))
+      Err(_) -> false
+      Ok(ending) -> ending == 93 && (matches(token, expo, 0) || matches(token, exponent, 0))
     end
   end
 end
@@ -159,13 +156,13 @@ fn token_key(shared :: SecretBytes, authenticated_data :: Bytes) -> AeadKey ! St
   Crypto.sha256(Bytes.from_utf8("mesh-msg/v1/push-provider-token-salt")),
   authenticated_data,
   32) do
-    Err( _) -> Err("push token key derivation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("push token key derivation failed")
+    Ok(output) -> Ok(output)
   end ?
   Secret.destroy(shared)
   case Crypto.aead_key(material) do
-    Err( _) -> Err("push token key derivation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("push token key derivation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -199,10 +196,10 @@ end
 
 pub fn valid_sealed_provider_token(input :: Bytes) -> Bool do
   case decode_sealed(input) do
-    Err( _) -> false
-    Ok( value) -> case encode_sealed(value) do
-      Err( _) -> false
-      Ok( canonical) -> Bytes.secure_equals(canonical, input)
+    Err(_) -> false
+    Ok(value) -> case encode_sealed(value) do
+      Err(_) -> false
+      Ok(canonical) -> Bytes.secure_equals(canonical, input)
     end
   end
 end
@@ -212,22 +209,22 @@ pub fn seal_provider_token(token :: Bytes, broker_public_key :: X25519PublicKey)
     Err("invalid provider token")
   else
     let ephemeral = case Crypto.x25519_generate() do
-      Err( _) -> Err("push token key generation failed")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("push token key generation failed")
+      Ok(output) -> Ok(output)
     end ?
     let authenticated_data = authenticated(ephemeral.public_key.bytes, broker_public_key.bytes) ?
     let shared = case Crypto.x25519_shared(ephemeral.private_key, broker_public_key) do
-      Err( _) -> Err("push token key agreement failed")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("push token key agreement failed")
+      Ok(output) -> Ok(output)
     end ?
     let key = token_key(shared, authenticated_data) ?
     let nonce = case Crypto.random_bytes(12) do
-      Err( _) -> Err("push token nonce generation failed")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("push token nonce generation failed")
+      Ok(output) -> Ok(output)
     end ?
     let ciphertext = case Crypto.aead_seal(key, nonce, authenticated_data, token) do
-      Err( _) -> Err("push token sealing failed")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("push token sealing failed")
+      Ok(output) -> Ok(output)
     end ?
     encode_sealed(SealedProviderToken {
       ephemeral_public_key : ephemeral.public_key.bytes,
@@ -240,19 +237,19 @@ end
 pub fn open_provider_token_with_key(input :: Bytes, broker_private_key :: borrow X25519PrivateKey) -> Bytes ! String do
   let sealed = decode_sealed(input) ?
   let broker_public_key = case Crypto.x25519_public(broker_private_key) do
-    Err( _) -> Err("invalid push broker key")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid push broker key")
+    Ok(output) -> Ok(output)
   end ?
   let authenticated_data = authenticated(sealed.ephemeral_public_key, broker_public_key.bytes) ?
   let shared = case Crypto.x25519_shared(broker_private_key,
   X25519PublicKey { bytes : sealed.ephemeral_public_key }) do
-    Err( _) -> Err("push token key agreement failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("push token key agreement failed")
+    Ok(output) -> Ok(output)
   end ?
   let key = token_key(shared, authenticated_data) ?
   let token = case Crypto.aead_open(key, sealed.nonce, authenticated_data, sealed.ciphertext) do
-    Err( _) -> Err("push token opening failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("push token opening failed")
+    Ok(output) -> Ok(output)
   end ?
   if valid_provider_token(token) do
     Ok(token)
@@ -266,8 +263,8 @@ pub fn open_provider_token(input :: Bytes, broker_private_seed :: Bytes) -> Byte
     Err("invalid push broker key")
   else
     let broker = case Crypto.x25519_from_seed(broker_private_seed) do
-      Err( _) -> Err("invalid push broker key")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("invalid push broker key")
+      Ok(output) -> Ok(output)
     end ?
     open_provider_token_with_key(input, broker.private_key)
   end

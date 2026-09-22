@@ -19,10 +19,10 @@ end
 
 test("mobile groups persist MLS state and fan out canonical suite-3 delivery") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

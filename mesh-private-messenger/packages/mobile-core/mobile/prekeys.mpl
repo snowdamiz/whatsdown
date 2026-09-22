@@ -206,12 +206,12 @@ pub fn load_prekey_pool(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String) -> List < MobileOneTimePrekey > ! String do
   case load_blob(database_path, "one-time-prekeys/v1") do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       migrate_legacy_prekey(profile, wrapping_key, database_path)
     else
       Err(error)
     end
-    Ok( blob) -> decode_prekey_pool(open_local(blob,
+    Ok(blob) -> decode_prekey_pool(open_local(blob,
     wrapping_key,
     local_context("one-time-prekeys/v1") ?) ?)
   end
@@ -240,14 +240,14 @@ pub fn load_active_prekey_pool(database_path :: String,
 entries :: List < MobileOneTimePrekey >,
 wrapping_key :: borrow StorageKey) -> List < U64 > ! String do
   case load_blob(database_path, "one-time-prekey-active/v1") do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       # Pools created before active acknowledgements treat all local entries as
       # active until count=0 recovery obtains the server truth.
       inferred_active_prekey_pool(entries)
     else
       Err(error)
     end
-    Ok( blob) -> decode_active_prekey_pool(open_local(blob,
+    Ok(blob) -> decode_active_prekey_pool(open_local(blob,
     wrapping_key,
     local_context("one-time-prekey-active/v1") ?) ?,
     mobile_prekey_ids(entries, 0, List.new()))
@@ -294,12 +294,12 @@ fn load_last_resort_state(database_path :: String,
 wrapping_key :: borrow StorageKey,
 label :: String) -> Bytes ! String do
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( blob) -> open_local(blob, wrapping_key, local_context(label) ?)
+    Ok(blob) -> open_local(blob, wrapping_key, local_context(label) ?)
   end
 end
 
@@ -368,8 +368,8 @@ now :: U64,
 retired :: Bytes,
 removed_labels :: List < String >) -> MobileOneTimePrekey ! String do
   let generated = case generate_one_time_prekey(id) do
-    Err( _) -> Err("prekey_generation_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("prekey_generation_failed")
+    Ok(value) -> Ok(value)
   end ?
   let secret = seal_x25519(generated.private_key,
   wrapping_key,
@@ -454,7 +454,7 @@ fn settled_retired(retired :: Bytes,
 offset :: Int,
 now :: U64,
 kept :: Bytes,
-removed :: List < String >) -> Result <( Bytes, List < String >), String > do
+removed :: List < String >) -> Result <(Bytes, List < String >), String > do
   if offset >= Bytes.length(retired) do
     Ok((kept, removed))
   else
@@ -482,9 +482,9 @@ removed :: List < String >) -> Result <( Bytes, List < String >), String > do
   end
 end
 
-fn settled_last_resort_writes(database_path :: String, wrapping_key :: borrow StorageKey) -> Result <( List < String >, List < Bytes >, List < String >), String > do
+fn settled_last_resort_writes(database_path :: String, wrapping_key :: borrow StorageKey) -> Result <(List < String >, List < Bytes >, List < String >), String > do
   let retired = load_last_resort_retired(database_path, wrapping_key) ?
-  let ( kept, removed) = settled_retired(retired, 0, current_time() ?, Bytes.empty(), List.new()) ?
+  let (kept, removed) = settled_retired(retired, 0, current_time() ?, Bytes.empty(), List.new()) ?
   if Bytes.secure_equals(kept, retired) do
     Ok((List.new(), List.new(), List.new()))
   else
@@ -499,12 +499,12 @@ end
 
 fn load_last_resort_replays(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes ! String do
   case load_blob(database_path, "last-resort-replays/v1") do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( blob) -> open_local(blob, wrapping_key, local_context("last-resort-replays/v1") ?)
+    Ok(blob) -> open_local(blob, wrapping_key, local_context("last-resort-replays/v1") ?)
   end
 end
 
@@ -547,15 +547,15 @@ next_id :: U64,
 remaining :: Int,
 entries :: List < MobileOneTimePrekey >,
 labels :: List < String >,
-blobs :: List < Bytes >) -> Result <( List < MobileOneTimePrekey >, List < String >, List < Bytes >, U64), String > do
+blobs :: List < Bytes >) -> Result <(List < MobileOneTimePrekey >, List < String >, List < Bytes >, U64), String > do
   if remaining <= 0 do
     Ok((entries, labels, blobs, next_id))
   else if !(valid_prekey_id(next_id) ?) do
     Err("prekey_id_exhausted")
   else
     let generated = case generate_one_time_prekey(next_id) do
-      Err( _) -> Err("prekey_generation_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey_generation_failed")
+      Ok(value) -> Ok(value)
     end ?
     let label = one_time_prekey_label(next_id)
     let blob = seal_x25519(generated.private_key,
@@ -680,10 +680,10 @@ contact_address :: Bytes) -> Bytes ! String do
   let device = open_device(profile, wrapping_key, database_path) ?
   let signature = case Crypto.sign(device.signing_private_key,
   prekey_publish_signing_bytes(unsigned) ?) do
-    Err( _) -> Err("prekey_publication_signing_failed")
-    Ok( value) -> Ok(value.bytes)
+    Err(_) -> Err("prekey_publication_signing_failed")
+    Ok(value) -> Ok(value.bytes)
   end ?
-  encode_prekey_publish(% { unsigned | signature : signature })
+  encode_prekey_publish(% {unsigned | signature : signature })
 end
 
 pub fn replenish_prekeys(request :: MobilePrekeyRequest) -> Bytes ! String do
@@ -696,7 +696,7 @@ pub fn replenish_prekeys(request :: MobilePrekeyRequest) -> Bytes ! String do
   let reusable = ensure_last_resort_prekey(profile, wrapping_key, request.database_path) ?
   # A new contact address is stored before the publication that names it leaves,
   # so the directory's answer finds it waiting to be confirmed.
-  let ( contact_address, address_labels, address_blobs) = published_contact_address(request.database_path,
+  let (contact_address, address_labels, address_blobs) = published_contact_address(request.database_path,
   wrapping_key) ?
   let _ = if List.length(address_labels) > 0 do
     store_record_changes(request.database_path, address_labels, address_blobs, List.new())
@@ -716,7 +716,7 @@ pub fn replenish_prekeys(request :: MobilePrekeyRequest) -> Bytes ! String do
     let next_id = load_prekey_wide(request.database_path,
     "one-time-prekey-next-id/v1",
     wrapping_key) ?
-    let ( generated, labels, blobs, following_id) = generate_prekey_batch(profile,
+    let (generated, labels, blobs, following_id) = generate_prekey_batch(profile,
     wrapping_key,
     next_id,
     request.count,
@@ -734,7 +734,7 @@ pub fn replenish_prekeys(request :: MobilePrekeyRequest) -> Bytes ! String do
     else
       0
     end
-    let ( retained, removed_labels) = retain_reconciled_prekeys(existing,
+    let (retained, removed_labels) = retain_reconciled_prekeys(existing,
     active_ids,
     0,
     retired_overflow,
@@ -758,7 +758,7 @@ active_ids :: List < U64 >,
 index :: Int,
 drop_inactive :: Int,
 retained :: List < MobileOneTimePrekey >,
-removed_labels :: List < String >) -> Result <( List < MobileOneTimePrekey >, List < String >), String > do
+removed_labels :: List < String >) -> Result <(List < MobileOneTimePrekey >, List < String >), String > do
   if index >= List.length(entries) do
     if drop_inactive == 0 do
       Ok((retained, removed_labels))
@@ -799,8 +799,8 @@ pub fn reconcile_prekeys(request :: MobilePrekeyReconcileRequest) -> Bytes ! Str
   ensure_schema(request.database_path) ?
   let profile = decode_client_profile(load_profile(request.database_path) ?) ?
   let response = case decode_prekey_publish_response(request.response) do
-    Err( _) -> Err("invalid_prekey_reconciliation")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_prekey_reconciliation")
+    Ok(value) -> Ok(value)
   end ?
   if !Bytes.secure_equals(response.account_id, profile.account_id) || !Bytes.secure_equals(response.device_id,
   profile.device_id) do
@@ -819,7 +819,7 @@ pub fn reconcile_prekeys(request :: MobilePrekeyReconcileRequest) -> Bytes ! Str
       else
         0
       end
-      let ( retained, removed_labels) = retain_reconciled_prekeys(entries,
+      let (retained, removed_labels) = retain_reconciled_prekeys(entries,
       response.active_ids,
       0,
       drop_inactive,
@@ -829,7 +829,7 @@ pub fn reconcile_prekeys(request :: MobilePrekeyReconcileRequest) -> Bytes ! Str
       removed_labels,
       seal_prekey_pool(retained, wrapping_key) ?,
       seal_active_prekey_pool(response.active_ids, wrapping_key) ?) ?
-      let ( settled_labels, settled_blobs, settled_removals) = settled_last_resort_writes(request.database_path,
+      let (settled_labels, settled_blobs, settled_removals) = settled_last_resort_writes(request.database_path,
       wrapping_key) ?
       let _ = if List.length(settled_labels) > 0 do
         store_record_changes(request.database_path, settled_labels, settled_blobs, settled_removals)
@@ -838,7 +838,7 @@ pub fn reconcile_prekeys(request :: MobilePrekeyReconcileRequest) -> Bytes ! Str
       end ?
       # The directory answered, so the contact address the publication named is
       # live and may be handed to contacts.
-      let ( confirmed_labels, confirmed_blobs, confirmed_removals) = confirmed_contact_address_writes(request.database_path,
+      let (confirmed_labels, confirmed_blobs, confirmed_removals) = confirmed_contact_address_writes(request.database_path,
       wrapping_key) ?
       let _ = if List.length(confirmed_labels) > 0 do
         store_record_changes(request.database_path,

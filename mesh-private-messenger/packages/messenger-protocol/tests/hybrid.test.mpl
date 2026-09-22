@@ -16,29 +16,29 @@ from Session.Ratchet import DecryptOutcome, decrypt, encrypt
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( _) -> Err("integer failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("integer failed")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
-fn account(now :: U64) -> Result <( AccountKeys, AccountIdentity), String > do
+fn account(now :: U64) -> Result <(AccountKeys, AccountIdentity), String > do
   case generate_account(now, wide("1") ?) do
-    Err( _) -> Err("account failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn device() -> DeviceKeys ! String do
   case generate_device() do
-    Err( _) -> Err("device failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn post_quantum_prekey() -> PostQuantumPrekeySecrets ! String do
   case generate_post_quantum_prekey() do
-    Err( _) -> Err("post-quantum prekey failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("post-quantum prekey failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -54,8 +54,8 @@ expires :: U64) -> DeviceCredential ! String do
   now,
   expires,
   wide("1") ?) do
-    Err( _) -> Err("hybrid credential failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid credential failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -64,22 +64,22 @@ device_keys :: borrow DeviceKeys,
 now :: U64,
 expires :: U64) -> DeviceCredential ! String do
   case issue_device_credential(account_keys, device_keys, wide("1") ?, now, expires, wide("1") ?) do
-    Err( _) -> Err("classical credential failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("classical credential failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn signed_prekey(device_keys :: borrow DeviceKeys, credential :: DeviceCredential, expires :: U64) -> SignedPrekeySecrets ! String do
   case generate_signed_prekey(device_keys, credential, wide("7") ?, expires) do
-    Err( _) -> Err("signed prekey failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn one_time_prekey() -> OneTimePrekeySecrets ! String do
   case generate_one_time_prekey(wide("9") ?) do
-    Err( _) -> Err("one-time prekey failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("one-time prekey failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -88,8 +88,8 @@ signed :: borrow SignedPrekeySecrets,
 one_time :: borrow OneTimePrekeySecrets,
 post_quantum :: borrow PostQuantumPrekeySecrets) -> PrekeyBundle ! String do
   case build_hybrid_prekey_bundle(credential, signed, one_time, post_quantum) do
-    Err( _) -> Err("hybrid bundle failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid bundle failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -97,22 +97,22 @@ fn classical_bundle(credential :: DeviceCredential,
 signed :: borrow SignedPrekeySecrets,
 one_time :: borrow OneTimePrekeySecrets) -> PrekeyBundle ! String do
   case build_prekey_bundle(credential, signed, one_time) do
-    Err( _) -> Err("classical bundle failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("classical bundle failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn initial_bytes(value :: InitialMessage) -> Bytes ! String do
   case encode_initial_message(value) do
-    Err( _) -> Err("initial encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("initial encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn zeroes(length :: Int) -> Bytes ! String do
   case Bytes.repeat(0, length) do
-    Err( _) -> Err("zero bytes failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("zero bytes failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -132,29 +132,29 @@ end
 
 fn encoded_bundle(value :: PrekeyBundle) -> Bytes ! String do
   case encode_prekey_bundle(value) do
-    Err( _) -> Err("prekey bundle encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("prekey bundle encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn decoded_bundle(value :: Bytes) -> PrekeyBundle ! String do
   case decode_prekey_bundle(value) do
-    Err( _) -> Err("prekey bundle decoding failed")
-    Ok( decoded) -> Ok(decoded)
+    Err(_) -> Err("prekey bundle decoding failed")
+    Ok(decoded) -> Ok(decoded)
   end
 end
 
 fn normalized_bundle(value :: PrekeyBundle) -> PrekeyBundle ! String do
   case normalize_prekey_bundle(value) do
-    Err( _) -> Err("prekey bundle normalization failed")
-    Ok( normalized) -> Ok(normalized)
+    Err(_) -> Err("prekey bundle normalization failed")
+    Ok(normalized) -> Ok(normalized)
   end
 end
 
 fn maximal_bundle_proof() -> Bool ! String do
   let now = wide("1700000000000") ?
   let expires = wide("1700604800000") ?
-  let ( account_keys, _) = account(now) ?
+  let (account_keys, _) = account(now) ?
   let device_keys = device() ?
   let post_quantum = post_quantum_prekey() ?
   let credential = hybrid_credential(account_keys, device_keys, post_quantum, now, expires) ?
@@ -186,24 +186,24 @@ fn maximal_bundle_proof() -> Bool ! String do
   assert(U64.compare(normalized.one_time_prekey_id, wide("0") ?) == 0)
   assert(Bytes.length(normalized.one_time_prekey) == 0)
   assert(Bytes.secure_equals(encoded_bundle(normalized) ?,
-  encoded_bundle(% { maximal | one_time_prekey_id : wide("0") ?, one_time_prekey : Bytes.empty() }) ?))
+  encoded_bundle(% {maximal | one_time_prekey_id : wide("0") ?, one_time_prekey : Bytes.empty() }) ?))
   Ok(true)
 end
 
 test("maximal hybrid prekey bundle round-trips at the canonical ceiling") do
   case maximal_bundle_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
 fn signed_prekey_reauthorization_proof() -> Bool ! String do
   let now = wide("1700000000000") ?
   let expires = wide("1700604800000") ?
-  let ( account_keys, account_identity) = account(now) ?
+  let (account_keys, account_identity) = account(now) ?
   let device_keys = device() ?
   let classical = classical_credential(account_keys, device_keys, now, expires) ?
   let signed = signed_prekey(device_keys, classical, expires) ?
@@ -212,8 +212,8 @@ fn signed_prekey_reauthorization_proof() -> Bool ! String do
   let post_quantum = post_quantum_prekey() ?
   let hybrid = hybrid_credential(account_keys, device_keys, post_quantum, now, expires) ?
   let signed = case reauthorize_signed_prekey(device_keys, hybrid, signed) do
-    Err( _) -> Err("signed prekey reauthorization failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey reauthorization failed")
+    Ok(value) -> Ok(value)
   end ?
   let one_time = one_time_prekey() ?
   let bundle = hybrid_bundle(hybrid, signed, one_time, post_quantum) ?
@@ -222,8 +222,8 @@ fn signed_prekey_reauthorization_proof() -> Bool ! String do
   assert(U64.compare(bundle.signed_prekey_id, original_id) == 0)
   assert(Bytes.secure_equals(bundle.signed_prekey, original_public_key))
   let valid = case verify_prekey_bundle(account_identity, bundle, 2, now, wide("1") ?) do
-    Err( _) -> Err("reauthorized hybrid bundle verification failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("reauthorized hybrid bundle verification failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(valid)
   Ok(true)
@@ -231,32 +231,32 @@ end
 
 test("hybrid credential reauthorizes the existing signed prekey") do
   case signed_prekey_reauthorization_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
 fn negotiated(value :: Result < Int, ProtocolError >) -> Int ! String do
   case value do
-    Err( _) -> Err("negotiation failed")
-    Ok( selected) -> Ok(selected)
+    Err(_) -> Err("negotiation failed")
+    Ok(selected) -> Ok(selected)
   end
 end
 
-fn initiated(value :: Result <( RatchetState, InitialMessage), SessionError >) -> Result <( RatchetState, InitialMessage), String > do
+fn initiated(value :: Result <(RatchetState, InitialMessage), SessionError >) -> Result <(RatchetState, InitialMessage), String > do
   case value do
-    Err( _) -> Err("initiation failed")
-    Ok( started) -> Ok(started)
+    Err(_) -> Err("initiation failed")
+    Ok(started) -> Ok(started)
   end
 end
 
-fn received(value :: Result <( RatchetState, Bytes), SessionError >) -> Result <( RatchetState, Bytes), String > do
+fn received(value :: Result <(RatchetState, Bytes), SessionError >) -> Result <(RatchetState, Bytes), String > do
   case value do
-    Err( _) -> Err("receive failed")
-    Ok( opened) -> Ok(opened)
+    Err(_) -> Err("receive failed")
+    Ok(opened) -> Ok(opened)
   end
 end
 
@@ -268,26 +268,26 @@ fn consume_session(value :: consume RatchetState) do
   nil
 end
 
-fn consume_start(value :: consume( RatchetState, InitialMessage)) do
+fn consume_start(value :: consume(RatchetState, InitialMessage)) do
   nil
 end
 
-fn hybrid_ratchet(initiator :: consume RatchetState, responder :: consume RatchetState) -> Result <( RatchetState, RatchetState), String > do
+fn hybrid_ratchet(initiator :: consume RatchetState, responder :: consume RatchetState) -> Result <(RatchetState, RatchetState), String > do
   let plaintext = Bytes.from_utf8("hybrid ratchet")
   let associated_data = Bytes.from_utf8("conversation")
   case encrypt(initiator, plaintext, associated_data) do
-    Err( _) -> do
+    Err(_) -> do
       consume_session(responder)
       Err("ratchet encryption failed")
     end
-    Ok( value) -> do
-      let ( next_initiator, message) = value
+    Ok(value) -> do
+      let (next_initiator, message) = value
       case decrypt(responder, message, associated_data) do
-        Rejected( next_responder, _) -> do
+        Rejected(next_responder, _) -> do
           consume_sessions(next_initiator, next_responder)
           Err("ratchet decryption failed")
         end
-        Opened( next_responder, opened) -> do
+        Opened(next_responder, opened) -> do
           assert(Bytes.secure_equals(opened, plaintext))
           Ok((next_initiator, next_responder))
         end
@@ -300,7 +300,7 @@ fn hybrid_proof() -> Bool ! String do
   assert(negotiated(negotiate_suites([2, 1], [2, 1], 0)) ? == 2)
   assert(negotiated(negotiate_suites([2, 1], [1], 1)) ? == 1)
   case negotiate_suites([2, 1], [1], 2) do
-    Err( DowngradeDetected) -> assert(true)
+    Err(DowngradeDetected) -> assert(true)
     _ -> assert(false)
   end
   let now = wide("1700000000000") ?
@@ -309,7 +309,7 @@ fn hybrid_proof() -> Bool ! String do
     current_time : now,
     minimum_directory_sequence : wide("1") ?
   }
-  let ( initiator_account_keys, initiator_account) = account(now) ?
+  let (initiator_account_keys, initiator_account) = account(now) ?
   let initiator_device = device() ?
   let initiator_post_quantum = post_quantum_prekey() ?
   let initiator_credential = hybrid_credential(initiator_account_keys,
@@ -317,7 +317,7 @@ fn hybrid_proof() -> Bool ! String do
   initiator_post_quantum,
   now,
   expires) ?
-  let ( responder_account_keys, responder_account) = account(now) ?
+  let (responder_account_keys, responder_account) = account(now) ?
   let responder_device = device() ?
   let responder_post_quantum = post_quantum_prekey() ?
   let responder_credential = hybrid_credential(responder_account_keys,
@@ -332,14 +332,14 @@ fn hybrid_proof() -> Bool ! String do
   responder_one_time,
   responder_post_quantum) ?
   let plaintext = Bytes.from_utf8("hybrid hello")
-  let ( initiator_state, initial) = initiated(initiate(initiator_device,
+  let (initiator_state, initial) = initiated(initiate(initiator_device,
   initiator_credential,
   responder_account,
   responder_bundle,
   verification_policy,
   0,
   plaintext)) ?
-  let ( responder_state, opened) = received(receive_initial(responder_device,
+  let (responder_state, opened) = received(receive_initial(responder_device,
   responder_account,
   responder_bundle,
   responder_signed,
@@ -353,7 +353,7 @@ fn hybrid_proof() -> Bool ! String do
   assert(initiator_state.suite == 2 && responder_state.suite == 2)
   assert(Bytes.secure_equals(initiator_state.session_id, responder_state.session_id))
   assert(Bytes.secure_equals(opened, plaintext))
-  let ( initiator_state, responder_state) = hybrid_ratchet(initiator_state, responder_state) ?
+  let (initiator_state, responder_state) = hybrid_ratchet(initiator_state, responder_state) ?
   consume_sessions(initiator_state, responder_state)
   let tamper_signed = signed_prekey(responder_device, responder_credential, expires) ?
   let tamper_one_time = one_time_prekey() ?
@@ -361,7 +361,7 @@ fn hybrid_proof() -> Bool ! String do
   tamper_signed,
   tamper_one_time,
   responder_post_quantum) ?
-  let ( tamper_state, tamper_initial) = initiated(initiate(initiator_device,
+  let (tamper_state, tamper_initial) = initiated(initiate(initiator_device,
   initiator_credential,
   responder_account,
   tamper_bundle,
@@ -392,10 +392,10 @@ fn hybrid_proof() -> Bool ! String do
   verification_policy,
   0,
   initial_bytes(tampered_initial) ?) do
-    Err( AuthenticationRejected) -> true
-    Err( _) -> false
-    Ok( value) -> do
-      let ( unexpected_state, _) = value
+    Err(AuthenticationRejected) -> true
+    Err(_) -> false
+    Ok(value) -> do
+      let (unexpected_state, _) = value
       consume_session(unexpected_state)
       false
     end
@@ -418,21 +418,21 @@ fn hybrid_proof() -> Bool ! String do
   verification_policy,
   2,
   Bytes.from_utf8("downgrade")) do
-    Err( ProtocolFailure( DowngradeDetected)) -> assert(true)
-    Err( _) -> assert(false)
-    Ok( value) -> do
+    Err(ProtocolFailure(DowngradeDetected)) -> assert(true)
+    Err(_) -> assert(false)
+    Ok(value) -> do
       consume_start(value)
       assert(false)
     end
   end
-  let ( fallback_state, fallback_initial) = initiated(initiate(initiator_device,
+  let (fallback_state, fallback_initial) = initiated(initiate(initiator_device,
   initiator_credential,
   responder_account,
   classical_bundle_value,
   verification_policy,
   1,
   Bytes.from_utf8("classical fallback"))) ?
-  let ( fallback_responder, fallback_opened) = received(receive_initial(responder_device,
+  let (fallback_responder, fallback_opened) = received(receive_initial(responder_device,
   responder_account,
   classical_bundle_value,
   classical_signed,
@@ -451,10 +451,10 @@ end
 
 test("hybrid establishment, explicit classical fallback, and downgrade rejection") do
   case hybrid_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

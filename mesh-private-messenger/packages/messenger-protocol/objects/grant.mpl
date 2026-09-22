@@ -36,8 +36,8 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("object grant allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("object grant allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -51,8 +51,8 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("invalid object grant integer")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid object grant integer")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -62,39 +62,38 @@ fn write_u32(value :: Int) -> Bytes ! String do
   else
     let wide = U64.parse(Int.to_string(value)) ?
     case Bytes.write_u32_be(wide) do
-      Err( _) -> Err("invalid object grant integer")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("invalid object grant integer")
+      Ok(output) -> Ok(output)
     end
   end
 end
 
 fn write_u64(value :: U64) -> Bytes ! String do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err("invalid object grant integer")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid object grant integer")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! String do
   case read_fixed(state, length) do
-    Err( _) -> Err("invalid object wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid object wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid object wire")
   end
 end
 
 fn take_u32(state :: BinaryReader) -> ReadInt ! String do
   let encoded = take_fixed(state, 4) ?
   let wide = case Bytes.read_u32_be(encoded.value, 0) do
-    Err( _) -> Err("invalid object integer")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid object integer")
+    Ok(output) -> Ok(output)
   end ?
   case U64.to_int(wide) do
-    Err( _) -> Err("invalid object integer")
-    Ok( value) -> Ok(ReadInt {
+    Err(_) -> Err("invalid object integer")
+    Ok(value) -> Ok(ReadInt {
       state : encoded.state,
       value : value
     })
@@ -104,8 +103,8 @@ end
 fn take_u64(state :: BinaryReader) -> ReadWide ! String do
   let encoded = take_fixed(state, 8) ?
   case Bytes.read_u64_be(encoded.value, 0) do
-    Err( _) -> Err("invalid object integer")
-    Ok( value) -> Ok(ReadWide {
+    Err(_) -> Err("invalid object integer")
+    Ok(value) -> Ok(ReadWide {
       state : encoded.state,
       value : value
     })
@@ -117,8 +116,8 @@ fn start(input :: Bytes, size :: Int, magic_value :: String) -> BinaryReader ! S
     Err("invalid object wire")
   else
     let initial = case reader(input, size) do
-      Err( _) -> Err("invalid object wire")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("invalid object wire")
+      Ok(output) -> Ok(output)
     end ?
     let version = take_fixed(initial, 1) ?
     let magic = take_fixed(version.state, 3) ?
@@ -133,8 +132,8 @@ end
 
 fn done(state :: BinaryReader) -> Result <(), String > do
   case finish(state) do
-    Err( _) -> Err("invalid object wire")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("invalid object wire")
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -162,8 +161,8 @@ fn leading_zero_bits(hash :: Bytes, index :: Int, remaining :: Int) -> Bool do
     true
   else
     case Bytes.get(hash, index) do
-      Err( _) -> false
-      Ok( value) -> if remaining >= 8 do
+      Err(_) -> false
+      Ok(value) -> if remaining >= 8 do
         value == 0 && leading_zero_bits(hash, index + 1, remaining - 8)
       else
         value < power_of_two(8 - remaining, 1)

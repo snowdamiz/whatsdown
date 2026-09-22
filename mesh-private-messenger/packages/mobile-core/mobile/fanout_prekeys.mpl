@@ -28,10 +28,10 @@ fn fanout_base_profiles(profiles :: List < ClientProfile >, index :: Int) -> Boo
   else
     let profile = List.get(profiles, index)
     case normalize_prekey_bundle(profile.bundle) do
-      Err( _) -> false
-      Ok( normalized) -> case encode_prekey_bundle(normalized) do
-        Err( _) -> false
-        Ok( encoded) -> Bytes.secure_equals(encoded, profile.entry.prekey_bundle) && fanout_base_profiles(profiles,
+      Err(_) -> false
+      Ok(normalized) -> case encode_prekey_bundle(normalized) do
+        Err(_) -> false
+        Ok(encoded) -> Bytes.secure_equals(encoded, profile.entry.prekey_bundle) && fanout_base_profiles(profiles,
         index + 1)
       end
     end
@@ -82,8 +82,8 @@ claims :: List < Bytes >) -> List < Bytes > ! String do
         claims)
       else
         case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
-          Err( error) -> Err(error)
-          Ok( Some( _)) -> append_missing_prekey_claims(database_path,
+          Err(error) -> Err(error)
+          Ok(Some(_)) -> append_missing_prekey_claims(database_path,
           wrapping_key,
           session_ids,
           profiles,
@@ -92,11 +92,11 @@ claims :: List < Bytes >) -> List < Bytes > ! String do
           now,
           index + 1,
           claims)
-          Ok( None) -> do
+          Ok(None) -> do
             let claim = case load_fanout_prekey_claim(database_path, wrapping_key, profile) do
-              Err( error) -> Err(error)
-              Ok( Some( value)) -> Ok(value)
-              Ok( None) -> create_fanout_prekey_claim(database_path, wrapping_key, profile)
+              Err(error) -> Err(error)
+              Ok(Some(value)) -> Ok(value)
+              Ok(None) -> create_fanout_prekey_claim(database_path, wrapping_key, profile)
             end ?
             append_missing_prekey_claims(database_path,
             wrapping_key,
@@ -154,10 +154,10 @@ end
 
 fn fanout_prekey_bundle(input :: Bytes) -> PrekeyBundle ! String do
   case decode_prekey_bundle(input) do
-    Err( _) -> Err("invalid_fanout_prekeys")
-    Ok( bundle) -> case encode_prekey_bundle(bundle) do
-      Err( _) -> Err("invalid_fanout_prekeys")
-      Ok( encoded) -> if Bytes.secure_equals(encoded, input) do
+    Err(_) -> Err("invalid_fanout_prekeys")
+    Ok(bundle) -> case encode_prekey_bundle(bundle) do
+      Err(_) -> Err("invalid_fanout_prekeys")
+      Ok(encoded) -> if Bytes.secure_equals(encoded, input) do
         Ok(bundle)
       else
         Err("invalid_fanout_prekeys")
@@ -168,12 +168,12 @@ end
 
 fn fanout_prekey_base(bundle :: PrekeyBundle) -> Bytes ! String do
   let normalized = case normalize_prekey_bundle(bundle) do
-    Err( _) -> Err("invalid_fanout_prekeys")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_fanout_prekeys")
+    Ok(value) -> Ok(value)
   end ?
   case encode_prekey_bundle(normalized) do
-    Err( _) -> Err("invalid_fanout_prekeys")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_fanout_prekeys")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -191,12 +191,12 @@ profile :: ClientProfile,
 accepted_suite :: Int) -> List < String > ! String do
   let reservation_label = fanout_prekey_reservation_label(profile)
   case load_blob(database_path, reservation_label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(List.new())
     else
       Err(error)
     end
-    Ok( blob) -> do
+    Ok(blob) -> do
       let reserved = fanout_prekey_bundle(open_local(blob,
       wrapping_key,
       local_context(reservation_label) ?) ?) ?
@@ -215,16 +215,16 @@ wrapping_key :: borrow StorageKey,
 profile :: ClientProfile) -> Option < Bytes > ! String do
   let label = fanout_prekey_claim_label(profile)
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(None)
     else
       Err(error)
     end
-    Ok( blob) -> do
+    Ok(blob) -> do
       let input = open_local(blob, wrapping_key, local_context(label) ?) ?
       let claim = case decode_prekey_claim(input) do
-        Err( _) -> Err("invalid_fanout_prekeys")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid_fanout_prekeys")
+        Ok(value) -> Ok(value)
       end ?
       if !Bytes.secure_equals(claim.account_id, profile.account_id) || !Bytes.secure_equals(claim.device_id,
       profile.device_id) do
@@ -261,12 +261,12 @@ profile :: ClientProfile,
 now :: U64) -> Option < MobileClaimedPrekey > ! String do
   let label = fanout_prekey_reservation_label(profile)
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(None)
     else
       Err(error)
     end
-    Ok( blob) -> do
+    Ok(blob) -> do
       let input = open_local(blob, wrapping_key, local_context(label) ?) ?
       let bundle = fanout_prekey_bundle(input) ?
       if !Bytes.secure_equals(fanout_prekey_base(bundle) ?, profile.entry.prekey_bundle) do
@@ -285,14 +285,14 @@ now :: U64) -> Result <(), String > do
   let profile = claim.profile
   let label = fanout_prekey_reservation_label(profile)
   case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
-    Err( error) -> Err(error)
-    Ok( Some( existing)) -> if Bytes.secure_equals(existing.profile.entry.prekey_bundle,
+    Err(error) -> Err(error)
+    Ok(Some(existing)) -> if Bytes.secure_equals(existing.profile.entry.prekey_bundle,
     claim.profile.entry.prekey_bundle) do
       Ok(nil)
     else
       Err("prekey_reservation_exists")
     end
-    Ok( None) -> store_updated_blobs(database_path,
+    Ok(None) -> store_updated_blobs(database_path,
     [label],
     [seal_local(claim.profile.entry.prekey_bundle, wrapping_key, local_context(label) ?) ?])
   end
@@ -418,22 +418,22 @@ now :: U64) -> MobileClaimedPrekey ! String do
       1,
       now,
       target.account.directory_sequence) do
-        Err( _) -> false
-        Ok( value) -> value
+        Err(_) -> false
+        Ok(value) -> value
       end
       if !valid do
         Err("invalid_fanout_prekeys")
       else
-        let claimed_entry = % { target.entry | prekey_bundle : input }
+        let claimed_entry = % {target.entry | prekey_bundle : input }
         let encoded_profile = case encode_client_profile(claimed_entry,
         target.account_id,
         target.device_id) do
-          Err( _) -> Err("invalid_fanout_prekeys")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("invalid_fanout_prekeys")
+          Ok(value) -> Ok(value)
         end ?
         let claimed_profile = case decode_client_profile(encoded_profile) do
-          Err( _) -> Err("invalid_fanout_prekeys")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("invalid_fanout_prekeys")
+          Ok(value) -> Ok(value)
         end ?
         Ok(MobileClaimedPrekey {
           base_bundle : base_bundle,
@@ -529,12 +529,12 @@ fn fetch_fanout_prekey(directory_url :: String, claim :: Bytes) -> Bytes ! Strin
     |> Http.max_response_bytes(19312)
     |> Http.max_redirects(0)
     |> Http.send()) do
-    Err( error) -> if String.contains(error, "RESPONSE_TOO_LARGE") do
+    Err(error) -> if String.contains(error, "RESPONSE_TOO_LARGE") do
       Err("prekey_claim_too_large")
     else
       Err("prekey_claim_failed")
     end
-    Ok( value) -> Ok(value)
+    Ok(value) -> Ok(value)
   end ?
   if response.status != 200 do
     Err("prekey_claim_failed")

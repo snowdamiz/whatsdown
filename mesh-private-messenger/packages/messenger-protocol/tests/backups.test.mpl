@@ -2,27 +2,27 @@ from Backups.Protocol import BackupError, BackupManifest, BackupProfile, create_
 
 fn wide(value :: String) -> U64 ! BackupError do
   case U64.parse(value) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidManifest)
+    Ok(output) -> Ok(output)
   end
 end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! BackupError do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidManifest)
+    Ok(output) -> Ok(output)
   end
 end
 
 fn tamper_last_byte(input :: Bytes) -> Bytes ! BackupError do
   let length = Bytes.length(input)
   let last = case Bytes.get(input, length - 1) do
-    Err( _) -> Err(InvalidChunk)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidChunk)
+    Ok(output) -> Ok(output)
   end ?
   let prefix = case Bytes.slice(input, 0, length - 1) do
-    Err( _) -> Err(InvalidChunk)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidChunk)
+    Ok(output) -> Ok(output)
   end ?
   let replacement = if last == 120 do
     Bytes.from_utf8("y")
@@ -30,8 +30,8 @@ fn tamper_last_byte(input :: Bytes) -> Bytes ! BackupError do
     Bytes.from_utf8("x")
   end
   case Bytes.concat(prefix, replacement) do
-    Err( _) -> Err(InvalidChunk)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidChunk)
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -70,23 +70,23 @@ fn backup_proof() -> Bool ! BackupError do
   assert(verify_backup_snapshot(opened, append(opened_first, opened_second) ?))
   assert(!verify_backup_snapshot(opened, append(plaintext, Bytes.from_utf8("x")) ?))
   case seal_backup_chunk(key, opened, 1, Bytes.from_utf8("wrong-size")) do
-    Err( InvalidChunkSize) -> assert(true)
+    Err(InvalidChunkSize) -> assert(true)
     _ -> assert(false)
   end
   case open_backup_chunk(restored_key, opened, 1, first_wire) do
-    Err( InvalidChunkIndex) -> assert(true)
+    Err(InvalidChunkIndex) -> assert(true)
     _ -> assert(false)
   end
   case open_backup_chunk(restored_key, opened, 1, tamper_last_byte(second_wire) ?) do
-    Err( AuthenticationRejected) -> assert(true)
+    Err(AuthenticationRejected) -> assert(true)
     _ -> assert(false)
   end
   case open_backup_chunk(restored_key, opened, 1, append(second_wire, Bytes.from_utf8("x")) ?) do
-    Err( InvalidChunk) -> assert(true)
+    Err(InvalidChunk) -> assert(true)
     _ -> assert(false)
   end
   case profile_from_backup(append(manifest_wire, Bytes.from_utf8("x")) ?) do
-    Err( InvalidManifest) -> assert(true)
+    Err(InvalidManifest) -> assert(true)
     _ -> assert(false)
   end
   let weak_profile = BackupProfile {
@@ -97,16 +97,16 @@ fn backup_proof() -> Bool ! BackupError do
     parallelism : profile.parallelism
   }
   case derive_backup_key(recovery, weak_profile) do
-    Err( InvalidProfile) -> assert(true)
-    Err( _) -> assert(false)
-    Ok( unexpected) -> do
+    Err(InvalidProfile) -> assert(true)
+    Err(_) -> assert(false)
+    Ok(unexpected) -> do
       Secret.destroy(unexpected)
       assert(false)
     end
   end
   let wrong_key = generate_recovery_secret() ?
   case open_backup_manifest(wrong_key, manifest_wire) do
-    Err( AuthenticationRejected) -> assert(true)
+    Err(AuthenticationRejected) -> assert(true)
     _ -> assert(false)
   end
   Secret.destroy(wrong_key)
@@ -118,7 +118,7 @@ end
 
 test("versioned recovery profile seals an opaque bounded backup") do
   case backup_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end

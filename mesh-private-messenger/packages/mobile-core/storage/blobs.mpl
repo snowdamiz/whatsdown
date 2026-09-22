@@ -4,17 +4,17 @@ fn migrate_rows(database :: SqliteConn, rows :: List < Map < String, DbValue > >
   else
     let row = List.get(rows, index)
     case Map.get(row, "record_hash") do
-      Binary( _) -> Err("invalid_legacy_blob")
+      Binary(_) -> Err("invalid_legacy_blob")
       Null -> Err("invalid_legacy_blob")
-      Text( record_hash) -> case Map.get(row, "ciphertext") do
-        Binary( _) -> Err("invalid_legacy_blob")
+      Text(record_hash) -> case Map.get(row, "ciphertext") do
+        Binary(_) -> Err("invalid_legacy_blob")
         Null -> Err("invalid_legacy_blob")
-        Text( encoded) -> case Map.get(row, "updated_at") do
-          Binary( _) -> Err("invalid_legacy_blob")
+        Text(encoded) -> case Map.get(row, "updated_at") do
+          Binary(_) -> Err("invalid_legacy_blob")
           Null -> Err("invalid_legacy_blob")
-          Text( updated_at) -> case Bytes.from_base64(encoded) do
-            Err( _) -> Err("invalid_legacy_blob")
-            Ok( blob) -> if Bytes.length(blob) == 0 || Bytes.to_base64(blob) != encoded do
+          Text(updated_at) -> case Bytes.from_base64(encoded) do
+            Err(_) -> Err("invalid_legacy_blob")
+            Ok(blob) -> if Bytes.length(blob) == 0 || Bytes.to_base64(blob) != encoded do
               Err("invalid_legacy_blob")
             else
               let _ = Sqlite.execute_values(database,
@@ -40,9 +40,9 @@ fn ensure_schema_in_transaction(database :: SqliteConn) -> Result <(), String > 
     Err("invalid_blob_schema")
   else
     case Map.get(List.head(columns), "ciphertext_type") do
-      Binary( _) -> Err("invalid_blob_schema")
+      Binary(_) -> Err("invalid_blob_schema")
       Null -> Err("invalid_blob_schema")
-      Text( ciphertext_type) -> if ciphertext_type == "BLOB" do
+      Text(ciphertext_type) -> if ciphertext_type == "BLOB" do
         Ok(nil)
       else if ciphertext_type != "TEXT" do
         Err("invalid_blob_schema")
@@ -69,22 +69,22 @@ end
 
 pub fn ensure_schema(database_path :: String) -> Result <(), String > do
   case Sqlite.open(database_path) do
-    Err( _) -> Err("database_open_failed")
-    Ok( database) -> do
+    Err(_) -> Err("database_open_failed")
+    Ok(database) -> do
       let result = case Sqlite.begin(database) do
-        Err( error) -> Err(error)
-        Ok( _) -> case ensure_schema_in_transaction(database) do
-          Err( error) -> Err(error)
-          Ok( _) -> Sqlite.commit(database)
+        Err(error) -> Err(error)
+        Ok(_) -> case ensure_schema_in_transaction(database) do
+          Err(error) -> Err(error)
+          Ok(_) -> Sqlite.commit(database)
         end
       end
       case result do
-        Err( _) -> do
+        Err(_) -> do
           let _ = Sqlite.rollback(database)
           Sqlite.close(database)
           Err("database_schema_failed")
         end
-        Ok( _) -> do
+        Ok(_) -> do
           Sqlite.close(database)
           Ok(nil)
         end
@@ -98,8 +98,8 @@ pub fn insert_blob(database :: SqliteConn, label :: String, blob :: Bytes) -> Re
   case Sqlite.execute_values(database,
   "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
   [Text(record_hash), Binary(blob)]) do
-    Err( _) -> Err("database_write_failed")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("database_write_failed")
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -108,30 +108,30 @@ pub fn put_blob(database :: SqliteConn, label :: String, blob :: Bytes) -> Resul
   case Sqlite.execute_values(database,
   "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(record_hash) DO UPDATE SET ciphertext = excluded.ciphertext, updated_at = CURRENT_TIMESTAMP",
   [Text(record_hash), Binary(blob)]) do
-    Err( _) -> Err("database_write_failed")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("database_write_failed")
+    Ok(_) -> Ok(nil)
   end
 end
 
 pub fn load_blob(database_path :: String, label :: String) -> Bytes ! String do
   let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
   case Sqlite.open(database_path) do
-    Err( _) -> Err("database_open_failed")
-    Ok( database) -> case Sqlite.query_values(database,
+    Err(_) -> Err("database_open_failed")
+    Ok(database) -> case Sqlite.query_values(database,
     "SELECT ciphertext FROM encrypted_blobs WHERE record_hash = ?",
     [Text(record_hash)]) do
-      Err( _) -> do
+      Err(_) -> do
         Sqlite.close(database)
         Err("database_read_failed")
       end
-      Ok( rows) -> do
+      Ok(rows) -> do
         Sqlite.close(database)
         if List.length(rows) != 1 do
           Err("local_state_not_found")
         else
           case Map.get(List.head(rows), "ciphertext") do
-            Binary( blob) -> Ok(blob)
-            Text( _) -> Err("invalid_local_state")
+            Binary(blob) -> Ok(blob)
+            Text(_) -> Err("invalid_local_state")
             Null -> Err("invalid_local_state")
           end
         end

@@ -11,15 +11,15 @@ from Storage.Prekeys import publish_prekeys
 
 fn repeated(value :: Int, length :: Int) -> Bytes ! String do
   case Bytes.repeat(value, length) do
-    Err( _) -> Err("test allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn append_bytes(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("test allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -33,8 +33,8 @@ end
 
 fn protocol(value :: Result < Bytes, ProtocolError >) -> Bytes ! String do
   case value do
-    Err( _) -> Err("protocol encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("protocol encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -51,20 +51,20 @@ expires_at :: U64) -> DirectoryEntry ! String do
   created_at,
   expires_at,
   wide(sequence) ?) do
-    Err( _) -> Err("credential generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("credential generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let signed = case generate_signed_prekey(device, credential, wide("1") ?, expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let one_time = case generate_one_time_prekey(wide("2") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let bundle = case build_prekey_bundle(credential, signed, one_time) do
-    Err( _) -> Err("prekey bundle generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("prekey bundle generation failed")
+    Ok(output) -> Ok(output)
   end ?
   Ok(DirectoryEntry {
     version : 1,
@@ -77,8 +77,8 @@ end
 
 fn sign_publish(key :: borrow SigningPrivateKey, request :: PrekeyPublishRequest) -> PrekeyPublishRequest ! String do
   let signature = case Crypto.sign(key, prekey_publish_signing_bytes(request) ?) do
-    Err( _) -> Err("prekey publication signing failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("prekey publication signing failed")
+    Ok(output) -> Ok(output)
   end ?
   Ok(PrekeyPublishRequest {
     account_id : request.account_id,
@@ -131,7 +131,7 @@ end
 fn target_base_bundle(pool :: PoolHandle, mailbox_token :: Bytes) -> Bytes ! String do
   case resolve_devices(pool, "prekey-account") ? do
     None -> Err("device set missing")
-    Some( value) -> find_bundle(value.devices, mailbox_token, 0)
+    Some(value) -> find_bundle(value.devices, mailbox_token, 0)
   end
 end
 
@@ -144,8 +144,8 @@ end
 
 fn decoded_bundle(input :: Bytes) -> PrekeyBundle ! String do
   case decode_prekey_bundle(input) do
-    Err( _) -> Err("claimed bundle did not decode")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("claimed bundle did not decode")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -155,10 +155,10 @@ fn claimed_id(pool :: PoolHandle, body :: Bytes) -> Int do
     0
   else
     case decode_prekey_bundle(response.body) do
-      Err( _) -> 0
-      Ok( bundle) -> case U64.to_int(bundle.one_time_prekey_id) do
-        Err( _) -> 0
-        Ok( output) -> output
+      Err(_) -> 0
+      Ok(bundle) -> case U64.to_int(bundle.one_time_prekey_id) do
+        Err(_) -> 0
+        Ok(output) -> output
       end
     end
   end
@@ -166,8 +166,8 @@ end
 
 fn await_claim_id(job :: Pid < Int >, normal_exits :: Int) -> Int ! String do
   case Job.await(job) do
-    Ok( output) -> Ok(output)
-    Err( error) -> if error == "normal" && normal_exits < 2 do
+    Ok(output) -> Ok(output)
+    Err(error) -> if error == "normal" && normal_exits < 2 do
       await_claim_id(job, normal_exits + 1)
     else
       Err("concurrent prekey claim failed: #{error}")
@@ -180,14 +180,14 @@ fn record_claim(pool :: PoolHandle, body :: Bytes, claim_order :: Int) -> Int do
   case Pool.execute_values(pool,
   "INSERT INTO mesh_test_concurrent_claims (claim_order, status, body) VALUES ($1::integer, $2::integer, $3)",
   [Text(Int.to_string(claim_order)), Text(Int.to_string(response.status)), Binary(response.body)]) do
-    Err( _) -> 0
-    Ok( _) -> response.status
+    Err(_) -> 0
+    Ok(_) -> response.status
   end
 end
 
 fn binary_value(value :: DbValue) -> Bytes ! String do
   case value do
-    Binary( output) -> Ok(output)
+    Binary(output) -> Ok(output)
     _ -> Err("invalid concurrent claim body")
   end
 end
@@ -215,9 +215,9 @@ fn target_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes)
     Err("prekey count failed")
   else
     case Map.get(List.head(rows), "key_count") do
-      Text( value) -> case String.to_int(value) do
+      Text(value) -> case String.to_int(value) do
         None -> Err("invalid prekey count")
-        Some( output) -> Ok(output)
+        Some(output) -> Ok(output)
       end
       _ -> Err("invalid prekey count")
     end
@@ -232,9 +232,9 @@ fn target_consumed_key_count(pool :: PoolHandle, account_id :: Bytes, device_id 
     Err("consumed prekey count failed")
   else
     case Map.get(List.head(rows), "key_count") do
-      Text( value) -> case String.to_int(value) do
+      Text(value) -> case String.to_int(value) do
         None -> Err("invalid consumed prekey count")
-        Some( output) -> Ok(output)
+        Some(output) -> Ok(output)
       end
       _ -> Err("invalid consumed prekey count")
     end
@@ -250,17 +250,17 @@ fn happy_path() -> Bool ! String do
   []) ?
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
-  let ( account, identity) = case generate_account(created_at, wide("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( output) -> Ok(output)
+  let (account, identity) = case generate_account(created_at, wide("1") ?) do
+    Err(_) -> Err("account generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let requester = case generate_device() do
-    Err( _) -> Err("requester generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("requester generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let target = case generate_device() do
-    Err( _) -> Err("target generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("target generation failed")
+    Ok(output) -> Ok(output)
   end ?
   case register_device(pool,
   registration(account, identity, requester, repeated(31, 32) ?, "1", created_at, expires_at) ?) ? do
@@ -388,8 +388,8 @@ fn happy_path() -> Bool ! String do
     public_key : repeated(43, 32) ?
   }]) ?) ?
   assert(publish_prekeys_request(pool, encode_prekey_publish(conflicting) ?).status == 409)
-  let first_claim_body = encode_prekey_claim(% { claim | reservation_id : repeated(60, 16) ? }) ?
-  let second_claim_body = encode_prekey_claim(% { claim | reservation_id : repeated(61, 16) ? }) ?
+  let first_claim_body = encode_prekey_claim(% {claim | reservation_id : repeated(60, 16) ? }) ?
+  let second_claim_body = encode_prekey_claim(% {claim | reservation_id : repeated(61, 16) ? }) ?
   let first_job = Job.async(fn () -> claimed_id(pool, first_claim_body) end)
   let second_job = Job.async(fn () -> claimed_id(pool, second_claim_body) end)
   let first_claim_id = await_claim_id(first_job, 0) ?
@@ -397,14 +397,14 @@ fn happy_path() -> Bool ! String do
   assert(first_claim_id != second_claim_id)
   let ids_match = (first_claim_id == 100 && second_claim_id == 101) || (first_claim_id == 101 && second_claim_id == 100)
   assert(ids_match)
-  let first_replay_body = encode_prekey_claim(% { claim | reservation_id : repeated(60, 16) ? }) ?
-  let second_replay_body = encode_prekey_claim(% { claim | reservation_id : repeated(61, 16) ? }) ?
+  let first_replay_body = encode_prekey_claim(% {claim | reservation_id : repeated(60, 16) ? }) ?
+  let second_replay_body = encode_prekey_claim(% {claim | reservation_id : repeated(61, 16) ? }) ?
   let first_replay = claim_prekey_request(pool, first_replay_body)
   let first_exact_replay = claim_prekey_request(pool,
-  encode_prekey_claim(% { claim | reservation_id : repeated(60, 16) ? }) ?)
+  encode_prekey_claim(% {claim | reservation_id : repeated(60, 16) ? }) ?)
   let second_replay = claim_prekey_request(pool, second_replay_body)
   let second_exact_replay = claim_prekey_request(pool,
-  encode_prekey_claim(% { claim | reservation_id : repeated(61, 16) ? }) ?)
+  encode_prekey_claim(% {claim | reservation_id : repeated(61, 16) ? }) ?)
   assert(first_replay.status == 200)
   assert(second_replay.status == 200)
   assert(Bytes.secure_equals(first_replay.body, first_exact_replay.body))
@@ -414,7 +414,7 @@ fn happy_path() -> Bool ! String do
   assert(first_replay_id != second_replay_id)
   let replay_ids_match = (first_replay_id == 100 && second_replay_id == 101) || (first_replay_id == 101 && second_replay_id == 100)
   assert(replay_ids_match)
-  let exhausted_claim_body = encode_prekey_claim(% { claim | reservation_id : repeated(62, 16) ? }) ?
+  let exhausted_claim_body = encode_prekey_claim(% {claim | reservation_id : repeated(62, 16) ? }) ?
   assert(claim_prekey_request(pool, exhausted_claim_body).status == 409)
   let exhausted_recovery = publish_prekeys_request(pool, encode_prekey_publish(recovery) ?)
   assert(exhausted_recovery.status == 200)
@@ -433,7 +433,7 @@ fn happy_path() -> Bool ! String do
   assert(U64.compare(decoded_bundle(claim_prekey_request(pool, exhausted_claim_body).body) ?.one_time_prekey_id,
   wide("102") ?) == 0)
   assert(claim_prekey_request(pool,
-  encode_prekey_claim(% { claim | reservation_id : repeated(63, 16) ? }) ?).status == 409)
+  encode_prekey_claim(% {claim | reservation_id : repeated(63, 16) ? }) ?).status == 409)
   let bounded_values = prekey_range(980, 64, 0, List.new()) ?
   let bounded = sign_publish(target.signing_private_key,
   unsigned_publish(identity, target, bounded_values) ?) ?
@@ -459,13 +459,13 @@ fn happy_path() -> Bool ! String do
   assert(Bytes.secure_equals(overflow_response.body, bounded_response.body))
   let oversized = unsigned_publish(identity, target, prekey_range(500, 65, 0, List.new()) ?) ?
   case encode_prekey_publish(oversized) do
-    Err( _) -> Ok(nil)
-    Ok( _) -> Err("oversized prekey batch encoded")
+    Err(_) -> Ok(nil)
+    Ok(_) -> Err("oversized prekey batch encoded")
   end ?
   rotation_replay_assertions(pool, account, identity, target, target_base, created_at, expires_at) ?
   let revocation = case issue_device_revocation(account, target.device_id, wide("5") ?) do
-    Err( _) -> Err("revocation signing failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("revocation signing failed")
+    Ok(output) -> Ok(output)
   end ?
   assert(revoke_device_request(pool, protocol(encode_device_revocation(revocation)) ?).status == 200)
   assert(target_key_count(pool, identity.account_id, target.device_id) ? == 0)
@@ -483,8 +483,8 @@ other_base :: Bytes,
 created_at :: U64,
 expires_at :: U64) -> Result <(), String > do
   let target = case generate_device() do
-    Err( _) -> Err("target generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("target generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let classical_credential = case issue_device_credential(account,
   target,
@@ -492,20 +492,20 @@ expires_at :: U64) -> Result <(), String > do
   created_at,
   expires_at,
   wide("3") ?) do
-    Err( _) -> Err("classical credential generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("classical credential generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let signed = case generate_signed_prekey(target, classical_credential, wide("1") ?, expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let one_time = case generate_one_time_prekey(wide("2") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let classical_bundle = case build_prekey_bundle(classical_credential, signed, one_time) do
-    Err( _) -> Err("classical bundle generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("classical bundle generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let mailbox_token = repeated(73, 32) ?
   let classical_entry = DirectoryEntry {
@@ -531,8 +531,8 @@ expires_at :: U64) -> Result <(), String > do
     public_key : repeated(77, 32) ?
   }]) ?) ?
   case publish_prekeys(pool, published) do
-    Err( error) -> Err("rotation prekey publication failed: #{error}")
-    Ok( _) -> Ok(nil)
+    Err(error) -> Err("rotation prekey publication failed: #{error}")
+    Ok(_) -> Ok(nil)
   end ?
   assert(target_key_count(pool, identity.account_id, target.device_id) ? == 3)
   let reservation_id = repeated(75, 16) ?
@@ -542,7 +542,7 @@ expires_at :: U64) -> Result <(), String > do
   assert(initial.status == 200)
   assert(U64.compare(decoded_bundle(initial.body) ?.one_time_prekey_id, wide("2") ?) == 0)
   assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 1)
-  let legacy_claim = % { claim | reservation_id : repeated(78, 16) ? }
+  let legacy_claim = % {claim | reservation_id : repeated(78, 16) ? }
   let legacy_body = encode_prekey_claim(legacy_claim) ?
   let legacy_initial = claim_prekey_request(pool, legacy_body)
   assert(legacy_initial.status == 200)
@@ -552,8 +552,8 @@ expires_at :: U64) -> Result <(), String > do
   assert(legacy_changed == 1)
   assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 2)
   let post_quantum = case generate_post_quantum_prekey() do
-    Err( _) -> Err("post-quantum prekey generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("post-quantum prekey generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let hybrid_credential = case issue_hybrid_device_credential(account,
   target,
@@ -562,19 +562,19 @@ expires_at :: U64) -> Result <(), String > do
   created_at,
   expires_at,
   wide("4") ?) do
-    Err( _) -> Err("hybrid credential generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("hybrid credential generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let signed = case reauthorize_signed_prekey(target, hybrid_credential, signed) do
-    Err( _) -> Err("signed prekey reauthorization failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("signed prekey reauthorization failed")
+    Ok(output) -> Ok(output)
   end ?
   let hybrid_bundle = case build_hybrid_prekey_bundle(hybrid_credential,
   signed,
   one_time,
   post_quantum) do
-    Err( _) -> Err("hybrid bundle generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("hybrid bundle generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let hybrid_entry = DirectoryEntry {
     version : 1,
@@ -601,9 +601,9 @@ expires_at :: U64) -> Result <(), String > do
   assert(legacy_replay.status == 200)
   assert(Bytes.secure_equals(legacy_replay.body, legacy_initial.body))
   assert(decoded_bundle(legacy_replay.body) ?.suite == 1)
-  let unknown_stale = % { claim | reservation_id : repeated(76, 16) ? }
+  let unknown_stale = % {claim | reservation_id : repeated(76, 16) ? }
   assert(claim_prekey_request(pool, encode_prekey_claim(unknown_stale) ?).status == 404)
-  let changed_binding = % { claim | base_bundle_hash : Crypto.sha256(hybrid_base) }
+  let changed_binding = % {claim | base_bundle_hash : Crypto.sha256(hybrid_base) }
   assert(claim_prekey_request(pool, encode_prekey_claim(changed_binding) ?).status == 404)
   let other_consumed = target_consumed_key_count(pool, identity.account_id, other_target.device_id) ?
   let changed_device = PrekeyClaimRequest {
@@ -631,7 +631,7 @@ device :: borrow DeviceKeys,
 prekeys :: List < OneTimePrekeyPublic >,
 reusable :: Option < OneTimePrekeyPublic >) -> Int ! String do
   let unsigned = unsigned_publish(identity, device, prekeys) ?
-  let signed = sign_publish(device.signing_private_key, % { unsigned | last_resort : reusable }) ?
+  let signed = sign_publish(device.signing_private_key, % {unsigned | last_resort : reusable }) ?
   Ok(publish_prekeys_request(pool, encode_prekey_publish(signed) ?).status)
 end
 
@@ -644,13 +644,13 @@ fn last_resort_path() -> Bool ! String do
   []) ?
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
-  let ( account, identity) = case generate_account(created_at, wide("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( output) -> Ok(output)
+  let (account, identity) = case generate_account(created_at, wide("1") ?) do
+    Err(_) -> Err("account generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let target = case generate_device() do
-    Err( _) -> Err("target generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("target generation failed")
+    Ok(output) -> Ok(output)
   end ?
   case register_device(pool,
   registration(account, identity, target, repeated(33, 32) ?, "1", created_at, expires_at) ?) ? do
@@ -714,13 +714,13 @@ fn contact_address_path() -> Bool ! String do
   []) ?
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
-  let ( account, identity) = case generate_account(created_at, wide("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( output) -> Ok(output)
+  let (account, identity) = case generate_account(created_at, wide("1") ?) do
+    Err(_) -> Err("account generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let target = case generate_device() do
-    Err( _) -> Err("target generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("target generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let mailbox = repeated(41, 32) ?
   case register_device(pool,
@@ -729,7 +729,7 @@ fn contact_address_path() -> Bool ! String do
     _ -> Err("target registration failed")
   end ?
   let address = repeated(42, 32) ?
-  let named = % { unsigned_publish(identity, target, List.new()) ? | contact_address_hash : Some(Crypto.sha256(address)) }
+  let named = % {unsigned_publish(identity, target, List.new()) ? | contact_address_hash : Some(Crypto.sha256(address)) }
   let signed = sign_publish(target.signing_private_key, named) ?
   assert(publish_prekeys_request(pool, encode_prekey_publish(signed) ?).status == 201)
   assert(publish_prekeys_request(pool, encode_prekey_publish(signed) ?).status == 200)
@@ -738,41 +738,41 @@ fn contact_address_path() -> Bool ! String do
   [Binary(Crypto.sha256(address)), Binary(Crypto.sha256(mailbox))]) ?
   assert(List.length(rows) == 1)
   # The signature covers the address: a publication altered to name another is refused.
-  let forged = % { signed | contact_address_hash : Some(Crypto.sha256(repeated(43, 32) ?)) }
+  let forged = % {signed | contact_address_hash : Some(Crypto.sha256(repeated(43, 32) ?)) }
   assert(publish_prekeys_request(pool, encode_prekey_publish(forged) ?).status == 403)
   # Nobody may name an address that already routes somewhere.
   let taken = sign_publish(target.signing_private_key,
-  % { unsigned_publish(identity, target, List.new()) ? | contact_address_hash : Some(Crypto.sha256(mailbox)) }) ?
+  % {unsigned_publish(identity, target, List.new()) ? | contact_address_hash : Some(Crypto.sha256(mailbox)) }) ?
   assert(publish_prekeys_request(pool, encode_prekey_publish(taken) ?).status == 409)
   Ok(true)
 end
 
 test("a signed publication names the device's contact address") do
   case contact_address_path() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
 test("an exhausted pool falls back to the reusable last-resort prekey") do
   case last_resort_path() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
 test("authenticated publication feeds one atomic bundle claim") do
   case happy_path() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

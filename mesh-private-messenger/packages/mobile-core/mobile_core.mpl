@@ -118,8 +118,8 @@ from Storage.Records import store_envelope
 
 @ export("mesh_messenger_initialize")pub fn initialize(request :: Bytes) -> Bytes ! String do
   case Bytes.to_utf8(request) do
-    Err( _) -> Err("invalid_database_path")
-    Ok( database_path) -> if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Err(_) -> Err("invalid_database_path")
+    Ok(database_path) -> if String.length(database_path) == 0 || String.length(database_path) > 4096 do
       Err("invalid_database_path")
     else
       ensure_schema(database_path) ?
@@ -131,8 +131,8 @@ end
 @ export("mesh_messenger_validate_outer")pub fn validate_outer(request :: Bytes) -> Bytes ! String do
   let value = canonical_outer(request) ?
   case encode_outer_envelope(value) do
-    Err( _) -> Err("invalid_outer_envelope")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("invalid_outer_envelope")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -142,8 +142,8 @@ end
 
 @ export("mesh_messenger_create_account")pub fn create_account_export(request :: Bytes) -> Bytes ! String do
   case parse_account_request(request) do
-    Err( error) -> Err(error)
-    Ok( parsed) -> create_account(parsed)
+    Err(error) -> Err(error)
+    Ok(parsed) -> create_account(parsed)
   end
 end
 

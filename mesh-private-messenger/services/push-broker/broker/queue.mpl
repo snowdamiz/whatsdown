@@ -48,13 +48,13 @@ pub fn initialize(path :: String) -> Result <(), String > do
     Err("invalid broker queue path")
   else
     case Pg.connect(path) do
-      Err( _) -> Err("broker queue unavailable")
-      Ok( database) -> case initialize_open(database) do
-        Err( _) -> do
+      Err(_) -> Err("broker queue unavailable")
+      Ok(database) -> case initialize_open(database) do
+        Err(_) -> do
           Pg.close(database)
           Err("broker queue unavailable")
         end
-        Ok( _) -> do
+        Ok(_) -> do
           Pg.close(database)
           Ok(nil)
         end
@@ -86,12 +86,12 @@ end
 fn enqueue_prepared(path :: String, input :: Bytes, now_ms :: Int) -> EnqueueOutcome ! String do
   let database = Pg.connect(path) ?
   case enqueue_open(database, input, now_ms) do
-    Err( _) -> do
+    Err(_) -> do
       let _ = Pg.rollback(database)
       Pg.close(database)
       Err("broker queue unavailable")
     end
-    Ok( outcome) -> do
+    Ok(outcome) -> do
       Pg.close(database)
       Ok(outcome)
     end
@@ -122,8 +122,8 @@ now_ms :: Int) -> Result < EnqueueOutcome, String > do
     Err("invalid broker time")
   else
     case prepare_expo_request_with_key(input, broker_private_key) do
-      Err( _) -> Err("broker queue unavailable")
-      Ok( _) -> enqueue_prepared(path, input, now_ms)
+      Err(_) -> Err("broker queue unavailable")
+      Ok(_) -> enqueue_prepared(path, input, now_ms)
     end
   end
 end
@@ -136,7 +136,7 @@ fn decode_job(row :: Map < String, String >) -> Result < QueueJob, String > do
   let ticket_id = Map.get(row, "ticket_id")
   let attempts = case String.to_int(Map.get(row, "attempts")) do
     None -> Err("invalid broker queue state")
-    Some( value) -> Ok(value)
+    Some(value) -> Ok(value)
   end ?
   if String.length(wake_hash) != 64 || String.length(request_hash) != 64 || Bytes.length(sealed_request) == 0 || Bytes.length(sealed_request) > 621 || Bytes.to_hex(Crypto.sha256(sealed_request)) != request_hash || attempts < 0 do
     Err("invalid broker queue state")
@@ -157,30 +157,26 @@ pub fn next_job(path :: String, now_ms :: Int) -> Result < Option < QueueJob >, 
     Err("invalid broker time")
   else
     case Pg.connect(path) do
-      Err( _) -> Err("broker queue unavailable")
-      Ok( database) -> do
+      Err(_) -> Err("broker queue unavailable")
+      Ok(database) -> do
         let result = case configure(database) do
-          Err( error) -> Err(error)
-          Ok( _) -> case Pg.query(database,
+          Err(error) -> Err(error)
+          Ok(_) -> case Pg.query(database,
           "SELECT wake_hash, request_hash, sealed_request, state, ticket_id, attempts FROM broker_jobs WHERE state IN ('pending', 'retry_send', 'receipt', 'retry_receipt') AND next_attempt_ms <= $1 ORDER BY next_attempt_ms, updated_ms, wake_hash LIMIT 1",
           [Int.to_string(now_ms)]) do
-            Err( error) -> Err(error)
-            Ok( rows) -> if List.length(rows) == 0 do
-              Ok(None)
-            else if List.length(rows) == 1 do
-              case decode_job(List.head(rows)) do
-                Err( error) -> Err(error)
-                Ok( job) -> Ok(Some(job))
-              end
-            else
-              Err("invalid broker queue state")
+            Err(error) -> Err(error)
+            Ok([]) -> Ok(None)
+            Ok([row]) -> case decode_job(row) do
+              Err(error) -> Err(error)
+              Ok(job) -> Ok(Some(job))
             end
+            Ok(_) -> Err("invalid broker queue state")
           end
         end
         Pg.close(database)
         case result do
-          Err( _) -> Err("broker queue unavailable")
-          Ok( job) -> Ok(job)
+          Err(_) -> Err("broker queue unavailable")
+          Ok(job) -> Ok(job)
         end
       end
     end
@@ -193,17 +189,17 @@ wake_hash :: String,
 request_hash :: String,
 values :: List < String >) -> Result <(), String > do
   case Pg.connect(path) do
-    Err( _) -> Err("broker queue unavailable")
-    Ok( database) -> do
+    Err(_) -> Err("broker queue unavailable")
+    Ok(database) -> do
       let configured = configure(database)
       let result = case configured do
-        Err( error) -> Err(error)
-        Ok( _) -> Pg.execute(database, sql, List.concat(values, [wake_hash, request_hash]))
+        Err(error) -> Err(error)
+        Ok(_) -> Pg.execute(database, sql, List.concat(values, [wake_hash, request_hash]))
       end
       Pg.close(database)
       case result do
-        Err( _) -> Err("broker queue unavailable")
-        Ok( changed) -> if changed == 1 do
+        Err(_) -> Err("broker queue unavailable")
+        Ok(changed) -> if changed == 1 do
           Ok(nil)
         else
           Err("stale broker queue job")
@@ -303,18 +299,18 @@ pub fn purge_tombstones(path :: String, older_than_ms :: Int, limit :: Int) -> I
     Err("invalid tombstone purge")
   else
     case Pg.connect(path) do
-      Err( _) -> Err("broker queue unavailable")
-      Ok( database) -> do
+      Err(_) -> Err("broker queue unavailable")
+      Ok(database) -> do
         let result = case configure(database) do
-          Err( error) -> Err(error)
-          Ok( _) -> Pg.execute(database,
+          Err(error) -> Err(error)
+          Ok(_) -> Pg.execute(database,
           "DELETE FROM broker_jobs WHERE wake_hash IN (SELECT wake_hash FROM broker_jobs WHERE state = 'terminal' AND updated_ms < $1 ORDER BY updated_ms, wake_hash LIMIT $2)",
           [Int.to_string(older_than_ms), Int.to_string(limit)])
         end
         Pg.close(database)
         case result do
-          Err( _) -> Err("broker queue unavailable")
-          Ok( changed) -> Ok(changed)
+          Err(_) -> Err("broker queue unavailable")
+          Ok(changed) -> Ok(changed)
         end
       end
     end

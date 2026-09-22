@@ -20,12 +20,12 @@ pub fn mailbox_stream_room(pool :: PoolHandle, path :: String, headers :: Map < 
     else
       let wire = Bytes.from_hex(String.slice(authorization, 12, 244)) ?
       let request = case decode_mailbox_fetch(wire) do
-        Err( _) -> Err("invalid stream frame")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid stream frame")
+        Ok(value) -> Ok(value)
       end ?
       case authorize_mailbox_fetch(pool, request) ? do
         None -> Err("unauthorized stream")
-        Some( _) -> do
+        Some(_) -> do
           let room = "mailbox:" <> Bytes.to_hex(request.mailbox_token_hash)
           let bucket = Crypto.sha256(Bytes.from_utf8("stream:" <> room))
           if !allow_request(pool, bucket, 60, 60) ? do
@@ -41,8 +41,8 @@ end
 
 fn on_connect(conn :: Int, path :: String, headers :: Map < String, String >) -> Int do
   case mailbox_stream_room(get_pool(), path, headers) do
-    Err( _) -> 0
-    Ok( room) -> if Ws.join(conn, room) != 0 do
+    Err(_) -> 0
+    Ok(room) -> if Ws.join(conn, room) != 0 do
       0
     else
       # Join before announcing readiness so catch-up cannot miss a delivery.

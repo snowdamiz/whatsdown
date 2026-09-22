@@ -32,8 +32,8 @@ end
 
 fn wide(value :: Int) -> U64 ! String do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err("test integer conversion failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("test integer conversion failed")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
@@ -77,16 +77,16 @@ end
 
 fn row_text(row :: Map < String, DbValue >, key :: String) -> String ! String do
   case Map.get(row, key) do
-    Text( value) -> Ok(value)
-    Binary( _) -> Err("expected text database value")
+    Text(value) -> Ok(value)
+    Binary(_) -> Err("expected text database value")
     Null -> Err("expected text database value")
   end
 end
 
 fn row_binary(row :: Map < String, DbValue >, key :: String) -> Bytes ! String do
   case Map.get(row, key) do
-    Binary( value) -> Ok(value)
-    Text( _) -> Err("expected binary database value")
+    Binary(value) -> Ok(value)
+    Text(_) -> Err("expected binary database value")
     Null -> Err("expected binary database value")
   end
 end
@@ -108,11 +108,11 @@ fn database_state(path :: String) -> Bytes ! String do
   case Sqlite.query_values(database,
   "SELECT record_hash, ciphertext FROM encrypted_blobs ORDER BY record_hash",
   []) do
-    Err( error) -> do
+    Err(error) -> do
       Sqlite.close(database)
       Err(error)
     end
-    Ok( rows) -> do
+    Ok(rows) -> do
       Sqlite.close(database)
       database_state_rows(rows, 0, Bytes.empty())
     end
@@ -128,11 +128,11 @@ fn stable_database_state(path :: String) -> Bytes ! String do
   case Sqlite.query_values(database,
   "SELECT record_hash, ciphertext FROM encrypted_blobs WHERE record_hash NOT IN (?, ?, ?, ?, ?, ?, ?, ?, ?) ORDER BY record_hash",
   [Text(record_hash("one-time-prekey/v1")), Text(record_hash("one-time-prekey/v1/2")), Text(record_hash("one-time-prekeys/v1")), Text(record_hash("one-time-prekey-active/v1")), Text(record_hash("one-time-prekey-next-id/v1")), Text(record_hash("last-resort-prekey/v1")), Text(record_hash("one-time-prekey/v1/4611686018427387905")), Text(record_hash("contact-address-pending/v1")), Text(record_hash("contact-address/v1"))]) do
-    Err( error) -> do
+    Err(error) -> do
       Sqlite.close(database)
       Err(error)
     end
-    Ok( rows) -> do
+    Ok(rows) -> do
       Sqlite.close(database)
       if List.length(rows) != 6 do
         Err("unexpected stable database records")
@@ -148,18 +148,18 @@ fn database_record_count(path :: String) -> Int ! String do
   case Sqlite.query_values(database,
   "SELECT CAST(count(*) AS TEXT) AS record_count FROM encrypted_blobs",
   []) do
-    Err( error) -> do
+    Err(error) -> do
       Sqlite.close(database)
       Err(error)
     end
-    Ok( rows) -> do
+    Ok(rows) -> do
       Sqlite.close(database)
       if List.length(rows) != 1 do
         Err("expected encrypted database count")
       else
         case String.to_int(row_text(List.head(rows), "record_count") ?) do
           None -> Err("expected encrypted database count")
-          Some( value) -> Ok(value)
+          Some(value) -> Ok(value)
         end
       end
     end
@@ -171,11 +171,11 @@ fn database_has_record(path :: String, label :: String) -> Bool ! String do
   case Sqlite.query_values(database,
   "SELECT record_hash FROM encrypted_blobs WHERE record_hash = ?",
   [Text(record_hash(label))]) do
-    Err( error) -> do
+    Err(error) -> do
       Sqlite.close(database)
       Err(error)
     end
-    Ok( rows) -> do
+    Ok(rows) -> do
       Sqlite.close(database)
       Ok(List.length(rows) == 1)
     end
@@ -225,11 +225,11 @@ fn set_reconcile_failure(path :: String, enabled :: Bool) -> Result <(), String 
     "DROP TRIGGER mesh_test_fail_prekey_reconcile"
   end
   case Sqlite.execute(database, statement, []) do
-    Err( error) -> do
+    Err(error) -> do
       Sqlite.close(database)
       Err(error)
     end
-    Ok( _) -> do
+    Ok(_) -> do
       Sqlite.close(database)
       Ok(nil)
     end
@@ -257,23 +257,23 @@ fn capacity_proof() -> Bool ! String do
   assert(reconcile(path, first_batch.account_id, first_batch.device_id, ids(33, 64) ?) ? == 64)
   let full_state = database_state(path) ?
   case publication(path, 1) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "prekey_pool_full")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "prekey_pool_full")
   end
   case publication(path, 65) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_prekey_request")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_prekey_request")
   end
   assert(Bytes.secure_equals(database_state(path) ?, full_state))
   case reconcile(path, first_batch.account_id, first_batch.device_id, ids(999, 1) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "unknown_active_prekey")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "unknown_active_prekey")
   end
   assert(Bytes.secure_equals(database_state(path) ?, full_state))
   set_reconcile_failure(path, true) ?
   case reconcile(path, first_batch.account_id, first_batch.device_id, List.new()) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "database_write_failed")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "database_write_failed")
   end
   set_reconcile_failure(path, false) ?
   assert(Bytes.secure_equals(database_state(path) ?, full_state))
@@ -412,8 +412,8 @@ fn proof() -> Bool ! String do
   assert(Bytes.length(profile) > 0)
   assert(Bytes.secure_equals(load_profile_export(Bytes.from_utf8(path)) ?, profile))
   case create_account_export(request) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "account_already_exists")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "account_already_exists")
   end
   let publication = decode_prekey_publish(replenish_prekeys_export(replenish_request(path, 1) ?) ?) ?
   assert(List.length(publication.prekeys) == 1)
@@ -440,10 +440,10 @@ end
 
 test("mobile accounts persist, migrate, and reconcile bounded one-time prekeys in Mesh") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

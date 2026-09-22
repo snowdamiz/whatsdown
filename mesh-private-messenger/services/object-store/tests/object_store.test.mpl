@@ -4,8 +4,8 @@ from Store.Service import complete, delete_object, get_part, grant, initialize, 
 
 fn bytes(value :: Int, length :: Int) -> Bytes ! String do
   case Bytes.repeat(value, length) do
-    Err( _) -> Err("test byte allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test byte allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -15,16 +15,16 @@ end
 
 fn binary(row :: Map < String, DbValue >, key :: String) -> Bytes ! String do
   case Map.get(row, key) do
-    Binary( value) -> Ok(value)
-    Text( _) -> Err("metadata value was text")
+    Binary(value) -> Ok(value)
+    Text(_) -> Err("metadata value was text")
     Null -> Err("metadata value was null")
   end
 end
 
 fn text(row :: Map < String, DbValue >, key :: String) -> String ! String do
   case Map.get(row, key) do
-    Binary( _) -> Err("metadata value was binary")
-    Text( value) -> Ok(value)
+    Binary(_) -> Err("metadata value was binary")
+    Text(value) -> Ok(value)
     Null -> Err("metadata value was null")
   end
 end
@@ -55,8 +55,8 @@ end
 
 fn random_32() -> Bytes ! String do
   case Crypto.random_bytes(32) do
-    Err( _) -> Err("test random value generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test random value generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -113,8 +113,8 @@ end
 
 fn await_status(job :: Pid < Int >, normal_exits :: Int) -> Int ! String do
   case Job.await(job) do
-    Ok( status) -> Ok(status)
-    Err( error) -> if error == "normal" && normal_exits < 2 do
+    Ok(status) -> Ok(status)
+    Err(error) -> if error == "normal" && normal_exits < 2 do
       await_status(job, normal_exits + 1)
     else
       Err("concurrent object upload failed")
@@ -264,18 +264,18 @@ fn proof() -> Bool ! String do
   assert(purge_expired(database_path, root, wide("101001") ?, 1) ? == 1)
   assert(get_part(database_path, root, expiring_id, 0, expiring_download, wide("101001") ?).status == 404)
   case mint_grant(bytes(136, 32) ?, 258, wide("700000") ?, wide("200000") ?, upload, download, 4) do
-    Err( _) -> nil
-    Ok( _) -> assert(false)
+    Err(_) -> nil
+    Ok(_) -> assert(false)
   end
   Ok(true)
 end
 
 test("opaque objects enforce capabilities, replay, completion, deletion, expiry, and bounds") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

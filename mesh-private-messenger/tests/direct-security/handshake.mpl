@@ -5,19 +5,19 @@ from Protocol.HandshakeWire import decode_initial_message, encode_initial_messag
 from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
 
 type ProofError do
-  IdentityProblem( error :: IdentityError)
+  IdentityProblem(error :: IdentityError)
 
-  PrekeyProblem( error :: PrekeyError)
+  PrekeyProblem(error :: PrekeyError)
 
-  SessionProblem( error :: SessionError)
+  SessionProblem(error :: SessionError)
 
   InvalidFixture
 end
 
 fn wide(value :: String) -> U64 ! ProofError do
   case U64.parse(value) do
-    Err( _) -> Err(InvalidFixture)
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err(InvalidFixture)
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
@@ -28,17 +28,17 @@ fn policy(current_time :: U64, minimum_directory_sequence :: U64) -> Verificatio
   }
 end
 
-fn account(created_at :: U64) -> Result <( AccountKeys, AccountIdentity), ProofError > do
+fn account(created_at :: U64) -> Result <(AccountKeys, AccountIdentity), ProofError > do
   case generate_account(created_at, wide("1") ?) do
-    Err( error) -> Err(IdentityProblem(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(IdentityProblem(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn device() -> DeviceKeys ! ProofError do
   case generate_device() do
-    Err( error) -> Err(IdentityProblem(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(IdentityProblem(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -53,8 +53,8 @@ directory_sequence :: U64) -> DeviceCredential ! ProofError do
   created_at,
   expires_at,
   directory_sequence) do
-    Err( error) -> Err(IdentityProblem(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(IdentityProblem(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -71,15 +71,15 @@ end
 
 fn signing_bytes(value :: DeviceCredential) -> Bytes ! ProofError do
   case credential_signing_bytes(value) do
-    Err( error) -> Err(IdentityProblem(error))
-    Ok( bytes) -> Ok(bytes)
+    Err(error) -> Err(IdentityProblem(error))
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
 fn encode_initial(value :: InitialMessage) -> Bytes ! ProofError do
   case encode_initial_message(value) do
-    Err( error) -> Err(SessionProblem(ProtocolFailure(error)))
-    Ok( bytes) -> Ok(bytes)
+    Err(error) -> Err(SessionProblem(ProtocolFailure(error)))
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
@@ -88,22 +88,22 @@ value :: DeviceCredential,
 id :: U64,
 expires_at :: U64) -> SignedPrekeySecrets ! ProofError do
   case generate_signed_prekey(device_keys, value, id, expires_at) do
-    Err( error) -> Err(PrekeyProblem(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(PrekeyProblem(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn one_time_prekey(id :: U64) -> OneTimePrekeySecrets ! ProofError do
   case generate_one_time_prekey(id) do
-    Err( error) -> Err(PrekeyProblem(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(PrekeyProblem(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn post_quantum_prekey() -> PostQuantumPrekeySecrets ! ProofError do
   case generate_post_quantum_prekey() do
-    Err( error) -> Err(PrekeyProblem(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(PrekeyProblem(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -111,8 +111,8 @@ fn bundle(value :: DeviceCredential,
 signed :: borrow SignedPrekeySecrets,
 one_time :: borrow OneTimePrekeySecrets) -> PrekeyBundle ! ProofError do
   case build_prekey_bundle(value, signed, one_time) do
-    Err( error) -> Err(PrekeyProblem(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(PrekeyProblem(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -121,7 +121,7 @@ initiator_credential :: DeviceCredential,
 responder_account :: AccountIdentity,
 responder_bundle :: PrekeyBundle,
 responder_policy :: VerificationPolicy,
-plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), ProofError > do
+plaintext :: Bytes) -> Result <(RatchetState, InitialMessage), ProofError > do
   case initiate(initiator,
   initiator_credential,
   responder_account,
@@ -129,8 +129,8 @@ plaintext :: Bytes) -> Result <( RatchetState, InitialMessage), ProofError > do
   responder_policy,
   1,
   plaintext) do
-    Err( error) -> Err(SessionProblem(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(SessionProblem(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -143,7 +143,7 @@ post_quantum :: borrow PostQuantumPrekeySecrets,
 initiator_account :: AccountIdentity,
 responder_policy :: VerificationPolicy,
 initiator_policy :: VerificationPolicy,
-message :: Bytes) -> Result <( RatchetState, Bytes), ProofError > do
+message :: Bytes) -> Result <(RatchetState, Bytes), ProofError > do
   case receive_initial(responder,
   responder_account,
   responder_bundle,
@@ -155,23 +155,23 @@ message :: Bytes) -> Result <( RatchetState, Bytes), ProofError > do
   initiator_policy,
   1,
   message) do
-    Err( error) -> Err(SessionProblem(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(SessionProblem(error))
+    Ok(value) -> Ok(value)
   end
 end
 
-fn accepted_start(value :: consume( RatchetState, InitialMessage), message :: String) do
+fn accepted_start(value :: consume(RatchetState, InitialMessage), message :: String) do
   println(message)
 end
 
-fn accepted_receive(value :: consume( RatchetState, Bytes), message :: String) do
+fn accepted_receive(value :: consume(RatchetState, Bytes), message :: String) do
   println(message)
 end
 
 fn invalid_signature_bundle(value :: PrekeyBundle) -> PrekeyBundle ! ProofError do
   let zero_signature = case Bytes.repeat(0, 64) do
-    Err( _) -> Err(InvalidFixture)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidFixture)
+    Ok(bytes) -> Ok(bytes)
   end ?
   Ok(PrekeyBundle {
     version : value.version,
@@ -193,8 +193,8 @@ end
 
 fn rejected_ciphertext(value :: InitialMessage) -> InitialMessage ! ProofError do
   let ciphertext = case Bytes.repeat(0, Bytes.length(value.ciphertext)) do
-    Err( _) -> Err(InvalidFixture)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidFixture)
+    Ok(bytes) -> Ok(bytes)
   end ?
   Ok(InitialMessage {
     version : value.version,
@@ -213,8 +213,8 @@ end
 
 fn ciphertext_size(value :: InitialMessage, size :: Int) -> InitialMessage ! ProofError do
   let ciphertext = case Bytes.repeat(0, size) do
-    Err( _) -> Err(InvalidFixture)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidFixture)
+    Ok(bytes) -> Ok(bytes)
   end ?
   Ok(InitialMessage {
     version : value.version,
@@ -233,57 +233,57 @@ end
 
 fn hostile_magic(value :: Bytes) -> Bytes ! ProofError do
   let tail = case Bytes.slice(value, 4, Bytes.length(value) - 4) do
-    Err( _) -> Err(InvalidFixture)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidFixture)
+    Ok(bytes) -> Ok(bytes)
   end ?
   let version = case Bytes.from_list([1]) do
-    Err( _) -> Err(InvalidFixture)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidFixture)
+    Ok(bytes) -> Ok(bytes)
   end ?
   let prefix = case Bytes.concat(version, Bytes.from_utf8("BAD")) do
-    Err( _) -> Err(InvalidFixture)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidFixture)
+    Ok(bytes) -> Ok(bytes)
   end ?
   case Bytes.concat(prefix, tail) do
-    Err( _) -> Err(InvalidFixture)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidFixture)
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
 fn initial_codec_proof(value :: InitialMessage) -> Int ! ProofError do
   let encoded = encode_initial(value) ?
   let truncated = case Bytes.slice(encoded, 0, Bytes.length(encoded) - 1) do
-    Err( _) -> Err(InvalidFixture)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidFixture)
+    Ok(bytes) -> Ok(bytes)
   end ?
   case decode_initial_message(truncated) do
-    Err( _) -> println("initial-truncated:rejected")
-    Ok( _) -> println("initial-truncated:accepted")
+    Err(_) -> println("initial-truncated:rejected")
+    Ok(_) -> println("initial-truncated:accepted")
   end
   case decode_initial_message(hostile_magic(encoded) ?) do
-    Err( _) -> println("initial-hostile:rejected")
-    Ok( _) -> println("initial-hostile:accepted")
+    Err(_) -> println("initial-hostile:rejected")
+    Ok(_) -> println("initial-hostile:accepted")
   end
   case Bytes.repeat(0, 65537) do
-    Err( _) -> println("initial-limit:setup-error")
-    Ok( oversized) -> case decode_initial_message(oversized) do
-      Err( OversizedInput) -> println("initial-limit:rejected")
-      Err( _) -> println("initial-limit:wrong-error")
-      Ok( _) -> println("initial-limit:accepted")
+    Err(_) -> println("initial-limit:setup-error")
+    Ok(oversized) -> case decode_initial_message(oversized) do
+      Err(OversizedInput) -> println("initial-limit:rejected")
+      Err(_) -> println("initial-limit:wrong-error")
+      Ok(_) -> println("initial-limit:accepted")
     end
   end
   case encode_initial_message(ciphertext_size(value, 65187) ?) do
-    Err( _) -> println("initial-ciphertext-boundary:rejected")
-    Ok( boundary) -> if Bytes.length(boundary) == 65536 do
+    Err(_) -> println("initial-ciphertext-boundary:rejected")
+    Ok(boundary) -> if Bytes.length(boundary) == 65536 do
       println("initial-ciphertext-boundary:accepted")
     else
       println("initial-ciphertext-boundary:wrong-size")
     end
   end
   case encode_initial_message(ciphertext_size(value, 65188) ?) do
-    Err( OversizedInput) -> println("initial-ciphertext-limit:rejected")
-    Err( _) -> println("initial-ciphertext-limit:wrong-error")
-    Ok( _) -> println("initial-ciphertext-limit:accepted")
+    Err(OversizedInput) -> println("initial-ciphertext-limit:rejected")
+    Err(_) -> println("initial-ciphertext-limit:wrong-error")
+    Ok(_) -> println("initial-ciphertext-limit:accepted")
   end
   Ok(0)
 end
@@ -297,8 +297,8 @@ fn proof() -> Int ! ProofError do
   let second_sequence = wide("2") ?
   let verification = policy(current_time, first_sequence)
   let strict_verification = policy(current_time, second_sequence)
-  let ( alice_account_keys, alice_account) = account(created_at) ?
-  let ( bob_account_keys, bob_account) = account(created_at) ?
+  let (alice_account_keys, alice_account) = account(created_at) ?
+  let (bob_account_keys, bob_account) = account(created_at) ?
   let alice = device() ?
   let bob = device() ?
   let post_quantum = post_quantum_prekey() ?
@@ -313,24 +313,24 @@ fn proof() -> Int ! ProofError do
   let published = bundle(bob_credential, signed, one_time) ?
   let plaintext = Bytes.from_utf8("offline hello")
   case Bytes.slice(signing_bytes(alice_credential) ?, 0, 29) do
-    Err( _) -> println("credential-domain:error")
-    Ok( prefix) -> if Bytes.secure_equals(prefix, Bytes.from_utf8("mesh-msg/v1/device-credential")) do
+    Err(_) -> println("credential-domain:error")
+    Ok(prefix) -> if Bytes.secure_equals(prefix, Bytes.from_utf8("mesh-msg/v1/device-credential")) do
       println("credential-domain:bound")
     else
       println("credential-domain:missing")
     end
   end
   case Bytes.repeat(0, 65172) do
-    Err( _) -> println("initial-plaintext-limit:setup-error")
-    Ok( oversized_plaintext) -> case initiate(alice,
+    Err(_) -> println("initial-plaintext-limit:setup-error")
+    Ok(oversized_plaintext) -> case initiate(alice,
     alice_credential,
     bob_account,
     published,
     verification,
     1,
     oversized_plaintext) do
-      Err( _) -> println("initial-plaintext-limit:rejected")
-      Ok( value) -> accepted_start(value, "initial-plaintext-limit:accepted")
+      Err(_) -> println("initial-plaintext-limit:rejected")
+      Ok(value) -> accepted_start(value, "initial-plaintext-limit:accepted")
     end
   end
   let current_bob_credential = credential(bob_account_keys,
@@ -350,23 +350,23 @@ fn proof() -> Int ! ProofError do
   strict_verification,
   1,
   plaintext) do
-    Err( _) -> println("account-rollback:rejected")
-    Ok( value) -> accepted_start(value, "account-rollback:accepted")
+    Err(_) -> println("account-rollback:rejected")
+    Ok(value) -> accepted_start(value, "account-rollback:accepted")
   end
   let expired_signed = signed_prekey(bob, bob_credential, wide("10") ?, created_at) ?
   let expired_one_time = one_time_prekey(wide("11") ?) ?
   let expired_bundle = bundle(bob_credential, expired_signed, expired_one_time) ?
   case initiate(alice, alice_credential, bob_account, expired_bundle, verification, 1, plaintext) do
-    Err( _) -> println("expired-bundle:rejected")
-    Ok( value) -> accepted_start(value, "expired-bundle:accepted")
+    Err(_) -> println("expired-bundle:rejected")
+    Ok(value) -> accepted_start(value, "expired-bundle:accepted")
   end
   let future_credential = credential(bob_account_keys, bob, future_time, expires_at, first_sequence) ?
   let future_signed = signed_prekey(bob, future_credential, wide("12") ?, expires_at) ?
   let future_one_time = one_time_prekey(wide("13") ?) ?
   let future_bundle = bundle(future_credential, future_signed, future_one_time) ?
   case initiate(alice, alice_credential, bob_account, future_bundle, verification, 1, plaintext) do
-    Err( _) -> println("future-credential:rejected")
-    Ok( value) -> accepted_start(value, "future-credential:accepted")
+    Err(_) -> println("future-credential:rejected")
+    Ok(value) -> accepted_start(value, "future-credential:accepted")
   end
   case initiate(alice,
   alice_credential,
@@ -375,17 +375,17 @@ fn proof() -> Int ! ProofError do
   verification,
   1,
   plaintext) do
-    Err( _) -> println("invalid-signature:rejected")
-    Ok( value) -> accepted_start(value, "invalid-signature:accepted")
+    Err(_) -> println("invalid-signature:rejected")
+    Ok(value) -> accepted_start(value, "invalid-signature:accepted")
   end
-  let ( alice_session, initial) = start(alice,
+  let (alice_session, initial) = start(alice,
   alice_credential,
   bob_account,
   published,
   verification,
   plaintext) ?
   let _ = initial_codec_proof(initial) ?
-  let ( bob_session, opened) = accept_handshake(bob,
+  let (bob_session, opened) = accept_handshake(bob,
   bob_account,
   published,
   signed,
@@ -408,7 +408,7 @@ fn proof() -> Int ! ProofError do
   first_sequence) ?
   let expired_credential_one_time = one_time_prekey(wide("14") ?) ?
   let expired_credential_bundle = bundle(bob_credential, signed, expired_credential_one_time) ?
-  let ( _expired_sender, expired_message) = start(alice,
+  let (_expired_sender, expired_message) = start(alice,
   expired_credential,
   bob_account,
   expired_credential_bundle,
@@ -425,12 +425,12 @@ fn proof() -> Int ! ProofError do
   verification,
   1,
   encode_initial(expired_message) ?) do
-    Err( _) -> println("expired-credential:rejected")
-    Ok( value) -> accepted_receive(value, "expired-credential:accepted")
+    Err(_) -> println("expired-credential:rejected")
+    Ok(value) -> accepted_receive(value, "expired-credential:accepted")
   end
   let credential_rollback_one_time = one_time_prekey(wide("15") ?) ?
   let credential_rollback_bundle = bundle(bob_credential, signed, credential_rollback_one_time) ?
-  let ( _rollback_sender, rollback_message) = start(alice,
+  let (_rollback_sender, rollback_message) = start(alice,
   alice_credential,
   bob_account,
   credential_rollback_bundle,
@@ -447,12 +447,12 @@ fn proof() -> Int ! ProofError do
   strict_verification,
   1,
   encode_initial(rollback_message) ?) do
-    Err( _) -> println("credential-rollback:rejected")
-    Ok( value) -> accepted_receive(value, "credential-rollback:accepted")
+    Err(_) -> println("credential-rollback:rejected")
+    Ok(value) -> accepted_receive(value, "credential-rollback:accepted")
   end
   let rejected_one_time = one_time_prekey(wide("3") ?) ?
   let rejected_bundle = bundle(bob_credential, signed, rejected_one_time) ?
-  let ( _candidate_sender, candidate_message) = start(alice,
+  let (_candidate_sender, candidate_message) = start(alice,
   alice_credential,
   bob_account,
   rejected_bundle,
@@ -469,16 +469,16 @@ fn proof() -> Int ! ProofError do
   verification,
   1,
   encode_initial(rejected_ciphertext(candidate_message) ?) ?) do
-    Err( AuthenticationRejected) -> println("failed-auth:no-session")
-    Err( _) -> println("failed-auth:wrong-error")
-    Ok( value) -> accepted_receive(value, "failed-auth:session-created")
+    Err(AuthenticationRejected) -> println("failed-auth:no-session")
+    Err(_) -> println("failed-auth:wrong-error")
+    Ok(value) -> accepted_receive(value, "failed-auth:session-created")
   end
   Ok(0)
 end
 
 fn main() do
   case proof() do
-    Err( _) -> println("proof:error")
-    Ok( _) -> nil
+    Err(_) -> println("proof:error")
+    Ok(_) -> nil
   end
 end

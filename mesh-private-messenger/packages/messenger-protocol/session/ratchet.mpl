@@ -63,39 +63,39 @@ struct ReadBytes do
 end
 
 pub type DecryptOutcome do
-  Opened( state :: RatchetState, plaintext :: Bytes)
+  Opened(state :: RatchetState, plaintext :: Bytes)
 
-  Rejected( state :: RatchetState, error :: RatchetError)
+  Rejected(state :: RatchetState, error :: RatchetError)
 end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! RatchetError do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidMessage)
+    Ok(value) -> Ok(value)
   end
 end
 
 fn write_u16(value :: Int) -> Bytes ! RatchetError do
   case Bytes.write_u16_be(value) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidMessage)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn write_u32(value :: Int) -> Bytes ! RatchetError do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( wide) -> case Bytes.write_u32_be(wide) do
-      Err( _) -> Err(InvalidMessage)
-      Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidMessage)
+    Ok(wide) -> case Bytes.write_u32_be(wide) do
+      Err(_) -> Err(InvalidMessage)
+      Ok(encoded) -> Ok(encoded)
     end
   end
 end
 
 fn byte(value :: Int) -> Bytes ! RatchetError do
   case Bytes.from_list([value]) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidMessage)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -108,52 +108,49 @@ fn open(input :: Bytes) -> BinaryReader ! RatchetError do
     Err(InvalidMessage)
   else
     case reader(input, 65630) do
-      Err( _) -> Err(InvalidMessage)
-      Ok( state) -> Ok(state)
+      Err(_) -> Err(InvalidMessage)
+      Ok(state) -> Ok(state)
     end
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt ! RatchetError do
   case read_u8(state) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( ( next, value)) -> Ok(ReadInt {
+    Err(_) -> Err(InvalidMessage)
+    Ok((next, value)) -> Ok(ReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidMessage)
   end
 end
 
 fn take_u16(state :: BinaryReader) -> ReadInt ! RatchetError do
   case read_u16_be(state) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( ( next, value)) -> Ok(ReadInt {
+    Err(_) -> Err(InvalidMessage)
+    Ok((next, value)) -> Ok(ReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidMessage)
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! RatchetError do
   case read_fixed(state, length) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err(InvalidMessage)
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidMessage)
   end
 end
 
 fn take_u32(state :: BinaryReader) -> ReadInt ! RatchetError do
   let bytes = take_fixed(state, 4) ?
   case Bytes.read_u32_be(bytes.value, 0) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( value) -> case U64.to_int(value) do
-      Err( _) -> Err(InvalidMessage)
-      Ok( number) -> Ok(ReadInt {
+    Err(_) -> Err(InvalidMessage)
+    Ok(value) -> case U64.to_int(value) do
+      Err(_) -> Err(InvalidMessage)
+      Ok(number) -> Ok(ReadInt {
         state : bytes.state,
         value : number
       })
@@ -163,19 +160,18 @@ end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes ! RatchetError do
   case read_vector(state, maximum) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err(InvalidMessage)
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidMessage)
   end
 end
 
 fn require_end(state :: BinaryReader) -> Result <(), RatchetError > do
   case finish(state) do
-    Err( _) -> Err(InvalidMessage)
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err(InvalidMessage)
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -248,17 +244,17 @@ end
 
 fn slice(value :: Bytes, start :: Int, length :: Int) -> Bytes ! RatchetError do
   case Bytes.slice(value, start, length) do
-    Err( _) -> Err(CryptoFailure)
-    Ok( part) -> Ok(part)
+    Err(_) -> Err(CryptoFailure)
+    Ok(part) -> Ok(part)
   end
 end
 
 fn read_u32(value :: Bytes, offset :: Int) -> Int ! RatchetError do
   case Bytes.read_u32_be(value, offset) do
-    Err( _) -> Err(CryptoFailure)
-    Ok( wide) -> case U64.to_int(wide) do
-      Err( _) -> Err(CryptoFailure)
-      Ok( number) -> Ok(number)
+    Err(_) -> Err(CryptoFailure)
+    Ok(wide) -> case U64.to_int(wide) do
+      Err(_) -> Err(CryptoFailure)
+      Ok(number) -> Ok(number)
     end
   end
 end
@@ -338,8 +334,8 @@ fn forget_aged(skipped :: borrow SecretMap, index :: Bytes, generation :: Int) -
       let owner = slice(index, 0, 32) ?
       let key_id = skipped_key_id(X25519PublicKey { bytes : owner }, read_u32(index, 32) ?) ?
       case SecretMap.delete(skipped, key_id) do
-        Err( _) -> Err(CryptoFailure)
-        Ok( _) -> forget_aged(skipped, slice(index, 40, Bytes.length(index) - 40) ?, generation)
+        Err(_) -> Err(CryptoFailure)
+        Ok(_) -> forget_aged(skipped, slice(index, 40, Bytes.length(index) - 40) ?, generation)
       end
     end
   end
@@ -365,15 +361,15 @@ end
 
 fn derived_secret(input :: borrow SecretBytes, salt :: Bytes, info :: Bytes) -> SecretBytes ! RatchetError do
   case Crypto.hkdf_sha256(input, salt, info, 32) do
-    Err( _) -> Err(CryptoFailure)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(CryptoFailure)
+    Ok(value) -> Ok(value)
   end
 end
 
 fn chain_step(chain_key :: borrow SecretBytes,
 session_id :: Bytes,
 ratchet_public_key :: X25519PublicKey,
-message_number :: Int) -> Result <( SecretBytes, SecretBytes), RatchetError > do
+message_number :: Int) -> Result <(SecretBytes, SecretBytes), RatchetError > do
   let next_info = keyed_info("mesh-msg/v1/chain-next", ratchet_public_key, message_number) ?
   let message_info = keyed_info("mesh-msg/v1/message-key", ratchet_public_key, message_number) ?
   let next_chain = derived_secret(chain_key, session_id, next_info) ?
@@ -384,12 +380,12 @@ end
 fn ratchet_root(root_key :: borrow SecretBytes,
 dh :: SecretBytes,
 session_id :: Bytes,
-ratchet_public_key :: X25519PublicKey) -> Result <( SecretBytes, SecretBytes), RatchetError > do
+ratchet_public_key :: X25519PublicKey) -> Result <(SecretBytes, SecretBytes), RatchetError > do
   let mix_info = append(Bytes.from_utf8("mesh-msg/v1/root-mix"), ratchet_public_key.bytes) ?
   let old_material = derived_secret(root_key, session_id, mix_info) ?
   let combined = case Secret.concat(old_material, dh) do
-    Err( _) -> Err(CryptoFailure)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(CryptoFailure)
+    Ok(value) -> Ok(value)
   end ?
   let root_info = append(Bytes.from_utf8("mesh-msg/v1/ratchet-root"), ratchet_public_key.bytes) ?
   let chain_info = append(Bytes.from_utf8("mesh-msg/v1/ratchet-chain"), ratchet_public_key.bytes) ?
@@ -401,8 +397,8 @@ end
 
 fn aead_key(material :: SecretBytes) -> AeadKey ! RatchetError do
   case Crypto.aead_key(material) do
-    Err( _) -> Err(CryptoFailure)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(CryptoFailure)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -411,15 +407,15 @@ skipped :: borrow SecretMap,
 session_id :: Bytes,
 ratchet_public_key :: X25519PublicKey,
 current :: Int,
-target :: Int) -> Result <( SecretBytes, SecretBytes), RatchetError > do
-  let ( next_chain, message_key) = chain_step(chain_key, session_id, ratchet_public_key, current) ?
+target :: Int) -> Result <(SecretBytes, SecretBytes), RatchetError > do
+  let (next_chain, message_key) = chain_step(chain_key, session_id, ratchet_public_key, current) ?
   if current == target do
     Ok((next_chain, message_key))
   else
     let key_id = skipped_key_id(ratchet_public_key, current) ?
     case SecretMap.insert(skipped, key_id, message_key) do
-      Err( _) -> Err(CryptoFailure)
-      Ok( _) -> do
+      Err(_) -> Err(CryptoFailure)
+      Ok(_) -> do
         let result = candidate_keys(next_chain,
         skipped,
         session_id,
@@ -442,11 +438,11 @@ target :: Int) -> Int ! RatchetError do
   if current >= target do
     Ok(0)
   else
-    let ( next_chain, message_key) = chain_step(chain_key, session_id, ratchet_public_key, current) ?
+    let (next_chain, message_key) = chain_step(chain_key, session_id, ratchet_public_key, current) ?
     let key_id = skipped_key_id(ratchet_public_key, current) ?
     case SecretMap.insert(skipped, key_id, message_key) do
-      Err( _) -> Err(CryptoFailure)
-      Ok( _) -> do
+      Err(_) -> Err(CryptoFailure)
+      Ok(_) -> do
         let result = skip_until(next_chain,
         skipped,
         session_id,
@@ -469,8 +465,8 @@ fn message_plaintext(plaintext :: Bytes, version :: Int) -> Bytes ! RatchetError
     Ok(plaintext)
   else
     case pad_message(plaintext, 123) do
-      Err( _) -> Err(InvalidMessage)
-      Ok( value) -> Ok(value)
+      Err(_) -> Err(InvalidMessage)
+      Ok(value) -> Ok(value)
     end
   end
 end
@@ -478,16 +474,16 @@ end
 fn encrypt_active(state :: consume RatchetState,
 plaintext :: Bytes,
 associated_data :: Bytes,
-version :: Int) -> Result <( RatchetState, RatchetMessage), RatchetError > do
+version :: Int) -> Result <(RatchetState, RatchetMessage), RatchetError > do
   let message_number = state.sent_count
-  let ( next_chain, material) = chain_step(state.sending_chain_key,
+  let (next_chain, material) = chain_step(state.sending_chain_key,
   state.session_id,
   state.local_ratchet_public,
   message_number) ?
   let key = aead_key(material) ?
   let nonce = case Crypto.random_bytes(12) do
-    Err( _) -> Err(CryptoFailure)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(CryptoFailure)
+    Ok(value) -> Ok(value)
   end ?
   let authenticated = authenticated_data(version,
   state.suite,
@@ -499,8 +495,8 @@ version :: Int) -> Result <( RatchetState, RatchetMessage), RatchetError > do
   associated_data) ?
   let padded = message_plaintext(plaintext, version) ?
   let ciphertext = case Crypto.aead_seal(key, nonce, authenticated, padded) do
-    Err( _) -> Err(CryptoFailure)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(CryptoFailure)
+    Ok(value) -> Ok(value)
   end ?
   let message = RatchetMessage {
     version : version,
@@ -512,30 +508,27 @@ version :: Int) -> Result <( RatchetState, RatchetMessage), RatchetError > do
     nonce : nonce,
     ciphertext : ciphertext
   }
-  let next = % { state | sending_chain_key : next_chain, sent_count : message_number + 1 }
+  let next = % {state | sending_chain_key : next_chain, sent_count : message_number + 1 }
   Ok((next, message))
 end
 
 fn encrypt_rotated(state :: consume RatchetState,
 plaintext :: Bytes,
 associated_data :: Bytes,
-version :: Int) -> Result <( RatchetState, RatchetMessage), RatchetError > do
+version :: Int) -> Result <(RatchetState, RatchetMessage), RatchetError > do
   let ratchet = case Crypto.x25519_generate() do
-    Err( _) -> Err(CryptoFailure)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(CryptoFailure)
+    Ok(value) -> Ok(value)
   end ?
   let public_key = ratchet.public_key
   let private_key = ratchet.private_key
   let dh = case Crypto.x25519_shared(private_key, state.remote_ratchet_public) do
-    Err( _) -> Err(CryptoFailure)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(CryptoFailure)
+    Ok(value) -> Ok(value)
   end ?
-  let ( root_key, sending_chain_key) = ratchet_root(state.root_key,
-  dh,
-  state.session_id,
-  public_key) ?
+  let (root_key, sending_chain_key) = ratchet_root(state.root_key, dh, state.session_id, public_key) ?
   let previous_chain_length = state.sent_count
-  let rotated = % { state | root_key : root_key, sending_chain_key : sending_chain_key, local_ratchet_private : private_key, local_ratchet_public : public_key, previous_chain_length : previous_chain_length, sent_count : 0, pending_send_ratchet : false }
+  let rotated = % {state | root_key : root_key, sending_chain_key : sending_chain_key, local_ratchet_private : private_key, local_ratchet_public : public_key, previous_chain_length : previous_chain_length, sent_count : 0, pending_send_ratchet : false }
   encrypt_active(rotated, plaintext, associated_data, version)
 end
 
@@ -543,7 +536,7 @@ fn encrypt_version(state :: consume RatchetState,
 plaintext :: Bytes,
 associated_data :: Bytes,
 version :: Int,
-maximum :: Int) -> Result <( RatchetState, RatchetMessage), RatchetError > do
+maximum :: Int) -> Result <(RatchetState, RatchetMessage), RatchetError > do
   if state.version != 1 || !(state.suite == 1 || state.suite == 2) || Bytes.length(plaintext) > maximum || state.sent_count < 0 do
     Err(InvalidMessage)
   else if state.pending_send_ratchet do
@@ -556,14 +549,14 @@ end
 ## Version 2: padded, for a packet that travels bare. Retained so queued and
 ## not-yet-upgraded peers interoperate; new sends use `encrypt_sealed`.
 
-pub fn encrypt(state :: consume RatchetState, plaintext :: Bytes, associated_data :: Bytes) -> Result <( RatchetState, RatchetMessage), RatchetError > do
+pub fn encrypt(state :: consume RatchetState, plaintext :: Bytes, associated_data :: Bytes) -> Result <(RatchetState, RatchetMessage), RatchetError > do
   encrypt_version(state, plaintext, associated_data, 2, 65409)
 end
 
 ## Version 3: unpadded, valid only inside the recipient-sealed transport. The
 ## limit keeps the complete `M8P` packet within that transport's 65,480 bytes.
 
-pub fn encrypt_sealed(state :: consume RatchetState, plaintext :: Bytes, associated_data :: Bytes) -> Result <( RatchetState, RatchetMessage), RatchetError > do
+pub fn encrypt_sealed(state :: consume RatchetState, plaintext :: Bytes, associated_data :: Bytes) -> Result <(RatchetState, RatchetMessage), RatchetError > do
   encrypt_version(state, plaintext, associated_data, 3, 65357)
 end
 
@@ -636,15 +629,15 @@ end
 
 fn open_message(key :: borrow AeadKey, message :: RatchetMessage, data :: Bytes) -> Bytes ! RatchetError do
   let plaintext = case Crypto.aead_open(key, message.nonce, data, message.ciphertext) do
-    Err( error) -> Err(ratchet_open_error(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(ratchet_open_error(error))
+    Ok(value) -> Ok(value)
   end ?
   if message.version == 1 || message.version == 3 do
     Ok(plaintext)
   else
     case unpad_message(plaintext, 123) do
-      Err( _) -> Err(InvalidMessage)
-      Ok( value) -> Ok(value)
+      Err(_) -> Err(InvalidMessage)
+      Ok(value) -> Ok(value)
     end
   end
 end
@@ -655,10 +648,10 @@ plaintext :: Bytes,
 key_id :: Bytes,
 message :: RatchetMessage) -> DecryptOutcome do
   case without_record(state.skipped_index, message.ratchet_public_key, message.message_number, 0) do
-    Err( error) -> Rejected(state, error)
-    Ok( index) -> case SecretMap.delete(state.skipped_keys, key_id) do
-      Err( _) -> Rejected(state, CryptoFailure)
-      Ok( _) -> Opened(% { state | skipped_index : index }, plaintext)
+    Err(error) -> Rejected(state, error)
+    Ok(index) -> case SecretMap.delete(state.skipped_keys, key_id) do
+      Err(_) -> Rejected(state, CryptoFailure)
+      Ok(_) -> Opened(% {state | skipped_index : index }, plaintext)
     end
   end
 end
@@ -668,10 +661,10 @@ message :: RatchetMessage,
 associated_data :: Bytes,
 key_id :: Bytes) -> DecryptOutcome do
   case SecretMap.copy(state.skipped_keys, key_id) do
-    Err( error) -> Rejected(state, skipped_key_error(error))
-    Ok( material) -> case aead_key(material) do
-      Err( error) -> Rejected(state, error)
-      Ok( key) -> case authenticated_data(message.version,
+    Err(error) -> Rejected(state, skipped_key_error(error))
+    Ok(material) -> case aead_key(material) do
+      Err(error) -> Rejected(state, error)
+      Ok(key) -> case authenticated_data(message.version,
       state.suite,
       state.session_id,
       message.ratchet_public_key,
@@ -679,10 +672,10 @@ key_id :: Bytes) -> DecryptOutcome do
       message.message_number,
       message.nonce,
       associated_data) do
-        Err( error) -> reject_key(key, state, error)
-        Ok( data) -> case open_message(key, message, data) do
-          Err( error) -> reject_key(key, state, error)
-          Ok( plaintext) -> commit_skipped(key, state, plaintext, key_id, message)
+        Err(error) -> reject_key(key, state, error)
+        Ok(data) -> case open_message(key, message, data) do
+          Err(error) -> reject_key(key, state, error)
+          Ok(plaintext) -> commit_skipped(key, state, plaintext, key_id, message)
         end
       end
     end
@@ -700,13 +693,13 @@ message_number :: Int) -> DecryptOutcome do
   state.received_count,
   message_number,
   state.receive_generation) do
-    Err( error) -> reject_current_candidate(key, candidate, next_chain, state, error)
-    Ok( listed) -> case newest_records(listed) do
-      Err( error) -> reject_current_candidate(key, candidate, next_chain, state, error)
-      Ok( index) -> case SecretMap.merge(state.skipped_keys, candidate) do
-        Err( _) -> reject_chain_key(key, next_chain, state, CryptoFailure)
-        Ok( _) -> do
-          let next = % { state | receiving_chain_key : next_chain, received_count : message_number + 1, skipped_index : index }
+    Err(error) -> reject_current_candidate(key, candidate, next_chain, state, error)
+    Ok(listed) -> case newest_records(listed) do
+      Err(error) -> reject_current_candidate(key, candidate, next_chain, state, error)
+      Ok(index) -> case SecretMap.merge(state.skipped_keys, candidate) do
+        Err(_) -> reject_chain_key(key, next_chain, state, CryptoFailure)
+        Ok(_) -> do
+          let next = % {state | receiving_chain_key : next_chain, received_count : message_number + 1, skipped_index : index }
           Opened(next, plaintext)
         end
       end
@@ -728,10 +721,10 @@ associated_data :: Bytes) -> DecryptOutcome do
   message.message_number,
   message.nonce,
   associated_data) do
-    Err( error) -> reject_current_candidate(key, candidate, next_chain, state, error)
-    Ok( data) -> case open_message(key, message, data) do
-      Err( error) -> reject_current_candidate(key, candidate, next_chain, state, error)
-      Ok( plaintext) -> commit_current(key,
+    Err(error) -> reject_current_candidate(key, candidate, next_chain, state, error)
+    Ok(data) -> case open_message(key, message, data) do
+      Err(error) -> reject_current_candidate(key, candidate, next_chain, state, error)
+      Ok(plaintext) -> commit_current(key,
       state,
       candidate,
       next_chain,
@@ -745,19 +738,19 @@ fn decrypt_current(state :: consume RatchetState,
 message :: RatchetMessage,
 associated_data :: Bytes) -> DecryptOutcome do
   case SecretMap.new(64) do
-    Err( _) -> Rejected(state, CryptoFailure)
-    Ok( candidate) -> case candidate_keys(state.receiving_chain_key,
+    Err(_) -> Rejected(state, CryptoFailure)
+    Ok(candidate) -> case candidate_keys(state.receiving_chain_key,
     candidate,
     state.session_id,
     message.ratchet_public_key,
     state.received_count,
     message.message_number) do
-      Err( error) -> reject_map(candidate, state, error)
-      Ok( value) -> do
-        let ( next_chain, material) = value
+      Err(error) -> reject_map(candidate, state, error)
+      Ok(value) -> do
+        let (next_chain, material) = value
         case aead_key(material) do
-          Err( error) -> reject_map_chain(candidate, next_chain, state, error)
-          Ok( key) -> open_current_candidate(key,
+          Err(error) -> reject_map_chain(candidate, next_chain, state, error)
+          Ok(key) -> open_current_candidate(key,
           state,
           candidate,
           next_chain,
@@ -782,13 +775,13 @@ message :: RatchetMessage) -> DecryptOutcome do
   state.received_count,
   state.receive_generation,
   message) do
-    Err( error) -> reject_new_candidate(key, candidate, root_key, next_chain, state, error)
-    Ok( listed) -> case SecretMap.merge(state.skipped_keys, candidate) do
-      Err( _) -> reject_new_key_material(key, root_key, next_chain, state, CryptoFailure)
-      Ok( _) -> case forget_aged(state.skipped_keys, listed, generation) do
-        Err( error) -> reject_new_key_material(key, root_key, next_chain, state, error)
-        Ok( index) -> do
-          let next = % { state | root_key : root_key, receiving_chain_key : next_chain, remote_ratchet_public : message.ratchet_public_key, received_count : message.message_number + 1, skipped_index : index, receive_generation : generation, pending_send_ratchet : true }
+    Err(error) -> reject_new_candidate(key, candidate, root_key, next_chain, state, error)
+    Ok(listed) -> case SecretMap.merge(state.skipped_keys, candidate) do
+      Err(_) -> reject_new_key_material(key, root_key, next_chain, state, CryptoFailure)
+      Ok(_) -> case forget_aged(state.skipped_keys, listed, generation) do
+        Err(error) -> reject_new_key_material(key, root_key, next_chain, state, error)
+        Ok(index) -> do
+          let next = % {state | root_key : root_key, receiving_chain_key : next_chain, remote_ratchet_public : message.ratchet_public_key, received_count : message.message_number + 1, skipped_index : index, receive_generation : generation, pending_send_ratchet : true }
           Opened(next, plaintext)
         end
       end
@@ -811,10 +804,10 @@ associated_data :: Bytes) -> DecryptOutcome do
   message.message_number,
   message.nonce,
   associated_data) do
-    Err( error) -> reject_new_candidate(key, candidate, root_key, next_chain, state, error)
-    Ok( data) -> case open_message(key, message, data) do
-      Err( error) -> reject_new_candidate(key, candidate, root_key, next_chain, state, error)
-      Ok( plaintext) -> commit_new_chain(key,
+    Err(error) -> reject_new_candidate(key, candidate, root_key, next_chain, state, error)
+    Ok(data) -> case open_message(key, message, data) do
+      Err(error) -> reject_new_candidate(key, candidate, root_key, next_chain, state, error)
+      Ok(plaintext) -> commit_new_chain(key,
       state,
       candidate,
       root_key,
@@ -837,13 +830,13 @@ associated_data :: Bytes) -> DecryptOutcome do
   message.ratchet_public_key,
   0,
   message.message_number) do
-    Err( error) -> reject_new_material(candidate, root_key, receiving_chain_key, state, error)
-    Ok( key_value) -> do
-      let ( next_chain, material) = key_value
+    Err(error) -> reject_new_material(candidate, root_key, receiving_chain_key, state, error)
+    Ok(key_value) -> do
+      let (next_chain, material) = key_value
       Secret.destroy(receiving_chain_key)
       case aead_key(material) do
-        Err( error) -> reject_new_material(candidate, root_key, next_chain, state, error)
-        Ok( key) -> open_new_candidate(key,
+        Err(error) -> reject_new_material(candidate, root_key, next_chain, state, error)
+        Ok(key) -> open_new_candidate(key,
         state,
         candidate,
         root_key,
@@ -860,12 +853,12 @@ candidate :: consume SecretMap,
 message :: RatchetMessage,
 associated_data :: Bytes) -> DecryptOutcome do
   case Crypto.x25519_shared(state.local_ratchet_private, message.ratchet_public_key) do
-    Err( InvalidPublicKey) -> reject_map(candidate, state, InvalidMessage)
-    Err( _) -> reject_map(candidate, state, CryptoFailure)
-    Ok( dh) -> case ratchet_root(state.root_key, dh, state.session_id, message.ratchet_public_key) do
-      Err( error) -> reject_map(candidate, state, error)
-      Ok( root_value) -> do
-        let ( root_key, receiving_chain_key) = root_value
+    Err(InvalidPublicKey) -> reject_map(candidate, state, InvalidMessage)
+    Err(_) -> reject_map(candidate, state, CryptoFailure)
+    Ok(dh) -> case ratchet_root(state.root_key, dh, state.session_id, message.ratchet_public_key) do
+      Err(error) -> reject_map(candidate, state, error)
+      Ok(root_value) -> do
+        let (root_key, receiving_chain_key) = root_value
         open_new_chain(state, candidate, root_key, receiving_chain_key, message, associated_data)
       end
     end
@@ -883,15 +876,15 @@ associated_data :: Bytes) -> DecryptOutcome do
     Rejected(state, ExcessiveJump)
   else
     case SecretMap.new(64) do
-      Err( _) -> Rejected(state, CryptoFailure)
-      Ok( candidate) -> case skip_until(state.receiving_chain_key,
+      Err(_) -> Rejected(state, CryptoFailure)
+      Ok(candidate) -> case skip_until(state.receiving_chain_key,
       candidate,
       state.session_id,
       state.remote_ratchet_public,
       state.received_count,
       message.previous_chain_length) do
-        Err( error) -> reject_map(candidate, state, error)
-        Ok( _) -> derive_new_chain(state, candidate, message, associated_data)
+        Err(error) -> reject_map(candidate, state, error)
+        Ok(_) -> derive_new_chain(state, candidate, message, associated_data)
       end
     end
   end
@@ -904,8 +897,8 @@ pub fn decrypt(state :: consume RatchetState, message :: RatchetMessage, associa
     Rejected(state, InvalidMessage)
   else
     case skipped_key_id(message.ratchet_public_key, message.message_number) do
-      Err( error) -> Rejected(state, error)
-      Ok( key_id) -> if SecretMap.contains(state.skipped_keys, key_id) do
+      Err(error) -> Rejected(state, error)
+      Ok(key_id) -> if SecretMap.contains(state.skipped_keys, key_id) do
         decrypt_skipped(state, message, associated_data, key_id)
       else
         let same_chain = Bytes.secure_equals(message.ratchet_public_key.bytes,

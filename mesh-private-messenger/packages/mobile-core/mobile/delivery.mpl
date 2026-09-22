@@ -46,8 +46,8 @@ end
 fn decode_records(state :: BinaryReader, remaining :: Int, output :: List < DeliveryRecord >) -> List < DeliveryRecord > ! String do
   if remaining <= 0 do
     case finish(state) do
-      Err( _) -> Err("invalid_delivery_state")
-      Ok( _) -> Ok(output)
+      Err(_) -> Err("invalid_delivery_state")
+      Ok(_) -> Ok(output)
     end
   else
     let record = take_vector(state, 49) ?
@@ -56,8 +56,8 @@ fn decode_records(state :: BinaryReader, remaining :: Int, output :: List < Deli
       Err("invalid_delivery_state")
     else
       let kind = case Bytes.get(record.value, 0) do
-        Err( _) -> Err("invalid_delivery_state")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid_delivery_state")
+        Ok(value) -> Ok(value)
       end ?
       if kind < 1 || kind > 3 do
         Err("invalid_delivery_state")
@@ -77,16 +77,16 @@ end
 
 pub fn load_delivery(database_path :: String, wrapping_key :: borrow StorageKey) -> List < DeliveryRecord > ! String do
   case load_blob(database_path, "delivery/v1") do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(List.new())
     else
       Err(error)
     end
-    Ok( blob) -> do
+    Ok(blob) -> do
       let encoded = open_local(blob, wrapping_key, local_context("delivery/v1") ?) ?
       case reader(encoded, 131072) do
-        Err( _) -> Err("invalid_delivery_state")
-        Ok( state) -> do
+        Err(_) -> Err("invalid_delivery_state")
+        Ok(state) -> do
           let count = take_vector(state, 4) ?
           decode_records(count.state, mobile_read_u32(count.value) ?, List.new())
         end
@@ -95,7 +95,7 @@ pub fn load_delivery(database_path :: String, wrapping_key :: borrow StorageKey)
   end
 end
 
-fn sealed(values :: List < DeliveryRecord >, wrapping_key :: borrow StorageKey) -> Result <( List < String >, List < Bytes >), String > do
+fn sealed(values :: List < DeliveryRecord >, wrapping_key :: borrow StorageKey) -> Result <(List < String >, List < Bytes >), String > do
   Ok((["delivery/v1"],
   [seal_local(encode_output_list(encode_records(values, 0, List.new()) ?) ?,
   wrapping_key,
@@ -203,7 +203,7 @@ end
 pub fn tracked_delivery(database_path :: String,
 wrapping_key :: borrow StorageKey,
 message_id :: Bytes,
-envelope_ids :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String > do
+envelope_ids :: List < Bytes >) -> Result <(List < String >, List < Bytes >), String > do
   let length = Bytes.length(message_id)
   if List.length(envelope_ids) == 0 || (length != 16 && length != 32) do
     Ok((List.new(), List.new()))
@@ -268,11 +268,11 @@ end
 pub fn resolved_delivery(database_path :: String,
 wrapping_key :: borrow StorageKey,
 envelope_id :: Bytes,
-accepted :: Bool) -> Result <( List < String >, List < Bytes >), String > do
+accepted :: Bool) -> Result <(List < String >, List < Bytes >), String > do
   let values = load_delivery(database_path, wrapping_key) ?
   case linked_message(values, envelope_id, 0) do
     None -> Ok((List.new(), List.new()))
-    Some( message_id) -> sealed(resolved(without_link(values, envelope_id, 0, List.new()),
+    Some(message_id) -> sealed(resolved(without_link(values, envelope_id, 0, List.new()),
     message_id,
     accepted) ?,
     wrapping_key)

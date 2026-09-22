@@ -106,19 +106,18 @@ fn attachment_parts(input :: Bytes, maximum :: Int) -> List < Bytes > ! String d
 end
 
 fn encode_batch(values :: List < Bytes >) -> Bytes ! String do
-  if List.length(values) == 0 do
-    Ok(Bytes.empty())
-  else if List.length(values) == 1 do
-    Ok(List.head(values))
-  else
-    let parts = for value in values do
-      mobile_vector(value) ?
-    end
-    mobile_join([batch_header() ?, mobile_write_u32(List.length(values)) ?, mobile_join(parts,
-    0,
-    Bytes.empty()) ?],
-    0,
-    Bytes.empty())
+  case values do
+    [] -> Ok(Bytes.empty())
+    [value] -> Ok(value)
+    _ ->
+      let parts = for value in values do
+        mobile_vector(value) ?
+      end
+      mobile_join([batch_header() ?, mobile_write_u32(List.length(values)) ?, mobile_join(parts,
+      0,
+      Bytes.empty()) ?],
+      0,
+      Bytes.empty())
   end
 end
 
@@ -137,7 +136,7 @@ fn describe_attachment_error(error :: AttachmentError) -> String do
     InvalidChunkIndex -> "invalid_attachment_chunk_index"
     InvalidChunkSize -> "invalid_attachment_chunk_size"
     AuthenticationRejected -> "attachment_authentication_failed"
-    CryptoFailure( _) -> "attachment_crypto_failed"
+    CryptoFailure(_) -> "attachment_crypto_failed"
   end
 end
 
@@ -180,8 +179,8 @@ end
 
 pub fn decode_reference(input :: Bytes) -> MobileAttachmentReference ! String do
   case read_reference(input) do
-    Err( _) -> Err("invalid_attachment_reference")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_attachment_reference")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -203,8 +202,8 @@ fn wrap_key(secret :: borrow SecretBytes, object_id :: Bytes, recipient :: Bytes
     wrap_info(),
     wrap_aad(object_id) ?,
     secret) do
-      Err( _) -> Err("attachment_key_wrap_failed")
-      Ok( sealed) -> Ok(sealed)
+      Err(_) -> Err("attachment_key_wrap_failed")
+      Ok(sealed) -> Ok(sealed)
     end
   end
 end
@@ -214,15 +213,15 @@ fn unwrap_key(device :: borrow DeviceKeys, value :: MobileAttachmentReference) -
   wrap_info(),
   wrap_aad(value.object_id) ?,
   value.wrapped_key) do
-    Err( _) -> Err("attachment_key_unwrap_failed")
-    Ok( secret) -> Ok(secret)
+    Err(_) -> Err("attachment_key_unwrap_failed")
+    Ok(secret) -> Ok(secret)
   end
 end
 
 fn opened_manifest(secret :: borrow SecretBytes, encrypted_manifest :: Bytes) -> AttachmentManifest ! String do
   case open_manifest(secret, encrypted_manifest) do
-    Err( error) -> Err(describe_attachment_error(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(describe_attachment_error(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -238,7 +237,7 @@ output :: List < Bytes >) -> Bytes ! String do
   else
     let value = decode_reference(List.get(parts, index)) ?
     let secret = unwrap_key(device, value) ?
-    let wrapped = encode_reference(% { value | wrapped_key : wrap_key(secret,
+    let wrapped = encode_reference(% {value | wrapped_key : wrap_key(secret,
     value.object_id,
     recipient) ? }) ?
     rewrap_parts(device, parts, recipient, index + 1, List.append(output, wrapped))
@@ -411,8 +410,8 @@ pub fn attachment_summary(device :: borrow DeviceKeys, encoded :: Bytes) -> Byte
     Bytes.empty()
   else
     case summarize_reference(device, encoded) do
-      Err( _) -> Bytes.empty()
-      Ok( value) -> value
+      Err(_) -> Bytes.empty()
+      Ok(value) -> value
     end
   end
 end
@@ -436,20 +435,20 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes ! 
     let device = open_device(local, wrapping_key, request.database_path) ?
     let now = current_time() ?
     let expires_at = case U64.add(now, mobile_wide("518400000") ?) do
-      Err( _) -> Err("invalid_attachment_expiry")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid_attachment_expiry")
+      Ok(value) -> Ok(value)
     end ?
     let work_expires_at = case U64.add(now, mobile_wide("150000") ?) do
-      Err( _) -> Err("invalid_attachment_expiry")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid_attachment_expiry")
+      Ok(value) -> Ok(value)
     end ?
     let attachment_id = case generate_attachment_id() do
-      Err( error) -> Err(describe_attachment_error(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(describe_attachment_error(error))
+      Ok(value) -> Ok(value)
     end ?
     let secret = case generate_attachment_key() do
-      Err( error) -> Err(describe_attachment_error(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(describe_attachment_error(error))
+      Ok(value) -> Ok(value)
     end ?
     let chunk_count = chunk_count_for(request.plaintext_size)
     let manifest = AttachmentManifest {
@@ -463,8 +462,8 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes ! 
       expires_at : expires_at
     }
     let encrypted_manifest = case seal_manifest(secret, manifest) do
-      Err( error) -> Err(describe_attachment_error(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(describe_attachment_error(error))
+      Ok(value) -> Ok(value)
     end ?
     let object_id = random_bytes(32) ?
     let upload_capability = random_bytes(32) ?
@@ -492,8 +491,8 @@ end
 
 fn chunk_result(value :: Result < Bytes, AttachmentError >) -> Bytes ! String do
   case value do
-    Err( error) -> Err(describe_attachment_error(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(describe_attachment_error(error))
+    Ok(output) -> Ok(output)
   end
 end
 

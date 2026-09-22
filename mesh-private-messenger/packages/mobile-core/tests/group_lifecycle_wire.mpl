@@ -18,22 +18,22 @@ end
 
 fn group_wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( _) -> Err("test integer conversion failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("test integer conversion failed")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 pub fn outer(input :: Bytes) -> OuterEnvelope ! String do
   case decode_outer_envelope(input) do
-    Err( _) -> Err("outer envelope decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("outer envelope decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn ack(input :: Bytes) -> MailboxAck ! String do
   case decode_mailbox_ack(input) do
-    Err( _) -> Err("mailbox ack decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("mailbox ack decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -42,17 +42,17 @@ pub fn delivery_batch(envelope :: Bytes) -> Bytes ! String do
     sequence : group_wide("1") ?,
     envelope : envelope
   }]) do
-    Err( _) -> Err("delivery batch encode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("delivery batch encode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn read_u32_at(input :: Bytes, offset :: Int) -> Int ! String do
   case Bytes.read_u32_be(input, offset) do
-    Err( _) -> Err("output list decode failed")
-    Ok( value) -> case U64.to_int(value) do
-      Err( _) -> Err("output list decode failed")
-      Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("output list decode failed")
+    Ok(value) -> case U64.to_int(value) do
+      Err(_) -> Err("output list decode failed")
+      Ok(parsed) -> Ok(parsed)
     end
   end
 end

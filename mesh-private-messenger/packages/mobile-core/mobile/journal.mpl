@@ -28,12 +28,12 @@ pub fn load_journal(request :: MobilePayloadRequest) -> Bytes ! String do
   let label = journal_label(request.payload) ?
   let wrapping_key = platform_key() ?
   case load_blob(request.database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( blob) -> open_local(blob, wrapping_key, local_context(label) ?)
+    Ok(blob) -> open_local(blob, wrapping_key, local_context(label) ?)
   end
 end
 

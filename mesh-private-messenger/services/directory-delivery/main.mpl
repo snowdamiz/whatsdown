@@ -14,11 +14,11 @@ fn serve(pool :: PoolHandle, port :: Int, stream_port :: Int) do
   let _ = start_registry(pool)
   start_mailbox_stream(stream_port)
   case start_workers(2, 250) do
-    Err( error) -> do
+    Err(error) -> do
       Pool.close(pool)
       fatal("worker startup failed: #{error}")
     end
-    Ok( count) -> do
+    Ok(count) -> do
       println("directory-delivery listening on :#{port} with #{count} workers")
       HTTP.serve(build_router(), port)
       Pool.close(pool)
@@ -44,17 +44,17 @@ fn main() do
     nil
   end
   case internal_delivery_token(Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
-    Err( error) -> fatal("ingress configuration failed: #{error}")
-    Ok( _) -> case validate_transparency_config() do
-      Err( error) -> fatal("transparency configuration failed: #{error}")
-      Ok( _) -> case validate_delivery_config() do
-        Err( error) -> fatal("delivery configuration failed: #{error}")
-        Ok( _) -> if port <= 0 || port > 65535 || stream_port <= 0 || stream_port > 65535 || stream_port == port do
+    Err(error) -> fatal("ingress configuration failed: #{error}")
+    Ok(_) -> case validate_transparency_config() do
+      Err(error) -> fatal("transparency configuration failed: #{error}")
+      Ok(_) -> case validate_delivery_config() do
+        Err(error) -> fatal("delivery configuration failed: #{error}")
+        Ok(_) -> if port <= 0 || port > 65535 || stream_port <= 0 || stream_port > 65535 || stream_port == port do
           fatal("HTTP and stream ports must be distinct and between 1 and 65535")
         else
           case Pool.open(url, 1, 4, 5000) do
-            Err( error) -> fatal("database connection failed: #{error}")
-            Ok( pool) -> serve(pool, port, stream_port)
+            Err(error) -> fatal("database connection failed: #{error}")
+            Ok(pool) -> serve(pool, port, stream_port)
           end
         end
       end

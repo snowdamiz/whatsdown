@@ -6,19 +6,19 @@ from Protocol.V1 import PrekeyBundle
 from Storage.ContactAddress import ContactAddressWrite, publish_contact_address_on_connection
 
 pub type PrekeyPublishWrite do
-  PrekeysPublished( active_ids :: List < U64 >)
+  PrekeysPublished(active_ids :: List < U64 >)
 
-  PrekeysUnchanged( active_ids :: List < U64 >)
+  PrekeysUnchanged(active_ids :: List < U64 >)
 
   PrekeysUnauthorized
 
   PrekeysConflict
 
-  PrekeyPoolFull( active_ids :: List < U64 >)
+  PrekeyPoolFull(active_ids :: List < U64 >)
 end
 
 pub type PrekeyClaimWrite do
-  PrekeyClaimed( bundle :: PrekeyBundle)
+  PrekeyClaimed(bundle :: PrekeyBundle)
 
   PrekeyClaimExhausted
 
@@ -40,14 +40,14 @@ end
 
 fn binary(value :: DbValue) -> Bytes ! String do
   case value do
-    Binary( output) -> Ok(output)
+    Binary(output) -> Ok(output)
     _ -> Err("invalid prekey row")
   end
 end
 
 fn optional_binary(value :: DbValue) -> Option < Bytes > ! String do
   case value do
-    Binary( output) -> Ok(Some(output))
+    Binary(output) -> Ok(Some(output))
     Null -> Ok(None)
     _ -> Err("invalid optional prekey row")
   end
@@ -55,7 +55,7 @@ end
 
 fn text(value :: DbValue) -> String ! String do
   case value do
-    Text( output) -> Ok(output)
+    Text(output) -> Ok(output)
     _ -> Err("invalid prekey row")
   end
 end
@@ -67,7 +67,7 @@ end
 fn integer(value :: DbValue) -> Int ! String do
   case String.to_int(text(value) ?) do
     None -> Err("invalid prekey row")
-    Some( output) -> Ok(output)
+    Some(output) -> Ok(output)
   end
 end
 
@@ -81,23 +81,21 @@ fn active_bundle(conn :: borrow PgConn, account_id :: Bytes, device_id :: Bytes,
     "SELECT device.prekey_bundle FROM messenger_devices AS device JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = device.mailbox_token_hash WHERE device.account_id = $1 AND device.device_id = $2 AND device.revoked_at IS NULL AND mailbox.active FOR SHARE OF device, mailbox",
     [Binary(account_id), Binary(device_id)])
   end ?
-  if List.length(rows) == 0 do
-    Ok(None)
-  else if List.length(rows) == 1 do
-    Ok(Some(binary(Map.get(List.head(rows), "prekey_bundle")) ?))
-  else
-    Err("duplicate active prekey device")
+  case rows do
+    [] -> Ok(None)
+    [row] -> Ok(Some(binary(Map.get(row, "prekey_bundle")) ?))
+    _ -> Err("duplicate active prekey device")
   end
 end
 
 fn signing_key(encoded_bundle :: Bytes) -> Bytes ! String do
   let bundle = case decode_prekey_bundle(encoded_bundle) do
-    Err( _) -> Err("invalid stored prekey bundle")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid stored prekey bundle")
+    Ok(output) -> Ok(output)
   end ?
   let credential = case decode_device_credential(bundle.device_credential) do
-    Err( _) -> Err("invalid stored device credential")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid stored device credential")
+    Ok(output) -> Ok(output)
   end ?
   Ok(credential.signing_public_key)
 end
@@ -170,7 +168,7 @@ end
 fn publish_last_resort(conn :: borrow PgConn, request :: PrekeyPublishRequest) -> Int ! String do
   case request.last_resort do
     None -> Ok(0)
-    Some( value) -> do
+    Some(value) -> do
       let key = [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(value.id))]
       let rows = Pg.query_values(conn,
       "SELECT public_key, last_resort::text AS last_resort FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint",
@@ -210,7 +208,7 @@ end
 fn publish_contact_address_hash(conn :: borrow PgConn, request :: PrekeyPublishRequest) -> Int ! String do
   case request.contact_address_hash do
     None -> Ok(0)
-    Some( hash) -> do
+    Some(hash) -> do
       let rows = Pg.query_values(conn,
       "SELECT mailbox_token_hash FROM messenger_devices WHERE account_id = $1 AND device_id = $2 AND revoked_at IS NULL",
       [Binary(request.account_id), Binary(request.device_id)]) ?
@@ -232,12 +230,12 @@ end
 fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest) -> PrekeyPublishWrite ! String do
   case active_bundle(conn, request.account_id, request.device_id, true) ? do
     None -> Ok(PrekeysUnauthorized)
-    Some( encoded_bundle) -> do
+    Some(encoded_bundle) -> do
       let verified = case Crypto.verify(SigningPublicKey { bytes : signing_key(encoded_bundle) ? },
       prekey_publish_signing_bytes(request) ?,
       Signature { bytes : request.signature }) do
-        Err( _) -> false
-        Ok( output) -> output
+        Err(_) -> false
+        Ok(output) -> output
       end
       if !verified do
         Ok(PrekeysUnauthorized)
@@ -291,7 +289,7 @@ device_id :: Bytes,
 prekey :: Option < OneTimePrekeyPublic >) -> Result <(), String > do
   case prekey do
     None -> Ok(nil)
-    Some( value) -> do
+    Some(value) -> do
       let changed = Pg.execute_values(conn,
       "INSERT INTO messenger_one_time_prekeys (account_id, device_id, prekey_id, public_key) VALUES ($1, $2, $3::bigint, $4)",
       [Binary(account_id), Binary(device_id), Text(U64.to_string(value.id)), Binary(value.public_key)]) ?
@@ -306,8 +304,8 @@ end
 
 fn resolved_bundle(encoded :: Bytes, claimed :: OneTimePrekeyPublic) -> PrekeyBundle ! String do
   let stored = case decode_prekey_bundle(encoded) do
-    Err( _) -> Err("invalid stored prekey bundle")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid stored prekey bundle")
+    Ok(output) -> Ok(output)
   end ?
   let resolved = PrekeyBundle {
     version : stored.version,
@@ -326,32 +324,27 @@ fn resolved_bundle(encoded :: Bytes, claimed :: OneTimePrekeyPublic) -> PrekeyBu
     extensions : stored.extensions
   }
   let _ = case encode_prekey_bundle(resolved) do
-    Err( _) -> Err("invalid resolved prekey bundle")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid resolved prekey bundle")
+    Ok(output) -> Ok(output)
   end ?
   Ok(resolved)
 end
 
 fn claimed_prekey(rows :: List < Map < String, DbValue > >) -> Option < OneTimePrekeyPublic > ! String do
-  if List.length(rows) == 0 do
-    Ok(None)
-  else if List.length(rows) == 1 do
-    let row = List.head(rows)
-    Ok(Some(OneTimePrekeyPublic {
+  case rows do
+    [] -> Ok(None)
+    [row] -> Ok(Some(OneTimePrekeyPublic {
       id : wide(Map.get(row, "prekey_id")) ?,
       public_key : binary(Map.get(row, "public_key")) ?
     }))
-  else
-    Err("multiple prekeys claimed")
+    _ -> Err("multiple prekeys claimed")
   end
 end
 
 fn stored_claim(rows :: List < Map < String, DbValue > >) -> Option < StoredClaim > ! String do
-  if List.length(rows) == 0 do
-    Ok(None)
-  else if List.length(rows) == 1 do
-    let row = List.head(rows)
-    Ok(Some(StoredClaim {
+  case rows do
+    [] -> Ok(None)
+    [row] -> Ok(Some(StoredClaim {
       account_id : binary(Map.get(row, "account_id")) ?,
       device_id : binary(Map.get(row, "device_id")) ?,
       base_bundle_hash : binary(Map.get(row, "claim_base_bundle_hash")) ?,
@@ -361,8 +354,7 @@ fn stored_claim(rows :: List < Map < String, DbValue > >) -> Option < StoredClai
       },
       response : optional_binary(Map.get(row, "claim_response")) ?
     }))
-  else
-    Err("multiple prekey claims share a reservation")
+    _ -> Err("multiple prekey claims share a reservation")
   end
 end
 
@@ -380,8 +372,8 @@ end
 
 fn encoded_bundle(bundle :: PrekeyBundle) -> Bytes ! String do
   case encode_prekey_bundle(bundle) do
-    Err( _) -> Err("invalid resolved prekey bundle")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid resolved prekey bundle")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -389,16 +381,16 @@ fn stored_response_bundle(stored :: borrow StoredClaim,
 request :: PrekeyClaimRequest,
 encoded :: Bytes) -> PrekeyBundle ! String do
   let bundle = case decode_prekey_bundle(encoded) do
-    Err( _) -> Err("invalid stored prekey claim response")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid stored prekey claim response")
+    Ok(output) -> Ok(output)
   end ?
   let credential = case decode_device_credential(bundle.device_credential) do
-    Err( _) -> Err("invalid stored prekey claim credential")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid stored prekey claim credential")
+    Ok(output) -> Ok(output)
   end ?
   let base = case normalize_prekey_bundle(bundle) do
-    Err( _) -> Err("invalid stored prekey claim base")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid stored prekey claim base")
+    Ok(output) -> Ok(output)
   end ?
   let canonical = encoded_bundle(bundle) ?
   let base_hash = Crypto.sha256(encoded_bundle(base) ?)
@@ -486,14 +478,14 @@ end
 fn claim_on_connection(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> PrekeyClaimWrite ! String do
   case active_bundle(conn, request.account_id, request.device_id, false) ? do
     None -> Ok(PrekeyClaimMissing)
-    Some( current_bundle) -> do
+    Some(current_bundle) -> do
       lock_claim_reservation(conn, request) ?
       case existing_claim(conn, request) ? do
-        Some( stored) -> if !claim_binding_matches(stored, request) do
+        Some(stored) -> if !claim_binding_matches(stored, request) do
           Ok(PrekeyClaimMissing)
         else
           case stored.response do
-            Some( response) -> do
+            Some(response) -> do
               let bundle = stored_response_bundle(stored, request, response) ?
               let exact = encoded_bundle(bundle) ?
               if !Bytes.secure_equals(exact, response) do
@@ -516,9 +508,9 @@ fn claim_on_connection(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> 
           case claim_candidate(conn, request) ? do
             None -> case last_resort_candidate(conn, request) ? do
               None -> Ok(PrekeyClaimExhausted)
-              Some( reusable) -> Ok(PrekeyClaimed(resolved_bundle(current_bundle, reusable) ?))
+              Some(reusable) -> Ok(PrekeyClaimed(resolved_bundle(current_bundle, reusable) ?))
             end
-            Some( claimed) -> do
+            Some(claimed) -> do
               let bundle = resolved_bundle(current_bundle, claimed) ?
               reserve_claim(conn, request, claimed, encoded_bundle(bundle) ?) ?
               Ok(PrekeyClaimed(bundle))

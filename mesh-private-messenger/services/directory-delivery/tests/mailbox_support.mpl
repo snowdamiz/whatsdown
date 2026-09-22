@@ -30,24 +30,24 @@ expires_at :: U64) -> DirectoryEntry ! String do
   device_credential,
   support_wide("1") ?,
   expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let one_time = case generate_one_time_prekey(support_wide("2") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let bundle = case build_prekey_bundle(device_credential, signed, one_time) do
-    Err( _) -> Err("bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let account_identity = case encode_account_identity(identity) do
-    Err( _) -> Err("account identity encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account identity encoding failed")
+    Ok(value) -> Ok(value)
   end ?
   let prekey_bundle = case encode_prekey_bundle(bundle) do
-    Err( _) -> Err("prekey bundle encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("prekey bundle encoding failed")
+    Ok(value) -> Ok(value)
   end ?
   Ok(DirectoryEntry {
     version : 1,
@@ -72,8 +72,8 @@ created_at :: U64) -> Result <(), String > do
   created_at,
   expires_at,
   support_wide("1") ?) do
-    Err( _) -> Err("credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("credential generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let entry = support_directory_entry(username,
   identity,
@@ -82,8 +82,8 @@ created_at :: U64) -> Result <(), String > do
   mailbox_token,
   expires_at) ?
   let encoded = case encode_directory_entry(entry) do
-    Err( _) -> Err("directory entry encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry encoding failed")
+    Ok(value) -> Ok(value)
   end ?
   if register_device_request(pool, encoded).status == 201 do
     Ok(nil)
@@ -97,13 +97,13 @@ end
 pub fn test_directory_entry_wire(username :: String, mailbox_token :: Bytes) -> Bytes ! String do
   let created_at = mailbox_test_now() ?
   let expires_at = U64.add(created_at, support_wide("31536000000") ?) ?
-  let ( account_keys, identity) = case generate_account(created_at, support_wide("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( value) -> Ok(value)
+  let (account_keys, identity) = case generate_account(created_at, support_wide("1") ?) do
+    Err(_) -> Err("account generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let device_keys = case generate_device() do
-    Err( _) -> Err("device generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let device_credential = case issue_device_credential(account_keys,
   device_keys,
@@ -111,8 +111,8 @@ pub fn test_directory_entry_wire(username :: String, mailbox_token :: Bytes) -> 
   created_at,
   expires_at,
   support_wide("1") ?) do
-    Err( _) -> Err("credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("credential generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let entry = support_directory_entry(username,
   identity,
@@ -121,8 +121,8 @@ pub fn test_directory_entry_wire(username :: String, mailbox_token :: Bytes) -> 
   mailbox_token,
   expires_at) ?
   case encode_directory_entry(entry) do
-    Err( _) -> Err("directory entry encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry encoding failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -135,13 +135,13 @@ end
 
 pub fn register_test_mailbox(pool :: PoolHandle, username :: String, mailbox_token :: Bytes) -> DeviceKeys ! String do
   let created_at = mailbox_test_now() ?
-  let ( account_keys, identity) = case generate_account(created_at, support_wide("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( value) -> Ok(value)
+  let (account_keys, identity) = case generate_account(created_at, support_wide("1") ?) do
+    Err(_) -> Err("account generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let device_keys = case generate_device() do
-    Err( _) -> Err("device generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device generation failed")
+    Ok(value) -> Ok(value)
   end ?
   case support_register(pool,
   username,
@@ -150,8 +150,8 @@ pub fn register_test_mailbox(pool :: PoolHandle, username :: String, mailbox_tok
   identity,
   device_keys,
   created_at) do
-    Err( error) -> reject_registration(device_keys, error)
-    Ok( _) -> Ok(device_keys)
+    Err(error) -> reject_registration(device_keys, error)
+    Ok(_) -> Ok(device_keys)
   end
 end
 
@@ -163,8 +163,8 @@ issued_at :: U64) -> Bytes ! String do
   Crypto.sha256(mailbox_token),
   after_sequence,
   issued_at) do
-    Err( _) -> Err("mailbox fetch signing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("mailbox fetch signing failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -180,8 +180,8 @@ issued_at :: U64) -> Bytes ! String do
   Crypto.sha256(mailbox_token),
   issued_at,
   envelope_ids) do
-    Err( _) -> Err("mailbox acknowledgement signing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("mailbox acknowledgement signing failed")
+    Ok(value) -> Ok(value)
   end
 end
 

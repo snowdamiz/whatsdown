@@ -7,22 +7,22 @@ from Tests.MailboxSupport import mailbox_test_now, register_test_mailbox, signed
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( error) -> Err(error)
-    Ok( parsed) -> Ok(parsed)
+    Err(error) -> Err(error)
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 fn wire(value :: Result < Bytes, ProtocolError >) -> Bytes ! String do
   case value do
-    Err( _) -> Err("protocol encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("protocol encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -36,15 +36,15 @@ end
 
 fn delivery_count(value :: Bytes) -> Int ! String do
   case decode_delivery_batch(value) do
-    Err( _) -> Err("invalid delivery response")
-    Ok( deliveries) -> Ok(List.length(deliveries))
+    Err(_) -> Err("invalid delivery response")
+    Ok(deliveries) -> Ok(List.length(deliveries))
   end
 end
 
 fn outer(value :: Bytes) -> OuterEnvelope ! String do
   case decode_outer_envelope(value) do
-    Err( _) -> Err("invalid delivered envelope")
-    Ok( envelope) -> Ok(envelope)
+    Err(_) -> Err("invalid delivered envelope")
+    Ok(envelope) -> Ok(envelope)
   end
 end
 
@@ -52,15 +52,15 @@ fn database_rejects_suite(pool :: PoolHandle, token :: Bytes, envelope_id :: Byt
   case Pool.execute_values(pool,
   "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6)",
   [Binary(Crypto.sha256(token)), Binary(envelope_id), Text(Int.to_string(suite)), Text("4102444800000"), Text("256"), Binary(Bytes.from_utf8("opaque"))]) do
-    Err( _) -> true
-    Ok( _) -> false
+    Err(_) -> true
+    Ok(_) -> false
   end
 end
 
 fn frame_header(values :: List < Int >) -> Bytes ! String do
   case Bytes.from_list(values) do
-    Err( _) -> Err("test frame construction failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test frame construction failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -103,8 +103,8 @@ fn proof() -> Bool ! String do
   assert(submit_request(pool, envelope).status == 200)
   let delivery_seed = Bytes.from_hex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a") ?
   let delivery_key = case Crypto.x25519_from_seed(delivery_seed) do
-    Err( _) -> Err("delivery key failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("delivery key failed")
+    Ok(value) -> Ok(value)
   end ?
   let sealed_id = repeated(5, 16)
   let sealed = wire(encode_outer_envelope(OuterEnvelope {
@@ -122,8 +122,8 @@ fn proof() -> Bool ! String do
   let fetched = fetch_request(pool, signed_fetch(owner, token) ?)
   assert(fetched.status == 200)
   let deliveries = case decode_delivery_batch(fetched.body) do
-    Err( _) -> Err("invalid delivery response")
-    Ok( values) -> Ok(values)
+    Err(_) -> Err("invalid delivery response")
+    Ok(values) -> Ok(values)
   end ?
   assert(List.length(deliveries) == 2)
   assert(outer(List.head(deliveries).envelope) ?.suite == 2)
@@ -237,20 +237,20 @@ end
 
 test("binary API accepts canonical records and rejects hostile frames") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
 test("a public mailbox address cannot read, subscribe to, or acknowledge another device's mail") do
   case mailbox_takeover_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

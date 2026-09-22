@@ -25,12 +25,12 @@ end
 
 fn load_state(database_path :: String, wrapping_key :: borrow StorageKey, label :: String) -> Bytes ! String do
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( blob) -> open_local(blob, wrapping_key, local_context(label) ?)
+    Ok(blob) -> open_local(blob, wrapping_key, local_context(label) ?)
   end
 end
 
@@ -69,8 +69,8 @@ end
 
 fn attempts_at(records :: Bytes, found :: Int) -> Int ! String do
   case Bytes.get(records, found + 16) do
-    Err( _) -> Err("invalid_delivery_attempts")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_delivery_attempts")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -127,7 +127,7 @@ pub fn with_delivery_attempt(records :: Bytes, envelope_id :: Bytes, now :: U64)
   first)
 end
 
-pub fn inbox_state_writes(wrapping_key :: borrow StorageKey, attempts :: Bytes, cursor :: U64) -> Result <( List < String >, List < Bytes >), String > do
+pub fn inbox_state_writes(wrapping_key :: borrow StorageKey, attempts :: Bytes, cursor :: U64) -> Result <(List < String >, List < Bytes >), String > do
   Ok((["delivery-retries/v1", "inbox-cursor/v1"],
   [seal_local(attempts, wrapping_key, local_context("delivery-retries/v1") ?) ?, seal_local(mobile_write_u64(cursor) ?,
   wrapping_key,

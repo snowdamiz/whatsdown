@@ -356,17 +356,17 @@ pub struct MobileGroupHistoryEntry do
 end
 
 pub type MobileGroupReceiveOutcome do
-  GroupReceiveApplied( output :: Bytes)
+  GroupReceiveApplied(output :: Bytes)
 
-  GroupReceiveRetry( error :: String)
+  GroupReceiveRetry(error :: String)
 
-  GroupReceiveRejected( error :: String)
+  GroupReceiveRejected(error :: String)
 end
 
 pub type MobileDirectReceiveOutcome do
-  DirectReceiveApplied( output :: Bytes)
+  DirectReceiveApplied(output :: Bytes)
 
-  DirectReceiveRetry( error :: String)
+  DirectReceiveRetry(error :: String)
 
-  DirectReceiveRejected( error :: String)
+  DirectReceiveRejected(error :: String)
 end

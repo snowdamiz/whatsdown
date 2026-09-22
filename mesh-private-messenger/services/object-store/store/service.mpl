@@ -66,12 +66,12 @@ now :: U64,
 maximum_work_future :: U64,
 difficulty :: Int) -> ObjectResult do
   case validate_paths(database_path, root) do
-    Err( _) -> empty(500)
-    Ok( _) -> case verified_grant(body, now, maximum_work_future, difficulty) do
-      Err( status) -> empty(status)
-      Ok( value) -> case open_transaction(database_path) do
-        Err( _) -> empty(500)
-        Ok( database) -> do
+    Err(_) -> empty(500)
+    Ok(_) -> case verified_grant(body, now, maximum_work_future, difficulty) do
+      Err(status) -> empty(status)
+      Ok(value) -> case open_transaction(database_path) do
+        Err(_) -> empty(500)
+        Ok(database) -> do
           let result = grant_open(database, body, value)
           operation_response(finish_database(database, result))
         end
@@ -89,7 +89,7 @@ body :: Bytes,
 now :: Int) -> ObjectResult ! String do
   case find_object(database, object_id) ? do
     None -> Ok(empty(404))
-    Some( object) -> if !upload_authorized(object, capability) do
+    Some(object) -> if !upload_authorized(object, capability) do
       Ok(empty(403))
     else if now >= object.expires_at do
       Ok(empty(410))
@@ -101,13 +101,13 @@ now :: Int) -> ObjectResult ! String do
       let content_hash = Crypto.sha256(body)
       let path = part_path(root, object_id, part_index) ?
       case find_part(database, object_id, part_index) ? do
-        Some( existing) -> if existing.size != Bytes.length(body) || !Bytes.secure_equals(existing.content_hash,
+        Some(existing) -> if existing.size != Bytes.length(body) || !Bytes.secure_equals(existing.content_hash,
         content_hash) do
           Ok(empty(409))
         else
           case read_part_file(path, existing.size) do
             None -> Err("object part integrity failure")
-            Some( stored) -> if Bytes.secure_equals(stored, body) do
+            Some(stored) -> if Bytes.secure_equals(stored, body) do
               Ok(empty(200))
             else
               Err("object part integrity failure")
@@ -120,24 +120,24 @@ now :: Int) -> ObjectResult ! String do
           case write_part_file(path, body) do
             ## Failed or uncertain transactions leave parts for exact replay;
             ## the R2 lifecycle eventually removes unreferenced parts.
-            Err( _) -> do
+            Err(_) -> do
               Err("object part write failed")
             end
-            Ok( _) -> do
+            Ok(_) -> do
               let inserted = Pg.execute_values(database,
               "INSERT INTO object_parts (object_id, part_index, size, content_hash) VALUES ($1, $2, $3, $4)",
               [Binary(object_id), Text(Int.to_string(part_index)), Text(Int.to_string(Bytes.length(body))), Binary(content_hash)])
               let updated = case inserted do
-                Err( error) -> Err(error)
-                Ok( _) -> Pg.execute_values(database,
+                Err(error) -> Err(error)
+                Ok(_) -> Pg.execute_values(database,
                 "UPDATE objects SET total_bytes = total_bytes + $1 WHERE object_id = $2 AND completed = 0 AND total_bytes + $3 <= 16795830",
                 [Text(Int.to_string(Bytes.length(body))), Binary(object_id), Text(Int.to_string(Bytes.length(body)))])
               end
               case updated do
-                Err( _) -> do
+                Err(_) -> do
                   Err("object metadata unavailable")
                 end
-                Ok( changed) -> if changed != 1 do
+                Ok(changed) -> if changed != 1 do
                   Err("object metadata unavailable")
                 else
                   Ok(empty(201))
@@ -162,12 +162,12 @@ now :: U64) -> ObjectResult do
     return empty(413)
   end
   case validate_paths(database_path, root) do
-    Err( _) -> empty(500)
-    Ok( _) -> case U64.to_int(now) do
-      Err( _) -> empty(400)
-      Ok( timestamp) -> case open_transaction(database_path) do
-        Err( _) -> empty(500)
-        Ok( database) -> do
+    Err(_) -> empty(500)
+    Ok(_) -> case U64.to_int(now) do
+      Err(_) -> empty(400)
+      Ok(timestamp) -> case open_transaction(database_path) do
+        Err(_) -> empty(500)
+        Ok(database) -> do
           let result = put_open(database, root, object_id, part_index, capability, body, timestamp)
           operation_response(finish_database(database, result))
         end
@@ -184,7 +184,7 @@ capability :: Bytes,
 now :: Int) -> ObjectResult ! String do
   case find_object(database, object_id) ? do
     None -> Ok(empty(404))
-    Some( object) -> if !download_authorized(object, capability) do
+    Some(object) -> if !download_authorized(object, capability) do
       Ok(empty(403))
     else if now >= object.expires_at do
       Ok(empty(410))
@@ -193,11 +193,11 @@ now :: Int) -> ObjectResult ! String do
     else
       case find_part(database, object_id, part_index) ? do
         None -> Ok(empty(404))
-        Some( part) -> case part_path(root, object_id, part_index) do
-          Err( _) -> Err("object part integrity failure")
-          Ok( path) -> case read_part_file(path, part.size) do
+        Some(part) -> case part_path(root, object_id, part_index) do
+          Err(_) -> Err("object part integrity failure")
+          Ok(path) -> case read_part_file(path, part.size) do
             None -> Err("object part integrity failure")
-            Some( body) -> if Bytes.secure_equals(Crypto.sha256(body), part.content_hash) do
+            Some(body) -> if Bytes.secure_equals(Crypto.sha256(body), part.content_hash) do
               Ok(response(200, body))
             else
               Err("object part integrity failure")
@@ -216,12 +216,12 @@ part_index :: Int,
 capability :: Bytes,
 now :: U64) -> ObjectResult do
   case validate_paths(database_path, root) do
-    Err( _) -> empty(500)
-    Ok( _) -> case U64.to_int(now) do
-      Err( _) -> empty(400)
-      Ok( timestamp) -> case open_transaction(database_path) do
-        Err( _) -> empty(500)
-        Ok( database) -> do
+    Err(_) -> empty(500)
+    Ok(_) -> case U64.to_int(now) do
+      Err(_) -> empty(400)
+      Ok(timestamp) -> case open_transaction(database_path) do
+        Err(_) -> empty(500)
+        Ok(database) -> do
           let result = get_open(database, root, object_id, part_index, capability, timestamp)
           operation_response(finish_database(database, result))
         end
@@ -247,7 +247,7 @@ index :: Int) -> Bool ! String do
       let path = part_path(root, object_id, index) ?
       case read_part_file(path, part.size) do
         None -> Ok(false)
-        Some( body) -> if !Bytes.secure_equals(Crypto.sha256(body), part.content_hash) do
+        Some(body) -> if !Bytes.secure_equals(Crypto.sha256(body), part.content_hash) do
           Ok(false)
         else
           files_present(rows, root, object_id, part_count, index + 1)
@@ -261,7 +261,7 @@ fn complete_open(database :: borrow PgConn, root :: String, body :: Bytes, now :
   let control = decode_complete(body) ?
   case find_object(database, control.object_id) ? do
     None -> Ok(empty(404))
-    Some( object) -> if !upload_authorized(object, control.capability) do
+    Some(object) -> if !upload_authorized(object, control.capability) do
       Ok(empty(403))
     else if now >= object.expires_at do
       Ok(empty(410))
@@ -293,12 +293,12 @@ end
 
 pub fn complete(database_path :: String, root :: String, body :: Bytes, now :: U64) -> ObjectResult do
   case validate_paths(database_path, root) do
-    Err( _) -> empty(500)
-    Ok( _) -> case U64.to_int(now) do
-      Err( _) -> empty(400)
-      Ok( timestamp) -> case open_transaction(database_path) do
-        Err( _) -> empty(500)
-        Ok( database) -> do
+    Err(_) -> empty(500)
+    Ok(_) -> case U64.to_int(now) do
+      Err(_) -> empty(400)
+      Ok(timestamp) -> case open_transaction(database_path) do
+        Err(_) -> empty(500)
+        Ok(database) -> do
           let result = complete_open(database, root, body, timestamp)
           control_response(finish_database(database, result))
         end
@@ -311,7 +311,7 @@ fn delete_open(database :: borrow PgConn, root :: String, body :: Bytes) -> Obje
   let control = decode_delete(body) ?
   case find_object(database, control.object_id) ? do
     None -> Ok(empty(404))
-    Some( object) -> if !upload_authorized(object, control.capability) do
+    Some(object) -> if !upload_authorized(object, control.capability) do
       Ok(empty(403))
     else
       remove_parts(root, control.object_id, object.part_count, 0) ?
@@ -329,10 +329,10 @@ end
 
 pub fn delete_object(database_path :: String, root :: String, body :: Bytes, _now :: U64) -> ObjectResult do
   case validate_paths(database_path, root) do
-    Err( _) -> empty(500)
-    Ok( _) -> case open_transaction(database_path) do
-      Err( _) -> empty(500)
-      Ok( database) -> do
+    Err(_) -> empty(500)
+    Ok(_) -> case open_transaction(database_path) do
+      Err(_) -> empty(500)
+      Ok(database) -> do
         let result = delete_open(database, root, body)
         control_response(finish_database(database, result))
       end
@@ -369,30 +369,30 @@ pub fn purge_expired(database_path :: String, root :: String, now :: U64, limit 
     let now_value = U64.to_int(now) ?
     let database = open_database(database_path) ?
     let result = case begin_immediate(database) do
-      Err( error) -> Err(error)
-      Ok( _) -> case Pg.query_values(database,
+      Err(error) -> Err(error)
+      Ok(_) -> case Pg.query_values(database,
       "SELECT object_id, upload_hash, download_hash, part_count, total_bytes, expires_at, completed FROM objects WHERE expires_at <= $1 ORDER BY expires_at, object_id LIMIT $2",
       [Text(Int.to_string(now_value)), Text(Int.to_string(limit))]) do
-        Err( error) -> do
+        Err(error) -> do
           let _ = Pg.rollback(database)
           Err(error)
         end
-        Ok( rows) -> case purge_rows(database, root, rows, now_value, 0) do
-          Err( error) -> do
+        Ok(rows) -> case purge_rows(database, root, rows, now_value, 0) do
+          Err(error) -> do
             let _ = Pg.rollback(database)
             Err(error)
           end
-          Ok( count) -> case Pg.commit(database) do
-            Err( _) -> Err("object purge commit failed")
-            Ok( _) -> Ok(count)
+          Ok(count) -> case Pg.commit(database) do
+            Err(_) -> Err("object purge commit failed")
+            Ok(_) -> Ok(count)
           end
         end
       end
     end
     Pg.close(database)
     case result do
-      Err( _) -> Err("object purge failed")
-      Ok( count) -> Ok(count)
+      Err(_) -> Err("object purge failed")
+      Ok(count) -> Ok(count)
     end
   end
 end
@@ -417,59 +417,59 @@ end
 
 fn operation_response(result :: Result < ObjectResult, String >) -> ObjectResult do
   case result do
-    Err( _) -> empty(500)
-    Ok( value) -> value
+    Err(_) -> empty(500)
+    Ok(value) -> value
   end
 end
 
 fn control_response(result :: Result < ObjectResult, String >) -> ObjectResult do
   case result do
-    Err( error) -> if String.contains(error, "object wire") || String.contains(error,
+    Err(error) -> if String.contains(error, "object wire") || String.contains(error,
     "object control") do
       empty(400)
     else
       empty(500)
     end
-    Ok( value) -> value
+    Ok(value) -> value
   end
 end
 
 fn verified_grant(body :: Bytes, now :: U64, maximum_work_future :: U64, difficulty :: Int) -> ObjectGrantRequest ! Int do
   let maximum_object_future = case U64.parse("604800000") do
-    Err( _) -> Err(500)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(500)
+    Ok(value) -> Ok(value)
   end ?
   case verify_grant(body, now, maximum_work_future, maximum_object_future, difficulty) do
-    Err( _) -> Err(400)
-    Ok( false) -> Err(429)
-    Ok( true) -> Ok(nil)
+    Err(_) -> Err(400)
+    Ok(false) -> Err(429)
+    Ok(true) -> Ok(nil)
   end ?
   case decode_grant(body) do
-    Err( _) -> Err(400)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(400)
+    Ok(value) -> Ok(value)
   end
 end
 
 fn open_transaction(path :: String) -> PgConn ! String do
   let database = open_database(path) ?
   case begin_immediate(database) do
-    Err( error) -> do
+    Err(error) -> do
       Pg.close(database)
       Err(error)
     end
-    Ok( _) -> Ok(database)
+    Ok(_) -> Ok(database)
   end
 end
 
 fn finish_database(database :: PgConn, result :: Result < ObjectResult, String >) -> ObjectResult ! String do
   let committed = case result do
-    Err( error) -> do
+    Err(error) -> do
       let _ = Pg.rollback(database)
       Err(error)
     end
-    Ok( value) -> case Pg.commit(database) do
-      Err( _) -> Err("object metadata commit unavailable")
-      Ok( _) -> Ok(value)
+    Ok(value) -> case Pg.commit(database) do
+      Err(_) -> Err("object metadata commit unavailable")
+      Ok(_) -> Ok(value)
     end
   end
   Pg.close(database)

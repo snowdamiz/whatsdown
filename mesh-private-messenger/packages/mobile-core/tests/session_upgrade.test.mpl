@@ -28,28 +28,28 @@ from Transparency.Merkle import leaf_hash
 
 fn entry(input :: Bytes) -> DirectoryEntry ! String do
   case decode_directory_entry(input) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn bundle(input :: Bytes) -> PrekeyBundle ! String do
   case decode_prekey_bundle(input) do
-    Err( _) -> Err("prekey bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("prekey bundle decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn base_entry(value :: DirectoryEntry) -> DirectoryEntry ! String do
   let normalized = case normalize_prekey_bundle(bundle(value.prekey_bundle) ?) do
-    Err( _) -> Err("prekey bundle normalization failed")
-    Ok( result) -> Ok(result)
+    Err(_) -> Err("prekey bundle normalization failed")
+    Ok(result) -> Ok(result)
   end ?
   let wire = case encode_prekey_bundle(normalized) do
-    Err( _) -> Err("prekey bundle encoding failed")
-    Ok( result) -> Ok(result)
+    Err(_) -> Err("prekey bundle encoding failed")
+    Ok(result) -> Ok(result)
   end ?
-  Ok(% { value | prekey_bundle : wire })
+  Ok(% {value | prekey_bundle : wire })
 end
 
 fn device_set(username :: String, entry_value :: DirectoryEntry, sequence :: Int) -> Bytes ! String do
@@ -61,8 +61,8 @@ fn device_set(username :: String, entry_value :: DirectoryEntry, sequence :: Int
     devices : [entry_value],
     revoked_device_ids : List.new()
   }) do
-    Err( _) -> Err("device set encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device set encoding failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -92,8 +92,8 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("test byte allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test byte allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -133,8 +133,8 @@ fn proof() -> Bool ! String do
   assert(Bytes.secure_equals(update_conversation_export(request([Bytes.from_utf8(bob_path), alice_profile, byte(2) ?, write_u32(0) ?]) ?) ?,
   Bytes.from_utf8("ok")))
   case receive_initial_export(request([Bytes.from_utf8(bob_path), upgraded]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "blocked_message")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "blocked_message")
   end
   assert(!has_fanout_prekey_state_for_test(bob_path, alice_profile) ?)
   assert(Bytes.secure_equals(update_conversation_export(request([Bytes.from_utf8(alice_path), bob_profile, byte(4) ?, write_u32(0) ?]) ?) ?,
@@ -149,27 +149,27 @@ fn proof() -> Bool ! String do
   assert(Bytes.secure_equals(receive_message_export(request([Bytes.from_utf8(bob_path), preferred]) ?) ?,
   preferred_body))
   case send_message_export(request([Bytes.from_utf8(alice_path), classical_bob_profile, Bytes.from_utf8("legacy direct send")]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "peer_keys_changed")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "peer_keys_changed")
   end
   assert(Bytes.secure_equals(update_conversation_export(request([Bytes.from_utf8(alice_path), bob_profile, byte(2) ?, write_u32(0) ?]) ?) ?,
   Bytes.from_utf8("ok")))
   let history_request = request([Bytes.from_utf8(alice_path), bob_profile]) ?
   let history_before_delayed = load_history_export(history_request) ?
   case receive_message_export(request([Bytes.from_utf8(alice_path), delayed]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "blocked_message")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "blocked_message")
   end
   assert(Bytes.secure_equals(load_history_export(history_request) ?, history_before_delayed))
   case receive_message_export(request([Bytes.from_utf8(alice_path), delayed]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "message_rejected")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "message_rejected")
   end
   let downgraded_set = device_set("bob", classical_bob, 2) ?
   assert(install_view(alice_path, downgraded_set, alice_set) ?)
   case fanout_prekey_claims_export(request([Bytes.from_utf8(alice_path), downgraded_set, alice_set]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "peer_keys_changed")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "peer_keys_changed")
   end
   File.delete(alice_path) ?
   File.delete(bob_path) ?
@@ -178,10 +178,10 @@ end
 
 test("mobile session upgrades enforce conversation blocks on delayed suite-1 traffic") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

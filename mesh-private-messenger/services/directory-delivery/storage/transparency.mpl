@@ -4,14 +4,14 @@ from Transparency.Wire import account_lookup_id, TransparencyEvidence
 
 fn binary(value :: DbValue) -> Bytes ! String do
   case value do
-    Binary( bytes) -> Ok(bytes)
+    Binary(bytes) -> Ok(bytes)
     _ -> Err("invalid transparency row")
   end
 end
 
 fn text(value :: DbValue) -> String ! String do
   case value do
-    Text( output) -> Ok(output)
+    Text(output) -> Ok(output)
     _ -> Err("invalid transparency row")
   end
 end
@@ -19,7 +19,7 @@ end
 fn integer(value :: DbValue) -> Int ! String do
   case String.to_int(text(value) ?) do
     None -> Err("invalid transparency integer")
-    Some( output) -> Ok(output)
+    Some(output) -> Ok(output)
   end
 end
 
@@ -33,8 +33,8 @@ end
 
 fn zero_hash() -> Bytes ! String do
   case Bytes.repeat(0, 32) do
-    Err( _) -> Err("transparency allocation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("transparency allocation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -43,8 +43,8 @@ fn account_commitment(account_id :: Bytes) -> Bytes ! String do
     Err("invalid transparency account")
   else
     case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/transparency-account"), account_id) do
-      Err( _) -> Err("transparency allocation failed")
-      Ok( value) -> Ok(Crypto.sha256(value))
+      Err(_) -> Err("transparency allocation failed")
+      Ok(value) -> Ok(Crypto.sha256(value))
     end
   end
 end
@@ -189,12 +189,12 @@ end
 
 fn configured_signer() -> SigningKeyPair ! String do
   let material = case Env.get_secret_hex("MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX") do
-    Err( _) -> Err("invalid transparency signing seed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid transparency signing seed")
+    Ok(value) -> Ok(value)
   end ?
   case Crypto.signing_from_secret(material) do
-    Err( _) -> Err("invalid transparency signing seed")
-    Ok( signer) -> Ok(signer)
+    Err(_) -> Err("invalid transparency signing seed")
+    Ok(signer) -> Ok(signer)
   end
 end
 
@@ -205,10 +205,10 @@ end
 
 fn checkpoint_recent(value :: TransparencyCheckpoint, now :: U64) -> Bool do
   case U64.to_int(value.timestamp) do
-    Err( _) -> false
-    Ok( stamp) -> case U64.to_int(now) do
-      Err( _) -> false
-      Ok( current) -> current >= stamp && current - stamp < 240000
+    Err(_) -> false
+    Ok(stamp) -> case U64.to_int(now) do
+      Err(_) -> false
+      Ok(current) -> current >= stamp && current - stamp < 240000
     end
   end
 end
@@ -234,11 +234,11 @@ signing_public_key :: Bytes) -> TransparencyCheckpoint ! String do
       end
       let sequence = case previous do
         None -> int_wide(1)
-        Some( value) -> U64.add(value.sequence, int_wide(1) ?)
+        Some(value) -> U64.add(value.sequence, int_wide(1) ?)
       end ?
       let previous_hash = case previous do
         None -> zero_hash()
-        Some( value) -> checkpoint_hash(value)
+        Some(value) -> checkpoint_hash(value)
       end ?
       let checkpoint = sign_checkpoint(signing_key,
       signing_public_key,
@@ -261,8 +261,8 @@ end
 
 fn create_checkpoint_from_seed_on_connection(conn :: borrow PgConn, signing_seed :: Bytes) -> TransparencyCheckpoint ! String do
   let signer = case Crypto.signing_from_seed(signing_seed) do
-    Err( _) -> Err("invalid transparency signing seed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid transparency signing seed")
+    Ok(value) -> Ok(value)
   end ?
   create_checkpoint_on_connection(conn, signer.private_key, signer.public_key.bytes)
 end
@@ -385,8 +385,8 @@ username :: String,
 old_tree_size :: Int,
 signing_seed :: Bytes) -> TransparencyEvidence ! String do
   let signer = case Crypto.signing_from_seed(signing_seed) do
-    Err( _) -> Err("invalid transparency signing seed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid transparency signing seed")
+    Ok(value) -> Ok(value)
   end ?
   evidence_on_connection(conn, username, old_tree_size, signer.private_key, signer.public_key.bytes)
 end

@@ -25,15 +25,15 @@ from Protocol.V1 import (
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
 fn wide(value :: Int) -> U64 ! ProtocolError do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
@@ -52,8 +52,8 @@ fn proof() -> Bool ! ProtocolError do
   }
   let link_wire = encode_device_link_request(link_request) ?
   let historical_link_wire = case Bytes.from_hex("014c4e4b01010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020203030303030303030303030303030303030303030303030303030303030303030404040404040404040404040404040404040404040404040404040404040404000000000000000100000000000003e800000000000007d0") do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end ?
   assert(Bytes.length(link_wire) == 140)
   assert(Bytes.secure_equals(link_wire, historical_link_wire))
@@ -112,11 +112,11 @@ fn proof() -> Bool ! ProtocolError do
   assert(U64.compare(decoded_revocation.sequence, revocation.sequence) == 0)
   assert(Bytes.secure_equals(decoded_revocation.device_id, revocation.device_id))
   let trailing = case Bytes.concat(revocation_wire, Bytes.from_utf8("trailing")) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end ?
   case decode_device_revocation(trailing) do
-    Err( MalformedEncoding) -> assert(true)
+    Err(MalformedEncoding) -> assert(true)
     _ -> assert(false)
   end
   Ok(true)
@@ -124,8 +124,8 @@ end
 
 test("device linking and device-set records have bounded canonical codecs") do
   case proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -162,7 +162,7 @@ fn hybrid_codec_proof() -> Bool ! ProtocolError do
     expires_at : request.expires_at
   }
   case encode_device_link_request(mismatched_suite) do
-    Err( UnsupportedSuite) -> assert(true)
+    Err(UnsupportedSuite) -> assert(true)
     _ -> assert(false)
   end
   let short_key = DeviceLinkRequest {
@@ -178,15 +178,15 @@ fn hybrid_codec_proof() -> Bool ! ProtocolError do
     expires_at : request.expires_at
   }
   case encode_device_link_request(short_key) do
-    Err( InvalidFieldLength) -> assert(true)
+    Err(InvalidFieldLength) -> assert(true)
     _ -> assert(false)
   end
   let trailing = case Bytes.concat(wire, Bytes.from_utf8("x")) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end ?
   case decode_device_link_request(trailing) do
-    Err( OversizedInput) -> assert(true)
+    Err(OversizedInput) -> assert(true)
     _ -> assert(false)
   end
   Ok(true)
@@ -194,21 +194,21 @@ end
 
 test("hybrid device-link requests have a canonical v2 wire format") do
   case hybrid_codec_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
 fn identity_wide(value :: Int) -> U64 ! IdentityError do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err(InvalidCredential)
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err(InvalidCredential)
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 fn identity_proof() -> Bool ! IdentityError do
   let now = identity_wide(1000) ?
-  let ( account, identity) = generate_account(now, identity_wide(1) ?) ?
+  let (account, identity) = generate_account(now, identity_wide(1) ?) ?
   let request = DeviceLinkRequest {
     version : 1,
     suite : 1,
@@ -256,14 +256,14 @@ end
 
 test("account authorization binds links and revocations to exact devices") do
   case identity_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
 fn hybrid_identity_proof() -> Bool ! IdentityError do
   let now = identity_wide(1000) ?
-  let ( account, identity) = generate_account(now, identity_wide(1) ?) ?
+  let (account, identity) = generate_account(now, identity_wide(1) ?) ?
   let request = DeviceLinkRequest {
     version : 2,
     suite : 2,
@@ -284,12 +284,12 @@ fn hybrid_identity_proof() -> Bool ! IdentityError do
   identity_wide(2) ?) ?
   assert(authorization.version == 1)
   case encode_device_link_request(request) do
-    Err( _) -> assert(false)
-    Ok( wire) -> assert(Bytes.secure_equals(authorization.request_hash, Crypto.sha256(wire)))
+    Err(_) -> assert(false)
+    Ok(wire) -> assert(Bytes.secure_equals(authorization.request_hash, Crypto.sha256(wire)))
   end
   case decode_device_credential(authorization.device_credential) do
-    Err( _) -> assert(false)
-    Ok( credential) -> do
+    Err(_) -> assert(false)
+    Ok(credential) -> do
       assert(credential.suite == 2)
       assert(Bytes.secure_equals(credential.post_quantum_public_key,
       request.post_quantum_public_key))
@@ -314,47 +314,47 @@ end
 
 test("account authorization preserves hybrid device-link credentials and rejects stripped downgrades") do
   case hybrid_identity_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
 fn account_deletion_proof() -> Bool ! IdentityError do
   let now = identity_wide(1000) ?
-  let ( account, identity) = generate_account(now, identity_wide(1) ?) ?
-  let ( stranger, _) = generate_account(now, identity_wide(1) ?) ?
+  let (account, identity) = generate_account(now, identity_wide(1) ?) ?
+  let (stranger, _) = generate_account(now, identity_wide(1) ?) ?
   let deletion = issue_account_deletion(account, now) ?
   assert(Bytes.secure_equals(deletion.account_id, identity.account_id))
   assert(verify_account_deletion(identity, deletion) ?)
   # The time is signed, so a verifier's freshness check cannot be walked around.
-  assert(!verify_account_deletion(identity, % { deletion | issued_at : identity_wide(1001) ? }) ?)
+  assert(!verify_account_deletion(identity, % {deletion | issued_at : identity_wide(1001) ? }) ?)
   let forged = issue_account_deletion(stranger, now) ?
-  assert(!verify_account_deletion(identity, % { forged | account_id : identity.account_id }) ?)
+  assert(!verify_account_deletion(identity, % {forged | account_id : identity.account_id }) ?)
   let wire = case encode_account_deletion(deletion) do
-    Err( _) -> Err(InvalidCredential)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidCredential)
+    Ok(value) -> Ok(value)
   end ?
   assert(Bytes.length(wire) == 108)
   let decoded = case decode_account_deletion(wire) do
-    Err( _) -> Err(InvalidCredential)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidCredential)
+    Ok(value) -> Ok(value)
   end ?
   assert(verify_account_deletion(identity, decoded) ?)
   let trailing = case Bytes.concat(wire, Bytes.from_utf8("x")) do
-    Err( _) -> Err(InvalidCredential)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidCredential)
+    Ok(value) -> Ok(value)
   end ?
   case decode_account_deletion(trailing) do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
   Ok(true)
 end
 
 test("only the account key deletes an account, at the time it signed") do
   case account_deletion_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -369,33 +369,33 @@ fn device_departure_proof() -> Bool ! IdentityError do
   # Only the departing device's own key, for its own account, at the signed time.
   assert(!verify_device_departure(stranger.signing_public_key.bytes, departure) ?)
   assert(!verify_device_departure(device.signing_public_key.bytes,
-  % { departure | account_id : repeated(52, 32) }) ?)
+  % {departure | account_id : repeated(52, 32) }) ?)
   assert(!verify_device_departure(device.signing_public_key.bytes,
-  % { departure | issued_at : identity_wide(1001) ? }) ?)
+  % {departure | issued_at : identity_wide(1001) ? }) ?)
   let wire = case encode_device_departure(departure) do
-    Err( _) -> Err(InvalidCredential)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidCredential)
+    Ok(value) -> Ok(value)
   end ?
   assert(Bytes.length(wire) == 124)
   let decoded = case decode_device_departure(wire) do
-    Err( _) -> Err(InvalidCredential)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidCredential)
+    Ok(value) -> Ok(value)
   end ?
   assert(verify_device_departure(device.signing_public_key.bytes, decoded) ?)
   let trailing = case Bytes.concat(wire, Bytes.from_utf8("x")) do
-    Err( _) -> Err(InvalidCredential)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidCredential)
+    Ok(value) -> Ok(value)
   end ?
   case decode_device_departure(trailing) do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
   Ok(true)
 end
 
 test("only a device's own key takes it out of its account, at the time it signed") do
   case device_departure_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end

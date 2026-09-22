@@ -21,8 +21,8 @@ end
 
 fn signing_pair() -> SigningKeyPair ! String do
   case Crypto.signing_generate() do
-    Err( _) -> Err("test signing key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test signing key generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -32,8 +32,8 @@ fn proof() -> Bool ! String do
   let witness_a = signing_pair() ?
   let witness_b = signing_pair() ?
   let delivery = case Crypto.x25519_generate() do
-    Err( _) -> Err("test delivery key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test delivery key generation failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(install_security_config(service_pair.public_key.bytes,
   witness_a.public_key.bytes,
@@ -47,14 +47,13 @@ fn proof() -> Bool ! String do
   let register = "mesh-msg/v1/work/register"
   let resolve = "mesh-msg/v1/work/resolve"
   # Registration carries the unchanged directory entry inside paid work.
-  let ( register_stamp, entry) = decode_stamped_request(register_request_export(Bytes.from_utf8(path)) ?,
+  let (register_stamp, entry) = decode_stamped_request(register_request_export(Bytes.from_utf8(path)) ?,
   36006) ?
   assert(Bytes.secure_equals(entry, directory_entry_export(Bytes.from_utf8(path)) ?))
   assert(paid_for(register, entry, register_stamp) ?)
   # So does a lookup, under its own endpoint's label.
   let lookup_request = request([Bytes.from_utf8(path), Bytes.from_utf8("bob")], 0, Bytes.empty()) ?
-  let ( resolve_stamp, lookup) = decode_stamped_request(resolve_request_export(lookup_request) ?,
-  76) ?
+  let (resolve_stamp, lookup) = decode_stamped_request(resolve_request_export(lookup_request) ?, 76) ?
   assert(Bytes.secure_equals(lookup, transparency_lookup_export(lookup_request) ?))
   assert(paid_for(resolve, lookup, resolve_stamp) ?)
   # That work for one endpoint buys nothing at another is proved on fixed
@@ -66,10 +65,10 @@ end
 
 test("anonymous directory requests leave the device wrapped in work for their own endpoint") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

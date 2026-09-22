@@ -18,8 +18,8 @@ fn has_magic(input :: Bytes, magic :: String) -> Bool do
     false
   else
     case Bytes.slice(input, 0, 4) do
-      Ok( header) -> Bytes.to_hex(header) == magic
-      Err( _) -> false
+      Ok(header) -> Bytes.to_hex(header) == magic
+      Err(_) -> false
     end
   end
 end
@@ -36,8 +36,8 @@ pub fn recipient_packet_kind(packet :: Bytes) -> Int do
     3
   else if has_magic(packet, "014d3850") && Bytes.length(packet) >= 5 do
     case Bytes.get(packet, 4) do
-      Ok( 1) -> 1
-      Ok( 2) -> 2
+      Ok(1) -> 1
+      Ok(2) -> 2
       _ -> 0
     end
   else
@@ -51,8 +51,8 @@ pub fn seal_recipient_packet(packet :: Bytes, recipient :: X25519PublicKey) -> B
   else
     let padded = pad_message(packet, 52) ?
     let sealed = case Crypto.hpke_seal(recipient, recipient_info(), recipient.bytes, padded) do
-      Ok( value) -> Ok(value)
-      Err( _) -> Err("recipient_crypto_failed")
+      Ok(value) -> Ok(value)
+      Err(_) -> Err("recipient_crypto_failed")
     end ?
     Bytes.concat(Bytes.from_hex("01524350") ?, sealed)
   end
@@ -63,23 +63,23 @@ pub fn open_recipient_packet(input :: Bytes, recipient :: borrow X25519PrivateKe
     Err("invalid_recipient_packet")
   else
     let public_key = case Crypto.x25519_public(recipient) do
-      Ok( value) -> Ok(value)
-      Err( _) -> Err("recipient_crypto_failed")
+      Ok(value) -> Ok(value)
+      Err(_) -> Err("recipient_crypto_failed")
     end ?
     let plaintext = case Crypto.hpke_open(recipient,
     recipient_info(),
     public_key.bytes,
     Bytes.slice(input, 4, Bytes.length(input) - 4) ?) do
-      Ok( value) -> Ok(value)
-      Err( error) -> if is_retryable_verification_crypto_error(error) do
+      Ok(value) -> Ok(value)
+      Err(error) -> if is_retryable_verification_crypto_error(error) do
         Err("recipient_crypto_failed")
       else
         Err("invalid_recipient_packet")
       end
     end ?
     case unpad_message(plaintext, 52) do
-      Ok( value) -> Ok(value)
-      Err( _) -> Err("invalid_recipient_packet")
+      Ok(value) -> Ok(value)
+      Err(_) -> Err("invalid_recipient_packet")
     end
   end
 end

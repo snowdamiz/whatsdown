@@ -25,8 +25,8 @@ fn proof() -> Bool ! String do
   let accounts = group_account_fixture() ?
   let group_id = create_group_with_bob(accounts) ?
   let bob_identity = case decode_account_identity(accounts.bob_entry.account_identity) do
-    Ok( value) -> Ok(value)
-    Err( _) -> Err("test identity decode failed")
+    Ok(value) -> Ok(value)
+    Err(_) -> Err("test identity decode failed")
   end ?
   let label = transparency_device_set_label(bob_identity.account_id)
   let saved = load_blob(accounts.alice_path, label) ?
@@ -36,8 +36,8 @@ fn proof() -> Bool ! String do
   [Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label))))]) ?
   Sqlite.close(database)
   case group_send_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, Bytes.from_utf8("must wait for authorization")]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   assert(List.length(output_list(outbox_list_export(Bytes.from_utf8(accounts.alice_path)) ?) ?) == 0)
   let restored = Sqlite.open(accounts.alice_path) ?
@@ -66,10 +66,10 @@ end
 
 test("C3 C5 group refresh commits its epoch and message outbox together after 256 sends") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

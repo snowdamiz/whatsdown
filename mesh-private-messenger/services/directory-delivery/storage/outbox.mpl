@@ -7,21 +7,21 @@ end
 pub type PushResult do
   PushDelivered
 
-  PushRetryable( String)
+  PushRetryable(String)
 
-  PushPermanent( String)
+  PushPermanent(String)
 end
 
 fn binary(value :: DbValue) -> Bytes ! String do
   case value do
-    Binary( bytes) -> Ok(bytes)
+    Binary(bytes) -> Ok(bytes)
     _ -> Err("invalid outbox row")
   end
 end
 
 fn text(value :: DbValue) -> String ! String do
   case value do
-    Text( output) -> Ok(output)
+    Text(output) -> Ok(output)
     _ -> Err("invalid outbox row")
   end
 end
@@ -29,7 +29,7 @@ end
 fn integer(value :: DbValue) -> Int ! String do
   case String.to_int(text(value) ?) do
     None -> Err("invalid outbox integer")
-    Some( output) -> Ok(output)
+    Some(output) -> Ok(output)
   end
 end
 
@@ -92,7 +92,7 @@ owner :: String,
 result :: PushResult) -> Result <(), String > do
   case result do
     PushDelivered -> complete(pool, event, owner, "delivered", "")
-    PushRetryable( error_code) -> retry(pool, event, owner, error_code)
-    PushPermanent( error_code) -> complete(pool, event, owner, "permanent_failure", error_code)
+    PushRetryable(error_code) -> retry(pool, event, owner, error_code)
+    PushPermanent(error_code) -> complete(pool, event, owner, "permanent_failure", error_code)
   end
 end

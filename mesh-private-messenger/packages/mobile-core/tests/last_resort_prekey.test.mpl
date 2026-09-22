@@ -21,7 +21,7 @@ fn published_last_resort(path :: String) -> OneTimePrekeyPublic ! String do
   Bytes.empty()) ?) ?) ?
   case publication.last_resort do
     None -> Err("publication carries no last-resort prekey")
-    Some( value) -> Ok(value)
+    Some(value) -> Ok(value)
   end
 end
 
@@ -30,11 +30,11 @@ end
 
 fn exhausted_profile(encoded :: Bytes, reusable :: OneTimePrekeyPublic) -> Bytes ! String do
   let profile = decode_client_profile(encoded) ?
-  let bundle = case encode_prekey_bundle(% { profile.bundle | one_time_prekey_id : reusable.id, one_time_prekey : reusable.public_key }) do
-    Err( _) -> Err("bundle encode failed")
-    Ok( value) -> Ok(value)
+  let bundle = case encode_prekey_bundle(% {profile.bundle | one_time_prekey_id : reusable.id, one_time_prekey : reusable.public_key }) do
+    Err(_) -> Err("bundle encode failed")
+    Ok(value) -> Ok(value)
   end ?
-  encode_client_profile(% { profile.entry | prekey_bundle : bundle },
+  encode_client_profile(% {profile.entry | prekey_bundle : bundle },
   profile.account_id,
   profile.device_id)
 end
@@ -78,8 +78,8 @@ fn proof() -> Bool ! String do
   # key stays, so delivery replaying a first message must be refused for good
   # rather than rebuilding (and so rolling back) that session.
   case deliver(bob_path, first) do
-    Ok( _) -> assert(false)
-    Err( error) -> do
+    Ok(_) -> assert(false)
+    Err(error) -> do
       assert(error == "replayed_initial_message")
       assert(permanent_direct_delivery_error(error))
     end
@@ -92,11 +92,11 @@ end
 
 test("an exhausted prekey pool still opens sessions through the last-resort key") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -170,8 +170,8 @@ fn rotation() -> Bool ! String do
   age_last_resort_for_test(bob_path, 3024000000) ?
   directory_answered(bob_path, bob_profile) ?
   case deliver(bob_path, start(dave_path, replaced, "too late") ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "one_time_prekey_not_found")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "one_time_prekey_not_found")
   end
   File.delete(alice_path) ?
   File.delete(carol_path) ?
@@ -183,10 +183,10 @@ end
 
 test("the last-resort key is replaced every week and its secret destroyed once no message can need it") do
   case rotation() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

@@ -50,81 +50,81 @@ end
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( _) -> Err("test integer conversion failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("test integer conversion failed")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("test byte encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("test byte encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn entry(input :: Bytes) -> DirectoryEntry ! String do
   case decode_directory_entry(input) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn bundle(input :: Bytes) -> PrekeyBundle ! String do
   case decode_prekey_bundle(input) do
-    Err( _) -> Err("prekey bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("prekey bundle decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn credential(input :: Bytes) -> DeviceCredential ! String do
   case decode_device_credential(input) do
-    Err( _) -> Err("device credential decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device credential decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn outer(input :: Bytes) -> OuterEnvelope ! String do
   case decode_outer_envelope(input) do
-    Err( _) -> Err("outer envelope decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("outer envelope decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn bundle_wire(value :: PrekeyBundle) -> Bytes ! String do
   case encode_prekey_bundle(value) do
-    Err( _) -> Err("prekey bundle encode failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("prekey bundle encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn base_bundle(value :: PrekeyBundle) -> PrekeyBundle ! String do
   case normalize_prekey_bundle(value) do
-    Err( _) -> Err("prekey bundle normalization failed")
-    Ok( normalized) -> Ok(normalized)
+    Err(_) -> Err("prekey bundle normalization failed")
+    Ok(normalized) -> Ok(normalized)
   end
 end
 
 fn device_set_wire(value :: DeviceSet) -> Bytes ! String do
   case encode_device_set(value) do
-    Err( _) -> Err("device set encode failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("device set encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn read_u32_at(input :: Bytes, offset :: Int) -> Int ! String do
   case Bytes.read_u32_be(input, offset) do
-    Err( _) -> Err("output list decode failed")
-    Ok( value) -> case U64.to_int(value) do
-      Err( _) -> Err("output list decode failed")
-      Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("output list decode failed")
+    Ok(value) -> case U64.to_int(value) do
+      Err(_) -> Err("output list decode failed")
+      Ok(parsed) -> Ok(parsed)
     end
   end
 end
 
 fn slice(input :: Bytes, offset :: Int, length :: Int) -> Bytes ! String do
   case Bytes.slice(input, offset, length) do
-    Err( _) -> Err("output list decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("output list decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -178,8 +178,8 @@ end
 
 fn row_text(row :: Map < String, DbValue >, key :: String) -> String ! String do
   case Map.get(row, key) do
-    Text( value) -> Ok(value)
-    Binary( _) -> Err("expected text database value")
+    Text(value) -> Ok(value)
+    Binary(_) -> Err("expected text database value")
     Null -> Err("expected text database value")
   end
 end
@@ -205,11 +205,11 @@ fn database_fingerprint(path :: String) -> String ! String do
   case Sqlite.query_values(database,
   "SELECT record_hash, hex(ciphertext) AS ciphertext_hex FROM encrypted_blobs ORDER BY record_hash",
   []) do
-    Err( error) -> do
+    Err(error) -> do
       Sqlite.close(database)
       Err(error)
     end
-    Ok( rows) -> do
+    Ok(rows) -> do
       Sqlite.close(database)
       fingerprint_rows(rows, 0, "")
     end
@@ -224,11 +224,11 @@ fn set_outbox_failure(path :: String, enabled :: Bool) -> Result <(), String > d
     "DROP TRIGGER mesh_test_fail_fanout"
   end
   case Sqlite.execute(database, statement, []) do
-    Err( error) -> do
+    Err(error) -> do
       Sqlite.close(database)
       Err(error)
     end
-    Ok( _) -> do
+    Ok(_) -> do
       Sqlite.close(database)
       Ok(nil)
     end
@@ -242,8 +242,8 @@ end
 
 fn oversized_prekey_response(_request :: Request) -> Response do
   case Bytes.repeat(7, 19313) do
-    Err( _) -> HTTP.response(500, "")
-    Ok( body) -> HTTP.response_bytes_with_headers(200,
+    Err(_) -> HTTP.response(500, "")
+    Ok(body) -> HTTP.response_bytes_with_headers(200,
     body,
     Map.put(Map.new(), "Cache-Control", "no-store"))
   end
@@ -257,8 +257,8 @@ end
 
 fn signing_pair() -> SigningKeyPair ! String do
   case Crypto.signing_generate() do
-    Err( _) -> Err("test signing key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test signing key generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -270,8 +270,8 @@ fn proof() -> Bool ! String do
   let witness_a = signing_pair() ?
   let witness_b = signing_pair() ?
   let delivery_pair = case Crypto.x25519_generate() do
-    Err( _) -> Err("test delivery key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test delivery key generation failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(install_security_config(service_pair.public_key.bytes,
   witness_a.public_key.bytes,
@@ -293,13 +293,13 @@ fn proof() -> Bool ! String do
   let claimed_alice_bundle = bundle(claimed_alice_entry.prekey_bundle) ?
   let claimed_linked_bundle = bundle(claimed_linked_entry.prekey_bundle) ?
   let claimed_bob_bundle = bundle(claimed_bob_entry.prekey_bundle) ?
-  let alice_entry = % { claimed_alice_entry | prekey_bundle : bundle_wire(base_bundle(claimed_alice_bundle) ?) ? }
-  let linked_entry = % { claimed_linked_entry | prekey_bundle : bundle_wire(base_bundle(claimed_linked_bundle) ?) ? }
-  let bob_entry = % { claimed_bob_entry | prekey_bundle : bundle_wire(base_bundle(claimed_bob_bundle) ?) ? }
+  let alice_entry = % {claimed_alice_entry | prekey_bundle : bundle_wire(base_bundle(claimed_alice_bundle) ?) ? }
+  let linked_entry = % {claimed_linked_entry | prekey_bundle : bundle_wire(base_bundle(claimed_linked_bundle) ?) ? }
+  let bob_entry = % {claimed_bob_entry | prekey_bundle : bundle_wire(base_bundle(claimed_bob_bundle) ?) ? }
   let linked_publication = decode_prekey_publish(replenish_prekeys_export(request([Bytes.from_utf8(linked_path), write_u32(1) ?]) ?) ?) ?
   assert(List.length(linked_publication.prekeys) == 1)
   let linked_prekey = List.head(linked_publication.prekeys)
-  let next_claimed_linked_bundle = % { claimed_linked_bundle | one_time_prekey_id : linked_prekey.id, one_time_prekey : linked_prekey.public_key }
+  let next_claimed_linked_bundle = % {claimed_linked_bundle | one_time_prekey_id : linked_prekey.id, one_time_prekey : linked_prekey.public_key }
   let alice_credential = credential(claimed_alice_bundle.device_credential) ?
   let linked_credential = credential(claimed_linked_bundle.device_credential) ?
   let alice_set = device_set_wire(DeviceSet {
@@ -332,12 +332,12 @@ fn proof() -> Bool ! String do
   let claim_targets_request = request([Bytes.from_utf8(alice_path), bob_set, alice_set]) ?
   let fanout_request = request([Bytes.from_utf8(alice_path), bob_set, alice_set, synced]) ?
   case fanout_prekey_claims_export(claim_targets_request) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   case send_fanout_export(fanout_request) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   let peer_leaf = leaf_hash(bob_set) ?
   let local_leaf = leaf_hash(alice_set) ?
@@ -396,19 +396,19 @@ fn proof() -> Bool ! String do
   Timer.sleep(100)
   let before_oversized_response = database_fingerprint(alice_path) ?
   case prepare_fanout_prekeys_export(request([Bytes.from_utf8(alice_path), bob_set, alice_set, Bytes.from_utf8("http://127.0.0.1:18996")]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "prekey_claim_too_large")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "prekey_claim_too_large")
   end
   assert(database_fingerprint(alice_path) ? == before_oversized_response)
   let before_failure = database_fingerprint(alice_path) ?
   case send_fanout_export(fanout_request) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_fanout_prekeys")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_fanout_prekeys")
   end
-  let changed_static_bundle = % { claimed_linked_bundle | signed_prekey : repeated(99, 32) ? }
+  let changed_static_bundle = % {claimed_linked_bundle | signed_prekey : repeated(99, 32) ? }
   case reserve_fanout_prekey_export(request([Bytes.from_utf8(alice_path), bob_set, alice_set, bundle_wire(changed_static_bundle) ?]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_fanout_prekeys")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_fanout_prekeys")
   end
   assert(database_fingerprint(alice_path) ? == before_failure)
   let reserve_request = request([Bytes.from_utf8(alice_path), bob_set, alice_set, bundle_wire(claimed_linked_bundle) ?]) ?
@@ -419,8 +419,8 @@ fn proof() -> Bool ! String do
   assert(reserved_fingerprint != before_failure)
   set_outbox_failure(alice_path, true) ?
   case send_fanout_export(fanout_request) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "database_write_failed")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "database_write_failed")
   end
   set_outbox_failure(alice_path, false) ?
   assert(database_fingerprint(alice_path) ? == reserved_fingerprint)
@@ -457,12 +457,12 @@ fn proof() -> Bool ! String do
   let reply_claim_targets = request([Bytes.from_utf8(bob_path), alice_set, bob_set]) ?
   let reply_request = request([Bytes.from_utf8(bob_path), alice_set, bob_set, reply]) ?
   case fanout_prekey_claims_export(reply_claim_targets) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   case send_fanout_export(reply_request) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   let bob_view = signed_transparency_view([leaf_hash(alice_set) ?, leaf_hash(bob_set) ?]) ?
   assert(install_group_transparency_for_test(bob_path,
@@ -510,26 +510,26 @@ fn proof() -> Bool ! String do
   # Without a key, delivery can only damage the seal: permanent poison that
   # never reaches, and so never disturbs, the ratchet.
   case receive_message_export(request([Bytes.from_utf8(alice_path), test_sealed_tamper_envelope(root_reply) ?]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_recipient_packet")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_recipient_packet")
   end
   case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_jump_envelope(alice_path,
   root_reply) ?]) ?) do
-    Ok( _) -> assert(false)
+    Ok(_) -> assert(false)
     # Final, not something to try again: the messages in between are never
     # coming, and an envelope left unacknowledged would hold up the mailbox.
-    Err( error) -> assert(error == "message_rejected")
+    Err(error) -> assert(error == "message_rejected")
   end
   case receive_message_export(request([Bytes.from_utf8(alice_path), test_ratchet_tamper_envelope(alice_path,
   root_reply) ?]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "message_rejected")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "message_rejected")
   end
   assert(Bytes.secure_equals(receive_message_export(request([Bytes.from_utf8(alice_path), root_reply]) ?) ?,
   reply))
   case receive_message_export(request([Bytes.from_utf8(alice_path), root_reply]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "message_rejected")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "message_rejected")
   end
   assert(Bytes.secure_equals(receive_initial_export(request([Bytes.from_utf8(linked_path), linked_reply]) ?) ?,
   reply))
@@ -550,12 +550,12 @@ fn proof() -> Bool ! String do
   let revoked_claim_targets = request([Bytes.from_utf8(bob_path), revoked_set, bob_set]) ?
   let revoked_request = request([Bytes.from_utf8(bob_path), revoked_set, bob_set, Bytes.from_utf8("root only")]) ?
   case fanout_prekey_claims_export(revoked_claim_targets) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   case send_fanout_export(revoked_request) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   let revoked_view = signed_transparency_view([leaf_hash(revoked_set) ?, leaf_hash(bob_set) ?]) ?
   assert(install_group_transparency_for_test(bob_path,
@@ -587,10 +587,10 @@ end
 
 test("mobile multi-device fanout and revocation are proved in Mesh") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

@@ -39,24 +39,24 @@ from Transport.Packet import ClientProfile, decode_client_profile
 
 ##! Mobile.Profile implementation.
 
-pub fn account_keys(created_at :: U64) -> Result <( AccountKeys, AccountIdentity), String > do
+pub fn account_keys(created_at :: U64) -> Result <(AccountKeys, AccountIdentity), String > do
   case generate_account(created_at, mobile_wide("1") ?) do
-    Err( _) -> Err("account_generation_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account_generation_failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn device_keys() -> DeviceKeys ! String do
   case generate_device() do
-    Err( _) -> Err("device_generation_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device_generation_failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn directory_bytes(value :: DirectoryEntry) -> Bytes ! String do
   case encode_directory_entry(value) do
-    Err( _) -> Err("directory_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("directory_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -98,8 +98,8 @@ database_path :: String) -> AccountKeys ! String do
   case open_signing(account_blob,
   wrapping_key,
   context(profile.account_id, profile.device_id, "account-signing-key/v1", 6) ?) do
-    Err( error) -> Err(error)
-    Ok( private_key) -> Ok(AccountKeys {
+    Err(error) -> Err(error)
+    Ok(private_key) -> Ok(AccountKeys {
       account_id : profile.account_id,
       private_key : private_key,
       public_key : SigningPublicKey { bytes : profile.account.authorization_public_key }
@@ -107,13 +107,13 @@ database_path :: String) -> AccountKeys ! String do
   end
 end
 
-fn reject_prekey_open(signed_private :: consume X25519PrivateKey, error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
+fn reject_prekey_open(signed_private :: consume X25519PrivateKey, error :: String) -> Result <(SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
   Err(error)
 end
 
 fn reject_post_quantum_open(signed_private :: consume X25519PrivateKey,
 one_time_private :: consume X25519PrivateKey,
-error :: String) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
+error :: String) -> Result <(SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
   Err(error)
 end
 
@@ -122,15 +122,15 @@ wrapping_key :: borrow StorageKey,
 database_path :: String) -> PostQuantumPrekeySecrets ! String do
   let label = "post-quantum-prekey/v1"
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" && profile.bundle.suite == 1 do
+    Err(error) -> if error == "local_state_not_found" && profile.bundle.suite == 1 do
       case generate_post_quantum_prekey() do
-        Err( _) -> Err("post_quantum_prekey_generation_failed")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("post_quantum_prekey_generation_failed")
+        Ok(value) -> Ok(value)
       end
     else
       Err(error)
     end
-    Ok( blob) -> do
+    Ok(blob) -> do
       let private_key = open_mlkem(blob,
       wrapping_key,
       context(profile.account_id, profile.device_id, label, 15) ?) ?
@@ -150,10 +150,10 @@ database_path :: String) -> DeviceKeys ! String do
   let signing_context = context(profile.account_id, profile.device_id, "device-signing-key/v1", 7) ?
   let identity_context = context(profile.account_id, profile.device_id, "device-identity-key/v1", 8) ?
   case open_signing(signing_blob, wrapping_key, signing_context) do
-    Err( error) -> Err(error)
-    Ok( signing) -> case open_x25519(identity_blob, wrapping_key, identity_context) do
-      Err( error) -> reject_device_open(signing, error)
-      Ok( identity) -> Ok(DeviceKeys {
+    Err(error) -> Err(error)
+    Ok(signing) -> case open_x25519(identity_blob, wrapping_key, identity_context) do
+      Err(error) -> reject_device_open(signing, error)
+      Ok(identity) -> Ok(DeviceKeys {
         device_id : profile.device_id,
         signing_private_key : signing,
         signing_public_key : SigningPublicKey { bytes : profile.credential.signing_public_key },
@@ -172,12 +172,12 @@ database_path :: String) -> DeviceKeys ! String do
   case open_signing(signing_blob,
   wrapping_key,
   pending_context("pending-device-signing-key/v1", 7) ?) do
-    Err( error) -> Err(error)
-    Ok( signing) -> case open_x25519(identity_blob,
+    Err(error) -> Err(error)
+    Ok(signing) -> case open_x25519(identity_blob,
     wrapping_key,
     pending_context("pending-device-identity-key/v1", 8) ?) do
-      Err( error) -> reject_device_open(signing, error)
-      Ok( identity) -> Ok(DeviceKeys {
+      Err(error) -> reject_device_open(signing, error)
+      Ok(identity) -> Ok(DeviceKeys {
         device_id : request.device_id,
         signing_private_key : signing,
         signing_public_key : SigningPublicKey { bytes : request.signing_public_key },
@@ -204,19 +204,19 @@ end
 pub fn open_prekeys(profile :: ClientProfile,
 wrapping_key :: borrow StorageKey,
 database_path :: String,
-selected :: MobileOneTimePrekey) -> Result <( SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
+selected :: MobileOneTimePrekey) -> Result <(SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String > do
   let signed_blob = load_blob(database_path, "signed-prekey/v1") ?
   let one_time_label = one_time_prekey_label(selected.id)
   let one_time_blob = load_blob(database_path, one_time_label) ?
   let signed_context = context(profile.account_id, profile.device_id, "signed-prekey/v1", 9) ?
   let one_time_context = one_time_prekey_context(profile, selected.id) ?
   case open_x25519(signed_blob, wrapping_key, signed_context) do
-    Err( error) -> Err(error)
-    Ok( signed_private) -> case open_x25519(one_time_blob, wrapping_key, one_time_context) do
-      Err( error) -> reject_prekey_open(signed_private, error)
-      Ok( one_time_private) -> case open_post_quantum_prekey(profile, wrapping_key, database_path) do
-        Err( error) -> reject_post_quantum_open(signed_private, one_time_private, error)
-        Ok( post_quantum) -> Ok((SignedPrekeySecrets {
+    Err(error) -> Err(error)
+    Ok(signed_private) -> case open_x25519(one_time_blob, wrapping_key, one_time_context) do
+      Err(error) -> reject_prekey_open(signed_private, error)
+      Ok(one_time_private) -> case open_post_quantum_prekey(profile, wrapping_key, database_path) do
+        Err(error) -> reject_post_quantum_open(signed_private, one_time_private, error)
+        Ok(post_quantum) -> Ok((SignedPrekeySecrets {
           id : profile.bundle.signed_prekey_id,
           private_key : signed_private,
           public_key : X25519PublicKey { bytes : profile.bundle.signed_prekey },

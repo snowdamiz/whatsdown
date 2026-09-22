@@ -5,8 +5,8 @@ from Protocol.V1 import OuterEnvelope
 
 fn repeated(value :: Int, count :: Int) -> Bytes ! String do
   case Bytes.repeat(value, count) do
-    Err( _) -> Err("bytes failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("bytes failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -16,15 +16,15 @@ end
 
 fn protocol(value :: Result < Bytes, ProtocolError >) -> Bytes ! String do
   case value do
-    Err( _) -> Err("protocol failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("protocol failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn proof() -> Bool ! String do
   let pair = case Crypto.x25519_from_seed(Bytes.from_hex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a") ?) do
-    Err( _) -> Err("key failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("key failed")
+    Ok(value) -> Ok(value)
   end ?
   let sealed = seal_delivery(protocol(encode_outer_envelope(OuterEnvelope {
     version : 1,
@@ -57,10 +57,10 @@ end
 
 test("privacy edge forwards only valid sealed delivery bytes") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

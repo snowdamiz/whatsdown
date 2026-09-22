@@ -13,12 +13,12 @@ end
 
 fn refused(path :: String, key :: String) -> Bool do
   let write = case saved(path, key, Bytes.from_utf8("[]")) do
-    Err( error) -> error == "invalid_journal_key"
-    Ok( _) -> false
+    Err(error) -> error == "invalid_journal_key"
+    Ok(_) -> false
   end
   let read = case loaded(path, key) do
-    Err( error) -> error == "invalid_journal_key"
-    Ok( _) -> false
+    Err(error) -> error == "invalid_journal_key"
+    Ok(_) -> false
   end
   write && read
 end
@@ -32,7 +32,7 @@ fn stored_in_clear(path :: String, needle :: String) -> Bool ! String do
   [Text(needle), Text(needle)])
   Sqlite.close(database)
   case Map.get(List.head(rows ?), "found") do
-    Text( value) -> Ok(value != "0")
+    Text(value) -> Ok(value != "0")
     _ -> Err("count failed")
   end
 end
@@ -67,8 +67,8 @@ fn proof() -> Bool ! String do
   assert(refused(path, "drafts/chat/" <> Bytes.to_hex(repeated(10, 16) ?)))
   assert(refused(path, chat <> "\n"))
   case saved(path, chat, repeated(91, 262145) ?) do
-    Err( error) -> assert(error == "journal_record_too_large")
-    Ok( _) -> assert(false)
+    Err(error) -> assert(error == "journal_record_too_large")
+    Ok(_) -> assert(false)
   end
   File.delete(path) ?
   Ok(true)
@@ -76,10 +76,10 @@ end
 
 test("the app's read, notification and receipt journals are sealed, and only they can be named") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

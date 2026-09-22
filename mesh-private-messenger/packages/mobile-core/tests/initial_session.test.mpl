@@ -33,8 +33,8 @@ end
 
 fn row_text(row :: Map < String, DbValue >, key :: String) -> String ! String do
   case Map.get(row, key) do
-    Text( value) -> Ok(value)
-    Binary( _) -> Err("expected text database value")
+    Text(value) -> Ok(value)
+    Binary(_) -> Err("expected text database value")
     Null -> Err("expected text database value")
   end
 end
@@ -67,11 +67,11 @@ fn database_fingerprint(path :: String) -> String ! String do
   case Sqlite.query_values(database,
   "SELECT record_hash, hex(ciphertext) AS ciphertext_hex FROM encrypted_blobs WHERE record_hash NOT IN (?, ?) ORDER BY record_hash",
   [Text(record_hash("delivery-retries/v1")), Text(record_hash("inbox-cursor/v1"))]) do
-    Err( error) -> do
+    Err(error) -> do
       Sqlite.close(database)
       Err(error)
     end
-    Ok( rows) -> do
+    Ok(rows) -> do
       Sqlite.close(database)
       fingerprint_rows(rows, 0, "")
     end
@@ -86,11 +86,11 @@ fn set_receive_failure(path :: String, enabled :: Bool) -> Result <(), String > 
     "DROP TRIGGER mesh_test_fail_receive"
   end
   case Sqlite.execute(database, statement, []) do
-    Err( error) -> do
+    Err(error) -> do
       Sqlite.close(database)
       Err(error)
     end
-    Ok( _) -> do
+    Ok(_) -> do
       Sqlite.close(database)
       Ok(nil)
     end
@@ -110,9 +110,9 @@ fn malformed_ratchet_packet() -> Bytes ! String do
 end
 
 fn replace_ciphertext(envelope :: Bytes, ciphertext :: Bytes) -> Bytes ! String do
-  case encode_outer_envelope(% { outer(envelope) ? | ciphertext : ciphertext }) do
-    Err( _) -> Err("outer envelope encode failed")
-    Ok( encoded) -> Ok(encoded)
+  case encode_outer_envelope(% {outer(envelope) ? | ciphertext : ciphertext }) do
+    Err(_) -> Err("outer envelope encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -146,8 +146,8 @@ fn proof() -> Bool ! String do
   # A sealed outer suite whose body is not a sealed packet is permanent poison...
   let malformed_outer = replace_ciphertext(initial_outer, malformed_ratchet_packet() ?) ?
   case receive_message_export(request([Bytes.from_utf8(bob_path), malformed_outer]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_recipient_packet")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_recipient_packet")
   end
   let malformed_id = outer(malformed_outer) ?.envelope_id
   let malformed_ack = ack(process_delivery_batch_export(request([Bytes.from_utf8(bob_path), delivery_batch(malformed_outer) ?]) ?) ?) ?
@@ -159,8 +159,8 @@ fn proof() -> Bool ! String do
   X25519PublicKey { bytes : recipient.credential.dh_public_key }) ?
   let sealed_malformed_outer = replace_ciphertext(initial_outer, sealed_malformed) ?
   case receive_message_export(request([Bytes.from_utf8(bob_path), sealed_malformed_outer]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_ratchet_packet")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_ratchet_packet")
   end
   let sealed_malformed_ack = ack(process_delivery_batch_export(request([Bytes.from_utf8(bob_path), delivery_batch(sealed_malformed_outer) ?]) ?) ?) ?
   assert(List.length(sealed_malformed_ack.envelope_ids) == 1)
@@ -191,8 +191,8 @@ fn proof() -> Bool ! String do
   assert(Bytes.length(stale_outer) > 0)
   assert(assert_single_outbox(alice_path, stale_outer) ?)
   case receive_initial_export(request([Bytes.from_utf8(bob_path), stale_outer]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "one_time_prekey_not_found")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "one_time_prekey_not_found")
   end
   File.delete(alice_path) ?
   File.delete(bob_path) ?
@@ -201,10 +201,10 @@ end
 
 test("mobile initial sessions reconcile prekeys and commit atomically in Mesh") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

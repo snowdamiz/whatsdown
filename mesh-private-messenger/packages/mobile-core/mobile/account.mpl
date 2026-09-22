@@ -125,11 +125,11 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
     let expires_at = U64.add(created_at, mobile_wide("31536000000") ?) ?
     ensure_schema(database_path) ?
     ensure_account_missing(database_path) ?
-    let ( account, identity) = account_keys(created_at) ?
+    let (account, identity) = account_keys(created_at) ?
     let device = device_keys() ?
     let post_quantum = case generate_post_quantum_prekey() do
-      Err( _) -> Err("post_quantum_prekey_generation_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("post_quantum_prekey_generation_failed")
+      Ok(value) -> Ok(value)
     end ?
     let credential = case issue_hybrid_device_credential(account,
     device,
@@ -138,32 +138,32 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
     created_at,
     expires_at,
     mobile_wide("1") ?) do
-      Err( _) -> Err("credential_generation_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("credential_generation_failed")
+      Ok(value) -> Ok(value)
     end ?
     let signed = case generate_signed_prekey(device, credential, mobile_wide("1") ?, expires_at) do
-      Err( _) -> Err("prekey_generation_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey_generation_failed")
+      Ok(value) -> Ok(value)
     end ?
     let one_time = case generate_one_time_prekey(mobile_wide("2") ?) do
-      Err( _) -> Err("prekey_generation_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey_generation_failed")
+      Ok(value) -> Ok(value)
     end ?
     let bundle = case build_hybrid_prekey_bundle(credential, signed, one_time, post_quantum) do
-      Err( _) -> Err("prekey_bundle_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey_bundle_failed")
+      Ok(value) -> Ok(value)
     end ?
     let account_wire = case encode_account_identity(identity) do
-      Err( _) -> Err("account_encoding_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("account_encoding_failed")
+      Ok(value) -> Ok(value)
     end ?
     let bundle_wire = case encode_prekey_bundle(bundle) do
-      Err( _) -> Err("prekey_encoding_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey_encoding_failed")
+      Ok(value) -> Ok(value)
     end ?
     let mailbox_token = case Crypto.random_bytes(32) do
-      Err( _) -> Err("mailbox_generation_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("mailbox_generation_failed")
+      Ok(value) -> Ok(value)
     end ?
     let entry = DirectoryEntry {
       version : 1,
@@ -177,39 +177,39 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes ! String do
     let account_blob = case seal_signing(account.private_key,
     wrapping_key,
     context(identity.account_id, credential.device_id, "account-signing-key/v1", 6) ?) do
-      Err( _) -> Err("account_key_seal_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("account_key_seal_failed")
+      Ok(value) -> Ok(value)
     end ?
     let device_signing_blob = case seal_signing(device.signing_private_key,
     wrapping_key,
     context(identity.account_id, credential.device_id, "device-signing-key/v1", 7) ?) do
-      Err( _) -> Err("device_signing_key_seal_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("device_signing_key_seal_failed")
+      Ok(value) -> Ok(value)
     end ?
     let device_identity_blob = case seal_x25519(device.identity_private_key,
     wrapping_key,
     context(identity.account_id, credential.device_id, "device-identity-key/v1", 8) ?) do
-      Err( _) -> Err("device_identity_key_seal_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("device_identity_key_seal_failed")
+      Ok(value) -> Ok(value)
     end ?
     let signed_prekey_blob = case seal_x25519(signed.private_key,
     wrapping_key,
     context(identity.account_id, credential.device_id, "signed-prekey/v1", 9) ?) do
-      Err( _) -> Err("signed_prekey_seal_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("signed_prekey_seal_failed")
+      Ok(value) -> Ok(value)
     end ?
     let one_time_label = one_time_prekey_label(one_time.id)
     let one_time_prekey_blob = case seal_x25519(one_time.private_key,
     wrapping_key,
     context(identity.account_id, credential.device_id, one_time_label, 10) ?) do
-      Err( _) -> Err("one_time_prekey_seal_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("one_time_prekey_seal_failed")
+      Ok(value) -> Ok(value)
     end ?
     let post_quantum_prekey_blob = case seal_mlkem(post_quantum.private_key,
     wrapping_key,
     context(identity.account_id, credential.device_id, "post-quantum-prekey/v1", 15) ?) do
-      Err( _) -> Err("post_quantum_prekey_seal_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("post_quantum_prekey_seal_failed")
+      Ok(value) -> Ok(value)
     end ?
     let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1") ?) ?
     let prekey_index_blob = seal_prekey_pool([MobileOneTimePrekey {
@@ -230,15 +230,15 @@ end
 
 fn link_request_bytes(value :: DeviceLinkRequest) -> Bytes ! String do
   case encode_device_link_request(value) do
-    Err( _) -> Err("link_request_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("link_request_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn parse_link_request(input :: Bytes) -> DeviceLinkRequest ! String do
   case decode_device_link_request(input) do
-    Err( _) -> Err("invalid_link_request")
-    Ok( value) -> if Bytes.secure_equals(link_request_bytes(value) ?, input) do
+    Err(_) -> Err("invalid_link_request")
+    Ok(value) -> if Bytes.secure_equals(link_request_bytes(value) ?, input) do
       Ok(value)
     else
       Err("noncanonical_link_request")
@@ -248,15 +248,15 @@ end
 
 fn link_authorization_bytes(value :: DeviceLinkAuthorization) -> Bytes ! String do
   case encode_device_link_authorization(value) do
-    Err( _) -> Err("link_authorization_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("link_authorization_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn parse_link_authorization(input :: Bytes) -> DeviceLinkAuthorization ! String do
   case decode_device_link_authorization(input) do
-    Err( _) -> Err("invalid_link_authorization")
-    Ok( value) -> if Bytes.secure_equals(link_authorization_bytes(value) ?, input) do
+    Err(_) -> Err("invalid_link_authorization")
+    Ok(value) -> if Bytes.secure_equals(link_authorization_bytes(value) ?, input) do
       Ok(value)
     else
       Err("noncanonical_link_authorization")
@@ -278,7 +278,7 @@ pub fn create_device_link_request(database_path :: String) -> Bytes ! String do
     ensure_account_missing(database_path) ?
     let wrapping_key = platform_key() ?
     case load_pending_link_request(database_path, wrapping_key) do
-      Ok( existing) -> do
+      Ok(existing) -> do
         let pending = parse_link_request(existing) ?
         if U64.compare(pending.expires_at, current_time() ?) >= 0 do
           Ok(existing)
@@ -287,14 +287,14 @@ pub fn create_device_link_request(database_path :: String) -> Bytes ! String do
           create_device_link_request(database_path)
         end
       end
-      Err( error) -> if error != "local_state_not_found" do
+      Err(error) -> if error != "local_state_not_found" do
         Err(error)
       else
         let now = current_time() ?
         let device = device_keys() ?
         let post_quantum = case generate_post_quantum_prekey() do
-          Err( _) -> Err("post_quantum_prekey_generation_failed")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("post_quantum_prekey_generation_failed")
+          Ok(value) -> Ok(value)
         end ?
         let request = DeviceLinkRequest {
           version : 2,
@@ -347,8 +347,8 @@ pub fn authorize_link(request :: MobilePayloadRequest) -> Bytes ! String do
     local.username,
     U64.add(now, mobile_wide("31536000000") ?) ?,
     U64.add(local.account.directory_sequence, mobile_wide("1") ?) ?) do
-      Err( _) -> Err("link_authorization_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("link_authorization_failed")
+      Ok(value) -> Ok(value)
     end ?
     link_authorization_bytes(authorization)
   end
@@ -363,46 +363,46 @@ pub fn complete_link(request :: MobilePayloadRequest) -> Bytes ! String do
   let pending = parse_link_request(pending_wire) ?
   let now = current_time() ?
   let valid = case verify_device_link_authorization(pending, authorization, now, mobile_wide("1") ?) do
-    Err( _) -> Err("link_authorization_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("link_authorization_failed")
+    Ok(value) -> Ok(value)
   end ?
   if !valid do
     Err("link_authorization_failed")
   else
     let account = case decode_account_identity(authorization.account_identity) do
-      Err( _) -> Err("invalid_link_authorization")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid_link_authorization")
+      Ok(value) -> Ok(value)
     end ?
     let credential = case decode_device_credential(authorization.device_credential) do
-      Err( _) -> Err("invalid_link_authorization")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid_link_authorization")
+      Ok(value) -> Ok(value)
     end ?
     let device = open_pending_device(pending, wrapping_key, request.database_path) ?
     let signed = case generate_signed_prekey(device,
     credential,
     mobile_wide("1") ?,
     credential.expires_at) do
-      Err( _) -> Err("prekey_generation_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey_generation_failed")
+      Ok(value) -> Ok(value)
     end ?
     let one_time = case generate_one_time_prekey(mobile_wide("2") ?) do
-      Err( _) -> Err("prekey_generation_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey_generation_failed")
+      Ok(value) -> Ok(value)
     end ?
     let post_quantum = open_pending_post_quantum_prekey(pending,
     wrapping_key,
     request.database_path) ?
     let bundle = case build_hybrid_prekey_bundle(credential, signed, one_time, post_quantum) do
-      Err( _) -> Err("prekey_bundle_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey_bundle_failed")
+      Ok(value) -> Ok(value)
     end ?
     let entry = DirectoryEntry {
       version : 1,
       username : authorization.username,
       account_identity : authorization.account_identity,
       prekey_bundle : case encode_prekey_bundle(bundle) do
-        Err( _) -> Err("prekey_encoding_failed")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("prekey_encoding_failed")
+        Ok(value) -> Ok(value)
       end ?,
       mailbox_token : random_bytes(32) ?
     }
@@ -444,8 +444,8 @@ pub fn device_link_sas(input :: Bytes) -> Bytes ! String do
   let request = parse_link_request(input) ?
   let digest = Crypto.sha256(link_request_bytes(request) ?)
   case Bytes.slice(digest, 0, 6) do
-    Err( _) -> Err("link_sas_failed")
-    Ok( value) -> Ok(Bytes.from_utf8(Bytes.to_hex(value)))
+    Err(_) -> Err("link_sas_failed")
+    Ok(value) -> Ok(Bytes.from_utf8(Bytes.to_hex(value)))
   end
 end
 
@@ -491,12 +491,12 @@ pub fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes ! String do
   let sealed = seal_local(verified.wire, wrapping_key, local_context(label) ?) ?
   store_updated_session(request.database_path, label, sealed) ?
   let can_manage = case load_blob(request.database_path, "account-signing-key/v1") do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(false)
     else
       Err(error)
     end
-    Ok( _) -> Ok(true)
+    Ok(_) -> Ok(true)
   end ?
   let active = active_device_rows(verified.profiles, local.device_id, 0, List.new()) ?
   let rows = revoked_device_rows(verified.value.revoked_device_ids, 0, active) ?
@@ -532,8 +532,8 @@ pub fn authorize_link_for_set(request :: MobileTriplePayloadRequest) -> Bytes ! 
     local.username,
     U64.add(now, mobile_wide("31536000000") ?) ?,
     U64.add(devices.value.sequence, mobile_wide("1") ?) ?) do
-      Err( _) -> Err("link_authorization_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("link_authorization_failed")
+      Ok(value) -> Ok(value)
     end ?
     link_authorization_bytes(authorization)
   end
@@ -556,12 +556,12 @@ pub fn create_device_revocation(request :: MobileTriplePayloadRequest) -> Bytes 
     let revocation = case issue_device_revocation(account,
     target,
     U64.add(devices.value.sequence, mobile_wide("1") ?) ?) do
-      Err( _) -> Err("invalid_device_revocation")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid_device_revocation")
+      Ok(value) -> Ok(value)
     end ?
     case encode_device_revocation(revocation) do
-      Err( _) -> Err("invalid_device_revocation")
-      Ok( encoded) -> Ok(encoded)
+      Err(_) -> Err("invalid_device_revocation")
+      Ok(encoded) -> Ok(encoded)
     end
   end
 end
@@ -573,21 +573,21 @@ end
 pub fn account_deletion(database_path :: String) -> Bytes ! String do
   let profile = decode_client_profile(load_profile(database_path) ?) ?
   case load_blob(database_path, "account-signing-key/v1") do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( _) -> do
+    Ok(_) -> do
       let wrapping_key = platform_key() ?
       let account = open_account(profile, wrapping_key, database_path) ?
       let deletion = case issue_account_deletion(account, current_time() ?) do
-        Err( _) -> Err("account_deletion_failed")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("account_deletion_failed")
+        Ok(value) -> Ok(value)
       end ?
       case encode_account_deletion(deletion) do
-        Err( _) -> Err("account_deletion_failed")
-        Ok( encoded) -> Ok(encoded)
+        Err(_) -> Err("account_deletion_failed")
+        Ok(encoded) -> Ok(encoded)
       end
     end
   end
@@ -607,33 +607,33 @@ pub fn device_departure(database_path :: String) -> Bytes ! String do
   let wrapping_key = platform_key() ?
   let device = open_device(profile, wrapping_key, database_path) ?
   let departure = case issue_device_departure(device, profile.account_id, current_time() ?) do
-    Err( _) -> Err("device_departure_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device_departure_failed")
+    Ok(value) -> Ok(value)
   end ?
   case encode_device_departure(departure) do
-    Err( _) -> Err("device_departure_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("device_departure_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn proven(result :: Result < Bool, IdentityError >) -> Bool do
   case result do
-    Err( _) -> false
-    Ok( valid) -> valid
+    Err(_) -> false
+    Ok(valid) -> valid
   end
 end
 
 fn deletion_proven(profile :: ClientProfile, statement :: Bytes) -> Bool do
   case decode_account_deletion(statement) do
-    Err( _) -> false
-    Ok( deletion) -> proven(verify_account_deletion(profile.account, deletion))
+    Err(_) -> false
+    Ok(deletion) -> proven(verify_account_deletion(profile.account, deletion))
   end
 end
 
 fn revocation_proven(profile :: ClientProfile, statement :: Bytes) -> Bool do
   case decode_device_revocation(statement) do
-    Err( _) -> false
-    Ok( revocation) -> do
+    Err(_) -> false
+    Ok(revocation) -> do
       let this_device = Bytes.secure_equals(revocation.device_id, profile.device_id)
       this_device && proven(verify_device_revocation(profile.account, revocation))
     end
@@ -642,8 +642,8 @@ end
 
 fn departure_proven(profile :: ClientProfile, statement :: Bytes) -> Bool do
   case decode_device_departure(statement) do
-    Err( _) -> false
-    Ok( departure) -> do
+    Err(_) -> false
+    Ok(departure) -> do
       let this_device = Bytes.secure_equals(departure.account_id, profile.account_id) && Bytes.secure_equals(departure.device_id,
       profile.device_id)
       let own_key = profile.credential.signing_public_key
@@ -685,20 +685,20 @@ end
 
 pub fn import_contact(input :: Bytes) -> Bytes ! String do
   let entry = case decode_directory_entry(input) do
-    Err( _) -> Err("invalid_directory_entry")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_directory_entry")
+    Ok(value) -> Ok(value)
   end ?
   let account = case decode_account_identity(entry.account_identity) do
-    Err( _) -> Err("invalid_directory_entry")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_directory_entry")
+    Ok(value) -> Ok(value)
   end ?
   let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
-    Err( _) -> Err("invalid_directory_entry")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_directory_entry")
+    Ok(value) -> Ok(value)
   end ?
   let credential = case decode_device_credential(bundle.device_credential) do
-    Err( _) -> Err("invalid_directory_entry")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_directory_entry")
+    Ok(value) -> Ok(value)
   end ?
   let profile = encode_client_profile(entry, account.account_id, credential.device_id) ?
   let _ = decode_client_profile(profile) ?
@@ -713,8 +713,8 @@ end
 pub fn directory_lookup(input :: Bytes) -> Bytes ! String do
   let username = mobile_utf8(input, "invalid_username") ?
   case encode_directory_lookup(username) do
-    Err( _) -> Err("invalid_username")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("invalid_username")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -731,7 +731,7 @@ pub fn mailbox_fetch(database_path :: String) -> Bytes ! String do
   Crypto.sha256(profile.entry.mailbox_token),
   load_fetch_cursor(database_path, wrapping_key) ?,
   current_time() ?) do
-    Err( _) -> Err("mailbox_fetch_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("mailbox_fetch_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end

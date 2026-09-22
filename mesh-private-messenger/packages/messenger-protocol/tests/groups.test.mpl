@@ -29,8 +29,8 @@ fn retained_root_opens(state :: borrow GroupState, message :: GroupMessage, aad 
   message.group_id,
   info,
   32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   captured_message_opens(material, message, aad)
 end
@@ -45,43 +45,43 @@ end
 
 fn captured_message_opens(material :: SecretBytes, message :: GroupMessage, aad :: Bytes) -> Bool ! GroupError do
   let key = case Crypto.aead_key(material) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   let context = group_join([Bytes.from_utf8("mesh-mls/v1/group-message"), group_byte(message.version) ?, group_write_u16(message.suite) ?, message.group_id, group_write_u64(message.epoch) ?, message.tree_hash, group_write_u16(message.sender_leaf) ?, group_write_u32(message.generation) ?, message.nonce, aad],
   0,
   Bytes.empty()) ?
   case Crypto.aead_open(key, message.nonce, context, message.ciphertext) do
-    Err( _) -> Ok(false)
-    Ok( _) -> Ok(true)
+    Err(_) -> Ok(false)
+    Ok(_) -> Ok(true)
   end
 end
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
 fn wide(value :: Int) -> U64 ! GroupError do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidGroup)
+    Ok(output) -> Ok(output)
   end
 end
 
 fn signing_pair() -> SigningKeyPair ! GroupError do
   case Crypto.signing_generate() do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn init_pair() -> X25519KeyPair ! GroupError do
   case Crypto.x25519_generate() do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -113,7 +113,7 @@ end
 fn group_error_name(value :: GroupError) -> String do
   case value do
     AuthenticationRejected -> "AuthenticationRejected"
-    CryptoFailure( _) -> "CryptoFailure"
+    CryptoFailure(_) -> "CryptoFailure"
     FutureEpoch -> "FutureEpoch"
     InvalidGroup -> "InvalidGroup"
     InvalidMember -> "InvalidMember"
@@ -122,14 +122,14 @@ fn group_error_name(value :: GroupError) -> String do
     RemovedMember -> "RemovedMember"
     RollbackRejected -> "RollbackRejected"
     StaleEpoch -> "StaleEpoch"
-    TreeFailure( _) -> "TreeFailure"
+    TreeFailure(_) -> "TreeFailure"
   end
 end
 
-fn added(outcome :: GroupAddOutcome) -> Result <( GroupState, GroupCommit, GroupWelcome), GroupError > do
+fn added(outcome :: GroupAddOutcome) -> Result <(GroupState, GroupCommit, GroupWelcome), GroupError > do
   case outcome do
-    GroupMemberAdded( state, commit, welcome) -> Ok((state, commit, welcome))
-    GroupAddRejected( state, error) -> do
+    GroupMemberAdded(state, commit, welcome) -> Ok((state, commit, welcome))
+    GroupAddRejected(state, error) -> do
       consume_state(state)
       Err(error)
     end
@@ -138,18 +138,18 @@ end
 
 fn rejected_add(outcome :: GroupAddOutcome) -> GroupState ! GroupError do
   case outcome do
-    GroupMemberAdded( state, _, _) -> do
+    GroupMemberAdded(state, _, _) -> do
       consume_state(state)
       Err(AuthenticationRejected)
     end
-    GroupAddRejected( state, _) -> Ok(state)
+    GroupAddRejected(state, _) -> Ok(state)
   end
 end
 
-fn removed(outcome :: GroupRemoveOutcome) -> Result <( GroupState, GroupCommit), GroupError > do
+fn removed(outcome :: GroupRemoveOutcome) -> Result <(GroupState, GroupCommit), GroupError > do
   case outcome do
-    GroupMemberRemoved( state, commit) -> Ok((state, commit))
-    GroupRemoveRejected( state, error) -> do
+    GroupMemberRemoved(state, commit) -> Ok((state, commit))
+    GroupRemoveRejected(state, error) -> do
       consume_state(state)
       Err(error)
     end
@@ -158,18 +158,18 @@ end
 
 fn rejected_remove(outcome :: GroupRemoveOutcome) -> GroupState ! GroupError do
   case outcome do
-    GroupMemberRemoved( state, _) -> do
+    GroupMemberRemoved(state, _) -> do
       consume_state(state)
       Err(AuthenticationRejected)
     end
-    GroupRemoveRejected( state, _) -> Ok(state)
+    GroupRemoveRejected(state, _) -> Ok(state)
   end
 end
 
-fn encrypted(outcome :: GroupEncryptOutcome) -> Result <( GroupState, GroupMessage), GroupError > do
+fn encrypted(outcome :: GroupEncryptOutcome) -> Result <(GroupState, GroupMessage), GroupError > do
   case outcome do
-    GroupMessageEncrypted( state, message) -> Ok((state, message))
-    GroupEncryptRejected( state, error) -> do
+    GroupMessageEncrypted(state, message) -> Ok((state, message))
+    GroupEncryptRejected(state, error) -> do
       consume_state(state)
       Err(error)
     end
@@ -178,23 +178,23 @@ end
 
 fn rejected_encryption(outcome :: GroupEncryptOutcome) -> GroupState ! GroupError do
   case outcome do
-    GroupMessageEncrypted( state, _) -> do
+    GroupMessageEncrypted(state, _) -> do
       consume_state(state)
       Err(AuthenticationRejected)
     end
-    GroupEncryptRejected( state, _) -> Ok(state)
+    GroupEncryptRejected(state, _) -> Ok(state)
   end
 end
 
 fn opened(outcome :: GroupDecryptOutcome, expected :: Bytes) -> GroupState ! GroupError do
   case outcome do
-    MessageOpened( state, plaintext) -> if Bytes.secure_equals(plaintext, expected) do
+    MessageOpened(state, plaintext) -> if Bytes.secure_equals(plaintext, expected) do
       Ok(state)
     else
       consume_state(state)
       Err(AuthenticationRejected)
     end
-    MessageRejected( state, error) -> do
+    MessageRejected(state, error) -> do
       consume_state(state)
       Err(error)
     end
@@ -203,8 +203,8 @@ end
 
 fn applied(outcome :: CommitApplyOutcome) -> GroupState ! GroupError do
   case outcome do
-    CommitApplied( state) -> Ok(state)
-    CommitRejected( state, error) -> do
+    CommitApplied(state) -> Ok(state)
+    CommitRejected(state, error) -> do
       consume_state(state)
       Err(error)
     end
@@ -213,15 +213,15 @@ end
 
 fn rejected_commit(outcome :: CommitApplyOutcome, expected :: GroupError) -> GroupState ! GroupError do
   case outcome do
-    CommitApplied( state) -> do
+    CommitApplied(state) -> do
       consume_state(state)
       Err(AuthenticationRejected)
     end
-    CommitRejected( state, error) -> case (error, expected) do
-      ( FutureEpoch, FutureEpoch) -> Ok(state)
-      ( AuthenticationRejected, AuthenticationRejected) -> Ok(state)
-      ( RemovedMember, RemovedMember) -> Ok(state)
-      ( StaleEpoch, StaleEpoch) -> Ok(state)
+    CommitRejected(state, error) -> case (error, expected) do
+      (FutureEpoch, FutureEpoch) -> Ok(state)
+      (AuthenticationRejected, AuthenticationRejected) -> Ok(state)
+      (RemovedMember, RemovedMember) -> Ok(state)
+      (StaleEpoch, StaleEpoch) -> Ok(state)
       _ -> do
         consume_state(state)
         Err(AuthenticationRejected)
@@ -232,11 +232,11 @@ end
 
 fn rejected_message(outcome :: GroupDecryptOutcome) -> GroupState ! GroupError do
   case outcome do
-    MessageOpened( state, _) -> do
+    MessageOpened(state, _) -> do
       consume_state(state)
       Err(AuthenticationRejected)
     end
-    MessageRejected( state, _) -> Ok(state)
+    MessageRejected(state, _) -> Ok(state)
   end
 end
 
@@ -275,9 +275,9 @@ fn proof() -> Bool ! GroupError do
   alice_second_leaf.public_key,
   checkpoint) ?
   let alice_state = create_group(alice, alice_leaf.private_key, [1], policy) ?
-  let invalid_bob = % { bob | witness_count : 0 }
+  let invalid_bob = % {bob | witness_count : 0 }
   let alice_state = rejected_add(commit_add(alice_state, alice_signing.private_key, invalid_bob)) ?
-  let ( alice_state, bob_commit, bob_welcome) = added(commit_add(alice_state,
+  let (alice_state, bob_commit, bob_welcome) = added(commit_add(alice_state,
   alice_signing.private_key,
   bob)) ?
   assert(List.length(bob_commit.update_path.nodes) == 6)
@@ -285,7 +285,7 @@ fn proof() -> Bool ! GroupError do
   let bob_state = join_from_welcome(bob_welcome, bob_init.private_key, bob_leaf.private_key) ?
   assert(member_count(alice_state.tree) == 2)
   assert(member_count(bob_state.tree) == 2)
-  let ( alice_state, second_commit, second_welcome) = added(commit_add(alice_state,
+  let (alice_state, second_commit, second_welcome) = added(commit_add(alice_state,
   alice_signing.private_key,
   alice_second)) ?
   let bob_state = applied(apply_commit(bob_state, second_commit)) ?
@@ -317,9 +317,9 @@ fn proof() -> Bool ! GroupError do
   bob_state.tree,
   captured_context,
   second_commit.confirmation) do
-    Err( AuthenticationRejected) -> assert(true)
-    Err( _) -> assert(false)
-    Ok( value) -> do
+    Err(AuthenticationRejected) -> assert(true)
+    Err(_) -> assert(false)
+    Ok(value) -> do
       discard_attack(value)
       assert(false)
     end
@@ -342,25 +342,25 @@ fn proof() -> Bool ! GroupError do
   alice_signing.private_key,
   repeated(7, 65521),
   caller_data)) ?
-  let ( alice_state, message) = encrypted(encrypt_group_message(alice_state,
+  let (alice_state, message) = encrypted(encrypt_group_message(alice_state,
   alice_signing.private_key,
   plaintext,
   caller_data)) ?
   let bob_state = opened(decrypt_group_message(bob_state, message, caller_data), plaintext) ?
   assert(!retained_root_opens(bob_state, message, caller_data) ?)
   assert(!current_chain_opens(bob_state, message, caller_data) ?)
-  let ( alice_state, earlier) = encrypted(encrypt_group_message(alice_state,
+  let (alice_state, earlier) = encrypted(encrypt_group_message(alice_state,
   alice_signing.private_key,
   plaintext,
   caller_data)) ?
-  let ( alice_state, later) = encrypted(encrypt_group_message(alice_state,
+  let (alice_state, later) = encrypted(encrypt_group_message(alice_state,
   alice_signing.private_key,
   plaintext,
   caller_data)) ?
   let bob_state = opened(decrypt_group_message(bob_state, later, caller_data), plaintext) ?
   let bob_state = opened(decrypt_group_message(bob_state, earlier, caller_data), plaintext) ?
   let bob_state = rejected_message(decrypt_group_message(bob_state, earlier, caller_data)) ?
-  let ( bob_state, reply) = encrypted(encrypt_group_message(bob_state,
+  let (bob_state, reply) = encrypted(encrypt_group_message(bob_state,
   bob_signing.private_key,
   plaintext,
   caller_data)) ?
@@ -369,13 +369,13 @@ fn proof() -> Bool ! GroupError do
   plaintext) ?
   # Recovery of Alice's temporary encryption-state compromise requires Alice's
   # own fresh leaf update; an attacker retaining another member needs its update too.
-  let ( alice_state, refresh) = removed(commit_update(alice_state, alice_signing.private_key)) ?
-  case encode_group_commit(% { refresh | version : 1, confirmation : Bytes.empty() }) do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+  let (alice_state, refresh) = removed(commit_update(alice_state, alice_signing.private_key)) ?
+  case encode_group_commit(% {refresh | version : 1, confirmation : Bytes.empty() }) do
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
   let bob_state = applied(apply_commit(bob_state, refresh)) ?
-  let ( alice_state, recovered) = encrypted(encrypt_group_message(alice_state,
+  let (alice_state, recovered) = encrypted(encrypt_group_message(alice_state,
   alice_signing.private_key,
   plaintext,
   caller_data)) ?
@@ -389,17 +389,17 @@ fn proof() -> Bool ! GroupError do
   Ok(true)
 end
 
-fn discard_attack(value :: consume( TreeKemPathPatch, GroupEpochKeys)) do
+fn discard_attack(value :: consume(TreeKemPathPatch, GroupEpochKeys)) do
   nil
 end
 
 test("MLS group add, welcome, message, and multi-device membership") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(group_error_name(error))
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -438,18 +438,18 @@ fn removal_proof() -> Bool ! GroupError do
   carol_leaf.public_key,
   checkpoint) ?
   let alice_state = create_group(alice, alice_leaf.private_key, [1], policy) ?
-  let ( alice_state, _, bob_welcome) = added(commit_add(alice_state, alice_signing.private_key, bob)) ?
+  let (alice_state, _, bob_welcome) = added(commit_add(alice_state, alice_signing.private_key, bob)) ?
   let bob_state = join_from_welcome(bob_welcome, bob_init.private_key, bob_leaf.private_key) ?
-  let ( alice_state, carol_commit, carol_welcome) = added(commit_add(alice_state,
+  let (alice_state, carol_commit, carol_welcome) = added(commit_add(alice_state,
   alice_signing.private_key,
   carol)) ?
   let carol_state = join_from_welcome(carol_welcome, carol_init.private_key, carol_leaf.private_key) ?
   let alice_state = rejected_remove(commit_remove(alice_state, bob_signing.private_key, 1)) ?
-  let ( alice_state, removal_commit) = removed(commit_remove(alice_state,
+  let (alice_state, removal_commit) = removed(commit_remove(alice_state,
   alice_signing.private_key,
   1)) ?
   let bob_state = rejected_commit(apply_commit(bob_state, removal_commit), FutureEpoch) ?
-  let tampered_carol_commit = % { carol_commit | signature : Signature { bytes : repeated(0, 64) } }
+  let tampered_carol_commit = % {carol_commit | signature : Signature { bytes : repeated(0, 64) } }
   let bob_state = rejected_commit(apply_commit(bob_state, tampered_carol_commit),
   AuthenticationRejected) ?
   let bob_state = applied(apply_commit(bob_state, carol_commit)) ?
@@ -458,7 +458,7 @@ fn removal_proof() -> Bool ! GroupError do
   let carol_state = rejected_commit(apply_commit(carol_state, carol_commit), StaleEpoch) ?
   let plaintext = Bytes.from_utf8("after removal")
   let caller_data = Bytes.from_utf8("group removal")
-  let ( alice_state, message) = encrypted(encrypt_group_message(alice_state,
+  let (alice_state, message) = encrypted(encrypt_group_message(alice_state,
   alice_signing.private_key,
   plaintext,
   caller_data)) ?
@@ -474,11 +474,11 @@ end
 
 test("MLS removal rejects reordered epochs and excludes the removed device") do
   case removal_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(group_error_name(error))
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -493,15 +493,15 @@ key :: borrow StorageKey,
 account :: Int,
 device :: Int) -> GroupState ! GroupError do
   let version = case U64.add(state.snapshot_version, wide(1) ?) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidGroup)
+    Ok(value) -> Ok(value)
   end ?
   case group_snapshot(state, key, repeated(account, 32), repeated(device, 16), version) do
-    GroupSnapshotRejected( rejected, error) -> do
+    GroupSnapshotRejected(rejected, error) -> do
       consume_state(rejected)
       Err(error)
     end
-    GroupSnapshotSealed( saved, blob) -> do
+    GroupSnapshotSealed(saved, blob) -> do
       consume_state(saved)
       restore_group(blob, key, repeated(account, 32), repeated(device, 16), version)
     end
@@ -515,13 +515,13 @@ bob_key :: borrow SigningPrivateKey,
 storage :: borrow StorageKey,
 pending :: List < PendingGroupMessage >,
 step :: Int,
-random :: Int) -> Result <( GroupState, GroupState, List < PendingGroupMessage >), GroupError > do
+random :: Int) -> Result <(GroupState, GroupState, List < PendingGroupMessage >), GroupError > do
   let aad = Bytes.from_utf8("seeded-group-campaign/v1")
   if step % 16 < 8 do
     let from_alice = step % 2 == 0
     let body = Bytes.from_utf8("campaign step #{step}")
     if from_alice do
-      let ( next, message) = encrypted(encrypt_group_message(alice, alice_key, body, aad)) ?
+      let (next, message) = encrypted(encrypt_group_message(alice, alice_key, body, aad)) ?
       if current_chain_opens(next, message, aad) ? do
         return Err(AuthenticationRejected)
       end
@@ -534,7 +534,7 @@ random :: Int) -> Result <( GroupState, GroupState, List < PendingGroupMessage >
         from_alice : true
       })))
     else
-      let ( next, message) = encrypted(encrypt_group_message(bob, bob_key, body, aad)) ?
+      let (next, message) = encrypted(encrypt_group_message(bob, bob_key, body, aad)) ?
       if current_chain_opens(next, message, aad) ? do
         return Err(AuthenticationRejected)
       end
@@ -551,8 +551,8 @@ random :: Int) -> Result <( GroupState, GroupState, List < PendingGroupMessage >
     let index = random % List.length(pending)
     let delivery = List.get(pending, index)
     let rest = List.concat(List.take(pending, index), List.drop(pending, index + 1))
-    let forged = % { delivery.message | signature : Signature { bytes : repeated(0, 64) } }
-    let ( alice, bob) = if delivery.from_alice do
+    let forged = % {delivery.message | signature : Signature { bytes : repeated(0, 64) } }
+    let (alice, bob) = if delivery.from_alice do
       let receiver = rejected_message(decrypt_group_message(bob, forged, aad)) ?
       let receiver = opened(decrypt_group_message(receiver, delivery.message, aad), delivery.body) ?
       let receiver = rejected_message(decrypt_group_message(receiver, delivery.message, aad)) ?
@@ -566,7 +566,7 @@ random :: Int) -> Result <( GroupState, GroupState, List < PendingGroupMessage >
     if step % 32 == 31 do
       let alice = restart_group(alice, storage, 1, 1) ?
       let bob = restart_group(bob, storage, 2, 2) ?
-      let ( alice, commit) = removed(commit_update(alice, alice_key)) ?
+      let (alice, commit) = removed(commit_update(alice, alice_key)) ?
       let bob = applied(apply_commit(bob, commit)) ?
       Ok((alice, bob, rest))
     else
@@ -599,13 +599,13 @@ trace :: String) -> Bool ! GroupError do
     end
     let trace = trace <> " #{step}:#{action}:#{random}"
     case seeded_group_step(alice, bob, alice_key, bob_key, storage, pending, step, random) do
-      Err( error) -> do
+      Err(error) -> do
         # The prefix ends at the first failing operation; the seed reproduces it exactly.
         println("failing action prefix:" <> trace)
         Err(error)
       end
-      Ok( values) -> do
-        let ( alice, bob, pending) = values
+      Ok(values) -> do
+        let (alice, bob, pending) = values
         seeded_group_steps(alice,
         bob,
         alice_key,
@@ -646,11 +646,11 @@ fn seeded_group(seed :: Int) -> Bool ! GroupError do
   bob_leaf.public_key,
   checkpoint) ?
   let alice_state = create_group(alice, alice_leaf.private_key, [1], policy) ?
-  let ( alice_state, _, welcome) = added(commit_add(alice_state, alice_signing.private_key, bob)) ?
+  let (alice_state, _, welcome) = added(commit_add(alice_state, alice_signing.private_key, bob)) ?
   let bob_state = join_from_welcome(welcome, bob_init.private_key, bob_leaf.private_key) ?
   let storage = case StorageKey.ephemeral() do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   seeded_group_steps(alice_state,
   bob_state,
@@ -668,8 +668,8 @@ test("C2 C3 C4 seeded groups preserve reordering, erasure, replay and restore ac
   assert(count > 0 && count <= 10000)
   for seed in 1..(count + 1) do
     case seeded_group(seed) do
-      Ok( value) -> assert(value)
-      Err( error) -> do
+      Ok(value) -> assert(value)
+      Err(error) -> do
         println("group campaign seed #{seed}: " <> group_error_name(error))
         assert(false)
       end

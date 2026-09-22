@@ -18,22 +18,22 @@ end
 
 fn filled(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
-fn account(created_at :: U64) -> Result <( AccountKeys, AccountIdentity), String > do
+fn account(created_at :: U64) -> Result <(AccountKeys, AccountIdentity), String > do
   case generate_account(created_at, wide("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn fresh_device() -> DeviceKeys ! String do
   case generate_device() do
-    Err( _) -> Err("device generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -63,51 +63,51 @@ device :: borrow DeviceKeys) -> Bytes ! String do
   created_at,
   expires_at,
   wide(sequence) ?) do
-    Err( _) -> Err("credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("credential generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let signed = case generate_signed_prekey(device, credential, wide("1") ?, expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let one_time = case generate_one_time_prekey(wide("2") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let bundle = case build_prekey_bundle(credential, signed, one_time) do
-    Err( _) -> Err("bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let entry = DirectoryEntry {
     version : 1,
     username : username,
     account_identity : case encode_account_identity(identity) do
-      Err( _) -> Err("account identity encoding failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("account identity encoding failed")
+      Ok(value) -> Ok(value)
     end ?,
     prekey_bundle : case encode_prekey_bundle(bundle) do
-      Err( _) -> Err("prekey bundle encoding failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("prekey bundle encoding failed")
+      Ok(value) -> Ok(value)
     end ?,
     mailbox_token : mailbox_token
   }
   case encode_directory_entry(entry) do
-    Err( _) -> Err("directory entry encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry encoding failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn deletion_wire(value :: AccountDeletion) -> Bytes ! String do
   case encode_account_deletion(value) do
-    Err( _) -> Err("deletion encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("deletion encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn deletion(keys :: borrow AccountKeys, issued_at :: U64) -> AccountDeletion ! String do
   case issue_account_deletion(keys, issued_at) do
-    Err( _) -> Err("deletion signing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("deletion signing failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -121,8 +121,8 @@ fn envelope(mailbox_token :: Bytes, id :: Int) -> Bytes ! String do
     padding_bucket : 256,
     ciphertext : Bytes.from_utf8("opaque")
   }) do
-    Err( _) -> Err("envelope encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("envelope encoding failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -131,8 +131,8 @@ fn lookup(username :: String) -> Bytes ! String do
     username : username,
     previous_tree_size : 0
   }) do
-    Err( _) -> Err("lookup encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("lookup encoding failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -146,7 +146,7 @@ fn kept(pool :: PoolHandle, account_id :: Bytes, mailboxes :: List < Bytes >) ->
   "WITH mailbox AS (SELECT decode(value, 'hex') AS hash FROM unnest(string_to_array($2, ',')) AS value) SELECT concat((SELECT count(*) FROM messenger_accounts WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_devices WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_one_time_prekeys WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_mailboxes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_envelopes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_outbox_events WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_push_bindings WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_mailbox_aliases WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM transparency_entries WHERE entry_bytes IS NOT NULL AND account_commitment = sha256('mesh-msg/v1/transparency-account'::bytea || $1)), ':', (SELECT count(*) FROM messenger_deleted_accounts WHERE account_id = $1)) AS value",
   [Binary(account_id), Text(String.join(hashes, ","))]) ?
   case Map.get(List.head(rows), "value") do
-    Text( value) -> Ok(value)
+    Text(value) -> Ok(value)
     _ -> Err("invalid test row")
   end
 end
@@ -154,7 +154,7 @@ end
 fn log_size(pool :: PoolHandle) -> String ! String do
   let rows = Pool.query_values(pool, "SELECT count(*)::text AS value FROM transparency_entries", []) ?
   case Map.get(List.head(rows), "value") do
-    Text( value) -> Ok(value)
+    Text(value) -> Ok(value)
     _ -> Err("invalid test row")
   end
 end
@@ -167,9 +167,9 @@ fn proof() -> Bool ! String do
   "TRUNCATE messenger_deleted_accounts, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
   let created_at = now() ?
-  let ( alice, alice_identity) = account(created_at) ?
-  let ( bob, bob_identity) = account(created_at) ?
-  let ( stranger, stranger_identity) = account(created_at) ?
+  let (alice, alice_identity) = account(created_at) ?
+  let (bob, bob_identity) = account(created_at) ?
+  let (stranger, stranger_identity) = account(created_at) ?
   let phone = filled(41, 32)
   let laptop = filled(42, 32)
   let bobs_phone = filled(43, 32)
@@ -194,7 +194,7 @@ fn proof() -> Bool ! String do
   assert(delete_account_request(pool, Bytes.from_utf8("not a deletion")).status == 400)
   let forged = deletion(stranger, now() ?) ?
   assert(delete_account_request(pool,
-  deletion_wire(% { forged | account_id : alice_identity.account_id }) ?).status == 403)
+  deletion_wire(% {forged | account_id : alice_identity.account_id }) ?).status == 403)
   let stale = wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()) - 360000)) ?
   assert(delete_account_request(pool, deletion_wire(deletion(alice, stale) ?) ?).status == 403)
   # An account the directory never had is as gone as a deleted one. Only a
@@ -220,7 +220,7 @@ fn proof() -> Bool ! String do
   assert(resurrected.status == 410 && Bytes.secure_equals(resurrected.body, signed))
   assert(kept(pool, alice_identity.account_id, alices) ? == "0:0:0:0:0:0:0:0:0:1")
   # ...but the username is free for a new account, and then stays with it.
-  let ( newcomer, newcomer_identity) = account(created_at) ?
+  let (newcomer, newcomer_identity) = account(created_at) ?
   assert(register_device_request(pool,
   device_entry("alice", newcomer, newcomer_identity, "1", filled(45, 32)) ?).status == 201)
   assert(register_device_request(pool,
@@ -231,25 +231,25 @@ end
 
 test("deleting an account removes all it left on the directory and frees its username") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
 fn departure(device :: borrow DeviceKeys, account_id :: Bytes, issued_at :: U64) -> DeviceDeparture ! String do
   case issue_device_departure(device, account_id, issued_at) do
-    Err( _) -> Err("departure signing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("departure signing failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn departure_wire(value :: DeviceDeparture) -> Bytes ! String do
   case encode_device_departure(value) do
-    Err( _) -> Err("departure encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("departure encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -261,7 +261,7 @@ fn device_state(pool :: PoolHandle, account_id :: Bytes) -> String ! String do
   "SELECT concat((SELECT count(*) FROM messenger_devices WHERE account_id = $1 AND revoked_at IS NULL), ':', (SELECT count(*) FROM messenger_revoked_devices WHERE account_id = $1), ':', (SELECT sequence FROM messenger_accounts WHERE account_id = $1), ':', (SELECT count(*) FROM transparency_entries WHERE account_commitment = sha256('mesh-msg/v1/transparency-account'::bytea || $1)), ':', (SELECT count(*) FROM messenger_mailboxes AS mailbox JOIN messenger_devices AS device USING (mailbox_token_hash) WHERE device.account_id = $1 AND mailbox.active)) AS value",
   [Binary(account_id)]) ?
   case Map.get(List.head(rows), "value") do
-    Text( value) -> Ok(value)
+    Text(value) -> Ok(value)
     _ -> Err("invalid test row")
   end
 end
@@ -273,7 +273,7 @@ fn departure_proof() -> Bool ! String do
   let _ = Pool.execute(pool,
   "TRUNCATE messenger_deleted_accounts, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
   []) ?
-  let ( alice, alice_identity) = account(now() ?) ?
+  let (alice, alice_identity) = account(now() ?) ?
   let alice_id = alice_identity.account_id
   let phone = fresh_device() ?
   let laptop = fresh_device() ?
@@ -286,7 +286,7 @@ fn departure_proof() -> Bool ! String do
   # a stale statement.
   assert(leave_device_request(pool, Bytes.from_utf8("garbage")).status == 400)
   let forged = departure(phone, alice_id, now() ?) ?
-  assert(leave_device_request(pool, departure_wire(% { forged | device_id : laptop.device_id }) ?).status == 403)
+  assert(leave_device_request(pool, departure_wire(% {forged | device_id : laptop.device_id }) ?).status == 403)
   let stale = wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()) - 360000)) ?
   assert(leave_device_request(pool, departure_wire(departure(laptop, alice_id, stale) ?) ?).status == 403)
   assert(device_state(pool, alice_id) ? == "2:0:2:2:2")
@@ -316,10 +316,10 @@ end
 
 test("a linked device leaves its account without leaving anything to send to") do
   case departure_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

@@ -122,8 +122,8 @@ end
 fn decode_group_ids_parts(state :: BinaryReader, count :: Int, index :: Int, ids :: List < Bytes >) -> List < Bytes > ! String do
   if index >= count do
     case finish(state) do
-      Err( _) -> Err("invalid_group_index")
-      Ok( _) -> Ok(ids)
+      Err(_) -> Err("invalid_group_index")
+      Ok(_) -> Ok(ids)
     end
   else
     let id = take_vector(state, 32) ?
@@ -137,8 +137,8 @@ end
 
 fn decode_group_ids(input :: Bytes) -> List < Bytes > ! String do
   case reader(input, 4616) do
-    Err( _) -> Err("invalid_group_index")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_group_index")
+    Ok(state) -> do
       let count = take_vector(state, 4) ?
       let count_value = mobile_read_u32(count.value) ?
       if count_value > 128 do
@@ -153,12 +153,12 @@ end
 fn load_group_ids(database_path :: String, wrapping_key :: borrow StorageKey) -> List < Bytes > ! String do
   let label = "groups/v1"
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(List.new())
     else
       Err(error)
     end
-    Ok( blob) -> decode_group_ids(open_local(blob, wrapping_key, local_context(label) ?) ?)
+    Ok(blob) -> decode_group_ids(open_local(blob, wrapping_key, local_context(label) ?) ?)
   end
 end
 
@@ -214,8 +214,8 @@ end
 
 fn decode_group_history_entry(input :: Bytes) -> MobileGroupHistoryEntry ! String do
   case reader(input, 81872) do
-    Err( _) -> Err("invalid_group_history")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_group_history")
+    Ok(state) -> do
       let count = take_vector(state, 4) ?
       let count_value = mobile_read_u32(count.value) ?
       let version = take_vector(count.state, 1) ?
@@ -244,8 +244,8 @@ fn decode_group_history_entry(input :: Bytes) -> MobileGroupHistoryEntry ! Strin
         }
       end
       case finish(message_id.state) do
-        Err( _) -> Err("invalid_group_history")
-        Ok( _) -> do
+        Err(_) -> Err("invalid_group_history")
+        Ok(_) -> do
           let direction_value = mobile_read_byte(direction.value) ?
           if (count_value != 7 && count_value != 8 && count_value != 9) || (Bytes.length(message_id.value) != 0 && Bytes.length(message_id.value) != 32) || mobile_read_byte(version.value) ? != 1 || (direction_value != 1 && direction_value != 2) || Bytes.length(account_id.value) != 32 || Bytes.length(device_id.value) != 16 do
             Err("invalid_group_history")
@@ -273,8 +273,8 @@ index :: Int,
 entries :: List < MobileGroupHistoryEntry >) -> List < MobileGroupHistoryEntry > ! String do
   if index >= count do
     case finish(state) do
-      Err( _) -> Err("invalid_group_history")
-      Ok( _) -> Ok(entries)
+      Err(_) -> Err("invalid_group_history")
+      Ok(_) -> Ok(entries)
     end
   else
     let entry = take_vector(state, 81872) ?
@@ -287,8 +287,8 @@ end
 
 fn decode_group_history(input :: Bytes) -> List < MobileGroupHistoryEntry > ! String do
   case reader(input, 65536) do
-    Err( _) -> Err("invalid_group_history")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_group_history")
+    Ok(state) -> do
       let count = take_vector(state, 4) ?
       let count_value = mobile_read_u32(count.value) ?
       if count_value > 256 do
@@ -352,12 +352,12 @@ end
 fn load_group_history(database_path :: String, wrapping_key :: borrow StorageKey, group_id :: Bytes) -> List < MobileGroupHistoryEntry > ! String do
   let label = group_history_label(group_id)
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(List.new())
     else
       Err(error)
     end
-    Ok( blob) -> decode_group_history(open_local(blob, wrapping_key, local_context(label) ?) ?)
+    Ok(blob) -> decode_group_history(open_local(blob, wrapping_key, local_context(label) ?) ?)
   end
 end
 
@@ -365,9 +365,9 @@ pub fn updated_group_history_blob(database_path :: String,
 wrapping_key :: borrow StorageKey,
 group_id :: Bytes,
 creator_id :: Bytes,
-entry :: MobileGroupHistoryEntry) -> Result <( List < String >, List < Bytes >), String > do
+entry :: MobileGroupHistoryEntry) -> Result <(List < String >, List < Bytes >), String > do
   let label = group_history_label(group_id)
-  let ( body, envelope, presentation_labels, presentation_blobs) = presented_message_writes(database_path,
+  let (body, envelope, presentation_labels, presentation_blobs) = presented_message_writes(database_path,
   wrapping_key,
   entry.sender_account_id,
   group_id,
@@ -380,15 +380,15 @@ entry :: MobileGroupHistoryEntry) -> Result <( List < String >, List < Bytes >),
   else
     let local = decode_client_profile(load_profile(database_path) ?) ?
     case group_attachment_reference(envelope, local.account_id, local.device_id) do
-      Err( _) -> Bytes.empty()
-      Ok( value) -> value
+      Err(_) -> Bytes.empty()
+      Ok(value) -> value
     end
   end
   let previous = load_group_history(database_path, wrapping_key, group_id) ?
   let entries = if Bytes.length(body) == 0 && Bytes.length(attachment) == 0 do
     previous
   else
-    List.append(previous, % { entry | body : body, attachment : attachment })
+    List.append(previous, % {entry | body : body, attachment : attachment })
   end
   Ok((List.append(presentation_labels, label),
   List.append(presentation_blobs,
@@ -462,8 +462,8 @@ pub fn decode_group_key_package(input :: Bytes) -> MobileGroupKeyPackage ! Strin
     Err("invalid_group_key_package")
   else
     let state = case reader(input, 369) do
-      Err( _) -> Err("invalid_group_key_package")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid_group_key_package")
+      Ok(value) -> Ok(value)
     end ?
     let version = take_fixed(state, 1) ?
     let magic = take_fixed(version.state, 3) ?
@@ -475,8 +475,8 @@ pub fn decode_group_key_package(input :: Bytes) -> MobileGroupKeyPackage ! Strin
     let witness = take_fixed(checkpoint.state, 1) ?
     let signature = take_fixed(witness.state, 64) ?
     case finish(signature.state) do
-      Err( _) -> Err("invalid_group_key_package")
-      Ok( _) -> do
+      Err(_) -> Err("invalid_group_key_package")
+      Ok(_) -> do
         let value = MobileGroupKeyPackage {
           account_id : account_id.value,
           device_id : device_id.value,
@@ -525,8 +525,8 @@ view :: MobileTransparencyView) -> GroupMember ! String do
   let valid_signature = case Crypto.verify(SigningPublicKey { bytes : profile.credential.signing_public_key },
   group_key_package_unsigned(package) ?,
   package.signature) do
-    Err( _) -> false
-    Ok( value) -> value
+    Err(_) -> false
+    Ok(value) -> value
   end
   if !valid_signature || !(transparency_checkpoint_precedes(baseline_checkpoint,
   package.checkpoint,
@@ -555,14 +555,14 @@ pub fn create_group_key_package_scoped(database_path :: String, scope :: String)
   let view = load_transparency_view(database_path, wrapping_key) ?
   let package_label = group_join_scoped_label(scope, "package")
   case load_blob(database_path, package_label) do
-    Ok( blob) -> do
+    Ok(blob) -> do
       let encoded = open_local(blob, wrapping_key, local_context(package_label) ?) ?
       let package = decode_group_key_package(encoded) ?
       let signature_valid = case Crypto.verify(SigningPublicKey { bytes : profile.credential.signing_public_key },
       group_key_package_unsigned(package) ?,
       package.signature) do
-        Err( _) -> false
-        Ok( value) -> value
+        Err(_) -> false
+        Ok(value) -> value
       end
       if signature_valid && Bytes.secure_equals(package.account_id, profile.account_id) && Bytes.secure_equals(package.device_id,
       profile.device_id) && transparency_checkpoint_precedes(package.checkpoint, checkpoint, view) ? do
@@ -571,16 +571,16 @@ pub fn create_group_key_package_scoped(database_path :: String, scope :: String)
         Err("group_key_package_pending")
       end
     end
-    Err( error) -> if error != "local_state_not_found" do
+    Err(error) -> if error != "local_state_not_found" do
       Err(error)
     else
       let init_keys = case Crypto.x25519_generate() do
-        Err( _) -> Err("group_key_generation_failed")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("group_key_generation_failed")
+        Ok(value) -> Ok(value)
       end ?
       let leaf_keys = case Crypto.x25519_generate() do
-        Err( _) -> Err("group_key_generation_failed")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("group_key_generation_failed")
+        Ok(value) -> Ok(value)
       end ?
       let unsigned = MobileGroupKeyPackage {
         account_id : profile.account_id,
@@ -594,10 +594,10 @@ pub fn create_group_key_package_scoped(database_path :: String, scope :: String)
       let device = open_device(profile, wrapping_key, database_path) ?
       let signature = case Crypto.sign(device.signing_private_key,
       group_key_package_unsigned(unsigned) ?) do
-        Err( _) -> Err("group_key_generation_failed")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("group_key_generation_failed")
+        Ok(value) -> Ok(value)
       end ?
-      let encoded = encode_group_key_package(% { unsigned | signature : signature }) ?
+      let encoded = encode_group_key_package(% {unsigned | signature : signature }) ?
       let init_label = group_join_scoped_label(scope, "init")
       let leaf_label = group_join_scoped_label(scope, "leaf")
       let package_blob = seal_local(encoded, wrapping_key, local_context(package_label) ?) ?
@@ -619,15 +619,15 @@ end
 
 pub fn group_snapshot_blob(state :: consume GroupState,
 profile :: ClientProfile,
-wrapping_key :: borrow StorageKey) -> Result <( String, Bytes), String > do
+wrapping_key :: borrow StorageKey) -> Result <(String, Bytes), String > do
   let label = group_state_label(state.group_id) ?
   let version = U64.add(state.snapshot_version, mobile_wide("1") ?) ?
   case group_snapshot(state, wrapping_key, profile.account_id, profile.device_id, version) do
-    GroupSnapshotRejected( rejected, _) -> do
+    GroupSnapshotRejected(rejected, _) -> do
       consume_group_state(rejected)
       Err("group_snapshot_failed")
     end
-    GroupSnapshotSealed( next, snapshot_blob) -> do
+    GroupSnapshotSealed(next, snapshot_blob) -> do
       let stored = seal_local(snapshot_blob, wrapping_key, local_context(label) ?) ?
       consume_group_state(next)
       Ok((label, stored))
@@ -648,8 +648,8 @@ group_id :: Bytes) -> GroupState ! String do
   profile.account_id,
   profile.device_id,
   mobile_wide("1") ?) do
-    Err( _) -> Err("group_state_invalid")
-    Ok( state) -> if Bytes.secure_equals(state.group_id, group_id) do
+    Err(_) -> Err("group_state_invalid")
+    Ok(state) -> if Bytes.secure_equals(state.group_id, group_id) do
       Ok(state)
     else
       consume_group_state(state)
@@ -668,8 +668,8 @@ value :: IndexedGroupMember,
 local_leaf :: Int) -> Bytes ! String do
   # Display names are not addresses. Only expose a username bound to this account.
   let username = case fresh_account_device_set(database_path, wrapping_key, value.member.account_id) do
-    Ok( devices) -> Bytes.from_utf8(devices.value.username)
-    Err( _) -> Bytes.empty()
+    Ok(devices) -> Bytes.from_utf8(devices.value.username)
+    Err(_) -> Bytes.empty()
   end
   encode_output_list([mobile_byte(1) ?, mobile_write_u32(value.leaf_index) ?, mobile_byte(if value.leaf_index == local_leaf do
     1
@@ -778,15 +778,15 @@ end
 
 fn decode_group_welcome_packet_inner(input :: Bytes) -> MobileGroupWelcomePacket ! String do
   case reader(input, 65527) do
-    Err( _) -> Err("invalid_group_welcome")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_group_welcome")
+    Ok(state) -> do
       let version = take_fixed(state, 1) ?
       let magic = take_fixed(version.state, 3) ?
       let baseline = take_vector(magic.state, 188) ?
       let welcome = take_vector(baseline.state, 65327) ?
       case finish(welcome.state) do
-        Err( _) -> Err("invalid_group_welcome")
-        Ok( _) -> do
+        Err(_) -> Err("invalid_group_welcome")
+        Ok(_) -> do
           let value = MobileGroupWelcomePacket {
             baseline_checkpoint : baseline.value,
             welcome : welcome.value
@@ -806,8 +806,8 @@ end
 
 pub fn decode_group_welcome_packet(input :: Bytes) -> MobileGroupWelcomePacket ! String do
   case decode_group_welcome_packet_inner(input) do
-    Err( _) -> Err("invalid_group_welcome")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_group_welcome")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -828,15 +828,15 @@ end
 
 fn decode_group_packet_inner(input :: Bytes) -> MobileGroupPacket ! String do
   case reader(input, 65536) do
-    Err( _) -> Err("invalid_group_packet")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_group_packet")
+    Ok(state) -> do
       let version = take_fixed(state, 1) ?
       let magic = take_fixed(version.state, 3) ?
       let kind = take_fixed(magic.state, 1) ?
       let payload = take_vector(kind.state, 65527) ?
       case finish(payload.state) do
-        Err( _) -> Err("invalid_group_packet")
-        Ok( _) -> do
+        Err(_) -> Err("invalid_group_packet")
+        Ok(_) -> do
           let kind_value = mobile_read_byte(kind.value) ?
           let value = MobileGroupPacket {
             kind : kind_value,
@@ -858,19 +858,19 @@ end
 
 pub fn decode_group_packet(input :: Bytes) -> MobileGroupPacket ! String do
   case decode_group_packet_inner(input) do
-    Err( _) -> Err("invalid_group_packet")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_group_packet")
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn canonical_group_commit(input :: Bytes) -> GroupCommit ! String do
   let value = case decode_group_commit(input) do
-    Err( _) -> Err("invalid_group_commit")
-    Ok( decoded) -> Ok(decoded)
+    Err(_) -> Err("invalid_group_commit")
+    Ok(decoded) -> Ok(decoded)
   end ?
   let encoded = case encode_group_commit(value) do
-    Err( _) -> Err("invalid_group_commit")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid_group_commit")
+    Ok(output) -> Ok(output)
   end ?
   if Bytes.secure_equals(encoded, input) do
     Ok(value)
@@ -881,12 +881,12 @@ end
 
 pub fn canonical_group_welcome(input :: Bytes) -> GroupWelcome ! String do
   let value = case decode_group_welcome(input) do
-    Err( _) -> Err("invalid_group_welcome")
-    Ok( decoded) -> Ok(decoded)
+    Err(_) -> Err("invalid_group_welcome")
+    Ok(decoded) -> Ok(decoded)
   end ?
   let encoded = case encode_group_welcome(value) do
-    Err( _) -> Err("invalid_group_welcome")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid_group_welcome")
+    Ok(output) -> Ok(output)
   end ?
   if Bytes.secure_equals(encoded, input) do
     Ok(value)
@@ -897,12 +897,12 @@ end
 
 pub fn canonical_group_message(input :: Bytes) -> GroupMessage ! String do
   let value = case decode_group_message(input) do
-    Err( _) -> Err("invalid_group_message")
-    Ok( decoded) -> Ok(decoded)
+    Err(_) -> Err("invalid_group_message")
+    Ok(decoded) -> Ok(decoded)
   end ?
   let encoded = case encode_group_message(value) do
-    Err( _) -> Err("invalid_group_message")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid_group_message")
+    Ok(output) -> Ok(output)
   end ?
   if Bytes.secure_equals(encoded, input) do
     Ok(value)

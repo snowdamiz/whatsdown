@@ -4,16 +4,16 @@ from Protocol.EnvelopeWire import decode_outer_envelope, encode_outer_envelope
 
 fn check_outer(value :: OuterEnvelope, expected :: Bytes) do
   case encode_outer_envelope(value) do
-    Err( _) -> println("outer-encode-error")
-    Ok( encoded) -> if Bytes.secure_equals(encoded, expected) do
+    Err(_) -> println("outer-encode-error")
+    Ok(encoded) -> if Bytes.secure_equals(encoded, expected) do
       println("outer-encode")
     else
       println("outer-encode-mismatch")
     end
   end
   case decode_outer_envelope(expected) do
-    Err( _) -> println("outer-decode-error")
-    Ok( decoded) -> if decoded.version == 1 && decoded.suite == 1 && decoded.padding_bucket == 256 && U64.compare(decoded.expiration,
+    Err(_) -> println("outer-decode-error")
+    Ok(decoded) -> if decoded.version == 1 && decoded.suite == 1 && decoded.padding_bucket == 256 && U64.compare(decoded.expiration,
     value.expiration) == 0 && Bytes.secure_equals(decoded.envelope_id, value.envelope_id) && Bytes.secure_equals(decoded.mailbox_token,
     value.mailbox_token) && Bytes.secure_equals(decoded.ciphertext, value.ciphertext) do
       println("outer-decode")
@@ -25,16 +25,16 @@ end
 
 fn check_credential(value :: DeviceCredential, expected :: Bytes) do
   case encode_device_credential(value) do
-    Err( _) -> println("credential-encode-error")
-    Ok( encoded) -> if Bytes.secure_equals(encoded, expected) do
+    Err(_) -> println("credential-encode-error")
+    Ok(encoded) -> if Bytes.secure_equals(encoded, expected) do
       println("credential-encode")
     else
       println("credential-encode-mismatch")
     end
   end
   case decode_device_credential(expected) do
-    Err( _) -> println("credential-decode-error")
-    Ok( decoded) -> if decoded.version == 1 && decoded.suite == 1 && U64.compare(decoded.capabilities,
+    Err(_) -> println("credential-decode-error")
+    Ok(decoded) -> if decoded.version == 1 && decoded.suite == 1 && U64.compare(decoded.capabilities,
     value.capabilities) == 0 && U64.compare(decoded.created_at, value.created_at) == 0 && U64.compare(decoded.expires_at,
     value.expires_at) == 0 && U64.compare(decoded.directory_sequence, value.directory_sequence) == 0 && Bytes.secure_equals(decoded.account_id,
     value.account_id) && Bytes.secure_equals(decoded.device_id, value.device_id) && Bytes.secure_equals(decoded.signing_public_key,
@@ -61,16 +61,16 @@ fn proof() -> Int ! String do
   outer_bytes)
   let suffix = Bytes.from_hex("00") ?
   case decode_outer_envelope(Bytes.concat(outer_bytes, suffix) ?) do
-    Err( _) -> println("outer-trailing")
-    Ok( _) -> println("outer-trailing-accepted")
+    Err(_) -> println("outer-trailing")
+    Ok(_) -> println("outer-trailing-accepted")
   end
   case decode_outer_envelope(Bytes.from_hex("__OUTER_OVERSIZED_HEX__") ?) do
-    Err( _) -> println("outer-oversized")
-    Ok( _) -> println("outer-oversized-accepted")
+    Err(_) -> println("outer-oversized")
+    Ok(_) -> println("outer-oversized-accepted")
   end
   case decode_outer_envelope(Bytes.empty()) do
-    Err( _) -> println("outer-hostile")
-    Ok( _) -> println("outer-hostile-accepted")
+    Err(_) -> println("outer-hostile")
+    Ok(_) -> println("outer-hostile-accepted")
   end
   let credential_bytes = Bytes.from_hex("__CREDENTIAL_HEX__") ?
   check_credential(DeviceCredential {
@@ -89,23 +89,23 @@ fn proof() -> Int ! String do
   },
   credential_bytes)
   case decode_device_credential(Bytes.concat(credential_bytes, suffix) ?) do
-    Err( _) -> println("credential-trailing")
-    Ok( _) -> println("credential-trailing-accepted")
+    Err(_) -> println("credential-trailing")
+    Ok(_) -> println("credential-trailing-accepted")
   end
   case decode_device_credential(Bytes.from_hex("__CREDENTIAL_OVERSIZED_HEX__") ?) do
-    Err( _) -> println("credential-oversized")
-    Ok( _) -> println("credential-oversized-accepted")
+    Err(_) -> println("credential-oversized")
+    Ok(_) -> println("credential-oversized-accepted")
   end
   case decode_device_credential(Bytes.empty()) do
-    Err( _) -> println("credential-hostile")
-    Ok( _) -> println("credential-hostile-accepted")
+    Err(_) -> println("credential-hostile")
+    Ok(_) -> println("credential-hostile-accepted")
   end
   Ok(0)
 end
 
 fn main() do
   case proof() do
-    Err( error) -> println(error)
-    Ok( _) -> nil
+    Err(error) -> println(error)
+    Ok(_) -> nil
   end
 end

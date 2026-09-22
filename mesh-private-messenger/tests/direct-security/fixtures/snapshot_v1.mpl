@@ -6,7 +6,7 @@
 from Session.Handshake import RatchetState
 
 pub type SnapshotErrorV1 do
-  CryptoFailureV1( error :: CryptoError)
+  CryptoFailureV1(error :: CryptoError)
 
   InvalidSnapshotV1
 
@@ -14,15 +14,15 @@ pub type SnapshotErrorV1 do
 end
 
 pub type SnapshotOutcomeV1 do
-  SnapshotSealedV1( state :: RatchetState, blob :: Bytes)
+  SnapshotSealedV1(state :: RatchetState, blob :: Bytes)
 
-  SnapshotRejectedV1( state :: RatchetState, error :: SnapshotErrorV1)
+  SnapshotRejectedV1(state :: RatchetState, error :: SnapshotErrorV1)
 end
 
 fn append_v1(left :: Bytes, right :: Bytes) -> Bytes ! SnapshotErrorV1 do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(InvalidSnapshotV1)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidSnapshotV1)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -36,32 +36,32 @@ end
 
 fn byte_v1(value :: Int) -> Bytes ! SnapshotErrorV1 do
   case Bytes.from_list([value]) do
-    Err( _) -> Err(InvalidSnapshotV1)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidSnapshotV1)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn write_u16_v1(value :: Int) -> Bytes ! SnapshotErrorV1 do
   case Bytes.write_u16_be(value) do
-    Err( _) -> Err(InvalidSnapshotV1)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidSnapshotV1)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn write_u32_v1(value :: Int) -> Bytes ! SnapshotErrorV1 do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err(InvalidSnapshotV1)
-    Ok( wide) -> case Bytes.write_u32_be(wide) do
-      Err( _) -> Err(InvalidSnapshotV1)
-      Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidSnapshotV1)
+    Ok(wide) -> case Bytes.write_u32_be(wide) do
+      Err(_) -> Err(InvalidSnapshotV1)
+      Ok(encoded) -> Ok(encoded)
     end
   end
 end
 
 fn write_u64_v1(value :: U64) -> Bytes ! SnapshotErrorV1 do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err(InvalidSnapshotV1)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidSnapshotV1)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -71,8 +71,8 @@ end
 
 fn zero_v1() -> U64 ! SnapshotErrorV1 do
   case U64.parse("0") do
-    Err( _) -> Err(InvalidSnapshotV1)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidSnapshotV1)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -119,8 +119,8 @@ end
 
 fn seal_secret_v1(secret :: borrow SecretBytes, wrapping_key :: borrow StorageKey, context :: Bytes) -> Bytes ! SnapshotErrorV1 do
   case Secret.seal_for_storage(secret, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailureV1(error))
-    Ok( blob) -> Ok(blob)
+    Err(error) -> Err(CryptoFailureV1(error))
+    Ok(blob) -> Ok(blob)
   end
 end
 
@@ -128,15 +128,15 @@ fn seal_private_v1(secret :: borrow X25519PrivateKey,
 wrapping_key :: borrow StorageKey,
 context :: Bytes) -> Bytes ! SnapshotErrorV1 do
   case X25519PrivateKey.seal_for_storage(secret, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailureV1(error))
-    Ok( blob) -> Ok(blob)
+    Err(error) -> Err(CryptoFailureV1(error))
+    Ok(blob) -> Ok(blob)
   end
 end
 
 fn seal_map_v1(secret :: borrow SecretMap, wrapping_key :: borrow StorageKey, context :: Bytes) -> Bytes ! SnapshotErrorV1 do
   case SecretMap.seal_for_storage(secret, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailureV1(error))
-    Ok( blob) -> Ok(blob)
+    Err(error) -> Err(CryptoFailureV1(error))
+    Ok(blob) -> Ok(blob)
   end
 end
 
@@ -175,8 +175,8 @@ snapshot_version :: U64) -> SnapshotOutcomeV1 do
     SnapshotRejectedV1(state, RollbackRejectedV1)
   else
     case seal_snapshot_v1(state, wrapping_key, account_id, device_id, snapshot_version) do
-      Err( error) -> SnapshotRejectedV1(state, error)
-      Ok( blob) -> SnapshotSealedV1(% { state | snapshot_version : snapshot_version }, blob)
+      Err(error) -> SnapshotRejectedV1(state, error)
+      Ok(blob) -> SnapshotSealedV1(% {state | snapshot_version : snapshot_version }, blob)
     end
   end
 end

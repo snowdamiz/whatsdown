@@ -26,8 +26,8 @@ pub fn validate_paths(database_path :: String, root :: String) -> Result <(), St
     Err("invalid object storage configuration")
   else
     case File.size(root) do
-      Ok( _) -> Err("object storage root is not a directory")
-      Err( _) -> Ok(nil)
+      Ok(_) -> Err("object storage root is not a directory")
+      Err(_) -> Ok(nil)
     end
   end
 end
@@ -85,13 +85,13 @@ end
 
 fn append_part_tail(head :: Bytes, path :: String, expected_size :: Int) -> Option < Bytes > do
   case File.read_bytes(path, 65536, expected_size - 65536) do
-    Err( _) -> None
-    Ok( tail) -> if Bytes.length(head) != 65536 || Bytes.length(tail) != expected_size - 65536 do
+    Err(_) -> None
+    Ok(tail) -> if Bytes.length(head) != 65536 || Bytes.length(tail) != expected_size - 65536 do
       None
     else
       case Bytes.concat(head, tail) do
-        Err( _) -> None
-        Ok( body) -> Some(body)
+        Err(_) -> None
+        Ok(body) -> Some(body)
       end
     end
   end
@@ -108,8 +108,8 @@ pub fn read_part_file(path :: String, expected_size :: Int) -> Option < Bytes > 
       |> Http.max_response_bytes(expected_size + 1)
       |> Http.send()
     return case result do
-      Err( _) -> None
-      Ok( response) -> if response.status == 200 && Bytes.length(response.body_bytes) == expected_size do
+      Err(_) -> None
+      Ok(response) -> if response.status == 200 && Bytes.length(response.body_bytes) == expected_size do
         Some(response.body_bytes)
       else
         None
@@ -117,18 +117,16 @@ pub fn read_part_file(path :: String, expected_size :: Int) -> Option < Bytes > 
     end
   end
   case File.size(path) do
-    Err( _) -> do
-      return None
-    end
-    Ok( size) -> if size != expected_size do
+    Err(_) -> return None
+    Ok(size) -> if size != expected_size do
       return None
     end
   end
   if expected_size > 0 && expected_size <= maximum_part_bytes() do
     if expected_size <= 65536 do
       case File.read_bytes(path, 0, expected_size) do
-        Err( _) -> None
-        Ok( body) -> if Bytes.length(body) == expected_size do
+        Err(_) -> None
+        Ok(body) -> if Bytes.length(body) == expected_size do
           Some(body)
         else
           None
@@ -136,8 +134,8 @@ pub fn read_part_file(path :: String, expected_size :: Int) -> Option < Bytes > 
       end
     else
       case File.read_bytes(path, 0, 65536) do
-        Err( _) -> None
-        Ok( head) -> append_part_tail(head, path, expected_size)
+        Err(_) -> None
+        Ok(head) -> append_part_tail(head, path, expected_size)
       end
     end
   else

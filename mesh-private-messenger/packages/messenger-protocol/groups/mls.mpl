@@ -13,7 +13,7 @@ from Groups.Tree import (
 pub type GroupError do
   AuthenticationRejected
 
-  CryptoFailure( error :: CryptoError)
+  CryptoFailure(error :: CryptoError)
 
   FutureEpoch
 
@@ -31,7 +31,7 @@ pub type GroupError do
 
   StaleEpoch
 
-  TreeFailure( error :: GroupTreeError)
+  TreeFailure(error :: GroupTreeError)
 end
 
 pub struct GroupTransparencyPolicy do
@@ -41,9 +41,9 @@ pub struct GroupTransparencyPolicy do
 end
 
 pub type GroupProposal do
-  AddMember( leaf_index :: Int, member :: GroupMember)
+  AddMember(leaf_index :: Int, member :: GroupMember)
 
-  RemoveMember( leaf_index :: Int)
+  RemoveMember(leaf_index :: Int)
 
   UpdateKeys
 end
@@ -247,39 +247,39 @@ pub struct ParsedGroupSnapshot do
 end
 
 pub type CommitApplyOutcome do
-  CommitApplied( state :: GroupState)
+  CommitApplied(state :: GroupState)
 
-  CommitRejected( state :: GroupState, error :: GroupError)
+  CommitRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupAddOutcome do
-  GroupMemberAdded( state :: GroupState, commit :: GroupCommit, welcome :: GroupWelcome)
+  GroupMemberAdded(state :: GroupState, commit :: GroupCommit, welcome :: GroupWelcome)
 
-  GroupAddRejected( state :: GroupState, error :: GroupError)
+  GroupAddRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupRemoveOutcome do
-  GroupMemberRemoved( state :: GroupState, commit :: GroupCommit)
+  GroupMemberRemoved(state :: GroupState, commit :: GroupCommit)
 
-  GroupRemoveRejected( state :: GroupState, error :: GroupError)
+  GroupRemoveRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupEncryptOutcome do
-  GroupMessageEncrypted( state :: GroupState, message :: GroupMessage)
+  GroupMessageEncrypted(state :: GroupState, message :: GroupMessage)
 
-  GroupEncryptRejected( state :: GroupState, error :: GroupError)
+  GroupEncryptRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupDecryptOutcome do
-  MessageOpened( state :: GroupState, plaintext :: Bytes)
+  MessageOpened(state :: GroupState, plaintext :: Bytes)
 
-  MessageRejected( state :: GroupState, error :: GroupError)
+  MessageRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupSnapshotOutcome do
-  GroupSnapshotSealed( state :: GroupState, blob :: Bytes)
+  GroupSnapshotSealed(state :: GroupState, blob :: Bytes)
 
-  GroupSnapshotRejected( state :: GroupState, error :: GroupError)
+  GroupSnapshotRejected(state :: GroupState, error :: GroupError)
 end
 
 pub resource struct PreparedGroupAdd do
@@ -315,17 +315,17 @@ pub resource struct OpenedPathSecret do
 end
 
 pub type TreeKemPathPatch do
-  TreeKemPatch0( epoch_secret :: SecretBytes, level0 :: X25519PrivateKey, level1 :: X25519PrivateKey, level2 :: X25519PrivateKey, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
+  TreeKemPatch0(epoch_secret :: SecretBytes, level0 :: X25519PrivateKey, level1 :: X25519PrivateKey, level2 :: X25519PrivateKey, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
 
-  TreeKemPatch1( epoch_secret :: SecretBytes, level1 :: X25519PrivateKey, level2 :: X25519PrivateKey, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
+  TreeKemPatch1(epoch_secret :: SecretBytes, level1 :: X25519PrivateKey, level2 :: X25519PrivateKey, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
 
-  TreeKemPatch2( epoch_secret :: SecretBytes, level2 :: X25519PrivateKey, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
+  TreeKemPatch2(epoch_secret :: SecretBytes, level2 :: X25519PrivateKey, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
 
-  TreeKemPatch3( epoch_secret :: SecretBytes, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
+  TreeKemPatch3(epoch_secret :: SecretBytes, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
 
-  TreeKemPatch4( epoch_secret :: SecretBytes, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
+  TreeKemPatch4(epoch_secret :: SecretBytes, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
 
-  TreeKemPatch5( epoch_secret :: SecretBytes, level5 :: X25519PrivateKey)
+  TreeKemPatch5(epoch_secret :: SecretBytes, level5 :: X25519PrivateKey)
 end
 
 pub struct PreparedAppliedCommit do
@@ -347,5 +347,5 @@ pub fn invalid_group_member_error() -> GroupError do
 end
 
 pub type GroupEpochKeys do
-  EpochKeys( init_secret :: SecretBytes, sender_chains :: SecretMap, skipped_keys :: SecretMap)
+  EpochKeys(init_secret :: SecretBytes, sender_chains :: SecretMap, skipped_keys :: SecretMap)
 end

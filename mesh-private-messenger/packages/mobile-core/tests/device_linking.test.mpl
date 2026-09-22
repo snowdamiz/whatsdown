@@ -58,99 +58,99 @@ end
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( _) -> Err("test integer conversion failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("test integer conversion failed")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("test byte encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("test byte encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn write_u64(value :: U64) -> Bytes ! String do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err("test integer encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("test integer encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn first_six(value :: Bytes) -> Bytes ! String do
   case Bytes.slice(value, 0, 6) do
-    Err( _) -> Err("test digest slicing failed")
-    Ok( sliced) -> Ok(sliced)
+    Err(_) -> Err("test digest slicing failed")
+    Ok(sliced) -> Ok(sliced)
   end
 end
 
 fn entry(input :: Bytes) -> DirectoryEntry ! String do
   case decode_directory_entry(input) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn account(input :: Bytes) -> AccountIdentity ! String do
   case decode_account_identity(input) do
-    Err( _) -> Err("account identity decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account identity decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn bundle(input :: Bytes) -> PrekeyBundle ! String do
   case decode_prekey_bundle(input) do
-    Err( _) -> Err("prekey bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("prekey bundle decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn credential(input :: Bytes) -> DeviceCredential ! String do
   case decode_device_credential(input) do
-    Err( _) -> Err("device credential decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device credential decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn link_request(input :: Bytes) -> DeviceLinkRequest ! String do
   case decode_device_link_request(input) do
-    Err( _) -> Err("link request decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("link request decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn link_authorization(input :: Bytes) -> DeviceLinkAuthorization ! String do
   case decode_device_link_authorization(input) do
-    Err( _) -> Err("link authorization decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("link authorization decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn revocation(input :: Bytes) -> DeviceRevocation ! String do
   case decode_device_revocation(input) do
-    Err( _) -> Err("device revocation decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device revocation decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn outer(input :: Bytes) -> OuterEnvelope ! String do
   case decode_outer_envelope(input) do
-    Err( _) -> Err("outer envelope decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("outer envelope decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn link_wire(value :: DeviceLinkRequest) -> Bytes ! String do
   case encode_device_link_request(value) do
-    Err( _) -> Err("link request encode failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("link request encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn device_set_wire(value :: DeviceSet) -> Bytes ! String do
   case encode_device_set(value) do
-    Err( _) -> Err("device set encode failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("device set encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -205,8 +205,8 @@ fn proof() -> Bool ! String do
     revoked_device_ids : List.new()
   }) ?
   case authorize_device_link_for_set_export(request([Bytes.from_utf8(root_path), root_set, request_wire]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   let root_view = signed_transparency_view([leaf_hash(root_set) ?]) ?
   assert(install_group_transparency_for_test(root_path,
@@ -235,8 +235,8 @@ fn proof() -> Bool ! String do
   authorization,
   pending.created_at,
   wide("1") ?) do
-    Err( _) -> Err("link authorization verification failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("link authorization verification failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(authorization_valid)
   let linked_profile = complete_device_link_export(request([Bytes.from_utf8(linked_path), authorization_wire]) ?) ?
@@ -286,12 +286,12 @@ fn proof() -> Bool ! String do
     revoked_device_ids : List.new()
   }) ?
   case inspect_device_set_export(request([Bytes.from_utf8(root_path), unverified_successor]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   case create_device_revocation_export(request([Bytes.from_utf8(root_path), unverified_successor, completed_credential.device_id]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   let expected_linked = inspect_output("alice",
   root_account.account_id,
@@ -315,8 +315,8 @@ fn proof() -> Bool ! String do
   assert(Bytes.secure_equals(revoked.device_id, completed_credential.device_id))
   assert(U64.compare(revoked.sequence, wide("3") ?) == 0)
   let revocation_valid = case verify_device_revocation(root_account, revoked) do
-    Err( _) -> Err("device revocation verification failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device revocation verification failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(revocation_valid)
   let revoked_set = device_set_wire(DeviceSet {
@@ -328,8 +328,8 @@ fn proof() -> Bool ! String do
     revoked_device_ids : [completed_credential.device_id]
   }) ?
   case inspect_device_set_export(request([Bytes.from_utf8(root_path), revoked_set]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "device_set_transparency_unverified")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "device_set_transparency_unverified")
   end
   let revoked_view = signed_transparency_view([leaf_hash(revoked_set) ?]) ?
   assert(install_group_transparency_for_test(root_path,
@@ -350,14 +350,14 @@ fn proof() -> Bool ! String do
   # The removed device erases itself on the account's revocation of it. The
   # root keeps everything: the revocation names another device.
   case forget_on_proof_export(request([Bytes.from_utf8(root_path), revocation_wire]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "unproven_removal")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "unproven_removal")
   end
   assert(Bytes.secure_equals(forget_on_proof_export(request([Bytes.from_utf8(linked_path), revocation_wire]) ?) ?,
   byte(2) ?))
   case load_profile_export(Bytes.from_utf8(linked_path)) do
-    Ok( _) -> assert(false)
-    Err( _) -> assert(true)
+    Ok(_) -> assert(false)
+    Err(_) -> assert(true)
   end
   assert(Bytes.length(load_profile_export(Bytes.from_utf8(root_path)) ?) > 0)
   File.delete(root_path) ?
@@ -368,10 +368,10 @@ end
 
 test("mobile device linking, inspection, and revocation are proved in Mesh") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

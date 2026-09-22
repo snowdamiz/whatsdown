@@ -4,8 +4,8 @@ from Push.Token import PushWakeRequest, encode_push_wake, seal_provider_token
 
 fn seed(value :: Int) -> Bytes ! String do
   case Bytes.repeat(value, 32) do
-    Err( _) -> Err("seed allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("seed allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -32,8 +32,8 @@ end
 fn opened_payload() -> Bool ! String do
   let broker_seed = seed(7) ?
   let broker = case Crypto.x25519_from_seed(broker_seed) do
-    Err( _) -> Err("broker key failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("broker key failed")
+    Ok(output) -> Ok(output)
   end ?
   let token = Bytes.from_utf8("ExpoPushToken[broker-only-token]")
   let sealed = seal_provider_token(token, broker.public_key) ?
@@ -49,8 +49,8 @@ end
 
 test("broker opens the sealed provider token from a canonical wake request") do
   case opened_payload() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -73,12 +73,12 @@ end
 test("Expo send responses retain the ticket id for receipt polling") do
   case parse_expo_ticket(200,
   Bytes.from_utf8("{\"data\":{\"status\":\"ok\",\"id\":\"ticket-retained\"}}")) do
-    Err( _) -> assert(false)
-    Ok( id) -> assert(id == "ticket-retained")
+    Err(_) -> assert(false)
+    Ok(id) -> assert(id == "ticket-retained")
   end
   case parse_expo_ticket(200,
   Bytes.from_utf8("{\"data\":{\"status\":\"error\",\"details\":{\"error\":\"DeviceNotRegistered\"}}}")) do
-    Err( Permanent) -> assert(true)
+    Err(Permanent) -> assert(true)
     _ -> assert(false)
   end
 end
@@ -136,8 +136,8 @@ end
 
 test("Expo payload contains only generic encrypted activity") do
   case generic_payload() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -151,62 +151,62 @@ test("broker configuration rejects unsafe external provider settings") do
   assert(expo_send_url() == "https://exp.host/--/api/v2/push/send")
   assert(expo_receipts_url() == "https://exp.host/--/api/v2/push/getReceipts")
   case provider_url("https://exp.host/--/api/v2/push/send") do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value == "https://exp.host/--/api/v2/push/send")
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value == "https://exp.host/--/api/v2/push/send")
   end
   case provider_url("http://exp.host/push") do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
   case provider_url("https://attacker.example/push") do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
   case access_token("") do
-    Err( _) -> assert(false)
-    Ok( None) -> assert(true)
-    Ok( Some( _)) -> assert(false)
+    Err(_) -> assert(false)
+    Ok(None) -> assert(true)
+    Ok(Some(_)) -> assert(false)
   end
   case access_token("token\r\ninjected") do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
 end
 
 test("broker requires an exact internal bearer credential") do
   let secret = "0123456789abcdef0123456789abcdef"
   case internal_token(secret) do
-    Err( _) -> assert(false)
-    Ok( validated) -> do
+    Err(_) -> assert(false)
+    Ok(validated) -> do
       assert(authorized(Some("Bearer " <> validated), validated))
       assert(!authorized(None, validated))
       assert(!authorized(Some("Bearer wrong"), validated))
     end
   end
   case internal_token("") do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
 end
 
 fn invalid_delivery_proof() -> Bool ! String do
   let broker = case Crypto.x25519_from_seed(seed(3) ?) do
-    Err( _) -> Err("broker key failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("broker key failed")
+    Ok(output) -> Ok(output)
   end ?
   case prepare_delivery_with_key(Bytes.empty(), broker.private_key) do
-    Err( Permanent) -> assert(true)
+    Err(Permanent) -> assert(true)
     _ -> assert(false)
   end
   case Bytes.repeat(0, 622) do
-    Err( _) -> assert(false)
-    Ok( oversized) -> case prepare_delivery_with_key(oversized, broker.private_key) do
-      Err( Permanent) -> assert(true)
+    Err(_) -> assert(false)
+    Ok(oversized) -> case prepare_delivery_with_key(oversized, broker.private_key) do
+      Err(Permanent) -> assert(true)
       _ -> assert(false)
     end
   end
   case prepare_delivery_with_key(Bytes.from_utf8("not-a-canonical-wake"), broker.private_key) do
-    Err( Permanent) -> assert(true)
+    Err(Permanent) -> assert(true)
     _ -> assert(false)
   end
   Ok(true)
@@ -214,7 +214,7 @@ end
 
 test("broker rejects empty, oversized, and malformed internal push bodies") do
   case invalid_delivery_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end

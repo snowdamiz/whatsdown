@@ -57,8 +57,8 @@ fn validate_prekey_bundle(value :: PrekeyBundle) -> Result <(), ProtocolError > 
               Err(UnsupportedSuite)
             else
               case decode_device_credential(value.device_credential) do
-                Err( _) -> Err(MalformedEncoding)
-                Ok( credential) -> if credential.suite != value.suite || !Bytes.secure_equals(credential.signing_public_key,
+                Err(_) -> Err(MalformedEncoding)
+                Ok(credential) -> if credential.suite != value.suite || !Bytes.secure_equals(credential.signing_public_key,
                 value.signing_public_key) || !Bytes.secure_equals(credential.dh_public_key,
                 value.identity_dh_public_key) || !Bytes.secure_equals(credential.post_quantum_public_key,
                 value.post_quantum_prekey) do

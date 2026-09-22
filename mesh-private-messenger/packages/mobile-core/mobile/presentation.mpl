@@ -14,8 +14,8 @@ pub fn presentation_data(input :: Bytes) -> Bytes ! String do
   let name = take_vector(state, 96) ?
   let avatar = take_vector(name.state, 12288) ?
   case mobile_finish(avatar.state, "invalid_presentation") do
-    Ok( _) -> nil
-    Err( _) -> do
+    Ok(_) -> nil
+    Err(_) -> do
       let revision = take_vector(avatar.state, 8) ?
       let value = mobile_read_u64(revision.value) ?
       if U64.compare(value, mobile_wide("9007199254740991") ?) > 0 do
@@ -62,12 +62,12 @@ wrapping_key :: borrow StorageKey,
 key :: Bytes) -> Bytes ! String do
   let label = presentation_label(key) ?
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( blob) -> open_local(blob, wrapping_key, local_context(label) ?)
+    Ok(blob) -> open_local(blob, wrapping_key, local_context(label) ?)
   end
 end
 
@@ -132,7 +132,7 @@ attachment :: Bytes) -> Bytes ! String do
   end
 end
 
-fn decode_presented_message(input :: Bytes) -> Result <( Bytes, Bytes, Bytes, Bytes), String > do
+fn decode_presented_message(input :: Bytes) -> Result <(Bytes, Bytes, Bytes, Bytes), String > do
   let state = mobile_reader(input, 65342, "invalid_presentation") ?
   let body = take_vector(state, 40000) ?
   let profile = take_vector(body.state, 12500) ?
@@ -155,7 +155,7 @@ wrapping_key :: borrow StorageKey,
 sender_id :: Bytes,
 group_id :: Bytes,
 creator_id :: Bytes,
-input :: Bytes) -> Result <( Bytes, Bytes, List < String >, List < Bytes >), String > do
+input :: Bytes) -> Result <(Bytes, Bytes, List < String >, List < Bytes >), String > do
   let prefix = Bytes.from_utf8("MORSE-PRESENTATION/1\n")
   if Bytes.length(input) < Bytes.length(prefix) do
     Ok((input, Bytes.empty(), [], []))
@@ -168,16 +168,16 @@ input :: Bytes) -> Result <( Bytes, Bytes, List < String >, List < Bytes >), Str
       Bytes.length(prefix),
       Bytes.length(input) - Bytes.length(prefix)) ?
       case decode_presented_message(encoded) do
-        Err( _) -> Ok((input, Bytes.empty(), [], []))
-        Ok( value) -> do
-          let ( body, profile, group, attachment) = value
-          let ( user_labels, user_blobs) = presentation_update(database_path,
+        Err(_) -> Ok((input, Bytes.empty(), [], []))
+        Ok(value) -> do
+          let (body, profile, group, attachment) = value
+          let (user_labels, user_blobs) = presentation_update(database_path,
           wrapping_key,
           Bytes.from_utf8("user/" <> Bytes.to_hex(sender_id)),
           profile) ?
           if Bytes.length(group_id) == 32 && Bytes.length(group) > 0 && Bytes.secure_equals(sender_id,
           creator_id) do
-            let ( group_labels, group_blobs) = presentation_update(database_path,
+            let (group_labels, group_blobs) = presentation_update(database_path,
             wrapping_key,
             Bytes.from_utf8("group/" <> Bytes.to_hex(group_id)),
             group) ?
@@ -197,7 +197,7 @@ end
 fn presentation_update(database_path :: String,
 wrapping_key :: borrow StorageKey,
 key :: Bytes,
-data :: Bytes) -> Result <( List < String >, List < Bytes >), String > do
+data :: Bytes) -> Result <(List < String >, List < Bytes >), String > do
   let label = presentation_label(key) ?
   let previous = load_presentation_record(database_path, wrapping_key, key) ?
   if Bytes.secure_equals(previous, data) || U64.compare(presentation_revision(previous) ?,
@@ -264,16 +264,16 @@ pub fn presented_body(input :: Bytes) -> Bytes do
     input
   else
     case Bytes.slice(input, 0, Bytes.length(prefix)) do
-      Err( _) -> input
-      Ok( head) -> if !Bytes.secure_equals(head, prefix) do
+      Err(_) -> input
+      Ok(head) -> if !Bytes.secure_equals(head, prefix) do
         input
       else
         case Bytes.slice(input, Bytes.length(prefix), Bytes.length(input) - Bytes.length(prefix)) do
-          Err( _) -> input
-          Ok( encoded) -> case decode_presented_message(encoded) do
-            Err( _) -> input
-            Ok( value) -> do
-              let ( body, profile, group, attachment) = value
+          Err(_) -> input
+          Ok(encoded) -> case decode_presented_message(encoded) do
+            Err(_) -> input
+            Ok(value) -> do
+              let (body, profile, group, attachment) = value
               body
             end
           end
@@ -291,8 +291,8 @@ fn presentation_revision(input :: Bytes) -> U64 ! String do
     let name = take_vector(state, 96) ?
     let avatar = take_vector(name.state, 12288) ?
     case mobile_finish(avatar.state, "invalid_presentation") do
-      Ok( _) -> mobile_wide("0")
-      Err( _) -> do
+      Ok(_) -> mobile_wide("0")
+      Err(_) -> do
         let revision = take_vector(avatar.state, 8) ?
         mobile_finish(revision.state, "invalid_presentation") ?
         mobile_read_u64(revision.value)

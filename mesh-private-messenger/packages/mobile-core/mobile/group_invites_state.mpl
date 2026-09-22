@@ -109,8 +109,8 @@ end
 
 pub fn load_invitations(path :: String, key :: borrow StorageKey) -> List < GroupInvitation > ! String do
   let encoded = case load_blob(path, "group-invitations/v1") do
-    Ok( blob) -> open_local(blob, key, local_context("group-invitations/v1") ?) ?
-    Err( error) -> if error == "local_state_not_found" do
+    Ok(blob) -> open_local(blob, key, local_context("group-invitations/v1") ?) ?
+    Err(error) -> if error == "local_state_not_found" do
       return Ok([])
     else
       return Err(error)
@@ -147,7 +147,7 @@ pub fn find_invitation(values :: List < GroupInvitation >, reference :: Bytes) -
   case List.find(values,
   fn (value) do Bytes.secure_equals(value.id, id) && Bytes.secure_equals(value.recipient_device,
   device) end) do
-    Some( value) -> Ok(value)
+    Some(value) -> Ok(value)
     None -> Err("group_invitation_not_found")
   end
 end
@@ -181,10 +181,8 @@ inner :: InnerEnvelope) -> List < GroupInvitation > ! String do
     end
     let reference = mobile_append(id, local.device_id) ?
     case find_invitation(values, reference) do
-      Ok( _) -> do
-        return Ok(values)
-      end
-      Err( _) -> nil
+      Ok(_) -> return Ok(values)
+      Err(_) -> nil
     end
     if List.length(values) >= 128 do
       return Ok(values)
@@ -211,10 +209,8 @@ inner :: InnerEnvelope) -> List < GroupInvitation > ! String do
     let package = decode_group_key_package(List.get(p, 2)) ?
     let reference = mobile_append(id, inner.sender_device_id) ?
     let previous = case find_invitation(values, reference) do
-      Ok( value) -> value
-      Err( _) -> do
-        return Ok(values)
-      end
+      Ok(value) -> value
+      Err(_) -> return Ok(values)
     end
     if previous.state != 0 || !Bytes.secure_equals(previous.group_id, group_id) || !Bytes.secure_equals(previous.inviter_account,
     local.account_id) || !Bytes.secure_equals(previous.inviter_device, local.device_id) || !Bytes.secure_equals(previous.recipient_account,
@@ -222,7 +218,7 @@ inner :: InnerEnvelope) -> List < GroupInvitation > ! String do
     inner.sender_device_id) do
       return Ok(values)
     end
-    Ok(replace_invitation(values, % { previous | state : 3, key_package : List.get(p, 2) }))
+    Ok(replace_invitation(values, % {previous | state : 3, key_package : List.get(p, 2) }))
   end
 end
 
@@ -251,10 +247,10 @@ pub fn received_invitation_writes(path :: String,
 key :: borrow StorageKey,
 local :: ClientProfile,
 username :: String,
-inner :: InnerEnvelope) -> Result <( List < String >, List < Bytes >), String > do
+inner :: InnerEnvelope) -> Result <(List < String >, List < Bytes >), String > do
   let valid = case validate_control(inner) do
-    Ok( value) -> value
-    Err( _) -> false
+    Ok(value) -> value
+    Err(_) -> false
   end
   if !valid do
     return Ok(([], []))
@@ -286,7 +282,7 @@ index :: Int) -> String ! String do
     let committer = List.find(welcome.members,
     fn (member) do member.leaf_index == welcome.commit.committer_leaf end)
     case (recipient, committer) do
-      ( Some( target), Some( sender)) -> if Bytes.secure_equals(target.member.init_public_key.bytes,
+      (Some(target), Some(sender)) -> if Bytes.secure_equals(target.member.init_public_key.bytes,
       package.init_public_key.bytes) && Bytes.secure_equals(target.member.leaf_public_key.bytes,
       package.leaf_public_key.bytes) do
         if !Bytes.secure_equals(sender.member.signing_public_key.bytes, value.inviter_signing_key) do

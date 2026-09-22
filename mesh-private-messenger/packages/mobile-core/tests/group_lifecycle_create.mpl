@@ -35,23 +35,23 @@ end
 
 fn assert_group_creator(alice_path :: Bytes, group_id :: Bytes) -> Bool ! String do
   case group_vectors([alice_path, group_id]) do
-    Err( error) -> Err(error)
-    Ok( inspect_request) -> case group_inspect_export(inspect_request) do
-      Err( error) -> Err(error)
-      Ok( inspect_wire) -> case output_list(inspect_wire) do
-        Err( error) -> Err(error)
-        Ok( created_inspect) -> do
+    Err(error) -> Err(error)
+    Ok(inspect_request) -> case group_inspect_export(inspect_request) do
+      Err(error) -> Err(error)
+      Ok(inspect_wire) -> case output_list(inspect_wire) do
+        Err(error) -> Err(error)
+        Ok(created_inspect) -> do
           group_create_ensure(Bytes.secure_equals(List.get(created_inspect, 1), group_id),
           "inspected group id mismatch") ?
           case output_list(List.get(created_inspect, 6)) do
-            Err( error) -> Err(error)
-            Ok( created_members) -> do
+            Err(error) -> Err(error)
+            Ok(created_members) -> do
               group_create_ensure(List.length(created_members) == 1, "created group tree mismatch") ?
               case output_list(List.head(created_members)) do
-                Err( error) -> Err(error)
-                Ok( first_member) -> case Bytes.from_list([1]) do
-                  Err( _) -> Err("creator marker encoding failed")
-                  Ok( creator_marker) -> do
+                Err(error) -> Err(error)
+                Ok(first_member) -> case Bytes.from_list([1]) do
+                  Err(_) -> Err("creator marker encoding failed")
+                  Ok(creator_marker) -> do
                     group_create_ensure(Bytes.secure_equals(List.get(first_member, 2),
                     creator_marker),
                     "creator marker mismatch") ?
@@ -87,19 +87,19 @@ fn bob_package_for_group(accounts :: GroupAccountFixture, group_id :: Bytes) -> 
   "group key package was not stable") ?
   case group_add_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, repeated(0,
   305260) ?, repeated(0, 369) ?]) ?) do
-    Ok( _) -> Err("invalid device set was accepted") ?
-    Err( error) -> group_create_ensure(error == "invalid_device_set",
+    Ok(_) -> Err("invalid device set was accepted") ?
+    Err(error) -> group_create_ensure(error == "invalid_device_set",
     "wrong invalid device set error") ?
   end
   case group_add_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, repeated(0,
   305261) ?, repeated(0, 369) ?]) ?) do
-    Ok( _) -> Err("oversized device set was accepted") ?
-    Err( error) -> group_create_ensure(error == "invalid_group_request",
+    Ok(_) -> Err("oversized device set was accepted") ?
+    Err(error) -> group_create_ensure(error == "invalid_group_request",
     "wrong oversized device set error") ?
   end
   case group_add_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, accounts.bob_set, bob_package]) ?) do
-    Ok( _) -> Err("uncached group device set was accepted") ?
-    Err( error) -> group_create_ensure(error == "group_transparency_unverified",
+    Ok(_) -> Err("uncached group device set was accepted") ?
+    Err(error) -> group_create_ensure(error == "group_transparency_unverified",
     "wrong uncached device set error") ?
   end
   Ok(bob_package)

@@ -29,29 +29,29 @@ end
 
 fn entry(input :: Bytes) -> DirectoryEntry ! String do
   case decode_directory_entry(input) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn bundle(input :: Bytes) -> PrekeyBundle ! String do
   case decode_prekey_bundle(input) do
-    Err( _) -> Err("prekey bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("prekey bundle decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn credential(input :: Bytes) -> DeviceCredential ! String do
   case decode_device_credential(input) do
-    Err( _) -> Err("device credential decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device credential decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn account(input :: Bytes) -> AccountIdentity ! String do
   case decode_account_identity(input) do
-    Err( _) -> Err("account identity decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account identity decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -67,8 +67,8 @@ devices :: List < DirectoryEntry >) -> Bytes ! String do
     devices : devices,
     revoked_device_ids : List.new()
   }) do
-    Err( _) -> Err("device set encode failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("device set encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 

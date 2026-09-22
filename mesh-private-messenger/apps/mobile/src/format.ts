@@ -42,6 +42,17 @@ export function formatInboxTime(timestamp: number, now = Date.now()): string {
   });
 }
 
+// The letters an avatar is drawn with: the first of two words, or the start
+// of one, leaving out anything that is not a letter or digit.
+export function initials(name: string): string {
+  const words = name
+    .split(/[._\-\s]+/)
+    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter(Boolean);
+  const letters = words.length >= 2 ? `${words[0]![0]}${words[1]![0]}` : (words[0] ?? '').slice(0, 2);
+  return letters.toUpperCase();
+}
+
 export const groupDigits = (value: string, size: number): string[] =>
   value.match(new RegExp(`.{1,${size}}`, 'g')) ?? [];
 

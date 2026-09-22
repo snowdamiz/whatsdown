@@ -28,20 +28,20 @@ end
 
 pub fn local_context(label :: String) -> Bytes ! String do
   case Bytes.repeat(0, 32) do
-    Err( _) -> Err("storage_context_failed")
-    Ok( account_id) -> case Bytes.repeat(0, 16) do
-      Err( _) -> Err("storage_context_failed")
-      Ok( device_id) -> context(account_id, device_id, label, 14)
+    Err(_) -> Err("storage_context_failed")
+    Ok(account_id) -> case Bytes.repeat(0, 16) do
+      Err(_) -> Err("storage_context_failed")
+      Ok(device_id) -> context(account_id, device_id, label, 14)
     end
   end
 end
 
 pub fn pending_context(label :: String, purpose :: Int) -> Bytes ! String do
   case Bytes.repeat(0, 32) do
-    Err( _) -> Err("storage_context_failed")
-    Ok( account_id) -> case Bytes.repeat(0, 16) do
-      Err( _) -> Err("storage_context_failed")
-      Ok( device_id) -> context(account_id, device_id, label, purpose)
+    Err(_) -> Err("storage_context_failed")
+    Ok(account_id) -> case Bytes.repeat(0, 16) do
+      Err(_) -> Err("storage_context_failed")
+      Ok(device_id) -> context(account_id, device_id, label, purpose)
     end
   end
 end
@@ -57,8 +57,8 @@ end
 
 pub fn platform_key() -> StorageKey ! String do
   case StorageKey.platform() do
-    Err( _) -> Err("secure_storage_unavailable")
-    Ok( key) -> Ok(key)
+    Err(_) -> Err("secure_storage_unavailable")
+    Ok(key) -> Ok(key)
   end
 end
 
@@ -66,8 +66,8 @@ pub fn seal_signing(key :: borrow SigningPrivateKey,
 wrapping_key :: borrow StorageKey,
 value_context :: Bytes) -> Bytes ! String do
   case SigningPrivateKey.seal_for_storage(key, wrapping_key, value_context) do
-    Err( _) -> Err("identity_seal_failed")
-    Ok( blob) -> Ok(blob)
+    Err(_) -> Err("identity_seal_failed")
+    Ok(blob) -> Ok(blob)
   end
 end
 
@@ -75,8 +75,8 @@ pub fn seal_x25519(key :: borrow X25519PrivateKey,
 wrapping_key :: borrow StorageKey,
 value_context :: Bytes) -> Bytes ! String do
   case X25519PrivateKey.seal_for_storage(key, wrapping_key, value_context) do
-    Err( _) -> Err("identity_seal_failed")
-    Ok( blob) -> Ok(blob)
+    Err(_) -> Err("identity_seal_failed")
+    Ok(blob) -> Ok(blob)
   end
 end
 
@@ -84,42 +84,42 @@ pub fn seal_mlkem(key :: borrow MlKemPrivateKey,
 wrapping_key :: borrow StorageKey,
 value_context :: Bytes) -> Bytes ! String do
   case MlKemPrivateKey.seal_for_storage(key, wrapping_key, value_context) do
-    Err( _) -> Err("identity_seal_failed")
-    Ok( blob) -> Ok(blob)
+    Err(_) -> Err("identity_seal_failed")
+    Ok(blob) -> Ok(blob)
   end
 end
 
 pub fn open_signing(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> SigningPrivateKey ! String do
   case SigningPrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
-    Err( _) -> Err("identity_open_failed")
-    Ok( key) -> Ok(key)
+    Err(_) -> Err("identity_open_failed")
+    Ok(key) -> Ok(key)
   end
 end
 
 pub fn open_x25519(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> X25519PrivateKey ! String do
   case X25519PrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
-    Err( _) -> Err("identity_open_failed")
-    Ok( key) -> Ok(key)
+    Err(_) -> Err("identity_open_failed")
+    Ok(key) -> Ok(key)
   end
 end
 
 pub fn open_mlkem(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> MlKemPrivateKey ! String do
   case MlKemPrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
-    Err( _) -> Err("identity_open_failed")
-    Ok( key) -> Ok(key)
+    Err(_) -> Err("identity_open_failed")
+    Ok(key) -> Ok(key)
   end
 end
 
 pub fn seal_local(value :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> Bytes ! String do
   case StorageKey.seal_bytes(value, wrapping_key, value_context) do
-    Err( _) -> Err("local_state_seal_failed")
-    Ok( blob) -> Ok(blob)
+    Err(_) -> Err("local_state_seal_failed")
+    Ok(blob) -> Ok(blob)
   end
 end
 
 pub fn open_local(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> Bytes ! String do
   case StorageKey.unseal_bytes(blob, wrapping_key, value_context) do
-    Err( _) -> Err("local_state_open_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("local_state_open_failed")
+    Ok(value) -> Ok(value)
   end
 end

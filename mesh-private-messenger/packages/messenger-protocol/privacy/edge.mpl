@@ -55,9 +55,9 @@ end
 pub fn internal_delivery_authorized(header :: Option < String >, secret :: String) -> Bool do
   case header do
     None -> false
-    Some( value) -> case internal_delivery_authorization(secret) do
-      Err( _) -> false
-      Ok( expected) -> Bytes.secure_equals(Crypto.sha256(Bytes.from_utf8(value)),
+    Some(value) -> case internal_delivery_authorization(secret) do
+      Err(_) -> false
+      Ok(expected) -> Bytes.secure_equals(Crypto.sha256(Bytes.from_utf8(value)),
       Crypto.sha256(Bytes.from_utf8(expected)))
     end
   end
@@ -65,8 +65,8 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("privacy allocation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("privacy allocation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -83,10 +83,10 @@ fn write_u32(value :: Int) -> Bytes ! String do
     Err("negative privacy integer")
   else
     case U64.parse(Int.to_string(value)) do
-      Err( _) -> Err("unparseable privacy integer")
-      Ok( wide) -> case Bytes.write_u32_be(wide) do
-        Err( _) -> Err("oversized privacy integer #{value}")
-        Ok( encoded) -> Ok(encoded)
+      Err(_) -> Err("unparseable privacy integer")
+      Ok(wide) -> case Bytes.write_u32_be(wide) do
+        Err(_) -> Err("oversized privacy integer #{value}")
+        Ok(encoded) -> Ok(encoded)
       end
     end
   end
@@ -94,15 +94,15 @@ end
 
 fn write_u64(value :: U64) -> Bytes ! String do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err("unencodable privacy integer")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("unencodable privacy integer")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("invalid privacy integer")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("invalid privacy integer")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -112,33 +112,31 @@ end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! String do
   case read_fixed(state, length) do
-    Err( _) -> Err("invalid privacy wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid privacy wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid privacy wire")
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes ! String do
   case read_vector(state, maximum) do
-    Err( _) -> Err("invalid privacy wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid privacy wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid privacy wire")
   end
 end
 
 fn take_u32(state :: BinaryReader) -> ReadInt ! String do
   let bytes = take_fixed(state, 4) ?
   case Bytes.read_u32_be(bytes.value, 0) do
-    Err( _) -> Err("invalid privacy integer")
-    Ok( value) -> case U64.to_int(value) do
-      Err( _) -> Err("invalid privacy integer")
-      Ok( parsed) -> Ok(ReadInt {
+    Err(_) -> Err("invalid privacy integer")
+    Ok(value) -> case U64.to_int(value) do
+      Err(_) -> Err("invalid privacy integer")
+      Ok(parsed) -> Ok(ReadInt {
         state : bytes.state,
         value : parsed
       })
@@ -149,8 +147,8 @@ end
 fn take_u64(state :: BinaryReader) -> ReadWide ! String do
   let bytes = take_fixed(state, 8) ?
   case Bytes.read_u64_be(bytes.value, 0) do
-    Err( _) -> Err("invalid privacy integer")
-    Ok( value) -> Ok(ReadWide {
+    Err(_) -> Err("invalid privacy integer")
+    Ok(value) -> Ok(ReadWide {
       state : bytes.state,
       value : value
     })
@@ -162,8 +160,8 @@ fn start(input :: Bytes, maximum :: Int, magic :: String) -> BinaryReader ! Stri
     Err("privacy wire oversized")
   else
     case reader(input, maximum) do
-      Err( _) -> Err("invalid privacy wire")
-      Ok( initial) -> do
+      Err(_) -> Err("invalid privacy wire")
+      Ok(initial) -> do
         let version = take_fixed(initial, 1) ?
         let prefix = take_fixed(version.state, 3) ?
         if !Bytes.secure_equals(version.value, byte(1) ?) || !Bytes.secure_equals(prefix.value,
@@ -179,19 +177,19 @@ end
 
 fn done(state :: BinaryReader) -> Result <(), String > do
   case finish(state) do
-    Err( _) -> Err("invalid privacy wire")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("invalid privacy wire")
+    Ok(_) -> Ok(nil)
   end
 end
 
 fn canonical_outer(value :: Bytes) -> Bytes ! String do
   let decoded = case decode_outer_envelope(value) do
-    Err( _) -> Err("invalid outer envelope")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid outer envelope")
+    Ok(output) -> Ok(output)
   end ?
   let encoded = case encode_outer_envelope(decoded) do
-    Err( _) -> Err("invalid outer envelope")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid outer envelope")
+    Ok(output) -> Ok(output)
   end ?
   if Bytes.secure_equals(value, encoded) do
     Ok(encoded)
@@ -215,36 +213,36 @@ fn delivery_key(shared :: SecretBytes, authenticated_data :: Bytes) -> AeadKey !
   Crypto.sha256(Bytes.from_utf8("mesh-msg/v1/sealed-delivery-salt")),
   authenticated_data,
   32) do
-    Err( _) -> Err("delivery key derivation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("delivery key derivation failed")
+    Ok(value) -> Ok(value)
   end ?
   Secret.destroy(shared)
   case Crypto.aead_key(material) do
-    Err( _) -> Err("delivery key derivation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("delivery key derivation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn seal_delivery(outer_bytes :: Bytes, delivery_public_key :: X25519PublicKey) -> SealedDelivery ! String do
   let outer = canonical_outer(outer_bytes) ?
   let ephemeral = case Crypto.x25519_generate() do
-    Err( _) -> Err("delivery key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("delivery key generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let ephemeral_public_key = ephemeral.public_key.bytes
   let authenticated_data = authenticated(ephemeral_public_key, delivery_public_key.bytes) ?
   let shared = case Crypto.x25519_shared(ephemeral.private_key, delivery_public_key) do
-    Err( _) -> Err("delivery key agreement failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("delivery key agreement failed")
+    Ok(value) -> Ok(value)
   end ?
   let key = delivery_key(shared, authenticated_data) ?
   let nonce = case Crypto.random_bytes(12) do
-    Err( _) -> Err("delivery nonce generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("delivery nonce generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let ciphertext = case Crypto.aead_seal(key, nonce, authenticated_data, outer) do
-    Err( _) -> Err("delivery sealing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("delivery sealing failed")
+    Ok(value) -> Ok(value)
   end ?
   Ok(SealedDelivery {
     ephemeral_public_key : ephemeral_public_key,
@@ -259,19 +257,19 @@ delivery_private_key :: borrow X25519PrivateKey) -> Bytes ! String do
     Err("invalid sealed delivery")
   else
     let delivery_public_key = case Crypto.x25519_public(delivery_private_key) do
-      Err( _) -> Err("invalid delivery key")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("invalid delivery key")
+      Ok(output) -> Ok(output)
     end ?
     let authenticated_data = authenticated(value.ephemeral_public_key, delivery_public_key.bytes) ?
     let shared = case Crypto.x25519_shared(delivery_private_key,
     X25519PublicKey { bytes : value.ephemeral_public_key }) do
-      Err( _) -> Err("delivery key agreement failed")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("delivery key agreement failed")
+      Ok(output) -> Ok(output)
     end ?
     let key = delivery_key(shared, authenticated_data) ?
     let plaintext = case Crypto.aead_open(key, value.nonce, authenticated_data, value.ciphertext) do
-      Err( _) -> Err("delivery opening failed")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("delivery opening failed")
+      Ok(output) -> Ok(output)
     end ?
     canonical_outer(plaintext)
   end
@@ -282,8 +280,8 @@ pub fn open_delivery(value :: SealedDelivery, delivery_private_seed :: Bytes) ->
     Err("invalid sealed delivery")
   else
     let delivery = case Crypto.x25519_from_seed(delivery_private_seed) do
-      Err( _) -> Err("invalid delivery key")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("invalid delivery key")
+      Ok(output) -> Ok(output)
     end ?
     open_delivery_with_key(value, delivery.private_key)
   end
@@ -341,8 +339,8 @@ fn leading_zero_bits(hash :: Bytes, index :: Int, remaining :: Int) -> Bool do
     true
   else
     case Bytes.get(hash, index) do
-      Err( _) -> false
-      Ok( value) -> if remaining >= 8 do
+      Err(_) -> false
+      Ok(value) -> if remaining >= 8 do
         value == 0 && leading_zero_bits(hash, index + 1, remaining - 8)
       else
         value < power_of_two(8 - remaining, 1)
@@ -389,8 +387,8 @@ pub fn verify_submission(input :: Bytes, now :: U64, maximum_future :: U64, diff
     Ok(false)
   else
     let latest = case U64.add(now, maximum_future) do
-      Err( _) -> Err("invalid abuse token window")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid abuse token window")
+      Ok(value) -> Ok(value)
     end ?
     Ok(U64.compare(expires_at.value, now) >= 0 && U64.compare(expires_at.value, latest) <= 0 && leading_zero_bits(work_hash(sealed_delivery_label(),
     Crypto.sha256(sealed.value),
@@ -456,8 +454,8 @@ difficulty :: Int) -> Bool ! String do
     Ok(false)
   else
     let latest = case U64.add(now, maximum_future) do
-      Err( _) -> Err("invalid abuse token window")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid abuse token window")
+      Ok(value) -> Ok(value)
     end ?
     Ok(U64.compare(stamp.expires_at, now) >= 0 && U64.compare(stamp.expires_at, latest) <= 0 && leading_zero_bits(work_hash(label,
     Crypto.sha256(payload),
@@ -480,7 +478,7 @@ pub fn encode_stamped_request(stamp :: RequestStamp, payload :: Bytes) -> Bytes 
   Bytes.empty())
 end
 
-pub fn decode_stamped_request(input :: Bytes, maximum_payload :: Int) -> Result <( RequestStamp, Bytes), String > do
+pub fn decode_stamped_request(input :: Bytes, maximum_payload :: Int) -> Result <(RequestStamp, Bytes), String > do
   let expires_at = take_u64(start(input, maximum_payload + 20, "PWR") ?) ?
   let nonce = take_u32(expires_at.state) ?
   let payload = take_vector(nonce.state, maximum_payload) ?

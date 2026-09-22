@@ -20,12 +20,12 @@ end
 
 fn identity_of(path :: String) -> AccountIdentity ! String do
   let entry = case decode_directory_entry(directory_entry_export(Bytes.from_utf8(path)) ?) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end ?
   case decode_account_identity(entry.account_identity) do
-    Err( _) -> Err("account identity decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account identity decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -34,14 +34,14 @@ end
 
 fn change_record(path :: String, sql :: String, values :: List < DbValue >) -> Result <(), String > do
   let database = case Sqlite.open(path) do
-    Err( _) -> Err("test database open failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test database open failed")
+    Ok(value) -> Ok(value)
   end ?
   let result = Sqlite.execute_values(database, sql, values)
   Sqlite.close(database)
   case result do
-    Err( _) -> Err("test record change failed")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("test record change failed")
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -51,8 +51,8 @@ end
 
 fn loads(path :: String) -> Bool do
   case load_profile_export(Bytes.from_utf8(path)) do
-    Err( _) -> false
-    Ok( _) -> true
+    Err(_) -> false
+    Ok(_) -> true
   end
 end
 
@@ -61,12 +61,12 @@ fn proof() -> Bool ! String do
   let path = database_path("account-deletion") ?
   let first = create_account_export(account_request(path, "alice") ?) ?
   let deletion = case decode_account_deletion(account_deletion_export(Bytes.from_utf8(path)) ?) do
-    Err( _) -> Err("account deletion decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account deletion decode failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(case verify_account_deletion(identity_of(path) ?, deletion) do
-    Err( _) -> false
-    Ok( valid) -> valid
+    Err(_) -> false
+    Ok(valid) -> valid
   end)
   let _ = erase_account_export(Bytes.from_utf8(path)) ?
   assert(!loads(path))
@@ -80,8 +80,8 @@ fn proof() -> Bool ! String do
   assert(loads(path))
   # An account is never replaced by creating another over it.
   assert(case create_account_export(account_request(path, "bob") ?) do
-    Err( _) -> true
-    Ok( _) -> false
+    Err(_) -> true
+    Ok(_) -> false
   end)
   # A linked device holds no account key, so it gets no statement to send.
   change_record(path,
@@ -93,26 +93,26 @@ end
 
 test("an erased account leaves nothing behind that could block the next one") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
 fn device_signing_key(path :: String) -> Bytes ! String do
   let entry = case decode_directory_entry(directory_entry_export(Bytes.from_utf8(path)) ?) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end ?
   let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
-    Err( _) -> Err("prekey bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("prekey bundle decode failed")
+    Ok(value) -> Ok(value)
   end ?
   case decode_device_credential(bundle.device_credential) do
-    Err( _) -> Err("device credential decode failed")
-    Ok( value) -> Ok(value.signing_public_key)
+    Err(_) -> Err("device credential decode failed")
+    Ok(value) -> Ok(value.signing_public_key)
   end
 end
 
@@ -121,10 +121,10 @@ end
 
 fn forgets(path :: String, statement :: Bytes) -> Int ! String do
   case forget_on_proof_export(append(vector(Bytes.from_utf8(path)) ?, vector(statement) ?) ?) do
-    Err( _) -> Ok(0)
-    Ok( kind) -> case Bytes.get(kind, 0) do
-      Err( _) -> Err("empty removal kind")
-      Ok( value) -> Ok(value)
+    Err(_) -> Ok(0)
+    Ok(kind) -> case Bytes.get(kind, 0) do
+      Err(_) -> Err("empty removal kind")
+      Ok(value) -> Ok(value)
     end
   end
 end
@@ -137,12 +137,12 @@ fn leaving_proof() -> Bool ! String do
   let _ = create_account_export(account_request(other, "bob") ?) ?
   # Any device can sign itself out of its account, with its own key.
   let departure = case decode_device_departure(device_departure_export(Bytes.from_utf8(path)) ?) do
-    Err( _) -> Err("device departure decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device departure decode failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(case verify_device_departure(device_signing_key(path) ?, departure) do
-    Err( _) -> false
-    Ok( valid) -> valid
+    Err(_) -> false
+    Ok(valid) -> valid
   end)
   assert(Bytes.secure_equals(departure.account_id, identity_of(path) ?.account_id))
   # The directory's word that the account was deleted erases nothing unless
@@ -151,12 +151,12 @@ fn leaving_proof() -> Bool ! String do
   let theirs = account_deletion_export(Bytes.from_utf8(other)) ?
   let ours = account_deletion_export(Bytes.from_utf8(path)) ?
   let unsigned_part = case Bytes.slice(ours, 0, 107) do
-    Err( _) -> Err("test slice failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test slice failed")
+    Ok(value) -> Ok(value)
   end ?
   let changed = case Bytes.concat(unsigned_part, Bytes.from_utf8("x")) do
-    Err( _) -> Err("test concat failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test concat failed")
+    Ok(value) -> Ok(value)
   end ?
   let their_departure = device_departure_export(Bytes.from_utf8(other)) ?
   assert(forgets(path, Bytes.from_utf8("garbage")) ? == 0)
@@ -175,10 +175,10 @@ end
 
 test("a device leaves on its own key, and forgets its account only on a proof that verifies") do
   case leaving_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

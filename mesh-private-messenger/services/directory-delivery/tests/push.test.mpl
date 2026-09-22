@@ -15,29 +15,29 @@ from Storage.Push import find_push_binding_for_mailbox
 
 fn repeated(value :: Int, length :: Int) -> Bytes ! String do
   case Bytes.repeat(value, length) do
-    Err( _) -> Err("test allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn random_hash() -> Bytes ! String do
   case Crypto.random_bytes(32) do
-    Err( _) -> Err("test randomness failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test randomness failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn append_bytes(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("test allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn protocol(value :: Result < Bytes, ProtocolError >) -> Bytes ! String do
   case value do
-    Err( _) -> Err("protocol encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("protocol encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -57,20 +57,20 @@ expires_at :: U64) -> DirectoryEntry ! String do
   created_at,
   expires_at,
   U64.parse("1") ?) do
-    Err( _) -> Err("credential generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("credential generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let signed = case generate_signed_prekey(device, credential, U64.parse("1") ?, expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let one_time = case generate_one_time_prekey(U64.parse("2") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let bundle = case build_prekey_bundle(credential, signed, one_time) do
-    Err( _) -> Err("prekey bundle generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("prekey bundle generation failed")
+    Ok(output) -> Ok(output)
   end ?
   Ok(DirectoryEntry {
     version : 1,
@@ -83,8 +83,8 @@ end
 
 fn sign_bind(key :: borrow SigningPrivateKey, request :: PushBindRequest) -> PushBindRequest ! String do
   let signature = case Crypto.sign(key, push_bind_signing_bytes(request) ?) do
-    Err( _) -> Err("push bind signing failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("push bind signing failed")
+    Ok(output) -> Ok(output)
   end ?
   Ok(PushBindRequest {
     mailbox_token_hash : request.mailbox_token_hash,
@@ -98,8 +98,8 @@ end
 
 fn sign_unbind(key :: borrow SigningPrivateKey, request :: PushUnbindRequest) -> PushUnbindRequest ! String do
   let signature = case Crypto.sign(key, push_unbind_signing_bytes(request) ?) do
-    Err( _) -> Err("push unbind signing failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("push unbind signing failed")
+    Ok(output) -> Ok(output)
   end ?
   Ok(PushUnbindRequest {
     mailbox_token_hash : request.mailbox_token_hash,
@@ -136,22 +136,22 @@ test("push broker statuses preserve retry semantics") do
     _ -> assert(false)
   end
   case broker_status(422) do
-    PushPermanent( code) -> assert(code == "provider_rejected")
+    PushPermanent(code) -> assert(code == "provider_rejected")
     _ -> assert(false)
   end
   case broker_status(503) do
-    PushRetryable( code) -> assert(code == "provider_retryable")
+    PushRetryable(code) -> assert(code == "provider_retryable")
     _ -> assert(false)
   end
   case broker_status(500) do
-    PushRetryable( code) -> assert(code == "broker_invalid_response")
+    PushRetryable(code) -> assert(code == "broker_invalid_response")
     _ -> assert(false)
   end
 end
 
 fn text(value :: DbValue) -> String ! String do
   case value do
-    Text( output) -> Ok(output)
+    Text(output) -> Ok(output)
     _ -> Err("invalid test row")
   end
 end
@@ -201,25 +201,25 @@ fn proof() -> Bool ! String do
   []) ?
   let created_at = current_time() ?
   let expires_at = U64.add(created_at, U64.parse("31536000000") ?) ?
-  let ( account, identity) = case generate_account(created_at, U64.parse("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( output) -> Ok(output)
+  let (account, identity) = case generate_account(created_at, U64.parse("1") ?) do
+    Err(_) -> Err("account generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let device = case generate_device() do
-    Err( _) -> Err("device generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("device generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let attacker = case generate_device() do
-    Err( _) -> Err("attacker generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("attacker generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let mailbox_token = repeated(7, 32) ?
   let mailbox_token_hash = Crypto.sha256(mailbox_token)
   let first_wake_token_hash = random_hash() ?
   let second_wake_token_hash = random_hash() ?
   let broker = case Crypto.x25519_from_seed(repeated(12, 32) ?) do
-    Err( _) -> Err("broker key generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("broker key generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let first_provider_token = seal_provider_token(Bytes.from_utf8("ExpoPushToken[first-test-device]"),
   broker.public_key) ?
@@ -262,8 +262,8 @@ fn proof() -> Bool ! String do
   mailbox_token_hash,
   "2",
   first_provider_token) ?) do
-    Err( _) -> Ok(nil)
-    Ok( _) -> Err("mailbox and wake hashes were allowed to alias")
+    Err(_) -> Ok(nil)
+    Ok(_) -> Err("mailbox and wake hashes were allowed to alias")
   end ?
   enqueue(pool, mailbox_token, 2) ?
   finish_next(pool, "provider-outage", false) ?
@@ -276,7 +276,7 @@ fn proof() -> Bool ! String do
   let stored = find_push_binding_for_mailbox(pool, mailbox_token_hash) ?
   case stored do
     None -> Err("push binding missing")
-    Some( binding) -> if Bytes.secure_equals(binding.wake_token_hash, second_wake_token_hash) && binding.provider == 1 && Bytes.secure_equals(binding.provider_token_ciphertext,
+    Some(binding) -> if Bytes.secure_equals(binding.wake_token_hash, second_wake_token_hash) && binding.provider == 1 && Bytes.secure_equals(binding.provider_token_ciphertext,
     second.provider_token_ciphertext) do
       Ok(nil)
     else
@@ -298,7 +298,7 @@ fn proof() -> Bool ! String do
   assert(bind_push_request(pool, encode_push_bind(second) ?).status == 409)
   case find_push_binding_for_mailbox(pool, mailbox_token_hash) ? do
     None -> Ok(nil)
-    Some( _) -> Err("push binding remained active")
+    Some(_) -> Err("push binding remained active")
   end ?
   let final_binding = sign_bind(device.signing_private_key,
   unsigned_bind(mailbox_token_hash, first_wake_token_hash, "4", first_provider_token) ?) ?
@@ -316,11 +316,11 @@ end
 
 test("signed push binding replays are idempotent without weakening durable delivery") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -333,13 +333,13 @@ fn unbind_before_bind_proof() -> Bool ! String do
   []) ?
   let created_at = current_time() ?
   let expires_at = U64.add(created_at, U64.parse("31536000000") ?) ?
-  let ( account, identity) = case generate_account(created_at, U64.parse("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( output) -> Ok(output)
+  let (account, identity) = case generate_account(created_at, U64.parse("1") ?) do
+    Err(_) -> Err("account generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let device = case generate_device() do
-    Err( _) -> Err("device generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("device generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let mailbox_token = repeated(41, 32) ?
   let mailbox_token_hash = Crypto.sha256(mailbox_token)
@@ -349,8 +349,8 @@ fn unbind_before_bind_proof() -> Bool ! String do
     _ -> Err("device registration failed")
   end ?
   let broker = case Crypto.x25519_from_seed(repeated(44, 32) ?) do
-    Err( _) -> Err("broker key generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("broker key generation failed")
+    Ok(output) -> Ok(output)
   end ?
   let delayed = sign_bind(device.signing_private_key,
   unsigned_bind(mailbox_token_hash,
@@ -372,14 +372,14 @@ fn unbind_before_bind_proof() -> Bool ! String do
   assert(unbind_push_request(pool, encode_push_unbind(unbind) ?).status == 200)
   case find_push_binding_for_mailbox(pool, mailbox_token_hash) ? do
     None -> Ok(nil)
-    Some( _) -> Err("unbind tombstone remained dispatchable")
+    Some(_) -> Err("unbind tombstone remained dispatchable")
   end ?
   assert(bind_push_request(pool, encode_push_bind(delayed) ?).status == 409)
   assert(bind_push_request(pool, encode_push_bind(same_revision) ?).status == 409)
   assert(bind_push_request(pool, encode_push_bind(newer) ?).status == 201)
   case find_push_binding_for_mailbox(pool, mailbox_token_hash) ? do
     None -> Err("higher-revision push binding missing")
-    Some( binding) -> if Bytes.secure_equals(binding.wake_token_hash, newer.wake_token_hash) && Bytes.secure_equals(binding.provider_token_ciphertext,
+    Some(binding) -> if Bytes.secure_equals(binding.wake_token_hash, newer.wake_token_hash) && Bytes.secure_equals(binding.provider_token_ciphertext,
     newer.provider_token_ciphertext) do
       Ok(nil)
     else
@@ -392,10 +392,10 @@ end
 
 test("unbind before bind persists a disabled revision tombstone") do
   case unbind_before_bind_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

@@ -23,8 +23,8 @@ from Groups.Tree import (
 
 pub fn group_append(left :: Bytes, right :: Bytes) -> Bytes ! GroupError do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidGroup)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -38,32 +38,32 @@ end
 
 pub fn group_byte(value :: Int) -> Bytes ! GroupError do
   case Bytes.from_list([value]) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidGroup)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 pub fn group_write_u16(value :: Int) -> Bytes ! GroupError do
   case Bytes.write_u16_be(value) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidGroup)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 pub fn group_write_u32(value :: Int) -> Bytes ! GroupError do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( wide) -> case Bytes.write_u32_be(wide) do
-      Err( _) -> Err(InvalidGroup)
-      Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidGroup)
+    Ok(wide) -> case Bytes.write_u32_be(wide) do
+      Err(_) -> Err(InvalidGroup)
+      Ok(encoded) -> Ok(encoded)
     end
   end
 end
 
 pub fn group_write_u64(value :: U64) -> Bytes ! GroupError do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidGroup)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -73,57 +73,57 @@ end
 
 pub fn group_zero() -> U64 ! GroupError do
   case U64.parse("0") do
-    Err( _) -> Err(InvalidGroup)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidGroup)
+    Ok(value) -> Ok(value)
   end
 end
 
 fn one() -> U64 ! GroupError do
   case U64.parse("1") do
-    Err( _) -> Err(InvalidGroup)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidGroup)
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn group_next_epoch(value :: U64) -> U64 ! GroupError do
   case U64.add(value, one() ?) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( next) -> Ok(next)
+    Err(_) -> Err(InvalidGroup)
+    Ok(next) -> Ok(next)
   end
 end
 
 pub fn group_tree_error(value :: Result < GroupTree, GroupTreeError >) -> GroupTree ! GroupError do
   case value do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
 pub fn group_tree_path_error(value :: Result < List < Int >, GroupTreeError >) -> List < Int > ! GroupError do
   case value do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
 pub fn group_tree_resolution_error(value :: Result < List < TreeKemResolutionNode >, GroupTreeError >) -> List < TreeKemResolutionNode > ! GroupError do
   case value do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
 pub fn group_tree_member_error(value :: Result < GroupMember, GroupTreeError >) -> GroupMember ! GroupError do
   case value do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( output) -> Ok(output)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(output) -> Ok(output)
   end
 end
 
 pub fn group_member_error(value :: Result <(), GroupTreeError >) -> Result <(), GroupError > do
   case value do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( _) -> Ok(nil)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -256,63 +256,59 @@ pub fn group_wire_reader(input :: Bytes, maximum :: Int) -> BinaryReader ! Group
     Err(InvalidGroup)
   else
     case reader(input, maximum) do
-      Err( _) -> Err(InvalidGroup)
-      Ok( state) -> Ok(state)
+      Err(_) -> Err(InvalidGroup)
+      Ok(state) -> Ok(state)
     end
   end
 end
 
 pub fn group_wire_u8(state :: BinaryReader) -> GroupReadInt ! GroupError do
   case read_u8(state) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( ( next, value)) -> Ok(GroupReadInt {
+    Err(_) -> Err(InvalidGroup)
+    Ok((next, value)) -> Ok(GroupReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidGroup)
   end
 end
 
 pub fn group_wire_u16(state :: BinaryReader) -> GroupReadInt ! GroupError do
   case read_u16_be(state) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( ( next, value)) -> Ok(GroupReadInt {
+    Err(_) -> Err(InvalidGroup)
+    Ok((next, value)) -> Ok(GroupReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidGroup)
   end
 end
 
 pub fn group_wire_fixed(state :: BinaryReader, length :: Int) -> GroupReadBytes ! GroupError do
   case read_fixed(state, length) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( ( next, value)) -> Ok(GroupReadBytes {
+    Err(_) -> Err(InvalidGroup)
+    Ok((next, value)) -> Ok(GroupReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidGroup)
   end
 end
 
 pub fn group_wire_vector(state :: BinaryReader, maximum :: Int) -> GroupReadBytes ! GroupError do
   case read_vector(state, maximum) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( ( next, value)) -> Ok(GroupReadBytes {
+    Err(_) -> Err(InvalidGroup)
+    Ok((next, value)) -> Ok(GroupReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(InvalidGroup)
   end
 end
 
 pub fn group_wire_u32(state :: BinaryReader) -> GroupReadInt ! GroupError do
   let encoded = group_wire_fixed(state, 4) ?
   case Bytes.read_u32_be(encoded.value, 0) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( wide) -> case U64.to_int(wide) do
-      Err( _) -> Err(InvalidGroup)
-      Ok( value) -> Ok(GroupReadInt {
+    Err(_) -> Err(InvalidGroup)
+    Ok(wide) -> case U64.to_int(wide) do
+      Err(_) -> Err(InvalidGroup)
+      Ok(value) -> Ok(GroupReadInt {
         state : encoded.state,
         value : value
       })
@@ -323,8 +319,8 @@ end
 pub fn group_wire_u64(state :: BinaryReader) -> GroupReadWide ! GroupError do
   let encoded = group_wire_fixed(state, 8) ?
   case Bytes.read_u64_be(encoded.value, 0) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( value) -> Ok(GroupReadWide {
+    Err(_) -> Err(InvalidGroup)
+    Ok(value) -> Ok(GroupReadWide {
       state : encoded.state,
       value : value
     })
@@ -333,8 +329,8 @@ end
 
 pub fn group_wire_end(state :: BinaryReader) -> Result <(), GroupError > do
   case finish(state) do
-    Err( _) -> Err(InvalidGroup)
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err(InvalidGroup)
+    Ok(_) -> Ok(nil)
   end
 end
 

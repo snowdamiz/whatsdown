@@ -27,8 +27,8 @@ from Transparency.Wire import TransparencyEvidence, TransparencyLookup, Transpar
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
@@ -40,17 +40,17 @@ fn now() -> U64 ! String do
   wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
-fn account(created_at :: U64) -> Result <( AccountKeys, AccountIdentity), String > do
+fn account(created_at :: U64) -> Result <(AccountKeys, AccountIdentity), String > do
   case generate_account(created_at, wide("1") ?) do
-    Err( _) -> Err("account generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn device() -> DeviceKeys ! String do
   case generate_device() do
-    Err( _) -> Err("device generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -65,21 +65,21 @@ sequence :: U64) -> DeviceCredential ! String do
   created_at,
   expires_at,
   sequence) do
-    Err( _) -> Err("credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("credential generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn protocol(value :: Result < Bytes, ProtocolError >) -> Bytes ! String do
   case value do
-    Err( _) -> Err("protocol encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("protocol encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn text(value :: DbValue) -> String ! String do
   case value do
-    Text( output) -> Ok(output)
+    Text(output) -> Ok(output)
     _ -> Err("invalid test row")
   end
 end
@@ -113,16 +113,16 @@ device_credential :: DeviceCredential,
 mailbox_token :: Bytes,
 expires_at :: U64) -> DirectoryEntry ! String do
   let signed = case generate_signed_prekey(device_keys, device_credential, wide("1") ?, expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let one_time = case generate_one_time_prekey(wide("2") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let bundle = case build_prekey_bundle(device_credential, signed, one_time) do
-    Err( _) -> Err("bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   Ok(DirectoryEntry {
     version : 1,
@@ -141,8 +141,8 @@ created_at :: U64,
 expires_at :: U64,
 sequence :: U64) -> DirectoryEntry ! String do
   let post_quantum = case generate_post_quantum_prekey() do
-    Err( _) -> Err("post-quantum prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("post-quantum prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let device_credential = case issue_hybrid_device_credential(account_keys,
   device_keys,
@@ -151,20 +151,20 @@ sequence :: U64) -> DirectoryEntry ! String do
   created_at,
   expires_at,
   sequence) do
-    Err( _) -> Err("hybrid credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid credential generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let signed = case generate_signed_prekey(device_keys, device_credential, wide("1") ?, expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let one_time = case generate_one_time_prekey(wide("2") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let base = case build_hybrid_prekey_bundle(device_credential, signed, one_time, post_quantum) do
-    Err( _) -> Err("hybrid bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let bundle = PrekeyBundle {
     version : base.version,
@@ -220,20 +220,20 @@ created_at :: U64,
 expires_at :: U64) -> RotationEntries ! String do
   let classical_credential = credential(account_keys, primary, created_at, expires_at, wide("1") ?) ?
   let signed = case generate_signed_prekey(primary, classical_credential, wide("1") ?, expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let one_time = case generate_one_time_prekey(wide("2") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let classical_bundle = case build_prekey_bundle(classical_credential, signed, one_time) do
-    Err( _) -> Err("classical bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("classical bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let replay_post_quantum = case generate_post_quantum_prekey() do
-    Err( _) -> Err("post-quantum prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("post-quantum prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let replay_credential = case issue_hybrid_device_credential(account_keys,
   primary,
@@ -242,23 +242,23 @@ expires_at :: U64) -> RotationEntries ! String do
   created_at,
   expires_at,
   wide("1") ?) do
-    Err( _) -> Err("hybrid credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid credential generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let signed = case reauthorize_signed_prekey(primary, replay_credential, signed) do
-    Err( _) -> Err("signed prekey reauthorization failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey reauthorization failed")
+    Ok(value) -> Ok(value)
   end ?
   let replay_bundle = case build_hybrid_prekey_bundle(replay_credential,
   signed,
   one_time,
   replay_post_quantum) do
-    Err( _) -> Err("hybrid bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let first_post_quantum = case generate_post_quantum_prekey() do
-    Err( _) -> Err("post-quantum prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("post-quantum prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let first_credential = case issue_hybrid_device_credential(account_keys,
   primary,
@@ -267,23 +267,23 @@ expires_at :: U64) -> RotationEntries ! String do
   created_at,
   expires_at,
   wide("2") ?) do
-    Err( _) -> Err("hybrid credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid credential generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let signed = case reauthorize_signed_prekey(primary, first_credential, signed) do
-    Err( _) -> Err("signed prekey reauthorization failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey reauthorization failed")
+    Ok(value) -> Ok(value)
   end ?
   let first_bundle = case build_hybrid_prekey_bundle(first_credential,
   signed,
   one_time,
   first_post_quantum) do
-    Err( _) -> Err("hybrid bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let second_post_quantum = case generate_post_quantum_prekey() do
-    Err( _) -> Err("post-quantum prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("post-quantum prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let second_credential = case issue_hybrid_device_credential(account_keys,
   primary,
@@ -292,42 +292,42 @@ expires_at :: U64) -> RotationEntries ! String do
   created_at,
   expires_at,
   wide("2") ?) do
-    Err( _) -> Err("hybrid credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid credential generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let signed = case reauthorize_signed_prekey(primary, second_credential, signed) do
-    Err( _) -> Err("signed prekey reauthorization failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey reauthorization failed")
+    Ok(value) -> Ok(value)
   end ?
   let second_bundle = case build_hybrid_prekey_bundle(second_credential,
   signed,
   one_time,
   second_post_quantum) do
-    Err( _) -> Err("hybrid bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let swapped_signed = case generate_signed_prekey(primary,
   first_credential,
   wide("1") ?,
   expires_at) do
-    Err( _) -> Err("swapped signed prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("swapped signed prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let swapped_bundle = case build_hybrid_prekey_bundle(first_credential,
   swapped_signed,
   one_time,
   first_post_quantum) do
-    Err( _) -> Err("swapped bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("swapped bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let downgrade_credential = credential(account_keys, primary, created_at, expires_at, wide("3") ?) ?
   let signed = case reauthorize_signed_prekey(primary, downgrade_credential, signed) do
-    Err( _) -> Err("signed prekey reauthorization failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey reauthorization failed")
+    Ok(value) -> Ok(value)
   end ?
   let downgrade_bundle = case build_prekey_bundle(downgrade_credential, signed, one_time) do
-    Err( _) -> Err("downgrade bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("downgrade bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   Ok(RotationEntries {
     classical : bundled_entry(identity, classical_bundle, mailbox_token) ?,
@@ -348,8 +348,8 @@ created_at :: U64,
 expires_at :: U64,
 sequence :: U64) -> DirectoryEntry ! String do
   let post_quantum = case generate_post_quantum_prekey() do
-    Err( _) -> Err("post-quantum prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("post-quantum prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let unsigned = DeviceCredential {
     version : 1,
@@ -366,25 +366,25 @@ sequence :: U64) -> DirectoryEntry ! String do
     signature : repeated(0, 64)
   }
   let signing_bytes = case credential_signing_bytes(unsigned) do
-    Err( _) -> Err("credential signing bytes failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("credential signing bytes failed")
+    Ok(value) -> Ok(value)
   end ?
   let signature = case Crypto.sign(account_keys.private_key, signing_bytes) do
-    Err( _) -> Err("credential signing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("credential signing failed")
+    Ok(value) -> Ok(value)
   end ?
-  let credential = % { unsigned | signature : signature.bytes }
+  let credential = % {unsigned | signature : signature.bytes }
   let signed = case generate_signed_prekey(substitute, credential, wide("1") ?, expires_at) do
-    Err( _) -> Err("signed prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let one_time = case generate_one_time_prekey(wide("3") ?) do
-    Err( _) -> Err("one-time prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let bundle = case build_hybrid_prekey_bundle(credential, signed, one_time, post_quantum) do
-    Err( _) -> Err("hybrid bundle generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid bundle generation failed")
+    Ok(value) -> Ok(value)
   end ?
   Ok(DirectoryEntry {
     version : 1,
@@ -406,7 +406,7 @@ fn proof() -> Bool ! String do
   let transparency_seed = repeated(91, 32)
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
-  let ( account_keys, identity) = account(created_at) ?
+  let (account_keys, identity) = account(created_at) ?
   let first_device = device() ?
   let second_device = device() ?
   let first = entry(identity,
@@ -454,12 +454,12 @@ fn proof() -> Bool ! String do
   second_checkpoint.tree_root,
   consistency_from(pool, U64.to_int(first_checkpoint.tree_size) ?) ?) ?)
   let witness_a = case Crypto.signing_from_seed(Bytes.from_hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60") ?) do
-    Err( _) -> Err("witness generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("witness generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let witness_b = case Crypto.signing_from_seed(Bytes.from_hex("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb") ?) do
-    Err( _) -> Err("witness generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("witness generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let witness_a_key = WitnessKey {
     witness_id : "witness-a",
@@ -506,8 +506,8 @@ fn proof() -> Bool ! String do
   encode_transparency_tree_query(TransparencyTreeQuery { previous_tree_size : 1 }) ?).body) ?.old_tree_size == 1)
   assert(List.length(decode_witnesses(witnesses_request(pool).body) ?) == 2)
   let device_set = case decode_device_set(evidence.entry_bytes) do
-    Err( _) -> Err("invalid device set")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid device set")
+    Ok(value) -> Ok(value)
   end ?
   assert(List.length(device_set.devices) == 2)
   assert(U64.compare(device_set.sequence, wide("2") ?) == 0)
@@ -525,8 +525,8 @@ fn proof() -> Bool ! String do
   })) ?
   assert(submit_request(pool, queued_delivery).status == 202)
   let revocation = case issue_device_revocation(account_keys, second_device.device_id, wide("3") ?) do
-    Err( _) -> Err("revocation signing failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("revocation signing failed")
+    Ok(value) -> Ok(value)
   end ?
   let _ = Pool.execute_values(pool,
   "INSERT INTO messenger_push_bindings (mailbox_token_hash, wake_token_hash, revision, provider, provider_token_ciphertext) VALUES ($1, $2, 1, 1, $3)",
@@ -550,8 +550,8 @@ fn proof() -> Bool ! String do
   }) ?)
   let updated_evidence = decode_transparency_evidence(updated.body) ?
   let updated_set = case decode_device_set(updated_evidence.entry_bytes) do
-    Err( _) -> Err("invalid updated device set")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid updated device set")
+    Ok(value) -> Ok(value)
   end ?
   assert(List.length(updated_set.devices) == 1)
   assert(List.length(updated_set.revoked_device_ids) == 1)
@@ -596,7 +596,7 @@ output :: List < Bytes >) -> List < Bytes > ! String do
     Ok(output)
   else
     case Map.get(List.get(rows, index), "leaf_hash") do
-      Binary( value) -> checkpoint_hashes(rows, index + 1, List.append(output, value))
+      Binary(value) -> checkpoint_hashes(rows, index + 1, List.append(output, value))
       _ -> Err("invalid test leaf hash")
     end
   end
@@ -604,12 +604,12 @@ end
 
 fn assert_checkpoint_refresh(pool :: PoolHandle, seed :: Bytes) -> Result <(), String > do
   let prior = case latest_checkpoint(pool) ? do
-    Some( value) -> Ok(value)
+    Some(value) -> Ok(value)
     None -> Err("missing test checkpoint")
   end ?
   let signer = case Crypto.signing_from_seed(seed) do
-    Ok( value) -> Ok(value)
-    Err( _) -> Err("test signing seed failed")
+    Ok(value) -> Ok(value)
+    Err(_) -> Err("test signing seed failed")
   end ?
   let hashes = checkpoint_hashes(Pool.query_values(pool,
   "SELECT leaf_hash FROM transparency_entries ORDER BY sequence",
@@ -656,11 +656,11 @@ end
 
 test("device registration, resolution, revocation, and mailbox disabling are atomic") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -668,7 +668,7 @@ fn binary_scalar(pool :: PoolHandle, sql :: String) -> Bytes ! String do
   let rows = Pool.query_values(pool, sql, []) ?
   if List.length(rows) == 1 do
     case Map.get(List.head(rows), "value") do
-      Binary( value) -> Ok(value)
+      Binary(value) -> Ok(value)
       _ -> Err("expected binary value")
     end
   else
@@ -710,8 +710,8 @@ end
 
 fn await_registration(job :: Pid < Int >) -> Int ! String do
   case Job.await(job) do
-    Err( error) -> Err("concurrent registration failed: #{error}")
-    Ok( status) -> Ok(status)
+    Err(error) -> Err("concurrent registration failed: #{error}")
+    Ok(status) -> Ok(status)
   end
 end
 
@@ -722,7 +722,7 @@ fn credential_rotation_proof() -> Bool ! String do
   reset_rotation_state(pool) ?
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
-  let ( account_keys, identity) = account(created_at) ?
+  let (account_keys, identity) = account(created_at) ?
   let primary = device() ?
   let substitute = device() ?
   let mailbox_token = repeated(71, 32)
@@ -757,7 +757,7 @@ fn credential_rotation_proof() -> Bool ! String do
   "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value") ? == "1:1")
   assert(register_device_request(pool,
   protocol(encode_directory_entry(entries.replayed_sequence)) ?).status == 409)
-  let moved_mailbox = % { entries.first_hybrid | mailbox_token : repeated(72, 32) }
+  let moved_mailbox = % {entries.first_hybrid | mailbox_token : repeated(72, 32) }
   assert(register_device_request(pool, protocol(encode_directory_entry(moved_mailbox)) ?).status == 409)
   let substituted = substituted_hybrid_entry(identity,
   account_keys,
@@ -771,16 +771,16 @@ fn credential_rotation_proof() -> Bool ! String do
   assert(register_device_request(pool,
   protocol(encode_directory_entry(entries.swapped_signed_prekey)) ?).status == 409)
   let decoded_hybrid = case decode_prekey_bundle(entries.first_hybrid.prekey_bundle) do
-    Err( _) -> Err("hybrid bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid bundle decode failed")
+    Ok(value) -> Ok(value)
   end ?
   let decoded_credential = case decode_device_credential(decoded_hybrid.device_credential) do
-    Err( _) -> Err("hybrid credential decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("hybrid credential decode failed")
+    Ok(value) -> Ok(value)
   end ?
-  let unsigned_credential = % { decoded_credential | signature : repeated(0, 64) }
-  let unauthorized_bundle = % { decoded_hybrid | device_credential : protocol(encode_device_credential(unsigned_credential)) ? }
-  let unauthorized = % { entries.first_hybrid | prekey_bundle : protocol(encode_prekey_bundle(unauthorized_bundle)) ? }
+  let unsigned_credential = % {decoded_credential | signature : repeated(0, 64) }
+  let unauthorized_bundle = % {decoded_hybrid | device_credential : protocol(encode_device_credential(unsigned_credential)) ? }
+  let unauthorized = % {entries.first_hybrid | prekey_bundle : protocol(encode_prekey_bundle(unauthorized_bundle)) ? }
   assert(register_device_request(pool, protocol(encode_directory_entry(unauthorized)) ?).status == 400)
   let first_wire = protocol(encode_directory_entry(entries.first_hybrid)) ?
   let second_wire = protocol(encode_directory_entry(entries.second_hybrid)) ?
@@ -805,24 +805,24 @@ fn credential_rotation_proof() -> Bool ! String do
   assert(register_device_request(pool, protocol(encode_directory_entry(entries.downgrade)) ?).status == 409)
   let stored_set = case resolve_devices(pool, "alice") ? do
     None -> Err("rotated device set missing")
-    Some( value) -> Ok(value)
+    Some(value) -> Ok(value)
   end ?
   let stored_entry = List.head(stored_set.devices)
   let stored_bundle = case decode_prekey_bundle(stored_entry.prekey_bundle) do
-    Err( _) -> Err("stored hybrid bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("stored hybrid bundle decode failed")
+    Ok(value) -> Ok(value)
   end ?
   let stored_credential = case decode_device_credential(stored_bundle.device_credential) do
-    Err( _) -> Err("stored hybrid credential decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("stored hybrid credential decode failed")
+    Ok(value) -> Ok(value)
   end ?
   let classical_bundle = case decode_prekey_bundle(entries.classical.prekey_bundle) do
-    Err( _) -> Err("classical bundle decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("classical bundle decode failed")
+    Ok(value) -> Ok(value)
   end ?
   let classical_credential = case decode_device_credential(classical_bundle.device_credential) do
-    Err( _) -> Err("classical credential decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("classical credential decode failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(stored_bundle.suite == 2)
   assert(Bytes.length(stored_bundle.post_quantum_prekey) == 1184)
@@ -859,10 +859,10 @@ end
 
 test("same-device credentials rotate once from classical to hybrid without weakening identity") do
   case credential_rotation_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

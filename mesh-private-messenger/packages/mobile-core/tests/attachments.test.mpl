@@ -40,8 +40,8 @@ end
 
 fn slice(input :: Bytes, offset :: Int, length :: Int) -> Bytes ! String do
   case Bytes.slice(input, offset, length) do
-    Err( _) -> Err("slice failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("slice failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -61,8 +61,8 @@ end
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( _) -> Err("test integer conversion failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("test integer conversion failed")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
@@ -113,13 +113,13 @@ end
 
 fn exercise_preparation(path :: String) -> PreparedAttachment ! String do
   case attachment_prepare_export(group_vectors([Bytes.from_utf8(path), Bytes.from_utf8("huge.bin"), Bytes.from_utf8("application/octet-stream"), write_u32(256 * 65536 + 1) ?, write_u32(1) ?]) ?) do
-    Ok( _) -> Err("oversized attachment was accepted") ?
-    Err( error) -> ensure(error == "attachment_too_large",
+    Ok(_) -> Err("oversized attachment was accepted") ?
+    Err(error) -> ensure(error == "attachment_too_large",
     "wrong oversized attachment error" <> ": " <> error) ?
   end
   case attachment_prepare_export(group_vectors([Bytes.from_utf8(path), Bytes.from_utf8("empty.bin"), Bytes.from_utf8("application/octet-stream"), write_u32(0) ?, write_u32(1) ?]) ?) do
-    Ok( _) -> Err("empty attachment was accepted") ?
-    Err( error) -> ensure(error == "attachment_too_large",
+    Ok(_) -> Err("empty attachment was accepted") ?
+    Err(error) -> ensure(error == "attachment_too_large",
     "wrong empty attachment error" <> ": " <> error) ?
   end
   let prepared = prepare(path, "photo.jpg", "image/jpeg", 70000) ?
@@ -150,18 +150,18 @@ fn exercise_chunks(path :: String, prepared :: PreparedAttachment) -> Bool ! Str
   ensure(Bytes.secure_equals(open(path, prepared.reference, 1, sealed_last) ?, last),
   "last chunk round trip mismatch") ?
   case seal(path, prepared.reference, 2, last) do
-    Ok( _) -> Err("out of range chunk was sealed") ?
-    Err( error) -> ensure(error == "invalid_attachment_chunk_index",
+    Ok(_) -> Err("out of range chunk was sealed") ?
+    Err(error) -> ensure(error == "invalid_attachment_chunk_index",
     "wrong chunk index error" <> ": " <> error) ?
   end
   case seal(path, prepared.reference, 1, first) do
-    Ok( _) -> Err("wrong sized chunk was sealed") ?
-    Err( error) -> ensure(error == "invalid_attachment_chunk_size",
+    Ok(_) -> Err("wrong sized chunk was sealed") ?
+    Err(error) -> ensure(error == "invalid_attachment_chunk_size",
     "wrong chunk size error" <> ": " <> error) ?
   end
   case open(path, prepared.reference, 1, sealed_first) do
-    Ok( _) -> Err("chunk opened under the wrong index") ?
-    Err( error) -> ensure(error == "invalid_attachment_chunk_index",
+    Ok(_) -> Err("chunk opened under the wrong index") ?
+    Err(error) -> ensure(error == "invalid_attachment_chunk_index",
     "wrong reordered chunk error" <> ": " <> error) ?
   end
   Ok(true)
@@ -173,14 +173,14 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool ! 
   let prepared = exercise_preparation(carol_path) ?
   ensure(exercise_chunks(carol_path, prepared) ?, "chunk checks failed") ?
   case start_conversation_export(group_vectors([Bytes.from_utf8(carol_path), dave_profile, Bytes.empty()]) ?) do
-    Ok( _) -> Err("empty message without attachment was accepted") ?
-    Err( error) -> ensure(error == "invalid_start_request",
+    Ok(_) -> Err("empty message without attachment was accepted") ?
+    Err(error) -> ensure(error == "invalid_start_request",
     "wrong empty start error" <> ": " <> error) ?
   end
   case start_conversation_export(group_vectors([Bytes.from_utf8(carol_path), dave_profile, Bytes.empty(), repeated(1,
   40) ?]) ?) do
-    Ok( _) -> Err("malformed attachment reference was accepted") ?
-    Err( error) -> ensure(error == "invalid_attachment_reference",
+    Ok(_) -> Err("malformed attachment reference was accepted") ?
+    Err(error) -> ensure(error == "invalid_attachment_reference",
     "wrong malformed reference error: " <> error) ?
   end
   let photos = for index in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] do
@@ -203,8 +203,8 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool ! 
   let truncated = slice(album, 0, Bytes.length(album) - 1) ?
   let _ = for invalid in [too_many, nested, trailing, truncated] do
     case validate_attachment(invalid) do
-      Ok( _) -> Err("invalid attachment batch was accepted") ?
-      Err( _) -> Ok(nil) ?
+      Ok(_) -> Err("invalid attachment batch was accepted") ?
+      Err(_) -> Ok(nil) ?
     end
   end
   let initial = start_conversation_export(group_vectors([Bytes.from_utf8(carol_path), dave_profile, Bytes.empty(), album]) ?) ?
@@ -238,9 +238,8 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool ! 
     let own = assert_summary(List.get(carol_summaries, index), photo, "photo#{index}.jpg", 1000, 1) ?
     ensure(Bytes.secure_equals(own, photo.reference), "sender lost album reference") ?
     case open(dave_path, photo.reference, 0, chunk) do
-      Ok( _) -> Err("peer opened sender reference") ?
-      Err( error) -> ensure(error == "attachment_key_unwrap_failed",
-      "wrong foreign reference error") ?
+      Ok(_) -> Err("peer opened sender reference") ?
+      Err(error) -> ensure(error == "attachment_key_unwrap_failed", "wrong foreign reference error") ?
     end
   end
   Ok(true)
@@ -334,10 +333,10 @@ end
 
 test("attachments travel as rewrapped references through direct and group messages") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

@@ -44,35 +44,35 @@ from Transport.Packet import decode_client_profile
 
 fn device_set(path :: String, username :: String) -> Bytes ! String do
   let entry = case decode_directory_entry(directory_entry_export(Bytes.from_utf8(path)) ?) do
-    Ok( value) -> Ok(value)
-    Err( _) -> Err("invalid test directory entry")
+    Ok(value) -> Ok(value)
+    Err(_) -> Err("invalid test directory entry")
   end ?
   let account = case decode_account_identity(entry.account_identity) do
-    Ok( value) -> Ok(value)
-    Err( _) -> Err("invalid test account")
+    Ok(value) -> Ok(value)
+    Err(_) -> Err("invalid test account")
   end ?
   let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
-    Ok( value) -> Ok(value)
-    Err( _) -> Err("invalid test bundle")
+    Ok(value) -> Ok(value)
+    Err(_) -> Err("invalid test bundle")
   end ?
   let normalized = case normalize_prekey_bundle(bundle) do
-    Ok( value) -> Ok(value)
-    Err( _) -> Err("invalid test base bundle")
+    Ok(value) -> Ok(value)
+    Err(_) -> Err("invalid test base bundle")
   end ?
   let encoded_bundle = case encode_prekey_bundle(normalized) do
-    Ok( value) -> Ok(value)
-    Err( _) -> Err("invalid test bundle encoding")
+    Ok(value) -> Ok(value)
+    Err(_) -> Err("invalid test bundle encoding")
   end ?
   case encode_device_set(DeviceSet {
     version : 1,
     username : username,
     account_identity : entry.account_identity,
     sequence : account.directory_sequence,
-    devices : [% { entry | prekey_bundle : encoded_bundle }],
+    devices : [% {entry | prekey_bundle : encoded_bundle }],
     revoked_device_ids : []
   }) do
-    Ok( value) -> Ok(value)
-    Err( _) -> Err("invalid test device set")
+    Ok(value) -> Ok(value)
+    Err(_) -> Err("invalid test device set")
   end
 end
 
@@ -92,8 +92,8 @@ fn proof(malformed_first :: Bool) -> Bool ! String do
   assert(install_signed_transparency(bob, view, alice_set) ?)
   assert(install_signed_transparency(bob, view, bob_set) ?)
   let claimed_bob = case decode_directory_entry(directory_entry_export(bob_path) ?) do
-    Ok( value) -> Ok(value)
-    Err( _) -> Err("invalid test claim")
+    Ok(value) -> Ok(value)
+    Err(_) -> Err("invalid test claim")
   end ?
   let _ = reserve_fanout_prekey_export(group_vectors([alice_path, bob_set, alice_set, claimed_bob.prekey_bundle]) ?) ?
   if malformed_first do
@@ -137,8 +137,8 @@ fn proof(malformed_first :: Bool) -> Bool ! String do
   let ready_record = output_list(List.head(ready)) ?
   case group_invitation_complete_export(group_vectors([alice_path, alice_set, List.get(ready_record,
   0)]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "group_member_not_found")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "group_member_not_found")
   end
   # The inviter can see the public response, but cannot reuse it for another group.
   let accepted = List.head(load_invitations(alice, platform_key() ?) ?)
@@ -146,8 +146,8 @@ fn proof(malformed_first :: Bool) -> Bool ! String do
   let other_group = group_create_export(alice_path) ?
   let wrong_welcome = output_list(group_add_export(group_vectors([alice_path, other_group, bob_set, accepted.key_package]) ?) ?) ?
   case group_receive_export(group_vectors([bob_path, List.head(wrong_welcome)]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "group_welcome_rejected")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "group_welcome_rejected")
   end
   acknowledge(alice, wrong_welcome, 0) ?
   assert(List.length(output_list(group_list_export(bob_path) ?) ?) == 0)
@@ -167,16 +167,16 @@ fn proof(malformed_first :: Bool) -> Bool ! String do
   let fake_key = SigningPublicKey { bytes : repeated(9, 32) ? }
   let substituted = List.map(original.members,
   fn (member) do if member.leaf_index == original.commit.committer_leaf do
-    % { member | member : % { member.member | signing_public_key : fake_key } }
+    % {member | member : % {member.member | signing_public_key : fake_key } }
   else
     member
   end end)
   case accepted_invitation_scope(bob,
   platform_key() ?,
-  % { original | members : substituted },
+  % {original | members : substituted },
   encoded_welcome.baseline_checkpoint) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "group_welcome_rejected")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "group_welcome_rejected")
   end
   assert(Bytes.secure_equals(group_receive_export(group_vectors([bob_path, List.head(welcome)]) ?) ?,
   group))
@@ -185,8 +185,8 @@ fn proof(malformed_first :: Bool) -> Bool ! String do
   assert(List.length(output_list(group_invitations_export(bob_path) ?) ?) == 0)
   assert(List.length(output_list(group_invitation_complete_export(complete_request) ?) ?) == 0)
   case send_message_export(group_vectors([bob_path, alice_profile, Bytes.from_utf8("unaccepted DM")]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "message_request_pending")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "message_request_pending")
   end
   let declined_group = group_create_export(alice_path) ?
   let next = output_list(group_invite_export(group_vectors([alice_path, bob_set, alice_set, declined_group]) ?) ?) ?
@@ -197,8 +197,8 @@ fn proof(malformed_first :: Bool) -> Bool ! String do
   let _ = group_invitation_decline_export(group_vectors([bob_path, next_reference]) ?) ?
   assert(List.length(output_list(group_invitations_export(bob_path) ?) ?) == 0)
   case group_invitation_accept_export(group_vectors([bob_path, alice_set, bob_set, next_reference]) ?) do
-    Ok( _) -> assert(false)
-    Err( error) -> assert(error == "invalid_group_invitation")
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_group_invitation")
   end
   File.delete(alice) ?
   File.delete(bob) ?
@@ -207,20 +207,20 @@ end
 
 test("username invitation joins only after acceptance and survives repeated completion") do
   case proof(false) do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
 test("malformed initial invitations do not block a later authenticated invitation") do
   case proof(true) do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

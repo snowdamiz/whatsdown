@@ -47,8 +47,8 @@ end
 
 fn fresh_x25519() -> X25519KeyPair ! GroupError do
   case Crypto.x25519_generate() do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -77,20 +77,20 @@ end
 
 fn derive_path_secret(value :: borrow SecretBytes) -> SecretBytes ! GroupError do
   case Crypto.hkdf_sha256(value, Bytes.empty(), Bytes.from_utf8("mesh-mls/v1/path"), 32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( secret) -> Ok(secret)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(secret) -> Ok(secret)
   end
 end
 
 fn derive_node_key(value :: borrow SecretBytes, node_index :: Int) -> X25519KeyPair ! GroupError do
   let info = group_append(Bytes.from_utf8("mesh-mls/v1/node"), group_write_u16(node_index) ?) ?
   let material = case Crypto.hkdf_sha256(value, Bytes.empty(), info, 32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( secret) -> Ok(secret)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(secret) -> Ok(secret)
   end ?
   case Crypto.x25519_from_secret(material) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( pair) -> Ok(pair)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(pair) -> Ok(pair)
   end
 end
 
@@ -100,8 +100,8 @@ pub fn group_generate_treekem_path(committer_leaf :: Int) -> GeneratedTreeKemPat
   let path = group_tree_path_error(direct_path(committer_leaf)) ?
   let leaf = fresh_x25519() ?
   let secret0 = case Secret.random(32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   let secret1 = derive_path_secret(secret0) ?
   let secret2 = derive_path_secret(secret1) ?
@@ -122,8 +122,8 @@ pub fn group_generate_treekem_path(committer_leaf :: Int) -> GeneratedTreeKemPat
   let key4_public = key4.public_key
   let key5_public = key5.public_key
   let placeholder_epoch = case Secret.random(32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   Ok(GeneratedTreeKemPath {
     key_material : TreeKemKeyMaterial {
@@ -183,8 +183,8 @@ recipient_node :: Int) -> Bytes ! GroupError do
   group_hpke_info(),
   group_path_aad(context, level, recipient_node) ?,
   secret) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( sealed) -> Ok(sealed)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(sealed) -> Ok(sealed)
   end
 end
 
@@ -279,14 +279,14 @@ end
 
 pub fn group_next_epoch_secret(root :: borrow SecretBytes, context :: Bytes) -> SecretBytes ! GroupError do
   case Crypto.hkdf_sha256(root, Crypto.sha256(context), Bytes.from_utf8("mesh-mls/v1/epoch"), 32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn group_finish_generated(value :: consume GeneratedTreeKemPath, epoch_secret :: SecretBytes) -> TreeKemKeyMaterial do
   let key_material = value.key_material
-  % { key_material | epoch_secret : epoch_secret }
+  % {key_material | epoch_secret : epoch_secret }
 end
 
 fn has_level(values :: List < Int >, level :: Int, index :: Int) -> Bool do
@@ -328,56 +328,56 @@ sealed :: Bytes) -> SecretBytes ! GroupError do
     group_hpke_info(),
     group_path_aad(context, update_level, recipient_node) ?,
     sealed) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end
   else if private_level == 0 do
     case Crypto.hpke_open_secret(path.level0_private_key,
     group_hpke_info(),
     group_path_aad(context, update_level, recipient_node) ?,
     sealed) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end
   else if private_level == 1 do
     case Crypto.hpke_open_secret(path.level1_private_key,
     group_hpke_info(),
     group_path_aad(context, update_level, recipient_node) ?,
     sealed) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end
   else if private_level == 2 do
     case Crypto.hpke_open_secret(path.level2_private_key,
     group_hpke_info(),
     group_path_aad(context, update_level, recipient_node) ?,
     sealed) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end
   else if private_level == 3 do
     case Crypto.hpke_open_secret(path.level3_private_key,
     group_hpke_info(),
     group_path_aad(context, update_level, recipient_node) ?,
     sealed) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end
   else if private_level == 4 do
     case Crypto.hpke_open_secret(path.level4_private_key,
     group_hpke_info(),
     group_path_aad(context, update_level, recipient_node) ?,
     sealed) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end
   else if private_level == 5 do
     case Crypto.hpke_open_secret(path.level5_private_key,
     group_hpke_info(),
     group_path_aad(context, update_level, recipient_node) ?,
     sealed) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end
   else
     Err(RemovedMember)
@@ -425,9 +425,9 @@ context :: Bytes) -> OpenedPathSecret ! GroupError do
     local_leaf,
     level,
     context) do
-      Err( RemovedMember) -> group_open_update_path(values, level + 1, path, local_leaf, context)
-      Err( error) -> Err(error)
-      Ok( opened) -> Ok(opened)
+      Err(RemovedMember) -> group_open_update_path(values, level + 1, path, local_leaf, context)
+      Err(error) -> Err(error)
+      Ok(opened) -> Ok(opened)
     end
   end
 end
@@ -675,41 +675,41 @@ end
 pub fn group_merge_key_material(base :: consume TreeKemKeyMaterial,
 patch :: consume TreeKemPathPatch) -> TreeKemKeyMaterial do
   case patch do
-    TreeKemPatch0( epoch_secret, level0, level1, level2, level3, level4, level5) -> % { base | epoch_secret : epoch_secret, level0_private_key : level0, level1_private_key : level1, level2_private_key : level2, level3_private_key : level3, level4_private_key : level4, level5_private_key : level5, available_levels : [0, 1, 2, 3, 4, 5] }
-    TreeKemPatch1( epoch_secret, level1, level2, level3, level4, level5) -> do
+    TreeKemPatch0(epoch_secret, level0, level1, level2, level3, level4, level5) -> % {base | epoch_secret : epoch_secret, level0_private_key : level0, level1_private_key : level1, level2_private_key : level2, level3_private_key : level3, level4_private_key : level4, level5_private_key : level5, available_levels : [0, 1, 2, 3, 4, 5] }
+    TreeKemPatch1(epoch_secret, level1, level2, level3, level4, level5) -> do
       let levels = append_levels(1, preserved_levels(base.available_levels, 1, 0, List.new()))
-      % { base | epoch_secret : epoch_secret, level1_private_key : level1, level2_private_key : level2, level3_private_key : level3, level4_private_key : level4, level5_private_key : level5, available_levels : levels }
+      % {base | epoch_secret : epoch_secret, level1_private_key : level1, level2_private_key : level2, level3_private_key : level3, level4_private_key : level4, level5_private_key : level5, available_levels : levels }
     end
-    TreeKemPatch2( epoch_secret, level2, level3, level4, level5) -> do
+    TreeKemPatch2(epoch_secret, level2, level3, level4, level5) -> do
       let levels = append_levels(2, preserved_levels(base.available_levels, 2, 0, List.new()))
-      % { base | epoch_secret : epoch_secret, level2_private_key : level2, level3_private_key : level3, level4_private_key : level4, level5_private_key : level5, available_levels : levels }
+      % {base | epoch_secret : epoch_secret, level2_private_key : level2, level3_private_key : level3, level4_private_key : level4, level5_private_key : level5, available_levels : levels }
     end
-    TreeKemPatch3( epoch_secret, level3, level4, level5) -> do
+    TreeKemPatch3(epoch_secret, level3, level4, level5) -> do
       let levels = append_levels(3, preserved_levels(base.available_levels, 3, 0, List.new()))
-      % { base | epoch_secret : epoch_secret, level3_private_key : level3, level4_private_key : level4, level5_private_key : level5, available_levels : levels }
+      % {base | epoch_secret : epoch_secret, level3_private_key : level3, level4_private_key : level4, level5_private_key : level5, available_levels : levels }
     end
-    TreeKemPatch4( epoch_secret, level4, level5) -> do
+    TreeKemPatch4(epoch_secret, level4, level5) -> do
       let levels = append_levels(4, preserved_levels(base.available_levels, 4, 0, List.new()))
-      % { base | epoch_secret : epoch_secret, level4_private_key : level4, level5_private_key : level5, available_levels : levels }
+      % {base | epoch_secret : epoch_secret, level4_private_key : level4, level5_private_key : level5, available_levels : levels }
     end
-    TreeKemPatch5( epoch_secret, level5) -> do
+    TreeKemPatch5(epoch_secret, level5) -> do
       let levels = append_levels(5, preserved_levels(base.available_levels, 5, 0, List.new()))
-      % { base | epoch_secret : epoch_secret, level5_private_key : level5, available_levels : levels }
+      % {base | epoch_secret : epoch_secret, level5_private_key : level5, available_levels : levels }
     end
   end
 end
 
 pub fn group_empty_keys() -> SecretMap ! GroupError do
   case SecretMap.new(64) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn group_derive_secret(secret :: borrow SecretBytes, salt :: Bytes, label :: Bytes) -> SecretBytes ! GroupError do
   case Crypto.hkdf_sha256(secret, salt, label, 32) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -718,8 +718,8 @@ pub fn group_mix_epoch(secret :: SecretBytes, previous :: borrow SecretBytes, co
   Crypto.sha256(context),
   Bytes.from_utf8("mesh-mls/v2/epoch-mix")) ?
   let combined = case Secret.concat(prior, secret) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   group_derive_secret(combined, Crypto.sha256(context), Bytes.from_utf8("mesh-mls/v2/epoch"))
 end
@@ -729,8 +729,8 @@ pub fn group_confirmation(secret :: borrow SecretBytes, context :: Bytes) -> Byt
   Crypto.sha256(context),
   Bytes.from_utf8("mesh-mls/v2/confirmation")) ?
   let key = case Crypto.aead_key(material) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   case Crypto.aead_seal(key,
   group_join([group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?],
@@ -738,8 +738,8 @@ pub fn group_confirmation(secret :: borrow SecretBytes, context :: Bytes) -> Byt
   Bytes.empty()) ?,
   context,
   Bytes.empty()) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( tag) -> Ok(tag)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(tag) -> Ok(tag)
   end
 end
 
@@ -748,8 +748,8 @@ pub fn group_verify_confirmation(secret :: borrow SecretBytes, context :: Bytes,
   Crypto.sha256(context),
   Bytes.from_utf8("mesh-mls/v2/confirmation")) ?
   let key = case Crypto.aead_key(material) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   case Crypto.aead_open(key,
   group_join([group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?, group_byte(0) ?],
@@ -757,8 +757,8 @@ pub fn group_verify_confirmation(secret :: borrow SecretBytes, context :: Bytes,
   Bytes.empty()) ?,
   context,
   tag) do
-    Err( _) -> Err(AuthenticationRejected)
-    Ok( value) -> if Bytes.length(value) == 0 do
+    Err(_) -> Err(AuthenticationRejected)
+    Ok(value) -> if Bytes.length(value) == 0 do
       Ok(nil)
     else
       Err(AuthenticationRejected)
@@ -779,14 +779,14 @@ leaf :: Int) -> Result <(), GroupError > do
     Ok(nil)
   else
     case member_at(tree, leaf) do
-      Err( _) -> initialize_sender_chains(secret, group_id, tree, chains, leaf + 1)
-      Ok( _) -> do
+      Err(_) -> initialize_sender_chains(secret, group_id, tree, chains, leaf + 1)
+      Ok(_) -> do
         let id = group_chain_id(leaf) ?
         let label = group_append(Bytes.from_utf8("mesh-mls/v2/sender-chain"), id) ?
         let chain = group_derive_secret(secret, group_id, label) ?
         case SecretMap.insert(chains, id, chain) do
-          Err( error) -> Err(CryptoFailure(error))
-          Ok( _) -> initialize_sender_chains(secret, group_id, tree, chains, leaf + 1)
+          Err(error) -> Err(CryptoFailure(error))
+          Ok(_) -> initialize_sender_chains(secret, group_id, tree, chains, leaf + 1)
         end
       end
     end
@@ -805,7 +805,7 @@ end
 
 pub fn group_install_epoch(material :: consume TreeKemKeyMaterial, keys :: consume GroupEpochKeys) -> TreeKemKeyMaterial do
   case keys do
-    EpochKeys( init_secret, chains, skipped) -> % { material | epoch_secret : init_secret, sender_chains : chains, skipped_keys : skipped }
+    EpochKeys(init_secret, chains, skipped) -> % {material | epoch_secret : init_secret, sender_chains : chains, skipped_keys : skipped }
   end
 end
 
@@ -821,39 +821,39 @@ previous :: borrow SecretBytes,
 group_id :: Bytes,
 tree :: borrow GroupTree,
 context :: Bytes,
-confirmation :: Bytes) -> Result <( TreeKemPathPatch, GroupEpochKeys), GroupError > do
+confirmation :: Bytes) -> Result <(TreeKemPathPatch, GroupEpochKeys), GroupError > do
   case patch do
-    TreeKemPatch0( root, key0, key1, key2, key3, key4, key5) -> do
+    TreeKemPatch0(root, key0, key1, key2, key3, key4, key5) -> do
       let secret = group_mix_epoch(root, previous, context) ?
       group_verify_confirmation(secret, context, confirmation) ?
       let keys = group_epoch_keys(secret, group_id, tree) ?
       Ok((TreeKemPatch0(secret, key0, key1, key2, key3, key4, key5), keys))
     end
-    TreeKemPatch1( root, key1, key2, key3, key4, key5) -> do
+    TreeKemPatch1(root, key1, key2, key3, key4, key5) -> do
       let secret = group_mix_epoch(root, previous, context) ?
       group_verify_confirmation(secret, context, confirmation) ?
       let keys = group_epoch_keys(secret, group_id, tree) ?
       Ok((TreeKemPatch1(secret, key1, key2, key3, key4, key5), keys))
     end
-    TreeKemPatch2( root, key2, key3, key4, key5) -> do
+    TreeKemPatch2(root, key2, key3, key4, key5) -> do
       let secret = group_mix_epoch(root, previous, context) ?
       group_verify_confirmation(secret, context, confirmation) ?
       let keys = group_epoch_keys(secret, group_id, tree) ?
       Ok((TreeKemPatch2(secret, key2, key3, key4, key5), keys))
     end
-    TreeKemPatch3( root, key3, key4, key5) -> do
+    TreeKemPatch3(root, key3, key4, key5) -> do
       let secret = group_mix_epoch(root, previous, context) ?
       group_verify_confirmation(secret, context, confirmation) ?
       let keys = group_epoch_keys(secret, group_id, tree) ?
       Ok((TreeKemPatch3(secret, key3, key4, key5), keys))
     end
-    TreeKemPatch4( root, key4, key5) -> do
+    TreeKemPatch4(root, key4, key5) -> do
       let secret = group_mix_epoch(root, previous, context) ?
       group_verify_confirmation(secret, context, confirmation) ?
       let keys = group_epoch_keys(secret, group_id, tree) ?
       Ok((TreeKemPatch4(secret, key4, key5), keys))
     end
-    TreeKemPatch5( root, key5) -> do
+    TreeKemPatch5(root, key5) -> do
       let secret = group_mix_epoch(root, previous, context) ?
       group_verify_confirmation(secret, context, confirmation) ?
       let keys = group_epoch_keys(secret, group_id, tree) ?

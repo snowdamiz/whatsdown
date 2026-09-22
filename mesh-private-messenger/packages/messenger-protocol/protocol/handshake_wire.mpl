@@ -128,8 +128,8 @@ fn validate_initial_message(value :: InitialMessage) -> Result <(), ProtocolErro
             Err(OversizedInput)
           else
             case decode_device_credential(value.initiator_credential) do
-              Err( _) -> Err(MalformedEncoding)
-              Ok( credential) -> if value.suite == 2 && credential.suite != 2 do
+              Err(_) -> Err(MalformedEncoding)
+              Ok(credential) -> if value.suite == 2 && credential.suite != 2 do
                 Err(UnsupportedSuite)
               else
                 Ok(nil)
@@ -146,13 +146,13 @@ pub fn encode_initial_message(value :: InitialMessage) -> Bytes ! ProtocolError 
   validate_initial_message(value) ?
   let parts = [protocol_byte(value.version) ?, Bytes.from_utf8("INI"), protocol_write_u16(value.suite) ?, protocol_write_u64(value.signed_prekey_id) ?, protocol_write_u64(value.one_time_prekey_id) ?, protocol_vector(value.initiator_credential) ?, value.initiator_identity_public_key.bytes, value.initiator_ephemeral_public_key.bytes, value.post_quantum_ciphertext, value.transcript_hash, value.nonce, protocol_vector(value.ciphertext) ?]
   let builder = case BytesBuilder.new(65536) do
-    Err( _) -> Err(OversizedInput)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(OversizedInput)
+    Ok(value) -> Ok(value)
   end ?
   protocol_write_builder_parts(builder, parts, 0) ?
   case BytesBuilder.finish(builder) do
-    Err( _) -> Err(OversizedInput)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(OversizedInput)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 

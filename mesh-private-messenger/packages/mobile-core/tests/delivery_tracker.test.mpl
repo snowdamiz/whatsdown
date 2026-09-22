@@ -5,11 +5,11 @@ from Storage.Keys import platform_key
 from Storage.Records import put_blobs
 from Tests.Support import database_path, repeated
 
-fn store(path :: String, writes ::( List < String >, List < Bytes >)) -> Result <(), String > do
-  let ( labels, blobs) = writes
+fn store(path :: String, writes ::(List < String >, List < Bytes >)) -> Result <(), String > do
+  let (labels, blobs) = writes
   let database = case Sqlite.open(path) do
-    Err( _) -> Err("database_open_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("database_open_failed")
+    Ok(value) -> Ok(value)
   end ?
   let result = put_blobs(database, labels, blobs, 0)
   Sqlite.close(database)
@@ -60,7 +60,7 @@ fn proof() -> Bool ! String do
   # An envelope nobody tracked, and a message with nothing addressed outward,
   # change nothing.
   settle(path, repeated(99, 16) ?, false) ?
-  let ( labels, _blobs) = tracked_delivery(path, key, first, List.new()) ?
+  let (labels, _blobs) = tracked_delivery(path, key, first, List.new()) ?
   assert(List.length(labels) == 0)
   assert(List.length(load_delivery(path, key) ?) == 1)
   File.delete(path) ?
@@ -69,10 +69,10 @@ end
 
 test("a message is pending, sent or failed by what happened to its envelopes") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

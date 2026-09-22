@@ -13,15 +13,15 @@ from Transport.Packet import ClientProfile, decode_client_profile, encode_client
 
 fn device_set_bytes(value :: DeviceSet) -> Bytes ! String do
   case encode_device_set(value) do
-    Err( _) -> Err("device_set_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("device_set_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn canonical_device_set(input :: Bytes) -> DeviceSet ! String do
   case decode_device_set(input) do
-    Err( _) -> Err("invalid_device_set")
-    Ok( value) -> if Bytes.secure_equals(device_set_bytes(value) ?, input) do
+    Err(_) -> Err("invalid_device_set")
+    Ok(value) -> if Bytes.secure_equals(device_set_bytes(value) ?, input) do
       Ok(value)
     else
       Err("noncanonical_device_set")
@@ -59,16 +59,16 @@ profiles :: List < ClientProfile >) -> List < ClientProfile > ! String do
   else
     let entry = List.get(value.devices, index)
     let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
-      Err( _) -> Err("invalid_device_set")
-      Ok( decoded) -> Ok(decoded)
+      Err(_) -> Err("invalid_device_set")
+      Ok(decoded) -> Ok(decoded)
     end ?
     let credential = case decode_device_credential(bundle.device_credential) do
-      Err( _) -> Err("invalid_device_set")
-      Ok( decoded) -> Ok(decoded)
+      Err(_) -> Err("invalid_device_set")
+      Ok(decoded) -> Ok(decoded)
     end ?
     let verified = case verify_prekey_bundle(account, bundle, 1, now, account.directory_sequence) do
-      Err( _) -> false
-      Ok( result) -> result
+      Err(_) -> false
+      Ok(result) -> result
     end
     let profile = decode_client_profile(encode_client_profile(entry,
     account.account_id,
@@ -87,8 +87,8 @@ end
 pub fn verified_device_set(input :: Bytes) -> MobileVerifiedDeviceSet ! String do
   let value = canonical_device_set(input) ?
   let account = case decode_account_identity(value.account_identity) do
-    Err( _) -> Err("invalid_device_set")
-    Ok( decoded) -> Ok(decoded)
+    Err(_) -> Err("invalid_device_set")
+    Ok(decoded) -> Ok(decoded)
   end ?
   if U64.compare(value.sequence, account.directory_sequence) < 0 do
     Err("device_set_rollback")
@@ -111,12 +111,12 @@ wrapping_key :: borrow StorageKey,
 next :: MobileVerifiedDeviceSet,
 label :: String) -> Bool ! String do
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(false)
     else
       Err(error)
     end
-    Ok( blob) -> do
+    Ok(blob) -> do
       let previous_wire = open_local(blob, wrapping_key, local_context(label) ?) ?
       let previous = canonical_device_set(previous_wire) ?
       let same_identity = previous.username == next.value.username && Bytes.secure_equals(previous.account_identity,

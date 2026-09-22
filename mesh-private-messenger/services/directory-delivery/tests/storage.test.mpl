@@ -4,15 +4,15 @@ from Storage.MailboxAuth import MailboxOwner
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( error) -> Err(error)
-    Ok( parsed) -> Ok(parsed)
+    Err(error) -> Err(error)
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
@@ -34,7 +34,7 @@ fn scalar(pool :: PoolHandle, sql :: String) -> String ! String do
     Err("expected one row")
   else
     case Map.get(List.head(rows), "value") do
-      Text( value) -> Ok(value)
+      Text(value) -> Ok(value)
       _ -> Err("expected text")
     end
   end
@@ -173,10 +173,10 @@ end
 
 test("PostgreSQL delivery storage is durable and bounded") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

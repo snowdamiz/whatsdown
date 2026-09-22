@@ -43,19 +43,15 @@ pub fn invite_to_group(request :: MobileFanoutRequest) -> Bytes ! String do
   let member = member_at(group.tree, group.local_leaf)
   consume_group_state(group)
   case member do
-    Err( _) -> do
-      return Err("group_member_not_found")
-    end
-    Ok( _) -> nil
+    Err(_) -> return Err("group_member_not_found")
+    Ok(_) -> nil
   end
   let existing = load_invitations(path, key) ?
   let pending = List.find(existing,
   fn (value) do (value.state == 0 || value.state == 3) && Bytes.secure_equals(value.group_id,
   request.body) && Bytes.secure_equals(value.recipient_account, peers.account.account_id) end)
   case pending do
-    Some( _) -> do
-      return encode_output_list([])
-    end
+    Some(_) -> return encode_output_list([])
     None -> nil
   end
   let baseline = load_group_baseline(path, key, request.body) ?
@@ -79,7 +75,7 @@ pub fn invite_to_group(request :: MobileFanoutRequest) -> Bytes ! String do
   end
   let blob = invitation_blob(existing ++ pending, key) ?
   let body = encode_output_list([id, request.body, mobile_write_u64(expires_at) ?, baseline]) ?
-  send_fanout_control(% { request | body : body }, 3, ["group-invitations/v1"], [blob])
+  send_fanout_control(% {request | body : body }, 3, ["group-invitations/v1"], [blob])
 end
 
 pub fn accept_group_invitation(request :: MobileFanoutRequest) -> Bytes ! String do
@@ -116,9 +112,9 @@ pub fn accept_group_invitation(request :: MobileFanoutRequest) -> Bytes ! String
   # A welcome committed before the invitation deadline may spend 30 days in delivery.
   let retain_until = U64.add(invitation.expires_at, mobile_wide("2592000000") ?) ?
   let updated = replace_invitation(values,
-  % { invitation | state : 2, key_package : package, inviter_signing_key : inviter.credential.signing_public_key, expires_at : retain_until })
+  % {invitation | state : 2, key_package : package, inviter_signing_key : inviter.credential.signing_public_key, expires_at : retain_until })
   let body = encode_output_list([invitation.id, invitation.group_id, package]) ?
-  send_fanout_control(% { request | body : body },
+  send_fanout_control(% {request | body : body },
   4,
   ["group-invitations/v1"],
   [invitation_blob(updated, key) ?])
@@ -154,7 +150,7 @@ pub fn complete_group_invitation(request :: MobileTriplePayloadRequest) -> Bytes
   if peer.record.blocked do
     return Err("conversation_blocked")
   end
-  let blob = invitation_blob(replace_invitation(values, % { invitation | state : 4 }), key) ?
+  let blob = invitation_blob(replace_invitation(values, % {invitation | state : 4 }), key) ?
   add_mobile_group_member_with_updates(MobileGroupAddRequest {
     database_path : path,
     group_id : invitation.group_id,
@@ -175,7 +171,7 @@ pub fn decline_group_invitation(request :: MobilePayloadRequest) -> Bytes ! Stri
   if invitation.state != 1 do
     return Err("invalid_group_invitation")
   end
-  let blob = invitation_blob(replace_invitation(values, % { invitation | state : 5 }), key) ?
+  let blob = invitation_blob(replace_invitation(values, % {invitation | state : 5 }), key) ?
   store_updated_blobs(request.database_path, ["group-invitations/v1"], [blob]) ?
   Ok(Bytes.empty())
 end
@@ -209,10 +205,8 @@ value :: GroupInvitation) -> Bytes ! String do
   end
   if incoming do
     case load_blob(path, group_state_label(value.group_id) ?) do
-      Ok( _) -> do
-        return Ok(Bytes.empty())
-      end
-      Err( error) -> if error != "local_state_not_found" do
+      Ok(_) -> return Ok(Bytes.empty())
+      Err(error) -> if error != "local_state_not_found" do
         return Err(error)
       end
     end

@@ -31,15 +31,15 @@ fn wide(value :: Int) -> U64 ! ProtocolError do
   let text = value
     |> Int.to_string()
   case U64.parse(text) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
@@ -74,65 +74,65 @@ fn proof() -> Bool ! ProtocolError do
   assert(List.length(batch) == 1)
   assert(U64.compare(List.head(batch).sequence, wide(4) ?) == 0)
   let trailing = case Bytes.concat(encoded_directory, Bytes.from_utf8("x")) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end ?
   let _ = case decode_directory_entry(trailing) do
-    Err( MalformedEncoding) -> assert(true)
-    Err( _) -> assert(false)
-    Ok( _) -> assert(false)
+    Err(MalformedEncoding) -> assert(true)
+    Err(_) -> assert(false)
+    Ok(_) -> assert(false)
   end
   Ok(true)
 end
 
 test("delivery records round-trip and reject trailing data") do
   case proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
 fn signing_pair() -> SigningKeyPair ! ProtocolError do
   case Crypto.signing_generate() do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end
 end
 
 fn verified(public_key :: SigningPublicKey, signing_bytes :: Bytes, signature :: Bytes) -> Bool do
   case Crypto.verify(public_key, signing_bytes, Signature { bytes : signature }) do
-    Err( _) -> false
-    Ok( valid) -> valid
+    Err(_) -> false
+    Ok(valid) -> valid
   end
 end
 
 fn joined(left :: Bytes, right :: Bytes) -> Bytes ! ProtocolError do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end
 end
 
 fn legacy_fetch_frame(token :: Bytes) -> Bytes ! ProtocolError do
   let cursor = case Bytes.write_u64_be(wide(0) ?) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end ?
   let header = case Bytes.from_list([1, 70, 69, 84]) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end ?
   joined(joined(header, token) ?, cursor)
 end
 
 fn legacy_ack_frame(token :: Bytes, id :: Bytes) -> Bytes ! ProtocolError do
   let header = case Bytes.from_list([1, 65, 67, 75]) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end ?
   let count = case Bytes.from_list([1]) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(value)
   end ?
   joined(joined(joined(header, token) ?, count) ?, id)
 end
@@ -152,11 +152,11 @@ fn signed_fetch_proof() -> Bool ! ProtocolError do
   assert(Bytes.secure_equals(encode_mailbox_fetch(fetch) ?, wire))
   assert(verified(public_key, mailbox_fetch_signing_bytes(fetch) ?, fetch.signature))
   # A different cursor, time, or mailbox is a different signed statement.
-  let moved_cursor = % { fetch | after_sequence : wide(4) ? }
+  let moved_cursor = % {fetch | after_sequence : wide(4) ? }
   assert(!verified(public_key, mailbox_fetch_signing_bytes(moved_cursor) ?, fetch.signature))
-  let moved_time = % { fetch | issued_at : wide(1700000000001) ? }
+  let moved_time = % {fetch | issued_at : wide(1700000000001) ? }
   assert(!verified(public_key, mailbox_fetch_signing_bytes(moved_time) ?, fetch.signature))
-  let moved_mailbox = % { fetch | mailbox_token_hash : Crypto.sha256(repeated(8, 32)) }
+  let moved_mailbox = % {fetch | mailbox_token_hash : Crypto.sha256(repeated(8, 32)) }
   assert(!verified(public_key, mailbox_fetch_signing_bytes(moved_mailbox) ?, fetch.signature))
   # Another device's key does not authorize this mailbox.
   let stranger = signing_pair() ?
@@ -178,7 +178,7 @@ fn signed_ack_proof() -> Bool ! ProtocolError do
   assert(Bytes.secure_equals(encode_mailbox_ack(ack) ?, wire))
   assert(verified(public_key, mailbox_ack_signing_bytes(ack) ?, ack.signature))
   # Swapping in another envelope ID must invalidate the signature.
-  let other_ids = % { ack | envelope_ids : [repeated(9, 16), repeated(11, 16)] }
+  let other_ids = % {ack | envelope_ids : [repeated(9, 16), repeated(11, 16)] }
   assert(!verified(public_key, mailbox_ack_signing_bytes(other_ids) ?, ack.signature))
   # A fetch signature is never an acknowledgement signature.
   let fetch = decode_mailbox_fetch(sign_mailbox_fetch(private_key,
@@ -196,35 +196,35 @@ fn rejection_proof() -> Bool ! ProtocolError do
   let hash = Crypto.sha256(token)
   # Unauthenticated version-1 frames are no longer a supported request.
   let _ = case decode_mailbox_fetch(legacy_fetch_frame(token) ?) do
-    Err( UnsupportedVersion) -> assert(true)
+    Err(UnsupportedVersion) -> assert(true)
     _ -> assert(false)
   end
   let _ = case decode_mailbox_ack(legacy_ack_frame(token, repeated(9, 16)) ?) do
-    Err( UnsupportedVersion) -> assert(true)
+    Err(UnsupportedVersion) -> assert(true)
     _ -> assert(false)
   end
   let wire = sign_mailbox_fetch(private_key, hash, wide(0) ?, wide(1700000000000) ?) ?
   let _ = case decode_mailbox_fetch(joined(wire, Bytes.from_utf8("x")) ?) do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
   let fetch = decode_mailbox_fetch(wire) ?
-  let _ = case encode_mailbox_fetch(% { fetch | signature : repeated(1, 63) }) do
-    Err( InvalidFieldLength) -> assert(true)
+  let _ = case encode_mailbox_fetch(% {fetch | signature : repeated(1, 63) }) do
+    Err(InvalidFieldLength) -> assert(true)
     _ -> assert(false)
   end
-  let _ = case encode_mailbox_fetch(% { fetch | mailbox_token_hash : repeated(1, 31) }) do
-    Err( InvalidFieldLength) -> assert(true)
+  let _ = case encode_mailbox_fetch(% {fetch | mailbox_token_hash : repeated(1, 31) }) do
+    Err(InvalidFieldLength) -> assert(true)
     _ -> assert(false)
   end
   let _ = case sign_mailbox_ack(private_key, hash, wide(1700000000000) ?, List.new()) do
-    Err( InvalidFieldLength) -> assert(true)
+    Err(InvalidFieldLength) -> assert(true)
     _ -> assert(false)
   end
   let nine = [repeated(1, 16), repeated(2, 16), repeated(3, 16), repeated(4, 16), repeated(5, 16), repeated(6,
   16), repeated(7, 16), repeated(8, 16), repeated(9, 16)]
   let _ = case sign_mailbox_ack(private_key, hash, wide(1700000000000) ?, nine) do
-    Err( InvalidFieldLength) -> assert(true)
+    Err(InvalidFieldLength) -> assert(true)
     _ -> assert(false)
   end
   Ok(true)
@@ -245,28 +245,28 @@ end
 
 test("mailbox fetch is a device-signed statement bound to mailbox, cursor, and time") do
   case signed_fetch_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
 test("mailbox acknowledgement signs every envelope ID under its own domain") do
   case signed_ack_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
 test("unauthenticated version-1 mailbox frames and malformed requests are rejected") do
   case rejection_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end
 
 test("mailbox requests are fresh only within the signed time window") do
   case freshness_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end

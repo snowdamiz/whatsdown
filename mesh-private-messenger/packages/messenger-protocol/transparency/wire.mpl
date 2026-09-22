@@ -45,8 +45,8 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("transparency wire allocation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("transparency wire allocation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -60,15 +60,15 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("invalid transparency wire integer")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid transparency wire integer")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn write_u16(value :: Int) -> Bytes ! String do
   case Bytes.write_u16_be(value) do
-    Err( _) -> Err("invalid transparency wire integer")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid transparency wire integer")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -82,15 +82,15 @@ end
 
 fn write_u32(value :: Int) -> Bytes ! String do
   case Bytes.write_u32_be(int_wide(value) ?) do
-    Err( _) -> Err("invalid transparency wire integer")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid transparency wire integer")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn write_u64(value :: U64) -> Bytes ! String do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err("invalid transparency wire integer")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid transparency wire integer")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -103,70 +103,66 @@ fn open(input :: Bytes, maximum :: Int) -> BinaryReader ! String do
     Err("transparency wire oversized")
   else
     case reader(input, maximum) do
-      Err( _) -> Err("invalid transparency wire")
-      Ok( state) -> Ok(state)
+      Err(_) -> Err("invalid transparency wire")
+      Ok(state) -> Ok(state)
     end
   end
 end
 
 fn done(state :: BinaryReader) -> Result <(), String > do
   case finish(state) do
-    Err( _) -> Err("invalid transparency wire")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("invalid transparency wire")
+    Ok(_) -> Ok(nil)
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt ! String do
   case read_u8(state) do
-    Err( _) -> Err("invalid transparency wire")
-    Ok( ( next, value)) -> Ok(ReadInt {
+    Err(_) -> Err("invalid transparency wire")
+    Ok((next, value)) -> Ok(ReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid transparency wire")
   end
 end
 
 fn take_u16(state :: BinaryReader) -> ReadInt ! String do
   case read_u16_be(state) do
-    Err( _) -> Err("invalid transparency wire")
-    Ok( ( next, value)) -> Ok(ReadInt {
+    Err(_) -> Err("invalid transparency wire")
+    Ok((next, value)) -> Ok(ReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid transparency wire")
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! String do
   case read_fixed(state, length) do
-    Err( _) -> Err("invalid transparency wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid transparency wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid transparency wire")
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes ! String do
   case read_vector(state, maximum) do
-    Err( _) -> Err("invalid transparency wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid transparency wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid transparency wire")
   end
 end
 
 fn take_u32(state :: BinaryReader) -> ReadInt ! String do
   let value = take_fixed(state, 4) ?
   case Bytes.read_u32_be(value.value, 0) do
-    Err( _) -> Err("invalid transparency wire integer")
-    Ok( output) -> case U64.to_int(output) do
-      Err( _) -> Err("invalid transparency wire integer")
-      Ok( parsed) -> Ok(ReadInt {
+    Err(_) -> Err("invalid transparency wire integer")
+    Ok(output) -> case U64.to_int(output) do
+      Err(_) -> Err("invalid transparency wire integer")
+      Ok(parsed) -> Ok(ReadInt {
         state : value.state,
         value : parsed
       })
@@ -177,8 +173,8 @@ end
 fn take_u64(state :: BinaryReader) -> ReadWide ! String do
   let value = take_fixed(state, 8) ?
   case Bytes.read_u64_be(value.value, 0) do
-    Err( _) -> Err("invalid transparency wire integer")
-    Ok( output) -> Ok(ReadWide {
+    Err(_) -> Err("invalid transparency wire integer")
+    Ok(output) -> Ok(ReadWide {
       state : value.state,
       value : output
     })
@@ -212,8 +208,8 @@ fn valid_username(value :: Bytes, index :: Int) -> Bool do
     Bytes.length(value) > 0 && Bytes.length(value) <= 64
   else
     case Bytes.get(value, index) do
-      Err( _) -> false
-      Ok( next) -> valid_username_byte(next) && valid_username(value, index + 1)
+      Err(_) -> false
+      Ok(next) -> valid_username_byte(next) && valid_username(value, index + 1)
     end
   end
 end
@@ -227,20 +223,20 @@ pub fn account_lookup_id(reference :: String) -> Bytes ! String do
     Err("invalid account lookup")
   else
     let suffix = case Bytes.slice(Bytes.from_utf8(reference), 1, 64) do
-      Ok( value) -> Ok(value)
-      Err( _) -> Err("invalid account lookup")
+      Ok(value) -> Ok(value)
+      Err(_) -> Err("invalid account lookup")
     end ?
     let text = case Bytes.to_utf8(suffix) do
-      Ok( value) -> Ok(value)
-      Err( _) -> Err("invalid account lookup")
+      Ok(value) -> Ok(value)
+      Err(_) -> Err("invalid account lookup")
     end ?
     case Bytes.from_hex(text) do
-      Ok( value) -> if Bytes.length(value) == 32 && Bytes.to_hex(value) == text do
+      Ok(value) -> if Bytes.length(value) == 32 && Bytes.to_hex(value) == text do
         Ok(value)
       else
         Err("invalid account lookup")
       end
-      Err( _) -> Err("invalid account lookup")
+      Err(_) -> Err("invalid account lookup")
     end
   end
 end
@@ -266,8 +262,8 @@ end
 pub fn decode_transparency_lookup(input :: Bytes) -> TransparencyLookup ! String do
   let account_frame = if Bytes.length(input) == 40 do
     case Bytes.slice(input, 1, 3) do
-      Ok( tag) -> Bytes.secure_equals(tag, Bytes.from_utf8("KTA"))
-      Err( _) -> false
+      Ok(tag) -> Bytes.secure_equals(tag, Bytes.from_utf8("KTA"))
+      Err(_) -> false
     end
   else
     false
@@ -292,8 +288,8 @@ pub fn decode_transparency_lookup(input :: Bytes) -> TransparencyLookup ! String
       Err("invalid transparency lookup")
     else
       case Bytes.to_utf8(username.value) do
-        Err( _) -> Err("invalid transparency lookup")
-        Ok( value) -> Ok(TransparencyLookup {
+        Err(_) -> Err("invalid transparency lookup")
+        Ok(value) -> Ok(TransparencyLookup {
           username : value,
           previous_tree_size : previous.value
         })
@@ -483,8 +479,8 @@ output :: List < WitnessAttestation >) -> ReadWitnesses ! String do
     let checkpoint_hash = take_fixed(witness_id.state, 32) ?
     let signature = take_fixed(checkpoint_hash.state, 64) ?
     case Bytes.to_utf8(witness_id.value) do
-      Err( _) -> Err("invalid witness attestation")
-      Ok( id) -> if String.length(id) == 0 do
+      Err(_) -> Err("invalid witness attestation")
+      Ok(id) -> if String.length(id) == 0 do
         Err("invalid witness attestation")
       else
         read_witnesses(signature.state,

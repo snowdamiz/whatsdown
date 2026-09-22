@@ -57,19 +57,19 @@ end
 
 pub fn binary_value(row :: Map < String, DbValue >, key :: String) -> Bytes ! String do
   case Map.get(row, key) do
-    Binary( value) -> Ok(value)
-    Text( _) -> Err("invalid object metadata")
+    Binary(value) -> Ok(value)
+    Text(_) -> Err("invalid object metadata")
     Null -> Err("invalid object metadata")
   end
 end
 
 fn integer_value(row :: Map < String, DbValue >, key :: String) -> Int ! String do
   case Map.get(row, key) do
-    Text( value) -> case String.to_int(value) do
+    Text(value) -> case String.to_int(value) do
       None -> Err("invalid object metadata")
-      Some( parsed) -> Ok(parsed)
+      Some(parsed) -> Ok(parsed)
     end
-    Binary( _) -> Err("invalid object metadata")
+    Binary(_) -> Err("invalid object metadata")
     Null -> Err("invalid object metadata")
   end
 end
@@ -111,12 +111,10 @@ pub fn find_object(database :: borrow PgConn, object_id :: Bytes) -> Option < Ob
     let rows = Pg.query_values(database,
     "SELECT object_id, upload_hash, download_hash, part_count, total_bytes, expires_at, completed FROM objects WHERE object_id = $1",
     [Binary(object_id)]) ?
-    if List.length(rows) == 0 do
-      Ok(None)
-    else if List.length(rows) == 1 do
-      Ok(Some(decode_object(List.head(rows)) ?))
-    else
-      Err("invalid object metadata")
+    case rows do
+      [] -> Ok(None)
+      [row] -> Ok(Some(decode_object(row) ?))
+      _ -> Err("invalid object metadata")
     end
   end
 end
@@ -125,11 +123,9 @@ pub fn find_part(database :: borrow PgConn, object_id :: Bytes, part_index :: In
   let rows = Pg.query_values(database,
   "SELECT part_index, size, content_hash FROM object_parts WHERE object_id = $1 AND part_index = $2",
   [Binary(object_id), Text(Int.to_string(part_index))]) ?
-  if List.length(rows) == 0 do
-    Ok(None)
-  else if List.length(rows) == 1 do
-    Ok(Some(decode_part(List.head(rows)) ?))
-  else
-    Err("invalid object metadata")
+  case rows do
+    [] -> Ok(None)
+    [row] -> Ok(Some(decode_part(row) ?))
+    _ -> Err("invalid object metadata")
   end
 end

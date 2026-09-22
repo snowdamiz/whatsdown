@@ -7,8 +7,8 @@ from Storage.Retention import purge_envelopes
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
@@ -18,7 +18,7 @@ end
 
 fn text(value :: DbValue) -> String ! String do
   case value do
-    Text( output) -> Ok(output)
+    Text(output) -> Ok(output)
     _ -> Err("invalid test row")
   end
 end
@@ -90,8 +90,8 @@ fn proof() -> Bool ! String do
   "CREATE TRIGGER mesh_test_fail_outbox BEFORE INSERT ON messenger_outbox_events FOR EACH ROW EXECUTE FUNCTION pg_temp.mesh_test_fail_outbox()",
   []) ?
   let fault_failed = case enqueue_envelope(pool, envelope(token, 170, soon() ?) ?) do
-    Err( _) -> true
-    Ok( _) -> false
+    Err(_) -> true
+    Ok(_) -> false
   end
   let _ = Pool.execute(pool, "DROP TRIGGER mesh_test_fail_outbox ON messenger_outbox_events", []) ?
   expect(fault_failed, "forced outbox failure committed") ?
@@ -164,8 +164,8 @@ fn proof() -> Bool ! String do
   # A deposit to the public address is a stranger's: its own bucket, 24 a minute.
   let stranger_bucket = case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/stranger-deposits"),
   Crypto.sha256(token)) do
-    Err( _) -> Err("rate bucket allocation failed")
-    Ok( joined) -> Ok(Crypto.sha256(joined))
+    Err(_) -> Err("rate bucket allocation failed")
+    Ok(joined) -> Ok(Crypto.sha256(joined))
   end ?
   let limited = Pool.execute_values(reopened,
   "UPDATE messenger_rate_limits SET request_count = 24, window_started_at = clock_timestamp() WHERE bucket_key = $1",
@@ -188,10 +188,10 @@ end
 
 test("durable backend survives transaction, worker, push, expiry, and abuse failures") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

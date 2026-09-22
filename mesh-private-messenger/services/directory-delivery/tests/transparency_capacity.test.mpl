@@ -6,8 +6,8 @@ from Transparency.Wire import TransparencyEvidence
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
@@ -30,9 +30,9 @@ end
 fn accounts(pool :: PoolHandle) -> Int ! String do
   let rows = Pool.query_values(pool, "SELECT count(*)::text AS value FROM messenger_accounts", []) ?
   case Map.get(List.head(rows), "value") do
-    Text( value) -> case String.to_int(value) do
+    Text(value) -> case String.to_int(value) do
       None -> Err("invalid account count")
-      Some( count) -> Ok(count)
+      Some(count) -> Ok(count)
     end
     _ -> Err("invalid account count")
   end
@@ -72,10 +72,10 @@ end
 
 test("a registration flood closes registration but never takes lookups down") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

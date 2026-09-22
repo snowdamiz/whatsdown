@@ -205,8 +205,10 @@ export const opacity = {
   glowFaint: 0.22,
   glow: 0.26,
   glowStrong: 0.34,
-  // How much of an accent tint a glass control lets through.
-  wash: 0.62,
+  // How much of an accent tint a glass control lets through. Prominent glass
+  // is nearly the tint itself, as UIKit draws it; a thinner wash turned the
+  // desktop's primary buttons pale enough to read as disabled.
+  wash: 0.9,
 } as const;
 
 // ---------------------------------------------------------------- Motion

@@ -4,11 +4,11 @@ from Protocol.PrekeyWire import encode_prekey_bundle
 from Protocol.V1 import AccountIdentity, DeviceCredential, PrekeyBundle, ProtocolError, negotiate_suites
 
 pub type PrekeyError do
-  CryptoFailure( error :: CryptoError)
+  CryptoFailure(error :: CryptoError)
 
-  IdentityFailure( error :: IdentityError)
+  IdentityFailure(error :: IdentityError)
 
-  ProtocolFailure( error :: ProtocolError)
+  ProtocolFailure(error :: ProtocolError)
 
   InvalidBundle
 end
@@ -34,22 +34,22 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! PrekeyError do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(InvalidBundle)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidBundle)
+    Ok(value) -> Ok(value)
   end
 end
 
 fn write_u16(value :: Int) -> Bytes ! PrekeyError do
   case Bytes.write_u16_be(value) do
-    Err( _) -> Err(InvalidBundle)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidBundle)
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
 fn write_u64(value :: U64) -> Bytes ! PrekeyError do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err(InvalidBundle)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(InvalidBundle)
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
@@ -71,14 +71,14 @@ credential :: DeviceCredential,
 id :: U64,
 expires_at :: U64) -> SignedPrekeySecrets ! PrekeyError do
   case Crypto.x25519_generate() do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( pair) -> do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(pair) -> do
       let public_key = pair.public_key
       let private_key = pair.private_key
       let statement = signed_prekey_statement(credential, id, public_key, expires_at) ?
       case Crypto.sign(device.signing_private_key, statement) do
-        Err( error) -> Err(CryptoFailure(error))
-        Ok( signature) -> Ok(SignedPrekeySecrets {
+        Err(error) -> Err(CryptoFailure(error))
+        Ok(signature) -> Ok(SignedPrekeySecrets {
           id : id,
           private_key : private_key,
           public_key : public_key,
@@ -98,15 +98,15 @@ signed_prekey :: consume SignedPrekeySecrets) -> SignedPrekeySecrets ! PrekeyErr
   signed_prekey.public_key,
   signed_prekey.expires_at) ?
   case Crypto.sign(device.signing_private_key, statement) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( signature) -> Ok(% { signed_prekey | signature : signature })
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(signature) -> Ok(% {signed_prekey | signature : signature })
   end
 end
 
 pub fn generate_one_time_prekey(id :: U64) -> OneTimePrekeySecrets ! PrekeyError do
   case Crypto.x25519_generate() do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( pair) -> do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(pair) -> do
       let public_key = pair.public_key
       let private_key = pair.private_key
       Ok(OneTimePrekeySecrets {
@@ -120,8 +120,8 @@ end
 
 pub fn generate_post_quantum_prekey() -> PostQuantumPrekeySecrets ! PrekeyError do
   case Crypto.mlkem_generate() do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( pair) -> do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(pair) -> do
       let public_key = pair.public_key
       let private_key = pair.private_key
       Ok(PostQuantumPrekeySecrets {
@@ -155,8 +155,8 @@ one_time_prekey :: borrow OneTimePrekeySecrets,
 post_quantum_prekey :: Bytes,
 supported_suites :: List < Int >) -> PrekeyBundle ! PrekeyError do
   let credential_bytes = case encode_device_credential(credential) do
-    Err( error) -> Err(ProtocolFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(ProtocolFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   let bundle = PrekeyBundle {
     version : 1,
@@ -175,20 +175,20 @@ supported_suites :: List < Int >) -> PrekeyBundle ! PrekeyError do
     extensions : List.new()
   }
   case encode_prekey_bundle(bundle) do
-    Err( error) -> Err(ProtocolFailure(error))
-    Ok( _) -> Ok(bundle)
+    Err(error) -> Err(ProtocolFailure(error))
+    Ok(_) -> Ok(bundle)
   end
 end
 
 pub fn normalize_prekey_bundle(bundle :: PrekeyBundle) -> PrekeyBundle ! PrekeyError do
   let zero = case U64.parse("0") do
-    Err( _) -> Err(InvalidBundle)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidBundle)
+    Ok(value) -> Ok(value)
   end ?
-  let normalized = % { bundle | one_time_prekey_id : zero, one_time_prekey : Bytes.empty() }
+  let normalized = % {bundle | one_time_prekey_id : zero, one_time_prekey : Bytes.empty() }
   case encode_prekey_bundle(normalized) do
-    Err( error) -> Err(ProtocolFailure(error))
-    Ok( _) -> Ok(normalized)
+    Err(error) -> Err(ProtocolFailure(error))
+    Ok(_) -> Ok(normalized)
   end
 end
 
@@ -201,15 +201,15 @@ minimum_directory_sequence :: U64) -> Bool ! PrekeyError do
     Err(InvalidBundle)
   else
     let credential = case decode_device_credential(bundle.device_credential) do
-      Err( error) -> Err(ProtocolFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(ProtocolFailure(error))
+      Ok(value) -> Ok(value)
     end ?
     let credential_valid = case verify_device_credential(account,
     credential,
     current_time,
     minimum_directory_sequence) do
-      Err( error) -> Err(IdentityFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(IdentityFailure(error))
+      Ok(value) -> Ok(value)
     end ?
     let identity_key_mismatch = !Bytes.secure_equals(credential.dh_public_key,
     bundle.identity_dh_public_key)
@@ -221,8 +221,8 @@ minimum_directory_sequence :: U64) -> Bool ! PrekeyError do
       Err(InvalidBundle)
     else
       let _ = case negotiate_suites([2, 1], bundle.supported_suites, strongest_authenticated_suite) do
-        Err( error) -> Err(ProtocolFailure(error))
-        Ok( value) -> Ok(value)
+        Err(error) -> Err(ProtocolFailure(error))
+        Ok(value) -> Ok(value)
       end ?
       let statement = signed_prekey_statement(credential,
       bundle.signed_prekey_id,
@@ -231,8 +231,8 @@ minimum_directory_sequence :: U64) -> Bool ! PrekeyError do
       case Crypto.verify(SigningPublicKey { bytes : bundle.signing_public_key },
       statement,
       Signature { bytes : bundle.signed_prekey_signature }) do
-        Err( error) -> Err(CryptoFailure(error))
-        Ok( valid) -> Ok(valid)
+        Err(error) -> Err(CryptoFailure(error))
+        Ok(valid) -> Ok(valid)
       end
     end
   end

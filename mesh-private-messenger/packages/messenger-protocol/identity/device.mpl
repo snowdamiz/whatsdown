@@ -23,9 +23,9 @@ from Protocol.V1 import (
 )
 
 pub type IdentityError do
-  CryptoFailure( error :: CryptoError)
+  CryptoFailure(error :: CryptoError)
 
-  ProtocolFailure( error :: ProtocolError)
+  ProtocolFailure(error :: ProtocolError)
 
   InvalidCredential
 end
@@ -43,7 +43,7 @@ end
 
 pub fn is_retryable_identity_verification_error(error :: IdentityError) -> Bool do
   case error do
-    CryptoFailure( crypto_error) -> is_retryable_verification_crypto_error(crypto_error)
+    CryptoFailure(crypto_error) -> is_retryable_verification_crypto_error(crypto_error)
     _ -> false
   end
 end
@@ -69,33 +69,33 @@ end
 
 fn random_public(length :: Int) -> Bytes ! IdentityError do
   case Crypto.random_bytes(length) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn signing_pair() -> SigningKeyPair ! IdentityError do
   case Crypto.signing_generate() do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn identity_pair() -> X25519KeyPair ! IdentityError do
   case Crypto.x25519_generate() do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn empty_signature() -> Bytes ! IdentityError do
   case Bytes.repeat(0, 64) do
-    Err( _) -> Err(InvalidCredential)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidCredential)
+    Ok(value) -> Ok(value)
   end
 end
 
-pub fn generate_account(created_at :: U64, directory_sequence :: U64) -> Result <( AccountKeys, AccountIdentity), IdentityError > do
+pub fn generate_account(created_at :: U64, directory_sequence :: U64) -> Result <(AccountKeys, AccountIdentity), IdentityError > do
   let account_id = random_public(32) ?
   let pair = signing_pair() ?
   let public_key = pair.public_key
@@ -148,10 +148,10 @@ pub fn credential_signing_bytes(value :: DeviceCredential) -> Bytes ! IdentityEr
     signature : empty_signature() ?
   }
   case encode_device_credential(unsigned) do
-    Err( error) -> Err(ProtocolFailure(error))
-    Ok( encoded) -> case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/device-credential"), encoded) do
-      Err( _) -> Err(InvalidCredential)
-      Ok( signing_bytes) -> Ok(signing_bytes)
+    Err(error) -> Err(ProtocolFailure(error))
+    Ok(encoded) -> case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/device-credential"), encoded) do
+      Err(_) -> Err(InvalidCredential)
+      Ok(signing_bytes) -> Ok(signing_bytes)
     end
   end
 end
@@ -247,8 +247,8 @@ directory_sequence :: U64) -> DeviceCredential ! IdentityError do
     }
     let signing_bytes = credential_signing_bytes(unsigned) ?
     case Crypto.sign(account.private_key, signing_bytes) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( signature) -> Ok(DeviceCredential {
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(signature) -> Ok(DeviceCredential {
         version : unsigned.version,
         suite : unsigned.suite,
         account_id : unsigned.account_id,
@@ -284,8 +284,8 @@ minimum_directory_sequence :: U64) -> Bool ! IdentityError do
       case Crypto.verify(SigningPublicKey { bytes : account.authorization_public_key },
       signing_bytes,
       Signature { bytes : credential.signature }) do
-        Err( error) -> Err(CryptoFailure(error))
-        Ok( valid) -> Ok(valid)
+        Err(error) -> Err(CryptoFailure(error))
+        Ok(valid) -> Ok(valid)
       end
     end
   end
@@ -293,29 +293,29 @@ end
 
 fn protocol_bytes(value :: Result < Bytes, ProtocolError >) -> Bytes ! IdentityError do
   case value do
-    Err( error) -> Err(ProtocolFailure(error))
-    Ok( encoded) -> Ok(encoded)
+    Err(error) -> Err(ProtocolFailure(error))
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn protocol_account(value :: Result < AccountIdentity, ProtocolError >) -> AccountIdentity ! IdentityError do
   case value do
-    Err( error) -> Err(ProtocolFailure(error))
-    Ok( decoded) -> Ok(decoded)
+    Err(error) -> Err(ProtocolFailure(error))
+    Ok(decoded) -> Ok(decoded)
   end
 end
 
 fn protocol_credential(value :: Result < DeviceCredential, ProtocolError >) -> DeviceCredential ! IdentityError do
   case value do
-    Err( error) -> Err(ProtocolFailure(error))
-    Ok( decoded) -> Ok(decoded)
+    Err(error) -> Err(ProtocolFailure(error))
+    Ok(decoded) -> Ok(decoded)
   end
 end
 
 fn identity_append(left :: Bytes, right :: Bytes) -> Bytes ! IdentityError do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(InvalidCredential)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidCredential)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -363,8 +363,8 @@ directory_sequence :: U64) -> DeviceLinkAuthorization ! IdentityError do
     }
     let signing_bytes = link_authorization_signing_bytes(unsigned) ?
     case Crypto.sign(account.private_key, signing_bytes) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( signature) -> Ok(DeviceLinkAuthorization {
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(signature) -> Ok(DeviceLinkAuthorization {
         version : unsigned.version,
         request_hash : unsigned.request_hash,
         username : unsigned.username,
@@ -401,8 +401,8 @@ minimum_directory_sequence :: U64) -> Bool ! IdentityError do
     case Crypto.verify(SigningPublicKey { bytes : account.authorization_public_key },
     signing_bytes,
     Signature { bytes : authorization.authorization_signature }) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( valid) -> Ok(valid)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(valid) -> Ok(valid)
     end
   end
 end
@@ -431,8 +431,8 @@ pub fn issue_device_revocation(account :: borrow AccountKeys, device_id :: Bytes
       signature : empty_signature() ?
     }
     case Crypto.sign(account.private_key, revocation_signing_bytes(unsigned) ?) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( signature) -> Ok(DeviceRevocation {
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(signature) -> Ok(DeviceRevocation {
         version : unsigned.version,
         account_id : unsigned.account_id,
         device_id : unsigned.device_id,
@@ -450,15 +450,15 @@ pub fn verify_device_revocation(account :: AccountIdentity, value :: DeviceRevoc
     case Crypto.verify(SigningPublicKey { bytes : account.authorization_public_key },
     revocation_signing_bytes(value) ?,
     Signature { bytes : value.signature }) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( valid) -> Ok(valid)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(valid) -> Ok(valid)
     end
   end
 end
 
 fn deletion_signing_bytes(value :: AccountDeletion) -> Bytes ! IdentityError do
   identity_append(Bytes.from_utf8("mesh-msg/v1/account-deletion"),
-  protocol_bytes(encode_account_deletion(% { value | signature : empty_signature() ? })) ?)
+  protocol_bytes(encode_account_deletion(% {value | signature : empty_signature() ? })) ?)
 end
 
 ## Deletes the whole account: every device, the username, and all it left on
@@ -472,8 +472,8 @@ pub fn issue_account_deletion(account :: borrow AccountKeys, issued_at :: U64) -
     signature : empty_signature() ?
   }
   case Crypto.sign(account.private_key, deletion_signing_bytes(unsigned) ?) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( signature) -> Ok(% { unsigned | signature : signature.bytes })
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(signature) -> Ok(% {unsigned | signature : signature.bytes })
   end
 end
 
@@ -484,15 +484,15 @@ pub fn verify_account_deletion(account :: AccountIdentity, value :: AccountDelet
     case Crypto.verify(SigningPublicKey { bytes : account.authorization_public_key },
     deletion_signing_bytes(value) ?,
     Signature { bytes : value.signature }) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( valid) -> Ok(valid)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(valid) -> Ok(valid)
     end
   end
 end
 
 fn departure_signing_bytes(value :: DeviceDeparture) -> Bytes ! IdentityError do
   identity_append(Bytes.from_utf8("mesh-msg/v1/device-departure"),
-  protocol_bytes(encode_device_departure(% { value | signature : empty_signature() ? })) ?)
+  protocol_bytes(encode_device_departure(% {value | signature : empty_signature() ? })) ?)
 end
 
 ## Takes one device out of its account, signed by that device alone: it can
@@ -508,8 +508,8 @@ pub fn issue_device_departure(device :: borrow DeviceKeys, account_id :: Bytes, 
     signature : empty_signature() ?
   }
   case Crypto.sign(device.signing_private_key, departure_signing_bytes(unsigned) ?) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( signature) -> Ok(% { unsigned | signature : signature.bytes })
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(signature) -> Ok(% {unsigned | signature : signature.bytes })
   end
 end
 
@@ -517,7 +517,7 @@ pub fn verify_device_departure(signing_public_key :: Bytes, value :: DeviceDepar
   case Crypto.verify(SigningPublicKey { bytes : signing_public_key },
   departure_signing_bytes(value) ?,
   Signature { bytes : value.signature }) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( valid) -> Ok(valid)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(valid) -> Ok(valid)
   end
 end

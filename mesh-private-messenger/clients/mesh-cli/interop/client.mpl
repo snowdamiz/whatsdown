@@ -35,9 +35,9 @@ pub struct InteropSession do
 end
 
 pub type InteropOpenOutcome do
-  ReplyOpened( state :: RatchetState, session :: InteropSession, body :: Bytes)
+  ReplyOpened(state :: RatchetState, session :: InteropSession, body :: Bytes)
 
-  ReplyRejected( state :: RatchetState, session :: InteropSession, error :: String)
+  ReplyRejected(state :: RatchetState, session :: InteropSession, error :: String)
 end
 
 pub fn interop_state_suite(state :: borrow RatchetState) -> Int do
@@ -50,11 +50,11 @@ end
 
 pub fn opened_body(outcome :: InteropOpenOutcome) -> Bytes ! String do
   case outcome do
-    ReplyRejected( state, _, error) -> do
+    ReplyRejected(state, _, error) -> do
       discard_state(state)
       Err(error)
     end
-    ReplyOpened( state, session, body) -> do
+    ReplyOpened(state, session, body) -> do
       let valid_suite = state.suite == 2 && session.suite == 2
       discard_state(state)
       if valid_suite do
@@ -68,8 +68,8 @@ end
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( _) -> Err("invalid interop integer")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("invalid interop integer")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
@@ -79,29 +79,29 @@ end
 
 fn random(length :: Int) -> Bytes ! String do
   case Crypto.random_bytes(length) do
-    Err( _) -> Err("interop random generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("interop random generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
-fn account(created_at :: U64) -> Result <( AccountKeys, AccountIdentity), String > do
+fn account(created_at :: U64) -> Result <(AccountKeys, AccountIdentity), String > do
   case generate_account(created_at, wide("1") ?) do
-    Err( _) -> Err("interop account generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("interop account generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn device() -> DeviceKeys ! String do
   case generate_device() do
-    Err( _) -> Err("interop device generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("interop device generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn post_quantum_prekey() -> PostQuantumPrekeySecrets ! String do
   case generate_post_quantum_prekey() do
-    Err( _) -> Err("interop post-quantum prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("interop post-quantum prekey generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -117,22 +117,22 @@ expires_at :: U64) -> DeviceCredential ! String do
   created_at,
   expires_at,
   wide("1") ?) do
-    Err( _) -> Err("interop credential generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("interop credential generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn signed_prekey(device_keys :: borrow DeviceKeys, value :: DeviceCredential, expires_at :: U64) -> SignedPrekeySecrets ! String do
   case generate_signed_prekey(device_keys, value, wide("1") ?, expires_at) do
-    Err( _) -> Err("interop signed prekey generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("interop signed prekey generation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn one_time_prekey() -> OneTimePrekeySecrets ! String do
   case generate_one_time_prekey(wide("2") ?) do
-    Err( _) -> Err("interop one-time prekey generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("interop one-time prekey generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -141,36 +141,36 @@ signed :: borrow SignedPrekeySecrets,
 one_time :: borrow OneTimePrekeySecrets,
 post_quantum :: borrow PostQuantumPrekeySecrets) -> PrekeyBundle ! String do
   case build_hybrid_prekey_bundle(value, signed, one_time, post_quantum) do
-    Err( _) -> Err("interop prekey bundle generation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("interop prekey bundle generation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn account_wire(value :: AccountIdentity) -> Bytes ! String do
   case encode_account_identity(value) do
-    Err( _) -> Err("interop account encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("interop account encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn bundle_wire(value :: PrekeyBundle) -> Bytes ! String do
   case encode_prekey_bundle(value) do
-    Err( _) -> Err("interop prekey encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("interop prekey encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn inner_wire(value :: InnerEnvelope) -> Bytes ! String do
   case encode_inner_envelope(value) do
-    Err( _) -> Err("interop inner encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("interop inner encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn initial_wire(value :: InitialMessage) -> Bytes ! String do
   case encode_initial_message(value) do
-    Err( _) -> Err("interop initial encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("interop initial encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -209,17 +209,17 @@ fn outer_wire(mailbox :: Bytes, suite :: Int, packet :: Bytes, timestamp :: U64)
     padding_bucket : padding_bucket(Bytes.length(packet)) ?,
     ciphertext : packet
   }) do
-    Err( _) -> Err("interop outer encoding failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("interop outer encoding failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn canonical_outer(input :: Bytes) -> OuterEnvelope ! String do
   case decode_outer_envelope(input) do
-    Err( _) -> Err("invalid interop outer envelope")
-    Ok( value) -> case encode_outer_envelope(value) do
-      Err( _) -> Err("invalid interop outer envelope")
-      Ok( encoded) -> if Bytes.secure_equals(encoded, input) do
+    Err(_) -> Err("invalid interop outer envelope")
+    Ok(value) -> case encode_outer_envelope(value) do
+      Err(_) -> Err("invalid interop outer envelope")
+      Ok(encoded) -> if Bytes.secure_equals(encoded, input) do
         Ok(value)
       else
         Err("noncanonical interop outer envelope")
@@ -238,11 +238,11 @@ local_account_wire :: Bytes) -> Bool ! String do
   Bytes.to_hex(local_account_wire)))
 end
 
-pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result <( RatchetState, DeviceKeys, InteropSession, Bytes, Bytes), String > do
+pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result <(RatchetState, DeviceKeys, InteropSession, Bytes, Bytes), String > do
   let peer = decode_client_profile(peer_profile) ?
   let created_at = now() ?
   let expires_at = U64.add(created_at, wide("31536000000") ?) ?
-  let ( account_keys, account_identity) = account(created_at) ?
+  let (account_keys, account_identity) = account(created_at) ?
   let device_keys = device() ?
   let post_quantum = post_quantum_prekey() ?
   let local_credential = credential(account_keys, device_keys, post_quantum, created_at, expires_at) ?
@@ -280,7 +280,7 @@ pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result <( R
     extensions : List.new()
   }
   let plaintext = encode_initial_plaintext(local_profile, inner_wire(inner) ?) ?
-  let ( state, initial) = case initiate(device_keys,
+  let (state, initial) = case initiate(device_keys,
   local_credential,
   peer.account,
   peer.bundle,
@@ -290,8 +290,8 @@ pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result <( R
   },
   0,
   plaintext) do
-    Err( _) -> Err("interop session start failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("interop session start failed")
+    Ok(value) -> Ok(value)
   end ?
   let packet = seal_recipient_packet(encode_packet(InitialPacket(local_account_wire,
   initial_wire(initial) ?)) ?,
@@ -327,14 +327,14 @@ end
 fn opened_reply_message(outer :: OuterEnvelope, recipient :: borrow DeviceKeys) -> RatchetMessage ! String do
   let packet = case decode_packet(open_recipient_packet(outer.ciphertext,
   recipient.identity_private_key) ?) do
-    Err( _) -> Err("invalid interop ratchet packet")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid interop ratchet packet")
+    Ok(value) -> Ok(value)
   end ?
   case packet do
-    InitialPacket( _, _) -> Err("invalid interop ratchet packet")
-    RatchetPacket( message_bytes) -> case decode_ratchet_message(message_bytes) do
-      Err( _) -> Err("invalid interop ratchet message")
-      Ok( message) -> if ratchet_transport_matches(message, true) do
+    InitialPacket(_, _) -> Err("invalid interop ratchet packet")
+    RatchetPacket(message_bytes) -> case decode_ratchet_message(message_bytes) do
+      Err(_) -> Err("invalid interop ratchet message")
+      Ok(message) -> if ratchet_transport_matches(message, true) do
         Ok(message)
       else
         Err("invalid interop ratchet message")
@@ -351,12 +351,12 @@ message :: RatchetMessage) -> InteropOpenOutcome do
     reject(state, session, "interop reply session mismatch")
   else
     case session_aad(state.session_id) do
-      Err( error) -> reject(state, session, error)
-      Ok( aad) -> case decrypt(state, message, aad) do
-        Rejected( next, _) -> ReplyRejected(next, session, "interop reply rejected")
-        Opened( next, plaintext) -> case decode_inner_envelope(plaintext) do
-          Err( _) -> ReplyRejected(next, session, "invalid interop reply inner envelope")
-          Ok( inner) -> if validate_reply_inner(inner, session) do
+      Err(error) -> reject(state, session, error)
+      Ok(aad) -> case decrypt(state, message, aad) do
+        Rejected(next, _) -> ReplyRejected(next, session, "interop reply rejected")
+        Opened(next, plaintext) -> case decode_inner_envelope(plaintext) do
+          Err(_) -> ReplyRejected(next, session, "invalid interop reply inner envelope")
+          Ok(inner) -> if validate_reply_inner(inner, session) do
             ReplyOpened(next, session, inner.body)
           else
             ReplyRejected(next, session, "interop reply identity mismatch")
@@ -372,14 +372,14 @@ recipient :: borrow DeviceKeys,
 session :: InteropSession,
 input :: Bytes) -> InteropOpenOutcome do
   case canonical_outer(input) do
-    Err( error) -> reject(state, session, error)
-    Ok( outer) -> if outer.suite != 4 || session.suite != 2 || state.suite != 2 || !Bytes.secure_equals(outer.mailbox_token,
+    Err(error) -> reject(state, session, error)
+    Ok(outer) -> if outer.suite != 4 || session.suite != 2 || state.suite != 2 || !Bytes.secure_equals(outer.mailbox_token,
     session.local_mailbox) do
       reject(state, session, "interop reply outer mismatch")
     else
       case opened_reply_message(outer, recipient) do
-        Err( error) -> reject(state, session, error)
-        Ok( message) -> open_reply_message(state, session, message)
+        Err(error) -> reject(state, session, error)
+        Ok(message) -> open_reply_message(state, session, message)
       end
     end
   end

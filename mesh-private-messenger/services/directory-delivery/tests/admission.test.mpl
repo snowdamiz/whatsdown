@@ -8,8 +8,8 @@ end
 
 fn repeated(value :: Int, length :: Int) -> Bytes ! String do
   case Bytes.repeat(value, length) do
-    Err( _) -> Err("test allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -26,7 +26,7 @@ payload :: Bytes,
 now :: U64,
 difficulty :: Int) -> Int ! String do
   case admit_request(pool, label, body, 200, now, difficulty) ? do
-    Admitted( admitted) -> if Bytes.secure_equals(admitted, payload) do
+    Admitted(admitted) -> if Bytes.secure_equals(admitted, payload) do
       Ok(0)
     else
       Err("admitted a different payload")
@@ -44,9 +44,9 @@ fn count(pool :: PoolHandle) -> Int ! String do
     Err("count failed")
   else
     case Map.get(List.head(rows), "total") do
-      Text( value) -> case String.to_int(value) do
+      Text(value) -> case String.to_int(value) do
         None -> Err("count failed")
-        Some( output) -> Ok(output)
+        Some(output) -> Ok(output)
       end
       _ -> Err("count failed")
     end
@@ -105,10 +105,10 @@ end
 
 test("anonymous directory requests are admitted once, for paid work, and spent stamps are purged") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

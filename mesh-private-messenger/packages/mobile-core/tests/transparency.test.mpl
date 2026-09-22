@@ -23,15 +23,15 @@ end
 
 fn wide(value :: String) -> U64 ! String do
   case U64.parse(value) do
-    Err( _) -> Err("test integer conversion failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("test integer conversion failed")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 fn signing_pair() -> SigningKeyPair ! String do
   case Crypto.signing_generate() do
-    Err( _) -> Err("test signing key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test signing key generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -50,12 +50,12 @@ fn proof() -> Bool ! String do
     nil
   end
   let entry = case decode_directory_entry(entry_bytes) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end ?
   let account = case decode_account_identity(entry.account_identity) do
-    Err( _) -> Err("account identity decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account identity decode failed")
+    Ok(value) -> Ok(value)
   end ?
   let device_set = case encode_device_set(DeviceSet {
     version : 1,
@@ -65,16 +65,16 @@ fn proof() -> Bool ! String do
     devices : [entry],
     revoked_device_ids : List.new()
   }) do
-    Err( _) -> Err("device set encode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("device set encode failed")
+    Ok(value) -> Ok(value)
   end ?
   let leaves = [leaf_hash(device_set) ?]
   let service_pair = signing_pair() ?
   let witness_a = signing_pair() ?
   let witness_b = signing_pair() ?
   let delivery_pair = case Crypto.x25519_generate() do
-    Err( _) -> Err("test delivery key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test delivery key generation failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(install_security_config(service_pair.public_key.bytes,
   witness_a.public_key.bytes,
@@ -99,8 +99,8 @@ fn proof() -> Bool ! String do
   case verify_transparency_export(join([vector(path_bytes) ?, vector(username_bytes) ?, vector(stale_evidence) ?],
   0,
   Bytes.empty()) ?) do
-    Err( error) -> assert(error == "transparency_stale")
-    Ok( _) -> assert(false)
+    Err(error) -> assert(error == "transparency_stale")
+    Ok(_) -> assert(false)
   end
   let unchanged_lookup = decode_transparency_lookup(transparency_lookup_export(append(vector(path_bytes) ?,
   vector(username_bytes) ?) ?) ?) ?
@@ -120,8 +120,8 @@ fn proof() -> Bool ! String do
     witness_b.private_key,
     checkpoint) ?]
   }) do
-    Err( _) -> Err("transparency evidence encode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("transparency evidence encode failed")
+    Ok(value) -> Ok(value)
   end ?
   let path_vector = vector(path_bytes) ?
   let username_vector = vector(username_bytes) ?
@@ -131,8 +131,8 @@ fn proof() -> Bool ! String do
   case verify_transparency_export(join([path_vector, wrong_reference, evidence_vector],
   0,
   Bytes.empty()) ?) do
-    Err( error) -> assert(error == "transparency_username_mismatch")
-    Ok( _) -> assert(false)
+    Err(error) -> assert(error == "transparency_username_mismatch")
+    Ok(_) -> assert(false)
   end
   let account_reference = vector(Bytes.from_utf8("@" <> Bytes.to_hex(account.account_id))) ?
   assert(Bytes.secure_equals(verify_transparency_export(join([path_vector, account_reference, evidence_vector],
@@ -140,8 +140,8 @@ fn proof() -> Bool ! String do
   Bytes.empty()) ?) ?,
   device_set))
   case verify_transparency_export(request) do
-    Err( error) -> assert(error == "transparency_verification_failed")
-    Ok( _) -> assert(false)
+    Err(error) -> assert(error == "transparency_verification_failed")
+    Ok(_) -> assert(false)
   end
   let lookup_request = append(path_vector, username_vector) ?
   let lookup_bytes = transparency_lookup_export(lookup_request) ?
@@ -160,10 +160,10 @@ end
 
 test("mobile transparency persists trusted checkpoints and rejects replay") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

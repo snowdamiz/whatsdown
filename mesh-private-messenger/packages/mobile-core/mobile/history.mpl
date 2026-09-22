@@ -79,20 +79,20 @@ end
 
 fn parse_history_entry(input :: Bytes) -> MobileHistoryEntry ! String do
   case reader(input, 65600) do
-    Err( _) -> Err("invalid_history")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_history")
+    Ok(state) -> do
       let direction = take_vector(state, 1) ?
       let inner = take_vector(direction.state, 65536) ?
       case finish(inner.state) do
-        Err( _) -> Err("invalid_history")
-        Ok( _) -> do
+        Err(_) -> Err("invalid_history")
+        Ok(_) -> do
           let direction_value = mobile_read_byte(direction.value) ?
           if direction_value != 1 && direction_value != 2 do
             Err("invalid_history")
           else
             case decode_inner_envelope(inner.value) do
-              Err( _) -> Err("invalid_history")
-              Ok( value) -> Ok(MobileHistoryEntry {
+              Err(_) -> Err("invalid_history")
+              Ok(value) -> Ok(MobileHistoryEntry {
                 direction : direction_value,
                 inner : value
               })
@@ -110,8 +110,8 @@ index :: Int,
 values :: List < MobileHistoryEntry >) -> List < MobileHistoryEntry > ! String do
   if index >= count do
     case finish(state) do
-      Err( _) -> Err("invalid_history")
-      Ok( _) -> Ok(values)
+      Err(_) -> Err("invalid_history")
+      Ok(_) -> Ok(values)
     end
   else
     let entry = take_vector(state, 65600) ?
@@ -124,8 +124,8 @@ end
 
 fn decode_history(input :: Bytes) -> List < MobileHistoryEntry > ! String do
   case reader(input, 8388608) do
-    Err( _) -> Err("invalid_history")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_history")
+    Ok(state) -> do
       let count = take_vector(state, 4) ?
       let count_value = mobile_read_u32(count.value) ?
       if count_value > 256 do
@@ -142,22 +142,22 @@ wrapping_key :: borrow StorageKey,
 conversation_id :: Bytes) -> List < MobileHistoryEntry > ! String do
   let label = history_label(conversation_id)
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(List.new())
     else
       Err(error)
     end
-    Ok( blob) -> decode_history(open_local(blob, wrapping_key, local_context(label) ?) ?)
+    Ok(blob) -> decode_history(open_local(blob, wrapping_key, local_context(label) ?) ?)
   end
 end
 
 pub fn updated_history(database_path :: String,
 wrapping_key :: borrow StorageKey,
 inner :: InnerEnvelope,
-direction :: Int) -> Result <( List < String >, List < Bytes >), String > do
+direction :: Int) -> Result <(List < String >, List < Bytes >), String > do
   let label = history_label(inner.conversation_id)
   let entries = load_history(database_path, wrapping_key, inner.conversation_id) ?
-  let ( body, framed_attachment, presentation_labels, presentation_blobs) = presented_message_writes(database_path,
+  let (body, framed_attachment, presentation_labels, presentation_blobs) = presented_message_writes(database_path,
   wrapping_key,
   inner.sender_account_id,
   Bytes.empty(),
@@ -169,7 +169,7 @@ direction :: Int) -> Result <( List < String >, List < Bytes >), String > do
     List.append(entries,
     MobileHistoryEntry {
       direction : direction,
-      inner : % { inner | body : body }
+      inner : % {inner | body : body }
     })
   end
   Ok((List.append(presentation_labels, label),
@@ -197,13 +197,13 @@ end
 
 pub fn decode_conversation_summary(input :: Bytes) -> ConversationSummary ! String do
   case reader(input, 1024) do
-    Err( _) -> Err("invalid_conversation_summary")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_conversation_summary")
+    Ok(state) -> do
       let count = take_vector(state, 4) ?
       let entry_bytes = take_vector(count.state, 512) ?
       let entry = case reader(entry_bytes.value, 512) do
-        Err( _) -> Err("invalid_conversation_summary")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid_conversation_summary")
+        Ok(value) -> Ok(value)
       end ?
       let conversation_id = take_vector(entry, 16) ?
       let username = take_vector(conversation_id.state, 32) ?
@@ -223,10 +223,10 @@ pub fn decode_conversation_summary(input :: Bytes) -> ConversationSummary ! Stri
       let valid_safety = Bytes.length(safety.value) == 64 || (Bytes.length(safety.value) == 0 && verified_value == 0 && changed_value == 1)
       let valid = mobile_read_u32(count.value) ? == 1 && String.length(username_value) > 0 && Bytes.length(conversation_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && valid_safety && (request_value == 0 || request_value == 1) && blocked_value <= 1 && verified_value <= 1 && changed_value <= 1
       case finish(entry_bytes.state) do
-        Err( _) -> Err("invalid_conversation_summary")
-        Ok( _) -> case finish(disappearing.state) do
-          Err( _) -> Err("invalid_conversation_summary")
-          Ok( _) -> if !valid do
+        Err(_) -> Err("invalid_conversation_summary")
+        Ok(_) -> case finish(disappearing.state) do
+          Err(_) -> Err("invalid_conversation_summary")
+          Ok(_) -> if !valid do
             Err("invalid_conversation_summary")
           else
             Ok(ConversationSummary {
@@ -277,8 +277,8 @@ values :: List < Bytes >) -> List < Bytes > ! String do
       0) ?
       let has_history = case load_blob(database_path,
       history_label(preferred.record.conversation_id)) do
-        Ok( _) -> Ok(true)
-        Err( error) -> if error == "local_state_not_found" do
+        Ok(_) -> Ok(true)
+        Err(error) -> if error == "local_state_not_found" do
           Ok(false)
         else
           Err(error)
@@ -414,15 +414,15 @@ end
 
 fn updated_policy(record :: MobileSessionRecord, action :: Int, value :: Int) -> MobileSessionRecord ! String do
   if action == 1 do
-    Ok(% { record | request_state : 1 })
+    Ok(% {record | request_state : 1 })
   else if action == 2 do
-    Ok(% { record | blocked : true })
+    Ok(% {record | blocked : true })
   else if action == 3 do
-    Ok(% { record | blocked : false })
+    Ok(% {record | blocked : false })
   else if action == 4 && Bytes.length(record.safety_number) == 64 do
-    Ok(% { record | verified : true, key_changed : false })
+    Ok(% {record | verified : true, key_changed : false })
   else if action == 5 && value >= 0 && value <= 2592000 do
-    Ok(% { record | disappearing_seconds : value })
+    Ok(% {record | disappearing_seconds : value })
   else
     Err("invalid_conversation_policy")
   end
@@ -437,14 +437,14 @@ value :: Int,
 safety :: Bytes,
 index :: Int,
 labels :: List < String >,
-blobs :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String > do
+blobs :: List < Bytes >) -> Result <(List < String >, List < Bytes >), String > do
   if index >= List.length(session_ids) do
     Ok((labels, blobs))
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
     if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) do
       let record = if action == 4 && !Bytes.secure_equals(loaded.record.safety_number, safety) do
-        Ok(% { loaded.record | verified : false, key_changed : true })
+        Ok(% {loaded.record | verified : false, key_changed : true })
       else
         updated_policy(loaded.record, action, value)
       end ?
@@ -482,13 +482,13 @@ peer_account_id :: Bytes,
 session_ids :: List < Bytes >,
 index :: Int,
 labels :: List < String >,
-blobs :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String > do
+blobs :: List < Bytes >) -> Result <(List < String >, List < Bytes >), String > do
   if index >= List.length(session_ids) do
     Ok((labels, blobs))
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
     if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) && loaded.record.request_state != 1 do
-      let record = % { loaded.record | request_state : 1 }
+      let record = % {loaded.record | request_state : 1 }
       let blob = seal_local(updated_session_record(record.snapshot, record) ?,
       wrapping_key,
       local_context(loaded.label) ?) ?
@@ -519,7 +519,7 @@ end
 pub fn accepted_request_writes(database_path :: String,
 wrapping_key :: borrow StorageKey,
 peer_account_id :: Bytes,
-session_ids :: List < Bytes >) -> Result <( List < String >, List < Bytes >), String > do
+session_ids :: List < Bytes >) -> Result <(List < String >, List < Bytes >), String > do
   accepted_request_blobs(database_path,
   wrapping_key,
   peer_account_id,
@@ -540,7 +540,7 @@ pub fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
   else
     Ok(nil)
   end ?
-  let ( labels, blobs) = updated_peer_policy_blobs(request.database_path,
+  let (labels, blobs) = updated_peer_policy_blobs(request.database_path,
   wrapping_key,
   peer_id,
   session_ids,
@@ -553,7 +553,7 @@ pub fn update_conversation(request :: MobilePolicyRequest) -> Bytes ! String do
   # Blocking someone also takes back what they were handed: this device gets a
   # new contact address, the directory retires the old one on the next
   # publication, and everyone else is handed the new one with the next message.
-  let ( rotation_labels, rotation_blobs) = if request.action == 2 do
+  let (rotation_labels, rotation_blobs) = if request.action == 2 do
     rotated_contact_address_writes(wrapping_key)
   else
     Ok((List.new(), List.new()))

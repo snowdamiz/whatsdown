@@ -27,43 +27,43 @@ end
 
 fn sealed_under(secret :: SecretBytes) -> Bytes ! String do
   let key = case Crypto.aead_key(secret) do
-    Err( _) -> Err("aead key failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("aead key failed")
+    Ok(value) -> Ok(value)
   end ?
   case Crypto.aead_seal(key,
   Bytes.from_hex("000000000000000000000000") ?,
   Bytes.from_utf8("mesh-msg/test/ml-kem-768-interop"),
   Bytes.from_utf8("ml-kem-768 interop")) do
-    Err( _) -> Err("seal failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("seal failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn proof() -> Bool ! String do
   let pair = case Crypto.mlkem_from_seed(seed() ?) do
-    Err( _) -> Err("key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("key generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let public_key = pair.public_key
   let private_key = pair.private_key
   assert(Bytes.to_hex(public_key.bytes) == openssl_public_key())
   let shared = case Crypto.mlkem_decapsulate(private_key,
   MlKemCiphertext { bytes : Bytes.from_hex(openssl_ciphertext()) ? }) do
-    Err( _) -> Err("decapsulation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("decapsulation failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(Bytes.to_hex(sealed_under(shared) ?) == "bed5d518c5ba3e0709514470332dbb13d0954d757b5918e7d94f452757b99d85c3a9")
   # A ciphertext that was tampered with still decapsulates, to an unrelated
   # secret: ML-KEM rejects implicitly, so nothing tells an attacker it failed.
   let pair_again = case Crypto.mlkem_from_seed(seed() ?) do
-    Err( _) -> Err("key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("key generation failed")
+    Ok(value) -> Ok(value)
   end ?
   let tampered = Bytes.from_hex("ff" <> String.slice(openssl_ciphertext(), 2, 2176)) ?
   let other = case Crypto.mlkem_decapsulate(pair_again.private_key,
   MlKemCiphertext { bytes : tampered }) do
-    Err( _) -> Err("tampered decapsulation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("tampered decapsulation failed")
+    Ok(value) -> Ok(value)
   end ?
   assert(Bytes.to_hex(sealed_under(other) ?) != "bed5d518c5ba3e0709514470332dbb13d0954d757b5918e7d94f452757b99d85c3a9")
   Ok(true)
@@ -71,10 +71,10 @@ end
 
 test("ML-KEM-768 agrees with OpenSSL on key generation from a seed and on decapsulation") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

@@ -2,7 +2,7 @@ from Binary.Reader import BinaryReader, finish, read_fixed, read_u16_be, read_u8
 from Session.Handshake import RatchetState
 
 pub type SnapshotError do
-  CryptoFailure( error :: CryptoError)
+  CryptoFailure(error :: CryptoError)
 
   InvalidSnapshot
 
@@ -10,15 +10,15 @@ pub type SnapshotError do
 end
 
 pub type SnapshotOutcome do
-  SnapshotSealed( state :: RatchetState, blob :: Bytes)
+  SnapshotSealed(state :: RatchetState, blob :: Bytes)
 
-  SnapshotRejected( state :: RatchetState, error :: SnapshotError)
+  SnapshotRejected(state :: RatchetState, error :: SnapshotError)
 end
 
 pub type ReplacementOutcome do
-  SessionReplaced( state :: RatchetState)
+  SessionReplaced(state :: RatchetState)
 
-  ReplacementRejected( state :: RatchetState, error :: SnapshotError)
+  ReplacementRejected(state :: RatchetState, error :: SnapshotError)
 end
 
 struct ReadInt do
@@ -58,8 +58,8 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! SnapshotError do
   case Bytes.concat(left, right) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -73,32 +73,32 @@ end
 
 fn byte(value :: Int) -> Bytes ! SnapshotError do
   case Bytes.from_list([value]) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn write_u16(value :: Int) -> Bytes ! SnapshotError do
   case Bytes.write_u16_be(value) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn write_u32(value :: Int) -> Bytes ! SnapshotError do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( wide) -> case Bytes.write_u32_be(wide) do
-      Err( _) -> Err(InvalidSnapshot)
-      Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(wide) -> case Bytes.write_u32_be(wide) do
+      Err(_) -> Err(InvalidSnapshot)
+      Ok(encoded) -> Ok(encoded)
     end
   end
 end
 
 fn write_u64(value :: U64) -> Bytes ! SnapshotError do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -108,8 +108,8 @@ end
 
 fn zero() -> U64 ! SnapshotError do
   case U64.parse("0") do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -164,8 +164,8 @@ end
 
 fn seal_secret(secret :: borrow SecretBytes, wrapping_key :: borrow StorageKey, context :: Bytes) -> Bytes ! SnapshotError do
   case Secret.seal_for_storage(secret, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( blob) -> Ok(blob)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(blob) -> Ok(blob)
   end
 end
 
@@ -173,15 +173,15 @@ fn seal_private(secret :: borrow X25519PrivateKey,
 wrapping_key :: borrow StorageKey,
 context :: Bytes) -> Bytes ! SnapshotError do
   case X25519PrivateKey.seal_for_storage(secret, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( blob) -> Ok(blob)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(blob) -> Ok(blob)
   end
 end
 
 fn seal_map(secret :: borrow SecretMap, wrapping_key :: borrow StorageKey, context :: Bytes) -> Bytes ! SnapshotError do
   case SecretMap.seal_for_storage(secret, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( blob) -> Ok(blob)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(blob) -> Ok(blob)
   end
 end
 
@@ -220,24 +220,24 @@ snapshot_version :: U64) -> SnapshotOutcome do
     SnapshotRejected(state, RollbackRejected)
   else
     case seal_snapshot(state, wrapping_key, account_id, device_id, snapshot_version) do
-      Err( error) -> SnapshotRejected(state, error)
-      Ok( blob) -> SnapshotSealed(% { state | snapshot_version : snapshot_version }, blob)
+      Err(error) -> SnapshotRejected(state, error)
+      Ok(blob) -> SnapshotSealed(% {state | snapshot_version : snapshot_version }, blob)
     end
   end
 end
 
 fn open_reader(input :: Bytes) -> BinaryReader ! SnapshotError do
   case reader(input, 68900) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( state) -> Ok(state)
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(state) -> Ok(state)
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt ! SnapshotError do
   case read_u8(state) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( value) -> do
-      let ( next, number) = value
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(value) -> do
+      let (next, number) = value
       Ok(ReadInt {
         state : next,
         value : number
@@ -248,9 +248,9 @@ end
 
 fn take_u16(state :: BinaryReader) -> ReadInt ! SnapshotError do
   case read_u16_be(state) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( value) -> do
-      let ( next, number) = value
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(value) -> do
+      let (next, number) = value
       Ok(ReadInt {
         state : next,
         value : number
@@ -261,9 +261,9 @@ end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! SnapshotError do
   case read_fixed(state, length) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( value) -> do
-      let ( next, bytes) = value
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(value) -> do
+      let (next, bytes) = value
       Ok(ReadBytes {
         state : next,
         value : bytes
@@ -274,9 +274,9 @@ end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes ! SnapshotError do
   case read_vector(state, maximum) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( value) -> do
-      let ( next, bytes) = value
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(value) -> do
+      let (next, bytes) = value
       Ok(ReadBytes {
         state : next,
         value : bytes
@@ -288,10 +288,10 @@ end
 fn take_u32(state :: BinaryReader) -> ReadInt ! SnapshotError do
   let encoded = take_fixed(state, 4) ?
   case Bytes.read_u32_be(encoded.value, 0) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( wide) -> case U64.to_int(wide) do
-      Err( _) -> Err(InvalidSnapshot)
-      Ok( value) -> Ok(ReadInt {
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(wide) -> case U64.to_int(wide) do
+      Err(_) -> Err(InvalidSnapshot)
+      Ok(value) -> Ok(ReadInt {
         state : encoded.state,
         value : value
       })
@@ -302,8 +302,8 @@ end
 fn take_u64(state :: BinaryReader) -> ReadWide ! SnapshotError do
   let encoded = take_fixed(state, 8) ?
   case Bytes.read_u64_be(encoded.value, 0) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( value) -> Ok(ReadWide {
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(value) -> Ok(ReadWide {
       state : encoded.state,
       value : value
     })
@@ -312,8 +312,8 @@ end
 
 fn require_end(state :: BinaryReader) -> Result <(), SnapshotError > do
   case finish(state) do
-    Err( _) -> Err(InvalidSnapshot)
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -409,22 +409,22 @@ end
 
 fn unseal_secret(blob :: Bytes, wrapping_key :: borrow StorageKey, context :: Bytes) -> SecretBytes ! SnapshotError do
   case Secret.unseal_from_storage(blob, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( secret) -> Ok(secret)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(secret) -> Ok(secret)
   end
 end
 
 fn unseal_private(blob :: Bytes, wrapping_key :: borrow StorageKey, context :: Bytes) -> X25519PrivateKey ! SnapshotError do
   case X25519PrivateKey.unseal_from_storage(blob, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( secret) -> Ok(secret)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(secret) -> Ok(secret)
   end
 end
 
 fn unseal_map(blob :: Bytes, wrapping_key :: borrow StorageKey, context :: Bytes) -> SecretMap ! SnapshotError do
   case SecretMap.unseal_from_storage(blob, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( secret) -> Ok(secret)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(secret) -> Ok(secret)
   end
 end
 
@@ -439,8 +439,8 @@ device_id :: Bytes,
 header :: Bytes) -> SecretMap ! SnapshotError do
   if value.format == 1 do
     case SecretMap.new(64) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( empty) -> Ok(empty)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(empty) -> Ok(empty)
     end
   else
     unseal_map(value.skipped_keys,
@@ -507,13 +507,13 @@ wrapping_key :: borrow StorageKey,
 account_id :: Bytes,
 device_id :: Bytes) -> ReplacementOutcome do
   case decode_snapshot(blob) do
-    Err( error) -> ReplacementRejected(current, error)
-    Ok( value) -> if U64.compare(value.snapshot_version, current.snapshot_version) <= 0 do
+    Err(error) -> ReplacementRejected(current, error)
+    Ok(value) -> if U64.compare(value.snapshot_version, current.snapshot_version) <= 0 do
       ReplacementRejected(current, RollbackRejected)
     else
       case restore_parsed(value, wrapping_key, account_id, device_id) do
-        Err( error) -> ReplacementRejected(current, error)
-        Ok( candidate) -> SessionReplaced(candidate)
+        Err(error) -> ReplacementRejected(current, error)
+        Ok(candidate) -> SessionReplaced(candidate)
       end
     end
   end

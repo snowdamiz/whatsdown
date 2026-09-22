@@ -103,8 +103,8 @@ end
 
 fn message_key(material :: SecretBytes) -> AeadKey ! GroupError do
   case Crypto.aead_key(material) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -118,8 +118,8 @@ end
 
 fn tree_message_context(tree :: borrow GroupTree, sender_leaf :: Int) -> TreeMessageContext ! GroupError do
   let sender = case member_at(tree, sender_leaf) do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   Ok(TreeMessageContext {
     hash : tree_hash(tree),
@@ -153,8 +153,8 @@ version :: Int) -> GroupMessage ! GroupError do
   let sealed = Crypto.aead_seal(key, nonce, context, plaintext)
   consume_message_key(key)
   let ciphertext = case sealed do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   let unsigned = GroupMessage {
     version : version,
@@ -170,10 +170,10 @@ version :: Int) -> GroupMessage ! GroupError do
   }
   let unsigned_bytes = signed_message_bytes(unsigned, context) ?
   let signature = case Crypto.sign(signing_key, unsigned_bytes) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
-  Ok(% { unsigned | signature : signature })
+  Ok(% {unsigned | signature : signature })
 end
 
 fn prepare_group_message(state :: borrow GroupState,
@@ -190,8 +190,8 @@ version :: Int) -> GroupMessage ! GroupError do
     Err(InvalidGroup)
   else
     let nonce = case Crypto.random_bytes(12) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end ?
     let metadata = EncryptMessageContext {
       suite : state.suite,
@@ -215,8 +215,8 @@ version :: Int) -> GroupMessage ! GroupError do
       Ok(plaintext)
     else
       case pad_message(plaintext, 190) do
-        Err( _) -> Err(InvalidGroup)
-        Ok( value) -> Ok(value)
+        Err(_) -> Err(InvalidGroup)
+        Ok(value) -> Ok(value)
       end
     end ?
     let message = seal_epoch_message(signing_key,
@@ -231,14 +231,14 @@ version :: Int) -> GroupMessage ! GroupError do
     state.next_generation) ?,
     version) ?
     let sender = case member_at(state.tree, state.local_leaf) do
-      Err( error) -> Err(TreeFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(TreeFailure(error))
+      Ok(value) -> Ok(value)
     end ?
     let signed = signed_message_bytes(message, context) ?
     case Crypto.verify(sender.signing_public_key, signed, message.signature) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( false) -> Err(AuthenticationRejected)
-      Ok( true) -> Ok(message)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(false) -> Err(AuthenticationRejected)
+      Ok(true) -> Ok(message)
     end
   end
 end
@@ -265,22 +265,22 @@ plaintext :: Bytes,
 caller_data :: Bytes,
 version :: Int) -> GroupEncryptOutcome do
   case prepare_group_message(state, signing_key, plaintext, caller_data, version) do
-    Err( error) -> GroupEncryptRejected(state, error)
-    Ok( message) -> do
+    Err(error) -> GroupEncryptRejected(state, error)
+    Ok(message) -> do
       case advance_sender(state.key_material.sender_chains,
       state.group_id,
       state.local_leaf,
       state.next_generation) do
-        Err( error) -> GroupEncryptRejected(state, error)
-        Ok( chains) -> case fork_keys(state.key_material.skipped_keys) do
-          Err( error) -> do
+        Err(error) -> GroupEncryptRejected(state, error)
+        Ok(chains) -> case fork_keys(state.key_material.skipped_keys) do
+          Err(error) -> do
             discard_keys(chains)
             GroupEncryptRejected(state, error)
           end
-          Ok( skipped) -> do
+          Ok(skipped) -> do
             let next :: GroupState = replace_keys(state, chains, skipped)
             let next_generation = next.next_generation + 1
-            GroupMessageEncrypted(% { next | next_generation : next_generation }, message)
+            GroupMessageEncrypted(% {next | next_generation : next_generation }, message)
           end
         end
       end
@@ -336,20 +336,20 @@ end
 
 fn open_group_plaintext(key :: borrow AeadKey, message :: GroupMessage, context :: Bytes) -> Bytes ! GroupError do
   let plaintext = case Crypto.aead_open(key, message.nonce, context, message.ciphertext) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   if message.version == 1 || message.version == 4 do
     Ok(plaintext)
   else
     case unpad_message(plaintext, 190) do
-      Err( _) -> Err(InvalidGroup)
-      Ok( value) -> Ok(value)
+      Err(_) -> Err(InvalidGroup)
+      Ok(value) -> Ok(value)
     end
   end
 end
 
-fn open_epoch_message(state :: borrow GroupState, message :: GroupMessage, caller_data :: Bytes) -> Result <( Bytes, SecretMap, SecretMap), GroupError > do
+fn open_epoch_message(state :: borrow GroupState, message :: GroupMessage, caller_data :: Bytes) -> Result <(Bytes, SecretMap, SecretMap), GroupError > do
   let public = open_message_context(state, message) ?
   let wrong_header = !((state.version == 1 && (message.version == 1 || message.version == 2)) || (state.version == 2 && (message.version == 3 || message.version == 4))) || (state.version == 2 && message.sender_leaf == state.local_leaf) || message.suite != public.suite || !Bytes.secure_equals(message.group_id,
   public.group_id) || U64.compare(message.epoch, public.epoch) != 0 || !Bytes.secure_equals(message.tree_hash,
@@ -371,9 +371,9 @@ fn open_epoch_message(state :: borrow GroupState, message :: GroupMessage, calle
   caller_data) ?
   let signed = signed_message_bytes(message, context) ?
   case Crypto.verify(public.tree.sender.signing_public_key, signed, message.signature) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( false) -> Err(AuthenticationRejected)
-    Ok( true) -> Ok(nil)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(false) -> Err(AuthenticationRejected)
+    Ok(true) -> Ok(nil)
   end ?
   if state.version == 1 do
     let info = message_info(message.sender_leaf, message.generation) ?
@@ -381,15 +381,15 @@ fn open_epoch_message(state :: borrow GroupState, message :: GroupMessage, calle
     public.group_id,
     info,
     32) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( value) -> Ok(value)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value) -> Ok(value)
     end ?
     let key = message_key(material) ?
     Ok((open_group_plaintext(key, message, context) ?,
     fork_keys(state.key_material.sender_chains) ?,
     fork_keys(state.key_material.skipped_keys) ?))
   else
-    let ( chains, skipped, material) = receive_key(state.key_material,
+    let (chains, skipped, material) = receive_key(state.key_material,
     public.group_id,
     message.sender_leaf,
     message.generation,
@@ -403,16 +403,16 @@ pub fn decrypt_group_message(state :: consume GroupState,
 message :: GroupMessage,
 caller_data :: Bytes) -> GroupDecryptOutcome do
   case open_epoch_message(state, message, caller_data) do
-    Err( error) -> MessageRejected(state, error)
-    Ok( value) -> do
-      let ( plaintext, chains, skipped) = value
+    Err(error) -> MessageRejected(state, error)
+    Ok(value) -> do
+      let (plaintext, chains, skipped) = value
       let state :: GroupState = replace_keys(state, chains, skipped)
       let generations = record_generation(state.received_generations,
       message.sender_leaf,
       message.generation,
       0,
       List.new())
-      MessageOpened(% { state | received_generations : generations }, plaintext)
+      MessageOpened(% {state | received_generations : generations }, plaintext)
     end
   end
 end
@@ -444,7 +444,7 @@ skipped :: consume SecretMap) -> GroupState do
     tree : tree,
     tree_hash_cache : tree_hash_cache,
     transcript_hash : transcript_hash,
-    key_material : % { material | sender_chains : chains, skipped_keys : skipped },
+    key_material : % {material | sender_chains : chains, skipped_keys : skipped },
     local_leaf : local_leaf,
     next_generation : next_generation,
     received_generations : received_generations,

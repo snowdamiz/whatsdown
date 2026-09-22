@@ -2,8 +2,8 @@ from Objects.Grant import ObjectControl, encode_complete, encode_grant, mint_gra
 
 fn bytes(value :: Int, size :: Int) -> Bytes ! String do
   case Bytes.repeat(value, size) do
-    Err( _) -> Err("test byte allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test byte allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -67,10 +67,10 @@ end
 
 test("opaque parts expire through scheduled jobs without a polling worker") do
   case exercise() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

@@ -10,19 +10,19 @@ from MobileCore import (
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("interop request too large")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("interop request too large")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn write_u32(value :: Int) -> Bytes ! String do
   let wide = case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err("invalid interop request length")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("invalid interop request length")
+    Ok(parsed) -> Ok(parsed)
   end ?
   case Bytes.write_u32_be(wide) do
-    Err( _) -> Err("invalid interop request length")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("invalid interop request length")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -44,8 +44,8 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("invalid interop request byte")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("invalid interop request byte")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -55,8 +55,8 @@ fn database_path() -> String ! String do
     Ok(configured)
   else
     case Crypto.random_bytes(8) do
-      Err( _) -> Err("interop path generation failed")
-      Ok( value) -> Ok("/tmp/mesh_cli_mobile_interop_" <> Bytes.to_hex(value) <> ".db")
+      Err(_) -> Err("interop path generation failed")
+      Ok(value) -> Ok("/tmp/mesh_cli_mobile_interop_" <> Bytes.to_hex(value) <> ".db")
     end
   end
 end
@@ -67,7 +67,7 @@ fn proof() -> Bool ! String do
   let mobile_profile = create_account_export(request([Bytes.from_utf8(path), Bytes.from_utf8("mobile")]) ?) ?
   let greeting = Bytes.from_utf8("m10-cli-greeting-opaque")
   let reply = Bytes.from_utf8("m10-mobile-reply-opaque")
-  let ( cli_state, cli_device, cli_session, cli_profile, initial_outer) = start_mobile_session(mobile_profile,
+  let (cli_state, cli_device, cli_session, cli_profile, initial_outer) = start_mobile_session(mobile_profile,
   greeting) ?
   assert(interop_state_suite(cli_state) == 2)
   assert(cli_session.suite == 2)
@@ -97,10 +97,10 @@ end
 
 test("Mesh CLI and mobile share a hybrid session and exact client wire") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

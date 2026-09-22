@@ -11,14 +11,14 @@ fn run_jobs(request :: Request, witness_only :: Bool) -> Response do
     HTTP.response(401, "")
   else
     case transaction_in_progress(get_pool(), Request.body(request)) do
-      Err( _) -> HTTP.response(503, "")
-      Ok( true) -> HTTP.response(202, "")
-      Ok( false) -> if witness_only do
+      Err(_) -> HTTP.response(503, "")
+      Ok(true) -> HTTP.response(202, "")
+      Ok(false) -> if witness_only do
         HTTP.response(200, "0")
       else
         case run_scheduled(get_pool()) do
-          Err( _) -> HTTP.response(503, "")
-          Ok( due) -> HTTP.response(200, Int.to_string(due))
+          Err(_) -> HTTP.response(503, "")
+          Ok(due) -> HTTP.response(200, Int.to_string(due))
         end
       end
     end
@@ -59,20 +59,20 @@ fn admitted(request :: Request, label :: String, maximum_payload :: Int) -> Admi
   Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16)) ? do
     RequestMalformed -> Ok(AdmissionMalformed)
     RequestUnpaid -> Ok(AdmissionRefused)
-    RequestPaid( payload, spent_key) -> spend_request(get_pool(), payload, spent_key)
+    RequestPaid(payload, spent_key) -> spend_request(get_pool(), payload, spent_key)
   end
 end
 
 pub fn handle_register_device(request :: Request) -> Response do
   case admitted(request, "mesh-msg/v1/work/register", 36006) do
-    Ok( Admitted( payload)) -> respond(register_device_request(get_pool(), payload))
+    Ok(Admitted(payload)) -> respond(register_device_request(get_pool(), payload))
     refused -> respond(admission_failure(refused))
   end
 end
 
 pub fn handle_resolve_devices(request :: Request) -> Response do
   case admitted(request, "mesh-msg/v1/work/resolve", 76) do
-    Ok( Admitted( payload)) -> respond(resolve_devices_request(get_pool(), payload))
+    Ok(Admitted(payload)) -> respond(resolve_devices_request(get_pool(), payload))
     refused -> respond(admission_failure(refused))
   end
 end
@@ -100,19 +100,19 @@ end
 fn authorization_header(request :: Request) -> Option < String > do
   case Request.header(request, "Authorization") do
     None -> Request.header(request, "authorization")
-    Some( value) -> Some(value)
+    Some(value) -> Some(value)
   end
 end
 
 pub fn handle_sealed_submit(request :: Request) -> Response do
   case internal_delivery_token(Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
-    Err( _) -> HTTP.response(503, "")
-    Ok( secret) -> if !internal_delivery_authorized(authorization_header(request), secret) do
+    Err(_) -> HTTP.response(503, "")
+    Ok(secret) -> if !internal_delivery_authorized(authorization_header(request), secret) do
       HTTP.response(401, "")
     else
       case submit_configured_sealed_request(get_pool(), Request.body_bytes(request)) do
-        Err( _) -> HTTP.response(500, "")
-        Ok( result) -> respond(result)
+        Err(_) -> HTTP.response(500, "")
+        Ok(result) -> respond(result)
       end
     end
   end
@@ -140,12 +140,12 @@ end
 
 pub fn handle_prekey_claim(request :: Request) -> Response do
   case admitted(request, "mesh-msg/v1/work/prekey-claim", 100) do
-    Ok( Admitted( body)) -> case decode_prekey_claim(body) do
-      Err( _) -> respond_no_store(BinaryResult {
+    Ok(Admitted(body)) -> case decode_prekey_claim(body) do
+      Err(_) -> respond_no_store(BinaryResult {
         status : 400,
         body : Bytes.empty()
       })
-      Ok( _) -> respond_no_store(claim_prekey_request(get_pool(), body))
+      Ok(_) -> respond_no_store(claim_prekey_request(get_pool(), body))
     end
     refused -> respond_no_store(admission_failure(refused))
   end

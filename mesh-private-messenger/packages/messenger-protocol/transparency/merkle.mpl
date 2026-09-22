@@ -34,29 +34,29 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("transparency_encoding_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("transparency_encoding_failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn wide(value :: Int) -> U64 ! String do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err("transparency_integer_failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("transparency_integer_failed")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 fn write_u64(value :: U64) -> Bytes ! String do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err("transparency_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("transparency_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 fn write_u16(value :: Int) -> Bytes ! String do
   case Bytes.write_u16_be(value) do
-    Err( _) -> Err("transparency_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("transparency_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -209,14 +209,14 @@ timestamp :: U64) -> TransparencyCheckpoint ! String do
   timestamp,
   service_public_key) ?
   let signature = case Crypto.sign(signing_key, statement) do
-    Err( _) -> Err("checkpoint_signing_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("checkpoint_signing_failed")
+    Ok(value) -> Ok(value)
   end ?
   let bound = case Crypto.verify(SigningPublicKey { bytes : service_public_key },
   statement,
   signature) do
-    Err( _) -> Err("checkpoint_signing_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("checkpoint_signing_failed")
+    Ok(value) -> Ok(value)
   end ?
   if !bound do
     Err("checkpoint_signing_failed")
@@ -245,8 +245,8 @@ pub fn verify_checkpoint(value :: TransparencyCheckpoint, trusted_key :: Signing
     value.timestamp,
     value.service_public_key) ?
     case Crypto.verify(trusted_key, statement, Signature { bytes : value.signature }) do
-      Err( _) -> Err("checkpoint_verification_failed")
-      Ok( valid) -> Ok(valid)
+      Err(_) -> Err("checkpoint_verification_failed")
+      Ok(valid) -> Ok(valid)
     end
   end
 end
@@ -272,8 +272,8 @@ checkpoint :: TransparencyCheckpoint) -> WitnessAttestation ! String do
     0,
     Bytes.empty()) ?
     let signature = case Crypto.sign(signing_key, statement) do
-      Err( _) -> Err("witness_signing_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("witness_signing_failed")
+      Ok(value) -> Ok(value)
     end ?
     Ok(WitnessAttestation {
       witness_id : witness_id,
@@ -328,22 +328,22 @@ count :: Int) -> Int ! String do
       count)
     else
       case trusted_witness(trusted_keys, attestation.witness_id, 0) do
-        Err( _) -> count_valid_witnesses(checkpoint,
+        Err(_) -> count_valid_witnesses(checkpoint,
         checkpoint_digest,
         attestations,
         trusted_keys,
         index + 1,
         seen,
         count)
-        Ok( trusted) -> do
+        Ok(trusted) -> do
           let statement = concat_parts([Bytes.from_utf8("mesh-msg/v1/transparency-witness"), Bytes.from_utf8(attestation.witness_id), checkpoint_digest],
           0,
           Bytes.empty()) ?
           let valid = case Crypto.verify(SigningPublicKey { bytes : trusted.public_key },
           statement,
           Signature { bytes : attestation.signature }) do
-            Err( _) -> false
-            Ok( value) -> value
+            Err(_) -> false
+            Ok(value) -> value
           end
           count_valid_witnesses(checkpoint,
           checkpoint_digest,

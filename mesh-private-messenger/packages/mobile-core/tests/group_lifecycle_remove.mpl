@@ -34,23 +34,23 @@ fn assert_creator_protected(accounts :: GroupAccountFixture, group_id :: Bytes) 
   let state = load_group(accounts.bob_path, local, key, group_id) ?
   let device = open_device(local, key, accounts.bob_path) ?
   case commit_remove(state, device.signing_private_key, 0) do
-    GroupRemoveRejected( rejected, _) -> do
+    GroupRemoveRejected(rejected, _) -> do
       consume_group_state(rejected)
       Err("test removal failed")
     end
-    GroupMemberRemoved( next, commit) -> do
+    GroupMemberRemoved(next, commit) -> do
       consume_group_state(next)
       let wire = case encode_group_commit(commit) do
-        Ok( value) -> Ok(value)
-        Err( _) -> Err("test commit encoding failed")
+        Ok(value) -> Ok(value)
+        Err(_) -> Err("test commit encoding failed")
       end ?
       let delivery = outer_bytes(accounts.linked_entry.mailbox_token,
       3,
       encode_group_packet(2, wire) ?,
       current_time() ?) ?
       case group_receive_export(group_vectors([Bytes.from_utf8(accounts.linked_path), delivery]) ?) do
-        Ok( _) -> Err("a remote commit removed the creator")
-        Err( error) -> do
+        Ok(_) -> Err("a remote commit removed the creator")
+        Err(error) -> do
           group_remove_ensure(error == "group_commit_rejected", "wrong creator protection error") ?
           Ok(true)
         end
@@ -81,15 +81,15 @@ pub fn exercise_group_removal(accounts :: GroupAccountFixture, group_id :: Bytes
   accounts.bob_entry.mailbox_token),
   "post-removal mailbox mismatch") ?
   let bob_after_outer = outer(bob_after) ?
-  let retargeted = case encode_outer_envelope(% { bob_after_outer | mailbox_token : accounts.linked_entry.mailbox_token }) do
-    Err( _) -> Err("outer envelope encode failed")
-    Ok( encoded) -> Ok(encoded)
+  let retargeted = case encode_outer_envelope(% {bob_after_outer | mailbox_token : accounts.linked_entry.mailbox_token }) do
+    Err(_) -> Err("outer envelope encode failed")
+    Ok(encoded) -> Ok(encoded)
   end ?
   case group_receive_export(group_vectors([Bytes.from_utf8(accounts.linked_path), retargeted]) ?) do
-    Ok( _) -> Err("removed linked device accepted a future epoch") ?
+    Ok(_) -> Err("removed linked device accepted a future epoch") ?
     # Sealed to Bob's device key: another device cannot open it, and so cannot
     # even learn that it was a group packet.
-    Err( error) -> group_remove_ensure(error == "invalid_recipient_packet",
+    Err(error) -> group_remove_ensure(error == "invalid_recipient_packet",
     "wrong removed-device error") ?
   end
   group_remove_ensure(Bytes.secure_equals(group_receive_export(group_vectors([Bytes.from_utf8(accounts.bob_path), bob_after]) ?) ?,

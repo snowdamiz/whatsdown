@@ -70,7 +70,7 @@ end
 # someone's contact address therefore cannot intercept it; it only makes its
 # own public address unreachable.
 
-pub fn resolve_deposit_address(conn :: borrow PgConn, address_hash :: Bytes) -> Result <( Bytes, Bool), String > do
+pub fn resolve_deposit_address(conn :: borrow PgConn, address_hash :: Bytes) -> Result <(Bytes, Bool), String > do
   let rows = Pg.query_values(conn,
   "SELECT mailbox_token_hash, (retired_at IS NULL)::text AS current FROM messenger_mailbox_aliases WHERE alias_hash = $1",
   [Binary(address_hash)]) ?
@@ -79,8 +79,8 @@ pub fn resolve_deposit_address(conn :: borrow PgConn, address_hash :: Bytes) -> 
   else
     let row = List.head(rows)
     case Map.get(row, "mailbox_token_hash") do
-      Binary( mailbox_hash) -> case Map.get(row, "current") do
-        Text( current) -> Ok((mailbox_hash, current == "true"))
+      Binary(mailbox_hash) -> case Map.get(row, "current") do
+        Text(current) -> Ok((mailbox_hash, current == "true"))
         _ -> Err("invalid contact address row")
       end
       _ -> Err("invalid contact address row")

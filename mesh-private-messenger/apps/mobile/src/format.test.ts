@@ -6,6 +6,7 @@ import {
   formatInboxTime,
   friendlyError,
   groupDigits,
+  initials,
   sameDay,
 } from './format.ts';
 
@@ -35,6 +36,17 @@ test('formatInboxTime is a clock today and shortens older activity', () => {
   assert.equal(formatInboxTime(now - 3 * day, now), 'Sun');
   assert.match(formatInboxTime(now - 10 * day, now), /Sep 6/);
   assert.match(formatInboxTime(new Date(2024, 11, 24).getTime(), now), /Dec 24, 2024/);
+});
+
+test('initials take the first two words, or the start of one, and skip punctuation', () => {
+  assert.equal(initials('Alice Chen'), 'AC');
+  assert.equal(initials('alice'), 'AL');
+  assert.equal(initials('@maya_1987'), 'M1');
+  assert.equal(initials('jordan.runs'), 'JR');
+  assert.equal(initials('Sam (work)'), 'SW');
+  // With nothing to go on the avatar draws a person instead.
+  assert.equal(initials(''), '');
+  assert.equal(initials('(  )'), '');
 });
 
 test('groupDigits splits a safety number into fixed-width groups', () => {

@@ -22,19 +22,19 @@ from Transparency.Wire import TransparencyTreeQuery, decode_transparency_lookup,
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("live proof encoding failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("live proof encoding failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn write_u32(value :: Int) -> Bytes ! String do
   let wide = case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err("live proof encoding failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("live proof encoding failed")
+    Ok(parsed) -> Ok(parsed)
   end ?
   case Bytes.write_u32_be(wide) do
-    Err( _) -> Err("live proof encoding failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("live proof encoding failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -56,10 +56,10 @@ end
 
 fn read_u32_at(input :: Bytes, offset :: Int) -> Int ! String do
   case Bytes.read_u32_be(input, offset) do
-    Err( _) -> Err("live proof output decode failed")
-    Ok( value) -> case U64.to_int(value) do
-      Err( _) -> Err("live proof output decode failed")
-      Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("live proof output decode failed")
+    Ok(value) -> case U64.to_int(value) do
+      Err(_) -> Err("live proof output decode failed")
+      Ok(parsed) -> Ok(parsed)
     end
   end
 end
@@ -74,8 +74,8 @@ fn output_parts(input :: Bytes, count :: Int, index :: Int, offset :: Int, items
   else
     let length = read_u32_at(input, offset) ?
     let item = case Bytes.slice(input, offset + 4, length) do
-      Err( _) -> Err("live proof output decode failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("live proof output decode failed")
+      Ok(value) -> Ok(value)
     end ?
     output_parts(input, count, index + 1, offset + 4 + length, List.append(items, item))
   end
@@ -96,15 +96,15 @@ end
 
 fn outer(input :: Bytes) -> OuterEnvelope ! String do
   case decode_outer_envelope(input) do
-    Err( _) -> Err("live proof outer decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("live proof outer decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 fn configured_bytes(name :: String) -> Bytes ! String do
   case Bytes.from_hex(Env.get(name, "")) do
-    Err( _) -> Err("invalid live proof configuration")
-    Ok( value) -> if Bytes.length(value) == 32 do
+    Err(_) -> Err("invalid live proof configuration")
+    Ok(value) -> if Bytes.length(value) == 32 do
       Ok(value)
     else
       Err("invalid live proof configuration")
@@ -122,12 +122,12 @@ end
 
 fn delivery_key_pair() -> X25519KeyPair ! String do
   let seed = case Env.get_secret_hex("MESSENGER_DELIVERY_SEALING_SEED_HEX") do
-    Err( _) -> Err("invalid live proof delivery key")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid live proof delivery key")
+    Ok(value) -> Ok(value)
   end ?
   case Crypto.x25519_from_secret(seed) do
-    Err( _) -> Err("invalid live proof delivery key")
-    Ok( pair) -> Ok(pair)
+    Err(_) -> Err("invalid live proof delivery key")
+    Ok(pair) -> Ok(pair)
   end
 end
 
@@ -161,11 +161,11 @@ fn wait_for_witnesses(base_url :: String, attempts :: Int) -> Result <(), String
     Err("live witness attestations timed out")
   else
     case get(base_url, "/v1/transparency/witnesses") do
-      Err( _) -> do
+      Err(_) -> do
         Timer.sleep(50)
         wait_for_witnesses(base_url, attempts + 1)
       end
-      Ok( response) -> if response.status != 200 do
+      Ok(response) -> if response.status != 200 do
         Timer.sleep(50)
         wait_for_witnesses(base_url, attempts + 1)
       else
@@ -188,7 +188,7 @@ expected_previous_size :: Int) -> Bytes ! String do
   let lookup = resolve_request_export(request([Bytes.from_utf8(database_path), Bytes.from_utf8(username)]) ?) ?
   # The lookup leaves the core wrapped in proof of work; the request inside is
   # what names the previous tree size.
-  let ( _stamp, inner_lookup) = decode_stamped_request(lookup, 76) ?
+  let (_stamp, inner_lookup) = decode_stamped_request(lookup, 76) ?
   assert(decode_transparency_lookup(inner_lookup) ?.previous_tree_size == expected_previous_size)
   let response = post(base_url, "/v1/devices/resolve", lookup) ?
   if response.status != 200 do
@@ -272,10 +272,10 @@ end
 
 test("live mobile path verifies transparency and sends one sealed hybrid fanout") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

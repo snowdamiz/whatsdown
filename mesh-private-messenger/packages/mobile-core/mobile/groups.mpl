@@ -115,8 +115,8 @@ pub fn create_mobile_group(database_path :: String) -> Bytes ! String do
   let checkpoint = group_checkpoint(database_path, wrapping_key) ?
   let checkpoint_hash_value = checkpoint_hash(canonical_transparency_checkpoint(checkpoint) ?) ?
   let leaf_keys = case Crypto.x25519_generate() do
-    Err( _) -> Err("group_key_generation_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("group_key_generation_failed")
+    Ok(value) -> Ok(value)
   end ?
   let creator = group_member(profile,
   X25519PublicKey { bytes : profile.credential.dh_public_key },
@@ -132,11 +132,11 @@ pub fn create_mobile_group(database_path :: String) -> Bytes ! String do
     checkpoint_hash : checkpoint_hash_value,
     witness_threshold : 2
   }) do
-    Err( _) -> Err("group_create_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("group_create_failed")
+    Ok(value) -> Ok(value)
   end ?
   let group_id = state.group_id
-  let ( label, blob) = group_snapshot_blob(state, profile, wrapping_key) ?
+  let (label, blob) = group_snapshot_blob(state, profile, wrapping_key) ?
   let index_blob = updated_group_index_blob(database_path, wrapping_key, group_id) ?
   let baseline_label = group_baseline_label(group_id) ?
   let baseline_blob = group_baseline_blob(checkpoint, wrapping_key, group_id) ?
@@ -176,26 +176,26 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
     let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
     let device = open_device(profile, wrapping_key, request.database_path) ?
     case commit_add(state, device.signing_private_key, member) do
-      GroupAddRejected( rejected, _) -> do
+      GroupAddRejected(rejected, _) -> do
         consume_group_state(rejected)
         Err("group_add_rejected")
       end
-      GroupMemberAdded( next, commit, welcome) -> do
+      GroupMemberAdded(next, commit, welcome) -> do
         let commit_wire = case encode_group_commit(commit) do
-          Err( _) -> Err("group_commit_encoding_failed")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("group_commit_encoding_failed")
+          Ok(value) -> Ok(value)
         end ?
         let welcome_wire = case encode_group_welcome(welcome) do
-          Err( _) -> Err("group_welcome_encoding_failed")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("group_welcome_encoding_failed")
+          Ok(value) -> Ok(value)
         end ?
         let welcome_packet = encode_group_welcome_packet(MobileGroupWelcomePacket {
           baseline_checkpoint : baseline,
           welcome : welcome_wire
         }) ?
         let targets = case delivery_targets(next.tree, next.local_leaf) do
-          Err( _) -> Err("group_delivery_failed")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("group_delivery_failed")
+          Ok(value) -> Ok(value)
         end ?
         let now = current_time() ?
         let envelopes = group_add_envelopes(request.database_path,
@@ -207,14 +207,14 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
         now,
         0,
         List.new()) ?
-        let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+        let (outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
         pending_ids,
         envelopes,
         request.database_path,
         Bytes.empty(),
         0,
         0) ?
-        let ( state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+        let (state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
         store_group_outbound(request.database_path,
         state_label,
         state_blob,
@@ -249,18 +249,18 @@ pub fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes 
     let pending_ids = load_outbox_ids(request.database_path, wrapping_key) ?
     let device = open_device(profile, wrapping_key, request.database_path) ?
     case commit_remove(state, device.signing_private_key, leaf_index) do
-      GroupRemoveRejected( rejected, _) -> do
+      GroupRemoveRejected(rejected, _) -> do
         consume_group_state(rejected)
         Err("group_remove_rejected")
       end
-      GroupMemberRemoved( next, commit) -> do
+      GroupMemberRemoved(next, commit) -> do
         let commit_wire = case encode_group_commit(commit) do
-          Err( _) -> Err("group_commit_encoding_failed")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("group_commit_encoding_failed")
+          Ok(value) -> Ok(value)
         end ?
         let targets = case delivery_targets(next.tree, next.local_leaf) do
-          Err( _) -> Err("group_delivery_failed")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("group_delivery_failed")
+          Ok(value) -> Ok(value)
         end ?
         let envelopes = group_target_envelopes(request.database_path,
         wrapping_key,
@@ -269,14 +269,14 @@ pub fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes 
         current_time() ?,
         0,
         List.new()) ?
-        let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+        let (outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
         pending_ids,
         envelopes,
         request.database_path,
         Bytes.empty(),
         0,
         0) ?
-        let ( state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+        let (state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
         store_group_outbound(request.database_path,
         state_label,
         state_blob,
@@ -296,19 +296,19 @@ key :: borrow StorageKey,
 state :: consume GroupState,
 signing :: borrow SigningPrivateKey,
 targets :: List < GroupDeliveryTarget >,
-now :: U64) -> Result <( GroupState, List < Bytes >), String > do
+now :: U64) -> Result <(GroupState, List < Bytes >), String > do
   if state.version == 2 && state.next_generation < 256 do
     Ok((state, List.new()))
   else
     case commit_update(state, signing) do
-      GroupRemoveRejected( rejected, _) -> do
+      GroupRemoveRejected(rejected, _) -> do
         consume_group_state(rejected)
         Err("group_refresh_rejected")
       end
-      GroupMemberRemoved( next, commit) -> do
+      GroupMemberRemoved(next, commit) -> do
         let wire = case encode_group_commit(commit) do
-          Err( _) -> Err("group_commit_encoding_failed")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("group_commit_encoding_failed")
+          Ok(value) -> Ok(value)
         end ?
         let envelopes = group_target_envelopes(path,
         key,
@@ -333,8 +333,8 @@ index :: Int) -> Result <(), String > do
     let member = List.get(members, index).member
     let devices = fresh_account_device_set(path, key, member.account_id) ?
     let profile = case group_profile(devices.profiles, member.account_id, member.device_id, 0) do
-      Ok( value) -> Ok(value)
-      Err( _) -> Err("group_membership_changed")
+      Ok(value) -> Ok(value)
+      Err(_) -> Err("group_membership_changed")
     end ?
     if !Bytes.secure_equals(profile.credential.signing_public_key, member.signing_public_key.bytes) do
       Err("group_membership_changed")
@@ -345,9 +345,7 @@ index :: Int) -> Result <(), String > do
 end
 
 pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes ! String do
-  let text_only = % { input | body : present_message(input.database_path,
-  input.group_id,
-  input.body) ? }
+  let text_only = % {input | body : present_message(input.database_path, input.group_id, input.body) ? }
   if Bytes.length(input.attachment) == 0 && Bytes.length(text_only.body) > 65290 do
     Err("group_message_too_large")
   else
@@ -357,8 +355,8 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes ! Str
     let state = load_group(input.database_path, profile, wrapping_key, input.group_id) ?
     require_group_authorizations(input.database_path, wrapping_key, indexed_members(state.tree), 0) ?
     let targets = case delivery_targets(state.tree, state.local_leaf) do
-      Err( _) -> Err("group_delivery_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("group_delivery_failed")
+      Ok(value) -> Ok(value)
     end ?
     if List.length(targets) == 0 do
       consume_group_state(state)
@@ -383,19 +381,19 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes ! Str
         if Bytes.length(framed) > 65290 do
           Err("group_message_too_large")
         else
-          Ok(% { input | body : framed })
+          Ok(% {input | body : framed })
         end
       end ?
       let now = current_time() ?
-      let ( state, refresh_envelopes) = refresh_for_send(request.database_path,
+      let (state, refresh_envelopes) = refresh_for_send(request.database_path,
       wrapping_key,
       state,
       device.signing_private_key,
       targets,
       now) ?
       let sender = case member_at(state.tree, state.local_leaf) do
-        Err( _) -> Err("group_message_rejected")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("group_message_rejected")
+        Ok(value) -> Ok(value)
       end ?
       let creator_id = creator_account(state.tree)
       let epoch = state.epoch
@@ -403,14 +401,14 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes ! Str
       device.signing_private_key,
       request.body,
       Bytes.from_utf8("mesh-mobile-group/v1")) do
-        GroupEncryptRejected( rejected, _) -> do
+        GroupEncryptRejected(rejected, _) -> do
           consume_group_state(rejected)
           Err("group_message_rejected")
         end
-        GroupMessageEncrypted( next, message) -> do
+        GroupMessageEncrypted(next, message) -> do
           let message_wire = case encode_group_message(message) do
-            Err( _) -> Err("group_message_encoding_failed")
-            Ok( value) -> Ok(value)
+            Err(_) -> Err("group_message_encoding_failed")
+            Ok(value) -> Ok(value)
           end ?
           let envelopes = group_target_envelopes(request.database_path,
           wrapping_key,
@@ -420,15 +418,15 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes ! Str
           0,
           refresh_envelopes) ?
           # Membership refreshes lead the list; the message's own envelopes follow.
-          let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+          let (outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
           pending_ids,
           envelopes,
           request.database_path,
           Crypto.sha256(message_wire),
           List.length(refresh_envelopes),
           List.length(envelopes) - List.length(refresh_envelopes)) ?
-          let ( state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
-          let ( history_labels, history_blobs) = updated_group_history_blob(request.database_path,
+          let (state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+          let (history_labels, history_blobs) = updated_group_history_blob(request.database_path,
           wrapping_key,
           request.group_id,
           creator_id,
@@ -459,12 +457,12 @@ end
 
 fn welcome_member(value :: GroupWelcome) -> GroupMember ! String do
   case value.commit.proposal do
-    AddMember( leaf_index, member) -> if leaf_index == value.recipient_leaf do
+    AddMember(leaf_index, member) -> if leaf_index == value.recipient_leaf do
       Ok(member)
     else
       Err("invalid_group_welcome")
     end
-    RemoveMember( _) -> Err("invalid_group_welcome")
+    RemoveMember(_) -> Err("invalid_group_welcome")
     UpdateKeys -> Err("invalid_group_welcome")
   end
 end
@@ -495,7 +493,7 @@ baseline_checkpoint :: Bytes) -> Bytes ! String do
     Err("group_welcome_rejected")
   else
     case load_blob(database_path, state_label) do
-      Ok( _) -> do
+      Ok(_) -> do
         let stored_baseline = load_group_baseline(database_path, wrapping_key, group_id) ?
         let existing = load_group(database_path, profile, wrapping_key, group_id) ?
         let existing_valid = Bytes.secure_equals(stored_baseline, baseline_checkpoint) && Bytes.secure_equals(existing.policy.checkpoint_hash,
@@ -510,7 +508,7 @@ baseline_checkpoint :: Bytes) -> Bytes ! String do
           Ok(group_id)
         end
       end
-      Err( error) -> if error != "local_state_not_found" do
+      Err(error) -> if error != "local_state_not_found" do
         Err(error)
       else
         let scope = accepted_invitation_scope(database_path,
@@ -527,8 +525,8 @@ baseline_checkpoint :: Bytes) -> Bytes ! String do
         let package_signature_valid = case Crypto.verify(SigningPublicKey { bytes : profile.credential.signing_public_key },
         group_key_package_unsigned(stored_package) ?,
         stored_package.signature) do
-          Err( _) -> false
-          Ok( value) -> value
+          Err(_) -> false
+          Ok(value) -> value
         end
         if !package_signature_valid || !Bytes.secure_equals(stored_package.account_id,
         profile.account_id) || !Bytes.secure_equals(stored_package.device_id, profile.device_id) || !Bytes.secure_equals(stored_package.init_public_key.bytes,
@@ -547,11 +545,11 @@ baseline_checkpoint :: Bytes) -> Bytes ! String do
           wrapping_key,
           context(profile.account_id, profile.device_id, leaf_label, 17) ?) ?
           let state = case join_from_welcome(welcome, init_private, leaf_private) do
-            Err( _) -> Err("group_welcome_rejected")
-            Ok( value) -> Ok(value)
+            Err(_) -> Err("group_welcome_rejected")
+            Ok(value) -> Ok(value)
           end ?
           consume_group_private(init_private)
-          let ( label, blob) = group_snapshot_blob(state, profile, wrapping_key) ?
+          let (label, blob) = group_snapshot_blob(state, profile, wrapping_key) ?
           let index_blob = updated_group_index_blob(database_path, wrapping_key, group_id) ?
           let baseline_label = group_baseline_label(group_id) ?
           let baseline_blob = group_baseline_blob(baseline_checkpoint, wrapping_key, group_id) ?
@@ -579,7 +577,7 @@ commit :: GroupCommit) -> Bytes ! String do
   let state = load_group(database_path, profile, wrapping_key, group_id) ?
   let epoch_order = U64.compare(commit.prior_epoch, state.epoch)
   let removes_creator = case commit.proposal do
-    RemoveMember( leaf) -> leaf == 0
+    RemoveMember(leaf) -> leaf == 0
     _ -> false
   end
   if removes_creator do
@@ -593,7 +591,7 @@ commit :: GroupCommit) -> Bytes ! String do
     Err("group_stale_epoch")
   else
     case apply_commit(state, commit) do
-      CommitRejected( rejected, error) -> do
+      CommitRejected(rejected, error) -> do
         consume_group_state(rejected)
         case error do
           FutureEpoch -> Err("group_future_epoch")
@@ -601,8 +599,8 @@ commit :: GroupCommit) -> Bytes ! String do
           _ -> Err("group_commit_rejected")
         end
       end
-      CommitApplied( next) -> do
-        let ( label, blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+      CommitApplied(next) -> do
+        let (label, blob) = group_snapshot_blob(next, profile, wrapping_key) ?
         store_updated_session(database_path, label, blob) ?
         Ok(group_id)
       end
@@ -624,12 +622,12 @@ message :: GroupMessage) -> Bytes ! String do
     Err("group_stale_epoch")
   else
     let sender = case member_at(state.tree, message.sender_leaf) do
-      Err( _) -> Err("group_message_rejected")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("group_message_rejected")
+      Ok(value) -> Ok(value)
     end ?
     let creator_id = creator_account(state.tree)
     case decrypt_group_message(state, message, Bytes.from_utf8("mesh-mobile-group/v1")) do
-      MessageRejected( rejected, error) -> do
+      MessageRejected(rejected, error) -> do
         consume_group_state(rejected)
         case error do
           FutureEpoch -> Err("group_future_epoch")
@@ -637,16 +635,16 @@ message :: GroupMessage) -> Bytes ! String do
           _ -> Err("group_message_rejected")
         end
       end
-      MessageOpened( next, plaintext) -> do
-        let ( label, blob) = group_snapshot_blob(next, profile, wrapping_key) ?
-        let ( history_labels, history_blobs) = updated_group_history_blob(database_path,
+      MessageOpened(next, plaintext) -> do
+        let (label, blob) = group_snapshot_blob(next, profile, wrapping_key) ?
+        let (history_labels, history_blobs) = updated_group_history_blob(database_path,
         wrapping_key,
         message.group_id,
         creator_id,
         MobileGroupHistoryEntry {
           message_id : Crypto.sha256(case encode_group_message(message) do
-            Err( _) -> Err("group_message_encoding_failed")
-            Ok( value) -> Ok(value)
+            Err(_) -> Err("group_message_encoding_failed")
+            Ok(value) -> Ok(value)
           end ?),
           direction : 2,
           epoch : message.epoch,
@@ -716,8 +714,8 @@ end
 
 pub fn receive_mobile_group_classified(request :: MobileReceiveRequest) -> MobileGroupReceiveOutcome do
   case receive_mobile_group_result(request) do
-    Ok( output) -> GroupReceiveApplied(output)
-    Err( error) -> if permanent_group_delivery_error(error) do
+    Ok(output) -> GroupReceiveApplied(output)
+    Err(error) -> if permanent_group_delivery_error(error) do
       GroupReceiveRejected(error)
     else
       GroupReceiveRetry(error)
@@ -727,9 +725,9 @@ end
 
 pub fn receive_mobile_group(request :: MobileReceiveRequest) -> Bytes ! String do
   case receive_mobile_group_classified(request) do
-    GroupReceiveApplied( output) -> Ok(output)
-    GroupReceiveRetry( error) -> Err(error)
-    GroupReceiveRejected( error) -> Err(error)
+    GroupReceiveApplied(output) -> Ok(output)
+    GroupReceiveRetry(error) -> Err(error)
+    GroupReceiveRejected(error) -> Err(error)
   end
 end
 
@@ -761,7 +759,7 @@ end
 
 fn creator_account(tree :: GroupTree) -> Bytes do
   case member_at(tree, 0) do
-    Ok( member) -> member.account_id
-    Err( _) -> Bytes.empty()
+    Ok(member) -> member.account_id
+    Err(_) -> Bytes.empty()
   end
 end

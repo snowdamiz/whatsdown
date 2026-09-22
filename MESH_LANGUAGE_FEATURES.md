@@ -1,10 +1,12 @@
 # Mesh language inventory and refactoring guide
 
-Inventory date: 2026-09-18. Source: the linked `mesh-lang/` checkout at
-`23b3327ce5ce0cb33203cefbd4d575e4bbffb67d` (Mesh 14 development branch).
-This describes that checkout, not a promise about every released compiler.
-The messenger CI revision can differ; verify changes with the pinned compiler
-before adopting a newly available feature.
+Inventory date: 2026-09-22. Source: the linked `mesh-lang/` checkout at
+`9fb0bfd` plus the uncommitted compiler fixes of 2026-09-22 (list patterns,
+`return` as an expression, tuple-aware exhaustiveness, whitespace-preserving
+formatter). This describes that checkout, not a promise about every released
+compiler. The messenger source now uses those fixes, so the revision pinned in
+`mesh-private-messenger/mesh-revision` (`3417e4a`, which predates them) must
+move to a Mesh commit that contains them before CI or a release build can pass.
 
 This is an inventory of language constructs, library capabilities, and tools.
 The linked references own individual API signatures and limits. Compiler
@@ -68,7 +70,7 @@ registrations and executable tests resolve gaps in the prose documentation.
 | JSON literals | `json { key: expression }` produces structured `Json`; compatible with APIs taking encoded JSON strings. |
 | Blocks | The final expression supplies the value; standalone `do ... end` blocks can group statements where an expression is required. |
 | Arithmetic | `+`, `-`, `*`, `/`, `%`, unary `-`; checked ordinary integer arithmetic and explicit `Checked`/wide-integer APIs. |
-| Comparison | `==`, `!=`, `<`, `>`, `<=`, `>=`; built-in interface dispatch. |
+| Comparison | `==`, `!=`, `<`, `>`, `<=`, `>=`; built-in interface dispatch. Tuples, unit, `Option`, `Result`, `Ordering`, lists, maps, and sets compare by contents; tuples, `Option`, `Result`, and `Ordering` also order and print. |
 | Logic | `and`/`&&`, `or`/`\|\|`, `not`/`!`; short-circuit boolean expressions. |
 | Concatenation | `<>` for strings; `++` for lists. Use `Bytes`/`BytesBuilder` for binary data. |
 | Pipes | `value \|> f(args)` inserts the first argument; `\|N>` inserts at position N, starting at 2. Leading/trailing multiline pipes are supported. |
@@ -83,8 +85,8 @@ registrations and executable tests resolve gaps in the prose documentation.
 | Product types | Named-field structs, generic structs, and tuples. |
 | Sum types | `type Name do Variant ... end`; nullary, positional, or named payloads; qualified constructors are supported. |
 | Optional/result types | `Option<T>` or `T?`; `Result<T, E>` or `T!E`. Constructors: `Some`, `None`, `Ok`, `Err`. |
-| Collection types | `List<T>`, `Map<K, V>`, `Set`, `Queue`, `Range`; `Set` and `Queue` currently carry integers. |
-| Function types | `Fun(A, B) -> R`, including zero-argument functions. |
+| Collection types | `List<T>`, `Map<K, V>`, `Set`, `Queue`, `Range`; `Set` and `Queue` currently carry integers. A range literal `a..b` is a `Range` value anywhere, not only in a `for` header. |
+| Function types | `Fun(A, B) -> R`, including zero-argument functions. A struct field of function type is called directly: `op.run(10)`. |
 | Process types | `Pid<M>` checks mailbox message types; untyped `Pid` is an escape hatch. |
 | Ordering | `Ordering` with `Less`, `Equal`, `Greater`. |
 | Aliases | Transparent `type Name = Type`, generic aliases, and `pub type`. Use for repeated meaningful shapes, not stronger validation. |
@@ -105,16 +107,16 @@ registrations and executable tests resolve gaps in the prose documentation.
 | Generics | Explicit `<T, U>` and inferred polymorphism; `where T: Interface` bounds. |
 | Function clauses | Consecutive same-name/arity clauses dispatch on parameter patterns and optional `when` guards. Different arities are separate overloads. |
 | Recursion | Forward references and mutual recursion. Direct self calls in tail position become loops; mutual or non-tail recursion does not. |
-| Closures | Parenthesized or bare parameters, zero-argument closures, `-> ... end` or multiline `do ... end`, lexical capture, multi-clause closures with guards. |
+| Closures | Parenthesized or bare parameters, zero-argument closures, `-> ... end` or multiline `do ... end`, lexical capture, multi-clause closures with guards. A `let`-bound closure is as polymorphic as a named function, and a closure can stand alone as a statement or tail expression. |
 | Calls | Positional arguments, trailing closures, and trailing keyword arguments collected into one final map. Positional arguments must come first. |
-| Early exit | `return expression` or Unit `return`. In a match arm, wrap a return statement in `do ... end`; bare `Err(_) -> return ...` does not parse. |
+| Early exit | `return expression` or Unit `return`. `return` is an expression, so a match arm can be `Err(_) -> return ...` directly, including in a value-producing `case`. |
 | Conditionals | Expression-valued `if ... else if ... else ... end`; use an omitted `else` only when discarding the value. |
 | Matching | `case` and `match`; exhaustive coverage is enforced, redundant arms diagnosed. Guarded arms need an exhaustive fallback. |
 | Basic patterns | `_`, binding names, positive/negative numeric literals, strings, booleans, `nil`, tuples, qualified/unqualified constructors and payloads. |
-| List patterns | `head :: tail` for a nonempty list; use a fallback for empty lists. Literal list patterns are unsupported. |
+| List patterns | `head :: tail` for a nonempty list; `[]` and `[first, second]` match a list of exactly that length, element by element. `[]` with `head :: tail` is exhaustive. The row-count idiom is `case rows do [] -> ... [row] -> ... _ -> Err(...) end`. |
 | Compound patterns | `left \| right` (same bindings on both sides), `pattern as whole`, optional `when` guards. |
 | Propagation | `expression?` unwraps `Ok`/`Some`; returns `Err`/`None` from the enclosing function. `From` can convert a propagated error. |
-| Comprehensions | `for value in source when predicate do expression end` returns a list. Sources: end-exclusive ranges, lists, maps, sets, custom iterable implementations. |
+| Comprehensions | `for value in source when predicate do expression end` returns a list. Sources: end-exclusive ranges, lists, maps, sets, custom iterable implementations. A tuple pattern in the header destructures each element: `for (key, value) in pairs when key > 1 do ... end`. |
 | Map iteration | `for {key, value} in map do ... end`. |
 | Loops | `while ... do ... end` returns Unit; `break` and `continue` apply to loops. Bindings remain immutable. |
 | Eager collection functions | `List.map`, `filter`, `reduce`, `find`, `any`, `all`, and other collection operations replace manual index/accumulator traversal where appropriate. |
@@ -219,7 +221,7 @@ when a higher-level API does not express locking, binary values, or atomicity.
 - Reserved words `alias`, `cond`, `trait`, `trap`, and `with` do not implement
   those language constructs. Use imports, conditionals, interfaces, results,
   and actor lifecycle APIs instead.
-- There are no glob imports, list-literal patterns, or struct-field patterns.
+- There are no glob imports or struct-field patterns.
 - Imported modules are addressed by their final path component. Avoid importing
   two modules with the same final component into one file.
 - Public functions currently keep unqualified native symbols. Two modules with
@@ -246,9 +248,6 @@ when a higher-level API does not express locking, binary values, or atomicity.
   function. A plain block does not create a cleanup/propagation boundary.
 - Guard function calls must use an unqualified function name; qualified calls
   such as `String.contains(...)` are rejected in guards by this compiler.
-- A value-producing `case` with an early-return arm can reach a native codegen
-  `Never`-type error. Prefer a `Result`-producing case followed by `?` when
-  binding a decoded struct, and verify any other form with a native build.
 - SQLite is local storage; shared multi-node persistence needs PostgreSQL.
 - A `Row` derive accepts supported string-map fields, not arbitrary binary rows.
 - Native `receive` currently runs only its first arm. Always dispatch inside it.

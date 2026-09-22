@@ -4,29 +4,29 @@ from Groups.Mls import GroupError, TreeKemKeyMaterial
 
 pub fn fork_keys(keys :: borrow SecretMap) -> SecretMap ! GroupError do
   case SecretMap.fork(keys) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn copy_key(keys :: borrow SecretMap, id :: Bytes) -> SecretBytes ! GroupError do
   case SecretMap.copy(keys, id) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn delete_key(keys :: borrow SecretMap, id :: Bytes) -> Result <(), GroupError > do
   case SecretMap.delete(keys, id) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( _) -> Ok(nil)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(_) -> Ok(nil)
   end
 end
 
 fn insert_key(keys :: borrow SecretMap, id :: Bytes, key :: SecretBytes) -> Result <(), GroupError > do
   case SecretMap.insert(keys, id, key) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( _) -> Ok(nil)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -96,7 +96,7 @@ pub fn receive_key(material :: borrow TreeKemKeyMaterial,
 group_id :: Bytes,
 leaf :: Int,
 generation :: Int,
-last :: Int) -> Result <( SecretMap, SecretMap, SecretBytes), GroupError > do
+last :: Int) -> Result <(SecretMap, SecretMap, SecretBytes), GroupError > do
   if generation > last + 33 || generation >= 4294967295 do
     return Err(InvalidGroup)
   end

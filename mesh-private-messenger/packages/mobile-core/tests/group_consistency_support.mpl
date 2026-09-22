@@ -45,15 +45,15 @@ end
 
 pub fn wide(value :: Int) -> U64 ! String do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err("test integer conversion failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("test integer conversion failed")
+    Ok(parsed) -> Ok(parsed)
   end
 end
 
 pub fn signing_pair() -> SigningKeyPair ! String do
   case Crypto.signing_generate() do
-    Err( _) -> Err("test signing key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test signing key generation failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -82,22 +82,22 @@ end
 
 pub fn decode_entry(input :: Bytes) -> DirectoryEntry ! String do
   case decode_directory_entry(input) do
-    Err( _) -> Err("directory entry decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("directory entry decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn decode_account(input :: Bytes) -> AccountIdentity ! String do
   case decode_account_identity(input) do
-    Err( _) -> Err("account identity decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("account identity decode failed")
+    Ok(value) -> Ok(value)
   end
 end
 
 pub fn encode_set(value :: DeviceSet) -> Bytes ! String do
   case encode_device_set(value) do
-    Err( _) -> Err("device set encode failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("device set encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -140,8 +140,8 @@ witness_b :: borrow SigningPrivateKey) -> Bytes ! String do
     checkpoint : checkpoint,
     witnesses : [attestation_a, attestation_b]
   }) do
-    Err( _) -> Err("transparency evidence encode failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("transparency evidence encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -152,8 +152,8 @@ service_public_key :: Bytes,
 witness_a_public_key :: Bytes,
 witness_b_public_key :: Bytes) -> Bytes ! String do
   let delivery_pair = case Crypto.x25519_generate() do
-    Err( _) -> Err("test delivery key generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("test delivery key generation failed")
+    Ok(value) -> Ok(value)
   end ?
   if install_security_config(service_public_key,
   witness_a_public_key,

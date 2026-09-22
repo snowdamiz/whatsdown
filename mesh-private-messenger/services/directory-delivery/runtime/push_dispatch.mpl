@@ -27,8 +27,8 @@ end
 pub fn broker_wake_request(binding :: ProviderPushBinding, event_id :: String) -> Bytes ! String do
   let material = case Bytes.concat(binding.wake_token_hash,
   Bytes.from_utf8("mesh-msg/v1/push-event/" <> event_id)) do
-    Err( _) -> Err("wake allocation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("wake allocation failed")
+    Ok(value) -> Ok(value)
   end ?
   encode_push_wake(PushWakeRequest {
     version : 1,
@@ -44,16 +44,16 @@ broker_url :: String,
 authorization :: String) -> PushResult do
   let wake = broker_wake_request(binding, event_id)
   case wake do
-    Err( _) -> PushPermanent("invalid_provider_request")
-    Ok( body) -> case Http.build(:post, broker_url)
+    Err(_) -> PushPermanent("invalid_provider_request")
+    Ok(body) -> case Http.build(:post, broker_url)
       |> Http.header("Content-Type", "application/octet-stream")
       |> Http.header("Authorization", authorization)
       |> Http.body_bytes(body)
       |> Http.timeout(5000)
       |> Http.max_response_bytes(1024)
       |> Http.send() do
-      Err( _) -> PushRetryable("broker_unavailable")
-      Ok( response) -> broker_status(response.status)
+      Err(_) -> PushRetryable("broker_unavailable")
+      Ok(response) -> broker_status(response.status)
     end
   end
 end
@@ -61,7 +61,7 @@ end
 pub fn dispatch_push(pool :: PoolHandle, event :: OutboxEvent, local_fake_available :: Bool) -> PushResult ! String do
   case find_push_binding_for_mailbox(pool, event.mailbox_token_hash) ? do
     None -> Ok(PushDelivered)
-    Some( binding) -> Ok(send_local_fake_push(binding, generic_push_payload(), local_fake_available))
+    Some(binding) -> Ok(send_local_fake_push(binding, generic_push_payload(), local_fake_available))
   end
 end
 
@@ -71,15 +71,12 @@ broker_url :: String,
 broker_token :: String) -> PushResult ! String do
   case find_push_binding_for_mailbox(pool, event.mailbox_token_hash) ? do
     None -> Ok(PushDelivered)
-    Some( binding) -> if String.length(broker_url) == 0 do
+    Some(binding) -> if String.length(broker_url) == 0 do
       Ok(PushRetryable("broker_unconfigured"))
     else
       case broker_authorization(broker_token) do
-        Err( _) -> Ok(PushRetryable("broker_auth_unconfigured"))
-        Ok( authorization) -> Ok(send_broker_push(binding,
-        event.event_id,
-        broker_url,
-        authorization))
+        Err(_) -> Ok(PushRetryable("broker_auth_unconfigured"))
+        Ok(authorization) -> Ok(send_broker_push(binding, event.event_id, broker_url, authorization))
       end
     end
   end
@@ -97,7 +94,7 @@ pub fn dispatch_configured_push(pool :: PoolHandle, event :: OutboxEvent) -> Pus
   else
     case find_push_binding_for_mailbox(pool, event.mailbox_token_hash) ? do
       None -> Ok(PushDelivered)
-      Some( _) -> Ok(PushRetryable("push_disabled"))
+      Some(_) -> Ok(PushRetryable("push_disabled"))
     end
   end
 end

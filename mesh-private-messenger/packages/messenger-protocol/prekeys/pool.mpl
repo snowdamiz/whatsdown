@@ -69,8 +69,8 @@ end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes ! String do
   case Bytes.concat(left, right) do
-    Err( _) -> Err("prekey pool allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("prekey pool allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -84,15 +84,15 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("invalid prekey pool integer")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid prekey pool integer")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn write_u64(value :: U64) -> Bytes ! String do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err("invalid prekey pool integer")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("invalid prekey pool integer")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -101,39 +101,37 @@ fn start(input :: Bytes, maximum :: Int) -> BinaryReader ! String do
     Err("prekey pool wire oversized")
   else
     case reader(input, maximum) do
-      Err( _) -> Err("invalid prekey pool wire")
-      Ok( output) -> Ok(output)
+      Err(_) -> Err("invalid prekey pool wire")
+      Ok(output) -> Ok(output)
     end
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes ! String do
   case read_fixed(state, length) do
-    Err( _) -> Err("invalid prekey pool wire")
-    Ok( ( next, value)) -> Ok(ReadBytes {
+    Err(_) -> Err("invalid prekey pool wire")
+    Ok((next, value)) -> Ok(ReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid prekey pool wire")
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt ! String do
   case read_u8(state) do
-    Err( _) -> Err("invalid prekey pool wire")
-    Ok( ( next, value)) -> Ok(ReadInt {
+    Err(_) -> Err("invalid prekey pool wire")
+    Ok((next, value)) -> Ok(ReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err("invalid prekey pool wire")
   end
 end
 
 fn take_u64(state :: BinaryReader) -> ReadWide ! String do
   let value = take_fixed(state, 8) ?
   case Bytes.read_u64_be(value.value, 0) do
-    Err( _) -> Err("invalid prekey pool integer")
-    Ok( output) -> Ok(ReadWide {
+    Err(_) -> Err("invalid prekey pool integer")
+    Ok(output) -> Ok(ReadWide {
       state : value.state,
       value : output
     })
@@ -142,8 +140,8 @@ end
 
 fn done(state :: BinaryReader) -> Result <(), String > do
   case finish(state) do
-    Err( _) -> Err("invalid prekey pool wire")
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err("invalid prekey pool wire")
+    Ok(_) -> Ok(nil)
   end
 end
 
@@ -229,7 +227,7 @@ end
 fn encode_last_resort(value :: PrekeyPublishRequest) -> Bytes ! String do
   case value.last_resort do
     None -> byte(0)
-    Some( key) -> if !(valid_id(key.id) ?) || Bytes.length(key.public_key) != 32 || contains_prekey(value.prekeys,
+    Some(key) -> if !(valid_id(key.id) ?) || Bytes.length(key.public_key) != 32 || contains_prekey(value.prekeys,
     key.id,
     0) do
       Err("invalid last-resort prekey")
@@ -242,7 +240,7 @@ end
 fn encode_contact_address_hash(value :: PrekeyPublishRequest) -> Bytes ! String do
   case value.contact_address_hash do
     None -> byte(0)
-    Some( hash) -> if Bytes.length(hash) != 32 do
+    Some(hash) -> if Bytes.length(hash) != 32 do
       Err("invalid contact address hash")
     else
       append(byte(1) ?, hash)

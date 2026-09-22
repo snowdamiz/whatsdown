@@ -13,11 +13,11 @@ fn handle_jobs(request :: Request) -> Response do
     HTTP.response(401, "")
   else
     case transaction_in_progress(database_path(), Request.body(request)) do
-      Err( _) -> HTTP.response(503, "")
-      Ok( true) -> HTTP.response(202, "")
-      Ok( false) -> case run_expiry() do
-        Err( _) -> HTTP.response(503, "")
-        Ok( due) -> HTTP.response(200, Int.to_string(due))
+      Err(_) -> HTTP.response(503, "")
+      Ok(true) -> HTTP.response(202, "")
+      Ok(false) -> case run_expiry() do
+        Err(_) -> HTTP.response(503, "")
+        Ok(due) -> HTTP.response(200, Int.to_string(due))
       end
     end
   end
@@ -66,13 +66,13 @@ end
 fn part_request(request :: Request) -> PartRequest ! String do
   let object_id = case Request.param(request, "object_id") do
     None -> Err("invalid object request")
-    Some( value) -> hex32(value)
+    Some(value) -> hex32(value)
   end ?
   let part_index = case Request.param(request, "part_index") do
     None -> Err("invalid object request")
-    Some( value) -> case String.to_int(value) do
+    Some(value) -> case String.to_int(value) do
       None -> Err("invalid object request")
-      Some( parsed) -> if Int.to_string(parsed) == value do
+      Some(parsed) -> if Int.to_string(parsed) == value do
         Ok(parsed)
       else
         Err("invalid object request")
@@ -81,11 +81,11 @@ fn part_request(request :: Request) -> PartRequest ! String do
   end ?
   let capability_header = case Request.header(request, "X-Object-Capability") do
     None -> Request.header(request, "x-object-capability")
-    Some( value) -> Some(value)
+    Some(value) -> Some(value)
   end
   let capability = case capability_header do
     None -> Err("invalid object request")
-    Some( value) -> hex32(value)
+    Some(value) -> hex32(value)
   end ?
   if part_index < 0 || part_index > 256 do
     Err("invalid object request")
@@ -108,10 +108,10 @@ fn purge_loop(database :: String, root :: String, elapsed_ms :: Int) do
   else
     let next_elapsed = if elapsed_ms >= 60000 do
       case current_time() do
-        Err( _) -> println("object expiry worker failed")
-        Ok( now) -> case purge_expired(database, root, now, 32) do
-          Err( _) -> println("object expiry worker failed")
-          Ok( _) -> nil
+        Err(_) -> println("object expiry worker failed")
+        Ok(now) -> case purge_expired(database, root, now, 32) do
+          Err(_) -> println("object expiry worker failed")
+          Ok(_) -> nil
         end
       end
       0
@@ -129,10 +129,10 @@ end
 
 fn handle_grant(request :: Request) -> Response do
   case current_time() do
-    Err( _) -> HTTP.response(500, "")
-    Ok( now) -> case U64.parse("300000") do
-      Err( _) -> HTTP.response(500, "")
-      Ok( maximum_work_future) -> respond(grant(database_path(),
+    Err(_) -> HTTP.response(500, "")
+    Ok(now) -> case U64.parse("300000") do
+      Err(_) -> HTTP.response(500, "")
+      Ok(maximum_work_future) -> respond(grant(database_path(),
       storage_root(),
       Request.body_bytes(request),
       now,
@@ -144,10 +144,10 @@ end
 
 fn handle_put(request :: Request) -> Response do
   case part_request(request) do
-    Err( _) -> HTTP.response(400, "")
-    Ok( part) -> case current_time() do
-      Err( _) -> HTTP.response(500, "")
-      Ok( now) -> respond(put_part(database_path(),
+    Err(_) -> HTTP.response(400, "")
+    Ok(part) -> case current_time() do
+      Err(_) -> HTTP.response(500, "")
+      Ok(now) -> respond(put_part(database_path(),
       storage_root(),
       part.object_id,
       part.part_index,
@@ -160,10 +160,10 @@ end
 
 fn handle_get(request :: Request) -> Response do
   case part_request(request) do
-    Err( _) -> HTTP.response(400, "")
-    Ok( part) -> case current_time() do
-      Err( _) -> HTTP.response(500, "")
-      Ok( now) -> respond(get_part(database_path(),
+    Err(_) -> HTTP.response(400, "")
+    Ok(part) -> case current_time() do
+      Err(_) -> HTTP.response(500, "")
+      Ok(now) -> respond(get_part(database_path(),
       storage_root(),
       part.object_id,
       part.part_index,
@@ -175,15 +175,15 @@ end
 
 fn handle_complete(request :: Request) -> Response do
   case current_time() do
-    Err( _) -> HTTP.response(500, "")
-    Ok( now) -> respond(complete(database_path(), storage_root(), Request.body_bytes(request), now))
+    Err(_) -> HTTP.response(500, "")
+    Ok(now) -> respond(complete(database_path(), storage_root(), Request.body_bytes(request), now))
   end
 end
 
 fn handle_delete(request :: Request) -> Response do
   case current_time() do
-    Err( _) -> HTTP.response(500, "")
-    Ok( now) -> respond(delete_object(database_path(),
+    Err(_) -> HTTP.response(500, "")
+    Ok(now) -> respond(delete_object(database_path(),
     storage_root(),
     Request.body_bytes(request),
     now))
@@ -200,8 +200,8 @@ fn main() do
     fatal("MESSENGER_OBJECT_WORK_DIFFICULTY must be between 1 and 24")
   else
     case initialize(database_path(), storage_root()) do
-      Err( _) -> fatal("object storage configuration is invalid or unavailable")
-      Ok( _) -> do
+      Err(_) -> fatal("object storage configuration is invalid or unavailable")
+      Ok(_) -> do
         if !RuntimeJobs.enabled() do
           spawn(expiry_worker, database_path(), storage_root())
         end

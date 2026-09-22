@@ -2,15 +2,15 @@ from Groups.Tree import GroupMember, GroupTreeError, TreeKemParentNode, apply_up
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
-    Err( _) -> Bytes.empty()
-    Ok( output) -> output
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
   end
 end
 
 fn wide(value :: Int) -> U64 ! GroupTreeError do
   case U64.parse(Int.to_string(value)) do
-    Err( _) -> Err(InvalidMember)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidMember)
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -42,12 +42,12 @@ fn proof() -> Bool ! GroupTreeError do
   let empty = empty_tree() ?
   let empty_hash = tree_hash(empty)
   let first_member = member(1) ?
-  case validate_member(% { first_member | leaf_public_key : first_member.init_public_key }) do
-    Err( InvalidMember) -> assert(true)
+  case validate_member(% {first_member | leaf_public_key : first_member.init_public_key }) do
+    Err(InvalidMember) -> assert(true)
     _ -> assert(false)
   end
-  let ( first_tree, first_index) = insert_member(empty, first_member) ?
-  let ( second_tree, second_index) = insert_member(first_tree, member(2) ?) ?
+  let (first_tree, first_index) = insert_member(empty, first_member) ?
+  let (second_tree, second_index) = insert_member(first_tree, member(2) ?) ?
   assert(first_index == 0)
   assert(second_index == 1)
   assert(member_count(second_tree) == 2)
@@ -77,7 +77,7 @@ fn proof() -> Bool ! GroupTreeError do
   assert(List.get(parent_resolution, 1).node_index == 64)
   assert(!Bytes.secure_equals(tree_hash(updated), tree_hash(second_tree)))
   case apply_update_path(updated, first_index, [path_node(31, 110, [first_index])]) do
-    Err( InvalidParent) -> assert(true)
+    Err(InvalidParent) -> assert(true)
     _ -> assert(false)
   end
   let removed = remove_member(updated, first_index) ?
@@ -86,19 +86,19 @@ fn proof() -> Bool ! GroupTreeError do
   assert(List.length(removed_resolution) == 1)
   assert(List.get(removed_resolution, 0).node_index == 64)
   case member_at(removed, first_index) do
-    Err( MissingMember) -> assert(true)
+    Err(MissingMember) -> assert(true)
     _ -> assert(false)
   end
   case member_at(removed, second_index) do
-    Ok( found) -> assert(Bytes.secure_equals(found.device_id, (member(2) ?).device_id))
-    Err( _) -> assert(false)
+    Ok(found) -> assert(Bytes.secure_equals(found.device_id, (member(2) ?).device_id))
+    Err(_) -> assert(false)
   end
   Ok(true)
 end
 
 test("group tree path-copies bounded leaves") do
   case proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end

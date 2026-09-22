@@ -28,8 +28,8 @@ end
 
 pub fn run_scheduled(pool :: PoolHandle) -> Int ! String do
   let random = case Crypto.random_bytes(16) do
-    Err( _) -> Err("worker identity generation failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("worker identity generation failed")
+    Ok(value) -> Ok(value)
   end ?
   drain_outbox(pool, "scheduled-" <> Bytes.to_hex(random), 4) ?
   let _ = purge_envelopes(pool, 3600, 128) ?
@@ -54,8 +54,8 @@ fn outbox_loop(owner :: String, polling_ms :: Int) do
     nil
   else
     case process_outbox_once(get_pool(), owner) do
-      Err( _) -> println("outbox worker failed")
-      Ok( _) -> nil
+      Err(_) -> println("outbox worker failed")
+      Ok(_) -> nil
     end
     Timer.sleep(polling_ms)
     outbox_loop(owner, polling_ms)
@@ -68,8 +68,8 @@ end
 
 fn run_retention() do
   case purge_envelopes(get_pool(), 3600, 128) do
-    Err( _) -> println("retention worker failed")
-    Ok( _) -> nil
+    Err(_) -> println("retention worker failed")
+    Ok(_) -> nil
   end
 end
 
@@ -97,8 +97,8 @@ fn start_outbox_workers(count :: Int, polling_ms :: Int, index :: Int) -> Int ! 
     Ok(count)
   else
     case Crypto.random_bytes(16) do
-      Err( _) -> Err("worker identity generation failed")
-      Ok( random) -> do
+      Err(_) -> Err("worker identity generation failed")
+      Ok(random) -> do
         let owner = "outbox-#{Bytes.to_hex(random)}"
         spawn(outbox_worker, owner, polling_ms)
         start_outbox_workers(count, polling_ms, index + 1)

@@ -44,8 +44,8 @@ from Transport.Packet import ClientProfile, TransportPacket, decode_packet, open
 
 pub fn inner_bytes(value :: InnerEnvelope) -> Bytes ! String do
   case encode_inner_envelope(value) do
-    Err( _) -> Err("inner_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("inner_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -58,8 +58,8 @@ end
 
 pub fn parse_sync_payload(input :: Bytes) -> MobileSyncPayload ! String do
   case reader(input, 32500) do
-    Err( _) -> Err("invalid_sync_payload")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_sync_payload")
+    Ok(state) -> do
       let peer_username = take_vector_error(state, 64, "invalid_sync_payload") ?
       let peer_account_id = take_vector_error(peer_username.state, 32, "invalid_sync_payload") ?
       let conversation_id = take_vector_error(peer_account_id.state, 16, "invalid_sync_payload") ?
@@ -69,19 +69,19 @@ pub fn parse_sync_payload(input :: Bytes) -> MobileSyncPayload ! String do
       let disappearing_seconds = take_vector_error(body.state, 4, "invalid_sync_payload") ?
       let safety = optional_safety_number(disappearing_seconds.state) ?
       case finish(safety.state) do
-        Err( _) -> Err("invalid_sync_payload")
-        Ok( _) -> do
+        Err(_) -> Err("invalid_sync_payload")
+        Ok(_) -> do
           let username = mobile_utf8(peer_username.value, "invalid_sync_payload") ?
           if String.length(username) == 0 || Bytes.length(peer_account_id.value) != 32 || Bytes.length(conversation_id.value) != 16 || Bytes.length(client_message_id.value) != 16 || Bytes.length(client_timestamp.value) != 8 || Bytes.length(disappearing_seconds.value) != 4 do
             Err("invalid_sync_payload")
           else
             let timestamp = case mobile_read_u64(client_timestamp.value) do
-              Err( _) -> Err("invalid_sync_payload")
-              Ok( value) -> Ok(value)
+              Err(_) -> Err("invalid_sync_payload")
+              Ok(value) -> Ok(value)
             end ?
             let disappearing = case mobile_read_u32(disappearing_seconds.value) do
-              Err( _) -> Err("invalid_sync_payload")
-              Ok( value) -> Ok(value)
+              Err(_) -> Err("invalid_sync_payload")
+              Ok(value) -> Ok(value)
             end ?
             Ok(MobileSyncPayload {
               peer_username : username,
@@ -123,20 +123,20 @@ end
 
 pub fn initial_bytes(value :: InitialMessage) -> Bytes ! String do
   case encode_initial_message(value) do
-    Err( _) -> Err("initial_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("initial_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
-pub fn parse_initial_packet(input :: Bytes, recipient :: borrow X25519PrivateKey) -> Result <( Bytes, Bytes), String > do
+pub fn parse_initial_packet(input :: Bytes, recipient :: borrow X25519PrivateKey) -> Result <(Bytes, Bytes), String > do
   case open_initial_packet(input, recipient) do
-    Err( error) -> if error == "initial_crypto_failed" do
+    Err(error) -> if error == "initial_crypto_failed" do
       Err(error)
     else
       Err("invalid_initial_packet")
     end
-    Ok( RatchetPacket( _)) -> Err("invalid_initial_packet")
-    Ok( InitialPacket( account_identity, message)) -> Ok((account_identity, message))
+    Ok(RatchetPacket(_)) -> Err("invalid_initial_packet")
+    Ok(InitialPacket(account_identity, message)) -> Ok((account_identity, message))
   end
 end
 
@@ -179,8 +179,8 @@ end
 
 fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
   case reader(input, 70600) do
-    Err( _) -> Err("invalid_session_record")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_session_record")
+    Ok(state) -> do
       let snapshot_blob = take_vector(state, 68900) ?
       let local_account_id = take_vector(snapshot_blob.state, 32) ?
       let local_device_id = take_vector(local_account_id.state, 16) ?
@@ -204,8 +204,8 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord ! String do
       end
       let safety = optional_safety_number(strongest_suite.state) ?
       case finish(safety.state) do
-        Err( _) -> Err("invalid_session_record")
-        Ok( _) -> do
+        Err(_) -> Err("invalid_session_record")
+        Ok(_) -> do
           let username = mobile_utf8(peer_username.value, "invalid_session_record") ?
           let request_value = mobile_read_byte(request_state.value) ?
           let blocked_value = mobile_read_byte(blocked.value) ?
@@ -246,8 +246,8 @@ fn read_session_ids(encoded :: Bytes, offset :: Int, values :: List < Bytes >) -
     Ok(values)
   else
     case Bytes.slice(encoded, offset, 32) do
-      Err( _) -> Err("invalid_session_index")
-      Ok( value) -> read_session_ids(encoded, offset + 32, List.append(values, value))
+      Err(_) -> Err("invalid_session_index")
+      Ok(value) -> read_session_ids(encoded, offset + 32, List.append(values, value))
     end
   end
 end
@@ -272,12 +272,12 @@ end
 
 pub fn load_session_ids(database_path :: String, wrapping_key :: borrow StorageKey) -> List < Bytes > ! String do
   case load_blob(database_path, "sessions/v1") do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(List.new())
     else
       Err(error)
     end
-    Ok( blob) -> decode_session_ids(open_local(blob, wrapping_key, local_context("sessions/v1") ?) ?)
+    Ok(blob) -> decode_session_ids(open_local(blob, wrapping_key, local_context("sessions/v1") ?) ?)
   end
 end
 
@@ -369,12 +369,12 @@ index :: Int) -> MobileLoadedSession ! String do
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index)) ?
     if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) do
       case find_peer_session(database_path, wrapping_key, peer_account_id, session_ids, index + 1) do
-        Err( error) -> if error == "session_not_found" do
+        Err(error) -> if error == "session_not_found" do
           Ok(loaded)
         else
           Err(error)
         end
-        Ok( next) -> Ok(preferred_session(loaded, next))
+        Ok(next) -> Ok(preferred_session(loaded, next))
       end
     else
       find_peer_session(database_path, wrapping_key, peer_account_id, session_ids, index + 1)
@@ -400,12 +400,12 @@ index :: Int) -> MobileLoadedSession ! String do
       peer_device_id,
       session_ids,
       index + 1) do
-        Err( error) -> if error == "session_not_found" do
+        Err(error) -> if error == "session_not_found" do
           Ok(loaded)
         else
           Err(error)
         end
-        Ok( next) -> Ok(preferred_session(loaded, next))
+        Ok(next) -> Ok(preferred_session(loaded, next))
       end
     else
       find_device_session(database_path,
@@ -456,12 +456,12 @@ profile :: ClientProfile) -> Bool ! String do
   profile.device_id,
   session_ids,
   0) do
-    Err( error) -> if error == "session_not_found" do
+    Err(error) -> if error == "session_not_found" do
       Ok(true)
     else
       Err(error)
     end
-    Ok( loaded) -> if loaded.record.strongest_suite > profile.bundle.suite do
+    Ok(loaded) -> if loaded.record.strongest_suite > profile.bundle.suite do
       Err("peer_keys_changed")
     else
       Ok(loaded.record.strongest_suite < profile.bundle.suite || Bytes.length(loaded.record.safety_number) == 0)
@@ -479,8 +479,8 @@ pub fn self_sync_conversation_id(account_id :: Bytes) -> Bytes ! String do
   account_id) ?),
   0,
   16) do
-    Err( _) -> Err("self_sync_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("self_sync_failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -500,8 +500,8 @@ pub fn direct_conversation_id(local_account_id :: Bytes, peer_account_id :: Byte
   Bytes.empty()) ?),
   0,
   16) do
-    Err( _) -> Err("conversation_id_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("conversation_id_failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -516,8 +516,8 @@ local :: ClientProfile,
 sync :: MobileSyncPayload,
 session_ids :: List < Bytes >) -> Bytes ! String do
   case find_peer_session(database_path, wrapping_key, sync.peer_account_id, session_ids, 0) do
-    Ok( existing) -> Ok(existing.record.conversation_id)
-    Err( error) -> if error != "session_not_found" do
+    Ok(existing) -> Ok(existing.record.conversation_id)
+    Err(error) -> if error != "session_not_found" do
       Err(error)
     else
       let alias_id = conversation_alias_id(sync.peer_account_id) ?
@@ -579,7 +579,7 @@ pub fn safety_number(local :: ClientProfile, peer :: ClientProfile) -> Bytes ! S
   Bytes.empty()) ?))))
 end
 
-fn reject_session_snapshot(state :: consume RatchetState) -> Result <( Bytes, String, Bytes), String > do
+fn reject_session_snapshot(state :: consume RatchetState) -> Result <(Bytes, String, Bytes), String > do
   Err("session_snapshot_failed")
 end
 
@@ -592,7 +592,7 @@ conversation_id :: Bytes,
 request_state :: Int,
 key_changed :: Bool,
 session_id :: Bytes,
-label :: String) -> Result <( Bytes, String, Bytes), String > do
+label :: String) -> Result <(Bytes, String, Bytes), String > do
   let record = encode_session_record(snapshot_blob,
   local,
   peer,
@@ -609,12 +609,12 @@ local :: ClientProfile,
 peer :: ClientProfile,
 conversation_id :: Bytes,
 request_state :: Int,
-key_changed :: Bool) -> Result <( Bytes, String, Bytes), String > do
+key_changed :: Bool) -> Result <(Bytes, String, Bytes), String > do
   let session_id = state.session_id
   let label = session_label(session_id)
   case snapshot(state, wrapping_key, local.account_id, local.device_id, mobile_wide("1") ?) do
-    SnapshotRejected( rejected_state, _) -> reject_session_snapshot(rejected_state)
-    SnapshotSealed( next_state, snapshot_blob) -> finish_session_snapshot(next_state,
+    SnapshotRejected(rejected_state, _) -> reject_session_snapshot(rejected_state)
+    SnapshotSealed(next_state, snapshot_blob) -> finish_session_snapshot(next_state,
     snapshot_blob,
     wrapping_key,
     local,
@@ -634,10 +634,10 @@ previous :: MobileLoadedSession,
 local :: ClientProfile,
 peer :: ClientProfile,
 session_id :: Bytes,
-label :: String) -> Result <( Bytes, String, Bytes), String > do
+label :: String) -> Result <(Bytes, String, Bytes), String > do
   let safety = safety_number(local, peer) ?
   let changed = !Bytes.secure_equals(previous.record.safety_number, safety)
-  let record = % { previous.record | snapshot : snapshot_blob, peer_account_id : peer.account_id, peer_device_id : peer.device_id, peer_username : peer.username, peer_mailbox : peer.entry.mailbox_token, strongest_suite : state.suite, safety_number : safety, verified : previous.record.verified && !changed, key_changed : previous.record.key_changed || changed }
+  let record = % {previous.record | snapshot : snapshot_blob, peer_account_id : peer.account_id, peer_device_id : peer.device_id, peer_username : peer.username, peer_mailbox : peer.entry.mailbox_token, strongest_suite : state.suite, safety_number : safety, verified : previous.record.verified && !changed, key_changed : previous.record.key_changed || changed }
   Ok((session_id,
   label,
   seal_local(updated_session_record(record.snapshot, record) ?,
@@ -649,7 +649,7 @@ pub fn seal_upgraded_session(state :: consume RatchetState,
 wrapping_key :: borrow StorageKey,
 previous :: MobileLoadedSession,
 local :: ClientProfile,
-peer :: ClientProfile) -> Result <( Bytes, String, Bytes), String > do
+peer :: ClientProfile) -> Result <(Bytes, String, Bytes), String > do
   let session_id = state.session_id
   let label = session_label(session_id)
   case snapshot(state,
@@ -657,8 +657,8 @@ peer :: ClientProfile) -> Result <( Bytes, String, Bytes), String > do
   previous.record.local_account_id,
   previous.record.local_device_id,
   mobile_wide("1") ?) do
-    SnapshotRejected( rejected_state, _) -> reject_session_snapshot(rejected_state)
-    SnapshotSealed( next_state, snapshot_blob) -> finish_upgraded_session_snapshot(next_state,
+    SnapshotRejected(rejected_state, _) -> reject_session_snapshot(rejected_state)
+    SnapshotSealed(next_state, snapshot_blob) -> finish_upgraded_session_snapshot(next_state,
     snapshot_blob,
     wrapping_key,
     previous,
@@ -671,26 +671,26 @@ end
 
 pub fn ratchet_bytes(value :: RatchetMessage) -> Bytes ! String do
   case encode_ratchet_message(value) do
-    Err( _) -> Err("ratchet_encoding_failed")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("ratchet_encoding_failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
 ## An initial packet already opened from the recipient-sealed transport. A bare
 ## initial packet is never accepted from an unsealed envelope.
 
-pub fn parse_sealed_initial_packet(input :: Bytes) -> Result <( Bytes, Bytes), String > do
+pub fn parse_sealed_initial_packet(input :: Bytes) -> Result <(Bytes, Bytes), String > do
   case decode_packet(input) do
-    Ok( InitialPacket( account_identity, message)) -> Ok((account_identity, message))
+    Ok(InitialPacket(account_identity, message)) -> Ok((account_identity, message))
     _ -> Err("invalid_initial_packet")
   end
 end
 
 pub fn parse_ratchet_packet(input :: Bytes) -> Bytes ! String do
   case decode_packet(input) do
-    Err( _) -> Err("invalid_ratchet_packet")
-    Ok( InitialPacket( _, _)) -> Err("invalid_ratchet_packet")
-    Ok( RatchetPacket( message)) -> Ok(message)
+    Err(_) -> Err("invalid_ratchet_packet")
+    Ok(InitialPacket(_, _)) -> Err("invalid_ratchet_packet")
+    Ok(RatchetPacket(message)) -> Ok(message)
   end
 end
 
@@ -700,8 +700,8 @@ pub fn restore_session(loaded :: MobileLoadedSession, wrapping_key :: borrow Sto
   loaded.record.local_account_id,
   loaded.record.local_device_id,
   mobile_wide("1") ?) do
-    Err( _) -> Err("session_restore_failed")
-    Ok( state) -> Ok(state)
+    Err(_) -> Err("session_restore_failed")
+    Ok(state) -> Ok(state)
   end
 end
 
@@ -737,7 +737,7 @@ label :: String) -> Bytes ! String do
   else
     record.strongest_suite
   end
-  seal_local(updated_session_record(snapshot_blob, % { record | strongest_suite : strongest_suite }) ?,
+  seal_local(updated_session_record(snapshot_blob, % {record | strongest_suite : strongest_suite }) ?,
   wrapping_key,
   local_context(label) ?)
 end
@@ -751,8 +751,8 @@ wrapping_key :: borrow StorageKey) -> Bytes ! String do
   loaded.record.local_account_id,
   loaded.record.local_device_id,
   next_version) do
-    SnapshotRejected( rejected_state, _) -> reject_updated_snapshot(rejected_state)
-    SnapshotSealed( next_state, snapshot_blob) -> finish_updated_snapshot(next_state,
+    SnapshotRejected(rejected_state, _) -> reject_updated_snapshot(rejected_state)
+    SnapshotSealed(next_state, snapshot_blob) -> finish_updated_snapshot(next_state,
     snapshot_blob,
     loaded.record,
     wrapping_key,

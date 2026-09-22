@@ -224,9 +224,9 @@ try {
     assert.equal(await page.evaluate(() => localStorage.getItem(`/test/unread.db/read-state/v1/${'01'.repeat(32)}`)), null);
     assert.equal(saved.includes('Coffee'), false, 'Read metadata must never persist message text');
     if (process.argv.includes('--notifications')) {
-      await page.getByRole('button', { name: 'Notifications', exact: true }).click();
-      await page.getByRole('button', { name: 'Turn off notifications', exact: true }).click();
-      await page.getByRole('button', { name: 'Enable notifications', exact: true }).waitFor();
+      // Settings is open, and notifications are one switch there.
+      await page.getByRole('switch', { name: 'Notifications', exact: true, checked: true }).click();
+      await page.getByRole('switch', { name: 'Notifications', exact: true, checked: false }).waitFor();
       const beforeDisabled = await page.evaluate(() => window.unreadTest.reloads);
       await page.evaluate(() => { window.unreadTest.groups.push({ sender: 2, body: '@alice notifications are off', time: Date.now() }); window.unreadTest.wake(); });
       await page.waitForFunction((before) => window.unreadTest.reloads > before, beforeDisabled);

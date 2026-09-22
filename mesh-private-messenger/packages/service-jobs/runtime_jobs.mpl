@@ -49,7 +49,7 @@ pub fn due_time(rows :: List < Map < String, String > >) -> Int ! String do
     Err("invalid job deadline")
   else
     case String.to_int(Map.get(List.head(rows), "due")) do
-      Some( value) -> if value >= 0 do
+      Some(value) -> if value >= 0 do
         Ok(value)
       else
         Err("invalid job deadline")
@@ -65,11 +65,11 @@ pub fn internal_request_authorized(request :: Request, secret :: String) -> Bool
   else
     let header = case Request.header(request, "Authorization") do
       None -> Request.header(request, "authorization")
-      Some( value) -> Some(value)
+      Some(value) -> Some(value)
     end
     case header do
       None -> false
-      Some( value) -> Bytes.secure_equals(Crypto.sha256(Bytes.from_utf8(value)),
+      Some(value) -> Bytes.secure_equals(Crypto.sha256(Bytes.from_utf8(value)),
       Crypto.sha256(Bytes.from_utf8("Bearer " <> secret)))
     end
   end

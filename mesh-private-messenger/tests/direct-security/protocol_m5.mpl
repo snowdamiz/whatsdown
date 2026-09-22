@@ -6,28 +6,28 @@ from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 
 fn negotiation_proof() do
   case negotiate_profile_a([1], [1], 0) do
-    Err( _) -> println("negotiation-error")
-    Ok( suite) -> println("suite:#{suite}")
+    Err(_) -> println("negotiation-error")
+    Ok(suite) -> println("suite:#{suite}")
   end
   case negotiate_profile_a([1, 1], [1], 0) do
-    Err( DuplicateSuite) -> println("negotiation-duplicate")
-    Err( _) -> println("negotiation-wrong-error")
-    Ok( _) -> println("negotiation-duplicate-accepted")
+    Err(DuplicateSuite) -> println("negotiation-duplicate")
+    Err(_) -> println("negotiation-wrong-error")
+    Ok(_) -> println("negotiation-duplicate-accepted")
   end
   case negotiate_profile_a([1], [2], 0) do
-    Err( UnsupportedSuite) -> println("negotiation-unsupported")
-    Err( _) -> println("negotiation-wrong-error")
-    Ok( _) -> println("negotiation-unsupported-accepted")
+    Err(UnsupportedSuite) -> println("negotiation-unsupported")
+    Err(_) -> println("negotiation-wrong-error")
+    Ok(_) -> println("negotiation-unsupported-accepted")
   end
   case negotiate_profile_a([1], [1], 2) do
-    Err( DowngradeDetected) -> println("negotiation-downgrade")
-    Err( _) -> println("negotiation-wrong-error")
-    Ok( _) -> println("negotiation-downgrade-accepted")
+    Err(DowngradeDetected) -> println("negotiation-downgrade")
+    Err(_) -> println("negotiation-wrong-error")
+    Ok(_) -> println("negotiation-downgrade-accepted")
   end
   case negotiate_profile_a([1], [1], -1) do
-    Err( InvalidSuiteHistory) -> println("negotiation-invalid-history")
-    Err( _) -> println("negotiation-wrong-error")
-    Ok( _) -> println("negotiation-invalid-history-accepted")
+    Err(InvalidSuiteHistory) -> println("negotiation-invalid-history")
+    Err(_) -> println("negotiation-wrong-error")
+    Ok(_) -> println("negotiation-invalid-history-accepted")
   end
 end
 
@@ -45,15 +45,15 @@ fn account_proof() -> Int ! String do
     }]
   }
   case encode_account_identity(account) do
-    Err( _) -> println("account-encode-error")
-    Ok( encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__ACCOUNT_HEX__") ?) do
+    Err(_) -> println("account-encode-error")
+    Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__ACCOUNT_HEX__") ?) do
       println("account-golden-mismatch")
     else
       case decode_account_identity(encoded) do
-        Err( _) -> println("account-decode-error")
-        Ok( decoded) -> case encode_account_identity(decoded) do
-          Err( _) -> println("account-reencode-error")
-          Ok( reencoded) -> if Bytes.secure_equals(encoded, reencoded) do
+        Err(_) -> println("account-decode-error")
+        Ok(decoded) -> case encode_account_identity(decoded) do
+          Err(_) -> println("account-reencode-error")
+          Ok(reencoded) -> if Bytes.secure_equals(encoded, reencoded) do
             println("account-roundtrip")
           else
             println("account-noncanonical")
@@ -68,22 +68,22 @@ end
 fn hostile_account_proof() -> Int ! String do
   let mandatory = Bytes.from_hex("014143540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100070100000000") ?
   case decode_account_identity(mandatory) do
-    Err( UnknownMandatoryExtension) -> println("account-mandatory")
-    Err( _) -> println("account-mandatory-wrong-error")
-    Ok( _) -> println("account-mandatory-accepted")
+    Err(UnknownMandatoryExtension) -> println("account-mandatory")
+    Err(_) -> println("account-mandatory-wrong-error")
+    Ok(_) -> println("account-mandatory-accepted")
   end
   let duplicate = Bytes.from_hex("01414354000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020007000000000000070000000000") ?
   case decode_account_identity(duplicate) do
-    Err( NonCanonicalEncoding) -> println("account-duplicate")
-    Err( _) -> println("account-duplicate-wrong-error")
-    Ok( _) -> println("account-duplicate-accepted")
+    Err(NonCanonicalEncoding) -> println("account-duplicate")
+    Err(_) -> println("account-duplicate-wrong-error")
+    Ok(_) -> println("account-duplicate-accepted")
   end
   case Bytes.repeat(0, 16583) do
-    Err( _) -> println("account-limit-setup-error")
-    Ok( oversized) -> case decode_account_identity(oversized) do
-      Err( OversizedInput) -> println("account-limit")
-      Err( _) -> println("account-limit-wrong-error")
-      Ok( _) -> println("account-limit-accepted")
+    Err(_) -> println("account-limit-setup-error")
+    Ok(oversized) -> case decode_account_identity(oversized) do
+      Err(OversizedInput) -> println("account-limit")
+      Err(_) -> println("account-limit-wrong-error")
+      Ok(_) -> println("account-limit-accepted")
     end
   end
   Ok(0)
@@ -91,14 +91,14 @@ end
 
 fn all_m5_decoders_reject(input :: Bytes) -> Bool do
   case decode_account_identity(input) do
-    Ok( _) -> false
-    Err( _) -> case decode_prekey_bundle(input) do
-      Ok( _) -> false
-      Err( _) -> case decode_inner_envelope(input) do
-        Ok( _) -> false
-        Err( _) -> case decode_handshake_transcript(input) do
-          Ok( _) -> false
-          Err( _) -> true
+    Ok(_) -> false
+    Err(_) -> case decode_prekey_bundle(input) do
+      Ok(_) -> false
+      Err(_) -> case decode_inner_envelope(input) do
+        Ok(_) -> false
+        Err(_) -> case decode_handshake_transcript(input) do
+          Ok(_) -> false
+          Err(_) -> true
         end
       end
     end
@@ -110,10 +110,10 @@ fn hostile_decoder_lengths(version :: Bytes, length :: Int) -> Bool do
     true
   else
     case Bytes.repeat(length, length) do
-      Err( _) -> false
-      Ok( tail) -> case Bytes.concat(version, tail) do
-        Err( _) -> false
-        Ok( input) -> all_m5_decoders_reject(input) && hostile_decoder_lengths(version, length + 1)
+      Err(_) -> false
+      Ok(tail) -> case Bytes.concat(version, tail) do
+        Err(_) -> false
+        Ok(input) -> all_m5_decoders_reject(input) && hostile_decoder_lengths(version, length + 1)
       end
     end
   end
@@ -150,15 +150,15 @@ fn prekey_proof() -> Int ! String do
     }]
   }
   case encode_prekey_bundle(bundle) do
-    Err( _) -> println("prekey-encode-error")
-    Ok( encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__PREKEY_HEX__") ?) do
+    Err(_) -> println("prekey-encode-error")
+    Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__PREKEY_HEX__") ?) do
       println("prekey-golden-mismatch")
     else
       case decode_prekey_bundle(encoded) do
-        Err( _) -> println("prekey-decode-error")
-        Ok( decoded) -> case encode_prekey_bundle(decoded) do
-          Err( _) -> println("prekey-reencode-error")
-          Ok( reencoded) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(decoded.one_time_prekey,
+        Err(_) -> println("prekey-decode-error")
+        Ok(decoded) -> case encode_prekey_bundle(decoded) do
+          Err(_) -> println("prekey-reencode-error")
+          Ok(reencoded) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(decoded.one_time_prekey,
           bundle.one_time_prekey) && List.length(decoded.supported_suites) == 1 && List.get(decoded.supported_suites,
           0) == 1 do
             println("prekey-roundtrip")
@@ -186,9 +186,9 @@ fn prekey_proof() -> Int ! String do
     extensions : bundle.extensions
   }
   case encode_prekey_bundle(invalid) do
-    Err( InvalidFieldLength) -> println("prekey-invalid-length")
-    Err( _) -> println("prekey-invalid-wrong-error")
-    Ok( _) -> println("prekey-invalid-accepted")
+    Err(InvalidFieldLength) -> println("prekey-invalid-length")
+    Err(_) -> println("prekey-invalid-wrong-error")
+    Ok(_) -> println("prekey-invalid-accepted")
   end
   Ok(0)
 end
@@ -214,14 +214,14 @@ end
 
 fn inner_round_trip(size :: Int, timestamp :: U64) -> Bool do
   case Bytes.repeat(165, size) do
-    Err( _) -> false
-    Ok( body) -> case encode_inner_envelope(inner_value(body, timestamp)) do
-      Err( _) -> false
-      Ok( encoded) -> case decode_inner_envelope(encoded) do
-        Err( _) -> false
-        Ok( decoded) -> case encode_inner_envelope(decoded) do
-          Err( _) -> false
-          Ok( reencoded) -> Bytes.secure_equals(encoded, reencoded) && Bytes.length(decoded.body) == size
+    Err(_) -> false
+    Ok(body) -> case encode_inner_envelope(inner_value(body, timestamp)) do
+      Err(_) -> false
+      Ok(encoded) -> case decode_inner_envelope(encoded) do
+        Err(_) -> false
+        Ok(decoded) -> case encode_inner_envelope(decoded) do
+          Err(_) -> false
+          Ok(reencoded) -> Bytes.secure_equals(encoded, reencoded) && Bytes.length(decoded.body) == size
         end
       end
     end
@@ -246,10 +246,10 @@ fn inner_proof() -> Int ! String do
     println("inner-property-failed")
   end
   case Bytes.from_hex("a5") do
-    Err( error) -> println(error)
-    Ok( body) -> case encode_inner_envelope(inner_value(body, timestamp)) do
-      Err( _) -> println("inner-golden-encode-error")
-      Ok( encoded) -> if Bytes.secure_equals(encoded, Bytes.from_hex("__INNER_HEX__") ?) do
+    Err(error) -> println(error)
+    Ok(body) -> case encode_inner_envelope(inner_value(body, timestamp)) do
+      Err(_) -> println("inner-golden-encode-error")
+      Ok(encoded) -> if Bytes.secure_equals(encoded, Bytes.from_hex("__INNER_HEX__") ?) do
         println("inner-golden")
       else
         println("inner-golden-mismatch")
@@ -257,11 +257,11 @@ fn inner_proof() -> Int ! String do
     end
   end
   case Bytes.repeat(0, 32769) do
-    Err( _) -> println("inner-limit-setup-error")
-    Ok( body) -> case encode_inner_envelope(inner_value(body, timestamp)) do
-      Err( OversizedInput) -> println("inner-limit")
-      Err( _) -> println("inner-limit-wrong-error")
-      Ok( _) -> println("inner-limit-accepted")
+    Err(_) -> println("inner-limit-setup-error")
+    Ok(body) -> case encode_inner_envelope(inner_value(body, timestamp)) do
+      Err(OversizedInput) -> println("inner-limit")
+      Err(_) -> println("inner-limit-wrong-error")
+      Ok(_) -> println("inner-limit-accepted")
     end
   end
   Ok(0)
@@ -286,19 +286,19 @@ fn transcript_proof() -> Int ! String do
     }]
   }
   case encode_handshake_transcript(transcript) do
-    Err( _) -> println("transcript-encode-error")
-    Ok( encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__TRANSCRIPT_HEX__") ?) do
+    Err(_) -> println("transcript-encode-error")
+    Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__TRANSCRIPT_HEX__") ?) do
       println("transcript-golden-mismatch")
     else
       case decode_handshake_transcript(encoded) do
-        Err( _) -> println("transcript-decode-error")
-        Ok( decoded) -> case encode_handshake_transcript(decoded) do
-          Err( _) -> println("transcript-reencode-error")
-          Ok( reencoded) -> case hash_handshake_transcript(transcript) do
-            Err( _) -> println("transcript-hash-error")
-            Ok( first_hash) -> case hash_handshake_transcript(decoded) do
-              Err( _) -> println("transcript-hash-error")
-              Ok( second_hash) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(first_hash,
+        Err(_) -> println("transcript-decode-error")
+        Ok(decoded) -> case encode_handshake_transcript(decoded) do
+          Err(_) -> println("transcript-reencode-error")
+          Ok(reencoded) -> case hash_handshake_transcript(transcript) do
+            Err(_) -> println("transcript-hash-error")
+            Ok(first_hash) -> case hash_handshake_transcript(decoded) do
+              Err(_) -> println("transcript-hash-error")
+              Ok(second_hash) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(first_hash,
               second_hash) && Bytes.secure_equals(first_hash,
               Bytes.from_hex("__TRANSCRIPT_HASH_HEX__") ?) do
                 println("transcript-roundtrip")
@@ -317,27 +317,27 @@ end
 fn main() do
   negotiation_proof()
   case account_proof() do
-    Err( error) -> println(error)
-    Ok( _) -> nil
+    Err(error) -> println(error)
+    Ok(_) -> nil
   end
   case hostile_account_proof() do
-    Err( error) -> println(error)
-    Ok( _) -> nil
+    Err(error) -> println(error)
+    Ok(_) -> nil
   end
   case hostile_decoder_proof() do
-    Err( error) -> println(error)
-    Ok( _) -> nil
+    Err(error) -> println(error)
+    Ok(_) -> nil
   end
   case prekey_proof() do
-    Err( error) -> println(error)
-    Ok( _) -> nil
+    Err(error) -> println(error)
+    Ok(_) -> nil
   end
   case inner_proof() do
-    Err( error) -> println(error)
-    Ok( _) -> nil
+    Err(error) -> println(error)
+    Ok(_) -> nil
   end
   case transcript_proof() do
-    Err( error) -> println(error)
-    Ok( _) -> nil
+    Err(error) -> println(error)
+    Ok(_) -> nil
   end
 end

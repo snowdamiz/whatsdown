@@ -29,8 +29,8 @@ fn states(path :: String, peer :: Bytes) -> List < Int > ! String do
   Bytes.empty()) ?) ?) ?
   Ok(List.map(summaries,
   fn (summary) do case Bytes.get(summary, Bytes.length(summary) - 1) do
-    Err( _) -> 255
-    Ok( value) -> value
+    Err(_) -> 255
+    Ok(value) -> value
   end end))
 end
 
@@ -95,10 +95,10 @@ end
 
 test("the conversation tells a sent message from a waiting one and from one that was refused") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

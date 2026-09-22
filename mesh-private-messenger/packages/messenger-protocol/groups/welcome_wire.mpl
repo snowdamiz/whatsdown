@@ -67,8 +67,8 @@ pub fn group_encode_members(values :: List < IndexedGroupMember >, index :: Int,
   else
     let value = List.get(values, index)
     let member = case encode_member(value.member) do
-      Err( error) -> Err(TreeFailure(error))
-      Ok( encoded) -> Ok(encoded)
+      Err(error) -> Err(TreeFailure(error))
+      Ok(encoded) -> Ok(encoded)
     end ?
     group_encode_members(values,
     index + 1,
@@ -196,26 +196,26 @@ end
 
 fn same_member(left :: GroupMember, right :: GroupMember) -> Bool ! GroupError do
   Ok(Bytes.secure_equals(case encode_member(left) do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(value) -> Ok(value)
   end ?,
   case encode_member(right) do
-    Err( error) -> Err(TreeFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(TreeFailure(error))
+    Ok(value) -> Ok(value)
   end ?))
 end
 
 fn welcome_proposal_matches(value :: GroupProposal, tree :: borrow GroupTree, recipient_leaf :: Int) -> Bool ! GroupError do
   case value do
-    AddMember( leaf, added) -> if leaf != recipient_leaf do
+    AddMember(leaf, added) -> if leaf != recipient_leaf do
       Ok(false)
     else
       case member_at(tree, leaf) do
-        Err( _) -> Ok(false)
-        Ok( member) -> same_member(member, added)
+        Err(_) -> Ok(false)
+        Ok(member) -> same_member(member, added)
       end
     end
-    RemoveMember( _) -> Ok(false)
+    RemoveMember(_) -> Ok(false)
     UpdateKeys -> Ok(false)
   end
 end

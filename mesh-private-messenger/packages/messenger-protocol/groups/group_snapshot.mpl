@@ -85,8 +85,8 @@ fn validate_generations(values :: List < SenderGeneration >, tree :: borrow Grou
       Err(InvalidGroup)
     else
       case member_at(tree, value.leaf_index) do
-        Err( _) -> Err(InvalidGroup)
-        Ok( _) -> validate_generations(values, tree, index + 1)
+        Err(_) -> Err(InvalidGroup)
+        Ok(_) -> validate_generations(values, tree, index + 1)
       end
     end
   end
@@ -142,8 +142,8 @@ local_leaf :: Int,
 account_id :: Bytes,
 device_id :: Bytes) -> Bool do
   case member_at(tree, local_leaf) do
-    Err( _) -> false
-    Ok( member) -> Bytes.secure_equals(member.account_id, account_id) && Bytes.secure_equals(member.device_id,
+    Err(_) -> false
+    Ok(member) -> Bytes.secure_equals(member.account_id, account_id) && Bytes.secure_equals(member.device_id,
     device_id)
   end
 end
@@ -227,8 +227,8 @@ fn seal_group_private(value :: borrow X25519PrivateKey,
 wrapping_key :: borrow StorageKey,
 context :: Bytes) -> Bytes ! GroupError do
   case X25519PrivateKey.seal_for_storage(value, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( sealed) -> Ok(sealed)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(sealed) -> Ok(sealed)
   end
 end
 
@@ -246,8 +246,8 @@ snapshot_version :: U64) -> Bytes ! GroupError do
   0,
   snapshot_version) ?
   let sealed = case Secret.seal_for_storage(state.key_material.epoch_secret, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end ?
   let leaf_private = seal_group_private(state.key_material.leaf_private_key,
   wrapping_key,
@@ -307,8 +307,8 @@ snapshot_version :: U64) -> GroupSnapshotOutcome do
     GroupSnapshotRejected(state, RollbackRejected)
   else
     case seal_group_snapshot(state, wrapping_key, account_id, device_id, snapshot_version) do
-      Err( error) -> GroupSnapshotRejected(state, error)
-      Ok( blob) -> GroupSnapshotSealed(% { state | snapshot_version : snapshot_version }, blob)
+      Err(error) -> GroupSnapshotRejected(state, error)
+      Ok(blob) -> GroupSnapshotSealed(% {state | snapshot_version : snapshot_version }, blob)
     end
   end
 end
@@ -427,8 +427,8 @@ end
 
 fn unseal_group_private(blob :: Bytes, wrapping_key :: borrow StorageKey, context :: Bytes) -> X25519PrivateKey ! GroupError do
   case X25519PrivateKey.unseal_from_storage(blob, wrapping_key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -455,8 +455,8 @@ end
 
 fn validate_private_key(value :: borrow X25519PrivateKey, expected :: X25519PublicKey) -> Result <(), GroupError > do
   case Crypto.x25519_public(value) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( actual) -> if Bytes.secure_equals(actual.bytes, expected.bytes) do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(actual) -> if Bytes.secure_equals(actual.bytes, expected.bytes) do
       Ok(nil)
     else
       Err(AuthenticationRejected)
@@ -495,8 +495,8 @@ minimum_version :: U64) -> GroupState ! GroupError do
     0,
     value.snapshot_version) ?
     let secret = case Secret.unseal_from_storage(value.sealed_epoch_secret, wrapping_key, context) do
-      Err( error) -> Err(CryptoFailure(error))
-      Ok( output) -> Ok(output)
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(output) -> Ok(output)
     end ?
     let leaf_private = unseal_group_private(value.sealed_leaf_private,
     wrapping_key,
@@ -638,14 +638,14 @@ end
 
 fn seal_group_map(map :: borrow SecretMap, key :: borrow StorageKey, context :: Bytes) -> Bytes ! GroupError do
   case SecretMap.seal_for_storage(map, key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end
 
 fn unseal_group_map(blob :: Bytes, key :: borrow StorageKey, context :: Bytes) -> SecretMap ! GroupError do
   case SecretMap.unseal_from_storage(blob, key, context) do
-    Err( error) -> Err(CryptoFailure(error))
-    Ok( value) -> Ok(value)
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value) -> Ok(value)
   end
 end

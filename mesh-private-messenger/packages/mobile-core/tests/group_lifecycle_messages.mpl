@@ -40,9 +40,9 @@ end
 
 fn replace_group_ciphertext(input :: Bytes, ciphertext :: Bytes) -> Bytes ! String do
   let value = outer(input) ?
-  case encode_outer_envelope(% { value | ciphertext : ciphertext }) do
-    Err( _) -> Err("outer envelope encode failed")
-    Ok( encoded) -> Ok(encoded)
+  case encode_outer_envelope(% {value | ciphertext : ciphertext }) do
+    Err(_) -> Err("outer envelope encode failed")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -73,8 +73,8 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
   let group_key = Bytes.from_utf8("group/" <> Bytes.to_hex(group_id))
   let group_presentation = group_vectors([Bytes.from_utf8("Weekend walks"), Bytes.empty()]) ?
   case presentation_save_export(group_vectors([Bytes.from_utf8(accounts.bob_path), group_key, group_presentation]) ?) do
-    Ok( _) -> Err("non-creator changed group presentation") ?
-    Err( error) -> group_messages_ensure(error == "group_creator_required",
+    Ok(_) -> Err("non-creator changed group presentation") ?
+    Err(error) -> group_messages_ensure(error == "group_creator_required",
     "wrong group permission error") ?
   end
   presentation_save_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_key, group_presentation]) ?) ?
@@ -165,8 +165,8 @@ pub fn exercise_group_message_boundary(accounts :: GroupAccountFixture, group_id
   acknowledge(accounts.alice_path, maximum_deliveries, 0) ?
   case group_send_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id, repeated(98,
   65291) ?]) ?) do
-    Ok( _) -> Err("oversized group message was accepted") ?
-    Err( error) -> group_messages_ensure(error == "group_message_too_large",
+    Ok(_) -> Err("oversized group message was accepted") ?
+    Err(error) -> group_messages_ensure(error == "group_message_too_large",
     "wrong oversized group message error") ?
   end
   Ok(true)

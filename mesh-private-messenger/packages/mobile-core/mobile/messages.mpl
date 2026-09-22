@@ -149,10 +149,10 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   # re-addressed, and the message hands over this device's contact address.
   let rewrapped = rewrap_reference(local_device, request.attachment, peer.credential.dh_public_key) ?
   let handed_over = outgoing_extensions(request.database_path, wrapping_key) ?
-  let inner = % { history_inner | attachment_manifest : rewrapped, extensions : handed_over }
+  let inner = % {history_inner | attachment_manifest : rewrapped, extensions : handed_over }
   let plaintext = case encode_initial_plaintext(local_encode_client_profile, inner_bytes(inner) ?) do
-    Err( _) -> Err("invalid_initial_plaintext")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_initial_plaintext")
+    Ok(value) -> Ok(value)
   end ?
   let strongest_suite = strongest_device_suite(request.database_path,
   wrapping_key,
@@ -161,15 +161,15 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   session_ids,
   0,
   0) ?
-  let ( state, initial) = case initiate(local_device,
+  let (state, initial) = case initiate(local_device,
   local.credential,
   peer.account,
   peer.bundle,
   policy(peer, now),
   strongest_suite,
   plaintext) do
-    Err( _) -> Err("session_start_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("session_start_failed")
+    Ok(value) -> Ok(value)
   end ?
   let packet = encode_packet(InitialPacket(local.entry.account_identity, initial_bytes(initial) ?)) ?
   let outer = sealed_outer_bytes(deposit_address(request.database_path,
@@ -178,7 +178,7 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
   packet,
   peer.credential.dh_public_key,
   now) ?
-  let ( session_id, label, session_blob) = seal_session(state,
+  let (session_id, label, session_blob) = seal_session(state,
   wrapping_key,
   local,
   peer,
@@ -193,11 +193,11 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes ! String do
     new_session : true
   }]
   let index_blob = seal_session_ids(prepared_session_ids(prepared, 0, session_ids), wrapping_key) ?
-  let ( history_keys, history_blobs) = updated_history(request.database_path,
+  let (history_keys, history_blobs) = updated_history(request.database_path,
   wrapping_key,
   history_inner,
   1) ?
-  let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+  let (outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
   pending_ids,
   [outer],
   request.database_path,
@@ -226,7 +226,7 @@ active_prekeys :: List < U64 >,
 selected_id :: U64,
 reusable :: Bool,
 transcript_hash :: Bytes,
-fanout_labels :: List < String >) -> Result <( List < String >, List < String >, List < Bytes >), String > do
+fanout_labels :: List < String >) -> Result <(List < String >, List < String >, List < Bytes >), String > do
   if reusable do
     Ok((fanout_labels,
     ["last-resort-replays/v1"],
@@ -255,7 +255,7 @@ inner :: InnerEnvelope) -> Result <(), String > do
   if blocked do
     Ok(nil)
   else
-    let ( labels, blobs, removed) = learned_contact_address_writes(database_path,
+    let (labels, blobs, removed) = learned_contact_address_writes(database_path,
     wrapping_key,
     public_address,
     inner.extensions) ?
@@ -278,15 +278,15 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
     let wrapping_key = platform_key() ?
     let local_device = open_device(local, wrapping_key, request.database_path) ?
     let opened = open_outer_packet(outer, local_device.identity_private_key) ?
-    let ( packet_account_identity, packet_message) = if opened.sealed do
+    let (packet_account_identity, packet_message) = if opened.sealed do
       parse_sealed_initial_packet(opened.packet)
     else
       # Legacy queued initial packets carry their own recipient seal.
       parse_initial_packet(outer.ciphertext, local_device.identity_private_key)
     end ?
     let initial = case decode_initial_message(packet_message) do
-      Err( _) -> Err("invalid_initial_message")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid_initial_message")
+      Ok(value) -> Ok(value)
     end ?
     # A sealed outer suite names only the transport; the handshake transcript
     # authenticates the real suite.
@@ -294,8 +294,8 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
       Err("outer_suite_mismatch")
     else
       let initiator_account = case decode_account_identity(packet_account_identity) do
-        Err( _) -> Err("invalid_initiator_account")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid_initiator_account")
+        Ok(value) -> Ok(value)
       end ?
       let session_ids = load_session_ids(request.database_path, wrapping_key) ?
       let prekeys = load_prekey_pool(local, wrapping_key, request.database_path) ?
@@ -305,10 +305,10 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
       initial.one_time_prekey_id) ?
       let reusable = case last_resort do
         None -> false
-        Some( _) -> true
+        Some(_) -> true
       end
       let selected_prekey = case last_resort do
-        Some( value) -> Ok(value)
+        Some(value) -> Ok(value)
         None -> find_prekey(prekeys, initial.one_time_prekey_id, 0)
       end ?
       let _ = if reusable && last_resort_replayed(request.database_path,
@@ -318,10 +318,10 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
       else
         Ok(nil)
       end ?
-      let responder_bundle = % { local.bundle | one_time_prekey_id : selected_prekey.id, one_time_prekey : selected_prekey.public_key }
+      let responder_bundle = % {local.bundle | one_time_prekey_id : selected_prekey.id, one_time_prekey : selected_prekey.public_key }
       let initiator_credential = case decode_device_credential(initial.initiator_credential) do
-        Err( _) -> Err("invalid_initiator_credential")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid_initiator_credential")
+        Ok(value) -> Ok(value)
       end ?
       let strongest_suite = strongest_device_suite(request.database_path,
       wrapping_key,
@@ -330,12 +330,12 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
       session_ids,
       0,
       0) ?
-      let ( signed, one_time, post_quantum) = open_prekeys(local,
+      let (signed, one_time, post_quantum) = open_prekeys(local,
       wrapping_key,
       request.database_path,
       selected_prekey) ?
       let now = current_time() ?
-      let ( state, plaintext) = case receive_initial(local_device,
+      let (state, plaintext) = case receive_initial(local_device,
       local.account,
       responder_bundle,
       signed,
@@ -349,32 +349,32 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
       },
       strongest_suite,
       packet_message) do
-        Err( error) -> if is_retryable_session_error(error) do
+        Err(error) -> if is_retryable_session_error(error) do
           Err("initial_crypto_failed")
         else
           Err("initial_receive_failed")
         end
-        Ok( value) -> Ok(value)
+        Ok(value) -> Ok(value)
       end ?
       let decoded = case decode_initial_plaintext(plaintext) do
-        Err( _) -> Err("invalid_initial_plaintext")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid_initial_plaintext")
+        Ok(value) -> Ok(value)
       end ?
       let peer = case decode_client_profile(decoded.profile) do
-        Err( _) -> Err("invalid_peer_profile")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid_peer_profile")
+        Ok(value) -> Ok(value)
       end ?
       let inner = case decode_inner_envelope(decoded.inner) do
-        Err( _) -> Err("invalid_inner_envelope")
-        Ok( value) -> Ok(value)
+        Err(_) -> Err("invalid_inner_envelope")
+        Ok(value) -> Ok(value)
       end ?
       let previous = case find_peer_session(request.database_path,
       wrapping_key,
       peer.account_id,
       session_ids,
       0) do
-        Ok( loaded) -> Ok(Some(loaded))
-        Err( error) -> if error == "session_not_found" do
+        Ok(loaded) -> Ok(Some(loaded))
+        Err(error) -> if error == "session_not_found" do
           Ok(None)
         else
           Err(error)
@@ -393,13 +393,13 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
       # in this device's record, so what was in flight at an upgrade arrives.
       let conversation_mismatch = !Bytes.secure_equals(inner.conversation_id, expected_conversation) && case previous do
         None -> true
-        Some( loaded) -> !Bytes.secure_equals(inner.conversation_id, loaded.record.conversation_id)
+        Some(loaded) -> !Bytes.secure_equals(inner.conversation_id, loaded.record.conversation_id)
       end
       # The name this device files the conversation under is its own records'
       # business; a wire name only ever adds to what is already here.
       let conversation_key = case previous do
         None -> inner.conversation_id
-        Some( loaded) -> loaded.record.conversation_id
+        Some(loaded) -> loaded.record.conversation_id
       end
       let mismatch = !valid_kind || conversation_mismatch || !Bytes.secure_equals(peer.entry.account_identity,
       packet_account_identity) || !Bytes.secure_equals(inner.sender_account_id, peer.account_id) || !Bytes.secure_equals(inner.sender_device_id,
@@ -410,18 +410,18 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
       else
         let blocked = case previous do
           None -> false
-          Some( loaded) -> loaded.record.blocked
+          Some(loaded) -> loaded.record.blocked
         end
         keep_contact_address(request.database_path,
         wrapping_key,
         blocked,
         peer.entry.mailbox_token,
         inner) ?
-        let ( session_id, label, session_blob) = case previous do
+        let (session_id, label, session_blob) = case previous do
           None -> seal_session(state, wrapping_key, local, peer, inner.conversation_id, 0, false)
-          Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, local, peer)
+          Some(loaded) -> seal_upgraded_session(state, wrapping_key, loaded, local, peer)
         end ?
-        let ( removed_labels, prekey_labels, prekey_blobs) = received_prekey_writes(request.database_path,
+        let (removed_labels, prekey_labels, prekey_blobs) = received_prekey_writes(request.database_path,
         wrapping_key,
         prekeys,
         active_prekeys,
@@ -455,14 +455,14 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
             sync,
             session_ids) ?
             let synced = sync_history_inner(local, sync, inner.attachment_manifest) ?
-            let history_inner = % { synced | conversation_id : synced_key }
+            let history_inner = % {synced | conversation_id : synced_key }
             let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
-            let ( history_keys, history_blobs) = updated_history(request.database_path,
+            let (history_keys, history_blobs) = updated_history(request.database_path,
             wrapping_key,
             history_inner,
             1) ?
             # A sibling device could only send this once the request was accepted there.
-            let ( accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
+            let (accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
             wrapping_key,
             sync.peer_account_id,
             session_ids) ?
@@ -478,7 +478,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
             Ok(presented_body(history_inner.body))
           end
         else if inner.message_type == 3 || inner.message_type == 4 do
-          let ( labels, blobs) = received_invitation_writes(request.database_path,
+          let (labels, blobs) = received_invitation_writes(request.database_path,
           wrapping_key,
           local,
           peer.username,
@@ -495,9 +495,9 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes ! Strin
           Ok(Bytes.empty())
         else
           let index_blob = updated_session_index(request.database_path, wrapping_key, session_id) ?
-          let ( history_keys, history_blobs) = updated_history(request.database_path,
+          let (history_keys, history_blobs) = updated_history(request.database_path,
           wrapping_key,
-          % { inner | conversation_id : conversation_key },
+          % {inner | conversation_id : conversation_key },
           2) ?
           store_received_session(request.database_path,
           label,
@@ -568,18 +568,18 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes ! String do
       Ok(history_inner)
     else
       let local_device = open_device(local, wrapping_key, request.database_path) ?
-      Ok(% { history_inner | attachment_manifest : rewrap_reference(local_device,
+      Ok(% {history_inner | attachment_manifest : rewrap_reference(local_device,
       request.attachment,
       requested_peer.credential.dh_public_key) ? })
     end ?
     # The sent copy hands over this device's contact address; history does not keep it.
     let handed_over = outgoing_extensions(request.database_path, wrapping_key) ?
     let wire_conversation_id = direct_conversation_id(local.account_id, requested_peer.account_id) ?
-    let ( next_state, message) = case encrypt_sealed(state,
-    inner_bytes(% { inner | conversation_id : wire_conversation_id, extensions : handed_over }) ?,
+    let (next_state, message) = case encrypt_sealed(state,
+    inner_bytes(% {inner | conversation_id : wire_conversation_id, extensions : handed_over }) ?,
     session_aad(loaded.session_id) ?) do
-      Err( _) -> Err("message_encryption_failed")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("message_encryption_failed")
+      Ok(value) -> Ok(value)
     end ?
     let packet = encode_packet(RatchetPacket(ratchet_bytes(message) ?)) ?
     let outer = sealed_outer_bytes(deposit_address(request.database_path,
@@ -589,7 +589,7 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes ! String do
     requested_peer.credential.dh_public_key,
     now) ?
     let session_blob = seal_updated_session(next_state, loaded, wrapping_key) ?
-    let ( history_keys, history_blobs) = updated_history(request.database_path,
+    let (history_keys, history_blobs) = updated_history(request.database_path,
     wrapping_key,
     history_inner,
     1) ?
@@ -600,7 +600,7 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes ! String do
       session_blob : session_blob,
       new_session : false
     }]
-    let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+    let (outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
     pending_ids,
     [outer],
     request.database_path,
@@ -636,8 +636,8 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
     let opened = open_outer_packet(outer, local_device.identity_private_key) ?
     let packet_message = parse_ratchet_packet(opened.packet) ?
     let message = case decode_ratchet_message(packet_message) do
-      Err( _) -> Err("invalid_ratchet_message")
-      Ok( value) -> Ok(value)
+      Err(_) -> Err("invalid_ratchet_message")
+      Ok(value) -> Ok(value)
     end ?
     let _ = if !ratchet_transport_matches(message, opened.sealed) do
       Err("invalid_ratchet_message")
@@ -655,15 +655,15 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
     0) ?
     let state = restore_session(loaded, wrapping_key) ?
     case decrypt(state, message, session_aad(loaded.session_id) ?) do
-      Rejected( rejected_state, error) -> if is_retryable_ratchet_error(error) do
+      Rejected(rejected_state, error) -> if is_retryable_ratchet_error(error) do
         reject_message(rejected_state, "ratchet_retryable")
       else
         reject_message(rejected_state, "message_rejected")
       end
-      Opened( next_state, plaintext) -> do
+      Opened(next_state, plaintext) -> do
         let inner = case decode_inner_envelope(plaintext) do
-          Err( _) -> Err("invalid_inner_envelope")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("invalid_inner_envelope")
+          Ok(value) -> Ok(value)
         end ?
         let self_sync = inner.message_type == 2 && Bytes.secure_equals(loaded.record.peer_account_id,
         local.account_id)
@@ -692,7 +692,7 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
             store_updated_session(request.database_path, loaded.label, session_blob) ?
             Err("blocked_message")
           else if inner.message_type == 3 || inner.message_type == 4 do
-            let ( labels, blobs) = received_invitation_writes(request.database_path,
+            let (labels, blobs) = received_invitation_writes(request.database_path,
             wrapping_key,
             local,
             loaded.record.peer_username,
@@ -712,13 +712,13 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
               sync,
               session_ids) ?
               let synced = sync_history_inner(local, sync, inner.attachment_manifest) ?
-              let history_inner = % { synced | conversation_id : synced_key }
-              let ( history_keys, history_blobs) = updated_history(request.database_path,
+              let history_inner = % {synced | conversation_id : synced_key }
+              let (history_keys, history_blobs) = updated_history(request.database_path,
               wrapping_key,
               history_inner,
               1) ?
               # A sibling device could only send this once the request was accepted there.
-              let ( accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
+              let (accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
               wrapping_key,
               sync.peer_account_id,
               session_ids) ?
@@ -730,9 +730,9 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes ! String do
               Ok(presented_body(history_inner.body))
             end
           else
-            let ( history_keys, history_blobs) = updated_history(request.database_path,
+            let (history_keys, history_blobs) = updated_history(request.database_path,
             wrapping_key,
-            % { inner | conversation_id : loaded.record.conversation_id },
+            % {inner | conversation_id : loaded.record.conversation_id },
             2) ?
             store_updated_session_and_history(request.database_path,
             loaded.label,

@@ -45,15 +45,15 @@ end
 
 pub fn protocol_is_zero(value :: U64) -> Bool do
   case U64.to_int(value) do
-    Err( _) -> false
-    Ok( number) -> number == 0
+    Err(_) -> false
+    Ok(number) -> number == 0
   end
 end
 
 pub fn protocol_append(output :: Bytes, value :: Bytes) -> Bytes ! ProtocolError do
   case Bytes.concat(output, value) do
-    Err( _) -> Err(OversizedInput)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(OversizedInput)
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
@@ -72,30 +72,30 @@ index :: Int) -> Result <(), ProtocolError > do
     Ok(nil)
   else
     case BytesBuilder.write_bytes(builder, List.get(parts, index)) do
-      Err( _) -> Err(OversizedInput)
-      Ok( _) -> protocol_write_builder_parts(builder, parts, index + 1)
+      Err(_) -> Err(OversizedInput)
+      Ok(_) -> protocol_write_builder_parts(builder, parts, index + 1)
     end
   end
 end
 
 pub fn protocol_byte(value :: Int) -> Bytes ! ProtocolError do
   case Bytes.from_list([value]) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
 pub fn protocol_write_u16(value :: Int) -> Bytes ! ProtocolError do
   case Bytes.write_u16_be(value) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
 pub fn protocol_write_u32(value :: U64) -> Bytes ! ProtocolError do
   case Bytes.write_u32_be(value) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
@@ -103,15 +103,15 @@ pub fn protocol_write_length(value :: Int) -> Bytes ! ProtocolError do
   case value
     |> Int.to_string()
     |> U64.parse() do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( parsed) -> protocol_write_u32(parsed)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(parsed) -> protocol_write_u32(parsed)
   end
 end
 
 pub fn protocol_write_u64(value :: U64) -> Bytes ! ProtocolError do
   case Bytes.write_u64_be(value) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( bytes) -> Ok(bytes)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(bytes) -> Ok(bytes)
   end
 end
 
@@ -124,42 +124,39 @@ pub fn protocol_open(input :: Bytes, maximum :: Int) -> BinaryReader ! ProtocolE
     Err(OversizedInput)
   else
     case reader(input, maximum) do
-      Err( _) -> Err(MalformedEncoding)
-      Ok( state) -> Ok(state)
+      Err(_) -> Err(MalformedEncoding)
+      Ok(state) -> Ok(state)
     end
   end
 end
 
 pub fn protocol_take_u8(state :: BinaryReader) -> ProtocolReadInt ! ProtocolError do
   case read_u8(state) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( ( next, value)) -> Ok(ProtocolReadInt {
+    Err(_) -> Err(MalformedEncoding)
+    Ok((next, value)) -> Ok(ProtocolReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err(MalformedEncoding)
   end
 end
 
 pub fn protocol_take_u16(state :: BinaryReader) -> ProtocolReadInt ! ProtocolError do
   case read_u16_be(state) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( ( next, value)) -> Ok(ProtocolReadInt {
+    Err(_) -> Err(MalformedEncoding)
+    Ok((next, value)) -> Ok(ProtocolReadInt {
       state : next,
       value : value
     })
-    Ok( _) -> Err(MalformedEncoding)
   end
 end
 
 pub fn protocol_take_fixed(state :: BinaryReader, length :: Int) -> ProtocolReadBytes ! ProtocolError do
   case read_fixed(state, length) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( ( next, value)) -> Ok(ProtocolReadBytes {
+    Err(_) -> Err(MalformedEncoding)
+    Ok((next, value)) -> Ok(ProtocolReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(MalformedEncoding)
   end
 end
 
@@ -178,20 +175,19 @@ end
 
 pub fn protocol_take_vector(state :: BinaryReader, maximum :: Int) -> ProtocolReadBytes ! ProtocolError do
   case read_vector(state, maximum) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( ( next, value)) -> Ok(ProtocolReadBytes {
+    Err(_) -> Err(MalformedEncoding)
+    Ok((next, value)) -> Ok(ProtocolReadBytes {
       state : next,
       value : value
     })
-    Ok( _) -> Err(MalformedEncoding)
   end
 end
 
 pub fn protocol_take_u32(state :: BinaryReader) -> ProtocolReadWide ! ProtocolError do
   let bytes = protocol_take_fixed(state, 4) ?
   case Bytes.read_u32_be(bytes.value, 0) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(ProtocolReadWide {
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(ProtocolReadWide {
       state : bytes.state,
       value : value
     })
@@ -201,8 +197,8 @@ end
 pub fn protocol_take_u64(state :: BinaryReader) -> ProtocolReadWide ! ProtocolError do
   let bytes = protocol_take_fixed(state, 8) ?
   case Bytes.read_u64_be(bytes.value, 0) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( value) -> Ok(ProtocolReadWide {
+    Err(_) -> Err(MalformedEncoding)
+    Ok(value) -> Ok(ProtocolReadWide {
       state : bytes.state,
       value : value
     })
@@ -211,15 +207,15 @@ end
 
 pub fn protocol_as_int(value :: U64) -> Int ! ProtocolError do
   case U64.to_int(value) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( result) -> Ok(result)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(result) -> Ok(result)
   end
 end
 
 pub fn protocol_require_end(state :: BinaryReader) -> Result <(), ProtocolError > do
   case finish(state) do
-    Err( _) -> Err(MalformedEncoding)
-    Ok( _) -> Ok(nil)
+    Err(_) -> Err(MalformedEncoding)
+    Ok(_) -> Ok(nil)
   end
 end
 

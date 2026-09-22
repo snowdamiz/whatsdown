@@ -2,27 +2,27 @@ from Attachments.Protocol import AttachmentError, AttachmentManifest, generate_a
 
 fn repeated(value :: Int, count :: Int) -> Bytes ! AttachmentError do
   case Bytes.repeat(value, count) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidManifest)
+    Ok(output) -> Ok(output)
   end
 end
 
 fn wide(value :: String) -> U64 ! AttachmentError do
   case U64.parse(value) do
-    Err( _) -> Err(InvalidManifest)
-    Ok( output) -> Ok(output)
+    Err(_) -> Err(InvalidManifest)
+    Ok(output) -> Ok(output)
   end
 end
 
 fn tamper_last_byte(input :: Bytes) -> Bytes ! AttachmentError do
   let length = Bytes.length(input)
   let last = case Bytes.get(input, length - 1) do
-    Err( _) -> Err(InvalidChunk)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidChunk)
+    Ok(value) -> Ok(value)
   end ?
   let prefix = case Bytes.slice(input, 0, length - 1) do
-    Err( _) -> Err(InvalidChunk)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidChunk)
+    Ok(value) -> Ok(value)
   end ?
   let replacement = if last == 120 do
     Bytes.from_utf8("y")
@@ -30,8 +30,8 @@ fn tamper_last_byte(input :: Bytes) -> Bytes ! AttachmentError do
     Bytes.from_utf8("x")
   end
   case Bytes.concat(prefix, replacement) do
-    Err( _) -> Err(InvalidChunk)
-    Ok( value) -> Ok(value)
+    Err(_) -> Err(InvalidChunk)
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -64,15 +64,15 @@ fn attachment_proof() -> Bool ! AttachmentError do
   assert(Bytes.secure_equals(open_chunk(key, opened_manifest, 0, first_wire) ?, first))
   assert(Bytes.secure_equals(open_chunk(key, opened_manifest, 1, second_wire) ?, second))
   case open_chunk(key, opened_manifest, 0, tamper_last_byte(first_wire) ?) do
-    Err( AuthenticationRejected) -> assert(true)
+    Err(AuthenticationRejected) -> assert(true)
     _ -> assert(false)
   end
   case open_chunk(key, opened_manifest, 1, first_wire) do
-    Err( InvalidChunkIndex) -> assert(true)
+    Err(InvalidChunkIndex) -> assert(true)
     _ -> assert(false)
   end
   case seal_chunk(key, opened_manifest, 1, Bytes.from_utf8("not-final")) do
-    Err( InvalidChunkSize) -> assert(true)
+    Err(InvalidChunkSize) -> assert(true)
     _ -> assert(false)
   end
   Secret.destroy(key)
@@ -81,7 +81,7 @@ end
 
 test("attachment manifest and two chunks round trip within canonical bounds") do
   case attachment_proof() do
-    Err( _) -> assert(false)
-    Ok( value) -> assert(value)
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
   end
 end

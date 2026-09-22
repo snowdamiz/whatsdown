@@ -17,14 +17,14 @@ end
 
 fn binary(value :: DbValue) -> Bytes ! String do
   case value do
-    Binary( output) -> Ok(output)
+    Binary(output) -> Ok(output)
     _ -> Err("invalid push row")
   end
 end
 
 fn text(value :: DbValue) -> String ! String do
   case value do
-    Text( output) -> Ok(output)
+    Text(output) -> Ok(output)
     _ -> Err("invalid push row")
   end
 end
@@ -32,7 +32,7 @@ end
 fn integer(value :: DbValue) -> Int ! String do
   case String.to_int(text(value) ?) do
     None -> Err("invalid push provider")
-    Some( output) -> Ok(output)
+    Some(output) -> Ok(output)
   end
 end
 
@@ -40,12 +40,10 @@ fn active_signing_key(conn :: borrow PgConn, mailbox_token_hash :: Bytes) -> Opt
   let rows = Pg.query_values(conn,
   "SELECT device.prekey_bundle FROM messenger_devices AS device JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = device.mailbox_token_hash WHERE device.mailbox_token_hash = $1 AND device.revoked_at IS NULL AND mailbox.active FOR SHARE OF device, mailbox",
   [Binary(mailbox_token_hash)]) ?
-  if List.length(rows) == 0 do
-    Ok(None)
-  else if List.length(rows) == 1 do
-    Ok(Some(bundle_signing_public_key(binary(Map.get(List.head(rows), "prekey_bundle")) ?) ?))
-  else
-    Err("duplicate active mailbox device")
+  case rows do
+    [] -> Ok(None)
+    [row] -> Ok(Some(bundle_signing_public_key(binary(Map.get(row, "prekey_bundle")) ?) ?))
+    _ -> Err("duplicate active mailbox device")
   end
 end
 
@@ -55,19 +53,19 @@ signing_bytes :: Bytes,
 signature :: Bytes) -> Bool ! String do
   case active_signing_key(conn, mailbox_token_hash) ? do
     None -> Ok(false)
-    Some( key) -> case Crypto.verify(SigningPublicKey { bytes : key },
+    Some(key) -> case Crypto.verify(SigningPublicKey { bytes : key },
     signing_bytes,
     Signature { bytes : signature }) do
-      Err( _) -> Ok(false)
-      Ok( valid) -> Ok(valid)
+      Err(_) -> Ok(false)
+      Ok(valid) -> Ok(valid)
     end
   end
 end
 
 fn disabled_placeholder(label :: String, mailbox_token_hash :: Bytes) -> Bytes ! String do
   let material = case Bytes.concat(Bytes.from_utf8(label), mailbox_token_hash) do
-    Err( _) -> Err("push placeholder allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("push placeholder allocation failed")
+    Ok(output) -> Ok(output)
   end ?
   Ok(Crypto.sha256(material))
 end
@@ -126,17 +124,14 @@ fn find_on_connection(conn :: borrow PgConn, mailbox_token_hash :: Bytes) -> Opt
   let rows = Pg.query_values(conn,
   "SELECT binding.wake_token_hash, binding.provider::text, binding.provider_token_ciphertext FROM messenger_push_bindings AS binding JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = binding.mailbox_token_hash AND mailbox.active WHERE binding.mailbox_token_hash = $1 AND binding.disabled_at IS NULL",
   [Binary(mailbox_token_hash)]) ?
-  if List.length(rows) == 0 do
-    Ok(None)
-  else if List.length(rows) == 1 do
-    let row = List.head(rows)
-    Ok(Some(ProviderPushBinding {
+  case rows do
+    [] -> Ok(None)
+    [row] -> Ok(Some(ProviderPushBinding {
       wake_token_hash : binary(Map.get(row, "wake_token_hash")) ?,
       provider : integer(Map.get(row, "provider")) ?,
       provider_token_ciphertext : binary(Map.get(row, "provider_token_ciphertext")) ?
     }))
-  else
-    Err("duplicate push binding")
+    _ -> Err("duplicate push binding")
   end
 end
 

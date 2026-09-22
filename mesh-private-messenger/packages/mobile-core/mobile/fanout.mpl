@@ -106,9 +106,9 @@ index :: Int) -> List < MobileClaimedPrekey > ! String do
         index + 1)
       else
         case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
-          Err( error) -> Err(error)
-          Ok( None) -> Err("invalid_fanout_prekeys")
-          Ok( Some( claim)) -> append_needed_prekeys(database_path,
+          Err(error) -> Err(error)
+          Ok(None) -> Err("invalid_fanout_prekeys")
+          Ok(Some(claim)) -> append_needed_prekeys(database_path,
           wrapping_key,
           session_ids,
           profiles,
@@ -136,27 +136,27 @@ strongest_suite :: Int,
 deposit :: Bytes) -> MobilePreparedSend ! String do
   let claimed_peer = claimed_prekey_profile(claimed_prekeys, peer.entry.prekey_bundle, 0) ?
   let plaintext = case encode_initial_plaintext(local_encode_client_profile, inner_bytes(inner) ?) do
-    Err( _) -> Err("invalid_initial_plaintext")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_initial_plaintext")
+    Ok(value) -> Ok(value)
   end ?
-  let ( state, initial) = case initiate(local_device,
+  let (state, initial) = case initiate(local_device,
   local.credential,
   claimed_peer.account,
   claimed_peer.bundle,
   policy(claimed_peer, inner.client_timestamp),
   strongest_suite,
   plaintext) do
-    Err( _) -> Err("session_start_failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("session_start_failed")
+    Ok(value) -> Ok(value)
   end ?
   let packet = encode_packet(InitialPacket(local.entry.account_identity, initial_bytes(initial) ?)) ?
   let outer = sealed_outer_bytes(deposit,
   packet,
   peer.credential.dh_public_key,
   inner.client_timestamp) ?
-  let ( session_id, label, session_blob) = case previous do
+  let (session_id, label, session_blob) = case previous do
     None -> seal_session(state, wrapping_key, local, claimed_peer, conversation_id, 1, false)
-    Some( loaded) -> seal_upgraded_session(state, wrapping_key, loaded, local, claimed_peer)
+    Some(loaded) -> seal_upgraded_session(state, wrapping_key, loaded, local, claimed_peer)
   end ?
   Ok(MobilePreparedSend {
     envelope : outer,
@@ -183,7 +183,7 @@ conversation_id :: Bytes) -> MobilePreparedSend ! String do
   peer.device_id,
   session_ids,
   0) do
-    Ok( loaded) -> do
+    Ok(loaded) -> do
       let changed = !Bytes.secure_equals(loaded.record.peer_mailbox, peer.entry.mailbox_token) || (Bytes.length(loaded.record.safety_number) == 64 && !Bytes.secure_equals(loaded.record.safety_number,
       safety_number(local, peer) ?))
       if changed do
@@ -205,11 +205,11 @@ conversation_id :: Bytes) -> MobilePreparedSend ! String do
         deposit_address(database_path, wrapping_key, peer.entry.mailbox_token) ?)
       else
         let state = restore_session(loaded, wrapping_key) ?
-        let ( next_state, message) = case encrypt_sealed(state,
+        let (next_state, message) = case encrypt_sealed(state,
         inner_bytes(inner) ?,
         session_aad(loaded.session_id) ?) do
-          Err( _) -> Err("message_encryption_failed")
-          Ok( value) -> Ok(value)
+          Err(_) -> Err("message_encryption_failed")
+          Ok(value) -> Ok(value)
         end ?
         let packet = encode_packet(RatchetPacket(ratchet_bytes(message) ?)) ?
         let outer = sealed_outer_bytes(deposit_address(database_path,
@@ -228,7 +228,7 @@ conversation_id :: Bytes) -> MobilePreparedSend ! String do
         })
       end
     end
-    Err( error) -> if error != "session_not_found" do
+    Err(error) -> if error != "session_not_found" do
       Err(error)
     else
       start_device_session(claimed_prekeys,
@@ -398,7 +398,7 @@ output :: List < MobilePreparedSend >) -> List < MobilePreparedSend > ! String d
 end
 
 pub fn send_fanout(request :: MobileFanoutRequest) -> Bytes ! String do
-  send_fanout_control(% { request | body : present_message(request.database_path,
+  send_fanout_control(% {request | body : present_message(request.database_path,
   Bytes.empty(),
   request.body) ? },
   1,
@@ -451,7 +451,7 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
     peers.account.account_id,
     session_ids,
     0) do
-      Err( error) -> if error == "session_not_found" do
+      Err(error) -> if error == "session_not_found" do
         let representative = List.head(peers.profiles)
         Ok(MobileSessionRecord {
           snapshot : Bytes.empty(),
@@ -473,7 +473,7 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
       else
         Err(error)
       end
-      Ok( loaded) -> Ok(loaded.record)
+      Ok(loaded) -> Ok(loaded.record)
     end ?
     let added_count = List.length(peers.profiles) + if message_type == 1 do
       List.length(local_devices.profiles) - 1
@@ -526,10 +526,10 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
         disappearing_seconds : anchor.disappearing_seconds,
         extensions : List.new()
       }
-      let ( history_keys, history_blobs) = if message_type != 1 do
+      let (history_keys, history_blobs) = if message_type != 1 do
         Ok((extra_labels, extra_blobs))
       else
-        let ( history_keys, history_blobs) = updated_history(request.database_path,
+        let (history_keys, history_blobs) = updated_history(request.database_path,
         wrapping_key,
         history_inner,
         1) ?
@@ -564,7 +564,7 @@ extra_blobs :: List < Bytes >) -> Bytes ! String do
       else
         0
       end
-      let ( outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
+      let (outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
       pending_ids,
       envelopes,
       request.database_path,

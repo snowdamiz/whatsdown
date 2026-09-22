@@ -8,15 +8,15 @@ from Tests.MailboxSupport import register_test_mailbox
 
 fn repeated(value :: Int, length :: Int) -> Bytes ! String do
   case Bytes.repeat(value, length) do
-    Err( _) -> Err("test allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn envelope_id(number :: Int) -> Bytes ! String do
   case Bytes.slice(Crypto.sha256(Bytes.from_utf8(Int.to_string(number))), 0, 16) do
-    Err( _) -> Err("test allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -72,8 +72,8 @@ end
 
 fn delivered_token(delivered :: DeliveredEnvelope) -> Bytes ! String do
   case decode_outer_envelope(delivered.envelope) do
-    Err( _) -> Err("delivered envelope did not decode")
-    Ok( outer) -> Ok(outer.mailbox_token)
+    Err(_) -> Err("delivered envelope did not decode")
+    Ok(outer) -> Ok(outer.mailbox_token)
   end
 end
 
@@ -143,10 +143,10 @@ end
 
 test("a contact address reaches the same mailbox and strangers cannot crowd contacts out") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

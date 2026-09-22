@@ -75,14 +75,14 @@ end
 
 fn proposal_bytes(value :: GroupProposal) -> Bytes ! GroupError do
   case value do
-    AddMember( leaf_index, member) -> group_join([group_byte(1) ?, group_write_u16(leaf_index) ?, group_vector(case encode_member(member) do
-      Err( error) -> Err(TreeFailure(error))
-      Ok( encoded) -> Ok(encoded)
+    AddMember(leaf_index, member) -> group_join([group_byte(1) ?, group_write_u16(leaf_index) ?, group_vector(case encode_member(member) do
+      Err(error) -> Err(TreeFailure(error))
+      Ok(encoded) -> Ok(encoded)
     end ?) ?],
     0,
     Bytes.empty())
     UpdateKeys -> group_join([group_byte(3) ?, group_write_u16(0) ?], 0, Bytes.empty())
-    RemoveMember( leaf_index) -> group_join([group_byte(2) ?, group_write_u16(leaf_index) ?],
+    RemoveMember(leaf_index) -> group_join([group_byte(2) ?, group_write_u16(leaf_index) ?],
     0,
     Bytes.empty())
   end
@@ -430,12 +430,12 @@ end
 fn validate_proposal_shape(value :: GroupProposal) -> Result <(), GroupError > do
   case value do
     UpdateKeys -> Ok(nil)
-    AddMember( leaf, member) -> if leaf < 0 || leaf >= 64 do
+    AddMember(leaf, member) -> if leaf < 0 || leaf >= 64 do
       Err(InvalidGroup)
     else
       group_member_error(validate_member(member))
     end
-    RemoveMember( leaf) -> if leaf < 0 || leaf >= 64 do
+    RemoveMember(leaf) -> if leaf < 0 || leaf >= 64 do
       Err(InvalidGroup)
     else
       Ok(nil)

@@ -4,8 +4,8 @@ from Protocol.V1 import OuterEnvelope
 
 fn repeated(value :: Int, count :: Int) -> Bytes ! String do
   case Bytes.repeat(value, count) do
-    Err( _) -> Err("bytes failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("bytes failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -15,15 +15,15 @@ end
 
 fn protocol(value :: Result < Bytes, ProtocolError >) -> Bytes ! String do
   case value do
-    Err( _) -> Err("protocol failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("protocol failed")
+    Ok(output) -> Ok(output)
   end
 end
 
 fn key_pair() -> X25519KeyPair ! String do
   case Crypto.x25519_from_seed(Bytes.from_hex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a") ?) do
-    Err( _) -> Err("key failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("key failed")
+    Ok(value) -> Ok(value)
   end
 end
 
@@ -87,11 +87,11 @@ end
 
 test("privacy edge cannot read sealed delivery and anonymous work tokens bind exact ciphertext") do
   case edge_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end
 
@@ -125,18 +125,18 @@ fn stamp_proof() -> Bool ! String do
   8) ?))
   assert(!(verify_request_stamp("mesh-msg/v1/work/resolve", payload, stamp, now, window, 0) ?))
   case mint_request_stamp("mesh-msg/v1/work/resolve", payload, expires_at, 25) do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
   let wire = encode_stamped_request(stamp, payload) ?
   assert(Bytes.length(wire) == 120)
-  let ( decoded, body) = decode_stamped_request(wire, 100) ?
+  let (decoded, body) = decode_stamped_request(wire, 100) ?
   assert(Bytes.secure_equals(body, payload))
   assert(U64.compare(decoded.expires_at, expires_at) == 0)
   assert(decoded.nonce == stamp.nonce)
   case decode_stamped_request(wire, 99) do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
   # Known answer computed independently (Python hashlib) from the documented
   # layout: SHA-256(label || u64be expires_at || u32be nonce || SHA-256(payload)).
@@ -154,16 +154,16 @@ fn stamp_proof() -> Bool ! String do
   assert(!Bytes.secure_equals(spent,
   request_stamp_key("mesh-msg/v1/work/register", payload, stamp) ?))
   assert(!Bytes.secure_equals(spent,
-  request_stamp_key("mesh-msg/v1/work/resolve", payload, % { stamp | nonce : stamp.nonce + 1 }) ?))
+  request_stamp_key("mesh-msg/v1/work/resolve", payload, % {stamp | nonce : stamp.nonce + 1 }) ?))
   Ok(true)
 end
 
 test("request stamps bind work to one endpoint, one request and one window") do
   case stamp_proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

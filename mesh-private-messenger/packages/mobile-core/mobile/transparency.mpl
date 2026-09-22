@@ -54,12 +54,12 @@ from Transport.Packet import ClientProfile
 pub fn transparency_checkpoint_bytes(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes ! String do
   let label = "transparency-checkpoint/v1"
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( blob) -> open_local(blob, wrapping_key, local_context(label) ?)
+    Ok(blob) -> open_local(blob, wrapping_key, local_context(label) ?)
   end
 end
 
@@ -84,15 +84,15 @@ end
 
 fn decode_verified_transparency_set(input :: Bytes) -> MobileVerifiedTransparencySet ! String do
   case reader(input, 305460) do
-    Err( _) -> Err("invalid_transparency_cache")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_transparency_cache")
+    Ok(state) -> do
       let version = take_fixed(state, 1) ?
       let magic = take_fixed(version.state, 3) ?
       let checkpoint = take_vector(magic.state, 188) ?
       let device_set = take_vector(checkpoint.state, 305260) ?
       case finish(device_set.state) do
-        Err( _) -> Err("invalid_transparency_cache")
-        Ok( _) -> do
+        Err(_) -> Err("invalid_transparency_cache")
+        Ok(_) -> do
           let value = MobileVerifiedTransparencySet {
             checkpoint : checkpoint.value,
             device_set : device_set.value
@@ -129,8 +129,8 @@ end
 
 fn decode_transparency_view(input :: Bytes) -> MobileTransparencyView ! String do
   case reader(input, 131382) do
-    Err( _) -> Err("invalid_transparency_view")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_transparency_view")
+    Ok(state) -> do
       let version = take_fixed(state, 1) ?
       let magic = take_fixed(version.state, 3) ?
       let service_key = take_fixed(magic.state, 32) ?
@@ -139,8 +139,8 @@ fn decode_transparency_view(input :: Bytes) -> MobileTransparencyView ! String d
       let checkpoint = take_vector(witness_b.state, 188) ?
       let consistency = take_vector(checkpoint.state, 131086) ?
       case finish(consistency.state) do
-        Err( _) -> Err("invalid_transparency_view")
-        Ok( _) -> do
+        Err(_) -> Err("invalid_transparency_view")
+        Ok(_) -> do
           let value = MobileTransparencyView {
             checkpoint : checkpoint.value,
             consistency : consistency.value,
@@ -189,8 +189,8 @@ end
 
 fn decode_transparency_manifest(input :: Bytes) -> MobileTransparencyManifest ! String do
   case reader(input, 325) do
-    Err( _) -> Err("invalid_transparency_view")
-    Ok( state) -> do
+    Err(_) -> Err("invalid_transparency_view")
+    Ok(state) -> do
       let version = take_fixed(state, 1) ?
       let magic = take_fixed(version.state, 3) ?
       let service_key = take_fixed(magic.state, 32) ?
@@ -201,8 +201,8 @@ fn decode_transparency_manifest(input :: Bytes) -> MobileTransparencyManifest ! 
       let chunk_count = take_fixed(consistency_length.state, 1) ?
       let consistency_hash = take_fixed(chunk_count.state, 32) ?
       case finish(consistency_hash.state) do
-        Err( _) -> Err("invalid_transparency_view")
-        Ok( _) -> do
+        Err(_) -> Err("invalid_transparency_view")
+        Ok(_) -> do
           let length_value = mobile_read_u32(consistency_length.value) ?
           let count_value = mobile_read_byte(chunk_count.value) ?
           let manifest = MobileTransparencyManifest {
@@ -303,12 +303,12 @@ end
 fn transparency_view_bytes(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes ! String do
   let label = "transparency-view/v1"
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
       Err(error)
     end
-    Ok( blob) -> do
+    Ok(blob) -> do
       let manifest = decode_transparency_manifest(open_local(blob,
       wrapping_key,
       local_context(label) ?) ?) ?
@@ -412,22 +412,22 @@ wrapping_key :: borrow StorageKey,
 devices :: MobileVerifiedDeviceSet) -> Bytes ! String do
   let label = transparency_device_set_label(devices.account.account_id)
   case load_blob(database_path, label) do
-    Err( error) -> if error == "local_state_not_found" do
+    Err(error) -> if error == "local_state_not_found" do
       Err("device_set_transparency_unverified")
     else
       Err(error)
     end
-    Ok( blob) -> do
+    Ok(blob) -> do
       let cached = decode_verified_transparency_set(open_local(blob,
       wrapping_key,
       local_context(label) ?) ?) ?
       let view = case load_transparency_view(database_path, wrapping_key) do
-        Err( error) -> if error == "group_transparency_unverified" do
+        Err(error) -> if error == "group_transparency_unverified" do
           Err("device_set_transparency_unverified")
         else
           Err(error)
         end
-        Ok( loaded) -> Ok(loaded)
+        Ok(loaded) -> Ok(loaded)
       end ?
       if Bytes.secure_equals(cached.device_set, devices.wire) && transparency_checkpoint_in_view(cached.checkpoint,
       view) ? do
@@ -448,12 +448,12 @@ wrapping_key :: borrow StorageKey,
 devices :: MobileVerifiedDeviceSet,
 baseline_checkpoint :: Bytes) -> Bytes ! String do
   let cached_checkpoint = case require_transparency_device_set(database_path, wrapping_key, devices) do
-    Err( error) -> if error == "device_set_transparency_unverified" do
+    Err(error) -> if error == "device_set_transparency_unverified" do
       Err("group_transparency_unverified")
     else
       Err(error)
     end
-    Ok( checkpoint) -> Ok(checkpoint)
+    Ok(checkpoint) -> Ok(checkpoint)
   end ?
   let view = load_transparency_view(database_path, wrapping_key) ?
   if transparency_checkpoint_precedes(baseline_checkpoint, cached_checkpoint, view) ? && transparency_checkpoint_precedes(cached_checkpoint,
@@ -478,8 +478,8 @@ pub fn transparency_lookup(request :: MobilePayloadRequest) -> Bytes ! String do
     username : username,
     previous_tree_size : previous_tree_size
   }) do
-    Err( _) -> Err("invalid_username")
-    Ok( encoded) -> Ok(encoded)
+    Err(_) -> Err("invalid_username")
+    Ok(encoded) -> Ok(encoded)
   end
 end
 
@@ -487,8 +487,8 @@ pub fn verify_transparency_response(request :: MobileTransparencyRequest) -> Byt
   let config = native_security_config() ?
   ensure_schema(request.database_path) ?
   let evidence = case decode_transparency_evidence(request.evidence) do
-    Err( _) -> Err("invalid_transparency_evidence")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("invalid_transparency_evidence")
+    Ok(value) -> Ok(value)
   end ?
   let wrapping_key = platform_key() ?
   let previous = transparency_checkpoint_bytes(request.database_path, wrapping_key) ?
@@ -561,8 +561,8 @@ wrapping_key :: borrow StorageKey,
 account_id :: Bytes) -> MobileVerifiedDeviceSet ! String do
   let label = transparency_device_set_label(account_id)
   let blob = case load_blob(database_path, label) do
-    Ok( value) -> Ok(value)
-    Err( error) -> if error == "local_state_not_found" do
+    Ok(value) -> Ok(value)
+    Err(error) -> if error == "local_state_not_found" do
       Err("device_set_transparency_unverified")
     else
       Err(error)

@@ -15,7 +15,7 @@ sender :: Bytes,
 group :: Bytes,
 creator :: Bytes,
 input :: Bytes) -> Bytes ! String do
-  let ( body, attachment, labels, blobs) = presented_message_writes(path,
+  let (body, attachment, labels, blobs) = presented_message_writes(path,
   key,
   sender,
   group,
@@ -79,13 +79,13 @@ fn exercise() -> Bool ! String do
   updated_group))
   let oversized = group_vectors([Bytes.from_utf8("alice"), repeated(97, 12289) ?]) ?
   case presentation_save_export(group_vectors([Bytes.from_utf8(path), key, oversized]) ?) do
-    Ok( _) -> assert(false)
-    Err( _) -> assert(true)
+    Ok(_) -> assert(false)
+    Err(_) -> assert(true)
   end
   let invalid_avatar = group_vectors([Bytes.from_utf8("alice"), Bytes.from_utf8("data:image/jpeg;base64,not-an-image?")]) ?
   case presentation_save_export(group_vectors([Bytes.from_utf8(path), key, invalid_avatar]) ?) do
-    Ok( _) -> assert(false)
-    Err( _) -> assert(true)
+    Ok(_) -> assert(false)
+    Err(_) -> assert(true)
   end
   let removed = group_vectors([Bytes.from_utf8("alice"), Bytes.empty()]) ?
   presentation_save_export(group_vectors([Bytes.from_utf8(path), key, removed]) ?) ?
@@ -97,8 +97,8 @@ end
 
 test("presentation persists encrypted names and avatars, strips message metadata and supports removing photos") do
   case exercise() do
-    Ok( value) -> assert(value)
-    Err( error) -> do
+    Ok(value) -> assert(value)
+    Err(error) -> do
       println(error)
       assert(false)
     end
@@ -140,8 +140,8 @@ end
 
 test("contact nicknames persist encrypted, stay off the wire and clear without changing shared profiles") do
   case exercise_nicknames() do
-    Ok( value) -> assert(value)
-    Err( error) -> do
+    Ok(value) -> assert(value)
+    Err(error) -> do
       println(error)
       assert(false)
     end

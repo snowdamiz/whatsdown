@@ -27,8 +27,8 @@ end
 
 fn byte(value :: Int) -> Bytes ! String do
   case Bytes.from_list([value]) do
-    Err( _) -> Err("test allocation failed")
-    Ok( output) -> Ok(output)
+    Err(_) -> Err("test allocation failed")
+    Ok(output) -> Ok(output)
   end
 end
 
@@ -41,7 +41,7 @@ end
 fn published_hash(path :: String) -> Bytes ! String do
   case publication(path) ?.contact_address_hash do
     None -> Err("publication names no contact address")
-    Some( value) -> Ok(value)
+    Some(value) -> Ok(value)
   end
 end
 
@@ -60,8 +60,8 @@ end
 
 fn addressed_to(envelope :: Bytes) -> Bytes ! String do
   case decode_outer_envelope(envelope) do
-    Err( _) -> Err("envelope did not decode")
-    Ok( outer) -> Ok(outer.mailbox_token)
+    Err(_) -> Err("envelope did not decode")
+    Ok(outer) -> Ok(outer.mailbox_token)
   end
 end
 
@@ -151,10 +151,10 @@ end
 
 test("a contact is handed a private deposit address, and a bad one is forgotten") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

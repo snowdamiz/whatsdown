@@ -14,9 +14,9 @@ end
 
 fn configured_token() -> String ! String do
   case access_token(Env.get("MESSENGER_EXPO_ACCESS_TOKEN", "")) do
-    Err( error) -> Err(error)
-    Ok( None) -> Ok("")
-    Ok( Some( value)) -> Ok(value)
+    Err(error) -> Err(error)
+    Ok(None) -> Ok("")
+    Ok(Some(value)) -> Ok(value)
   end
 end
 
@@ -57,15 +57,15 @@ end
 
 fn handle_push(request :: Request) -> Response do
   case configured_internal_token() do
-    Err( _) -> HTTP.response(503, "")
-    Ok( secret) -> do
+    Err(_) -> HTTP.response(503, "")
+    Ok(secret) -> do
       let permitted = RuntimeJobs.internal_request_authorized(request, secret)
       if !permitted do
         HTTP.response(401, "")
       else
         case accept_configured(Request.body_bytes(request)) do
-          Err( _) -> HTTP.response(503, "")
-          Ok( outcome) -> HTTP.response(outcome_status(outcome), "")
+          Err(_) -> HTTP.response(503, "")
+          Ok(outcome) -> HTTP.response(outcome_status(outcome), "")
         end
       end
     end
@@ -97,13 +97,13 @@ fn main() do
   Process.install_shutdown_signals()
   let port = Env.get_int("MESSENGER_PUSH_BROKER_PORT", 18088)
   case validate_config() do
-    Err( error) -> fatal("push-broker configuration failed: #{error}")
-    Ok( _) -> if port <= 0 || port > 65535 do
+    Err(error) -> fatal("push-broker configuration failed: #{error}")
+    Ok(_) -> if port <= 0 || port > 65535 do
       fatal("MESSENGER_PUSH_BROKER_PORT must be between 1 and 65535")
     else
       case serve(port) do
-        Err( error) -> fatal("push-broker startup failed: #{error}")
-        Ok( _) -> nil
+        Err(error) -> fatal("push-broker startup failed: #{error}")
+        Ok(_) -> nil
       end
     end
   end
@@ -115,15 +115,15 @@ fn handle_jobs(request :: Request) -> Response do
     HTTP.response(401, "")
   else
     case configured_queue_path() do
-      Err( _) -> HTTP.response(503, "")
-      Ok( path) -> case transaction_in_progress(path, Request.body(request)) do
-        Err( _) -> HTTP.response(503, "")
-        Ok( true) -> HTTP.response(202, "")
-        Ok( false) -> case configured_token() do
-          Err( _) -> HTTP.response(503, "")
-          Ok( token) -> case run_scheduled(path, token) do
-            Err( _) -> HTTP.response(503, "")
-            Ok( due) -> HTTP.response(200, Int.to_string(due))
+      Err(_) -> HTTP.response(503, "")
+      Ok(path) -> case transaction_in_progress(path, Request.body(request)) do
+        Err(_) -> HTTP.response(503, "")
+        Ok(true) -> HTTP.response(202, "")
+        Ok(false) -> case configured_token() do
+          Err(_) -> HTTP.response(503, "")
+          Ok(token) -> case run_scheduled(path, token) do
+            Err(_) -> HTTP.response(503, "")
+            Ok(due) -> HTTP.response(200, Int.to_string(due))
           end
         end
       end
