@@ -29,8 +29,12 @@ test('a fresh checkout links the personal EAS project and authenticates OTA upda
 });
 
 test('OTA compatibility follows native sources, toolchain and pins, not JS or archives', async () => {
-  let config = require('../fingerprint.config.cjs');
   const previousKey = process.env.MESSENGER_DELIVERY_PUBLIC_KEY_HEX;
+  const previousMesh = process.env.MESH_LANG_REVISION;
+  // The Mesh commit comes from the build environment: a release passes the
+  // one its verification used, so it is a pin like the service keys.
+  process.env.MESH_LANG_REVISION = '1'.repeat(40);
+  let config = require('../fingerprint.config.cjs');
   const root = mkdtempSync(path.join(tmpdir(), 'morse-runtime-'));
   const app = path.join(root, 'mesh-private-messenger/apps/mobile');
   const core = path.join(root, 'mesh-private-messenger/packages/mobile-core');
@@ -39,8 +43,6 @@ test('OTA compatibility follows native sources, toolchain and pins, not JS or ar
     mkdirSync(core, { recursive: true });
     mkdirSync(path.join(root, 'mesh-private-messenger/packages/messenger-protocol'), { recursive: true });
     mkdirSync(path.join(root, 'mesh-private-messenger/scripts'), { recursive: true });
-    const revisionPath = path.join(root, 'mesh-private-messenger/mesh-revision');
-    writeFileSync(revisionPath, '1'.repeat(40));
     writeFileSync(path.join(root, 'mesh-private-messenger/scripts/eas-build-native.sh'), 'compiler v1');
     writeFileSync(path.join(root, 'mesh-private-messenger/scripts/build-mobile-native.sh'), 'builder v1');
     mkdirSync(path.join(app, 'modules/mesh-messenger'), { recursive: true });
@@ -51,9 +53,6 @@ test('OTA compatibility follows native sources, toolchain and pins, not JS or ar
       ...config, platforms: [], useRNCoreAutolinkingFromExpo: true, silent: true,
     });
     const original = await fingerprint();
-    writeFileSync(revisionPath, '2'.repeat(40));
-    assert.notEqual((await fingerprint()).hash, original.hash);
-    writeFileSync(revisionPath, '1'.repeat(40));
     writeFileSync(path.join(app, 'App.tsx'), 'UI v2');
     mkdirSync(path.join(app, 'modules/mesh-messenger/native/ios'), { recursive: true });
     writeFileSync(path.join(app, 'modules/mesh-messenger/native/ios/library.a'), 'build output');
@@ -67,13 +66,17 @@ test('OTA compatibility follows native sources, toolchain and pins, not JS or ar
     writeFileSync(path.join(root, 'mesh-private-messenger/scripts/eas-build-native.sh'), 'compiler v2');
     assert.notEqual((await fingerprint()).hash, original.hash);
     writeFileSync(path.join(root, 'mesh-private-messenger/scripts/eas-build-native.sh'), 'compiler v1');
-    process.env.MESSENGER_DELIVERY_PUBLIC_KEY_HEX = 'ab'.repeat(32);
-    delete require.cache[require.resolve('../fingerprint.config.cjs')];
-    config = require('../fingerprint.config.cjs');
-    assert.notEqual((await fingerprint()).hash, original.hash);
+    for (const [name, value] of [['MESH_LANG_REVISION', '2'.repeat(40)], ['MESSENGER_DELIVERY_PUBLIC_KEY_HEX', 'ab'.repeat(32)]]) {
+      process.env[name] = value;
+      delete require.cache[require.resolve('../fingerprint.config.cjs')];
+      config = require('../fingerprint.config.cjs');
+      assert.notEqual((await fingerprint()).hash, original.hash, name);
+    }
   } finally {
     if (previousKey === undefined) delete process.env.MESSENGER_DELIVERY_PUBLIC_KEY_HEX;
     else process.env.MESSENGER_DELIVERY_PUBLIC_KEY_HEX = previousKey;
+    if (previousMesh === undefined) delete process.env.MESH_LANG_REVISION;
+    else process.env.MESH_LANG_REVISION = previousMesh;
     delete require.cache[require.resolve('../fingerprint.config.cjs')];
     rmSync(root, { recursive: true, force: true });
   }

@@ -40,7 +40,7 @@ skip opening the app, or `MORSE_INSTALL_DIR` to choose where `Morse.app` goes
 
 - `mesh-private-messenger/` — protocol, services, clients, mobile app, and infrastructure
 
-Developers may keep a separate `mesh-lang/` checkout in this directory for local reference and integration testing. It is intentionally ignored and is never part of this repository.
+`mesh-lang` in this directory links to the Mesh compiler the launcher builds: by default the latest published Mesh release, which `./run.sh` fetches into `.morse/mesh-lang` on every run. It is ignored and never part of this repository.
 
 ## Run locally
 
@@ -48,8 +48,8 @@ The [desktop app](mesh-private-messenger/apps/desktop/README.md) supports Window
 and macOS, shares the mobile UI and encrypted Mesh core, and includes GitHub
 Actions installer builds and tagged releases.
 
-On macOS, with Docker Desktop, Rust, Xcode, LLVM 21, Node.js 24+, a development
-signing certificate, and a local `mesh-lang/` checkout installed, one command
+On macOS, with Docker Desktop, Rust, Xcode, LLVM 21, Node.js 24+, and a development
+signing certificate installed, one command
 builds and starts PostgreSQL, every backend service, both transparency witnesses,
 the desktop app, and the iOS simulator app:
 
@@ -81,8 +81,10 @@ since then rather than letting the services fail on a stale schema. `./run.sh
 reset` deletes that database, losing its development data, so the next run
 rebuilds it from every migration.
 
-Override `MESH_LANG_DIR` when the Mesh checkout lives elsewhere; the launcher
-links it at `mesh-lang` for package dependencies and rejects a conflicting checkout.
+The launcher builds the latest published Mesh release, fetched on every run, and
+links it at `mesh-lang` for package dependencies and the scripts. Set `MESH_LANG_DIR`
+to build with a Mesh checkout you are working on instead; a real directory at
+`mesh-lang` is reported rather than replaced.
 For mobile, install Xcode or the Android NDK and set
 `MORSE_MOBILE_PLATFORM=ios|android` when platform detection is insufficient.
 

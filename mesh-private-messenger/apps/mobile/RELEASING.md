@@ -116,12 +116,14 @@ Run the commands below from `mesh-private-messenger/apps/mobile`.
 ## Native builds and OTA compatibility
 
 EAS invokes `eas-build-pre-install` before prebuild and CocoaPods. It checks out
-the pinned Mesh compiler, installs Rust 1.97.0 and checksum-verified LLVM 21.1.8,
+the Mesh compiler, installs Rust 1.97.0 and checksum-verified LLVM 21.1.8,
 builds the target runtimes, then calls the existing `build-mobile-native.sh`.
 That script verifies generated bindings and produces the iOS XCFramework or
 Android arm64/x86_64 static libraries. Compiler source and generated archives
-remain ignored by Git. The build hook and CI both read the compiler revision
-from `mesh-private-messenger/mesh-revision`.
+remain ignored by Git. CI builds with the latest published Mesh release, resolved
+on every run by `mesh-private-messenger/scripts/mesh-release.mjs`. The release
+workflow passes the commit it verified to the build hook through `eas.json`; a
+build started any other way resolves the latest release itself.
 
 The [fingerprint runtime policy](https://docs.expo.dev/eas-update/runtime-versions/)
 limits updates to compatible installed builds. The fingerprint includes Mesh
@@ -166,7 +168,7 @@ disabled until the personal account supports signed updates and
 `MORSE_OTA_ENABLED` is enabled.
 
 All publication jobs call the reusable protocol CI at the candidate commit,
-then compare both Morse and Mesh revisions with its successful outputs. The
-Mesh pin is `mesh-private-messenger/mesh-revision`; update it only after the
-corresponding Mesh changes are committed and available remotely. Manual
-publication should use this workflow's dispatch path.
+then compare both Morse and Mesh revisions with its successful outputs, so every
+build uses the Mesh release that CI verified. A Mesh change reaches Morse by being
+released in mesh-lang; there is no revision to update here. Manual publication
+should use this workflow's dispatch path.

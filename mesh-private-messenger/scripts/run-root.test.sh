@@ -90,6 +90,35 @@ fi
   ' bash "$checkout_fixture"
 )
 
+# Without MESH_LANG_DIR the launcher builds the latest Mesh release: fetched into
+# the state directory on every run and linked where scripts and packages look.
+(
+  release_fixture="$(mktemp -d)"
+  trap 'rm -rf "$release_fixture"' EXIT
+  origin="$release_fixture/mesh-origin"
+  git init --quiet "$origin"
+  git -C "$origin" config uploadpack.allowAnySHA1InWant true
+  touch "$origin/Cargo.toml"
+  git -C "$origin" add Cargo.toml
+  git -C "$origin" -c user.name=fixture -c user.email=fixture@example.invalid commit --quiet -m v1
+  first="$(git -C "$origin" rev-parse HEAD)"
+  git -C "$origin" -c user.name=fixture -c user.email=fixture@example.invalid commit --quiet --allow-empty -m v2
+  second="$(git -C "$origin" rev-parse HEAD)"
+  cp "$test_repo_root/run.sh" "$release_fixture/run.sh"
+  mkdir "$release_fixture/older-checkout"
+  ln -s "$release_fixture/older-checkout" "$release_fixture/mesh-lang"
+  MORSE_STATE_DIR="$release_fixture/state" MESH_LANG_REPOSITORY="file://$origin" bash -c '
+    source "$1/run.sh"
+    cargo() { [[ "$PWD" == "$mesh_root" ]] || fail "the compiler was not built in the release checkout"; }
+    for revision in "$2" "$3"; do
+      MESH_LANG_REVISION="$revision" build_mesh
+      [[ "$(git -C "$mesh_root" rev-parse HEAD)" == "$revision" ]] || fail "the release checkout is not at $revision"
+      [[ "$(cd "$script_dir/mesh-lang" && pwd -P)" == "$(cd "$mesh_root" && pwd -P)" ]] ||
+        fail "scripts would not find the release compiler"
+    done
+  ' bash "$release_fixture" "$first" "$second"
+)
+
 # A cached witness checkpoint outlives the database it attests, and the witness
 # then refuses to sign a log that went backwards, so reset must clear both.
 (

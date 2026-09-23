@@ -311,7 +311,9 @@ jobs:
           VERIFICATION_RESULT: ${{ needs.verification.result }}
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
-        run: MESH_LANG_REVISION="$(cat mesh-private-messenger/mesh-revision)" node mesh-private-messenger/scripts/release-verification.mjs
+          # The build jobs compiled the installers with this commit.
+          MESH_LANG_REVISION: ${{ needs.verification.outputs.mesh-revision }}
+        run: node mesh-private-messenger/scripts/release-verification.mjs
       # install.sh and install.ps1 request exactly these names and refuse a download
       # without a matching SHA256SUMS entry, so a renamed installer fails here instead
       # of publishing a release the install commands cannot use.

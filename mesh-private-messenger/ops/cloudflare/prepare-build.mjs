@@ -1,6 +1,13 @@
 import { httpsOrigin } from './witness.mjs';
+import { latestMeshRelease } from '../../scripts/mesh-release.mjs';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+
+// A release deploys the commit its verification ran against (the release job
+// sets MESH_LANG_REVISION); every other build uses the latest Mesh release.
+export async function meshRevision(env, latestRelease = async () => (await latestMeshRelease()).revision) {
+  return env.MESH_LANG_REVISION || latestRelease();
+}
 
 export function compilerConfig(config, revision) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error('Mesh revision must be a full commit SHA');
@@ -53,10 +60,7 @@ export function witnessConfig(config, name, env) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const revision = readFileSync(new URL('../../mesh-revision', import.meta.url), 'utf8').trim();
-  if (process.env.MESH_LANG_REVISION && process.env.MESH_LANG_REVISION !== revision) {
-    throw new Error('Build must use the pinned Mesh revision');
-  }
+  const revision = await meshRevision(process.env);
   let config = JSON.parse(readFileSync(new URL('./wrangler.jsonc', import.meta.url), 'utf8'));
   const mode = process.argv[2];
   if (mode === '--isolated') config = isolatedConfig(config, process.env);

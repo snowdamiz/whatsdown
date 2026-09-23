@@ -56,10 +56,10 @@ migrations. `psql` must be installed. The runner applies numbered SQL migrations
 transactionally and checks their recorded checksums; applied files must not change.
 Object and push schemas initialize idempotently when their services start.
 
-All builds use the exact commit in `../../mesh-revision`. A different
-`MESH_LANG_REVISION` is rejected. Language changes must be pushed before updating
-that pin. `prepare-build.mjs` writes an ignored `wrangler.build.json`; Docker
-caches the pinned compiler for subsequent builds.
+Builds use the latest published Mesh release. A release deploys the exact commit
+its verification used, passed as `MESH_LANG_REVISION`; any other build resolves the
+latest release with `../../scripts/mesh-release.mjs`. `prepare-build.mjs` writes an
+ignored `wrangler.build.json`; Docker caches each compiler commit for later builds.
 
 Publication also requires the successful verification result for the exact Morse
 and Mesh commits (`VERIFICATION_RESULT`, `GITHUB_SHA`, `VERIFIED_MORSE_REVISION`,
@@ -179,8 +179,8 @@ alone cannot change them. The privacy edge uses proof-of-work difficulty `16`.
 
 ## GitHub Actions
 
-Pushes to `release` run `.github/workflows/backend-release.yml`: build the pinned Mesh
-compiler, run protocol/storage/event-driven integration tests, deploy both witness
+Pushes to `release` run `.github/workflows/backend-release.yml`: build the verified Mesh
+release, run protocol/storage/event-driven integration tests, deploy both witness
 Workers and the privacy-edge Worker, apply migrations, deploy the backend's service
 containers and delivery Worker, then verify live health, the edge's routes, and WebSocket
 authorization. The separate Workers keep the secrets provisioned on them; CI only
