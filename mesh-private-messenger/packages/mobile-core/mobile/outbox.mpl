@@ -13,7 +13,7 @@ from Mobile.Types import MobilePayloadRequest, MobileReadBytes
 from Protocol.V1 import OuterEnvelope
 from Storage.Blobs import ensure_schema, load_blob, put_blob
 from Storage.Keys import local_context, open_local, platform_key, seal_local
-from Storage.Records import delete_blob, delete_blobs, put_blobs
+from Storage.Records import delete_blob, delete_blobs, put_blobs, with_record_transaction
 
 ##! Mobile.Outbox implementation.
 # ponytail: a count, so the worst case is 256 envelopes of 64 KiB (16 MiB) on
@@ -257,44 +257,14 @@ fn store_outbox_ack(database_path :: String,
   delivery_labels :: List<String>,
   delivery_blobs :: List<Bytes>,
   removed_labels :: List<String>) -> Result<(), String> do
-  case Sqlite.open(database_path) do
-    Err(_) -> Err("database_open_failed")
-    Ok(database) -> do
-      let result = case Sqlite.begin(database) do
-        Err(_) -> Err("database_write_failed")
-        Ok(_) -> case delete_blob(database, outbox_entry_label(id)?) do
-          Err(error)
-          Ok(_) -> case delete_blob(database, outbox_tail_label(id)?) do
-            Err(error)
-            Ok(_) -> case update_outbox_index(database, remaining, index_blob) do
-              Err(error)
-              Ok(_) -> case put_blobs(database, delivery_labels, delivery_blobs, 0) do
-                Err(error)
-                Ok(_) -> case delete_blobs(database, removed_labels, 0) do
-                  Err(error)
-                  Ok(_) -> case Sqlite.commit(database) do
-                    Err(_) -> Err("database_write_failed")
-                    Ok(_) -> Ok(nil)
-                  end
-                end
-              end
-            end
-          end
-        end
-      end
-      case result do
-        Err(error) -> do
-          Sqlite.rollback(database)
-          Sqlite.close(database)
-          Err(error)
-        end
-        Ok(_) -> do
-          Sqlite.close(database)
-          Ok(nil)
-        end
-      end
-    end
-  end
+  with_record_transaction(database_path,
+    fn (database) do
+      delete_blob(database, outbox_entry_label(id)?)?
+      delete_blob(database, outbox_tail_label(id)?)?
+      update_outbox_index(database, remaining, index_blob)?
+      put_blobs(database, delivery_labels, delivery_blobs, 0)?
+      delete_blobs(database, removed_labels, 0)
+    end)
 end
 
 pub fn list_outbox(database_path :: String) -> Bytes!String do

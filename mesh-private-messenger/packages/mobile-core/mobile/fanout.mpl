@@ -93,31 +93,29 @@ fn append_needed_prekeys(database_path :: String,
         now,
         claims,
         index + 1)
+    else if !(device_needs_prekey(database_path, wrapping_key, session_ids, profile)?) do
+      append_needed_prekeys(database_path,
+        wrapping_key,
+        session_ids,
+        profiles,
+        local_device_id,
+        skip_local_device,
+        now,
+        claims,
+        index + 1)
     else
-      if !(device_needs_prekey(database_path, wrapping_key, session_ids, profile)?) do
-        append_needed_prekeys(database_path,
+      case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
+        Err(error)
+        Ok(None) -> Err("invalid_fanout_prekeys")
+        Ok(Some(claim)) -> append_needed_prekeys(database_path,
           wrapping_key,
           session_ids,
           profiles,
           local_device_id,
           skip_local_device,
           now,
-          claims,
+          List.append(claims, claim),
           index + 1)
-      else
-        case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
-          Err(error)
-          Ok(None) -> Err("invalid_fanout_prekeys")
-          Ok(Some(claim)) -> append_needed_prekeys(database_path,
-            wrapping_key,
-            session_ids,
-            profiles,
-            local_device_id,
-            skip_local_device,
-            now,
-            List.append(claims, claim),
-            index + 1)
-        end
       end
     end
   end

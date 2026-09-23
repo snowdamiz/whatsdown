@@ -266,21 +266,20 @@ end
 pub fn presented_body(input :: Bytes) -> Bytes do
   let prefix = Bytes.from_utf8("MORSE-PRESENTATION/1\n")
   if Bytes.length(input) < Bytes.length(prefix) do
-    input
-  else
-    case Bytes.slice(input, 0, Bytes.length(prefix)) do
-      Err(_) -> input
-      Ok(head) -> if !Bytes.secure_equals(head, prefix) do
-        input
-      else
-        case Bytes.slice(input, Bytes.length(prefix), Bytes.length(input) - Bytes.length(prefix)) do
+    return input
+  end
+  case Bytes.slice(input, 0, Bytes.length(prefix)) do
+    Err(_) -> input
+    Ok(head) -> if !Bytes.secure_equals(head, prefix) do
+      input
+    else
+      case Bytes.slice(input, Bytes.length(prefix), Bytes.length(input) - Bytes.length(prefix)) do
+        Err(_) -> input
+        Ok(encoded) -> case decode_presented_message(encoded) do
           Err(_) -> input
-          Ok(encoded) -> case decode_presented_message(encoded) do
-            Err(_) -> input
-            Ok(value) -> do
-              let (body, profile, group, attachment) = value
-              body
-            end
+          Ok(value) -> do
+            let (body, profile, group, attachment) = value
+            body
           end
         end
       end

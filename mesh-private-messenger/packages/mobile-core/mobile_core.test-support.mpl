@@ -142,7 +142,8 @@ from Storage.Records import (
   delete_blobs,
   store_new_session,
   store_updated_blobs,
-  store_updated_session
+  store_updated_session,
+  with_record_transaction
 )
 from Transparency.Merkle import TransparencyCheckpoint
 from Transparency.Wire import decode_checkpoint
@@ -177,42 +178,18 @@ end
 fn store_legacy_prekey_fixture(database_path :: String,
   prekey_label :: String,
   legacy_blob :: Bytes) -> Result<(), String> do
-  case Sqlite.open(database_path) do
-    Err(_) -> Err("database_open_failed")
-    Ok(database) -> do
-      let result = case Sqlite.begin(database) do
-        Err(_) -> Err("database_write_failed")
-        Ok(_) -> case insert_blob(database, "one-time-prekey/v1", legacy_blob) do
-          Err(error)
-          Ok(_) -> case delete_blobs(database,
-            [
-              prekey_label,
-              "one-time-prekeys/v1",
-              "one-time-prekey-active/v1",
-              "one-time-prekey-next-id/v1"
-            ],
-            0) do
-            Err(error)
-            Ok(_) -> case Sqlite.commit(database) do
-              Err(_) -> Err("database_write_failed")
-              Ok(_) -> Ok(nil)
-            end
-          end
-        end
-      end
-      case result do
-        Err(error) -> do
-          Sqlite.rollback(database)
-          Sqlite.close(database)
-          Err(error)
-        end
-        Ok(_) -> do
-          Sqlite.close(database)
-          Ok(nil)
-        end
-      end
-    end
-  end
+  with_record_transaction(database_path,
+    fn (database) do
+      insert_blob(database, "one-time-prekey/v1", legacy_blob)?
+      delete_blobs(database,
+        [
+          prekey_label,
+          "one-time-prekeys/v1",
+          "one-time-prekey-active/v1",
+          "one-time-prekey-next-id/v1"
+        ],
+        0)
+    end)
 end
 
 pub fn install_group_checkpoint_for_test(database_path :: String, encoded :: Bytes) -> Bool!String do

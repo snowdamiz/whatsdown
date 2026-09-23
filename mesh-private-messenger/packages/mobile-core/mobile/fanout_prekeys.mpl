@@ -69,9 +69,20 @@ fn append_missing_prekey_claims(database_path :: String,
         now,
         index + 1,
         claims)
+    else if !(device_needs_prekey(database_path, wrapping_key, session_ids, profile)?) do
+      append_missing_prekey_claims(database_path,
+        wrapping_key,
+        session_ids,
+        profiles,
+        local_device_id,
+        skip_local_device,
+        now,
+        index + 1,
+        claims)
     else
-      if !(device_needs_prekey(database_path, wrapping_key, session_ids, profile)?) do
-        append_missing_prekey_claims(database_path,
+      case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
+        Err(error)
+        Ok(Some(_)) -> append_missing_prekey_claims(database_path,
           wrapping_key,
           session_ids,
           profiles,
@@ -80,10 +91,13 @@ fn append_missing_prekey_claims(database_path :: String,
           now,
           index + 1,
           claims)
-      else
-        case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
-          Err(error)
-          Ok(Some(_)) -> append_missing_prekey_claims(database_path,
+        Ok(None) -> do
+          let claim = case load_fanout_prekey_claim(database_path, wrapping_key, profile) do
+            Err(error)
+            Ok(Some(value)) -> Ok(value)
+            Ok(None) -> create_fanout_prekey_claim(database_path, wrapping_key, profile)
+          end?
+          append_missing_prekey_claims(database_path,
             wrapping_key,
             session_ids,
             profiles,
@@ -91,23 +105,7 @@ fn append_missing_prekey_claims(database_path :: String,
             skip_local_device,
             now,
             index + 1,
-            claims)
-          Ok(None) -> do
-            let claim = case load_fanout_prekey_claim(database_path, wrapping_key, profile) do
-              Err(error)
-              Ok(Some(value)) -> Ok(value)
-              Ok(None) -> create_fanout_prekey_claim(database_path, wrapping_key, profile)
-            end?
-            append_missing_prekey_claims(database_path,
-              wrapping_key,
-              session_ids,
-              profiles,
-              local_device_id,
-              skip_local_device,
-              now,
-              index + 1,
-              List.append(claims, claim))
-          end
+            List.append(claims, claim))
         end
       end
     end

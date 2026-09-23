@@ -491,80 +491,79 @@ fn join_mobile_group(database_path :: String,
   if !Bytes.secure_equals(baseline_hash, welcome.policy.checkpoint_hash) || !local_welcome_member(profile,
     member,
     welcome) || !(transparency_checkpoint_precedes(baseline_checkpoint, current_checkpoint, view)?) do
-    Err("group_welcome_rejected")
-  else
-    case load_blob(database_path, state_label) do
-      Ok(_) -> do
-        let stored_baseline = load_group_baseline(database_path, wrapping_key, group_id)?
-        let existing = load_group(database_path, profile, wrapping_key, group_id)?
-        let existing_valid = Bytes.secure_equals(stored_baseline, baseline_checkpoint) && Bytes.secure_equals(existing.policy.checkpoint_hash,
-          baseline_hash)
-        consume_group_state(existing)
-        if !existing_valid do
-          Err("group_welcome_rejected")
-        else
-          store_updated_session(database_path,
-            "groups/v1",
-            updated_group_index_blob(database_path, wrapping_key, group_id)?)?
-          Ok(group_id)
-        end
-      end
-      Err(error) -> if error != "local_state_not_found" do
-        Err(error)
+    return Err("group_welcome_rejected")
+  end
+  case load_blob(database_path, state_label) do
+    Ok(_) -> do
+      let stored_baseline = load_group_baseline(database_path, wrapping_key, group_id)?
+      let existing = load_group(database_path, profile, wrapping_key, group_id)?
+      let existing_valid = Bytes.secure_equals(stored_baseline, baseline_checkpoint) && Bytes.secure_equals(existing.policy.checkpoint_hash,
+        baseline_hash)
+      consume_group_state(existing)
+      if !existing_valid do
+        Err("group_welcome_rejected")
       else
-        let scope = accepted_invitation_scope(database_path,
+        store_updated_session(database_path,
+          "groups/v1",
+          updated_group_index_blob(database_path, wrapping_key, group_id)?)?
+        Ok(group_id)
+      end
+    end
+    Err(error) -> if error != "local_state_not_found" do
+      Err(error)
+    else
+      let scope = accepted_invitation_scope(database_path,
+        wrapping_key,
+        welcome,
+        baseline_checkpoint)?
+      let package_label = group_join_scoped_label(scope, "package")
+      let init_label = group_join_scoped_label(scope, "init")
+      let leaf_label = group_join_scoped_label(scope, "leaf")
+      let stored_package = decode_group_key_package(open_local(load_blob(database_path,
+          package_label)?,
+        wrapping_key,
+        local_context(package_label)?)?)?
+      let package_signature_valid = case Crypto.verify(SigningPublicKey { bytes: profile.credential.signing_public_key },
+        group_key_package_unsigned(stored_package)?,
+        stored_package.signature) do
+        Err(_) -> false
+        Ok(value) -> value
+      end
+      if !package_signature_valid || !Bytes.secure_equals(stored_package.account_id,
+        profile.account_id) || !Bytes.secure_equals(stored_package.device_id, profile.device_id) || !Bytes.secure_equals(stored_package.init_public_key.bytes,
+        member.init_public_key.bytes) || !Bytes.secure_equals(stored_package.leaf_public_key.bytes,
+        member.leaf_public_key.bytes) || !(transparency_checkpoint_precedes(baseline_checkpoint,
+        stored_package.checkpoint,
+        view)?) || !(transparency_checkpoint_precedes(stored_package.checkpoint,
+        current_checkpoint,
+        view)?) do
+        Err("group_welcome_rejected")
+      else
+        let init_private = open_x25519(load_blob(database_path, init_label)?,
           wrapping_key,
-          welcome,
-          baseline_checkpoint)?
-        let package_label = group_join_scoped_label(scope, "package")
-        let init_label = group_join_scoped_label(scope, "init")
-        let leaf_label = group_join_scoped_label(scope, "leaf")
-        let stored_package = decode_group_key_package(open_local(load_blob(database_path,
-            package_label)?,
+          context(profile.account_id, profile.device_id, init_label, 17)?)?
+        let leaf_private = open_x25519(load_blob(database_path, leaf_label)?,
           wrapping_key,
-          local_context(package_label)?)?)?
-        let package_signature_valid = case Crypto.verify(SigningPublicKey { bytes: profile.credential.signing_public_key },
-          group_key_package_unsigned(stored_package)?,
-          stored_package.signature) do
-          Err(_) -> false
-          Ok(value) -> value
-        end
-        if !package_signature_valid || !Bytes.secure_equals(stored_package.account_id,
-          profile.account_id) || !Bytes.secure_equals(stored_package.device_id, profile.device_id) || !Bytes.secure_equals(stored_package.init_public_key.bytes,
-          member.init_public_key.bytes) || !Bytes.secure_equals(stored_package.leaf_public_key.bytes,
-          member.leaf_public_key.bytes) || !(transparency_checkpoint_precedes(baseline_checkpoint,
-          stored_package.checkpoint,
-          view)?) || !(transparency_checkpoint_precedes(stored_package.checkpoint,
-          current_checkpoint,
-          view)?) do
-          Err("group_welcome_rejected")
-        else
-          let init_private = open_x25519(load_blob(database_path, init_label)?,
-            wrapping_key,
-            context(profile.account_id, profile.device_id, init_label, 17)?)?
-          let leaf_private = open_x25519(load_blob(database_path, leaf_label)?,
-            wrapping_key,
-            context(profile.account_id, profile.device_id, leaf_label, 17)?)?
-          let state = case join_from_welcome(welcome, init_private, leaf_private) do
-            Err(_) -> Err("group_welcome_rejected")
-            Ok(value)
-          end?
-          consume_group_private(init_private)
-          let (label, blob) = group_snapshot_blob(state, profile, wrapping_key)?
-          let index_blob = updated_group_index_blob(database_path, wrapping_key, group_id)?
-          let baseline_label = group_baseline_label(group_id)?
-          let baseline_blob = group_baseline_blob(baseline_checkpoint, wrapping_key, group_id)?
-          store_group_join(database_path,
-            label,
-            blob,
-            index_blob,
-            baseline_label,
-            baseline_blob,
-            package_label,
-            init_label,
-            leaf_label)?
-          Ok(group_id)
-        end
+          context(profile.account_id, profile.device_id, leaf_label, 17)?)?
+        let state = case join_from_welcome(welcome, init_private, leaf_private) do
+          Err(_) -> Err("group_welcome_rejected")
+          Ok(value)
+        end?
+        consume_group_private(init_private)
+        let (label, blob) = group_snapshot_blob(state, profile, wrapping_key)?
+        let index_blob = updated_group_index_blob(database_path, wrapping_key, group_id)?
+        let baseline_label = group_baseline_label(group_id)?
+        let baseline_blob = group_baseline_blob(baseline_checkpoint, wrapping_key, group_id)?
+        store_group_join(database_path,
+          label,
+          blob,
+          index_blob,
+          baseline_label,
+          baseline_blob,
+          package_label,
+          init_label,
+          leaf_label)?
+        Ok(group_id)
       end
     end
   end

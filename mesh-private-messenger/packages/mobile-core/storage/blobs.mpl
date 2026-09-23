@@ -1,30 +1,30 @@
+fn legacy_text(row :: Map<String, DbValue>, column :: String) -> String!String do
+  case Map.get(row, column) do
+    Binary(_) -> Err("invalid_legacy_blob")
+    Null -> Err("invalid_legacy_blob")
+    Text(value) -> Ok(value)
+  end
+end
+
 fn migrate_rows(database :: SqliteConn, rows :: List<Map<String, DbValue>>, index :: Int) -> Result<(), String> do
   if index >= List.length(rows) do
     Ok(nil)
   else
     let row = List.get(rows, index)
-    case Map.get(row, "record_hash") do
-      Binary(_) -> Err("invalid_legacy_blob")
-      Null -> Err("invalid_legacy_blob")
-      Text(record_hash) -> case Map.get(row, "ciphertext") do
-        Binary(_) -> Err("invalid_legacy_blob")
-        Null -> Err("invalid_legacy_blob")
-        Text(encoded) -> case Map.get(row, "updated_at") do
-          Binary(_) -> Err("invalid_legacy_blob")
-          Null -> Err("invalid_legacy_blob")
-          Text(updated_at) -> case Bytes.from_base64(encoded) do
-            Err(_) -> Err("invalid_legacy_blob")
-            Ok(blob) -> if Bytes.length(blob) == 0 || Bytes.to_base64(blob) != encoded do
-              Err("invalid_legacy_blob")
-            else
-              Sqlite.execute_values(database,
-                "INSERT INTO encrypted_blobs_blob_migration (record_hash, ciphertext, updated_at) VALUES (?, ?, ?)",
-                [Text(record_hash), Binary(blob), Text(updated_at)])?
-              migrate_rows(database, rows, index + 1)
-            end
-          end
-        end
-      end
+    let record_hash = legacy_text(row, "record_hash")?
+    let encoded = legacy_text(row, "ciphertext")?
+    let updated_at = legacy_text(row, "updated_at")?
+    let blob = case Bytes.from_base64(encoded) do
+      Err(_) -> Err("invalid_legacy_blob")
+      Ok(value)
+    end?
+    if Bytes.length(blob) == 0 || Bytes.to_base64(blob) != encoded do
+      Err("invalid_legacy_blob")
+    else
+      Sqlite.execute_values(database,
+        "INSERT INTO encrypted_blobs_blob_migration (record_hash, ciphertext, updated_at) VALUES (?, ?, ?)",
+        [Text(record_hash), Binary(blob), Text(updated_at)])?
+      migrate_rows(database, rows, index + 1)
     end
   end
 end

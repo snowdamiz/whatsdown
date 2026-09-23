@@ -34,42 +34,24 @@ fn assert_group_summary(alice_path :: Bytes, group_id :: Bytes) -> Bool!String d
 end
 
 fn assert_group_creator(alice_path :: Bytes, group_id :: Bytes) -> Bool!String do
-  case group_vectors([alice_path, group_id]) do
-    Err(error)
-    Ok(inspect_request) -> case group_inspect_export(inspect_request) do
-      Err(error)
-      Ok(inspect_wire) -> case output_list(inspect_wire) do
-        Err(error)
-        Ok(created_inspect) -> do
-          group_create_ensure(Bytes.secure_equals(List.get(created_inspect, 1), group_id),
-            "inspected group id mismatch")?
-          case output_list(List.get(created_inspect, 6)) do
-            Err(error)
-            Ok(created_members) -> do
-              group_create_ensure(List.length(created_members) == 1, "created group tree mismatch")?
-              case output_list(List.head(created_members)) do
-                Err(error)
-                Ok(first_member) -> case Bytes.from_list([1]) do
-                  Err(_) -> Err("creator marker encoding failed")
-                  Ok(creator_marker) -> do
-                    group_create_ensure(Bytes.secure_equals(List.get(first_member, 2),
-                        creator_marker),
-                      "creator marker mismatch")?
-                    group_create_ensure(List.length(first_member) == 8,
-                      "missing verified member username")?
-                    group_create_ensure(Bytes.secure_equals(List.get(first_member, 7),
-                        Bytes.from_utf8("alice")),
-                      "member username must come from the verified identity")?
-                    Ok(true)
-                  end
-                end
-              end
-            end
-          end
-        end
-      end
-    end
-  end
+  let inspect_request = group_vectors([alice_path, group_id])?
+  let inspect_wire = group_inspect_export(inspect_request)?
+  let created_inspect = output_list(inspect_wire)?
+  group_create_ensure(Bytes.secure_equals(List.get(created_inspect, 1), group_id),
+    "inspected group id mismatch")?
+  let created_members = output_list(List.get(created_inspect, 6))?
+  group_create_ensure(List.length(created_members) == 1, "created group tree mismatch")?
+  let first_member = output_list(List.head(created_members))?
+  let creator_marker = case Bytes.from_list([1]) do
+    Err(_) -> Err("creator marker encoding failed")
+    Ok(value)
+  end?
+  group_create_ensure(Bytes.secure_equals(List.get(first_member, 2), creator_marker),
+    "creator marker mismatch")?
+  group_create_ensure(List.length(first_member) == 8, "missing verified member username")?
+  group_create_ensure(Bytes.secure_equals(List.get(first_member, 7), Bytes.from_utf8("alice")),
+    "member username must come from the verified identity")?
+  Ok(true)
 end
 
 fn assert_created_group(accounts :: GroupAccountFixture, group_id :: Bytes) -> Bool!String do

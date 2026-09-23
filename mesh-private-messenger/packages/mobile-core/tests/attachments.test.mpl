@@ -48,14 +48,12 @@ end
 fn vector_items(input :: Bytes, offset :: Int, items :: List<Bytes>) -> List<Bytes>!String do
   if offset == Bytes.length(input) do
     Ok(items)
+  else if offset + 4 > Bytes.length(input) do
+    Err("vector list decode failed")
   else
-    if offset + 4 > Bytes.length(input) do
-      Err("vector list decode failed")
-    else
-      let length = read_u32_at(input, offset)?
-      let item = slice(input, offset + 4, length)?
-      vector_items(input, offset + 4 + length, List.append(items, item))
-    end
+    let length = read_u32_at(input, offset)?
+    let item = slice(input, offset + 4, length)?
+    vector_items(input, offset + 4 + length, List.append(items, item))
   end
 end
 

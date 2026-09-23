@@ -269,6 +269,15 @@ fn keep_contact_address(database_path :: String,
   end
 end
 
+fn peer_sync_payload(body :: Bytes, local_account_id :: Bytes) -> MobileSyncPayload!String do
+  let sync = parse_sync_payload(body)?
+  if Bytes.secure_equals(sync.peer_account_id, local_account_id) do
+    Err("invalid_sync_payload")
+  else
+    Ok(sync)
+  end
+end
+
 pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String do
   ensure_schema(request.database_path)?
   let local_encode_client_profile = load_profile(request.database_path)?
@@ -447,38 +456,34 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             prekey_blobs)?
           Err("blocked_message")
         else if self_sync do
-          let sync = parse_sync_payload(inner.body)?
-          if Bytes.secure_equals(sync.peer_account_id, local.account_id) do
-            Err("invalid_sync_payload")
-          else
-            let synced_key = ensure_conversation_alias(request.database_path,
-              wrapping_key,
-              local,
-              sync,
-              session_ids)?
-            let synced = sync_history_inner(local, sync, inner.attachment_manifest)?
-            let history_inner = % { synced | conversation_id: synced_key }
-            let index_blob = updated_session_index(request.database_path, wrapping_key, session_id)?
-            let (history_keys, history_blobs) = updated_history(request.database_path,
-              wrapping_key,
-              history_inner,
-              1)?
-            # A sibling device could only send this once the request was accepted there.
-            let (accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
-              wrapping_key,
-              sync.peer_account_id,
-              session_ids)?
-            store_received_session(request.database_path,
-              label,
-              session_blob,
-              index_blob,
-              List.concat(history_keys, accepted_labels),
-              List.concat(history_blobs, accepted_blobs),
-              removed_labels,
-              prekey_labels,
-              prekey_blobs)?
-            Ok(presented_body(history_inner.body))
-          end
+          let sync = peer_sync_payload(inner.body, local.account_id)?
+          let synced_key = ensure_conversation_alias(request.database_path,
+            wrapping_key,
+            local,
+            sync,
+            session_ids)?
+          let synced = sync_history_inner(local, sync, inner.attachment_manifest)?
+          let history_inner = % { synced | conversation_id: synced_key }
+          let index_blob = updated_session_index(request.database_path, wrapping_key, session_id)?
+          let (history_keys, history_blobs) = updated_history(request.database_path,
+            wrapping_key,
+            history_inner,
+            1)?
+          # A sibling device could only send this once the request was accepted there.
+          let (accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
+            wrapping_key,
+            sync.peer_account_id,
+            session_ids)?
+          store_received_session(request.database_path,
+            label,
+            session_blob,
+            index_blob,
+            List.concat(history_keys, accepted_labels),
+            List.concat(history_blobs, accepted_blobs),
+            removed_labels,
+            prekey_labels,
+            prekey_blobs)?
+          Ok(presented_body(history_inner.body))
         else if inner.message_type == 3 || inner.message_type == 4 do
           let (labels, blobs) = received_invitation_writes(request.database_path,
             wrapping_key,
@@ -706,33 +711,29 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
               List.append(blobs, session_blob))?
             Ok(Bytes.empty())
           else if self_sync do
-            let sync = parse_sync_payload(inner.body)?
-            if Bytes.secure_equals(sync.peer_account_id, local.account_id) do
-              Err("invalid_sync_payload")
-            else
-              let synced_key = ensure_conversation_alias(request.database_path,
-                wrapping_key,
-                local,
-                sync,
-                session_ids)?
-              let synced = sync_history_inner(local, sync, inner.attachment_manifest)?
-              let history_inner = % { synced | conversation_id: synced_key }
-              let (history_keys, history_blobs) = updated_history(request.database_path,
-                wrapping_key,
-                history_inner,
-                1)?
-              # A sibling device could only send this once the request was accepted there.
-              let (accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
-                wrapping_key,
-                sync.peer_account_id,
-                session_ids)?
-              store_updated_session_and_history(request.database_path,
-                loaded.label,
-                session_blob,
-                List.concat(history_keys, accepted_labels),
-                List.concat(history_blobs, accepted_blobs))?
-              Ok(presented_body(history_inner.body))
-            end
+            let sync = peer_sync_payload(inner.body, local.account_id)?
+            let synced_key = ensure_conversation_alias(request.database_path,
+              wrapping_key,
+              local,
+              sync,
+              session_ids)?
+            let synced = sync_history_inner(local, sync, inner.attachment_manifest)?
+            let history_inner = % { synced | conversation_id: synced_key }
+            let (history_keys, history_blobs) = updated_history(request.database_path,
+              wrapping_key,
+              history_inner,
+              1)?
+            # A sibling device could only send this once the request was accepted there.
+            let (accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
+              wrapping_key,
+              sync.peer_account_id,
+              session_ids)?
+            store_updated_session_and_history(request.database_path,
+              loaded.label,
+              session_blob,
+              List.concat(history_keys, accepted_labels),
+              List.concat(history_blobs, accepted_blobs))?
+            Ok(presented_body(history_inner.body))
           else
             let (history_keys, history_blobs) = updated_history(request.database_path,
               wrapping_key,

@@ -8,13 +8,11 @@ from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
 fn insert_blobs(database :: SqliteConn, labels :: List<String>, blobs :: List<Bytes>, index :: Int) -> Result<(), String> do
   if List.length(labels) != List.length(blobs) do
     Err("invalid_local_state")
+  else if index >= List.length(labels) do
+    Ok(nil)
   else
-    if index >= List.length(labels) do
-      Ok(nil)
-    else
-      insert_blob(database, List.get(labels, index), List.get(blobs, index))?
-      insert_blobs(database, labels, blobs, index + 1)
-    end
+    insert_blob(database, List.get(labels, index), List.get(blobs, index))?
+    insert_blobs(database, labels, blobs, index + 1)
   end
 end
 
@@ -318,7 +316,7 @@ end
 
 ## The callback's `?` returns here, so rollback and close run for every outcome.
 
-fn with_record_transaction(path :: String, operation :: Fun(SqliteConn) -> Result<(), String>) -> Result<(), String> do
+pub fn with_record_transaction(path :: String, operation :: Fun(SqliteConn) -> Result<(), String>) -> Result<(), String> do
   let database = case Sqlite.open(path) do
     Err(_) -> Err("database_open_failed")
     Ok(value)
