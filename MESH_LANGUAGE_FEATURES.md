@@ -215,6 +215,7 @@ when a higher-level API does not express locking, binary values, or atomicity.
 | Secure test fixtures | In-memory secure store and push token fixtures use the production host callback frames; cleaned between tests. |
 | Build/init/deps | `meshc build`, `init`, `deps`; native binaries, libraries, optional LLVM IR, JSON diagnostics, target/optimization selection. |
 | Formatting | `meshc fmt PATH`, `--check`, `--line-width`, `--indent-size`; shared formatter also serves the LSP. |
+| Linting | `meshc lint PATH`: control flow nested more than four levels, an `else` holding only an `if`, arms that repeat their pattern, comparisons with `true`/`false`. CI runs it over `mesh-private-messenger` and fails on any finding. |
 | Test runner | `meshc test PATH`, project/directory/file selection, `--quiet`; coverage is explicitly unsupported. |
 | Interactive/editor | LLVM-backed `meshc repl`, `meshc lsp`, VS Code and Neovim support. |
 | Operations | `meshc migrate`, `cluster`, `proof`, `update`. |

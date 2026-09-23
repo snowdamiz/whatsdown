@@ -7,7 +7,7 @@ service MessengerRegistry do
     RegistryState { pool: pool }
   end
 
-  call GetPool() :: PoolHandle do|state|
+  call GetPool() :: PoolHandle do |state|
     (state, state.pool)
   end
 end

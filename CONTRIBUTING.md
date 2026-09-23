@@ -4,6 +4,7 @@ Morse exists to prove that a private messenger can be implemented through
 public Mesh language and runtime capabilities. Start behavioral changes with a
 focused failing test, make the smallest change that passes it, and run the
 relevant Mesh and messenger verification before submitting the change.
+`meshc lint mesh-private-messenger` must report nothing; CI blocks on it.
 
 Use [the Mesh feature inventory](MESH_LANGUAGE_FEATURES.md) when writing or
 refactoring `.mpl` code. Prefer supported language and library features over

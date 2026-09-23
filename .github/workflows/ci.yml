@@ -143,6 +143,10 @@ jobs:
           cargo test -p mesh-codegen --lib --locked
           cargo build --locked -p meshc -p mesh-rt -p mesh-test-rt
 
+      - name: Lint Mesh sources
+        timeout-minutes: 5
+        run: ./target/debug/meshc lint ../mesh-private-messenger
+
       - name: Verify Mesh messenger packages
         timeout-minutes: 30
         run: |
