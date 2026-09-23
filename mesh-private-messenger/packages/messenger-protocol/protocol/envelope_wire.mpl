@@ -23,20 +23,14 @@ from Protocol.V1 import InnerEnvelope, OuterEnvelope, ProtocolError, protocol_se
 fn validate_inner_envelope(value :: InnerEnvelope) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
+  else if Bytes.length(value.sender_account_id) != 32 || Bytes.length(value.sender_device_id) != 16 || Bytes.length(value.recipient_device_id) != 16 || Bytes.length(value.conversation_id) != 16 || Bytes.length(value.client_message_id) != 16 || !(Bytes.length(value.reply_reference) == 0 || Bytes.length(value.reply_reference) == 16) do
+    Err(InvalidFieldLength)
+  else if Bytes.length(value.body) > 32768 || Bytes.length(value.attachment_manifest) > 16384 do
+    Err(OversizedInput)
+  else if value.message_type <= 0 || value.message_type > 65535 || value.receipt_policy < 0 || value.receipt_policy > 2 || value.disappearing_seconds < 0 || value.disappearing_seconds > 4294967295 do
+    Err(InvalidPolicy)
   else
-    if Bytes.length(value.sender_account_id) != 32 || Bytes.length(value.sender_device_id) != 16 || Bytes.length(value.recipient_device_id) != 16 || Bytes.length(value.conversation_id) != 16 || Bytes.length(value.client_message_id) != 16 || !(Bytes.length(value.reply_reference) == 0 || Bytes.length(value.reply_reference) == 16) do
-      Err(InvalidFieldLength)
-    else
-      if Bytes.length(value.body) > 32768 || Bytes.length(value.attachment_manifest) > 16384 do
-        Err(OversizedInput)
-      else
-        if value.message_type <= 0 || value.message_type > 65535 || value.receipt_policy < 0 || value.receipt_policy > 2 || value.disappearing_seconds < 0 || value.disappearing_seconds > 4294967295 do
-          Err(InvalidPolicy)
-        else
-          protocol_validate_extensions(value.extensions, 0, 0)
-        end
-      end
-    end
+    protocol_validate_extensions(value.extensions, 0, 0)
   end
 end
 
@@ -127,20 +121,14 @@ end
 fn validate_outer(value :: OuterEnvelope) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
+  else if !supported_outer_suite(value.suite) do
+    Err(UnsupportedSuite)
+  else if Bytes.length(value.envelope_id) != 16 || Bytes.length(value.mailbox_token) != 32 do
+    Err(InvalidFieldLength)
+  else if !supported_bucket(value.padding_bucket) || Bytes.length(value.ciphertext) > value.padding_bucket do
+    Err(InvalidPaddingBucket)
   else
-    if !supported_outer_suite(value.suite) do
-      Err(UnsupportedSuite)
-    else
-      if Bytes.length(value.envelope_id) != 16 || Bytes.length(value.mailbox_token) != 32 do
-        Err(InvalidFieldLength)
-      else
-        if !supported_bucket(value.padding_bucket) || Bytes.length(value.ciphertext) > value.padding_bucket do
-          Err(InvalidPaddingBucket)
-        else
-          Ok(nil)
-        end
-      end
-    end
+    Ok(nil)
   end
 end
 

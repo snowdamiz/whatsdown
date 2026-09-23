@@ -42,20 +42,18 @@ end
 fn mailbox_fetch_content(value :: MailboxFetch) -> Bytes!ProtocolError do
   if value.version != 2 do
     Err(UnsupportedVersion)
+  else if Bytes.length(value.mailbox_token_hash) != 32 do
+    Err(InvalidFieldLength)
   else
-    if Bytes.length(value.mailbox_token_hash) != 32 do
-      Err(InvalidFieldLength)
-    else
-      protocol_join([
-          protocol_byte(value.version)?,
-          Bytes.from_utf8("FET"),
-          value.mailbox_token_hash,
-          protocol_write_u64(value.after_sequence)?,
-          protocol_write_u64(value.issued_at)?
-        ],
-        0,
-        Bytes.empty())
-    end
+    protocol_join([
+        protocol_byte(value.version)?,
+        Bytes.from_utf8("FET"),
+        value.mailbox_token_hash,
+        protocol_write_u64(value.after_sequence)?,
+        protocol_write_u64(value.issued_at)?
+      ],
+      0,
+      Bytes.empty())
   end
 end
 
@@ -112,13 +110,11 @@ end
 fn validate_delivery_entries(values :: List<DeliveredEnvelope>, index :: Int) -> Result<(), ProtocolError> do
   if List.length(values) > 8 do
     Err(OversizedInput)
+  else if index >= List.length(values) do
+    Ok(nil)
   else
-    if index >= List.length(values) do
-      Ok(nil)
-    else
-      decode_outer_envelope(List.get(values, index).envelope)?
-      validate_delivery_entries(values, index + 1)
-    end
+    decode_outer_envelope(List.get(values, index).envelope)?
+    validate_delivery_entries(values, index + 1)
   end
 end
 
@@ -192,16 +188,12 @@ end
 fn validate_ack_ids(values :: List<Bytes>, index :: Int) -> Result<(), ProtocolError> do
   if List.length(values) == 0 || List.length(values) > 8 do
     Err(InvalidFieldLength)
+  else if index >= List.length(values) do
+    Ok(nil)
+  else if Bytes.length(List.get(values, index)) != 16 do
+    Err(InvalidFieldLength)
   else
-    if index >= List.length(values) do
-      Ok(nil)
-    else
-      if Bytes.length(List.get(values, index)) != 16 do
-        Err(InvalidFieldLength)
-      else
-        validate_ack_ids(values, index + 1)
-      end
-    end
+    validate_ack_ids(values, index + 1)
   end
 end
 
@@ -218,23 +210,21 @@ end
 fn mailbox_ack_content(value :: MailboxAck) -> Bytes!ProtocolError do
   if value.version != 2 do
     Err(UnsupportedVersion)
+  else if Bytes.length(value.mailbox_token_hash) != 32 do
+    Err(InvalidFieldLength)
   else
-    if Bytes.length(value.mailbox_token_hash) != 32 do
-      Err(InvalidFieldLength)
-    else
-      validate_ack_ids(value.envelope_ids, 0)?
-      encode_ack_ids(value.envelope_ids,
+    validate_ack_ids(value.envelope_ids, 0)?
+    encode_ack_ids(value.envelope_ids,
+      0,
+      protocol_join([
+          protocol_byte(value.version)?,
+          Bytes.from_utf8("ACK"),
+          value.mailbox_token_hash,
+          protocol_write_u64(value.issued_at)?,
+          protocol_byte(List.length(value.envelope_ids))?
+        ],
         0,
-        protocol_join([
-            protocol_byte(value.version)?,
-            Bytes.from_utf8("ACK"),
-            value.mailbox_token_hash,
-            protocol_write_u64(value.issued_at)?,
-            protocol_byte(List.length(value.envelope_ids))?
-          ],
-          0,
-          Bytes.empty())?)
-    end
+        Bytes.empty())?)
   end
 end
 

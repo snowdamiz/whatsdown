@@ -22,12 +22,10 @@ from Protocol.V1 import AccountIdentity, DeviceCredential, ProtocolError, protoc
 fn validate_account(value :: AccountIdentity) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
+  else if Bytes.length(value.account_id) != 32 || Bytes.length(value.authorization_public_key) != 32 do
+    Err(InvalidFieldLength)
   else
-    if Bytes.length(value.account_id) != 32 || Bytes.length(value.authorization_public_key) != 32 do
-      Err(InvalidFieldLength)
-    else
-      protocol_validate_extensions(value.extensions, 0, 0)
-    end
+    protocol_validate_extensions(value.extensions, 0, 0)
   end
 end
 
@@ -78,28 +76,22 @@ end
 fn validate_credential(value :: DeviceCredential) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
+  else if !protocol_supported_suite(value.suite) do
+    Err(UnsupportedSuite)
   else
-    if !protocol_supported_suite(value.suite) do
-      Err(UnsupportedSuite)
+    let post_quantum_length = if value.suite == 2 do
+      1184
     else
-      if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.dh_public_key) != 32 || Bytes.length(value.signature) != 64 do
-        Err(InvalidFieldLength)
-      else
-        let post_quantum_length = if value.suite == 2 do
-          1184
-        else
-          0
-        end
-        if Bytes.length(value.post_quantum_public_key) != post_quantum_length do
-          Err(InvalidFieldLength)
-        else
-          if U64.compare(value.expires_at, value.created_at) < 0 do
-            Err(InvalidExpiration)
-          else
-            Ok(nil)
-          end
-        end
-      end
+      0
+    end
+    if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.dh_public_key) != 32 || Bytes.length(value.signature) != 64 do
+      Err(InvalidFieldLength)
+    else if Bytes.length(value.post_quantum_public_key) != post_quantum_length do
+      Err(InvalidFieldLength)
+    else if U64.compare(value.expires_at, value.created_at) < 0 do
+      Err(InvalidExpiration)
+    else
+      Ok(nil)
     end
   end
 end

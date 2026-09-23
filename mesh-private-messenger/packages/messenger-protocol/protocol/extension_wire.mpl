@@ -62,24 +62,18 @@ pub fn protocol_validate_extensions(values :: List<ProtocolExtension>,
   previous_id :: Int) -> Result<(), ProtocolError> do
   if List.length(values) > 16 do
     Err(TooManyExtensions)
+  else if index >= List.length(values) do
+    Ok(nil)
   else
-    if index >= List.length(values) do
-      Ok(nil)
+    let extension = List.get(values, index)
+    if extension.id <= previous_id || extension.id > 65535 do
+      Err(NonCanonicalEncoding)
+    else if extension.mandatory do
+      Err(UnknownMandatoryExtension)
+    else if Bytes.length(extension.value) > 1024 do
+      Err(InvalidExtension)
     else
-      let extension = List.get(values, index)
-      if extension.id <= previous_id || extension.id > 65535 do
-        Err(NonCanonicalEncoding)
-      else
-        if extension.mandatory do
-          Err(UnknownMandatoryExtension)
-        else
-          if Bytes.length(extension.value) > 1024 do
-            Err(InvalidExtension)
-          else
-            protocol_validate_extensions(values, index + 1, extension.id)
-          end
-        end
-      end
+      protocol_validate_extensions(values, index + 1, extension.id)
     end
   end
 end
@@ -125,26 +119,22 @@ fn read_extension_entries(state :: BinaryReader,
     let flag = protocol_take_u8(id.state)?
     if id.value <= previous_id do
       Err(NonCanonicalEncoding)
+    else if flag.value == 1 do
+      Err(UnknownMandatoryExtension)
+    else if flag.value != 0 do
+      Err(InvalidExtension)
     else
-      if flag.value == 1 do
-        Err(UnknownMandatoryExtension)
-      else
-        if flag.value != 0 do
-          Err(InvalidExtension)
-        else
-          let value = protocol_take_vector(flag.state, 1024)?
-          read_extension_entries(value.state,
-            count,
-            index + 1,
-            id.value,
-            List.append(output,
-              ProtocolExtension {
-                id: id.value,
-                mandatory: false,
-                value: value.value
-              }))
-        end
-      end
+      let value = protocol_take_vector(flag.state, 1024)?
+      read_extension_entries(value.state,
+        count,
+        index + 1,
+        id.value,
+        List.append(output,
+          ProtocolExtension {
+            id: id.value,
+            mandatory: false,
+            value: value.value
+          }))
     end
   end
 end

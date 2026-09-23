@@ -171,16 +171,12 @@ pub fn decode_packet(input :: Bytes) -> TransportPacket!String do
   end?
   if version.value != 1 || !Bytes.secure_equals(magic.value, Bytes.from_utf8("M8P")) || Bytes.length(message.value) == 0 do
     Err("invalid transport packet")
+  else if kind.value == 1 && Bytes.length(account.value) > 0 && Bytes.length(message.value) <= 48800 do
+    Ok(InitialPacket(account.value, message.value))
+  else if kind.value == 2 && Bytes.length(account.value) == 0 do
+    Ok(RatchetPacket(message.value))
   else
-    if kind.value == 1 && Bytes.length(account.value) > 0 && Bytes.length(message.value) <= 48800 do
-      Ok(InitialPacket(account.value, message.value))
-    else
-      if kind.value == 2 && Bytes.length(account.value) == 0 do
-        Ok(RatchetPacket(message.value))
-      else
-        Err("invalid transport packet")
-      end
-    end
+    Err("invalid transport packet")
   end
 end
 
@@ -231,7 +227,7 @@ pub fn open_initial_packet(input :: Bytes, recipient :: borrow X25519PrivateKey)
       Ok(value)
     end?
     case decode_packet(unpad_message(plaintext, 52)?) do
-      Ok(InitialPacket(account, message)) -> Ok(InitialPacket(account, message))
+      Ok(InitialPacket(account, message))
       _ -> Err("invalid sealed initial packet")
     end
   end

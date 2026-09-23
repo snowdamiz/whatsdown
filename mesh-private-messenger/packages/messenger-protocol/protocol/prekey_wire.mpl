@@ -29,46 +29,41 @@ from Protocol.V1 import PrekeyBundle, ProtocolError, protocol_contains_suite, pr
 fn validate_prekey_bundle(value :: PrekeyBundle) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
+  else if !protocol_supported_suite(value.suite) do
+    Err(UnsupportedSuite)
   else
-    if !protocol_supported_suite(value.suite) do
-      Err(UnsupportedSuite)
+    let credential_length = if value.suite == 2 do
+      1395
     else
-      let credential_length = if value.suite == 2 do
-        1395
+      211
+    end
+    let post_quantum_length = if value.suite == 2 do
+      1184
+    else
+      0
+    end
+    if Bytes.length(value.device_credential) != credential_length || Bytes.length(value.identity_dh_public_key) != 32 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.signed_prekey) != 32 || Bytes.length(value.signed_prekey_signature) != 64 || Bytes.length(value.post_quantum_prekey) != post_quantum_length do
+      Err(InvalidFieldLength)
+    else if protocol_is_zero(value.signed_prekey_id) || !(Bytes.length(value.one_time_prekey) == 0 || Bytes.length(value.one_time_prekey) == 32) do
+      Err(InvalidFieldLength)
+    else if (Bytes.length(value.one_time_prekey) == 0 && !protocol_is_zero(value.one_time_prekey_id)) || (Bytes.length(value.one_time_prekey) == 32 && protocol_is_zero(value.one_time_prekey_id)) do
+      Err(InvalidFieldLength)
+    else
+      protocol_validate_suite_list(value.supported_suites, 0)?
+      if !protocol_contains_suite(value.supported_suites, value.suite, 0) do
+        Err(UnsupportedSuite)
       else
-        211
-      end
-      let post_quantum_length = if value.suite == 2 do
-        1184
-      else
-        0
-      end
-      if Bytes.length(value.device_credential) != credential_length || Bytes.length(value.identity_dh_public_key) != 32 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.signed_prekey) != 32 || Bytes.length(value.signed_prekey_signature) != 64 || Bytes.length(value.post_quantum_prekey) != post_quantum_length do
-        Err(InvalidFieldLength)
-      else
-        if protocol_is_zero(value.signed_prekey_id) || !(Bytes.length(value.one_time_prekey) == 0 || Bytes.length(value.one_time_prekey) == 32) do
-          Err(InvalidFieldLength)
+        let credential = case decode_device_credential(value.device_credential) do
+          Err(_) -> Err(MalformedEncoding)
+          Ok(credential)
+        end?
+        if credential.suite != value.suite || !Bytes.secure_equals(credential.signing_public_key,
+          value.signing_public_key) || !Bytes.secure_equals(credential.dh_public_key,
+          value.identity_dh_public_key) || !Bytes.secure_equals(credential.post_quantum_public_key,
+          value.post_quantum_prekey) do
+          Err(MalformedEncoding)
         else
-          if (Bytes.length(value.one_time_prekey) == 0 && !protocol_is_zero(value.one_time_prekey_id)) || (Bytes.length(value.one_time_prekey) == 32 && protocol_is_zero(value.one_time_prekey_id)) do
-            Err(InvalidFieldLength)
-          else
-            protocol_validate_suite_list(value.supported_suites, 0)?
-            if !protocol_contains_suite(value.supported_suites, value.suite, 0) do
-              Err(UnsupportedSuite)
-            else
-              case decode_device_credential(value.device_credential) do
-                Err(_) -> Err(MalformedEncoding)
-                Ok(credential) -> if credential.suite != value.suite || !Bytes.secure_equals(credential.signing_public_key,
-                  value.signing_public_key) || !Bytes.secure_equals(credential.dh_public_key,
-                  value.identity_dh_public_key) || !Bytes.secure_equals(credential.post_quantum_public_key,
-                  value.post_quantum_prekey) do
-                  Err(MalformedEncoding)
-                else
-                  protocol_validate_extensions(value.extensions, 0, 0)
-                end
-              end
-            end
-          end
+          protocol_validate_extensions(value.extensions, 0, 0)
         end
       end
     end

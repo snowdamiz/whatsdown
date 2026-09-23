@@ -227,20 +227,16 @@ end
 pub fn protocol_validate_suite_list(values :: List<Int>, index :: Int) -> Result<(), ProtocolError> do
   if List.length(values) == 0 || List.length(values) > 8 do
     Err(InvalidSuiteList)
+  else if index >= List.length(values) do
+    Ok(nil)
   else
-    if index >= List.length(values) do
-      Ok(nil)
+    let suite = List.get(values, index)
+    if protocol_contains_suite(values, suite, index + 1) do
+      Err(DuplicateSuite)
+    else if !protocol_supported_suite(suite) do
+      Err(UnsupportedSuite)
     else
-      let suite = List.get(values, index)
-      if protocol_contains_suite(values, suite, index + 1) do
-        Err(DuplicateSuite)
-      else
-        if !protocol_supported_suite(suite) do
-          Err(UnsupportedSuite)
-        else
-          protocol_validate_suite_list(values, index + 1)
-        end
-      end
+      protocol_validate_suite_list(values, index + 1)
     end
   end
 end

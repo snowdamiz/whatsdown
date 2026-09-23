@@ -26,24 +26,20 @@ from Protocol.V1 import HandshakeTranscript, InitialMessage, ProtocolError, prot
 fn validate_handshake_transcript(value :: HandshakeTranscript) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
+  else if !protocol_supported_suite(value.suite) do
+    Err(UnsupportedSuite)
   else
-    if !protocol_supported_suite(value.suite) do
-      Err(UnsupportedSuite)
+    let post_quantum_length = if value.suite == 2 do
+      1184
     else
-      let post_quantum_length = if value.suite == 2 do
-        1184
-      else
-        0
-      end
-      if Bytes.length(value.initiator_credential_hash) != 32 || Bytes.length(value.responder_prekey_bundle_hash) != 32 || Bytes.length(value.initiator_ephemeral_public_key) != 32 || Bytes.length(value.responder_signed_prekey) != 32 || Bytes.length(value.responder_post_quantum_prekey) != post_quantum_length || protocol_is_zero(value.signed_prekey_id) || !(Bytes.length(value.responder_one_time_prekey) == 0 || Bytes.length(value.responder_one_time_prekey) == 32) do
-        Err(InvalidFieldLength)
-      else
-        if (Bytes.length(value.responder_one_time_prekey) == 0 && !protocol_is_zero(value.one_time_prekey_id)) || (Bytes.length(value.responder_one_time_prekey) == 32 && protocol_is_zero(value.one_time_prekey_id)) do
-          Err(InvalidFieldLength)
-        else
-          protocol_validate_extensions(value.extensions, 0, 0)
-        end
-      end
+      0
+    end
+    if Bytes.length(value.initiator_credential_hash) != 32 || Bytes.length(value.responder_prekey_bundle_hash) != 32 || Bytes.length(value.initiator_ephemeral_public_key) != 32 || Bytes.length(value.responder_signed_prekey) != 32 || Bytes.length(value.responder_post_quantum_prekey) != post_quantum_length || protocol_is_zero(value.signed_prekey_id) || !(Bytes.length(value.responder_one_time_prekey) == 0 || Bytes.length(value.responder_one_time_prekey) == 32) do
+      Err(InvalidFieldLength)
+    else if (Bytes.length(value.responder_one_time_prekey) == 0 && !protocol_is_zero(value.one_time_prekey_id)) || (Bytes.length(value.responder_one_time_prekey) == 32 && protocol_is_zero(value.one_time_prekey_id)) do
+      Err(InvalidFieldLength)
+    else
+      protocol_validate_extensions(value.extensions, 0, 0)
     end
   end
 end
@@ -118,37 +114,31 @@ end
 fn validate_initial_message(value :: InitialMessage) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
+  else if !protocol_supported_suite(value.suite) do
+    Err(UnsupportedSuite)
   else
-    if !protocol_supported_suite(value.suite) do
-      Err(UnsupportedSuite)
+    let post_quantum_length = if value.suite == 2 do
+      1088
     else
-      let post_quantum_length = if value.suite == 2 do
-        1088
-      else
-        0
-      end
-      let credential_length = Bytes.length(value.initiator_credential)
-      let invalid_credential_length = !(credential_length == 211 || credential_length == 1395)
-      let invalid_lengths = invalid_credential_length || Bytes.length(value.initiator_identity_public_key.bytes) != 32 || Bytes.length(value.initiator_ephemeral_public_key.bytes) != 32 || Bytes.length(value.post_quantum_ciphertext) != post_quantum_length || Bytes.length(value.transcript_hash) != 32 || Bytes.length(value.nonce) != 12
-      if invalid_lengths || protocol_is_zero(value.signed_prekey_id) || protocol_is_zero(value.one_time_prekey_id) do
-        Err(InvalidFieldLength)
-      else
-        if Bytes.length(value.ciphertext) < 16 do
-          Err(InvalidFieldLength)
+      0
+    end
+    let credential_length = Bytes.length(value.initiator_credential)
+    let invalid_credential_length = !(credential_length == 211 || credential_length == 1395)
+    let invalid_lengths = invalid_credential_length || Bytes.length(value.initiator_identity_public_key.bytes) != 32 || Bytes.length(value.initiator_ephemeral_public_key.bytes) != 32 || Bytes.length(value.post_quantum_ciphertext) != post_quantum_length || Bytes.length(value.transcript_hash) != 32 || Bytes.length(value.nonce) != 12
+    let maximum_ciphertext = 65398 - credential_length - post_quantum_length
+    if invalid_lengths || protocol_is_zero(value.signed_prekey_id) || protocol_is_zero(value.one_time_prekey_id) do
+      Err(InvalidFieldLength)
+    else if Bytes.length(value.ciphertext) < 16 do
+      Err(InvalidFieldLength)
+    else if Bytes.length(value.ciphertext) > maximum_ciphertext do
+      Err(OversizedInput)
+    else
+      case decode_device_credential(value.initiator_credential) do
+        Err(_) -> Err(MalformedEncoding)
+        Ok(credential) -> if value.suite == 2 && credential.suite != 2 do
+          Err(UnsupportedSuite)
         else
-          let maximum_ciphertext = 65398 - credential_length - post_quantum_length
-          if Bytes.length(value.ciphertext) > maximum_ciphertext do
-            Err(OversizedInput)
-          else
-            case decode_device_credential(value.initiator_credential) do
-              Err(_) -> Err(MalformedEncoding)
-              Ok(credential) -> if value.suite == 2 && credential.suite != 2 do
-                Err(UnsupportedSuite)
-              else
-                Ok(nil)
-              end
-            end
-          end
+          Ok(nil)
         end
       end
     end

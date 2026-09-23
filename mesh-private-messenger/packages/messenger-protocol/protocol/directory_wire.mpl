@@ -313,12 +313,10 @@ fn validate_device_entries(value :: DeviceSet, index :: Int) -> Result<(), Proto
     if entry.username != value.username || !Bytes.secure_equals(entry.account_identity,
       value.account_identity) do
       Err(InvalidPolicy)
+    else if contains_mailbox(value.devices, entry.mailbox_token, index + 1) do
+      Err(NonCanonicalEncoding)
     else
-      if contains_mailbox(value.devices, entry.mailbox_token, index + 1) do
-        Err(NonCanonicalEncoding)
-      else
-        validate_device_entries(value, index + 1)
-      end
+      validate_device_entries(value, index + 1)
     end
   end
 end
