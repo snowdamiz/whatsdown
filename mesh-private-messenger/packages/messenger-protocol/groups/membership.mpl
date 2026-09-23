@@ -144,70 +144,75 @@ fn initial_transcript(group_id :: Bytes,
     Bytes.empty())?))
 end
 
+fn validate_creator(creator :: GroupMember,
+  leaf_private_key :: borrow X25519PrivateKey,
+  extensions :: List<Int>,
+  policy :: GroupTransparencyPolicy) -> Result<(), GroupError> do
+  if !group_valid_extensions(extensions, 0, 0) do
+    return Err(InvalidGroup)
+  end
+  group_validate_member_policy(creator, extensions, policy)?
+  let public_key = case Crypto.x25519_public(leaf_private_key) do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value)
+  end?
+  if Bytes.secure_equals(public_key.bytes, creator.leaf_public_key.bytes) do
+    Ok(nil)
+  else
+    Err(AuthenticationRejected)
+  end
+end
+
 pub fn create_group(creator :: GroupMember,
   leaf_private_key :: consume X25519PrivateKey,
   extensions :: List<Int>,
   policy :: GroupTransparencyPolicy) -> GroupState!GroupError do
-  if !group_valid_extensions(extensions, 0, 0) do
-    group_destroy_private(leaf_private_key)
-    Err(InvalidGroup)
-  else
-    case group_validate_member_policy(creator, extensions, policy) do
-      Err(error) -> do
+  case validate_creator(creator, leaf_private_key, extensions, policy) do
+    Err(error) -> do
+      group_destroy_private(leaf_private_key)
+      Err(error)
+    end
+    Ok(_) -> do
+      let group_id = case Crypto.random_bytes(32) do
+        Err(error) -> Err(CryptoFailure(error))
+        Ok(value)
+      end?
+      let secret = case Secret.random(32) do
+        Err(error) -> Err(CryptoFailure(error))
+        Ok(value)
+      end?
+      let inserted = case insert_member(case empty_tree() do
+          Err(error) -> Err(TreeFailure(error))
+          Ok(value)
+        end?,
+        creator) do
+        Err(error) -> Err(TreeFailure(error))
+        Ok(value)
+      end?
+      let (tree, creator_leaf) = inserted
+      if creator_leaf != 0 do
         group_destroy_private(leaf_private_key)
-        Err(error)
-      end
-      Ok(_) -> case Crypto.x25519_public(leaf_private_key) do
-        Err(error) -> do
-          group_destroy_private(leaf_private_key)
-          Err(CryptoFailure(error))
-        end
-        Ok(public_key) -> if !Bytes.secure_equals(public_key.bytes, creator.leaf_public_key.bytes) do
-          group_destroy_private(leaf_private_key)
-          Err(AuthenticationRejected)
-        else
-          let group_id = case Crypto.random_bytes(32) do
-            Err(error) -> Err(CryptoFailure(error))
-            Ok(value)
-          end?
-          let secret = case Secret.random(32) do
-            Err(error) -> Err(CryptoFailure(error))
-            Ok(value)
-          end?
-          let inserted = case insert_member(case empty_tree() do
-              Err(error) -> Err(TreeFailure(error))
-              Ok(value)
-            end?,
-            creator) do
-            Err(error) -> Err(TreeFailure(error))
-            Ok(value)
-          end?
-          let (tree, creator_leaf) = inserted
-          if creator_leaf != 0 do
-            group_destroy_private(leaf_private_key)
-            Secret.destroy(secret)
-            Err(InvalidGroup)
-          else
-            Ok(GroupState {
-              version: 2,
-              suite: 3,
-              group_id: group_id,
-              epoch: group_zero()?,
-              tree: tree,
-              tree_hash_cache: tree_hash(tree),
-              transcript_hash: initial_transcript(group_id, tree, extensions, policy)?,
-              key_material: group_initialize_epoch(group_base_key_material(secret, leaf_private_key)?,
-                group_id,
-                tree)?,
-              local_leaf: 0,
-              next_generation: 0,
-              received_generations: List.new(),
-              extensions: extensions,
-              policy: policy,
-              snapshot_version: group_zero()?
-            })
-          end
-        end
+        Secret.destroy(secret)
+        Err(InvalidGroup)
+      else
+        Ok(GroupState {
+          version: 2,
+          suite: 3,
+          group_id: group_id,
+          epoch: group_zero()?,
+          tree: tree,
+          tree_hash_cache: tree_hash(tree),
+          transcript_hash: initial_transcript(group_id, tree, extensions, policy)?,
+          key_material: group_initialize_epoch(group_base_key_material(secret, leaf_private_key)?,
+            group_id,
+            tree)?,
+          local_leaf: 0,
+          next_generation: 0,
+          received_generations: List.new(),
+          extensions: extensions,
+          policy: policy,
+          snapshot_version: group_zero()?
+        })
       end
     end
   end
