@@ -157,11 +157,11 @@ fn accept_handshake(responder :: borrow DeviceKeys,
   end
 end
 
-fn accepted_start(value :: consume(RatchetState, InitialMessage), message :: String) do
+fn accepted_start(value :: consume (RatchetState, InitialMessage), message :: String) do
   println(message)
 end
 
-fn accepted_receive(value :: consume(RatchetState, Bytes), message :: String) do
+fn accepted_receive(value :: consume (RatchetState, Bytes), message :: String) do
   println(message)
 end
 

@@ -404,7 +404,7 @@ fn proof() -> Bool!GroupError do
   Ok(true)
 end
 
-fn discard_attack(value :: consume(TreeKemPathPatch, GroupEpochKeys)) do
+fn discard_attack(value :: consume (TreeKemPathPatch, GroupEpochKeys)) do
   nil
 end
 

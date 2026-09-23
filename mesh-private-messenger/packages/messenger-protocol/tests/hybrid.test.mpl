@@ -268,7 +268,7 @@ fn consume_session(value :: consume RatchetState) do
   nil
 end
 
-fn consume_start(value :: consume(RatchetState, InitialMessage)) do
+fn consume_start(value :: consume (RatchetState, InitialMessage)) do
   nil
 end
 

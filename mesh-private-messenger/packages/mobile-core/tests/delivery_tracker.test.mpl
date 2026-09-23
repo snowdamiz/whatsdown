@@ -5,7 +5,7 @@ from Storage.Keys import platform_key
 from Storage.Records import put_blobs
 from Tests.Support import database_path, repeated
 
-fn store(path :: String, writes ::(List<String>, List<Bytes>)) -> Result<(), String> do
+fn store(path :: String, writes :: (List<String>, List<Bytes>)) -> Result<(), String> do
   let (labels, blobs) = writes
   let database = case Sqlite.open(path) do
     Err(_) -> Err("database_open_failed")
