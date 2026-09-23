@@ -86,7 +86,7 @@ function main() {
   for (const id of ['ios-device', 'android-device', 'macos-keystore-lifecycle', 'windows-keystore-lifecycle',
     'ota-native-rejection', 'windows-signing', 'full-crash-restore-matrix', 'extended-fuzz-and-mutations',
     'witness-permission-isolation', 'outbox-revocation-requeue', 'cross-epoch-queue-migration']) {
-    manifest.results.push({ id, status: 'not-run', reason: 'Requires the remaining implementation/platform campaign in the security plan' });
+    manifest.results.push({ id, status: 'not-run', reason: 'Requires the remaining implementation/platform campaign' });
   }
   manifest.results.push(unchangedSources({ morse: manifest.morse, mesh: manifest.mesh }, { morse: root, mesh }));
   manifest.finishedAt = new Date().toISOString();

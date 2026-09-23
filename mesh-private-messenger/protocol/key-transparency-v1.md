@@ -73,5 +73,5 @@ witness check remains an error; it does not permit unchecked encryption.
 
 Freshness currently applies to evidence ingestion and cached device-set
 requirements used by fanout and identity operations. Extending it to every group
-send and updating group recipient discovery remain implementation work tracked
-in the security plan; these paragraphs do not claim those paths complete.
+send and updating group recipient discovery remain implementation work; these
+paragraphs do not claim those paths complete.

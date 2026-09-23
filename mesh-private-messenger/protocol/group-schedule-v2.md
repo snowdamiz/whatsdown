@@ -92,8 +92,9 @@ independent protocol audit.
 Remaining migration/availability work: delayed application packets from an
 earlier epoch still follow the existing stale-epoch behavior. They require a
 separate bounded old-epoch receive-state policy before claiming arbitrary
-cross-epoch reordering. The full crash/restore and compromise campaign in the
-security plan remains the release acceptance contract.
+cross-epoch reordering. The full crash/restore and compromise campaign, which
+`scripts/verify-security.mjs` still reports as not run, remains the release
+acceptance contract.
 
 ## Recipient transport
 

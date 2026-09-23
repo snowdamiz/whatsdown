@@ -2,9 +2,7 @@
 
 Morse is a Mesh-first, end-to-end encrypted private messenger. The product dogfoods Mesh's public APIs, but the Mesh compiler and runtime are maintained in their own repository.
 
-The implementation roadmap and security caveats live in [mesh-private-messenger-complete-plan.md](mesh-private-messenger-complete-plan.md). This project is under active development and makes no production-security claim.
-
-The [security hardening and verification plan](mesh-private-messenger-security-plan.md) defines the next implementation slices, adversarial tests, and internal release criteria without requiring outside-audit approval.
+This project is under active development and makes no production-security claim. [SECURITY.md](SECURITY.md) states what a release must verify.
 
 ## Install
 

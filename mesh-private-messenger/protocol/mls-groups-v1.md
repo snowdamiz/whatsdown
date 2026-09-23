@@ -147,5 +147,6 @@ mobile-core create/add/remove/send/receive fanout, group list/inspection and
 plaintext history, future-epoch retry/ACK behavior, the exact maximum delivery
 boundary, and mobile-target compilation. This custom profile is not expected
 to consume RFC 9420 wire vectors directly. Release readiness depends on the
-security plan's behavioral and platform checks at the candidate revision.
+internal verification and platform evidence [SECURITY.md](../../SECURITY.md)
+requires, at the candidate revision.
 Internal tests do not constitute an independent audit.
