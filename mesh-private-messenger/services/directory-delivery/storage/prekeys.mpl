@@ -246,40 +246,38 @@ fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest)
         Ok(output) -> output
       end
       if !verified do
-        Ok(PrekeysUnauthorized)
+        return Ok(PrekeysUnauthorized)
+      end
+      let checked = publication_check(conn, request, 0, 0)?
+      let reusable = if checked.conflict do
+        2
       else
-        let checked = publication_check(conn, request, 0, 0)?
-        let reusable = if checked.conflict do
-          2
-        else
-          publish_last_resort(conn, request)?
+        publish_last_resort(conn, request)?
+      end
+      let contact = if reusable == 2 do
+        2
+      else
+        publish_contact_address_hash(conn, request)?
+      end
+      if reusable == 2 || contact == 2 do
+        return Ok(PrekeysConflict)
+      end
+      let counts = Pg.query_values(conn,
+        "SELECT count(*)::text AS available_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL AND NOT last_resort",
+        [Binary(request.account_id), Binary(request.device_id)])?
+      if List.length(counts) != 1 do
+        Err("prekey pool count failed")
+      else if integer(Map.get(List.head(counts), "available_count"))? + checked.new_count > 64 do
+        Ok(PrekeyPoolFull(active_prekey_ids(conn, request.account_id, request.device_id)?))
+      else
+        if checked.new_count > 0 do
+          insert_prekeys(conn, request, 0)?
         end
-        let contact = if reusable == 2 do
-          2
+        let active_ids = active_prekey_ids(conn, request.account_id, request.device_id)?
+        if checked.new_count == 0 && reusable == 0 && contact == 0 do
+          Ok(PrekeysUnchanged(active_ids))
         else
-          publish_contact_address_hash(conn, request)?
-        end
-        if reusable == 2 || contact == 2 do
-          Ok(PrekeysConflict)
-        else
-          let counts = Pg.query_values(conn,
-            "SELECT count(*)::text AS available_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL AND NOT last_resort",
-            [Binary(request.account_id), Binary(request.device_id)])?
-          if List.length(counts) != 1 do
-            Err("prekey pool count failed")
-          else if integer(Map.get(List.head(counts), "available_count"))? + checked.new_count > 64 do
-            Ok(PrekeyPoolFull(active_prekey_ids(conn, request.account_id, request.device_id)?))
-          else
-            if checked.new_count > 0 do
-              insert_prekeys(conn, request, 0)?
-            end
-            let active_ids = active_prekey_ids(conn, request.account_id, request.device_id)?
-            if checked.new_count == 0 && reusable == 0 && contact == 0 do
-              Ok(PrekeysUnchanged(active_ids))
-            else
-              Ok(PrekeysPublished(active_ids))
-            end
-          end
+          Ok(PrekeysPublished(active_ids))
         end
       end
     end
@@ -510,6 +508,43 @@ fn replace_legacy_claim_response(conn :: borrow PgConn,
   end
 end
 
+fn replayed_claim(conn :: borrow PgConn,
+  request :: PrekeyClaimRequest,
+  stored :: borrow StoredClaim,
+  current_bundle :: Bytes) -> PrekeyClaimWrite!String do
+  case stored.response do
+    Some(response) -> do
+      let bundle = stored_response_bundle(stored, request, response)?
+      let exact = encoded_bundle(bundle)?
+      if !Bytes.secure_equals(exact, response) do
+        replace_legacy_claim_response(conn, request, stored.claimed, response, exact)?
+      end
+      Ok(PrekeyClaimed(bundle))
+    end
+    None -> if !Bytes.secure_equals(Crypto.sha256(current_bundle), request.base_bundle_hash) do
+      Ok(PrekeyClaimMissing)
+    else
+      let bundle = resolved_bundle(current_bundle, stored.claimed)?
+      store_legacy_claim_response(conn, request, stored.claimed, encoded_bundle(bundle)?)?
+      Ok(PrekeyClaimed(bundle))
+    end
+  end
+end
+
+fn new_claim(conn :: borrow PgConn, request :: PrekeyClaimRequest, current_bundle :: Bytes) -> PrekeyClaimWrite!String do
+  case claim_candidate(conn, request)? do
+    None -> case last_resort_candidate(conn, request)? do
+      None -> Ok(PrekeyClaimExhausted)
+      Some(reusable) -> Ok(PrekeyClaimed(resolved_bundle(current_bundle, reusable)?))
+    end
+    Some(claimed) -> do
+      let bundle = resolved_bundle(current_bundle, claimed)?
+      reserve_claim(conn, request, claimed, encoded_bundle(bundle)?)?
+      Ok(PrekeyClaimed(bundle))
+    end
+  end
+end
+
 fn claim_on_connection(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> PrekeyClaimWrite!String do
   case active_bundle(conn, request.account_id, request.device_id, false)? do
     None -> Ok(PrekeyClaimMissing)
@@ -519,38 +554,12 @@ fn claim_on_connection(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> 
         Some(stored) -> if !claim_binding_matches(stored, request) do
           Ok(PrekeyClaimMissing)
         else
-          case stored.response do
-            Some(response) -> do
-              let bundle = stored_response_bundle(stored, request, response)?
-              let exact = encoded_bundle(bundle)?
-              if !Bytes.secure_equals(exact, response) do
-                replace_legacy_claim_response(conn, request, stored.claimed, response, exact)?
-              end
-              Ok(PrekeyClaimed(bundle))
-            end
-            None -> if !Bytes.secure_equals(Crypto.sha256(current_bundle), request.base_bundle_hash) do
-              Ok(PrekeyClaimMissing)
-            else
-              let bundle = resolved_bundle(current_bundle, stored.claimed)?
-              store_legacy_claim_response(conn, request, stored.claimed, encoded_bundle(bundle)?)?
-              Ok(PrekeyClaimed(bundle))
-            end
-          end
+          replayed_claim(conn, request, stored, current_bundle)
         end
         None -> if !Bytes.secure_equals(Crypto.sha256(current_bundle), request.base_bundle_hash) do
           Ok(PrekeyClaimMissing)
         else
-          case claim_candidate(conn, request)? do
-            None -> case last_resort_candidate(conn, request)? do
-              None -> Ok(PrekeyClaimExhausted)
-              Some(reusable) -> Ok(PrekeyClaimed(resolved_bundle(current_bundle, reusable)?))
-            end
-            Some(claimed) -> do
-              let bundle = resolved_bundle(current_bundle, claimed)?
-              reserve_claim(conn, request, claimed, encoded_bundle(bundle)?)?
-              Ok(PrekeyClaimed(bundle))
-            end
-          end
+          new_claim(conn, request, current_bundle)
         end
       end
     end

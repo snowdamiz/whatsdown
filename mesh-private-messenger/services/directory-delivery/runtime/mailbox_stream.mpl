@@ -42,15 +42,13 @@ end
 fn on_connect(conn :: Int, path :: String, headers :: Map<String, String>) -> Int do
   case mailbox_stream_room(get_pool(), path, headers) do
     Err(_) -> 0
+    # Join before announcing readiness so catch-up cannot miss a delivery.
     Ok(room) -> if Ws.join(conn, room) != 0 do
       0
+    else if Ws.send(conn, "ready") == 0 do
+      1
     else
-      # Join before announcing readiness so catch-up cannot miss a delivery.
-      if Ws.send(conn, "ready") == 0 do
-        1
-      else
-        0
-      end
+      0
     end
   end
 end

@@ -353,15 +353,19 @@ fn open_reply_message(state :: consume RatchetState,
       Err(error) -> reject(state, session, error)
       Ok(aad) -> case decrypt(state, message, aad) do
         Rejected(next, _) -> ReplyRejected(next, session, "interop reply rejected")
-        Opened(next, plaintext) -> case decode_inner_envelope(plaintext) do
-          Err(_) -> ReplyRejected(next, session, "invalid interop reply inner envelope")
-          Ok(inner) -> if validate_reply_inner(inner, session) do
-            ReplyOpened(next, session, inner.body)
-          else
-            ReplyRejected(next, session, "interop reply identity mismatch")
-          end
-        end
+        Opened(next, plaintext) -> reply_outcome(next, session, plaintext)
       end
+    end
+  end
+end
+
+fn reply_outcome(state :: consume RatchetState, session :: InteropSession, plaintext :: Bytes) -> InteropOpenOutcome do
+  case decode_inner_envelope(plaintext) do
+    Err(_) -> ReplyRejected(state, session, "invalid interop reply inner envelope")
+    Ok(inner) -> if validate_reply_inner(inner, session) do
+      ReplyOpened(state, session, inner.body)
+    else
+      ReplyRejected(state, session, "interop reply identity mismatch")
     end
   end
 end

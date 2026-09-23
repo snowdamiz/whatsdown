@@ -47,6 +47,20 @@ fn error_ticket_outcome(ticket :: Json) -> BrokerOutcome do
   end
 end
 
+fn accepted_ticket_id(ticket :: Json) -> Result<String, BrokerOutcome> do
+  case Json.object_get(ticket, "id") do
+    Err(_) -> Err(Retryable)
+    Ok(id) -> case Json.as_string(id) do
+      Err(_) -> Err(Retryable)
+      Ok(ticket_id) -> if String.length(ticket_id) > 0 && String.length(ticket_id) <= 256 do
+        Ok(ticket_id)
+      else
+        Err(Retryable)
+      end
+    end
+  end
+end
+
 fn ticket_result(ticket :: Json) -> Result<String, BrokerOutcome> do
   case Json.object_get(ticket, "status") do
     Err(_) -> Err(Retryable)
@@ -55,17 +69,7 @@ fn ticket_result(ticket :: Json) -> Result<String, BrokerOutcome> do
       Ok(value) -> if value == "error" do
         Err(error_ticket_outcome(ticket))
       else if value == "ok" do
-        case Json.object_get(ticket, "id") do
-          Err(_) -> Err(Retryable)
-          Ok(id) -> case Json.as_string(id) do
-            Err(_) -> Err(Retryable)
-            Ok(ticket_id) -> if String.length(ticket_id) > 0 && String.length(ticket_id) <= 256 do
-              Ok(ticket_id)
-            else
-              Err(Retryable)
-            end
-          end
-        end
+        accepted_ticket_id(ticket)
       else
         Err(Retryable)
       end

@@ -31,6 +31,17 @@ fn serve(pool :: PoolHandle, port :: Int, stream_port :: Int) do
   end
 end
 
+fn open_and_serve(url :: String, port :: Int, stream_port :: Int) do
+  if port <= 0 || port > 65535 || stream_port <= 0 || stream_port > 65535 || stream_port == port do
+    fatal("HTTP and stream ports must be distinct and between 1 and 65535")
+  else
+    case Pool.open(url, 1, 4, 5000) do
+      Err(error) -> fatal("database connection failed: #{error}")
+      Ok(pool) -> serve(pool, port, stream_port)
+    end
+  end
+end
+
 fn main() do
   Process.install_shutdown_signals()
   let url = Env.get("MESSENGER_DATABASE_URL",
@@ -49,14 +60,7 @@ fn main() do
       Err(error) -> fatal("transparency configuration failed: #{error}")
       Ok(_) -> case validate_delivery_config() do
         Err(error) -> fatal("delivery configuration failed: #{error}")
-        Ok(_) -> if port <= 0 || port > 65535 || stream_port <= 0 || stream_port > 65535 || stream_port == port do
-          fatal("HTTP and stream ports must be distinct and between 1 and 65535")
-        else
-          case Pool.open(url, 1, 4, 5000) do
-            Err(error) -> fatal("database connection failed: #{error}")
-            Ok(pool) -> serve(pool, port, stream_port)
-          end
-        end
+        Ok(_) -> open_and_serve(url, port, stream_port)
       end
     end
   end

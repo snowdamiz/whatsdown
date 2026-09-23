@@ -1,6 +1,6 @@
 import Store.Database
 import RuntimeJobs
-from Store.Database import ObjectRecord, begin_immediate, binary_value, decode_object, decode_part, find_object, find_part, open_database
+from Store.Database import ObjectRecord, PartRecord, begin_immediate, binary_value, decode_object, decode_part, find_object, find_part, open_database
 from Store.Files import maximum_object_bytes, maximum_part_bytes, part_path, read_part_file, remove_file, remove_parts, validate_paths, write_part_file
 from Objects.Grant import ObjectGrantRequest, ObjectGrantResponse, decode_complete, decode_delete, decode_grant, encode_grant_response, verify_grant
 
@@ -87,6 +87,62 @@ pub fn grant(database_path :: String,
   end
 end
 
+fn replay_part(path :: String, size :: Int, body :: Bytes) -> ObjectResult!String do
+  case read_part_file(path, size) do
+    None -> Err("object part integrity failure")
+    Some(stored) -> if Bytes.secure_equals(stored, body) do
+      Ok(empty(200))
+    else
+      Err("object part integrity failure")
+    end
+  end
+end
+
+fn store_part(database :: borrow PgConn,
+  path :: String,
+  object_id :: Bytes,
+  part_index :: Int,
+  body :: Bytes,
+  content_hash :: Bytes) -> ObjectResult!String do
+  case write_part_file(path, body) do
+    ## Failed or uncertain transactions leave parts for exact replay;
+    ## the R2 lifecycle eventually removes unreferenced parts.
+    Err(_) -> do
+      Err("object part write failed")
+    end
+    Ok(_) -> do
+      let inserted = Pg.execute_values(database,
+        "INSERT INTO object_parts (object_id, part_index, size, content_hash) VALUES ($1, $2, $3, $4)",
+        [
+          Binary(object_id),
+          Text(Int.to_string(part_index)),
+          Text(Int.to_string(Bytes.length(body))),
+          Binary(content_hash)
+        ])
+      let updated = case inserted do
+        Err(error)
+        Ok(_) -> Pg.execute_values(database,
+          "UPDATE objects SET total_bytes = total_bytes + $1 WHERE object_id = $2 AND completed = 0 AND total_bytes + $3 <= 16795830",
+          [
+            Text(Int.to_string(Bytes.length(body))),
+            Binary(object_id),
+            Text(Int.to_string(Bytes.length(body)))
+          ])
+      end
+      case updated do
+        Err(_) -> do
+          Err("object metadata unavailable")
+        end
+        Ok(changed) -> if changed != 1 do
+          Err("object metadata unavailable")
+        else
+          Ok(empty(201))
+        end
+      end
+    end
+  end
+end
+
 fn put_open(database :: borrow PgConn,
   root :: String,
   object_id :: Bytes,
@@ -112,55 +168,12 @@ fn put_open(database :: borrow PgConn,
           content_hash) do
           Ok(empty(409))
         else
-          case read_part_file(path, existing.size) do
-            None -> Err("object part integrity failure")
-            Some(stored) -> if Bytes.secure_equals(stored, body) do
-              Ok(empty(200))
-            else
-              Err("object part integrity failure")
-            end
-          end
+          replay_part(path, existing.size, body)
         end
         None -> if object.total_bytes + Bytes.length(body) > maximum_object_bytes() do
           Ok(empty(413))
         else
-          case write_part_file(path, body) do
-            ## Failed or uncertain transactions leave parts for exact replay;
-            ## the R2 lifecycle eventually removes unreferenced parts.
-            Err(_) -> do
-              Err("object part write failed")
-            end
-            Ok(_) -> do
-              let inserted = Pg.execute_values(database,
-                "INSERT INTO object_parts (object_id, part_index, size, content_hash) VALUES ($1, $2, $3, $4)",
-                [
-                  Binary(object_id),
-                  Text(Int.to_string(part_index)),
-                  Text(Int.to_string(Bytes.length(body))),
-                  Binary(content_hash)
-                ])
-              let updated = case inserted do
-                Err(error)
-                Ok(_) -> Pg.execute_values(database,
-                  "UPDATE objects SET total_bytes = total_bytes + $1 WHERE object_id = $2 AND completed = 0 AND total_bytes + $3 <= 16795830",
-                  [
-                    Text(Int.to_string(Bytes.length(body))),
-                    Binary(object_id),
-                    Text(Int.to_string(Bytes.length(body)))
-                  ])
-              end
-              case updated do
-                Err(_) -> do
-                  Err("object metadata unavailable")
-                end
-                Ok(changed) -> if changed != 1 do
-                  Err("object metadata unavailable")
-                else
-                  Ok(empty(201))
-                end
-              end
-            end
-          end
+          store_part(database, path, object_id, part_index, body, content_hash)
         end
       end
     end
@@ -192,6 +205,20 @@ pub fn put_part(database_path :: String,
   end
 end
 
+fn read_part(root :: String, object_id :: Bytes, part_index :: Int, part :: PartRecord) -> ObjectResult!String do
+  case part_path(root, object_id, part_index) do
+    Err(_) -> Err("object part integrity failure")
+    Ok(path) -> case read_part_file(path, part.size) do
+      None -> Err("object part integrity failure")
+      Some(body) -> if Bytes.secure_equals(Crypto.sha256(body), part.content_hash) do
+        Ok(response(200, body))
+      else
+        Err("object part integrity failure")
+      end
+    end
+  end
+end
+
 fn get_open(database :: borrow PgConn,
   root :: String,
   object_id :: Bytes,
@@ -209,17 +236,7 @@ fn get_open(database :: borrow PgConn,
     else
       case find_part(database, object_id, part_index)? do
         None -> Ok(empty(404))
-        Some(part) -> case part_path(root, object_id, part_index) do
-          Err(_) -> Err("object part integrity failure")
-          Ok(path) -> case read_part_file(path, part.size) do
-            None -> Err("object part integrity failure")
-            Some(body) -> if Bytes.secure_equals(Crypto.sha256(body), part.content_hash) do
-              Ok(response(200, body))
-            else
-              Err("object part integrity failure")
-            end
-          end
-        end
+        Some(part) -> read_part(root, object_id, part_index, part)
       end
     end
   end
@@ -380,36 +397,35 @@ end
 pub fn purge_expired(database_path :: String, root :: String, now :: U64, limit :: Int) -> Int!String do
   validate_paths(database_path, root)?
   if limit <= 0 || limit > 32 do
-    Err("invalid object purge limit")
-  else
-    let now_value = U64.to_int(now)?
-    let database = open_database(database_path)?
-    let result = case begin_immediate(database) do
-      Err(error)
-      Ok(_) -> case Pg.query_values(database,
-        "SELECT object_id, upload_hash, download_hash, part_count, total_bytes, expires_at, completed FROM objects WHERE expires_at <= $1 ORDER BY expires_at, object_id LIMIT $2",
-        [Text(Int.to_string(now_value)), Text(Int.to_string(limit))]) do
+    return Err("invalid object purge limit")
+  end
+  let now_value = U64.to_int(now)?
+  let database = open_database(database_path)?
+  let result = case begin_immediate(database) do
+    Err(error)
+    Ok(_) -> case Pg.query_values(database,
+      "SELECT object_id, upload_hash, download_hash, part_count, total_bytes, expires_at, completed FROM objects WHERE expires_at <= $1 ORDER BY expires_at, object_id LIMIT $2",
+      [Text(Int.to_string(now_value)), Text(Int.to_string(limit))]) do
+      Err(error) -> do
+        Pg.rollback(database)
+        Err(error)
+      end
+      Ok(rows) -> case purge_rows(database, root, rows, now_value, 0) do
         Err(error) -> do
           Pg.rollback(database)
           Err(error)
         end
-        Ok(rows) -> case purge_rows(database, root, rows, now_value, 0) do
-          Err(error) -> do
-            Pg.rollback(database)
-            Err(error)
-          end
-          Ok(count) -> case Pg.commit(database) do
-            Err(_) -> Err("object purge commit failed")
-            Ok(_) -> Ok(count)
-          end
+        Ok(count) -> case Pg.commit(database) do
+          Err(_) -> Err("object purge commit failed")
+          Ok(_) -> Ok(count)
         end
       end
     end
-    Pg.close(database)
-    case result do
-      Err(_) -> Err("object purge failed")
-      Ok(count)
-    end
+  end
+  Pg.close(database)
+  case result do
+    Err(_) -> Err("object purge failed")
+    Ok(count)
   end
 end
 

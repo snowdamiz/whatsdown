@@ -109,6 +109,10 @@ fn main() do
   end
 end
 
+fn run_configured(path :: String) -> Int!String do
+  run_scheduled(path, configured_token()?)
+end
+
 fn handle_jobs(request :: Request) -> Response do
   if !RuntimeJobs.internal_request_authorized(request,
     Env.get("MESSENGER_PUSH_BROKER_INTERNAL_TOKEN", "")) do
@@ -119,12 +123,9 @@ fn handle_jobs(request :: Request) -> Response do
       Ok(path) -> case transaction_in_progress(path, Request.body(request)) do
         Err(_) -> HTTP.response(503, "")
         Ok(true) -> HTTP.response(202, "")
-        Ok(false) -> case configured_token() do
+        Ok(false) -> case run_configured(path) do
           Err(_) -> HTTP.response(503, "")
-          Ok(token) -> case run_scheduled(path, token) do
-            Err(_) -> HTTP.response(503, "")
-            Ok(due) -> HTTP.response(200, Int.to_string(due))
-          end
+          Ok(due) -> HTTP.response(200, Int.to_string(due))
         end
       end
     end

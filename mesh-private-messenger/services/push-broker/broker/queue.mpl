@@ -151,6 +151,17 @@ fn decode_job(row :: Map<String, String>) -> Result<QueueJob, String> do
   end
 end
 
+fn next_job_open(database :: borrow PgConn, now_ms :: Int) -> Result<Option<QueueJob>, String> do
+  configure(database)?
+  case Pg.query(database,
+    "SELECT wake_hash, request_hash, sealed_request, state, ticket_id, attempts FROM broker_jobs WHERE state IN ('pending', 'retry_send', 'receipt', 'retry_receipt') AND next_attempt_ms <= $1 ORDER BY next_attempt_ms, updated_ms, wake_hash LIMIT 1",
+    [Int.to_string(now_ms)])? do
+    [] -> Ok(None)
+    [row] -> Ok(Some(decode_job(row)?))
+    _ -> Err("invalid broker queue state")
+  end
+end
+
 pub fn next_job(path :: String, now_ms :: Int) -> Result<Option<QueueJob>, String> do
   if now_ms < 0 do
     Err("invalid broker time")
@@ -158,20 +169,7 @@ pub fn next_job(path :: String, now_ms :: Int) -> Result<Option<QueueJob>, Strin
     case Pg.connect(path) do
       Err(_) -> Err("broker queue unavailable")
       Ok(database) -> do
-        let result = case configure(database) do
-          Err(error)
-          Ok(_) -> case Pg.query(database,
-            "SELECT wake_hash, request_hash, sealed_request, state, ticket_id, attempts FROM broker_jobs WHERE state IN ('pending', 'retry_send', 'receipt', 'retry_receipt') AND next_attempt_ms <= $1 ORDER BY next_attempt_ms, updated_ms, wake_hash LIMIT 1",
-            [Int.to_string(now_ms)]) do
-            Err(error)
-            Ok([]) -> Ok(None)
-            Ok([row]) -> case decode_job(row) do
-              Err(error)
-              Ok(job) -> Ok(Some(job))
-            end
-            Ok(_) -> Err("invalid broker queue state")
-          end
-        end
+        let result = next_job_open(database, now_ms)
         Pg.close(database)
         case result do
           Err(_) -> Err("broker queue unavailable")

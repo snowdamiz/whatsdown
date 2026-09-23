@@ -518,6 +518,17 @@ fn opened_packet(outer :: OuterEnvelope, recipient :: borrow DeviceKeys) -> Tran
   decode_packet(open_recipient_packet(outer.ciphertext, recipient.identity_private_key)?)
 end
 
+fn transport_ratchet(message :: Bytes) -> Option<RatchetMessage> do
+  case decode_ratchet_message(message) do
+    Err(_) -> None
+    Ok(decoded) -> if ratchet_transport_matches(decoded, true) do
+      Some(decoded)
+    else
+      None
+    end
+  end
+end
+
 fn process_deliveries(state :: consume RatchetState,
   recipient :: borrow DeviceKeys,
   deliveries :: List<DeliveredEnvelope>,
@@ -541,17 +552,12 @@ fn process_deliveries(state :: consume RatchetState,
           println("device-b:unexpected-initial")
           process_deliveries(state, recipient, deliveries, index + 1, aad)
         end
-        Ok(RatchetPacket(message)) -> case decode_ratchet_message(message) do
-          Err(_) -> do
+        Ok(RatchetPacket(message)) -> case transport_ratchet(message) do
+          None -> do
             println("device-b:invalid-ratchet")
             process_deliveries(state, recipient, deliveries, index + 1, aad)
           end
-          Ok(decoded) -> if !ratchet_transport_matches(decoded, true) do
-            println("device-b:invalid-ratchet")
-            process_deliveries(state, recipient, deliveries, index + 1, aad)
-          else
-            received_ratchet(state, recipient, deliveries, index, aad, decoded)
-          end
+          Some(decoded) -> received_ratchet(state, recipient, deliveries, index, aad, decoded)
         end
       end
     end
@@ -706,13 +712,11 @@ fn main() do
   let role = Env.get("MESSENGER_ROLE", "")
   if role == "device-a" do
     report(role, run_device_a())
+  else if role == "device-b" do
+    report(role, run_device_b())
+  else if role == "stream-fixture" do
+    report(role, run_stream_fixture())
   else
-    if role == "device-b" do
-      report(role, run_device_b())
-    else if role == "stream-fixture" do
-      report(role, run_stream_fixture())
-    else
-      println("MESSENGER_ROLE must be device-a, device-b, or stream-fixture")
-    end
+    println("MESSENGER_ROLE must be device-a, device-b, or stream-fixture")
   end
 end

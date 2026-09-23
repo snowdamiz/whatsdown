@@ -31,6 +31,20 @@ fn negotiation_proof() do
   end
 end
 
+fn account_roundtrip(encoded :: Bytes) do
+  case decode_account_identity(encoded) do
+    Err(_) -> println("account-decode-error")
+    Ok(decoded) -> case encode_account_identity(decoded) do
+      Err(_) -> println("account-reencode-error")
+      Ok(reencoded) -> if Bytes.secure_equals(encoded, reencoded) do
+        println("account-roundtrip")
+      else
+        println("account-noncanonical")
+      end
+    end
+  end
+end
+
 fn account_proof() -> Int!String do
   let account = AccountIdentity {
     version: 1,
@@ -51,17 +65,7 @@ fn account_proof() -> Int!String do
     Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__ACCOUNT_HEX__")?) do
       println("account-golden-mismatch")
     else
-      case decode_account_identity(encoded) do
-        Err(_) -> println("account-decode-error")
-        Ok(decoded) -> case encode_account_identity(decoded) do
-          Err(_) -> println("account-reencode-error")
-          Ok(reencoded) -> if Bytes.secure_equals(encoded, reencoded) do
-            println("account-roundtrip")
-          else
-            println("account-noncanonical")
-          end
-        end
-      end
+      account_roundtrip(encoded)
     end
   end
   Ok(0)
@@ -130,6 +134,22 @@ fn hostile_decoder_proof() -> Int!String do
   Ok(0)
 end
 
+fn prekey_roundtrip(encoded :: Bytes, one_time_prekey :: Bytes) do
+  case decode_prekey_bundle(encoded) do
+    Err(_) -> println("prekey-decode-error")
+    Ok(decoded) -> case encode_prekey_bundle(decoded) do
+      Err(_) -> println("prekey-reencode-error")
+      Ok(reencoded) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(decoded.one_time_prekey,
+        one_time_prekey) && List.length(decoded.supported_suites) == 1 && List.get(decoded.supported_suites,
+        0) == 1 do
+        println("prekey-roundtrip")
+      else
+        println("prekey-noncanonical")
+      end
+    end
+  end
+end
+
 fn prekey_proof() -> Int!String do
   let bundle = PrekeyBundle {
     version: 1,
@@ -158,19 +178,7 @@ fn prekey_proof() -> Int!String do
     Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__PREKEY_HEX__")?) do
       println("prekey-golden-mismatch")
     else
-      case decode_prekey_bundle(encoded) do
-        Err(_) -> println("prekey-decode-error")
-        Ok(decoded) -> case encode_prekey_bundle(decoded) do
-          Err(_) -> println("prekey-reencode-error")
-          Ok(reencoded) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(decoded.one_time_prekey,
-            bundle.one_time_prekey) && List.length(decoded.supported_suites) == 1 && List.get(decoded.supported_suites,
-            0) == 1 do
-            println("prekey-roundtrip")
-          else
-            println("prekey-noncanonical")
-          end
-        end
-      end
+      prekey_roundtrip(encoded, bundle.one_time_prekey)
     end
   end
   let invalid = PrekeyBundle {
@@ -271,6 +279,25 @@ fn inner_proof() -> Int!String do
   Ok(0)
 end
 
+fn transcript_hashes(transcript :: HandshakeTranscript,
+  decoded :: HandshakeTranscript,
+  encoded :: Bytes,
+  reencoded :: Bytes) -> Result<(), String> do
+  case hash_handshake_transcript(transcript) do
+    Err(_) -> println("transcript-hash-error")
+    Ok(first_hash) -> case hash_handshake_transcript(decoded) do
+      Err(_) -> println("transcript-hash-error")
+      Ok(second_hash) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(first_hash,
+        second_hash) && Bytes.secure_equals(first_hash, Bytes.from_hex("__TRANSCRIPT_HASH_HEX__")?) do
+        println("transcript-roundtrip")
+      else
+        println("transcript-noncanonical")
+      end
+    end
+  end
+  Ok(nil)
+end
+
 fn transcript_proof() -> Int!String do
   let transcript = HandshakeTranscript {
     version: 1,
@@ -300,19 +327,7 @@ fn transcript_proof() -> Int!String do
         Err(_) -> println("transcript-decode-error")
         Ok(decoded) -> case encode_handshake_transcript(decoded) do
           Err(_) -> println("transcript-reencode-error")
-          Ok(reencoded) -> case hash_handshake_transcript(transcript) do
-            Err(_) -> println("transcript-hash-error")
-            Ok(first_hash) -> case hash_handshake_transcript(decoded) do
-              Err(_) -> println("transcript-hash-error")
-              Ok(second_hash) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(first_hash,
-                second_hash) && Bytes.secure_equals(first_hash,
-                Bytes.from_hex("__TRANSCRIPT_HASH_HEX__")?) do
-                println("transcript-roundtrip")
-              else
-                println("transcript-noncanonical")
-              end
-            end
-          end
+          Ok(reencoded) -> transcript_hashes(transcript, decoded, encoded, reencoded)?
         end
       end
     end

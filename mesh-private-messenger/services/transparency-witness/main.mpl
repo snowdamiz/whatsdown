@@ -152,40 +152,39 @@ fn witness_once() -> Result<(), String> do
   let witness_id = Env.get("MESSENGER_WITNESS_ID", "")
   let checkpoint_path = Env.get("MESSENGER_WITNESS_CHECKPOINT_PATH", "")
   if String.length(witness_id) == 0 || String.length(witness_id) > 64 || String.length(checkpoint_path) == 0 do
-    Err("invalid witness configuration")
-  else
-    let trusted_log_key = SigningPublicKey { bytes: configured_public_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX")? }
-    let signer = configured_signer()?
-    if !Bytes.secure_equals(signer.public_key.bytes,
-      configured_public_key("MESSENGER_WITNESS_PUBLIC_KEY_HEX")?) do
-      return Err("witness signing key does not match pinned public key")
+    return Err("invalid witness configuration")
+  end
+  let trusted_log_key = SigningPublicKey { bytes: configured_public_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX")? }
+  let signer = configured_signer()?
+  if !Bytes.secure_equals(signer.public_key.bytes,
+    configured_public_key("MESSENGER_WITNESS_PUBLIC_KEY_HEX")?) do
+    return Err("witness signing key does not match pinned public key")
+  end
+  let previous = cached_checkpoint(checkpoint_path)?
+  case fetch_checkpoint()? do
+    None -> case previous do
+      None -> Ok(nil)
+      Some(_) -> Err("checkpoint missing after initialization")
     end
-    let previous = cached_checkpoint(checkpoint_path)?
-    case fetch_checkpoint()? do
-      None -> case previous do
+    Some(checkpoint) -> if !verify_checkpoint(checkpoint, trusted_log_key)? do
+      Err("transparency checkpoint signature failed")
+    else
+      case previous do
         None -> Ok(nil)
-        Some(_) -> Err("checkpoint missing after initialization")
-      end
-      Some(checkpoint) -> if !verify_checkpoint(checkpoint, trusted_log_key)? do
-        Err("transparency checkpoint signature failed")
-      else
-        case previous do
-          None -> Ok(nil)
-          Some(prior) -> if verify_checkpoint(prior, trusted_log_key)? do
-            verify_history(prior, checkpoint, trusted_log_key)
-          else
-            Err("cached witness checkpoint signature failed")
-          end
-        end?
-        # Commit continuity before releasing a signature; a failed publication can retry.
-        save_checkpoint(checkpoint_path, previous, checkpoint)?
-        let response = post("/v1/transparency/witnesses",
-          encode_witnesses([sign_witness(witness_id, signer.private_key, checkpoint)?])?)?
-        if response.status != 201 do
-          Err("witness submission returned #{response.status}")
+        Some(prior) -> if verify_checkpoint(prior, trusted_log_key)? do
+          verify_history(prior, checkpoint, trusted_log_key)
         else
-          Ok(nil)
+          Err("cached witness checkpoint signature failed")
         end
+      end?
+      # Commit continuity before releasing a signature; a failed publication can retry.
+      save_checkpoint(checkpoint_path, previous, checkpoint)?
+      let response = post("/v1/transparency/witnesses",
+        encode_witnesses([sign_witness(witness_id, signer.private_key, checkpoint)?])?)?
+      if response.status != 201 do
+        Err("witness submission returned #{response.status}")
+      else
+        Ok(nil)
       end
     end
   end
