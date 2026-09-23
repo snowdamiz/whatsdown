@@ -9,113 +9,113 @@ from Protocol.V1 import AccountIdentity, DirectoryEntry, PrekeyBundle, ProtocolE
 from Storage.Devices import DeviceWrite, register_device, resolve_devices
 from Storage.Prekeys import publish_prekeys
 
-fn repeated(value :: Int, length :: Int) -> Bytes ! String do
+fn repeated(value :: Int, length :: Int) -> Bytes!String do
   case Bytes.repeat(value, length) do
     Err(_) -> Err("test allocation failed")
-    Ok(output) -> Ok(output)
+    Ok(output)
   end
 end
 
-fn append_bytes(left :: Bytes, right :: Bytes) -> Bytes ! String do
+fn append_bytes(left :: Bytes, right :: Bytes) -> Bytes!String do
   case Bytes.concat(left, right) do
     Err(_) -> Err("test allocation failed")
-    Ok(output) -> Ok(output)
+    Ok(output)
   end
 end
 
-fn wide(value :: String) -> U64 ! String do
+fn wide(value :: String) -> U64!String do
   U64.parse(value)
 end
 
-fn now() -> U64 ! String do
+fn now() -> U64!String do
   wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
-fn protocol(value :: Result < Bytes, ProtocolError >) -> Bytes ! String do
+fn protocol(value :: Result<Bytes, ProtocolError>) -> Bytes!String do
   case value do
     Err(_) -> Err("protocol encoding failed")
-    Ok(output) -> Ok(output)
+    Ok(output)
   end
 end
 
 fn registration(account :: borrow AccountKeys,
-identity :: AccountIdentity,
-device :: borrow DeviceKeys,
-mailbox_token :: Bytes,
-sequence :: String,
-created_at :: U64,
-expires_at :: U64) -> DirectoryEntry ! String do
+  identity :: AccountIdentity,
+  device :: borrow DeviceKeys,
+  mailbox_token :: Bytes,
+  sequence :: String,
+  created_at :: U64,
+  expires_at :: U64) -> DirectoryEntry!String do
   let credential = case issue_device_credential(account,
-  device,
-  wide("1") ?,
-  created_at,
-  expires_at,
-  wide(sequence) ?) do
+    device,
+    wide("1")?,
+    created_at,
+    expires_at,
+    wide(sequence)?) do
     Err(_) -> Err("credential generation failed")
-    Ok(output) -> Ok(output)
-  end ?
-  let signed = case generate_signed_prekey(device, credential, wide("1") ?, expires_at) do
+    Ok(output)
+  end?
+  let signed = case generate_signed_prekey(device, credential, wide("1")?, expires_at) do
     Err(_) -> Err("signed prekey generation failed")
-    Ok(output) -> Ok(output)
-  end ?
-  let one_time = case generate_one_time_prekey(wide("2") ?) do
+    Ok(output)
+  end?
+  let one_time = case generate_one_time_prekey(wide("2")?) do
     Err(_) -> Err("one-time prekey generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let bundle = case build_prekey_bundle(credential, signed, one_time) do
     Err(_) -> Err("prekey bundle generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   Ok(DirectoryEntry {
-    version : 1,
-    username : "prekey-account",
-    account_identity : protocol(encode_account_identity(identity)) ?,
-    prekey_bundle : protocol(encode_prekey_bundle(bundle)) ?,
-    mailbox_token : mailbox_token
+    version: 1,
+    username: "prekey-account",
+    account_identity: protocol(encode_account_identity(identity))?,
+    prekey_bundle: protocol(encode_prekey_bundle(bundle))?,
+    mailbox_token: mailbox_token
   })
 end
 
-fn sign_publish(key :: borrow SigningPrivateKey, request :: PrekeyPublishRequest) -> PrekeyPublishRequest ! String do
-  let signature = case Crypto.sign(key, prekey_publish_signing_bytes(request) ?) do
+fn sign_publish(key :: borrow SigningPrivateKey, request :: PrekeyPublishRequest) -> PrekeyPublishRequest!String do
+  let signature = case Crypto.sign(key, prekey_publish_signing_bytes(request)?) do
     Err(_) -> Err("prekey publication signing failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   Ok(PrekeyPublishRequest {
-    account_id : request.account_id,
-    device_id : request.device_id,
-    prekeys : request.prekeys,
-    last_resort : request.last_resort,
-    contact_address_hash : request.contact_address_hash,
-    signature : signature.bytes
+    account_id: request.account_id,
+    device_id: request.device_id,
+    prekeys: request.prekeys,
+    last_resort: request.last_resort,
+    contact_address_hash: request.contact_address_hash,
+    signature: signature.bytes
   })
 end
 
 fn unsigned_publish(identity :: AccountIdentity,
-device :: borrow DeviceKeys,
-prekeys :: List < OneTimePrekeyPublic >) -> PrekeyPublishRequest ! String do
+  device :: borrow DeviceKeys,
+  prekeys :: List<OneTimePrekeyPublic>) -> PrekeyPublishRequest!String do
   Ok(PrekeyPublishRequest {
-    account_id : identity.account_id,
-    device_id : device.device_id,
-    prekeys : prekeys,
-    last_resort : None,
-    contact_address_hash : None,
-    signature : repeated(0, 64) ?
+    account_id: identity.account_id,
+    device_id: device.device_id,
+    prekeys: prekeys,
+    last_resort: None,
+    contact_address_hash: None,
+    signature: repeated(0, 64)?
   })
 end
 
 fn unsigned_claim(identity :: AccountIdentity,
-target :: borrow DeviceKeys,
-base_bundle_hash :: Bytes,
-reservation_id :: Bytes) -> PrekeyClaimRequest do
+  target :: borrow DeviceKeys,
+  base_bundle_hash :: Bytes,
+  reservation_id :: Bytes) -> PrekeyClaimRequest do
   PrekeyClaimRequest {
-    account_id : identity.account_id,
-    device_id : target.device_id,
-    base_bundle_hash : base_bundle_hash,
-    reservation_id : reservation_id
+    account_id: identity.account_id,
+    device_id: target.device_id,
+    base_bundle_hash: base_bundle_hash,
+    reservation_id: reservation_id
   }
 end
 
-fn find_bundle(entries :: List < DirectoryEntry >, mailbox_token :: Bytes, index :: Int) -> Bytes ! String do
+fn find_bundle(entries :: List<DirectoryEntry>, mailbox_token :: Bytes, index :: Int) -> Bytes!String do
   if index >= List.length(entries) do
     Err("target base bundle missing")
   else
@@ -128,24 +128,24 @@ fn find_bundle(entries :: List < DirectoryEntry >, mailbox_token :: Bytes, index
   end
 end
 
-fn target_base_bundle(pool :: PoolHandle, mailbox_token :: Bytes) -> Bytes ! String do
-  case resolve_devices(pool, "prekey-account") ? do
+fn target_base_bundle(pool :: PoolHandle, mailbox_token :: Bytes) -> Bytes!String do
+  case resolve_devices(pool, "prekey-account")? do
     None -> Err("device set missing")
     Some(value) -> find_bundle(value.devices, mailbox_token, 0)
   end
 end
 
 fn claim_request(identity :: AccountIdentity,
-target :: borrow DeviceKeys,
-base_bundle :: Bytes,
-reservation_id :: Bytes) -> PrekeyClaimRequest do
+  target :: borrow DeviceKeys,
+  base_bundle :: Bytes,
+  reservation_id :: Bytes) -> PrekeyClaimRequest do
   unsigned_claim(identity, target, Crypto.sha256(base_bundle), reservation_id)
 end
 
-fn decoded_bundle(input :: Bytes) -> PrekeyBundle ! String do
+fn decoded_bundle(input :: Bytes) -> PrekeyBundle!String do
   case decode_prekey_bundle(input) do
     Err(_) -> Err("claimed bundle did not decode")
-    Ok(output) -> Ok(output)
+    Ok(output)
   end
 end
 
@@ -164,9 +164,9 @@ fn claimed_id(pool :: PoolHandle, body :: Bytes) -> Int do
   end
 end
 
-fn await_claim_id(job :: Pid < Int >, normal_exits :: Int) -> Int ! String do
+fn await_claim_id(job :: Pid<Int>, normal_exits :: Int) -> Int!String do
   case Job.await(job) do
-    Ok(output) -> Ok(output)
+    Ok(output)
     Err(error) -> if error == "normal" && normal_exits < 2 do
       await_claim_id(job, normal_exits + 1)
     else
@@ -178,39 +178,39 @@ end
 fn record_claim(pool :: PoolHandle, body :: Bytes, claim_order :: Int) -> Int do
   let response = claim_prekey_request(pool, body)
   case Pool.execute_values(pool,
-  "INSERT INTO mesh_test_concurrent_claims (claim_order, status, body) VALUES ($1::integer, $2::integer, $3)",
-  [Text(Int.to_string(claim_order)), Text(Int.to_string(response.status)), Binary(response.body)]) do
+    "INSERT INTO mesh_test_concurrent_claims (claim_order, status, body) VALUES ($1::integer, $2::integer, $3)",
+    [Text(Int.to_string(claim_order)), Text(Int.to_string(response.status)), Binary(response.body)]) do
     Err(_) -> 0
     Ok(_) -> response.status
   end
 end
 
-fn binary_value(value :: DbValue) -> Bytes ! String do
+fn binary_value(value :: DbValue) -> Bytes!String do
   case value do
     Binary(output) -> Ok(output)
     _ -> Err("invalid concurrent claim body")
   end
 end
 
-fn prekey_range(start_id :: Int, count :: Int, index :: Int, output :: List < OneTimePrekeyPublic >) -> List < OneTimePrekeyPublic > ! String do
+fn prekey_range(start_id :: Int, count :: Int, index :: Int, output :: List<OneTimePrekeyPublic>) -> List<OneTimePrekeyPublic>!String do
   if index >= count do
     Ok(output)
   else
     prekey_range(start_id,
-    count,
-    index + 1,
-    List.append(output,
-    OneTimePrekeyPublic {
-      id : wide(Int.to_string(start_id + index)) ?,
-      public_key : repeated(80 + index, 32) ?
-    }))
+      count,
+      index + 1,
+      List.append(output,
+        OneTimePrekeyPublic {
+          id: wide(Int.to_string(start_id + index))?,
+          public_key: repeated(80 + index, 32)?
+        }))
   end
 end
 
-fn target_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes) -> Int ! String do
+fn target_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes) -> Int!String do
   let rows = Pool.query_values(pool,
-  "SELECT count(*)::text AS key_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2",
-  [Binary(account_id), Binary(device_id)]) ?
+    "SELECT count(*)::text AS key_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2",
+    [Binary(account_id), Binary(device_id)])?
   if List.length(rows) != 1 do
     Err("prekey count failed")
   else
@@ -224,10 +224,10 @@ fn target_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes)
   end
 end
 
-fn target_consumed_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes) -> Int ! String do
+fn target_consumed_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes) -> Int!String do
   let rows = Pool.query_values(pool,
-  "SELECT count(*)::text AS key_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NOT NULL",
-  [Binary(account_id), Binary(device_id)]) ?
+    "SELECT count(*)::text AS key_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NOT NULL",
+    [Binary(account_id), Binary(device_id)])?
   if List.length(rows) != 1 do
     Err("consumed prekey count failed")
   else
@@ -241,509 +241,526 @@ fn target_consumed_key_count(pool :: PoolHandle, account_id :: Bytes, device_id 
   end
 end
 
-fn happy_path() -> Bool ! String do
+fn happy_path() -> Bool!String do
   let url = Env.get("MESSENGER_TEST_DATABASE_URL",
-  "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
-  let pool = Pool.open(url, 1, 2, 5000) ?
-  let _ = Pool.execute(pool,
-  "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
-  []) ?
-  let created_at = now() ?
-  let expires_at = U64.add(created_at, wide("31536000000") ?) ?
-  let (account, identity) = case generate_account(created_at, wide("1") ?) do
+    "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
+  let pool = Pool.open(url, 1, 2, 5000)?
+  Pool.execute(pool,
+    "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    [])?
+  let created_at = now()?
+  let expires_at = U64.add(created_at, wide("31536000000")?)?
+  let (account, identity) = case generate_account(created_at, wide("1")?) do
     Err(_) -> Err("account generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let requester = case generate_device() do
     Err(_) -> Err("requester generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let target = case generate_device() do
     Err(_) -> Err("target generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   case register_device(pool,
-  registration(account, identity, requester, repeated(31, 32) ?, "1", created_at, expires_at) ?) ? do
+    registration(account, identity, requester, repeated(31, 32)?, "1", created_at, expires_at)?)? do
     DeviceAccepted -> Ok(nil)
     _ -> Err("requester registration failed")
-  end ?
+  end?
   case register_device(pool,
-  registration(account, identity, target, repeated(32, 32) ?, "2", created_at, expires_at) ?) ? do
+    registration(account, identity, target, repeated(32, 32)?, "2", created_at, expires_at)?)? do
     DeviceAccepted -> Ok(nil)
     _ -> Err("target registration failed")
-  end ?
-  let target_base = target_base_bundle(pool, repeated(32, 32) ?) ?
-  let stored = decoded_bundle(target_base) ?
-  assert(U64.compare(stored.one_time_prekey_id, wide("0") ?) == 0)
+  end?
+  let target_base = target_base_bundle(pool, repeated(32, 32)?)?
+  let stored = decoded_bundle(target_base)?
+  assert(U64.compare(stored.one_time_prekey_id, wide("0")?) == 0)
   assert(Bytes.length(stored.one_time_prekey) == 0)
   let recovery = sign_publish(target.signing_private_key,
-  unsigned_publish(identity, target, List.new()) ?) ?
-  let recovery_response = publish_prekeys_request(pool, encode_prekey_publish(recovery) ?)
+    unsigned_publish(identity, target, List.new())?)?
+  let recovery_response = publish_prekeys_request(pool, encode_prekey_publish(recovery)?)
   assert(recovery_response.status == 200)
-  let recovery_active = decode_prekey_publish_response(recovery_response.body) ?
+  let recovery_active = decode_prekey_publish_response(recovery_response.body)?
   assert(List.length(recovery_active.active_ids) == 1)
-  assert(U64.compare(List.head(recovery_active.active_ids), wide("2") ?) == 0)
-  let claim = claim_request(identity, target, target_base, repeated(51, 16) ?)
+  assert(U64.compare(List.head(recovery_active.active_ids), wide("2")?) == 0)
+  let claim = claim_request(identity, target, target_base, repeated(51, 16)?)
   let stale_claim = PrekeyClaimRequest {
-    account_id : claim.account_id,
-    device_id : claim.device_id,
-    base_bundle_hash : repeated(99, 32) ?,
-    reservation_id : claim.reservation_id
+    account_id: claim.account_id,
+    device_id: claim.device_id,
+    base_bundle_hash: repeated(99, 32)?,
+    reservation_id: claim.reservation_id
   }
-  assert(claim_prekey_request(pool, encode_prekey_claim(stale_claim) ?).status == 404)
-  assert(claim_prekey_request(pool, append_bytes(encode_prekey_claim(claim) ?, repeated(0, 1) ?) ?).status == 400)
-  let _ = Pool.execute(pool, "DROP TABLE IF EXISTS mesh_test_concurrent_claims", []) ?
-  let _ = Pool.execute(pool,
-  "DROP TRIGGER IF EXISTS mesh_test_pause_identical_claim ON messenger_one_time_prekeys",
-  []) ?
-  let _ = Pool.execute(pool, "DROP FUNCTION IF EXISTS mesh_test_pause_identical_claim()", []) ?
-  let _ = Pool.execute(pool,
-  "CREATE UNLOGGED TABLE mesh_test_concurrent_claims (claim_order INTEGER PRIMARY KEY, status INTEGER NOT NULL, body BYTEA NOT NULL)",
-  []) ?
-  let _ = Pool.execute(pool,
-  "CREATE FUNCTION mesh_test_pause_identical_claim() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.25); RETURN NEW; END $$",
-  []) ?
-  let _ = Pool.execute(pool,
-  "CREATE TRIGGER mesh_test_pause_identical_claim BEFORE UPDATE OF claim_id_hash ON messenger_one_time_prekeys FOR EACH ROW WHEN (OLD.claim_id_hash IS NULL AND NEW.claim_id_hash IS NOT NULL) EXECUTE FUNCTION mesh_test_pause_identical_claim()",
-  []) ?
-  let initial_claim_body = encode_prekey_claim(claim) ?
-  let second_initial_claim_body = encode_prekey_claim(claim) ?
+  assert(claim_prekey_request(pool, encode_prekey_claim(stale_claim)?).status == 404)
+  assert(claim_prekey_request(pool, append_bytes(encode_prekey_claim(claim)?, repeated(0, 1)?)?).status == 400)
+  Pool.execute(pool, "DROP TABLE IF EXISTS mesh_test_concurrent_claims", [])?
+  Pool.execute(pool,
+    "DROP TRIGGER IF EXISTS mesh_test_pause_identical_claim ON messenger_one_time_prekeys",
+    [])?
+  Pool.execute(pool, "DROP FUNCTION IF EXISTS mesh_test_pause_identical_claim()", [])?
+  Pool.execute(pool,
+    "CREATE UNLOGGED TABLE mesh_test_concurrent_claims (claim_order INTEGER PRIMARY KEY, status INTEGER NOT NULL, body BYTEA NOT NULL)",
+    [])?
+  Pool.execute(pool,
+    "CREATE FUNCTION mesh_test_pause_identical_claim() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.25); RETURN NEW; END $$",
+    [])?
+  Pool.execute(pool,
+    "CREATE TRIGGER mesh_test_pause_identical_claim BEFORE UPDATE OF claim_id_hash ON messenger_one_time_prekeys FOR EACH ROW WHEN (OLD.claim_id_hash IS NULL AND NEW.claim_id_hash IS NOT NULL) EXECUTE FUNCTION mesh_test_pause_identical_claim()",
+    [])?
+  let initial_claim_body = encode_prekey_claim(claim)?
+  let second_initial_claim_body = encode_prekey_claim(claim)?
   let initial_job = Job.async(fn () -> record_claim(pool, initial_claim_body, 1) end)
   let second_initial_job = Job.async(fn () -> record_claim(pool, second_initial_claim_body, 2) end)
-  assert(await_claim_id(initial_job, 0) ? == 200)
-  assert(await_claim_id(second_initial_job, 0) ? == 200)
+  assert(await_claim_id(initial_job, 0)? == 200)
+  assert(await_claim_id(second_initial_job, 0)? == 200)
   let concurrent_claims = Pool.query_values(pool,
-  "SELECT body FROM mesh_test_concurrent_claims ORDER BY claim_order",
-  []) ?
+    "SELECT body FROM mesh_test_concurrent_claims ORDER BY claim_order",
+    [])?
   assert(List.length(concurrent_claims) == 2)
-  let first_concurrent_body = binary_value(Map.get(List.get(concurrent_claims, 0), "body")) ?
-  let second_concurrent_body = binary_value(Map.get(List.get(concurrent_claims, 1), "body")) ?
+  let first_concurrent_body = binary_value(Map.get(List.get(concurrent_claims, 0), "body"))?
+  let second_concurrent_body = binary_value(Map.get(List.get(concurrent_claims, 1), "body"))?
   assert(Bytes.secure_equals(first_concurrent_body, second_concurrent_body))
-  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 1)
-  let _ = Pool.execute(pool,
-  "DROP TRIGGER mesh_test_pause_identical_claim ON messenger_one_time_prekeys",
-  []) ?
-  let _ = Pool.execute(pool, "DROP FUNCTION mesh_test_pause_identical_claim()", []) ?
-  let _ = Pool.execute(pool, "DROP TABLE mesh_test_concurrent_claims", []) ?
-  let initial_response = claim_prekey_request(pool, encode_prekey_claim(claim) ?)
-  let initial_bundle = decoded_bundle(initial_response.body) ?
-  assert(U64.compare(initial_bundle.one_time_prekey_id, wide("2") ?) == 0)
-  let initial_replay = claim_prekey_request(pool, encode_prekey_claim(claim) ?)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 1)
+  Pool.execute(pool,
+    "DROP TRIGGER mesh_test_pause_identical_claim ON messenger_one_time_prekeys",
+    [])?
+  Pool.execute(pool, "DROP FUNCTION mesh_test_pause_identical_claim()", [])?
+  Pool.execute(pool, "DROP TABLE mesh_test_concurrent_claims", [])?
+  let initial_response = claim_prekey_request(pool, encode_prekey_claim(claim)?)
+  let initial_bundle = decoded_bundle(initial_response.body)?
+  assert(U64.compare(initial_bundle.one_time_prekey_id, wide("2")?) == 0)
+  let initial_replay = claim_prekey_request(pool, encode_prekey_claim(claim)?)
   assert(initial_replay.status == 200)
   assert(Bytes.secure_equals(initial_replay.body, initial_response.body))
   let unsigned = unsigned_publish(identity,
-  target,
-  [OneTimePrekeyPublic {
-    id : wide("100") ?,
-    public_key : repeated(41, 32) ?
-  }, OneTimePrekeyPublic {
-    id : wide("101") ?,
-    public_key : repeated(42, 32) ?
-  }]) ?
-  let forged = sign_publish(requester.signing_private_key, unsigned) ?
-  assert(publish_prekeys_request(pool, encode_prekey_publish(forged) ?).status == 403)
-  let published = sign_publish(target.signing_private_key, unsigned) ?
-  let _ = Pool.execute(pool,
-  "CREATE FUNCTION pg_temp.mesh_test_fail_second_prekey() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced second prekey failure'; END $$",
-  []) ?
-  let _ = Pool.execute(pool,
-  "CREATE TRIGGER mesh_test_fail_second_prekey BEFORE INSERT ON messenger_one_time_prekeys FOR EACH ROW WHEN (NEW.prekey_id = 101) EXECUTE FUNCTION pg_temp.mesh_test_fail_second_prekey()",
-  []) ?
-  let fault_response = publish_prekeys_request(pool, encode_prekey_publish(published) ?)
-  let _ = Pool.execute(pool,
-  "DROP TRIGGER mesh_test_fail_second_prekey ON messenger_one_time_prekeys",
-  []) ?
+    target,
+    [
+      OneTimePrekeyPublic {
+        id: wide("100")?,
+        public_key: repeated(41, 32)?
+      },
+      OneTimePrekeyPublic {
+        id: wide("101")?,
+        public_key: repeated(42, 32)?
+      }
+    ])?
+  let forged = sign_publish(requester.signing_private_key, unsigned)?
+  assert(publish_prekeys_request(pool, encode_prekey_publish(forged)?).status == 403)
+  let published = sign_publish(target.signing_private_key, unsigned)?
+  Pool.execute(pool,
+    "CREATE FUNCTION pg_temp.mesh_test_fail_second_prekey() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced second prekey failure'; END $$",
+    [])?
+  Pool.execute(pool,
+    "CREATE TRIGGER mesh_test_fail_second_prekey BEFORE INSERT ON messenger_one_time_prekeys FOR EACH ROW WHEN (NEW.prekey_id = 101) EXECUTE FUNCTION pg_temp.mesh_test_fail_second_prekey()",
+    [])?
+  let fault_response = publish_prekeys_request(pool, encode_prekey_publish(published)?)
+  Pool.execute(pool, "DROP TRIGGER mesh_test_fail_second_prekey ON messenger_one_time_prekeys", [])?
   assert(fault_response.status == 500)
-  assert(target_key_count(pool, identity.account_id, target.device_id) ? == 1)
-  let published_response = publish_prekeys_request(pool, encode_prekey_publish(published) ?)
+  assert(target_key_count(pool, identity.account_id, target.device_id)? == 1)
+  let published_response = publish_prekeys_request(pool, encode_prekey_publish(published)?)
   assert(published_response.status == 201)
-  let published_active = decode_prekey_publish_response(published_response.body) ?
+  let published_active = decode_prekey_publish_response(published_response.body)?
   assert(Bytes.secure_equals(published_active.account_id, identity.account_id))
   assert(Bytes.secure_equals(published_active.device_id, target.device_id))
   assert(List.length(published_active.active_ids) == 2)
-  assert(U64.compare(List.get(published_active.active_ids, 0), wide("100") ?) == 0)
-  assert(U64.compare(List.get(published_active.active_ids, 1), wide("101") ?) == 0)
-  let replay_response = publish_prekeys_request(pool, encode_prekey_publish(published) ?)
+  assert(U64.compare(List.get(published_active.active_ids, 0), wide("100")?) == 0)
+  assert(U64.compare(List.get(published_active.active_ids, 1), wide("101")?) == 0)
+  let replay_response = publish_prekeys_request(pool, encode_prekey_publish(published)?)
   assert(replay_response.status == 200)
-  assert(List.length(decode_prekey_publish_response(replay_response.body) ?.active_ids) == 2)
+  assert(List.length(decode_prekey_publish_response(replay_response.body)?.active_ids) == 2)
   assert(publish_prekeys_request(pool,
-  append_bytes(encode_prekey_publish(published) ?, repeated(0, 1) ?) ?).status == 400)
+    append_bytes(encode_prekey_publish(published)?, repeated(0, 1)?)?).status == 400)
   let tampered = PrekeyPublishRequest {
-    account_id : published.account_id,
-    device_id : published.device_id,
-    prekeys : [OneTimePrekeyPublic {
-      id : wide("100") ?,
-      public_key : repeated(44, 32) ?
-    }],
-    last_resort : None,
-    contact_address_hash : None,
-    signature : published.signature
+    account_id: published.account_id,
+    device_id: published.device_id,
+    prekeys: [
+      OneTimePrekeyPublic {
+        id: wide("100")?,
+        public_key: repeated(44, 32)?
+      }
+    ],
+    last_resort: None,
+    contact_address_hash: None,
+    signature: published.signature
   }
-  assert(publish_prekeys_request(pool, encode_prekey_publish(tampered) ?).status == 403)
+  assert(publish_prekeys_request(pool, encode_prekey_publish(tampered)?).status == 403)
   let conflicting = sign_publish(target.signing_private_key,
-  unsigned_publish(identity,
-  target,
-  [OneTimePrekeyPublic {
-    id : wide("100") ?,
-    public_key : repeated(43, 32) ?
-  }]) ?) ?
-  assert(publish_prekeys_request(pool, encode_prekey_publish(conflicting) ?).status == 409)
-  let first_claim_body = encode_prekey_claim(% {claim | reservation_id : repeated(60, 16) ? }) ?
-  let second_claim_body = encode_prekey_claim(% {claim | reservation_id : repeated(61, 16) ? }) ?
+    unsigned_publish(identity,
+      target,
+      [
+        OneTimePrekeyPublic {
+          id: wide("100")?,
+          public_key: repeated(43, 32)?
+        }
+      ])?)?
+  assert(publish_prekeys_request(pool, encode_prekey_publish(conflicting)?).status == 409)
+  let first_claim_body = encode_prekey_claim(% { claim | reservation_id: repeated(60, 16)? })?
+  let second_claim_body = encode_prekey_claim(% { claim | reservation_id: repeated(61, 16)? })?
   let first_job = Job.async(fn () -> claimed_id(pool, first_claim_body) end)
   let second_job = Job.async(fn () -> claimed_id(pool, second_claim_body) end)
-  let first_claim_id = await_claim_id(first_job, 0) ?
-  let second_claim_id = await_claim_id(second_job, 0) ?
+  let first_claim_id = await_claim_id(first_job, 0)?
+  let second_claim_id = await_claim_id(second_job, 0)?
   assert(first_claim_id != second_claim_id)
   let ids_match = (first_claim_id == 100 && second_claim_id == 101) || (first_claim_id == 101 && second_claim_id == 100)
   assert(ids_match)
-  let first_replay_body = encode_prekey_claim(% {claim | reservation_id : repeated(60, 16) ? }) ?
-  let second_replay_body = encode_prekey_claim(% {claim | reservation_id : repeated(61, 16) ? }) ?
+  let first_replay_body = encode_prekey_claim(% { claim | reservation_id: repeated(60, 16)? })?
+  let second_replay_body = encode_prekey_claim(% { claim | reservation_id: repeated(61, 16)? })?
   let first_replay = claim_prekey_request(pool, first_replay_body)
   let first_exact_replay = claim_prekey_request(pool,
-  encode_prekey_claim(% {claim | reservation_id : repeated(60, 16) ? }) ?)
+    encode_prekey_claim(% { claim | reservation_id: repeated(60, 16)? })?)
   let second_replay = claim_prekey_request(pool, second_replay_body)
   let second_exact_replay = claim_prekey_request(pool,
-  encode_prekey_claim(% {claim | reservation_id : repeated(61, 16) ? }) ?)
+    encode_prekey_claim(% { claim | reservation_id: repeated(61, 16)? })?)
   assert(first_replay.status == 200)
   assert(second_replay.status == 200)
   assert(Bytes.secure_equals(first_replay.body, first_exact_replay.body))
   assert(Bytes.secure_equals(second_replay.body, second_exact_replay.body))
-  let first_replay_id = U64.to_int(decoded_bundle(first_replay.body) ?.one_time_prekey_id) ?
-  let second_replay_id = U64.to_int(decoded_bundle(second_replay.body) ?.one_time_prekey_id) ?
+  let first_replay_id = U64.to_int(decoded_bundle(first_replay.body)?.one_time_prekey_id)?
+  let second_replay_id = U64.to_int(decoded_bundle(second_replay.body)?.one_time_prekey_id)?
   assert(first_replay_id != second_replay_id)
   let replay_ids_match = (first_replay_id == 100 && second_replay_id == 101) || (first_replay_id == 101 && second_replay_id == 100)
   assert(replay_ids_match)
-  let exhausted_claim_body = encode_prekey_claim(% {claim | reservation_id : repeated(62, 16) ? }) ?
+  let exhausted_claim_body = encode_prekey_claim(% { claim | reservation_id: repeated(62, 16)? })?
   assert(claim_prekey_request(pool, exhausted_claim_body).status == 409)
-  let exhausted_recovery = publish_prekeys_request(pool, encode_prekey_publish(recovery) ?)
+  let exhausted_recovery = publish_prekeys_request(pool, encode_prekey_publish(recovery)?)
   assert(exhausted_recovery.status == 200)
-  assert(List.length(decode_prekey_publish_response(exhausted_recovery.body) ?.active_ids) == 0)
+  assert(List.length(decode_prekey_publish_response(exhausted_recovery.body)?.active_ids) == 0)
   let replenished = sign_publish(target.signing_private_key,
-  unsigned_publish(identity,
-  target,
-  [OneTimePrekeyPublic {
-    id : wide("102") ?,
-    public_key : repeated(45, 32) ?
-  }]) ?) ?
-  assert(publish_prekeys_request(pool, encode_prekey_publish(replenished) ?).status == 201)
+    unsigned_publish(identity,
+      target,
+      [
+        OneTimePrekeyPublic {
+          id: wide("102")?,
+          public_key: repeated(45, 32)?
+        }
+      ])?)?
+  assert(publish_prekeys_request(pool, encode_prekey_publish(replenished)?).status == 201)
   let replenished_claim = claim_prekey_request(pool, exhausted_claim_body)
   assert(replenished_claim.status == 200)
-  assert(U64.compare(decoded_bundle(replenished_claim.body) ?.one_time_prekey_id, wide("102") ?) == 0)
-  assert(U64.compare(decoded_bundle(claim_prekey_request(pool, exhausted_claim_body).body) ?.one_time_prekey_id,
-  wide("102") ?) == 0)
+  assert(U64.compare(decoded_bundle(replenished_claim.body)?.one_time_prekey_id, wide("102")?) == 0)
+  assert(U64.compare(decoded_bundle(claim_prekey_request(pool, exhausted_claim_body).body)?.one_time_prekey_id,
+    wide("102")?) == 0)
   assert(claim_prekey_request(pool,
-  encode_prekey_claim(% {claim | reservation_id : repeated(63, 16) ? }) ?).status == 409)
-  let bounded_values = prekey_range(980, 64, 0, List.new()) ?
+    encode_prekey_claim(% { claim | reservation_id: repeated(63, 16)? })?).status == 409)
+  let bounded_values = prekey_range(980, 64, 0, List.new())?
   let bounded = sign_publish(target.signing_private_key,
-  unsigned_publish(identity, target, bounded_values) ?) ?
-  let bounded_response = publish_prekeys_request(pool, encode_prekey_publish(bounded) ?)
+    unsigned_publish(identity, target, bounded_values)?)?
+  let bounded_response = publish_prekeys_request(pool, encode_prekey_publish(bounded)?)
   assert(bounded_response.status == 201)
-  let bounded_active = decode_prekey_publish_response(bounded_response.body) ?
-  assert(U64.compare(List.get(bounded_active.active_ids, 0), wide("980") ?) == 0)
-  assert(U64.compare(List.get(bounded_active.active_ids, 63), wide("1043") ?) == 0)
-  assert(publish_prekeys_request(pool, encode_prekey_publish(bounded) ?).status == 200)
+  let bounded_active = decode_prekey_publish_response(bounded_response.body)?
+  assert(U64.compare(List.get(bounded_active.active_ids, 0), wide("980")?) == 0)
+  assert(U64.compare(List.get(bounded_active.active_ids, 63), wide("1043")?) == 0)
+  assert(publish_prekeys_request(pool, encode_prekey_publish(bounded)?).status == 200)
   let overflow = sign_publish(target.signing_private_key,
-  unsigned_publish(identity,
-  target,
-  [OneTimePrekeyPublic {
-    id : wide("400") ?,
-    public_key : repeated(46, 32) ?
-  }]) ?) ?
-  let overflow_response = publish_prekeys_request(pool, encode_prekey_publish(overflow) ?)
+    unsigned_publish(identity,
+      target,
+      [
+        OneTimePrekeyPublic {
+          id: wide("400")?,
+          public_key: repeated(46, 32)?
+        }
+      ])?)?
+  let overflow_response = publish_prekeys_request(pool, encode_prekey_publish(overflow)?)
   assert(overflow_response.status == 429)
-  let overflow_active = decode_prekey_publish_response(overflow_response.body) ?
+  let overflow_active = decode_prekey_publish_response(overflow_response.body)?
   assert(List.length(overflow_active.active_ids) == 64)
   assert(Bytes.secure_equals(overflow_active.account_id, identity.account_id))
   assert(Bytes.secure_equals(overflow_active.device_id, target.device_id))
   assert(Bytes.secure_equals(overflow_response.body, bounded_response.body))
-  let oversized = unsigned_publish(identity, target, prekey_range(500, 65, 0, List.new()) ?) ?
+  let oversized = unsigned_publish(identity, target, prekey_range(500, 65, 0, List.new())?)?
   case encode_prekey_publish(oversized) do
     Err(_) -> Ok(nil)
     Ok(_) -> Err("oversized prekey batch encoded")
-  end ?
-  rotation_replay_assertions(pool, account, identity, target, target_base, created_at, expires_at) ?
-  let revocation = case issue_device_revocation(account, target.device_id, wide("5") ?) do
+  end?
+  rotation_replay_assertions(pool, account, identity, target, target_base, created_at, expires_at)?
+  let revocation = case issue_device_revocation(account, target.device_id, wide("5")?) do
     Err(_) -> Err("revocation signing failed")
-    Ok(output) -> Ok(output)
-  end ?
-  assert(revoke_device_request(pool, protocol(encode_device_revocation(revocation)) ?).status == 200)
-  assert(target_key_count(pool, identity.account_id, target.device_id) ? == 0)
-  assert(publish_prekeys_request(pool, encode_prekey_publish(bounded) ?).status == 403)
+    Ok(output)
+  end?
+  assert(revoke_device_request(pool, protocol(encode_device_revocation(revocation))?).status == 200)
+  assert(target_key_count(pool, identity.account_id, target.device_id)? == 0)
+  assert(publish_prekeys_request(pool, encode_prekey_publish(bounded)?).status == 403)
   assert(claim_prekey_request(pool, exhausted_claim_body).status == 404)
   Pool.close(pool)
   Ok(true)
 end
 
 fn rotation_replay_assertions(pool :: PoolHandle,
-account :: borrow AccountKeys,
-identity :: AccountIdentity,
-other_target :: borrow DeviceKeys,
-other_base :: Bytes,
-created_at :: U64,
-expires_at :: U64) -> Result <(), String > do
+  account :: borrow AccountKeys,
+  identity :: AccountIdentity,
+  other_target :: borrow DeviceKeys,
+  other_base :: Bytes,
+  created_at :: U64,
+  expires_at :: U64) -> Result<(), String> do
   let target = case generate_device() do
     Err(_) -> Err("target generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let classical_credential = case issue_device_credential(account,
-  target,
-  wide("1") ?,
-  created_at,
-  expires_at,
-  wide("3") ?) do
+    target,
+    wide("1")?,
+    created_at,
+    expires_at,
+    wide("3")?) do
     Err(_) -> Err("classical credential generation failed")
-    Ok(output) -> Ok(output)
-  end ?
-  let signed = case generate_signed_prekey(target, classical_credential, wide("1") ?, expires_at) do
+    Ok(output)
+  end?
+  let signed = case generate_signed_prekey(target, classical_credential, wide("1")?, expires_at) do
     Err(_) -> Err("signed prekey generation failed")
-    Ok(output) -> Ok(output)
-  end ?
-  let one_time = case generate_one_time_prekey(wide("2") ?) do
+    Ok(output)
+  end?
+  let one_time = case generate_one_time_prekey(wide("2")?) do
     Err(_) -> Err("one-time prekey generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let classical_bundle = case build_prekey_bundle(classical_credential, signed, one_time) do
     Err(_) -> Err("classical bundle generation failed")
-    Ok(output) -> Ok(output)
-  end ?
-  let mailbox_token = repeated(73, 32) ?
+    Ok(output)
+  end?
+  let mailbox_token = repeated(73, 32)?
   let classical_entry = DirectoryEntry {
-    version : 1,
-    username : "prekey-account",
-    account_identity : protocol(encode_account_identity(identity)) ?,
-    prekey_bundle : protocol(encode_prekey_bundle(classical_bundle)) ?,
-    mailbox_token : mailbox_token
+    version: 1,
+    username: "prekey-account",
+    account_identity: protocol(encode_account_identity(identity))?,
+    prekey_bundle: protocol(encode_prekey_bundle(classical_bundle))?,
+    mailbox_token: mailbox_token
   }
-  case register_device(pool, classical_entry) ? do
+  case register_device(pool, classical_entry)? do
     DeviceAccepted -> Ok(nil)
     _ -> Err("classical registration failed")
-  end ?
-  let classical_base = target_base_bundle(pool, mailbox_token) ?
+  end?
+  let classical_base = target_base_bundle(pool, mailbox_token)?
   let published = sign_publish(target.signing_private_key,
-  unsigned_publish(identity,
-  target,
-  [OneTimePrekeyPublic {
-    id : wide("100") ?,
-    public_key : repeated(74, 32) ?
-  }, OneTimePrekeyPublic {
-    id : wide("101") ?,
-    public_key : repeated(77, 32) ?
-  }]) ?) ?
+    unsigned_publish(identity,
+      target,
+      [
+        OneTimePrekeyPublic {
+          id: wide("100")?,
+          public_key: repeated(74, 32)?
+        },
+        OneTimePrekeyPublic {
+          id: wide("101")?,
+          public_key: repeated(77, 32)?
+        }
+      ])?)?
   case publish_prekeys(pool, published) do
     Err(error) -> Err("rotation prekey publication failed: #{error}")
     Ok(_) -> Ok(nil)
-  end ?
-  assert(target_key_count(pool, identity.account_id, target.device_id) ? == 3)
-  let reservation_id = repeated(75, 16) ?
+  end?
+  assert(target_key_count(pool, identity.account_id, target.device_id)? == 3)
+  let reservation_id = repeated(75, 16)?
   let claim = claim_request(identity, target, classical_base, reservation_id)
-  let claim_body = encode_prekey_claim(claim) ?
+  let claim_body = encode_prekey_claim(claim)?
   let initial = claim_prekey_request(pool, claim_body)
   assert(initial.status == 200)
-  assert(U64.compare(decoded_bundle(initial.body) ?.one_time_prekey_id, wide("2") ?) == 0)
-  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 1)
-  let legacy_claim = % {claim | reservation_id : repeated(78, 16) ? }
-  let legacy_body = encode_prekey_claim(legacy_claim) ?
+  assert(U64.compare(decoded_bundle(initial.body)?.one_time_prekey_id, wide("2")?) == 0)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 1)
+  let legacy_claim = % { claim | reservation_id: repeated(78, 16)? }
+  let legacy_body = encode_prekey_claim(legacy_claim)?
   let legacy_initial = claim_prekey_request(pool, legacy_body)
   assert(legacy_initial.status == 200)
   let legacy_changed = Pool.execute_values(pool,
-  "UPDATE messenger_one_time_prekeys SET claim_response = $4 WHERE account_id = $1 AND device_id = $2 AND claim_id_hash = $3",
-  [Binary(identity.account_id), Binary(target.device_id), Binary(Crypto.sha256(legacy_claim.reservation_id)), Binary(classical_base)]) ?
+    "UPDATE messenger_one_time_prekeys SET claim_response = $4 WHERE account_id = $1 AND device_id = $2 AND claim_id_hash = $3",
+    [
+      Binary(identity.account_id),
+      Binary(target.device_id),
+      Binary(Crypto.sha256(legacy_claim.reservation_id)),
+      Binary(classical_base)
+    ])?
   assert(legacy_changed == 1)
-  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 2)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 2)
   let post_quantum = case generate_post_quantum_prekey() do
     Err(_) -> Err("post-quantum prekey generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let hybrid_credential = case issue_hybrid_device_credential(account,
-  target,
-  post_quantum.public_key,
-  wide("3") ?,
-  created_at,
-  expires_at,
-  wide("4") ?) do
+    target,
+    post_quantum.public_key,
+    wide("3")?,
+    created_at,
+    expires_at,
+    wide("4")?) do
     Err(_) -> Err("hybrid credential generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let signed = case reauthorize_signed_prekey(target, hybrid_credential, signed) do
     Err(_) -> Err("signed prekey reauthorization failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let hybrid_bundle = case build_hybrid_prekey_bundle(hybrid_credential,
-  signed,
-  one_time,
-  post_quantum) do
+    signed,
+    one_time,
+    post_quantum) do
     Err(_) -> Err("hybrid bundle generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let hybrid_entry = DirectoryEntry {
-    version : 1,
-    username : "prekey-account",
-    account_identity : protocol(encode_account_identity(identity)) ?,
-    prekey_bundle : protocol(encode_prekey_bundle(hybrid_bundle)) ?,
-    mailbox_token : mailbox_token
+    version: 1,
+    username: "prekey-account",
+    account_identity: protocol(encode_account_identity(identity))?,
+    prekey_bundle: protocol(encode_prekey_bundle(hybrid_bundle))?,
+    mailbox_token: mailbox_token
   }
-  case register_device(pool, hybrid_entry) ? do
+  case register_device(pool, hybrid_entry)? do
     DeviceAccepted -> Ok(nil)
     _ -> Err("hybrid credential rotation failed")
-  end ?
-  let hybrid_base = target_base_bundle(pool, mailbox_token) ?
+  end?
+  let hybrid_base = target_base_bundle(pool, mailbox_token)?
   assert(!Bytes.secure_equals(Crypto.sha256(classical_base), Crypto.sha256(hybrid_base)))
   let replay = claim_prekey_request(pool, claim_body)
   if replay.status != 200 do
     Err("cross-rotation claim replay returned #{Int.to_string(replay.status)}")
   else
     Ok(nil)
-  end ?
+  end?
   assert(Bytes.secure_equals(replay.body, initial.body))
-  assert(decoded_bundle(replay.body) ?.suite == 1)
+  assert(decoded_bundle(replay.body)?.suite == 1)
   let legacy_replay = claim_prekey_request(pool, legacy_body)
   assert(legacy_replay.status == 200)
   assert(Bytes.secure_equals(legacy_replay.body, legacy_initial.body))
-  assert(decoded_bundle(legacy_replay.body) ?.suite == 1)
-  let unknown_stale = % {claim | reservation_id : repeated(76, 16) ? }
-  assert(claim_prekey_request(pool, encode_prekey_claim(unknown_stale) ?).status == 404)
-  let changed_binding = % {claim | base_bundle_hash : Crypto.sha256(hybrid_base) }
-  assert(claim_prekey_request(pool, encode_prekey_claim(changed_binding) ?).status == 404)
-  let other_consumed = target_consumed_key_count(pool, identity.account_id, other_target.device_id) ?
+  assert(decoded_bundle(legacy_replay.body)?.suite == 1)
+  let unknown_stale = % { claim | reservation_id: repeated(76, 16)? }
+  assert(claim_prekey_request(pool, encode_prekey_claim(unknown_stale)?).status == 404)
+  let changed_binding = % { claim | base_bundle_hash: Crypto.sha256(hybrid_base) }
+  assert(claim_prekey_request(pool, encode_prekey_claim(changed_binding)?).status == 404)
+  let other_consumed = target_consumed_key_count(pool, identity.account_id, other_target.device_id)?
   let changed_device = PrekeyClaimRequest {
-    account_id : claim.account_id,
-    device_id : other_target.device_id,
-    base_bundle_hash : Crypto.sha256(other_base),
-    reservation_id : claim.reservation_id
+    account_id: claim.account_id,
+    device_id: other_target.device_id,
+    base_bundle_hash: Crypto.sha256(other_base),
+    reservation_id: claim.reservation_id
   }
-  assert(claim_prekey_request(pool, encode_prekey_claim(changed_device) ?).status == 404)
-  assert(target_consumed_key_count(pool, identity.account_id, other_target.device_id) ? == other_consumed)
-  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 2)
+  assert(claim_prekey_request(pool, encode_prekey_claim(changed_device)?).status == 404)
+  assert(target_consumed_key_count(pool, identity.account_id, other_target.device_id)? == other_consumed)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 2)
   Ok(nil)
 end
 
-fn last_resort(id :: String, fill :: Int) -> Option < OneTimePrekeyPublic > ! String do
+fn last_resort(id :: String, fill :: Int) -> Option<OneTimePrekeyPublic>!String do
   Ok(Some(OneTimePrekeyPublic {
-    id : wide(id) ?,
-    public_key : repeated(fill, 32) ?
+    id: wide(id)?,
+    public_key: repeated(fill, 32)?
   }))
 end
 
 fn publish_status(pool :: PoolHandle,
-identity :: AccountIdentity,
-device :: borrow DeviceKeys,
-prekeys :: List < OneTimePrekeyPublic >,
-reusable :: Option < OneTimePrekeyPublic >) -> Int ! String do
-  let unsigned = unsigned_publish(identity, device, prekeys) ?
-  let signed = sign_publish(device.signing_private_key, % {unsigned | last_resort : reusable }) ?
-  Ok(publish_prekeys_request(pool, encode_prekey_publish(signed) ?).status)
+  identity :: AccountIdentity,
+  device :: borrow DeviceKeys,
+  prekeys :: List<OneTimePrekeyPublic>,
+  reusable :: Option<OneTimePrekeyPublic>) -> Int!String do
+  let unsigned = unsigned_publish(identity, device, prekeys)?
+  let signed = sign_publish(device.signing_private_key, % { unsigned | last_resort: reusable })?
+  Ok(publish_prekeys_request(pool, encode_prekey_publish(signed)?).status)
 end
 
-fn last_resort_path() -> Bool ! String do
+fn last_resort_path() -> Bool!String do
   let url = Env.get("MESSENGER_TEST_DATABASE_URL",
-  "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
-  let pool = Pool.open(url, 1, 2, 5000) ?
-  let _ = Pool.execute(pool,
-  "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
-  []) ?
-  let created_at = now() ?
-  let expires_at = U64.add(created_at, wide("31536000000") ?) ?
-  let (account, identity) = case generate_account(created_at, wide("1") ?) do
+    "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
+  let pool = Pool.open(url, 1, 2, 5000)?
+  Pool.execute(pool,
+    "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    [])?
+  let created_at = now()?
+  let expires_at = U64.add(created_at, wide("31536000000")?)?
+  let (account, identity) = case generate_account(created_at, wide("1")?) do
     Err(_) -> Err("account generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let target = case generate_device() do
     Err(_) -> Err("target generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   case register_device(pool,
-  registration(account, identity, target, repeated(33, 32) ?, "1", created_at, expires_at) ?) ? do
+    registration(account, identity, target, repeated(33, 32)?, "1", created_at, expires_at)?)? do
     DeviceAccepted -> Ok(nil)
     _ -> Err("target registration failed")
-  end ?
-  let base = target_base_bundle(pool, repeated(33, 32) ?) ?
+  end?
+  let base = target_base_bundle(pool, repeated(33, 32)?)?
   # Registration seeded one-time prekey 2. Once it is claimed the pool is empty,
   # and a device that never published a last-resort key blocks new sessions.
   assert(claimed_id(pool,
-  encode_prekey_claim(claim_request(identity, target, base, repeated(61, 16) ?)) ?) == 2)
-  let blocked = encode_prekey_claim(claim_request(identity, target, base, repeated(62, 16) ?)) ?
+    encode_prekey_claim(claim_request(identity, target, base, repeated(61, 16)?))?) == 2)
+  let blocked = encode_prekey_claim(claim_request(identity, target, base, repeated(62, 16)?))?
   assert(claim_prekey_request(pool, blocked).status == 409)
   # With a last-resort key, every later claimant still gets a usable bundle and
   # the key is never consumed.
-  assert(publish_status(pool, identity, target, List.new(), last_resort("9", 90) ?) ? == 201)
-  assert(publish_status(pool, identity, target, List.new(), last_resort("9", 90) ?) ? == 200)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("9", 90)?)? == 201)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("9", 90)?)? == 200)
   assert(claimed_id(pool, blocked) == 9)
-  let third = encode_prekey_claim(claim_request(identity, target, base, repeated(63, 16) ?)) ?
-  let reusable = decoded_bundle(claim_prekey_request(pool, third).body) ?
-  assert(U64.compare(reusable.one_time_prekey_id, wide("9") ?) == 0)
-  assert(Bytes.secure_equals(reusable.one_time_prekey, repeated(90, 32) ?))
-  assert(target_consumed_key_count(pool, identity.account_id, target.device_id) ? == 1)
+  let third = encode_prekey_claim(claim_request(identity, target, base, repeated(63, 16)?))?
+  let reusable = decoded_bundle(claim_prekey_request(pool, third).body)?
+  assert(U64.compare(reusable.one_time_prekey_id, wide("9")?) == 0)
+  assert(Bytes.secure_equals(reusable.one_time_prekey, repeated(90, 32)?))
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 1)
   # It is not part of the one-time pool the device reconciles against.
   let recovery = sign_publish(target.signing_private_key,
-  unsigned_publish(identity, target, List.new()) ?) ?
+    unsigned_publish(identity, target, List.new())?)?
   let active = decode_prekey_publish_response(publish_prekeys_request(pool,
-  encode_prekey_publish(recovery) ?).body) ?
+    encode_prekey_publish(recovery)?).body)?
   assert(List.length(active.active_ids) == 0)
   # A replenished pool takes priority again; the last-resort key waits behind it.
   assert(publish_status(pool,
-  identity,
-  target,
-  prekey_range(10, 1, 0, List.new()) ?,
-  last_resort("9", 90) ?) ? == 201)
+    identity,
+    target,
+    prekey_range(10, 1, 0, List.new())?,
+    last_resort("9", 90)?)? == 201)
   assert(claimed_id(pool,
-  encode_prekey_claim(claim_request(identity, target, base, repeated(64, 16) ?)) ?) == 10)
+    encode_prekey_claim(claim_request(identity, target, base, repeated(64, 16)?))?) == 10)
   assert(claimed_id(pool,
-  encode_prekey_claim(claim_request(identity, target, base, repeated(65, 16) ?)) ?) == 9)
+    encode_prekey_claim(claim_request(identity, target, base, repeated(65, 16)?))?) == 9)
   # A newer key retires the old one. An older or re-keyed identifier is refused,
   # and replaying the retired publication does not bring the old key back.
-  assert(publish_status(pool, identity, target, List.new(), last_resort("12", 120) ?) ? == 201)
-  assert(publish_status(pool, identity, target, List.new(), last_resort("11", 110) ?) ? == 409)
-  assert(publish_status(pool, identity, target, List.new(), last_resort("12", 121) ?) ? == 409)
-  assert(publish_status(pool, identity, target, List.new(), last_resort("10", 100) ?) ? == 409)
-  assert(publish_status(pool, identity, target, List.new(), last_resort("9", 90) ?) ? == 200)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("12", 120)?)? == 201)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("11", 110)?)? == 409)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("12", 121)?)? == 409)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("10", 100)?)? == 409)
+  assert(publish_status(pool, identity, target, List.new(), last_resort("9", 90)?)? == 200)
   assert(claimed_id(pool,
-  encode_prekey_claim(claim_request(identity, target, base, repeated(66, 16) ?)) ?) == 12)
+    encode_prekey_claim(claim_request(identity, target, base, repeated(66, 16)?))?) == 12)
   Ok(true)
 end
 
 # The device's signed publication is how its contact address reaches the
 # directory: only the device can name one, and only for its own mailbox.
 
-fn contact_address_path() -> Bool ! String do
+fn contact_address_path() -> Bool!String do
   let url = Env.get("MESSENGER_TEST_DATABASE_URL",
-  "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
-  let pool = Pool.open(url, 1, 2, 5000) ?
-  let _ = Pool.execute(pool,
-  "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
-  []) ?
-  let created_at = now() ?
-  let expires_at = U64.add(created_at, wide("31536000000") ?) ?
-  let (account, identity) = case generate_account(created_at, wide("1") ?) do
+    "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
+  let pool = Pool.open(url, 1, 2, 5000)?
+  Pool.execute(pool,
+    "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    [])?
+  let created_at = now()?
+  let expires_at = U64.add(created_at, wide("31536000000")?)?
+  let (account, identity) = case generate_account(created_at, wide("1")?) do
     Err(_) -> Err("account generation failed")
-    Ok(output) -> Ok(output)
-  end ?
+    Ok(output)
+  end?
   let target = case generate_device() do
     Err(_) -> Err("target generation failed")
-    Ok(output) -> Ok(output)
-  end ?
-  let mailbox = repeated(41, 32) ?
+    Ok(output)
+  end?
+  let mailbox = repeated(41, 32)?
   case register_device(pool,
-  registration(account, identity, target, mailbox, "1", created_at, expires_at) ?) ? do
+    registration(account, identity, target, mailbox, "1", created_at, expires_at)?)? do
     DeviceAccepted -> Ok(nil)
     _ -> Err("target registration failed")
-  end ?
-  let address = repeated(42, 32) ?
-  let named = % {unsigned_publish(identity, target, List.new()) ? | contact_address_hash : Some(Crypto.sha256(address)) }
-  let signed = sign_publish(target.signing_private_key, named) ?
-  assert(publish_prekeys_request(pool, encode_prekey_publish(signed) ?).status == 201)
-  assert(publish_prekeys_request(pool, encode_prekey_publish(signed) ?).status == 200)
+  end?
+  let address = repeated(42, 32)?
+  let named = % { unsigned_publish(identity, target, List.new())? | contact_address_hash: Some(Crypto.sha256(address)) }
+  let signed = sign_publish(target.signing_private_key, named)?
+  assert(publish_prekeys_request(pool, encode_prekey_publish(signed)?).status == 201)
+  assert(publish_prekeys_request(pool, encode_prekey_publish(signed)?).status == 200)
   let rows = Pool.query_values(pool,
-  "SELECT 1 AS found FROM messenger_mailbox_aliases WHERE alias_hash = $1 AND mailbox_token_hash = $2 AND retired_at IS NULL",
-  [Binary(Crypto.sha256(address)), Binary(Crypto.sha256(mailbox))]) ?
+    "SELECT 1 AS found FROM messenger_mailbox_aliases WHERE alias_hash = $1 AND mailbox_token_hash = $2 AND retired_at IS NULL",
+    [Binary(Crypto.sha256(address)), Binary(Crypto.sha256(mailbox))])?
   assert(List.length(rows) == 1)
   # The signature covers the address: a publication altered to name another is refused.
-  let forged = % {signed | contact_address_hash : Some(Crypto.sha256(repeated(43, 32) ?)) }
-  assert(publish_prekeys_request(pool, encode_prekey_publish(forged) ?).status == 403)
+  let forged = % { signed | contact_address_hash: Some(Crypto.sha256(repeated(43, 32)?)) }
+  assert(publish_prekeys_request(pool, encode_prekey_publish(forged)?).status == 403)
   # Nobody may name an address that already routes somewhere.
   let taken = sign_publish(target.signing_private_key,
-  % {unsigned_publish(identity, target, List.new()) ? | contact_address_hash : Some(Crypto.sha256(mailbox)) }) ?
-  assert(publish_prekeys_request(pool, encode_prekey_publish(taken) ?).status == 409)
+    % { unsigned_publish(identity, target, List.new())? | contact_address_hash: Some(Crypto.sha256(mailbox)) })?
+  assert(publish_prekeys_request(pool, encode_prekey_publish(taken)?).status == 409)
   Ok(true)
 end
 

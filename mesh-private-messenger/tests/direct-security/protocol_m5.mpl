@@ -31,22 +31,24 @@ fn negotiation_proof() do
   end
 end
 
-fn account_proof() -> Int ! String do
+fn account_proof() -> Int!String do
   let account = AccountIdentity {
-    version : 1,
-    account_id : Bytes.from_hex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f") ?,
-    authorization_public_key : Bytes.from_hex("202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f") ?,
-    created_at : U64.parse("1700000000000") ?,
-    directory_sequence : U64.parse("42") ?,
-    extensions : [ProtocolExtension {
-      id : 7,
-      mandatory : false,
-      value : Bytes.from_hex("a0a1a2") ?
-    }]
+    version: 1,
+    account_id: Bytes.from_hex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")?,
+    authorization_public_key: Bytes.from_hex("202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f")?,
+    created_at: U64.parse("1700000000000")?,
+    directory_sequence: U64.parse("42")?,
+    extensions: [
+      ProtocolExtension {
+        id: 7,
+        mandatory: false,
+        value: Bytes.from_hex("a0a1a2")?
+      }
+    ]
   }
   case encode_account_identity(account) do
     Err(_) -> println("account-encode-error")
-    Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__ACCOUNT_HEX__") ?) do
+    Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__ACCOUNT_HEX__")?) do
       println("account-golden-mismatch")
     else
       case decode_account_identity(encoded) do
@@ -65,14 +67,14 @@ fn account_proof() -> Int ! String do
   Ok(0)
 end
 
-fn hostile_account_proof() -> Int ! String do
-  let mandatory = Bytes.from_hex("014143540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100070100000000") ?
+fn hostile_account_proof() -> Int!String do
+  let mandatory = Bytes.from_hex("014143540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100070100000000")?
   case decode_account_identity(mandatory) do
     Err(UnknownMandatoryExtension) -> println("account-mandatory")
     Err(_) -> println("account-mandatory-wrong-error")
     Ok(_) -> println("account-mandatory-accepted")
   end
-  let duplicate = Bytes.from_hex("01414354000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020007000000000000070000000000") ?
+  let duplicate = Bytes.from_hex("01414354000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020007000000000000070000000000")?
   case decode_account_identity(duplicate) do
     Err(NonCanonicalEncoding) -> println("account-duplicate")
     Err(_) -> println("account-duplicate-wrong-error")
@@ -119,8 +121,8 @@ fn hostile_decoder_lengths(version :: Bytes, length :: Int) -> Bool do
   end
 end
 
-fn hostile_decoder_proof() -> Int ! String do
-  if hostile_decoder_lengths(Bytes.from_hex("01") ?, 0) do
+fn hostile_decoder_proof() -> Int!String do
+  if hostile_decoder_lengths(Bytes.from_hex("01")?, 0) do
     println("decoder-hostile-matrix")
   else
     println("decoder-hostile-accepted")
@@ -128,30 +130,32 @@ fn hostile_decoder_proof() -> Int ! String do
   Ok(0)
 end
 
-fn prekey_proof() -> Int ! String do
+fn prekey_proof() -> Int!String do
   let bundle = PrekeyBundle {
-    version : 1,
-    suite : 1,
-    device_credential : Bytes.from_hex("__CREDENTIAL_HEX__") ?,
-    identity_dh_public_key : Bytes.from_hex("505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f") ?,
-    signing_public_key : Bytes.from_hex("303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f") ?,
-    signed_prekey_id : U64.parse("7") ?,
-    signed_prekey : Bytes.from_utf8("pppppppppppppppppppppppppppppppp"),
-    signed_prekey_signature : Bytes.from_utf8("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
-    one_time_prekey_id : U64.parse("9") ?,
-    one_time_prekey : Bytes.from_utf8("oooooooooooooooooooooooooooooooo"),
-    post_quantum_prekey : Bytes.empty(),
-    supported_suites : [1],
-    expires_at : U64.parse("1700604800000") ?,
-    extensions : [ProtocolExtension {
-      id : 11,
-      mandatory : false,
-      value : Bytes.from_utf8("optional-proof")
-    }]
+    version: 1,
+    suite: 1,
+    device_credential: Bytes.from_hex("__CREDENTIAL_HEX__")?,
+    identity_dh_public_key: Bytes.from_hex("505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f")?,
+    signing_public_key: Bytes.from_hex("303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f")?,
+    signed_prekey_id: U64.parse("7")?,
+    signed_prekey: Bytes.from_utf8("pppppppppppppppppppppppppppppppp"),
+    signed_prekey_signature: Bytes.from_utf8("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
+    one_time_prekey_id: U64.parse("9")?,
+    one_time_prekey: Bytes.from_utf8("oooooooooooooooooooooooooooooooo"),
+    post_quantum_prekey: Bytes.empty(),
+    supported_suites: [1],
+    expires_at: U64.parse("1700604800000")?,
+    extensions: [
+      ProtocolExtension {
+        id: 11,
+        mandatory: false,
+        value: Bytes.from_utf8("optional-proof")
+      }
+    ]
   }
   case encode_prekey_bundle(bundle) do
     Err(_) -> println("prekey-encode-error")
-    Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__PREKEY_HEX__") ?) do
+    Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__PREKEY_HEX__")?) do
       println("prekey-golden-mismatch")
     else
       case decode_prekey_bundle(encoded) do
@@ -159,8 +163,8 @@ fn prekey_proof() -> Int ! String do
         Ok(decoded) -> case encode_prekey_bundle(decoded) do
           Err(_) -> println("prekey-reencode-error")
           Ok(reencoded) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(decoded.one_time_prekey,
-          bundle.one_time_prekey) && List.length(decoded.supported_suites) == 1 && List.get(decoded.supported_suites,
-          0) == 1 do
+            bundle.one_time_prekey) && List.length(decoded.supported_suites) == 1 && List.get(decoded.supported_suites,
+            0) == 1 do
             println("prekey-roundtrip")
           else
             println("prekey-noncanonical")
@@ -170,20 +174,20 @@ fn prekey_proof() -> Int ! String do
     end
   end
   let invalid = PrekeyBundle {
-    version : bundle.version,
-    suite : bundle.suite,
-    device_credential : bundle.device_credential,
-    identity_dh_public_key : bundle.identity_dh_public_key,
-    signing_public_key : bundle.signing_public_key,
-    signed_prekey_id : bundle.signed_prekey_id,
-    signed_prekey : bundle.signed_prekey,
-    signed_prekey_signature : bundle.signed_prekey_signature,
-    one_time_prekey_id : bundle.one_time_prekey_id,
-    one_time_prekey : Bytes.from_utf8("short"),
-    post_quantum_prekey : bundle.post_quantum_prekey,
-    supported_suites : bundle.supported_suites,
-    expires_at : bundle.expires_at,
-    extensions : bundle.extensions
+    version: bundle.version,
+    suite: bundle.suite,
+    device_credential: bundle.device_credential,
+    identity_dh_public_key: bundle.identity_dh_public_key,
+    signing_public_key: bundle.signing_public_key,
+    signed_prekey_id: bundle.signed_prekey_id,
+    signed_prekey: bundle.signed_prekey,
+    signed_prekey_signature: bundle.signed_prekey_signature,
+    one_time_prekey_id: bundle.one_time_prekey_id,
+    one_time_prekey: Bytes.from_utf8("short"),
+    post_quantum_prekey: bundle.post_quantum_prekey,
+    supported_suites: bundle.supported_suites,
+    expires_at: bundle.expires_at,
+    extensions: bundle.extensions
   }
   case encode_prekey_bundle(invalid) do
     Err(InvalidFieldLength) -> println("prekey-invalid-length")
@@ -195,20 +199,20 @@ end
 
 fn inner_value(body :: Bytes, timestamp :: U64) -> InnerEnvelope do
   InnerEnvelope {
-    version : 1,
-    sender_account_id : Bytes.from_utf8("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-    sender_device_id : Bytes.from_utf8("ssssssssssssssss"),
-    recipient_device_id : Bytes.from_utf8("rrrrrrrrrrrrrrrr"),
-    conversation_id : Bytes.from_utf8("cccccccccccccccc"),
-    client_message_id : Bytes.from_utf8("mmmmmmmmmmmmmmmm"),
-    client_timestamp : timestamp,
-    message_type : 1,
-    body : body,
-    reply_reference : Bytes.empty(),
-    attachment_manifest : Bytes.empty(),
-    receipt_policy : 1,
-    disappearing_seconds : 0,
-    extensions : []
+    version: 1,
+    sender_account_id: Bytes.from_utf8("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+    sender_device_id: Bytes.from_utf8("ssssssssssssssss"),
+    recipient_device_id: Bytes.from_utf8("rrrrrrrrrrrrrrrr"),
+    conversation_id: Bytes.from_utf8("cccccccccccccccc"),
+    client_message_id: Bytes.from_utf8("mmmmmmmmmmmmmmmm"),
+    client_timestamp: timestamp,
+    message_type: 1,
+    body: body,
+    reply_reference: Bytes.empty(),
+    attachment_manifest: Bytes.empty(),
+    receipt_policy: 1,
+    disappearing_seconds: 0,
+    extensions: []
   }
 end
 
@@ -228,18 +232,18 @@ fn inner_round_trip(size :: Int, timestamp :: U64) -> Bool do
   end
 end
 
-fn inner_properties(sizes :: List < Int >, index :: Int, timestamp :: U64) -> Bool do
+fn inner_properties(sizes :: List<Int>, index :: Int, timestamp :: U64) -> Bool do
   if index >= List.length(sizes) do
     true
   else
     inner_round_trip(List.get(sizes, index), timestamp) && inner_properties(sizes,
-    index + 1,
-    timestamp)
+      index + 1,
+      timestamp)
   end
 end
 
-fn inner_proof() -> Int ! String do
-  let timestamp = U64.parse("1700000000000") ?
+fn inner_proof() -> Int!String do
+  let timestamp = U64.parse("1700000000000")?
   if inner_properties([0, 1, 255, 4096, 32768], 0, timestamp) do
     println("inner-properties")
   else
@@ -249,7 +253,7 @@ fn inner_proof() -> Int ! String do
     Err(error) -> println(error)
     Ok(body) -> case encode_inner_envelope(inner_value(body, timestamp)) do
       Err(_) -> println("inner-golden-encode-error")
-      Ok(encoded) -> if Bytes.secure_equals(encoded, Bytes.from_hex("__INNER_HEX__") ?) do
+      Ok(encoded) -> if Bytes.secure_equals(encoded, Bytes.from_hex("__INNER_HEX__")?) do
         println("inner-golden")
       else
         println("inner-golden-mismatch")
@@ -267,27 +271,29 @@ fn inner_proof() -> Int ! String do
   Ok(0)
 end
 
-fn transcript_proof() -> Int ! String do
+fn transcript_proof() -> Int!String do
   let transcript = HandshakeTranscript {
-    version : 1,
-    suite : 1,
-    initiator_credential_hash : Bytes.from_utf8("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-    responder_prekey_bundle_hash : Bytes.from_utf8("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
-    initiator_ephemeral_public_key : Bytes.from_utf8("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
-    signed_prekey_id : U64.parse("7") ?,
-    responder_signed_prekey : Bytes.from_utf8("pppppppppppppppppppppppppppppppp"),
-    one_time_prekey_id : U64.parse("0") ?,
-    responder_one_time_prekey : Bytes.empty(),
-    responder_post_quantum_prekey : Bytes.empty(),
-    extensions : [ProtocolExtension {
-      id : 13,
-      mandatory : false,
-      value : Bytes.from_utf8("transcript")
-    }]
+    version: 1,
+    suite: 1,
+    initiator_credential_hash: Bytes.from_utf8("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+    responder_prekey_bundle_hash: Bytes.from_utf8("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+    initiator_ephemeral_public_key: Bytes.from_utf8("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+    signed_prekey_id: U64.parse("7")?,
+    responder_signed_prekey: Bytes.from_utf8("pppppppppppppppppppppppppppppppp"),
+    one_time_prekey_id: U64.parse("0")?,
+    responder_one_time_prekey: Bytes.empty(),
+    responder_post_quantum_prekey: Bytes.empty(),
+    extensions: [
+      ProtocolExtension {
+        id: 13,
+        mandatory: false,
+        value: Bytes.from_utf8("transcript")
+      }
+    ]
   }
   case encode_handshake_transcript(transcript) do
     Err(_) -> println("transcript-encode-error")
-    Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__TRANSCRIPT_HEX__") ?) do
+    Ok(encoded) -> if !Bytes.secure_equals(encoded, Bytes.from_hex("__TRANSCRIPT_HEX__")?) do
       println("transcript-golden-mismatch")
     else
       case decode_handshake_transcript(encoded) do
@@ -299,8 +305,8 @@ fn transcript_proof() -> Int ! String do
             Ok(first_hash) -> case hash_handshake_transcript(decoded) do
               Err(_) -> println("transcript-hash-error")
               Ok(second_hash) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(first_hash,
-              second_hash) && Bytes.secure_equals(first_hash,
-              Bytes.from_hex("__TRANSCRIPT_HASH_HEX__") ?) do
+                second_hash) && Bytes.secure_equals(first_hash,
+                Bytes.from_hex("__TRANSCRIPT_HASH_HEX__")?) do
                 println("transcript-roundtrip")
               else
                 println("transcript-noncanonical")

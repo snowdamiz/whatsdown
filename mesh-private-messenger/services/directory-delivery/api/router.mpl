@@ -15,7 +15,7 @@ pub fn build_router() do
     |> HTTP.on_post("/v1/prekeys/one-time/batch", handle_prekeys_publish)
     |> HTTP.on_post("/v1/prekeys/bundle", handle_prekey_claim)
   let router = if direct_delivery_compatibility_enabled(Env.get("MESSENGER_DIRECT_DELIVERY_COMPATIBILITY",
-  "")) do
+    "")) do
     HTTP.on_post(router, "/v1/envelopes/batch", handle_submit)
   else
     router

@@ -41,16 +41,16 @@ end
 # reveals its kind only after this device opens it; legacy envelopes named it in
 # the clear through the outer suite and the packet magic.
 
-fn sealed_packet_kind(database_path :: String, profile :: ClientProfile, outer :: OuterEnvelope) -> Int ! String do
-  let wrapping_key = platform_key() ?
-  let device = open_device(profile, wrapping_key, database_path) ?
+fn sealed_packet_kind(database_path :: String, profile :: ClientProfile, outer :: OuterEnvelope) -> Int!String do
+  let wrapping_key = platform_key()?
+  let device = open_device(profile, wrapping_key, database_path)?
   # ponytail: the chosen receive path opens the seal again (one extra X25519
   # and AEAD per delivery); thread the opened packet through if it ever shows.
-  let opened = open_outer_packet(outer, device.identity_private_key) ?
+  let opened = open_outer_packet(outer, device.identity_private_key)?
   Ok(opened_packet_kind(opened))
 end
 
-fn delivery_kind(database_path :: String, profile :: ClientProfile, outer :: OuterEnvelope) -> Int ! String do
+fn delivery_kind(database_path :: String, profile :: ClientProfile, outer :: OuterEnvelope) -> Int!String do
   if outer.suite == protocol_sealed_outer_suite() do
     sealed_packet_kind(database_path, profile, outer)
   else if outer.suite == 3 do
@@ -82,12 +82,12 @@ end
 # rejected; anything that might succeed later is left for redelivery.
 
 fn acknowledge_delivery(database_path :: String,
-profile :: ClientProfile,
-outer :: OuterEnvelope,
-encoded :: Bytes) -> Bool do
+  profile :: ClientProfile,
+  outer :: OuterEnvelope,
+  encoded :: Bytes) -> Bool do
   let request = MobileReceiveRequest {
-    database_path : database_path,
-    outer : encoded
+    database_path: database_path,
+    outer: encoded
   }
   case delivery_kind(database_path, profile, outer) do
     Err(error) -> permanent_direct_delivery_error(error)
@@ -106,7 +106,7 @@ encoded :: Bytes) -> Bool do
 end
 
 struct InboxPass do
-  envelope_ids :: List < Bytes >
+  envelope_ids :: List<Bytes>
   attempts :: Bytes
   set_aside :: Bool
   highest :: U64
@@ -119,11 +119,11 @@ end
 # over again on every pass until they expired.
 
 fn settle_delivery(database_path :: String,
-profile :: ClientProfile,
-outer :: OuterEnvelope,
-encoded :: Bytes,
-pass :: InboxPass,
-sequence :: U64) -> InboxPass ! String do
+  profile :: ClientProfile,
+  outer :: OuterEnvelope,
+  encoded :: Bytes,
+  pass :: InboxPass,
+  sequence :: U64) -> InboxPass!String do
   let highest = if U64.compare(sequence, pass.highest) > 0 do
     sequence
   else
@@ -131,39 +131,39 @@ sequence :: U64) -> InboxPass ! String do
   end
   if acknowledge_delivery(database_path, profile, outer, encoded) do
     Ok(InboxPass {
-      envelope_ids : List.append(pass.envelope_ids, outer.envelope_id),
-      attempts : without_delivery_attempts(pass.attempts, outer.envelope_id) ?,
-      set_aside : pass.set_aside,
-      highest : highest,
-      now : pass.now
+      envelope_ids: List.append(pass.envelope_ids, outer.envelope_id),
+      attempts: without_delivery_attempts(pass.attempts, outer.envelope_id)?,
+      set_aside: pass.set_aside,
+      highest: highest,
+      now: pass.now
     })
   else
-    let given_up = delivery_given_up(pass.attempts, outer.envelope_id, pass.now) ?
+    let given_up = delivery_given_up(pass.attempts, outer.envelope_id, pass.now)?
     if given_up do
       Ok(InboxPass {
-        envelope_ids : List.append(pass.envelope_ids, outer.envelope_id),
-        attempts : without_delivery_attempts(pass.attempts, outer.envelope_id) ?,
-        set_aside : pass.set_aside,
-        highest : highest,
-        now : pass.now
+        envelope_ids: List.append(pass.envelope_ids, outer.envelope_id),
+        attempts: without_delivery_attempts(pass.attempts, outer.envelope_id)?,
+        set_aside: pass.set_aside,
+        highest: highest,
+        now: pass.now
       })
     else
       Ok(InboxPass {
-        envelope_ids : pass.envelope_ids,
-        attempts : with_delivery_attempt(pass.attempts, outer.envelope_id, pass.now) ?,
-        set_aside : true,
-        highest : highest,
-        now : pass.now
+        envelope_ids: pass.envelope_ids,
+        attempts: with_delivery_attempt(pass.attempts, outer.envelope_id, pass.now)?,
+        set_aside: true,
+        highest: highest,
+        now: pass.now
       })
     end
   end
 end
 
 fn process_deliveries(database_path :: String,
-profile :: ClientProfile,
-deliveries :: List < DeliveredEnvelope >,
-index :: Int,
-pass :: InboxPass) -> InboxPass ! String do
+  profile :: ClientProfile,
+  deliveries :: List<DeliveredEnvelope>,
+  index :: Int,
+  pass :: InboxPass) -> InboxPass!String do
   if index >= List.length(deliveries) do
     Ok(pass)
   else
@@ -171,34 +171,34 @@ pass :: InboxPass) -> InboxPass ! String do
     case canonical_outer(delivered.envelope) do
       Err(_) -> process_deliveries(database_path, profile, deliveries, index + 1, pass)
       Ok(outer) -> process_deliveries(database_path,
-      profile,
-      deliveries,
-      index + 1,
-      settle_delivery(database_path, profile, outer, delivered.envelope, pass, delivered.sequence) ?)
+        profile,
+        deliveries,
+        index + 1,
+        settle_delivery(database_path, profile, outer, delivered.envelope, pass, delivered.sequence)?)
     end
   end
 end
 
-pub fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes ! String do
-  let profile = decode_client_profile(load_profile(request.database_path) ?) ?
+pub fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes!String do
+  let profile = decode_client_profile(load_profile(request.database_path)?)?
   let deliveries = case decode_delivery_batch(request.batch) do
     Err(_) -> Err("invalid_delivery_batch")
-    Ok(values) -> Ok(values)
-  end ?
-  let wrapping_key = platform_key() ?
-  let zero = U64.parse("0") ?
-  let before = load_delivery_attempts(request.database_path, wrapping_key) ?
+    Ok(values)
+  end?
+  let wrapping_key = platform_key()?
+  let zero = U64.parse("0")?
+  let before = load_delivery_attempts(request.database_path, wrapping_key)?
   let pass = process_deliveries(request.database_path,
-  profile,
-  deliveries,
-  0,
-  InboxPass {
-    envelope_ids : List.new(),
-    attempts : before,
-    set_aside : false,
-    highest : zero,
-    now : current_time() ?
-  }) ?
+    profile,
+    deliveries,
+    0,
+    InboxPass {
+      envelope_ids: List.new(),
+      attempts: before,
+      set_aside: false,
+      highest: zero,
+      now: current_time()?
+    })?
   # The next fetch asks past whatever this pass set aside, so it reaches what is
   # behind it. A pass that set nothing aside, the empty batch that ends every
   # pass included, starts the next one from the beginning again.
@@ -207,19 +207,19 @@ pub fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes ! String d
   else
     zero
   end
-  let (labels, blobs) = inbox_state_writes(wrapping_key, pass.attempts, cursor) ?
-  store_updated_blobs(request.database_path, labels, blobs) ?
+  let (labels, blobs) = inbox_state_writes(wrapping_key, pass.attempts, cursor)?
+  store_updated_blobs(request.database_path, labels, blobs)?
   let envelope_ids = pass.envelope_ids
   if List.length(envelope_ids) == 0 do
     Ok(Bytes.empty())
   else
-    let device = open_device(profile, wrapping_key, request.database_path) ?
+    let device = open_device(profile, wrapping_key, request.database_path)?
     case sign_mailbox_ack(device.signing_private_key,
-    Crypto.sha256(profile.entry.mailbox_token),
-    current_time() ?,
-    envelope_ids) do
+      Crypto.sha256(profile.entry.mailbox_token),
+      current_time()?,
+      envelope_ids) do
       Err(_) -> Err("mailbox_ack_encoding_failed")
-      Ok(encoded) -> Ok(encoded)
+      Ok(encoded)
     end
   end
 end

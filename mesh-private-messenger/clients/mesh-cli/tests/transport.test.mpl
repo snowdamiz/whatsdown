@@ -1,6 +1,6 @@
 from Transport.Packet import TransportPacket, decode_packet, encode_packet
 
-fn wire(value :: Result < Bytes, String >) -> Bytes do
+fn wire(value :: Result<Bytes, String>) -> Bytes do
   case value do
     Err(_) -> Bytes.empty()
     Ok(encoded) -> encoded
@@ -9,7 +9,7 @@ end
 
 test("client transport packets round-trip and reject trailing data") do
   let initial = wire(encode_packet(InitialPacket(Bytes.from_utf8("account"),
-  Bytes.from_utf8("initial"))))
+    Bytes.from_utf8("initial"))))
   case decode_packet(initial) do
     Err(_) -> assert(false)
     Ok(InitialPacket(account, message)) -> do

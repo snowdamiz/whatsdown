@@ -15,10 +15,10 @@ pub struct MobileOpenedPacket do
 end
 
 pub fn sealed_outer_bytes(mailbox_token :: Bytes,
-packet :: Bytes,
-recipient_dh_public_key :: Bytes,
-now :: U64) -> Bytes ! String do
-  let sealed = seal_recipient_packet(packet, X25519PublicKey { bytes : recipient_dh_public_key }) ?
+  packet :: Bytes,
+  recipient_dh_public_key :: Bytes,
+  now :: U64) -> Bytes!String do
+  let sealed = seal_recipient_packet(packet, X25519PublicKey { bytes: recipient_dh_public_key })?
   outer_bytes(mailbox_token, protocol_sealed_outer_suite(), sealed, now)
 end
 
@@ -26,19 +26,19 @@ end
 ## carry a sealed packet, or a sealed packet under a legacy suite, is rejected
 ## rather than reinterpreted.
 
-pub fn open_outer_packet(outer :: OuterEnvelope, recipient :: borrow X25519PrivateKey) -> MobileOpenedPacket ! String do
+pub fn open_outer_packet(outer :: OuterEnvelope, recipient :: borrow X25519PrivateKey) -> MobileOpenedPacket!String do
   let sealed_suite = outer.suite == protocol_sealed_outer_suite()
   if sealed_suite != is_recipient_packet(outer.ciphertext) do
     Err("invalid_recipient_packet")
   else if sealed_suite do
     Ok(MobileOpenedPacket {
-      sealed : true,
-      packet : open_recipient_packet(outer.ciphertext, recipient) ?
+      sealed: true,
+      packet: open_recipient_packet(outer.ciphertext, recipient)?
     })
   else
     Ok(MobileOpenedPacket {
-      sealed : false,
-      packet : outer.ciphertext
+      sealed: false,
+      packet: outer.ciphertext
     })
   end
 end

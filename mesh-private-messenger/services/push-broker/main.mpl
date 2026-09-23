@@ -8,47 +8,47 @@ fn fatal(message :: String) do
   Process.exit(1)
 end
 
-fn configured_url() -> String ! String do
+fn configured_url() -> String!String do
   provider_url(Env.get("MESSENGER_EXPO_PUSH_URL", "https://exp.host/--/api/v2/push/send"))
 end
 
-fn configured_token() -> String ! String do
+fn configured_token() -> String!String do
   case access_token(Env.get("MESSENGER_EXPO_ACCESS_TOKEN", "")) do
-    Err(error) -> Err(error)
+    Err(error)
     Ok(None) -> Ok("")
     Ok(Some(value)) -> Ok(value)
   end
 end
 
-fn configured_internal_token() -> String ! String do
+fn configured_internal_token() -> String!String do
   internal_token(Env.get("MESSENGER_PUSH_BROKER_INTERNAL_TOKEN", ""))
 end
 
-fn configured_queue_path() -> String ! String do
+fn configured_queue_path() -> String!String do
   let path = Env.get("MESSENGER_PUSH_BROKER_DATABASE_URL", "")
   if String.length(path) > 4096 || !(String.starts_with(path, "postgres://") || String.starts_with(path,
-  "postgresql://")) do
+    "postgresql://")) do
     Err("invalid broker database URL")
   else
     Ok(path)
   end
 end
 
-fn validate_config() -> Result <(), String > do
-  let _private_key = broker_private_key() ?
-  let _url = configured_url() ?
-  let _token = configured_token() ?
-  let _internal_token = configured_internal_token() ?
-  initialize(configured_queue_path() ?) ?
+fn validate_config() -> Result<(), String> do
+  let _private_key = broker_private_key()?
+  let _url = configured_url()?
+  let _token = configured_token()?
+  let _internal_token = configured_internal_token()?
+  initialize(configured_queue_path()?)?
   Ok(nil)
 end
 
-fn accept_configured(input :: Bytes) -> BrokerOutcome ! String do
-  let private_key = broker_private_key() ?
-  Ok(accept_durable_with_key(configured_queue_path() ?,
-  input,
-  private_key,
-  DateTime.to_unix_ms(DateTime.utc_now())))
+fn accept_configured(input :: Bytes) -> BrokerOutcome!String do
+  let private_key = broker_private_key()?
+  Ok(accept_durable_with_key(configured_queue_path()?,
+    input,
+    private_key,
+    DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
 fn handle_health(_request :: Request) -> Response do
@@ -72,20 +72,20 @@ fn handle_push(request :: Request) -> Response do
   end
 end
 
-fn serve(port :: Int) -> Result <(), String > do
-  let path = configured_queue_path() ?
-  let token = configured_token() ?
+fn serve(port :: Int) -> Result<(), String> do
+  let path = configured_queue_path()?
+  let token = configured_token()?
   start_worker(path, token)
   if RuntimeJobs.enabled() do
     println("push-broker listening on :#{port} with scheduled jobs")
   else
     println("push-broker listening on :#{port} with one worker")
   end
-  let _ = HTTP.serve(HTTP.router()
-    |> HTTP.on_get("/health", handle_health)
-    |> HTTP.on_post("/internal/v1/jobs/push", handle_jobs)
-    |> HTTP.on_post("/internal/v1/push", handle_push),
-  port)
+  HTTP.serve(HTTP.router()
+      |> HTTP.on_get("/health", handle_health)
+      |> HTTP.on_post("/internal/v1/jobs/push", handle_jobs)
+      |> HTTP.on_post("/internal/v1/push", handle_push),
+    port)
   if Process.shutdown_requested() do
     Ok(nil)
   else
@@ -111,7 +111,7 @@ end
 
 fn handle_jobs(request :: Request) -> Response do
   if !RuntimeJobs.internal_request_authorized(request,
-  Env.get("MESSENGER_PUSH_BROKER_INTERNAL_TOKEN", "")) do
+    Env.get("MESSENGER_PUSH_BROKER_INTERNAL_TOKEN", "")) do
     HTTP.response(401, "")
   else
     case configured_queue_path() do

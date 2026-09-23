@@ -25,45 +25,45 @@ fn repeated(value :: Int, length :: Int) -> Bytes do
   end
 end
 
-fn wide(value :: Int) -> U64 ! GroupError do
+fn wide(value :: Int) -> U64!GroupError do
   case U64.parse(Int.to_string(value)) do
     Err(_) -> Err(InvalidGroup)
-    Ok(output) -> Ok(output)
+    Ok(output)
   end
 end
 
-fn signing_pair() -> SigningKeyPair ! GroupError do
+fn signing_pair() -> SigningKeyPair!GroupError do
   case Crypto.signing_generate() do
     Err(error) -> Err(CryptoFailure(error))
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
-fn init_pair() -> X25519KeyPair ! GroupError do
+fn init_pair() -> X25519KeyPair!GroupError do
   case Crypto.x25519_generate() do
     Err(error) -> Err(CryptoFailure(error))
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
 fn member(account :: Int,
-device :: Int,
-signing :: SigningPublicKey,
-init :: X25519PublicKey,
-leaf :: X25519PublicKey,
-checkpoint :: Bytes) -> GroupMember ! GroupError do
+  device :: Int,
+  signing :: SigningPublicKey,
+  init :: X25519PublicKey,
+  leaf :: X25519PublicKey,
+  checkpoint :: Bytes) -> GroupMember!GroupError do
   Ok(GroupMember {
-    version : 1,
-    account_id : repeated(account, 32),
-    device_id : repeated(device, 16),
-    signing_public_key : signing,
-    init_public_key : init,
-    leaf_public_key : leaf,
-    mailbox_token : repeated(device + 40, 32),
-    directory_sequence : wide(5) ?,
-    transparency_checkpoint_hash : checkpoint,
-    witness_count : 2,
-    extensions : [1]
+    version: 1,
+    account_id: repeated(account, 32),
+    device_id: repeated(device, 16),
+    signing_public_key: signing,
+    init_public_key: init,
+    leaf_public_key: leaf,
+    mailbox_token: repeated(device + 40, 32),
+    directory_sequence: wide(5)?,
+    transparency_checkpoint_hash: checkpoint,
+    witness_count: 2,
+    extensions: [1]
   })
 end
 
@@ -71,7 +71,7 @@ fn consume_state(value :: consume GroupState) do
   nil
 end
 
-fn added(outcome :: GroupAddOutcome) -> Result <(GroupState, GroupCommit, GroupWelcome), GroupError > do
+fn added(outcome :: GroupAddOutcome) -> Result<(GroupState, GroupCommit, GroupWelcome), GroupError> do
   case outcome do
     GroupMemberAdded(state, commit, welcome) -> Ok((state, commit, welcome))
     GroupAddRejected(state, error) -> do
@@ -81,7 +81,7 @@ fn added(outcome :: GroupAddOutcome) -> Result <(GroupState, GroupCommit, GroupW
   end
 end
 
-fn encrypted(outcome :: GroupEncryptOutcome) -> Result <(GroupState, GroupMessage), GroupError > do
+fn encrypted(outcome :: GroupEncryptOutcome) -> Result<(GroupState, GroupMessage), GroupError> do
   case outcome do
     GroupMessageEncrypted(state, message) -> Ok((state, message))
     GroupEncryptRejected(state, error) -> do
@@ -91,7 +91,7 @@ fn encrypted(outcome :: GroupEncryptOutcome) -> Result <(GroupState, GroupMessag
   end
 end
 
-fn opened(outcome :: GroupDecryptOutcome, expected :: Bytes) -> GroupState ! GroupError do
+fn opened(outcome :: GroupDecryptOutcome, expected :: Bytes) -> GroupState!GroupError do
   case outcome do
     MessageOpened(state, plaintext) -> if Bytes.secure_equals(plaintext, expected) do
       Ok(state)
@@ -106,10 +106,10 @@ fn opened(outcome :: GroupDecryptOutcome, expected :: Bytes) -> GroupState ! Gro
   end
 end
 
-fn append(left :: Bytes, right :: Bytes) -> Bytes ! GroupError do
+fn append(left :: Bytes, right :: Bytes) -> Bytes!GroupError do
   case Bytes.concat(left, right) do
     Err(_) -> Err(InvalidGroup)
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
@@ -134,67 +134,69 @@ fn rejects_welcome(value :: GroupWelcome) -> Bool do
   end
 end
 
-fn proof() -> Bool ! GroupError do
+fn proof() -> Bool!GroupError do
   let checkpoint = repeated(72, 32)
   let policy = GroupTransparencyPolicy {
-    minimum_directory_sequence : wide(4) ?,
-    checkpoint_hash : checkpoint,
-    witness_threshold : 2
+    minimum_directory_sequence: wide(4)?,
+    checkpoint_hash: checkpoint,
+    witness_threshold: 2
   }
-  let alice_signing = signing_pair() ?
-  let alice_init = init_pair() ?
-  let alice_leaf = init_pair() ?
-  let bob_signing = signing_pair() ?
-  let bob_init = init_pair() ?
-  let bob_leaf = init_pair() ?
+  let alice_signing = signing_pair()?
+  let alice_init = init_pair()?
+  let alice_leaf = init_pair()?
+  let bob_signing = signing_pair()?
+  let bob_init = init_pair()?
+  let bob_leaf = init_pair()?
   let alice = member(1,
-  1,
-  alice_signing.public_key,
-  alice_init.public_key,
-  alice_leaf.public_key,
-  checkpoint) ?
+    1,
+    alice_signing.public_key,
+    alice_init.public_key,
+    alice_leaf.public_key,
+    checkpoint)?
   let bob = member(2,
-  2,
-  bob_signing.public_key,
-  bob_init.public_key,
-  bob_leaf.public_key,
-  checkpoint) ?
-  let alice_state = create_group(alice, alice_leaf.private_key, [1], policy) ?
-  let (alice_state, commit, welcome) = added(commit_add(alice_state, alice_signing.private_key, bob)) ?
-  let commit_wire = encode_group_commit(commit) ?
-  let decoded_commit = decode_group_commit(commit_wire) ?
+    2,
+    bob_signing.public_key,
+    bob_init.public_key,
+    bob_leaf.public_key,
+    checkpoint)?
+  let alice_state = create_group(alice, alice_leaf.private_key, [1], policy)?
+  let (alice_state, commit, welcome) = added(commit_add(alice_state, alice_signing.private_key, bob))?
+  let commit_wire = encode_group_commit(commit)?
+  let decoded_commit = decode_group_commit(commit_wire)?
   assert(decoded_commit.committer_leaf == commit.committer_leaf)
   assert(Bytes.secure_equals(decoded_commit.tree_hash, commit.tree_hash))
   assert(List.length(decoded_commit.update_path.nodes) == 6)
-  let short_path = % {commit | update_path : % {commit.update_path | nodes : List.drop(commit.update_path.nodes,
-  1) } }
+  let short_path = % { commit | update_path: % { commit.update_path | nodes: List.drop(commit.update_path.nodes,
+    1) } }
   assert(rejects_commit_value(short_path))
   let first_node = List.get(commit.update_path.nodes, 0)
-  let invalid_unmerged = % {first_node | parent : % {first_node.parent | unmerged_leaves : [2, 1] } }
-  let invalid_path = % {commit | update_path : % {commit.update_path | nodes : List.concat([invalid_unmerged],
-  List.drop(commit.update_path.nodes, 1)) } }
+  let invalid_unmerged = % { first_node | parent: % { first_node.parent | unmerged_leaves: [2, 1] } }
+  let invalid_path = % { commit | update_path: % { commit.update_path | nodes: List.concat([
+      invalid_unmerged
+    ],
+    List.drop(commit.update_path.nodes, 1)) } }
   assert(rejects_commit_value(invalid_path))
-  assert(rejects_commit(append(commit_wire, Bytes.from_utf8("x")) ?))
-  let welcome_wire = encode_group_welcome(welcome) ?
-  let inconsistent = % {welcome | commit : % {welcome.commit | proposal : AddMember(welcome.recipient_leaf,
-  alice) } }
+  assert(rejects_commit(append(commit_wire, Bytes.from_utf8("x"))?))
+  let welcome_wire = encode_group_welcome(welcome)?
+  let inconsistent = % { welcome | commit: % { welcome.commit | proposal: AddMember(welcome.recipient_leaf,
+    alice) } }
   assert(rejects_welcome(inconsistent))
-  let bob_state = join_from_welcome(decode_group_welcome(welcome_wire) ?,
-  bob_init.private_key,
-  bob_leaf.private_key) ?
+  let bob_state = join_from_welcome(decode_group_welcome(welcome_wire)?,
+    bob_init.private_key,
+    bob_leaf.private_key)?
   let plaintext = Bytes.from_utf8("canonical group wire")
   let caller_data = Bytes.from_utf8("group-wire-test")
   let (alice_state, message) = encrypted(encrypt_group_message(alice_state,
-  alice_signing.private_key,
-  plaintext,
-  caller_data)) ?
-  let message_wire = encode_group_message(message) ?
+    alice_signing.private_key,
+    plaintext,
+    caller_data))?
+  let message_wire = encode_group_message(message)?
   let bob_state = opened(decrypt_group_message(bob_state,
-  decode_group_message(message_wire) ?,
-  caller_data),
-  plaintext) ?
-  assert(Bytes.length(encode_group_welcome(decode_group_welcome(welcome_wire) ?) ?) == Bytes.length(welcome_wire))
-  assert(Bytes.length(encode_group_message(decode_group_message(message_wire) ?) ?) == Bytes.length(message_wire))
+      decode_group_message(message_wire)?,
+      caller_data),
+    plaintext)?
+  assert(Bytes.length(encode_group_welcome(decode_group_welcome(welcome_wire)?)?) == Bytes.length(welcome_wire))
+  assert(Bytes.length(encode_group_message(decode_group_message(message_wire)?)?) == Bytes.length(message_wire))
   assert(rejects_commit(repeated(0, 70000)))
   consume_state(alice_state)
   consume_state(bob_state)

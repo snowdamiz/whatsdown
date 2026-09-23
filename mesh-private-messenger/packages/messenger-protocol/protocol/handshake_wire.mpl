@@ -23,7 +23,7 @@ from Protocol.ExtensionWire import protocol_encode_extensions, protocol_take_ext
 from Protocol.IdentityWire import decode_device_credential
 from Protocol.V1 import HandshakeTranscript, InitialMessage, ProtocolError, protocol_supported_suite
 
-fn validate_handshake_transcript(value :: HandshakeTranscript) -> Result <(), ProtocolError > do
+fn validate_handshake_transcript(value :: HandshakeTranscript) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
   else
@@ -48,61 +48,74 @@ fn validate_handshake_transcript(value :: HandshakeTranscript) -> Result <(), Pr
   end
 end
 
-pub fn encode_handshake_transcript(value :: HandshakeTranscript) -> Bytes ! ProtocolError do
-  validate_handshake_transcript(value) ?
-  protocol_join([protocol_byte(value.version) ?, Bytes.from_utf8("HST"), protocol_write_u16(value.suite) ?, value.initiator_credential_hash, value.responder_prekey_bundle_hash, value.initiator_ephemeral_public_key, protocol_write_u64(value.signed_prekey_id) ?, value.responder_signed_prekey, protocol_write_u64(value.one_time_prekey_id) ?, protocol_vector(value.responder_one_time_prekey) ?, value.responder_post_quantum_prekey, protocol_encode_extensions(value.extensions) ?],
-  0,
-  Bytes.empty())
+pub fn encode_handshake_transcript(value :: HandshakeTranscript) -> Bytes!ProtocolError do
+  validate_handshake_transcript(value)?
+  protocol_join([
+      protocol_byte(value.version)?,
+      Bytes.from_utf8("HST"),
+      protocol_write_u16(value.suite)?,
+      value.initiator_credential_hash,
+      value.responder_prekey_bundle_hash,
+      value.initiator_ephemeral_public_key,
+      protocol_write_u64(value.signed_prekey_id)?,
+      value.responder_signed_prekey,
+      protocol_write_u64(value.one_time_prekey_id)?,
+      protocol_vector(value.responder_one_time_prekey)?,
+      value.responder_post_quantum_prekey,
+      protocol_encode_extensions(value.extensions)?
+    ],
+    0,
+    Bytes.empty())
 end
 
-pub fn decode_handshake_transcript(input :: Bytes) -> HandshakeTranscript ! ProtocolError do
-  let version = protocol_take_u8(protocol_open(input, 17868) ?) ?
+pub fn decode_handshake_transcript(input :: Bytes) -> HandshakeTranscript!ProtocolError do
+  let version = protocol_take_u8(protocol_open(input, 17868)?)?
   if version.value != 1 do
     Err(UnsupportedVersion)
   else
-    let magic = protocol_take_fixed(version.state, 3) ?
+    let magic = protocol_take_fixed(version.state, 3)?
     if !Bytes.secure_equals(magic.value, Bytes.from_utf8("HST")) do
       Err(MalformedEncoding)
     else
-      let suite = protocol_take_u16(magic.state) ?
-      let initiator_credential_hash = protocol_take_fixed(suite.state, 32) ?
-      let responder_prekey_bundle_hash = protocol_take_fixed(initiator_credential_hash.state, 32) ?
+      let suite = protocol_take_u16(magic.state)?
+      let initiator_credential_hash = protocol_take_fixed(suite.state, 32)?
+      let responder_prekey_bundle_hash = protocol_take_fixed(initiator_credential_hash.state, 32)?
       let initiator_ephemeral_public_key = protocol_take_fixed(responder_prekey_bundle_hash.state,
-      32) ?
-      let signed_prekey_id = protocol_take_u64(initiator_ephemeral_public_key.state) ?
-      let responder_signed_prekey = protocol_take_fixed(signed_prekey_id.state, 32) ?
-      let one_time_prekey_id = protocol_take_u64(responder_signed_prekey.state) ?
-      let responder_one_time_prekey = protocol_take_vector(one_time_prekey_id.state, 32) ?
+        32)?
+      let signed_prekey_id = protocol_take_u64(initiator_ephemeral_public_key.state)?
+      let responder_signed_prekey = protocol_take_fixed(signed_prekey_id.state, 32)?
+      let one_time_prekey_id = protocol_take_u64(responder_signed_prekey.state)?
+      let responder_one_time_prekey = protocol_take_vector(one_time_prekey_id.state, 32)?
       let responder_post_quantum_prekey = protocol_take_suite_fixed(responder_one_time_prekey.state,
-      suite.value,
-      1184) ?
-      let extensions = protocol_take_extensions(responder_post_quantum_prekey.state) ?
-      protocol_require_end(extensions.state) ?
+        suite.value,
+        1184)?
+      let extensions = protocol_take_extensions(responder_post_quantum_prekey.state)?
+      protocol_require_end(extensions.state)?
       let value = HandshakeTranscript {
-        version : version.value,
-        suite : suite.value,
-        initiator_credential_hash : initiator_credential_hash.value,
-        responder_prekey_bundle_hash : responder_prekey_bundle_hash.value,
-        initiator_ephemeral_public_key : initiator_ephemeral_public_key.value,
-        signed_prekey_id : signed_prekey_id.value,
-        responder_signed_prekey : responder_signed_prekey.value,
-        one_time_prekey_id : one_time_prekey_id.value,
-        responder_one_time_prekey : responder_one_time_prekey.value,
-        responder_post_quantum_prekey : responder_post_quantum_prekey.value,
-        extensions : extensions.value
+        version: version.value,
+        suite: suite.value,
+        initiator_credential_hash: initiator_credential_hash.value,
+        responder_prekey_bundle_hash: responder_prekey_bundle_hash.value,
+        initiator_ephemeral_public_key: initiator_ephemeral_public_key.value,
+        signed_prekey_id: signed_prekey_id.value,
+        responder_signed_prekey: responder_signed_prekey.value,
+        one_time_prekey_id: one_time_prekey_id.value,
+        responder_one_time_prekey: responder_one_time_prekey.value,
+        responder_post_quantum_prekey: responder_post_quantum_prekey.value,
+        extensions: extensions.value
       }
-      validate_handshake_transcript(value) ?
+      validate_handshake_transcript(value)?
       Ok(value)
     end
   end
 end
 
-pub fn hash_handshake_transcript(value :: HandshakeTranscript) -> Bytes ! ProtocolError do
-  let encoded = encode_handshake_transcript(value) ?
-  Ok(Crypto.sha256(protocol_append(Bytes.from_utf8("mesh-msg/v1/handshake"), encoded) ?))
+pub fn hash_handshake_transcript(value :: HandshakeTranscript) -> Bytes!ProtocolError do
+  let encoded = encode_handshake_transcript(value)?
+  Ok(Crypto.sha256(protocol_append(Bytes.from_utf8("mesh-msg/v1/handshake"), encoded)?))
 end
 
-fn validate_initial_message(value :: InitialMessage) -> Result <(), ProtocolError > do
+fn validate_initial_message(value :: InitialMessage) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
   else
@@ -142,57 +155,70 @@ fn validate_initial_message(value :: InitialMessage) -> Result <(), ProtocolErro
   end
 end
 
-pub fn encode_initial_message(value :: InitialMessage) -> Bytes ! ProtocolError do
-  validate_initial_message(value) ?
-  let parts = [protocol_byte(value.version) ?, Bytes.from_utf8("INI"), protocol_write_u16(value.suite) ?, protocol_write_u64(value.signed_prekey_id) ?, protocol_write_u64(value.one_time_prekey_id) ?, protocol_vector(value.initiator_credential) ?, value.initiator_identity_public_key.bytes, value.initiator_ephemeral_public_key.bytes, value.post_quantum_ciphertext, value.transcript_hash, value.nonce, protocol_vector(value.ciphertext) ?]
+pub fn encode_initial_message(value :: InitialMessage) -> Bytes!ProtocolError do
+  validate_initial_message(value)?
+  let parts = [
+    protocol_byte(value.version)?,
+    Bytes.from_utf8("INI"),
+    protocol_write_u16(value.suite)?,
+    protocol_write_u64(value.signed_prekey_id)?,
+    protocol_write_u64(value.one_time_prekey_id)?,
+    protocol_vector(value.initiator_credential)?,
+    value.initiator_identity_public_key.bytes,
+    value.initiator_ephemeral_public_key.bytes,
+    value.post_quantum_ciphertext,
+    value.transcript_hash,
+    value.nonce,
+    protocol_vector(value.ciphertext)?
+  ]
   let builder = case BytesBuilder.new(65536) do
     Err(_) -> Err(OversizedInput)
-    Ok(value) -> Ok(value)
-  end ?
-  protocol_write_builder_parts(builder, parts, 0) ?
+    Ok(value)
+  end?
+  protocol_write_builder_parts(builder, parts, 0)?
   case BytesBuilder.finish(builder) do
     Err(_) -> Err(OversizedInput)
-    Ok(encoded) -> Ok(encoded)
+    Ok(encoded)
   end
 end
 
-pub fn decode_initial_message(input :: Bytes) -> InitialMessage ! ProtocolError do
-  let version = protocol_take_u8(protocol_open(input, 65536) ?) ?
+pub fn decode_initial_message(input :: Bytes) -> InitialMessage!ProtocolError do
+  let version = protocol_take_u8(protocol_open(input, 65536)?)?
   if version.value != 1 do
     Err(UnsupportedVersion)
   else
-    let magic = protocol_take_fixed(version.state, 3) ?
+    let magic = protocol_take_fixed(version.state, 3)?
     if !Bytes.secure_equals(magic.value, Bytes.from_utf8("INI")) do
       Err(MalformedEncoding)
     else
-      let suite = protocol_take_u16(magic.state) ?
-      let signed_prekey_id = protocol_take_u64(suite.state) ?
-      let one_time_prekey_id = protocol_take_u64(signed_prekey_id.state) ?
-      let initiator_credential = protocol_take_vector(one_time_prekey_id.state, 1395) ?
-      let initiator_identity_public_key = protocol_take_fixed(initiator_credential.state, 32) ?
+      let suite = protocol_take_u16(magic.state)?
+      let signed_prekey_id = protocol_take_u64(suite.state)?
+      let one_time_prekey_id = protocol_take_u64(signed_prekey_id.state)?
+      let initiator_credential = protocol_take_vector(one_time_prekey_id.state, 1395)?
+      let initiator_identity_public_key = protocol_take_fixed(initiator_credential.state, 32)?
       let initiator_ephemeral_public_key = protocol_take_fixed(initiator_identity_public_key.state,
-      32) ?
+        32)?
       let post_quantum_ciphertext = protocol_take_suite_fixed(initiator_ephemeral_public_key.state,
-      suite.value,
-      1088) ?
-      let transcript_hash = protocol_take_fixed(post_quantum_ciphertext.state, 32) ?
-      let nonce = protocol_take_fixed(transcript_hash.state, 12) ?
-      let ciphertext = protocol_take_vector(nonce.state, 65187) ?
-      protocol_require_end(ciphertext.state) ?
+        suite.value,
+        1088)?
+      let transcript_hash = protocol_take_fixed(post_quantum_ciphertext.state, 32)?
+      let nonce = protocol_take_fixed(transcript_hash.state, 12)?
+      let ciphertext = protocol_take_vector(nonce.state, 65187)?
+      protocol_require_end(ciphertext.state)?
       let value = InitialMessage {
-        version : version.value,
-        suite : suite.value,
-        signed_prekey_id : signed_prekey_id.value,
-        one_time_prekey_id : one_time_prekey_id.value,
-        initiator_credential : initiator_credential.value,
-        initiator_identity_public_key : X25519PublicKey { bytes : initiator_identity_public_key.value },
-        initiator_ephemeral_public_key : X25519PublicKey { bytes : initiator_ephemeral_public_key.value },
-        post_quantum_ciphertext : post_quantum_ciphertext.value,
-        transcript_hash : transcript_hash.value,
-        nonce : nonce.value,
-        ciphertext : ciphertext.value
+        version: version.value,
+        suite: suite.value,
+        signed_prekey_id: signed_prekey_id.value,
+        one_time_prekey_id: one_time_prekey_id.value,
+        initiator_credential: initiator_credential.value,
+        initiator_identity_public_key: X25519PublicKey { bytes: initiator_identity_public_key.value },
+        initiator_ephemeral_public_key: X25519PublicKey { bytes: initiator_ephemeral_public_key.value },
+        post_quantum_ciphertext: post_quantum_ciphertext.value,
+        transcript_hash: transcript_hash.value,
+        nonce: nonce.value,
+        ciphertext: ciphertext.value
       }
-      validate_initial_message(value) ?
+      validate_initial_message(value)?
       Ok(value)
     end
   end

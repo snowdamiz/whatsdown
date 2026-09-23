@@ -2,33 +2,33 @@ from Transparency.Merkle import WitnessKey, checkpoint_hash, leaf_hash, merkle_r
 from Transparency.Wire import TransparencyEvidence, decode_checkpoint
 
 pub fn verify_evidence(evidence :: TransparencyEvidence,
-trusted_service_key :: SigningPublicKey,
-trusted_witnesses :: List < WitnessKey >,
-witness_threshold :: Int,
-previous_checkpoint_bytes :: Bytes) -> Bool ! String do
-  let current_size = U64.to_int(evidence.checkpoint.tree_size) ?
+  trusted_service_key :: SigningPublicKey,
+  trusted_witnesses :: List<WitnessKey>,
+  witness_threshold :: Int,
+  previous_checkpoint_bytes :: Bytes) -> Bool!String do
+  let current_size = U64.to_int(evidence.checkpoint.tree_size)?
   let current_valid = evidence.inclusion.tree_size == current_size && evidence.consistency.new_tree_size == current_size && verify_checkpoint(evidence.checkpoint,
-  trusted_service_key) ? && verify_inclusion(leaf_hash(evidence.entry_bytes) ?,
-  evidence.inclusion,
-  evidence.checkpoint.tree_root) ? && verify_witnesses(evidence.checkpoint,
-  evidence.witnesses,
-  trusted_witnesses,
-  witness_threshold) ?
+    trusted_service_key)? && verify_inclusion(leaf_hash(evidence.entry_bytes)?,
+    evidence.inclusion,
+    evidence.checkpoint.tree_root)? && verify_witnesses(evidence.checkpoint,
+    evidence.witnesses,
+    trusted_witnesses,
+    witness_threshold)?
   if !current_valid do
     Ok(false)
   else if Bytes.length(previous_checkpoint_bytes) == 0 do
-    Ok(evidence.consistency.old_tree_size == 0 && verify_consistency(merkle_root(List.new()) ?,
-    evidence.checkpoint.tree_root,
-    evidence.consistency) ?)
+    Ok(evidence.consistency.old_tree_size == 0 && verify_consistency(merkle_root(List.new())?,
+      evidence.checkpoint.tree_root,
+      evidence.consistency)?)
   else
-    let previous = decode_checkpoint(previous_checkpoint_bytes) ?
-    let previous_size = U64.to_int(previous.tree_size) ?
+    let previous = decode_checkpoint(previous_checkpoint_bytes)?
+    let previous_size = U64.to_int(previous.tree_size)?
     let sequence_order = U64.compare(evidence.checkpoint.sequence, previous.sequence)
     let size_order = U64.compare(evidence.checkpoint.tree_size, previous.tree_size)
     let same_sequence = sequence_order == 0
-    let same_checkpoint = Bytes.secure_equals(checkpoint_hash(evidence.checkpoint) ?,
-    checkpoint_hash(previous) ?)
-    if !verify_checkpoint(previous, trusted_service_key) ? || sequence_order < 0 || size_order < 0 || (same_sequence && !same_checkpoint) || evidence.consistency.old_tree_size != previous_size do
+    let same_checkpoint = Bytes.secure_equals(checkpoint_hash(evidence.checkpoint)?,
+      checkpoint_hash(previous)?)
+    if !verify_checkpoint(previous, trusted_service_key)? || sequence_order < 0 || size_order < 0 || (same_sequence && !same_checkpoint) || evidence.consistency.old_tree_size != previous_size do
       Ok(false)
     else
       verify_consistency(previous.tree_root, evidence.checkpoint.tree_root, evidence.consistency)

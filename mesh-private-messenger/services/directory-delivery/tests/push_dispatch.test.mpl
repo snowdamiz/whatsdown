@@ -2,23 +2,23 @@ from Runtime.PushDispatch import broker_authorization, broker_wake_request
 from Storage.Push import ProviderPushBinding
 from Push.Token import decode_push_wake, seal_provider_token
 
-fn distinct_delivery_wakes() -> Bool ! String do
+fn distinct_delivery_wakes() -> Bool!String do
   let broker = case Crypto.x25519_from_seed(Crypto.sha256(Bytes.from_utf8("test-broker"))) do
     Err(_) -> Err("test key failed")
-    Ok(value) -> Ok(value)
-  end ?
+    Ok(value)
+  end?
   let binding = ProviderPushBinding {
-    wake_token_hash : Crypto.sha256(Bytes.from_utf8("device-binding")),
-    provider : 1,
-    provider_token_ciphertext : seal_provider_token(Bytes.from_utf8("ExpoPushToken[test-device]"),
-    broker.public_key) ?
+    wake_token_hash: Crypto.sha256(Bytes.from_utf8("device-binding")),
+    provider: 1,
+    provider_token_ciphertext: seal_provider_token(Bytes.from_utf8("ExpoPushToken[test-device]"),
+      broker.public_key)?
   }
-  let first = broker_wake_request(binding, "event-one") ?
-  assert(Bytes.to_hex(first) == Bytes.to_hex(broker_wake_request(binding, "event-one") ?))
-  let second = broker_wake_request(binding, "event-two") ?
+  let first = broker_wake_request(binding, "event-one")?
+  assert(Bytes.to_hex(first) == Bytes.to_hex(broker_wake_request(binding, "event-one")?))
+  let second = broker_wake_request(binding, "event-two")?
   assert(Bytes.to_hex(first) != Bytes.to_hex(second))
-  assert(Bytes.to_hex((decode_push_wake(first) ?).wake_token_hash) != Bytes.to_hex(binding.wake_token_hash))
-  assert(Bytes.to_hex((decode_push_wake(second) ?).sealed_provider_token) == Bytes.to_hex(binding.provider_token_ciphertext))
+  assert(Bytes.to_hex((decode_push_wake(first)?).wake_token_hash) != Bytes.to_hex(binding.wake_token_hash))
+  assert(Bytes.to_hex((decode_push_wake(second)?).sealed_provider_token) == Bytes.to_hex(binding.provider_token_ciphertext))
   Ok(true)
 end
 

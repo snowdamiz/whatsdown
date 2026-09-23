@@ -25,8 +25,8 @@ test("privacy edge sends the matching internal bearer credential") do
   let _server = spawn(delivery_core)
   Timer.sleep(100)
   case forward_submission(Bytes.from_utf8("sealed"),
-  "http://127.0.0.1:18995",
-  "0123456789abcdef0123456789abcdef") do
+    "http://127.0.0.1:18995",
+    "0123456789abcdef0123456789abcdef") do
     Err(_) -> assert(false)
     Ok(response) -> assert(response.status == 202)
   end

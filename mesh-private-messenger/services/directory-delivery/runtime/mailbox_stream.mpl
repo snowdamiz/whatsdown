@@ -8,9 +8,9 @@ from Storage.RateLimit import allow_request
 # "MeshMailbox " (12) + 2 * 116 frame bytes. A mailbox address alone cannot
 # subscribe, and only authorized connections spend the owner's rate budget.
 
-pub fn mailbox_stream_room(pool :: PoolHandle, path :: String, headers :: Map < String, String >) -> String ! String do
+pub fn mailbox_stream_room(pool :: PoolHandle, path :: String, headers :: Map<String, String>) -> String!String do
   let names = List.filter(Map.keys(headers),
-  fn (name :: String) -> String.to_lower(name) == "authorization" end)
+    fn (name :: String) -> String.to_lower(name) == "authorization" end)
   if path != "/v1/mailbox/stream" || List.length(names) != 1 do
     Err("invalid stream request")
   else
@@ -18,17 +18,17 @@ pub fn mailbox_stream_room(pool :: PoolHandle, path :: String, headers :: Map < 
     if String.length(authorization) != 244 || !String.starts_with(authorization, "MeshMailbox ") do
       Err("invalid stream authorization")
     else
-      let wire = Bytes.from_hex(String.slice(authorization, 12, 244)) ?
+      let wire = Bytes.from_hex(String.slice(authorization, 12, 244))?
       let request = case decode_mailbox_fetch(wire) do
         Err(_) -> Err("invalid stream frame")
-        Ok(value) -> Ok(value)
-      end ?
-      case authorize_mailbox_fetch(pool, request) ? do
+        Ok(value)
+      end?
+      case authorize_mailbox_fetch(pool, request)? do
         None -> Err("unauthorized stream")
         Some(_) -> do
           let room = "mailbox:" <> Bytes.to_hex(request.mailbox_token_hash)
           let bucket = Crypto.sha256(Bytes.from_utf8("stream:" <> room))
-          if !allow_request(pool, bucket, 60, 60) ? do
+          if !allow_request(pool, bucket, 60, 60)? do
             Err("stream rate limited")
           else
             Ok(room)
@@ -39,7 +39,7 @@ pub fn mailbox_stream_room(pool :: PoolHandle, path :: String, headers :: Map < 
   end
 end
 
-fn on_connect(conn :: Int, path :: String, headers :: Map < String, String >) -> Int do
+fn on_connect(conn :: Int, path :: String, headers :: Map<String, String>) -> Int do
   case mailbox_stream_room(get_pool(), path, headers) do
     Err(_) -> 0
     Ok(room) -> if Ws.join(conn, room) != 0 do

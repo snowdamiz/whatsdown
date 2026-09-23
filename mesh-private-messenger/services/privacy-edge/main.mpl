@@ -10,7 +10,7 @@ fn respond(result :: EdgeResult) -> Response do
   HTTP.response_bytes(result.status, result.body)
 end
 
-fn current_time() -> U64 ! String do
+fn current_time() -> U64!String do
   U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
@@ -26,15 +26,15 @@ fn handle_submit(request :: Request) -> Response do
       Ok(maximum_future) -> do
         let difficulty = Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16)
         let prepared = prepare_submission(Request.body_bytes(request),
-        now,
-        maximum_future,
-        difficulty)
+          now,
+          maximum_future,
+          difficulty)
         if prepared.status != 200 do
           respond(prepared)
         else
           case forward_submission(prepared.body,
-          Env.get("MESSENGER_DELIVERY_INTERNAL_URL", ""),
-          Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+            Env.get("MESSENGER_DELIVERY_INTERNAL_URL", ""),
+            Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
             Err(_) -> HTTP.response(503, "")
             Ok(forwarded) -> respond(forwarded)
           end
@@ -60,9 +60,9 @@ fn main() do
     else
       println("privacy-edge listening on :#{port}")
       HTTP.serve(HTTP.router()
-        |> HTTP.on_get("/health", handle_health)
-        |> HTTP.on_post("/v1/envelopes/batch", handle_submit),
-      port)
+          |> HTTP.on_get("/health", handle_health)
+          |> HTTP.on_post("/v1/envelopes/batch", handle_submit),
+        port)
       if !Process.shutdown_requested() do
         fatal("privacy-edge HTTP server failed")
       else

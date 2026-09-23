@@ -1,12 +1,13 @@
 # Mesh language inventory and refactoring guide
 
-Inventory date: 2026-09-22. Source: the linked `mesh-lang/` checkout at
-`9fb0bfd` plus the uncommitted compiler fixes of 2026-09-22 (list patterns,
-`return` as an expression, tuple-aware exhaustiveness, whitespace-preserving
-formatter). This describes that checkout, not a promise about every released
-compiler. The messenger source now uses those fixes, so the revision pinned in
-`mesh-private-messenger/mesh-revision` (`3417e4a`, which predates them) must
-move to a Mesh commit that contains them before CI or a release build can pass.
+Inventory date: 2026-09-23. Source: Mesh v0.1.3 (`ab32513`), the first
+published release with the fixes the messenger relies on (list patterns,
+`return` as an expression, tuple-aware exhaustiveness, the whitespace-preserving
+formatter) and with pass-through match arms and callbacks that discard their
+result. The messenger builds with the latest published Mesh release: `run.sh`
+and CI resolve it on every run (`mesh-private-messenger/scripts/mesh-release.mjs`),
+and a release build uses the revision its verification recorded. A compiler
+feature can be used here once a release contains it.
 
 This is an inventory of language constructs, library capabilities, and tools.
 The linked references own individual API signatures and limits. Compiler
@@ -45,6 +46,9 @@ registrations and executable tests resolve gaps in the prose documentation.
   returning the original state on rejection and disposing of candidate secrets.
   Group decryption validates and opens through a `borrow` helper with `?`, then
   updates replay state only after success.
+- Result remapping writes the success arm as a pass-through (`Ok(value)`)
+  instead of `Ok(value) -> Ok(value)`; callbacks return their value without a
+  `let _ =` discard.
 - Protocol, group, and mobile code use explicit modules and selective imports.
   `mobile_core.mpl` contains the existing native ABI entrypoints; `mobile/`
   contains domain operations and `storage/` contains persistence.
@@ -108,10 +112,10 @@ registrations and executable tests resolve gaps in the prose documentation.
 | Function clauses | Consecutive same-name/arity clauses dispatch on parameter patterns and optional `when` guards. Different arities are separate overloads. |
 | Recursion | Forward references and mutual recursion. Direct self calls in tail position become loops; mutual or non-tail recursion does not. |
 | Closures | Parenthesized or bare parameters, zero-argument closures, `-> ... end` or multiline `do ... end`, lexical capture, multi-clause closures with guards. A `let`-bound closure is as polymorphic as a named function, and a closure can stand alone as a statement or tail expression. |
-| Calls | Positional arguments, trailing closures, and trailing keyword arguments collected into one final map. Positional arguments must come first. |
+| Calls | Positional arguments, trailing closures, and trailing keyword arguments collected into one final map. Positional arguments must come first. A function passed where a `Fun(...) -> ()` callback is expected may return anything; its result is discarded, so no `let _ =` wrapper is needed. |
 | Early exit | `return expression` or Unit `return`. `return` is an expression, so a match arm can be `Err(_) -> return ...` directly, including in a value-producing `case`. |
 | Conditionals | Expression-valued `if ... else if ... else ... end`; use an omitted `else` only when discarding the value. |
-| Matching | `case` and `match`; exhaustive coverage is enforced, redundant arms diagnosed. Guarded arms need an exhaustive fallback. |
+| Matching | `case` and `match`; exhaustive coverage is enforced, redundant arms diagnosed. Guarded arms need an exhaustive fallback. An arm with no `->` passes its match through, rebuilt at the `case`'s type: `Ok(value)` means `Ok(value) -> Ok(value)`, which is what an arm needs when another arm maps the error. |
 | Basic patterns | `_`, binding names, positive/negative numeric literals, strings, booleans, `nil`, tuples, qualified/unqualified constructors and payloads. |
 | List patterns | `head :: tail` for a nonempty list; `[]` and `[first, second]` match a list of exactly that length, element by element. `[]` with `head :: tail` is exhaustive. The row-count idiom is `case rows do [] -> ... [row] -> ... _ -> Err(...) end`. |
 | Compound patterns | `left \| right` (same bindings on both sides), `pattern as whole`, optional `when` guards. |

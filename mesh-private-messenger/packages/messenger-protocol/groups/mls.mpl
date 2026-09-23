@@ -12,25 +12,15 @@ from Groups.Tree import (
 
 pub type GroupError do
   AuthenticationRejected
-
   CryptoFailure(error :: CryptoError)
-
   FutureEpoch
-
   InvalidGroup
-
   InvalidMember
-
   InvalidPolicy
-
   Replay
-
   RemovedMember
-
   RollbackRejected
-
   StaleEpoch
-
   TreeFailure(error :: GroupTreeError)
 end
 
@@ -42,9 +32,7 @@ end
 
 pub type GroupProposal do
   AddMember(leaf_index :: Int, member :: GroupMember)
-
   RemoveMember(leaf_index :: Int)
-
   UpdateKeys
 end
 
@@ -55,12 +43,12 @@ end
 
 pub struct TreeKemUpdateNode do
   parent :: TreeKemParentNode
-  ciphertexts :: List < TreeKemCiphertext >
+  ciphertexts :: List<TreeKemCiphertext>
 end
 
 pub struct TreeKemUpdatePath do
   leaf_public_key :: X25519PublicKey
-  nodes :: List < TreeKemUpdateNode >
+  nodes :: List<TreeKemUpdateNode>
 end
 
 pub struct GroupCommit do
@@ -80,11 +68,11 @@ end
 
 pub struct GroupWelcome do
   commit :: GroupCommit
-  members :: List < IndexedGroupMember >
-  extensions :: List < Int >
+  members :: List<IndexedGroupMember>
+  extensions :: List<Int>
   policy :: GroupTransparencyPolicy
   recipient_leaf :: Int
-  parent_nodes :: List < TreeKemParentNode >
+  parent_nodes :: List<TreeKemParentNode>
   joiner_path_level :: Int
   joiner_path_secret :: Bytes
   joiner_epoch_secret :: Bytes
@@ -135,7 +123,7 @@ pub resource struct TreeKemKeyMaterial do
   level3_private_key :: X25519PrivateKey
   level4_private_key :: X25519PrivateKey
   level5_private_key :: X25519PrivateKey
-  available_levels :: List < Int >
+  available_levels :: List<Int>
 end
 
 pub resource struct GroupState do
@@ -149,8 +137,8 @@ pub resource struct GroupState do
   key_material :: TreeKemKeyMaterial
   local_leaf :: Int
   next_generation :: Int
-  received_generations :: List < SenderGeneration >
-  extensions :: List < Int >
+  received_generations :: List<SenderGeneration>
+  extensions :: List<Int>
   policy :: GroupTransparencyPolicy
   snapshot_version :: U64
 end
@@ -185,7 +173,7 @@ end
 
 pub struct GroupReadInts do
   state :: BinaryReader
-  value :: List < Int >
+  value :: List<Int>
 end
 
 pub struct GroupReadProposal do
@@ -195,27 +183,27 @@ end
 
 pub struct GroupReadCiphertexts do
   state :: BinaryReader
-  value :: List < TreeKemCiphertext >
+  value :: List<TreeKemCiphertext>
 end
 
 pub struct GroupReadUpdateNodes do
   state :: BinaryReader
-  value :: List < TreeKemUpdateNode >
+  value :: List<TreeKemUpdateNode>
 end
 
 pub struct GroupReadParents do
   state :: BinaryReader
-  value :: List < TreeKemParentNode >
+  value :: List<TreeKemParentNode>
 end
 
 pub struct GroupReadMembers do
   state :: BinaryReader
-  value :: List < IndexedGroupMember >
+  value :: List<IndexedGroupMember>
 end
 
 pub struct GroupReadGenerations do
   state :: BinaryReader
-  value :: List < SenderGeneration >
+  value :: List<SenderGeneration>
 end
 
 pub struct ParsedGroupSnapshot do
@@ -228,11 +216,11 @@ pub struct ParsedGroupSnapshot do
   transcript_hash :: Bytes
   local_leaf :: Int
   next_generation :: Int
-  members :: List < IndexedGroupMember >
-  parent_nodes :: List < TreeKemParentNode >
-  received_generations :: List < SenderGeneration >
-  extensions :: List < Int >
-  available_levels :: List < Int >
+  members :: List<IndexedGroupMember>
+  parent_nodes :: List<TreeKemParentNode>
+  received_generations :: List<SenderGeneration>
+  extensions :: List<Int>
+  available_levels :: List<Int>
   policy :: GroupTransparencyPolicy
   sealed_sender_chains :: Bytes
   sealed_skipped_keys :: Bytes
@@ -248,37 +236,31 @@ end
 
 pub type CommitApplyOutcome do
   CommitApplied(state :: GroupState)
-
   CommitRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupAddOutcome do
   GroupMemberAdded(state :: GroupState, commit :: GroupCommit, welcome :: GroupWelcome)
-
   GroupAddRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupRemoveOutcome do
   GroupMemberRemoved(state :: GroupState, commit :: GroupCommit)
-
   GroupRemoveRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupEncryptOutcome do
   GroupMessageEncrypted(state :: GroupState, message :: GroupMessage)
-
   GroupEncryptRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupDecryptOutcome do
   MessageOpened(state :: GroupState, plaintext :: Bytes)
-
   MessageRejected(state :: GroupState, error :: GroupError)
 end
 
 pub type GroupSnapshotOutcome do
   GroupSnapshotSealed(state :: GroupState, blob :: Bytes)
-
   GroupSnapshotRejected(state :: GroupState, error :: GroupError)
 end
 
@@ -306,7 +288,7 @@ pub resource struct GeneratedTreeKemPath do
   secret4 :: SecretBytes
   secret5 :: SecretBytes
   leaf_public_key :: X25519PublicKey
-  parents :: List < TreeKemParentNode >
+  parents :: List<TreeKemParentNode>
 end
 
 pub resource struct OpenedPathSecret do
@@ -316,15 +298,10 @@ end
 
 pub type TreeKemPathPatch do
   TreeKemPatch0(epoch_secret :: SecretBytes, level0 :: X25519PrivateKey, level1 :: X25519PrivateKey, level2 :: X25519PrivateKey, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
-
   TreeKemPatch1(epoch_secret :: SecretBytes, level1 :: X25519PrivateKey, level2 :: X25519PrivateKey, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
-
   TreeKemPatch2(epoch_secret :: SecretBytes, level2 :: X25519PrivateKey, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
-
   TreeKemPatch3(epoch_secret :: SecretBytes, level3 :: X25519PrivateKey, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
-
   TreeKemPatch4(epoch_secret :: SecretBytes, level4 :: X25519PrivateKey, level5 :: X25519PrivateKey)
-
   TreeKemPatch5(epoch_secret :: SecretBytes, level5 :: X25519PrivateKey)
 end
 

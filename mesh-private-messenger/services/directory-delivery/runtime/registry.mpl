@@ -4,7 +4,7 @@ end
 
 service MessengerRegistry do
   fn init(pool :: PoolHandle) -> RegistryState do
-    RegistryState { pool : pool }
+    RegistryState { pool: pool }
   end
 
   call GetPool() :: PoolHandle do|state|

@@ -45,40 +45,40 @@ pub fn recipient_packet_kind(packet :: Bytes) -> Int do
   end
 end
 
-pub fn seal_recipient_packet(packet :: Bytes, recipient :: X25519PublicKey) -> Bytes ! String do
+pub fn seal_recipient_packet(packet :: Bytes, recipient :: X25519PublicKey) -> Bytes!String do
   if Bytes.length(packet) == 0 || Bytes.length(packet) > 65480 do
     Err("recipient_packet_too_large")
   else
-    let padded = pad_message(packet, 52) ?
+    let padded = pad_message(packet, 52)?
     let sealed = case Crypto.hpke_seal(recipient, recipient_info(), recipient.bytes, padded) do
-      Ok(value) -> Ok(value)
+      Ok(value)
       Err(_) -> Err("recipient_crypto_failed")
-    end ?
-    Bytes.concat(Bytes.from_hex("01524350") ?, sealed)
+    end?
+    Bytes.concat(Bytes.from_hex("01524350")?, sealed)
   end
 end
 
-pub fn open_recipient_packet(input :: Bytes, recipient :: borrow X25519PrivateKey) -> Bytes ! String do
+pub fn open_recipient_packet(input :: Bytes, recipient :: borrow X25519PrivateKey) -> Bytes!String do
   if !is_recipient_packet(input) do
     Err("invalid_recipient_packet")
   else
     let public_key = case Crypto.x25519_public(recipient) do
-      Ok(value) -> Ok(value)
+      Ok(value)
       Err(_) -> Err("recipient_crypto_failed")
-    end ?
+    end?
     let plaintext = case Crypto.hpke_open(recipient,
-    recipient_info(),
-    public_key.bytes,
-    Bytes.slice(input, 4, Bytes.length(input) - 4) ?) do
-      Ok(value) -> Ok(value)
+      recipient_info(),
+      public_key.bytes,
+      Bytes.slice(input, 4, Bytes.length(input) - 4)?) do
+      Ok(value)
       Err(error) -> if is_retryable_verification_crypto_error(error) do
         Err("recipient_crypto_failed")
       else
         Err("invalid_recipient_packet")
       end
-    end ?
+    end?
     case unpad_message(plaintext, 52) do
-      Ok(value) -> Ok(value)
+      Ok(value)
       Err(_) -> Err("invalid_recipient_packet")
     end
   end

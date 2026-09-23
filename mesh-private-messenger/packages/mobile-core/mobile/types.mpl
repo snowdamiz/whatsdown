@@ -262,7 +262,7 @@ pub struct MobileVerifiedDeviceSet do
   wire :: Bytes
   value :: DeviceSet
   account :: AccountIdentity
-  profiles :: List < ClientProfile >
+  profiles :: List<ClientProfile>
 end
 
 pub struct MobileClaimedPrekey do
@@ -294,8 +294,8 @@ pub struct MobileTransparencyManifest do
 end
 
 pub struct MobileTransparencyStorage do
-  labels :: List < String >
-  blobs :: List < Bytes >
+  labels :: List<String>
+  blobs :: List<Bytes>
 end
 
 pub struct MobileGroupKeyPackage do
@@ -357,16 +357,12 @@ end
 
 pub type MobileGroupReceiveOutcome do
   GroupReceiveApplied(output :: Bytes)
-
   GroupReceiveRetry(error :: String)
-
   GroupReceiveRejected(error :: String)
 end
 
 pub type MobileDirectReceiveOutcome do
   DirectReceiveApplied(output :: Bytes)
-
   DirectReceiveRetry(error :: String)
-
   DirectReceiveRejected(error :: String)
 end

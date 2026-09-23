@@ -7,7 +7,7 @@ import RuntimeJobs
 
 fn run_jobs(request :: Request, witness_only :: Bool) -> Response do
   if !RuntimeJobs.internal_request_authorized(request,
-  Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+    Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
     HTTP.response(401, "")
   else
     case transaction_in_progress(get_pool(), Request.body(request)) do
@@ -39,8 +39,8 @@ end
 
 fn respond_no_store(result :: BinaryResult) -> Response do
   HTTP.response_bytes_with_headers(result.status,
-  result.body,
-  Map.put(Map.new(), "Cache-Control", "no-store"))
+    result.body,
+    Map.put(Map.new(), "Cache-Control", "no-store"))
 end
 
 pub fn handle_health(_request :: Request) -> Response do
@@ -51,12 +51,12 @@ end
 # in proof of work minted for that endpoint. The limits are the largest body
 # each inner codec accepts.
 
-fn admitted(request :: Request, label :: String, maximum_payload :: Int) -> Admission ! String do
+fn admitted(request :: Request, label :: String, maximum_payload :: Int) -> Admission!String do
   case check_request(label,
-  Request.body_bytes(request),
-  maximum_payload,
-  U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()))) ?,
-  Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16)) ? do
+    Request.body_bytes(request),
+    maximum_payload,
+    U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))?,
+    Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16))? do
     RequestMalformed -> Ok(AdmissionMalformed)
     RequestUnpaid -> Ok(AdmissionRefused)
     RequestPaid(payload, spent_key) -> spend_request(get_pool(), payload, spent_key)
@@ -97,10 +97,10 @@ pub fn handle_submit(request :: Request) -> Response do
   respond(submit_request(get_pool(), Request.body_bytes(request)))
 end
 
-fn authorization_header(request :: Request) -> Option < String > do
+fn authorization_header(request :: Request) -> Option<String> do
   case Request.header(request, "Authorization") do
     None -> Request.header(request, "authorization")
-    Some(value) -> Some(value)
+    Some(value)
   end
 end
 
@@ -142,8 +142,8 @@ pub fn handle_prekey_claim(request :: Request) -> Response do
   case admitted(request, "mesh-msg/v1/work/prekey-claim", 100) do
     Ok(Admitted(body)) -> case decode_prekey_claim(body) do
       Err(_) -> respond_no_store(BinaryResult {
-        status : 400,
-        body : Bytes.empty()
+        status: 400,
+        body: Bytes.empty()
       })
       Ok(_) -> respond_no_store(claim_prekey_request(get_pool(), body))
     end
