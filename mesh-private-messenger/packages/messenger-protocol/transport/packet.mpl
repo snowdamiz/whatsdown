@@ -357,3 +357,38 @@ end
 pub fn session_aad(session_id :: Bytes) -> Bytes!String do
   Ok(Crypto.sha256(client_append(Bytes.from_utf8("mesh-msg/mobile/ratchet-aad/v1"), session_id)?))
 end
+
+## A direct conversation is named after its two accounts, so every device of
+## either account, on any client, arrives at the same name with nothing to
+## coordinate, and a receiver checks the name instead of trusting it.
+
+pub fn direct_conversation_id(first_account_id :: Bytes, second_account_id :: Bytes) -> Bytes!String do
+  let (lower, higher) = if account_before(first_account_id, second_account_id, 0)? do
+    (first_account_id, second_account_id)
+  else
+    (second_account_id, first_account_id)
+  end
+  let named = join([Bytes.from_utf8("mesh-msg/mobile/conversation/v2"), lower, higher],
+    0,
+    Bytes.empty())?
+  case Bytes.slice(Crypto.sha256(named), 0, 16) do
+    Err(_) -> Err("conversation_id_failed")
+    Ok(value)
+  end
+end
+
+fn account_before(left :: Bytes, right :: Bytes, index :: Int) -> Bool!String do
+  if Bytes.length(left) != Bytes.length(right) do
+    Err("invalid_account_id")
+  else if index >= Bytes.length(left) do
+    Ok(false)
+  else
+    let left_byte = Bytes.get(left, index)?
+    let right_byte = Bytes.get(right, index)?
+    if left_byte == right_byte do
+      account_before(left, right, index + 1)
+    else
+      Ok(left_byte < right_byte)
+    end
+  end
+end

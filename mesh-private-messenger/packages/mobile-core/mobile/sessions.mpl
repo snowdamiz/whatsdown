@@ -507,30 +507,6 @@ pub fn self_sync_conversation_id(account_id :: Bytes) -> Bytes!String do
   end
 end
 
-## A direct conversation is named after the two accounts in it, so every device
-## of either account arrives at the same name with nothing to coordinate, and a
-## receiver checks the name instead of trusting it.
-
-pub fn direct_conversation_id(local_account_id :: Bytes, peer_account_id :: Bytes) -> Bytes!String do
-  let ordered = if bytes_before(local_account_id, peer_account_id, 0)? do
-    [local_account_id, peer_account_id]
-  else
-    [peer_account_id, local_account_id]
-  end
-  case Bytes.slice(Crypto.sha256(mobile_join([
-        Bytes.from_utf8("mesh-msg/mobile/conversation/v2"),
-        List.get(ordered, 0),
-        List.get(ordered, 1)
-      ],
-      0,
-      Bytes.empty())?),
-    0,
-    16) do
-    Err(_) -> Err("conversation_id_failed")
-    Ok(value)
-  end
-end
-
 ## The key this device files a conversation under. Its own records decide: a
 ## conversation from before names were derived keeps the name it has. Only a
 ## peer this device knows nothing about takes the name a sibling device sent,

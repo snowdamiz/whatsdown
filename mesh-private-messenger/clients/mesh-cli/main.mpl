@@ -28,7 +28,7 @@ from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode
 from Transparency.Client import checkpoint_fresh_at, verify_evidence
 from Transparency.Merkle import TransparencyCheckpoint, WitnessKey
 from Transparency.Wire import TransparencyEvidence, TransparencyLookup, decode_transparency_evidence, encode_transparency_lookup
-from Transport.Packet import TransportPacket, decode_packet, encode_packet, session_aad
+from Transport.Packet import TransportPacket, decode_packet, direct_conversation_id, encode_packet, session_aad
 from Transport.Recipient import open_recipient_packet, seal_recipient_packet
 
 fn wide(value :: String) -> U64!String do
@@ -433,7 +433,7 @@ fn run_device_a() -> Int!String do
   let (alice_account_keys, alice_account) = account(created_at)?
   let alice = device()?
   let alice_credential = credential(alice_account_keys, alice, created_at, expires_at)?
-  let conversation_id = random(16)?
+  let conversation_id = direct_conversation_id(alice_account.account_id, bob_account.account_id)?
   let initial_inner = inner(alice_account.account_id,
     alice_credential.device_id,
     bob_credential.device_id,

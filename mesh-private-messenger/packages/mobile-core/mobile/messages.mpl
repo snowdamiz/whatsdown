@@ -22,7 +22,6 @@ from Mobile.Prekeys import (
 from Mobile.Profile import load_profile, open_device, open_prekeys, policy
 from Mobile.Transport import MobileOpenedPacket, open_outer_packet, sealed_outer_bytes
 from Mobile.Sessions import (
-  direct_conversation_id,
   ensure_conversation_alias,
   find_peer_session,
   initial_bytes,
@@ -105,6 +104,7 @@ from Transport.Packet import (
   TransportPacket,
   decode_client_profile,
   decode_initial_plaintext,
+  direct_conversation_id,
   encode_initial_plaintext,
   encode_packet,
   session_aad

@@ -20,7 +20,7 @@ from Protocol.V1 import (
 )
 from Session.Handshake import RatchetState, initiate
 from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, ratchet_transport_matches
-from Transport.Packet import TransportPacket, decode_client_profile, decode_packet, encode_client_profile, encode_initial_plaintext, encode_packet, session_aad
+from Transport.Packet import TransportPacket, decode_client_profile, decode_packet, direct_conversation_id, encode_client_profile, encode_initial_plaintext, encode_packet, session_aad
 from Transport.Recipient import is_recipient_packet, open_recipient_packet, seal_recipient_packet
 
 pub struct InteropSession do
@@ -261,7 +261,7 @@ pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result<(Rat
     account_identity.account_id,
     local_credential.device_id)?
   decode_client_profile(local_profile)?
-  let conversation_id = random(16)?
+  let conversation_id = direct_conversation_id(account_identity.account_id, peer.account_id)?
   let inner = InnerEnvelope {
     version: 1,
     sender_account_id: account_identity.account_id,

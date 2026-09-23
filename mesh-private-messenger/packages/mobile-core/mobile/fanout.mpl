@@ -16,7 +16,6 @@ from Mobile.Profile import load_profile, open_device, policy
 from Mobile.Transport import sealed_outer_bytes
 from Mobile.Sessions import (
   device_needs_prekey,
-  direct_conversation_id,
   encode_sync_payload,
   find_device_session,
   find_peer_session,
@@ -63,6 +62,7 @@ from Transport.Packet import (
   ClientProfile,
   TransportPacket,
   decode_client_profile,
+  direct_conversation_id,
   encode_initial_plaintext,
   encode_packet,
   session_aad
