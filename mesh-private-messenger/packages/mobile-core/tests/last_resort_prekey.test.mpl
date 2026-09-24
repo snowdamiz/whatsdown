@@ -33,11 +33,11 @@ end
 
 fn exhausted_profile(encoded :: Bytes, reusable :: OneTimePrekeyPublic) -> Bytes!String do
   let profile = decode_client_profile(encoded)?
-  let bundle = case encode_prekey_bundle(% { profile.bundle | one_time_prekey_id: reusable.id, one_time_prekey: reusable.public_key }) do
+  let bundle = case encode_prekey_bundle(%{profile.bundle | one_time_prekey_id: reusable.id, one_time_prekey: reusable.public_key}) do
     Err(_) -> Err("bundle encode failed")
     Ok(value)
   end?
-  encode_client_profile(% { profile.entry | prekey_bundle: bundle },
+  encode_client_profile(%{profile.entry | prekey_bundle: bundle},
     profile.account_id,
     profile.device_id)
 end

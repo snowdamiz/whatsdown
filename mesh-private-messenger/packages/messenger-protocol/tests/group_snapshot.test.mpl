@@ -274,7 +274,7 @@ fn proof() -> Bool!GroupError do
     carol_signing.private_key,
     dave))?
   let restored = applied(apply_commit(restored, dave_commit))?
-  let changed_policy = % { dave_welcome | policy: % { dave_welcome.policy | witness_threshold: 1 } }
+  let changed_policy = %{dave_welcome | policy: %{dave_welcome.policy | witness_threshold: 1}}
   assert(rejects_join(join_from_welcome(changed_policy,
     dave_init.private_key,
     dave_leaf.private_key)))

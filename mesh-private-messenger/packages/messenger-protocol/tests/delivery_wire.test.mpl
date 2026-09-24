@@ -154,11 +154,11 @@ fn signed_fetch_proof() -> Bool!ProtocolError do
   assert(Bytes.secure_equals(encode_mailbox_fetch(fetch)?, wire))
   assert(verified(public_key, mailbox_fetch_signing_bytes(fetch)?, fetch.signature))
   # A different cursor, time, or mailbox is a different signed statement.
-  let moved_cursor = % { fetch | after_sequence: wide(4)? }
+  let moved_cursor = %{fetch | after_sequence: wide(4)?}
   assert(!verified(public_key, mailbox_fetch_signing_bytes(moved_cursor)?, fetch.signature))
-  let moved_time = % { fetch | issued_at: wide(1700000000001)? }
+  let moved_time = %{fetch | issued_at: wide(1700000000001)?}
   assert(!verified(public_key, mailbox_fetch_signing_bytes(moved_time)?, fetch.signature))
-  let moved_mailbox = % { fetch | mailbox_token_hash: Crypto.sha256(repeated(8, 32)) }
+  let moved_mailbox = %{fetch | mailbox_token_hash: Crypto.sha256(repeated(8, 32))}
   assert(!verified(public_key, mailbox_fetch_signing_bytes(moved_mailbox)?, fetch.signature))
   # Another device's key does not authorize this mailbox.
   let stranger = signing_pair()?
@@ -180,7 +180,7 @@ fn signed_ack_proof() -> Bool!ProtocolError do
   assert(Bytes.secure_equals(encode_mailbox_ack(ack)?, wire))
   assert(verified(public_key, mailbox_ack_signing_bytes(ack)?, ack.signature))
   # Swapping in another envelope ID must invalidate the signature.
-  let other_ids = % { ack | envelope_ids: [repeated(9, 16), repeated(11, 16)] }
+  let other_ids = %{ack | envelope_ids: [repeated(9, 16), repeated(11, 16)]}
   assert(!verified(public_key, mailbox_ack_signing_bytes(other_ids)?, ack.signature))
   # A fetch signature is never an acknowledgement signature.
   let fetch = decode_mailbox_fetch(sign_mailbox_fetch(private_key,
@@ -211,11 +211,11 @@ fn rejection_proof() -> Bool!ProtocolError do
     Ok(_) -> assert(false)
   end
   let fetch = decode_mailbox_fetch(wire)?
-  case encode_mailbox_fetch(% { fetch | signature: repeated(1, 63) }) do
+  case encode_mailbox_fetch(%{fetch | signature: repeated(1, 63)}) do
     Err(InvalidFieldLength) -> assert(true)
     _ -> assert(false)
   end
-  case encode_mailbox_fetch(% { fetch | mailbox_token_hash: repeated(1, 31) }) do
+  case encode_mailbox_fetch(%{fetch | mailbox_token_hash: repeated(1, 31)}) do
     Err(InvalidFieldLength) -> assert(true)
     _ -> assert(false)
   end

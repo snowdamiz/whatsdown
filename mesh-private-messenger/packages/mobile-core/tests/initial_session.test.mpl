@@ -110,7 +110,7 @@ fn malformed_ratchet_packet() -> Bytes!String do
 end
 
 fn replace_ciphertext(envelope :: Bytes, ciphertext :: Bytes) -> Bytes!String do
-  case encode_outer_envelope(% { outer(envelope)? | ciphertext: ciphertext }) do
+  case encode_outer_envelope(%{outer(envelope)? | ciphertext: ciphertext}) do
     Err(_) -> Err("outer envelope encode failed")
     Ok(encoded)
   end

@@ -172,7 +172,7 @@ pub fn updated_history(database_path :: String,
     List.append(entries,
       MobileHistoryEntry {
         direction: direction,
-        inner: % { inner | body: body }
+        inner: %{inner | body: body}
       })
   end
   Ok((List.append(presentation_labels, label),
@@ -435,15 +435,15 @@ end
 
 fn updated_policy(record :: MobileSessionRecord, action :: Int, value :: Int) -> MobileSessionRecord!String do
   if action == 1 do
-    Ok(% { record | request_state: 1 })
+    Ok(%{record | request_state: 1})
   else if action == 2 do
-    Ok(% { record | blocked: true })
+    Ok(%{record | blocked: true})
   else if action == 3 do
-    Ok(% { record | blocked: false })
+    Ok(%{record | blocked: false})
   else if action == 4 && Bytes.length(record.safety_number) == 64 do
-    Ok(% { record | verified: true, key_changed: false })
+    Ok(%{record | verified: true, key_changed: false})
   else if action == 5 && value >= 0 && value <= 2592000 do
-    Ok(% { record | disappearing_seconds: value })
+    Ok(%{record | disappearing_seconds: value})
   else
     Err("invalid_conversation_policy")
   end
@@ -465,7 +465,7 @@ fn updated_peer_policy_blobs(database_path :: String,
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index))?
     if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) do
       let record = if action == 4 && !Bytes.secure_equals(loaded.record.safety_number, safety) do
-        Ok(% { loaded.record | verified: false, key_changed: true })
+        Ok(%{loaded.record | verified: false, key_changed: true})
       else
         updated_policy(loaded.record, action, value)
       end?
@@ -509,7 +509,7 @@ fn accepted_request_blobs(database_path :: String,
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index))?
     if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) && loaded.record.request_state != 1 do
-      let record = % { loaded.record | request_state: 1 }
+      let record = %{loaded.record | request_state: 1}
       let blob = seal_local(updated_session_record(record.snapshot, record)?,
         wrapping_key,
         local_context(loaded.label)?)?

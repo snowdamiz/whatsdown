@@ -642,7 +642,7 @@ fn finish_upgraded_session_snapshot(state :: consume RatchetState,
   label :: String) -> Result<(Bytes, String, Bytes), String> do
   let safety = safety_number(local, peer)?
   let changed = !Bytes.secure_equals(previous.record.safety_number, safety)
-  let record = % { previous.record | snapshot: snapshot_blob, peer_account_id: peer.account_id, peer_device_id: peer.device_id, peer_username: peer.username, peer_mailbox: peer.entry.mailbox_token, strongest_suite: state.suite, safety_number: safety, verified: previous.record.verified && !changed, key_changed: previous.record.key_changed || changed }
+  let record = %{previous.record | snapshot: snapshot_blob, peer_account_id: peer.account_id, peer_device_id: peer.device_id, peer_username: peer.username, peer_mailbox: peer.entry.mailbox_token, strongest_suite: state.suite, safety_number: safety, verified: previous.record.verified && !changed, key_changed: previous.record.key_changed || changed}
   Ok((session_id,
     label,
     seal_local(updated_session_record(record.snapshot, record)?,
@@ -758,7 +758,7 @@ fn finish_updated_snapshot(state :: consume RatchetState,
   else
     record.strongest_suite
   end
-  seal_local(updated_session_record(snapshot_blob, % { record | strongest_suite: strongest_suite })?,
+  seal_local(updated_session_record(snapshot_blob, %{record | strongest_suite: strongest_suite})?,
     wrapping_key,
     local_context(label)?)
 end

@@ -168,7 +168,7 @@ pub fn remove_safety_binding_for_test(database_path :: String, peer_profile :: B
     peer.account_id,
     load_session_ids(database_path, wrapping_key)?,
     0)?
-  let record = updated_session_record(loaded.record.snapshot, % { loaded.record | verified: true })?
+  let record = updated_session_record(loaded.record.snapshot, %{loaded.record | verified: true})?
   let legacy = Bytes.slice(record, 0, Bytes.length(record) - 68)?
   let blob = seal_local(legacy, wrapping_key, local_context(loaded.label)?)?
   store_updated_session(database_path, loaded.label, blob)?
@@ -354,7 +354,7 @@ fn test_encode_ratchet_outer(recipient_path :: String,
   let recipient = decode_client_profile(load_profile(recipient_path)?)?
   let sealed = seal_recipient_packet(encode_packet(RatchetPacket(encoded_message))?,
     X25519PublicKey { bytes: recipient.credential.dh_public_key })?
-  case encode_outer_envelope(% { outer | ciphertext: sealed }) do
+  case encode_outer_envelope(%{outer | ciphertext: sealed}) do
     Err(_) -> Err("outer_encoding_failed")
     Ok(encoded)
   end
@@ -362,7 +362,7 @@ end
 
 pub fn test_ratchet_jump_envelope(recipient_path :: String, input :: Bytes) -> Bytes!String do
   let (outer, message) = test_ratchet_outer(recipient_path, input)?
-  test_encode_ratchet_outer(recipient_path, outer, % { message | message_number: 65 })
+  test_encode_ratchet_outer(recipient_path, outer, %{message | message_number: 65})
 end
 
 pub fn test_ratchet_tamper_envelope(recipient_path :: String, input :: Bytes) -> Bytes!String do
@@ -379,7 +379,7 @@ pub fn test_ratchet_tamper_envelope(recipient_path :: String, input :: Bytes) ->
   end
   let ciphertext = mobile_append(Bytes.slice(message.ciphertext, 0, length - 1)?,
     mobile_byte(replacement)?)?
-  test_encode_ratchet_outer(recipient_path, outer, % { message | ciphertext: ciphertext })
+  test_encode_ratchet_outer(recipient_path, outer, %{message | ciphertext: ciphertext})
 end
 
 ## What a delivery service or network attacker can do: flip a byte of the sealed
@@ -399,7 +399,7 @@ pub fn test_sealed_tamper_envelope(input :: Bytes) -> Bytes!String do
   end
   let ciphertext = mobile_append(Bytes.slice(outer.ciphertext, 0, length - 1)?,
     mobile_byte(replacement)?)?
-  case encode_outer_envelope(% { outer | ciphertext: ciphertext }) do
+  case encode_outer_envelope(%{outer | ciphertext: ciphertext}) do
     Err(_) -> Err("outer_encoding_failed")
     Ok(encoded)
   end
@@ -563,7 +563,7 @@ pub fn install_legacy_disabled_push_state_for_test(database_path :: String) -> B
   store_legacy_push_state_for_test(database_path,
     profile,
     wrapping_key,
-    % { state | mode: 0, wake_token_hash: mobile_zeroes(32)?, provider_token_hash: mobile_zeroes(32)?, pending_kind: 0, pending_wire: Bytes.empty() })
+    %{state | mode: 0, wake_token_hash: mobile_zeroes(32)?, provider_token_hash: mobile_zeroes(32)?, pending_kind: 0, pending_wire: Bytes.empty()})
 end
 
 pub fn install_legacy_enabled_push_state_for_test(database_path :: String) -> Bool!String do
@@ -588,7 +588,7 @@ pub fn install_legacy_pending_unbind_push_state_for_test(database_path :: String
   store_legacy_push_state_for_test(database_path,
     profile,
     wrapping_key,
-    % { state | revision: revision, mode: 0, wake_token_hash: mobile_zeroes(32)?, provider_token_hash: mobile_zeroes(32)?, pending_kind: 2, pending_wire: wire })
+    %{state | revision: revision, mode: 0, wake_token_hash: mobile_zeroes(32)?, provider_token_hash: mobile_zeroes(32)?, pending_kind: 2, pending_wire: wire})
 end
 
 pub fn install_classical_session_for_test(initiator_path :: String, responder_path :: String) -> Bytes!String do
@@ -628,7 +628,7 @@ pub fn install_classical_session_for_test(initiator_path :: String, responder_pa
     Err(_) -> Err("classical_bundle_failed")
     Ok(value)
   end?
-  let classical_profile = encode_client_profile(% { responder.entry | prekey_bundle: bundle_wire },
+  let classical_profile = encode_client_profile(%{responder.entry | prekey_bundle: bundle_wire},
     responder.account_id,
     responder.device_id)?
   let classical_responder = decode_client_profile(classical_profile)?
@@ -721,7 +721,7 @@ pub fn install_classical_session_for_test(initiator_path :: String, responder_pa
     end?
     encode_output_list([
       envelope,
-      directory_bytes(% { classical_responder.entry | prekey_bundle: base_wire })?,
+      directory_bytes(%{classical_responder.entry | prekey_bundle: base_wire})?,
       classical_profile
     ])
   end

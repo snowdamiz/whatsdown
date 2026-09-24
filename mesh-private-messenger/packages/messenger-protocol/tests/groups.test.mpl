@@ -290,7 +290,7 @@ fn proof() -> Bool!GroupError do
     alice_second_leaf.public_key,
     checkpoint)?
   let alice_state = create_group(alice, alice_leaf.private_key, [1], policy)?
-  let invalid_bob = % { bob | witness_count: 0 }
+  let invalid_bob = %{bob | witness_count: 0}
   let alice_state = rejected_add(commit_add(alice_state, alice_signing.private_key, invalid_bob))?
   let (alice_state, bob_commit, bob_welcome) = added(commit_add(alice_state,
     alice_signing.private_key,
@@ -385,7 +385,7 @@ fn proof() -> Bool!GroupError do
   # Recovery of Alice's temporary encryption-state compromise requires Alice's
   # own fresh leaf update; an attacker retaining another member needs its update too.
   let (alice_state, refresh) = removed(commit_update(alice_state, alice_signing.private_key))?
-  case encode_group_commit(% { refresh | version: 1, confirmation: Bytes.empty() }) do
+  case encode_group_commit(%{refresh | version: 1, confirmation: Bytes.empty()}) do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end
@@ -464,7 +464,7 @@ fn removal_proof() -> Bool!GroupError do
     alice_signing.private_key,
     1))?
   let bob_state = rejected_commit(apply_commit(bob_state, removal_commit), FutureEpoch)?
-  let tampered_carol_commit = % { carol_commit | signature: Signature { bytes: repeated(0, 64) } }
+  let tampered_carol_commit = %{carol_commit | signature: Signature { bytes: repeated(0, 64) }}
   let bob_state = rejected_commit(apply_commit(bob_state, tampered_carol_commit),
     AuthenticationRejected)?
   let bob_state = applied(apply_commit(bob_state, carol_commit))?
@@ -566,7 +566,7 @@ fn seeded_group_step(alice :: consume GroupState,
     let index = random % List.length(pending)
     let delivery = List.get(pending, index)
     let rest = List.concat(List.take(pending, index), List.drop(pending, index + 1))
-    let forged = % { delivery.message | signature: Signature { bytes: repeated(0, 64) } }
+    let forged = %{delivery.message | signature: Signature { bytes: repeated(0, 64) }}
     let (alice, bob) = if delivery.from_alice do
       let receiver = rejected_message(decrypt_group_message(bob, forged, aad))?
       let receiver = opened(decrypt_group_message(receiver, delivery.message, aad), delivery.body)?

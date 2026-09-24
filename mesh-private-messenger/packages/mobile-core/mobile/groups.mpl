@@ -346,7 +346,7 @@ end
 
 pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes!String do
   let presented = present_message(input.database_path, input.group_id, input.body)?
-  let text_only = % { input | body: presented }
+  let text_only = %{input | body: presented}
   if Bytes.length(input.attachment) == 0 && Bytes.length(text_only.body) > 65290 do
     Err("group_message_too_large")
   else
@@ -382,7 +382,7 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes!Strin
         if Bytes.length(framed) > 65290 do
           Err("group_message_too_large")
         else
-          Ok(% { input | body: framed })
+          Ok(%{input | body: framed})
         end
       end?
       let now = current_time()?

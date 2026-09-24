@@ -186,7 +186,7 @@ fn maximal_bundle_proof() -> Bool!String do
   assert(U64.compare(normalized.one_time_prekey_id, wide("0")?) == 0)
   assert(Bytes.length(normalized.one_time_prekey) == 0)
   assert(Bytes.secure_equals(encoded_bundle(normalized)?,
-    encoded_bundle(% { maximal | one_time_prekey_id: wide("0")?, one_time_prekey: Bytes.empty() })?))
+    encoded_bundle(%{maximal | one_time_prekey_id: wide("0")?, one_time_prekey: Bytes.empty()})?))
   Ok(true)
 end
 

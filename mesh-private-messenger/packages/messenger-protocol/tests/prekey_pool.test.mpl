@@ -40,15 +40,15 @@ fn proof() -> Bool!String do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end
-  case encode_prekey_publish_response(% { response | active_ids: [U64.parse("9")?, U64.parse("2")?] }) do
+  case encode_prekey_publish_response(%{response | active_ids: [U64.parse("9")?, U64.parse("2")?]}) do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end
-  case encode_prekey_publish_response(% { response | active_ids: ids(0, 65, List.new())? }) do
+  case encode_prekey_publish_response(%{response | active_ids: ids(0, 65, List.new())?}) do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end
-  let empty = decode_prekey_publish_response(encode_prekey_publish_response(% { response | active_ids: List.new() })?)?
+  let empty = decode_prekey_publish_response(encode_prekey_publish_response(%{response | active_ids: List.new()})?)?
   assert(List.length(empty.active_ids) == 0)
   let recovery = encode_prekey_publish(PrekeyPublishRequest {
     account_id: response.account_id,
@@ -95,8 +95,8 @@ fn last_resort_proof() -> Bool!String do
     Some(value) -> assert(Bytes.secure_equals(value, repeated(9, 32)?))
   end
   assert(!Bytes.secure_equals(prekey_publish_signing_bytes(request)?,
-    prekey_publish_signing_bytes(% { request | contact_address_hash: None })?))
-  case encode_prekey_publish(% { request | contact_address_hash: Some(repeated(9, 31)?) }) do
+    prekey_publish_signing_bytes(%{request | contact_address_hash: None})?))
+  case encode_prekey_publish(%{request | contact_address_hash: Some(repeated(9, 31)?)}) do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end
@@ -109,9 +109,9 @@ fn last_resort_proof() -> Bool!String do
   end
   # The device signature covers the last-resort key.
   assert(!Bytes.secure_equals(prekey_publish_signing_bytes(request)?,
-    prekey_publish_signing_bytes(% { request | last_resort: None })?))
+    prekey_publish_signing_bytes(%{request | last_resort: None})?))
   # One identifier cannot be both one-time and last-resort.
-  case encode_prekey_publish(% { request | last_resort: Some(one_time) }) do
+  case encode_prekey_publish(%{request | last_resort: Some(one_time)}) do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end

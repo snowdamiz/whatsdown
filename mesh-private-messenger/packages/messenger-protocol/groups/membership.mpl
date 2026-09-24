@@ -279,7 +279,7 @@ fn prepare_add(state :: borrow GroupState,
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
   end?
-  let commit = % { unsigned | signature: signature }
+  let commit = %{unsigned | signature: signature}
   verify_commit(commit, state.tree)?
   let transcript_hash = Crypto.sha256(group_signed_commit_bytes(commit)?)
   let level = group_joiner_level(state.local_leaf, recipient_leaf, 0)?
@@ -327,7 +327,7 @@ pub fn commit_add(state :: consume GroupState,
       let commit = prepared.commit
       let welcome = prepared.welcome
       let transcript_hash = prepared.transcript_hash
-      let next = % { state | version: 2, epoch: commit.epoch, tree: tree, tree_hash_cache: tree_hash(tree), transcript_hash: transcript_hash, key_material: prepared.key_material, next_generation: 0, received_generations: List.new() }
+      let next = %{state | version: 2, epoch: commit.epoch, tree: tree, tree_hash_cache: tree_hash(tree), transcript_hash: transcript_hash, key_material: prepared.key_material, next_generation: 0, received_generations: List.new()}
       GroupMemberAdded(next, commit, welcome)
     end
   end
@@ -405,7 +405,7 @@ fn prepare_remove(state :: borrow GroupState,
       Err(error) -> Err(CryptoFailure(error))
       Ok(value)
     end?
-    let commit = % { unsigned | signature: signature }
+    let commit = %{unsigned | signature: signature}
     verify_commit(commit, state.tree)?
     let transcript_hash = Crypto.sha256(group_signed_commit_bytes(commit)?)
     Ok(PreparedGroupRemove {
@@ -428,7 +428,7 @@ pub fn commit_remove(state :: consume GroupState,
       let tree = prepared.tree
       let commit = prepared.commit
       let transcript_hash = prepared.transcript_hash
-      let next = % { state | version: 2, epoch: commit.epoch, tree: tree, tree_hash_cache: tree_hash(tree), transcript_hash: transcript_hash, key_material: prepared.key_material, next_generation: 0, received_generations: List.new() }
+      let next = %{state | version: 2, epoch: commit.epoch, tree: tree, tree_hash_cache: tree_hash(tree), transcript_hash: transcript_hash, key_material: prepared.key_material, next_generation: 0, received_generations: List.new()}
       GroupMemberRemoved(next, commit)
     end
   end

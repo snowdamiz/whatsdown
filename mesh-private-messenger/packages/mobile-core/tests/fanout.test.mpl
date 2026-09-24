@@ -305,16 +305,16 @@ fn proof() -> Bool!String do
   let claimed_alice_bundle = bundle(claimed_alice_entry.prekey_bundle)?
   let claimed_linked_bundle = bundle(claimed_linked_entry.prekey_bundle)?
   let claimed_bob_bundle = bundle(claimed_bob_entry.prekey_bundle)?
-  let alice_entry = % { claimed_alice_entry | prekey_bundle: bundle_wire(base_bundle(claimed_alice_bundle)?)? }
-  let linked_entry = % { claimed_linked_entry | prekey_bundle: bundle_wire(base_bundle(claimed_linked_bundle)?)? }
-  let bob_entry = % { claimed_bob_entry | prekey_bundle: bundle_wire(base_bundle(claimed_bob_bundle)?)? }
+  let alice_entry = %{claimed_alice_entry | prekey_bundle: bundle_wire(base_bundle(claimed_alice_bundle)?)?}
+  let linked_entry = %{claimed_linked_entry | prekey_bundle: bundle_wire(base_bundle(claimed_linked_bundle)?)?}
+  let bob_entry = %{claimed_bob_entry | prekey_bundle: bundle_wire(base_bundle(claimed_bob_bundle)?)?}
   let linked_publication = decode_prekey_publish(replenish_prekeys_export(request([
     Bytes.from_utf8(linked_path),
     write_u32(1)?
   ])?)?)?
   assert(List.length(linked_publication.prekeys) == 1)
   let linked_prekey = List.head(linked_publication.prekeys)
-  let next_claimed_linked_bundle = % { claimed_linked_bundle | one_time_prekey_id: linked_prekey.id, one_time_prekey: linked_prekey.public_key }
+  let next_claimed_linked_bundle = %{claimed_linked_bundle | one_time_prekey_id: linked_prekey.id, one_time_prekey: linked_prekey.public_key}
   let alice_credential = credential(claimed_alice_bundle.device_credential)?
   let linked_credential = credential(claimed_linked_bundle.device_credential)?
   let alice_set = device_set_wire(DeviceSet {
@@ -434,7 +434,7 @@ fn proof() -> Bool!String do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "invalid_fanout_prekeys")
   end
-  let changed_static_bundle = % { claimed_linked_bundle | signed_prekey: repeated(99, 32)? }
+  let changed_static_bundle = %{claimed_linked_bundle | signed_prekey: repeated(99, 32)?}
   case reserve_fanout_prekey_export(request([
     Bytes.from_utf8(alice_path),
     bob_set,

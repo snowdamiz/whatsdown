@@ -406,7 +406,7 @@ pub fn updated_group_history_blob(database_path :: String,
   let entries = if Bytes.length(body) == 0 && Bytes.length(attachment) == 0 do
     previous
   else
-    List.append(previous, % { entry | body: body, attachment: attachment })
+    List.append(previous, %{entry | body: body, attachment: attachment})
   end
   Ok((List.append(presentation_labels, label),
     List.append(presentation_blobs,
@@ -624,7 +624,7 @@ pub fn create_group_key_package_scoped(database_path :: String, scope :: String)
         Err(_) -> Err("group_key_generation_failed")
         Ok(value)
       end?
-      let encoded = encode_group_key_package(% { unsigned | signature: signature })?
+      let encoded = encode_group_key_package(%{unsigned | signature: signature})?
       let init_label = group_join_scoped_label(scope, "init")
       let leaf_label = group_join_scoped_label(scope, "leaf")
       let package_blob = seal_local(encoded, wrapping_key, local_context(package_label)?)?

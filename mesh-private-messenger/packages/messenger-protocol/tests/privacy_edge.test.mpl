@@ -154,7 +154,7 @@ fn stamp_proof() -> Bool!String do
   assert(!Bytes.secure_equals(spent,
     request_stamp_key("mesh-msg/v1/work/register", payload, stamp)?))
   assert(!Bytes.secure_equals(spent,
-    request_stamp_key("mesh-msg/v1/work/resolve", payload, % { stamp | nonce: stamp.nonce + 1 })?))
+    request_stamp_key("mesh-msg/v1/work/resolve", payload, %{stamp | nonce: stamp.nonce + 1})?))
   Ok(true)
 end
 

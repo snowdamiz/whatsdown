@@ -298,7 +298,7 @@ end
 
 pub fn group_finish_generated(value :: consume GeneratedTreeKemPath, epoch_secret :: SecretBytes) -> TreeKemKeyMaterial do
   let key_material = value.key_material
-  % { key_material | epoch_secret: epoch_secret }
+  %{key_material | epoch_secret: epoch_secret}
 end
 
 fn has_level(values :: List<Int>, level :: Int, index :: Int) -> Bool do
@@ -684,33 +684,33 @@ end
 pub fn group_merge_key_material(base :: consume TreeKemKeyMaterial,
   patch :: consume TreeKemPathPatch) -> TreeKemKeyMaterial do
   case patch do
-    TreeKemPatch0(epoch_secret, level0, level1, level2, level3, level4, level5) -> % { base | epoch_secret: epoch_secret, level0_private_key: level0, level1_private_key: level1, level2_private_key: level2, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: [
+    TreeKemPatch0(epoch_secret, level0, level1, level2, level3, level4, level5) -> %{base | epoch_secret: epoch_secret, level0_private_key: level0, level1_private_key: level1, level2_private_key: level2, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: [
       0,
       1,
       2,
       3,
       4,
       5
-    ] }
+    ]}
     TreeKemPatch1(epoch_secret, level1, level2, level3, level4, level5) -> do
       let levels = append_levels(1, preserved_levels(base.available_levels, 1, 0, List.new()))
-      % { base | epoch_secret: epoch_secret, level1_private_key: level1, level2_private_key: level2, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: levels }
+      %{base | epoch_secret: epoch_secret, level1_private_key: level1, level2_private_key: level2, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: levels}
     end
     TreeKemPatch2(epoch_secret, level2, level3, level4, level5) -> do
       let levels = append_levels(2, preserved_levels(base.available_levels, 2, 0, List.new()))
-      % { base | epoch_secret: epoch_secret, level2_private_key: level2, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: levels }
+      %{base | epoch_secret: epoch_secret, level2_private_key: level2, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: levels}
     end
     TreeKemPatch3(epoch_secret, level3, level4, level5) -> do
       let levels = append_levels(3, preserved_levels(base.available_levels, 3, 0, List.new()))
-      % { base | epoch_secret: epoch_secret, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: levels }
+      %{base | epoch_secret: epoch_secret, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: levels}
     end
     TreeKemPatch4(epoch_secret, level4, level5) -> do
       let levels = append_levels(4, preserved_levels(base.available_levels, 4, 0, List.new()))
-      % { base | epoch_secret: epoch_secret, level4_private_key: level4, level5_private_key: level5, available_levels: levels }
+      %{base | epoch_secret: epoch_secret, level4_private_key: level4, level5_private_key: level5, available_levels: levels}
     end
     TreeKemPatch5(epoch_secret, level5) -> do
       let levels = append_levels(5, preserved_levels(base.available_levels, 5, 0, List.new()))
-      % { base | epoch_secret: epoch_secret, level5_private_key: level5, available_levels: levels }
+      %{base | epoch_secret: epoch_secret, level5_private_key: level5, available_levels: levels}
     end
   end
 end
@@ -847,7 +847,7 @@ end
 
 pub fn group_install_epoch(material :: consume TreeKemKeyMaterial, keys :: consume GroupEpochKeys) -> TreeKemKeyMaterial do
   case keys do
-    EpochKeys(init_secret, chains, skipped) -> % { material | epoch_secret: init_secret, sender_chains: chains, skipped_keys: skipped }
+    EpochKeys(init_secret, chains, skipped) -> %{material | epoch_secret: init_secret, sender_chains: chains, skipped_keys: skipped}
   end
 end
 

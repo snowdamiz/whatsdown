@@ -242,9 +242,9 @@ fn rewrap_parts(device :: borrow DeviceKeys,
   else
     let value = decode_reference(List.get(parts, index))?
     let secret = unwrap_key(device, value)?
-    let wrapped = encode_reference(% { value | wrapped_key: wrap_key(secret,
+    let wrapped = encode_reference(%{value | wrapped_key: wrap_key(secret,
       value.object_id,
-      recipient)? })?
+      recipient)?})?
     rewrap_parts(device, parts, recipient, index + 1, List.append(output, wrapped))
   end
 end

@@ -222,8 +222,8 @@ fn proof() -> Bool!String do
   assert(padded.version == 2)
   assert(ratchet_transport_matches(padded, false))
   assert(!ratchet_transport_matches(padded, true))
-  assert(ratchet_transport_matches(% { padded | version: 1 }, false))
-  assert(!ratchet_transport_matches(% { padded | version: 1 }, true))
+  assert(ratchet_transport_matches(%{padded | version: 1}, false))
+  assert(!ratchet_transport_matches(%{padded | version: 1}, true))
   discard(alice_state)
   # Only a size bucket is visible, up to the 65,536-byte envelope ceiling.
   assert(Bytes.length(seal_recipient_packet(repeated(1, 200)?, bob.identity_public_key)?) == 256)

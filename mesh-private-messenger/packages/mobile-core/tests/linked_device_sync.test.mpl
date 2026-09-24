@@ -74,7 +74,7 @@ end
 fn base_entry(claimed :: DirectoryEntry) -> DirectoryEntry!String do
   case normalize_prekey_bundle(bundle(claimed.prekey_bundle)?) do
     Err(_) -> Err("prekey bundle normalization failed")
-    Ok(normalized) -> Ok(% { claimed | prekey_bundle: bundle_wire(normalized)? })
+    Ok(normalized) -> Ok(%{claimed | prekey_bundle: bundle_wire(normalized)?})
   end
 end
 
@@ -194,7 +194,7 @@ fn fresh_bundle(path :: String, claimed :: PrekeyBundle) -> Bytes!String do
     write_u32(1)?
   ])?)?)?
   let prekey = List.head(publication.prekeys)
-  bundle_wire(% { claimed | one_time_prekey_id: prekey.id, one_time_prekey: prekey.public_key })
+  bundle_wire(%{claimed | one_time_prekey_id: prekey.id, one_time_prekey: prekey.public_key})
 end
 
 fn reserve(path :: String, peer_set :: Bytes, local_set :: Bytes, claimed :: Bytes) -> Bool!String do

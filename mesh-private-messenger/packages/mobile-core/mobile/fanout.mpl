@@ -394,9 +394,9 @@ fn self_fanout(database_path :: String,
 end
 
 pub fn send_fanout(request :: MobileFanoutRequest) -> Bytes!String do
-  send_fanout_control(% { request | body: present_message(request.database_path,
+  send_fanout_control(%{request | body: present_message(request.database_path,
       Bytes.empty(),
-      request.body)? },
+      request.body)?},
     1,
     [],
     [])

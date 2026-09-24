@@ -75,7 +75,7 @@ pub fn invite_to_group(request :: MobileFanoutRequest) -> Bytes!String do
   end
   let blob = invitation_blob(existing ++ pending, key)?
   let body = encode_output_list([id, request.body, mobile_write_u64(expires_at)?, baseline])?
-  send_fanout_control(% { request | body: body }, 3, ["group-invitations/v1"], [blob])
+  send_fanout_control(%{request | body: body}, 3, ["group-invitations/v1"], [blob])
 end
 
 pub fn accept_group_invitation(request :: MobileFanoutRequest) -> Bytes!String do
@@ -112,9 +112,9 @@ pub fn accept_group_invitation(request :: MobileFanoutRequest) -> Bytes!String d
   # A welcome committed before the invitation deadline may spend 30 days in delivery.
   let retain_until = U64.add(invitation.expires_at, mobile_wide("2592000000")?)?
   let updated = replace_invitation(values,
-    % { invitation | state: 2, key_package: package, inviter_signing_key: inviter.credential.signing_public_key, expires_at: retain_until })
+    %{invitation | state: 2, key_package: package, inviter_signing_key: inviter.credential.signing_public_key, expires_at: retain_until})
   let body = encode_output_list([invitation.id, invitation.group_id, package])?
-  send_fanout_control(% { request | body: body },
+  send_fanout_control(%{request | body: body},
     4,
     ["group-invitations/v1"],
     [invitation_blob(updated, key)?])
@@ -147,7 +147,7 @@ pub fn complete_group_invitation(request :: MobileTriplePayloadRequest) -> Bytes
   if peer.record.blocked do
     return Err("conversation_blocked")
   end
-  let blob = invitation_blob(replace_invitation(values, % { invitation | state: 4 }), key)?
+  let blob = invitation_blob(replace_invitation(values, %{invitation | state: 4}), key)?
   add_mobile_group_member_with_updates(MobileGroupAddRequest {
       database_path: path,
       group_id: invitation.group_id,
@@ -168,7 +168,7 @@ pub fn decline_group_invitation(request :: MobilePayloadRequest) -> Bytes!String
   if invitation.state != 1 do
     return Err("invalid_group_invitation")
   end
-  let blob = invitation_blob(replace_invitation(values, % { invitation | state: 5 }), key)?
+  let blob = invitation_blob(replace_invitation(values, %{invitation | state: 5}), key)?
   store_updated_blobs(request.database_path, ["group-invitations/v1"], [blob])?
   Ok(Bytes.empty())
 end

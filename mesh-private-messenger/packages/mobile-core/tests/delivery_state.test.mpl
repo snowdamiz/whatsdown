@@ -28,10 +28,12 @@ fn states(path :: String, peer :: Bytes) -> List<Int>!String do
     0,
     Bytes.empty())?)?)?
   Ok(List.map(summaries,
-    fn (summary) do case Bytes.get(summary, Bytes.length(summary) - 1) do
-      Err(_) -> 255
-      Ok(value) -> value
-    end end))
+    fn (summary) do
+      case Bytes.get(summary, Bytes.length(summary) - 1) do
+        Err(_) -> 255
+        Ok(value) -> value
+      end
+    end))
 end
 
 fn queued(path :: String, offset :: Int) -> Int!String do

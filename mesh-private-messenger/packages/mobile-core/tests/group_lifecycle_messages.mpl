@@ -40,7 +40,7 @@ end
 
 fn replace_group_ciphertext(input :: Bytes, ciphertext :: Bytes) -> Bytes!String do
   let value = outer(input)?
-  case encode_outer_envelope(% { value | ciphertext: ciphertext }) do
+  case encode_outer_envelope(%{value | ciphertext: ciphertext}) do
     Err(_) -> Err("outer envelope encode failed")
     Ok(encoded)
   end

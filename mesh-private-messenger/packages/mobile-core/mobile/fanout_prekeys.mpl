@@ -422,7 +422,7 @@ fn validate_claimed_prekey(input :: Bytes,
       if !valid do
         Err("invalid_fanout_prekeys")
       else
-        let claimed_entry = % { target.entry | prekey_bundle: input }
+        let claimed_entry = %{target.entry | prekey_bundle: input}
         let encoded_profile = case encode_client_profile(claimed_entry,
           target.account_id,
           target.device_id) do

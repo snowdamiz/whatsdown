@@ -327,9 +327,9 @@ fn account_deletion_proof() -> Bool!IdentityError do
   assert(Bytes.secure_equals(deletion.account_id, identity.account_id))
   assert(verify_account_deletion(identity, deletion)?)
   # The time is signed, so a verifier's freshness check cannot be walked around.
-  assert(!verify_account_deletion(identity, % { deletion | issued_at: identity_wide(1001)? })?)
+  assert(!verify_account_deletion(identity, %{deletion | issued_at: identity_wide(1001)?})?)
   let forged = issue_account_deletion(stranger, now)?
-  assert(!verify_account_deletion(identity, % { forged | account_id: identity.account_id })?)
+  assert(!verify_account_deletion(identity, %{forged | account_id: identity.account_id})?)
   let wire = case encode_account_deletion(deletion) do
     Err(_) -> Err(InvalidCredential)
     Ok(value)
@@ -369,9 +369,9 @@ fn device_departure_proof() -> Bool!IdentityError do
   # Only the departing device's own key, for its own account, at the signed time.
   assert(!verify_device_departure(stranger.signing_public_key.bytes, departure)?)
   assert(!verify_device_departure(device.signing_public_key.bytes,
-    % { departure | account_id: repeated(52, 32) })?)
+    %{departure | account_id: repeated(52, 32)})?)
   assert(!verify_device_departure(device.signing_public_key.bytes,
-    % { departure | issued_at: identity_wide(1001)? })?)
+    %{departure | issued_at: identity_wide(1001)?})?)
   let wire = case encode_device_departure(departure) do
     Err(_) -> Err(InvalidCredential)
     Ok(value)

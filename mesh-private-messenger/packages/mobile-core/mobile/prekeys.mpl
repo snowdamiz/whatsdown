@@ -686,7 +686,7 @@ fn signed_prekey_publication(profile :: ClientProfile,
     Err(_) -> Err("prekey_publication_signing_failed")
     Ok(value) -> Ok(value.bytes)
   end?
-  encode_prekey_publish(% { unsigned | signature: signature })
+  encode_prekey_publish(%{unsigned | signature: signature})
 end
 
 pub fn replenish_prekeys(request :: MobilePrekeyRequest) -> Bytes!String do

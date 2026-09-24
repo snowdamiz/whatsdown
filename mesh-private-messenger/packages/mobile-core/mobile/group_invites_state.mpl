@@ -170,12 +170,14 @@ end
 
 pub fn replace_invitation(values :: List<GroupInvitation>, next :: GroupInvitation) -> List<GroupInvitation> do
   List.map(values,
-    fn (value) do if Bytes.secure_equals(value.id, next.id) && Bytes.secure_equals(value.recipient_device,
-      next.recipient_device) do
-      next
-    else
-      value
-    end end)
+    fn (value) do
+      if Bytes.secure_equals(value.id, next.id) && Bytes.secure_equals(value.recipient_device,
+        next.recipient_device) do
+        next
+      else
+        value
+      end
+    end)
 end
 
 fn receive_control(path :: String,
@@ -234,7 +236,7 @@ fn receive_control(path :: String,
       inner.sender_device_id) do
       return Ok(values)
     end
-    Ok(replace_invitation(values, % { previous | state: 3, key_package: List.get(p, 2) }))
+    Ok(replace_invitation(values, %{previous | state: 3, key_package: List.get(p, 2)}))
   end
 end
 

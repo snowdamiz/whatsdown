@@ -93,7 +93,7 @@ pub fn exercise_group_removal(accounts :: GroupAccountFixture, group_id :: Bytes
       accounts.bob_entry.mailbox_token),
     "post-removal mailbox mismatch")?
   let bob_after_outer = outer(bob_after)?
-  let retargeted = case encode_outer_envelope(% { bob_after_outer | mailbox_token: accounts.linked_entry.mailbox_token }) do
+  let retargeted = case encode_outer_envelope(%{bob_after_outer | mailbox_token: accounts.linked_entry.mailbox_token}) do
     Err(_) -> Err("outer envelope encode failed")
     Ok(encoded)
   end?

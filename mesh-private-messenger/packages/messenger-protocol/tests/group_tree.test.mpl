@@ -42,7 +42,7 @@ fn proof() -> Bool!GroupTreeError do
   let empty = empty_tree()?
   let empty_hash = tree_hash(empty)
   let first_member = member(1)?
-  case validate_member(% { first_member | leaf_public_key: first_member.init_public_key }) do
+  case validate_member(%{first_member | leaf_public_key: first_member.init_public_key}) do
     Err(InvalidMember) -> assert(true)
     _ -> assert(false)
   end

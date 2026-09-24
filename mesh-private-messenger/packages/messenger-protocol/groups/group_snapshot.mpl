@@ -343,7 +343,7 @@ pub fn group_snapshot(state :: consume GroupState,
   else
     case seal_group_snapshot(state, wrapping_key, account_id, device_id, snapshot_version) do
       Err(error) -> GroupSnapshotRejected(state, error)
-      Ok(blob) -> GroupSnapshotSealed(% { state | snapshot_version: snapshot_version }, blob)
+      Ok(blob) -> GroupSnapshotSealed(%{state | snapshot_version: snapshot_version}, blob)
     end
   end
 end

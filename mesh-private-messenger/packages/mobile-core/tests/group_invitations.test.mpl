@@ -68,7 +68,7 @@ fn device_set(path :: String, username :: String) -> Bytes!String do
     username: username,
     account_identity: entry.account_identity,
     sequence: account.directory_sequence,
-    devices: [% { entry | prekey_bundle: encoded_bundle }],
+    devices: [%{entry | prekey_bundle: encoded_bundle}],
     revoked_device_ids: []
   }) do
     Ok(value)
@@ -188,14 +188,16 @@ fn proof(malformed_first :: Bool) -> Bool!String do
   let original = canonical_group_welcome(encoded_welcome.welcome)?
   let fake_key = SigningPublicKey { bytes: repeated(9, 32)? }
   let substituted = List.map(original.members,
-    fn (member) do if member.leaf_index == original.commit.committer_leaf do
-      % { member | member: % { member.member | signing_public_key: fake_key } }
-    else
-      member
-    end end)
+    fn (member) do
+      if member.leaf_index == original.commit.committer_leaf do
+        %{member | member: %{member.member | signing_public_key: fake_key}}
+      else
+        member
+      end
+    end)
   case accepted_invitation_scope(bob,
     platform_key()?,
-    % { original | members: substituted },
+    %{original | members: substituted},
     encoded_welcome.baseline_checkpoint) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "group_welcome_rejected")

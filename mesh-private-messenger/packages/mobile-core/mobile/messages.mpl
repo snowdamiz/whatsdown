@@ -149,7 +149,7 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes!String do
   # re-addressed, and the message hands over this device's contact address.
   let rewrapped = rewrap_reference(local_device, request.attachment, peer.credential.dh_public_key)?
   let handed_over = outgoing_extensions(request.database_path, wrapping_key)?
-  let inner = % { history_inner | attachment_manifest: rewrapped, extensions: handed_over }
+  let inner = %{history_inner | attachment_manifest: rewrapped, extensions: handed_over}
   let plaintext = case encode_initial_plaintext(local_encode_client_profile, inner_bytes(inner)?) do
     Err(_) -> Err("invalid_initial_plaintext")
     Ok(value)
@@ -329,7 +329,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
       else
         Ok(nil)
       end?
-      let responder_bundle = % { local.bundle | one_time_prekey_id: selected_prekey.id, one_time_prekey: selected_prekey.public_key }
+      let responder_bundle = %{local.bundle | one_time_prekey_id: selected_prekey.id, one_time_prekey: selected_prekey.public_key}
       let initiator_credential = case decode_device_credential(initial.initiator_credential) do
         Err(_) -> Err("invalid_initiator_credential")
         Ok(value)
@@ -463,7 +463,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             sync,
             session_ids)?
           let synced = sync_history_inner(local, sync, inner.attachment_manifest)?
-          let history_inner = % { synced | conversation_id: synced_key }
+          let history_inner = %{synced | conversation_id: synced_key}
           let index_blob = updated_session_index(request.database_path, wrapping_key, session_id)?
           let (history_keys, history_blobs) = updated_history(request.database_path,
             wrapping_key,
@@ -504,7 +504,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
           let index_blob = updated_session_index(request.database_path, wrapping_key, session_id)?
           let (history_keys, history_blobs) = updated_history(request.database_path,
             wrapping_key,
-            % { inner | conversation_id: conversation_key },
+            %{inner | conversation_id: conversation_key},
             2)?
           store_received_session(request.database_path,
             label,
@@ -575,15 +575,15 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes!String do
       Ok(history_inner)
     else
       let local_device = open_device(local, wrapping_key, request.database_path)?
-      Ok(% { history_inner | attachment_manifest: rewrap_reference(local_device,
+      Ok(%{history_inner | attachment_manifest: rewrap_reference(local_device,
         request.attachment,
-        requested_peer.credential.dh_public_key)? })
+        requested_peer.credential.dh_public_key)?})
     end?
     # The sent copy hands over this device's contact address; history does not keep it.
     let handed_over = outgoing_extensions(request.database_path, wrapping_key)?
     let wire_conversation_id = direct_conversation_id(local.account_id, requested_peer.account_id)?
     let (next_state, message) = case encrypt_sealed(state,
-      inner_bytes(% { inner | conversation_id: wire_conversation_id, extensions: handed_over })?,
+      inner_bytes(%{inner | conversation_id: wire_conversation_id, extensions: handed_over})?,
       session_aad(loaded.session_id)?) do
       Err(_) -> Err("message_encryption_failed")
       Ok(value)
@@ -718,7 +718,7 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
               sync,
               session_ids)?
             let synced = sync_history_inner(local, sync, inner.attachment_manifest)?
-            let history_inner = % { synced | conversation_id: synced_key }
+            let history_inner = %{synced | conversation_id: synced_key}
             let (history_keys, history_blobs) = updated_history(request.database_path,
               wrapping_key,
               history_inner,
@@ -737,7 +737,7 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
           else
             let (history_keys, history_blobs) = updated_history(request.database_path,
               wrapping_key,
-              % { inner | conversation_id: loaded.record.conversation_id },
+              %{inner | conversation_id: loaded.record.conversation_id},
               2)?
             store_updated_session_and_history(request.database_path,
               loaded.label,

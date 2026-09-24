@@ -49,7 +49,7 @@ fn base_entry(value :: DirectoryEntry) -> DirectoryEntry!String do
     Err(_) -> Err("prekey bundle encoding failed")
     Ok(result)
   end?
-  Ok(% { value | prekey_bundle: wire })
+  Ok(%{value | prekey_bundle: wire})
 end
 
 fn device_set(username :: String, entry_value :: DirectoryEntry, sequence :: Int) -> Bytes!String do

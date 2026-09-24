@@ -374,7 +374,7 @@ fn signed_push_bind(database_path :: String,
     Err(_) -> Err("push_binding_sign_failed")
     Ok(value) -> Ok(value.bytes)
   end?
-  encode_push_bind(% { unsigned | signature: signature })
+  encode_push_bind(%{unsigned | signature: signature})
 end
 
 pub fn signed_push_unbind(database_path :: String,
@@ -391,7 +391,7 @@ pub fn signed_push_unbind(database_path :: String,
     Err(_) -> Err("push_binding_sign_failed")
     Ok(value) -> Ok(value.bytes)
   end?
-  encode_push_unbind(% { unsigned | signature: signature })
+  encode_push_unbind(%{unsigned | signature: signature})
 end
 
 pub fn prepare_new_push_bind(request :: MobilePayloadRequest,
@@ -439,7 +439,7 @@ pub fn prepare_new_push_bind(request :: MobilePayloadRequest,
       wake_hash,
       revision,
       sealed)?
-    let updated = % { state | revision: revision, mode: 1, wake_token_hash: wake_hash, provider_token_hash: token_hash, pending_kind: 1, pending_wire: wire }
+    let updated = %{state | revision: revision, mode: 1, wake_token_hash: wake_hash, provider_token_hash: token_hash, pending_kind: 1, pending_wire: wire}
     store_push_state(request.database_path, profile, wrapping_key, updated)?
     Ok(wire)
   end
@@ -463,7 +463,7 @@ pub fn prepare_push_bind_with_config(request :: MobilePayloadRequest,
       Err(_) -> Err("push_material_unavailable")
       Ok(value)
     end?
-    let action_state = % { state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 3, target_mode: 1, project_id: request.payload, broker_public_key: broker_public_key.bytes }
+    let action_state = %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 3, target_mode: 1, project_id: request.payload, broker_public_key: broker_public_key.bytes}
     prepare_new_push_bind(request,
       profile,
       wrapping_key,
@@ -486,7 +486,7 @@ pub fn prepare_push_unbind_loaded(database_path :: String,
   else
     let revision = next_push_revision(state.revision)?
     let wire = signed_push_unbind(database_path, profile, wrapping_key, revision)?
-    let updated = % { state | revision: revision, mode: 0, wake_token_hash: mobile_zeroes(32)?, provider_token_hash: mobile_zeroes(32)?, pending_kind: 2, pending_wire: wire }
+    let updated = %{state | revision: revision, mode: 0, wake_token_hash: mobile_zeroes(32)?, provider_token_hash: mobile_zeroes(32)?, pending_kind: 2, pending_wire: wire}
     store_push_state(database_path, profile, wrapping_key, updated)?
     Ok(wire)
   end
@@ -503,7 +503,7 @@ pub fn prepare_push_unbind(database_path :: String) -> Bytes!String do
     if state.pending_kind == 2 do
       Ok(state.pending_wire)
     else
-      let action_state = % { state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 4, target_mode: 0, project_id: Bytes.empty(), broker_public_key: Bytes.empty() }
+      let action_state = %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 4, target_mode: 0, project_id: Bytes.empty(), broker_public_key: Bytes.empty()}
       prepare_push_unbind_loaded(database_path, profile, wrapping_key, action_state)
     end
   end
@@ -526,7 +526,7 @@ pub fn commit_push_update(request :: MobilePayloadRequest) -> Bytes!String do
       store_push_state(request.database_path,
         profile,
         wrapping_key,
-        % { state | pending_kind: 0, pending_wire: Bytes.empty(), action_epoch: epoch, action_kind: 0, target_mode: state.mode })?
+        %{state | pending_kind: 0, pending_wire: Bytes.empty(), action_epoch: epoch, action_kind: 0, target_mode: state.mode})?
       Ok(Bytes.empty())
     end
   end

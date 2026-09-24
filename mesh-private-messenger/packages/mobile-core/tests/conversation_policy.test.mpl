@@ -185,12 +185,12 @@ fn proof() -> Bool!String do
     Ok(_) -> assert(false)
     Err(_) -> assert(true)
   end
-  let replacement = case encode_account_identity(% { bob_identity | authorization_public_key: alice_identity.authorization_public_key }) do
+  let replacement = case encode_account_identity(%{bob_identity | authorization_public_key: alice_identity.authorization_public_key}) do
     Err(_) -> Err("test account encoding failed")
     Ok(value)
   end?
   let bob = decode_client_profile(bob_profile)?
-  let changed_profile = encode_client_profile(% { bob.entry | account_identity: replacement },
+  let changed_profile = encode_client_profile(%{bob.entry | account_identity: replacement},
     bob.account_id,
     bob.device_id)?
   case send_message_export(request([

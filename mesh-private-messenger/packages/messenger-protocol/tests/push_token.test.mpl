@@ -86,7 +86,7 @@ fn proof() -> Bool!String do
   }
   let binding_wire = encode_push_bind(binding)?
   assert(Bytes.secure_equals(decode_push_bind(binding_wire)?.provider_token_ciphertext, sealed))
-  case encode_push_bind(% { binding | provider_token_ciphertext: seed(8)? }) do
+  case encode_push_bind(%{binding | provider_token_ciphertext: seed(8)?}) do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end

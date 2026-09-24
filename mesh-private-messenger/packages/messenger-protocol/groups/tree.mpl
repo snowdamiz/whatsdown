@@ -428,8 +428,8 @@ fn mark_unmerged(values :: List<TreeKemParentNode>,
   else
     let value = List.get(values, index)
     let next = if node_contains_leaf(value.node_index, leaf_index) do
-      % { value | unmerged_leaves: List.sort(List.append(value.unmerged_leaves, leaf_index),
-        compare_int) }
+      %{value | unmerged_leaves: List.sort(List.append(value.unmerged_leaves, leaf_index),
+        compare_int)}
     else
       value
     end
@@ -590,7 +590,7 @@ pub fn apply_update_path(value :: GroupTree,
       parent_nodes,
       leaf_node,
       List.get(value.hashes, leaf_node))?
-    Ok(% { value | parent_nodes: parent_nodes, hashes: hashes })
+    Ok(%{value | parent_nodes: parent_nodes, hashes: hashes})
   end
 end
 
@@ -686,13 +686,13 @@ end
 
 pub fn update_leaf_public_key(value :: GroupTree, leaf_index :: Int, public_key :: X25519PublicKey) -> GroupTree!GroupTreeError do
   let member = member_at(value, leaf_index)?
-  let updated = % { member | leaf_public_key: public_key }
+  let updated = %{member | leaf_public_key: public_key}
   validate_member(updated)?
   let hashes = update_hash_path(value.hashes,
     value.parent_nodes,
     63 + leaf_index,
     occupied_leaf_hash(leaf_index, updated)?)?
-  Ok(% { value | members: replace_member(value.members, leaf_index, updated, 0, List.new()), hashes: hashes })
+  Ok(%{value | members: replace_member(value.members, leaf_index, updated, 0, List.new()), hashes: hashes})
 end
 
 pub fn remove_member(value :: GroupTree, index :: Int) -> GroupTree!GroupTreeError do
@@ -772,7 +772,7 @@ pub fn tree_from_public(members :: List<IndexedGroupMember>,
   let tree = tree_from_members(members)?
   validate_public_parents(tree, parent_nodes, 0, -1)?
   let hashes = all_hashes_from_leaves(List.drop(tree.hashes, 63), parent_nodes)?
-  Ok(% { tree | parent_nodes: parent_nodes, hashes: hashes })
+  Ok(%{tree | parent_nodes: parent_nodes, hashes: hashes})
 end
 
 # ponytail: immutable list replacement copies at most 127 cached nodes; use a persistent vector if the 64-leaf group cap grows.

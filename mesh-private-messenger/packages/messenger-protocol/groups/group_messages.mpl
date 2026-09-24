@@ -201,7 +201,7 @@ fn seal_epoch_message(signing_key :: borrow SigningPrivateKey,
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
   end?
-  Ok(% { unsigned | signature: signature })
+  Ok(%{unsigned | signature: signature})
 end
 
 fn prepare_group_message(state :: borrow GroupState,
@@ -308,7 +308,7 @@ fn encrypt_group_message_version(state :: consume GroupState,
           Ok(skipped) -> do
             let next :: GroupState = replace_keys(state, chains, skipped)
             let next_generation = next.next_generation + 1
-            GroupMessageEncrypted(% { next | next_generation: next_generation }, message)
+            GroupMessageEncrypted(%{next | next_generation: next_generation}, message)
           end
         end
       end
@@ -440,7 +440,7 @@ pub fn decrypt_group_message(state :: consume GroupState,
         message.generation,
         0,
         List.new())
-      MessageOpened(% { state | received_generations: generations }, plaintext)
+      MessageOpened(%{state | received_generations: generations}, plaintext)
     end
   end
 end
@@ -472,7 +472,7 @@ fn replace_keys(state :: consume GroupState,
     tree: tree,
     tree_hash_cache: tree_hash_cache,
     transcript_hash: transcript_hash,
-    key_material: % { material | sender_chains: chains, skipped_keys: skipped },
+    key_material: %{material | sender_chains: chains, skipped_keys: skipped},
     local_leaf: local_leaf,
     next_generation: next_generation,
     received_generations: received_generations,

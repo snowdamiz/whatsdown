@@ -166,20 +166,20 @@ fn proof() -> Bool!GroupError do
   assert(decoded_commit.committer_leaf == commit.committer_leaf)
   assert(Bytes.secure_equals(decoded_commit.tree_hash, commit.tree_hash))
   assert(List.length(decoded_commit.update_path.nodes) == 6)
-  let short_path = % { commit | update_path: % { commit.update_path | nodes: List.drop(commit.update_path.nodes,
-    1) } }
+  let short_path = %{commit | update_path: %{commit.update_path | nodes: List.drop(commit.update_path.nodes,
+    1)}}
   assert(rejects_commit_value(short_path))
   let first_node = List.get(commit.update_path.nodes, 0)
-  let invalid_unmerged = % { first_node | parent: % { first_node.parent | unmerged_leaves: [2, 1] } }
-  let invalid_path = % { commit | update_path: % { commit.update_path | nodes: List.concat([
+  let invalid_unmerged = %{first_node | parent: %{first_node.parent | unmerged_leaves: [2, 1]}}
+  let invalid_path = %{commit | update_path: %{commit.update_path | nodes: List.concat([
       invalid_unmerged
     ],
-    List.drop(commit.update_path.nodes, 1)) } }
+    List.drop(commit.update_path.nodes, 1))}}
   assert(rejects_commit_value(invalid_path))
   assert(rejects_commit(append(commit_wire, Bytes.from_utf8("x"))?))
   let welcome_wire = encode_group_welcome(welcome)?
-  let inconsistent = % { welcome | commit: % { welcome.commit | proposal: AddMember(welcome.recipient_leaf,
-    alice) } }
+  let inconsistent = %{welcome | commit: %{welcome.commit | proposal: AddMember(welcome.recipient_leaf,
+    alice)}}
   assert(rejects_welcome(inconsistent))
   let bob_state = join_from_welcome(decode_group_welcome(welcome_wire)?,
     bob_init.private_key,
