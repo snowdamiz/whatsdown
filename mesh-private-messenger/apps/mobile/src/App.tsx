@@ -4,7 +4,7 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { encodeReaction } from "./reactions";
 import { encodeReply } from "./replies";
 import { encodeReceipt, messageStatus, receiptDue, type ReceiptMarks } from "./receipts";
@@ -292,9 +292,11 @@ const pushSummary = (pushStatus: PushStatus): string =>
         ? "Turning on once the notification service is reachable"
         : "Turning off; cleanup retries until registration is removed";
 
-export default function App({ windowsPreview = false, onWindowsPreviewChange, onAccountErased, notice }: {
+export default function App({ windowsPreview = false, onWindowsPreviewChange, onAccountErased, notice, updates }: {
   windowsPreview?: boolean;
   onWindowsPreviewChange?: (enabled: boolean) => Promise<void>;
+  // The desktop shell's own settings section; phones update through their store.
+  updates?: ReactNode;
   // Starts the app over with nothing in memory: erasing the account empties
   // storage, not state. The notice says why, on the screen it starts over on.
   onAccountErased: (notice?: string) => void;
@@ -2332,6 +2334,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               />
             </RowGroup>
           </Section>
+          {updates}
           {isDevelopmentBuild() ? (
             <Section title="Development">
               <RowGroup>

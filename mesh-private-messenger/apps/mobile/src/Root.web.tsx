@@ -3,6 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import App from './App';
+import { DesktopUpdates } from './DesktopUpdates';
 import { StartupScreen } from './StartupScreen';
 import { palettes, type ColorScheme } from './appearance';
 import { loadAppearance, saveAppearance } from './appearance-store.web';
@@ -157,6 +158,7 @@ export default function Root() {
           <View style={{ flex: 1 }}>
             <App key={session.generation} notice={session.notice} windowsPreview={preview}
               onWindowsPreviewChange={toggleWindowsPreview}
+              updates={isDevelopmentBuild() ? undefined : <DesktopUpdates />}
               onAccountErased={(notice) => setSession(({ generation }) => ({ generation: generation + 1, notice }))} />
             {windowsUI ? <WindowsWindowControls /> : null}
           </View>
