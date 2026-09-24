@@ -534,9 +534,15 @@ fn fetch_fanout_prekey(directory_url :: String, claim :: Bytes) -> Bytes!String 
     end
     Ok(value)
   end?
+  # A response without the header fails the check (`Map.get` needs the key).
+  let cache_control = if Map.has_key(response.headers, "cache-control") do
+    Map.get(response.headers, "cache-control")
+  else
+    ""
+  end
   if response.status != 200 do
     Err("prekey_claim_failed")
-  else if Map.get(response.headers, "cache-control") != "no-store" do
+  else if cache_control != "no-store" do
     Err("prekey_claim_cache_policy_invalid")
   else
     Ok(response.body_bytes)
