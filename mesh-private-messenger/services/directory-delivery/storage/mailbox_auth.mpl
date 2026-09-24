@@ -14,54 +14,51 @@ pub struct MailboxOwner do
   signing_public_key :: Bytes
 end
 
-fn binary(value :: DbValue) -> Bytes ! String do
+fn binary(value :: DbValue) -> Bytes!String do
   case value do
-    Binary( output) -> Ok(output)
+    Binary(output) -> Ok(output)
     _ -> Err("invalid mailbox owner row")
   end
 end
 
 ## The Ed25519 key in the account-signed credential of a stored prekey bundle.
 
-pub fn bundle_signing_public_key(bundle_bytes :: Bytes) -> Bytes ! String do
+pub fn bundle_signing_public_key(bundle_bytes :: Bytes) -> Bytes!String do
   let bundle = case decode_prekey_bundle(bundle_bytes) do
-    Err( _) -> Err("invalid stored prekey bundle")
-    Ok( output) -> Ok(output)
-  end ?
+    Err(_) -> Err("invalid stored prekey bundle")
+    Ok(output)
+  end?
   let credential = case decode_device_credential(bundle.device_credential) do
-    Err( _) -> Err("invalid stored device credential")
-    Ok( output) -> Ok(output)
-  end ?
+    Err(_) -> Err("invalid stored device credential")
+    Ok(output)
+  end?
   Ok(credential.signing_public_key)
 end
 
-pub fn mailbox_owner(pool :: PoolHandle, mailbox_token_hash :: Bytes) -> Option < MailboxOwner > ! String do
+pub fn mailbox_owner(pool :: PoolHandle, mailbox_token_hash :: Bytes) -> Option<MailboxOwner>!String do
   let rows = Pool.query_values(pool,
-  "SELECT device.prekey_bundle, device.mailbox_token FROM messenger_devices AS device JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = device.mailbox_token_hash WHERE device.mailbox_token_hash = $1 AND device.revoked_at IS NULL AND mailbox.active",
-  [Binary(mailbox_token_hash)]) ?
-  if List.length(rows) == 0 do
-    Ok(None)
-  else if List.length(rows) == 1 do
-    let row = List.head(rows)
-    Ok(Some(MailboxOwner {
-      mailbox_token : binary(Map.get(row, "mailbox_token")) ?,
-      signing_public_key : bundle_signing_public_key(binary(Map.get(row, "prekey_bundle")) ?) ?
+    "SELECT device.prekey_bundle, device.mailbox_token FROM messenger_devices AS device JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = device.mailbox_token_hash WHERE device.mailbox_token_hash = $1 AND device.revoked_at IS NULL AND mailbox.active",
+    [Binary(mailbox_token_hash)])?
+  case rows do
+    [] -> Ok(None)
+    [row] -> Ok(Some(MailboxOwner {
+      mailbox_token: binary(Map.get(row, "mailbox_token"))?,
+      signing_public_key: bundle_signing_public_key(binary(Map.get(row, "prekey_bundle"))?)?
     }))
-  else
-    Err("duplicate active mailbox device")
+    _ -> Err("duplicate active mailbox device")
   end
 end
 
-fn current_time() -> U64 ! String do
+fn current_time() -> U64!String do
   U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
 fn signed_by(owner :: MailboxOwner, signing_bytes :: Bytes, signature :: Bytes) -> Bool do
-  case Crypto.verify(SigningPublicKey { bytes : owner.signing_public_key },
-  signing_bytes,
-  Signature { bytes : signature }) do
-    Err( _) -> false
-    Ok( valid) -> valid
+  case Crypto.verify(SigningPublicKey { bytes: owner.signing_public_key },
+    signing_bytes,
+    Signature { bytes: signature }) do
+    Err(_) -> false
+    Ok(valid) -> valid
   end
 end
 
@@ -70,16 +67,16 @@ end
 # revealing whether the mailbox exists.
 
 fn authorize(pool :: PoolHandle,
-mailbox_token_hash :: Bytes,
-issued_at :: U64,
-signing_bytes :: Bytes,
-signature :: Bytes) -> Option < MailboxOwner > ! String do
-  if !mailbox_request_is_fresh(issued_at, current_time() ?) do
+  mailbox_token_hash :: Bytes,
+  issued_at :: U64,
+  signing_bytes :: Bytes,
+  signature :: Bytes) -> Option<MailboxOwner>!String do
+  if !mailbox_request_is_fresh(issued_at, current_time()?) do
     Ok(None)
   else
-    case mailbox_owner(pool, mailbox_token_hash) ? do
+    case mailbox_owner(pool, mailbox_token_hash)? do
       None -> Ok(None)
-      Some( owner) -> if signed_by(owner, signing_bytes, signature) do
+      Some(owner) -> if signed_by(owner, signing_bytes, signature) do
         Ok(Some(owner))
       else
         Ok(None)
@@ -88,18 +85,18 @@ signature :: Bytes) -> Option < MailboxOwner > ! String do
   end
 end
 
-pub fn authorize_mailbox_fetch(pool :: PoolHandle, request :: MailboxFetch) -> Option < MailboxOwner > ! String do
+pub fn authorize_mailbox_fetch(pool :: PoolHandle, request :: MailboxFetch) -> Option<MailboxOwner>!String do
   let signing_bytes = case mailbox_fetch_signing_bytes(request) do
-    Err( _) -> Err("invalid mailbox fetch")
-    Ok( output) -> Ok(output)
-  end ?
+    Err(_) -> Err("invalid mailbox fetch")
+    Ok(output)
+  end?
   authorize(pool, request.mailbox_token_hash, request.issued_at, signing_bytes, request.signature)
 end
 
-pub fn authorize_mailbox_ack(pool :: PoolHandle, request :: MailboxAck) -> Option < MailboxOwner > ! String do
+pub fn authorize_mailbox_ack(pool :: PoolHandle, request :: MailboxAck) -> Option<MailboxOwner>!String do
   let signing_bytes = case mailbox_ack_signing_bytes(request) do
-    Err( _) -> Err("invalid mailbox acknowledgement")
-    Ok( output) -> Ok(output)
-  end ?
+    Err(_) -> Err("invalid mailbox acknowledgement")
+    Ok(output)
+  end?
   authorize(pool, request.mailbox_token_hash, request.issued_at, signing_bytes, request.signature)
 end

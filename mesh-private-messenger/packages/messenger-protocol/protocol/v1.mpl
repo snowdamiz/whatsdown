@@ -2,37 +2,21 @@
 
 pub type ProtocolError do
   UnsupportedVersion
-
   UnsupportedSuite
-
   InvalidSuiteList
-
   DuplicateSuite
-
   InvalidSuiteHistory
-
   DowngradeDetected
-
   TooManyExtensions
-
   InvalidExtension
-
   UnknownMandatoryExtension
-
   NonCanonicalEncoding
-
   InvalidPolicy
-
   InvalidFieldLength
-
   InvalidPaddingBucket
-
   InvalidExpiration
-
   PostQuantumNotSupported
-
   OversizedInput
-
   MalformedEncoding
 end deriving(Eq, Debug)
 
@@ -73,7 +57,7 @@ pub struct AccountIdentity do
   authorization_public_key :: Bytes
   created_at :: U64
   directory_sequence :: U64
-  extensions :: List < ProtocolExtension >
+  extensions :: List<ProtocolExtension>
 end
 
 pub struct PrekeyBundle do
@@ -88,9 +72,9 @@ pub struct PrekeyBundle do
   one_time_prekey_id :: U64
   one_time_prekey :: Bytes
   post_quantum_prekey :: Bytes
-  supported_suites :: List < Int >
+  supported_suites :: List<Int>
   expires_at :: U64
-  extensions :: List < ProtocolExtension >
+  extensions :: List<ProtocolExtension>
 end
 
 pub struct InnerEnvelope do
@@ -107,7 +91,7 @@ pub struct InnerEnvelope do
   attachment_manifest :: Bytes
   receipt_policy :: Int
   disappearing_seconds :: Int
-  extensions :: List < ProtocolExtension >
+  extensions :: List<ProtocolExtension>
 end
 
 pub struct HandshakeTranscript do
@@ -121,7 +105,7 @@ pub struct HandshakeTranscript do
   one_time_prekey_id :: U64
   responder_one_time_prekey :: Bytes
   responder_post_quantum_prekey :: Bytes
-  extensions :: List < ProtocolExtension >
+  extensions :: List<ProtocolExtension>
 end
 
 pub struct InitialMessage do
@@ -173,8 +157,8 @@ pub struct DeviceSet do
   username :: String
   account_identity :: Bytes
   sequence :: U64
-  devices :: List < DirectoryEntry >
-  revoked_device_ids :: List < Bytes >
+  devices :: List<DirectoryEntry>
+  revoked_device_ids :: List<Bytes>
 end
 
 pub struct DeviceRevocation do
@@ -182,6 +166,21 @@ pub struct DeviceRevocation do
   account_id :: Bytes
   device_id :: Bytes
   sequence :: U64
+  signature :: Bytes
+end
+
+pub struct AccountDeletion do
+  version :: Int
+  account_id :: Bytes
+  issued_at :: U64
+  signature :: Bytes
+end
+
+pub struct DeviceDeparture do
+  version :: Int
+  account_id :: Bytes
+  device_id :: Bytes
+  issued_at :: U64
   signature :: Bytes
 end
 
@@ -202,11 +201,11 @@ pub struct MailboxAck do
   version :: Int
   mailbox_token_hash :: Bytes
   issued_at :: U64
-  envelope_ids :: List < Bytes >
+  envelope_ids :: List<Bytes>
   signature :: Bytes
 end
 
-pub fn protocol_contains_suite(values :: List < Int >, target :: Int, index :: Int) -> Bool do
+pub fn protocol_contains_suite(values :: List<Int>, target :: Int, index :: Int) -> Bool do
   if index >= List.length(values) do
     false
   else
@@ -225,42 +224,38 @@ pub fn protocol_sealed_outer_suite() -> Int do
   4
 end
 
-pub fn protocol_validate_suite_list(values :: List < Int >, index :: Int) -> Result <(), ProtocolError > do
+pub fn protocol_validate_suite_list(values :: List<Int>, index :: Int) -> Result<(), ProtocolError> do
   if List.length(values) == 0 || List.length(values) > 8 do
     Err(InvalidSuiteList)
+  else if index >= List.length(values) do
+    Ok(nil)
   else
-    if index >= List.length(values) do
-      Ok(nil)
+    let suite = List.get(values, index)
+    if protocol_contains_suite(values, suite, index + 1) do
+      Err(DuplicateSuite)
+    else if !protocol_supported_suite(suite) do
+      Err(UnsupportedSuite)
     else
-      let suite = List.get(values, index)
-      if protocol_contains_suite(values, suite, index + 1) do
-        Err(DuplicateSuite)
-      else
-        if !protocol_supported_suite(suite) do
-          Err(UnsupportedSuite)
-        else
-          protocol_validate_suite_list(values, index + 1)
-        end
-      end
+      protocol_validate_suite_list(values, index + 1)
     end
   end
 end
 
-pub fn negotiate_suites(local_suites :: List < Int >,
-remote_suites :: List < Int >,
-strongest_authenticated_suite :: Int) -> Int ! ProtocolError do
-  protocol_validate_suite_list(local_suites, 0) ?
-  protocol_validate_suite_list(remote_suites, 0) ?
+pub fn negotiate_suites(local_suites :: List<Int>,
+  remote_suites :: List<Int>,
+  strongest_authenticated_suite :: Int) -> Int!ProtocolError do
+  protocol_validate_suite_list(local_suites, 0)?
+  protocol_validate_suite_list(remote_suites, 0)?
   if strongest_authenticated_suite < 0 || strongest_authenticated_suite > 2 do
     Err(InvalidSuiteHistory)
   else
     let selected = if protocol_contains_suite(local_suites, 2, 0) && protocol_contains_suite(remote_suites,
-    2,
-    0) do
+      2,
+      0) do
       2
     else if protocol_contains_suite(local_suites, 1, 0) && protocol_contains_suite(remote_suites,
-    1,
-    0) do
+      1,
+      0) do
       1
     else
       0
@@ -275,8 +270,8 @@ strongest_authenticated_suite :: Int) -> Int ! ProtocolError do
   end
 end
 
-pub fn negotiate_profile_a(local_suites :: List < Int >,
-remote_suites :: List < Int >,
-strongest_authenticated_suite :: Int) -> Int ! ProtocolError do
+pub fn negotiate_profile_a(local_suites :: List<Int>,
+  remote_suites :: List<Int>,
+  strongest_authenticated_suite :: Int) -> Int!ProtocolError do
   negotiate_suites(local_suites, remote_suites, strongest_authenticated_suite)
 end

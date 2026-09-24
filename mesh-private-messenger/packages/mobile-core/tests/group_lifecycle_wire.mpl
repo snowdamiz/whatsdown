@@ -4,60 +4,62 @@ from Protocol.MailboxWire import decode_mailbox_ack, encode_delivery_batch
 from Protocol.V1 import DeliveredEnvelope, MailboxAck, OuterEnvelope
 from Tests.Support import append, vector
 
-fn group_request_parts(values :: List < Bytes >, index :: Int, output :: Bytes) -> Bytes ! String do
+fn group_request_parts(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
     Ok(output)
   else
-    group_request_parts(values, index + 1, append(output, vector(List.get(values, index)) ?) ?)
+    group_request_parts(values, index + 1, append(output, vector(List.get(values, index))?)?)
   end
 end
 
-pub fn group_vectors(values :: List < Bytes >) -> Bytes ! String do
+pub fn group_vectors(values :: List<Bytes>) -> Bytes!String do
   group_request_parts(values, 0, Bytes.empty())
 end
 
-fn group_wide(value :: String) -> U64 ! String do
+fn group_wide(value :: String) -> U64!String do
   case U64.parse(value) do
-    Err( _) -> Err("test integer conversion failed")
-    Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("test integer conversion failed")
+    Ok(parsed)
   end
 end
 
-pub fn outer(input :: Bytes) -> OuterEnvelope ! String do
+pub fn outer(input :: Bytes) -> OuterEnvelope!String do
   case decode_outer_envelope(input) do
-    Err( _) -> Err("outer envelope decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("outer envelope decode failed")
+    Ok(value)
   end
 end
 
-pub fn ack(input :: Bytes) -> MailboxAck ! String do
+pub fn ack(input :: Bytes) -> MailboxAck!String do
   case decode_mailbox_ack(input) do
-    Err( _) -> Err("mailbox ack decode failed")
-    Ok( value) -> Ok(value)
+    Err(_) -> Err("mailbox ack decode failed")
+    Ok(value)
   end
 end
 
-pub fn delivery_batch(envelope :: Bytes) -> Bytes ! String do
-  case encode_delivery_batch([DeliveredEnvelope {
-    sequence : group_wide("1") ?,
-    envelope : envelope
-  }]) do
-    Err( _) -> Err("delivery batch encode failed")
-    Ok( value) -> Ok(value)
+pub fn delivery_batch(envelope :: Bytes) -> Bytes!String do
+  case encode_delivery_batch([
+    DeliveredEnvelope {
+      sequence: group_wide("1")?,
+      envelope: envelope
+    }
+  ]) do
+    Err(_) -> Err("delivery batch encode failed")
+    Ok(value)
   end
 end
 
-pub fn read_u32_at(input :: Bytes, offset :: Int) -> Int ! String do
+pub fn read_u32_at(input :: Bytes, offset :: Int) -> Int!String do
   case Bytes.read_u32_be(input, offset) do
-    Err( _) -> Err("output list decode failed")
-    Ok( value) -> case U64.to_int(value) do
-      Err( _) -> Err("output list decode failed")
-      Ok( parsed) -> Ok(parsed)
+    Err(_) -> Err("output list decode failed")
+    Ok(value) -> case U64.to_int(value) do
+      Err(_) -> Err("output list decode failed")
+      Ok(parsed)
     end
   end
 end
 
-fn output_parts(input :: Bytes, count :: Int, index :: Int, offset :: Int, items :: List < Bytes >) -> List < Bytes > ! String do
+fn output_parts(input :: Bytes, count :: Int, index :: Int, offset :: Int, items :: List<Bytes>) -> List<Bytes>!String do
   if index >= count do
     if offset == Bytes.length(input) do
       Ok(items)
@@ -65,17 +67,17 @@ fn output_parts(input :: Bytes, count :: Int, index :: Int, offset :: Int, items
       Err("output list decode failed")
     end
   else
-    let length = read_u32_at(input, offset) ?
-    let item = Bytes.slice(input, offset + 4, length) ?
+    let length = read_u32_at(input, offset)?
+    let item = Bytes.slice(input, offset + 4, length)?
     output_parts(input, count, index + 1, offset + 4 + length, List.append(items, item))
   end
 end
 
-pub fn output_list(input :: Bytes) -> List < Bytes > ! String do
-  if Bytes.length(input) < 8 || read_u32_at(input, 0) ? != 4 do
+pub fn output_list(input :: Bytes) -> List<Bytes>!String do
+  if Bytes.length(input) < 8 || read_u32_at(input, 0)? != 4 do
     Err("output list decode failed")
   else
-    let count = read_u32_at(input, 4) ?
+    let count = read_u32_at(input, 4)?
     if count < 0 || count > 64 do
       Err("output list decode failed")
     else
@@ -84,12 +86,12 @@ pub fn output_list(input :: Bytes) -> List < Bytes > ! String do
   end
 end
 
-pub fn envelope_for(values :: List < Bytes >, mailbox :: Bytes, index :: Int) -> Bytes ! String do
+pub fn envelope_for(values :: List<Bytes>, mailbox :: Bytes, index :: Int) -> Bytes!String do
   if index >= List.length(values) do
     Err("group delivery missing")
   else
     let value = List.get(values, index)
-    if Bytes.secure_equals(outer(value) ?.mailbox_token, mailbox) do
+    if Bytes.secure_equals(outer(value)?.mailbox_token, mailbox) do
       Ok(value)
     else
       envelope_for(values, mailbox, index + 1)
@@ -97,12 +99,12 @@ pub fn envelope_for(values :: List < Bytes >, mailbox :: Bytes, index :: Int) ->
   end
 end
 
-pub fn acknowledge(path :: String, envelopes :: List < Bytes >, index :: Int) -> Result <(), String > do
+pub fn acknowledge(path :: String, envelopes :: List<Bytes>, index :: Int) -> Result<(), String> do
   if index >= List.length(envelopes) do
     Ok(nil)
   else
     let envelope = List.get(envelopes, index)
-    if Bytes.length(outbox_ack_export(group_vectors([Bytes.from_utf8(path), envelope]) ?) ?) != 0 do
+    if Bytes.length(outbox_ack_export(group_vectors([Bytes.from_utf8(path), envelope])?)?) != 0 do
       Err("outbox acknowledgement failed")
     else
       acknowledge(path, envelopes, index + 1)
@@ -112,13 +114,13 @@ end
 
 # Inspect what delivery sees after the privacy edge opens its envelope.
 
-pub fn assert_group_transport(envelope :: Bytes, group_id :: Bytes, account_id :: Bytes) -> Bool ! String do
-  let ciphertext = outer(envelope) ?.ciphertext
+pub fn assert_group_transport(envelope :: Bytes, group_id :: Bytes, account_id :: Bytes) -> Bool!String do
+  let ciphertext = outer(envelope)?.ciphertext
   let captured = Bytes.to_hex(ciphertext)
   # Group packets use the same sealed transport and outer suite as direct
   # packets, so delivery cannot tell that an envelope belongs to a group at all.
-  if (!String.starts_with(captured, "01524350") || outer(envelope) ?.suite != 4 || String.contains(captured,
-  Bytes.to_hex(group_id)) || String.contains(captured, Bytes.to_hex(account_id)) || Bytes.length(ciphertext) != outer(envelope) ?.padding_bucket) do
+  if (!String.starts_with(captured, "01524350") || outer(envelope)?.suite != 4 || String.contains(captured,
+    Bytes.to_hex(group_id)) || String.contains(captured, Bytes.to_hex(account_id)) || Bytes.length(ciphertext) != outer(envelope)?.padding_bucket) do
     Err("group transport exposed metadata or used the wrong padding bucket")
   else
     Ok(true)

@@ -43,6 +43,23 @@ for (const [name, width, height] of [["desktop", 1440, 900], ["phone", 390, 844]
   await page.click('#view button[data-set="device"]');
   await page.waitForTimeout(2000);
   if (String(await sizes()) !== String(before)) problems.push(`${name}: bubbles did not return to their own size`);
+
+  // The hero's incoming messages arrive sealed; once their wipes are over (6s at most), every one must be readable.
+  const sealed = await page.evaluate(async () => {
+    const words = [...document.querySelectorAll(".hero .seal>span")];
+    await Promise.race([Promise.all(words.flatMap((s) => s.getAnimations().map((a) => a.finished))), new Promise((r) => setTimeout(r, 6000))]);
+    return words.filter((s) => getComputedStyle(s).maskPosition !== "0% 0px").length;
+  });
+  if (sealed) problems.push(`${name}: ${sealed} hero messages never unsealed`);
+
+  // At the top of the window the privacy card is fully open, edge to edge, with the nav dark over it.
+  await page.evaluate(() => scrollTo(0, document.querySelector(".night").getBoundingClientRect().top + scrollY - 10));
+  await page.waitForTimeout(300);
+  const open = await page.evaluate(() => {
+    const n = document.querySelector(".night");
+    return n.style.getPropertyValue("--o") === "1.000" && n.getBoundingClientRect().width === document.documentElement.clientWidth && document.querySelector(".nav").classList.contains("dark");
+  });
+  if (!open) problems.push(`${name}: privacy card did not open to the window's edges`);
   await page.close();
 }
 

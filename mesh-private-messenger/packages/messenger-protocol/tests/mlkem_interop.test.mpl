@@ -21,60 +21,60 @@ fn openssl_ciphertext() -> String do
   "5d970c5ab98d1566a3fab0b29838261cc5a183889157e3f87bfcf4a50fd7762b" <> "fffaddfb69b74d579d76fd887bbfc92fc0a2eebd7679d2cd7b7b4ec0a9c29eb0" <> "fbf53d42063284a8e1d90775fd74a0fb6ea0c8062cb8f8e5bf493aeb386281c0" <> "0c73d88afc5d297eed8f43791a9d52f04b75f3e9cca07a3b1215a766399bc87a" <> "d8bf11de0c11a74358f535228e4e34aaf6b786245ac2aebd07185ac7acea83b9" <> "33ae49dc9ad9b0f43de8dc19b55d76b846a26611f49d40b4a049bb0e1c43bb73" <> "f9610446333e68d00212980041aaf6f522da465076c5d95f583ae05d9c568e1d" <> "b9a131f57108852df0d03929a02956a897b6ce553b52d8f490109b423298b456" <> "47750a7e60096d87fe8f25e982c197db4cea3e8bc46e6be7b1700da740722d01" <> "3e2423eedeb584c9f6c26e8b316703a266aae3d1fc98cffe5abd9fcce846db82" <> "0c1c182c2ce0dd28526d467538990e0c6565017994aebb395d252ca27e42ed6e" <> "12ef2874b1bfcfef14dbc46a312788e423b3b7d9f5f8381d59ed959e4a602857" <> "89127abf2dfa7de5fb7755b5ebde5e7b0e785338f0186211b18e92d66b0ab600" <> "859cc9ee5b12b160f1bf3d3bdfe954ee0af4cacd62270024859fcaa8d35fd910" <> "8c3f4e6bbe33fc091d55734de7d6b249f7c230ce74465ed1685f378051f3169c" <> "a085373ec5862ab9abc224c47b0dfa195f1d2849408002d706fab37dfddb9492" <> "b336000f66612e867edb39f2e03956cbc7a63c9e8b1888278f4ea235c8b7d818" <> "9f9d31a43a951061d8531c4e2b4b451c090889ea9b47ee24a5dca40d8068aba6" <> "3b26407b81a910cb4720c1330d3d19d9b1a272275f62a0003225c84928781d48" <> "1f610bf27e70afc25a5e1fcf1b003461f6f709cabf24bd898d64e649fd8f0bc0" <> "3a666881258a2f5af0777f3d49564d372cf575fbf32e98816238bf23e8c57194" <> "584d3d7f3711d41c864f40338f30f3577b02cb73f85ef05cd67d56c6b7e24881" <> "0d8a1abde5bbdd5ecdc8393f2384a5382f58bbb740328843f11d31183fb2f4ac" <> "c7debbc754c3b67694d3fc4d3f6af740d35cb16e48e4e263725d4b11d5387657" <> "e3b4456c60650bae504ad4c5d4c2d54390c4705eab6b8127e5790139c875001d" <> "2162a34dc7dc3fdd1d85396d9771bde4fff3245378499a81ed62d1f0b75e91ec" <> "c11928ef408313f1c45a405f12d57aa0c5a68bb69a2b7be58bd5b725e30f4299" <> "2a49f155a2ef72dba186fd4879cca93a82b4a17a2f5e650c596351bb166c68dc" <> "1f55baf1115e808fbff0c581cbee62730cd7122de13aecae3b52e226d1855dc6" <> "8bb2428f7bece42dd6c5295745857769a9902d15b743dd9eec39f36dedf4f6be" <> "1909bc71623d7bd0ff5d058978cb6984e125e5e8cc2d642f303bed10ff9dacbc" <> "3867a4145b71b6d1fc44ff8d6b0c9ae31848e0b198f18068a71c9a87c2058032" <> "19a863d4ae881effb84079b5fd85d3a7dab14b4ff3f2f0f8b382ef662ad5b8c5" <> "717dd6bd9e3cf8c5813e94801b3361253e927103864dac7373bd56c80cac8533"
 end
 
-fn seed() -> Bytes ! String do
+fn seed() -> Bytes!String do
   Bytes.from_hex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f")
 end
 
-fn sealed_under(secret :: SecretBytes) -> Bytes ! String do
+fn sealed_under(secret :: SecretBytes) -> Bytes!String do
   let key = case Crypto.aead_key(secret) do
-    Err( _) -> Err("aead key failed")
-    Ok( value) -> Ok(value)
-  end ?
+    Err(_) -> Err("aead key failed")
+    Ok(value)
+  end?
   case Crypto.aead_seal(key,
-  Bytes.from_hex("000000000000000000000000") ?,
-  Bytes.from_utf8("mesh-msg/test/ml-kem-768-interop"),
-  Bytes.from_utf8("ml-kem-768 interop")) do
-    Err( _) -> Err("seal failed")
-    Ok( value) -> Ok(value)
+    Bytes.from_hex("000000000000000000000000")?,
+    Bytes.from_utf8("mesh-msg/test/ml-kem-768-interop"),
+    Bytes.from_utf8("ml-kem-768 interop")) do
+    Err(_) -> Err("seal failed")
+    Ok(value)
   end
 end
 
-fn proof() -> Bool ! String do
-  let pair = case Crypto.mlkem_from_seed(seed() ?) do
-    Err( _) -> Err("key generation failed")
-    Ok( value) -> Ok(value)
-  end ?
+fn proof() -> Bool!String do
+  let pair = case Crypto.mlkem_from_seed(seed()?) do
+    Err(_) -> Err("key generation failed")
+    Ok(value)
+  end?
   let public_key = pair.public_key
   let private_key = pair.private_key
   assert(Bytes.to_hex(public_key.bytes) == openssl_public_key())
   let shared = case Crypto.mlkem_decapsulate(private_key,
-  MlKemCiphertext { bytes : Bytes.from_hex(openssl_ciphertext()) ? }) do
-    Err( _) -> Err("decapsulation failed")
-    Ok( value) -> Ok(value)
-  end ?
-  assert(Bytes.to_hex(sealed_under(shared) ?) == "bed5d518c5ba3e0709514470332dbb13d0954d757b5918e7d94f452757b99d85c3a9")
+    MlKemCiphertext { bytes: Bytes.from_hex(openssl_ciphertext())? }) do
+    Err(_) -> Err("decapsulation failed")
+    Ok(value)
+  end?
+  assert(Bytes.to_hex(sealed_under(shared)?) == "bed5d518c5ba3e0709514470332dbb13d0954d757b5918e7d94f452757b99d85c3a9")
   # A ciphertext that was tampered with still decapsulates, to an unrelated
   # secret: ML-KEM rejects implicitly, so nothing tells an attacker it failed.
-  let pair_again = case Crypto.mlkem_from_seed(seed() ?) do
-    Err( _) -> Err("key generation failed")
-    Ok( value) -> Ok(value)
-  end ?
-  let tampered = Bytes.from_hex("ff" <> String.slice(openssl_ciphertext(), 2, 2176)) ?
+  let pair_again = case Crypto.mlkem_from_seed(seed()?) do
+    Err(_) -> Err("key generation failed")
+    Ok(value)
+  end?
+  let tampered = Bytes.from_hex("ff" <> String.slice(openssl_ciphertext(), 2, 2176))?
   let other = case Crypto.mlkem_decapsulate(pair_again.private_key,
-  MlKemCiphertext { bytes : tampered }) do
-    Err( _) -> Err("tampered decapsulation failed")
-    Ok( value) -> Ok(value)
-  end ?
-  assert(Bytes.to_hex(sealed_under(other) ?) != "bed5d518c5ba3e0709514470332dbb13d0954d757b5918e7d94f452757b99d85c3a9")
+    MlKemCiphertext { bytes: tampered }) do
+    Err(_) -> Err("tampered decapsulation failed")
+    Ok(value)
+  end?
+  assert(Bytes.to_hex(sealed_under(other)?) != "bed5d518c5ba3e0709514470332dbb13d0954d757b5918e7d94f452757b99d85c3a9")
   Ok(true)
 end
 
 test("ML-KEM-768 agrees with OpenSSL on key generation from a seed and on decapsulation") do
   case proof() do
-    Err( error) -> do
+    Err(error) -> do
       println(error)
       assert(false)
     end
-    Ok( value) -> assert(value)
+    Ok(value) -> assert(value)
   end
 end

@@ -86,7 +86,7 @@ jobs:
           VERIFICATION_RESULT: ${{ needs.verification.result }}
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
-        run: MESH_LANG_REVISION="$(cat mesh-private-messenger/mesh-revision)" node mesh-private-messenger/scripts/release-verification.mjs
+        run: node mesh-private-messenger/scripts/release-verification.mjs
       - name: Migrate and deploy all backend services
         working-directory: mesh-private-messenger/ops/cloudflare
         env:

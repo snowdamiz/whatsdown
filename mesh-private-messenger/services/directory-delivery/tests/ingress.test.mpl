@@ -10,11 +10,11 @@ end
 test("missing and wrong internal bearers are denied and the exact bearer succeeds") do
   let secret = "0123456789abcdef0123456789abcdef"
   case internal_delivery_token(secret) do
-    Err( _) -> assert(false)
-    Ok( validated) -> do
+    Err(_) -> assert(false)
+    Ok(validated) -> do
       case internal_delivery_authorization(validated) do
-        Err( _) -> assert(false)
-        Ok( value) -> assert(value == "Bearer " <> secret)
+        Err(_) -> assert(false)
+        Ok(value) -> assert(value == "Bearer " <> secret)
       end
       assert(internal_delivery_authorized(Some("Bearer " <> secret), validated))
       assert(!internal_delivery_authorized(None, validated))
@@ -25,8 +25,8 @@ end
 
 test("service startup rejects a missing internal delivery token") do
   case internal_delivery_token("") do
-    Err( _) -> assert(true)
-    Ok( _) -> assert(false)
+    Err(_) -> assert(true)
+    Ok(_) -> assert(false)
   end
 end
 
@@ -41,15 +41,15 @@ test("default router exposes neither GET prekey claims nor public direct deliver
   case Http.build(:get, "http://127.0.0.1:18994/v1/prekeys/bundle")
     |> Http.max_response_bytes(1024)
     |> Http.send() do
-    Err( _) -> assert(false)
-    Ok( response) -> assert(response.status == 404)
+    Err(_) -> assert(false)
+    Ok(response) -> assert(response.status == 404)
   end
   case Http.build(:post, "http://127.0.0.1:18994/v1/prekeys/bundle")
     |> Http.body_bytes(Bytes.from_utf8("invalid"))
     |> Http.max_response_bytes(1024)
     |> Http.send() do
-    Err( _) -> assert(false)
-    Ok( response) -> do
+    Err(_) -> assert(false)
+    Ok(response) -> do
       assert(response.status == 400)
       assert(Map.get(response.headers, "cache-control") == "no-store")
     end
@@ -57,8 +57,8 @@ test("default router exposes neither GET prekey claims nor public direct deliver
   case Http.build(:post, "http://127.0.0.1:18994/v1/envelopes/batch")
     |> Http.body_bytes(Bytes.from_utf8("hostile"))
     |> Http.send() do
-    Err( _) -> assert(false)
-    Ok( response) -> assert(response.status == 404)
+    Err(_) -> assert(false)
+    Ok(response) -> assert(response.status == 404)
   end
   Process.request_shutdown()
   Timer.sleep(50)

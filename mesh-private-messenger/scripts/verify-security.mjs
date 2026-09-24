@@ -38,7 +38,6 @@ function main() {
   const directory = resolve(process.argv.slice(2).find(value => value !== '--extended') ?? join(root, '.security-evidence', new Date().toISOString().replaceAll(':', '-')));
   mkdirSync(directory, { recursive: true });
   const manifest = { schema: 1, startedAt: new Date().toISOString(), morse: describeTree(root), mesh: describeTree(mesh),
-    pinnedMesh: readFileSync(join(product, 'mesh-revision'), 'utf8').trim(),
     host: { platform: platform(), os: release(), arch: arch(), node: process.version },
     campaign: { extended, groupSeeds: extended ? 1000 : 4, groupOperationsPerSeed: 198 },
     enabledSuites: [1, 2, 3], versions: { direct: 1, groupCommit: 2, groupMessage: 4, groupSnapshot: 2, groupTransport: 1 },
@@ -87,7 +86,7 @@ function main() {
   for (const id of ['ios-device', 'android-device', 'macos-keystore-lifecycle', 'windows-keystore-lifecycle',
     'ota-native-rejection', 'windows-signing', 'full-crash-restore-matrix', 'extended-fuzz-and-mutations',
     'witness-permission-isolation', 'outbox-revocation-requeue', 'cross-epoch-queue-migration']) {
-    manifest.results.push({ id, status: 'not-run', reason: 'Requires the remaining implementation/platform campaign in the security plan' });
+    manifest.results.push({ id, status: 'not-run', reason: 'Requires the remaining implementation/platform campaign' });
   }
   manifest.results.push(unchangedSources({ morse: manifest.morse, mesh: manifest.mesh }, { morse: root, mesh }));
   manifest.finishedAt = new Date().toISOString();

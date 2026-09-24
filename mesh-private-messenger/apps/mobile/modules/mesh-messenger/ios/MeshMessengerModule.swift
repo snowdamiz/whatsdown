@@ -83,6 +83,14 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.inspect_device_set_export(request)
       case "mesh_messenger_create_device_revocation":
         return try MeshLibrary.create_device_revocation_export(request)
+      case "mesh_messenger_account_deletion":
+        return try MeshLibrary.account_deletion_export(request)
+      case "mesh_messenger_erase_account":
+        return try MeshLibrary.erase_account_export(request)
+      case "mesh_messenger_device_departure":
+        return try MeshLibrary.device_departure_export(request)
+      case "mesh_messenger_forget_on_proof":
+        return try MeshLibrary.forget_on_proof_export(request)
       case "mesh_messenger_receive_initial":
         return try MeshLibrary.receive_initial_export(request)
       case "mesh_messenger_prepare_fanout_prekeys":

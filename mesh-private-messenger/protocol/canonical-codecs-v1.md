@@ -225,6 +225,13 @@ The total encoded inner envelope is at most 65,536 bytes, even when individual
 fields remain below their own ceilings. Larger content uses encrypted
 attachments.
 
+A direct conversation is named after the two accounts in it: `conversation_id`
+is the first 16 bytes of SHA-256 over `mesh-msg/mobile/conversation/v2`
+followed by both account IDs in ascending byte order. Every device of either
+account derives the same name with nothing to coordinate, and a receiver
+rejects any other name. A copy an account sends to its own other devices is
+filed under `mesh-msg/mobile/self-sync/v1` over its account ID instead.
+
 ## Handshake transcript (`HST`)
 
 ```text

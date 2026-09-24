@@ -4,7 +4,11 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly script_dir
 readonly messenger_root="$script_dir/mesh-private-messenger"
-readonly mesh_root="${MESH_LANG_DIR:-$script_dir/mesh-lang}"
+readonly state_dir="${MORSE_STATE_DIR:-$script_dir/.morse}"
+# The compiler: MESH_LANG_DIR names a Mesh checkout to build with; otherwise the
+# latest published Mesh release, fetched into the state directory on every run.
+readonly mesh_root="${MESH_LANG_DIR:-$state_dir/mesh-lang}"
+readonly mesh_repository="${MESH_LANG_REPOSITORY:-https://github.com/snowdamiz/mesh-lang.git}"
 readonly meshc_bin="$mesh_root/target/debug/meshc"
 readonly app_dir="$messenger_root/apps/mobile"
 readonly desktop_dir="$messenger_root/apps/desktop"
@@ -14,7 +18,6 @@ readonly compose_file="$service_root/directory-delivery/docker-compose.yml"
 readonly migrations_dir="$service_root/directory-delivery/migrations"
 # Keep the database volume stable across product renames.
 readonly compose_project="whatsdown-dev"
-readonly state_dir="${MORSE_STATE_DIR:-$script_dir/.morse}"
 readonly log_dir="$state_dir/logs"
 readonly runner_lock="$state_dir/run.lock"
 readonly schema_stamp="$state_dir/postgres-migrations"
@@ -36,7 +39,8 @@ usage() {
     "  build    Build the backend and desktop without starting them." \
     "  reset    Delete the development database so the next run rebuilds it." \
     "" \
-    "Set MESH_LANG_DIR to a separate Mesh checkout or MORSE_MOBILE_PLATFORM to ios/android."
+    "The latest Mesh release is fetched and built on every run; set MESH_LANG_DIR to" \
+    "build with a Mesh checkout instead, or MORSE_MOBILE_PLATFORM to ios/android."
 }
 
 fail() {
@@ -128,17 +132,36 @@ mobile_platform() {
   fi
 }
 
+# Moves the managed checkout to the latest Mesh release, or to MESH_LANG_REVISION
+# when a caller names the commit. Offline, the checkout already there is used.
+sync_mesh_release() {
+  local revision="${MESH_LANG_REVISION:-}"
+  if [[ -z "$revision" ]] && ! revision="$(node "$messenger_root/scripts/mesh-release.mjs")"; then
+    [[ -f "$mesh_root/Cargo.toml" ]] || { fail "could not resolve the latest Mesh release"; return 1; }
+    printf 'morse: could not resolve the latest Mesh release; building the one in %s\n' "$mesh_root" >&2
+    return 0
+  fi
+  [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || { fail "Mesh revision must be a full commit SHA"; return 1; }
+  [[ -d "$mesh_root/.git" ]] || git init --quiet "$mesh_root" || return 1
+  [[ "$(git -C "$mesh_root" rev-parse --verify --quiet HEAD)" == "$revision" ]] && return 0
+  git -C "$mesh_root" fetch --quiet --depth 1 "$mesh_repository" "$revision" &&
+    git -C "$mesh_root" checkout --quiet --force --detach FETCH_HEAD
+}
+
 build_mesh() {
+  if [[ -z "${MESH_LANG_DIR:-}" ]]; then sync_mesh_release || return 1; fi
   [[ -f "$mesh_root/Cargo.toml" ]] || { fail "Mesh checkout not found at $mesh_root"; return 1; }
   local dependency_root="$script_dir/mesh-lang"
   local resolved_mesh_root
   resolved_mesh_root="$(cd "$mesh_root" && pwd -P)" || return 1
-  if [[ ! -e "$dependency_root" && ! -L "$dependency_root" ]]; then
-    ln -s "$resolved_mesh_root" "$dependency_root" || return 1
+  # Scripts and package dependencies find the compiler at mesh-lang, so the link
+  # follows whichever checkout this run builds. A real directory there is someone's
+  # checkout: it is reported, never replaced.
+  if [[ -L "$dependency_root" || ! -e "$dependency_root" ]]; then
+    ln -sfn "$resolved_mesh_root" "$dependency_root" || return 1
   fi
-  if [[ ! -d "$dependency_root" ]] || \
-    [[ "$(cd "$dependency_root" && pwd -P)" != "$resolved_mesh_root" ]]; then
-    fail "$dependency_root must resolve to MESH_LANG_DIR ($resolved_mesh_root)"
+  if [[ "$(cd "$dependency_root" && pwd -P)" != "$resolved_mesh_root" ]]; then
+    fail "$dependency_root is a separate Mesh checkout; move it and set MESH_LANG_DIR to build with it"
     return 1
   fi
   (
@@ -219,6 +242,7 @@ build_mobile() {
   local ndk_bin
   local platform
   local target
+  local vfs_overlay
   platform="$(mobile_platform)"
   npm_install "$app_dir" --ignore-scripts=false
   require_command rustup
@@ -252,6 +276,14 @@ build_mobile() {
   # Expo otherwise generates ios/ while it builds, too late to patch.
   if [[ "$platform" == ios && ! -d "$app_dir/ios" ]]; then
     npm --prefix "$app_dir" exec -- expo prebuild "$app_dir" --platform ios --no-install
+  fi
+  # pod install writes this checkout's absolute path all through ios/Pods, so
+  # after the checkout moves or its volume is renamed, Xcode reads files that
+  # are gone. Expo reinstalls pods when the folder is missing.
+  vfs_overlay="$app_dir/ios/Pods/React-Core-prebuilt/React-VFS.yaml"
+  if [[ -f "$vfs_overlay" ]] && ! grep -qF "$app_dir/ios/Pods/" "$vfs_overlay"; then
+    printf 'morse: ios/Pods was installed at another path; reinstalling it\n' >&2
+    rm -rf "$app_dir/ios/Pods"
   fi
   patch_external_checkout
   # External macOS volumes create AppleDouble files that Expo mistakes for podspecs.
@@ -440,8 +472,11 @@ witness_loop() {
 desktop_running() {
   local executable
   while IFS= read -r executable; do
+    # Only the development build (io.morseapp.desktop.dev) counts. It runs from
+    # Cargo's target directory, which may sit outside the checkout. An installed
+    # Morse.app is the release identity with its own data and runs beside it.
     case "$executable" in
-      "$desktop_dir"/*/Morse|*/Morse.app/Contents/MacOS/Morse) return 0 ;;
+      */debug/Morse) return 0 ;;
     esac
   done < <(ps -axo comm=)
   return 1

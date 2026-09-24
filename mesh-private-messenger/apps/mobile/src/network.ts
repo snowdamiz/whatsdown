@@ -2,11 +2,15 @@ import { attachmentSelectionError } from './attachments.ts';
 import { fetch, openMailboxSocket, isDevelopmentBuild } from './transport';
 import type { MailboxSocket } from './mailbox-sync';
 import {
+  account_deletion_export,
   attachment_open_chunk_export,
   attachment_prepare_export,
   attachment_seal_chunk_export,
   authorize_device_link_for_set_export,
   create_device_revocation_export,
+  device_departure_export,
+  erase_account_export,
+  forget_on_proof_export,
   register_request_export,
   group_add_export,
   group_create_export,
@@ -96,12 +100,29 @@ function serviceUrl(value: string): string {
 
 class ServerStatusError extends Error {
   readonly status: number;
+  readonly body: Uint8Array;
 
-  constructor(status: number) {
+  constructor(status: number, body = new Uint8Array()) {
     super(`Server returned ${status}`);
     this.status = status;
+    this.body = body;
   }
 }
+
+// This device is out of its account for good: the account was deleted, or the
+// device removed or left. The statement is the signed proof, which the core
+// checks before this device erases itself.
+export class RemovedFromAccount extends Error {
+  readonly statement: Uint8Array;
+
+  constructor(statement: Uint8Array) {
+    super('removed_from_account');
+    this.statement = statement;
+  }
+}
+
+export type Removal = 'account-deleted' | 'device-removed' | 'device-left';
+const removals: Record<number, Removal> = { 1: 'account-deleted', 2: 'device-removed', 3: 'device-left' };
 
 async function binaryRequest(
   path: string,
@@ -124,7 +145,9 @@ async function binaryRequest(
     });
     // A full pool still returns its active IDs for native identity/key validation.
     const prekeyRecovery = path === '/v1/prekeys/one-time/batch' && response.status === 429;
-    if (!response.ok && !prekeyRecovery) throw new ServerStatusError(response.status);
+    if (!response.ok && !prekeyRecovery) {
+      throw new ServerStatusError(response.status, new Uint8Array(await response.arrayBuffer()));
+    }
     return new Uint8Array(await response.arrayBuffer());
   } finally {
     clearTimeout(timeout);
@@ -141,11 +164,59 @@ export async function submitPushUnbind(wire: Uint8Array): Promise<void> {
   await binaryRequest('/v1/push/unbind', wire);
 }
 
+// 409: the name, or this device's place in the account, is someone else's now;
+// 410: this device is out of its account, with the proof. Unlike an outage,
+// neither passes on a retry.
 export async function registerDirectory(databasePath: string): Promise<void> {
   // Anonymous directory requests leave Mesh already wrapped in proof of work.
   const entry = await register_request_export(utf8(databasePath));
-  await binaryRequest('/v1/devices/register', entry, 'PUT');
+  try {
+    await binaryRequest('/v1/devices/register', entry, 'PUT');
+  } catch (error) {
+    if (error instanceof ServerStatusError && error.status === 409) throw new Error('registration_refused');
+    if (error instanceof ServerStatusError && error.status === 410) throw new RemovedFromAccount(error.body);
+    throw error;
+  }
   await synchronizePrekeys(databasePath);
+}
+
+// Only the device that created the account holds its key; a linked device gets
+// no deletion statement and can erase only its own copy.
+export async function holdsAccountKey(databasePath: string): Promise<boolean> {
+  return (await account_deletion_export(utf8(databasePath))).length > 0;
+}
+
+export async function eraseAccount(databasePath: string): Promise<void> {
+  await erase_account_export(utf8(databasePath));
+}
+
+// Erases this device only if the statement verifies against the keys it holds,
+// and says which removal it proved.
+export async function forgetOnProof(databasePath: string, statement: Uint8Array): Promise<Removal> {
+  const removal = removals[(await forget_on_proof_export(vectors(utf8(databasePath), statement)))[0] ?? 0];
+  if (!removal) throw new Error('invalid_removal_proof');
+  return removal;
+}
+
+// The directory lets go before this device forgets: once the keys are erased,
+// nothing could delete the account, free its name, or take this device out of
+// it. A linked device holds no account key, so it leaves the account instead.
+// Either answers 204 once nothing of this device's part is left there; 404 is a
+// directory without the route.
+export async function deleteAccount(databasePath: string): Promise<void> {
+  const deletion = await account_deletion_export(utf8(databasePath));
+  const [path, statement] = deletion.length > 0
+    ? ['/v1/accounts/delete', deletion]
+    : ['/v1/devices/leave', await device_departure_export(utf8(databasePath))];
+  try {
+    await binaryRequest(path, statement);
+  } catch (error) {
+    if (error instanceof ServerStatusError && error.status === 404) throw new Error('account_deletion_unsupported');
+    // A stale statement: this device's clock is off by minutes.
+    if (error instanceof ServerStatusError && error.status === 403) throw new Error('account_deletion_refused');
+    throw error;
+  }
+  await eraseAccount(databasePath);
 }
 
 export async function connectMailboxStream(databasePath: string): Promise<MailboxSocket> {

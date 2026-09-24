@@ -14,12 +14,14 @@ module.exports = {
         'MESSENGER_ABUSE_DIFFICULTY',
         'MESSENGER_EXPO_PROJECT_ID',
         'MESSENGER_PUSH_BROKER_PUBLIC_KEY_HEX',
+        // The Mesh commit the native core is compiled with (eas-build-native.sh).
+        'MESH_LANG_REVISION',
       ].map((name) => [name, process.env[name] ?? null]))),
     },
     ...['modules/mesh-messenger', '../../packages/mobile-core', '../../packages/messenger-protocol'].map(
       (filePath) => ({ type: 'dir', filePath, reasons: ['meshNativeSources'] }),
     ),
-    ...['../../mesh-revision', '../../scripts/eas-build-native.sh', '../../scripts/build-mobile-native.sh'].map(
+    ...['../../scripts/eas-build-native.sh', '../../scripts/build-mobile-native.sh'].map(
       (filePath) => ({ type: 'file', filePath, reasons: ['meshNativeToolchain'] }),
     ),
   ],

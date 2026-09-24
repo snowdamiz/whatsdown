@@ -22,7 +22,7 @@ session decryption keys.
 | Whether the sender is a contact | One bit per envelope: delivery sees whether it arrived at the device's public address or at the secret [contact address](contact-address-v1.md) the device hands to contacts. It does not see which contact, and the edge sees neither |
 | Username | Visible to the directory in the initial design |
 | Device public keys | Visible to directory and transparency services |
-| Source IP address | Visible to the connection edge |
+| Source IP address | Visible to the connection edge; on desktop, also to GitHub when the user checks for an update |
 | Message timing | Observable in reduced form |
 | Message size | A power-of-two size bucket; legacy packets may expose exact lengths |
 | Packet kind and protocol suite | Hidden: every new envelope is outer suite `4`. Only the size bucket hints at kind; legacy outer suites `1`-`3` named it |

@@ -57,14 +57,16 @@ jobs:
       - name: Checkout Morse
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Read pinned Mesh revision
+      - name: Resolve the latest Mesh release
         working-directory: .
         run: |
-          revision="$(cat mesh-private-messenger/mesh-revision)"
+          # Every run builds with the newest published Mesh release; release
+          # jobs reuse the exact commit this run verified.
+          revision="$(node mesh-private-messenger/scripts/mesh-release.mjs)"
           [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
           echo "MESH_LANG_REVISION=$revision" >> "$GITHUB_ENV"
 
-      - name: Checkout pinned Mesh
+      - name: Checkout the resolved Mesh release
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: snowdamiz/mesh-lang
@@ -140,6 +142,10 @@ jobs:
           cargo test -p mesh-typeck --lib --locked
           cargo test -p mesh-codegen --lib --locked
           cargo build --locked -p meshc -p mesh-rt -p mesh-test-rt
+
+      - name: Lint Mesh sources
+        timeout-minutes: 5
+        run: ./target/debug/meshc lint ../mesh-private-messenger
 
       - name: Verify Mesh messenger packages
         timeout-minutes: 30

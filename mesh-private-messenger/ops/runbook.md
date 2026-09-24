@@ -62,6 +62,38 @@ Lookups, mailbox access, and messaging are unaffected. Alert on the entry count
 well before 3,584: reaching it closes registration for the deployment, and the
 reserved 512 entries are what let existing accounts keep revoking devices.
 
+## Account deletion
+
+`POST /v1/accounts/delete` takes an `ADL` statement signed by the account key,
+which only the device that created the account holds, and at most five minutes
+old. One transaction removes the account's devices, mailboxes and the envelopes
+waiting in them, prekeys, push bindings and contact addresses, frees the
+username, and clears the account's transparency entries. The log keeps their
+leaf hashes, which every proof needs, and a deletion appends no leaf. `204`
+means the directory holds nothing of the account, also on a retry and for one it
+never had; `403` is a stale statement or someone else's signature. Clients erase
+their copy only on `204`, so a `404` from a deployment without the route leaves
+accounts whole. Migration `016`
+keeps each deleted account's identifier and signed statement in
+`messenger_deleted_accounts`. Registering that account again answers `410` with
+the statement, so a copy left on a device cannot bring it back under its freed
+name, and a linked device erases itself once the statement verifies against the
+account key it holds. Deletion also wakes the account's mailbox streams, so open
+linked devices hear it within seconds; closed ones hear it the next time they
+connect.
+
+`POST /v1/devices/revoke` and `POST /v1/devices/leave` keep the signed statement
+in `messenger_revoked_devices.statement`, and revoking wakes the removed device's
+mailbox stream. A removed device that registers again gets `410` with that
+statement and erases itself once it verifies; one revoked before migration `016`
+has none and still gets `409`.
+
+`POST /v1/devices/leave` takes a `DPT` statement signed by the departing
+device's own key and revokes it like `POST /v1/devices/revoke`: a new logged
+device set, a closed mailbox, no prekeys. It answers `204` also when the device
+or its account is already gone, `403` for a stale or foreign signature, and
+`409` for the last active device, which must delete the account instead.
+
 ## Mailbox capacity
 
 - A mailbox holds at most 4 MiB of waiting envelopes (each counted as its padding bucket) and at most 4,096 of them; migration `014` replaced the flat limit of 64 and backfills the byte count from the envelopes already waiting. The worst case per device is unchanged (64 envelopes of 64 KiB were 4 MiB); an ordinary message is a few hundred bytes, so an offline device now holds thousands instead of turning its senders away after 64.

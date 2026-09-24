@@ -20,14 +20,17 @@ const screenshots = process.env.MORSE_STARTUP_SCREENSHOTS;
 if (screenshots) await mkdir(screenshots, { recursive: true });
 try {
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
-  const page = await browser.newPage({ viewport: { width: 1160, height: 800 } });
-  await page.route('**/*.js', (route) => route.abort());
-  await page.goto(url);
-  assert.equal(await page.getByRole('progressbar', { name: 'Opening Morse' }).isVisible(), true,
-    'The loading screen must paint even before the JavaScript bundle arrives');
-  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(10, 10, 12)');
-  console.log('Startup: branded screen visible before JavaScript');
-  await page.close();
+  // The launch page follows the device's scheme before any script can say so.
+  for (const [colorScheme, canvas] of [['dark', 'rgb(10, 10, 12)'], ['light', 'rgb(255, 255, 255)']]) {
+    const page = await browser.newPage({ viewport: { width: 1160, height: 800 }, colorScheme });
+    await page.route('**/*.js', (route) => route.abort());
+    await page.goto(url);
+    assert.equal(await page.getByRole('progressbar', { name: 'Opening Morse' }).isVisible(), true,
+      'The loading screen must paint even before the JavaScript bundle arrives');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), canvas, `The ${colorScheme} launch page`);
+    await page.close();
+  }
+  console.log('Startup: branded screen visible before JavaScript, in the device scheme');
 
   for (const scheme of ['light', 'dark']) {
     const page = await browser.newPage({

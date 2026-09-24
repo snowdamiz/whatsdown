@@ -7,6 +7,9 @@ import { control, space } from './tokens.ts';
 // whatever their width.
 export const SPLIT_MIN_WIDTH = 720;
 export const SIDEBAR_INSET = space[3];
+// The sidebar sits a touch closer to the window's left and bottom edges
+// than to the top, where the traffic lights centre, or to the pane.
+export const SIDEBAR_EDGE_INSET = space[2.5];
 export const SIDEBAR_MIN_WIDTH = 280;
 export const SIDEBAR_MAX_WIDTH = 480;
 

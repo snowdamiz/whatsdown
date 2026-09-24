@@ -162,6 +162,50 @@ public enum MeshLibrary {
     return payload
   }
 
+  public static func account_deletion_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_account_deletion(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func erase_account_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_erase_account(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func device_departure_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_device_departure(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func forget_on_proof_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_forget_on_proof(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
   public static func receive_initial_export(_ request: Data) throws -> Data {
     var response = MeshLibraryBytes(data: nil, len: 0)
     let status = request.withUnsafeBytes { bytes in

@@ -4,7 +4,7 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { encodeReaction } from "./reactions";
 import { encodeReply } from "./replies";
 import { encodeReceipt, messageStatus, receiptDue, type ReceiptMarks } from "./receipts";
@@ -40,6 +40,7 @@ import {
 } from "../modules/mesh-messenger";
 import {
   attachmentPreviewUri,
+  discardPreviews,
   listenForIncomingFiles,
   pickAttachmentFiles,
   releasePreviewUri,
@@ -110,6 +111,7 @@ import {
   type ScreenKey,
 } from "./navigation";
 import {
+  RemovedFromAccount,
   addGroupMember,
   acceptGroupInvitation,
   declineGroupInvitation,
@@ -119,15 +121,20 @@ import {
   drainOutbox,
   createGroup,
   connectMailboxStream,
+  deleteAccount,
   downloadAttachment,
+  eraseAccount,
+  forgetOnProof,
   getGroupKeyPackage,
   GROUP_KEY_PACKAGE_LENGTH,
+  holdsAccountKey,
   inspectGroup,
   listGroups,
   loadAccountDevices,
   loadGroupHistory,
   onUndeliverable,
   registerDirectory,
+  type Removal,
   removeGroupMember,
   revokeDevice,
   sendFanout,
@@ -138,6 +145,7 @@ import {
 import {
   disablePushBinding,
   enablePushBinding,
+  forgetPush,
   getPushStatus,
   listenForGenericWakeups,
   listenForNotificationOpens,
@@ -148,9 +156,11 @@ import {
 import { createQrCollector } from "./qr";
 import { databasePath } from "./storage";
 import { receivedMessageKeys, unreadCount, type ReadState } from "./read-state";
-import { loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveNotificationPreview, saveReadReceipts, saveReadState } from "./read-state-store";
+import { forgetPreferences, loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveNotificationPreview, saveReadReceipts, saveReadState } from "./read-state-store";
 import type { NotificationPreview } from "./notification-policy";
 import { describeSafety } from "./safety";
+import { Fact, SealedChat, Steps, Strong } from "./onboarding";
+import { usernameProblem } from "./username";
 import { StartupScreen } from "./StartupScreen";
 import { ResizableSidebar } from "./ResizableSidebar";
 import { isDevelopmentBuild } from "./transport";
@@ -180,9 +190,7 @@ import {
   Dialog,
   DragStrip,
   EmptyState,
-  FeatureRow,
   Field,
-  Glow,
   GroupRow,
   Header,
   Hero,
@@ -233,6 +241,14 @@ type StagedAttachment = { id: string; scope: string; file: OutgoingAttachment; p
 const ATTACHMENT_CACHE_LIMIT = 64 * 1_048_576;
 
 type Route = { screen: Screen; direction: Direction };
+// A destructive action, held until it is confirmed.
+type Confirmation = { title: string; body: string; action: string; run: () => void };
+// Why a device erased itself, said on the screen it starts over on.
+const removalNotices: Record<Removal, string> = {
+  "account-deleted": "Your account was deleted on another device, so its messages and keys were erased from this one too.",
+  "device-removed": "This device was removed from your account on another device, so its messages and keys were erased from it.",
+  "device-left": "This device left your account, so its messages and keys were erased from it.",
+};
 
 // Keyboard shortcuts continue to follow the host during a UI preview.
 const userAgent = Platform.OS === "web" ? navigator.userAgent : "";
@@ -276,9 +292,15 @@ const pushSummary = (pushStatus: PushStatus): string =>
         ? "Turning on once the notification service is reachable"
         : "Turning off; cleanup retries until registration is removed";
 
-export default function App({ windowsPreview = false, onWindowsPreviewChange }: {
+export default function App({ windowsPreview = false, onWindowsPreviewChange, onAccountErased, notice, updates }: {
   windowsPreview?: boolean;
   onWindowsPreviewChange?: (enabled: boolean) => Promise<void>;
+  // The desktop shell's own settings section; phones update through their store.
+  updates?: ReactNode;
+  // Starts the app over with nothing in memory: erasing the account empties
+  // storage, not state. The notice says why, on the screen it starts over on.
+  onAccountErased: (notice?: string) => void;
+  notice?: string;
 }) {
   const previewWindows = isDesktop && isDevelopmentBuild() && windowsPreview;
   const lightsInset = isDesktop && !previewWindows ? trafficLightInset(userAgent) : 0;
@@ -290,7 +312,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   // The status bar's glyphs are the opposite of the canvas behind them.
   const statusBar = scheme === "dark" ? "light" : "dark";
   const [pastedCode, setPastedCode] = useState("");
-  const [pendingRevoke, setPendingRevoke] = useState<Uint8Array | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<Confirmation | null>(null);
+  // Set while the account is being deleted, which stops syncing and push upkeep first.
+  const [leaving, setLeaving] = useState(false);
   const fontsReady = useAppFonts();
   const [initialLoading, setInitialLoading] = useState(true);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -362,6 +386,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   const [scannedGroupPackage, setScannedGroupPackage] =
     useState<Uint8Array | null>(null);
   const [username, setUsername] = useState("");
+  // The last name the directory refused at signup.
+  const [takenUsername, setTakenUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   // Onboarding is two screens — what the app is, then who you are — so
   // neither has to scroll. Moving between them steers the same transition the
@@ -758,7 +784,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   }, []);
 
   useEffect(() => {
-    if (!profile) return undefined;
+    if (!profile || leaving) return undefined;
     const sync = createMailboxSync(
       () => connectMailboxStream(databasePath),
       async () => {
@@ -774,6 +800,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
         }
       },
       (caught) => {
+        if (caught instanceof RemovedFromAccount) {
+          forgetOnProofOfRemoval(caught.statement);
+          return;
+        }
         setSyncError(caught ? friendlyError(caught) : "");
         if (!caught) setDismissedSyncError("");
       },
@@ -791,10 +821,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
       removePushListeners();
       appState.remove();
     };
-  }, [profile]);
+  }, [profile, leaving]);
 
   useEffect(() => {
-    if (!profile) return undefined;
+    if (!profile || leaving) return undefined;
     const removeRegistrationListener =
       listenForPushRegistrationChanges(recoverPush);
     const appState = AppState.addEventListener("change", (state) => {
@@ -805,7 +835,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
       removeRegistrationListener();
       appState.remove();
     };
-  }, [profile]);
+  }, [profile, leaving]);
 
   async function perform(
     label: string,
@@ -850,7 +880,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
 
   function createAccount(): void {
     const normalized = username.trim().toLowerCase();
-    if (!/^[a-z0-9_]{3,32}$/.test(normalized)) {
+    if (usernameProblem(normalized)) {
       setError("Use 3–32 lowercase letters, numbers, or underscores.");
       return;
     }
@@ -861,12 +891,27 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
       const created = await create_account_export(
         accountRequest(databasePath, normalized),
       );
+      // A name the directory refuses would leave an account no server takes,
+      // and no way back to choosing another, so it is undone before anyone sees
+      // it. An outage keeps the account: connecting registers it later.
+      let unregistered: unknown = null;
+      try {
+        await registerDirectory(databasePath);
+      } catch (caught) {
+        if (caught instanceof Error && caught.message === "registration_refused") {
+          await eraseAccount(databasePath);
+          // Said at the field, which stays as typed for another try.
+          setTakenUsername(normalized);
+          return;
+        }
+        unregistered = caught;
+      }
       setProfile(created);
       enterApp();
       const key = `user/${hex(parseProfileSummary(created).accountId)}`;
       const saved = await savePresentation(databasePath, key, presentation);
       setPresentations((previous) => ({ ...previous, [key]: saved }));
-      await registerDirectory(databasePath);
+      if (unregistered) throw unregistered;
       await refreshDevices(created);
       setUsername("");
       setDisplayName("");
@@ -1274,7 +1319,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   ) {
     return (
       <PhotoButton
-        name={name || (group ? "New group" : "You")}
+        name={name || (group ? "New group" : "")}
         uri={avatar}
         colorSeed={seed}
         group={group}
@@ -1300,10 +1345,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
   }
 
   // The picture beside the way to clear it, for a form that edits a photo in place.
-  function renderPhotoEditor(name: string, avatar: string | undefined, onChange: (value: string | undefined) => void, seed?: string) {
+  function renderPhotoEditor(name: string, avatar: string | undefined, onChange: (value: string | undefined) => void, seed?: string, pictureSize: number = size.avatar["2xl"]) {
     return (
       <View style={styles.photoEditor}>
-        {renderPhotoButton(name, avatar, onChange, { size: size.avatar["2xl"], seed })}
+        {renderPhotoButton(name, avatar, onChange, { size: pictureSize, seed })}
         {avatar ? renderRemovePhoto(() => onChange(undefined)) : null}
       </View>
     );
@@ -1425,20 +1470,87 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     });
   }
 
+  // The system alert asks on a phone; the desktop has its own dialog.
+  function confirm(confirmation: Confirmation): void {
+    if (Platform.OS === "web") { setPendingConfirm(confirmation); return; }
+    Alert.alert(confirmation.title, confirmation.body, [
+      { text: "Cancel", style: "cancel" },
+      { text: confirmation.action, style: "destructive", onPress: confirmation.run },
+    ]);
+  }
+
   function confirmRevoke(deviceId: Uint8Array): void {
-    if (Platform.OS === "web") { setPendingRevoke(deviceId); return; }
-    Alert.alert(
-      "Remove this device?",
-      "It will permanently lose access to your account and future messages.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove device",
-          style: "destructive",
-          onPress: () => revokeLinkedDevice(deviceId),
-        },
-      ],
+    confirm({
+      title: "Remove this device?",
+      body: "It permanently loses access to your account and future messages, and erases its own messages and keys the next time it’s online.",
+      action: "Remove device",
+      run: () => revokeLinkedDevice(deviceId),
+    });
+  }
+
+  // The device that created the account deletes it everywhere. A linked device
+  // holds no account key, so it leaves the account and erases only itself.
+  function confirmDeleteAccount(): void {
+    void holdsAccountKey(databasePath).then(
+      (everywhere) => confirm(everywhere ? {
+        title: "Delete your account?",
+        body: "Your username, messages and keys are erased from the server, from this device, and from your linked devices as soon as they’re online. No one can reach this account again. This can’t be undone.",
+        action: "Delete account",
+        run: deleteAccountNow,
+      } : {
+        title: "Erase this device?",
+        body: "This device leaves your account, and its messages and keys are erased from it. The account stays on your other devices.",
+        action: "Erase device",
+        run: deleteAccountNow,
+      }),
+      (caught) => setError(friendlyError(caught)),
     );
+  }
+
+  function deleteAccountNow(): void {
+    const erased = accountId;
+    setLeaving(true);
+    setBusy(true);
+    setError("");
+    setStatus("Deleting your account…");
+    void deleteAccount(databasePath).then(
+      () => finishErasing(erased),
+      (caught) => {
+        // Nothing was erased, so the account is whole and this can be tried again.
+        setError(friendlyError(caught));
+        setLeaving(false);
+        setBusy(false);
+      },
+    );
+  }
+
+  // This device is out of its account: the account was deleted, or the device
+  // removed, on the device that created it. The directory hands over the signed
+  // statement that did it, and only that erases this copy: a server that merely
+  // claims so changes nothing.
+  function forgetOnProofOfRemoval(statement: Uint8Array): void {
+    const erased = accountId;
+    void forgetOnProof(databasePath, statement).then(
+      (removal) => {
+        setLeaving(true);
+        return finishErasing(erased, removalNotices[removal]);
+      },
+      (caught) => setSyncError(friendlyError(caught)),
+    );
+  }
+
+  // The account is gone; what follows only tidies what it left on the device,
+  // and nothing it does may keep the app from starting over.
+  async function finishErasing(erased: string | null, reason?: string): Promise<void> {
+    try {
+      discardPreviews();
+      if (erased) forgetPreferences(erased);
+      await forgetPush(databasePath);
+    } catch {
+      // Tidying only: the account itself is already gone.
+    } finally {
+      onAccountErased(reason);
+    }
   }
 
   function revokeLinkedDevice(deviceId: Uint8Array): void {
@@ -1654,7 +1766,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     if (!split) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       // A dialog owns the keyboard while it is open.
-      if (pendingRevoke !== null || document.querySelector('[aria-modal="true"]')) return;
+      if (pendingConfirm !== null || document.querySelector('[aria-modal="true"]')) return;
       const shortcut = desktopShortcut(event, macDesktop);
       if (!shortcut) return;
       if (membersOpen) {
@@ -1702,61 +1814,72 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     return undefined;
   }
 
-  // What the app is, before anything is asked of you: the mark, the promise,
-  // and the three things worth knowing, with the way in at the foot of the
-  // screen. Nothing here scrolls, so the buttons are always in reach.
+  // What the app is, before anything is asked of you: a conversation opening
+  // on its own, the promise, three things worth knowing, and the way in. On a
+  // phone the picture takes whatever height the words leave, so the buttons
+  // stay at the foot of the screen, and the page only scrolls when large text
+  // leaves no room at all. The desktop sets the picture beside the words.
   function renderWelcome() {
     return (
-      <View style={[styles.onboarding, isDesktop && styles.onboardingDesktop]}>
-        <Reveal>
-          <AppGlyph size={isDesktop ? size.mark.sm : size.mark.md} />
-        </Reveal>
-        <Reveal delay={60} style={styles.heroBlock}>
-          <Text accessibilityRole="header" style={type.largeTitle}>
-            Private messaging,{"\n"}made simple.
-          </Text>
-          <Text style={type.body}>
-            Pick a username and start talking.
-          </Text>
-        </Reveal>
-        {/* The slack on a tall phone is split, so the features float between
-            the promise above them and the buttons below. */}
-        {isDesktop ? null : <View style={layout.flex} />}
-        <Reveal delay={120} style={styles.features}>
-          <FeatureRow
-            icon="lock"
-            title="End-to-end encrypted"
-            body="Only you and the people you write to can read your messages."
-          />
-          <FeatureRow
-            icon="person"
-            title="Just a username"
-            body="No phone number, no contact upload."
-          />
-          <FeatureRow
-            icon="shield"
-            title="Verify your contacts"
-            body="Compare safety numbers to rule out anyone in the middle."
-          />
-        </Reveal>
-        {isDesktop ? null : <View style={layout.flex} />}
-        <Reveal delay={180}>
-          <Actions>
-            <Button label="Get started" onPress={() => goOnboarding("profile")} />
-            <Button
-              label="Link an existing account"
-              onPress={beginDeviceLink}
-              variant="ghost"
-            />
-          </Actions>
-        </Reveal>
-      </View>
+      <ScrollView
+        contentContainerStyle={[styles.welcome, isDesktop && styles.welcomeDesktop]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <SealedChat />
+        <View style={styles.welcomeCopy}>
+          {/* The launch screen has just shown the mark on a phone, where the
+              conversation above is picture enough. */}
+          {isDesktop ? (
+            <Reveal>
+              <AppGlyph size={size.mark.sm} />
+            </Reveal>
+          ) : null}
+          <Reveal delay={60} style={styles.heroBlock}>
+            <Text accessibilityRole="header" style={type.largeTitle}>
+              Private messaging,{"\n"}made simple.
+            </Text>
+            <Text style={type.body}>
+              Pick a username and start talking.
+            </Text>
+          </Reveal>
+          <Reveal delay={120} style={styles.facts}>
+            <Fact icon="lock">End-to-end encrypted</Fact>
+            <Fact icon="person">No phone number, no contact upload</Fact>
+            <Fact icon="shield">Verify contacts with safety numbers</Fact>
+          </Reveal>
+          {notice ? <Notice text={notice} /> : null}
+          <Reveal delay={180}>
+            <Actions>
+              <Button label="Get started" onPress={() => goOnboarding("profile")} />
+              <Button
+                label="Link an existing account"
+                onPress={beginDeviceLink}
+                variant="ghost"
+              />
+            </Actions>
+          </Reveal>
+        </View>
+      </ScrollView>
     );
   }
 
   // Who you are: the picture, the name people find you by, and nothing else.
-  // It keeps a header so the welcome screen is one tap back.
+  // It keeps a header so the welcome screen is one tap back. The username is
+  // checked as it is typed, and folded to the lowercase it will be registered
+  // in, so the button only wakes for a name the directory could take.
   function renderProfileSetup() {
+    const typed = username.trim();
+    const problem = usernameProblem(typed);
+    const taken = typed !== "" && typed === takenUsername;
+    const usernameError = taken
+      ? "That username is taken. Try another."
+      : problem === "characters"
+        ? "Use only lowercase letters, numbers, and underscores."
+        : problem === "long"
+          ? "Use 32 characters or fewer."
+          : undefined;
+    const submit = problem === null && !taken ? createAccount : undefined;
     return (
       <Page
         header={
@@ -1773,11 +1896,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
           showsVerticalScrollIndicator={false}
         >
           <Reveal style={styles.profileHead}>
-            {renderPhotoEditor(displayName || username, accountAvatar, setAccountAvatar, avatarSeed)}
-            <Text accessibilityRole="header" style={type.title}>
+            {renderPhotoEditor(displayName || username, accountAvatar, setAccountAvatar, avatarSeed, heroAvatarSize)}
+            <Text accessibilityRole="header" style={[type.title, styles.profileText]}>
               Pick a username.
             </Text>
-            <Text style={type.body}>
+            <Text style={[type.body, styles.profileText]}>
               It is how people reach you. Your private keys stay on your devices.
             </Text>
           </Reveal>
@@ -1785,10 +1908,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
             <Field
               label="Choose your username"
               value={username}
-              onChangeText={setUsername}
+              onChangeText={(value) => setUsername(value.replace(/^@+/, "").toLowerCase())}
               placeholder="your_name"
               prefix="@"
+              maxLength={32}
               hint="3–32 lowercase letters, numbers, or underscores."
+              error={usernameError}
+              onSubmitEditing={submit}
             />
             <Field
               label="Display name (optional)"
@@ -1797,11 +1923,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
               placeholder="What people call you"
               maxLength={96}
               hint="Shown to people you message. You can change it later."
+              onSubmitEditing={submit}
             />
           </Reveal>
           <Reveal delay={120}>
             <Actions>
-              <Button label="Create account" disabled={busy || pickingPhoto} onPress={createAccount} />
+              <Button label="Create account" disabled={busy || pickingPhoto || !submit} onPress={createAccount} />
             </Actions>
           </Reveal>
         </ScrollView>
@@ -1824,12 +1951,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
         <ScrollView contentContainerStyle={[layout.content, sheetContent]}>
           <QrLayout
             intro={
-              <View style={layout.stack}>
+              <View style={layout.stackLoose}>
                 <Text style={type.title}>Bring your account along.</Text>
-                <Text style={type.body}>
-                  On your trusted device, open You → Linked devices and scan this
-                  code.
-                </Text>
+                <Steps>
+                  {[
+                    <>On the device you signed up on, open <Strong>You → Linked devices</Strong> and choose <Strong>Link another device</Strong>.</>,
+                    "Scan this code with it.",
+                    "Check that both screens show the same code.",
+                    Platform.OS === "web" ? "Enter the approval code it shows you." : "Scan the approval code it shows you.",
+                  ]}
+                </Steps>
               </View>
             }
             qr={<QrCard value={payloadQrValue("link-request", request)} />}
@@ -2147,11 +2278,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
               />
               <Row
                 icon="bell"
-                title="Notifications show"
+                title="Previews"
                 subtitle={notificationPreviewOptions.find((option) => option.value === notificationPreview)?.label}
                 trailing={
                   <Segmented
-                    label="Notifications show"
+                    label="Notification previews"
                     options={notificationPreviewOptions}
                     value={notificationPreview}
                     onSelect={(chosen) => {
@@ -2179,6 +2310,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
                   />
                 }
               />
+              <Row
+                icon="warning"
+                tone="danger"
+                emphasis="danger"
+                title={devices?.canManage === false ? "Erase this device" : "Delete account"}
+                subtitle={devices?.canManage === false
+                  ? "Leaves your account and erases this device"
+                  : "Erases your username and messages everywhere"}
+                onPress={preview || busy ? undefined : confirmDeleteAccount}
+              />
             </RowGroup>
           </Section>
           <Section title="Appearance">
@@ -2193,6 +2334,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
               />
             </RowGroup>
           </Section>
+          {updates}
           {isDevelopmentBuild() ? (
             <Section title="Development">
               <RowGroup>
@@ -2989,11 +3131,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
           <EmptyState
             icon="chat"
             title="No conversations yet."
-            body={
-              Platform.OS === "web"
-                ? "You will need their exact username."
-                : "You will need their exact username, or their contact code."
-            }
+            body={firstChatHint}
             action={
               <>
                 <Button
@@ -3052,6 +3190,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     );
   }
 
+  // A new account's first step: whom to write to, and how others find you.
+  const firstChatHint = `Message someone by their exact username. People can find you as\u00A0@${ownUsername}.`;
+
   function renderHome() {
     return (
       <Page
@@ -3076,8 +3217,35 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
     );
   }
 
-  // What the pane shows while the sidebar list is the selected screen.
+  // What the pane shows while the sidebar list is the selected screen. Until
+  // there is a conversation to choose, it is where a new account starts.
   function renderPanePlaceholder(list: SidebarList) {
+    if (list === "chats" && homeItems.length === 0) return (
+      <EmptyState
+        icon="chat"
+        title="No conversations yet."
+        body={firstChatHint}
+        action={
+          <View style={layout.row}>
+            <Button label="New message" icon="compose" onPress={() => go("new-chat")} />
+            <Button label="My QR code" variant="ghost" onPress={() => go("account")} />
+          </View>
+        }
+      />
+    );
+    if (list === "groups" && groups.length === 0 && groupInvitations.length === 0) return (
+      <EmptyState
+        icon="groups"
+        title="No groups yet."
+        body={`Start one, or ask a member to invite\u00A0@${ownUsername}.`}
+        action={
+          <View style={layout.row}>
+            <Button label="Create group" icon="plus" onPress={createNewGroup} />
+            <Button label="Join with a code" variant="ghost" onPress={showGroupKeyPackage} />
+          </View>
+        }
+      />
+    );
     return list === "chats" ? (
       <EmptyState
         icon="chat"
@@ -3237,7 +3405,6 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
         }
         style={[styles.screen, split && styles.split]}
       >
-        {screenKey === "onboarding" ? <Glow /> : null}
         {/* Screens without a toolbar still need to move the window. */}
         {isDesktop && screenKey === "onboarding" ? <DragStrip /> : null}
         {split ? renderSidebar() : null}
@@ -3273,16 +3440,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
           </ScrollView>
         </Dialog>
       ) : null}
-      <Modal visible={pendingRevoke !== null} transparent onRequestClose={() => setPendingRevoke(null)}>
+      <Modal visible={pendingConfirm !== null} transparent onRequestClose={() => setPendingConfirm(null)}>
         <View style={styles.confirmOverlay}>
           <Card style={styles.confirmCard}>
-            <Text style={type.title2}>Remove this device?</Text>
-            <Text style={type.body}>It will permanently lose access to your account and future messages.</Text>
+            <Text style={type.title2}>{pendingConfirm?.title}</Text>
+            <Text style={type.body}>{pendingConfirm?.body}</Text>
             <View style={styles.confirmActions}>
-              <Button label="Cancel" variant="secondary" onPress={() => setPendingRevoke(null)} />
-              <Button label="Remove device" variant="danger" onPress={() => {
-                if (pendingRevoke) revokeLinkedDevice(pendingRevoke);
-                setPendingRevoke(null);
+              <Button label="Cancel" variant="secondary" onPress={() => setPendingConfirm(null)} />
+              <Button label={pendingConfirm?.action ?? ""} variant="danger" onPress={() => {
+                pendingConfirm?.run();
+                setPendingConfirm(null);
               }} />
             </View>
           </Card>
@@ -3297,9 +3464,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange }: 
 const useStyles = themed(({ colors, type, space, radius, size, elevation }) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   split: { flexDirection: "row" },
-  // Narrow enough that a centred column clears the macOS window buttons at
-  // the window's minimum width.
-  desktopOnboarding: { width: "100%", maxWidth: 560, alignSelf: "center" },
+  // The welcome's words and picture, as one centred spread.
+  desktopOnboarding: { width: "100%", maxWidth: 960, alignSelf: "center" },
   sidebar: {
     borderRadius: radius.xl,
     overflow: "hidden",
@@ -3331,27 +3497,35 @@ const useStyles = themed(({ colors, type, space, radius, size, elevation }) => S
   confirmActions: isDesktop
     ? { flexDirection: "row", justifyContent: "flex-end", gap: space[2], marginTop: space[1] }
     : { gap: space[2.5] },
-  // The welcome step fills the pane rather than scrolling in it, so the
-  // buttons stay where a thumb expects them.
-  onboarding: {
-    flex: 1,
+  // The welcome step fills the pane, so the buttons stay where a thumb
+  // expects them; the picture above the words takes up the slack.
+  welcome: {
+    flexGrow: 1,
     paddingHorizontal: space[6],
     paddingTop: space[3],
     paddingBottom: space[4],
-    gap: space[5],
   },
-  onboardingDesktop: {
+  // Words on the left, the picture on the right, the pair centred in the
+  // window and clear of the window buttons above.
+  welcomeDesktop: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
     justifyContent: "center",
+    gap: space[12],
+    paddingHorizontal: space[10],
     paddingTop: TOOLBAR_HEIGHT + space[4],
     paddingBottom: space[12],
-    gap: space[6],
   },
+  welcomeCopy: isDesktop ? { flexGrow: 1, flexBasis: 0, maxWidth: 400, gap: space[6] } : { gap: space[5] },
   heroBlock: { gap: space[2.5] },
-  profileHead: { gap: space[2.5] },
+  facts: { gap: isDesktop ? space[2.5] : space[3] },
+  // A phone centres who you are over the form, as the You screen does; the
+  // desktop sets it flush left with the fields.
+  profileHead: { gap: space[2.5], alignItems: isDesktop ? "flex-start" : "center" },
+  profileText: isDesktop ? {} : { textAlign: "center" },
   // Two short fields read as a form, not as a page of prose, so on desktop
   // they take a sheet's measure rather than the full reading column.
   onboardingForm: isDesktop ? { maxWidth: 440 } : {},
-  features: { gap: space[4] },
   // Full bleed: the header floats over the feed and the reticle frames it.
   camera: { flex: 1, backgroundColor: colors.black },
   photoEditor: { flexDirection: "row", alignItems: "center", gap: space[3] },

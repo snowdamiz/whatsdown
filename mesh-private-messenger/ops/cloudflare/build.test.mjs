@@ -1,16 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { compilerConfig } from './prepare-build.mjs';
-import { spawnSync } from 'node:child_process';
+import { compilerConfig, meshRevision } from './prepare-build.mjs';
 
-test('C8 manual backend preparation rejects a compiler other than the repository pin', () => {
-  const result = spawnSync(process.execPath, ['prepare-build.mjs'], {
-    cwd: new URL('.', import.meta.url),
-    env: { ...process.env, MESH_LANG_REVISION: 'f'.repeat(40) }, encoding: 'utf8',
-  });
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /pinned Mesh revision/);
+test('C8 a release deploys the Mesh commit its verification used; other builds take the latest release', async () => {
+  const latestRelease = async () => '1'.repeat(40);
+  assert.equal(await meshRevision({ MESH_LANG_REVISION: '2'.repeat(40) }, latestRelease), '2'.repeat(40));
+  assert.equal(await meshRevision({}, latestRelease), '1'.repeat(40));
 });
 
 test('every container uses the resolved compiler commit and a new commit changes build arguments', () => {

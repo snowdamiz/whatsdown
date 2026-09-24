@@ -66,6 +66,7 @@ jobs:
       PLATFORM: ${{ matrix.platform }}
       PROFILE: ${{ inputs.operation == 'production' && 'production' || 'staging' }}
       ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+      MESH_LANG_REVISION: ${{ needs.verification.outputs.mesh-revision }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -92,10 +93,21 @@ jobs:
           VERIFICATION_RESULT: ${{ needs.verification.result }}
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
-        run: MESH_LANG_REVISION="$(cat mesh-private-messenger/mesh-revision)" node mesh-private-messenger/scripts/release-verification.mjs
+        run: node mesh-private-messenger/scripts/release-verification.mjs
       - name: Check production configuration
         # Pull the same production values used by the remote build and OTA export.
         run: eas env:exec production 'node scripts/check-release-config.mjs' --non-interactive
+      - name: Build with the verified Mesh release
+        # The EAS worker compiles the native core with this profile's env, and
+        # the fingerprint that OTA updates must match includes it.
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const config = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+          const profile = config.build[process.env.PROFILE];
+          profile.env = { ...profile.env, MESH_LANG_REVISION: process.env.MESH_LANG_REVISION };
+          fs.writeFileSync('eas.json', JSON.stringify(config, null, 2) + '\n');
+          NODE
       - name: Wait for the native build
         run: |
           eas build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"
@@ -119,6 +131,10 @@ jobs:
     if: vars.MORSE_OTA_ENABLED == 'true' && github.ref == 'refs/heads/release' && (github.event_name == 'push' || inputs.operation == 'update')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # The update's runtime fingerprint includes the Mesh commit, so it must
+      # be the one the native builds used.
+      MESH_LANG_REVISION: ${{ needs.verification.outputs.mesh-revision }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -138,7 +154,7 @@ jobs:
           VERIFICATION_RESULT: ${{ needs.verification.result }}
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
-        run: MESH_LANG_REVISION="$(cat mesh-private-messenger/mesh-revision)" node mesh-private-messenger/scripts/release-verification.mjs
+        run: node mesh-private-messenger/scripts/release-verification.mjs
       - name: Check production configuration
         run: eas env:exec production 'node scripts/check-release-config.mjs' --non-interactive
       - name: Publish signed production OTA update

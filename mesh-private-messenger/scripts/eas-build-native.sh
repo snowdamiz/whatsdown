@@ -12,8 +12,9 @@ esac
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd "$script_dir/../.." && pwd -P)"
 mesh_root="$repo_root/mesh-lang"
-# Keep aligned with the compiler tested by .github/workflows/ci.yml.
-mesh_revision="$(cat "$repo_root/mesh-private-messenger/mesh-revision")"
+# The commit a release verified, passed through eas.json by the mobile release
+# workflow; otherwise the latest Mesh release, as .github/workflows/ci.yml resolves it.
+mesh_revision="${MESH_LANG_REVISION:-$(node "$script_dir/mesh-release.mjs")}"
 [[ "$mesh_revision" =~ ^[0-9a-f]{40}$ ]]
 rust_version=1.97.0
 llvm_version=21.1.8

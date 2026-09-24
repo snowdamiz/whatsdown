@@ -104,7 +104,7 @@ is unsupported.
 
 Counter exhaustion fails before encryption. Complete rollback of all records
 cannot be detected from the key store alone. Database continuity checks and
-recovery/resealing remain part of the security-plan acceptance work; the atomic
+recovery/resealing remain open release work; the atomic
 record does not by itself establish rollback resistance.
 
 The native reservation callback and its context are host-owned and remain valid

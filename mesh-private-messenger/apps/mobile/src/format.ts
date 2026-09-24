@@ -42,6 +42,17 @@ export function formatInboxTime(timestamp: number, now = Date.now()): string {
   });
 }
 
+// The letters an avatar is drawn with: the first of two words, or the start
+// of one, leaving out anything that is not a letter or digit.
+export function initials(name: string): string {
+  const words = name
+    .split(/[._\-\s]+/)
+    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter(Boolean);
+  const letters = words.length >= 2 ? `${words[0]![0]}${words[1]![0]}` : (words[0] ?? '').slice(0, 2);
+  return letters.toUpperCase();
+}
+
 export const groupDigits = (value: string, size: number): string[] =>
   value.match(new RegExp(`.{1,${size}}`, 'g')) ?? [];
 
@@ -51,6 +62,18 @@ const knownErrors: readonly [RegExp, string][] = [
   [/message_request_pending/, 'Accept this message request before replying.'],
   [/conversation_blocked/, 'Unblock this conversation before sending.'],
   [/recipient_unavailable/, 'Someone can’t receive more messages right now. Yours will send on its own when they can.'],
+  [/username_taken/, 'That username is taken. Try another.'],
+  [/account_deletion_unsupported/, 'This server can’t delete accounts yet. Nothing was erased.'],
+  [/unproven_removal/, 'The server says this device is no longer in its account but can’t prove it. Nothing was erased.'],
+  [
+    /account_deletion_refused/,
+    'The server refused to delete the account. Check this device’s date and time, then try again.',
+  ],
+  [/removed_from_account/, 'This device is no longer part of its account. Erase it in You to start again.'],
+  [
+    /registration_refused/,
+    'The server won’t register this device. If it was removed from your account, erase it in You to start again.',
+  ],
   [/\b404\b/, 'No exact username match was found.'],
   [/AbortError/, 'The server did not respond. Try again when connected.'],
   [

@@ -172,7 +172,20 @@ keychain afterward. Missing Mac credentials fail the release; PR previews remain
 signed. Windows Authenticode signing is not configured and does not block a
 release: until it is, the Windows installer is published unsigned, the build
 logs a warning, and `install.ps1` warns before installing it.
-Desktop updates are installed from a new release; there is no desktop OTA updater.
+Installed apps update themselves to the newest release: You → Updates checks
+only when the user asks, then installs the whole signed build (there is no OTA
+JavaScript update on desktop) and restarts into it. Each release also publishes the signed update
+bundles (`Morse_<VERSION>_<arch>.app.tar.gz` for Mac; the Windows `.exe`
+itself) with their `.sig` files and a `latest.json` manifest, which apps fetch
+from `releases/latest/download/latest.json`, so no other kind of release may be
+marked Latest. An app installs only a bundle signed by the updater key whose
+public half is in `tauri.conf.json`. That check is separate from Apple and
+Authenticode signing, so it also covers the unsigned Windows installer.
+Releases require the `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secrets; the recovery copy is in
+`~/.config/morse/updater/`. Losing the key strands every installed app on its
+version until it is reinstalled with the install command. Development and
+preview builds never update.
 
 For a local signed build with the installed certificate:
 

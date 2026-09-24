@@ -49,6 +49,9 @@ export function releasePreviewUri(uri: string): void {
   URL.revokeObjectURL(uri);
 }
 
+// Previews here are object URLs, which leave nothing on disk.
+export function discardPreviews(): void {}
+
 export type IncomingFileHandlers = {
   // A file is being dragged over the window, or has left it.
   onDragging: (dragging: boolean) => void;

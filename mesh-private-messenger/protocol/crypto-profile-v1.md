@@ -125,5 +125,5 @@ Unsupported higher suites fail explicitly.
 Suite `0x0002` is the experimental hybrid Profile B defined in
 [`hybrid-handshake-v1.md`](hybrid-handshake-v1.md). It is implemented for
 interoperability and performance testing and is reachable in the application.
-Release readiness uses the internal criteria in the security plan. Independent
+Release readiness uses the internal criteria in [SECURITY.md](../../SECURITY.md). Independent
 cryptographic review has not been recorded and is not a release prerequisite.

@@ -65,6 +65,8 @@ pub fn allowed_request(routes: &Routes, url: &str, method: &str, capability: Opt
         ("/v1/prekeys/one-time/batch", "POST"),
         ("/v1/devices/resolve", "POST"),
         ("/v1/devices/revoke", "POST"),
+        ("/v1/accounts/delete", "POST"),
+        ("/v1/devices/leave", "POST"),
         ("/v1/mailbox/fetch", "POST"),
         ("/v1/mailbox/ack", "POST"),
     ];
@@ -171,6 +173,9 @@ pub fn validate(symbol: &str, request: &[u8], database: &[u8]) -> Result<(), Str
             | "register_request"
             | "mailbox_fetch"
             | "outbox_list"
+            | "account_deletion"
+            | "erase_account"
+            | "device_departure"
     ) {
         request
     } else {
@@ -367,6 +372,24 @@ mod tests {
             "GET",
             None
         ));
+        assert!(allowed_request(
+            &routes,
+            "https://messenger.example/v1/accounts/delete",
+            "POST",
+            None
+        ));
+        assert!(!allowed_request(
+            &routes,
+            "https://edge.example/v1/accounts/delete",
+            "POST",
+            None
+        ));
+        assert!(allowed_request(
+            &routes,
+            "https://messenger.example/v1/devices/leave",
+            "POST",
+            None
+        ));
         // Deployments that serve objects from the messenger host keep both route sets.
         let shared = Routes {
             object_url: "https://messenger.example",
@@ -403,6 +426,17 @@ mod tests {
         assert!(validate("mesh_messenger_register_request", b"/tmp/other.db", db).is_err());
         assert!(validate("mesh_messenger_resolve_request", &account, db).is_ok());
         assert!(validate("mesh_messenger_resolve_request", &account, b"other").is_err());
+        // Deleting the account, leaving it, and erasing this device name only the app database.
+        for symbol in [
+            "mesh_messenger_account_deletion",
+            "mesh_messenger_erase_account",
+            "mesh_messenger_device_departure",
+        ] {
+            assert!(validate(symbol, db, db).is_ok());
+            assert!(validate(symbol, b"/tmp/other.db", db).is_err());
+        }
+        assert!(validate("mesh_messenger_forget_on_proof", &account, db).is_ok());
+        assert!(validate("mesh_messenger_forget_on_proof", &account, b"other").is_err());
         // Settling and paging the outbox carry the database path like any other call.
         // So do the sealed journals: which record they name is the core's to check.
         for symbol in [

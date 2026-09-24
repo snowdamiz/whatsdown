@@ -17,6 +17,7 @@ use tauri::{
     Manager,
 };
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_updater::{Update, UpdaterExt};
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue, Message};
 
 #[derive(Clone, Deserialize)]
@@ -258,6 +259,48 @@ fn mailbox_disconnect(state: tauri::State<Desktop>, id: u32) -> Result<(), Strin
     Ok(())
 }
 
+// Updates come from the newest GitHub release and must carry the signature of
+// the updater key in tauri.conf.json. A development or preview build would
+// replace itself with a release, so it never updates.
+async fn pending_update(
+    app: &tauri::AppHandle,
+    development: bool,
+) -> Result<Option<Update>, String> {
+    if development {
+        return Err("updates_unavailable".into());
+    }
+    let updater = app.updater().map_err(|_| "update_check_failed")?;
+    updater
+        .check()
+        .await
+        .map_err(|_| "update_check_failed".into())
+}
+
+#[tauri::command]
+async fn check_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Desktop>,
+) -> Result<Option<String>, String> {
+    let update = pending_update(&app, state.config.development).await?;
+    Ok(update.map(|update| update.version))
+}
+
+// Windows exits into the installer, which starts the new version itself.
+#[tauri::command]
+async fn install_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Desktop>,
+) -> Result<(), String> {
+    let update = pending_update(&app, state.config.development)
+        .await?
+        .ok_or("update_not_found")?;
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|_| "update_install_failed")?;
+    app.restart()
+}
+
 fn main() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -283,6 +326,7 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let config: Config = serde_json::from_str(include_str!("../native/config.json"))?;
             if !cfg!(debug_assertions) && (config.development || config.security_frame.is_empty()) {
@@ -333,7 +377,9 @@ fn main() {
             binary_request,
             save_attachment,
             mailbox_connect,
-            mailbox_disconnect
+            mailbox_disconnect,
+            check_update,
+            install_update
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {

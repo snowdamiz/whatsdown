@@ -108,7 +108,7 @@ try {
     assert.match(glass.backdrop || '', /blur/);
     assert.match(glass.background || '', /^rgba/);
     assert.equal(glass.radius, '16px');
-    assert.deepEqual([glass.left, glass.top, glass.bottom], [12, 12, 12]);
+    assert.deepEqual([glass.left, glass.top, glass.bottom], [10, 12, 10]);
     assert.ok(glass.width <= 720);
     if (screenshots) await page.screenshot({ path: screenshots + '/glass-' + scheme + '.png' });
     await page.getByRole('tab', { name: /^Groups\b/ }).click();
@@ -127,7 +127,7 @@ try {
     const solid = await sidebarStyle();
     assert.equal(solid.backdrop, 'none');
     assert.equal(solid.background, scheme === 'dark' ? 'rgb(21, 21, 26)' : 'rgb(245, 245, 247)');
-    assert.deepEqual([solid.left, solid.top, solid.bottom], [12, 12, 12]);
+    assert.deepEqual([solid.left, solid.top, solid.bottom], [10, 12, 10]);
     if (screenshots) await page.screenshot({ path: screenshots + '/reduced-transparency-' + scheme + '.png' });
 
     await page.setViewportSize({ width: 1160, height: 800 });
@@ -184,7 +184,7 @@ try {
     await expectWidth(280);
     await page.setViewportSize({ width: 390, height: 800 });
     await handle.waitFor({ state: 'detached' });
-    console.log('Sidebar verified: ' + scheme + ', translucent glass, 12px inset, usable groups, opaque accessibility fallback');
+    console.log('Sidebar verified: ' + scheme + ', translucent glass, 10px edge inset, usable groups, opaque accessibility fallback');
     console.log('Sidebar resize verified: drag, min/max, keyboard, navigation, viewport clamping and cursor-only hover');
     await page.close();
   }
