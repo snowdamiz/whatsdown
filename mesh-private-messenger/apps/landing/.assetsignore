@@ -2,3 +2,6 @@ check.mjs
 wrangler.jsonc
 .wrangler
 ._*
+og.html
+waitlist.mjs
+waitlist.test.mjs

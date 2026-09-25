@@ -79,6 +79,8 @@ h2{font-size:clamp(2.1rem,4.2vw,3.6rem);line-height:1.02;letter-spacing:-.043em}
   .nav.open nav a{padding:12px 0;font-size:1.375rem;letter-spacing:-.02em;color:inherit}
 }
 @media (max-width:860px){.nav .wrap{height:68px}}
+/* On the narrowest phones the mark stands alone, so "Join the waitlist" still fits beside the menu. */
+@media (max-width:350px){.nav .brand{font-size:0;gap:0}}
 
 /* Words rise out of their own line: the headline on load, each h2 as it arrives (split by script). */
 .w{display:inline-block;overflow:hidden;vertical-align:top;padding:.1em .04em .2em;margin:-.1em -.04em -.2em}

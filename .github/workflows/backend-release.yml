@@ -139,6 +139,7 @@ jobs:
           npm ci --prefix ../mobile
           (cd ../mobile && npx playwright install --with-deps chromium)
           node check.mjs
+          node --test waitlist.test.mjs
       - name: Deploy the page
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
