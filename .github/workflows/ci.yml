@@ -149,10 +149,9 @@ jobs:
 
       - name: Verify Mesh messenger packages
         timeout-minutes: 30
+        # Formatting is the Mesh formatting workflow's: it reformats what a
+        # new Mesh release lays out differently instead of failing here.
         run: |
-          ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/groups --check
-          ./target/debug/meshc fmt ../mesh-private-messenger/packages/messenger-protocol/tests --check
-          ./target/debug/meshc fmt ../mesh-private-messenger/packages/mobile-core --check
           ../mesh-private-messenger/scripts/prove-m14.sh
           ../mesh-private-messenger/scripts/prove-m15.sh
 
@@ -160,7 +159,6 @@ jobs:
         timeout-minutes: 15
         run: |
           bash -n ../mesh-private-messenger/scripts/prove-m13.sh
-          ./target/debug/meshc fmt ../mesh-private-messenger/services/transparency-witness --check
           ../mesh-private-messenger/scripts/prove-m13.sh
 
       - name: Verify service startup failures
