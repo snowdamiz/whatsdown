@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encryption was the easy part — Morse</title>
+<meta name="description" content="Every private messenger depends on a server that tells your phone which key belongs to whom. Morse is built so that server can be caught lying, and so a lie costs more than it could ever be worth.">
+<meta name="theme-color" content="#F6F2EA">
+<meta property="og:title" content="Encryption was the easy part">
+<meta property="og:description" content="Every private messenger depends on a server that tells your phone which key belongs to whom. Morse is built so that server can be caught lying.">
+<meta property="og:type" content="article">
+<meta property="article:published_time" content="2026-09-25">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="blog.css">
+<script>document.documentElement.classList.add("js")</script>
+<script src="blog.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="248 304 528 416"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-get" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16.5 6.5l2.5 2.5M14 9l2 2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.5 2.8v5.7c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.8L12 3Z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
+</svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="Morse, home"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+    <button class="menu" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav-links"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16"/><path d="M4 16h16"/></svg></button>
+    <nav id="nav-links" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="index.html#privacy">Privacy</a>
+      <a href="index.html#network">Network</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="index.html#answers">Straight answers</a>
+      <a href="blog.html" aria-current="true">Blog</a>
+    </nav>
+    <a class="btn dark sm" href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a>
+  </div>
+</header>
+
+<main id="main">
+<article>
+<header class="head top col">
+  <a class="go back rise" href="blog.html"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg>All articles</a>
+  <h1><span class="w"><i>Encryption</i></span> <span class="w"><i>was</i></span> <span class="w"><i>the</i></span> <span class="w"><i>easy</i></span> <span class="w"><i>part.</i></span></h1>
+  <p class="lead rise">Every private messenger depends on a server that tells your phone which key belongs to whom. We built Morse so that server can be caught lying, and so a lie costs more than it could ever be worth.</p>
+  <p class="stamp rise"><span><time datetime="2026-09-25">September 25, 2026</time></span><span>8 minute read</span></p>
+  <div class="line rise" aria-hidden="true"><div><span class="mc" data-morse="ENCRYPTION WAS THE EASY PART"></span><span class="mc" data-morse="ENCRYPTION WAS THE EASY PART"></span></div></div>
+</header>
+
+<div class="prose col">
+  <p>When you message @ada on Morse, your phone locks the message with Ada’s key before it leaves your hand. Only her phone holds the key that opens it. Not us, not our servers, not anyone who breaks into them.</p>
+  <p>Which leaves a question most messengers would rather you didn’t ask. <b>Where did your phone get Ada’s key?</b></p>
+  <p>From us. Your phone asked our directory for @ada’s key and believed the answer. Every lock on every message you will ever send her rests on that one reply.</p>
+
+  <h2>The quiet swap.</h2>
+  <p>Suppose the reply is wrong. Suppose the directory hands you a key it holds itself, and hands Ada one for you. Your phone locks every message perfectly, for the wrong person. The server opens it, reads it, locks it again for Ada and passes it on. Nothing breaks. Nothing looks different. The encryption never had to fail.</p>
+
+  <figure>
+    <div class="field peach reveal" aria-hidden="true">
+      <div class="sheet slip lean-l">
+        <header><i class="vt"><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><small>What your phone was told</small></div></header>
+        <p class="fp"><span class="diff">7c21</span><span class="diff">e0a4</span><span class="diff">5d0e</span><span class="diff">b913</span></p>
+      </div>
+      <div class="sheet slip lean-r">
+        <header><i class="vt dk"><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><small>What Ada’s phone really holds</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+      </div>
+      <p class="verdict"><svg class="ic"><use href="#i-alert"/></svg>Encrypted perfectly. For the wrong person.</p>
+    </div>
+    <figcaption>One question, two answers. Without something to check the answer against, your phone has no way to tell them apart.</figcaption>
+  </figure>
+
+  <p>This is not a thought experiment. In 2018, two senior technical officials at GCHQ, Britain’s intelligence agency, <a href="https://www.lawfaremedia.org/article/principles-more-informed-exceptional-access-debate">published a proposal</a> for reaching encrypted chats without breaking the encryption at all. The provider would quietly add a hidden participant to the conversation, and the app wouldn’t say so. More than fifty companies, charities and security experts, Apple and WhatsApp among them, signed an open letter asking GCHQ to drop it.</p>
+  <p>The proposal needed only one thing: a server that hands out keys and can’t be checked. A server can be hacked. The people who run it can be pressured, bribed, or served an order they aren’t allowed to talk about.</p>
+  <p class="turn">“We would never” is a promise. It isn’t a protection.</p>
+
+  <h2>The check almost nobody does.</h2>
+  <p>Good messengers know this, and give you a way to catch it. Every Morse chat has a safety number. Sit down with a friend, compare the two, and if they match, nobody is in the middle. It works, and it stays: it’s the one check that holds even if everything else colludes.</p>
+  <p>But a defence that only works when two people read strings of digits to each other protects the few who do. Most people never will, and they shouldn’t have to. So the question we built Morse around was simple: <b>what would it take for everyone to be protected by default?</b></p>
+
+  <h2>Know only what we must.</h2>
+  <p>The first half of the answer is to know as little as possible. What we never had can’t be leaked, sold or handed over.</p>
+  <p>So Morse doesn’t ask for your phone number, your email or your address book. You pick a username. Messages are sealed so our delivery servers can’t see who sent them, and every one is padded to a standard size, so we can’t tell “OK” from a paragraph. We can’t see who’s in your groups, or even what they’re called.</p>
+  <p>But a messenger can’t know nothing. It has to know which key is yours, or nobody could ever reach you. That’s the one thing we can’t avoid knowing, so it’s the one thing we built to be checked.</p>
+
+  <h2>Write it where everyone can see.</h2>
+  <p>Every key Morse hands out is written into a single log that only grows. Nothing in it is ever edited or removed: a new key is a new entry at the end. Your phone won’t use a key unless it can see that key in the log, and it rejects any version of the log more than five minutes old.</p>
+  <p>That changes the swap. To give you a false key for Ada, we would have to write it into the same log that everyone’s phone checks, Ada’s included. If her keys ever change, Morse tells you.</p>
+  <p>The idea is borrowed, and that’s the point. The web made the same move for website certificates: since April 2018, Chrome won’t trust a new certificate unless it has been written to a public log. The web stopped running on promises from the companies that issue certificates, and started running on records anyone can check.</p>
+  <p>A log has a weak spot of its own, though. Whoever keeps it could show you one version and everyone else another. That’s called a fork, and catching one takes somebody who isn’t us.</p>
+
+  <h2>Witnesses who don’t answer to us.</h2>
+  <p>A witness is a small server run by an operator outside Morse. Every 15 seconds it asks for the newest version of the log and checks it before signing: that our directory signed it, and that it contains the last version the witness signed, entry for entry, with nothing rewritten. A witness never signs an older version, or a different one in its place. It never sees a message, a username or a wallet. To a witness, a version of the log is a number, a size and a fingerprint.</p>
+  <p>Your phone only accepts a version that most of its pinned witnesses signed. And here is the part that makes it work: two majorities of the same group always share at least one member. So to show you one log and Ada another, at least one witness has to sign both. Those two signatures, side by side, are the proof.</p>
+  <p class="turn">A lie proves itself.</p>
+
+  <figure>
+    <div class="field lilac reveal" aria-hidden="true">
+      <div class="sheet slip lean-l">
+        <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to you</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+        <p class="five"><span class="ava t0">A</span><span class="ava t1">B</span><span class="ava t2 c">C</span><span class="ava off">D</span><span class="ava off">E</span><span class="by">A, B and C signed</span></p>
+      </div>
+      <div class="sheet slip lean-r">
+        <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to Ada</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span class="diff">5d0e</span><span>64d1</span></p>
+        <p class="five"><span class="ava off">A</span><span class="ava off">B</span><span class="ava t2 c">C</span><span class="ava t3">D</span><span class="ava t4">E</span><span class="by">C, D and E signed</span></p>
+      </div>
+      <p class="verdict"><svg class="ic"><use href="#i-alert"/></svg>Witness C signed both. Bond slashed.</p>
+    </div>
+    <figcaption>Five pinned witnesses, and each version needs three. Any two groups of three share someone, so a fork always leaves a witness who signed both sides.</figcaption>
+  </figure>
+
+  <h2>Make lying expensive.</h2>
+  <p>Proof is half of it. A liar who is caught should pay.</p>
+  <p>Every witness stakes a bond to take part, and so does our directory’s own key. Anyone who finds two conflicting signatures can post them on-chain, where a program checks them. The bond is slashed. A tenth goes to whoever caught it, and the rest is locked or burned. None of it is ever paid to Morse, so we never gain from a slash.</p>
+  <p>Going offline never touches a bond. A witness that misses a version misses its pay, nothing more. Only a signed lie costs the bond, and the bond grows with a witness’s pay, so a lie always costs at least two years of it.</p>
+  <p>We’re held to the same rule. Once the network is open, Morse runs exactly one witness, bonded and slashable like any other, and the threshold is set so we can never reach a majority, alone or with our directory.</p>
+  <p>None of this asks you to trust a blockchain either. Your phone never waits for a verdict: it already refuses any key the witnesses haven’t vouched for. The chain can take trust away from a witness that lied, and it can never grant it. Each app release names the witnesses your phone trusts, so no amount of money or tokens changes which keys it accepts.</p>
+
+  <h2>Who pays for honesty.</h2>
+  <p>Running a witness is a real job, and real jobs get paid. Not with ads, and never with your data: measuring what you do is exactly what our servers are built not to do.</p>
+  <p><b>Messaging stays free.</b> It never needs a wallet, credits or a token. Credits are for extras:</p>
+  <ul>
+    <li>Sending files past the 16 MB limit.</li>
+    <li>Keeping messages waiting past 30 days for a phone that’s been switched off.</li>
+    <li>Putting a small price on message requests from strangers, so spam stops paying.</li>
+  </ul>
+  <p>You buy credits in USDC, SOL or BTC, and each one is signed blind. When you spend it, our servers can tell it’s genuine, but not who bought it. A share of every credit sold pays the witnesses for every version they sign.</p>
+  <p>The Morse token is what holds the loop together. It’s the bond witnesses stake, and what every credit purchase burns. You never need to hold it: pay in USDC, SOL or BTC and the app swaps for you. Your wallet and your username never meet, and nothing about who you talk to, or when, is ever written to a chain.</p>
+  <p>So the loop closes. People who want extras pay for them, that pays the witnesses, and the bonds keep the witnesses honest.</p>
+
+  <h2>A language that won’t let us slip.</h2>
+  <p>Honest intentions don’t prevent honest mistakes. In practice, encryption rarely fails because the maths broke. It fails because a key ended up somewhere it shouldn’t: a log file, a crash report, a copy nobody erased.</p>
+  <p>So Morse is written in Mesh, a programming language we built for it. Mesh treats keys as a special kind of value. A key can’t be printed, logged, saved or passed around the program like ordinary data, and it’s destroyed the moment it’s no longer needed. Code that tries any of that doesn’t build.</p>
+  <p>Mesh borrows its big idea from Erlang and Elixir, the technology behind phone exchanges and some of the world’s biggest chat apps. Every job on our servers runs as its own isolated worker. If one fails, the others carry on, and Mesh can start it again on the spot. The same core runs inside the iPhone, Android, Mac and Windows apps.</p>
+  <p>Writing your own language is a trade. A young language can have bugs of its own, so every change we make ships with a test that fails without it.</p>
+
+  <h2>Where the edges are.</h2>
+  <p>“Kept honest” applies to what we say, too. Morse can’t protect a phone that’s already compromised, or unlocked in someone else’s hand. It can’t stop the person you’re talking to from taking a screenshot. And someone who can watch the whole internet can still see when you’re active, and may work out who you talk to from timing alone. Hiding the sender isn’t the same as being anonymous.</p>
+
+  <h2>Need us less.</h2>
+  <p>The point of all this isn’t to ask you to trust Morse more. It’s so you can need us less. Each piece is ordinary on its own: encryption, a public log, signatures, a bond. Together they turn “trust us” into something your phone, and anyone watching, can check.</p>
+  <p>It launches in stages, and each stage stands on its own. Today both of the witnesses your phone checks are ours: the log is checked, but by us. Every stage below moves that check further out of our hands.</p>
+  <div class="road reveal">
+    <ol>
+      <li style="--i:0"><b>Public checkpoints</b><span>Every version of the key log, posted to a public chain anyone can check.</span></li>
+      <li style="--i:1"><b>Independent witnesses</b><span>Operators outside Morse sign the log alongside us.</span></li>
+      <li style="--i:2"><b>Anonymous credits</b><span>Extras paid in USDC, SOL or BTC, spent without a trace.</span></li>
+      <li style="--i:3"><b>The Morse token</b><span>Bonds for witnesses, burned by every credit bought.</span></li>
+    </ol>
+  </div>
+  <p>The full design is public: <a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/key-transparency-v1.md">the key log</a>, <a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/witness-network-v1.md">the witness network</a>, and <a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/privacy-contract.md">exactly what our servers can see</a>. Don’t take our word for any of it. That was the whole idea.</p>
+</div>
+</article>
+
+<section>
+  <div class="card bluecard go-card reveal">
+    <div>
+      <h2>Keep us honest.</h2>
+      <p class="lead">Talk to people without handing anyone your number, or run a witness and check every key we hand out.</p>
+    </div>
+    <div class="cta">
+      <a class="btn light" href="https://github.com/snowdamiz/whatsdown/releases"><svg class="ic" aria-hidden="true"><use href="#i-get"/></svg>Get Morse</a>
+      <a class="btn line" href="witnesses.html">Run a witness</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <a class="brand" href="index.html"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+      <span class="mc" data-morse="MORSE" aria-hidden="true"></span>
+    </div>
+    <div>
+      <h3>Morse</h3>
+      <ul><li><a href="index.html#features">Features</a></li><li><a href="index.html#privacy">Privacy</a></li><li><a href="index.html#network">Network</a></li><li><a href="how-it-works.html">How it works</a></li><li><a href="index.html#answers">Straight answers</a></li><li><a href="blog.html">Blog</a></li></ul>
+    </div>
+    <div>
+      <h3>The fine print</h3>
+      <ul>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/privacy-contract.md">Privacy contract</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/threat-model.md">Threat model</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/witness-network-v1.md">Witness network</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/security/advisories/new">Report a vulnerability</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Project</h3>
+      <ul><li><a href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a></li><li><a href="witnesses.html">Run a witness</a></li><li><a href="https://github.com/snowdamiz/whatsdown">GitHub</a></li><li><a href="https://meshlang.dev">Mesh language</a></li></ul>
+    </div>
+    <p class="quiet">This page sets no cookies and loads nothing from third parties: no trackers, no analytics, no hosted fonts.</p>
+  </div>
+</footer>
+</body>
+</html>

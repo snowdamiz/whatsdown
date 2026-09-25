@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morse blog</title>
+<meta name="description" content="Why Morse works the way it does: what we can see, what we can’t, and how we keep ourselves honest.">
+<meta name="theme-color" content="#F6F2EA">
+<meta property="og:title" content="Morse blog">
+<meta property="og:description" content="Why Morse works the way it does: what we can see, what we can’t, and how we keep ourselves honest.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="blog.css">
+<script>document.documentElement.classList.add("js")</script>
+<script src="blog.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="248 304 528 416"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16.5 6.5l2.5 2.5M14 9l2 2"/></symbol>
+</svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="Morse, home"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+    <button class="menu" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav-links"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16"/><path d="M4 16h16"/></svg></button>
+    <nav id="nav-links" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="index.html#privacy">Privacy</a>
+      <a href="index.html#network">Network</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="index.html#answers">Straight answers</a>
+      <a href="blog.html" aria-current="page">Blog</a>
+    </nav>
+    <a class="btn dark sm" href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a>
+  </div>
+</header>
+
+<main id="main">
+<header class="wrap shelf top">
+  <h1><span class="w"><i>Why</i></span> <span class="w"><i>we</i></span> <span class="w"><i>build</i></span> <span class="w"><i>it</i></span> <span class="w"><i>this</i></span> <span class="w"><i>way.</i></span></h1>
+  <p class="lead rise">Longer answers to what the home page only has room to touch: what we can see, what we can’t, and how we keep ourselves honest.</p>
+</header>
+
+<!-- Newest first. A new article is a copy of an existing blog-*.html with its own words, listed here;
+     check.mjs fails if one is left off. -->
+<ol class="posts">
+  <li>
+    <a class="card night feature reveal" href="blog-encryption-was-the-easy-part.html">
+      <div class="copy">
+        <p class="stamp"><span><time datetime="2026-09-25">September 25, 2026</time></span><span>8 minute read</span></p>
+        <h2>Encryption was the easy part.</h2>
+        <p class="lead">Every private messenger depends on a server that tells your phone which key belongs to whom. We built Morse so that server can be caught lying, and so a lie costs more than it could ever be worth.</p>
+        <span class="go">Read the article<svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></span>
+      </div>
+      <div class="art" aria-hidden="true">
+        <div class="sheet slip lean-l">
+          <header><i class="vt"><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><small>What your phone was told</small></div></header>
+          <p class="fp"><span class="diff">7c21</span><span class="diff">e0a4</span><span class="diff">5d0e</span><span class="diff">b913</span></p>
+        </div>
+        <div class="sheet slip lean-r">
+          <header><i class="vt dk"><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><small>What Ada’s phone really holds</small></div></header>
+          <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+        </div>
+      </div>
+      <div class="line" aria-hidden="true"><div><span class="mc" data-morse="ENCRYPTION WAS THE EASY PART"></span><span class="mc" data-morse="ENCRYPTION WAS THE EASY PART"></span></div></div>
+    </a>
+  </li>
+</ol>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <a class="brand" href="index.html"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+      <span class="mc" data-morse="MORSE" aria-hidden="true"></span>
+    </div>
+    <div>
+      <h3>Morse</h3>
+      <ul><li><a href="index.html#features">Features</a></li><li><a href="index.html#privacy">Privacy</a></li><li><a href="index.html#network">Network</a></li><li><a href="how-it-works.html">How it works</a></li><li><a href="index.html#answers">Straight answers</a></li><li><a href="blog.html">Blog</a></li></ul>
+    </div>
+    <div>
+      <h3>The fine print</h3>
+      <ul>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/privacy-contract.md">Privacy contract</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/threat-model.md">Threat model</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/witness-network-v1.md">Witness network</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/security/advisories/new">Report a vulnerability</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Project</h3>
+      <ul><li><a href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a></li><li><a href="witnesses.html">Run a witness</a></li><li><a href="https://github.com/snowdamiz/whatsdown">GitHub</a></li><li><a href="https://meshlang.dev">Mesh language</a></li></ul>
+    </div>
+    <p class="quiet">This page sets no cookies and loads nothing from third parties: no trackers, no analytics, no hosted fonts.</p>
+  </div>
+</footer>
+</body>
+</html>

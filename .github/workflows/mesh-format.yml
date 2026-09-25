@@ -1,0 +1,61 @@
+name: Mesh formatting
+
+# Keeps the Mesh sources formatted as the newest published Mesh release
+# formats them, the release CI builds with. When a release changes the
+# formatter's layout, this reformats the sources and commits the result, so
+# nobody reformats by hand and CI never fails on layout alone.
+on:
+  push:
+    branches: [main]
+    paths: ['**.mpl']
+  # A new Mesh release is picked up within a day.
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mesh-format
+  cancel-in-progress: false
+
+jobs:
+  format:
+    name: Format Mesh sources
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Morse
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+
+      - name: Install the newest Mesh release
+        run: |
+          # The release CI resolves, through the page redirect rather than
+          # the rate-limited API; the installer checks SHA256SUMS.
+          tag="$(node --input-type=module -e "import('./mesh-private-messenger/scripts/mesh-release.mjs').then((m) => m.latestReleaseTag()).then((tag) => console.log(tag))")"
+          curl -sSfL "https://raw.githubusercontent.com/snowdamiz/mesh-lang/${tag}/tools/install/install.sh" \
+            | sh -s -- --version "${tag#v}" --yes
+          echo "$HOME/.mesh/bin" >> "$GITHUB_PATH"
+          echo "MESH_TAG=${tag}" >> "$GITHUB_ENV"
+
+      - name: Format and commit
+        run: |
+          meshc fmt mesh-private-messenger
+          if git diff --quiet -- '*.mpl'; then
+            echo "Already formatted as Mesh ${MESH_TAG} formats it."
+            exit 0
+          fi
+          git diff --stat -- '*.mpl'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u -- '*.mpl'
+          git commit -q -m "Format Mesh sources as meshc ${MESH_TAG} does"
+          # main may have moved while this ran: replay the commit on it.
+          for _ in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull -q --rebase origin main
+          done
+          exit 1

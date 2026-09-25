@@ -89,6 +89,7 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .nav.dark nav a{color:rgba(255,255,255,.7)}
 .nav.dark nav a:hover{color:#fff}
 .nav.dark .btn.dark{background:#fff;color:var(--ink)}
+.nav.dark.open nav{background:var(--night)}
 .nav .wrap{display:flex;align-items:center;gap:40px;height:76px}
 .brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:1.3rem;letter-spacing:-.035em}
 .tile{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--blue-2)}
@@ -96,8 +97,19 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .nav nav{display:flex;gap:32px;margin-right:auto}
 .nav nav a{font-weight:500;font-size:1rem;color:var(--ink-2);white-space:nowrap;transition:color .15s}
 .nav nav a:hover{color:var(--ink)}
-/* Five links need 980px; narrower, the nav is the logo and the button. */
-@media (max-width:980px){.nav nav{display:none}.nav .btn{margin-left:auto}}
+/* Six links need about 1014px; narrower, they fold behind a menu button and drop down under the bar. Every page
+   collapses at the same width. The button comes before the links in the page, so the keyboard reaches them next,
+   but sits last in the bar. */
+.menu{display:none;order:1;place-items:center;width:44px;height:44px;margin-right:-14px;border-radius:999px;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.menu .ic{width:24px;height:24px}
+.menu path{transform-origin:center;transition:transform .3s var(--ease)}
+.nav.open .menu path:first-child{transform:rotate(45deg) translateY(4px)}
+.nav.open .menu path:last-child{transform:rotate(-45deg) translateY(-4px)}
+@media (max-width:1040px){
+  .nav .wrap{gap:12px}.nav nav{display:none}.nav .btn{margin-left:auto}.menu{display:grid}
+  .nav.open nav{display:flex;flex-direction:column;gap:0;position:absolute;top:100%;left:0;right:0;padding:0 var(--gutter) 20px;background:var(--paper);box-shadow:0 24px 32px -24px rgba(11,11,15,.28)}
+  .nav.open nav a{padding:12px 0;font-size:1.375rem;letter-spacing:-.02em;color:inherit}
+}
 @media (max-width:860px){.nav .wrap{height:68px}}
 
 /* ------------------------------------------------------------ Big cards */
@@ -478,7 +490,8 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .fp .diff{background:#FBD5D7;color:var(--red)}
 .sig{display:flex;align-items:center;margin-top:14px;font-size:.84rem;color:#63636D}
 .sig .ava{width:26px;height:26px;font-size:10px;box-shadow:0 0 0 2px #fff}
-.sig .ava+.ava{margin-left:-7px}
+.sig .ava+.ava{margin-left:5px}
+.sig .off{background:#E4E4EA;color:#9C9CA6}
 .sig .c{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red)}
 .sig .by{margin-left:10px}
 .verdict{display:flex;align-items:center;gap:9px;margin-top:28px;padding:13px 22px 13px 16px;border-radius:999px;background:var(--red);color:#fff;font-weight:500;box-shadow:0 18px 32px -18px #000}
@@ -488,6 +501,8 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .js .caught.in .diff{animation:clash .7s ease 1.7s both}
 .js .caught.in .c{animation:guilty .5s ease 2.2s both}
 .js .caught.in .verdict{animation:pop .6s var(--ease) 2.6s both}
+.tx{margin-top:14px;font-size:.88rem;color:rgba(255,255,255,.55)}
+.js .caught.in .tx{animation:rise .7s var(--ease) 3.1s both}
 @keyframes clash{from{background:transparent;color:inherit}}
 @keyframes guilty{from{box-shadow:0 0 0 2px #fff,0 0 0 0 var(--red)}}
 @media (max-width:960px){.net{grid-template-columns:minmax(0,1fr)}}
@@ -701,12 +716,14 @@ footer li a:hover{color:var(--blue-3)}
 <header class="nav">
   <div class="wrap">
     <a class="brand" href="#top" aria-label="Morse, home"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
-    <nav aria-label="Main">
+    <button class="menu" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav-links"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16"/><path d="M4 16h16"/></svg></button>
+    <nav id="nav-links" aria-label="Main">
       <a href="#features">Features</a>
       <a href="#privacy">Privacy</a>
       <a href="#network">Network</a>
       <a href="how-it-works.html">How it works</a>
       <a href="#answers">Straight answers</a>
+      <a href="blog.html">Blog</a>
     </nav>
     <a class="btn dark sm" href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a>
   </div>
@@ -861,7 +878,7 @@ footer li a:hover{color:var(--blue-3)}
     </div>
     <div class="copy reveal">
       <h2>Know it’s really them.</h2>
-      <p class="lead">Every chat has a safety number. Compare it with your friend, in person or somewhere you already trust. If it matches, nobody is sitting in the middle. If their keys ever change, Morse tells you. And it checks every key against a log that witnesses sign.</p>
+      <p class="lead">Every chat has a safety number. Compare it with your friend, in person or somewhere you already trust. If it matches, nobody is sitting in the middle. If their keys ever change, Morse tells you. And when you don’t compare, it still checks every key against a log that witnesses sign.</p>
     </div>
     <div class="field mint reveal" aria-hidden="true">
       <div class="sns">
@@ -884,11 +901,11 @@ footer li a:hover{color:var(--blue-3)}
     <div class="copy reveal">
       <p class="soon"><i></i>Launching in stages</p>
       <h2>Don’t trust us. <em>Make lying expensive.</em></h2>
-      <p class="lead">The soft spot in every encrypted messenger is the server that tells your phone which key is your friend’s. Morse writes every key into a log that witnesses vouch for, and anyone can run a witness, with a bond on the line.</p>
+      <p class="lead">Every encrypted messenger has a soft spot: the server that tells your phone which key is your friend’s. Hand your phone a fake, and every message still locks perfectly, for the wrong person. So every key we hand out goes into one log, checked in public.</p>
       <ul class="facts">
-        <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>A lie proves itself: two signed versions of the same log.</li>
-        <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Anyone can post that proof on-chain. The bond is slashed, and part of it goes to whoever caught it.</li>
-        <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Your phone never waits for a verdict. It already refuses any key the witnesses haven’t vouched for.</li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>The log is stamped on Solana as it grows, and your phone checks its copy against that public record.</li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>A lie proves itself: to show two people different logs, a witness has to sign both.</li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Anyone can post that proof on-chain, where code, not Morse, slashes the bond. Part goes to whoever caught it, none of it to us.</li>
       </ul>
       <div class="cta">
         <a class="btn light" href="#credits">What changes for you</a>
@@ -899,14 +916,15 @@ footer li a:hover{color:var(--blue-3)}
       <div class="sheet slip lean-l">
         <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to your phone</small></div></header>
         <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
-        <p class="sig"><span class="ava t0">A</span><span class="ava t4">B</span><span class="ava t3 c">C</span><span class="by">Signed by witnesses A, B and C</span></p>
+        <p class="sig"><span class="ava t0">A</span><span class="ava t4">B</span><span class="ava t3 c">C</span><span class="ava off">D</span><span class="ava off">E</span><span class="by">A, B and C signed</span></p>
       </div>
       <div class="sheet slip lean-r">
         <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to someone else</small></div></header>
         <p class="fp"><span>9f3a</span><span>c107</span><span class="diff">5d0e</span><span>64d1</span></p>
-        <p class="sig"><span class="ava t3 c">C</span><span class="by">Signed by witness C</span></p>
+        <p class="sig"><span class="ava off">A</span><span class="ava off">B</span><span class="ava t3 c">C</span><span class="ava t1">D</span><span class="ava t2">E</span><span class="by">C, D and E signed</span></p>
       </div>
       <p class="verdict"><svg class="ic"><use href="#i-alert"/></svg>Witness C signed both. Bond slashed.</p>
+      <p class="tx">Proof checked on Solana · a tenth to whoever caught it</p>
     </div>
   </div>
 </section>
@@ -915,7 +933,7 @@ footer li a:hover{color:var(--blue-3)}
   <div class="wrap two">
     <div class="copy reveal">
       <h2>Messaging stays free. Extras stay anonymous.</h2>
-      <p class="lead">Credits unlock extras, paid in USDC, SOL or BTC. Each one is signed blind, so when you spend it, our servers can tell it’s genuine but not who bought it.</p>
+      <p class="lead">Credits unlock extras. Pay in USDC, SOL or BTC, with no card and no billing name, and each credit is signed blind: when you spend it, our servers can tell it’s genuine but not who bought it.</p>
       <ul class="points">
         <li><b>Bigger files.</b> Send past the 16 MB limit.</li>
         <li><b>Longer storage.</b> Messages wait past 30 days for a phone that’s been switched off.</li>
@@ -1039,6 +1057,11 @@ footer li a:hover{color:var(--blue-3)}
         <p>No. Messaging never needs a wallet, credits or the token. Credits are for extras, and you can pay for them in USDC, SOL or BTC without ever holding the token.</p>
       </details>
       <details>
+        <summary>Why put any of this on a blockchain?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>Because keeping us honest takes two things a public chain does well: a record nobody can quietly edit, and bonds nobody can quietly keep, us included. Only log stamps, bonds, proofs and credit purchases go on-chain. Nothing about a message, a contact or an account ever does.</p>
+        <p>Your phone doesn’t trust the chain blindly either. The chain can take trust away from a witness that lied, but it can never grant it.</p>
+      </details>
+      <details>
         <summary>Can strangers message me?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
         <p>They can ask. They need your exact username, and their first message waits as a request. Accept it to reply, or block them and never hear from them again. They aren’t told.</p>
       </details>
@@ -1062,7 +1085,7 @@ footer li a:hover{color:var(--blue-3)}
       </details>
       <details>
         <summary>Why a token, and not just dollars?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
-        <p>A bond works in any currency. The token ties what witnesses are paid to how much Morse is actually used, and lets one unit do both jobs: bonds and credits.</p>
+        <p>Bonds start in USDC, and a bond works in any currency. What makes one mean something is that it grows with a witness’s pay, so a lie always costs at least two years of it. The token lets one unit do both jobs, bonds and credits, and ties what witnesses are paid to how much Morse is actually used.</p>
       </details>
       <details>
         <summary>What can’t Morse protect me from?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
@@ -1158,7 +1181,7 @@ footer li a:hover{color:var(--blue-3)}
     </div>
     <div>
       <h3>Morse</h3>
-      <ul><li><a href="#features">Features</a></li><li><a href="#privacy">Privacy</a></li><li><a href="#network">Network</a></li><li><a href="#built">How it’s built</a></li><li><a href="how-it-works.html">How it works</a></li><li><a href="#answers">Straight answers</a></li></ul>
+      <ul><li><a href="#features">Features</a></li><li><a href="#privacy">Privacy</a></li><li><a href="#network">Network</a></li><li><a href="#built">How it’s built</a></li><li><a href="how-it-works.html">How it works</a></li><li><a href="#answers">Straight answers</a></li><li><a href="blog.html">Blog</a></li></ul>
     </div>
     <div>
       <h3>The fine print</h3>
@@ -1200,6 +1223,10 @@ footer li a:hover{color:var(--blue-3)}
 
   const nav = $(".nav"), stuck = () => nav.classList.toggle("stuck", scrollY > 4);
   addEventListener("scroll", stuck, {passive: true}); stuck();
+  // Narrow, the links open from the menu button. Any other click (following a link too), or Escape, folds them away.
+  const menu = $(".menu"), fold = open => menu.setAttribute("aria-expanded", nav.classList.toggle("open", open));
+  addEventListener("click", e => e.target.closest(".menu") ? fold() : fold(false));
+  addEventListener("keydown", e => e.key === "Escape" && nav.classList.contains("open") && (fold(false), menu.focus()));
 
   // ---- The hero scene leans toward a mouse pointer. Touch screens have nothing to follow.
   const rig = $(".rig"), hero = $(".hero-card");
