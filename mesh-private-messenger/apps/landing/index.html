@@ -4,11 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Morse — Private messaging, kept honest</title>
-<meta name="description" content="Morse is a private messenger for iPhone, Android, Mac and Windows. Pick a username and start talking: no phone number, and only the people in a chat can read it. And witnesses check every key we hand out.">
+<meta name="description" content="Morse is a private messenger in development for iPhone, Android, Mac and Windows. Pick a username and start talking: no phone number, and only the people in a chat can read it. And witnesses check every key we hand out.">
 <meta name="theme-color" content="#F6F2EA">
 <meta property="og:title" content="Morse — Private messaging, kept honest">
 <meta property="og:description" content="Pick a username and start talking. No phone number, no contact upload, and only the people in a chat can read it. Not even us.">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://morseapp.io/og.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1260">
+<meta property="og:image:alt" content="Morse: Private messaging, kept honest. A phone showing a private chat.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z'/%3E%3C/svg%3E">
 <script>document.documentElement.classList.add("js")</script>
 <style>
@@ -111,6 +116,8 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
   .nav.open nav a{padding:12px 0;font-size:1.375rem;letter-spacing:-.02em;color:inherit}
 }
 @media (max-width:860px){.nav .wrap{height:68px}}
+/* On the narrowest phones the mark stands alone, so "Join the waitlist" still fits beside the menu. */
+@media (max-width:350px){.nav .brand{font-size:0;gap:0}}
 
 /* ------------------------------------------------------------ Big cards */
 /* A card is wider than the page's column by exactly its padding, so the words inside start on the same
@@ -157,7 +164,7 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 /* Section headings do the same as their section arrives (split into words by script). */
 .js h2.split .w>i{transform:translateY(112%);transition:transform 1s var(--ease) calc(var(--wi,0)*55ms + .1s)}
 .js h2.split.in .w>i{transform:none}
-.js .hero .lead,.js .hero .cta,.js .hero .plats{animation:rise .95s var(--ease) both}
+.js .hero .soon,.js .hero .lead,.js .hero .cta,.js .hero .plats{animation:rise .95s var(--ease) both}
 .js .hero .lead{animation-delay:.3s}.js .hero .cta{animation-delay:.38s}.js .hero .plats{animation-delay:.44s}
 .js .rig .phone{animation:phone-in 1.15s var(--ease) .1s both}
 /* The mark keys itself in: the dot, then the dash drawn out behind the phone. */
@@ -185,7 +192,7 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 @media (max-width:640px){.float{display:none}}
 /* Narrower than the phone itself: shrink it whole rather than squeeze it. */
 @media (max-width:349px){.rig{scale:.88}.hero-art{height:680px}}
-@media (max-width:560px){.cta .btn{flex:1 1 100%}}
+@media (max-width:560px){.cta>.btn{flex:1 1 100%}}
 
 /* ------------------------------------------------------------ The phone */
 /* Drawn like the real thing: a titanium rim that catches the light at two corners, black glass inside
@@ -593,6 +600,30 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .get .copy{position:relative;z-index:1;align-self:center;padding-block:clamp(36px,5.6vw,88px)}
 .get h2{font-size:clamp(2.2rem,4.1vw,3.55rem)}
 .get .note{margin-top:24px;max-width:30em;font-size:.95rem;color:rgba(255,255,255,.86)}
+/* The waitlist: an email field shaped like the app's composer, one white pill with its button inside. It only
+   ever sits on the blue cards. Once it's done (by script, or #joined when the form posted without it) the pill
+   says so instead. On a phone the field and the button stack. */
+.hero .soon i{background:var(--butter)}
+.cta:has(.join){row-gap:24px}
+.join{position:relative;display:flex;align-items:center;gap:8px;width:min(100%,468px);min-height:60px;padding:6px;border-radius:30px;background:#fff;color:var(--ink);box-shadow:0 18px 40px -22px rgba(6,12,40,.6)}
+.join:has(input:focus-visible){outline:2.5px solid #fff;outline-offset:3px}
+.join input{flex:1;min-width:0;height:48px;padding:0 0 0 18px;border:0;background:none;font:inherit;color:inherit;outline:0}
+.join input::placeholder{color:#8E8E98}
+.join .btn{height:48px;padding:0 22px}
+.join .trap{position:absolute;width:1px;height:1px;padding:0;opacity:0;pointer-events:none}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.joined{display:none;align-items:center;gap:10px;padding:8px 18px 8px 12px;font-weight:500;line-height:1.35}
+.joined .ic{width:22px;height:22px;color:var(--green)}
+.join.done>:not(.joined),.join:has(#joined:target)>:not(.joined){display:none}
+.join.done .joined,.join:has(#joined:target) .joined{display:flex}
+@media (max-width:480px){
+  .join{flex-wrap:wrap;padding:0;background:none;box-shadow:none;gap:10px}
+  .join:has(input:focus-visible){outline:0}
+  .join input{flex:1 1 100%;height:56px;padding:0 22px;border-radius:999px;background:#fff}
+  .join input:focus-visible{outline:2.5px solid #fff;outline-offset:3px}
+  .join .btn{flex:1 1 100%;height:56px}
+  .join.done,.join:has(#joined:target){background:#fff;min-height:56px;padding:0 6px}
+}
 /* The desktop app, drawn to the real window's own measurements (apps/mobile/src/desktop-layout.ts,
    tauri.conf.json): its 720x560 minimum size, a 280px sidebar floating 12px inside the window, the
    macOS buttons overlaid on that sidebar's 48px toolbar, and the pane header centred on the same line.
@@ -725,7 +756,7 @@ footer li a:hover{color:var(--blue-3)}
       <a href="#answers">Straight answers</a>
       <a href="blog.html">Blog</a>
     </nav>
-    <a class="btn dark sm" href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a>
+    <a class="btn dark sm" href="#waitlist">Join the waitlist</a>
   </div>
 </header>
 
@@ -733,13 +764,20 @@ footer li a:hover{color:var(--blue-3)}
 <section class="hero" id="top">
   <div class="card bluecard hero-card">
     <div class="hero-copy">
+      <p class="soon"><i></i>In development</p>
       <h1><span class="w"><i>Private</i></span> <span class="w"><i>messaging,</i></span> <span class="w"><i>kept</i></span> <span class="w"><i>honest.</i></span></h1>
       <p class="lead">Pick a username and start talking. Only the people in a chat can read it, not even us, and witnesses check every key we hand out.</p>
       <div class="cta">
-        <a class="btn light" href="https://github.com/snowdamiz/whatsdown/releases"><svg class="ic" aria-hidden="true"><use href="#i-get"/></svg>Get Morse</a>
+        <form class="join" action="/waitlist" method="post">
+          <label class="vh" for="email-top">Email address</label>
+          <input id="email-top" name="email" type="email" required maxlength="254" autocomplete="email" placeholder="Your email">
+          <input class="trap" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn dark">Join the waitlist</button>
+          <p class="joined" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>You’re on the list. We’ll email you at launch.</p>
+        </form>
         <a class="go down" href="#network">See how we’re kept honest<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></a>
       </div>
-      <p class="plats">Made for iPhone, Android, Mac and Windows.</p>
+      <p class="plats">Coming to iPhone, Android, Mac and Windows.</p>
     </div>
 
     <div class="hero-art live in" aria-hidden="true">
@@ -1049,6 +1087,10 @@ footer li a:hover{color:var(--blue-3)}
     </div>
     <div class="qa reveal">
       <details open>
+        <summary>When can I use Morse?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>Not yet. Morse is still being built, for iPhone, Android, Mac and Windows. Join the waitlist and we’ll email you when it’s ready. It’s the only place we’ll ever ask for your email: your account itself is just a username.</p>
+      </details>
+      <details>
         <summary>Do I need a phone number?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
         <p>No. Your account is a username: 3 to 32 lowercase letters, numbers or underscores. No phone number, no email, and Morse never uploads your contacts.</p>
       </details>
@@ -1116,15 +1158,21 @@ footer li a:hover{color:var(--blue-3)}
   </div>
 </section>
 
-<section id="get">
+<section id="waitlist">
   <div class="card bluecard get">
     <div class="copy reveal">
       <h2>Start a conversation nobody else is part of.</h2>
       <div class="cta">
-        <a class="btn light" href="https://github.com/snowdamiz/whatsdown/releases"><svg class="ic" aria-hidden="true"><use href="#i-get"/></svg>Get Morse</a>
-        <a class="btn line" href="witnesses.html">Run a witness</a>
+        <form class="join" action="/waitlist" method="post">
+          <label class="vh" for="email-end">Email address</label>
+          <input id="email-end" name="email" type="email" required maxlength="254" autocomplete="email" placeholder="Your email">
+          <input class="trap" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn dark">Join the waitlist</button>
+          <p class="joined" id="joined" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>You’re on the list. We’ll email you at launch.</p>
+        </form>
       </div>
-      <p class="note">Made for iPhone, Android, Mac and Windows. Downloads are published on GitHub as each one is ready.</p>
+      <p class="note">Morse is in development for iPhone, Android, Mac and Windows. We’ll only use your email to tell you when it’s ready. The app itself never asks for it.</p>
+      <a class="go" href="witnesses.html">Or run a witness<svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></a>
     </div>
     <div class="mac reveal" aria-hidden="true">
       <div class="win">
@@ -1194,7 +1242,7 @@ footer li a:hover{color:var(--blue-3)}
     </div>
     <div>
       <h3>Project</h3>
-      <ul><li><a href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a></li><li><a href="witnesses.html">Run a witness</a></li><li><a href="https://github.com/snowdamiz/whatsdown">GitHub</a></li><li><a href="https://meshlang.dev">Mesh language</a></li></ul>
+      <ul><li><a href="#waitlist">Join the waitlist</a></li><li><a href="witnesses.html">Run a witness</a></li><li><a href="https://github.com/snowdamiz/whatsdown">GitHub</a></li><li><a href="https://meshlang.dev">Mesh language</a></li></ul>
     </div>
     <p class="quiet">This page sets no cookies and loads nothing from third parties: no trackers, no analytics, no hosted fonts.</p>
   </div>
@@ -1300,6 +1348,20 @@ footer li a:hover{color:var(--blue-3)}
     const b = e.target.closest("button"); if (!b) return;
     clearInterval(auto); auto = 0; show(b.dataset.set);
   });
+
+  // ---- The waitlist, without leaving the page. The Worker answers 400 with what's wrong, which the field
+  // shows as its own message. Without script the form posts and the Worker sends the page back to #joined.
+  for (const form of $$(".join")) {
+    const email = form.elements.email;
+    email.addEventListener("input", () => email.setCustomValidity(""));
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const res = await fetch(form.action, {method: "POST", body: new FormData(form)}).catch(() => null);
+      if (res?.ok) return form.classList.add("done");
+      email.setCustomValidity(res?.status === 400 ? await res.text() : "We couldn’t reach the waitlist just now. Try again in a moment.");
+      email.reportValidity();
+    });
+  }
 
   // ---- The privacy card opens to the window's edges as it comes up the screen, and the nav goes dark
   // while the card is under it.

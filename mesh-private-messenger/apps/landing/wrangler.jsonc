@@ -1,6 +1,8 @@
 {
   // Static landing page, deployed by .github/workflows/backend-release.yml.
   "name": "morse-landing",
+  // Files are served as they are; only what isn't a file (the waitlist form's POST) reaches the script.
+  "main": "waitlist.mjs",
   "compatibility_date": "2026-09-18",
   "workers_dev": true,
   "preview_urls": false,
@@ -9,5 +11,7 @@
     { "pattern": "www.morseapp.io", "custom_domain": true }
   ],
   "observability": { "enabled": false },
-  "assets": { "directory": "." }
+  "assets": { "directory": "." },
+  // No id: `wrangler deploy` creates the namespace the first time and reuses it after.
+  "kv_namespaces": [{ "binding": "WAITLIST" }]
 }
