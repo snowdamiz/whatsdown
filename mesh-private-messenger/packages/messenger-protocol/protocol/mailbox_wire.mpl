@@ -82,7 +82,7 @@ pub fn sign_mailbox_fetch(signing_key :: borrow SigningPrivateKey,
     signature: Bytes.empty()
   }
   let signature = mailbox_signature(signing_key, mailbox_fetch_signing_bytes(unsigned)?)?
-  encode_mailbox_fetch(% { unsigned | signature: signature })
+  encode_mailbox_fetch(%{unsigned | signature: signature})
 end
 
 pub fn decode_mailbox_fetch(input :: Bytes) -> MailboxFetch!ProtocolError do
@@ -253,7 +253,7 @@ pub fn sign_mailbox_ack(signing_key :: borrow SigningPrivateKey,
     signature: Bytes.empty()
   }
   let signature = mailbox_signature(signing_key, mailbox_ack_signing_bytes(unsigned)?)?
-  encode_mailbox_ack(% { unsigned | signature: signature })
+  encode_mailbox_ack(%{unsigned | signature: signature})
 end
 
 pub fn decode_mailbox_ack(input :: Bytes) -> MailboxAck!ProtocolError do

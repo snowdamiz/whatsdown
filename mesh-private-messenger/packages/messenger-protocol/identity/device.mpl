@@ -457,7 +457,7 @@ end
 
 fn deletion_signing_bytes(value :: AccountDeletion) -> Bytes!IdentityError do
   identity_append(Bytes.from_utf8("mesh-msg/v1/account-deletion"),
-    protocol_bytes(encode_account_deletion(% { value | signature: empty_signature()? }))?)
+    protocol_bytes(encode_account_deletion(%{value | signature: empty_signature()?}))?)
 end
 
 ## Deletes the whole account: every device, the username, and all it left on
@@ -472,7 +472,7 @@ pub fn issue_account_deletion(account :: borrow AccountKeys, issued_at :: U64) -
   }
   case Crypto.sign(account.private_key, deletion_signing_bytes(unsigned)?) do
     Err(error) -> Err(CryptoFailure(error))
-    Ok(signature) -> Ok(% { unsigned | signature: signature.bytes })
+    Ok(signature) -> Ok(%{unsigned | signature: signature.bytes})
   end
 end
 
@@ -491,7 +491,7 @@ end
 
 fn departure_signing_bytes(value :: DeviceDeparture) -> Bytes!IdentityError do
   identity_append(Bytes.from_utf8("mesh-msg/v1/device-departure"),
-    protocol_bytes(encode_device_departure(% { value | signature: empty_signature()? }))?)
+    protocol_bytes(encode_device_departure(%{value | signature: empty_signature()?}))?)
 end
 
 ## Takes one device out of its account, signed by that device alone: it can
@@ -508,7 +508,7 @@ pub fn issue_device_departure(device :: borrow DeviceKeys, account_id :: Bytes, 
   }
   case Crypto.sign(device.signing_private_key, departure_signing_bytes(unsigned)?) do
     Err(error) -> Err(CryptoFailure(error))
-    Ok(signature) -> Ok(% { unsigned | signature: signature.bytes })
+    Ok(signature) -> Ok(%{unsigned | signature: signature.bytes})
   end
 end
 

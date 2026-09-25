@@ -393,8 +393,8 @@ fn happy_path() -> Bool!String do
         }
       ])?)?
   assert(publish_prekeys_request(pool, encode_prekey_publish(conflicting)?).status == 409)
-  let first_claim_body = encode_prekey_claim(% { claim | reservation_id: repeated(60, 16)? })?
-  let second_claim_body = encode_prekey_claim(% { claim | reservation_id: repeated(61, 16)? })?
+  let first_claim_body = encode_prekey_claim(%{claim | reservation_id: repeated(60, 16)?})?
+  let second_claim_body = encode_prekey_claim(%{claim | reservation_id: repeated(61, 16)?})?
   let first_job = Job.async(fn () -> claimed_id(pool, first_claim_body) end)
   let second_job = Job.async(fn () -> claimed_id(pool, second_claim_body) end)
   let first_claim_id = await_claim_id(first_job, 0)?
@@ -402,14 +402,14 @@ fn happy_path() -> Bool!String do
   assert(first_claim_id != second_claim_id)
   let ids_match = (first_claim_id == 100 && second_claim_id == 101) || (first_claim_id == 101 && second_claim_id == 100)
   assert(ids_match)
-  let first_replay_body = encode_prekey_claim(% { claim | reservation_id: repeated(60, 16)? })?
-  let second_replay_body = encode_prekey_claim(% { claim | reservation_id: repeated(61, 16)? })?
+  let first_replay_body = encode_prekey_claim(%{claim | reservation_id: repeated(60, 16)?})?
+  let second_replay_body = encode_prekey_claim(%{claim | reservation_id: repeated(61, 16)?})?
   let first_replay = claim_prekey_request(pool, first_replay_body)
   let first_exact_replay = claim_prekey_request(pool,
-    encode_prekey_claim(% { claim | reservation_id: repeated(60, 16)? })?)
+    encode_prekey_claim(%{claim | reservation_id: repeated(60, 16)?})?)
   let second_replay = claim_prekey_request(pool, second_replay_body)
   let second_exact_replay = claim_prekey_request(pool,
-    encode_prekey_claim(% { claim | reservation_id: repeated(61, 16)? })?)
+    encode_prekey_claim(%{claim | reservation_id: repeated(61, 16)?})?)
   assert(first_replay.status == 200)
   assert(second_replay.status == 200)
   assert(Bytes.secure_equals(first_replay.body, first_exact_replay.body))
@@ -419,7 +419,7 @@ fn happy_path() -> Bool!String do
   assert(first_replay_id != second_replay_id)
   let replay_ids_match = (first_replay_id == 100 && second_replay_id == 101) || (first_replay_id == 101 && second_replay_id == 100)
   assert(replay_ids_match)
-  let exhausted_claim_body = encode_prekey_claim(% { claim | reservation_id: repeated(62, 16)? })?
+  let exhausted_claim_body = encode_prekey_claim(%{claim | reservation_id: repeated(62, 16)?})?
   assert(claim_prekey_request(pool, exhausted_claim_body).status == 409)
   let exhausted_recovery = publish_prekeys_request(pool, encode_prekey_publish(recovery)?)
   assert(exhausted_recovery.status == 200)
@@ -440,7 +440,7 @@ fn happy_path() -> Bool!String do
   assert(U64.compare(decoded_bundle(claim_prekey_request(pool, exhausted_claim_body).body)?.one_time_prekey_id,
     wide("102")?) == 0)
   assert(claim_prekey_request(pool,
-    encode_prekey_claim(% { claim | reservation_id: repeated(63, 16)? })?).status == 409)
+    encode_prekey_claim(%{claim | reservation_id: repeated(63, 16)?})?).status == 409)
   let bounded_values = prekey_range(980, 64, 0, List.new())?
   let bounded = sign_publish(target.signing_private_key,
     unsigned_publish(identity, target, bounded_values)?)?
@@ -554,7 +554,7 @@ fn rotation_replay_assertions(pool :: PoolHandle,
   assert(initial.status == 200)
   assert(U64.compare(decoded_bundle(initial.body)?.one_time_prekey_id, wide("2")?) == 0)
   assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 1)
-  let legacy_claim = % { claim | reservation_id: repeated(78, 16)? }
+  let legacy_claim = %{claim | reservation_id: repeated(78, 16)?}
   let legacy_body = encode_prekey_claim(legacy_claim)?
   let legacy_initial = claim_prekey_request(pool, legacy_body)
   assert(legacy_initial.status == 200)
@@ -618,9 +618,9 @@ fn rotation_replay_assertions(pool :: PoolHandle,
   assert(legacy_replay.status == 200)
   assert(Bytes.secure_equals(legacy_replay.body, legacy_initial.body))
   assert(decoded_bundle(legacy_replay.body)?.suite == 1)
-  let unknown_stale = % { claim | reservation_id: repeated(76, 16)? }
+  let unknown_stale = %{claim | reservation_id: repeated(76, 16)?}
   assert(claim_prekey_request(pool, encode_prekey_claim(unknown_stale)?).status == 404)
-  let changed_binding = % { claim | base_bundle_hash: Crypto.sha256(hybrid_base) }
+  let changed_binding = %{claim | base_bundle_hash: Crypto.sha256(hybrid_base)}
   assert(claim_prekey_request(pool, encode_prekey_claim(changed_binding)?).status == 404)
   let other_consumed = target_consumed_key_count(pool, identity.account_id, other_target.device_id)?
   let changed_device = PrekeyClaimRequest {
@@ -648,7 +648,7 @@ fn publish_status(pool :: PoolHandle,
   prekeys :: List<OneTimePrekeyPublic>,
   reusable :: Option<OneTimePrekeyPublic>) -> Int!String do
   let unsigned = unsigned_publish(identity, device, prekeys)?
-  let signed = sign_publish(device.signing_private_key, % { unsigned | last_resort: reusable })?
+  let signed = sign_publish(device.signing_private_key, %{unsigned | last_resort: reusable})?
   Ok(publish_prekeys_request(pool, encode_prekey_publish(signed)?).status)
 end
 
@@ -746,7 +746,7 @@ fn contact_address_path() -> Bool!String do
     _ -> Err("target registration failed")
   end?
   let address = repeated(42, 32)?
-  let named = % { unsigned_publish(identity, target, List.new())? | contact_address_hash: Some(Crypto.sha256(address)) }
+  let named = %{unsigned_publish(identity, target, List.new())? | contact_address_hash: Some(Crypto.sha256(address))}
   let signed = sign_publish(target.signing_private_key, named)?
   assert(publish_prekeys_request(pool, encode_prekey_publish(signed)?).status == 201)
   assert(publish_prekeys_request(pool, encode_prekey_publish(signed)?).status == 200)
@@ -755,11 +755,11 @@ fn contact_address_path() -> Bool!String do
     [Binary(Crypto.sha256(address)), Binary(Crypto.sha256(mailbox))])?
   assert(List.length(rows) == 1)
   # The signature covers the address: a publication altered to name another is refused.
-  let forged = % { signed | contact_address_hash: Some(Crypto.sha256(repeated(43, 32)?)) }
+  let forged = %{signed | contact_address_hash: Some(Crypto.sha256(repeated(43, 32)?))}
   assert(publish_prekeys_request(pool, encode_prekey_publish(forged)?).status == 403)
   # Nobody may name an address that already routes somewhere.
   let taken = sign_publish(target.signing_private_key,
-    % { unsigned_publish(identity, target, List.new())? | contact_address_hash: Some(Crypto.sha256(mailbox)) })?
+    %{unsigned_publish(identity, target, List.new())? | contact_address_hash: Some(Crypto.sha256(mailbox))})?
   assert(publish_prekeys_request(pool, encode_prekey_publish(taken)?).status == 409)
   Ok(true)
 end

@@ -194,7 +194,7 @@ fn proof() -> Bool!String do
   assert(delete_account_request(pool, Bytes.from_utf8("not a deletion")).status == 400)
   let forged = deletion(stranger, now()?)?
   assert(delete_account_request(pool,
-    deletion_wire(% { forged | account_id: alice_identity.account_id })?).status == 403)
+    deletion_wire(%{forged | account_id: alice_identity.account_id})?).status == 403)
   let stale = wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()) - 360000))?
   assert(delete_account_request(pool, deletion_wire(deletion(alice, stale)?)?).status == 403)
   # An account the directory never had is as gone as a deleted one. Only a
@@ -286,7 +286,7 @@ fn departure_proof() -> Bool!String do
   # a stale statement.
   assert(leave_device_request(pool, Bytes.from_utf8("garbage")).status == 400)
   let forged = departure(phone, alice_id, now()?)?
-  assert(leave_device_request(pool, departure_wire(% { forged | device_id: laptop.device_id })?).status == 403)
+  assert(leave_device_request(pool, departure_wire(%{forged | device_id: laptop.device_id})?).status == 403)
   let stale = wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()) - 360000))?
   assert(leave_device_request(pool, departure_wire(departure(laptop, alice_id, stale)?)?).status == 403)
   assert(device_state(pool, alice_id)? == "2:0:2:2:2")

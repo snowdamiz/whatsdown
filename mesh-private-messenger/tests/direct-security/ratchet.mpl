@@ -556,7 +556,7 @@ fn proof() -> Int!ProofError do
     bob_account.account_id,
     bob_credential.device_id)
   let bob_session = expect_replay(bob_session, first_message, associated_data)
-  let excessive = % { fourth_message | message_number: 100 }
+  let excessive = %{fourth_message | message_number: 100}
   let bob_session = expect_jump_rejection(bob_session, excessive, associated_data)
   let bob_session = expect_authentication_rejection(bob_session,
     fourth_message,
