@@ -53,7 +53,7 @@ pub fn publish_contact_address(pool :: PoolHandle, mailbox_hash :: Bytes, alias_
     Err("invalid contact address")
   else
     Repo.transaction(pool,
-      fn(conn :: borrow PgConn) -> publish_contact_address_on_connection(conn,
+      fn (conn :: borrow PgConn) -> publish_contact_address_on_connection(conn,
         mailbox_hash,
         alias_hash) end)
   end

@@ -267,7 +267,10 @@ fn take_u8(state :: BinaryReader) -> ReadInt!SnapshotError do
     Err(_) -> Err(InvalidSnapshot)
     Ok(value) -> do
       let (next, number) = value
-      Ok(ReadInt { state: next, value: number })
+      Ok(ReadInt {
+        state: next,
+        value: number
+      })
     end
   end
 end
@@ -277,7 +280,10 @@ fn take_u16(state :: BinaryReader) -> ReadInt!SnapshotError do
     Err(_) -> Err(InvalidSnapshot)
     Ok(value) -> do
       let (next, number) = value
-      Ok(ReadInt { state: next, value: number })
+      Ok(ReadInt {
+        state: next,
+        value: number
+      })
     end
   end
 end
@@ -287,7 +293,10 @@ fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!SnapshotError d
     Err(_) -> Err(InvalidSnapshot)
     Ok(value) -> do
       let (next, bytes) = value
-      Ok(ReadBytes { state: next, value: bytes })
+      Ok(ReadBytes {
+        state: next,
+        value: bytes
+      })
     end
   end
 end
@@ -297,7 +306,10 @@ fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!SnapshotError
     Err(_) -> Err(InvalidSnapshot)
     Ok(value) -> do
       let (next, bytes) = value
-      Ok(ReadBytes { state: next, value: bytes })
+      Ok(ReadBytes {
+        state: next,
+        value: bytes
+      })
     end
   end
 end
@@ -308,7 +320,10 @@ fn take_u32(state :: BinaryReader) -> ReadInt!SnapshotError do
     Err(_) -> Err(InvalidSnapshot)
     Ok(wide) -> case U64.to_int(wide) do
       Err(_) -> Err(InvalidSnapshot)
-      Ok(value) -> Ok(ReadInt { state: encoded.state, value: value })
+      Ok(value) -> Ok(ReadInt {
+        state: encoded.state,
+        value: value
+      })
     end
   end
 end
@@ -317,7 +332,10 @@ fn take_u64(state :: BinaryReader) -> ReadWide!SnapshotError do
   let encoded = take_fixed(state, 8)?
   case Bytes.read_u64_be(encoded.value, 0) do
     Err(_) -> Err(InvalidSnapshot)
-    Ok(value) -> Ok(ReadWide { state: encoded.state, value: value })
+    Ok(value) -> Ok(ReadWide {
+      state: encoded.state,
+      value: value
+    })
   end
 end
 
@@ -338,9 +356,17 @@ fn take_aging(state :: BinaryReader, format :: Int) -> ReadAging!SnapshotError d
   if format == 2 do
     let generation = take_u32(state)?
     let index = take_vector(generation.state, 2560)?
-    Ok(ReadAging { state: index.state, generation: generation.value, index: index.value })
+    Ok(ReadAging {
+      state: index.state,
+      generation: generation.value,
+      index: index.value
+    })
   else
-    Ok(ReadAging { state: state, generation: 0, index: Bytes.empty() })
+    Ok(ReadAging {
+      state: state,
+      generation: 0,
+      index: Bytes.empty()
+    })
   end
 end
 

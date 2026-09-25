@@ -51,7 +51,10 @@ fn exercise() -> Bool!String do
   let accepted = uploaded?
   assert(accepted.status == 201)
   let completed = post("/v1/attachments/complete",
-    encode_complete(ObjectControl { object_id: id, capability: upload })?)?
+    encode_complete(ObjectControl {
+      object_id: id,
+      capability: upload
+    })?)?
   assert(completed.status == 200)
   let fetched = download(path, read)?
   assert(fetched.status == 200)

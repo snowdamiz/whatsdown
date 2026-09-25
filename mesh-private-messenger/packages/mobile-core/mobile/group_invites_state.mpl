@@ -140,11 +140,11 @@ pub fn load_invitations(path :: String, key :: borrow StorageKey) -> List<GroupI
     decode_record(part)?
   end
   let now = current_time()?
-  let live = List.filter(records, fn(value) do U64.compare(value.expires_at, now) > 0 end)
+  let live = List.filter(records, fn (value) do U64.compare(value.expires_at, now) > 0 end)
   if List.length(live) != List.length(records) do
-    let expired = List.filter(records, fn(value) do U64.compare(value.expires_at, now) <= 0 end)
+    let expired = List.filter(records, fn (value) do U64.compare(value.expires_at, now) <= 0 end)
     let removed = List.flat_map(expired,
-      fn(value) do [
+      fn (value) do [
         invitation_key_label(value.id, "package"),
         invitation_key_label(value.id, "init"),
         invitation_key_label(value.id, "leaf")
@@ -161,7 +161,7 @@ pub fn find_invitation(values :: List<GroupInvitation>, reference :: Bytes) -> G
   let id = Bytes.slice(reference, 0, 16)?
   let device = Bytes.slice(reference, 16, 16)?
   case List.find(values,
-    fn(value) do Bytes.secure_equals(value.id, id) && Bytes.secure_equals(value.recipient_device,
+    fn (value) do Bytes.secure_equals(value.id, id) && Bytes.secure_equals(value.recipient_device,
       device) end) do
     Some(value) -> Ok(value)
     None -> Err("group_invitation_not_found")
@@ -170,7 +170,7 @@ end
 
 pub fn replace_invitation(values :: List<GroupInvitation>, next :: GroupInvitation) -> List<GroupInvitation> do
   List.map(values,
-    fn(value) do
+    fn (value) do
       if Bytes.secure_equals(value.id, next.id) && Bytes.secure_equals(value.recipient_device,
         next.recipient_device) do
         next
@@ -296,9 +296,9 @@ fn accepted_scope(values :: List<GroupInvitation>,
   if value.state == 2 && Bytes.secure_equals(value.group_id, welcome.commit.group_id) do
     let package = decode_group_key_package(value.key_package)?
     let recipient = List.find(welcome.members,
-      fn(member) do member.leaf_index == welcome.recipient_leaf end)
+      fn (member) do member.leaf_index == welcome.recipient_leaf end)
     let committer = List.find(welcome.members,
-      fn(member) do member.leaf_index == welcome.commit.committer_leaf end)
+      fn (member) do member.leaf_index == welcome.commit.committer_leaf end)
     case (recipient, committer) do
       (Some(target), Some(sender)) -> if Bytes.secure_equals(target.member.init_public_key.bytes,
         package.init_public_key.bytes) && Bytes.secure_equals(target.member.leaf_public_key.bytes,

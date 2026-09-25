@@ -113,14 +113,20 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid privacy wire")
-    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid privacy wire")
-    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
@@ -130,7 +136,10 @@ fn take_u32(state :: BinaryReader) -> ReadInt!String do
     Err(_) -> Err("invalid privacy integer")
     Ok(value) -> case U64.to_int(value) do
       Err(_) -> Err("invalid privacy integer")
-      Ok(parsed) -> Ok(ReadInt { state: bytes.state, value: parsed })
+      Ok(parsed) -> Ok(ReadInt {
+        state: bytes.state,
+        value: parsed
+      })
     end
   end
 end
@@ -139,7 +148,10 @@ fn take_u64(state :: BinaryReader) -> ReadWide!String do
   let bytes = take_fixed(state, 8)?
   case Bytes.read_u64_be(bytes.value, 0) do
     Err(_) -> Err("invalid privacy integer")
-    Ok(value) -> Ok(ReadWide { state: bytes.state, value: value })
+    Ok(value) -> Ok(ReadWide {
+      state: bytes.state,
+      value: value
+    })
   end
 end
 
@@ -352,7 +364,10 @@ fn mine(label :: String, payload_hash :: Bytes, expires_at :: U64, difficulty ::
   if nonce >= 2147483647 do
     Err("abuse token search exhausted")
   else if leading_zero_bits(work_hash(label, payload_hash, expires_at, nonce)?, 0, difficulty) do
-    Ok(AnonymousAbuseToken { expires_at: expires_at, nonce: nonce })
+    Ok(AnonymousAbuseToken {
+      expires_at: expires_at,
+      nonce: nonce
+    })
   else
     mine(label, payload_hash, expires_at, difficulty, nonce + 1)
   end
@@ -422,7 +437,10 @@ pub fn decode_privacy_submission(input :: Bytes) -> PrivacySubmission!String do
   let sealed = take_vector(nonce.state, 65674)?
   done(sealed.state)?
   Ok(PrivacySubmission {
-    token: AnonymousAbuseToken { expires_at: expires_at.value, nonce: nonce.value },
+    token: AnonymousAbuseToken {
+      expires_at: expires_at.value,
+      nonce: nonce.value
+    },
     sealed: decode_sealed_delivery(sealed.value)?
   })
 end
@@ -436,7 +454,10 @@ pub fn mint_request_stamp(label :: String, payload :: Bytes, expires_at :: U64, 
     Err("invalid abuse difficulty")
   else
     let token = mine(label, Crypto.sha256(payload), expires_at, difficulty, 0)?
-    Ok(RequestStamp { expires_at: token.expires_at, nonce: token.nonce })
+    Ok(RequestStamp {
+      expires_at: token.expires_at,
+      nonce: token.nonce
+    })
   end
 end
 
@@ -485,5 +506,9 @@ pub fn decode_stamped_request(input :: Bytes, maximum_payload :: Int) -> Result<
   let nonce = take_u32(expires_at.state)?
   let payload = take_vector(nonce.state, maximum_payload)?
   done(payload.state)?
-  Ok((RequestStamp { expires_at: expires_at.value, nonce: nonce.value }, payload.value))
+  Ok((RequestStamp {
+      expires_at: expires_at.value,
+      nonce: nonce.value
+    },
+    payload.value))
 end

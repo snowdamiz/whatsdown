@@ -28,7 +28,7 @@ fn states(path :: String, peer :: Bytes) -> List<Int>!String do
     0,
     Bytes.empty())?)?)?
   Ok(List.map(summaries,
-    fn(summary) do
+    fn (summary) do
       case Bytes.get(summary, Bytes.length(summary) - 1) do
         Err(_) -> 255
         Ok(value) -> value

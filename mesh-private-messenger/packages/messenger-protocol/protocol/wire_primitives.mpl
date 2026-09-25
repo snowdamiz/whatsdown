@@ -133,21 +133,30 @@ end
 pub fn protocol_take_u8(state :: BinaryReader) -> ProtocolReadInt!ProtocolError do
   case read_u8(state) do
     Err(_) -> Err(MalformedEncoding)
-    Ok((next, value)) -> Ok(ProtocolReadInt { state: next, value: value })
+    Ok((next, value)) -> Ok(ProtocolReadInt {
+      state: next,
+      value: value
+    })
   end
 end
 
 pub fn protocol_take_u16(state :: BinaryReader) -> ProtocolReadInt!ProtocolError do
   case read_u16_be(state) do
     Err(_) -> Err(MalformedEncoding)
-    Ok((next, value)) -> Ok(ProtocolReadInt { state: next, value: value })
+    Ok((next, value)) -> Ok(ProtocolReadInt {
+      state: next,
+      value: value
+    })
   end
 end
 
 pub fn protocol_take_fixed(state :: BinaryReader, length :: Int) -> ProtocolReadBytes!ProtocolError do
   case read_fixed(state, length) do
     Err(_) -> Err(MalformedEncoding)
-    Ok((next, value)) -> Ok(ProtocolReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ProtocolReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
@@ -155,7 +164,10 @@ pub fn protocol_take_suite_fixed(state :: BinaryReader, suite :: Int, length :: 
   if suite == 2 do
     protocol_take_fixed(state, length)
   else if suite == 1 do
-    Ok(ProtocolReadBytes { state: state, value: Bytes.empty() })
+    Ok(ProtocolReadBytes {
+      state: state,
+      value: Bytes.empty()
+    })
   else
     Err(UnsupportedSuite)
   end
@@ -164,7 +176,10 @@ end
 pub fn protocol_take_vector(state :: BinaryReader, maximum :: Int) -> ProtocolReadBytes!ProtocolError do
   case read_vector(state, maximum) do
     Err(_) -> Err(MalformedEncoding)
-    Ok((next, value)) -> Ok(ProtocolReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ProtocolReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
@@ -172,7 +187,10 @@ pub fn protocol_take_u32(state :: BinaryReader) -> ProtocolReadWide!ProtocolErro
   let bytes = protocol_take_fixed(state, 4)?
   case Bytes.read_u32_be(bytes.value, 0) do
     Err(_) -> Err(MalformedEncoding)
-    Ok(value) -> Ok(ProtocolReadWide { state: bytes.state, value: value })
+    Ok(value) -> Ok(ProtocolReadWide {
+      state: bytes.state,
+      value: value
+    })
   end
 end
 
@@ -180,7 +198,10 @@ pub fn protocol_take_u64(state :: BinaryReader) -> ProtocolReadWide!ProtocolErro
   let bytes = protocol_take_fixed(state, 8)?
   case Bytes.read_u64_be(bytes.value, 0) do
     Err(_) -> Err(MalformedEncoding)
-    Ok(value) -> Ok(ProtocolReadWide { state: bytes.state, value: value })
+    Ok(value) -> Ok(ProtocolReadWide {
+      state: bytes.state,
+      value: value
+    })
   end
 end
 
@@ -211,7 +232,10 @@ pub fn protocol_read_ack_ids(state :: BinaryReader,
   index :: Int,
   output :: List<Bytes>) -> ProtocolReadIds!ProtocolError do
   if index >= count do
-    Ok(ProtocolReadIds { state: state, value: output })
+    Ok(ProtocolReadIds {
+      state: state,
+      value: output
+    })
   else
     let id = protocol_take_fixed(state, 16)?
     protocol_read_ack_ids(id.state, count, index + 1, List.append(output, id.value))

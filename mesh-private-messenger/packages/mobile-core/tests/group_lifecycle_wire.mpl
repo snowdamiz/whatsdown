@@ -38,7 +38,12 @@ pub fn ack(input :: Bytes) -> MailboxAck!String do
 end
 
 pub fn delivery_batch(envelope :: Bytes) -> Bytes!String do
-  case encode_delivery_batch([DeliveredEnvelope { sequence: group_wide("1")?, envelope: envelope }]) do
+  case encode_delivery_batch([
+    DeliveredEnvelope {
+      sequence: group_wide("1")?,
+      envelope: envelope
+    }
+  ]) do
     Err(_) -> Err("delivery batch encode failed")
     Ok(value)
   end

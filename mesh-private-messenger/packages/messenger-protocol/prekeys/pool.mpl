@@ -110,14 +110,20 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid prekey pool wire")
-    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt!String do
   case read_u8(state) do
     Err(_) -> Err("invalid prekey pool wire")
-    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadInt {
+      state: next,
+      value: value
+    })
   end
 end
 
@@ -125,7 +131,10 @@ fn take_u64(state :: BinaryReader) -> ReadWide!String do
   let value = take_fixed(state, 8)?
   case Bytes.read_u64_be(value.value, 0) do
     Err(_) -> Err("invalid prekey pool integer")
-    Ok(output) -> Ok(ReadWide { state: value.state, value: output })
+    Ok(output) -> Ok(ReadWide {
+      state: value.state,
+      value: output
+    })
   end
 end
 
@@ -185,7 +194,10 @@ fn decode_prekeys(state :: BinaryReader,
   previous :: U64,
   output :: List<OneTimePrekeyPublic>) -> ReadPrekeys!String do
   if remaining <= 0 do
-    Ok(ReadPrekeys { state: state, value: output })
+    Ok(ReadPrekeys {
+      state: state,
+      value: output
+    })
   else
     let id = take_u64(state)?
     let public_key = take_fixed(id.state, 32)?
@@ -195,7 +207,11 @@ fn decode_prekeys(state :: BinaryReader,
       decode_prekeys(public_key.state,
         remaining - 1,
         id.value,
-        List.append(output, OneTimePrekeyPublic { id: id.value, public_key: public_key.value }))
+        List.append(output,
+          OneTimePrekeyPublic {
+            id: id.value,
+            public_key: public_key.value
+          }))
     end
   end
 end
@@ -235,10 +251,16 @@ end
 fn decode_contact_address_hash(state :: BinaryReader) -> ReadOptionalHash!String do
   let present = take_u8(state)?
   if present.value == 0 do
-    Ok(ReadOptionalHash { state: present.state, value: None })
+    Ok(ReadOptionalHash {
+      state: present.state,
+      value: None
+    })
   else if present.value == 1 do
     let hash = take_fixed(present.state, 32)?
-    Ok(ReadOptionalHash { state: hash.state, value: Some(hash.value) })
+    Ok(ReadOptionalHash {
+      state: hash.state,
+      value: Some(hash.value)
+    })
   else
     Err("invalid contact address flag")
   end
@@ -247,13 +269,19 @@ end
 fn decode_last_resort(state :: BinaryReader) -> ReadLastResort!String do
   let present = take_u8(state)?
   if present.value == 0 do
-    Ok(ReadLastResort { state: present.state, value: None })
+    Ok(ReadLastResort {
+      state: present.state,
+      value: None
+    })
   else if present.value == 1 do
     let id = take_u64(present.state)?
     let public_key = take_fixed(id.state, 32)?
     Ok(ReadLastResort {
       state: public_key.state,
-      value: Some(OneTimePrekeyPublic { id: id.value, public_key: public_key.value })
+      value: Some(OneTimePrekeyPublic {
+        id: id.value,
+        public_key: public_key.value
+      })
     })
   else
     Err("invalid last-resort prekey flag")
@@ -270,7 +298,10 @@ end
 
 fn decode_ids(state :: BinaryReader, remaining :: Int, previous :: U64, output :: List<U64>) -> ReadIds!String do
   if remaining <= 0 do
-    Ok(ReadIds { state: state, value: output })
+    Ok(ReadIds {
+      state: state,
+      value: output
+    })
   else
     let id = take_u64(state)?
     if !(valid_id(id.value)?) || U64.compare(id.value, previous) <= 0 do

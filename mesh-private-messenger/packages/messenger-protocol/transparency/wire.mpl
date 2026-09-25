@@ -119,28 +119,40 @@ end
 fn take_u8(state :: BinaryReader) -> ReadInt!String do
   case read_u8(state) do
     Err(_) -> Err("invalid transparency wire")
-    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadInt {
+      state: next,
+      value: value
+    })
   end
 end
 
 fn take_u16(state :: BinaryReader) -> ReadInt!String do
   case read_u16_be(state) do
     Err(_) -> Err("invalid transparency wire")
-    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadInt {
+      state: next,
+      value: value
+    })
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid transparency wire")
-    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid transparency wire")
-    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
@@ -150,7 +162,10 @@ fn take_u32(state :: BinaryReader) -> ReadInt!String do
     Err(_) -> Err("invalid transparency wire integer")
     Ok(output) -> case U64.to_int(output) do
       Err(_) -> Err("invalid transparency wire integer")
-      Ok(parsed) -> Ok(ReadInt { state: value.state, value: parsed })
+      Ok(parsed) -> Ok(ReadInt {
+        state: value.state,
+        value: parsed
+      })
     end
   end
 end
@@ -159,7 +174,10 @@ fn take_u64(state :: BinaryReader) -> ReadWide!String do
   let value = take_fixed(state, 8)?
   case Bytes.read_u64_be(value.value, 0) do
     Err(_) -> Err("invalid transparency wire integer")
-    Ok(output) -> Ok(ReadWide { state: value.state, value: output })
+    Ok(output) -> Ok(ReadWide {
+      state: value.state,
+      value: output
+    })
   end
 end
 
@@ -271,7 +289,10 @@ pub fn decode_transparency_lookup(input :: Bytes) -> TransparencyLookup!String d
     else
       case Bytes.to_utf8(username.value) do
         Err(_) -> Err("invalid transparency lookup")
-        Ok(value) -> Ok(TransparencyLookup { username: value, previous_tree_size: previous.value })
+        Ok(value) -> Ok(TransparencyLookup {
+          username: value,
+          previous_tree_size: previous.value
+        })
       end
     end
   end
@@ -307,7 +328,10 @@ end
 
 fn read_hashes(state :: BinaryReader, count :: Int, index :: Int, output :: List<Bytes>) -> ReadHashes!String do
   if index >= count do
-    Ok(ReadHashes { state: state, value: output })
+    Ok(ReadHashes {
+      state: state,
+      value: output
+    })
   else
     let value = take_fixed(state, 32)?
     read_hashes(value.state, count, index + 1, List.append(output, value.value))
@@ -467,7 +491,10 @@ fn read_witnesses(state :: BinaryReader,
   index :: Int,
   output :: List<WitnessAttestation>) -> ReadWitnesses!String do
   if index >= count do
-    Ok(ReadWitnesses { state: state, value: output })
+    Ok(ReadWitnesses {
+      state: state,
+      value: output
+    })
   else
     let witness_id = take_vector(state, 64)?
     let checkpoint_hash = take_fixed(witness_id.state, 32)?

@@ -154,9 +154,7 @@ fn witness_once() -> Result<(), String> do
   if String.length(witness_id) == 0 || String.length(witness_id) > 64 || String.length(checkpoint_path) == 0 do
     return Err("invalid witness configuration")
   end
-  let trusted_log_key = SigningPublicKey {
-    bytes: configured_public_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX")?
-  }
+  let trusted_log_key = SigningPublicKey { bytes: configured_public_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX")? }
   let signer = configured_signer()?
   if !Bytes.secure_equals(signer.public_key.bytes,
     configured_public_key("MESSENGER_WITNESS_PUBLIC_KEY_HEX")?) do

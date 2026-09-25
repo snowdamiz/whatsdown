@@ -98,7 +98,11 @@ pub fn generate_account(created_at :: U64, directory_sequence :: U64) -> Result<
   let pair = signing_pair()?
   let public_key = pair.public_key
   let private_key = pair.private_key
-  Ok((AccountKeys { account_id: account_id, private_key: private_key, public_key: public_key },
+  Ok((AccountKeys {
+      account_id: account_id,
+      private_key: private_key,
+      public_key: public_key
+    },
     AccountIdentity {
       version: 1,
       account_id: account_id,

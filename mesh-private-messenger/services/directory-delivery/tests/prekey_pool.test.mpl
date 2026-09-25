@@ -308,8 +308,8 @@ fn happy_path() -> Bool!String do
     [])?
   let initial_claim_body = encode_prekey_claim(claim)?
   let second_initial_claim_body = encode_prekey_claim(claim)?
-  let initial_job = Job.async(fn() -> record_claim(pool, initial_claim_body, 1) end)
-  let second_initial_job = Job.async(fn() -> record_claim(pool, second_initial_claim_body, 2) end)
+  let initial_job = Job.async(fn () -> record_claim(pool, initial_claim_body, 1) end)
+  let second_initial_job = Job.async(fn () -> record_claim(pool, second_initial_claim_body, 2) end)
   assert(await_claim_id(initial_job, 0)? == 200)
   assert(await_claim_id(second_initial_job, 0)? == 200)
   let concurrent_claims = Pool.query_values(pool,
@@ -334,8 +334,14 @@ fn happy_path() -> Bool!String do
   let unsigned = unsigned_publish(identity,
     target,
     [
-      OneTimePrekeyPublic { id: wide("100")?, public_key: repeated(41, 32)? },
-      OneTimePrekeyPublic { id: wide("101")?, public_key: repeated(42, 32)? }
+      OneTimePrekeyPublic {
+        id: wide("100")?,
+        public_key: repeated(41, 32)?
+      },
+      OneTimePrekeyPublic {
+        id: wide("101")?,
+        public_key: repeated(42, 32)?
+      }
     ])?
   let forged = sign_publish(requester.signing_private_key, unsigned)?
   assert(publish_prekeys_request(pool, encode_prekey_publish(forged)?).status == 403)
@@ -366,7 +372,12 @@ fn happy_path() -> Bool!String do
   let tampered = PrekeyPublishRequest {
     account_id: published.account_id,
     device_id: published.device_id,
-    prekeys: [OneTimePrekeyPublic { id: wide("100")?, public_key: repeated(44, 32)? }],
+    prekeys: [
+      OneTimePrekeyPublic {
+        id: wide("100")?,
+        public_key: repeated(44, 32)?
+      }
+    ],
     last_resort: None,
     contact_address_hash: None,
     signature: published.signature
@@ -375,12 +386,17 @@ fn happy_path() -> Bool!String do
   let conflicting = sign_publish(target.signing_private_key,
     unsigned_publish(identity,
       target,
-      [OneTimePrekeyPublic { id: wide("100")?, public_key: repeated(43, 32)? }])?)?
+      [
+        OneTimePrekeyPublic {
+          id: wide("100")?,
+          public_key: repeated(43, 32)?
+        }
+      ])?)?
   assert(publish_prekeys_request(pool, encode_prekey_publish(conflicting)?).status == 409)
   let first_claim_body = encode_prekey_claim(%{claim | reservation_id: repeated(60, 16)?})?
   let second_claim_body = encode_prekey_claim(%{claim | reservation_id: repeated(61, 16)?})?
-  let first_job = Job.async(fn() -> claimed_id(pool, first_claim_body) end)
-  let second_job = Job.async(fn() -> claimed_id(pool, second_claim_body) end)
+  let first_job = Job.async(fn () -> claimed_id(pool, first_claim_body) end)
+  let second_job = Job.async(fn () -> claimed_id(pool, second_claim_body) end)
   let first_claim_id = await_claim_id(first_job, 0)?
   let second_claim_id = await_claim_id(second_job, 0)?
   assert(first_claim_id != second_claim_id)
@@ -411,7 +427,12 @@ fn happy_path() -> Bool!String do
   let replenished = sign_publish(target.signing_private_key,
     unsigned_publish(identity,
       target,
-      [OneTimePrekeyPublic { id: wide("102")?, public_key: repeated(45, 32)? }])?)?
+      [
+        OneTimePrekeyPublic {
+          id: wide("102")?,
+          public_key: repeated(45, 32)?
+        }
+      ])?)?
   assert(publish_prekeys_request(pool, encode_prekey_publish(replenished)?).status == 201)
   let replenished_claim = claim_prekey_request(pool, exhausted_claim_body)
   assert(replenished_claim.status == 200)
@@ -432,7 +453,12 @@ fn happy_path() -> Bool!String do
   let overflow = sign_publish(target.signing_private_key,
     unsigned_publish(identity,
       target,
-      [OneTimePrekeyPublic { id: wide("400")?, public_key: repeated(46, 32)? }])?)?
+      [
+        OneTimePrekeyPublic {
+          id: wide("400")?,
+          public_key: repeated(46, 32)?
+        }
+      ])?)?
   let overflow_response = publish_prekeys_request(pool, encode_prekey_publish(overflow)?)
   assert(overflow_response.status == 429)
   let overflow_active = decode_prekey_publish_response(overflow_response.body)?
@@ -507,8 +533,14 @@ fn rotation_replay_assertions(pool :: PoolHandle,
     unsigned_publish(identity,
       target,
       [
-        OneTimePrekeyPublic { id: wide("100")?, public_key: repeated(74, 32)? },
-        OneTimePrekeyPublic { id: wide("101")?, public_key: repeated(77, 32)? }
+        OneTimePrekeyPublic {
+          id: wide("100")?,
+          public_key: repeated(74, 32)?
+        },
+        OneTimePrekeyPublic {
+          id: wide("101")?,
+          public_key: repeated(77, 32)?
+        }
       ])?)?
   case publish_prekeys(pool, published) do
     Err(error) -> Err("rotation prekey publication failed: #{error}")
@@ -604,7 +636,10 @@ fn rotation_replay_assertions(pool :: PoolHandle,
 end
 
 fn last_resort(id :: String, fill :: Int) -> Option<OneTimePrekeyPublic>!String do
-  Ok(Some(OneTimePrekeyPublic { id: wide(id)?, public_key: repeated(fill, 32)? }))
+  Ok(Some(OneTimePrekeyPublic {
+    id: wide(id)?,
+    public_key: repeated(fill, 32)?
+  }))
 end
 
 fn publish_status(pool :: PoolHandle,

@@ -330,7 +330,10 @@ fn find_group_entry(state :: BinaryReader,
   found :: Bytes) -> MobileReadBytes!String do
   if remaining <= 0 do
     mobile_finish(state, "invalid_group_attachment")?
-    Ok(MobileReadBytes { state: state, value: found })
+    Ok(MobileReadBytes {
+      state: state,
+      value: found
+    })
   else
     let entry_account = take_fixed(state, 32)?
     let entry_device = take_fixed(entry_account.state, 16)?
@@ -357,7 +360,7 @@ pub fn group_attachment_reference(input :: Bytes, account_id :: Bytes, device_id
   let references = for part in parts do
     read_group_attachment(part, account_id, device_id)?
   end
-  encode_batch(List.filter(references, fn(value) do Bytes.length(value) > 0 end))
+  encode_batch(List.filter(references, fn (value) do Bytes.length(value) > 0 end))
 end
 
 fn read_group_attachment(input :: Bytes, account_id :: Bytes, device_id :: Bytes) -> Bytes!String do
@@ -494,7 +497,10 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!St
       upload_capability,
       download_capability,
       request.difficulty)?)?
-    let control = ObjectControl { object_id: object_id, capability: upload_capability }
+    let control = ObjectControl {
+      object_id: object_id,
+      capability: upload_capability
+    }
     let reference = encode_reference(MobileAttachmentReference {
       object_id: object_id,
       download_capability: download_capability,

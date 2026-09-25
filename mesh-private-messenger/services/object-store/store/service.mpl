@@ -10,7 +10,10 @@ pub struct ObjectResult do
 end
 
 fn response(status :: Int, body :: Bytes) -> ObjectResult do
-  ObjectResult { status: status, body: body }
+  ObjectResult {
+    status: status,
+    body: body
+  }
 end
 
 fn empty(status :: Int) -> ObjectResult do

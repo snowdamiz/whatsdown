@@ -433,7 +433,10 @@ fn validate_claimed_prekey(input :: Bytes,
           Err(_) -> Err("invalid_fanout_prekeys")
           Ok(value)
         end?
-        Ok(MobileClaimedPrekey { base_bundle: base_bundle, profile: claimed_profile })
+        Ok(MobileClaimedPrekey {
+          base_bundle: base_bundle,
+          profile: claimed_profile
+        })
       end
     end
   end

@@ -186,7 +186,10 @@ end
 
 fn optional_safety_number(state :: BinaryReader) -> MobileReadBytes!String do
   if state.offset == Bytes.length(state.input) do
-    Ok(MobileReadBytes { state: state, value: Bytes.empty() })
+    Ok(MobileReadBytes {
+      state: state,
+      value: Bytes.empty()
+    })
   else
     let value = take_vector(state, 64)?
     if Bytes.length(value.value) != 0 && Bytes.length(value.value) != 64 do
@@ -215,7 +218,10 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
       let key_changed = take_vector(verified.state, 1)?
       let disappearing_seconds = take_vector(key_changed.state, 4)?
       let strongest_suite = if disappearing_seconds.state.offset == Bytes.length(disappearing_seconds.state.input) do
-        MobileReadBytes { state: disappearing_seconds.state, value: mobile_byte(1)? }
+        MobileReadBytes {
+          state: disappearing_seconds.state,
+          value: mobile_byte(1)?
+        }
       else
         take_vector(disappearing_seconds.state, 1)?
       end

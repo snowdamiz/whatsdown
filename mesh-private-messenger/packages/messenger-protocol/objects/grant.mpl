@@ -78,7 +78,10 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid object wire")
-    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
@@ -90,7 +93,10 @@ fn take_u32(state :: BinaryReader) -> ReadInt!String do
   end?
   case U64.to_int(wide) do
     Err(_) -> Err("invalid object integer")
-    Ok(value) -> Ok(ReadInt { state: encoded.state, value: value })
+    Ok(value) -> Ok(ReadInt {
+      state: encoded.state,
+      value: value
+    })
   end
 end
 
@@ -98,7 +104,10 @@ fn take_u64(state :: BinaryReader) -> ReadWide!String do
   let encoded = take_fixed(state, 8)?
   case Bytes.read_u64_be(encoded.value, 0) do
     Err(_) -> Err("invalid object integer")
-    Ok(value) -> Ok(ReadWide { state: encoded.state, value: value })
+    Ok(value) -> Ok(ReadWide {
+      state: encoded.state,
+      value: value
+    })
   end
 end
 
@@ -298,7 +307,10 @@ fn decode_control(input :: Bytes, magic_value :: String) -> ObjectControl!String
   let object_id = take_fixed(start(input, 68, magic_value)?, 32)?
   let capability = take_fixed(object_id.state, 32)?
   done(capability.state)?
-  Ok(ObjectControl { object_id: object_id.value, capability: capability.value })
+  Ok(ObjectControl {
+    object_id: object_id.value,
+    capability: capability.value
+  })
 end
 
 pub fn encode_complete(value :: ObjectControl) -> Bytes!String do

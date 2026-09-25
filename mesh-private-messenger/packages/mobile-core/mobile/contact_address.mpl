@@ -96,7 +96,13 @@ pub fn outgoing_extensions(database_path :: String, wrapping_key :: borrow Stora
   if Bytes.length(address) != 32 do
     Ok(List.new())
   else
-    Ok([ProtocolExtension { id: contact_address_extension(), mandatory: false, value: address }])
+    Ok([
+      ProtocolExtension {
+        id: contact_address_extension(),
+        mandatory: false,
+        value: address
+      }
+    ])
   end
 end
 

@@ -141,7 +141,10 @@ end
 pub fn handle_prekey_claim(request :: Request) -> Response do
   case admitted(request, "mesh-msg/v1/work/prekey-claim", 100) do
     Ok(Admitted(body)) -> case decode_prekey_claim(body) do
-      Err(_) -> respond_no_store(BinaryResult { status: 400, body: Bytes.empty() })
+      Err(_) -> respond_no_store(BinaryResult {
+        status: 400,
+        body: Bytes.empty()
+      })
       Ok(_) -> respond_no_store(claim_prekey_request(get_pool(), body))
     end
     refused -> respond_no_store(admission_failure(refused))

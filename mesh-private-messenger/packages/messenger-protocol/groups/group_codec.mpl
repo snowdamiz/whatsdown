@@ -265,28 +265,40 @@ end
 pub fn group_wire_u8(state :: BinaryReader) -> GroupReadInt!GroupError do
   case read_u8(state) do
     Err(_) -> Err(InvalidGroup)
-    Ok((next, value)) -> Ok(GroupReadInt { state: next, value: value })
+    Ok((next, value)) -> Ok(GroupReadInt {
+      state: next,
+      value: value
+    })
   end
 end
 
 pub fn group_wire_u16(state :: BinaryReader) -> GroupReadInt!GroupError do
   case read_u16_be(state) do
     Err(_) -> Err(InvalidGroup)
-    Ok((next, value)) -> Ok(GroupReadInt { state: next, value: value })
+    Ok((next, value)) -> Ok(GroupReadInt {
+      state: next,
+      value: value
+    })
   end
 end
 
 pub fn group_wire_fixed(state :: BinaryReader, length :: Int) -> GroupReadBytes!GroupError do
   case read_fixed(state, length) do
     Err(_) -> Err(InvalidGroup)
-    Ok((next, value)) -> Ok(GroupReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(GroupReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
 pub fn group_wire_vector(state :: BinaryReader, maximum :: Int) -> GroupReadBytes!GroupError do
   case read_vector(state, maximum) do
     Err(_) -> Err(InvalidGroup)
-    Ok((next, value)) -> Ok(GroupReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(GroupReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
@@ -296,7 +308,10 @@ pub fn group_wire_u32(state :: BinaryReader) -> GroupReadInt!GroupError do
     Err(_) -> Err(InvalidGroup)
     Ok(wide) -> case U64.to_int(wide) do
       Err(_) -> Err(InvalidGroup)
-      Ok(value) -> Ok(GroupReadInt { state: encoded.state, value: value })
+      Ok(value) -> Ok(GroupReadInt {
+        state: encoded.state,
+        value: value
+      })
     end
   end
 end
@@ -305,7 +320,10 @@ pub fn group_wire_u64(state :: BinaryReader) -> GroupReadWide!GroupError do
   let encoded = group_wire_fixed(state, 8)?
   case Bytes.read_u64_be(encoded.value, 0) do
     Err(_) -> Err(InvalidGroup)
-    Ok(value) -> Ok(GroupReadWide { state: encoded.state, value: value })
+    Ok(value) -> Ok(GroupReadWide {
+      state: encoded.state,
+      value: value
+    })
   end
 end
 

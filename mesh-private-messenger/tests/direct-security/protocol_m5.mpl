@@ -52,7 +52,13 @@ fn account_proof() -> Int!String do
     authorization_public_key: Bytes.from_hex("202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f")?,
     created_at: U64.parse("1700000000000")?,
     directory_sequence: U64.parse("42")?,
-    extensions: [ProtocolExtension { id: 7, mandatory: false, value: Bytes.from_hex("a0a1a2")? }]
+    extensions: [
+      ProtocolExtension {
+        id: 7,
+        mandatory: false,
+        value: Bytes.from_hex("a0a1a2")?
+      }
+    ]
   }
   case encode_account_identity(account) do
     Err(_) -> println("account-encode-error")
@@ -160,7 +166,11 @@ fn prekey_proof() -> Int!String do
     supported_suites: [1],
     expires_at: U64.parse("1700604800000")?,
     extensions: [
-      ProtocolExtension { id: 11, mandatory: false, value: Bytes.from_utf8("optional-proof") }
+      ProtocolExtension {
+        id: 11,
+        mandatory: false,
+        value: Bytes.from_utf8("optional-proof")
+      }
     ]
   }
   case encode_prekey_bundle(bundle) do
@@ -301,7 +311,11 @@ fn transcript_proof() -> Int!String do
     responder_one_time_prekey: Bytes.empty(),
     responder_post_quantum_prekey: Bytes.empty(),
     extensions: [
-      ProtocolExtension { id: 13, mandatory: false, value: Bytes.from_utf8("transcript") }
+      ProtocolExtension {
+        id: 13,
+        mandatory: false,
+        value: Bytes.from_utf8("transcript")
+      }
     ]
   }
   case encode_handshake_transcript(transcript) do

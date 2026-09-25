@@ -86,7 +86,10 @@ pub fn group_read_members(state :: BinaryReader,
   if count <= 0 || count > 64 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadMembers { state: state, value: output })
+    Ok(GroupReadMembers {
+      state: state,
+      value: output
+    })
   else
     let leaf = group_wire_u16(state)?
     let member = group_wire_vector(leaf.state, 251)?
@@ -135,7 +138,10 @@ pub fn group_public_update_nodes(values :: List<TreeKemParentNode>,
     group_public_update_nodes(values,
       index + 1,
       List.append(output,
-        TreeKemUpdateNode { parent: List.get(values, index), ciphertexts: List.new() }))
+        TreeKemUpdateNode {
+          parent: List.get(values, index),
+          ciphertexts: List.new()
+        }))
   end
 end
 
@@ -147,7 +153,10 @@ pub fn group_read_parents(state :: BinaryReader,
   if count < 0 || count > 63 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadParents { state: state, value: output })
+    Ok(GroupReadParents {
+      state: state,
+      value: output
+    })
   else
     let node_index = group_wire_u16(state)?
     let public_key = group_wire_fixed(node_index.state, 32)?

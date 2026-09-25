@@ -109,7 +109,10 @@ fn read_generations(state :: BinaryReader,
   if count < 0 || count > 64 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadGenerations { state: state, value: output })
+    Ok(GroupReadGenerations {
+      state: state,
+      value: output
+    })
   else
     let leaf = group_wire_u16(state)?
     let generation = group_wire_u32(leaf.state)?
@@ -123,7 +126,10 @@ fn read_generations(state :: BinaryReader,
         count,
         index + 1,
         List.append(output,
-          SenderGeneration { leaf_index: leaf.value, generation: generation.value }))
+          SenderGeneration {
+            leaf_index: leaf.value,
+            generation: generation.value
+          }))
     end
   end
 end
@@ -672,7 +678,10 @@ fn group_wire_vector_if(reader :: BinaryReader, version :: Int) -> GroupReadByte
   if version == 2 do
     group_wire_vector(reader, 16384)
   else
-    Ok(GroupReadBytes { state: reader, value: Bytes.empty() })
+    Ok(GroupReadBytes {
+      state: reader,
+      value: Bytes.empty()
+    })
   end
 end
 

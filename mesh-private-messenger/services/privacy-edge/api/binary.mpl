@@ -6,7 +6,10 @@ pub struct EdgeResult do
 end
 
 fn response(status :: Int, body :: Bytes) -> EdgeResult do
-  EdgeResult { status: status, body: body }
+  EdgeResult {
+    status: status,
+    body: body
+  }
 end
 
 pub fn prepare_submission(body :: Bytes, now :: U64, maximum_future :: U64, difficulty :: Int) -> EdgeResult do

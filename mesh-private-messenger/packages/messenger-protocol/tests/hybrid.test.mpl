@@ -122,7 +122,11 @@ fn maximal_extensions(index :: Int, output :: List<ProtocolExtension>) -> List<P
   else
     maximal_extensions(index + 1,
       List.append(output,
-        ProtocolExtension { id: index + 1, mandatory: false, value: zeroes(1024)? }))
+        ProtocolExtension {
+          id: index + 1,
+          mandatory: false,
+          value: zeroes(1024)?
+        }))
   end
 end
 

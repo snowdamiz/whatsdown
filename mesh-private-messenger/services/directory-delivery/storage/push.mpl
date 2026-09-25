@@ -94,7 +94,7 @@ end
 
 pub fn bind_push(pool :: PoolHandle, request :: PushBindRequest) -> PushWrite!String do
   encode_push_bind(request)?
-  Repo.transaction(pool, fn(conn :: borrow PgConn) -> bind_on_connection(conn, request) end)
+  Repo.transaction(pool, fn (conn :: borrow PgConn) -> bind_on_connection(conn, request) end)
 end
 
 fn unbind_on_connection(conn :: borrow PgConn, request :: PushUnbindRequest) -> PushWrite!String do
@@ -126,7 +126,7 @@ end
 
 pub fn unbind_push(pool :: PoolHandle, request :: PushUnbindRequest) -> PushWrite!String do
   encode_push_unbind(request)?
-  Repo.transaction(pool, fn(conn :: borrow PgConn) -> unbind_on_connection(conn, request) end)
+  Repo.transaction(pool, fn (conn :: borrow PgConn) -> unbind_on_connection(conn, request) end)
 end
 
 fn find_on_connection(conn :: borrow PgConn, mailbox_token_hash :: Bytes) -> Option<ProviderPushBinding>!String do
@@ -149,6 +149,6 @@ pub fn find_push_binding_for_mailbox(pool :: PoolHandle, mailbox_token_hash :: B
     Err("invalid mailbox token hash")
   else
     Repo.transaction(pool,
-      fn(conn :: borrow PgConn) -> find_on_connection(conn, mailbox_token_hash) end)
+      fn (conn :: borrow PgConn) -> find_on_connection(conn, mailbox_token_hash) end)
   end
 end

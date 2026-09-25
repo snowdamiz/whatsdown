@@ -10,7 +10,7 @@ pub fn store_new_group(database_path :: String,
   baseline_label :: String,
   baseline_blob :: Bytes) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn(database) do
+    fn (database) do
       insert_blob(database, state_label, state_blob)?
       insert_blob(database, baseline_label, baseline_blob)?
       put_blob(database, "groups/v1", index_blob)
@@ -26,7 +26,7 @@ pub fn store_group_outbound(database_path :: String,
   extra_labels :: List<String>,
   extra_blobs :: List<Bytes>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn(database) do
+    fn (database) do
       put_blob(database, state_label, state_blob)?
       put_blobs(database, outbox_labels, outbox_blobs, 0)?
       put_blob(database, "outbox/v1", outbox_index_blob)?
@@ -43,7 +43,7 @@ pub fn store_group_message_outbound(database_path :: String,
   outbox_blobs :: List<Bytes>,
   outbox_index_blob :: Bytes) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn(database) do
+    fn (database) do
       put_blob(database, state_label, state_blob)?
       put_blobs(database, history_labels, history_blobs, 0)?
       put_blobs(database, outbox_labels, outbox_blobs, 0)?
@@ -57,7 +57,7 @@ pub fn store_group_state_history(database_path :: String,
   history_labels :: List<String>,
   history_blobs :: List<Bytes>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn(database) do
+    fn (database) do
       put_blob(database, state_label, state_blob)?
       put_blobs(database, history_labels, history_blobs, 0)
     end)
@@ -73,7 +73,7 @@ pub fn store_group_join(database_path :: String,
   init_label :: String,
   leaf_label :: String) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn(database) do
+    fn (database) do
       insert_blob(database, state_label, state_blob)?
       insert_blob(database, baseline_label, baseline_blob)?
       put_blob(database, "groups/v1", index_blob)?

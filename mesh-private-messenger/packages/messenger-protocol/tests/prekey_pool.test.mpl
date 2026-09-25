@@ -71,12 +71,18 @@ test("publication acknowledgement identifies the exact active server prekeys") d
 end
 
 fn last_resort_proof() -> Bool!String do
-  let one_time = OneTimePrekeyPublic { id: U64.parse("4")?, public_key: repeated(7, 32)? }
+  let one_time = OneTimePrekeyPublic {
+    id: U64.parse("4")?,
+    public_key: repeated(7, 32)?
+  }
   let request = PrekeyPublishRequest {
     account_id: repeated(1, 32)?,
     device_id: repeated(2, 16)?,
     prekeys: [one_time],
-    last_resort: Some(OneTimePrekeyPublic { id: U64.parse("9")?, public_key: repeated(8, 32)? }),
+    last_resort: Some(OneTimePrekeyPublic {
+      id: U64.parse("9")?,
+      public_key: repeated(8, 32)?
+    }),
     contact_address_hash: Some(repeated(9, 32)?),
     signature: repeated(3, 64)?
   }

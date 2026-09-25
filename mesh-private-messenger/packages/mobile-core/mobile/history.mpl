@@ -95,7 +95,10 @@ fn parse_history_entry(input :: Bytes) -> MobileHistoryEntry!String do
           else
             case decode_inner_envelope(inner.value) do
               Err(_) -> Err("invalid_history")
-              Ok(value) -> Ok(MobileHistoryEntry { direction: direction_value, inner: value })
+              Ok(value) -> Ok(MobileHistoryEntry {
+                direction: direction_value,
+                inner: value
+              })
             end
           end
         end
@@ -166,7 +169,11 @@ pub fn updated_history(database_path :: String,
   let updated = if Bytes.length(body) == 0 && Bytes.length(inner.attachment_manifest) == 0 do
     entries
   else
-    List.append(entries, MobileHistoryEntry { direction: direction, inner: %{inner | body: body} })
+    List.append(entries,
+      MobileHistoryEntry {
+        direction: direction,
+        inner: %{inner | body: body}
+      })
   end
   Ok((List.append(presentation_labels, label),
     List.append(presentation_blobs,

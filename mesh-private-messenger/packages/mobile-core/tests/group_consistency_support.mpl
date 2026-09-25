@@ -114,7 +114,12 @@ pub fn account_fixture(label :: String, username :: String) -> ConsistencyAccoun
     devices: [entry],
     revoked_device_ids: List.new()
   })?
-  Ok(ConsistencyAccount { path: path, username: username, entry: entry, device_set: device_set })
+  Ok(ConsistencyAccount {
+    path: path,
+    username: username,
+    entry: entry,
+    device_set: device_set
+  })
 end
 
 pub fn evidence_bytes(entry_bytes :: Bytes,

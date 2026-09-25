@@ -112,21 +112,30 @@ end
 fn take_u8(state :: BinaryReader) -> ReadInt!RatchetError do
   case read_u8(state) do
     Err(_) -> Err(InvalidMessage)
-    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadInt {
+      state: next,
+      value: value
+    })
   end
 end
 
 fn take_u16(state :: BinaryReader) -> ReadInt!RatchetError do
   case read_u16_be(state) do
     Err(_) -> Err(InvalidMessage)
-    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadInt {
+      state: next,
+      value: value
+    })
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!RatchetError do
   case read_fixed(state, length) do
     Err(_) -> Err(InvalidMessage)
-    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
@@ -136,7 +145,10 @@ fn take_u32(state :: BinaryReader) -> ReadInt!RatchetError do
     Err(_) -> Err(InvalidMessage)
     Ok(value) -> case U64.to_int(value) do
       Err(_) -> Err(InvalidMessage)
-      Ok(number) -> Ok(ReadInt { state: bytes.state, value: number })
+      Ok(number) -> Ok(ReadInt {
+        state: bytes.state,
+        value: number
+      })
     end
   end
 end
@@ -144,7 +156,10 @@ end
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!RatchetError do
   case read_vector(state, maximum) do
     Err(_) -> Err(InvalidMessage)
-    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(ReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 

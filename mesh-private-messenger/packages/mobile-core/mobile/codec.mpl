@@ -8,28 +8,40 @@ from Protocol.V1 import OuterEnvelope
 pub fn take_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid_store_request")
-    Ok((next, value)) -> Ok(MobileReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(MobileReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
 pub fn take_vector_error(state :: BinaryReader, maximum :: Int, error :: String) -> MobileReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err(error)
-    Ok((next, value)) -> Ok(MobileReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(MobileReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
 pub fn take_fixed(state :: BinaryReader, length :: Int) -> MobileReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid_fixed_value")
-    Ok((next, value)) -> Ok(MobileReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(MobileReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
 pub fn take_group_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid_group_request")
-    Ok((next, value)) -> Ok(MobileReadBytes { state: next, value: value })
+    Ok((next, value)) -> Ok(MobileReadBytes {
+      state: next,
+      value: value
+    })
   end
 end
 
@@ -237,7 +249,10 @@ end
 
 pub fn take_optional_vector(state :: BinaryReader, maximum :: Int, error :: String) -> MobileReadBytes!String do
   if state.offset >= Bytes.length(state.input) do
-    Ok(MobileReadBytes { state: state, value: Bytes.empty() })
+    Ok(MobileReadBytes {
+      state: state,
+      value: Bytes.empty()
+    })
   else
     take_vector_error(state, maximum, error)
   end

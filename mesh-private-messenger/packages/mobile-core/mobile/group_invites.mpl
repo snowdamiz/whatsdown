@@ -48,7 +48,7 @@ pub fn invite_to_group(request :: MobileFanoutRequest) -> Bytes!String do
   end
   let existing = load_invitations(path, key)?
   let pending = List.find(existing,
-    fn(value) do (value.state == 0 || value.state == 3) && Bytes.secure_equals(value.group_id,
+    fn (value) do (value.state == 0 || value.state == 3) && Bytes.secure_equals(value.group_id,
       request.body) && Bytes.secure_equals(value.recipient_account, peers.account.account_id) end)
   case pending do
     Some(_) -> return encode_output_list([])
@@ -180,7 +180,7 @@ pub fn list_group_invitations(path :: String) -> Bytes!String do
   let summaries = for value in values do
     invitation_summary(path, key, sessions, value)?
   end
-  encode_output_list(List.filter(summaries, fn(value) do Bytes.length(value) > 0 end))
+  encode_output_list(List.filter(summaries, fn (value) do Bytes.length(value) > 0 end))
 end
 
 fn invitation_summary(path :: String,

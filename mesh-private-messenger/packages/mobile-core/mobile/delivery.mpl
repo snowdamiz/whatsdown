@@ -146,7 +146,11 @@ fn without(values :: List<DeliveryRecord>,
 end
 
 fn marker(kind :: Int, message_id :: Bytes) -> DeliveryRecord!String do
-  Ok(DeliveryRecord { kind: kind, envelope_id: mobile_zeroes(16)?, message_id: message_id })
+  Ok(DeliveryRecord {
+    kind: kind,
+    envelope_id: mobile_zeroes(16)?,
+    message_id: message_id
+  })
 end
 
 fn count_kind(values :: List<DeliveryRecord>, kind :: Int, index :: Int, total :: Int) -> Int do

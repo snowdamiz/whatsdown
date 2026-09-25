@@ -542,7 +542,12 @@ fn seeded_group_step(alice :: consume GroupState,
       end
       Ok((next,
         bob,
-        List.append(pending, PendingGroupMessage { message: message, body: body, from_alice: true })))
+        List.append(pending,
+          PendingGroupMessage {
+            message: message,
+            body: body,
+            from_alice: true
+          })))
     else
       let (next, message) = encrypted(encrypt_group_message(bob, bob_key, body, aad))?
       if current_chain_opens(next, message, aad)? do
@@ -551,7 +556,11 @@ fn seeded_group_step(alice :: consume GroupState,
       Ok((alice,
         next,
         List.append(pending,
-          PendingGroupMessage { message: message, body: body, from_alice: false })))
+          PendingGroupMessage {
+            message: message,
+            body: body,
+            from_alice: false
+          })))
     end
   else
     let index = random % List.length(pending)

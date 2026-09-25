@@ -99,7 +99,11 @@ fn maximal_extensions(index :: Int, output :: List<ProtocolExtension>) -> List<P
   else
     maximal_extensions(index + 1,
       List.append(output,
-        ProtocolExtension { id: index + 1, mandatory: false, value: repeated(index, 1024) }))
+        ProtocolExtension {
+          id: index + 1,
+          mandatory: false,
+          value: repeated(index, 1024)
+        }))
   end
 end
 
@@ -419,7 +423,10 @@ fn proof() -> Bool!String do
     wide("2")?)?
   assert(register_device_request(pool, protocol(encode_directory_entry(second))?).status == 409)
   assert(resolve_devices_request(pool,
-    encode_transparency_lookup(TransparencyLookup { username: "alice", previous_tree_size: 0 })?).status == 404)
+    encode_transparency_lookup(TransparencyLookup {
+      username: "alice",
+      previous_tree_size: 0
+    })?).status == 404)
   Pool.execute(pool,
     "CREATE FUNCTION pg_temp.mesh_test_fail_transparency_append() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced transparency append failure'; END $$",
     [])?
@@ -452,8 +459,14 @@ fn proof() -> Bool!String do
     Err(_) -> Err("witness generation failed")
     Ok(value)
   end?
-  let witness_a_key = WitnessKey { witness_id: "witness-a", public_key: witness_a.public_key.bytes }
-  let witness_b_key = WitnessKey { witness_id: "witness-b", public_key: witness_b.public_key.bytes }
+  let witness_a_key = WitnessKey {
+    witness_id: "witness-a",
+    public_key: witness_a.public_key.bytes
+  }
+  let witness_b_key = WitnessKey {
+    witness_id: "witness-b",
+    public_key: witness_b.public_key.bytes
+  }
   assert(submit_witness_request(pool,
     encode_witnesses([sign_witness("witness-a", witness_a.private_key, second_checkpoint)?])?).status == 201)
   assert(submit_witness_request(pool,
@@ -531,7 +544,10 @@ fn proof() -> Bool!String do
     "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM messenger_revoked_devices), ':', (SELECT count(*) FROM messenger_devices WHERE revoked_at IS NOT NULL), ':', (SELECT count(*) FROM messenger_mailboxes WHERE NOT active), ':', (SELECT count(*) FROM messenger_one_time_prekeys), ':', (SELECT count(*) FROM messenger_push_bindings), ':', (SELECT count(*) FROM transparency_entries), ':', (SELECT count(*) FROM messenger_envelopes), ':', (SELECT count(*) FROM messenger_outbox_events), ':', (SELECT sum(pending_count) FROM messenger_mailboxes)) AS value")? == "2:0:0:0:2:1:2:1:1:1")
   assert(revoke_device_request(pool, protocol(encode_device_revocation(revocation))?).status == 200)
   let updated = resolve_devices_request(pool,
-    encode_transparency_lookup(TransparencyLookup { username: "alice", previous_tree_size: 2 })?)
+    encode_transparency_lookup(TransparencyLookup {
+      username: "alice",
+      previous_tree_size: 2
+    })?)
   let updated_evidence = decode_transparency_evidence(updated.body)?
   let updated_set = case decode_device_set(updated_evidence.entry_bytes) do
     Err(_) -> Err("invalid updated device set")
@@ -630,7 +646,7 @@ fn assert_checkpoint_order(pool :: PoolHandle,
     Ok(nil)
   else
     Repo.transaction(pool,
-      fn(conn :: borrow PgConn) -> append_entry_on_connection(conn, account_id, entry, false) end)?
+      fn (conn :: borrow PgConn) -> append_entry_on_connection(conn, account_id, entry, false) end)?
     let checkpoint = create_checkpoint(pool, seed)?
     assert(U64.to_int(checkpoint.sequence)? == sequence)
     let response = checkpoint_request(pool)
@@ -767,8 +783,8 @@ fn credential_rotation_proof() -> Bool!String do
   assert(register_device_request(pool, protocol(encode_directory_entry(unauthorized))?).status == 400)
   let first_wire = protocol(encode_directory_entry(entries.first_hybrid))?
   let second_wire = protocol(encode_directory_entry(entries.second_hybrid))?
-  let first_job = Job.async(fn() -> register_wire_status(pool, first_wire) end)
-  let second_job = Job.async(fn() -> register_wire_status(pool, second_wire) end)
+  let first_job = Job.async(fn () -> register_wire_status(pool, first_wire) end)
+  let second_job = Job.async(fn () -> register_wire_status(pool, second_wire) end)
   let first_status = await_registration(first_job)?
   let second_status = await_registration(second_job)?
   let distinct_result = (first_status == 201 && second_status == 409) || (first_status == 409 && second_status == 201)
@@ -826,8 +842,8 @@ fn credential_rotation_proof() -> Bool!String do
   assert(register_device_request(pool, protocol(encode_directory_entry(entries.classical))?).status == 201)
   tombstone_registration_prekey(pool, identity.account_id, primary.device_id)?
   let identical_wire = protocol(encode_directory_entry(entries.first_hybrid))?
-  let identical_first_job = Job.async(fn() -> register_wire_status(pool, identical_wire) end)
-  let identical_second_job = Job.async(fn() -> register_wire_status(pool, identical_wire) end)
+  let identical_first_job = Job.async(fn () -> register_wire_status(pool, identical_wire) end)
+  let identical_second_job = Job.async(fn () -> register_wire_status(pool, identical_wire) end)
   let identical_first_status = await_registration(identical_first_job)?
   let identical_second_status = await_registration(identical_second_job)?
   let identical_result = (identical_first_status == 201 && identical_second_status == 200) || (identical_first_status == 200 && identical_second_status == 201)

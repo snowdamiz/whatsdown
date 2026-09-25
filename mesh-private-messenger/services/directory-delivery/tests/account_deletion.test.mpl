@@ -127,7 +127,10 @@ fn envelope(mailbox_token :: Bytes, id :: Int) -> Bytes!String do
 end
 
 fn lookup(username :: String) -> Bytes!String do
-  case encode_transparency_lookup(TransparencyLookup { username: username, previous_tree_size: 0 }) do
+  case encode_transparency_lookup(TransparencyLookup {
+    username: username,
+    previous_tree_size: 0
+  }) do
     Err(_) -> Err("lookup encoding failed")
     Ok(value)
   end
@@ -138,7 +141,7 @@ end
 ## bindings, contact addresses, readable log entries, and the tombstone.
 
 fn kept(pool :: PoolHandle, account_id :: Bytes, mailboxes :: List<Bytes>) -> String!String do
-  let hashes = List.map(mailboxes, fn(token) -> Bytes.to_hex(Crypto.sha256(token)) end)
+  let hashes = List.map(mailboxes, fn (token) -> Bytes.to_hex(Crypto.sha256(token)) end)
   let rows = Pool.query_values(pool,
     "WITH mailbox AS (SELECT decode(value, 'hex') AS hash FROM unnest(string_to_array($2, ',')) AS value) SELECT concat((SELECT count(*) FROM messenger_accounts WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_devices WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_one_time_prekeys WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_mailboxes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_envelopes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_outbox_events WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_push_bindings WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_mailbox_aliases WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM transparency_entries WHERE entry_bytes IS NOT NULL AND account_commitment = sha256('mesh-msg/v1/transparency-account'::bytea || $1)), ':', (SELECT count(*) FROM messenger_deleted_accounts WHERE account_id = $1)) AS value",
     [Binary(account_id), Text(String.join(hashes, ","))])?

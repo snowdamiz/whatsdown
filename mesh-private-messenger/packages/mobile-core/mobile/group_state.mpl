@@ -247,13 +247,19 @@ fn decode_group_history_entry(input :: Bytes) -> MobileGroupHistoryEntry!String 
       let attachment = if count_value >= 8 do
         take_vector(body.state, 16384)?
       else
-        MobileReadBytes { state: body.state, value: Bytes.empty() }
+        MobileReadBytes {
+          state: body.state,
+          value: Bytes.empty()
+        }
       end
       # Legacy histories remain readable; their missing wire IDs cannot be reconstructed.
       let message_id = if count_value == 9 do
         take_vector(attachment.state, 32)?
       else
-        MobileReadBytes { state: attachment.state, value: Bytes.empty() }
+        MobileReadBytes {
+          state: attachment.state,
+          value: Bytes.empty()
+        }
       end
       case finish(message_id.state) do
         Err(_) -> Err("invalid_group_history")
@@ -543,9 +549,7 @@ pub fn verified_group_member(devices :: MobileVerifiedDeviceSet,
   view :: MobileTransparencyView) -> GroupMember!String do
   let package = decode_group_key_package(encoded_package)?
   let profile = group_profile(devices.profiles, package.account_id, package.device_id, 0)?
-  let valid_signature = case Crypto.verify(SigningPublicKey {
-      bytes: profile.credential.signing_public_key
-    },
+  let valid_signature = case Crypto.verify(SigningPublicKey { bytes: profile.credential.signing_public_key },
     group_key_package_unsigned(package)?,
     package.signature) do
     Err(_) -> false
@@ -581,9 +585,7 @@ pub fn create_group_key_package_scoped(database_path :: String, scope :: String)
     Ok(blob) -> do
       let encoded = open_local(blob, wrapping_key, local_context(package_label)?)?
       let package = decode_group_key_package(encoded)?
-      let signature_valid = case Crypto.verify(SigningPublicKey {
-          bytes: profile.credential.signing_public_key
-        },
+      let signature_valid = case Crypto.verify(SigningPublicKey { bytes: profile.credential.signing_public_key },
         group_key_package_unsigned(package)?,
         package.signature) do
         Err(_) -> false
@@ -895,7 +897,10 @@ fn decode_group_packet_inner(input :: Bytes) -> MobileGroupPacket!String do
         Err(_) -> Err("invalid_group_packet")
         Ok(_) -> do
           let kind_value = mobile_read_byte(kind.value)?
-          let value = MobileGroupPacket { kind: kind_value, payload: payload.value }
+          let value = MobileGroupPacket {
+            kind: kind_value,
+            payload: payload.value
+          }
           if mobile_read_byte(version.value)? != 1 || !Bytes.secure_equals(magic.value,
             Bytes.from_utf8("GRP")) || kind_value < 1 || kind_value > 3 || Bytes.length(payload.value) == 0 || !Bytes.secure_equals(encode_group_packet(kind_value,
               payload.value)?,

@@ -244,7 +244,7 @@ pub fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes!
     Err("group_member_not_found")
   else
     let remaining = List.filter(indexed_members(state.tree),
-      fn(member) -> member.leaf_index != leaf_index end)
+      fn (member) -> member.leaf_index != leaf_index end)
     require_group_authorizations(request.database_path, wrapping_key, remaining, 0)?
     let pending_ids = load_outbox_ids(request.database_path, wrapping_key)?
     let device = open_device(profile, wrapping_key, request.database_path)?
@@ -523,9 +523,7 @@ fn join_mobile_group(database_path :: String,
           package_label)?,
         wrapping_key,
         local_context(package_label)?)?)?
-      let package_signature_valid = case Crypto.verify(SigningPublicKey {
-          bytes: profile.credential.signing_public_key
-        },
+      let package_signature_valid = case Crypto.verify(SigningPublicKey { bytes: profile.credential.signing_public_key },
         group_key_package_unsigned(stored_package)?,
         stored_package.signature) do
         Err(_) -> false
