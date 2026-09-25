@@ -201,8 +201,12 @@ pub fn decode_initial_message(input :: Bytes) -> InitialMessage!ProtocolError do
         signed_prekey_id: signed_prekey_id.value,
         one_time_prekey_id: one_time_prekey_id.value,
         initiator_credential: initiator_credential.value,
-        initiator_identity_public_key: X25519PublicKey { bytes: initiator_identity_public_key.value },
-        initiator_ephemeral_public_key: X25519PublicKey { bytes: initiator_ephemeral_public_key.value },
+        initiator_identity_public_key: X25519PublicKey {
+          bytes: initiator_identity_public_key.value
+        },
+        initiator_ephemeral_public_key: X25519PublicKey {
+          bytes: initiator_ephemeral_public_key.value
+        },
         post_quantum_ciphertext: post_quantum_ciphertext.value,
         transcript_hash: transcript_hash.value,
         nonce: nonce.value,

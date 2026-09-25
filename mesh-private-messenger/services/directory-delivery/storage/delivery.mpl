@@ -117,7 +117,7 @@ pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryI
   if !(expiry_acceptable(value.expiration)?) do
     return Ok(ExpiryRejected)
   end
-  case Repo.transaction(pool, fn (conn :: borrow PgConn) -> insert_envelope(conn, value) end) do
+  case Repo.transaction(pool, fn(conn :: borrow PgConn) -> insert_envelope(conn, value) end) do
     Ok(result)
     Err(error) -> if String.contains(error, "messenger_envelopes_mailbox_envelope_key") do
       Ok(Duplicate)
@@ -154,10 +154,7 @@ fn deliveries(rows :: List<Map<String, DbValue>>, token :: Bytes) -> List<Delive
       Err(_) -> Err("invalid stored envelope")
       Ok(value)
     end?
-    DeliveredEnvelope {
-      sequence: wide(Map.get(row, "sequence"))?,
-      envelope: encoded
-    }
+    DeliveredEnvelope { sequence: wide(Map.get(row, "sequence"))?, envelope: encoded }
   end
   Ok(values)
 end
@@ -191,7 +188,7 @@ fn acknowledge_ids(pool :: PoolHandle,
     Ok(count)
   else
     let changed = Repo.transaction(pool,
-      fn (conn :: borrow PgConn) -> acknowledge_one(conn, token_hash, List.get(ids, index)) end)?
+      fn(conn :: borrow PgConn) -> acknowledge_one(conn, token_hash, List.get(ids, index)) end)?
     acknowledge_ids(pool, token_hash, ids, index + 1, count + changed)
   end
 end

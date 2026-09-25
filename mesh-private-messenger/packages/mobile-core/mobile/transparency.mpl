@@ -255,10 +255,7 @@ fn seal_transparency_view_chunks(consistency :: Bytes,
   labels :: List<String>,
   blobs :: List<Bytes>) -> MobileTransparencyStorage!String do
   if index >= 3 do
-    Ok(MobileTransparencyStorage {
-      labels: labels,
-      blobs: blobs
-    })
+    Ok(MobileTransparencyStorage { labels: labels, blobs: blobs })
   else
     let offset = index * 65536
     let remaining = Bytes.length(consistency) - offset
@@ -527,14 +524,8 @@ pub fn verify_transparency_response(request :: MobileTransparencyRequest) -> Byt
   end
   let trusted_service_key = SigningPublicKey { bytes: config.transparency_service_public_key }
   let trusted_witnesses = [
-    WitnessKey {
-      witness_id: "witness-a",
-      public_key: config.witness_a_public_key
-    },
-    WitnessKey {
-      witness_id: "witness-b",
-      public_key: config.witness_b_public_key
-    }
+    WitnessKey { witness_id: "witness-a", public_key: config.witness_a_public_key },
+    WitnessKey { witness_id: "witness-b", public_key: config.witness_b_public_key }
   ]
   if !trust_matches do
     Err("transparency_trust_mismatch")

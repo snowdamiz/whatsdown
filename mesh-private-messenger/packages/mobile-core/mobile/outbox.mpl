@@ -258,7 +258,7 @@ fn store_outbox_ack(database_path :: String,
   delivery_blobs :: List<Bytes>,
   removed_labels :: List<String>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       delete_blob(database, outbox_entry_label(id)?)?
       delete_blob(database, outbox_tail_label(id)?)?
       update_outbox_index(database, remaining, index_blob)?

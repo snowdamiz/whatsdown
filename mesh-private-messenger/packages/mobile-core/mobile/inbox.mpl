@@ -85,10 +85,7 @@ fn acknowledge_delivery(database_path :: String,
   profile :: ClientProfile,
   outer :: OuterEnvelope,
   encoded :: Bytes) -> Bool do
-  let request = MobileReceiveRequest {
-    database_path: database_path,
-    outer: encoded
-  }
+  let request = MobileReceiveRequest { database_path: database_path, outer: encoded }
   case delivery_kind(database_path, profile, outer) do
     Err(error) -> permanent_direct_delivery_error(error)
     Ok(3) -> case receive_mobile_group_classified(request) do

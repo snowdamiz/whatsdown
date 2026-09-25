@@ -97,20 +97,14 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!AttachmentError do
   case read_fixed(state, length) do
     Err(_) -> Err(InvalidManifest)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!AttachmentError do
   case read_vector(state, maximum) do
     Err(_) -> Err(InvalidManifest)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -120,10 +114,7 @@ fn take_u32(state :: BinaryReader) -> ReadInt!AttachmentError do
     Err(_) -> Err(InvalidManifest)
     Ok(value) -> case U64.to_int(value) do
       Err(_) -> Err(InvalidManifest)
-      Ok(parsed) -> Ok(ReadInt {
-        state: encoded.state,
-        value: parsed
-      })
+      Ok(parsed) -> Ok(ReadInt { state: encoded.state, value: parsed })
     end
   end
 end
@@ -132,10 +123,7 @@ fn take_u64(state :: BinaryReader) -> ReadWide!AttachmentError do
   let encoded = take_fixed(state, 8)?
   case Bytes.read_u64_be(encoded.value, 0) do
     Err(_) -> Err(InvalidManifest)
-    Ok(value) -> Ok(ReadWide {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadWide { state: encoded.state, value: value })
   end
 end
 
@@ -351,11 +339,7 @@ fn decode_chunk(input :: Bytes) -> EncryptedChunk!AttachmentError do
   if index.value >= 256 || Bytes.length(ciphertext.value) < 16 do
     Err(InvalidChunk)
   else
-    Ok(EncryptedChunk {
-      index: index.value,
-      nonce: nonce_value.value,
-      ciphertext: ciphertext.value
-    })
+    Ok(EncryptedChunk { index: index.value, nonce: nonce_value.value, ciphertext: ciphertext.value })
   end
 end
 
@@ -409,11 +393,7 @@ pub fn seal_chunk(secret :: borrow SecretBytes,
     let nonce_value = nonce()?
     let key = derive_key(secret, manifest.attachment_id, attachment_key_label())?
     let ciphertext = seal(key, nonce_value, chunk_aad(manifest, index)?, plaintext)?
-    encode_chunk(EncryptedChunk {
-      index: index,
-      nonce: nonce_value,
-      ciphertext: ciphertext
-    })
+    encode_chunk(EncryptedChunk { index: index, nonce: nonce_value, ciphertext: ciphertext })
   end
 end
 

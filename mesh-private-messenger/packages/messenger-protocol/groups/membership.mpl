@@ -609,10 +609,7 @@ fn apply_verified_commit(state :: borrow GroupState, commit :: GroupCommit) -> P
           commit.tree_hash,
           commit.proposal,
           commit.update_path)?
-        Ok(PreparedAppliedCommit {
-          tree: next_tree,
-          context: context
-        })
+        Ok(PreparedAppliedCommit { tree: next_tree, context: context })
       end
     end
   end

@@ -24,10 +24,7 @@ pub struct BinaryResult do
 end
 
 fn response(status :: Int, body :: Bytes) -> BinaryResult do
-  BinaryResult {
-    status: status,
-    body: body
-  }
+  BinaryResult { status: status, body: body }
 end
 
 fn empty(status :: Int) -> BinaryResult do
@@ -308,7 +305,7 @@ pub fn delete_account_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult
       Err(_) -> empty(500)
       Ok(AccountRemoved(mailboxes)) -> do
         # Its other devices fetch at once, fail, reconnect, and are told why.
-        List.map(mailboxes, fn (mailbox) -> wake_mailbox(mailbox) end)
+        List.map(mailboxes, fn(mailbox) -> wake_mailbox(mailbox) end)
         empty(204)
       end
       Ok(AccountRemovalRefused) -> empty(403)

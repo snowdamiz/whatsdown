@@ -38,10 +38,7 @@ end
 fn read_suite_entries(state :: BinaryReader, count :: Int, index :: Int, output :: List<Int>) -> ProtocolReadSuites!ProtocolError do
   if index >= count do
     protocol_validate_suite_list(output, 0)?
-    Ok(ProtocolReadSuites {
-      state: state,
-      value: output
-    })
+    Ok(ProtocolReadSuites { state: state, value: output })
   else
     let suite = protocol_take_u16(state)?
     read_suite_entries(suite.state, count, index + 1, List.append(output, suite.value))
@@ -110,10 +107,7 @@ fn read_extension_entries(state :: BinaryReader,
   previous_id :: Int,
   output :: List<ProtocolExtension>) -> ProtocolReadExtensions!ProtocolError do
   if index >= count do
-    Ok(ProtocolReadExtensions {
-      state: state,
-      value: output
-    })
+    Ok(ProtocolReadExtensions { state: state, value: output })
   else
     let id = protocol_take_u16(state)?
     let flag = protocol_take_u8(id.state)?
@@ -130,11 +124,7 @@ fn read_extension_entries(state :: BinaryReader,
         index + 1,
         id.value,
         List.append(output,
-          ProtocolExtension {
-            id: id.value,
-            mandatory: false,
-            value: value.value
-          }))
+          ProtocolExtension { id: id.value, mandatory: false, value: value.value }))
     end
   end
 end

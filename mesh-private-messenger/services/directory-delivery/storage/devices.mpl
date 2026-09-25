@@ -383,7 +383,7 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
     Err(_) -> Ok(DeviceInvalid)
     Ok(verified) -> do
       case Repo.transaction(pool,
-        fn (conn :: borrow PgConn) -> register_on_connection(conn,
+        fn(conn :: borrow PgConn) -> register_on_connection(conn,
           verified.entry,
           verified.account,
           verified.credential,
@@ -409,7 +409,7 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
 end
 
 pub fn resolve_devices(pool :: PoolHandle, username :: String) -> Option<DeviceSet>!String do
-  Repo.transaction(pool, fn (conn :: borrow PgConn) -> resolve_on_connection(conn, username) end)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> resolve_on_connection(conn, username) end)
 end
 
 fn revoke_on_connection(conn :: borrow PgConn, value :: DeviceRevocation) -> DeviceWrite!String do
@@ -495,7 +495,7 @@ pub fn revoke_device(pool :: PoolHandle, value :: DeviceRevocation) -> DeviceWri
   case encode_device_revocation(value) do
     Err(_) -> Ok(DeviceInvalid)
     Ok(_) -> case Repo.transaction(pool,
-      fn (conn :: borrow PgConn) -> revoke_on_connection(conn, value) end) do
+      fn(conn :: borrow PgConn) -> revoke_on_connection(conn, value) end) do
       Err(error) -> if String.contains(error, "transparency_log_full") do
         Ok(DeviceLogFull)
       else if String.contains(error, "messenger_revoked_devices_") || String.contains(error,
@@ -562,7 +562,7 @@ pub fn delete_account(pool :: PoolHandle, value :: AccountDeletion) -> AccountRe
   if !mailbox_request_is_fresh(value.issued_at, current_time()?) do
     Ok(AccountRemovalRefused)
   else
-    Repo.transaction(pool, fn (conn :: borrow PgConn) -> delete_on_connection(conn, value) end)
+    Repo.transaction(pool, fn(conn :: borrow PgConn) -> delete_on_connection(conn, value) end)
   end
 end
 
@@ -617,7 +617,7 @@ pub fn leave_device(pool :: PoolHandle, value :: DeviceDeparture) -> DeviceWrite
   if !mailbox_request_is_fresh(value.issued_at, current_time()?) do
     Ok(DeviceInvalid)
   else
-    case Repo.transaction(pool, fn (conn :: borrow PgConn) -> leave_on_connection(conn, value) end) do
+    case Repo.transaction(pool, fn(conn :: borrow PgConn) -> leave_on_connection(conn, value) end) do
       Err(error) -> if String.contains(error, "transparency_log_full") do
         Ok(DeviceLogFull)
       else if String.contains(error, "messenger_revoked_devices_") || String.contains(error,

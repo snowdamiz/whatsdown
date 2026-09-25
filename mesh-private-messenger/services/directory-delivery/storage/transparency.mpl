@@ -282,12 +282,12 @@ end
 
 pub fn create_checkpoint(pool :: PoolHandle, signing_seed :: Bytes) -> TransparencyCheckpoint!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> create_checkpoint_from_seed_on_connection(conn, signing_seed) end)
+    fn(conn :: borrow PgConn) -> create_checkpoint_from_seed_on_connection(conn, signing_seed) end)
 end
 
 pub fn create_configured_checkpoint(pool :: PoolHandle) -> TransparencyCheckpoint!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> create_configured_checkpoint_on_connection(conn) end)
+    fn(conn :: borrow PgConn) -> create_configured_checkpoint_on_connection(conn) end)
 end
 
 pub fn entry_count(pool :: PoolHandle) -> Int!String do
@@ -350,7 +350,7 @@ end
 
 pub fn witnesses_for_checkpoint(pool :: PoolHandle, checkpoint_sequence :: U64) -> List<WitnessAttestation>!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> witnesses_on_connection(conn, checkpoint_sequence) end)
+    fn(conn :: borrow PgConn) -> witnesses_on_connection(conn, checkpoint_sequence) end)
 end
 
 fn evidence_on_connection(conn :: borrow PgConn,
@@ -411,7 +411,7 @@ pub fn evidence_for_username(pool :: PoolHandle,
   old_tree_size :: Int,
   signing_seed :: Bytes) -> TransparencyEvidence!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> evidence_from_seed_on_connection(conn,
+    fn(conn :: borrow PgConn) -> evidence_from_seed_on_connection(conn,
       username,
       old_tree_size,
       signing_seed) end)
@@ -421,7 +421,7 @@ pub fn configured_evidence_for_username(pool :: PoolHandle,
   username :: String,
   old_tree_size :: Int) -> TransparencyEvidence!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> configured_evidence_on_connection(conn, username, old_tree_size) end)
+    fn(conn :: borrow PgConn) -> configured_evidence_on_connection(conn, username, old_tree_size) end)
 end
 
 fn store_witness_on_connection(conn :: borrow PgConn,
@@ -471,7 +471,7 @@ end
 
 pub fn store_witness(pool :: PoolHandle, attestation :: WitnessAttestation, trusted :: WitnessKey) -> Result<(), String> do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> store_witness_on_connection(conn, attestation, trusted) end)
+    fn(conn :: borrow PgConn) -> store_witness_on_connection(conn, attestation, trusted) end)
 end
 
 pub fn transparency_username(pool :: PoolHandle, reference :: String) -> Option<String>!String do

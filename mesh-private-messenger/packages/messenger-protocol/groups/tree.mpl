@@ -459,10 +459,7 @@ fn set_member(value :: GroupTree, index :: Int, member :: GroupMember) -> GroupT
           occupied_leaf_hash(index, member)?)?
         Ok(GroupTree {
           members: insert_indexed(value.members,
-            IndexedGroupMember {
-              leaf_index: index,
-              member: member
-            },
+            IndexedGroupMember { leaf_index: index, member: member },
             0,
             List.new()),
           parent_nodes: parent_nodes,
@@ -607,10 +604,7 @@ fn unmerged_resolution(value :: borrow GroupTree,
       leaves,
       index + 1,
       List.append(output,
-        TreeKemResolutionNode {
-          node_index: 63 + leaf_index,
-          public_key: member.leaf_public_key
-        }))
+        TreeKemResolutionNode { node_index: 63 + leaf_index, public_key: member.leaf_public_key }))
   end
 end
 
@@ -622,10 +616,7 @@ pub fn resolution(value :: borrow GroupTree, node_index :: Int) -> List<TreeKemR
       Err(MissingMember) -> Ok(List.new())
       Err(error)
       Ok(member) -> Ok([
-        TreeKemResolutionNode {
-          node_index: node_index,
-          public_key: member.leaf_public_key
-        }
+        TreeKemResolutionNode { node_index: node_index, public_key: member.leaf_public_key }
       ])
     end
   else
@@ -633,12 +624,7 @@ pub fn resolution(value :: borrow GroupTree, node_index :: Int) -> List<TreeKemR
       Some(parent) -> unmerged_resolution(value,
         parent.unmerged_leaves,
         0,
-        [
-          TreeKemResolutionNode {
-            node_index: node_index,
-            public_key: parent.public_key
-          }
-        ])
+        [TreeKemResolutionNode { node_index: node_index, public_key: parent.public_key }])
       None -> do
         let left = resolution(value, node_index * 2 + 1)?
         Ok(List.concat(left, resolution(value, node_index * 2 + 2)?))
@@ -673,10 +659,7 @@ fn replace_member(values :: List<IndexedGroupMember>,
   else
     let value = List.get(values, index)
     let next = if value.leaf_index == leaf_index do
-      IndexedGroupMember {
-        leaf_index: leaf_index,
-        member: member
-      }
+      IndexedGroupMember { leaf_index: leaf_index, member: member }
     else
       value
     end

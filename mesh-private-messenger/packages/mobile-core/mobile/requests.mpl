@@ -72,10 +72,7 @@ pub fn parse_account_request(input :: Bytes) -> MobileAccountRequest!String do
     let path = take_vector(state, 4096)?
     let username = take_vector(path.state, 64)?
     mobile_finish(username.state, "invalid_account_request")?
-    Ok(MobileAccountRequest {
-      database_path: path.value,
-      username: username.value
-    })
+    Ok(MobileAccountRequest { database_path: path.value, username: username.value })
   end
 end
 
@@ -89,10 +86,7 @@ pub fn parse_prekey_request(input :: Bytes) -> MobilePrekeyRequest!String do
   if String.length(database_path) == 0 || count_value > 64 do
     Err("invalid_prekey_request")
   else
-    Ok(MobilePrekeyRequest {
-      database_path: database_path,
-      count: count_value
-    })
+    Ok(MobilePrekeyRequest { database_path: database_path, count: count_value })
   end
 end
 
@@ -105,10 +99,7 @@ pub fn parse_prekey_reconcile_request(input :: Bytes) -> MobilePrekeyReconcileRe
   if String.length(database_path) == 0 do
     Err("invalid_prekey_reconcile_request")
   else
-    Ok(MobilePrekeyReconcileRequest {
-      database_path: database_path,
-      response: response.value
-    })
+    Ok(MobilePrekeyReconcileRequest { database_path: database_path, response: response.value })
   end
 end
 
@@ -224,10 +215,7 @@ pub fn parse_receive_request(input :: Bytes) -> MobileReceiveRequest!String do
   if String.length(database_path) == 0 do
     Err("invalid_receive_request")
   else
-    Ok(MobileReceiveRequest {
-      database_path: database_path,
-      outer: outer.value
-    })
+    Ok(MobileReceiveRequest { database_path: database_path, outer: outer.value })
   end
 end
 
@@ -277,10 +265,7 @@ pub fn parse_payload_request(input :: Bytes) -> MobilePayloadRequest!String do
   if String.length(database_path) == 0 || Bytes.length(payload.value) == 0 do
     Err("invalid_payload_request")
   else
-    Ok(MobilePayloadRequest {
-      database_path: database_path,
-      payload: payload.value
-    })
+    Ok(MobilePayloadRequest { database_path: database_path, payload: payload.value })
   end
 end
 
@@ -293,10 +278,7 @@ fn parse_push_bind_request_inner(input :: Bytes) -> MobilePayloadRequest!String 
   if String.length(database_path) == 0 do
     Err("invalid")
   else
-    Ok(MobilePayloadRequest {
-      database_path: database_path,
-      payload: project_id.value
-    })
+    Ok(MobilePayloadRequest { database_path: database_path, payload: project_id.value })
   end
 end
 
@@ -317,10 +299,7 @@ pub fn parse_push_intent_request(input :: Bytes) -> MobilePushIntentRequest!Stri
     Err("invalid_push_intent")
   else
     mobile_finish(intent.state, "invalid_push_intent")?
-    Ok(MobilePushIntentRequest {
-      database_path: database_path,
-      intent: intent_value
-    })
+    Ok(MobilePushIntentRequest { database_path: database_path, intent: intent_value })
   end
 end
 
@@ -410,10 +389,7 @@ pub fn parse_group_reference_request(input :: Bytes) -> MobileGroupReferenceRequ
   if String.length(database_path) == 0 || Bytes.length(group_id.value) != 32 do
     Err("invalid_group_request")
   else
-    Ok(MobileGroupReferenceRequest {
-      database_path: database_path,
-      group_id: group_id.value
-    })
+    Ok(MobileGroupReferenceRequest { database_path: database_path, group_id: group_id.value })
   end
 end
 

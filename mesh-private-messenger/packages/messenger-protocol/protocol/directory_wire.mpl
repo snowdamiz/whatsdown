@@ -197,10 +197,7 @@ pub fn decode_device_link_request(input :: Bytes) -> DeviceLinkRequest!ProtocolE
     let suite = if version.value == 2 do
       protocol_take_u16(magic.state)?
     else
-      ProtocolReadInt {
-        state: magic.state,
-        value: 1
-      }
+      ProtocolReadInt { state: magic.state, value: 1 }
     end
     let nonce = protocol_take_fixed(suite.state, 32)?
     let device_id = protocol_take_fixed(nonce.state, 16)?
@@ -364,10 +361,7 @@ fn read_device_entries(state :: BinaryReader,
   index :: Int,
   output :: List<DirectoryEntry>) -> ProtocolReadDirectoryEntries!ProtocolError do
   if index >= count do
-    Ok(ProtocolReadDirectoryEntries {
-      state: state,
-      value: output
-    })
+    Ok(ProtocolReadDirectoryEntries { state: state, value: output })
   else
     let entry = protocol_take_vector(state, 36006)?
     read_device_entries(entry.state,

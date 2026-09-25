@@ -213,10 +213,7 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes!String do
     end?
     let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1")?)?
     let prekey_index_blob = seal_prekey_pool([
-        MobileOneTimePrekey {
-          id: one_time.id,
-          public_key: one_time.public_key.bytes
-        }
+        MobileOneTimePrekey { id: one_time.id, public_key: one_time.public_key.bytes }
       ],
       wrapping_key)?
     let prekey_active_blob = seal_active_prekey_pool([one_time.id], wrapping_key)?
@@ -454,10 +451,7 @@ pub fn complete_link(request :: MobilePayloadRequest) -> Bytes!String do
       context(account.account_id, credential.device_id, "post-quantum-prekey/v1", 15)?)?
     let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1")?)?
     let prekey_index_blob = seal_prekey_pool([
-        MobileOneTimePrekey {
-          id: one_time.id,
-          public_key: one_time.public_key.bytes
-        }
+        MobileOneTimePrekey { id: one_time.id, public_key: one_time.public_key.bytes }
       ],
       wrapping_key)?
     let prekey_active_blob = seal_active_prekey_pool([one_time.id], wrapping_key)?

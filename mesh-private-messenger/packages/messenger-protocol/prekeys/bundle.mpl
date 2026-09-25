@@ -106,11 +106,7 @@ pub fn generate_one_time_prekey(id :: U64) -> OneTimePrekeySecrets!PrekeyError d
     Ok(pair) -> do
       let public_key = pair.public_key
       let private_key = pair.private_key
-      Ok(OneTimePrekeySecrets {
-        id: id,
-        private_key: private_key,
-        public_key: public_key
-      })
+      Ok(OneTimePrekeySecrets { id: id, private_key: private_key, public_key: public_key })
     end
   end
 end
@@ -121,10 +117,7 @@ pub fn generate_post_quantum_prekey() -> PostQuantumPrekeySecrets!PrekeyError do
     Ok(pair) -> do
       let public_key = pair.public_key
       let private_key = pair.private_key
-      Ok(PostQuantumPrekeySecrets {
-        private_key: private_key,
-        public_key: public_key
-      })
+      Ok(PostQuantumPrekeySecrets { private_key: private_key, public_key: public_key })
     end
   end
 end

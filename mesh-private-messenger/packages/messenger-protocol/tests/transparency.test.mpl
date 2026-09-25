@@ -205,14 +205,8 @@ fn transparency_proof() -> Bool!String do
   let attestation_a = sign_witness("witness-a", witness_a_private, second_checkpoint)?
   let attestation_b = sign_witness("witness-b", witness_b_private, second_checkpoint)?
   let trusted_witnesses = [
-    WitnessKey {
-      witness_id: "witness-a",
-      public_key: witness_a_public.bytes
-    },
-    WitnessKey {
-      witness_id: "witness-b",
-      public_key: witness_b_public.bytes
-    }
+    WitnessKey { witness_id: "witness-a", public_key: witness_a_public.bytes },
+    WitnessKey { witness_id: "witness-b", public_key: witness_b_public.bytes }
   ]
   assert(verify_witnesses(second_checkpoint, [attestation_a, attestation_b], trusted_witnesses, 2)?)
   assert(!verify_witnesses(second_checkpoint, [attestation_a], trusted_witnesses, 2)?)
@@ -221,7 +215,9 @@ fn transparency_proof() -> Bool!String do
     previous_tree_size: 2
   })?)?
   assert(lookup.username == "alice" && lookup.previous_tree_size == 2)
-  assert(decode_transparency_tree_query(encode_transparency_tree_query(TransparencyTreeQuery { previous_tree_size: 2 })?)?.previous_tree_size == 2)
+  assert(decode_transparency_tree_query(encode_transparency_tree_query(TransparencyTreeQuery {
+    previous_tree_size: 2
+  })?)?.previous_tree_size == 2)
   let evidence = decode_transparency_evidence(encode_transparency_evidence(TransparencyEvidence {
     entry_bytes: Bytes.from_utf8("alice/device-set/2"),
     inclusion: inclusion,
@@ -335,10 +331,7 @@ fn account_lookup_proof() -> Bool!String do
   end
   let decoded = decode_transparency_lookup(encoded)?
   assert(decoded.username == reference && decoded.previous_tree_size == 7)
-  case encode_transparency_lookup(TransparencyLookup {
-    username: "@alice",
-    previous_tree_size: 0
-  }) do
+  case encode_transparency_lookup(TransparencyLookup { username: "@alice", previous_tree_size: 0 }) do
     Ok(_) -> assert(false)
     Err(_) -> nil
   end

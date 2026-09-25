@@ -7,7 +7,7 @@ from Runtime.MailboxStream import wake_mailbox
 import RuntimeJobs
 
 pub fn transaction_in_progress(pool :: PoolHandle, id :: String) -> Bool!String do
-  Repo.transaction(pool, fn (conn :: borrow PgConn) -> RuntimeJobs.in_progress(conn, id) end)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> RuntimeJobs.in_progress(conn, id) end)
 end
 
 pub fn next_work_at(pool :: PoolHandle) -> Int!String do

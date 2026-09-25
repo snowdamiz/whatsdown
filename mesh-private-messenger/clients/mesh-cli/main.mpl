@@ -363,10 +363,7 @@ fn acknowledge(device_keys :: borrow DeviceKeys, token :: Bytes, ids :: List<Byt
 end
 
 fn policy(now :: U64) -> VerificationPolicy!String do
-  Ok(VerificationPolicy {
-    current_time: now,
-    minimum_directory_sequence: wide("1")?
-  })
+  Ok(VerificationPolicy { current_time: now, minimum_directory_sequence: wide("1")? })
 end
 
 fn inner(account_id :: Bytes,

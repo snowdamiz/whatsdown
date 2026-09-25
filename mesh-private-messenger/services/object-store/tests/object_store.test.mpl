@@ -64,10 +64,7 @@ fn aggregate_boundaries(database_path :: String, root :: String) -> Result<(), S
   let exact_upload = random_32()?
   let exact_download = random_32()?
   let exact_id = random_32()?
-  let exact_control = ObjectControl {
-    object_id: exact_id,
-    capability: exact_upload
-  }
+  let exact_control = ObjectControl { object_id: exact_id, capability: exact_upload }
   assert(grant(database_path,
     root,
     encode_grant(mint_grant(exact_id,
@@ -88,10 +85,7 @@ fn aggregate_boundaries(database_path :: String, root :: String) -> Result<(), S
   let over_upload = random_32()?
   let over_download = random_32()?
   let over_id = random_32()?
-  let over_control = ObjectControl {
-    object_id: over_id,
-    capability: over_upload
-  }
+  let over_control = ObjectControl { object_id: over_id, capability: over_upload }
   assert(grant(database_path,
     root,
     encode_grant(mint_grant(over_id,
@@ -155,14 +149,14 @@ fn proof() -> Bool!String do
   assert(put_part(database_path, root, object_id, 0, wrong, first, wide("100001")?).status == 403)
   assert(put_part(database_path, root, object_id, 0, upload, bytes(1, 65609)?, wide("100001")?).status == 413)
   let upload_now = wide("100001")?
-  let first_job = Job.async(fn () -> put_part(database_path,
+  let first_job = Job.async(fn() -> put_part(database_path,
     root,
     object_id,
     0,
     upload,
     first,
     upload_now).status end)
-  let second_job = Job.async(fn () -> put_part(database_path,
+  let second_job = Job.async(fn() -> put_part(database_path,
     root,
     object_id,
     0,
@@ -180,10 +174,7 @@ fn proof() -> Bool!String do
     upload,
     Bytes.from_hex("00ff8002")?,
     wide("100002")?).status == 409)
-  let control = ObjectControl {
-    object_id: object_id,
-    capability: upload
-  }
+  let control = ObjectControl { object_id: object_id, capability: upload }
   assert(complete(database_path, root, encode_complete(control)?, wide("100003")?).status == 409)
   initialize(database_path, root)?
   let second = bytes(2, 65608)?
@@ -221,10 +212,7 @@ fn proof() -> Bool!String do
   Pg.close(database)
   assert(delete_object(database_path,
     root,
-    encode_delete(ObjectControl {
-      object_id: object_id,
-      capability: wrong
-    })?,
+    encode_delete(ObjectControl { object_id: object_id, capability: wrong })?,
     wide("100007")?).status == 403)
   assert(delete_object(database_path, root, encode_delete(control)?, wide("100007")?).status == 204)
   assert(get_part(database_path, root, object_id, 1, download, wide("100008")?).status == 404)
@@ -255,10 +243,7 @@ fn proof() -> Bool!String do
     wide("100100")?).status == 201)
   assert(complete(database_path,
     root,
-    encode_complete(ObjectControl {
-      object_id: expiring_id,
-      capability: expiring_upload
-    })?,
+    encode_complete(ObjectControl { object_id: expiring_id, capability: expiring_upload })?,
     wide("100200")?).status == 200)
   assert(get_part(database_path, root, expiring_id, 0, expiring_download, wide("101000")?).status == 410)
   assert(purge_expired(database_path, root, wide("101001")?, 1)? == 1)

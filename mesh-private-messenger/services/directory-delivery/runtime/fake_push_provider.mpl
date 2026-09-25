@@ -7,10 +7,7 @@ pub struct GenericPushPayload do
 end
 
 pub fn generic_push_payload() -> GenericPushPayload do
-  GenericPushPayload {
-    body: "New encrypted activity",
-    kind: "encrypted-wakeup"
-  }
+  GenericPushPayload { body: "New encrypted activity", kind: "encrypted-wakeup" }
 end
 
 pub fn send_local_fake_push(binding :: ProviderPushBinding,

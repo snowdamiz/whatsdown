@@ -36,10 +36,7 @@ pub fn open_outer_packet(outer :: OuterEnvelope, recipient :: borrow X25519Priva
       packet: open_recipient_packet(outer.ciphertext, recipient)?
     })
   else
-    Ok(MobileOpenedPacket {
-      sealed: false,
-      packet: outer.ciphertext
-    })
+    Ok(MobileOpenedPacket { sealed: false, packet: outer.ciphertext })
   end
 end
 

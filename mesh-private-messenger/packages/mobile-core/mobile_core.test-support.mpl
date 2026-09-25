@@ -179,7 +179,7 @@ fn store_legacy_prekey_fixture(database_path :: String,
   prekey_label :: String,
   legacy_blob :: Bytes) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       insert_blob(database, "one-time-prekey/v1", legacy_blob)?
       delete_blobs(database,
         [

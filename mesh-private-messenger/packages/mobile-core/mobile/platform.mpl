@@ -208,10 +208,7 @@ pub fn native_push_build_config() -> MobilePushBuildConfig!String do
         Err("invalid_push_broker_public_key")
       else
         let key = push_broker_public_key(broker_public_key)?
-        Ok(MobilePushBuildConfig {
-          project_id: project_id,
-          broker_public_key: key.bytes
-        })
+        Ok(MobilePushBuildConfig { project_id: project_id, broker_public_key: key.bytes })
       end
     end
   end

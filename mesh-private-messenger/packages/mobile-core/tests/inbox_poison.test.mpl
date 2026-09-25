@@ -35,10 +35,7 @@ fn entries(sequence :: U64,
       envelopes,
       index + 1,
       List.append(output,
-        DeliveredEnvelope {
-          sequence: sequence,
-          envelope: List.get(envelopes, index)
-        }))
+        DeliveredEnvelope { sequence: sequence, envelope: List.get(envelopes, index) }))
   end
 end
 

@@ -75,10 +75,7 @@ fn proof() -> Bool!String do
     "INSERT INTO messenger_mailboxes (mailbox_token_hash) VALUES ($1)",
     [Binary(Crypto.sha256(token))])?
   # Storage is exercised below the authorization boundary; Api tests cover it.
-  let owner = MailboxOwner {
-    mailbox_token: token,
-    signing_public_key: repeated(0, 32)
-  }
+  let owner = MailboxOwner { mailbox_token: token, signing_public_key: repeated(0, 32) }
   let first_id = repeated(1, 16)
   let second_id = repeated(2, 16)
   let first = OuterEnvelope {

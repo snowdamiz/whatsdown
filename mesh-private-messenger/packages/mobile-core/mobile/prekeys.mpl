@@ -73,11 +73,7 @@ fn decode_prekey_entries(encoded :: Bytes,
       decode_prekey_entries(encoded,
         offset + 40,
         id,
-        List.append(entries,
-          MobileOneTimePrekey {
-            id: id,
-            public_key: public_key
-          }))
+        List.append(entries, MobileOneTimePrekey { id: id, public_key: public_key }))
     end
   end
 end
@@ -183,12 +179,7 @@ fn migrate_legacy_prekey(profile :: ClientProfile,
       context(profile.account_id, profile.device_id, "one-time-prekey/v1", 10)?)?
     let label = one_time_prekey_label(id)
     let blob = seal_x25519(legacy_private, wrapping_key, one_time_prekey_context(profile, id)?)?
-    let entries = [
-      MobileOneTimePrekey {
-        id: id,
-        public_key: profile.bundle.one_time_prekey
-      }
-    ]
+    let entries = [MobileOneTimePrekey { id: id, public_key: profile.bundle.one_time_prekey }]
     store_prekey_batch(database_path,
       [label],
       [blob],
@@ -281,10 +272,7 @@ fn decode_last_resort(encoded :: Bytes) -> MobileOneTimePrekey!String do
     if !(valid_prekey_id(id)?) do
       Err("invalid_last_resort_prekey")
     else
-      Ok(MobileOneTimePrekey {
-        id: id,
-        public_key: Bytes.slice(encoded, 8, 32)?
-      })
+      Ok(MobileOneTimePrekey { id: id, public_key: Bytes.slice(encoded, 8, 32)? })
     end
   end
 end
@@ -389,10 +377,7 @@ fn new_last_resort_prekey(profile :: ClientProfile,
       local_context("last-resort-prekey/v1")?)?,
     retired_blob,
     removed_labels)?
-  Ok(MobileOneTimePrekey {
-    id: id,
-    public_key: public_key
-  })
+  Ok(MobileOneTimePrekey { id: id, public_key: public_key })
 end
 
 fn ensure_last_resort_prekey(profile :: ClientProfile,
@@ -569,10 +554,7 @@ fn generate_prekey_batch(profile :: ClientProfile,
       U64.add(next_id, mobile_wide("1")?)?,
       remaining - 1,
       List.append(entries,
-        MobileOneTimePrekey {
-          id: next_id,
-          public_key: generated.public_key.bytes
-        }),
+        MobileOneTimePrekey { id: next_id, public_key: generated.public_key.bytes }),
       List.append(labels, label),
       List.append(blobs, blob))
   end
@@ -597,11 +579,7 @@ fn public_prekeys(entries :: List<MobileOneTimePrekey>,
     let entry = List.get(entries, index)
     public_prekeys(entries,
       index + 1,
-      List.append(output,
-        OneTimePrekeyPublic {
-          id: entry.id,
-          public_key: entry.public_key
-        }))
+      List.append(output, OneTimePrekeyPublic { id: entry.id, public_key: entry.public_key }))
   end
 end
 
@@ -673,10 +651,7 @@ fn signed_prekey_publication(profile :: ClientProfile,
     account_id: profile.account_id,
     device_id: profile.device_id,
     prekeys: public_prekeys(entries, 0, List.new()),
-    last_resort: Some(OneTimePrekeyPublic {
-      id: reusable.id,
-      public_key: reusable.public_key
-    }),
+    last_resort: Some(OneTimePrekeyPublic { id: reusable.id, public_key: reusable.public_key }),
     contact_address_hash: Some(Crypto.sha256(contact_address)),
     signature: Bytes.empty()
   }

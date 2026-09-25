@@ -148,10 +148,7 @@ fn read_delivery_entries(state :: BinaryReader,
   index :: Int,
   output :: List<DeliveredEnvelope>) -> ProtocolReadDeliveries!ProtocolError do
   if index >= count do
-    Ok(ProtocolReadDeliveries {
-      state: state,
-      value: output
-    })
+    Ok(ProtocolReadDeliveries { state: state, value: output })
   else
     let sequence = protocol_take_u64(state)?
     let envelope = protocol_take_vector(sequence.state, 65606)?
@@ -159,11 +156,7 @@ fn read_delivery_entries(state :: BinaryReader,
     read_delivery_entries(envelope.state,
       count,
       index + 1,
-      List.append(output,
-        DeliveredEnvelope {
-          sequence: sequence.value,
-          envelope: envelope.value
-        }))
+      List.append(output, DeliveredEnvelope { sequence: sequence.value, envelope: envelope.value }))
   end
 end
 

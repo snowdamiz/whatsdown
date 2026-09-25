@@ -149,10 +149,7 @@ fn tree_message_context(tree :: borrow GroupTree, sender_leaf :: Int) -> TreeMes
     Err(error) -> Err(TreeFailure(error))
     Ok(value)
   end?
-  Ok(TreeMessageContext {
-    hash: tree_hash(tree),
-    sender: sender
-  })
+  Ok(TreeMessageContext { hash: tree_hash(tree), sender: sender })
 end
 
 fn open_message_context(state :: borrow GroupState, message :: GroupMessage) -> OpenMessageContext!GroupError do
@@ -336,11 +333,7 @@ fn record_generation(values :: List<SenderGeneration>,
   output :: List<SenderGeneration>) -> List<SenderGeneration> do
   if index >= List.length(values) do
     if received_generation(values, leaf_index, 0) < 0 do
-      List.append(output,
-        SenderGeneration {
-          leaf_index: leaf_index,
-          generation: generation
-        })
+      List.append(output, SenderGeneration { leaf_index: leaf_index, generation: generation })
     else
       output
     end

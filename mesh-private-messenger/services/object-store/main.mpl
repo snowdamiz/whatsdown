@@ -90,11 +90,7 @@ fn part_request(request :: Request) -> PartRequest!String do
   if part_index < 0 || part_index > 256 do
     Err("invalid object request")
   else
-    Ok(PartRequest {
-      object_id: object_id,
-      part_index: part_index,
-      capability: capability
-    })
+    Ok(PartRequest { object_id: object_id, part_index: part_index, capability: capability })
   end
 end
 

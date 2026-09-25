@@ -120,7 +120,9 @@ end
 
 fn initiator_ikm(suite :: Int, classical_ikm :: SecretBytes, bundle :: PrekeyBundle) -> Result<(Bytes, SecretBytes), SessionError> do
   if suite == 2 do
-    let (ciphertext, shared_secret) = Crypto.mlkem_encapsulate(MlKemPublicKey { bytes: bundle.post_quantum_prekey })?
+    let (ciphertext, shared_secret) = Crypto.mlkem_encapsulate(MlKemPublicKey {
+      bytes: bundle.post_quantum_prekey
+    })?
     Ok((ciphertext.bytes, concat(classical_ikm, shared_secret)?))
   else
     Ok((Bytes.empty(), classical_ikm))

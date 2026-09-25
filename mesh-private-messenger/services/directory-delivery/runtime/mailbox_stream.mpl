@@ -10,7 +10,7 @@ from Storage.RateLimit import allow_request
 
 pub fn mailbox_stream_room(pool :: PoolHandle, path :: String, headers :: Map<String, String>) -> String!String do
   let names = List.filter(Map.keys(headers),
-    fn (name :: String) -> String.to_lower(name) == "authorization" end)
+    fn(name :: String) -> String.to_lower(name) == "authorization" end)
   if path != "/v1/mailbox/stream" || List.length(names) != 1 do
     Err("invalid stream request")
   else

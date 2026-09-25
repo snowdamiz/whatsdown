@@ -108,10 +108,7 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!BackupError do
   case read_fixed(state, length) do
     Err(_) -> Err(InvalidManifest)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -119,10 +116,7 @@ fn take_u8(state :: BinaryReader) -> ReadInt!BackupError do
   let encoded = take_fixed(state, 1)?
   case Bytes.get(encoded.value, 0) do
     Err(_) -> Err(InvalidManifest)
-    Ok(value) -> Ok(ReadInt {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadInt { state: encoded.state, value: value })
   end
 end
 
@@ -134,10 +128,7 @@ fn take_u32(state :: BinaryReader) -> ReadInt!BackupError do
   end?
   case U64.to_int(wide) do
     Err(_) -> Err(InvalidManifest)
-    Ok(value) -> Ok(ReadInt {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadInt { state: encoded.state, value: value })
   end
 end
 
@@ -145,20 +136,14 @@ fn take_u64(state :: BinaryReader) -> ReadWide!BackupError do
   let encoded = take_fixed(state, 8)?
   case Bytes.read_u64_be(encoded.value, 0) do
     Err(_) -> Err(InvalidManifest)
-    Ok(value) -> Ok(ReadWide {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadWide { state: encoded.state, value: value })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!BackupError do
   case read_vector(state, maximum) do
     Err(_) -> Err(InvalidManifest)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -428,13 +413,7 @@ pub fn create_backup_profile() -> BackupProfile!BackupError do
     Err(error) -> Err(CryptoFailure(error))
     Ok(output)
   end?
-  Ok(BackupProfile {
-    version: 1,
-    salt: salt,
-    memory_kib: 65536,
-    iterations: 3,
-    parallelism: 1
-  })
+  Ok(BackupProfile { version: 1, salt: salt, memory_kib: 65536, iterations: 3, parallelism: 1 })
 end
 
 pub fn derive_backup_key(recovery :: borrow SecretBytes, profile :: BackupProfile) -> SecretBytes!BackupError do

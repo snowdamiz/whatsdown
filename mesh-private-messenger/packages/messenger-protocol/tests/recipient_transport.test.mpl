@@ -122,10 +122,7 @@ end
 fn proof() -> Bool!String do
   let now = wide("1700000000000")?
   let expires = wide("1700604800000")?
-  let policy = VerificationPolicy {
-    current_time: now,
-    minimum_directory_sequence: wide("1")?
-  }
+  let policy = VerificationPolicy { current_time: now, minimum_directory_sequence: wide("1")? }
   let (alice_account_keys, alice_account) = account(now)?
   let alice = device()?
   let alice_credential = credential(alice_account_keys, alice, now, expires)?

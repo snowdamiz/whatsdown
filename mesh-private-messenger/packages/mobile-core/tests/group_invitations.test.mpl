@@ -188,7 +188,7 @@ fn proof(malformed_first :: Bool) -> Bool!String do
   let original = canonical_group_welcome(encoded_welcome.welcome)?
   let fake_key = SigningPublicKey { bytes: repeated(9, 32)? }
   let substituted = List.map(original.members,
-    fn (member) do
+    fn(member) do
       if member.leaf_index == original.commit.committer_leaf do
         %{member | member: %{member.member | signing_public_key: fake_key}}
       else

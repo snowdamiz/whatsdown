@@ -63,7 +63,7 @@ fn assert_wide_ids(values :: List<U64>, start :: Int, index :: Int) -> Bool!Stri
 end
 
 fn assert_ids(values :: List<OneTimePrekeyPublic>, start :: Int, index :: Int) -> Bool!String do
-  assert_wide_ids(List.map(values, fn (prekey) do prekey.id end), start, index)
+  assert_wide_ids(List.map(values, fn(prekey) do prekey.id end), start, index)
 end
 
 fn reconcile(path :: String, account_id :: Bytes, device_id :: Bytes, active_ids :: List<U64>) -> Int!String do

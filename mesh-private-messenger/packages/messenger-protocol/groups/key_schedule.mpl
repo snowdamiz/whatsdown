@@ -247,11 +247,7 @@ fn seal_resolution(values :: List<TreeKemResolutionNode>,
         generated,
         level,
         context,
-        List.append(output,
-          TreeKemCiphertext {
-            recipient_node: value.node_index,
-            sealed: sealed
-          }))
+        List.append(output, TreeKemCiphertext { recipient_node: value.node_index, sealed: sealed }))
     end
   end
 end
@@ -282,10 +278,7 @@ pub fn group_seal_update_nodes(tree :: borrow GroupTree,
       context,
       level + 1,
       List.append(output,
-        TreeKemUpdateNode {
-          parent: List.get(generated.parents, level),
-          ciphertexts: ciphertexts
-        }))
+        TreeKemUpdateNode { parent: List.get(generated.parents, level), ciphertexts: ciphertexts }))
   end
 end
 

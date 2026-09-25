@@ -99,10 +99,7 @@ fn publication_check(conn :: borrow PgConn,
   index :: Int,
   new_count :: Int) -> PublicationCheck!String do
   if index >= List.length(request.prekeys) do
-    Ok(PublicationCheck {
-      new_count: new_count,
-      conflict: false
-    })
+    Ok(PublicationCheck { new_count: new_count, conflict: false })
   else
     let value = List.get(request.prekeys, index)
     let rows = Pg.query_values(conn,
@@ -115,10 +112,7 @@ fn publication_check(conn :: borrow PgConn,
       value.public_key) do
       publication_check(conn, request, index + 1, new_count)
     else
-      Ok(PublicationCheck {
-        new_count: new_count,
-        conflict: true
-      })
+      Ok(PublicationCheck { new_count: new_count, conflict: true })
     end
   end
 end
@@ -286,7 +280,7 @@ end
 
 pub fn publish_prekeys(pool :: PoolHandle, request :: PrekeyPublishRequest) -> PrekeyPublishWrite!String do
   encode_prekey_publish(request)?
-  Repo.transaction(pool, fn (conn :: borrow PgConn) -> publish_on_connection(conn, request) end)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> publish_on_connection(conn, request) end)
 end
 
 pub fn seed_registration_prekey_on_connection(conn :: borrow PgConn,
@@ -568,5 +562,5 @@ end
 
 pub fn claim_prekey(pool :: PoolHandle, request :: PrekeyClaimRequest) -> PrekeyClaimWrite!String do
   encode_prekey_claim(request)?
-  Repo.transaction(pool, fn (conn :: borrow PgConn) -> claim_on_connection(conn, request) end)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> claim_on_connection(conn, request) end)
 end
