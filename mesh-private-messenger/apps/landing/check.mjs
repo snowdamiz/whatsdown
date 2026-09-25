@@ -2,12 +2,14 @@
 // It holds each page to what it says about itself (no third-party requests, no
 // claims the project can't back) and to working at phone and desktop widths.
 // Playwright comes from the mobile app.
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "../mobile/node_modules/playwright/index.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
-const pages = ["index.html", "how-it-works.html", "witnesses.html"];
+// Articles are hardcoded files named blog-<slug>.html, listed by hand on blog.html.
+const articles = readdirSync(here).filter((f) => /^blog-[\w-]+\.html$/.test(f));
+const pages = ["index.html", "how-it-works.html", "witnesses.html", "blog.html", ...articles];
 const problems = [];
 
 // There is no audit and no licence file (SECURITY.md), so the copy can't claim either. The owner also wants no audit
@@ -45,13 +47,21 @@ for (const file of pages.filter((f) => existsSync(new URL(f, import.meta.url))))
       else if (id && !readFileSync(new URL(target, import.meta.url), "utf8").includes(`id="${id}"`)) problems.push(`${name}: links to nowhere: ${href}`);
     }
 
-    await ({ "index.html": home, "how-it-works.html": how, "witnesses.html": witnesses })[file](page, name);
+    await (({ "index.html": home, "how-it-works.html": how, "witnesses.html": witnesses, "blog.html": blog })[file] ?? (() => {}))(page, name);
+
+    // Narrow, the nav's links fold behind a menu button, which has to bring every one of them back.
+    if (width < 1040) {
+      await page.locator(".nav .menu").click({ timeout: 2000 }).catch(() => {});
+      const hidden = await page.$$eval(".nav nav a", (as) => as.filter((a) => !a.checkVisibility()).map((a) => a.textContent));
+      if (hidden.length || !(await page.$(".nav nav a"))) problems.push(`${name}: the menu doesn't reach the nav's links: ${hidden.join(", ")}`);
+    }
     await page.close();
   }
 }
 
 async function home(page, name) {
   if (!(await page.$('a[href="how-it-works.html"]'))) problems.push(`${name}: no link to how-it-works.html`);
+  if (!(await page.$('a[href="blog.html"]'))) problems.push(`${name}: no link to blog.html`);
   if (!(await page.$('#witness a[href^="witnesses.html"]'))) problems.push(`${name}: the witness section doesn't lead to witnesses.html`);
 
   // One chat, two views: on our servers every text bubble is the same sealed strip, and it comes back as it was.
@@ -133,6 +143,13 @@ async function witnesses(page, name) {
   const forms = await page.$$eval('a[href*="/issues/new?template="]', (as) => as.map((a) => new URL(a.href).searchParams.get("template")));
   if (!forms.length) problems.push(`${name}: no way to apply`);
   for (const t of forms) if (!existsSync(new URL(`../../../.github/ISSUE_TEMPLATE/${t}`, import.meta.url))) problems.push(`${name}: apply links to a missing form: ${t}`);
+}
+
+// The index is written by hand, so an article nobody linked would never be found.
+async function blog(page, name) {
+  const listed = await page.$$eval("main a[href^='blog-']", (as) => as.map((a) => a.getAttribute("href")));
+  if (!articles.length) problems.push(`${name}: there are no articles`);
+  for (const f of articles) if (!listed.includes(f)) problems.push(`${name}: ${f} isn't listed`);
 }
 
 await browser.close();
