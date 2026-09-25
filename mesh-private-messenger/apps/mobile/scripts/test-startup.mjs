@@ -128,11 +128,18 @@ try {
     }
     await cover.waitFor({ state: 'detached' });
     await page.getByRole('heading', { name: /Private messaging/ }).waitFor();
+    // Tauri starts a window drag only from the element under the pointer.
+    const dragsAtTrafficLights = () => page.evaluate(() =>
+      document.elementFromPoint(40, 36)?.hasAttribute('data-tauri-drag-region'));
+    assert.equal(await dragsAtTrafficLights(), true, 'The welcome screen moves the window from its top strip');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), scheme);
     const faded = await page.evaluate(() => window.startupTest.opacities.some((value) => value > 0 && value < 1));
     assert.equal(faded, scheme === 'light', 'The cover fades only when reduced motion is off');
     assert.deepEqual(errors, []);
     if (screenshots) await page.screenshot({ path: `${screenshots}/ready-${scheme}.png` });
+    await page.getByRole('button', { name: 'Get started' }).click();
+    await page.getByRole('heading', { name: 'Your profile' }).waitFor();
+    assert.equal(await dragsAtTrafficLights(), true, 'The profile step moves the window from its toolbar');
     console.log(`Startup: ${scheme} theme waits for fonts + storage, then reveals${scheme === 'dark' ? ' with reduced motion' : ''}`);
     await page.close();
   }

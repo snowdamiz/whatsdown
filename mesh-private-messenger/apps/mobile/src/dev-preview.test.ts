@@ -54,3 +54,17 @@ test('sample chats show each delivery state a synced bubble can take', () => {
     new Set(['sent', 'delivered', 'read']));
   assert.ok(messages!.every((message) => message.direction === 'sent' || !message.receipt));
 });
+
+test('sample threads show reactions and quoted replies, and every sample message can take them', () => {
+  const preview = createDevPreview(1_800_000_000_000);
+  for (const messages of [...Object.values(preview.histories), ...Object.values(preview.groupHistories)]) {
+    assert.ok(messages.every((message) => message.messageId));
+    assert.ok(messages.some((message) => message.reactions?.length));
+    const replies = messages.filter((message) => message.reply);
+    assert.ok(replies.length);
+    // A quote names a message still in the thread, as the codec's would.
+    for (const { reply } of replies) {
+      assert.ok(messages.some((message) => hex(message.messageId!) === reply!.target && message.body === reply!.message?.body));
+    }
+  }
+});

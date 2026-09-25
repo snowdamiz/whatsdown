@@ -122,7 +122,7 @@ fn verified_registration(entry :: DirectoryEntry) -> VerifiedRegistration!String
         Ok(output)
       end?
       Ok(VerifiedRegistration {
-        entry: % { entry | prekey_bundle: encoded_base },
+        entry: %{entry | prekey_bundle: encoded_base},
         account: account,
         credential: credential,
         initial_prekey: initial_prekey

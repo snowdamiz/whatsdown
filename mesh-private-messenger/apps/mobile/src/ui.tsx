@@ -1,6 +1,7 @@
 import {
   Children,
   Fragment,
+  createContext,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -39,8 +40,11 @@ import { initialWindowMetrics } from "react-native-safe-area-context";
 import Svg, {
   Circle,
   Defs,
+  G,
   LinearGradient,
+  Mask,
   Path,
+  Pattern,
   RadialGradient,
   Rect,
   Stop,
@@ -49,6 +53,7 @@ import Svg, {
 import { MAXIMUM_ATTACHMENTS } from "./codec";
 import { mentionAt, completeMention, mentionSpans } from "./mentions";
 import { placeMenu, type Frame } from "./message-menu";
+import { scatterDoodles } from "./wallpaper";
 import { REPLY_SWIPE_TRIGGER, replySwipeOffset, startsReplySwipe } from "./reply-swipe";
 import { describeStatus, type MessageStatus } from "./receipts";
 import {
@@ -968,6 +973,9 @@ export const chrome = {
 // type needs a longer ramp than a dense desktop pane.
 const edgeFade = isDesktop ? TOOLBAR_FADE : space[8];
 
+// How the pane's colour fades out along a floating edge: [offset, opacity].
+const edgeRamp = [[0, 1], [0.45, 0.86], [0.75, 0.4], [1, 0]] as const;
+
 // The pane's own colour bleeding into content along a floating edge, so text
 // stays legible as rows pass beneath the controls.
 function ScrollEdge({
@@ -981,11 +989,22 @@ function ScrollEdge({
 }) {
   const { colors } = useTheme();
   const styles = useStyles();
+  const frame = useContext(WallpaperFrame);
   const tone = color ?? colors.canvas;
   const towardsContent = side === "top";
   // Gradient ids are shared by every SVG on a web page, so each side and
   // colour names its own, or a bottom edge would borrow a top edge's ramp.
   const id = `edge-${side}-${tone.replace(/[^0-9a-z]/gi, "")}`;
+  // Over the canvas the edge hides content, not the wallpaper: the doodles
+  // carry on through it, faded by the same ramp, from where the edge sits in
+  // the window. A top edge hugs its pane's top, a bottom edge its bottom.
+  const doodles = tone === colors.canvas;
+  const [doodleX, doodleY] = [-frame.x, -(towardsContent ? frame.y : frame.y + frame.height - height)];
+  const doodleId = `${id}-doodles-${Math.round(doodleX)}-${Math.round(doodleY)}`;
+  const ramp = (stopColor: string) =>
+    edgeRamp.map(([offset, stopOpacity]) => (
+      <Stop key={offset} offset={offset} stopColor={stopColor} stopOpacity={stopOpacity} />
+    ));
   return (
     <View
       pointerEvents="none"
@@ -1000,13 +1019,30 @@ function ScrollEdge({
             x2="0"
             y2={towardsContent ? "1" : "0"}
           >
-            <Stop offset="0" stopColor={tone} stopOpacity={1} />
-            <Stop offset="0.45" stopColor={tone} stopOpacity={0.86} />
-            <Stop offset="0.75" stopColor={tone} stopOpacity={0.4} />
-            <Stop offset="1" stopColor={tone} stopOpacity={0} />
+            {ramp(tone)}
           </LinearGradient>
+          {doodles ? (
+            <>
+              <LinearGradient
+                id={`${id}-mask-ramp`}
+                x1="0"
+                y1={towardsContent ? "0" : "1"}
+                x2="0"
+                y2={towardsContent ? "1" : "0"}
+              >
+                {ramp(colors.white)}
+              </LinearGradient>
+              <Mask id={`${id}-mask`} maskContentUnits="objectBoundingBox">
+                <Rect width={1} height={1} fill={`url(#${id}-mask-ramp)`} />
+              </Mask>
+              <DoodlePattern id={doodleId} x={doodleX} y={doodleY} />
+            </>
+          ) : null}
         </Defs>
         <Rect x={0} y={0} width="100%" height={height} fill={`url(#${id})`} />
+        {doodles ? (
+          <Rect x={0} y={0} width="100%" height={height} fill={`url(#${doodleId})`} mask={`url(#${id}-mask)`} />
+        ) : null}
       </Svg>
     </View>
   );
@@ -1129,10 +1165,65 @@ export function Page({
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+  const frame = useContext(WallpaperFrame);
+  const [height, setHeight] = useState(frame.height);
   return (
-    <View style={[layout.flex, style]}>
-      {children}
-      {header}
+    <WallpaperFrame.Provider value={{ ...frame, height }}>
+      <View style={[layout.flex, style]} onLayout={(event) => setHeight(event.nativeEvent.layout.height)}>
+        {children}
+        {header}
+      </View>
+    </WallpaperFrame.Provider>
+  );
+}
+
+// The doodles behind every screen: the app's own glyphs, scattered over a
+// 360pt tile (see wallpaper.ts).
+const doodleGlyphs: (keyof typeof paths)[] = [
+  "chat", "lock", "smile", "camera", "paperclip", "key", "bell", "image", "moon", "clock",
+  "checks", "shield", "sun", "reply", "file", "link", "timer", "inbox", "person", "device",
+];
+const doodleTile = 360;
+const doodles = scatterDoodles(doodleTile, doodleGlyphs.length, 5);
+
+// Where the pane a floating edge hugs sits in the window, and how tall it is,
+// so the edge can line its doodles up with the wallpaper behind it. Taken
+// from layout rather than measured on screen: a screen sliding in is
+// transformed, and the doodles should land where it comes to rest.
+export const WallpaperFrame = createContext({ x: 0, y: 0, height: 0 });
+
+// The tile, starting at (x, y) in the drawing's own space.
+function DoodlePattern({ id, x = 0, y = 0 }: { id: string; x?: number; y?: number }) {
+  const { colors } = useTheme();
+  return (
+    <Pattern id={id} patternUnits="userSpaceOnUse" x={x} y={y} width={doodleTile} height={doodleTile}>
+      {doodles.map(({ glyph, x, y, size, angle }, index) => (
+        <G key={index} transform={`translate(${x} ${y}) rotate(${angle}) scale(${size / 24}) translate(-12 -12)`}>
+          <Path
+            d={paths[doodleGlyphs[glyph]!]}
+            fill="none"
+            stroke={colors.wallpaper}
+            // 1.5pt at any size, so small doodles are not drawn finer.
+            strokeWidth={36 / size}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </G>
+      ))}
+    </Pattern>
+  );
+}
+
+// The doodles over the window's canvas, anchored at the window's origin.
+export function Wallpaper() {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Svg width="100%" height="100%">
+        <Defs>
+          <DoodlePattern id="wallpaper" />
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#wallpaper)" />
+      </Svg>
     </View>
   );
 }
@@ -1737,7 +1828,8 @@ export function Section({
   trailing,
   footer,
 }: {
-  title: string;
+  // Omitted for a group that needs no heading, such as the profile card.
+  title?: string;
   children: ReactNode;
   trailing?: ReactNode;
   // Explanatory copy sits under the group, the way system settings do it,
@@ -1748,10 +1840,12 @@ export function Section({
   const styles = useStyles();
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={type.sectionTitle}>{title}</Text>
-        {trailing}
-      </View>
+      {title ? (
+        <View style={styles.sectionHeader}>
+          <Text style={type.sectionTitle}>{title}</Text>
+          {trailing}
+        </View>
+      ) : null}
       {children}
       {footer ? <Text style={styles.sectionFooter}>{footer}</Text> : null}
     </View>
@@ -2334,6 +2428,9 @@ export function Composer({
   const [focused, setFocused] = useState(false);
   const [height, setHeight] = useState(0);
   const [width, setWidth] = useState(0);
+  // Gone, the bar takes no room, so whatever lifted itself over it settles.
+  // Only the unmount matters, not a change of callback.
+  useEffect(() => () => onHeightChange?.(0), []);
   const focus = useFocusProgress((focused && !disabled) || dropping);
   const canSend = !disabled && !sendDisabled && (value.trim().length > 0 || attachments.length > 0);
   const ready = useSprung(canSend ? 1 : 0);
@@ -3627,27 +3724,23 @@ export function Reticle({ hint }: { hint: string }) {
   );
 }
 
-// The status pill's lane: it opens above the screen on a phone and below the
-// pane on the desktop, and the pill sits at the edge nearest the content.
-const statusLane = isDesktop
-  ? { near: space[2], far: space[4] }
-  : { near: space[1.5], far: space[1.5] };
-
-// Transient status shows as a compact pill in a lane of its own in the
-// layout, so it never covers anything: the lane eases open to the pill's
-// height and the screen moves out of its way. Errors stay until dismissed.
+// Transient status shows as a compact pill floating over the foot of the
+// pane, `lift` above it so it clears a composer or the tab bar, with the
+// wallpaper running on beneath it. Errors stay until dismissed.
 export function StatusPill({
   text,
   busy,
   error,
   onDismiss,
+  lift = 0,
 }: {
   text: string;
   busy: boolean;
   error: boolean;
   onDismiss?: () => void;
+  lift?: number;
 }) {
-  const { colors } = useTheme();
+  const { colors, elevation } = useTheme();
   const styles = useStyles();
   // Quick operations finish before anyone needs progress; only work that
   // outlasts a beat earns a pill. Errors always show immediately.
@@ -3671,11 +3764,7 @@ export function StatusPill({
   const liquid = useLiquidGlass();
   const { mounted, progress } = usePresence(visible);
   const materialized = useMaterialized(visible);
-  // The pill's own height, measured so the lane can be exactly as tall as
-  // the text it holds, however many lines that takes.
-  const [pillHeight, setPillHeight] = useState(0);
   if (!mounted) return null;
-  const laneHeight = pillHeight ? pillHeight + statusLane.near + statusLane.far : 0;
   const content = (
     <>
       <View
@@ -3704,47 +3793,36 @@ export function StatusPill({
       ) : null}
     </>
   );
-  // The pill is pinned to the lane's near edge, so it rises out of the
-  // window's bottom edge on the desktop and drops in under the status bar on
-  // a phone as the lane opens. Glass forms and dissolves through the system
-  // effect, so only the content inside it fades; the opaque fallback fades
-  // as a whole.
+  // Glass forms and dissolves through the system effect, so only the content
+  // inside it fades; the opaque fallback fades as a whole.
   return (
     <Animated.View
       pointerEvents={visible ? "box-none" : "none"}
       style={[
-        styles.statusLane,
-        { height: progress.interpolate({ inputRange: [0, 1], outputRange: [0, laneHeight] }) },
+        styles.statusFloat,
+        {
+          bottom: space[4] + lift,
+          opacity: liquid ? 1 : progress,
+          transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
+        },
       ]}
     >
-      <Animated.View
-        onLayout={(event) => setPillHeight(event.nativeEvent.layout.height)}
-        style={[
-          styles.statusPillWrap,
-          isDesktop ? { top: statusLane.near } : { bottom: statusLane.near },
-          {
-            opacity: liquid ? 1 : progress,
-            transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
-          },
-        ]}
+      <Pressable
+        accessible={false}
+        disabled={!display.error || !onDismiss}
+        onPress={onDismiss}
       >
-        <Pressable
-          accessible={false}
-          disabled={!display.error || !onDismiss}
-          onPress={onDismiss}
+        <Glass
+          materialized={materialized}
+          tint={display.error ? withAlpha(colors.danger, 0.2) : undefined}
+          fallback={[styles.statusPillSurface, display.error && styles.statusPillError, elevation.raised]}
+          style={[styles.statusPill, display.error && styles.statusPillErrorGlass]}
         >
-          <Glass
-            materialized={materialized}
-            tint={display.error ? withAlpha(colors.danger, 0.2) : undefined}
-            fallback={[styles.statusPillSurface, display.error && styles.statusPillError]}
-            style={[styles.statusPill, display.error && styles.statusPillErrorGlass]}
-          >
-            <Animated.View style={[styles.statusContentRow, liquid && { opacity: progress }]}>
-              {content}
-            </Animated.View>
-          </Glass>
-        </Pressable>
-      </Animated.View>
+          <Animated.View style={[styles.statusContentRow, liquid && { opacity: progress }]}>
+            {content}
+          </Animated.View>
+        </Glass>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -5203,11 +5281,10 @@ const useStyles = themed(({ colors, type, elevation }) =>
   reticleHintSurface: { backgroundColor: withAlpha(colors.surface, 0.9) },
   reticleHintText: { ...type.subhead, fontFamily: fonts.medium, color: colors.text },
 
-  statusLane: { overflow: "hidden" },
-  statusPillWrap: {
+  statusFloat: {
     position: "absolute",
     left: space[4],
-    right: space[4],
+    right: space[4] + scrollbarGutter,
     alignItems: "center",
   },
   statusPill: {
@@ -5220,8 +5297,7 @@ const useStyles = themed(({ colors, type, elevation }) =>
     paddingRight: space[3.5],
     paddingVertical: space[2.5],
   },
-  // The pill has a lane of its own, so it is never lifted over content (and
-  // the lane would clip a shadow).
+  // Floating over content, the opaque pill casts a shadow (see StatusPill).
   statusPillSurface: {
     backgroundColor: colors.thumb,
     borderWidth: 1,

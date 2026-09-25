@@ -41,6 +41,7 @@ async function open({ account = true, creator = true, answers = {} } = {}) {
         state.calls.push(path);
         const answer = state.answers[path];
         if (!answer) throw Error('Offline test boundary');
+        if (answer === 'pending') return new Promise(() => {});
         const [status, body] = Array.isArray(answer) ? answer : [answer, answer === 200 ? [1] : []];
         // Framed as the desktop host does: status, then any body.
         return [status >> 8, status & 255, ...body];
@@ -53,7 +54,9 @@ async function open({ account = true, creator = true, answers = {} } = {}) {
         state.account = 7;
         return profile();
       }
-      if (['mesh_messenger_register_request', 'mesh_messenger_resolve_request', 'mesh_messenger_verify_transparency'].includes(symbol)) return [1];
+      if (['mesh_messenger_register_request', 'mesh_messenger_resolve_request', 'mesh_messenger_verify_transparency',
+        'mesh_messenger_replenish_prekeys'].includes(symbol)) return [1];
+      if (symbol === 'mesh_messenger_reconcile_prekeys') return u32(64);
       if (symbol === 'mesh_messenger_account_deletion') return creator ? [1, 65, 68, 76] : [];
       if (symbol === 'mesh_messenger_erase_account') { state.account = 0; return []; }
       if (symbol === 'mesh_messenger_device_departure') return [1, 68, 80, 84];
@@ -165,6 +168,18 @@ try {
   await taken.getByRole('button', { name: 'Settings', exact: true }).waitFor();
   await taken.close();
   console.log('Account deletion: a taken username at signup leaves nothing behind');
+
+  // Signup ends at registration. The witnesses countersign the new device set
+  // seconds later, and the app checks that in the background, not behind a
+  // locked screen.
+  const unwitnessed = await open({ account: false, answers: {
+    '/v1/devices/register': 201, '/v1/prekeys/one-time/batch': 200, '/v1/devices/resolve': 'pending',
+  } });
+  await unwitnessed.getByRole('button', { name: 'Get started', exact: true }).click();
+  await createAccount(unwitnessed, 'alice');
+  await deleteFromSettings(unwitnessed, 'Delete account', 'Delete your account?', 'Cancel');
+  await unwitnessed.close();
+  console.log('Account creation: usable once registered, before the witnesses countersign');
 } finally {
   await browser.close();
   server.close();

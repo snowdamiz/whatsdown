@@ -373,7 +373,7 @@ fn substituted_hybrid_entry(identity :: AccountIdentity,
     Err(_) -> Err("credential signing failed")
     Ok(value)
   end?
-  let credential = % { unsigned | signature: signature.bytes }
+  let credential = %{unsigned | signature: signature.bytes}
   let signed = case generate_signed_prekey(substitute, credential, wide("1")?, expires_at) do
     Err(_) -> Err("signed prekey generation failed")
     Ok(value)
@@ -756,7 +756,7 @@ fn credential_rotation_proof() -> Bool!String do
   assert(scalar(pool,
     "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value")? == "1:1")
   assert(register_device_request(pool, protocol(encode_directory_entry(entries.replayed_sequence))?).status == 409)
-  let moved_mailbox = % { entries.first_hybrid | mailbox_token: repeated(72, 32) }
+  let moved_mailbox = %{entries.first_hybrid | mailbox_token: repeated(72, 32)}
   assert(register_device_request(pool, protocol(encode_directory_entry(moved_mailbox))?).status == 409)
   let substituted = substituted_hybrid_entry(identity,
     account_keys,
@@ -777,9 +777,9 @@ fn credential_rotation_proof() -> Bool!String do
     Err(_) -> Err("hybrid credential decode failed")
     Ok(value)
   end?
-  let unsigned_credential = % { decoded_credential | signature: repeated(0, 64) }
-  let unauthorized_bundle = % { decoded_hybrid | device_credential: protocol(encode_device_credential(unsigned_credential))? }
-  let unauthorized = % { entries.first_hybrid | prekey_bundle: protocol(encode_prekey_bundle(unauthorized_bundle))? }
+  let unsigned_credential = %{decoded_credential | signature: repeated(0, 64)}
+  let unauthorized_bundle = %{decoded_hybrid | device_credential: protocol(encode_device_credential(unsigned_credential))?}
+  let unauthorized = %{entries.first_hybrid | prekey_bundle: protocol(encode_prekey_bundle(unauthorized_bundle))?}
   assert(register_device_request(pool, protocol(encode_directory_entry(unauthorized))?).status == 400)
   let first_wire = protocol(encode_directory_entry(entries.first_hybrid))?
   let second_wire = protocol(encode_directory_entry(entries.second_hybrid))?

@@ -250,7 +250,7 @@ pub fn snapshot(state :: consume RatchetState,
   else
     case seal_snapshot(state, wrapping_key, account_id, device_id, snapshot_version) do
       Err(error) -> SnapshotRejected(state, error)
-      Ok(blob) -> SnapshotSealed(% { state | snapshot_version: snapshot_version }, blob)
+      Ok(blob) -> SnapshotSealed(%{state | snapshot_version: snapshot_version}, blob)
     end
   end
 end

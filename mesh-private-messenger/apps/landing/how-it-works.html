@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Morse works</title>
+<meta name="description" content="Follow one Morse message from phone to phone, past every server in between: the privacy edge, delivery, the key-transparency witnesses, file storage and push. See what each part can and can’t see.">
+<meta name="theme-color" content="#F6F2EA">
+<meta property="og:title" content="How Morse works">
+<meta property="og:description" content="Follow one message from phone to phone, past every server in between, and see what each part can and can’t see.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z'/%3E%3C/svg%3E">
+<script>document.documentElement.classList.add("js")</script>
+<style>
+/* The same paper, type and phones as index.html (its comments explain them); this page adds the map.
+   Every statement in it traces to protocol/ and ops/cloudflare/README.md. */
+@font-face{font-family:"Geist";font-weight:400;font-display:swap;src:url(fonts/Geist_400Regular.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:500;font-display:swap;src:url(fonts/Geist_500Medium.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:600;font-display:swap;src:url(fonts/Geist_600SemiBold.ttf) format("truetype")}
+:root{
+  --paper:#F6F2EA;
+  --ink:#0B0B0F; --ink-2:#4A4A55; --ink-3:#6B6B77;
+  --blue:#2459D0; --blue-2:#2F6BEA; --blue-3:#6AA6FF;
+  --butter:#FFE8AD; --peach:#FFD9C6; --lilac:#E4DCFF; --mint:#CBEDD8; --sky:#D5E2FF;
+  --green:#178A4E; --night:#0B0D14;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --gutter:clamp(20px,5.6vw,96px);
+  --page:1200px;
+  --r:clamp(28px,3.4vw,48px);
+  --lift:0 34px 56px -34px rgba(11,11,15,.38);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-padding-top:96px}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 1.0625rem/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:clip}
+h1,h2,h3,p,ul,ol,dl,dd{margin:0}
+ul,ol{padding:0;list-style:none}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+svg{display:block}
+::selection{background:var(--blue-2);color:#fff}
+:focus-visible{outline:2.5px solid var(--blue-2);outline-offset:3px;border-radius:6px}
+footer :focus-visible{outline-color:#fff}
+.wrap{width:min(100% - 2*var(--gutter),var(--page));margin-inline:auto}
+.skip{position:absolute;left:16px;top:-60px;z-index:100;padding:10px 18px;border-radius:999px;background:var(--ink);color:#fff;font-weight:500;transition:top .2s var(--ease)}
+.skip:focus{top:12px}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+h1,h2{font-weight:600;text-wrap:balance}
+h1{font-size:clamp(2.8rem,6.4vw,5.6rem);line-height:.97;letter-spacing:-.05em}
+h2{font-size:clamp(2.1rem,4.2vw,3.6rem);line-height:1.02;letter-spacing:-.043em}
+.lead{margin-top:clamp(20px,2.2vw,28px);max-width:31em;font-size:clamp(1.125rem,1.45vw,1.3125rem);line-height:1.5;color:var(--ink-2);text-wrap:pretty}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:56px;padding:0 28px;border-radius:999px;font-weight:500;font-size:1.0625rem;letter-spacing:-.01em;white-space:nowrap;transition:transform .2s var(--ease),background-color .2s}
+.btn:active{transform:scale(.98)}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.dark:hover{background:#26262F}
+.btn.sm{height:44px;padding:0 20px;font-size:.98rem}
+.js .reveal{opacity:0;transform:translateY(28px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.js .reveal.in{opacity:1;transform:none}
+
+.nav{position:sticky;top:0;z-index:50;background:var(--paper);transition:box-shadow .25s}
+.nav.stuck{box-shadow:0 1px 0 rgba(11,11,15,.1)}
+.nav .wrap{display:flex;align-items:center;gap:40px;height:76px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:1.3rem;letter-spacing:-.035em}
+.tile{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--blue-2)}
+.tile svg{width:56%;fill:#fff}
+.nav nav{display:flex;gap:32px;margin-right:auto}
+.nav nav a{font-weight:500;font-size:1rem;color:var(--ink-2);transition:color .15s}
+.nav nav a:hover,.nav nav a[aria-current]{color:var(--ink)}
+@media (max-width:860px){.nav nav{display:none}.nav .btn{margin-left:auto}.nav .wrap{height:68px}}
+
+/* ------------------------------------------------------------ Intro */
+.intro{padding-block:clamp(48px,7vw,104px) clamp(28px,3.4vw,44px)}
+.w{display:inline-block;overflow:hidden;vertical-align:top;padding:.1em .04em .2em;margin:-.1em -.04em -.2em}
+.w>i{display:inline-block;font-style:normal}
+.js .intro .w>i{animation:word 1.1s var(--ease) both}
+.js .intro .w:nth-child(2)>i{animation-delay:.07s}.js .intro .w:nth-child(3)>i{animation-delay:.14s}
+.js .intro .lead{animation:rise .95s var(--ease) .3s both}
+@keyframes word{from{transform:translateY(112%)}}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}}
+
+/* ------------------------------------------------------------ The map */
+/* Four journeys across one picture of everything that runs. The parts sit on a hand-laid stage (wide for
+   desktops, tall for phones, both in the script) that is scaled to fit; the lines between them are drawn
+   from the same numbers, so a packet can fly along exactly what is drawn. */
+.map{padding-bottom:clamp(64px,8vw,120px)}
+.jr{display:inline-grid;grid-auto-flow:column;padding:5px;border-radius:999px;background:rgba(11,11,15,.07)}
+.jr button{padding:11px 20px;border-radius:999px;font-weight:500;color:var(--ink-2);white-space:nowrap;transition:background-color .25s,color .25s,box-shadow .25s}
+.jr button:hover{color:var(--ink)}
+.jr button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(11,11,15,.14)}
+@media (max-width:640px){.jr{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:row;border-radius:24px;width:100%}.jr button{padding:11px 8px;border-radius:19px}}
+.deck{display:grid;gap:clamp(20px,2.4vw,32px);margin-top:20px}
+.deck.side{grid-template-columns:minmax(0,1fr) minmax(0,.9fr);align-items:start}
+.deck.side .narr{position:sticky;top:112px;grid-template-columns:minmax(0,1fr)}
+.board{position:relative;padding:clamp(12px,2.2vw,32px);border-radius:var(--r);background:var(--sky)}
+.fit{position:relative;height:600px}
+.stage{position:absolute;left:0;top:0;transform-origin:0 0;font-size:15px;line-height:1.36;letter-spacing:-.006em}
+.zone{position:absolute;border-radius:30px;background:rgba(255,255,255,.44)}
+.zone b{position:absolute;left:22px;top:11px;font-weight:500;font-size:13px;color:#4E5B80}
+.wires{position:absolute;left:0;top:0;overflow:visible}
+.wire{fill:none;stroke:#7F93C4;stroke-width:2;stroke-linecap:round;transition:stroke .35s,stroke-width .35s,opacity .35s}
+.lit .wire{opacity:.45}
+.lit .wire.on{opacity:1;stroke:var(--blue-2);stroke-width:3}
+.node{position:absolute;display:flex;align-items:center;gap:11px;padding:0 14px;border-radius:18px;background:#fff;text-align:left;box-shadow:0 14px 26px -20px rgba(11,11,15,.5);transition:opacity .4s,box-shadow .35s,transform .35s var(--ease)}
+.node:hover{transform:translateY(-2px)}
+.node b{display:block;font-weight:600;font-size:15px;line-height:1.2;letter-spacing:-.02em}
+.node small{display:block;margin-top:3px;font-size:12.5px;line-height:1.3;color:var(--ink-3)}
+.nt{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:10px}
+.nt .ic{width:18px;height:18px}
+.nt.dev{background:var(--blue-2);color:#fff}
+.nt.cf{background:var(--lilac);color:#5B4A99}
+.nt.mesh{background:var(--butter);color:#7A5600}
+.nt.store{background:var(--mint);color:var(--green)}
+.nt.out{background:var(--peach);color:#A34A1F}
+.lit .node:not(.on,.picked){opacity:.45}
+.node.on{box-shadow:0 0 0 2.5px var(--blue-2),0 18px 30px -18px rgba(36,89,208,.6)}
+.node.picked{box-shadow:0 0 0 2.5px var(--ink),0 18px 30px -18px rgba(11,11,15,.5)}
+/* The two phones: drawn whole on the wide map (the home page's phone at .63), a plain part on the tall one. */
+.wide .node.dev{display:block;padding:0;background:none;box-shadow:none}
+.wide .node.dev .mini{display:none}
+.dev .cap{display:block;height:42px;margin-bottom:12px;text-align:center}
+.dev .phone{zoom:.5;transition:outline-color .35s}
+.dev.on .phone{outline:4px solid var(--blue-2);outline-offset:6px}
+.tall .dev .cap,.tall .dev .phone{display:none}
+.mini{display:flex;align-items:center;gap:inherit}
+.tall .node{gap:8px;padding:0 10px;border-radius:14px}
+.tall .node small{display:none}
+.tall .node b{font-size:14px}
+.tall .nt{width:26px;height:26px;border-radius:8px}
+.tall .nt .ic{width:15px;height:15px}
+.node.sm{justify-content:center;text-align:center}
+.node.sm .nt{display:none}
+/* A packet: always sealed, labelled with what it carries. */
+.pkt{position:absolute;left:0;top:0;z-index:5;display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border-radius:999px;background:var(--ink);color:#fff;font-weight:500;font-size:12.5px;white-space:nowrap;pointer-events:none;box-shadow:0 8px 18px -8px rgba(11,11,15,.6);transition:opacity .3s}
+.pkt .ic{width:13px;height:13px;stroke-width:2.4}
+.pkt b{font-weight:500}
+.pkt b:not(:empty){padding-right:4px}
+.pkt.off{opacity:0}
+.tall .pkt b{display:none}
+
+/* The phones' screens follow the step: the message is typed, sealed, sent, and opened on hers. */
+.phone{position:relative;display:block;width:318px;padding:8px;border:2px solid transparent;border-radius:54px;
+  background:linear-gradient(#0E0E12,#0E0E12) padding-box,linear-gradient(150deg,#9A9AA6,#3A3A44 14%,#18181D 40%,#18181D 62%,#3A3A44 86%,#8A8A96) border-box;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 60px 90px -44px rgba(8,10,24,.6)}
+.phone::before{content:"";position:absolute;z-index:3;top:19px;left:50%;width:88px;height:26px;margin-left:-44px;border-radius:999px;background:#0E0E12}
+.screen{position:relative;display:flex;flex-direction:column;height:640px;border-radius:44px;overflow:hidden;background:#fff;color:#0A0A0C;font-size:14.5px;line-height:1.36;text-align:left}
+.screen::after{content:"";position:absolute;left:50%;bottom:7px;width:112px;height:4px;margin-left:-56px;border-radius:9px;background:currentColor;opacity:.2}
+.status{display:flex;align-items:center;justify-content:space-between;flex:none;height:50px;padding:6px 30px 0;font-weight:600;font-size:13.5px}
+.status>span+span{display:flex;align-items:center;gap:5px}
+.status .ic{width:17px;height:12px;fill:currentColor;stroke:none}
+.bat{position:relative;width:24px;height:11.5px;border-radius:3.5px;box-shadow:inset 0 0 0 1.2px currentColor;opacity:.85}
+.bat::after{content:"";position:absolute;inset:2.4px 6px 2.4px 2.4px;border-radius:1.5px;background:currentColor}
+.chead{display:flex;align-items:center;gap:10px;flex:none;padding:6px 14px 10px}
+.chead .ic{width:22px;height:22px}
+.chead b{font-weight:600;font-size:15.5px;letter-spacing:-.02em}
+.ava{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:12px}
+.t0{--a:#5B9DFF;--b:#3462FF}.t4{--a:#5EE39B;--b:#22AD6C}
+.thread{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:0;padding:8px 12px 12px}
+.day{align-self:center;margin-bottom:5px;padding:4px 11px;border-radius:999px;background:#F2F2F5;font-size:11px;color:#63636D}
+.b{position:relative;max-width:82%;padding:8px 13px 6px;border-radius:20px}
+.b.in{align-self:flex-start;background:#E9E9EE;border-bottom-left-radius:6px}
+.b.out{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:6px}
+.b small{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:1px;font-size:10.5px;opacity:.6}
+.b small .ic{width:13px;height:13px}
+.doc{display:flex;align-items:center;gap:10px;padding:2px 2px 3px 0}
+.doc i{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:rgba(0,0,0,.16)}
+.doc .ic{width:18px;height:18px}
+.doc b{display:block;font-weight:500;font-size:13.5px}
+.doc>span>span{display:block;font-size:11.5px;opacity:.75}
+.composer{display:flex;align-items:center;gap:9px;flex:none;height:44px;margin:0 12px 22px;padding:0 6px 0 13px;border-radius:999px;font-size:13.5px;box-shadow:inset 0 0 0 1px #DFDFE6;color:#8E8E98}
+.composer .ic{width:18px;height:18px}
+.composer i{display:grid;place-items:center;width:32px;height:32px;margin-left:auto;border-radius:50%;background:#A9C1F3;color:#fff}
+.composer i .ic{width:16px;height:16px;stroke-width:2.4}
+.note{opacity:0;transform:translateY(14px) scale(.96);transition:opacity .5s var(--ease),transform .5s var(--ease)}
+.stage[data-you] .you .note,.stage[data-them] .them .note{opacity:1;transform:none}
+.them .note{transition-delay:var(--arrive,0ms)}
+.note .doc,.stage[data-msg=file] .note .txt{display:none}
+.stage[data-msg=file] .note .doc{display:flex}
+.note small .ic{opacity:0;transition:opacity .3s}
+.stage[data-you=sent] .you .note small .ic{opacity:1}
+/* Sealed is the home page's motion: the words wipe away into Morse noise, and back. */
+.seal{position:relative;display:block}
+.seal>span{display:block;mask:linear-gradient(90deg,#000 45%,transparent 55%) 0 0/300% 100% no-repeat;transition:mask-position .9s cubic-bezier(.5,0,.3,1)}
+.seal>i{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:center;gap:10px 9px;overflow:hidden;color:rgba(10,10,12,.42);mask:linear-gradient(90deg,transparent 45%,#000 55%) 0 0/300% 100% no-repeat;transition:mask-position .9s cubic-bezier(.5,0,.3,1)}
+.out .seal>i{color:rgba(255,255,255,.55)}
+.stage[data-you=sealed] .you .seal>*,.stage[data-them=sealed] .them .seal>*{mask-position:100% 0}
+.them .seal>*{transition-delay:var(--arrive,0ms)}
+.mc{--u:5px;display:inline-flex;align-items:center;gap:calc(var(--u)*.8);flex:none}
+.mc i{flex:none;width:var(--u);height:var(--u);border-radius:999px;background:currentColor}
+.mc i.D{width:calc(var(--u)*3)}
+.mc i.g{width:calc(var(--u)*1.2);background:none}
+.mc i.G{width:calc(var(--u)*4);background:none}
+
+/* The narration: where we are, what happens, and the steps as a Morse rail (the current one is the dash). */
+.narr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px 40px;align-items:start}
+.count{font-weight:500;font-size:.95rem;color:var(--ink-3)}
+.say h3{margin-top:6px;font-weight:600;font-size:clamp(1.4rem,2.2vw,1.85rem);line-height:1.15;letter-spacing:-.035em;text-wrap:balance}
+#st-text{margin-top:10px;max-width:40em;color:var(--ink-2);text-wrap:pretty}
+.ctl{display:flex;gap:8px}
+.ctl button{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(11,11,15,.14);transition:transform .2s var(--ease),background-color .2s}
+.ctl button:hover{background:#EAF0FF}
+.ctl button:active{transform:scale(.95)}
+.ctl button:disabled{opacity:.4;cursor:default;background:#fff}
+.ctl .ic{width:20px;height:20px}
+#play .ic{fill:currentColor;stroke-width:1.5}
+.side-ctl{display:grid;justify-items:end;gap:16px}
+.rail{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px;max-width:200px}
+.rail button{width:10px;height:10px;border-radius:999px;background:rgba(11,11,15,.16);transition:width .45s var(--ease),background-color .3s}
+.rail button.done{background:rgba(36,89,208,.45)}
+.rail button[aria-current]{width:30px;background:var(--blue-2)}
+.deck.side .side-ctl{order:-1;justify-items:start}
+.deck.side .rail{justify-content:flex-start;max-width:none}
+@media (max-width:640px){.narr{grid-template-columns:minmax(0,1fr)}.side-ctl{justify-items:start}.rail{justify-content:flex-start;max-width:none}}
+
+/* The part a reader tapped: what it is and what it sees, lifted from the list below the map. */
+.part{position:absolute;z-index:10;width:min(340px,100% - 24px);padding:22px 22px 20px;border-radius:24px;background:#fff;box-shadow:0 30px 60px -24px rgba(11,11,15,.45),0 0 0 1px rgba(11,11,15,.06);font-size:.95rem;line-height:1.5}
+.part:focus{outline:none}
+.part header{padding-right:36px}
+.part h3{font-weight:600;font-size:1.2rem;line-height:1.2;letter-spacing:-.03em}
+.part p{margin-top:12px;color:var(--ink-2)}
+.part dl{margin-top:16px}
+.part .seen{display:none}
+.part .x{position:absolute;top:14px;right:14px;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#F2F2F5}
+.part .x .ic{width:16px;height:16px}
+/* Without script there is no map, only the steps written out. */
+.board,.jr,.narr{display:none}
+.js .board{display:block}.js .jr{display:inline-grid}.js .narr{display:grid}
+@media (max-width:640px){.js .jr{display:grid}}
+.js .scripts{display:none}
+.scripts{display:grid;gap:40px}
+.scripts h3{font-weight:600;font-size:1.5rem;letter-spacing:-.03em}
+.scripts ol{display:grid;gap:14px;margin-top:14px;padding-left:1.4em;list-style:decimal}
+.scripts li h3{display:inline;font-size:1.05rem}
+.scripts li p{color:var(--ink-2)}
+
+/* ------------------------------------------------------------ Every part */
+.parts{padding-bottom:clamp(40px,5vw,72px)}
+.parts .head{max-width:40em}
+/* One card per part, in the map's own icons and colours. What a part sees are light pills; what it never
+   sees are sealed ones, dark like the envelopes. The phones get the wide blue card: the one place with words. */
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:clamp(16px,1.8vw,24px);margin-top:clamp(32px,4vw,56px)}
+.list article{display:flex;flex-direction:column;gap:16px;padding:26px 26px 28px;border-radius:30px;background:#fff;box-shadow:0 26px 44px -36px rgba(11,11,15,.4)}
+.js .list .reveal:nth-child(3n){transition-delay:.08s}.js .list .reveal:nth-child(3n+1){transition-delay:.16s}
+article header{display:flex;align-items:center;gap:14px}
+.list .nt{width:46px;height:46px;border-radius:14px}
+.list .nt .ic{width:22px;height:22px}
+.list h3{font-weight:600;font-size:1.25rem;line-height:1.2;letter-spacing:-.03em}
+.tags{display:block;margin-top:3px;font-size:.84rem;line-height:1.35;color:var(--ink-3)}
+.list article p{font-size:.98rem;line-height:1.5;color:var(--ink-2);text-wrap:pretty}
+article dl{display:grid;gap:14px}
+article dt{font-weight:500;font-size:.84rem;color:var(--ink-3)}
+article dd{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+article dd span{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px 0 11px;border-radius:999px;font-weight:500;font-size:.86rem;letter-spacing:-.005em;white-space:nowrap}
+.sees span{background:#EAF0FF;color:var(--blue)}
+.sees span::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.never span{background:var(--night);color:#fff}
+.never span::before{content:"";width:12px;height:12px;background:var(--blue-3);mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2.5'/%3E%3Cpath d='M8 11V7.5a4 4 0 0 1 8 0V11'/%3E%3C/svg%3E") center/contain no-repeat}
+.list .phones{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:clamp(28px,5vw,72px);align-items:center;padding:clamp(28px,4.4vw,56px);background:var(--blue);color:#fff}
+.phones .txt{display:flex;flex-direction:column;gap:18px}
+.list .phones h3{font-size:clamp(1.5rem,2.4vw,2rem);letter-spacing:-.04em}
+.list .phones .nt{background:#fff;color:var(--blue-2)}
+.list .phones .tags,.list .phones dt{color:rgba(255,255,255,.74)}
+.list .phones .txt>p{max-width:34em;font-size:1.06rem;color:rgba(255,255,255,.9)}
+.list .phones .sees span{background:#fff}
+/* The same message twice: words where it's written and read, a sealed strip everywhere between. */
+.seen{display:grid;grid-template-columns:max-content;justify-content:center;justify-items:center;gap:14px}
+.seen p{display:grid;gap:8px;justify-items:start;width:100%}
+.seen small{font-size:.86rem;color:rgba(255,255,255,.74)}
+.bub,.strip{width:100%;height:56px;border-radius:26px 26px 8px 26px}
+.bub{display:flex;align-items:center;padding:0 22px;background:#fff;color:var(--ink);font-size:1.12rem;letter-spacing:-.01em;white-space:nowrap}
+/* The column is as wide as the words; the strip only fills it (a zero width adds nothing to max-content), and
+   shows one whole line of its noise, the rest wrapped out of sight below. */
+.strip{display:flex;flex-wrap:wrap;align-content:flex-start;gap:60px 10px;width:0;min-width:100%;padding:25px 22px 0;overflow:hidden;background:var(--night);color:rgba(255,255,255,.45)}
+.strip .mc{--u:5px}
+.via{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff}
+.via .ic{width:18px;height:18px}
+@media (max-width:760px){.list .phones{grid-template-columns:minmax(0,1fr)}.seen{justify-content:start}}
+@media (max-width:420px){.bub{font-size:1rem;padding:0 18px}.strip{padding-inline:18px}}
+.specs{display:flex;flex-wrap:wrap;gap:10px;margin-top:clamp(28px,3vw,40px)}
+.specs a{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px 0 18px;border-radius:999px;background:#fff;font-weight:500;font-size:.98rem;box-shadow:0 1px 3px rgba(11,11,15,.1);transition:background-color .2s}
+.specs a:hover{background:#EAF0FF}
+.specs .ic{width:16px;height:16px;color:var(--blue-2);transition:transform .25s var(--ease)}
+.specs a:hover .ic{transform:translate(2px,-2px)}
+.specs+p{margin-top:18px;max-width:40em;font-size:.98rem;color:var(--ink-3)}
+
+footer{margin-top:clamp(64px,8vw,120px);padding:clamp(56px,6vw,88px) 0 44px;background:var(--ink);color:rgba(255,255,255,.62)}
+footer .wrap{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));gap:40px clamp(24px,4vw,64px)}
+footer .brand{color:#fff}
+footer .mc{--u:3.5px;margin-top:18px;color:rgba(255,255,255,.34)}
+footer h3{margin-bottom:14px;font-weight:400;font-size:.88rem;color:rgba(255,255,255,.46)}
+footer li a{display:block;padding:5px 0;color:#fff;transition:color .15s}
+footer li a:hover{color:var(--blue-3)}
+.quiet{grid-column:1/-1;padding-top:28px;border-top:1px solid rgba(255,255,255,.13);font-size:.92rem}
+@media (max-width:760px){footer .wrap{grid-template-columns:repeat(2,minmax(0,1fr))}footer .wrap>div:first-child{grid-column:1/-1}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition-duration:.01ms!important;transition-delay:0s!important;scroll-behavior:auto!important}
+  .js .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="248 304 528 416"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></symbol>
+  <symbol id="i-signal" viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="4.6" y="5.5" width="3" height="6.5" rx=".8"/><rect x="9.2" y="3" width="3" height="9" rx=".8"/><rect x="13.8" y="0" width="3" height="12" rx=".8"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 17 12"><path d="M8.5 2.6c2.3 0 4.4.9 6 2.4l1.1-1.2A10.3 10.3 0 0 0 8.5.9C5.7.9 3.2 2 1.4 3.8l1.1 1.2a8.6 8.6 0 0 1 6-2.4Zm0 3.5c1.4 0 2.7.5 3.7 1.4l1.1-1.2a7.1 7.1 0 0 0-9.6 0l1.1 1.2c1-.9 2.3-1.4 3.7-1.4Zm0 3.4c.6 0 1.2.2 1.6.6L8.5 11.8 6.9 10.1c.4-.4 1-.6 1.6-.6Z"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.8v12.4c0 .8.9 1.3 1.6.8l9.4-6.2c.6-.4.6-1.2 0-1.6L9.6 5c-.7-.5-1.6 0-1.6.8Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="3.6" height="14" rx="1.2"/><rect x="13.9" y="5" width="3.6" height="14" rx="1.2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m20 11.5-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></symbol>
+  <symbol id="i-checks" viewBox="0 0 24 24"><path d="m2 12.5 4.5 4.5 9-9.5M12 16l1 1 9-9.5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5ZM14 3v5h5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.5 2.8v5.7c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.8L12 3Z"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.8"/><path d="M11 18.2h2"/></symbol>
+  <symbol id="i-door" viewBox="0 0 24 24"><path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14"/><path d="M4 12h11M11 8l4 4-4 4"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M20.5 7.8 12 3 3.5 7.8v8.4L12 21l8.5-4.8V7.8Z"/><path d="m3.5 7.8 8.5 4.8 8.5-4.8M12 12.6V21"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 19h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.4 9.6 4.75 4.75 0 0 0 7 19Z"/></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><path d="m12 3 2.4 1.7 2.9-.1.9 2.8 2.3 1.8-.9 2.8.9 2.8-2.3 1.8-.9 2.8-2.9-.1L12 21l-2.4-1.7-2.9.1-.9-2.8-2.3-1.8.9-2.8-.9-2.8 2.3-1.8.9-2.8 2.9.1L12 3Z"/><path d="m8.8 12.2 2.2 2.2 4.2-4.4"/></symbol>
+</svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="Morse, home"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+    <nav aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="index.html#privacy">Privacy</a>
+      <a href="how-it-works.html" aria-current="page">How it works</a>
+      <a href="index.html#answers">Straight answers</a>
+    </nav>
+    <a class="btn dark sm" href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a>
+  </div>
+</header>
+
+<main id="main">
+<section class="intro">
+  <div class="wrap">
+    <h1><span class="w"><i>How</i></span> <span class="w"><i>Morse</i></span> <span class="w"><i>works.</i></span></h1>
+    <p class="lead">Follow one message from your phone to @ada’s, past every server in between. Tap any part of the map to see what it gets to see.</p>
+  </div>
+</section>
+
+<section class="map" id="map">
+  <div class="wrap">
+    <div class="jr" id="journeys" role="group" aria-label="Choose a journey">
+      <button type="button" data-journey="send" aria-pressed="true">Send a message</button>
+      <button type="button" data-journey="find" aria-pressed="false">Find someone</button>
+      <button type="button" data-journey="file" aria-pressed="false">Share a file</button>
+      <button type="button" data-journey="wake" aria-pressed="false">Wake a phone</button>
+    </div>
+
+    <div class="deck">
+      <div class="board">
+        <div class="fit">
+          <div class="stage">
+            <div class="zone"><b>Cloudflare</b></div>
+            <svg class="wires" aria-hidden="true"></svg>
+
+            <button class="node dev you" type="button" data-id="you" aria-haspopup="dialog" aria-label="Your phone">
+              <span class="mini"><i class="nt dev"><svg class="ic"><use href="#i-phone"/></svg></i><b>Your phone</b></span>
+              <span class="cap"><b>Your phone</b><small>@you · Morse core inside</small></span>
+              <span class="phone" aria-hidden="true"><span class="screen">
+                <span class="status"><span>6:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></span>
+                <span class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t0">AD</span><b>@ada</b></span>
+                <span class="thread">
+                  <span class="day">Today</span>
+                  <span class="b in">Are we still on for Friday?<small>6:38 PM</small></span>
+                  <span class="b out note"><span class="seal"><span><span class="txt">Leaving now. See you at 7!</span><span class="doc"><i><svg class="ic"><use href="#i-file"/></svg></i><span><b>lease-signed.pdf</b><span>2.4 MB</span></span></span></span><i data-seal="4"></i></span><small>6:41 PM<svg class="ic"><use href="#i-checks"/></svg></small></span>
+                </span>
+                <span class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></span>
+              </span></span>
+            </button>
+
+            <button class="node dev them" type="button" data-id="them" aria-haspopup="dialog" aria-label="@ada’s phone">
+              <span class="mini"><i class="nt dev"><svg class="ic"><use href="#i-phone"/></svg></i><b>@ada’s phone</b></span>
+              <span class="cap"><b>@ada’s phone</b><small>The same core inside</small></span>
+              <span class="phone" aria-hidden="true"><span class="screen">
+                <span class="status"><span>6:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></span>
+                <span class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t4">YO</span><b>@you</b></span>
+                <span class="thread">
+                  <span class="day">Today</span>
+                  <span class="b out">Are we still on for Friday?<small>6:38 PM<svg class="ic"><use href="#i-checks"/></svg></small></span>
+                  <span class="b in note"><span class="seal"><span><span class="txt">Leaving now. See you at 7!</span><span class="doc"><i><svg class="ic"><use href="#i-file"/></svg></i><span><b>lease-signed.pdf</b><span>2.4 MB</span></span></span></span><i data-seal="4"></i></span><small>6:41 PM</small></span>
+                </span>
+                <span class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></span>
+              </span></span>
+            </button>
+
+            <button class="node" type="button" data-id="edge" aria-haspopup="dialog"><i class="nt cf"><svg class="ic"><use href="#i-shield"/></svg></i><span><b>Privacy edge</b><small>Its own Worker, one secret</small></span></button>
+            <button class="node" type="button" data-id="gw" aria-haspopup="dialog"><i class="nt cf"><svg class="ic"><use href="#i-door"/></svg></i><span><b>Front door</b><small>The backend Worker · passes on none of your headers</small></span></button>
+            <button class="node" type="button" data-id="wa" aria-haspopup="dialog"><i class="nt mesh"><svg class="ic"><use href="#i-badge"/></svg></i><span><b>Witness A</b><small>Own key, own record</small></span></button>
+            <button class="node" type="button" data-id="wb" aria-haspopup="dialog"><i class="nt mesh"><svg class="ic"><use href="#i-badge"/></svg></i><span><b>Witness B</b><small>Own key, own record</small></span></button>
+            <button class="node" type="button" data-id="dd" aria-haspopup="dialog"><i class="nt mesh"><svg class="ic"><use href="#i-server"/></svg></i><span><b>Directory + delivery</b><small>Mesh service · accounts, keys, mailboxes</small></span></button>
+            <button class="node" type="button" data-id="push" aria-haspopup="dialog"><i class="nt mesh"><svg class="ic"><use href="#i-bell"/></svg></i><span><b>Push broker</b><small>Mesh service · wake-ups</small></span></button>
+            <button class="node" type="button" data-id="obj" aria-haspopup="dialog"><i class="nt mesh"><svg class="ic"><use href="#i-box"/></svg></i><span><b>Object store</b><small>Mesh service · encrypted files</small></span></button>
+            <button class="node" type="button" data-id="r2" aria-haspopup="dialog"><i class="nt store"><svg class="ic"><use href="#i-archive"/></svg></i><span><b>Encrypted parts</b><small>Cloudflare R2</small></span></button>
+            <button class="node" type="button" data-id="pg" aria-haspopup="dialog"><i class="nt store"><svg class="ic"><use href="#i-db"/></svg></i><span><b>PostgreSQL</b><small>Neon · one schema per service</small></span></button>
+            <button class="node" type="button" data-id="expo" aria-haspopup="dialog"><i class="nt out"><svg class="ic"><use href="#i-cloud"/></svg></i><span><b>Expo, Apple, Google</b><small>Notification delivery</small></span></button>
+          </div>
+        </div>
+        <div class="part" id="part" role="dialog" aria-labelledby="part-name" tabindex="-1" hidden>
+          <button class="x" type="button" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+          <article class="body"></article>
+        </div>
+      </div>
+
+      <div class="narr">
+        <div class="say" aria-live="polite"><p class="count" id="count"></p><h3 id="st-title"></h3><p id="st-text"></p></div>
+        <div class="side-ctl">
+          <div class="ctl">
+            <button type="button" id="prev" aria-label="Previous step"><svg class="ic"><use href="#i-left"/></svg></button>
+            <button type="button" id="play" aria-label="Pause the tour"><svg class="ic"><use href="#i-pause"/></svg></button>
+            <button type="button" id="next" aria-label="Next step"><svg class="ic"><use href="#i-right"/></svg></button>
+          </div>
+          <div class="rail" id="rail" role="group" aria-label="Steps"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- The script for each journey. data-at lights parts, data-path flies a packet along the lines
+         (" | " sends several at once), data-you/data-them set each phone's screen, data-pkt labels the packet. -->
+    <div class="scripts">
+      <div>
+        <h3>Send a message</h3>
+        <ol data-journey="send">
+          <li data-at="you" data-you="plain"><h3>You write it.</h3> <p>Your message exists as words in one place: your phone. The Morse core, written in Mesh and compiled into the app, does every bit of the cryptography right there.</p></li>
+          <li data-at="you" data-you="sealed"><h3>Locked with a key used once.</h3> <p>You and @ada share a Double Ratchet session that turns out a fresh key for every message. ChaCha20-Poly1305 encrypts it, and the key is destroyed once it’s used.</p></li>
+          <li data-at="you" data-you="sealed"><h3>Sealed to her phone, padded to a standard size.</h3> <p>The encrypted message goes inside a second seal (HPKE) that only @ada’s phone can open, together with who it’s from and which chat it belongs to. It’s padded to one of nine sizes, from 256 bytes to 64 KB. Each of her devices, and each of your other linked devices, gets its own copy.</p></li>
+          <li data-at="you" data-you="sealed"><h3>Addressed, sealed again, and paid for.</h3> <p>The envelope, with her mailbox address on it, is sealed once more, this time to the delivery service’s key. Then your phone does a small proof of work, so sending has a cost without an account or ID attached to it.</p></li>
+          <li data-path="you edge" data-you="sent" data-pkt="Sealed"><h3>The privacy edge passes it on.</h3> <p>The first server to touch it is the privacy edge, a Cloudflare deployment of its own. It sees your IP address and checks the work. It can’t open the seal, so it never learns whose mailbox this is.</p></li>
+          <li data-path="edge gw dd" data-you="sent" data-pkt="Sealed"><h3>Delivery opens the outer seal.</h3> <p>On the way in, the front door strips every header except the few the protocol needs, so no Mesh service gets your IP address, location or user agent. Delivery opens the outer seal and finds a mailbox address, an expiry and ciphertext. It can’t read a word of it, or tell who sent it.</p></li>
+          <li data-path="dd pg" data-you="sent" data-pkt="Ciphertext"><h3>Saved before anyone is told.</h3> <p>The envelope and its delivery job are committed to PostgreSQL in one transaction. After that commit, a lost wake-up can delay the message but not lose it. What’s stored is ciphertext, not a conversation.</p></li>
+          <li data-path="dd gw them" data-you="sent" data-pkt="Wake-up"><h3>Her phone gets a nudge.</h3> <p>If Morse is open on @ada’s phone, a WebSocket carries a single event: encrypted-wakeup. No content, no IDs. If it’s closed, a push notification does the same job (see Wake a phone).</p></li>
+          <li data-path="them gw dd gw them" data-you="sent" data-them="sealed" data-pkt="Ciphertext"><h3>She collects it.</h3> <p>Her phone asks for everything after the last envelope it saw, and signs the request with its device key. A mailbox address only lets people drop envelopes in. Taking them out needs that signature.</p></li>
+          <li data-path="them gw dd" data-you="sent" data-them="plain" data-pkt="Received"><h3>Opened, checked, saved, then acknowledged.</h3> <p>Her phone opens both seals, checks the message really came from you, and rejects anything tampered with, replayed or already seen. It saves the message to its encrypted history first, and only then acknowledges it, so delivery can delete its copy.</p></li>
+        </ol>
+      </div>
+      <div>
+        <h3>Find someone</h3>
+        <ol data-journey="find">
+          <li data-at="you"><h3>Keys are made on the phone.</h3> <p>When you pick a username, your phone makes your account key, this device’s signing and encryption keys, and a supply of one-time prekeys. The private halves go into its local database, sealed under a key the operating system protects, and never leave it unencrypted.</p></li>
+          <li data-path="you gw dd" data-pkt="Public keys"><h3>Only the public halves are published.</h3> <p>Registering is anonymous, so instead of an account it costs a proof of work. The directory learns your username and your devices with their public keys. Nothing else.</p></li>
+          <li data-path="dd pg" data-pkt="Log entry"><h3>Written into a public log.</h3> <p>Every change to an account’s devices becomes a leaf in a Merkle tree, the key-transparency log, and the directory signs a checkpoint of the whole tree. Quietly swapping someone’s keys would mean forking that history.</p></li>
+          <li data-path="dd gw wa | dd gw wb" data-pkt="Checkpoint"><h3>Two witnesses countersign.</h3> <p>Witness A and Witness B each run as their own deployment, with their own signing key and their own record of the last checkpoint they signed. Each checks the directory’s new checkpoint before countersigning it. They see a root hash and a tree size, never a username.</p></li>
+          <li data-path="them gw dd gw them" data-pkt="Proof"><h3>@ada looks you up.</h3> <p>To write to you, @ada needs your exact username. Her phone gets your devices, a proof that they’re in the log, the signed checkpoint and the witnesses’ signatures. Lookups cost proof of work too, and each proof works once.</p></li>
+          <li data-at="them"><h3>Checked before a word is encrypted.</h3> <p>Her phone checks the proof, the directory’s signature, and that enough of the witnesses it trusts signed that exact checkpoint. It refuses evidence more than five minutes old. If anything fails, nothing gets encrypted. If it all passes, her first message reaches you as a request you can accept or block.</p></li>
+        </ol>
+      </div>
+      <div>
+        <h3>Share a file</h3>
+        <ol data-journey="file" data-msg="file">
+          <li data-at="you" data-you="sealed"><h3>Encrypted before it’s split.</h3> <p>Your phone encrypts the file under a key made for this file alone and cuts it into encrypted parts of up to 64 KB. It also picks a random object ID and two random passes: one for uploading, one for downloading.</p></li>
+          <li data-path="you gw obj" data-you="sealed" data-pkt="Grant"><h3>Space, granted anonymously.</h3> <p>The object store grants room for a set number of parts, for seven days at most. The request carries a proof of work and nothing else about you: no account, no device, no conversation.</p></li>
+          <li data-path="obj r2" data-you="sealed" data-pkt="Encrypted parts"><h3>The parts land in R2.</h3> <p>The encrypted parts go into a Cloudflare R2 bucket. The object store keeps only hashes of the two passes, and checks each part’s hash and length before it will hand it back.</p></li>
+          <li data-path="you edge gw dd gw them" data-you="sent" data-them="sealed" data-pkt="Sealed"><h3>The key travels in a message.</h3> <p>The file’s key, its name and type, and the download pass ride inside an ordinary message, sealed and delivered exactly like any other.</p></li>
+          <li data-path="them gw obj r2 obj gw them" data-you="sent" data-them="plain" data-pkt="Encrypted parts"><h3>She downloads and decrypts it.</h3> <p>@ada’s phone shows the download pass, pulls down the parts and decrypts them on the phone. The object store only ever handled noise.</p></li>
+          <li data-at="obj r2" data-you="sent" data-them="plain"><h3>Gone on schedule.</h3> <p>Once the expiry passes, the object store stops serving the file and a cleanup job deletes it. As a backstop, R2 deletes every stored part after eight days, no matter what.</p></li>
+        </ol>
+      </div>
+      <div>
+        <h3>Wake a phone</h3>
+        <ol data-journey="wake">
+          <li data-path="them gw dd" data-pkt="Sealed token"><h3>She turns on notifications.</h3> <p>@ada’s phone gets a push token from Expo and seals it to the push broker’s public key. The directory keeps that sealed token next to her mailbox, and can’t open it.</p></li>
+          <li data-path="dd pg" data-you="sent" data-pkt="Push job"><h3>A message arrives while she’s away.</h3> <p>Delivery commits the envelope and a push job together. A scheduler, a Cloudflare Durable Object, is given only the transaction’s ID and runs the job once the commit lands. No message, mailbox or token passes through it.</p></li>
+          <li data-path="dd push" data-you="sent" data-pkt="Wake request"><h3>Delivery calls the broker.</h3> <p>It hands over the sealed token and a wake hash that is new for every message. The broker is the only part that holds the key to open the token.</p></li>
+          <li data-path="push expo" data-you="sent" data-pkt="Wake-up"><h3>A generic nudge goes out.</h3> <p>The broker opens the token and asks Expo to send a wake-up that says only that there’s something encrypted to fetch. No sender, no recipient, no text.</p></li>
+          <li data-path="expo them" data-you="sent" data-pkt="Wake-up"><h3>Apple or Google deliver it.</h3> <p>Expo hands it to Apple or Google. They learn the push token, the app and the time of each wake-up, which any notification needs. Who wrote, and what, never reaches them.</p></li>
+          <li data-path="them gw dd gw them" data-you="sent" data-them="plain" data-pkt="Ciphertext"><h3>Her phone fetches the real thing.</h3> <p>Awake, her phone fetches the envelope, decrypts it and acknowledges it, exactly as in Send a message.</p></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="parts" id="parts">
+  <div class="wrap">
+    <div class="head reveal">
+      <h2>Every part, and what it can see.</h2>
+      <p class="lead">Our servers carry sealed envelopes, and each one gets only what its job needs. Here is exactly what that is.</p>
+    </div>
+    <div class="list">
+      <article class="phones reveal" data-for="you them">
+        <div class="txt">
+          <header><i class="nt dev"><svg class="ic" aria-hidden="true"><use href="#i-phone"/></svg></i><div><h3>Your phone, and theirs</h3><small class="tags">iPhone · Android · Mac · Windows</small></div></header>
+          <p>The only place your messages are ever words. The Morse core, written in Mesh and compiled to native code, makes every key, does all the encryption, and keeps your history in a local database, encrypted under a key the operating system protects.</p>
+          <dl><div class="sees"><dt>Sees</dt><dd><span>Everything</span></dd></div><div class="never"><dt>Never shares unencrypted</dt><dd><span>Private keys</span><span>Session secrets</span><span>Your history</span></dd></div></dl>
+        </div>
+        <div class="seen" aria-hidden="true">
+          <p><small>On your phone and theirs</small><span class="bub">Leaving now. See you at 7!</span></p>
+          <i class="via"><svg class="ic"><use href="#i-lock"/></svg></i>
+          <p><small>Everywhere else on the map</small><span class="strip" data-seal="5"></span></p>
+        </div>
+      </article>
+      <article class="reveal" data-for="edge">
+        <header><i class="nt cf"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></i><div><h3>Privacy edge</h3><small class="tags">Cloudflare Worker · Mesh · its own deployment</small></div></header>
+        <p>Checks the proof of work and forwards sealed envelopes. It holds one secret, the credential it forwards with, and serves one route: sending.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Your IP address</span><span>When you send</span><span>Envelope size</span><span>Proof of work</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Whose mailbox</span><span>Who sent it</span><span>The message</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="gw">
+        <header><i class="nt cf"><svg class="ic" aria-hidden="true"><use href="#i-door"/></svg></i><div><h3>Front door</h3><small class="tags">Cloudflare Worker</small></div></header>
+        <p>Everything that skips the edge comes through here: lookups, fetches, files and push sign-up. It strips every header but the few the protocol needs, so the Mesh services never get your IP address. Request logging is off.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Your IP address</span><span>Request timing</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Message content</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="dd">
+        <header><i class="nt mesh"><svg class="ic" aria-hidden="true"><use href="#i-server"/></svg></i><div><h3>Directory + delivery</h3><small class="tags">Mesh service · Cloudflare Container</small></div></header>
+        <p>The directory half keeps usernames, public keys and the key-transparency log. The delivery half keeps a mailbox for each device and nudges phones that are online over a WebSocket.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Usernames</span><span>Public keys</span><span>Names looked up</span><span>Mailbox addresses</span><span>Size bucket</span><span>Arrival and expiry</span><span>Public or contacts-only</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Who sent it</span><span>Which chat</span><span>Message type</span><span>The message</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="wa wb">
+        <header><i class="nt mesh"><svg class="ic" aria-hidden="true"><use href="#i-badge"/></svg></i><div><h3>Witness A and Witness B</h3><small class="tags">2 × Cloudflare Worker · Mesh · own signing keys</small></div></header>
+        <p>Each keeps its own record of the last checkpoint it signed. Phones accept a lookup only when enough of the witnesses they trust signed that exact checkpoint.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Tree size</span><span>Root hash</span><span>Sequence number</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Usernames</span><span>Devices</span><span>Mailboxes</span><span>Messages</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="obj">
+        <header><i class="nt mesh"><svg class="ic" aria-hidden="true"><use href="#i-box"/></svg></i><div><h3>Object store</h3><small class="tags">Mesh service · Cloudflare Container</small></div></header>
+        <p>Grants space, checks every part’s hash and length before handing it back, and lets files expire within seven days.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Random object ID</span><span>Encrypted parts</span><span>Approximate size</span><span>Read times</span><span>Expiry</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>File key</span><span>Name or type</span><span>Who sent it</span><span>Which chat</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="r2">
+        <header><i class="nt store"><svg class="ic" aria-hidden="true"><use href="#i-archive"/></svg></i><div><h3>Encrypted parts</h3><small class="tags">Cloudflare R2</small></div></header>
+        <p>A lifecycle rule deletes everything in the bucket after eight days, a day past the longest a file can live.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Encrypted parts</span><span>Random names</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Anything readable</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="push">
+        <header><i class="nt mesh"><svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg></i><div><h3>Push broker</h3><small class="tags">Mesh service · Cloudflare Container</small></div></header>
+        <p>The only part holding the key that opens push tokens. A wake-up it sends says only that there’s something encrypted to fetch.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Push tokens</span><span>Wake-up times</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Who wrote</span><span>The message</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="expo">
+        <header><i class="nt out"><svg class="ic" aria-hidden="true"><use href="#i-cloud"/></svg></i><div><h3>Expo, Apple and Google</h3><small class="tags">Only if notifications are on</small></div></header>
+        <p>Expo passes each wake-up to Apple or Google, which deliver it to the phone. Expo gets a random installation ID, never your account’s device ID.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Push token</span><span>The app</span><span>Connection</span><span>Wake-up times</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Who wrote</span><span>To whom</span><span>What</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="pg">
+        <header><i class="nt store"><svg class="ic" aria-hidden="true"><use href="#i-db"/></svg></i><div><h3>PostgreSQL</h3><small class="tags">Neon · AWS US East 1</small></div></header>
+        <p>One database. Each service has its own role that can reach only its own schema, and connections verify TLS. It holds ciphertext, not conversations.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Queued envelopes</span><span>Directory and log</span><span>File records</span><span>Sealed push queue</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Plaintext</span><span>Decryption keys</span></dd></div></dl>
+      </article>
+    </div>
+    <ul class="specs reveal">
+      <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/privacy-contract.md">Privacy contract<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+      <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/threat-model.md">Threat model<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+      <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/crypto-profile-v1.md">Encryption<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+      <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/sealed-delivery-v1.md">Sealed delivery<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+      <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/recipient-transport-v1.md">Recipient sealing<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+      <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/key-transparency-v1.md">Key transparency<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+      <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/opaque-object-wire-v1.md">File storage<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+      <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/push-token-wire-v1.md">Push tokens<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+      <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/ops/cloudflare/README.md">How it’s deployed<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+    </ul>
+    <p>The map is drawn from these working documents, which go further: exact formats, sizes and failure modes.</p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <a class="brand" href="index.html"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+      <span class="mc" data-morse="MORSE" aria-hidden="true"></span>
+    </div>
+    <div>
+      <h3>Morse</h3>
+      <ul><li><a href="index.html#features">Features</a></li><li><a href="index.html#privacy">Privacy</a></li><li><a href="how-it-works.html">How it works</a></li><li><a href="index.html#answers">Straight answers</a></li></ul>
+    </div>
+    <div>
+      <h3>The fine print</h3>
+      <ul>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/privacy-contract.md">Privacy contract</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/threat-model.md">Threat model</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/security/advisories/new">Report a vulnerability</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Project</h3>
+      <ul><li><a href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a></li><li><a href="witnesses.html">Run a witness</a></li><li><a href="https://github.com/snowdamiz/whatsdown">GitHub</a></li><li><a href="https://meshlang.dev">Mesh language</a></li></ul>
+    </div>
+    <p class="quiet">This page sets no cookies and loads nothing from third parties: no trackers, no analytics, no hosted fonts.</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---- Morse, as on the home page: readable in the footer, seeded noise wherever something is sealed.
+  const M = {A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--.."};
+  const marks = code => [...code].map(s => s === "-" ? '<i class="D"></i>' : "<i></i>").join("");
+  for (const el of $$("[data-morse]")) {
+    const chars = [...el.dataset.morse];
+    el.innerHTML = chars.map((ch, n) => ch === " " ? '<i class="G"></i>' : marks(M[ch]) + (chars[n + 1] && chars[n + 1] !== " " ? '<i class="g"></i>' : "")).join("");
+  }
+  let seed = 11;
+  const rand = () => (seed = seed * 16807 % 2147483647) / 2147483647, letters = Object.keys(M);
+  const group = () => Array.from({length: 2 + rand() * 3 | 0}, () => marks(M[letters[rand() * 26 | 0]])).join('<i class="g"></i>');
+  for (const el of $$("[data-seal]")) el.innerHTML = Array.from({length: +el.dataset.seal}, () => `<span class="mc">${group()}</span>`).join("");
+
+  const nav = $(".nav"), stuck = () => nav.classList.toggle("stuck", scrollY > 4);
+  addEventListener("scroll", stuck, {passive: true}); stuck();
+  const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting && (e.target.classList.add("in"), io.unobserve(e.target))), {rootMargin: "0px 0px -12% 0px"});
+  $$(".reveal").forEach(el => io.observe(el));
+
+  // ---- The map, laid out twice by hand. Parts are [x, y, width, height] on the stage; lines run straight
+  // between parts that face each other, bend once between parts that don't, or follow the points given.
+  const LAYOUTS = {
+    wide: {w: 1120, h: 560, zone: [192, 8, 736, 432], sm: [], nodes: {
+      you: [0, 96, 160, 382], them: [960, 96, 160, 382],
+      edge: [216, 44, 220, 72], wa: [588, 44, 150, 72], wb: [754, 44, 150, 72],
+      gw: [216, 150, 688, 60],
+      dd: [216, 250, 260, 84], push: [492, 250, 196, 84], obj: [704, 250, 200, 84],
+      r2: [704, 360, 200, 60], pg: [216, 476, 260, 72], expo: [492, 476, 260, 72],
+    }, via: {"you-edge": [[80, 96], [80, 66], [216, 66]]}},
+    tall: {w: 380, h: 664, zone: [8, 104, 348, 432], sm: ["wa", "wb"], nodes: {
+      you: [24, 16, 152, 64], them: [188, 16, 152, 64],
+      edge: [24, 136, 120, 60], gw: [24, 236, 216, 60], wa: [256, 212, 84, 48], wb: [256, 268, 84, 48],
+      dd: [24, 336, 148, 80], obj: [188, 336, 152, 80],
+      push: [24, 448, 116, 64], r2: [188, 448, 152, 64],
+      expo: [24, 576, 148, 60], pg: [188, 576, 152, 60],
+    }, via: {"you-gw": {x: 160}, "dd-pg": [[164, 416], [164, 548], [264, 548], [264, 576]], "expo-them": [[90, 636], [90, 652], [368, 652], [368, 48], [340, 48]]}},
+  };
+  const EDGES = ["you-edge", "you-gw", "them-gw", "edge-gw", "wa-gw", "wb-gw", "gw-dd", "gw-obj", "dd-push", "dd-pg", "obj-r2", "push-expo", "expo-them"];
+
+  const wrap = $("#map .wrap"), deck = $(".deck"), board = $(".board"), fit = $(".fit"), stage = $(".stage"), svg = $(".wires");
+  const nodes = Object.fromEntries($$(".node", stage).map(n => [n.dataset.id, n]));
+  const lists = Object.fromEntries($$("ol[data-journey]").map(o => [o.dataset.journey, [...o.children]]));
+  const order = Object.keys(lists), tabs = $$("#journeys button");
+  const hops = li => (li.dataset.path || "").split("|").map(s => s.trim().split(/\s+/)).filter(p => p.length > 1);
+  for (const [j, steps] of Object.entries(lists)) steps.forEach((li, n) => {
+    for (const id of [...(li.dataset.at || "").split(" ").filter(Boolean), ...hops(li).flat()]) console.assert(nodes[id], `${j} step ${n + 1}: no part called ${id}`);
+    for (const p of hops(li)) p.slice(1).forEach((b, i) => console.assert(EDGES.includes(`${p[i]}-${b}`) || EDGES.includes(`${b}-${p[i]}`), `${j} step ${n + 1}: no line from ${p[i]} to ${b}`));
+  });
+
+  function route([ax, ay, aw, ah], [bx, by, bw, bh], via) {
+    if (Array.isArray(via)) return via;
+    const x0 = Math.max(ax, bx), x1 = Math.min(ax + aw, bx + bw), y0 = Math.max(ay, by), y1 = Math.min(ay + ah, by + bh);
+    // Straight only when the parts truly face each other; a sliver of overlap would run the line along an edge.
+    if (x1 - x0 >= 16) { const x = via?.x ?? (x0 + x1) / 2; return ay < by ? [[x, ay + ah], [x, by]] : [[x, ay], [x, by + bh]]; }
+    if (y1 - y0 >= 16) { const y = (y0 + y1) / 2; return ax < bx ? [[ax + aw, y], [bx, y]] : [[ax, y], [bx + bw, y]]; }
+    const y = ay + ah / 2, x = bx + bw / 2;
+    return [[ax < bx ? ax + aw : ax, y], [x, y], [x, by > ay ? by : by + bh]];
+  }
+  // Square corners read as wiring diagrams; the home page is all bubble radius, so the lines bend round.
+  const curve = p => p.map(([x, y], i) => {
+    if (!i) return `M${x} ${y}`;
+    if (i === p.length - 1) return `L${x} ${y}`;
+    const [px, py] = p[i - 1], [nx, ny] = p[i + 1], r = Math.min(14, Math.hypot(x - px, y - py) / 2, Math.hypot(nx - x, ny - y) / 2);
+    return `L${x - Math.sign(x - px) * r} ${y - Math.sign(y - py) * r}Q${x} ${y} ${x + Math.sign(nx - x) * r} ${y + Math.sign(ny - y) * r}`;
+  }).join("");
+
+  let mode, lay, lines = {};
+  const line = (a, b) => lines[`${a}-${b}`] || [...lines[`${b}-${a}`]].reverse();
+  function layout() {
+    const w = wrap.clientWidth, next = w >= 980 ? "wide" : "tall";
+    deck.classList.toggle("side", next === "tall" && w >= 720);
+    if (next !== mode) {
+      mode = next; lay = LAYOUTS[mode];
+      stage.classList.toggle("wide", mode === "wide"); stage.classList.toggle("tall", mode === "tall");
+      Object.assign(stage.style, {width: lay.w + "px", height: lay.h + "px"});
+      const box = (el, [x, y, w, h]) => Object.assign(el.style, {left: x + "px", top: y + "px", width: w + "px", height: h + "px"});
+      box($(".zone", stage), lay.zone);
+      for (const [id, r] of Object.entries(lay.nodes)) { box(nodes[id], r); nodes[id].classList.toggle("sm", lay.sm.includes(id)); }
+      svg.setAttribute("width", lay.w); svg.setAttribute("height", lay.h); svg.setAttribute("viewBox", `0 0 ${lay.w} ${lay.h}`);
+      lines = Object.fromEntries(EDGES.map(e => { const [a, b] = e.split("-"); return [e, route(lay.nodes[a], lay.nodes[b], lay.via[e])]; }));
+      svg.innerHTML = EDGES.map(e => `<path class="wire" data-e="${e}" d="${curve(lines[e])}"/>`).join("");
+      close();
+      if (cur) show(cur.j, cur.n);
+    }
+    // Wide, the map and the step under it share one window below the nav (about 340px of chrome and words).
+    const s = Math.min(mode === "wide" ? Math.max(.7, Math.min(1, (innerHeight - 340) / lay.h)) : 1.2, fit.clientWidth / lay.w);
+    stage.style.transform = `translateX(${(fit.clientWidth - lay.w * s) / 2}px) scale(${s})`;
+    fit.style.height = lay.h * s + "px";
+  }
+
+  // ---- One step: light its parts and lines, set the phones, and fly its packets.
+  const pkts = [];
+  let cur;
+  function show(j, n) {
+    cur = {j, n};
+    const li = lists[j][n], ps = hops(li), steps = lists[j];
+    tabs.forEach(t => t.setAttribute("aria-pressed", t.dataset.journey === j));
+    $("#count").textContent = `Step ${n + 1} of ${steps.length}`;
+    $("#st-title").textContent = $("h3", li).textContent;
+    $("#st-text").innerHTML = $("p", li).innerHTML;
+    const rail = $("#rail");
+    if (rail.dataset.j !== j) {
+      rail.dataset.j = j;
+      rail.innerHTML = steps.map((s, k) => `<button type="button" aria-label="Step ${k + 1}: ${$("h3", s).textContent}"></button>`).join("");
+    }
+    $$("button", rail).forEach((b, k) => { b.classList.toggle("done", k < n); k === n ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current"); });
+    $("#prev").disabled = !n && j === order[0];
+
+    const lit = new Set([...(li.dataset.at || "").split(" ").filter(Boolean), ...ps.flat()]);
+    for (const [id, el] of Object.entries(nodes)) el.classList.toggle("on", lit.has(id));
+    stage.classList.toggle("lit", lit.size > 0);
+    const on = new Set(ps.flatMap(p => p.slice(1).flatMap((b, i) => [`${p[i]}-${b}`, `${b}-${p[i]}`])));
+    $$(".wire", svg).forEach(w => w.classList.toggle("on", on.has(w.dataset.e)));
+    for (const k of ["you", "them"]) li.dataset[k] ? stage.dataset[k] = li.dataset[k] : delete stage.dataset[k];
+    li.parentElement.dataset.msg ? stage.dataset.msg = li.parentElement.dataset.msg : delete stage.dataset.msg;
+    stage.dataset.end = ps[0]?.at(-1) || "";
+    return fly(ps, li.dataset.pkt || "");
+  }
+  // A packet follows its lines hop by hop, straight through each part it passes, and waits at the last.
+  function fly(ps, label) {
+    while (pkts.length < ps.length) {
+      const p = document.createElement("span");
+      p.className = "pkt off"; p.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><b></b>';
+      stage.append(p); pkts.push(p);
+    }
+    let longest = 0;
+    pkts.forEach((p, i) => {
+      p.getAnimations().forEach(a => a.cancel());
+      p.classList.toggle("off", !ps[i]);
+      if (!ps[i]) return;
+      $("b", p).textContent = i ? "" : label;
+      const pts = ps[i].slice(1).flatMap((b, k) => line(ps[i][k], b));
+      const lens = pts.slice(1).map(([x, y], k) => Math.hypot(x - pts[k][0], y - pts[k][1])), total = lens.reduce((a, b) => a + b);
+      let run = 0;
+      const frames = pts.map(([x, y], k) => ({transform: `translate(${x}px,${y}px) translate(-50%,-50%)`, offset: Math.min(1, (run += k ? lens[k - 1] : 0) / total)}));
+      const ms = calm ? 1 : Math.max(900, total * 2.6);
+      longest = Math.max(longest, ms);
+      p.animate(frames, {duration: ms, easing: "cubic-bezier(.45,0,.3,1)", fill: "forwards", id: "hop"});
+    });
+    stage.style.setProperty("--arrive", longest + "ms");
+    return longest;
+  }
+
+  // ---- The tour plays itself while the map is on screen, until someone takes over.
+  let playing = !calm, seen = false, timer = 0;
+  const play = $("#play");
+  const sync = () => { play.setAttribute("aria-label", playing ? "Pause the tour" : "Play the tour"); $("use", play).setAttribute("href", playing ? "#i-pause" : "#i-play"); };
+  function go(j, n) {
+    const ms = show(j, n), words = $("#st-text").textContent.length;
+    clearTimeout(timer);
+    if (playing && seen && !document.hidden) timer = setTimeout(() => step(1), ms + Math.max(4200, words * 30));
+  }
+  function step(d) {
+    let {j, n} = cur;
+    n += d;
+    if (n >= lists[j].length) { j = order[(order.indexOf(j) + 1) % order.length]; n = 0; }
+    if (n < 0) { j = order[Math.max(0, order.indexOf(j) - 1)]; n = lists[j].length - 1; }
+    go(j, n);
+  }
+  const hold = () => { playing = false; clearTimeout(timer); sync(); };
+  $("#next").addEventListener("click", () => { hold(); step(1); });
+  $("#prev").addEventListener("click", () => { hold(); step(-1); });
+  play.addEventListener("click", () => { playing = !playing; sync(); playing ? step(1) : clearTimeout(timer); });
+  $("#journeys").addEventListener("click", e => { const t = e.target.closest("button"); if (t) { hold(); go(t.dataset.journey, 0); } });
+  $("#rail").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { hold(); go(cur.j, $$("#rail button").indexOf(b)); } });
+  $("#map").addEventListener("keydown", e => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" || e.target.closest(".part")) return;
+    hold(); step(e.key === "ArrowRight" ? 1 : -1);
+  });
+  // Coming into view replays the current step, so its packet is seen to fly; once a reader has taken
+  // over, their step is left alone.
+  new IntersectionObserver(([e]) => { const was = seen; seen = e.isIntersecting; if (seen && !was && playing) go(cur.j, cur.n); }, {threshold: .35}).observe(board);
+  document.addEventListener("visibilitychange", () => !document.hidden && seen && playing && go(cur.j, cur.n));
+
+  // ---- Tap a part to read what it is and what it sees: its entry from the list below, beside it.
+  const part = $("#part"), body = $(".body", part);
+  let picked = null;
+  function open(n) {
+    close();
+    const entry = $$("#parts article").find(a => a.dataset.for.split(" ").includes(n.dataset.id));
+    body.innerHTML = entry.innerHTML;
+    $("h3", body).id = "part-name";
+    part.hidden = false; picked = n; n.classList.add("picked");
+    const b = board.getBoundingClientRect(), r = n.getBoundingClientRect(), pw = part.offsetWidth, ph = part.offsetHeight;
+    const x = Math.min(Math.max(12, r.left - b.left + r.width / 2 - pw / 2), b.width - pw - 12);
+    let y = r.bottom - b.top + 12;
+    if (y + ph > b.height - 12) y = r.top - b.top - ph - 12 >= 12 ? r.top - b.top - ph - 12 : Math.max(12, b.height - ph - 12);
+    Object.assign(part.style, {left: x + "px", top: y + "px"});
+    part.focus({preventScroll: true});
+  }
+  function close(back) {
+    if (part.hidden) return;
+    part.hidden = true; picked?.classList.remove("picked");
+    if (back) picked?.focus({preventScroll: true});
+    picked = null;
+  }
+  stage.addEventListener("click", e => { const n = e.target.closest(".node"); if (n) { e.stopPropagation(); hold(); picked === n ? close() : open(n); } });
+  $(".x", part).addEventListener("click", () => close(true));
+  document.addEventListener("click", e => !part.contains(e.target) && close());
+  document.addEventListener("keydown", e => e.key === "Escape" && close(true));
+
+  sync();
+  new ResizeObserver(layout).observe(wrap);
+  addEventListener("resize", layout);
+  layout(); show(order[0], 0);
+})();
+</script>
+</body>
+</html>

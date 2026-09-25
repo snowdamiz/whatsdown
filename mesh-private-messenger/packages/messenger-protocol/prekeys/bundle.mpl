@@ -96,7 +96,7 @@ pub fn reauthorize_signed_prekey(device :: borrow DeviceKeys,
     signed_prekey.expires_at)?
   case Crypto.sign(device.signing_private_key, statement) do
     Err(error) -> Err(CryptoFailure(error))
-    Ok(signature) -> Ok(% { signed_prekey | signature: signature })
+    Ok(signature) -> Ok(%{signed_prekey | signature: signature})
   end
 end
 
@@ -182,7 +182,7 @@ pub fn normalize_prekey_bundle(bundle :: PrekeyBundle) -> PrekeyBundle!PrekeyErr
     Err(_) -> Err(InvalidBundle)
     Ok(value)
   end?
-  let normalized = % { bundle | one_time_prekey_id: zero, one_time_prekey: Bytes.empty() }
+  let normalized = %{bundle | one_time_prekey_id: zero, one_time_prekey: Bytes.empty()}
   case encode_prekey_bundle(normalized) do
     Err(error) -> Err(ProtocolFailure(error))
     Ok(_) -> Ok(normalized)

@@ -74,6 +74,49 @@ fn apply_appearance(window: &tauri::WebviewWindow, choice: appearance::Appearanc
     let _ = window.set_background_color(Some(appearance::canvas(theme)));
 }
 
+// The window is built here rather than from the config alone because its
+// buttons differ by macOS and by the SDK Morse links against: macOS 26 draws
+// square ones, older systems (and older SDKs on 26) taller ones that sit 4pt
+// lower for the same `trafficLightPosition`. Either kind must centre on the
+// toolbar strip (desktop-layout.ts).
+fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "main")
+        .expect("the main window is configured")
+        .clone();
+    let builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?;
+    #[cfg(target_os = "macos")]
+    let builder = match config.traffic_light_position {
+        Some(lights) if tall_window_buttons() => {
+            builder.traffic_light_position(tauri::LogicalPosition::new(lights.x, lights.y - 4.0))
+        }
+        _ => builder,
+    };
+    builder.build()?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn tall_window_buttons() -> bool {
+    use objc2_app_kit::{NSWindow, NSWindowButton, NSWindowStyleMask};
+    let Some(main_thread) = objc2::MainThreadMarker::new() else {
+        return false;
+    };
+    NSWindow::standardWindowButton_forStyleMask(
+        NSWindowButton::CloseButton,
+        NSWindowStyleMask::Titled,
+        main_thread,
+    )
+    .is_some_and(|button| {
+        let size = button.frame().size;
+        size.height > size.width
+    })
+}
+
 // Binary IPC: the web view sends bytes as the raw request body, with the small
 // string parameters in headers, so wire frames never round-trip through JSON.
 fn raw_body(request: &Request<'_>, error: &'static str) -> Result<Vec<u8>, String> {
@@ -314,7 +357,10 @@ fn main() {
                     eprintln!("Could not configure window decorations: {error}");
                 }
                 #[cfg(target_os = "macos")]
-                if let Err(error) = webview.window().set_title_bar_style(tauri::TitleBarStyle::Overlay) {
+                if let Err(error) = webview
+                    .window()
+                    .set_title_bar_style(tauri::TitleBarStyle::Overlay)
+                {
                     eprintln!("Could not restore the overlay title bar: {error}");
                 }
                 let _ = webview.window().show();
@@ -328,6 +374,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            create_main_window(app)?;
             let config: Config = serde_json::from_str(include_str!("../native/config.json"))?;
             if !cfg!(debug_assertions) && (config.development || config.security_frame.is_empty()) {
                 return Err("Release binaries require production service configuration".into());

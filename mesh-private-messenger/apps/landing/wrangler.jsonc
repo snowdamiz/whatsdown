@@ -4,6 +4,10 @@
   "compatibility_date": "2026-09-18",
   "workers_dev": true,
   "preview_urls": false,
+  "routes": [
+    { "pattern": "morseapp.io", "custom_domain": true },
+    { "pattern": "www.morseapp.io", "custom_domain": true }
+  ],
   "observability": { "enabled": false },
   "assets": { "directory": "." }
 }

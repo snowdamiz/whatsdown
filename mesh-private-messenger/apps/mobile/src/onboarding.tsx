@@ -156,6 +156,31 @@ export function SealedChat() {
   );
 }
 
+// The desktop profile step's picture, in the welcome's place: the identity
+// being made, filled in as it is typed, over the same glow. Until then it
+// shows the shape of a name in the placeholder's colour.
+export function IdentityPreview({ photo, name, username, children }: {
+  photo: ReactNode;
+  name: string;
+  username: string;
+  children?: ReactNode;
+}) {
+  const styles = useStyles();
+  return (
+    <View style={styles.art}>
+      <Glow size={glowSize} style={styles.glow} />
+      <View style={styles.identity}>
+        {photo}
+        <View aria-hidden style={styles.identityText}>
+          <Text numberOfLines={1} style={[styles.identityName, !name && styles.unset]}>{name || "Your name"}</Text>
+          <Text numberOfLines={1} style={styles.identityHandle}>@{username || "your_name"}</Text>
+        </View>
+        {children}
+      </View>
+    </View>
+  );
+}
+
 // One thing worth knowing before signing up, in a line.
 export function Fact({ icon, children }: { icon: IconName; children: string }) {
   const { colors } = useTheme();
@@ -230,6 +255,11 @@ const useStyles = themed(({ colors, type }) =>
     noiseWord: { height: type.body.lineHeight, flexDirection: "row", alignItems: "center", gap: space[1] - 1 },
     symbol: { width: space[1], height: space[1], borderRadius: space[0.5] },
     dash: { width: space[3] },
+    identity: { alignItems: "center", gap: space[4] },
+    identityText: { alignItems: "center", gap: space[0.5], maxWidth: "100%" },
+    identityName: type.title2,
+    identityHandle: type.subhead,
+    unset: { color: colors.text3 },
     fact: { flexDirection: "row", alignItems: "center", gap: space[3] },
     factText: { ...type.subhead, color: colors.text, flexShrink: 1 },
     steps: { gap: isDesktop ? space[3] : space[4] },

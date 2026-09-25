@@ -59,6 +59,8 @@ export type Palette = {
   scrollThumb: string;
   // The wash a pressed or hovered control takes on.
   highlight: string;
+  // The doodles behind every screen, fainter than a hairline.
+  wallpaper: string;
   scrim: string;
 
   // ---- Text, in descending emphasis, and text on accent fills.
@@ -131,6 +133,7 @@ const dark: Palette = {
   lineStrong: withAlpha(gray[0], 0.14),
   scrollThumb: withAlpha(gray[0], 0.1),
   highlight: withAlpha(gray[0], 0.07),
+  wallpaper: withAlpha(gray[0], 0.035),
   scrim: withAlpha(fixed.black, 0.6),
   text: gray[50],
   text2: gray[400],
@@ -178,6 +181,7 @@ const light: Palette = {
   lineStrong: withAlpha(fixed.black, 0.13),
   scrollThumb: withAlpha(fixed.black, 0.12),
   highlight: withAlpha(fixed.black, 0.05),
+  wallpaper: withAlpha(fixed.black, 0.04),
   scrim: withAlpha(fixed.black, 0.35),
   text: gray[1000],
   text2: gray[700],

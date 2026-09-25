@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { hex, parseGroupHistory, parseHistory, utf8, vectors, writeU32 } from './codec.ts';
-import { describeReactions, encodeReaction, summarizeReactions } from './reactions.ts';
+import { describeReactions, encodeReaction, setReaction, summarizeReactions } from './reactions.ts';
 
 const id = new Uint8Array(16).fill(1);
 const u64 = (value: number) => {
@@ -75,4 +75,14 @@ test('reactions are described by name for assistive technology', () => {
     describeReactions([{ emoji: '😂', senders: ['a'] }, { emoji: '👍', senders: ['b', 'c'] }]),
     '3 reactions: Thumbs up 2, Laugh 1',
   );
+});
+
+test('a person holds one reaction at a time, and choosing none takes it back', () => {
+  const start = [{ emoji: '👍', senders: ['a', 'b'] }, { emoji: '❤️', senders: ['c'] }];
+  assert.deepEqual(setReaction(start, 'c', '👍'), [{ emoji: '👍', senders: ['a', 'b', 'c'] }]);
+  assert.deepEqual(setReaction(start, 'a', '😂'),
+    [{ emoji: '👍', senders: ['b'] }, { emoji: '❤️', senders: ['c'] }, { emoji: '😂', senders: ['a'] }]);
+  assert.deepEqual(setReaction(start, 'b', ''), [{ emoji: '👍', senders: ['a'] }, { emoji: '❤️', senders: ['c'] }]);
+  assert.deepEqual(setReaction(undefined, 'a', '👍'), [{ emoji: '👍', senders: ['a'] }]);
+  assert.deepEqual(start, [{ emoji: '👍', senders: ['a', 'b'] }, { emoji: '❤️', senders: ['c'] }]);
 });

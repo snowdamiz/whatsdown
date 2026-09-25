@@ -503,7 +503,7 @@ fn encrypt_active(state :: consume RatchetState,
     nonce: nonce,
     ciphertext: ciphertext
   }
-  let next = % { state | sending_chain_key: next_chain, sent_count: message_number + 1 }
+  let next = %{state | sending_chain_key: next_chain, sent_count: message_number + 1}
   Ok((next, message))
 end
 
@@ -523,7 +523,7 @@ fn encrypt_rotated(state :: consume RatchetState,
   end?
   let (root_key, sending_chain_key) = ratchet_root(state.root_key, dh, state.session_id, public_key)?
   let previous_chain_length = state.sent_count
-  let rotated = % { state | root_key: root_key, sending_chain_key: sending_chain_key, local_ratchet_private: private_key, local_ratchet_public: public_key, previous_chain_length: previous_chain_length, sent_count: 0, pending_send_ratchet: false }
+  let rotated = %{state | root_key: root_key, sending_chain_key: sending_chain_key, local_ratchet_private: private_key, local_ratchet_public: public_key, previous_chain_length: previous_chain_length, sent_count: 0, pending_send_ratchet: false}
   encrypt_active(rotated, plaintext, associated_data, version)
 end
 
@@ -646,7 +646,7 @@ fn commit_skipped(key :: consume AeadKey,
     Err(error) -> Rejected(state, error)
     Ok(index) -> case SecretMap.delete(state.skipped_keys, key_id) do
       Err(_) -> Rejected(state, CryptoFailure)
-      Ok(_) -> Opened(% { state | skipped_index: index }, plaintext)
+      Ok(_) -> Opened(%{state | skipped_index: index}, plaintext)
     end
   end
 end
@@ -694,7 +694,7 @@ fn commit_current(key :: consume AeadKey,
       Ok(index) -> case SecretMap.merge(state.skipped_keys, candidate) do
         Err(_) -> reject_chain_key(key, next_chain, state, CryptoFailure)
         Ok(_) -> do
-          let next = % { state | receiving_chain_key: next_chain, received_count: message_number + 1, skipped_index: index }
+          let next = %{state | receiving_chain_key: next_chain, received_count: message_number + 1, skipped_index: index}
           Opened(next, plaintext)
         end
       end
@@ -776,7 +776,7 @@ fn commit_new_chain(key :: consume AeadKey,
       Ok(_) -> case forget_aged(state.skipped_keys, listed, generation) do
         Err(error) -> reject_new_key_material(key, root_key, next_chain, state, error)
         Ok(index) -> do
-          let next = % { state | root_key: root_key, receiving_chain_key: next_chain, remote_ratchet_public: message.ratchet_public_key, received_count: message.message_number + 1, skipped_index: index, receive_generation: generation, pending_send_ratchet: true }
+          let next = %{state | root_key: root_key, receiving_chain_key: next_chain, remote_ratchet_public: message.ratchet_public_key, received_count: message.message_number + 1, skipped_index: index, receive_generation: generation, pending_send_ratchet: true}
           Opened(next, plaintext)
         end
       end
