@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Morse — Private messaging, made simple</title>
-<meta name="description" content="Morse is a private messenger for iPhone, Android, Mac and Windows. Pick a username and start talking: no phone number, and only the people in a chat can read it.">
+<title>Morse — Private messaging, kept honest</title>
+<meta name="description" content="Morse is a private messenger for iPhone, Android, Mac and Windows. Pick a username and start talking: no phone number, and only the people in a chat can read it. And witnesses check every key we hand out.">
 <meta name="theme-color" content="#F6F2EA">
-<meta property="og:title" content="Morse — Private messaging, made simple">
+<meta property="og:title" content="Morse — Private messaging, kept honest">
 <meta property="og:description" content="Pick a username and start talking. No phone number, no contact upload, and only the people in a chat can read it. Not even us.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z'/%3E%3C/svg%3E">
@@ -94,9 +94,11 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .tile{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--blue-2)}
 .tile svg{width:56%;fill:#fff}
 .nav nav{display:flex;gap:32px;margin-right:auto}
-.nav nav a{font-weight:500;font-size:1rem;color:var(--ink-2);transition:color .15s}
+.nav nav a{font-weight:500;font-size:1rem;color:var(--ink-2);white-space:nowrap;transition:color .15s}
 .nav nav a:hover{color:var(--ink)}
-@media (max-width:860px){.nav nav{display:none}.nav .btn{margin-left:auto}.nav .wrap{height:68px}}
+/* Five links need 980px; narrower, the nav is the logo and the button. */
+@media (max-width:980px){.nav nav{display:none}.nav .btn{margin-left:auto}}
+@media (max-width:860px){.nav .wrap{height:68px}}
 
 /* ------------------------------------------------------------ Big cards */
 /* A card is wider than the page's column by exactly its padding, so the words inside start on the same
@@ -346,7 +348,9 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
   clip-path:inset(0 calc(var(--pad)*.8*(1 - var(--o,0))) round calc(var(--r)*(1 - var(--o,0))))}
 .night h2 em{font-style:normal;color:var(--blue-3)}
 .night .lead{color:rgba(255,255,255,.74)}
-.demo{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:clamp(36px,6vw,96px);align-items:center}
+.night .go{margin-top:clamp(28px,3vw,40px);border-color:var(--blue-3)}
+/* The phone's column is the phone's own width: sized by its content, it swelled and shrank with every flip. */
+.demo{display:grid;grid-template-columns:minmax(0,1fr) 318px;gap:clamp(36px,6vw,96px);align-items:center}
 .seg{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;margin-top:clamp(28px,3vw,40px);padding:5px;border-radius:999px;background:rgba(255,255,255,.1)}
 .seg::before{content:"";position:absolute;top:5px;bottom:5px;left:5px;width:calc(50% - 5px);border-radius:999px;background:#fff;transition:transform .5s var(--ease)}
 .seg[data-view=server]::before{transform:translateX(100%)}
@@ -400,6 +404,7 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
   .seg{order:1;justify-self:start}
   .stage{order:2;margin-top:24px}
   .facts{order:3}
+  .demo .go{order:4;justify-self:start}
 }
 @media (max-width:420px){.seg{display:grid;justify-self:stretch}.seg button{padding:14px 10px}}
 
@@ -438,6 +443,115 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
   .works li{grid-template-areas:"b b" "l e"}
   .works b{grid-area:b}.works em{grid-area:e}.works .line{grid-area:l}
 }
+
+/* ------------------------------------------------------------ The network */
+/* Slips: the small white records the network's pictures are made of (a version of the key log, a credit
+   bought, a credit spent), tilted like the message request, each saying who is looking at it. */
+.slip{width:min(88%,380px);padding:20px 20px 22px}
+.slip header{display:flex;align-items:center;gap:12px}
+.slip header b{display:block;font-weight:600;font-size:1rem;letter-spacing:-.02em;line-height:1.25}
+.slip header small{display:block;font-size:.8rem;color:#63636D}
+.vt{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:var(--blue-2);color:#fff}
+.vt.dk{background:var(--night)}
+.vt .ic{width:19px;height:19px}
+.lean-l{align-self:flex-start;rotate:-2.5deg}
+.lean-r{align-self:flex-end;rotate:2.5deg}
+.field .lean-l{margin-left:7%}.field .lean-r{margin-right:7%}
+.slip dl{display:grid;gap:9px;margin:16px 0 0;padding:13px 15px;border-radius:14px;background:#F2F2F5;font-size:.92rem}
+.slip dl div{display:flex;justify-content:space-between;gap:12px}
+.slip dt{color:#63636D}
+.slip dd{margin:0;font-weight:600;text-align:right}
+.slip dd.ok{color:var(--green)}
+.slip dd.nope{font-weight:400;color:#8E8E98}
+
+/* A lie proves itself: the same version of the log shown two ways, one witness's name on both. The
+   slips land, the one group that differs turns red, the witness is circled, and the verdict follows. */
+.net{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.95fr);gap:clamp(36px,6vw,96px);align-items:center}
+.net .cta{margin-top:clamp(28px,3vw,40px)}
+.soon{display:inline-flex;align-items:center;gap:9px;margin-bottom:clamp(20px,2.4vw,28px);padding:7px 15px 7px 12px;border-radius:999px;background:rgba(255,255,255,.1);font-weight:500;font-size:.92rem;color:rgba(255,255,255,.86)}
+.soon i{width:8px;height:8px;border-radius:50%;background:var(--blue-3);animation:blink 1.6s steps(1) infinite}
+@keyframes blink{50%{opacity:.25}}
+.caught{display:flex;flex-direction:column;align-items:center}
+.caught .lean-r{margin-top:-14px}
+.fp{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:16px;padding:12px 8px;border-radius:14px;background:#F2F2F5;text-align:center;font-weight:600;font-size:.95rem;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.fp span{padding:3px 0;border-radius:7px}
+.fp .diff{background:#FBD5D7;color:var(--red)}
+.sig{display:flex;align-items:center;margin-top:14px;font-size:.84rem;color:#63636D}
+.sig .ava{width:26px;height:26px;font-size:10px;box-shadow:0 0 0 2px #fff}
+.sig .ava+.ava{margin-left:-7px}
+.sig .c{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red)}
+.sig .by{margin-left:10px}
+.verdict{display:flex;align-items:center;gap:9px;margin-top:28px;padding:13px 22px 13px 16px;border-radius:999px;background:var(--red);color:#fff;font-weight:500;box-shadow:0 18px 32px -18px #000}
+.verdict .ic{width:20px;height:20px}
+.js .caught.in .slip{animation:drop .8s var(--ease) .15s both}
+.js .caught.in .lean-r{animation-delay:.8s}
+.js .caught.in .diff{animation:clash .7s ease 1.7s both}
+.js .caught.in .c{animation:guilty .5s ease 2.2s both}
+.js .caught.in .verdict{animation:pop .6s var(--ease) 2.6s both}
+@keyframes clash{from{background:transparent;color:inherit}}
+@keyframes guilty{from{box-shadow:0 0 0 2px #fff,0 0 0 0 var(--red)}}
+@media (max-width:960px){.net{grid-template-columns:minmax(0,1fr)}}
+
+/* Bought in public, spent in private: the chain sees a wallet buy credits, our servers see a genuine
+   credit, and the blind signature between them leaves nothing that leads back. */
+.blind{position:relative;z-index:1;display:flex;align-items:center;gap:9px;margin:-4px 0;padding:12px 20px 12px 15px;border-radius:999px;background:var(--ink);color:#fff;font-weight:500;font-size:.95rem;white-space:nowrap;box-shadow:0 18px 32px -18px rgba(11,11,15,.5)}
+.blind .ic{width:18px;height:18px;color:var(--blue-3)}
+.js .field.in .bought{animation:drop .8s var(--ease) .3s both}
+.js .field.in .blind{animation:pop .6s var(--ease) 1s both}
+.js .field.in .spent{animation:drop .8s var(--ease) 1.3s both}
+
+/* A witness, as its operator sees it: keying away on its own line, what it sees, what it never does. */
+.wit{width:min(100% - 40px,460px);padding:24px 26px 26px;border-radius:30px;background:#fff;box-shadow:var(--lift)}
+.wit header{display:flex;align-items:center;gap:12px}
+.wit header b{display:block;font-weight:600;font-size:1.05rem;letter-spacing:-.02em;line-height:1.2}
+.wit header small{display:block;font-size:.82rem;color:var(--ink-3)}
+.wit header em{margin-left:auto;padding:5px 11px;border-radius:999px;background:#E1F4E9;color:var(--green);font-style:normal;font-weight:600;font-size:.78rem}
+.count{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:22px;font-size:.95rem;color:var(--ink-3)}
+.count b{font-weight:600;font-size:2.6rem;line-height:1;letter-spacing:-.045em;color:var(--ink);font-variant-numeric:tabular-nums}
+.wit .line{margin-top:14px}
+.wit dl{display:grid;gap:14px;margin:22px 0 0;padding-top:20px;border-top:1px solid #EFEBE3}
+.wit dt{font-weight:500;font-size:.84rem;color:var(--ink-3)}
+.wit dd{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 0}
+.wit dd span{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px 0 11px;border-radius:999px;font-weight:500;font-size:.86rem;white-space:nowrap}
+.sees span{background:#EAF0FF;color:var(--blue)}
+.sees span::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.never span{background:var(--night);color:#fff}
+.never span::before{content:"";width:12px;height:12px;background:var(--blue-3);mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2.5'/%3E%3Cpath d='M8 11V7.5a4 4 0 0 1 8 0V11'/%3E%3C/svg%3E") center/contain no-repeat}
+.bond{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:20px;padding:13px 16px;border-radius:16px;background:#E1F4E9;color:#0E5A33;font-weight:600;font-size:.95rem}
+.bond .ic{width:18px;height:18px}
+.bond span{margin-left:auto;font-weight:400;font-size:.86rem}
+
+/* One token, two jobs: a loop the eye can follow, each step lighting in turn, then how it rolls out,
+   drawn as a dot-and-dash track. */
+.coin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(40px,5vw,72px) clamp(36px,6vw,96px);align-items:center;padding-block:clamp(36px,5.6vw,88px)}
+.coin .facts li{color:var(--ink-2)}
+.coin .facts .ic{color:var(--blue)}
+.loop{display:grid;grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);grid-template-rows:auto 56px auto;align-items:center;justify-items:center}
+.st{display:flex;flex-direction:column;align-items:flex-start;gap:3px;align-self:stretch;justify-self:stretch;padding:18px 18px 20px;border-radius:24px;background:#fff;box-shadow:var(--lift)}
+.st .vt{margin-bottom:10px}
+.st b{font-weight:600;font-size:1.02rem;line-height:1.25;letter-spacing:-.02em}
+.st small{font-size:.86rem;line-height:1.4;color:var(--ink-3)}
+.s1{grid-area:1/1}.s2{grid-area:1/3}.s3{grid-area:3/3}.s4{grid-area:3/1}
+.ar{width:22px;height:22px;color:var(--ink-3)}
+.a1{grid-area:1/2}.a2{grid-area:2/3}.a3{grid-area:3/2}.a4{grid-area:2/1}
+.js .loop.in .st{animation:lit 8s var(--ease) infinite}
+.js .loop.in .s2{animation-delay:2s}.js .loop.in .s3{animation-delay:4s}.js .loop.in .s4{animation-delay:6s}
+.js .loop.in .ar{animation:nudge 8s ease 1.5s infinite}
+.js .loop.in .a2{animation-delay:3.5s}.js .loop.in .a3{animation-delay:5.5s}.js .loop.in .a4{animation-delay:7.5s}
+@keyframes lit{0%,4%,30%,100%{translate:0 0;box-shadow:var(--lift)}9%,22%{translate:0 -5px;box-shadow:0 0 0 3px var(--blue-2),var(--lift)}}
+@keyframes nudge{0%,12%{color:var(--blue-2)}20%,100%{color:var(--ink-3)}}
+.road{grid-column:1/-1;padding-top:clamp(28px,3vw,40px);border-top:1.5px solid rgba(11,11,15,.13)}
+.road h3{font-weight:500;font-size:1.05rem;color:var(--ink-2)}
+.road ol{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px 24px;margin-top:24px}
+.road li{position:relative;padding-top:34px}
+.road li::before{content:"";position:absolute;top:0;left:0;width:16px;height:16px;border-radius:50%;background:var(--blue-2)}
+.road li:not(:last-child)::after{content:"";position:absolute;top:3px;left:28px;right:-12px;height:10px;border-radius:999px;background:var(--blue-3)}
+.js .road.in li::after{animation:dash-in 1s var(--ease) calc(var(--i)*.25s + .3s) both}
+.road b{display:block;font-weight:600;font-size:1.1rem;letter-spacing:-.02em}
+.road span{display:block;margin-top:6px;font-size:.96rem;line-height:1.45;color:var(--ink-2);text-wrap:pretty}
+@media (max-width:960px){.coin{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){.road ol{grid-template-columns:repeat(2,minmax(0,1fr))}.road li:nth-child(2)::after{display:none}}
+@media (max-width:440px){.loop{grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);grid-template-rows:auto 44px auto}.st{padding:14px 14px 16px;border-radius:20px}.st b{font-size:.95rem}.st small{font-size:.8rem}}
 
 /* ------------------------------------------------------------ Straight answers */
 .answers .wrap{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(36px,7vw,112px);align-items:start}
@@ -538,7 +652,7 @@ footer li a:hover{color:var(--blue-3)}
    their fields as the page moves, some against the others, so each field has layers. Elsewhere they
    simply stay put. */
 @supports (animation-timeline:view()){
-  .field>.phone,.newmsg,.timer,.sns,.works,.get .mac{animation:drift linear both;animation-timeline:view();animation-range:cover}
+  .field>.phone,.newmsg,.timer,.sns,.works,.wit,.get .mac{animation:drift linear both;animation-timeline:view();animation-range:cover}
   .newmsg,.get .mac{--drift:-16px}
   @keyframes drift{from{translate:0 var(--drift,26px)}to{translate:0 calc(-1*var(--drift,26px))}}
 }
@@ -575,6 +689,12 @@ footer li a:hover{color:var(--blue-3)}
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
   <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><path d="m12 3 2.4 1.7 2.9-.1.9 2.8 2.3 1.8-.9 2.8.9 2.8-2.3 1.8-.9 2.8-2.9-.1L12 21l-2.4-1.7-2.9.1-.9-2.8-2.3-1.8.9-2.8-.9-2.8 2.3-1.8.9-2.8 2.9.1L12 3Z"/><path d="m8.8 12.2 2.2 2.2 4.2-4.4"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M18 7V5.5A1.5 1.5 0 0 0 16.5 4h-11A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V9a2 2 0 0 0-2-2H5.5"/><path d="M16 13.5h.01"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9 12h6M12 9v6"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 21c3.9 0 6.5-2.6 6.5-6.3 0-3.9-3-6.6-4.6-9.7-.6 2.4-2 3.9-3.4 4.6-.7-1.6-1.1-3.2-.9-5.6-2.8 2.4-4.1 5.9-4.1 10.7C5.5 18.4 8.1 21 12 21Z"/></symbol>
   <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></symbol>
 </svg>
 
@@ -584,7 +704,8 @@ footer li a:hover{color:var(--blue-3)}
     <nav aria-label="Main">
       <a href="#features">Features</a>
       <a href="#privacy">Privacy</a>
-      <a href="#built">How it’s built</a>
+      <a href="#network">Network</a>
+      <a href="how-it-works.html">How it works</a>
       <a href="#answers">Straight answers</a>
     </nav>
     <a class="btn dark sm" href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a>
@@ -595,11 +716,11 @@ footer li a:hover{color:var(--blue-3)}
 <section class="hero" id="top">
   <div class="card bluecard hero-card">
     <div class="hero-copy">
-      <h1><span class="w"><i>Private</i></span> <span class="w"><i>messaging,</i></span> <span class="w"><i>made</i></span> <span class="w"><i>simple.</i></span></h1>
-      <p class="lead">Pick a username and start talking. No phone number, no contact upload, and only the people in a chat can read it. Not even us.</p>
+      <h1><span class="w"><i>Private</i></span> <span class="w"><i>messaging,</i></span> <span class="w"><i>kept</i></span> <span class="w"><i>honest.</i></span></h1>
+      <p class="lead">Pick a username and start talking. Only the people in a chat can read it, not even us, and witnesses check every key we hand out.</p>
       <div class="cta">
         <a class="btn light" href="https://github.com/snowdamiz/whatsdown/releases"><svg class="ic" aria-hidden="true"><use href="#i-get"/></svg>Get Morse</a>
-        <a class="go down" href="#privacy">See what we can’t see<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></a>
+        <a class="go down" href="#network">See how we’re kept honest<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></a>
       </div>
       <p class="plats">Made for iPhone, Android, Mac and Windows.</p>
     </div>
@@ -634,7 +755,7 @@ footer li a:hover{color:var(--blue-3)}
   <div class="wrap two">
     <div class="copy reveal">
       <h2>Just a username.</h2>
-      <p class="lead">No phone number, no email, no address book. Pick a name and you’re in. And nobody lands in your chats uninvited: a first message waits as a request until you accept it.</p>
+      <p class="lead">No phone number, no email, no address book, no wallet. Pick a name and you’re in. And nobody lands in your chats uninvited: a first message waits as a request until you accept it.</p>
     </div>
     <div class="field butter tall reveal" aria-hidden="true">
       <div class="sheet newmsg">
@@ -648,6 +769,31 @@ footer li a:hover{color:var(--blue-3)}
         <b>Message request</b>
         <p>@sam_r wants to start a conversation. Accept to reply, or block to never hear from them.</p>
         <div><span>Accept request</span><span>Block</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row flip">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>Groups, without the audience.</h2>
+      <p class="lead">Plan the trip, run the team, settle the dinner debate, with replies, reactions and @mentions. We can’t see who’s in your groups, or even what they’re called.</p>
+    </div>
+    <div class="field peach tall live reveal" aria-hidden="true">
+      <div class="phone">
+        <div class="screen">
+          <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t6"><svg class="ic"><use href="#i-users"/></svg></span><div><b>Roof team</b><small>5 members</small></div><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+          <div class="thread">
+            <p class="day">Today</p>
+            <div class="gmsg reacted" style="--i:0"><span class="ava t2">NA</span><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b>Rain from ten tomorrow. Start at eight?<small>7:52 AM</small><span class="react">👍 3</span></p></div>
+            <div class="gmsg" style="--i:1"><span class="ava t5">JO</span><p class="b in"><b class="who" style="color:#1A687B">@jonah</b>Works for me. I’ll bring the ladder.<small>7:55 AM</small></p></div>
+            <p class="b out" style="--i:2"><span class="at">@nadia</span> can you grab the sealant?<small>8:02 AM<svg class="ic"><use href="#i-check"/></svg></small></p>
+            <div class="gmsg" style="--i:3"><span class="ava t2">NA</span><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b><span class="quote"><b>You</b>@nadia can you grab the sealant?</span>Already in the van.<small>8:03 AM</small></p></div>
+          </div>
+          <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message · @mention someone</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+        </div>
       </div>
     </div>
   </div>
@@ -668,6 +814,7 @@ footer li a:hover{color:var(--blue-3)}
           <li><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>We can’t see who sent them.</li>
           <li><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>We can’t tell “OK” from a full sentence. Messages are padded to standard sizes.</li>
         </ul>
+        <a class="go" href="how-it-works.html">Follow a message past every server<svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></a>
       </div>
       <div class="stage reveal">
         <div class="phone dark" id="demo" data-view="device" aria-hidden="true">
@@ -697,31 +844,6 @@ footer li a:hover{color:var(--blue-3)}
   </div>
 </section>
 
-<section class="row flip">
-  <div class="wrap two">
-    <div class="copy reveal">
-      <h2>Groups, without the audience.</h2>
-      <p class="lead">Plan the trip, run the team, settle the dinner debate, with replies, reactions and @mentions. We can’t see who’s in your groups, or even what they’re called.</p>
-    </div>
-    <div class="field peach tall live reveal" aria-hidden="true">
-      <div class="phone">
-        <div class="screen">
-          <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
-          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t6"><svg class="ic"><use href="#i-users"/></svg></span><div><b>Roof team</b><small>5 members</small></div><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
-          <div class="thread">
-            <p class="day">Today</p>
-            <div class="gmsg reacted" style="--i:0"><span class="ava t2">NA</span><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b>Rain from ten tomorrow. Start at eight?<small>7:52 AM</small><span class="react">👍 3</span></p></div>
-            <div class="gmsg" style="--i:1"><span class="ava t5">JO</span><p class="b in"><b class="who" style="color:#1A687B">@jonah</b>Works for me. I’ll bring the ladder.<small>7:55 AM</small></p></div>
-            <p class="b out" style="--i:2"><span class="at">@nadia</span> can you grab the sealant?<small>8:02 AM<svg class="ic"><use href="#i-check"/></svg></small></p>
-            <div class="gmsg" style="--i:3"><span class="ava t2">NA</span><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b><span class="quote"><b>You</b>@nadia can you grab the sealant?</span>Already in the van.<small>8:03 AM</small></p></div>
-          </div>
-          <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message · @mention someone</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <section class="row pair">
   <div class="wrap">
     <div class="copy reveal">
@@ -739,7 +861,7 @@ footer li a:hover{color:var(--blue-3)}
     </div>
     <div class="copy reveal">
       <h2>Know it’s really them.</h2>
-      <p class="lead">Every chat has a safety number. Compare it with your friend, in person or somewhere you already trust. If it matches, nobody is sitting in the middle. If their keys ever change, Morse tells you.</p>
+      <p class="lead">Every chat has a safety number. Compare it with your friend, in person or somewhere you already trust. If it matches, nobody is sitting in the middle. If their keys ever change, Morse tells you. And it checks every key against a log that witnesses sign.</p>
     </div>
     <div class="field mint reveal" aria-hidden="true">
       <div class="sns">
@@ -753,6 +875,123 @@ footer li a:hover{color:var(--blue-3)}
       </div>
       </div>
       <p class="verified"><svg class="ic"><use href="#i-check"/></svg>Safety number verified</p>
+    </div>
+  </div>
+</section>
+
+<section id="network">
+  <div class="card night net">
+    <div class="copy reveal">
+      <p class="soon"><i></i>Launching in stages</p>
+      <h2>Don’t trust us. <em>Make lying expensive.</em></h2>
+      <p class="lead">The soft spot in every encrypted messenger is the server that tells your phone which key is your friend’s. Morse writes every key into a log that witnesses vouch for, and anyone can run a witness, with a bond on the line.</p>
+      <ul class="facts">
+        <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>A lie proves itself: two signed versions of the same log.</li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Anyone can post that proof on-chain. The bond is slashed, and part of it goes to whoever caught it.</li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Your phone never waits for a verdict. It already refuses any key the witnesses haven’t vouched for.</li>
+      </ul>
+      <div class="cta">
+        <a class="btn light" href="#credits">What changes for you</a>
+        <a class="btn line" href="#witness">Run a witness</a>
+      </div>
+    </div>
+    <div class="caught reveal" aria-hidden="true">
+      <div class="sheet slip lean-l">
+        <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to your phone</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+        <p class="sig"><span class="ava t0">A</span><span class="ava t4">B</span><span class="ava t3 c">C</span><span class="by">Signed by witnesses A, B and C</span></p>
+      </div>
+      <div class="sheet slip lean-r">
+        <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to someone else</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span class="diff">5d0e</span><span>64d1</span></p>
+        <p class="sig"><span class="ava t3 c">C</span><span class="by">Signed by witness C</span></p>
+      </div>
+      <p class="verdict"><svg class="ic"><use href="#i-alert"/></svg>Witness C signed both. Bond slashed.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row" id="credits">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>Messaging stays free. Extras stay anonymous.</h2>
+      <p class="lead">Credits unlock extras, paid in USDC, SOL or BTC. Each one is signed blind, so when you spend it, our servers can tell it’s genuine but not who bought it.</p>
+      <ul class="points">
+        <li><b>Bigger files.</b> Send past the 16 MB limit.</li>
+        <li><b>Longer storage.</b> Messages wait past 30 days for a phone that’s been switched off.</li>
+        <li><b>A price on your inbox.</b> Ask strangers for a little postage before their request reaches you. Spam stops paying.</li>
+      </ul>
+    </div>
+    <div class="field sky tall reveal" aria-hidden="true">
+      <div class="sheet slip bought lean-l">
+        <header><i class="vt"><svg class="ic"><use href="#i-wallet"/></svg></i><div><b>Wallet 7xKp…3fQa</b><small>What the blockchain sees</small></div></header>
+        <dl><div><dt>Bought</dt><dd>100 credits</dd></div><div><dt>Paid with</dt><dd>USDC</dd></div></dl>
+      </div>
+      <p class="blind"><svg class="ic"><use href="#i-lock"/></svg>Signed blind</p>
+      <div class="sheet slip spent lean-r">
+        <header><i class="vt dk"><svg class="ic"><use href="#i-server"/></svg></i><div><b>1 credit spent</b><small>What our servers see</small></div></header>
+        <dl><div><dt>Genuine</dt><dd class="ok">Yes</dd></div><div><dt>Bought by</dt><dd class="nope">No way to tell</dd></div></dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row flip" id="witness">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>Run a witness. Get paid to keep us honest.</h2>
+      <p class="lead">A witness checks each new version of the key log and signs it only if nothing was rewritten. It runs on a small server and never sees a message, a username or a wallet.</p>
+      <ul class="points">
+        <li><b>What you put down.</b> A bond, staked for as long as you witness.</li>
+        <li><b>What you get.</b> A share of credit sales for every version you sign.</li>
+        <li><b>What can cost you.</b> Only signing two versions of the same log. The witness software refuses to, so the real risk is a stolen key.</li>
+      </ul>
+      <a class="go" href="witnesses.html">How witnesses work<svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></a>
+    </div>
+    <div class="field peach tall reveal" aria-hidden="true">
+      <div class="wit">
+        <header><i class="vt"><svg class="ic"><use href="#i-badge"/></svg></i><div><b>Witness B</b><small>Your server</small></div><em>Online</em></header>
+        <p class="count"><b>360</b>versions checked and signed today</p>
+        <div class="line" style="--t:21s"><div><span class="mc" data-morse="CHECKED AND SIGNED  "></span><span class="mc" data-morse="CHECKED AND SIGNED  "></span></div></div>
+        <dl>
+          <div class="sees"><dt>Sees</dt><dd><span>Version number</span><span>Log fingerprint</span></dd></div>
+          <div class="never"><dt>Never sees</dt><dd><span>Messages</span><span>Usernames</span><span>Contacts</span><span>Wallets</span></dd></div>
+        </dl>
+        <p class="bond"><svg class="ic"><use href="#i-lock"/></svg>Bond staked<span>Only a signed lie can touch it</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="token">
+  <div class="card butter coin">
+    <div class="copy reveal">
+      <h2>One token. Two jobs.</h2>
+      <p class="lead">The Morse token is the bond witnesses stake, and what credit purchases burn. You never need to hold it: pay for credits in USDC, SOL or BTC and the app swaps for you.</p>
+      <ul class="facts">
+        <li><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Never tied to your account. Your wallet and your username never meet.</li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Never written per message. Who you talk to, and when, stays off every chain.</li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Never needed to chat. Messaging works without buying or holding anything.</li>
+      </ul>
+    </div>
+    <div class="loop reveal" aria-hidden="true">
+      <p class="st s1"><i class="vt"><svg class="ic"><use href="#i-coin"/></svg></i><b>You buy credits</b><small>in USDC, SOL or BTC</small></p>
+      <svg class="ic ar a1"><use href="#i-right"/></svg>
+      <p class="st s2"><i class="vt"><svg class="ic"><use href="#i-flame"/></svg></i><b>Tokens are burned</b><small>the app swaps, then burns</small></p>
+      <svg class="ic ar a2"><use href="#i-down"/></svg>
+      <p class="st s3"><i class="vt"><svg class="ic"><use href="#i-badge"/></svg></i><b>Witnesses are paid</b><small>for every version they sign</small></p>
+      <svg class="ic ar a3"><use href="#i-left"/></svg>
+      <p class="st s4"><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><b>Bonds keep them honest</b><small>a signed lie costs the bond</small></p>
+      <svg class="ic ar a4"><use href="#i-up"/></svg>
+    </div>
+    <div class="road reveal">
+      <h3>How it rolls out</h3>
+      <ol>
+        <li style="--i:0"><b>Public checkpoints</b><span>Every version of the key log, posted to a public chain anyone can check.</span></li>
+        <li style="--i:1"><b>Independent witnesses</b><span>Operators outside Morse sign the log alongside us.</span></li>
+        <li style="--i:2"><b>Anonymous credits</b><span>Extras paid in USDC, SOL or BTC, spent without a trace.</span></li>
+        <li style="--i:3"><b>The Morse token</b><span>Bonds for witnesses, burned by every credit bought.</span></li>
+      </ol>
     </div>
   </div>
 </section>
@@ -788,12 +1027,16 @@ footer li a:hover{color:var(--blue-3)}
   <div class="wrap">
     <div class="copy reveal">
       <h2>Straight answers.</h2>
-      <p class="lead">Security marketing loves absolutes. We’d rather show you where the edges are.</p>
+      <p class="lead">Security and crypto marketing both love absolutes. We’d rather show you where the edges are.</p>
     </div>
     <div class="qa reveal">
       <details open>
         <summary>Do I need a phone number?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
         <p>No. Your account is a username: 3 to 32 lowercase letters, numbers or underscores. No phone number, no email, and Morse never uploads your contacts.</p>
+      </details>
+      <details>
+        <summary>Do I need crypto to use Morse?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>No. Messaging never needs a wallet, credits or the token. Credits are for extras, and you can pay for them in USDC, SOL or BTC without ever holding the token.</p>
       </details>
       <details>
         <summary>Can strangers message me?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
@@ -802,6 +1045,24 @@ footer li a:hover{color:var(--blue-3)}
       <details>
         <summary>Can I use it on my phone and my computer?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
         <p>Yes. You can link up to eight devices to one account. The new device shows a code, and you approve it from a device you already trust.</p>
+      </details>
+      <details>
+        <summary>Could buying credits give me away?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>Not to your chats. Credits are signed blind: when you spend one, our servers can check it’s genuine, but can’t match it to the purchase that paid for it.</p>
+        <p>The purchase itself is as public as any payment on its chain, so anyone can see that a wallet bought Morse credits. If that matters to you, buy in batches from a wallet you don’t mind being seen.</p>
+      </details>
+      <details>
+        <summary>What happens if a witness lies?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>The lie proves itself. Signing two different versions of the key log leaves two signatures that can’t both be honest. Anyone can post them on-chain, the witness’s bond is slashed, and part of it goes to whoever caught it.</p>
+        <p>Your phone doesn’t wait for any of that. It already refuses a key that enough witnesses haven’t vouched for.</p>
+      </details>
+      <details>
+        <summary>Can tokens buy control of Morse?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>No. Each app release names the witnesses your phone trusts. The token only decides who can post a bond and whose bond is slashed, so no amount of it changes which keys your phone accepts.</p>
+      </details>
+      <details>
+        <summary>Why a token, and not just dollars?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>A bond works in any currency. The token ties what witnesses are paid to how much Morse is actually used, and lets one unit do both jobs: bonds and credits.</p>
       </details>
       <details>
         <summary>What can’t Morse protect me from?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
@@ -824,6 +1085,7 @@ footer li a:hover{color:var(--blue-3)}
           <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/crypto-profile-v1.md">The encryption we use<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
           <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/recipient-transport-v1.md">How a message travels<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
           <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/key-transparency-v1.md">How key swaps are caught<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+          <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/witness-network-v1.md">How the witness network works<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
           <li><a href="https://github.com/snowdamiz/whatsdown/security/advisories/new">Report a vulnerability<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
         </ul>
       </details>
@@ -837,7 +1099,7 @@ footer li a:hover{color:var(--blue-3)}
       <h2>Start a conversation nobody else is part of.</h2>
       <div class="cta">
         <a class="btn light" href="https://github.com/snowdamiz/whatsdown/releases"><svg class="ic" aria-hidden="true"><use href="#i-get"/></svg>Get Morse</a>
-        <a class="btn line" href="https://github.com/snowdamiz/whatsdown">Read the source</a>
+        <a class="btn line" href="witnesses.html">Run a witness</a>
       </div>
       <p class="note">Made for iPhone, Android, Mac and Windows. Downloads are published on GitHub as each one is ready.</p>
     </div>
@@ -896,19 +1158,20 @@ footer li a:hover{color:var(--blue-3)}
     </div>
     <div>
       <h3>Morse</h3>
-      <ul><li><a href="#features">Features</a></li><li><a href="#privacy">Privacy</a></li><li><a href="#built">How it’s built</a></li><li><a href="#answers">Straight answers</a></li></ul>
+      <ul><li><a href="#features">Features</a></li><li><a href="#privacy">Privacy</a></li><li><a href="#network">Network</a></li><li><a href="#built">How it’s built</a></li><li><a href="how-it-works.html">How it works</a></li><li><a href="#answers">Straight answers</a></li></ul>
     </div>
     <div>
       <h3>The fine print</h3>
       <ul>
         <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/privacy-contract.md">Privacy contract</a></li>
         <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/threat-model.md">Threat model</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/witness-network-v1.md">Witness network</a></li>
         <li><a href="https://github.com/snowdamiz/whatsdown/security/advisories/new">Report a vulnerability</a></li>
       </ul>
     </div>
     <div>
       <h3>Project</h3>
-      <ul><li><a href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a></li><li><a href="https://github.com/snowdamiz/whatsdown">GitHub</a></li><li><a href="https://meshlang.dev">Mesh language</a></li></ul>
+      <ul><li><a href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a></li><li><a href="witnesses.html">Run a witness</a></li><li><a href="https://github.com/snowdamiz/whatsdown">GitHub</a></li><li><a href="https://meshlang.dev">Mesh language</a></li></ul>
     </div>
     <p class="quiet">This page sets no cookies and loads nothing from third parties: no trackers, no analytics, no hosted fonts.</p>
   </div>

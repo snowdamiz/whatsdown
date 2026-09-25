@@ -1,0 +1,72 @@
+name: Apply to run a witness
+description: Run a Morse key-transparency witness. What a witness does and what it takes is at morseapp.io/witnesses.html.
+title: "Witness application: "
+labels: ["witness"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for offering to keep Morse honest. **This issue is public**, like the list of witnesses it may lead to. Never post a private key, a password or anything you wouldn't put on your website. We'll ask for anything private once we talk.
+  - type: input
+    id: operator
+    attributes:
+      label: Who would run it
+      description: The organisation or person, as it would appear on the public list of witnesses. One witness per legal entity.
+    validations:
+      required: true
+  - type: input
+    id: jurisdiction
+    attributes:
+      label: Jurisdiction
+      description: Where the operator is legally based.
+    validations:
+      required: true
+  - type: input
+    id: contact
+    attributes:
+      label: Contact
+      description: How we reach a named person when something breaks, such as an email address or a Matrix or Signal handle.
+    validations:
+      required: true
+  - type: textarea
+    id: hosting
+    attributes:
+      label: Where it would run
+      description: Your hosting, and how you'd reach 99.5% uptime (an active/passive pair of small servers does it). Nothing may be shared with Morse's own cloud accounts.
+    validations:
+      required: true
+  - type: dropdown
+    id: key
+    attributes:
+      label: Where the signing key would live
+      options:
+        - A hardware security module
+        - A cloud KMS with Ed25519 support
+        - An encrypted file on the witness server
+        - Not sure yet
+    validations:
+      required: true
+  - type: dropdown
+    id: software
+    attributes:
+      label: Witness software
+      options:
+        - Morse's witness (reproducible build)
+        - Existing C2SP tlog-witness software
+        - Not sure yet
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: What you run today
+      description: For example a transparency-log witness, a Solana validator, other infrastructure, or research.
+  - type: checkboxes
+    id: understood
+    attributes:
+      label: Understood
+      options:
+        - label: My bond is slashed if my witness key signs two versions of the key log that can't both be true, even if the key was stolen.
+          required: true
+        - label: This issue is public.
+          required: true

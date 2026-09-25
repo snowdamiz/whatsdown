@@ -384,6 +384,9 @@ start_database() {
   applied="$(cd "$migrations_dir" && printf '%s\n' *.sql)"
   docker volume inspect "${compose_project}_messenger-postgres" >/dev/null 2>&1 || fresh=true
   compose up --detach --wait postgres
+  # A new volume starts an empty transparency log, and witnesses holding an older
+  # log's checkpoint refuse it as a rollback, so no new account can verify.
+  if [[ "$fresh" == true ]]; then rm -f "$state_dir"/witness-*.checkpoint; fi
   if [[ "$fresh" == true || ! -f "$schema_stamp" ]]; then
     printf '%s\n' "$applied" >"$schema_stamp"
   elif [[ "$applied" != "$(cat "$schema_stamp")" ]]; then
@@ -417,16 +420,23 @@ start_service() {
     return
   fi
   start_process "$name" "$@"
-  wait_for_health "$name" "$url"
+  wait_for_health "$name" "$url" "$!"
 }
 
+# macOS scans every freshly linked binary on its first launch: ~5 s when idle,
+# well past 15 s right after the native builds. Wait that out, but stop as soon
+# as the service exits so a crash still reports at once.
 wait_for_health() {
   local name=$1
   local url=$2
+  local pid=${3:-}
   local attempt
-  for ((attempt = 0; attempt < 150; attempt += 1)); do
+  for ((attempt = 0; attempt < 900; attempt += 1)); do
     if curl --max-time 5 --fail --silent --show-error "$url/health" >/dev/null 2>&1; then
       return 0
+    fi
+    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
+      break
     fi
     sleep 0.1
   done
@@ -450,19 +460,28 @@ start_landing() {
   fail "landing page did not become ready"
 }
 
+# Production wakes the witnesses when the directory makes a checkpoint, and
+# clients wait on their signatures. Here each witness reads the checkpoint every
+# second and signs it once it changes, so a new one is witnessed within seconds.
 witness_loop() {
   local witness_id=$1
   local signing_seed=$2
   local public_key=$3
   local checkpoint=$4
+  local latest signed=""
   while true; do
-    if MESSENGER_BASE_URL="http://127.0.0.1:$MESSENGER_PORT" \
+    latest="$(curl --max-time 5 --fail --silent \
+      "http://127.0.0.1:$MESSENGER_PORT/v1/transparency/checkpoint" | cksum)" || latest=""
+    if [[ -z "$latest" || "$latest" == "$signed" ]]; then
+      sleep 1
+    elif MESSENGER_BASE_URL="http://127.0.0.1:$MESSENGER_PORT" \
       MESSENGER_WITNESS_ID="$witness_id" \
       MESSENGER_WITNESS_CHECKPOINT_PATH="$checkpoint" \
       MESSENGER_WITNESS_SIGNING_SEED_HEX="$signing_seed" \
       MESSENGER_WITNESS_PUBLIC_KEY_HEX="$public_key" \
       "$service_root/transparency-witness/output"; then
-      sleep 30
+      signed=$latest
+      sleep 1
     else
       sleep 5
     fi

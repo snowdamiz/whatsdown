@@ -52,6 +52,16 @@ export function createDevPreview(now = Date.now()): DevPreview {
     body: exchanges[(offset + Math.floor(index / 8)) % exchanges.length]![index % 8]!,
     disappearingSeconds: 0,
   }));
+  // The newest exchange shows what people do with messages: react to them and
+  // answer one in particular. `others` names who reacts to a message.
+  const decorate = <T extends HistoryMessage | GroupHistoryMessage>(history: T[], others: (message: T) => string[]): T[] => {
+    const [liked, loved, , , , quoted, answer] = history.slice(-8);
+    return history.map((message) =>
+      message === liked ? { ...message, reactions: [{ emoji: '👍', senders: others(message) }] }
+      : message === loved ? { ...message, reactions: [{ emoji: '❤️', senders: others(message) }] }
+      : message === answer ? { ...message, reply: { target: hex(quoted!.messageId!), message: quoted! } }
+      : message);
+  };
   usernames.forEach((username, index) => {
     const conversationId = id(index + 10, 16);
     const unread = [2, 0, 1, 0, 12, 0][index % 6]!;
@@ -60,7 +70,7 @@ export function createDevPreview(now = Date.now()): DevPreview {
       safetyNumber, requestPending: false, blocked: index === 13,
       verified: index % 3 === 0, keyChanged: index === 8, disappearingSeconds: 0,
     });
-    const history = messages(index, unread);
+    const history = decorate(messages(index, unread), (message) => [message.direction === 'sent' ? 'received' : 'sent']);
     preview.histories[hex(conversationId)] = history;
     preview.readState[`chat/${hex(conversationId)}`] = receivedMessageKeys(history.slice(0, history.length - unread));
     if (displayNames[index]) preview.presentations[`user/${hex(id(index + 10))}`] = { name: displayNames[index]! };
@@ -83,13 +93,14 @@ export function createDevPreview(now = Date.now()): DevPreview {
     preview.groupDetails[hex(groupId)] = {
       groupId, epoch: 1, treeHash: id(index + 100), checkpointHash: id(index + 120), members,
     };
-    const history = messages(index, unread).map((message, messageIndex) => {
+    const history = decorate(messages(index, unread).map((message, messageIndex) => {
       const sender = members[message.direction === 'sent' ? 0 : 1 + messageIndex % (memberCount - 1)]!;
       return {
-        direction: message.direction, epoch: 1, timestamp: message.timestamp, body: message.body,
+        direction: message.direction, epoch: 1, messageId: message.messageId, timestamp: message.timestamp, body: message.body,
         senderAccountId: sender.accountId, senderDeviceId: sender.deviceId,
       };
-    });
+    }), (message) => members.slice(1).filter((member) => member.accountId !== message.senderAccountId)
+      .slice(0, 2).map((member) => hex(member.accountId)));
     preview.groupHistories[hex(groupId)] = history;
     preview.readState[`group/${hex(groupId)}`] = receivedMessageKeys(history.slice(0, history.length - unread));
   }

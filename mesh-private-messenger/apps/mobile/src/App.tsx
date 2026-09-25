@@ -5,7 +5,7 @@ import {
 } from "expo-camera";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { encodeReaction } from "./reactions";
+import { encodeReaction, setReaction } from "./reactions";
 import { encodeReply } from "./replies";
 import { encodeReceipt, messageStatus, receiptDue, type ReceiptMarks } from "./receipts";
 import {
@@ -159,7 +159,7 @@ import { receivedMessageKeys, unreadCount, type ReadState } from "./read-state";
 import { forgetPreferences, loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveNotificationPreview, saveReadReceipts, saveReadState } from "./read-state-store";
 import type { NotificationPreview } from "./notification-policy";
 import { describeSafety } from "./safety";
-import { Fact, SealedChat, Steps, Strong } from "./onboarding";
+import { Fact, IdentityPreview, SealedChat, Steps, Strong } from "./onboarding";
 import { usernameProblem } from "./username";
 import { StartupScreen } from "./StartupScreen";
 import { ResizableSidebar } from "./ResizableSidebar";
@@ -222,6 +222,8 @@ import {
   TabBar,
   Toggle,
   useFreshKeys,
+  Wallpaper,
+  WallpaperFrame,
   chrome,
   heroAvatarSize,
   layout,
@@ -313,6 +315,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const statusBar = scheme === "dark" ? "light" : "dark";
   const [pastedCode, setPastedCode] = useState("");
   const [pendingConfirm, setPendingConfirm] = useState<Confirmation | null>(null);
+  // Where the main column and the pane inside it were laid out, so the
+  // floating edges on a screen can line their doodles up with the wallpaper.
+  const [mainFrame, setMainFrame] = useState({ x: 0, y: 0, height: 0 });
+  const [paneOffset, setPaneOffset] = useState({ x: 0, y: 0 });
   // Set while the account is being deleted, which stops syncing and push upkeep first.
   const [leaving, setLeaving] = useState(false);
   const fontsReady = useAppFonts();
@@ -912,7 +918,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       const saved = await savePresentation(databasePath, key, presentation);
       setPresentations((previous) => ({ ...previous, [key]: saved }));
       if (unregistered) throw unregistered;
-      await refreshDevices(created);
+      // The mailbox sync loads the device set once the witnesses countersign
+      // it, seconds from now; the account is usable before then.
       setUsername("");
       setDisplayName("");
       setStatus("Account created");
@@ -972,6 +979,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const group = "senderAccountId" in message;
     if (group ? !selectedGroupId || (selectedGroup?.memberCount ?? 0) < 2
       : !selected || selected.blocked || selected.requestPending) return;
+    if (preview) {
+      // Sample content reacts in place; nothing is saved or sent.
+      const react = <T extends HistoryMessage | GroupHistoryMessage>(list: T[] = []) => list.map((item) =>
+        item.messageId && hex(item.messageId) === hex(message.messageId!)
+          ? { ...item, reactions: setReaction(item.reactions, group ? accountId ?? "" : "sent", emoji) } : item);
+      setDevPreview(group
+        ? { ...preview, groupHistories: { ...preview.groupHistories, [hex(selectedGroupId!)]: react(preview.groupHistories[hex(selectedGroupId!)]) } }
+        : { ...preview, histories: { ...preview.histories, [hex(selected!.conversationId)]: react(preview.histories[hex(selected!.conversationId)]) } });
+      return;
+    }
     void perform("Sending reaction…", async () => {
       const body = encodeReaction(hex(message.messageId!), emoji);
       if (group) await sendGroupMessage(databasePath, selectedGroupId!, body);
@@ -1600,8 +1617,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           vectors(utf8(databasePath), authorization),
         );
         setProfile(linkedProfile);
+        // The mailbox sync loads the device set once it is countersigned.
         await registerDirectory(databasePath);
-        await refreshDevices(linkedProfile);
         setLinkRequest(null);
         setLinkSas("");
         enterApp();
@@ -1880,30 +1897,15 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           ? "Use 32 characters or fewer."
           : undefined;
     const submit = problem === null && !taken ? createAccount : undefined;
-    return (
-      <Page
-        header={
-          <Header
-            title="Your profile"
-            onBack={() => goOnboarding("welcome")}
-            {...sheetHeader}
-          />
-        }
-      >
-        <ScrollView
-          contentContainerStyle={[layout.content, sheetContent, styles.onboardingForm]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Reveal style={styles.profileHead}>
-            {renderPhotoEditor(displayName || username, accountAvatar, setAccountAvatar, avatarSeed, heroAvatarSize)}
-            <Text accessibilityRole="header" style={[type.title, styles.profileText]}>
-              Pick a username.
-            </Text>
-            <Text style={[type.body, styles.profileText]}>
-              It is how people reach you. Your private keys stay on your devices.
-            </Text>
-          </Reveal>
+    const intro = <>
+      <Text accessibilityRole="header" style={isDesktop ? type.largeTitle : [type.title, layout.centerText]}>
+        Pick a username.
+      </Text>
+      <Text style={[type.body, !isDesktop && layout.centerText]}>
+        It is how people reach you. Your private keys stay on your devices.
+      </Text>
+    </>;
+    const form = <>
           <Reveal delay={60} style={layout.stackLoose}>
             <Field
               label="Choose your username"
@@ -1931,7 +1933,51 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               <Button label="Create account" disabled={busy || pickingPhoto || !submit} onPress={createAccount} />
             </Actions>
           </Reveal>
-        </ScrollView>
+    </>;
+    const name = displayName || username;
+    return (
+      <Page
+        header={
+          <Header
+            title="Your profile"
+            onBack={() => goOnboarding("welcome")}
+            {...sheetHeader}
+          />
+        }
+      >
+        {/* The desktop keeps the welcome's spread, so the words stay where
+            they were and the picture becomes the identity being made. */}
+        {isDesktop ? (
+          <ScrollView
+            contentContainerStyle={[styles.welcome, styles.welcomeDesktop]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <IdentityPreview
+              photo={renderPhotoButton(name, accountAvatar, setAccountAvatar, { size: size.avatar["3xl"], seed: avatarSeed })}
+              name={displayName.trim()}
+              username={typed}
+            >
+              {accountAvatar ? renderRemovePhoto(() => setAccountAvatar(undefined)) : null}
+            </IdentityPreview>
+            <View style={styles.welcomeCopy}>
+              <Reveal style={styles.heroBlock}>{intro}</Reveal>
+              {form}
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            contentContainerStyle={layout.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Reveal style={styles.profileHead}>
+              {renderPhotoEditor(name, accountAvatar, setAccountAvatar, avatarSeed, heroAvatarSize)}
+              {intro}
+            </Reveal>
+            {form}
+          </ScrollView>
+        )}
       </Page>
     );
   }
@@ -2201,9 +2247,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     );
   }
 
-  // The screen opens on who you are, as the people you message see it: the
-  // photo (which is also how it is changed), the handle, and the ways to
-  // share or clear them. Settings proper follow in groups.
+  // The screen opens on who you are, as the people you message see it: a
+  // card with the photo (which is also how it is changed), the name and
+  // handle, and the QR code that shares them. Settings proper follow in groups.
   function renderSettings() {
     const activeDevices = devices?.devices.filter((device) => device.active).length;
     const setOwnPhoto = (avatar: string | undefined) => {
@@ -2213,24 +2259,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     return (
       <Page header={<LargeHeader title="You" />}>
         <ScrollView contentContainerStyle={layout.contentTight}>
-          <Hero
-            name={ownName}
-            leading={renderPhotoButton(ownName, ownAvatar, setOwnPhoto, { seed: ownId })}
-            title={ownName}
-            subtitle={`@${ownUsername} · People you message see this name and photo.`}
-            actions={
-              <>
-                <Button
-                  label="My QR code"
-                  icon="qr"
-                  variant="secondary"
-                  size="sm"
-                  onPress={() => go("account")}
-                />
-                {ownAvatar ? renderRemovePhoto(() => setOwnPhoto(undefined)) : null}
-              </>
-            }
-          />
+          <Section footer="People you message see this name and photo.">
+            <Card style={styles.profileCard}>
+              {renderPhotoButton(ownName, ownAvatar, setOwnPhoto, { size: size.avatar["2xl"], seed: ownId })}
+              <View style={layout.flex}>
+                <Text numberOfLines={1} style={type.title2}>{ownName}</Text>
+                <Text numberOfLines={1} style={type.subhead}>@{ownUsername}</Text>
+              </View>
+              <IconButton name="qr" label="My QR code" variant="soft" glass={false} size={isDesktop ? control.lg : undefined} onPress={() => go("account")} />
+            </Card>
+          </Section>
           <Section
             title="Account"
           >
@@ -2243,6 +2281,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                   if (ownProfile) editName(`user/${hex(ownProfile.accountId)}`, ownName === ownUsername ? "" : ownName);
                 }}
               />
+              {ownAvatar && !preview ? (
+                <Row
+                  icon="image"
+                  title="Remove photo"
+                  onPress={busy || pickingPhoto ? undefined : () => setOwnPhoto(undefined)}
+                  trailing={null}
+                />
+              ) : null}
               <Row
                 icon="device"
                 title="Linked devices"
@@ -2779,7 +2825,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       return identity.username ? [{ username: identity.username, name: identity.name }] : [];
     });
     const scope = `group/${hex(groupId)}`;
-    const canReply = preview === null && (selectedGroup?.memberCount ?? 0) >= 2;
+    const canReply = (selectedGroup?.memberCount ?? 0) >= 2;
     // A quoted message is named by who this device knows sent it.
     const quoteOf = (message: Omit<GroupHistoryMessage, "reply">) => {
       const own = message.direction === "sent" || hex(message.senderAccountId) === accountId;
@@ -2841,7 +2887,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 reactionSender={accountId ?? ""}
                 reactor={(sender) => senderIdentity(sender)}
                 onReact={item.message.messageId ? (emoji) => reactToMessage(item.message, emoji) : undefined}
-                reactionsDisabled={busy || preview !== null || (selectedGroup?.memberCount ?? 0) < 2}
+                reactionsDisabled={busy || (selectedGroup?.memberCount ?? 0) < 2}
                 quote={item.message.reply && (item.message.reply.message
                   ? { ...quoteOf(item.message.reply.message), onPress: () => showOriginal(groupRows, item.message.reply!.target) }
                   : { text: "Original message unavailable" })}
@@ -2965,7 +3011,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     // right below them instead of leaving room for the header a second time.
     const banners = conversation.requestPending || conversation.keyChanged || conversation.blocked;
     const scope = `chat/${conversation.conversationId.join(".")}`;
-    const canReply = preview === null && !conversation.blocked && !conversation.requestPending;
+    const canReply = !conversation.blocked && !conversation.requestPending;
     // Each side of a chat is named in its own colour, as group members are.
     const quoteOf = (message: Omit<HistoryMessage, "reply">) => ({
       name: message.direction === "sent" ? "You" : contactName(conversation),
@@ -3067,7 +3113,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                     accountId: hex(conversation.peerAccountId),
                   }}
                 onReact={(emoji) => reactToMessage(item.message, emoji)}
-                reactionsDisabled={busy || preview !== null || conversation.blocked || conversation.requestPending}
+                reactionsDisabled={busy || conversation.blocked || conversation.requestPending}
                 quote={item.message.reply && (item.message.reply.message
                   ? { ...quoteOf(item.message.reply.message), onPress: () => showOriginal(chatRows, item.message.reply!.target) }
                   : { text: "Original message unavailable" })}
@@ -3363,6 +3409,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       behavior={Platform.OS === "web" ? undefined : "padding"}
       keyboardVerticalOffset={initialWindowMetrics?.insets.top ?? 0}
       style={[layout.flex, isDesktop && screenKey === "onboarding" && styles.desktopOnboarding]}
+      onLayout={({ nativeEvent: { layout: { x, y } } }) => setPaneOffset({ x, y })}
     >
       <ScreenTransition
         screenKey={screenKey}
@@ -3374,23 +3421,22 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       </ScreenTransition>
     </KeyboardAvoidingView>
   );
-  // Status opens a lane of its own in the main column rather than floating
-  // over it: above the screen on a phone, under the pane on the desktop.
-  // Every error can be dismissed; an action's error goes first, then the
-  // mailbox's.
+  // Status floats over the foot of the pane, clear of a composer or the tab
+  // bar. Every error can be dismissed; an action's error goes first, then
+  // the mailbox's.
   const statusPill = (
     <StatusPill
       text={error || (busy ? status : shownSyncError)}
       busy={busy && !error}
       error={error.length > 0 || shownSyncError.length > 0}
       onDismiss={() => (error ? setError("") : setDismissedSyncError(syncError))}
+      lift={mainScreen && !split ? chrome.tabBarSpace : composerHeight}
     />
   );
   const main = (
-    <View style={layout.flex}>
-      {isDesktop ? null : statusPill}
+    <View style={layout.flex} onLayout={({ nativeEvent: { layout: { x, y, height } } }) => setMainFrame({ x, y, height })}>
       {pane}
-      {isDesktop ? statusPill : null}
+      {statusPill}
     </View>
   );
   return (
@@ -3405,17 +3451,25 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         }
         style={[styles.screen, split && styles.split]}
       >
-        {/* Screens without a toolbar still need to move the window. */}
-        {isDesktop && screenKey === "onboarding" ? <DragStrip /> : null}
-        {split ? renderSidebar() : null}
-        {main}
-        {mainScreen && !split ? (
-          <TabBar
-            tabs={tabs.map((tab) => ({ ...tab, badge: tab.key === "home" ? chatBadgeCount : tab.key === "groups" ? groupBadgeCount : 0 }))}
-            current={screen as (typeof tabs)[number]["key"]}
-            onSelect={go}
-          />
-        ) : null}
+        <Wallpaper />
+        {/* The pane's frame reaches down to the window's foot, where the tab
+            bar floats; each screen's Page narrows it to its own height. */}
+        <WallpaperFrame.Provider
+          value={{ x: mainFrame.x + paneOffset.x, y: mainFrame.y + paneOffset.y, height: mainFrame.height - paneOffset.y }}
+        >
+          {split ? renderSidebar() : null}
+          {main}
+          {/* Screens without a toolbar still need to move the window. It comes
+              after the pane so it paints over the pane's empty top. */}
+          {isDesktop && screenKey === "onboarding" ? <DragStrip /> : null}
+          {mainScreen && !split ? (
+            <TabBar
+              tabs={tabs.map((tab) => ({ ...tab, badge: tab.key === "home" ? chatBadgeCount : tab.key === "groups" ? groupBadgeCount : 0 }))}
+              current={screen as (typeof tabs)[number]["key"]}
+              onSelect={go}
+            />
+          ) : null}
+        </WallpaperFrame.Provider>
       </SafeAreaView>
       {nameEditor ? (
         <Dialog visible label={nameEditorTitle} onClose={() => { if (!busy) setNameEditor(null); }}>
@@ -3519,16 +3573,12 @@ const useStyles = themed(({ colors, type, space, radius, size, elevation }) => S
   welcomeCopy: isDesktop ? { flexGrow: 1, flexBasis: 0, maxWidth: 400, gap: space[6] } : { gap: space[5] },
   heroBlock: { gap: space[2.5] },
   facts: { gap: isDesktop ? space[2.5] : space[3] },
-  // A phone centres who you are over the form, as the You screen does; the
-  // desktop sets it flush left with the fields.
-  profileHead: { gap: space[2.5], alignItems: isDesktop ? "flex-start" : "center" },
-  profileText: isDesktop ? {} : { textAlign: "center" },
-  // Two short fields read as a form, not as a page of prose, so on desktop
-  // they take a sheet's measure rather than the full reading column.
-  onboardingForm: isDesktop ? { maxWidth: 440 } : {},
+  // A phone centres who you are over the form, as the You screen does.
+  profileHead: { gap: space[2.5], alignItems: "center" },
   // Full bleed: the header floats over the feed and the reticle frames it.
   camera: { flex: 1, backgroundColor: colors.black },
   photoEditor: { flexDirection: "row", alignItems: "center", gap: space[3] },
+  profileCard: { flexDirection: "row", alignItems: "center", gap: space[4] },
   // On desktop the form is a sheet: a narrow column centred in the pane, with
   // the toolbar's height mirrored below so the centre is optical.
   newGroup: isDesktop

@@ -84,6 +84,15 @@ for (const [scheme, colors] of Object.entries(palettes) as [string, Palette][]) 
     assert.ok(apart(pane, colors.canvas) >= 15, `sidebar pane ${pane} against canvas ${colors.canvas}`);
   });
 
+  // The doodles behind every screen are wallpaper, not content: they must show,
+  // but stay fainter than a hairline so nothing mistakes them for one.
+  test(`${scheme} palette keeps the wallpaper faint`, () => {
+    const doodle = flatten(colors.canvas, colors.wallpaper);
+    const hairline = flatten(colors.canvas, colors.line);
+    assert.ok(apart(doodle, colors.canvas) >= 6, `doodle ${doodle} vanishes into ${colors.canvas}`);
+    assert.ok(apart(doodle, colors.canvas) < apart(hairline, colors.canvas), `doodle ${doodle} as strong as a hairline`);
+  });
+
   // The desktop draws accent-tinted glass (a primary button, a filled
   // toolbar disc) as a wash of the accent over whatever lies behind it. A
   // thin wash left white labels on pale blue, which read as disabled.

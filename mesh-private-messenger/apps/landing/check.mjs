@@ -1,42 +1,70 @@
-// The one check for the landing page: `node check.mjs` from this directory.
-// It holds the page to what it says about itself (no third-party requests, no
+// The one check for the landing pages: `node check.mjs` from this directory.
+// It holds each page to what it says about itself (no third-party requests, no
 // claims the project can't back) and to working at phone and desktop widths.
 // Playwright comes from the mobile app.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "../mobile/node_modules/playwright/index.mjs";
 
-const page_url = new URL("index.html", import.meta.url).href;
 const here = fileURLToPath(new URL(".", import.meta.url));
+const pages = ["index.html", "how-it-works.html", "witnesses.html"];
 const problems = [];
 
 // There is no audit and no licence file (SECURITY.md), so the copy can't claim either. The owner also wants no audit
 // talk on the page at all, claimed or disclaimed, so the word itself is out.
-const copy = readFileSync(new URL("index.html", import.meta.url), "utf8").replace(/<(style|script)>[\s\S]*?<\/\1>/g, "");
-for (const word of [/military.grade/i, /unbreakable/i, /open.source/i, /audit/i]) if (word.test(copy)) problems.push(`copy says ${word}`);
+for (const file of pages) {
+  if (!existsSync(new URL(file, import.meta.url))) { problems.push(`${file} is missing`); continue; }
+  const copy = readFileSync(new URL(file, import.meta.url), "utf8").replace(/<(style|script)>[\s\S]*?<\/\1>/g, "");
+  // The token is sold on what it does, never on what it might be worth: return talk is how a token becomes a security.
+  for (const word of [/military.grade/i, /unbreakable/i, /open.source/i, /audit/i, /invest/i, /profit/i, /\byield/i, /\bAPY\b/, /guarantee/i, /\bprice goes/i]) if (word.test(copy)) problems.push(`${file}: copy says ${word}`);
+}
 
 const browser = await chromium.launch();
-for (const [name, width, height] of [["desktop", 1440, 900], ["phone", 390, 844]]) {
-  const page = await browser.newPage({ viewport: { width, height } });
-  page.on("console", (m) => ["error", "assert"].includes(m.type()) && problems.push(`${name}: console ${m.type()}: ${m.text()}`));
-  page.on("pageerror", (e) => problems.push(`${name}: ${e.message}`));
-  // The footer promises this, so anything outside this directory is a failure.
-  page.on("request", (r) => decodeURI(r.url()).startsWith(`file://${here}`) || r.url().startsWith("data:") || problems.push(`${name}: third-party request ${r.url()}`));
+for (const file of pages.filter((f) => existsSync(new URL(f, import.meta.url)))) {
+  for (const [width, height] of [[1440, 900], [390, 844]]) {
+    const name = `${file} at ${width}`;
+    const page = await browser.newPage({ viewport: { width, height } });
+    page.on("console", (m) => ["error", "assert"].includes(m.type()) && problems.push(`${name}: console ${m.type()}: ${m.text()}`));
+    page.on("pageerror", (e) => problems.push(`${name}: ${e.message}`));
+    // The footer promises this, so anything outside this directory is a failure.
+    page.on("request", (r) => decodeURI(r.url()).startsWith(`file://${here}`) || r.url().startsWith("data:") || problems.push(`${name}: third-party request ${r.url()}`));
 
-  await page.goto(page_url, { waitUntil: "networkidle" });
-  await page.evaluate(() => document.fonts.ready);
-  if (!(await page.evaluate(() => document.fonts.check('600 16px "Geist"')))) problems.push(`${name}: Geist did not load`);
+    await page.goto(new URL(file, import.meta.url).href, { waitUntil: "networkidle" });
+    await page.evaluate(() => document.fonts.ready);
+    if (!(await page.evaluate(() => document.fonts.check('600 16px "Geist"')))) problems.push(`${name}: Geist did not load`);
 
-  const [doc, win] = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
-  if (doc > win) problems.push(`${name}: page scrolls sideways (${doc} > ${win})`);
+    const [doc, win] = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
+    if (doc > win) problems.push(`${name}: page scrolls sideways (${doc} > ${win})`);
 
-  const dead = await page.evaluate(() => [...document.querySelectorAll('a[href^="#"]')].map((a) => a.getAttribute("href")).filter((h) => !document.getElementById(h.slice(1))));
-  if (dead.length) problems.push(`${name}: links to nowhere: ${dead.join(" ")}`);
+    const dead = await page.evaluate(() => [...document.querySelectorAll('a[href^="#"]')].map((a) => a.getAttribute("href")).filter((h) => !document.getElementById(h.slice(1))));
+    if (dead.length) problems.push(`${name}: links to nowhere: ${dead.join(" ")}`);
+    // Links between the pages must land on a page, and on an id that page has.
+    for (const href of await page.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")).filter((h) => /^[\w-]+\.html(#|$)/.test(h)))) {
+      const [target, id] = href.split("#");
+      if (!pages.includes(target)) problems.push(`${name}: links to a page that isn't checked: ${href}`);
+      else if (id && !readFileSync(new URL(target, import.meta.url), "utf8").includes(`id="${id}"`)) problems.push(`${name}: links to nowhere: ${href}`);
+    }
+
+    await ({ "index.html": home, "how-it-works.html": how, "witnesses.html": witnesses })[file](page, name);
+    await page.close();
+  }
+}
+
+async function home(page, name) {
+  if (!(await page.$('a[href="how-it-works.html"]'))) problems.push(`${name}: no link to how-it-works.html`);
+  if (!(await page.$('#witness a[href^="witnesses.html"]'))) problems.push(`${name}: the witness section doesn't lead to witnesses.html`);
 
   // One chat, two views: on our servers every text bubble is the same sealed strip, and it comes back as it was.
   const sizes = () => page.evaluate(() => [...document.querySelectorAll("#demo .msg:not(.file)")].map((m) => `${m.offsetWidth}x${m.offsetHeight}`));
   const before = await sizes();
+  // The phone is a device: it keeps its width while the chat on it changes, all the way through the flip.
+  const widths = page.evaluate(async () => {
+    const seen = new Set();
+    for (let t = 0; t < 40; t++) { seen.add(document.querySelector("#demo").getBoundingClientRect().width); await new Promise((r) => setTimeout(r, 50)); }
+    return [...seen];
+  });
   await page.click('#view button[data-set="server"]');
+  if ((await widths).length > 1) problems.push(`${name}: the privacy phone changes width as it flips: ${await widths}`);
   await page.waitForTimeout(1000);
   if ((await page.getAttribute("#demo", "data-view")) !== "server") problems.push(`${name}: server view did not open`);
   if (new Set(await sizes()).size !== 1) problems.push(`${name}: sealed messages differ in size: ${await sizes()}`);
@@ -60,9 +88,53 @@ for (const [name, width, height] of [["desktop", 1440, 900], ["phone", 390, 844]
     return n.style.getPropertyValue("--o") === "1.000" && n.getBoundingClientRect().width === document.documentElement.clientWidth && document.querySelector(".nav").classList.contains("dark");
   });
   if (!open) problems.push(`${name}: privacy card did not open to the window's edges`);
-  await page.close();
+}
+
+// The map is laid out by hand for two shapes, so hold it to what a reader relies on: no part covers another,
+// every step lights something, and the packet ends each hop on the part it was sent to. (The page itself
+// asserts that every hop runs along a drawn line.)
+async function how(page, name) {
+  await page.locator("#map").scrollIntoViewIfNeeded();
+  const clash = await page.evaluate(() => {
+    const stage = document.querySelector(".stage").getBoundingClientRect();
+    const boxes = [...document.querySelectorAll(".stage .node")].map((n) => [n.dataset.id, n.getBoundingClientRect()]);
+    const out = boxes.filter(([, r]) => r.left < stage.left - 1 || r.top < stage.top - 1 || r.right > stage.right + 1 || r.bottom > stage.bottom + 1).map(([id]) => `${id} outside the map`);
+    boxes.forEach(([a, r], i) => boxes.slice(i + 1).forEach(([b, s]) => r.left < s.right && s.left < r.right && r.top < s.bottom && s.top < r.bottom && out.push(`${a} covers ${b}`)));
+    return boxes.length ? out : ["the map has no parts"];
+  });
+  for (const c of clash) problems.push(`${name}: ${c}`);
+
+  for (const tab of await page.$$eval("#journeys [data-journey]", (bs) => bs.map((b) => b.dataset.journey))) {
+    await page.click(`#journeys [data-journey="${tab}"]`);
+    const steps = await page.$$eval(`ol[data-journey="${tab}"] > li`, (ls) => ls.length);
+    for (let n = 0; n < steps; n++) {
+      if (n) await page.click("#next");
+      const lit = await page.evaluate(async () => {
+        await Promise.all(document.getAnimations().filter((a) => a.id === "hop").map((a) => a.finished.catch(() => {})));
+        const on = [...document.querySelectorAll(".stage .node.on")];
+        const pkt = document.querySelector(".pkt"), end = document.querySelector(".stage").dataset.end;
+        if (!pkt || !end || getComputedStyle(pkt).opacity === "0") return { on: on.length };
+        const p = pkt.getBoundingClientRect(), r = document.querySelector(`.node[data-id="${end}"]`).getBoundingClientRect();
+        const [x, y] = [p.left + p.width / 2, p.top + p.height / 2];
+        return { on: on.length, landed: x >= r.left - 2 && x <= r.right + 2 && y >= r.top - 2 && y <= r.bottom + 2, end };
+      });
+      if (!lit.on) problems.push(`${name}: ${tab} step ${n + 1} lights nothing`);
+      if (lit.landed === false) problems.push(`${name}: ${tab} step ${n + 1}'s packet stops short of ${lit.end}`);
+    }
+  }
+
+  await page.click('.stage .node[data-id="edge"]');
+  const card = await page.locator("#part").textContent().catch(() => "");
+  if (!/Privacy edge/.test(card) || !/sees/i.test(card)) problems.push(`${name}: tapping the privacy edge did not say what it sees`);
+}
+
+// Applying opens a GitHub issue form, which only exists if its template does: a renamed file 404s the button.
+async function witnesses(page, name) {
+  const forms = await page.$$eval('a[href*="/issues/new?template="]', (as) => as.map((a) => new URL(a.href).searchParams.get("template")));
+  if (!forms.length) problems.push(`${name}: no way to apply`);
+  for (const t of forms) if (!existsSync(new URL(`../../../.github/ISSUE_TEMPLATE/${t}`, import.meta.url))) problems.push(`${name}: apply links to a missing form: ${t}`);
 }
 
 await browser.close();
-console.log(problems.length ? problems.join("\n") : "landing page: ok");
+console.log(problems.length ? problems.join("\n") : "landing pages: ok");
 process.exit(problems.length ? 1 : 0);

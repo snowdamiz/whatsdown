@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run a Morse witness</title>
+<meta name="description" content="Witnesses check every version of Morse’s key log and sign only what extends the last one. Run one on a small server, stake a bond, get paid for every version you sign. How it works and how to apply.">
+<meta name="theme-color" content="#F6F2EA">
+<meta property="og:title" content="Run a Morse witness">
+<meta property="og:description" content="Check every version of Morse’s key log, stake a bond, and get paid to keep Morse honest. How it works and how to apply.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z'/%3E%3C/svg%3E">
+<script>document.documentElement.classList.add("js")</script>
+<style>
+/* The same paper, type, cards and slips as index.html (its comments explain them); this page adds the
+   witness's own pictures. Every statement traces to protocol/witness-network-v1.md and the numbers in
+   WITNESS_NETWORK_PLAN.md §4, and like the home page it speaks of the network in the present tense
+   under a "Launching in stages" pill. */
+@font-face{font-family:"Geist";font-weight:400;font-display:swap;src:url(fonts/Geist_400Regular.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:500;font-display:swap;src:url(fonts/Geist_500Medium.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:600;font-display:swap;src:url(fonts/Geist_600SemiBold.ttf) format("truetype")}
+:root{
+  --paper:#F6F2EA;
+  --ink:#0B0B0F; --ink-2:#4A4A55; --ink-3:#6B6B77;
+  --blue:#2459D0; --blue-2:#2F6BEA; --blue-3:#6AA6FF;
+  --butter:#FFE8AD; --peach:#FFD9C6; --lilac:#E4DCFF; --mint:#CBEDD8; --sky:#D5E2FF;
+  --night:#0B0D14;
+  --green:#178A4E; --red:#D8323A;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --gutter:clamp(20px,5.6vw,96px);
+  --edge:clamp(10px,1.6vw,24px);
+  --page:1200px;
+  --r:clamp(28px,3.4vw,48px);
+  --lift:0 34px 56px -34px rgba(11,11,15,.38);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-padding-top:96px}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 1.0625rem/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:clip}
+h1,h2,h3,p,ul,ol,dl,dd,figure{margin:0}
+ul,ol{padding:0;list-style:none}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+::selection{background:var(--blue-2);color:#fff}
+:focus-visible{outline:2.5px solid var(--blue-2);outline-offset:3px;border-radius:6px}
+.night :focus-visible,.bluecard :focus-visible,footer :focus-visible{outline-color:#fff}
+.wrap{width:min(100% - 2*var(--gutter),var(--page));margin-inline:auto}
+.skip{position:absolute;left:16px;top:-60px;z-index:100;padding:10px 18px;border-radius:999px;background:var(--ink);color:#fff;font-weight:500;transition:top .2s var(--ease)}
+.skip:focus{top:12px}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+h1,h2{font-weight:600;text-wrap:balance}
+h1{font-size:clamp(2.8rem,6.4vw,5.6rem);line-height:.97;letter-spacing:-.05em}
+h2{font-size:clamp(2.1rem,4.2vw,3.6rem);line-height:1.02;letter-spacing:-.043em}
+.lead{margin-top:clamp(20px,2.2vw,28px);max-width:29em;font-size:clamp(1.125rem,1.45vw,1.3125rem);line-height:1.5;color:var(--ink-2);text-wrap:pretty}
+.go{display:inline-flex;align-items:center;gap:8px;padding-bottom:3px;font-weight:500;border-bottom:2px solid var(--blue-2)}
+.go .ic{width:18px;height:18px;transition:transform .25s var(--ease)}
+.go:hover .ic{transform:translateX(4px)}
+.go.down:hover .ic{transform:translateY(3px)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:56px;padding:0 28px;border-radius:999px;font-weight:500;font-size:1.0625rem;letter-spacing:-.01em;white-space:nowrap;transition:transform .2s var(--ease),background-color .2s}
+.btn:active{transform:scale(.98)}
+.btn .ic{width:19px;height:19px}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.dark:hover{background:#26262F}
+.btn.light{background:#fff;color:var(--ink)}
+.btn.light:hover{background:#EAF0FF}
+.btn.line{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55);color:#fff}
+.btn.line:hover{background:rgba(255,255,255,.12)}
+.btn.sm{height:44px;padding:0 20px;font-size:.98rem}
+.cta{display:flex;flex-wrap:wrap;align-items:center;gap:14px 28px;margin-top:clamp(28px,3vw,40px)}
+.js .reveal{opacity:0;transform:translateY(28px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.js .reveal.in{opacity:1;transform:none}
+
+.nav{position:sticky;top:0;z-index:50;background:var(--paper);transition:box-shadow .25s}
+.nav.stuck{box-shadow:0 1px 0 rgba(11,11,15,.1)}
+.nav .wrap{display:flex;align-items:center;gap:40px;height:76px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:1.3rem;letter-spacing:-.035em}
+.tile{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--blue-2)}
+.tile svg{width:56%;fill:#fff}
+.nav nav{display:flex;gap:32px;margin-right:auto}
+.nav nav a{font-weight:500;font-size:1rem;color:var(--ink-2);white-space:nowrap;transition:color .15s}
+.nav nav a:hover{color:var(--ink)}
+@media (max-width:980px){.nav nav{display:none}.nav .btn{margin-left:auto}}
+@media (max-width:860px){.nav .wrap{height:68px}}
+
+/* Words rise out of their own line: the headline on load, each h2 as it arrives (split by script). */
+.w{display:inline-block;overflow:hidden;vertical-align:top;padding:.1em .04em .2em;margin:-.1em -.04em -.2em}
+.w>i{display:inline-block;font-style:normal}
+.js .top .w>i{animation:word 1.1s var(--ease) both}
+.js .top .w:nth-child(2)>i{animation-delay:.07s}.js .top .w:nth-child(3)>i{animation-delay:.14s}.js .top .w:nth-child(4)>i{animation-delay:.21s}.js .top .w:nth-child(5)>i{animation-delay:.28s}.js .top .w:nth-child(6)>i{animation-delay:.35s}
+.js h2.split .w>i{transform:translateY(112%);transition:transform 1s var(--ease) calc(var(--wi,0)*55ms + .1s)}
+.js h2.split.in .w>i{transform:none}
+@keyframes word{from{transform:translateY(112%)}}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}}
+@keyframes pop{from{opacity:0;scale:.8}to{opacity:1}}
+@keyframes drop{from{opacity:0;transform:translateY(40px) rotate(4deg)}to{opacity:1}}
+
+/* ------------------------------------------------------------ Cards, rows, fields */
+.card{position:relative;width:min(100% - 2*var(--edge),1376px);margin-inline:auto;padding-inline:max(24px,(min(100% - 2*var(--edge),1376px) - min(100% - 2*var(--gutter),var(--page)))/2);border-radius:var(--r);overflow:hidden}
+.night{background:var(--night);color:#fff;padding-block:clamp(40px,5.6vw,88px)}
+.night .em{color:var(--blue-3)}
+.night .lead{color:rgba(255,255,255,.74)}
+.night .go{border-color:var(--blue-3)}
+.bluecard{background:var(--blue);color:#fff}
+.bluecard .lead{color:rgba(255,255,255,.9)}
+.row{padding-block:clamp(56px,7.4vw,112px)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:clamp(40px,7vw,112px);align-items:center}
+.flip .two{grid-template-columns:minmax(0,1.12fr) minmax(0,1fr)}
+.flip .copy{order:2}
+.field{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:clamp(500px,47vw,620px);padding:clamp(32px,4.4vw,56px) 0;border-radius:var(--r);overflow:hidden}
+.sky{background:var(--sky)}.lilac{background:var(--lilac)}.butter{background:var(--butter)}.peach{background:var(--peach)}
+@media (max-width:960px){.two,.flip .two{grid-template-columns:minmax(0,1fr)}.flip .copy{order:0}}
+.points{display:grid;gap:18px;margin-top:clamp(24px,2.6vw,34px);max-width:31em}
+.points li{font-size:1.0625rem;line-height:1.5;color:var(--ink-2);text-wrap:pretty}
+.points b{font-weight:600;color:var(--ink)}
+
+/* The white records the pictures are made of, as on the home page. */
+.sheet{border-radius:28px;background:#fff;color:#0A0A0C;box-shadow:var(--lift)}
+.slip{width:min(88%,390px);padding:20px 20px 22px}
+.slip header,.run header,.terms header{display:flex;align-items:center;gap:12px}
+.slip header b,.run header b,.terms header b{display:block;font-weight:600;font-size:1rem;letter-spacing:-.02em;line-height:1.25}
+.slip header small,.run header small,.terms header small{display:block;font-size:.8rem;color:#63636D}
+.vt{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:var(--blue-2);color:#fff}
+.vt .ic{width:19px;height:19px}
+.lean-l{align-self:flex-start;rotate:-2.5deg;margin-left:7%}
+.lean-r{align-self:flex-end;rotate:2.5deg;margin-right:7%}
+.fp{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:16px;padding:12px 8px;border-radius:14px;background:#F2F2F5;text-align:center;font-weight:600;font-size:.95rem;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.fp span{padding:3px 0;border-radius:7px}
+.fp .diff{background:#FBD5D7;color:var(--red)}
+.ava{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:12px}
+.t0{--a:#5B9DFF;--b:#3462FF}.t1{--a:#B57BFF;--b:#7B4DFF}.t2{--a:#FF7DBA;--b:#F0468C}.t3{--a:#FFB35C;--b:#FF7A3D}.t4{--a:#5EE39B;--b:#22AD6C}
+/* A row of the five pinned witnesses: the ones who signed are in colour, the rest greyed out. */
+.five{display:flex;align-items:center;gap:6px;margin-top:14px;font-size:.84rem;color:#63636D}
+.five .ava{width:28px;height:28px;font-size:10.5px}
+.five .off{background:#E4E4EA;color:#9C9CA6}
+.five .c{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red)}
+.five .by{margin-left:6px}
+.verdict,.ok{display:flex;align-items:center;gap:9px;margin-top:28px;padding:13px 22px 13px 16px;border-radius:999px;color:#fff;font-weight:500;white-space:nowrap}
+.verdict{background:var(--red);box-shadow:0 18px 32px -18px #000}
+.verdict .ic,.ok .ic{width:20px;height:20px}
+.soon{display:inline-flex;align-items:center;gap:9px;margin-bottom:clamp(20px,2.4vw,28px);padding:7px 15px 7px 12px;border-radius:999px;background:rgba(255,255,255,.1);font-weight:500;font-size:.92rem;color:rgba(255,255,255,.86)}
+.soon i{width:8px;height:8px;border-radius:50%;background:var(--blue-3);animation:blink 1.6s steps(1) infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* ------------------------------------------------------------ Top: one version, five witnesses */
+/* Phones need a majority of the pinned witnesses. Three of five sign, one after another, the count
+   reaches what the phone needs, and the phone takes the key. Two stay grey: they can be offline. */
+.top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.95fr);gap:clamp(36px,6vw,96px);align-items:center}
+.top .copy{padding-block:clamp(8px,2vw,24px)}
+.tally{display:flex;flex-direction:column;align-items:center}
+.tally .slip{width:min(100%,400px)}
+.signers{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px}
+.signers li{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;font-size:.78rem;color:#8E8E98}
+.signers .ava{width:40px;height:40px;font-size:13px}
+.signers li:not(.s) .ava{background:#E4E4EA;color:#9C9CA6}
+.signers .s::after{content:"";position:absolute;top:26px;left:calc(50% + 9px);width:18px;height:18px;border-radius:50%;background:var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 12.5 4 4L18 8'/%3E%3C/svg%3E") center/12px no-repeat;box-shadow:0 0 0 2px #fff}
+.need{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:.9rem;color:#63636D}
+.need span{flex:1;height:8px;border-radius:999px;background:#EFEFF3;overflow:hidden}
+.need span::before{content:"";display:block;width:60%;height:100%;border-radius:inherit;background:var(--green)}
+.need b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.ok{background:var(--green);box-shadow:0 18px 32px -18px #000}
+.js .top .copy>*{animation:rise .95s var(--ease) .3s both}
+.js .top h1,.js .top .soon{animation:none}
+.js .tally .slip{animation:drop .8s var(--ease) .2s both}
+.js .signers .s::after{animation:pop .45s var(--ease) both}
+.js .signers li:nth-child(1)::after{animation-delay:1s}.js .signers li:nth-child(3)::after{animation-delay:1.45s}.js .signers li:nth-child(4)::after{animation-delay:1.9s}
+.js .signers .s .ava{animation:signed .45s ease both}
+.js .signers li:nth-child(1) .ava{animation-delay:1s}.js .signers li:nth-child(3) .ava{animation-delay:1.45s}.js .signers li:nth-child(4) .ava{animation-delay:1.9s}
+@keyframes signed{from{filter:grayscale(1) opacity(.45)}}
+.js .need span::before{animation:fill 1.35s steps(3,end) .55s both}
+@keyframes fill{from{width:0}}
+.js .tally .ok{animation:pop .6s var(--ease) 2.5s both}
+@media (max-width:960px){.top{grid-template-columns:minmax(0,1fr)}}
+
+/* ------------------------------------------------------------ What it does */
+/* One run of the witness, as its operator sees it: four checks, each ticked as it passes, then what
+   it saw and what it never does. The Morse line keys away underneath, as it does on the home page. */
+.run{width:min(100% - 40px,470px);padding:24px 26px 26px;border-radius:30px;background:#fff;box-shadow:var(--lift)}
+.run header em{margin-left:auto;padding:5px 11px;border-radius:999px;background:#E1F4E9;color:var(--green);font-style:normal;font-weight:600;font-size:.78rem}
+.run ol{margin-top:18px}
+.run ol li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:2px 14px;padding:13px 0;border-top:1px solid #EFEBE3}
+.run ol li>i{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#E1F4E9;color:var(--green)}
+.run ol li>i .ic{width:15px;height:15px;stroke-width:2.6}
+.run ol b{font-weight:600;font-size:1rem;letter-spacing:-.02em;line-height:1.3}
+.run ol small{font-size:.86rem;line-height:1.4;color:var(--ink-3)}
+.js .field.in .run ol li>i{animation:tick .5s var(--ease) both}
+.js .field.in .run ol li:nth-child(2)>i{animation-delay:.5s}.js .field.in .run ol li:nth-child(3)>i{animation-delay:1s}.js .field.in .run ol li:nth-child(4)>i{animation-delay:1.5s}
+@keyframes tick{from{background:#EFEFF3;color:transparent;scale:.7}}
+.line{overflow:hidden;margin-top:6px;color:var(--blue-2);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+.line div{display:flex;width:max-content}
+.line .mc{--u:6px;padding-right:calc(var(--u)*.8)}
+.js .field.in .line div{animation:key var(--t,18s) linear infinite}
+@keyframes key{to{transform:translateX(-50%)}}
+.run dl{display:grid;gap:14px;margin-top:16px;padding-top:18px;border-top:1px solid #EFEBE3}
+.run dt{font-weight:500;font-size:.84rem;color:var(--ink-3)}
+.run dd{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.run dd span{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px 0 11px;border-radius:999px;font-weight:500;font-size:.86rem;white-space:nowrap}
+.sees span{background:#EAF0FF;color:var(--blue)}
+.sees span::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.never span{background:var(--night);color:#fff}
+.never span::before{content:"";width:12px;height:12px;background:var(--blue-3);mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2.5'/%3E%3Cpath d='M8 11V7.5a4 4 0 0 1 8 0V11'/%3E%3C/svg%3E") center/contain no-repeat}
+@media (max-width:420px){.run{padding:20px 20px 22px}}
+
+/* ------------------------------------------------------------ Caught */
+/* The same version shown two ways, each signed by a majority. Two majorities of five always share
+   someone: witness C is on both, and that pair of signatures is the proof. */
+.caught .lean-r{margin-top:-14px}
+.js .caught.in .slip{animation:drop .8s var(--ease) .15s both}
+.js .caught.in .lean-r{animation-delay:.8s}
+.js .caught.in .diff{animation:clash .7s ease 1.7s both}
+.js .caught.in .five .c{animation:guilty .5s ease 2.2s both}
+.js .caught.in .verdict{animation:pop .6s var(--ease) 2.6s both}
+@keyframes clash{from{background:transparent;color:inherit}}
+@keyframes guilty{from{box-shadow:0 0 0 2px #fff,0 0 0 0 var(--red)}}
+
+/* ------------------------------------------------------------ Terms */
+/* The deal on one sheet, with pay drawn against attendance: nothing at 80% of versions signed on time,
+   rising to full pay at 95%. */
+.terms{width:min(100% - 40px,440px);padding:24px 26px 26px}
+.terms dl{display:grid;gap:10px;margin-top:18px;padding:15px 17px;border-radius:16px;background:#F2F2F5;font-size:.95rem}
+.terms dl div{display:flex;justify-content:space-between;gap:12px}
+.terms dt{color:#63636D}
+.terms dd{font-weight:600;text-align:right}
+.pay{margin-top:20px}
+.pay figcaption{font-weight:500;font-size:.84rem;color:var(--ink-3)}
+.pay .chart{position:relative;margin:26px 0 26px}
+.pay svg{width:100%;height:auto;overflow:visible}
+.pay .grid{stroke:#EFEBE3;stroke-width:1.5}
+.pay .area{fill:#E1F4E9}
+.pay .ramp{fill:none;stroke:var(--green);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round}
+.pay .tick{position:absolute;top:100%;margin-top:6px;translate:-50% 0;font-size:.8rem;font-variant-numeric:tabular-nums;color:var(--ink-3)}
+.pay .full{position:absolute;right:0;top:-18px;font-weight:600;font-size:.8rem;color:var(--green)}
+.js .field.in .ramp{stroke-dasharray:420;animation:draw 1.4s var(--ease) .5s both}
+.js .field.in .area{animation:rise .8s var(--ease) 1.2s both}
+@keyframes draw{from{stroke-dashoffset:420}to{stroke-dashoffset:0}}
+
+/* ------------------------------------------------------------ Apply */
+.apply .head{max-width:40em}
+.needs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(24px,3vw,40px) clamp(28px,5vw,80px);margin-top:clamp(36px,4vw,56px)}
+.needs li{display:grid;grid-template-columns:46px minmax(0,1fr);gap:4px 18px}
+.needs .nt{grid-row:span 2;display:grid;place-items:center;width:46px;height:46px;border-radius:14px}
+.needs .nt .ic{width:22px;height:22px}
+.needs b{font-weight:600;font-size:1.2rem;letter-spacing:-.03em;line-height:1.3}
+.needs p{color:var(--ink-2);line-height:1.5;text-wrap:pretty}
+.fits{margin-top:clamp(32px,3.6vw,48px);max-width:44em;color:var(--ink-2)}
+.fits b{font-weight:600;color:var(--ink)}
+@media (max-width:760px){.needs{grid-template-columns:minmax(0,1fr)}}
+/* The way in, drawn as the home page's dot-and-dash track. */
+.road{margin-top:clamp(48px,6vw,80px);padding-top:clamp(28px,3vw,40px);border-top:1.5px solid rgba(11,11,15,.13)}
+.road h3{font-weight:500;font-size:1.05rem;color:var(--ink-2)}
+.road ol{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px 24px;margin-top:24px}
+.road li{position:relative;padding-top:34px}
+.road li::before{content:"";position:absolute;top:0;left:0;width:16px;height:16px;border-radius:50%;background:var(--blue-2)}
+.road li:not(:last-child)::after{content:"";position:absolute;top:3px;left:28px;right:-12px;height:10px;border-radius:999px;background:var(--blue-3)}
+.js .road.in li::after{animation:dash-in 1s var(--ease) calc(var(--i)*.25s + .3s) both}
+@keyframes dash-in{from{clip-path:inset(0 100% 0 0 round 140px)}to{clip-path:inset(0 0 0 0 round 140px)}}
+.road b{display:block;font-weight:600;font-size:1.1rem;letter-spacing:-.02em}
+.road span{display:block;margin-top:6px;font-size:.96rem;line-height:1.45;color:var(--ink-2);text-wrap:pretty}
+@media (max-width:760px){.road ol{grid-template-columns:repeat(2,minmax(0,1fr))}.road li:nth-child(2)::after{display:none}}
+@media (max-width:420px){.road ol{grid-template-columns:minmax(0,1fr)}.road li::after{display:none}}
+.go-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px clamp(32px,5vw,72px);align-items:center;padding-block:clamp(40px,5vw,72px)}
+.go-card h2{font-size:clamp(2rem,3.6vw,3.1rem)}
+.go-card .lead{max-width:30em}
+.go-card .cta{margin-top:0;flex-direction:column;align-items:stretch}
+@media (max-width:860px){.go-card{grid-template-columns:minmax(0,1fr)}.go-card .cta{flex-direction:row;align-items:center}}
+
+/* ------------------------------------------------------------ Questions */
+.answers .wrap{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(36px,7vw,112px);align-items:start}
+.answers .copy{position:sticky;top:112px}
+.qa details{border-top:1.5px solid rgba(11,11,15,.13)}
+.qa details:last-child{border-bottom:1.5px solid rgba(11,11,15,.13)}
+.qa{interpolate-size:allow-keywords}
+.qa details::details-content{block-size:0;overflow:hidden;transition:block-size .4s var(--ease),content-visibility .4s allow-discrete}
+.qa details[open]::details-content{block-size:auto}
+.qa summary{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:25px 0;font-weight:500;font-size:clamp(1.15rem,1.8vw,1.4rem);line-height:1.25;letter-spacing:-.026em;cursor:pointer;list-style:none}
+.qa summary::-webkit-details-marker{display:none}
+.qa summary .ic{width:24px;height:24px;color:var(--ink-3);transition:transform .35s var(--ease),color .2s}
+.qa summary:hover .ic{color:var(--ink)}
+.qa details[open] summary .ic{transform:rotate(45deg)}
+.qa details>p,.qa details>ul{max-width:37em;padding-bottom:28px;color:var(--ink-2);text-wrap:pretty}
+.qa details>p+p{margin-top:-14px}
+.qa details li a{display:inline-flex;align-items:center;gap:8px;padding:5px 0;color:var(--ink);font-weight:500}
+.qa details li a .ic{width:16px;height:16px;color:var(--blue-2);transition:transform .25s var(--ease)}
+.qa details li a:hover .ic{transform:translate(2px,-2px)}
+@media (max-width:960px){.answers .wrap{grid-template-columns:minmax(0,1fr)}.answers .copy{position:static}}
+
+.mc{--u:5px;display:inline-flex;align-items:center;gap:calc(var(--u)*.8);flex:none}
+.mc i{flex:none;width:var(--u);height:var(--u);border-radius:999px;background:currentColor}
+.mc i.D{width:calc(var(--u)*3)}
+.mc i.g{width:calc(var(--u)*1.2);background:none}
+.mc i.G{width:calc(var(--u)*4);background:none}
+footer{margin-top:clamp(64px,8vw,120px);padding:clamp(56px,6vw,88px) 0 44px;background:var(--ink);color:rgba(255,255,255,.62)}
+footer .wrap{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));gap:40px clamp(24px,4vw,64px)}
+footer .brand{color:#fff}
+footer .mc{--u:3.5px;margin-top:18px;color:rgba(255,255,255,.34)}
+footer h3{margin-bottom:14px;font-weight:400;font-size:.88rem;color:rgba(255,255,255,.46)}
+footer li a{display:block;padding:5px 0;color:#fff;transition:color .15s}
+footer li a:hover{color:var(--blue-3)}
+.quiet{grid-column:1/-1;padding-top:28px;border-top:1px solid rgba(255,255,255,.13);font-size:.92rem}
+@media (max-width:760px){footer .wrap{grid-template-columns:repeat(2,minmax(0,1fr))}footer .wrap>div:first-child{grid-column:1/-1}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition-duration:.01ms!important;transition-delay:0s!important;scroll-behavior:auto!important}
+  .js .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="248 304 528 416"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.5 2.8v5.7c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.8L12 3Z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.6"/></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><path d="m12 3 2.4 1.7 2.9-.1.9 2.8 2.3 1.8-.9 2.8.9 2.8-2.3 1.8-.9 2.8-2.9-.1L12 21l-2.4-1.7-2.9.1-.9-2.8-2.3-1.8.9-2.8-.9-2.8 2.3-1.8.9-2.8 2.9.1L12 3Z"/><path d="m8.8 12.2 2.2 2.2 4.2-4.4"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-org" viewBox="0 0 24 24"><path d="M4 21V6.5L12 3l8 3.5V21M2.5 21h19M8.5 10v7M12 10v7M15.5 10v7"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16.5 6.5l2.5 2.5M14 9l2 2"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></symbol>
+</svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="Morse, home"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+    <nav aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="index.html#privacy">Privacy</a>
+      <a href="index.html#network">Network</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="index.html#answers">Straight answers</a>
+    </nav>
+    <a class="btn dark sm" href="#apply">Apply</a>
+  </div>
+</header>
+
+<main id="main">
+<section>
+  <div class="card night top">
+    <div class="copy">
+      <p class="soon"><i></i>Launching in stages</p>
+      <h1><span class="w"><i>Run</i></span> <span class="w"><i>a</i></span> <span class="w"><i>witness.</i></span> <span class="w em"><i>Keep</i></span> <span class="w em"><i>us</i></span> <span class="w em"><i>honest.</i></span></h1>
+      <p class="lead">Every key a Morse phone trusts comes from one log. Witnesses check each new version of it and sign only what extends the last. Run one on a small server, stake a bond, and get paid for every version you sign.</p>
+      <div class="cta">
+        <a class="btn light" href="#apply">Apply to run a witness</a>
+        <a class="go down" href="#how">What a witness does<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></a>
+      </div>
+    </div>
+    <div class="tally" aria-hidden="true">
+      <div class="sheet slip">
+        <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Waiting for witnesses</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+        <ul class="signers">
+          <li class="s"><span class="ava t0">A</span>Signed</li>
+          <li><span class="ava">B</span>Offline</li>
+          <li class="s"><span class="ava t2">C</span>Signed</li>
+          <li class="s"><span class="ava t3">D</span>Signed</li>
+          <li><span class="ava">E</span>Offline</li>
+        </ul>
+        <p class="need"><span></span><b>3 of 5</b>signed</p>
+      </div>
+      <p class="ok"><svg class="ic"><use href="#i-check"/></svg>A majority signed. Phones accept it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row" id="how">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>It never takes our word for anything.</h2>
+      <p class="lead">Every 15 seconds your witness asks Morse for the newest version of the key log, and checks it before it signs.</p>
+      <ul class="points">
+        <li><b>Our signature.</b> Every version has to be signed by the directory’s own key.</li>
+        <li><b>Nothing rewritten.</b> A short proof has to show the new version contains the last one you signed, entry for entry. The log only ever grows.</li>
+        <li><b>No going back.</b> Your witness keeps the last version it signed, and never signs an older one or a different one in its place.</li>
+        <li><b>Nothing personal.</b> A version is a number, a size and a fingerprint. Your witness never sees a message, a username or a wallet.</li>
+      </ul>
+    </div>
+    <div class="field sky reveal" aria-hidden="true">
+      <div class="run">
+        <header><i class="vt"><svg class="ic"><use href="#i-badge"/></svg></i><div><b>Your witness</b><small>Every 15 seconds</small></div><em>Online</em></header>
+        <ol>
+          <li><i><svg class="ic"><use href="#i-check"/></svg></i><b>Version 3,412 is out</b><small>Fetched from Morse</small></li>
+          <li><i><svg class="ic"><use href="#i-check"/></svg></i><b>Signed by the directory</b><small>Checked against its pinned key</small></li>
+          <li><i><svg class="ic"><use href="#i-check"/></svg></i><b>Nothing rewritten</b><small>It extends 3,411, the last version you signed</small></li>
+          <li><i><svg class="ic"><use href="#i-check"/></svg></i><b>Signed and sent</b><small>Within a minute of the new version</small></li>
+        </ol>
+        <div class="line" style="--t:21s"><div><span class="mc" data-morse="CHECKED AND SIGNED  "></span><span class="mc" data-morse="CHECKED AND SIGNED  "></span></div></div>
+        <dl>
+          <div class="sees"><dt>Sees</dt><dd><span>Version number</span><span>Log size</span><span>Fingerprint</span></dd></div>
+          <div class="never"><dt>Never sees</dt><dd><span>Messages</span><span>Usernames</span><span>Devices</span><span>Wallets</span></dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row flip" id="caught">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>A lie leaves a name on it.</h2>
+      <p class="lead">Phones only accept a version that most of the pinned witnesses signed. Two majorities always share someone, so showing two people different logs takes a witness who signed both, and those two signatures are the proof.</p>
+      <ul class="points">
+        <li><b>Anyone can post it.</b> The proof is checked on-chain. The bond is slashed, 10% goes to whoever posted it, and the rest is locked or burned. None of it is ever paid to Morse.</li>
+        <li><b>Three lies count.</b> Two versions the same size with different contents, one entry that reads differently in two versions, or a log that runs backwards.</li>
+        <li><b>Downtime never does.</b> A version you miss costs its pay, not your bond.</li>
+      </ul>
+    </div>
+    <div class="field lilac caught reveal" aria-hidden="true">
+      <div class="sheet slip lean-l">
+        <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to you</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+        <p class="five"><span class="ava t0">A</span><span class="ava t1">B</span><span class="ava t2 c">C</span><span class="ava off">D</span><span class="ava off">E</span><span class="by">A, B and C signed</span></p>
+      </div>
+      <div class="sheet slip lean-r">
+        <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to someone else</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span class="diff">5d0e</span><span>64d1</span></p>
+        <p class="five"><span class="ava off">A</span><span class="ava off">B</span><span class="ava t2 c">C</span><span class="ava t3">D</span><span class="ava t4">E</span><span class="by">C, D and E signed</span></p>
+      </div>
+      <p class="verdict"><svg class="ic"><use href="#i-alert"/></svg>Witness C signed both. Bond slashed.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row" id="terms">
+  <div class="wrap two">
+    <div class="copy reveal">
+      <h2>What you put down. What you get.</h2>
+      <p class="lead">A witness is a small job with a real stake. Here is where the terms start.</p>
+      <ul class="points">
+        <li><b>The bond.</b> $10,000 in USDC, and the Morse token once it launches. It grows with your pay, so a lie always costs at least two years of it.</li>
+        <li><b>The pay.</b> At least $300 a month in USDC through the network’s first year, then a share of 20% of every credit sold.</li>
+        <li><b>Showing up.</b> Pay follows attendance: full when your signature is on time for 95% of versions, nothing at 80% or less.</li>
+        <li><b>Leaving.</b> Ask to unbond and your bond comes back 30 days later, after the window for proving a lie has closed.</li>
+        <li><b>Running it.</b> A small server or two, about $10 to $40 a month. Morse pays the chain fees for your signatures.</li>
+      </ul>
+    </div>
+    <div class="field butter reveal" aria-hidden="true">
+      <div class="sheet terms">
+        <header><i class="vt"><svg class="ic"><use href="#i-badge"/></svg></i><div><b>Witness terms</b><small>Where they start</small></div></header>
+        <dl>
+          <div><dt>Bond</dt><dd>$10,000 USDC</dd></div>
+          <div><dt>Pay</dt><dd>From $300 a month</dd></div>
+          <div><dt>Unbonding</dt><dd>30 days</dd></div>
+          <div><dt>Finder’s share of a slash</dt><dd>10%</dd></div>
+        </dl>
+        <figure class="pay">
+          <figcaption>Pay, by versions signed on time</figcaption>
+          <div class="chart">
+            <svg viewBox="0 0 300 110"><path class="grid" d="M0 100H300M0 10H300"/><path class="area" d="M150 100L262.5 10H300V100Z"/><path class="ramp" d="M0 100H150L262.5 10H300"/></svg>
+            <span class="full">Full pay</span>
+            <span class="tick" style="left:0">60%</span><span class="tick" style="left:50%">80%</span><span class="tick" style="left:87.5%">95%</span>
+          </div>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row apply">
+  <div class="wrap">
+    <div class="head reveal">
+      <h2>Who we’re looking for.</h2>
+      <p class="lead">Witnesses only work if they don’t answer to us. So we look for operators who are unlike each other, and unlike Morse.</p>
+    </div>
+    <ul class="needs reveal">
+      <li><i class="nt sky"><svg class="ic" aria-hidden="true"><use href="#i-org"/></svg></i><b>Your own organisation</b><p>A separate legal entity with a named person we can reach. One witness per entity, spread across jurisdictions.</p></li>
+      <li><i class="nt lilac"><svg class="ic" aria-hidden="true"><use href="#i-server"/></svg></i><b>Your own servers</b><p>Nothing shared with Morse’s cloud accounts. Your witness asks for new versions itself, so Morse never needs a way in.</p></li>
+      <li><i class="nt butter"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg></i><b>Your own key</b><p>Made on your own hardware, ideally a hardware security module or a KMS with Ed25519. We never see it.</p></li>
+      <li><i class="nt peach"><svg class="ic" aria-hidden="true"><use href="#i-pulse"/></svg></i><b>99.5% uptime</b><p>An active and a standby server get you there, and we page you after ten minutes of silence.</p></li>
+    </ul>
+    <p class="fits reveal"><b>Good fits:</b> operators of transparency-log witnesses, Solana validators, privacy organisations and universities.</p>
+    <div class="road reveal">
+      <h3>From application to trusted</h3>
+      <ol>
+        <li style="--i:0"><b>Apply</b><span>Tell us who you are and where your witness would run.</span></li>
+        <li style="--i:1"><b>Make your key</b><span>On your own hardware. Sign a statement pinning it, and we publish your witness’s ID, key, operator, jurisdiction and software.</span></li>
+        <li style="--i:2"><b>Bond and run</b><span>Stake your bond and sign for one full week before any release can pin you.</span></li>
+        <li style="--i:3"><b>Pinned</b><span>The next Morse release trusts your key, and phones start counting your signature.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section id="apply">
+  <div class="card bluecard go-card reveal">
+    <div>
+      <h2>Keep Morse honest.</h2>
+      <p class="lead">Applications are public issues on GitHub, because the list of witnesses is public too. Never post a key or anything private: we ask for what we need once we talk.</p>
+    </div>
+    <div class="cta">
+      <a class="btn light" href="https://github.com/snowdamiz/whatsdown/issues/new?template=witness-application.yml">Apply to run a witness<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a>
+      <a class="btn line" href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/witness-network-v1.md">Read the full design</a>
+    </div>
+  </div>
+</section>
+
+<section class="row answers" id="questions">
+  <div class="wrap">
+    <div class="copy reveal">
+      <h2>Operator questions.</h2>
+      <p class="lead">What running a witness is like, including when things go wrong.</p>
+    </div>
+    <div class="qa reveal">
+      <details>
+        <summary>Can I lose my bond by going offline?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>No. Only a signed lie touches your bond. Downtime costs pay, and if you’re on time for less than 95% of versions two weeks running, the next release stops pinning you.</p>
+      </details>
+      <details>
+        <summary>What if my server is hacked?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>Whoever holds your key can sign a lie with it, and your bond pays for it all the same. That’s why the key belongs in a hardware security module. Tell us at once and a hotfix release stops trusting it.</p>
+      </details>
+      <details>
+        <summary>What if I restore an old backup?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>Your witness won’t start without a last version it can trust, so a stale backup refuses to sign instead of signing a fork by accident.</p>
+      </details>
+      <details>
+        <summary>Do I have to run Morse’s software?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>No. Every version is also published as a C2SP checkpoint, so existing transparency-log witness software can sign it unchanged, and at least one pinned witness runs software Morse didn’t write. Morse’s own witness is a reproducible build: rebuild it and compare.</p>
+      </details>
+      <details>
+        <summary>Could Morse outvote the witnesses?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>No. Morse runs exactly one witness, bonded and slashable like any other, and the thresholds are set so it can never reach a majority, alone or with the directory.</p>
+        <p>Each app release names the witnesses phones trust. What’s on-chain decides who can bond and whose bond is slashed, never which keys a phone accepts.</p>
+      </details>
+      <details>
+        <summary>Which chain is it on?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>Solana. It checks Ed25519 signatures natively, which keeps proving a lie cheap. Bonds start in USDC and move to the Morse token.</p>
+      </details>
+      <details>
+        <summary>What happens if Solana goes down?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p>Nothing that stops messaging. Your witness keeps signing, versions are posted once the chain is back, and phones only show a quiet warning after two hours without a public record.</p>
+      </details>
+      <details>
+        <summary>Where’s the full design?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <ul>
+          <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/witness-network-v1.md">How the witness network works<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+          <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/key-transparency-v1.md">The key log witnesses sign<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+          <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/threat-model.md">What we assume an attacker can do<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <a class="brand" href="index.html"><span class="tile"><svg aria-hidden="true"><use href="#mark"/></svg></span>Morse</a>
+      <span class="mc" data-morse="MORSE" aria-hidden="true"></span>
+    </div>
+    <div>
+      <h3>Morse</h3>
+      <ul><li><a href="index.html#features">Features</a></li><li><a href="index.html#privacy">Privacy</a></li><li><a href="index.html#network">Network</a></li><li><a href="how-it-works.html">How it works</a></li><li><a href="index.html#answers">Straight answers</a></li></ul>
+    </div>
+    <div>
+      <h3>The fine print</h3>
+      <ul>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/privacy-contract.md">Privacy contract</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/threat-model.md">Threat model</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/protocol/witness-network-v1.md">Witness network</a></li>
+        <li><a href="https://github.com/snowdamiz/whatsdown/security/advisories/new">Report a vulnerability</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Project</h3>
+      <ul><li><a href="https://github.com/snowdamiz/whatsdown/releases">Get Morse</a></li><li><a href="witnesses.html">Run a witness</a></li><li><a href="https://github.com/snowdamiz/whatsdown">GitHub</a></li><li><a href="https://meshlang.dev">Mesh language</a></li></ul>
+    </div>
+    <p class="quiet">This page sets no cookies and loads nothing from third parties: no trackers, no analytics, no hosted fonts.</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---- Morse, as on the home page: readable where it is ours to say.
+  const M = {A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--.."};
+  for (const el of $$("[data-morse]")) {
+    const chars = [...el.dataset.morse];
+    el.innerHTML = chars.map((ch, n) => ch === " " ? '<i class="G"></i>'
+      : [...M[ch]].map(s => s === "-" ? '<i class="D"></i>' : "<i></i>").join("") + (chars[n + 1] && chars[n + 1] !== " " ? '<i class="g"></i>' : "")).join("");
+  }
+
+  const nav = $(".nav"), stuck = () => nav.classList.toggle("stuck", scrollY > 4);
+  addEventListener("scroll", stuck, {passive: true}); stuck();
+
+  const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting && (e.target.classList.add("in"), io.unobserve(e.target))), {rootMargin: "0px 0px -12% 0px"});
+  $$(".reveal").forEach(el => io.observe(el));
+
+  // ---- Section headings rise word by word as they arrive.
+  const words = el => {
+    for (const n of [...el.childNodes]) {
+      if (n.nodeType !== 3) { words(n); continue; }
+      const f = document.createDocumentFragment();
+      for (const part of n.textContent.split(/(\s+)/)) {
+        if (!part.trim()) { f.append(part); continue; }
+        const w = document.createElement("span"), i = document.createElement("i");
+        w.className = "w"; i.textContent = part; w.append(i); f.append(w);
+      }
+      n.replaceWith(f);
+    }
+  };
+  if (!calm) for (const h of $$("main h2")) {
+    words(h); h.classList.add("split");
+    $$(".w>i", h).forEach((i, n) => i.style.setProperty("--wi", n));
+    io.observe(h);
+  }
+})();
+</script>
+</body>
+</html>

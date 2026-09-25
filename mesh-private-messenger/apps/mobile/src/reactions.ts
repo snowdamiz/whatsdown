@@ -29,6 +29,16 @@ export function summarizeReactions(reactions: Reaction[], limit = 3): { emojis: 
   };
 }
 
+// One person's reaction after they choose `emoji`, or none when it is empty:
+// whatever they gave before is taken back.
+export function setReaction(reactions: Reaction[] = [], sender: string, emoji: string): Reaction[] {
+  const others = reactions.map((reaction) => ({ ...reaction, senders: reaction.senders.filter((id) => id !== sender) }));
+  const existing = others.find((reaction) => reaction.emoji === emoji);
+  if (existing) existing.senders.push(sender);
+  else if (emoji) others.push({ emoji, senders: [sender] });
+  return others.filter((reaction) => reaction.senders.length);
+}
+
 export function describeReactions(reactions: Reaction[]): string {
   const total = reactions.reduce((count, reaction) => count + reaction.senders.length, 0);
   if (!total) return 'No reactions';

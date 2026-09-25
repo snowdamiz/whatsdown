@@ -6,6 +6,7 @@ import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { MARK_CANVAS, MARK_GRADIENT, MARK_PATH, MORSE_CODE_WORDMARK } from './brand';
 import { motion, space, themed, useTheme } from './theme';
+import { Wallpaper } from './ui';
 
 // Keep the OS launch screen until the branded React surface has laid out.
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -86,6 +87,7 @@ export function StartupScreen({ ready = false, fontsReady = false, error }: {
       style={[styles.screen, { opacity }]}
     >
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <Wallpaper />
       <Svg width={200} height={200} viewBox={`0 0 ${MARK_CANVAS} ${MARK_CANVAS}`} accessible={false}>
         <Defs>
           <AnimatedGradient

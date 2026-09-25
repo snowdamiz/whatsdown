@@ -27,6 +27,7 @@ build_services
 started=()
 start_process() {
   started+=("$1")
+  : &
 }
 wait_for_health() {
   return 0
@@ -140,6 +141,58 @@ fi
   ' bash "$test_repo_root"
 )
 
+# Docker can lose the volume without a reset (Desktop reset, `down --volumes`), so
+# a launch that creates the database clears the checkpoints too, and only then.
+(
+  fresh_fixture="$(mktemp -d)"
+  trap 'rm -rf "$fresh_fixture"' EXIT
+  MORSE_STATE_DIR="$fresh_fixture" bash -c '
+    source "$1/run.sh"
+    compose() { :; }
+    docker() { return 0; }
+    touch "$state_dir/witness-a.checkpoint" "$state_dir/witness-b.checkpoint"
+    start_database 2>/dev/null
+    [[ -e "$state_dir/witness-a.checkpoint" ]] || fail "a launch discarded checkpoints of a database it kept"
+    docker() { return 1; }
+    start_database
+    [[ ! -e "$state_dir/witness-a.checkpoint" && ! -e "$state_dir/witness-b.checkpoint" ]] ||
+      fail "a new database kept witness checkpoints that outrank it"
+  ' bash "$test_repo_root"
+)
+
+# Production wakes the witnesses when the directory makes a checkpoint. Locally
+# each watches for one and signs it once; a failed pass is tried again.
+(
+  witness_fixture="$(mktemp -d)"
+  trap 'rm -rf "$witness_fixture"' EXIT
+  cp "$test_repo_root/run.sh" "$witness_fixture/run.sh"
+  witness="$witness_fixture/mesh-private-messenger/services/transparency-witness"
+  mkdir -p "$witness"
+  # shellcheck disable=SC2016
+  printf '#!/bin/bash\necho pass >>"%s/passes"\n[[ "$(wc -l <"%s/passes")" -gt 1 ]]\n' \
+    "$witness_fixture" "$witness_fixture" >"$witness/output"
+  chmod +x "$witness/output"
+  bash -c '
+    source "$1/run.sh"
+    MESSENGER_PORT=1
+    # The directory serves checkpoint A for two reads, then B.
+    curl() {
+      local reads
+      reads=$(($(cat "$script_dir/reads" 2>/dev/null || echo 0) + 1))
+      echo "$reads" >"$script_dir/reads"
+      if ((reads < 3)); then echo A; else echo B; fi
+    }
+    ticks=0
+    sleep() { ((++ticks < 5)) || exit 0; }
+    witness_loop witness-a seed key "$script_dir/witness-a.checkpoint"
+  ' bash "$witness_fixture"
+  [[ "$(wc -l <"$witness_fixture/passes" | tr -d " ")" == 3 ]] || {
+    printf 'expected a failed and a retried pass for A and one for B, got %s passes\n' \
+      "$(wc -l <"$witness_fixture/passes" | tr -d " ")" >&2
+    exit 1
+  }
+)
+
 # A stopped Docker Desktop answers its socket and then never replies, so the
 # probe has to give up rather than hang the launcher before it prints anything.
 (
@@ -158,6 +211,22 @@ fi
     exit 1
   fi
 )
+
+# The health deadline is long enough for a freshly linked binary's first-launch
+# scan, so a service that has already exited must not wait it out.
+bash -c '
+  source "$1/run.sh"
+  curl() { return 1; }
+  false &
+  if wait_for_health exited http://127.0.0.1:1 "$!" 2>/dev/null; then
+    printf "an exited service was reported healthy\n" >&2
+    exit 1
+  fi
+  if ((SECONDS > 5)); then
+    printf "an exited service waited out the health deadline\n" >&2
+    exit 1
+  fi
+' bash "$test_repo_root"
 
 python3 - "$test_repo_root/run.sh" <<'PY'
 import http.server
