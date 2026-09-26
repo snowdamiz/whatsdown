@@ -3,6 +3,8 @@ name: Backend release
 on:
   push:
     branches: [release]
+  # Deploys everything, e.g. to rebuild with a new Mesh release.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,7 +14,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    name: Find what changed
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      landing: ${{ steps.changes.outputs.landing }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node mesh-private-messenger/scripts/release-changes.mjs
+
   verification:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     uses: ./.github/workflows/ci.yml
 
   release:
@@ -20,7 +42,7 @@ jobs:
     env:
       MESH_LANG_REVISION: ${{ needs.verification.outputs.mesh-revision }}
     name: Test and deploy Cloudflare backend
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     environment: production
@@ -116,7 +138,8 @@ jobs:
 
   landing:
     name: Check and deploy landing page
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    needs: changes
+    if: needs.changes.outputs.landing == 'true' && github.ref == 'refs/heads/release'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: production
