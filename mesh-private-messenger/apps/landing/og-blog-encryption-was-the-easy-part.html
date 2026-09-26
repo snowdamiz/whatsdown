@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Encryption was the easy part share card</title>
+<!-- The picture link previews show for blog-encryption-was-the-easy-part.html. Not deployed (.assetsignore). After
+     changing it, from this directory:
+     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --hide-scrollbars --force-device-scale-factor=2 \
+       --window-size=1200,630 --screenshot="$PWD/og-blog-encryption-was-the-easy-part.png" "file://$PWD/og-blog-encryption-was-the-easy-part.html"
+     The article as it opens: its headline on paper, the question it starts from, the Morse line that spells the title,
+     and its first picture (the quiet swap) on the article's own peach field. Slip styles are copied from blog.css. -->
+<style>
+@font-face{font-family:"Geist";font-weight:400;src:url(fonts/Geist_400Regular.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:500;src:url(fonts/Geist_500Medium.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:600;src:url(fonts/Geist_600SemiBold.ttf) format("truetype")}
+:root{--paper:#F6F2EA;--ink:#0B0B0F;--ink-2:#4A4A55;--ink-3:#6B6B77;--night:#0B0D14;--blue-2:#2F6BEA;--peach:#FFD9C6;--red:#D8323A;--sans:"Geist",ui-sans-serif,system-ui,sans-serif}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;width:1200px;height:630px;overflow:hidden}
+body{position:relative;background:var(--paper);color:var(--ink);font:400 17px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+body>*{position:absolute}
+p,h1{margin:0}
+svg{display:block}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.brand{left:64px;top:58px;display:flex;align-items:center;gap:13px;font-weight:600;font-size:30px;letter-spacing:-.035em}
+.brand small{margin-left:4px;padding-left:17px;border-left:2px solid rgba(11,11,15,.14);font-weight:500;font-size:26px;letter-spacing:-.02em;color:var(--ink-3)}
+.tile{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--blue-2)}
+.tile svg{width:56%;fill:#fff}
+.copy{left:64px;top:170px;width:560px}
+h1{font-weight:600;font-size:78px;line-height:.98;letter-spacing:-.05em}
+.lead{margin-top:28px;font-size:27px;line-height:1.35;letter-spacing:-.015em;color:var(--ink-2)}
+.stamp{left:64px;bottom:98px;display:flex;gap:14px;font-size:19px;color:var(--ink-3)}
+.stamp span+span::before{content:"";display:inline-block;width:5px;height:5px;margin:0 14px 4px 0;border-radius:50%;background:currentColor;opacity:.6}
+/* Readable Morse, as under the article's headline: it only ever spells our own words. */
+.line{left:64px;bottom:62px;width:540px;overflow:hidden;color:var(--blue-2);mask-image:linear-gradient(90deg,#000 80%,transparent)}
+.mc{--u:5px;display:inline-flex;align-items:center;gap:calc(var(--u)*.8);flex:none}
+.mc i{flex:none;width:var(--u);height:var(--u);border-radius:999px;background:currentColor}
+.mc i.D{width:calc(var(--u)*3)}
+.mc i.g{width:calc(var(--u)*1.2);background:none}
+.mc i.G{width:calc(var(--u)*4);background:none}
+
+/* The quiet swap, on the peach field it has in the article: two answers to one question, the lie in red. */
+.field{left:652px;top:24px;right:24px;bottom:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:36px;background:var(--peach)}
+.art{display:flex;flex-direction:column;align-items:center;width:440px}
+.slip{width:390px;padding:20px 20px 22px;border-radius:28px;background:#fff;color:#0A0A0C;box-shadow:0 34px 56px -34px rgba(11,11,15,.38)}
+.slip header{display:flex;align-items:center;gap:12px}
+.slip header b{display:block;font-weight:600;font-size:17px;letter-spacing:-.02em;line-height:1.25}
+.slip header small{display:block;font-size:13.6px;color:#63636D}
+.vt{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:var(--blue-2);color:#fff}
+.vt .ic{width:19px;height:19px}
+.vt.dk{background:var(--night)}
+.lean-l{align-self:flex-start;rotate:-2.5deg}
+.lean-r{align-self:flex-end;rotate:2.5deg;margin-top:-14px}
+.fp{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:16px;padding:12px 8px;border-radius:14px;background:#F2F2F5;text-align:center;font-weight:600;font-size:16px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.fp span{padding:3px 0;border-radius:7px}
+.fp .diff{background:#FBD5D7;color:var(--red)}
+.verdict{display:flex;align-items:center;gap:9px;margin-top:28px;padding:13px 22px 13px 16px;border-radius:999px;background:var(--red);box-shadow:0 18px 32px -18px rgba(120,20,20,.7);color:#fff;font-weight:500;white-space:nowrap}
+.verdict .ic{width:20px;height:20px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="248 304 528 416"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16.5 6.5l2.5 2.5M14 9l2 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
+</svg>
+
+<p class="brand"><span class="tile"><svg><use href="#mark"/></svg></span>Morse<small>Blog</small></p>
+<div class="copy">
+  <h1>Encryption was the easy part.</h1>
+  <p class="lead">Where did your phone get Ada’s key?</p>
+</div>
+<p class="stamp"><span>8 minute read</span><span>morseapp.io/blog</span></p>
+<div class="line" aria-hidden="true"><span class="mc" data-morse="ENCRYPTION WAS THE EASY PART"></span></div>
+
+<div class="field">
+  <div class="art">
+    <div class="slip lean-l">
+      <header><i class="vt"><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><small>What your phone was told</small></div></header>
+      <p class="fp"><span class="diff">7c21</span><span class="diff">e0a4</span><span class="diff">5d0e</span><span class="diff">b913</span></p>
+    </div>
+    <div class="slip lean-r">
+      <header><i class="vt dk"><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><small>What Ada’s phone really holds</small></div></header>
+      <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+    </div>
+    <p class="verdict"><svg class="ic"><use href="#i-alert"/></svg>Encrypted perfectly. For the wrong person.</p>
+  </div>
+</div>
+<script>
+// The same Morse as blog.js.
+const M = {A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--.."};
+for (const el of document.querySelectorAll("[data-morse]")) {
+  const chars = [...el.dataset.morse];
+  el.innerHTML = chars.map((ch, n) => ch === " " ? '<i class="G"></i>'
+    : [...M[ch]].map(s => s === "-" ? '<i class="D"></i>' : "<i></i>").join("") + (chars[n + 1] && chars[n + 1] !== " " ? '<i class="g"></i>' : "")).join("");
+}
+</script>
+</body>
+</html>

@@ -28,10 +28,32 @@ env:
   CI: '1'
 
 jobs:
+  changes:
+    name: Find what changed
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      mobile: ${{ steps.changes.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: changes
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node mesh-private-messenger/scripts/release-changes.mjs
+
   verification:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     uses: ./.github/workflows/ci.yml
 
   verify:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

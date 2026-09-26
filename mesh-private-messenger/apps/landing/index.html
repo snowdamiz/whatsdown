@@ -219,6 +219,9 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .chead .end .ic{width:17px;height:17px}
 .ava{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:12px;letter-spacing:.01em}
 .ava .ic{width:52%;height:52%}
+/* Profile and group pictures are stock photos (Unsplash License), saved in img/ so the page still loads nothing from elsewhere.
+   Never faces: on a private messenger a profile picture is a cat or a coastline, not who you are. */
+img.ava{object-fit:cover;background:#E4E4EA}
 .t0{--a:#5B9DFF;--b:#3462FF}.t1{--a:#B57BFF;--b:#7B4DFF}.t2{--a:#FF7DBA;--b:#F0468C}.t3{--a:#FFB35C;--b:#FF7A3D}
 .t4{--a:#5EE39B;--b:#22AD6C}.t5{--a:#4FD6E6;--b:#2492B3}.t6{--a:#FF8A75;--b:#E8553F}
 .thread{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:0;padding:8px 12px 12px}
@@ -308,6 +311,41 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .b .quote b{display:block;font-weight:600;color:#AD2D69}
 .react{position:absolute;left:12px;bottom:-13px;display:flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:#fff;box-shadow:0 1px 5px rgba(10,10,12,.18);font-size:12px;font-weight:500;color:#3A3A44}
 .gmsg.reacted,.b.reacted{margin-bottom:12px}
+/* A picture post, as the app draws it: the photo as wide as the bubble in a thin frame, the words below at the usual inset. */
+.b.photo{flex:1;padding:4px 4px 6px}
+.b.photo .who{padding:3px 9px 3px}
+.b .pic{display:block;width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:16px}
+.b.photo .txt{display:block;padding:6px 9px 0}
+/* A group and a community in one field. The community is a builders' announcements, which only its admins post,
+   with its groups list from Community details tucked over the phone's corner; one of those groups is the hackathon
+   team chatting beside it. Narrower, the two stand one above the other, lined up on the phones, and then the list drops below its phone. */
+.field.scene{height:auto;align-items:center;gap:clamp(40px,6vw,96px);margin-top:clamp(40px,4.4vw,64px);padding:clamp(40px,4.4vw,64px) 0}
+/* A fixed width: inside the hub, a percentage would size the phone to its longest unwrapped line. */
+.scene .phone{width:318px}
+/* As in the app, a run of posts names its sender on the first and shows their avatar on the last. */
+.gmsg.run>.ava{visibility:hidden}
+.gmsg.run .b.in{border-bottom-left-radius:20px}
+.hub{display:flex;align-items:flex-end}
+.linked{position:relative;z-index:1;flex:none;width:300px;margin:0 0 96px -40px;padding:18px 6px;rotate:2.5deg}
+.linked>b{display:block;padding:0 14px 6px;font-weight:500;font-size:.84rem;color:#63636D}
+.linked li{display:flex;align-items:center;gap:11px;padding:8px 14px}
+.linked .ava{width:38px;height:38px}
+.linked li>span:nth-child(2){flex:1;min-width:0;font-weight:500;font-size:.98rem;line-height:1.25;letter-spacing:-.015em}
+.linked small{display:block;font-weight:400;font-size:.8rem;color:#63636D}
+.linked em{display:inline-grid;padding:6px 12px;border-radius:999px;background:#F2F2F5;font-style:normal;font-weight:500;font-size:.8rem;white-space:nowrap}
+.linked em span{grid-area:1/1}
+.linked em span+span{opacity:0;color:#63636D}
+.linked .yes{background:#E3ECFF;color:var(--blue)}
+.linked p{padding:8px 14px 0;font-size:.8rem;line-height:1.4;color:#63636D;text-wrap:pretty}
+/* The list lands after the announcements, then someone asks to join Rust help. */
+.js .scene .linked{opacity:0}
+.js .scene.in .linked{animation:drop .8s var(--ease) 2.2s both}
+.js .scene.in .swap span{animation:asked .35s ease 4s both reverse}
+.js .scene.in .swap span+span{animation-direction:normal}
+@keyframes asked{from{opacity:0}to{opacity:1}}
+@media (max-width:1099px){.scene .phone{zoom:.74}.linked{width:280px;margin-left:-36px}}
+@media (max-width:899px){.field.scene{display:grid;justify-content:center;justify-items:start}.scene .phone{zoom:.84}}
+@media (max-width:599px){.field.scene{justify-items:center}.hub{flex-direction:column;align-items:center}.linked{width:min(100% - 16px,320px);margin:-28px 0 0;rotate:-1.5deg}}
 
 /* art — disappearing: messages arrive, then go, oldest first, and it starts over */
 .lilac{flex-direction:column;align-items:center;justify-content:center;gap:clamp(36px,4vw,56px)}
@@ -543,8 +581,7 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .bond .ic{width:18px;height:18px}
 .bond span{margin-left:auto;font-weight:400;font-size:.86rem}
 
-/* One token, two jobs: a loop the eye can follow, each step lighting in turn, then how it rolls out,
-   drawn as a dot-and-dash track. */
+/* One token, two jobs: a loop the eye can follow, each step lighting in turn. */
 .coin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(40px,5vw,72px) clamp(36px,6vw,96px);align-items:center;padding-block:clamp(36px,5.6vw,88px)}
 .coin .facts li{color:var(--ink-2)}
 .coin .facts .ic{color:var(--blue)}
@@ -562,17 +599,7 @@ h2{font-size:clamp(2.3rem,4.7vw,4.1rem);line-height:1.02;letter-spacing:-.043em}
 .js .loop.in .a2{animation-delay:3.5s}.js .loop.in .a3{animation-delay:5.5s}.js .loop.in .a4{animation-delay:7.5s}
 @keyframes lit{0%,4%,30%,100%{translate:0 0;box-shadow:var(--lift)}9%,22%{translate:0 -5px;box-shadow:0 0 0 3px var(--blue-2),var(--lift)}}
 @keyframes nudge{0%,12%{color:var(--blue-2)}20%,100%{color:var(--ink-3)}}
-.road{grid-column:1/-1;padding-top:clamp(28px,3vw,40px);border-top:1.5px solid rgba(11,11,15,.13)}
-.road h3{font-weight:500;font-size:1.05rem;color:var(--ink-2)}
-.road ol{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px 24px;margin-top:24px}
-.road li{position:relative;padding-top:34px}
-.road li::before{content:"";position:absolute;top:0;left:0;width:16px;height:16px;border-radius:50%;background:var(--blue-2)}
-.road li:not(:last-child)::after{content:"";position:absolute;top:3px;left:28px;right:-12px;height:10px;border-radius:999px;background:var(--blue-3)}
-.js .road.in li::after{animation:dash-in 1s var(--ease) calc(var(--i)*.25s + .3s) both}
-.road b{display:block;font-weight:600;font-size:1.1rem;letter-spacing:-.02em}
-.road span{display:block;margin-top:6px;font-size:.96rem;line-height:1.45;color:var(--ink-2);text-wrap:pretty}
 @media (max-width:960px){.coin{grid-template-columns:minmax(0,1fr)}}
-@media (max-width:760px){.road ol{grid-template-columns:repeat(2,minmax(0,1fr))}.road li:nth-child(2)::after{display:none}}
 @media (max-width:440px){.loop{grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);grid-template-rows:auto 44px auto}.st{padding:14px 14px 16px;border-radius:20px}.st b{font-size:.95rem}.st small{font-size:.8rem}}
 
 /* ------------------------------------------------------------ Straight answers */
@@ -698,14 +725,14 @@ footer li a:hover{color:var(--blue-3)}
    their fields as the page moves, some against the others, so each field has layers. Elsewhere they
    simply stay put. */
 @supports (animation-timeline:view()){
-  .field>.phone,.newmsg,.timer,.sns,.works,.wit,.get .mac{animation:drift linear both;animation-timeline:view();animation-range:cover}
-  .newmsg,.get .mac{--drift:-16px}
+  .field>.phone,.hub,.newmsg,.timer,.sns,.works,.wit,.get .mac{animation:drift linear both;animation-timeline:view();animation-range:cover}
+  .hub,.newmsg,.get .mac{--drift:-16px}
   @keyframes drift{from{translate:0 var(--drift,26px)}to{translate:0 calc(-1*var(--drift,26px))}}
 }
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
-  .js .reveal,.js .live .thread>*,.js .field .request,.js .field .verified{opacity:1;transform:none}
+  .js .reveal,.js .live .thread>*,.js .field .request,.js .field .verified,.js .scene .linked{opacity:1;transform:none}
   .js .seal>span{mask:none}.js .seal>i{display:none}
 }
 </style>
@@ -786,7 +813,7 @@ footer li a:hover{color:var(--blue-3)}
       <div class="phone">
         <div class="screen">
           <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
-          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t0">AD</span><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/ada.jpg" alt=""><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
           <div class="thread">
             <p class="day">Today</p>
             <p class="b in" style="--i:0"><span class="seal"><span>Did the scans arrive?</span><i data-seal="8"></i></span><small>9:24 AM</small></p>
@@ -829,25 +856,49 @@ footer li a:hover{color:var(--blue-3)}
   </div>
 </section>
 
-<section class="row flip">
-  <div class="wrap two">
+<section class="row" id="groups">
+  <div class="wrap">
     <div class="copy reveal">
-      <h2>Groups, without the audience.</h2>
-      <p class="lead">Plan the trip, run the team, settle the dinner debate, with replies, reactions and @mentions. We can’t see who’s in your groups, or even what they’re called.</p>
+      <h2>Groups and communities, without the audience.</h2>
+      <p class="lead">Ship the hackathon build in a group. Run a whole crypto community, where admins post the news and members ask to join the groups they want. We can’t see who’s in either, or even what they’re called.</p>
     </div>
-    <div class="field peach tall live reveal" aria-hidden="true">
+    <div class="field peach scene live reveal" aria-hidden="true">
       <div class="phone">
         <div class="screen">
           <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
-          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t6"><svg class="ic"><use href="#i-users"/></svg></span><div><b>Roof team</b><small>5 members</small></div><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/hackathon-team.jpg" alt=""><div><b>Hackathon team</b><small>5 members</small></div><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
           <div class="thread">
             <p class="day">Today</p>
-            <div class="gmsg reacted" style="--i:0"><span class="ava t2">NA</span><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b>Rain from ten tomorrow. Start at eight?<small>7:52 AM</small><span class="react">👍 3</span></p></div>
-            <div class="gmsg" style="--i:1"><span class="ava t5">JO</span><p class="b in"><b class="who" style="color:#1A687B">@jonah</b>Works for me. I’ll bring the ladder.<small>7:55 AM</small></p></div>
-            <p class="b out" style="--i:2"><span class="at">@nadia</span> can you grab the sealant?<small>8:02 AM<svg class="ic"><use href="#i-check"/></svg></small></p>
-            <div class="gmsg" style="--i:3"><span class="ava t2">NA</span><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b><span class="quote"><b>You</b>@nadia can you grab the sealant?</span>Already in the van.<small>8:03 AM</small></p></div>
+            <div class="gmsg reacted" style="--i:0"><img class="ava" src="img/nadia.jpg" alt=""><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b>Demo’s due at 18:00 UTC. Freeze the build at 16:00?<small>7:52 AM</small><span class="react">👍 3</span></p></div>
+            <div class="gmsg" style="--i:1"><img class="ava" src="img/jonah.jpg" alt=""><p class="b in"><b class="who" style="color:#1A687B">@jonah</b>Works for me. I’ll record the walkthrough.<small>7:55 AM</small></p></div>
+            <p class="b out" style="--i:2"><span class="at">@nadia</span> can you write the submission?<small>8:02 AM<svg class="ic"><use href="#i-check"/></svg></small></p>
+            <div class="gmsg" style="--i:3"><img class="ava" src="img/nadia.jpg" alt=""><p class="b in"><b class="who" style="color:#AD2D69">@nadia</b><span class="quote"><b>You</b>@nadia can you write the submission?</span>Already on it.<small>8:03 AM</small></p></div>
           </div>
           <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message · @mention someone</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+        </div>
+      </div>
+      <div class="hub">
+        <div class="phone">
+          <div class="screen">
+            <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+            <div class="chead"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/solana-builders.jpg" alt=""><b>Solana builders</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+            <div class="thread">
+              <p class="day">Today</p>
+              <div class="gmsg run reacted" style="--i:1"><img class="ava" src="img/maria.jpg" alt=""><div class="b in photo"><b class="who" style="color:#B4531F">@maria</b><img class="pic" src="img/hackathon-photo.jpg" alt=""><span class="txt">Hackathon starts Friday, 18:00 UTC.<small>9:02 AM</small></span><span class="react">🎉 41</span></div></div>
+              <div class="gmsg reacted" style="--i:2"><img class="ava" src="img/maria.jpg" alt=""><p class="b in">Office hours move to Thursday.<small>9:03 AM</small><span class="react">👍 27</span></p></div>
+              <div class="gmsg" style="--i:3"><img class="ava" src="img/theo.jpg" alt=""><p class="b in"><b class="who" style="color:#6A3FD6">@theo_k</b>Stuck on Anchor? Ask to join Rust help.<small>9:10 AM</small></p></div>
+            </div>
+            <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Only admins post here</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+          </div>
+        </div>
+        <div class="sheet linked">
+          <b>Groups</b>
+          <ul>
+            <li><img class="ava" src="img/hackathon-team.jpg" alt=""><span>Hackathon team<small>5 members</small></span><em class="yes">Joined</em></li>
+            <li><img class="ava" src="img/rust-help.jpg" alt=""><span>Rust help</span><em class="ask swap"><span>Ask to join</span><span>Requested</span></em></li>
+            <li><img class="ava" src="img/validators.jpg" alt=""><span>Validators</span><em class="ask"><span>Ask to join</span></em></li>
+          </ul>
+          <p>Ask to join a group and the community’s owner or an admin can invite you.</p>
         </div>
       </div>
     </div>
@@ -877,7 +928,7 @@ footer li a:hover{color:var(--blue-3)}
             <i class="scan"></i>
             <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
             <div class="chead">
-              <div class="view dev"><svg class="ic"><use href="#i-back"/></svg><span class="ava t0">AD</span><b>@ada</b></div>
+              <div class="view dev"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/ada.jpg" alt=""><b>@ada</b></div>
               <div class="view srv"><i><svg class="ic"><use href="#i-server"/></svg></i><div><b>Our delivery queue</b><small>6 sealed envelopes</small></div></div>
             </div>
             <div class="thread">
@@ -921,11 +972,11 @@ footer li a:hover{color:var(--blue-3)}
     <div class="field mint reveal" aria-hidden="true">
       <div class="sns">
       <div class="sheet sn">
-        <header><span class="ava t0">AD</span><b>@ada<small>On your screen</small></b></header>
+        <header><img class="ava" src="img/ada.jpg" alt=""><b>@ada<small>On your screen</small></b></header>
         <div class="digits"><span>3f9a</span><span>1c07</span><span>b82e</span><span>64d1</span><span>09ab</span><span>e5f2</span><span>7a30</span><span>c418</span><span>d6e9</span><span>20bf</span><span>8c53</span><span>f1a4</span><span>4b7d</span><span>9e06</span><span>a2c8</span><span>517f</span></div>
       </div>
       <div class="sheet sn">
-        <header><span class="ava t4">YO</span><b>@you<small>On @ada’s screen</small></b></header>
+        <header><img class="ava" src="img/you.jpg" alt=""><b>@you<small>On @ada’s screen</small></b></header>
         <div class="digits"><span>3f9a</span><span>1c07</span><span>b82e</span><span>64d1</span><span>09ab</span><span>e5f2</span><span>7a30</span><span>c418</span><span>d6e9</span><span>20bf</span><span>8c53</span><span>f1a4</span><span>4b7d</span><span>9e06</span><span>a2c8</span><span>517f</span></div>
       </div>
       </div>
@@ -1040,15 +1091,6 @@ footer li a:hover{color:var(--blue-3)}
       <p class="st s4"><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><b>Bonds keep them honest</b><small>a signed lie costs the bond</small></p>
       <svg class="ic ar a4"><use href="#i-up"/></svg>
     </div>
-    <div class="road reveal">
-      <h3>How it rolls out</h3>
-      <ol>
-        <li style="--i:0"><b>Public checkpoints</b><span>Every version of the key log, posted to a public chain anyone can check.</span></li>
-        <li style="--i:1"><b>Independent witnesses</b><span>Operators outside Morse sign the log alongside us.</span></li>
-        <li style="--i:2"><b>Anonymous credits</b><span>Extras paid in USDC, SOL or BTC, spent without a trace.</span></li>
-        <li style="--i:3"><b>The Morse token</b><span>Bonds for witnesses, burned by every credit bought.</span></li>
-      </ol>
-    </div>
   </div>
 </section>
 
@@ -1056,12 +1098,7 @@ footer li a:hover{color:var(--blue-3)}
   <div class="wrap two">
     <div class="copy reveal">
       <h2>Built like the phone network.</h2>
-      <p class="lead">Morse is written in Mesh, our own programming language. Its big idea comes from Erlang and Elixir, the technology that keeps phone exchanges and some of the world’s biggest chat apps running.</p>
-      <ul class="points">
-        <li><b>Everything at once.</b> Delivering messages, clearing expired ones and waking your phone each run as their own tiny worker, so one slow job never holds up the rest.</li>
-        <li><b>Trouble stays small.</b> Workers share nothing and talk only by passing messages. If one fails the others carry on, and Mesh can start it again on the spot.</li>
-        <li><b>One core, everywhere.</b> Mesh compiles to native code, and the same core runs inside the iPhone, Android, Mac and Windows apps.</li>
-      </ul>
+      <p class="lead">Morse is written in Mesh, our own language. It borrows the idea that keeps phone exchanges running on Erlang: every job is its own small worker, so when one trips, the rest carry on.</p>
       <a class="go" href="https://meshlang.dev">Meet the Mesh language<svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a>
     </div>
     <div class="field sky tall reveal" aria-hidden="true">
@@ -1182,14 +1219,14 @@ footer li a:hover{color:var(--blue-3)}
             <span class="tabs"><span class="on"><i></i><svg class="ic"><use href="#i-chat"/></svg></span><span><svg class="ic"><use href="#i-users"/></svg></span></span>
             <span class="round"><svg class="ic"><use href="#i-compose"/></svg></span>
           </div>
-          <div class="conv on"><span class="ava t0">AD</span><b>@ada</b><u>9:33 AM</u><em>See you at 7.</em></div>
-          <div class="conv new"><span class="ava t2">NA</span><b>@nadia</b><u>8:03 AM</u><em>Already in the van.</em><s>1</s></div>
-          <div class="conv"><span class="ava t3">MU</span><b>@mum</b><u>Tue</u><em>call me when you can</em></div>
-          <div class="conv"><span class="ava t1">TK</span><b>@theo_k</b><u>Mon</u><em>You: Got the photos, thank you!</em></div>
-          <div class="me"><span class="ava t4">YO</span>@you<svg class="ic"><use href="#i-sliders"/></svg></div>
+          <div class="conv on"><img class="ava" src="img/ada.jpg" alt=""><b>@ada</b><u>9:33 AM</u><em>See you at 7.</em></div>
+          <div class="conv new"><img class="ava" src="img/nadia.jpg" alt=""><b>@nadia</b><u>8:03 AM</u><em>Already on it.</em><s>1</s></div>
+          <div class="conv"><img class="ava" src="img/mum.jpg" alt=""><b>@mum</b><u>Tue</u><em>call me when you can</em></div>
+          <div class="conv"><img class="ava" src="img/theo.jpg" alt=""><b>@theo_k</b><u>Mon</u><em>You: Got the photos, thank you!</em></div>
+          <div class="me"><img class="ava" src="img/you.jpg" alt="">@you<svg class="ic"><use href="#i-sliders"/></svg></div>
         </div>
         <div class="pane">
-          <div class="phead"><span class="ava t0">AD</span><b>@ada</b><span class="round"><svg class="ic"><use href="#i-info"/></svg></span></div>
+          <div class="phead"><img class="ava" src="img/ada.jpg" alt=""><b>@ada</b><span class="round"><svg class="ic"><use href="#i-info"/></svg></span></div>
           <div class="thread">
             <p class="day">Today</p>
             <p class="b in">Did the scans arrive?<small>9:24 AM</small></p>
@@ -1204,7 +1241,7 @@ footer li a:hover{color:var(--blue-3)}
       <div class="phone dark pocket">
         <div class="screen">
           <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
-          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t0">AD</span><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+          <div class="chead"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/ada.jpg" alt=""><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
           <div class="thread">
             <p class="day">Today</p>
             <p class="b in">Did the scans arrive?<small>9:24 AM</small></p>

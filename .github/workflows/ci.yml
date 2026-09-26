@@ -2,9 +2,12 @@ name: CI
 
 on:
   pull_request:
+    # Nothing here tests documentation or the landing page; release checks the page.
+    paths-ignore: ['**.md', '.github/ISSUE_TEMPLATE/**', 'mesh-private-messenger/apps/landing/**']
   push:
     branches:
       - main
+    paths-ignore: ['**.md', '.github/ISSUE_TEMPLATE/**', 'mesh-private-messenger/apps/landing/**']
   workflow_dispatch:
   workflow_call:
     outputs:
@@ -85,6 +88,7 @@ jobs:
           bash mesh-private-messenger/scripts/run-root.test.sh
           sh -n install.sh
           bash mesh-private-messenger/scripts/install.test.sh
+          node --test mesh-private-messenger/scripts/release-changes.test.mjs
 
       - name: Cache LLVM
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4

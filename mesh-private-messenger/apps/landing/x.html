@@ -2,35 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Morse share card</title>
-<!-- The picture link previews show (og.png). Not deployed (.assetsignore). After changing it, from this directory:
-     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --hide-scrollbars --force-device-scale-factor=2 \
-       --window-size=1200,630 --screenshot="$PWD/og.png" "file://$PWD/og.html"
-     It is the hero at postcard size: the blue card on paper, the headline, the mark behind the phone. The phone and
-     bubble styles are copied from index.html. -->
+<title>Morse X profile images</title>
+<!-- The X (Twitter) profile avatar and header. Not deployed (.assetsignore). After changing it, from this directory:
+     chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+     "$chrome" --headless --hide-scrollbars --force-device-scale-factor=2 --window-size=400,400 --screenshot="$PWD/x-avatar.png" "file://$PWD/x.html#avatar"
+     "$chrome" --headless --hide-scrollbars --force-device-scale-factor=1 --window-size=1500,500 --screenshot="$PWD/x-banner.png" "file://$PWD/x.html#banner"
+     The avatar is the app icon's tile (X crops it to a circle). The header is og.html's card at 3:1: X lays the avatar over its
+     bottom left, so the copy stays in the top half there. The phone and bubble styles are copied from og.html. -->
 <style>
 @font-face{font-family:"Geist";font-weight:400;src:url(fonts/Geist_400Regular.ttf) format("truetype")}
 @font-face{font-family:"Geist";font-weight:500;src:url(fonts/Geist_500Medium.ttf) format("truetype")}
 @font-face{font-family:"Geist";font-weight:600;src:url(fonts/Geist_600SemiBold.ttf) format("truetype")}
-:root{--paper:#F6F2EA;--ink:#0B0B0F;--blue:#2459D0;--blue-2:#2F6BEA;--green:#178A4E;--sans:"Geist",ui-sans-serif,system-ui,sans-serif}
+:root{--ink:#0B0B0F;--blue:#2459D0;--blue-2:#2F6BEA;--green:#178A4E;--sans:"Geist",ui-sans-serif,system-ui,sans-serif}
 *,*::before,*::after{box-sizing:border-box}
-html,body{margin:0;width:1200px;height:630px;overflow:hidden}
-body{background:var(--paper);font:400 17px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+html,body{margin:0;overflow:hidden}
+body{font:400 17px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
 p,h1{margin:0}
 svg{display:block}
 .ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+body>section{display:none;position:relative;overflow:hidden}
+body>section:target{display:block}
 
-.card{position:absolute;inset:18px;border-radius:40px;overflow:hidden;background:var(--blue);color:#fff}
-.copy{position:absolute;left:64px;top:56px;bottom:52px;width:560px;display:flex;flex-direction:column;z-index:2}
-.brand{display:flex;align-items:center;gap:13px;font-weight:600;font-size:30px;letter-spacing:-.035em}
-.tile{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#fff}
-.tile svg{width:56%;fill:var(--blue-2)}
-h1{margin-top:auto;font-weight:600;font-size:86px;line-height:.97;letter-spacing:-.05em}
-.lead{max-width:470px;margin-top:24px;font-size:25px;line-height:1.4;letter-spacing:-.01em;color:rgba(255,255,255,.9)}
-.url{margin-top:auto;padding-top:28px;font-weight:500;font-size:21px;color:rgba(255,255,255,.72)}
+/* The app icon's gradient, full bleed. */
+#avatar{width:400px;height:400px;background:linear-gradient(165deg,#7AADFB,#3570EC)}
+#avatar svg{width:100%;height:100%;fill:#fff}
 
-/* The hero rig at 80%: the mark (dot, gap, dash, exactly the phone's height) behind the phone, the dash off the edge. */
-.rig{position:absolute;top:50%;left:884px;width:320px;translate:-50% -50%;scale:.8}
+#banner{width:1500px;height:500px;background:var(--blue);color:#fff}
+.copy{position:absolute;left:96px;top:74px;width:720px}
+h1{font-weight:600;font-size:78px;line-height:.97;letter-spacing:-.05em}
+.lead{margin-top:26px;font-size:26px;line-height:1.4;letter-spacing:-.01em;color:rgba(255,255,255,.9)}
+
+/* og.html's rig at 70%: the mark (dot, gap, dash, exactly the phone's height) behind the phone, the dash off the edge. */
+.rig{position:absolute;top:50%;left:1170px;width:320px;translate:-50% -50%;scale:.7}
 .shape{position:absolute;z-index:-1;left:-170px;border-radius:999px;background:var(--blue-2)}
 .shape.dot{top:0;width:280px;height:280px}
 .shape.dash{top:380px;width:1000px;height:280px}
@@ -58,7 +61,6 @@ h1{margin-top:auto;font-weight:600;font-size:86px;line-height:.97;letter-spacing
 .chead .end{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;box-shadow:0 1px 5px rgba(10,10,12,.14)}
 .chead .end .ic{width:17px;height:17px}
 .ava{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#5B9DFF,#3462FF);color:#fff;font-weight:600;font-size:12px}
-img.ava{object-fit:cover}
 .thread{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:0;padding:8px 12px 12px}
 .day{align-self:center;margin-bottom:5px;padding:4px 11px;border-radius:999px;background:#F2F2F5;font-size:11px;color:#63636D}
 .b{position:relative;max-width:82%;padding:8px 13px 6px;border-radius:20px}
@@ -81,7 +83,6 @@ img.ava{object-fit:cover}
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="mark" viewBox="248 304 528 416"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></symbol>
   <symbol id="i-signal" viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="4.6" y="5.5" width="3" height="6.5" rx=".8"/><rect x="9.2" y="3" width="3" height="9" rx=".8"/><rect x="13.8" y="0" width="3" height="12" rx=".8"/></symbol>
   <symbol id="i-wifi" viewBox="0 0 17 12"><path d="M8.5 2.6c2.3 0 4.4.9 6 2.4l1.1-1.2A10.3 10.3 0 0 0 8.5.9C5.7.9 3.2 2 1.4 3.8l1.1 1.2a8.6 8.6 0 0 1 6-2.4Zm0 3.5c1.4 0 2.7.5 3.7 1.4l1.1-1.2a7.1 7.1 0 0 0-9.6 0l1.1 1.2c1-.9 2.3-1.4 3.7-1.4Zm0 3.4c.6 0 1.2.2 1.6.6L8.5 11.8 6.9 10.1c.4-.4 1-.6 1.6-.6Z"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
@@ -93,12 +94,13 @@ img.ava{object-fit:cover}
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.5 2.8v5.7c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.8L12 3Z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.6"/></symbol>
 </svg>
 
-<div class="card">
+<!-- The mark exactly where the app icon has it (apps/mobile/assets/morse-mark.svg). -->
+<section id="avatar"><svg viewBox="0 0 1024 1024"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></svg></section>
+
+<section id="banner">
   <div class="copy">
-    <p class="brand"><span class="tile"><svg><use href="#mark"/></svg></span>Morse</p>
-    <h1>Private messaging, kept honest.</h1>
+    <h1>Private messaging,<br>kept honest.</h1>
     <p class="lead">Only the people in a chat can read it. Not&nbsp;even&nbsp;us.</p>
-    <p class="url">morseapp.io</p>
   </div>
 
   <div class="rig">
@@ -106,7 +108,7 @@ img.ava{object-fit:cover}
     <div class="phone">
       <div class="screen">
         <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
-        <div class="chead"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/ada.jpg" alt=""><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+        <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava">AD</span><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
         <div class="thread">
           <p class="day">Today</p>
           <p class="b in">Did the scans arrive?<small>9:24 AM</small></p>
@@ -121,6 +123,6 @@ img.ava{object-fit:cover}
     </div>
     <p class="float f1"><svg class="ic"><use href="#i-shield"/></svg>Safety number verified</p>
   </div>
-</div>
+</section>
 </body>
 </html>

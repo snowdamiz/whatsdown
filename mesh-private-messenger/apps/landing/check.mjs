@@ -19,6 +19,9 @@ for (const file of pages) {
   const copy = readFileSync(new URL(file, import.meta.url), "utf8").replace(/<(style|script)>[\s\S]*?<\/\1>/g, "");
   // The token is sold on what it does, never on what it might be worth: return talk is how a token becomes a security.
   for (const word of [/military.grade/i, /unbreakable/i, /open.source/i, /audit/i, /invest/i, /profit/i, /\byield/i, /\bAPY\b/, /guarantee/i, /\bprice goes/i]) if (word.test(copy)) problems.push(`${file}: copy says ${word}`);
+  // Link previews fetch the share card from the live site, which serves this directory.
+  const card = copy.match(/property="og:image" content="https:\/\/morseapp\.io\/([^"]+)"/)?.[1];
+  if (!card || !existsSync(new URL(card, import.meta.url))) problems.push(`${file}: og:image ${card ?? "is missing"} isn't a file here`);
 }
 
 const browser = await chromium.launch();
