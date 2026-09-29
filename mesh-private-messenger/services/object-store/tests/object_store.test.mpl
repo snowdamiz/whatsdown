@@ -1,6 +1,21 @@
 import File
-from Objects.Grant import ObjectControl, decode_grant_response, encode_complete, encode_delete, encode_grant, mint_grant
-from Store.Service import complete, delete_object, get_part, grant, initialize, purge_expired, put_part
+from Objects.Grant import (
+  ObjectControl,
+  decode_grant_response,
+  encode_complete,
+  encode_delete,
+  encode_grant,
+  mint_grant
+)
+from Store.Service import (
+  complete,
+  delete_object,
+  get_part,
+  grant,
+  initialize,
+  purge_expired,
+  put_part
+)
 
 fn bytes(value :: Int, length :: Int) -> Bytes!String do
   case Bytes.repeat(value, length) do
@@ -39,7 +54,13 @@ fn upload_range(database_path :: String,
   now :: U64) -> Result<(), String> do
   if part_index > last_part_index do
     Ok(nil)
-  else if put_part(database_path, root, object_id, part_index, capability, body, now).status != 201 do
+  else if put_part(database_path,
+    root,
+    object_id,
+    part_index,
+    capability,
+    body,
+    now).status != 201 do
     Err("test object part upload failed")
   else
     upload_range(database_path,
@@ -64,10 +85,7 @@ fn aggregate_boundaries(database_path :: String, root :: String) -> Result<(), S
   let exact_upload = random_32()?
   let exact_download = random_32()?
   let exact_id = random_32()?
-  let exact_control = ObjectControl {
-    object_id: exact_id,
-    capability: exact_upload
-  }
+  let exact_control = ObjectControl { object_id: exact_id, capability: exact_upload }
   assert(grant(database_path,
     root,
     encode_grant(mint_grant(exact_id,
@@ -81,17 +99,26 @@ fn aggregate_boundaries(database_path :: String, root :: String) -> Result<(), S
     wide("300000")?,
     4).status == 201)
   let maximum_chunk = bytes(3, 65608)?
-  assert(put_part(database_path, root, exact_id, 0, exact_upload, bytes(4, 182)?, wide("100009")?).status == 201)
+  assert(put_part(database_path,
+    root,
+    exact_id,
+    0,
+    exact_upload,
+    bytes(4, 182)?,
+    wide("100009")?).status == 201)
   upload_range(database_path, root, exact_id, exact_upload, maximum_chunk, 1, 256, wide("100009")?)?
-  assert(complete(database_path, root, encode_complete(exact_control)?, wide("100010")?).status == 200)
-  assert(delete_object(database_path, root, encode_delete(exact_control)?, wide("100011")?).status == 204)
+  assert(complete(database_path,
+    root,
+    encode_complete(exact_control)?,
+    wide("100010")?).status == 200)
+  assert(delete_object(database_path,
+    root,
+    encode_delete(exact_control)?,
+    wide("100011")?).status == 204)
   let over_upload = random_32()?
   let over_download = random_32()?
   let over_id = random_32()?
-  let over_control = ObjectControl {
-    object_id: over_id,
-    capability: over_upload
-  }
+  let over_control = ObjectControl { object_id: over_id, capability: over_upload }
   assert(grant(database_path,
     root,
     encode_grant(mint_grant(over_id,
@@ -104,10 +131,25 @@ fn aggregate_boundaries(database_path :: String, root :: String) -> Result<(), S
     wide("100000")?,
     wide("300000")?,
     4).status == 201)
-  assert(put_part(database_path, root, over_id, 0, over_upload, bytes(5, 183)?, wide("100012")?).status == 201)
+  assert(put_part(database_path,
+    root,
+    over_id,
+    0,
+    over_upload,
+    bytes(5, 183)?,
+    wide("100012")?).status == 201)
   upload_range(database_path, root, over_id, over_upload, maximum_chunk, 1, 255, wide("100012")?)?
-  assert(put_part(database_path, root, over_id, 256, over_upload, maximum_chunk, wide("100012")?).status == 413)
-  assert(delete_object(database_path, root, encode_delete(over_control)?, wide("100013")?).status == 204)
+  assert(put_part(database_path,
+    root,
+    over_id,
+    256,
+    over_upload,
+    maximum_chunk,
+    wide("100012")?).status == 413)
+  assert(delete_object(database_path,
+    root,
+    encode_delete(over_control)?,
+    wide("100013")?).status == 204)
   Ok(nil)
 end
 
@@ -150,19 +192,30 @@ fn proof() -> Bool!String do
     upload,
     download,
     4)?)?
-  assert(grant(database_path, root, changed_grant, wide("100000")?, wide("300000")?, 4).status == 409)
+  assert(grant(database_path,
+    root,
+    changed_grant,
+    wide("100000")?,
+    wide("300000")?,
+    4).status == 409)
   let first = Bytes.from_hex("00ff8001")?
   assert(put_part(database_path, root, object_id, 0, wrong, first, wide("100001")?).status == 403)
-  assert(put_part(database_path, root, object_id, 0, upload, bytes(1, 65609)?, wide("100001")?).status == 413)
+  assert(put_part(database_path,
+    root,
+    object_id,
+    0,
+    upload,
+    bytes(1, 65609)?,
+    wide("100001")?).status == 413)
   let upload_now = wide("100001")?
-  let first_job = Job.async(fn () -> put_part(database_path,
+  let first_job = Job.async(fn() -> put_part(database_path,
     root,
     object_id,
     0,
     upload,
     first,
     upload_now).status end)
-  let second_job = Job.async(fn () -> put_part(database_path,
+  let second_job = Job.async(fn() -> put_part(database_path,
     root,
     object_id,
     0,
@@ -171,7 +224,8 @@ fn proof() -> Bool!String do
     upload_now).status end)
   let first_status = await_status(first_job, 0)?
   let second_status = await_status(second_job, 0)?
-  assert((first_status == 201 && second_status == 200) || (first_status == 200 && second_status == 201))
+  assert((first_status == 201 && second_status == 200)
+    || (first_status == 200 && second_status == 201))
   assert(put_part(database_path, root, object_id, 0, upload, first, wide("100002")?).status == 200)
   assert(put_part(database_path,
     root,
@@ -180,10 +234,7 @@ fn proof() -> Bool!String do
     upload,
     Bytes.from_hex("00ff8002")?,
     wide("100002")?).status == 409)
-  let control = ObjectControl {
-    object_id: object_id,
-    capability: upload
-  }
+  let control = ObjectControl { object_id: object_id, capability: upload }
   assert(complete(database_path, root, encode_complete(control)?, wide("100003")?).status == 409)
   initialize(database_path, root)?
   let second = bytes(2, 65608)?
@@ -221,10 +272,7 @@ fn proof() -> Bool!String do
   Pg.close(database)
   assert(delete_object(database_path,
     root,
-    encode_delete(ObjectControl {
-      object_id: object_id,
-      capability: wrong
-    })?,
+    encode_delete(ObjectControl { object_id: object_id, capability: wrong })?,
     wide("100007")?).status == 403)
   assert(delete_object(database_path, root, encode_delete(control)?, wide("100007")?).status == 204)
   assert(get_part(database_path, root, object_id, 1, download, wide("100008")?).status == 404)
@@ -255,14 +303,21 @@ fn proof() -> Bool!String do
     wide("100100")?).status == 201)
   assert(complete(database_path,
     root,
-    encode_complete(ObjectControl {
-      object_id: expiring_id,
-      capability: expiring_upload
-    })?,
+    encode_complete(ObjectControl { object_id: expiring_id, capability: expiring_upload })?,
     wide("100200")?).status == 200)
-  assert(get_part(database_path, root, expiring_id, 0, expiring_download, wide("101000")?).status == 410)
+  assert(get_part(database_path,
+    root,
+    expiring_id,
+    0,
+    expiring_download,
+    wide("101000")?).status == 410)
   assert(purge_expired(database_path, root, wide("101001")?, 1)? == 1)
-  assert(get_part(database_path, root, expiring_id, 0, expiring_download, wide("101001")?).status == 404)
+  assert(get_part(database_path,
+    root,
+    expiring_id,
+    0,
+    expiring_download,
+    wide("101001")?).status == 404)
   case mint_grant(bytes(136, 32)?, 258, wide("700000")?, wide("200000")?, upload, download, 4) do
     Err(_) -> nil
     Ok(_) -> assert(false)

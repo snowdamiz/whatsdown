@@ -1,4 +1,19 @@
-from Groups.Tree import GroupMember, GroupTreeError, TreeKemParentNode, apply_update_path, copath, direct_path, empty_tree, insert_member, member_at, member_count, remove_member, resolution, tree_hash, validate_member
+from Groups.Tree import (
+  GroupMember,
+  GroupTreeError,
+  TreeKemParentNode,
+  apply_update_path,
+  copath,
+  direct_path,
+  empty_tree,
+  insert_member,
+  member_at,
+  member_count,
+  remove_member,
+  resolution,
+  tree_hash,
+  validate_member
+)
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do

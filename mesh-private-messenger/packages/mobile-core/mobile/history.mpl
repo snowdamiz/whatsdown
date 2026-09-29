@@ -38,7 +38,13 @@ from Mobile.Types import (
   MobileSessionRecord
 )
 from Protocol.EnvelopeWire import decode_inner_envelope
-from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, InnerEnvelope, PrekeyBundle
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  DirectoryEntry,
+  InnerEnvelope,
+  PrekeyBundle
+)
 from Session.Handshake import RatchetState
 from Session.Snapshot import SnapshotOutcome, snapshot
 from Storage.Blobs import ensure_schema, load_blob
@@ -61,7 +67,9 @@ fn encode_history_entry(value :: MobileHistoryEntry) -> Bytes!String do
     Bytes.empty())
 end
 
-fn encode_history_parts(values :: List<MobileHistoryEntry>, index :: Int, output :: Bytes) -> Bytes!String do
+fn encode_history_parts(values :: List<MobileHistoryEntry>,
+  index :: Int,
+  output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -95,10 +103,7 @@ fn parse_history_entry(input :: Bytes) -> MobileHistoryEntry!String do
           else
             case decode_inner_envelope(inner.value) do
               Err(_) -> Err("invalid_history")
-              Ok(value) -> Ok(MobileHistoryEntry {
-                direction: direction_value,
-                inner: value
-              })
+              Ok(value) -> Ok(MobileHistoryEntry { direction: direction_value, inner: value })
             end
           end
         end
@@ -169,11 +174,7 @@ pub fn updated_history(database_path :: String,
   let updated = if Bytes.length(body) == 0 && Bytes.length(inner.attachment_manifest) == 0 do
     entries
   else
-    List.append(entries,
-      MobileHistoryEntry {
-        direction: direction,
-        inner: %{inner | body: body}
-      })
+    List.append(entries, MobileHistoryEntry { direction: direction, inner: %{inner | body: body} })
   end
   Ok((List.append(presentation_labels, label),
     List.append(presentation_blobs,
@@ -234,8 +235,18 @@ pub fn decode_conversation_summary(input :: Bytes) -> ConversationSummary!String
       let verified_value = mobile_read_byte(verified.value)?
       let changed_value = mobile_read_byte(key_changed.value)?
       let username_value = mobile_utf8(username.value, "invalid_conversation_summary")?
-      let valid_safety = Bytes.length(safety.value) == 64 || (Bytes.length(safety.value) == 0 && verified_value == 0 && changed_value == 1)
-      let valid = mobile_read_u32(count.value)? == 1 && String.length(username_value) > 0 && Bytes.length(conversation_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && valid_safety && (request_value == 0 || request_value == 1) && blocked_value <= 1 && verified_value <= 1 && changed_value <= 1
+      let valid_safety = Bytes.length(safety.value) == 64
+        || (Bytes.length(safety.value) == 0 && verified_value == 0 && changed_value == 1)
+      let valid = mobile_read_u32(count.value)? == 1
+        && String.length(username_value) > 0
+        && Bytes.length(conversation_id.value) == 16
+        && Bytes.length(peer_account_id.value) == 32
+        && Bytes.length(peer_device_id.value) == 16
+        && valid_safety
+        && (request_value == 0 || request_value == 1)
+        && blocked_value <= 1
+        && verified_value <= 1
+        && changed_value <= 1
       case finish(entry_bytes.state) do
         Err(_) -> Err("invalid_conversation_summary")
         Ok(_) -> case finish(disappearing.state) do
@@ -273,9 +284,8 @@ fn collect_conversations(database_path :: String,
     Ok(values)
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index))?
-    if Bytes.secure_equals(local_account_id, loaded.record.peer_account_id) || contains_session_id(seen_accounts,
-      loaded.record.peer_account_id,
-      0) do
+    if Bytes.secure_equals(local_account_id, loaded.record.peer_account_id)
+      || contains_session_id(seen_accounts, loaded.record.peer_account_id, 0) do
       collect_conversations(database_path,
         wrapping_key,
         local_account_id,
@@ -433,7 +443,9 @@ pub fn conversation_safety(request :: MobilePeerRequest) -> Bytes!String do
   Ok(loaded.record.safety_number)
 end
 
-fn updated_policy(record :: MobileSessionRecord, action :: Int, value :: Int) -> MobileSessionRecord!String do
+fn updated_policy(record :: MobileSessionRecord,
+  action :: Int,
+  value :: Int) -> MobileSessionRecord!String do
   if action == 1 do
     Ok(%{record | request_state: 1})
   else if action == 2 do
@@ -508,7 +520,8 @@ fn accepted_request_blobs(database_path :: String,
     Ok((labels, blobs))
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index))?
-    if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) && loaded.record.request_state != 1 do
+    if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id)
+      && loaded.record.request_state != 1 do
       let record = %{loaded.record | request_state: 1}
       let blob = seal_local(updated_session_record(record.snapshot, record)?,
         wrapping_key,

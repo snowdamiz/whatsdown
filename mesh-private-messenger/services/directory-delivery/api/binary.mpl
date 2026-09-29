@@ -1,22 +1,66 @@
 from Storage.Transparency import transparency_username
-from Protocol.DirectoryWire import decode_account_deletion, decode_device_departure, decode_device_revocation, decode_directory_entry
+from Protocol.DirectoryWire import (
+  decode_account_deletion,
+  decode_device_departure,
+  decode_device_revocation,
+  decode_directory_entry
+)
 from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.MailboxWire import decode_mailbox_ack, decode_mailbox_fetch, encode_delivery_batch
 from Protocol.PrekeyWire import encode_prekey_bundle
 from Protocol.V1 import MailboxAck, MailboxFetch
-from Prekeys.Pool import PrekeyPublishResponse, decode_prekey_claim, decode_prekey_publish, encode_prekey_publish_response
-from Privacy.Edge import RequestStamp, decode_sealed_delivery, decode_stamped_request, open_delivery, open_delivery_with_key, request_stamp_key, verify_request_stamp
+from Prekeys.Pool import (
+  PrekeyPublishResponse,
+  decode_prekey_claim,
+  decode_prekey_publish,
+  encode_prekey_publish_response
+)
+from Privacy.Edge import (
+  RequestStamp,
+  decode_sealed_delivery,
+  decode_stamped_request,
+  open_delivery,
+  open_delivery_with_key,
+  request_stamp_key,
+  verify_request_stamp
+)
 from Push.Binding import decode_push_bind, decode_push_unbind
 from Storage.Delivery import DeliveryInsert, acknowledge_mailbox, enqueue_envelope, fetch_mailbox
 from Storage.MailboxAuth import authorize_mailbox_ack, authorize_mailbox_fetch
 from Runtime.MailboxStream import wake_mailbox
-from Storage.Devices import AccountRemoval, DeviceWrite, delete_account, leave_device, register_device, resolve_devices, revoke_device
+from Storage.Devices import (
+  AccountRemoval,
+  DeviceWrite,
+  delete_account,
+  leave_device,
+  register_device,
+  resolve_devices,
+  revoke_device
+)
 from Storage.Push import PushWrite, bind_push, unbind_push
 from Storage.RateLimit import allow_request
 from Storage.Prekeys import PrekeyClaimWrite, PrekeyPublishWrite, claim_prekey, publish_prekeys
-from Storage.Transparency import consistency_from, configured_evidence_for_username, create_configured_checkpoint, latest_checkpoint, store_witness, validate_signing_config, witnesses_for_checkpoint
+from Storage.Transparency import (
+  consistency_from,
+  configured_evidence_for_username,
+  create_configured_checkpoint,
+  latest_checkpoint,
+  store_witness,
+  validate_signing_config,
+  witnesses_for_checkpoint
+)
 from Transparency.Merkle import WitnessKey
-from Transparency.Wire import decode_transparency_evidence, decode_transparency_lookup, decode_transparency_tree_query, decode_witnesses, encode_checkpoint, encode_consistency_proof, encode_inclusion_proof, encode_transparency_evidence, encode_witnesses
+from Transparency.Wire import (
+  decode_transparency_evidence,
+  decode_transparency_lookup,
+  decode_transparency_tree_query,
+  decode_witnesses,
+  encode_checkpoint,
+  encode_consistency_proof,
+  encode_inclusion_proof,
+  encode_transparency_evidence,
+  encode_witnesses
+)
 
 pub struct BinaryResult do
   status :: Int
@@ -24,10 +68,7 @@ pub struct BinaryResult do
 end
 
 fn response(status :: Int, body :: Bytes) -> BinaryResult do
-  BinaryResult {
-    status: status,
-    body: body
-  }
+  BinaryResult { status: status, body: body }
 end
 
 fn empty(status :: Int) -> BinaryResult do
@@ -74,7 +115,9 @@ end
 # A spent stamp is remembered for longer than it stays valid, so it admits one
 # request only.
 
-pub fn spend_request(pool :: PoolHandle, payload :: Bytes, spent_key :: Bytes) -> Admission!String do
+pub fn spend_request(pool :: PoolHandle,
+  payload :: Bytes,
+  spent_key :: Bytes) -> Admission!String do
   if allow_request(pool, spent_key, 1, 600)? do
     Ok(Admitted(payload))
   else
@@ -139,7 +182,9 @@ pub fn resolve_devices_request(pool :: PoolHandle, body :: Bytes) -> BinaryResul
   end
 end
 
-fn resolved_device_evidence(pool :: PoolHandle, username :: String, previous_tree_size :: Int) -> BinaryResult do
+fn resolved_device_evidence(pool :: PoolHandle,
+  username :: String,
+  previous_tree_size :: Int) -> BinaryResult do
   case resolve_devices(pool, username) do
     Err(_) -> empty(500)
     Ok(None) -> empty(404)
@@ -308,7 +353,7 @@ pub fn delete_account_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult
       Err(_) -> empty(500)
       Ok(AccountRemoved(mailboxes)) -> do
         # Its other devices fetch at once, fail, reconnect, and are told why.
-        List.map(mailboxes, fn (mailbox) -> wake_mailbox(mailbox) end)
+        List.map(mailboxes, fn(mailbox) -> wake_mailbox(mailbox) end)
         empty(204)
       end
       Ok(AccountRemovalRefused) -> empty(403)
@@ -347,7 +392,9 @@ pub fn submit_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
   end
 end
 
-pub fn submit_sealed_request(pool :: PoolHandle, body :: Bytes, private_seed :: Bytes) -> BinaryResult do
+pub fn submit_sealed_request(pool :: PoolHandle,
+  body :: Bytes,
+  private_seed :: Bytes) -> BinaryResult do
   case decode_sealed_delivery(body) do
     Err(_) -> empty(400)
     Ok(sealed) -> case open_delivery(sealed, private_seed) do
@@ -357,7 +404,9 @@ pub fn submit_sealed_request(pool :: PoolHandle, body :: Bytes, private_seed :: 
   end
 end
 
-fn submit_sealed_with_key(pool :: PoolHandle, body :: Bytes, private_key :: borrow X25519PrivateKey) -> BinaryResult do
+fn submit_sealed_with_key(pool :: PoolHandle,
+  body :: Bytes,
+  private_key :: borrow X25519PrivateKey) -> BinaryResult do
   case decode_sealed_delivery(body) do
     Err(_) -> empty(400)
     Ok(sealed) -> case open_delivery_with_key(sealed, private_key) do

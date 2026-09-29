@@ -61,7 +61,9 @@ from Groups.Tree import (
   tree_hash
 )
 
-pub fn group_encode_members(values :: List<IndexedGroupMember>, index :: Int, output :: Bytes) -> Bytes!GroupError do
+pub fn group_encode_members(values :: List<IndexedGroupMember>,
+  index :: Int,
+  output :: Bytes) -> Bytes!GroupError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -86,10 +88,7 @@ pub fn group_read_members(state :: BinaryReader,
   if count <= 0 || count > 64 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadMembers {
-      state: state,
-      value: output
-    })
+    Ok(GroupReadMembers { state: state, value: output })
   else
     let leaf = group_wire_u16(state)?
     let member = group_wire_vector(leaf.state, 251)?
@@ -109,7 +108,9 @@ pub fn group_read_members(state :: BinaryReader,
   end
 end
 
-pub fn group_encode_parents(values :: List<TreeKemParentNode>, index :: Int, output :: Bytes) -> Bytes!GroupError do
+pub fn group_encode_parents(values :: List<TreeKemParentNode>,
+  index :: Int,
+  output :: Bytes) -> Bytes!GroupError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -138,10 +139,7 @@ pub fn group_public_update_nodes(values :: List<TreeKemParentNode>,
     group_public_update_nodes(values,
       index + 1,
       List.append(output,
-        TreeKemUpdateNode {
-          parent: List.get(values, index),
-          ciphertexts: List.new()
-        }))
+        TreeKemUpdateNode { parent: List.get(values, index), ciphertexts: List.new() }))
   end
 end
 
@@ -153,10 +151,7 @@ pub fn group_read_parents(state :: BinaryReader,
   if count < 0 || count > 63 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadParents {
-      state: state,
-      value: output
-    })
+    Ok(GroupReadParents { state: state, value: output })
   else
     let node_index = group_wire_u16(state)?
     let public_key = group_wire_fixed(node_index.state, 32)?
@@ -183,7 +178,9 @@ pub fn group_read_parents(state :: BinaryReader,
   end
 end
 
-pub fn group_joiner_level(committer_leaf :: Int, recipient_leaf :: Int, index :: Int) -> Int!GroupError do
+pub fn group_joiner_level(committer_leaf :: Int,
+  recipient_leaf :: Int,
+  index :: Int) -> Int!GroupError do
   let path = group_tree_path_error(direct_path(committer_leaf))?
   if index >= List.length(path) do
     Err(InvalidGroup)
@@ -205,7 +202,9 @@ fn same_member(left :: GroupMember, right :: GroupMember) -> Bool!GroupError do
     end?))
 end
 
-fn welcome_proposal_matches(value :: GroupProposal, tree :: borrow GroupTree, recipient_leaf :: Int) -> Bool!GroupError do
+fn welcome_proposal_matches(value :: GroupProposal,
+  tree :: borrow GroupTree,
+  recipient_leaf :: Int) -> Bool!GroupError do
   case value do
     AddMember(leaf, added) -> if leaf != recipient_leaf do
       Ok(false)
@@ -222,7 +221,9 @@ end
 
 pub fn group_validate_welcome_shape(value :: GroupWelcome) -> Result<(), GroupError> do
   group_validate_commit_shape(value.commit)?
-  if !group_valid_extensions(value.extensions, 0, 0) || value.recipient_leaf < 0 || value.recipient_leaf >= 64 do
+  if !group_valid_extensions(value.extensions, 0, 0)
+    || value.recipient_leaf < 0
+    || value.recipient_leaf >= 64 do
     Err(InvalidGroup)
   else
     group_validate_policy(value.policy)?
@@ -231,13 +232,18 @@ pub fn group_validate_welcome_shape(value :: GroupWelcome) -> Result<(), GroupEr
     let proposal_matches = welcome_proposal_matches(value.commit.proposal,
       group_tree,
       value.recipient_leaf)?
-    if !proposal_matches || !Bytes.secure_equals(tree_hash(group_tree), value.commit.tree_hash) || value.commit.committer_leaf == value.recipient_leaf || value.joiner_path_level != group_joiner_level(value.commit.committer_leaf,
-      value.recipient_leaf,
-      0)? || Bytes.length(value.joiner_path_secret) != 80 || Bytes.length(value.joiner_epoch_secret) != (if value.commit.version == 2 do
-      80
-    else
-      0
-    end) do
+    if !proposal_matches
+      || !Bytes.secure_equals(tree_hash(group_tree), value.commit.tree_hash)
+      || value.commit.committer_leaf == value.recipient_leaf
+      || value.joiner_path_level != group_joiner_level(value.commit.committer_leaf,
+          value.recipient_leaf,
+          0)?
+      || Bytes.length(value.joiner_path_secret) != 80
+      || Bytes.length(value.joiner_epoch_secret) != (if value.commit.version == 2 do
+          80
+        else
+          0
+        end) do
       Err(InvalidGroup)
     else
       let committer = group_tree_member_error(member_at(group_tree, value.commit.committer_leaf))?

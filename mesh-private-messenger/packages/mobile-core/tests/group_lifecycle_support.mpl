@@ -10,7 +10,12 @@ from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
 from Protocol.IdentityWire import decode_account_identity, decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle
 from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceSet, DirectoryEntry, PrekeyBundle
-from Tests.GroupConsistencySupport import SignedTransparencyViewFixture, request, signed_transparency_view, wide
+from Tests.GroupConsistencySupport import (
+  SignedTransparencyViewFixture,
+  request,
+  signed_transparency_view,
+  wide
+)
 from Tests.Support import database_path
 from Transparency.Merkle import leaf_hash
 

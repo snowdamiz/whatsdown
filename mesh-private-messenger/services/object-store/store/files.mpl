@@ -7,9 +7,14 @@ pub fn maximum_part_bytes() -> Int = 65608
 pub fn maximum_object_bytes() -> Int = 16795830
 
 fn valid_root(root :: String) -> Bool do
-  String.length(root) > 1 && String.length(root) <= 4096 && (String.starts_with(root, "/") || remote(root)) && !String.ends_with(root,
-    "/") && !String.contains(root, "/../") && !String.ends_with(root, "/..") && !String.contains(root,
-    "/./") && !String.ends_with(root, "/.")
+  String.length(root) > 1
+    && String.length(root) <= 4096
+    && (String.starts_with(root, "/") || remote(root))
+    && !String.ends_with(root, "/")
+    && !String.contains(root, "/../")
+    && !String.ends_with(root, "/..")
+    && !String.contains(root, "/./")
+    && !String.ends_with(root, "/.")
 end
 
 fn remote(path :: String) -> Bool do
@@ -17,8 +22,10 @@ fn remote(path :: String) -> Bool do
 end
 
 pub fn validate_paths(database_path :: String, root :: String) -> Result<(), String> do
-  if !(String.starts_with(database_path, "postgres://") || String.starts_with(database_path,
-    "postgresql://")) || String.length(database_path) > 4096 || !valid_root(root) do
+  if !(String.starts_with(database_path, "postgres://")
+    || String.starts_with(database_path, "postgresql://"))
+    || String.length(database_path) > 4096
+    || !valid_root(root) do
     Err("invalid object storage configuration")
   else if remote(root) do
     Ok(nil)
@@ -109,7 +116,8 @@ pub fn read_part_file(path :: String, expected_size :: Int) -> Option<Bytes> do
       |> Http.send()
     return case result do
       Err(_) -> None
-      Ok(response) -> if response.status == 200 && Bytes.length(response.body_bytes) == expected_size do
+      Ok(response) -> if response.status == 200
+        && Bytes.length(response.body_bytes) == expected_size do
         Some(response.body_bytes)
       else
         None
@@ -143,7 +151,10 @@ pub fn read_part_file(path :: String, expected_size :: Int) -> Option<Bytes> do
   end
 end
 
-pub fn remove_parts(root :: String, object_id :: Bytes, part_count :: Int, index :: Int) -> Result<(), String> do
+pub fn remove_parts(root :: String,
+  object_id :: Bytes,
+  part_count :: Int,
+  index :: Int) -> Result<(), String> do
   if index >= part_count do
     Ok(nil)
   else

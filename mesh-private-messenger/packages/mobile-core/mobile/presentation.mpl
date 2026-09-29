@@ -1,6 +1,16 @@
 from Mobile.Profile import load_profile
 from Transport.Packet import decode_client_profile
-from Mobile.Codec import mobile_read_u64, mobile_wide, mobile_reader, mobile_finish, mobile_utf8, mobile_join, mobile_vector, take_optional_vector, take_vector
+from Mobile.Codec import (
+  mobile_read_u64,
+  mobile_wide,
+  mobile_reader,
+  mobile_finish,
+  mobile_utf8,
+  mobile_join,
+  mobile_vector,
+  take_optional_vector,
+  take_vector
+)
 from Mobile.Types import MobilePayloadRequest, MobileTriplePayloadRequest
 from Storage.Blobs import load_blob
 from Storage.Keys import local_context, open_local, platform_key, seal_local
@@ -26,8 +36,10 @@ pub fn presentation_fields(input :: Bytes) -> PresentationFields!String do
   let avatar = take_vector(name.state, 12288)?
   let name_text = mobile_utf8(name.value, "invalid_presentation")?
   let avatar_text = mobile_utf8(avatar.value, "invalid_presentation")?
-  if String.length(String.trim(name_text)) == 0 || Regex.is_match(~r/[\x00-\x1f\x7f]/, name_text) || (Bytes.length(avatar.value) > 0 && !Regex.is_match(~r/^data:image\/jpeg;base64,[A-Za-z0-9+\/]+={0,2}$/,
-    avatar_text)) do
+  if String.length(String.trim(name_text)) == 0
+    || Regex.is_match(~r/[\x00-\x1f\x7f]/, name_text)
+    || (Bytes.length(avatar.value) > 0
+      && !Regex.is_match(~r/^data:image\/jpeg;base64,[A-Za-z0-9+\/]+={0,2}$/, avatar_text)) do
     return Err("invalid_presentation")
   end
   let plain = PresentationFields {
@@ -54,8 +66,10 @@ pub fn presentation_fields(input :: Bytes) -> PresentationFields!String do
   mobile_finish(roles.state, "invalid_presentation")?
   let text = mobile_utf8(community.value, "invalid_presentation")?
   let ids = role_ids(roles.value, 0, [])?
-  if Bytes.length(community.value) == 0 || Regex.is_match(~r/[\x00-\x1f\x7f]/, text) || List.length(ids) == 0 || !ascending_admins(ids,
-    1) do
+  if Bytes.length(community.value) == 0
+    || Regex.is_match(~r/[\x00-\x1f\x7f]/, text)
+    || List.length(ids) == 0
+    || !ascending_admins(ids, 1) do
     return Err("invalid_presentation")
   end
   Ok(PresentationFields {
@@ -81,8 +95,9 @@ end
 fn ascending_admins(ids :: List<Bytes>, index :: Int) -> Bool do
   if index >= List.length(ids) do
     true
-  else if Bytes.secure_equals(List.get(ids, index), List.head(ids)) || (index > 1 && Bytes.to_hex(List.get(ids,
-    index - 1)) >= Bytes.to_hex(List.get(ids, index))) do
+  else if Bytes.secure_equals(List.get(ids, index), List.head(ids))
+    || (index > 1
+      && Bytes.to_hex(List.get(ids, index - 1)) >= Bytes.to_hex(List.get(ids, index))) do
     false
   else
     ascending_admins(ids, index + 1)
@@ -95,17 +110,18 @@ pub fn presentation_data(input :: Bytes) -> Bytes!String do
 end
 
 fn record_holds_role(fields :: PresentationFields, account :: Bytes) -> Bool do
-  Bytes.secure_equals(fields.owner, account) || List.any(fields.admins,
-    fn (admin) do Bytes.secure_equals(admin, account) end)
+  Bytes.secure_equals(fields.owner, account)
+    || List.any(fields.admins, fn(admin) do Bytes.secure_equals(admin, account) end)
 end
 
 fn same_roles(left :: PresentationFields, right :: PresentationFields) -> Bool do
-  Bytes.secure_equals(left.owner, right.owner) && List.length(left.admins) == List.length(right.admins) && List.all(List.zip(left.admins,
-      right.admins),
-    fn (pair) do
-      let (a, b) = pair
-      Bytes.secure_equals(a, b)
-    end)
+  Bytes.secure_equals(left.owner, right.owner)
+    && List.length(left.admins) == List.length(right.admins)
+    && List.all(List.zip(left.admins, right.admins),
+      fn(pair) do
+        let (a, b) = pair
+        Bytes.secure_equals(a, b)
+      end)
 end
 
 # Who may replace a group's record. A plain group's is its creator's. A member
@@ -209,7 +225,9 @@ pub fn store_group_anchor(database_path :: String,
   Ok(nil)
 end
 
-fn load_group_anchor(database_path :: String, wrapping_key :: borrow StorageKey, group_id :: Bytes) -> Bytes!String do
+fn load_group_anchor(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  group_id :: Bytes) -> Bytes!String do
   let label = group_anchor_label(group_id)
   case load_blob(database_path, label) do
     Err(error) -> if error == "local_state_not_found" do
@@ -285,8 +303,9 @@ fn save_record(database_path :: String,
     presentation_data(data)?
   end
   let previous = load_presentation_record(database_path, wrapping_key, key)?
-  if Bytes.secure_equals(previous, checked) || (!nickname && U64.compare(presentation_revision(previous)?,
-    presentation_revision(checked)?) > 0) do
+  if Bytes.secure_equals(previous, checked)
+    || (!nickname
+      && U64.compare(presentation_revision(previous)?, presentation_revision(checked)?) > 0) do
     Ok(previous)
   else
     store_updated_session(database_path,
@@ -380,12 +399,14 @@ pub fn presented_message_writes(database_path :: String,
             wrapping_key,
             Bytes.from_utf8("user/" <> Bytes.to_hex(sender_id)),
             profile)?
-          if Bytes.length(group_id) == 32 && Bytes.length(group) > 0 && group_record_allowed(database_path,
-            wrapping_key,
-            group_id,
-            sender_id,
-            creator_id,
-            group)? do
+          if Bytes.length(group_id) == 32
+            && Bytes.length(group) > 0
+            && group_record_allowed(database_path,
+              wrapping_key,
+              group_id,
+              sender_id,
+              creator_id,
+              group)? do
             let (group_labels, group_blobs) = presentation_update(database_path,
               wrapping_key,
               Bytes.from_utf8("group/" <> Bytes.to_hex(group_id)),
@@ -409,8 +430,8 @@ fn presentation_update(database_path :: String,
   data :: Bytes) -> Result<(List<String>, List<Bytes>), String> do
   let label = presentation_label(key)?
   let previous = load_presentation_record(database_path, wrapping_key, key)?
-  if Bytes.secure_equals(previous, data) || U64.compare(presentation_revision(previous)?,
-    presentation_revision(data)?) > 0 do
+  if Bytes.secure_equals(previous, data)
+    || U64.compare(presentation_revision(previous)?, presentation_revision(data)?) > 0 do
     Ok(([], []))
   else
     Ok(([label], [seal_local(data, wrapping_key, local_context(label)?)?]))

@@ -1,6 +1,34 @@
 from Transparency.Client import checkpoint_fresh_at, verify_evidence
-from Transparency.Merkle import WitnessAttestation, WitnessKey, checkpoint_conflict, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, merkle_root, sign_checkpoint, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
-from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_transparency_evidence, decode_transparency_lookup, decode_transparency_tree_query, decode_witnesses, encode_checkpoint, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query, encode_witnesses
+from Transparency.Merkle import (
+  WitnessAttestation,
+  WitnessKey,
+  checkpoint_conflict,
+  checkpoint_hash,
+  consistency_proof,
+  inclusion_proof,
+  leaf_hash,
+  merkle_root,
+  sign_checkpoint,
+  sign_witness,
+  verify_checkpoint,
+  verify_consistency,
+  verify_inclusion,
+  verify_witnesses
+)
+from Transparency.Wire import (
+  TransparencyEvidence,
+  TransparencyLookup,
+  TransparencyTreeQuery,
+  decode_transparency_evidence,
+  decode_transparency_lookup,
+  decode_transparency_tree_query,
+  decode_witnesses,
+  encode_checkpoint,
+  encode_transparency_evidence,
+  encode_transparency_lookup,
+  encode_transparency_tree_query,
+  encode_witnesses
+)
 from Protocol.DirectoryWire import encode_device_set
 from Protocol.V1 import DeviceSet, DirectoryEntry
 
@@ -49,7 +77,8 @@ fn maximal_revocations(index :: Int, output :: List<Bytes>) -> List<Bytes>!Strin
   end
 end
 
-fn maximal_witnesses(index :: Int, output :: List<WitnessAttestation>) -> List<WitnessAttestation>!String do
+fn maximal_witnesses(index :: Int,
+  output :: List<WitnessAttestation>) -> List<WitnessAttestation>!String do
   if index >= 16 do
     Ok(output)
   else
@@ -205,14 +234,8 @@ fn transparency_proof() -> Bool!String do
   let attestation_a = sign_witness("witness-a", witness_a_private, second_checkpoint)?
   let attestation_b = sign_witness("witness-b", witness_b_private, second_checkpoint)?
   let trusted_witnesses = [
-    WitnessKey {
-      witness_id: "witness-a",
-      public_key: witness_a_public.bytes
-    },
-    WitnessKey {
-      witness_id: "witness-b",
-      public_key: witness_b_public.bytes
-    }
+    WitnessKey { witness_id: "witness-a", public_key: witness_a_public.bytes },
+    WitnessKey { witness_id: "witness-b", public_key: witness_b_public.bytes }
   ]
   assert(verify_witnesses(second_checkpoint, [attestation_a, attestation_b], trusted_witnesses, 2)?)
   assert(!verify_witnesses(second_checkpoint, [attestation_a], trusted_witnesses, 2)?)
@@ -221,7 +244,9 @@ fn transparency_proof() -> Bool!String do
     previous_tree_size: 2
   })?)?
   assert(lookup.username == "alice" && lookup.previous_tree_size == 2)
-  assert(decode_transparency_tree_query(encode_transparency_tree_query(TransparencyTreeQuery { previous_tree_size: 2 })?)?.previous_tree_size == 2)
+  assert(decode_transparency_tree_query(encode_transparency_tree_query(TransparencyTreeQuery {
+    previous_tree_size: 2
+  })?)?.previous_tree_size == 2)
   let evidence = decode_transparency_evidence(encode_transparency_evidence(TransparencyEvidence {
     entry_bytes: Bytes.from_utf8("alice/device-set/2"),
     inclusion: inclusion,

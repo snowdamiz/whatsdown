@@ -13,7 +13,10 @@ fn repeated(value :: Int, length :: Int) -> Bytes!String do
   end
 end
 
-fn stamped(label :: String, payload :: Bytes, expires_at :: U64, difficulty :: Int) -> Bytes!String do
+fn stamped(label :: String,
+  payload :: Bytes,
+  expires_at :: U64,
+  difficulty :: Int) -> Bytes!String do
   encode_stamped_request(mint_request_stamp(label, payload, expires_at, difficulty)?, payload)
 end
 
@@ -87,7 +90,12 @@ fn proof() -> Bool!String do
     8)? == 2)
   # An unstamped or oversized body never reaches the directory.
   assert(outcome(pool, resolve, payload, payload, now, 8)? == 1)
-  assert(outcome(pool, resolve, stamped(resolve, repeated(1, 201)?, soon, 8)?, payload, now, 8)? == 1)
+  assert(outcome(pool,
+    resolve,
+    stamped(resolve, repeated(1, 201)?, soon, 8)?,
+    payload,
+    now,
+    8)? == 1)
   # Spent stamps are forgotten once they can no longer be replayed, so the
   # table cannot grow without bound.
   assert(count(pool)? == 1)

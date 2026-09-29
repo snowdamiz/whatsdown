@@ -83,20 +83,14 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid push binding wire")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt!String do
   case read_u8(state) do
     Err(_) -> Err("invalid push binding wire")
-    Ok((next, value)) -> Ok(ReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
   end
 end
 
@@ -104,20 +98,14 @@ fn take_u64(state :: BinaryReader) -> ReadWide!String do
   let value = take_fixed(state, 8)?
   case Bytes.read_u64_be(value.value, 0) do
     Err(_) -> Err("invalid push binding revision")
-    Ok(revision) -> Ok(ReadWide {
-      state: value.state,
-      value: revision
-    })
+    Ok(revision) -> Ok(ReadWide { state: value.state, value: revision })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid push binding wire")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -136,8 +124,13 @@ end
 
 fn bind_content(value :: PushBindRequest) -> Bytes!String do
   let ciphertext_length = Bytes.length(value.provider_token_ciphertext)
-  if Bytes.length(value.mailbox_token_hash) != 32 || Bytes.length(value.wake_token_hash) != 32 || Bytes.secure_equals(value.mailbox_token_hash,
-    value.wake_token_hash) || !(valid_revision(value.revision)?) || value.provider != 1 || ciphertext_length > 580 || !valid_sealed_provider_token(value.provider_token_ciphertext) do
+  if Bytes.length(value.mailbox_token_hash) != 32
+    || Bytes.length(value.wake_token_hash) != 32
+    || Bytes.secure_equals(value.mailbox_token_hash, value.wake_token_hash)
+    || !(valid_revision(value.revision)?)
+    || value.provider != 1
+    || ciphertext_length > 580
+    || !valid_sealed_provider_token(value.provider_token_ciphertext) do
     Err("invalid push binding")
   else
     join([

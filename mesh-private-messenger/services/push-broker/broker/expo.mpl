@@ -11,10 +11,13 @@ pub fn expo_message(token :: Bytes) -> String!String do
     Err(_) -> Err("invalid provider token")
     Ok(output)
   end?
-  Ok("{\"to\":" <> Json.encode_string(value) <> ",\"contentAvailable\":true,\"priority\":\"normal\",\"data\":{\"kind\":\"encrypted-wakeup\"}}")
+  Ok("{\"to\":"
+    <> Json.encode_string(value)
+    <> ",\"contentAvailable\":true,\"priority\":\"normal\",\"data\":{\"kind\":\"encrypted-wakeup\"}}")
 end
 
-pub fn prepare_expo_request_with_key(input :: Bytes, broker_private_key :: borrow X25519PrivateKey) -> String!String do
+pub fn prepare_expo_request_with_key(input :: Bytes,
+  broker_private_key :: borrow X25519PrivateKey) -> String!String do
   if Bytes.length(input) > 621 do
     Err("invalid push request")
   else

@@ -1,5 +1,12 @@
 from Storage.MailboxAuth import bundle_signing_public_key
-from Push.Binding import PushBindRequest, PushUnbindRequest, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
+from Push.Binding import (
+  PushBindRequest,
+  PushUnbindRequest,
+  encode_push_bind,
+  encode_push_unbind,
+  push_bind_signing_bytes,
+  push_unbind_signing_bytes
+)
 
 pub type PushWrite do
   PushAccepted
@@ -94,7 +101,7 @@ end
 
 pub fn bind_push(pool :: PoolHandle, request :: PushBindRequest) -> PushWrite!String do
   encode_push_bind(request)?
-  Repo.transaction(pool, fn (conn :: borrow PgConn) -> bind_on_connection(conn, request) end)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> bind_on_connection(conn, request) end)
 end
 
 fn unbind_on_connection(conn :: borrow PgConn, request :: PushUnbindRequest) -> PushWrite!String do
@@ -126,10 +133,11 @@ end
 
 pub fn unbind_push(pool :: PoolHandle, request :: PushUnbindRequest) -> PushWrite!String do
   encode_push_unbind(request)?
-  Repo.transaction(pool, fn (conn :: borrow PgConn) -> unbind_on_connection(conn, request) end)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> unbind_on_connection(conn, request) end)
 end
 
-fn find_on_connection(conn :: borrow PgConn, mailbox_token_hash :: Bytes) -> Option<ProviderPushBinding>!String do
+fn find_on_connection(conn :: borrow PgConn,
+  mailbox_token_hash :: Bytes) -> Option<ProviderPushBinding>!String do
   let rows = Pg.query_values(conn,
     "SELECT binding.wake_token_hash, binding.provider::text, binding.provider_token_ciphertext FROM messenger_push_bindings AS binding JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = binding.mailbox_token_hash AND mailbox.active WHERE binding.mailbox_token_hash = $1 AND binding.disabled_at IS NULL",
     [Binary(mailbox_token_hash)])?
@@ -144,11 +152,12 @@ fn find_on_connection(conn :: borrow PgConn, mailbox_token_hash :: Bytes) -> Opt
   end
 end
 
-pub fn find_push_binding_for_mailbox(pool :: PoolHandle, mailbox_token_hash :: Bytes) -> Option<ProviderPushBinding>!String do
+pub fn find_push_binding_for_mailbox(pool :: PoolHandle,
+  mailbox_token_hash :: Bytes) -> Option<ProviderPushBinding>!String do
   if Bytes.length(mailbox_token_hash) != 32 do
     Err("invalid mailbox token hash")
   else
     Repo.transaction(pool,
-      fn (conn :: borrow PgConn) -> find_on_connection(conn, mailbox_token_hash) end)
+      fn(conn :: borrow PgConn) -> find_on_connection(conn, mailbox_token_hash) end)
   end
 end

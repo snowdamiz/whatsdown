@@ -1,7 +1,16 @@
 import RuntimeJobs
 from Broker.Expo import BrokerOutcome
 from Broker.Queue import initialize, transaction_in_progress
-from Broker.Service import run_scheduled, accept_durable_with_key, access_token, broker_private_key, internal_token, outcome_status, provider_url, start_worker
+from Broker.Service import (
+  run_scheduled,
+  accept_durable_with_key,
+  access_token,
+  broker_private_key,
+  internal_token,
+  outcome_status,
+  provider_url,
+  start_worker
+)
 
 fn fatal(message :: String) do
   io_eprintln(message)
@@ -26,8 +35,8 @@ end
 
 fn configured_queue_path() -> String!String do
   let path = Env.get("MESSENGER_PUSH_BROKER_DATABASE_URL", "")
-  if String.length(path) > 4096 || !(String.starts_with(path, "postgres://") || String.starts_with(path,
-    "postgresql://")) do
+  if String.length(path) > 4096
+    || !(String.starts_with(path, "postgres://") || String.starts_with(path, "postgresql://")) do
     Err("invalid broker database URL")
   else
     Ok(path)

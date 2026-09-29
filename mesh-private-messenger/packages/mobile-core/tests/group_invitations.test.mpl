@@ -3,7 +3,11 @@ from Mobile.Codec import encode_output_list
 from Mobile.Fanout import send_fanout_control
 from Mobile.Types import MobileFanoutRequest
 from Mobile.GroupInvitesState import GroupInvitation, load_invitations, accepted_invitation_scope
-from Mobile.GroupState import decode_group_packet, decode_group_welcome_packet, canonical_group_welcome
+from Mobile.GroupState import (
+  decode_group_packet,
+  decode_group_welcome_packet,
+  canonical_group_welcome
+)
 from Mobile.Profile import load_profile, open_device
 from Mobile.Types import MobileGroupPacket, MobileGroupWelcomePacket
 from Groups.Mls import GroupWelcome, GroupCommit
@@ -122,7 +126,12 @@ fn proof(malformed_first :: Bool) -> Bool!String do
     assert(List.length(output_list(group_invitations_export(bob_path)?)?) == 0)
   end
   let group = group_create_export(alice_path)?
-  let invite = output_list(group_invite_export(group_vectors([alice_path, bob_set, alice_set, group])?)?)?
+  let invite = output_list(group_invite_export(group_vectors([
+    alice_path,
+    bob_set,
+    alice_set,
+    group
+  ])?)?)?
   assert(List.length(invite) == 1)
   if malformed_first do
     receive_message_export(group_vectors([bob_path, List.head(invite)])?)
@@ -188,7 +197,7 @@ fn proof(malformed_first :: Bool) -> Bool!String do
   let original = canonical_group_welcome(encoded_welcome.welcome)?
   let fake_key = SigningPublicKey { bytes: repeated(9, 32)? }
   let substituted = List.map(original.members,
-    fn (member) do
+    fn(member) do
       if member.leaf_index == original.commit.committer_leaf do
         %{member | member: %{member.member | signing_public_key: fake_key}}
       else
@@ -208,7 +217,11 @@ fn proof(malformed_first :: Bool) -> Bool!String do
   assert(List.length(output_list(group_list_export(bob_path)?)?) == 1)
   assert(List.length(output_list(group_invitations_export(bob_path)?)?) == 0)
   assert(List.length(output_list(group_invitation_complete_export(complete_request)?)?) == 0)
-  case send_message_export(group_vectors([bob_path, alice_profile, Bytes.from_utf8("unaccepted DM")])?) do
+  case send_message_export(group_vectors([
+    bob_path,
+    alice_profile,
+    Bytes.from_utf8("unaccepted DM")
+  ])?) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "message_request_pending")
   end
@@ -225,7 +238,12 @@ fn proof(malformed_first :: Bool) -> Bool!String do
   let next_reference = List.get(next_record, 0)
   group_invitation_decline_export(group_vectors([bob_path, next_reference])?)?
   assert(List.length(output_list(group_invitations_export(bob_path)?)?) == 0)
-  case group_invitation_accept_export(group_vectors([bob_path, alice_set, bob_set, next_reference])?) do
+  case group_invitation_accept_export(group_vectors([
+    bob_path,
+    alice_set,
+    bob_set,
+    next_reference
+  ])?) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "invalid_group_invitation")
   end

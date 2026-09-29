@@ -1,5 +1,10 @@
 from Runtime.MailboxStream import mailbox_stream_room
-from Tests.MailboxSupport import mailbox_test_now, register_test_mailbox, signed_fetch, signed_fetch_at
+from Tests.MailboxSupport import (
+  mailbox_test_now,
+  register_test_mailbox,
+  signed_fetch,
+  signed_fetch_at
+)
 
 fn rejected(value :: String!String) -> Bool do
   case value do

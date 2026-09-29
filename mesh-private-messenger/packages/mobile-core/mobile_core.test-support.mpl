@@ -161,7 +161,8 @@ from Transport.Recipient import seal_recipient_packet
 from Mobile.Transport import MobileOpenedPacket, open_outer_packet
 from Protocol.HandshakeWire import decode_initial_message
 
-pub fn remove_safety_binding_for_test(database_path :: String, peer_profile :: Bytes) -> Bool!String do
+pub fn remove_safety_binding_for_test(database_path :: String,
+  peer_profile :: Bytes) -> Bool!String do
   let peer = decode_client_profile(peer_profile)?
   let wrapping_key = platform_key()?
   let loaded = find_peer_session(database_path,
@@ -180,7 +181,7 @@ fn store_legacy_prekey_fixture(database_path :: String,
   prekey_label :: String,
   legacy_blob :: Bytes) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       insert_blob(database, "one-time-prekey/v1", legacy_blob)?
       delete_blobs(database,
         [
@@ -193,7 +194,8 @@ fn store_legacy_prekey_fixture(database_path :: String,
     end)
 end
 
-pub fn install_group_checkpoint_for_test(database_path :: String, encoded :: Bytes) -> Bool!String do
+pub fn install_group_checkpoint_for_test(database_path :: String,
+  encoded :: Bytes) -> Bool!String do
   decode_checkpoint(encoded)?
   ensure_schema(database_path)?
   let wrapping_key = platform_key()?
@@ -256,7 +258,8 @@ pub fn replace_group_transparency_chunk_for_test(database_path :: String,
   end
 end
 
-pub fn remove_group_transparency_chunk_for_test(database_path :: String, index :: Int) -> Bool!String do
+pub fn remove_group_transparency_chunk_for_test(database_path :: String,
+  index :: Int) -> Bool!String do
   if index < 0 || index >= 3 do
     Err("invalid_transparency_chunk")
   else
@@ -312,7 +315,8 @@ end
 # only parties who can: they open an envelope with the recipient's own device
 # key, and reseal whatever they change.
 
-fn test_opened_packet(recipient_path :: String, outer :: OuterEnvelope) -> MobileOpenedPacket!String do
+fn test_opened_packet(recipient_path :: String,
+  outer :: OuterEnvelope) -> MobileOpenedPacket!String do
   let profile = decode_client_profile(load_profile(recipient_path)?)?
   let device = open_device(profile, platform_key()?, recipient_path)?
   open_outer_packet(outer, device.identity_private_key)
@@ -335,7 +339,8 @@ pub fn test_inner_suite(recipient_path :: String, input :: Bytes) -> Int!String 
   end
 end
 
-fn test_ratchet_outer(recipient_path :: String, input :: Bytes) -> Result<(OuterEnvelope, RatchetMessage), String> do
+fn test_ratchet_outer(recipient_path :: String,
+  input :: Bytes) -> Result<(OuterEnvelope, RatchetMessage), String> do
   let outer = canonical_outer(input)?
   let opened = test_opened_packet(recipient_path, outer)?
   let packet_message = parse_ratchet_packet(opened.packet)?
@@ -416,7 +421,10 @@ fn earlier(moment :: U64, milliseconds :: Int) -> Bytes!String do
   end
 end
 
-fn aged_attempts(records :: Bytes, offset :: Int, milliseconds :: Int, output :: Bytes) -> Bytes!String do
+fn aged_attempts(records :: Bytes,
+  offset :: Int,
+  milliseconds :: Int,
+  output :: Bytes) -> Bytes!String do
   if offset >= Bytes.length(records) do
     Ok(output)
   else
@@ -429,7 +437,8 @@ fn aged_attempts(records :: Bytes, offset :: Int, milliseconds :: Int, output ::
   end
 end
 
-pub fn age_delivery_attempts_for_test(database_path :: String, milliseconds :: Int) -> Result<(), String> do
+pub fn age_delivery_attempts_for_test(database_path :: String,
+  milliseconds :: Int) -> Result<(), String> do
   let wrapping_key = platform_key()?
   let records = load_delivery_attempts(database_path, wrapping_key)?
   let aged = aged_attempts(records, 0, milliseconds, Bytes.empty())?
@@ -442,7 +451,10 @@ end
 # Makes the device's last-resort key look that much older, and the keys it
 # replaced look confirmed that much earlier. A test cannot wait five weeks.
 
-fn aged_retired(records :: Bytes, offset :: Int, milliseconds :: Int, output :: Bytes) -> Bytes!String do
+fn aged_retired(records :: Bytes,
+  offset :: Int,
+  milliseconds :: Int,
+  output :: Bytes) -> Bytes!String do
   if offset >= Bytes.length(records) do
     Ok(output)
   else
@@ -459,7 +471,9 @@ fn aged_retired(records :: Bytes, offset :: Int, milliseconds :: Int, output :: 
   end
 end
 
-fn sealed_state(database_path :: String, wrapping_key :: borrow StorageKey, label :: String) -> Bytes!String do
+fn sealed_state(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  label :: String) -> Bytes!String do
   case load_blob(database_path, label) do
     Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
@@ -470,7 +484,8 @@ fn sealed_state(database_path :: String, wrapping_key :: borrow StorageKey, labe
   end
 end
 
-pub fn age_last_resort_for_test(database_path :: String, milliseconds :: Int) -> Result<(), String> do
+pub fn age_last_resort_for_test(database_path :: String,
+  milliseconds :: Int) -> Result<(), String> do
   let wrapping_key = platform_key()?
   let current = sealed_state(database_path, wrapping_key, "last-resort-prekey/v1")?
   let retired = sealed_state(database_path, wrapping_key, "last-resort-retired/v1")?
@@ -491,12 +506,27 @@ pub fn age_last_resort_for_test(database_path :: String, milliseconds :: Int) ->
 end
 
 pub fn direct_delivery_classification_for_test() -> Bool do
-  let verification = is_retryable_verification_crypto_error(InternalFailure) && !is_retryable_verification_crypto_error(InvalidPublicKey)
-  let session = is_retryable_session_crypto_error(InternalFailure) && !is_retryable_session_crypto_error(InvalidPublicKey) && is_retryable_session_error(PrekeyFailure(InvalidBundle))
-  let ratchet = is_retryable_ratchet_error(CryptoFailure) && !is_retryable_ratchet_error(ExcessiveJump) && !is_retryable_ratchet_error(AuthenticationRejected) && !is_retryable_ratchet_error(Replay) && !is_retryable_ratchet_error(InvalidMessage)
-  let skipped = !is_retryable_ratchet_error(skipped_key_error(InvalidKey)) && is_retryable_ratchet_error(skipped_key_error(InternalFailure))
-  let opened = !is_retryable_ratchet_error(ratchet_open_error(AuthenticationFailed)) && is_retryable_ratchet_error(ratchet_open_error(InternalFailure))
-  verification && session && ratchet && skipped && opened && !permanent_direct_delivery_error("initial_crypto_failed") && !permanent_direct_delivery_error("ratchet_retryable")
+  let verification = is_retryable_verification_crypto_error(InternalFailure)
+    && !is_retryable_verification_crypto_error(InvalidPublicKey)
+  let session = is_retryable_session_crypto_error(InternalFailure)
+    && !is_retryable_session_crypto_error(InvalidPublicKey)
+    && is_retryable_session_error(PrekeyFailure(InvalidBundle))
+  let ratchet = is_retryable_ratchet_error(CryptoFailure)
+    && !is_retryable_ratchet_error(ExcessiveJump)
+    && !is_retryable_ratchet_error(AuthenticationRejected)
+    && !is_retryable_ratchet_error(Replay)
+    && !is_retryable_ratchet_error(InvalidMessage)
+  let skipped = !is_retryable_ratchet_error(skipped_key_error(InvalidKey))
+    && is_retryable_ratchet_error(skipped_key_error(InternalFailure))
+  let opened = !is_retryable_ratchet_error(ratchet_open_error(AuthenticationFailed))
+    && is_retryable_ratchet_error(ratchet_open_error(InternalFailure))
+  verification
+    && session
+    && ratchet
+    && skipped
+    && opened
+    && !permanent_direct_delivery_error("initial_crypto_failed")
+    && !permanent_direct_delivery_error("ratchet_retryable")
 end
 
 pub fn push_install_id_for_test(database_path :: String) -> Bytes!String do
@@ -564,7 +594,13 @@ pub fn install_legacy_disabled_push_state_for_test(database_path :: String) -> B
   store_legacy_push_state_for_test(database_path,
     profile,
     wrapping_key,
-    %{state | mode: 0, wake_token_hash: mobile_zeroes(32)?, provider_token_hash: mobile_zeroes(32)?, pending_kind: 0, pending_wire: Bytes.empty()})
+    %{state |
+      mode: 0,
+      wake_token_hash: mobile_zeroes(32)?,
+      provider_token_hash: mobile_zeroes(32)?,
+      pending_kind: 0,
+      pending_wire: Bytes.empty()
+    })
 end
 
 pub fn install_legacy_enabled_push_state_for_test(database_path :: String) -> Bool!String do
@@ -589,10 +625,18 @@ pub fn install_legacy_pending_unbind_push_state_for_test(database_path :: String
   store_legacy_push_state_for_test(database_path,
     profile,
     wrapping_key,
-    %{state | revision: revision, mode: 0, wake_token_hash: mobile_zeroes(32)?, provider_token_hash: mobile_zeroes(32)?, pending_kind: 2, pending_wire: wire})
+    %{state |
+      revision: revision,
+      mode: 0,
+      wake_token_hash: mobile_zeroes(32)?,
+      provider_token_hash: mobile_zeroes(32)?,
+      pending_kind: 2,
+      pending_wire: wire
+    })
 end
 
-pub fn install_classical_session_for_test(initiator_path :: String, responder_path :: String) -> Bytes!String do
+pub fn install_classical_session_for_test(initiator_path :: String,
+  responder_path :: String) -> Bytes!String do
   let wrapping_key = platform_key()?
   let initiator = decode_client_profile(load_profile(initiator_path)?)?
   let responder = decode_client_profile(load_profile(responder_path)?)?
@@ -658,8 +702,10 @@ pub fn install_classical_session_for_test(initiator_path :: String, responder_pa
     Err(_) -> Err("classical_session_receive_failed")
     Ok(value)
   end?
-  if !Bytes.secure_equals(opened, Bytes.from_utf8("classical session fixture")) || initiator_state.suite != 1 || responder_state.suite != 1 || !Bytes.secure_equals(initiator_state.session_id,
-    responder_state.session_id) do
+  if !Bytes.secure_equals(opened, Bytes.from_utf8("classical session fixture"))
+    || initiator_state.suite != 1
+    || responder_state.suite != 1
+    || !Bytes.secure_equals(initiator_state.session_id, responder_state.session_id) do
     Err("classical_session_mismatch")
   else
     let conversation_id = random_bytes(16)?
@@ -728,7 +774,8 @@ pub fn install_classical_session_for_test(initiator_path :: String, responder_pa
   end
 end
 
-pub fn has_fanout_prekey_state_for_test(database_path :: String, profile_wire :: Bytes) -> Bool!String do
+pub fn has_fanout_prekey_state_for_test(database_path :: String,
+  profile_wire :: Bytes) -> Bool!String do
   let profile = decode_client_profile(profile_wire)?
   let reservation = case load_blob(database_path, fanout_prekey_reservation_label(profile)) do
     Ok(_) -> true
@@ -752,6 +799,8 @@ end
 # The registrations renewal would make now, unstamped, with the renewal clock
 # moved `age` milliseconds ahead: how a test lets months pass.
 
-pub fn renew_devices_for_test(database_path :: String, device_set :: Bytes, age :: Int) -> List<Bytes>!String do
+pub fn renew_devices_for_test(database_path :: String,
+  device_set :: Bytes,
+  age :: Int) -> List<Bytes>!String do
   renew_devices_at(database_path, device_set, U64.parse(Int.to_string(age))?)
 end

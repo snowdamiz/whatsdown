@@ -127,7 +127,10 @@ pub fn open_device(profile :: ClientProfile,
   let signing_blob = load_blob(database_path, "device-signing-key/v1")?
   let identity_blob = load_blob(database_path, "device-identity-key/v1")?
   let signing_context = context(profile.account_id, profile.device_id, "device-signing-key/v1", 7)?
-  let identity_context = context(profile.account_id, profile.device_id, "device-identity-key/v1", 8)?
+  let identity_context = context(profile.account_id,
+    profile.device_id,
+    "device-identity-key/v1",
+    8)?
   case open_signing(signing_blob, wrapping_key, signing_context) do
     Err(error)
     Ok(signing) -> case open_x25519(identity_blob, wrapping_key, identity_context) do

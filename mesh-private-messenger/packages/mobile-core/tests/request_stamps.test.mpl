@@ -1,5 +1,11 @@
 import File
-from MobileCore import create_account_export, directory_entry_export, register_request_export, resolve_request_export, transparency_lookup_export
+from MobileCore import (
+  create_account_export,
+  directory_entry_export,
+  register_request_export,
+  resolve_request_export,
+  transparency_lookup_export
+)
 from Privacy.Edge import RequestStamp, decode_stamped_request, verify_request_stamp
 from Tests.Support import append, database_path, install_security_config, vector
 
@@ -41,7 +47,9 @@ fn proof() -> Bool!String do
     delivery.public_key.bytes,
     8))
   let path = database_path("request-stamps")?
-  create_account_export(request([Bytes.from_utf8(path), Bytes.from_utf8("alice")], 0, Bytes.empty())?)?
+  create_account_export(request([Bytes.from_utf8(path), Bytes.from_utf8("alice")],
+    0,
+    Bytes.empty())?)?
   let register = "mesh-msg/v1/work/register"
   let resolve = "mesh-msg/v1/work/resolve"
   # Registration carries the unchanged directory entry inside paid work.

@@ -49,7 +49,12 @@ from Mobile.History import (
   update_conversation
 )
 from Mobile.Inbox import process_delivery_batch
-from Mobile.Messages import receive_initial_message, receive_message, send_message, start_conversation
+from Mobile.Messages import (
+  receive_initial_message,
+  receive_message,
+  send_message,
+  start_conversation
+)
 from Mobile.Outbox import acknowledge_outbox, fail_outbox, list_outbox, page_outbox
 from Mobile.Platform import privacy_submission, stamped_request
 from Mobile.Prekeys import reconcile_prekeys, replenish_prekeys
@@ -121,7 +126,8 @@ from Storage.Records import store_envelope
 @export("mesh_messenger_initialize") pub fn initialize(request :: Bytes) -> Bytes!String do
   case Bytes.to_utf8(request) do
     Err(_) -> Err("invalid_database_path")
-    Ok(database_path) -> if String.length(database_path) == 0 || String.length(database_path) > 4096 do
+    Ok(database_path) -> if String.length(database_path) == 0
+      || String.length(database_path) > 4096 do
       Err("invalid_database_path")
     else
       ensure_schema(database_path)?

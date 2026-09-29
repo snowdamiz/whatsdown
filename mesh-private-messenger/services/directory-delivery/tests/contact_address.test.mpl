@@ -22,7 +22,10 @@ end
 
 # 0 accepted, 1 refused for capacity, 2 anything else.
 
-fn deposit_sized(pool :: PoolHandle, address :: Bytes, number :: Int, bucket :: Int) -> Int!String do
+fn deposit_sized(pool :: PoolHandle,
+  address :: Bytes,
+  number :: Int,
+  bucket :: Int) -> Int!String do
   let now = U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))?
   # Deposits are rate limited per mailbox; this test is about capacity.
   Pool.execute(pool, "DELETE FROM messenger_rate_limits", [])?
@@ -48,7 +51,11 @@ fn deposit(pool :: PoolHandle, address :: Bytes, number :: Int) -> Int!String do
   deposit_sized(pool, address, number, 65536)
 end
 
-fn deposits(pool :: PoolHandle, address :: Bytes, number :: Int, remaining :: Int, expected :: Int) -> Bool!String do
+fn deposits(pool :: PoolHandle,
+  address :: Bytes,
+  number :: Int,
+  remaining :: Int,
+  expected :: Int) -> Bool!String do
   if remaining <= 0 do
     Ok(true)
   else

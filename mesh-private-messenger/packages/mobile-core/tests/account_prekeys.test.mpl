@@ -7,7 +7,13 @@ from MobileCore import (
   reconcile_prekeys_export,
   replenish_prekeys_export
 )
-from Prekeys.Pool import OneTimePrekeyPublic, PrekeyPublishRequest, PrekeyPublishResponse, decode_prekey_publish, encode_prekey_publish_response
+from Prekeys.Pool import (
+  OneTimePrekeyPublic,
+  PrekeyPublishRequest,
+  PrekeyPublishResponse,
+  decode_prekey_publish,
+  encode_prekey_publish_response
+)
 from Tests.Support import append, database_path, read_u32, vector, write_u32
 
 fn join(parts :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
@@ -37,7 +43,10 @@ fn wide(value :: Int) -> U64!String do
   end
 end
 
-fn consecutive_ids(start :: Int, count :: Int, index :: Int, output :: List<U64>) -> List<U64>!String do
+fn consecutive_ids(start :: Int,
+  count :: Int,
+  index :: Int,
+  output :: List<U64>) -> List<U64>!String do
   if index >= count do
     Ok(output)
   else
@@ -63,10 +72,13 @@ fn assert_wide_ids(values :: List<U64>, start :: Int, index :: Int) -> Bool!Stri
 end
 
 fn assert_ids(values :: List<OneTimePrekeyPublic>, start :: Int, index :: Int) -> Bool!String do
-  assert_wide_ids(List.map(values, fn (prekey) do prekey.id end), start, index)
+  assert_wide_ids(List.map(values, fn(prekey) do prekey.id end), start, index)
 end
 
-fn reconcile(path :: String, account_id :: Bytes, device_id :: Bytes, active_ids :: List<U64>) -> Int!String do
+fn reconcile(path :: String,
+  account_id :: Bytes,
+  device_id :: Bytes,
+  active_ids :: List<U64>) -> Int!String do
   let acknowledgement = encode_prekey_publish_response(PrekeyPublishResponse {
     account_id: account_id,
     device_id: device_id,
@@ -91,7 +103,9 @@ fn row_binary(row :: Map<String, DbValue>, key :: String) -> Bytes!String do
   end
 end
 
-fn database_state_rows(rows :: List<Map<String, DbValue>>, index :: Int, output :: Bytes) -> Bytes!String do
+fn database_state_rows(rows :: List<Map<String, DbValue>>,
+  index :: Int,
+  output :: Bytes) -> Bytes!String do
   if index >= List.length(rows) do
     Ok(output)
   else
@@ -192,9 +206,10 @@ fn database_has_record(path :: String, label :: String) -> Bool!String do
   end
 end
 
-fn same_publication_identity(value :: PrekeyPublishRequest, expected :: PrekeyPublishRequest) -> Bool do
-  Bytes.secure_equals(value.account_id, expected.account_id) && Bytes.secure_equals(value.device_id,
-    expected.device_id)
+fn same_publication_identity(value :: PrekeyPublishRequest,
+  expected :: PrekeyPublishRequest) -> Bool do
+  Bytes.secure_equals(value.account_id, expected.account_id)
+    && Bytes.secure_equals(value.device_id, expected.device_id)
 end
 
 fn assert_legacy_fixture_layout(path :: String) -> Bool!String do

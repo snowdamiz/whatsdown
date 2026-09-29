@@ -5,7 +5,10 @@ from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
 
 ##! Storage.Records implementation.
 
-fn insert_blobs(database :: SqliteConn, labels :: List<String>, blobs :: List<Bytes>, index :: Int) -> Result<(), String> do
+fn insert_blobs(database :: SqliteConn,
+  labels :: List<String>,
+  blobs :: List<Bytes>,
+  index :: Int) -> Result<(), String> do
   if List.length(labels) != List.length(blobs) do
     Err("invalid_local_state")
   else if index >= List.length(labels) do
@@ -16,7 +19,10 @@ fn insert_blobs(database :: SqliteConn, labels :: List<String>, blobs :: List<By
   end
 end
 
-pub fn put_blobs(database :: SqliteConn, labels :: List<String>, blobs :: List<Bytes>, index :: Int) -> Result<(), String> do
+pub fn put_blobs(database :: SqliteConn,
+  labels :: List<String>,
+  blobs :: List<Bytes>,
+  index :: Int) -> Result<(), String> do
   if List.length(labels) != List.length(blobs) do
     Err("invalid_local_state")
   else if index >= List.length(labels) do
@@ -29,13 +35,17 @@ end
 
 pub fn delete_blob(database :: SqliteConn, label :: String) -> Result<(), String> do
   let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
-  case Sqlite.execute(database, "DELETE FROM encrypted_blobs WHERE record_hash = ?", [record_hash]) do
+  case Sqlite.execute(database,
+    "DELETE FROM encrypted_blobs WHERE record_hash = ?",
+    [record_hash]) do
     Err(_) -> Err("database_write_failed")
     Ok(_) -> Ok(nil)
   end
 end
 
-pub fn delete_blobs(database :: SqliteConn, labels :: List<String>, index :: Int) -> Result<(), String> do
+pub fn delete_blobs(database :: SqliteConn,
+  labels :: List<String>,
+  index :: Int) -> Result<(), String> do
   if index >= List.length(labels) do
     Ok(nil)
   else
@@ -44,9 +54,11 @@ pub fn delete_blobs(database :: SqliteConn, labels :: List<String>, index :: Int
   end
 end
 
-pub fn store_linked_blobs(database_path :: String, labels :: List<String>, blobs :: List<Bytes>) -> Result<(), String> do
+pub fn store_linked_blobs(database_path :: String,
+  labels :: List<String>,
+  blobs :: List<Bytes>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       insert_blobs(database, labels, blobs, 0)?
       delete_blobs(database,
         [
@@ -71,9 +83,11 @@ end
 ## leftover under one of the new labels would otherwise refuse every new account.
 ## An existing profile is never replaced.
 
-pub fn store_new_account(database_path :: String, labels :: List<String>, blobs :: List<Bytes>) -> Result<(), String> do
+pub fn store_new_account(database_path :: String,
+  labels :: List<String>,
+  blobs :: List<Bytes>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       let profiles = case Sqlite.query_values(database,
         "SELECT record_hash FROM encrypted_blobs WHERE record_hash = ?",
         [Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("profile/v1"))))]) do
@@ -95,7 +109,7 @@ end
 
 pub fn erase_local_state(database_path :: String) -> Result<(), String> do
   ensure_schema(database_path)?
-  with_record_transaction(database_path, fn (database) do delete_every_record(database) end)?
+  with_record_transaction(database_path, fn(database) do delete_every_record(database) end)?
   case Sqlite.open(database_path) do
     Err(_) -> Ok(nil)
     Ok(database) -> do
@@ -106,13 +120,17 @@ pub fn erase_local_state(database_path :: String) -> Result<(), String> do
   end
 end
 
-pub fn store_blobs(database_path :: String, labels :: List<String>, blobs :: List<Bytes>) -> Result<(), String> do
+pub fn store_blobs(database_path :: String,
+  labels :: List<String>,
+  blobs :: List<Bytes>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do insert_blobs(database, labels, blobs, 0) end)
+    fn(database) do insert_blobs(database, labels, blobs, 0) end)
 end
 
-pub fn store_updated_blobs(database_path :: String, labels :: List<String>, blobs :: List<Bytes>) -> Result<(), String> do
-  with_record_transaction(database_path, fn (database) do put_blobs(database, labels, blobs, 0) end)
+pub fn store_updated_blobs(database_path :: String,
+  labels :: List<String>,
+  blobs :: List<Bytes>) -> Result<(), String> do
+  with_record_transaction(database_path, fn(database) do put_blobs(database, labels, blobs, 0) end)
 end
 
 pub fn store_record_changes(database_path :: String,
@@ -120,7 +138,7 @@ pub fn store_record_changes(database_path :: String,
   blobs :: List<Bytes>,
   removed :: List<String>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       put_blobs(database, labels, blobs, 0)?
       delete_blobs(database, removed, 0)
     end)
@@ -135,7 +153,7 @@ pub fn store_prekey_batch(database_path :: String,
   next_id_blob :: Bytes,
   delete_legacy :: Bool) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       delete_blobs(database, removed_labels, 0)?
       insert_blobs(database, labels, blobs, 0)?
       put_blob(database, "one-time-prekeys/v1", index_blob)?
@@ -159,7 +177,7 @@ pub fn store_last_resort_prekey(database_path :: String,
   retired_blob :: Bytes,
   removed_labels :: List<String>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       insert_blob(database, secret_label, secret_blob)?
       put_blob(database, "last-resort-prekey/v1", record_blob)?
       delete_blobs(database, removed_labels, 0)?
@@ -176,7 +194,7 @@ pub fn store_prekey_reconciliation(database_path :: String,
   index_blob :: Bytes,
   active_blob :: Bytes) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       delete_blobs(database, removed_labels, 0)?
       put_blob(database, "one-time-prekeys/v1", index_blob)?
       put_blob(database, "one-time-prekey-active/v1", active_blob)
@@ -210,7 +228,7 @@ pub fn store_outbound(database_path :: String,
   outbox_blobs :: List<Bytes>,
   outbox_index_blob :: Bytes) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       store_prepared_sessions(database, prepared, 0)?
       put_blob(database, "sessions/v1", session_index_blob)?
       put_blobs(database, history_keys, history_blobs, 0)?
@@ -236,7 +254,7 @@ pub fn store_new_session(database_path :: String,
   blob :: Bytes,
   index_blob :: Bytes) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       insert_blob(database, label, blob)?
       put_blob(database, "sessions/v1", index_blob)
     end)
@@ -252,7 +270,7 @@ pub fn store_received_session(database_path :: String,
   prekey_labels :: List<String>,
   prekey_blobs :: List<Bytes>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       insert_blob(database, label, blob)?
       put_blob(database, "sessions/v1", index_blob)?
       put_blobs(database, updated_labels, updated_blobs, 0)?
@@ -261,7 +279,9 @@ pub fn store_received_session(database_path :: String,
     end)
 end
 
-pub fn store_updated_session(database_path :: String, label :: String, blob :: Bytes) -> Result<(), String> do
+pub fn store_updated_session(database_path :: String,
+  label :: String,
+  blob :: Bytes) -> Result<(), String> do
   case Sqlite.open(database_path) do
     Err(_) -> Err("database_open_failed")
     Ok(database) -> case put_blob(database, label, blob) do
@@ -283,7 +303,7 @@ pub fn store_updated_session_and_history(database_path :: String,
   history_keys :: List<String>,
   history_blobs :: List<Bytes>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       put_blob(database, session_key, session_blob)?
       put_blobs(database, history_keys, history_blobs, 0)
     end)
@@ -316,7 +336,8 @@ end
 
 ## The callback's `?` returns here, so rollback and close run for every outcome.
 
-pub fn with_record_transaction(path :: String, operation :: Fun(SqliteConn) -> Result<(), String>) -> Result<(), String> do
+pub fn with_record_transaction(path :: String,
+  operation :: Fun(SqliteConn) -> Result<(), String>) -> Result<(), String> do
   let database = case Sqlite.open(path) do
     Err(_) -> Err("database_open_failed")
     Ok(value)

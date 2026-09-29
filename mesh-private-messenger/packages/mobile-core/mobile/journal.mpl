@@ -16,7 +16,8 @@ from Storage.Records import store_record_changes
 fn journal_label(key :: Bytes) -> String!String do
   let text = mobile_utf8(key, "invalid_journal_key")?
   if Regex.is_match(~r/^(read-state|notification-state|receipt-marks)\/(index|chat\/[a-f0-9]{32}|group\/[a-f0-9]{64})$/,
-    text) || Regex.is_match(~r/^community-requests\/(index|chat\/[a-f0-9]{32})$/, text) do
+    text)
+    || Regex.is_match(~r/^community-requests\/(index|chat\/[a-f0-9]{32})$/, text) do
     Ok("journal/v1/" <> text)
   else
     Err("invalid_journal_key")

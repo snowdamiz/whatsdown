@@ -1,5 +1,27 @@
-from Identity.Device import AccountKeys, DeviceKeys, IdentityError, VerificationPolicy, generate_account, generate_device, issue_device_credential, issue_hybrid_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle, reauthorize_signed_prekey, verify_prekey_bundle
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  IdentityError,
+  VerificationPolicy,
+  generate_account,
+  generate_device,
+  issue_device_credential,
+  issue_hybrid_device_credential
+)
+from Prekeys.Bundle import (
+  OneTimePrekeySecrets,
+  PostQuantumPrekeySecrets,
+  PrekeyError,
+  SignedPrekeySecrets,
+  build_hybrid_prekey_bundle,
+  build_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey,
+  normalize_prekey_bundle,
+  reauthorize_signed_prekey,
+  verify_prekey_bundle
+)
 from Protocol.HandshakeWire import encode_initial_message
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 from Protocol.V1 import (
@@ -69,7 +91,9 @@ fn classical_credential(account_keys :: borrow AccountKeys,
   end
 end
 
-fn signed_prekey(device_keys :: borrow DeviceKeys, credential :: DeviceCredential, expires :: U64) -> SignedPrekeySecrets!String do
+fn signed_prekey(device_keys :: borrow DeviceKeys,
+  credential :: DeviceCredential,
+  expires :: U64) -> SignedPrekeySecrets!String do
   case generate_signed_prekey(device_keys, credential, wide("7")?, expires) do
     Err(_) -> Err("signed prekey failed")
     Ok(value)
@@ -116,17 +140,14 @@ fn zeroes(length :: Int) -> Bytes!String do
   end
 end
 
-fn maximal_extensions(index :: Int, output :: List<ProtocolExtension>) -> List<ProtocolExtension>!String do
+fn maximal_extensions(index :: Int,
+  output :: List<ProtocolExtension>) -> List<ProtocolExtension>!String do
   if index >= 16 do
     Ok(output)
   else
     maximal_extensions(index + 1,
       List.append(output,
-        ProtocolExtension {
-          id: index + 1,
-          mandatory: false,
-          value: zeroes(1024)?
-        }))
+        ProtocolExtension { id: index + 1, mandatory: false, value: zeroes(1024)? }))
   end
 end
 
@@ -272,7 +293,8 @@ fn consume_start(value :: consume (RatchetState, InitialMessage)) do
   nil
 end
 
-fn hybrid_ratchet(initiator :: consume RatchetState, responder :: consume RatchetState) -> Result<(RatchetState, RatchetState), String> do
+fn hybrid_ratchet(initiator :: consume RatchetState,
+  responder :: consume RatchetState) -> Result<(RatchetState, RatchetState), String> do
   let plaintext = Bytes.from_utf8("hybrid ratchet")
   let associated_data = Bytes.from_utf8("conversation")
   case encrypt(initiator, plaintext, associated_data) do

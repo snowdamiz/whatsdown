@@ -11,7 +11,12 @@ from MobileCore import (
   start_conversation_export,
   update_conversation_export
 )
-from Prekeys.Pool import PrekeyPublishRequest, PrekeyPublishResponse, decode_prekey_publish, encode_prekey_publish_response
+from Prekeys.Pool import (
+  PrekeyPublishRequest,
+  PrekeyPublishResponse,
+  decode_prekey_publish,
+  encode_prekey_publish_response
+)
 from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.V1 import DirectoryEntry, OuterEnvelope
 from Tests.Support import append, database_path, vector, write_u32
@@ -126,7 +131,8 @@ fn proof() -> Bool!String do
     ],
     0,
     Bytes.empty())?)?
-  assert(Bytes.secure_equals(addressed_to(say(carol, alice_profile, "hello alice")?)?, alice_public))
+  assert(Bytes.secure_equals(addressed_to(say(carol, alice_profile, "hello alice")?)?,
+    alice_public))
   answered(alice)?
   assert(Bytes.secure_equals(published_hash(alice)?, named))
   # Alice writes to Bob, who accepts and replies. His reply goes to the address

@@ -1,6 +1,30 @@
-from Identity.Device import AccountKeys, DeviceKeys, IdentityError, VerificationPolicy, credential_signing_bytes, generate_account, generate_device, issue_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
-from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle, ProtocolError
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  IdentityError,
+  VerificationPolicy,
+  credential_signing_bytes,
+  generate_account,
+  generate_device,
+  issue_device_credential
+)
+from Prekeys.Bundle import (
+  OneTimePrekeySecrets,
+  PostQuantumPrekeySecrets,
+  PrekeyError,
+  SignedPrekeySecrets,
+  build_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey
+)
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  InitialMessage,
+  PrekeyBundle,
+  ProtocolError
+)
 from Protocol.HandshakeWire import decode_initial_message, encode_initial_message
 from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
 
@@ -311,7 +335,8 @@ fn proof() -> Int!ProofError do
   let plaintext = Bytes.from_utf8("offline hello")
   case Bytes.slice(signing_bytes(alice_credential)?, 0, 29) do
     Err(_) -> println("credential-domain:error")
-    Ok(prefix) -> if Bytes.secure_equals(prefix, Bytes.from_utf8("mesh-msg/v1/device-credential")) do
+    Ok(prefix) -> if Bytes.secure_equals(prefix,
+      Bytes.from_utf8("mesh-msg/v1/device-credential")) do
       println("credential-domain:bound")
     else
       println("credential-domain:missing")
@@ -357,7 +382,11 @@ fn proof() -> Int!ProofError do
     Err(_) -> println("expired-bundle:rejected")
     Ok(value) -> accepted_start(value, "expired-bundle:accepted")
   end
-  let future_credential = credential(bob_account_keys, bob, future_time, expires_at, first_sequence)?
+  let future_credential = credential(bob_account_keys,
+    bob,
+    future_time,
+    expires_at,
+    first_sequence)?
   let future_signed = signed_prekey(bob, future_credential, wide("12")?, expires_at)?
   let future_one_time = one_time_prekey(wide("13")?)?
   let future_bundle = bundle(future_credential, future_signed, future_one_time)?
@@ -392,8 +421,8 @@ fn proof() -> Int!ProofError do
     verification,
     verification,
     encode_initial(initial)?)?
-  if Bytes.secure_equals(opened, plaintext) and Bytes.secure_equals(alice_session.session_id,
-    bob_session.session_id) do
+  if Bytes.secure_equals(opened, plaintext)
+    and Bytes.secure_equals(alice_session.session_id, bob_session.session_id) do
     println("offline-handshake:ok")
   else
     println("offline-handshake:failed")

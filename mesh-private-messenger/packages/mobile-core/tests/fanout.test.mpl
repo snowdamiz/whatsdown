@@ -32,7 +32,14 @@ from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 from Protocol.V1 import DeviceCredential, DeviceSet, DirectoryEntry, OuterEnvelope, PrekeyBundle
 from Tests.GroupConsistencyCrypto import checkpoint
 from Tests.GroupConsistencySupport import signed_transparency_view, signing_pair
-from Tests.Support import append, database_path, install_security_config, repeated, vector, write_u32
+from Tests.Support import (
+  append,
+  database_path,
+  install_security_config,
+  repeated,
+  vector,
+  write_u32
+)
 from Transparency.Merkle import TransparencyCheckpoint, consistency_proof, leaf_hash
 from Transparency.Wire import encode_checkpoint, encode_consistency_proof
 
@@ -128,7 +135,11 @@ fn slice(input :: Bytes, offset :: Int, length :: Int) -> Bytes!String do
   end
 end
 
-fn output_items(input :: Bytes, count :: Int, index :: Int, offset :: Int, items :: List<Bytes>) -> List<Bytes>!String do
+fn output_items(input :: Bytes,
+  count :: Int,
+  index :: Int,
+  offset :: Int,
+  items :: List<Bytes>) -> List<Bytes>!String do
   if index >= count do
     if offset == Bytes.length(input) do
       Ok(items)
@@ -184,7 +195,9 @@ fn row_text(row :: Map<String, DbValue>, key :: String) -> String!String do
   end
 end
 
-fn fingerprint_rows(rows :: List<Map<String, DbValue>>, index :: Int, output :: String) -> String!String do
+fn fingerprint_rows(rows :: List<Map<String, DbValue>>,
+  index :: Int,
+  output :: String) -> String!String do
   if index >= List.length(rows) do
     Ok(output)
   else
@@ -196,7 +209,11 @@ fn fingerprint_rows(rows :: List<Map<String, DbValue>>, index :: Int, output :: 
     end
     fingerprint_rows(rows,
       index + 1,
-      output <> separator <> row_text(row, "record_hash")? <> ":" <> row_text(row, "ciphertext_hex")?)
+      output
+        <> separator
+        <> row_text(row, "record_hash")?
+        <> ":"
+        <> row_text(row, "ciphertext_hex")?)
   end
 end
 
@@ -305,16 +322,25 @@ fn proof() -> Bool!String do
   let claimed_alice_bundle = bundle(claimed_alice_entry.prekey_bundle)?
   let claimed_linked_bundle = bundle(claimed_linked_entry.prekey_bundle)?
   let claimed_bob_bundle = bundle(claimed_bob_entry.prekey_bundle)?
-  let alice_entry = %{claimed_alice_entry | prekey_bundle: bundle_wire(base_bundle(claimed_alice_bundle)?)?}
-  let linked_entry = %{claimed_linked_entry | prekey_bundle: bundle_wire(base_bundle(claimed_linked_bundle)?)?}
-  let bob_entry = %{claimed_bob_entry | prekey_bundle: bundle_wire(base_bundle(claimed_bob_bundle)?)?}
+  let alice_entry = %{claimed_alice_entry |
+    prekey_bundle: bundle_wire(base_bundle(claimed_alice_bundle)?)?
+  }
+  let linked_entry = %{claimed_linked_entry |
+    prekey_bundle: bundle_wire(base_bundle(claimed_linked_bundle)?)?
+  }
+  let bob_entry = %{claimed_bob_entry |
+    prekey_bundle: bundle_wire(base_bundle(claimed_bob_bundle)?)?
+  }
   let linked_publication = decode_prekey_publish(replenish_prekeys_export(request([
     Bytes.from_utf8(linked_path),
     write_u32(1)?
   ])?)?)?
   assert(List.length(linked_publication.prekeys) == 1)
   let linked_prekey = List.head(linked_publication.prekeys)
-  let next_claimed_linked_bundle = %{claimed_linked_bundle | one_time_prekey_id: linked_prekey.id, one_time_prekey: linked_prekey.public_key}
+  let next_claimed_linked_bundle = %{claimed_linked_bundle |
+    one_time_prekey_id: linked_prekey.id,
+    one_time_prekey: linked_prekey.public_key
+  }
   let alice_credential = credential(claimed_alice_bundle.device_credential)?
   let linked_credential = credential(claimed_linked_bundle.device_credential)?
   let alice_set = device_set_wire(DeviceSet {
@@ -340,7 +366,10 @@ fn proof() -> Bool!String do
     greeting
   ])?)?
   assert(acknowledge(alice_path, initial)?)
-  assert(Bytes.secure_equals(receive_initial_export(request([Bytes.from_utf8(bob_path), initial])?)?,
+  assert(Bytes.secure_equals(receive_initial_export(request([
+      Bytes.from_utf8(bob_path),
+      initial
+    ])?)?,
     greeting))
   assert(Bytes.secure_equals(update_conversation_export(request([
       Bytes.from_utf8(bob_path),
@@ -486,7 +515,10 @@ fn proof() -> Bool!String do
   end
   assert(Bytes.secure_equals(outer(bob_fanout)?.mailbox_token, bob_entry.mailbox_token))
   assert(Bytes.secure_equals(outer(self_fanout)?.mailbox_token, linked_entry.mailbox_token))
-  assert(Bytes.secure_equals(receive_message_export(request([Bytes.from_utf8(bob_path), bob_fanout])?)?,
+  assert(Bytes.secure_equals(receive_message_export(request([
+      Bytes.from_utf8(bob_path),
+      bob_fanout
+    ])?)?,
     synced))
   assert(Bytes.secure_equals(receive_initial_export(request([
       Bytes.from_utf8(linked_path),

@@ -1,11 +1,35 @@
-from Api.Binary import delete_account_request, leave_device_request, register_device_request, resolve_devices_request, submit_request
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_account_deletion, issue_device_credential, issue_device_departure
+from Api.Binary import (
+  delete_account_request,
+  leave_device_request,
+  register_device_request,
+  resolve_devices_request,
+  submit_request
+)
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  generate_account,
+  generate_device,
+  issue_account_deletion,
+  issue_device_credential,
+  issue_device_departure
+)
 from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
-from Protocol.DirectoryWire import encode_account_deletion, encode_device_departure, encode_directory_entry
+from Protocol.DirectoryWire import (
+  encode_account_deletion,
+  encode_device_departure,
+  encode_directory_entry
+)
 from Protocol.EnvelopeWire import encode_outer_envelope
 from Protocol.IdentityWire import encode_account_identity
 from Protocol.PrekeyWire import encode_prekey_bundle
-from Protocol.V1 import AccountDeletion, AccountIdentity, DeviceDeparture, DirectoryEntry, OuterEnvelope
+from Protocol.V1 import (
+  AccountDeletion,
+  AccountIdentity,
+  DeviceDeparture,
+  DirectoryEntry,
+  OuterEnvelope
+)
 from Transparency.Wire import TransparencyLookup, encode_transparency_lookup
 
 fn wide(value :: String) -> U64!String do
@@ -141,7 +165,7 @@ end
 ## bindings, contact addresses, readable log entries, and the tombstone.
 
 fn kept(pool :: PoolHandle, account_id :: Bytes, mailboxes :: List<Bytes>) -> String!String do
-  let hashes = List.map(mailboxes, fn (token) -> Bytes.to_hex(Crypto.sha256(token)) end)
+  let hashes = List.map(mailboxes, fn(token) -> Bytes.to_hex(Crypto.sha256(token)) end)
   let rows = Pool.query_values(pool,
     "WITH mailbox AS (SELECT decode(value, 'hex') AS hash FROM unnest(string_to_array($2, ',')) AS value) SELECT concat((SELECT count(*) FROM messenger_accounts WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_devices WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_one_time_prekeys WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_mailboxes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_envelopes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_outbox_events WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_push_bindings WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_mailbox_aliases WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM transparency_entries WHERE entry_bytes IS NOT NULL AND account_commitment = sha256('mesh-msg/v1/transparency-account'::bytea || $1)), ':', (SELECT count(*) FROM messenger_deleted_accounts WHERE account_id = $1)) AS value",
     [Binary(account_id), Text(String.join(hashes, ","))])?
@@ -152,7 +176,9 @@ fn kept(pool :: PoolHandle, account_id :: Bytes, mailboxes :: List<Bytes>) -> St
 end
 
 fn log_size(pool :: PoolHandle) -> String!String do
-  let rows = Pool.query_values(pool, "SELECT count(*)::text AS value FROM transparency_entries", [])?
+  let rows = Pool.query_values(pool,
+    "SELECT count(*)::text AS value FROM transparency_entries",
+    [])?
   case Map.get(List.head(rows), "value") do
     Text(value) -> Ok(value)
     _ -> Err("invalid test row")
@@ -173,9 +199,12 @@ fn proof() -> Bool!String do
   let phone = filled(41, 32)
   let laptop = filled(42, 32)
   let bobs_phone = filled(43, 32)
-  assert(register_device_request(pool, device_entry("alice", alice, alice_identity, "1", phone)?).status == 201)
-  assert(register_device_request(pool, device_entry("alice", alice, alice_identity, "2", laptop)?).status == 201)
-  assert(register_device_request(pool, device_entry("bob", bob, bob_identity, "1", bobs_phone)?).status == 201)
+  assert(register_device_request(pool,
+    device_entry("alice", alice, alice_identity, "1", phone)?).status == 201)
+  assert(register_device_request(pool,
+    device_entry("alice", alice, alice_identity, "2", laptop)?).status == 201)
+  assert(register_device_request(pool,
+    device_entry("bob", bob, bob_identity, "1", bobs_phone)?).status == 201)
   assert(submit_request(pool, envelope(laptop, 51)?).status == 202)
   assert(submit_request(pool, envelope(bobs_phone, 52)?).status == 202)
   Pool.execute_values(pool,
@@ -239,7 +268,9 @@ test("deleting an account removes all it left on the directory and frees its use
   end
 end
 
-fn departure(device :: borrow DeviceKeys, account_id :: Bytes, issued_at :: U64) -> DeviceDeparture!String do
+fn departure(device :: borrow DeviceKeys,
+  account_id :: Bytes,
+  issued_at :: U64) -> DeviceDeparture!String do
   case issue_device_departure(device, account_id, issued_at) do
     Err(_) -> Err("departure signing failed")
     Ok(value)
@@ -286,9 +317,11 @@ fn departure_proof() -> Bool!String do
   # a stale statement.
   assert(leave_device_request(pool, Bytes.from_utf8("garbage")).status == 400)
   let forged = departure(phone, alice_id, now()?)?
-  assert(leave_device_request(pool, departure_wire(%{forged | device_id: laptop.device_id})?).status == 403)
+  assert(leave_device_request(pool,
+    departure_wire(%{forged | device_id: laptop.device_id})?).status == 403)
   let stale = wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()) - 360000))?
-  assert(leave_device_request(pool, departure_wire(departure(laptop, alice_id, stale)?)?).status == 403)
+  assert(leave_device_request(pool,
+    departure_wire(departure(laptop, alice_id, stale)?)?).status == 403)
   assert(device_state(pool, alice_id)? == "2:0:2:2:2")
   # The laptop leaves like a removed device: revoked in a logged device set, its
   # mailbox closed. A retry after a lost answer changes nothing more.
@@ -306,10 +339,12 @@ fn departure_proof() -> Bool!String do
   assert(register_device_request(pool, returning).status == 409)
   # The last device cannot leave an account behind with no device; it deletes
   # the account instead, and then there is nothing left to leave.
-  assert(leave_device_request(pool, departure_wire(departure(phone, alice_id, now()?)?)?).status == 409)
+  assert(leave_device_request(pool,
+    departure_wire(departure(phone, alice_id, now()?)?)?).status == 409)
   assert(device_state(pool, alice_id)? == "1:1:3:3:1")
   assert(delete_account_request(pool, deletion_wire(deletion(alice, now()?)?)?).status == 204)
-  assert(leave_device_request(pool, departure_wire(departure(phone, alice_id, now()?)?)?).status == 204)
+  assert(leave_device_request(pool,
+    departure_wire(departure(phone, alice_id, now()?)?)?).status == 204)
   Pool.close(pool)
   Ok(true)
 end

@@ -38,7 +38,17 @@ from Groups.Tree import GroupTree, member_at, tree_hash
 from Transport.Padding import pad_message, unpad_message
 
 fn validate_message_shape(value :: GroupMessage) -> Result<(), GroupError> do
-  let valid = (value.version == 1 || value.version == 2 || value.version == 3 || value.version == 4) && value.suite == 3 && Bytes.length(value.group_id) == 32 && Bytes.length(value.tree_hash) == 32 && value.sender_leaf >= 0 && value.sender_leaf < 64 && value.generation >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65362 && Bytes.length(value.signature.bytes) == 64
+  let valid = (value.version == 1 || value.version == 2 || value.version == 3 || value.version == 4)
+    && value.suite == 3
+    && Bytes.length(value.group_id) == 32
+    && Bytes.length(value.tree_hash) == 32
+    && value.sender_leaf >= 0
+    && value.sender_leaf < 64
+    && value.generation >= 0
+    && Bytes.length(value.nonce) == 12
+    && Bytes.length(value.ciphertext) >= 16
+    && Bytes.length(value.ciphertext) <= 65362
+    && Bytes.length(value.signature.bytes) == 64
   if valid do
     Ok(nil)
   else
@@ -144,18 +154,17 @@ fn signed_message_bytes(message :: GroupMessage, context :: Bytes) -> Bytes!Grou
   group_join([context, group_vector(message.ciphertext)?], 0, Bytes.empty())
 end
 
-fn tree_message_context(tree :: borrow GroupTree, sender_leaf :: Int) -> TreeMessageContext!GroupError do
+fn tree_message_context(tree :: borrow GroupTree,
+  sender_leaf :: Int) -> TreeMessageContext!GroupError do
   let sender = case member_at(tree, sender_leaf) do
     Err(error) -> Err(TreeFailure(error))
     Ok(value)
   end?
-  Ok(TreeMessageContext {
-    hash: tree_hash(tree),
-    sender: sender
-  })
+  Ok(TreeMessageContext { hash: tree_hash(tree), sender: sender })
 end
 
-fn open_message_context(state :: borrow GroupState, message :: GroupMessage) -> OpenMessageContext!GroupError do
+fn open_message_context(state :: borrow GroupState,
+  message :: GroupMessage) -> OpenMessageContext!GroupError do
   let suite = state.suite
   let group_id = state.group_id
   let epoch = state.epoch
@@ -214,7 +223,12 @@ fn prepare_group_message(state :: borrow GroupState,
   else
     65342
   end
-  if (version != 3 && version != 4) || state.version != 2 || Bytes.length(plaintext) > maximum || Bytes.length(caller_data) > 4096 || state.next_generation < 0 || state.next_generation >= 256 do
+  if (version != 3 && version != 4)
+    || state.version != 2
+    || Bytes.length(plaintext) > maximum
+    || Bytes.length(caller_data) > 4096
+    || state.next_generation < 0
+    || state.next_generation >= 256 do
     Err(InvalidGroup)
   else
     let nonce = case Crypto.random_bytes(12) do
@@ -336,11 +350,7 @@ fn record_generation(values :: List<SenderGeneration>,
   output :: List<SenderGeneration>) -> List<SenderGeneration> do
   if index >= List.length(values) do
     if received_generation(values, leaf_index, 0) < 0 do
-      List.append(output,
-        SenderGeneration {
-          leaf_index: leaf_index,
-          generation: generation
-        })
+      List.append(output, SenderGeneration { leaf_index: leaf_index, generation: generation })
     else
       output
     end
@@ -362,7 +372,9 @@ fn record_generation(values :: List<SenderGeneration>,
   end
 end
 
-fn open_group_plaintext(key :: borrow AeadKey, message :: GroupMessage, context :: Bytes) -> Bytes!GroupError do
+fn open_group_plaintext(key :: borrow AeadKey,
+  message :: GroupMessage,
+  context :: Bytes) -> Bytes!GroupError do
   let plaintext = case Crypto.aead_open(key, message.nonce, context, message.ciphertext) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
@@ -377,11 +389,24 @@ fn open_group_plaintext(key :: borrow AeadKey, message :: GroupMessage, context 
   end
 end
 
-fn open_epoch_message(state :: borrow GroupState, message :: GroupMessage, caller_data :: Bytes) -> Result<(Bytes, SecretMap, SecretMap), GroupError> do
+fn open_epoch_message(state :: borrow GroupState,
+  message :: GroupMessage,
+  caller_data :: Bytes) -> Result<(Bytes, SecretMap, SecretMap), GroupError> do
   let public = open_message_context(state, message)?
-  let wrong_header = !((state.version == 1 && (message.version == 1 || message.version == 2)) || (state.version == 2 && (message.version == 3 || message.version == 4))) || (state.version == 2 && message.sender_leaf == state.local_leaf) || message.suite != public.suite || !Bytes.secure_equals(message.group_id,
-    public.group_id) || U64.compare(message.epoch, public.epoch) != 0 || !Bytes.secure_equals(message.tree_hash,
-    public.tree.hash) || message.sender_leaf < 0 || message.sender_leaf >= 64 || message.generation < 0 || Bytes.length(message.nonce) != 12 || Bytes.length(message.ciphertext) < 16 || Bytes.length(message.ciphertext) > 65362 || Bytes.length(caller_data) > 4096
+  let wrong_header = !((state.version == 1 && (message.version == 1 || message.version == 2))
+    || (state.version == 2 && (message.version == 3 || message.version == 4)))
+    || (state.version == 2 && message.sender_leaf == state.local_leaf)
+    || message.suite != public.suite
+    || !Bytes.secure_equals(message.group_id, public.group_id)
+    || U64.compare(message.epoch, public.epoch) != 0
+    || !Bytes.secure_equals(message.tree_hash, public.tree.hash)
+    || message.sender_leaf < 0
+    || message.sender_leaf >= 64
+    || message.generation < 0
+    || Bytes.length(message.nonce) != 12
+    || Bytes.length(message.ciphertext) < 16
+    || Bytes.length(message.ciphertext) > 65362
+    || Bytes.length(caller_data) > 4096
   if wrong_header do
     return Err(InvalidGroup)
   end

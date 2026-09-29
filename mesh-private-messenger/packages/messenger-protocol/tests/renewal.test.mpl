@@ -1,5 +1,26 @@
-from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_device_credential, issue_hybrid_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle, reauthorize_signed_prekey, verify_prekey_bundle
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  VerificationPolicy,
+  generate_account,
+  generate_device,
+  issue_device_credential,
+  issue_hybrid_device_credential
+)
+from Prekeys.Bundle import (
+  OneTimePrekeySecrets,
+  PostQuantumPrekeySecrets,
+  PrekeyError,
+  SignedPrekeySecrets,
+  build_hybrid_prekey_bundle,
+  build_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey,
+  normalize_prekey_bundle,
+  reauthorize_signed_prekey,
+  verify_prekey_bundle
+)
 from Prekeys.Renewal import (
   BundleTransition,
   RenewalRequest,
@@ -147,7 +168,11 @@ fn request_bytes(value :: RenewalRequest) -> Bytes!String do
 end
 
 fn valid_bundle(account_identity :: AccountIdentity, bundle :: PrekeyBundle, now :: U64) -> Bool do
-  case verify_prekey_bundle(account_identity, bundle, 2, now, account_identity.directory_sequence) do
+  case verify_prekey_bundle(account_identity,
+    bundle,
+    2,
+    now,
+    account_identity.directory_sequence) do
     Err(_) -> false
     Ok(value) -> value
   end
@@ -235,7 +260,12 @@ fn request_proof() -> Bool!String do
   end
   assert(valid_bundle(identity, published, now))
   # The account key answers with a credential for exactly those keys.
-  let answer = hybrid_credential(account_keys, device_keys, next_post_quantum, now, later, wide("4")?)?
+  let answer = hybrid_credential(account_keys,
+    device_keys,
+    next_post_quantum,
+    now,
+    later,
+    wide("4")?)?
   let next = renewed(answer, asked)?
   assert(valid_bundle(identity, next, now))
   assert(U64.compare(next.signed_prekey_id, wide("2")?) == 0)
@@ -245,14 +275,24 @@ fn request_proof() -> Bool!String do
   assert(List.length(next.extensions) == 0)
   assert(Bytes.length(next.one_time_prekey) == 0)
   # A credential for other keys cannot carry the request.
-  let wrong = hybrid_credential(account_keys, device_keys, first_post_quantum, now, later, wide("4")?)?
+  let wrong = hybrid_credential(account_keys,
+    device_keys,
+    first_post_quantum,
+    now,
+    later,
+    wide("4")?)?
   case renewed_prekey_bundle(wrong, asked) do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end
   # A classical device asks the same way and comes back hybrid: the request
   # signs its next prekey for the hybrid suite already.
-  let classical = case issue_device_credential(account_keys, stranger, wide("1")?, now, expires, wide("3")?) do
+  let classical = case issue_device_credential(account_keys,
+    stranger,
+    wide("1")?,
+    now,
+    expires,
+    wide("3")?) do
     Err(_) -> Err("classical credential failed")
     Ok(value)
   end?
@@ -312,7 +352,12 @@ fn transition_proof() -> Bool!String do
   assert(replayed(classify_bundle_transition(published, current, wide("3")?)))
   assert(replayed(classify_bundle_transition(published, published, wide("3")?)))
   # The answer takes the next sequence, and only the next.
-  let answer = hybrid_credential(account_keys, device_keys, next_post_quantum, now, later, wide("3")?)?
+  let answer = hybrid_credential(account_keys,
+    device_keys,
+    next_post_quantum,
+    now,
+    later,
+    wide("3")?)?
   let next = renewed(answer, asked)?
   assert(accepted(classify_bundle_transition(published, next, wide("3")?)))
   assert(refused(classify_bundle_transition(published, next, wide("4")?)))
@@ -320,7 +365,10 @@ fn transition_proof() -> Bool!String do
   assert(replayed(classify_bundle_transition(next, published, wide("4")?)))
   assert(replayed(classify_bundle_transition(next, current, wide("4")?)))
   # A new credential must bring a new signed prekey.
-  let same_prekey = %{current | device_credential: next.device_credential, post_quantum_prekey: next.post_quantum_prekey}
+  let same_prekey = %{current |
+    device_credential: next.device_credential,
+    post_quantum_prekey: next.post_quantum_prekey
+  }
   assert(refused(classify_bundle_transition(current, same_prekey, wide("3")?)))
   # Another device's keys never take this device's place.
   let intruder_post_quantum = post_quantum_prekey()?
@@ -345,11 +393,17 @@ fn transition_proof() -> Bool!String do
   assert(refused(classify_bundle_transition(current, requesting(current, stale)?, wide("2")?)))
   # A newer request replaces an older one; the older one then is a replay.
   let newer_signed = renewal_signed_prekey(device_keys, credential, wide("3")?, later)?
-  let newer = requesting(current, request(device_keys, credential, newer_signed, next_post_quantum)?)?
+  let newer = requesting(current,
+    request(device_keys, credential, newer_signed, next_post_quantum)?)?
   assert(accepted(classify_bundle_transition(published, newer, wide("3")?)))
   assert(replayed(classify_bundle_transition(newer, published, wide("4")?)))
   # No way back to the classical suite.
-  let classical = case issue_device_credential(account_keys, device_keys, wide("1")?, now, later, wide("3")?) do
+  let classical = case issue_device_credential(account_keys,
+    device_keys,
+    wide("1")?,
+    now,
+    later,
+    wide("3")?) do
     Err(_) -> Err("classical credential failed")
     Ok(value)
   end?
@@ -358,7 +412,12 @@ fn transition_proof() -> Bool!String do
   let downgrade = base_bundle(build_prekey_bundle(classical, classical_signed, classical_one_time))?
   assert(refused(classify_bundle_transition(published, downgrade, wide("3")?)))
   # The original classical-to-hybrid step keeps its signed prekey.
-  let old = case issue_device_credential(account_keys, stranger, wide("1")?, now, expires, wide("1")?) do
+  let old = case issue_device_credential(account_keys,
+    stranger,
+    wide("1")?,
+    now,
+    expires,
+    wide("1")?) do
     Err(_) -> Err("classical credential failed")
     Ok(value)
   end?
@@ -366,7 +425,12 @@ fn transition_proof() -> Bool!String do
   let old_one_time = one_time_prekey("5")?
   let old_bundle = base_bundle(build_prekey_bundle(old, old_signed, old_one_time))?
   let upgrade_post_quantum = post_quantum_prekey()?
-  let upgrade = hybrid_credential(account_keys, stranger, upgrade_post_quantum, now, expires, wide("2")?)?
+  let upgrade = hybrid_credential(account_keys,
+    stranger,
+    upgrade_post_quantum,
+    now,
+    expires,
+    wide("2")?)?
   let upgrade_signed = case reauthorize_signed_prekey(stranger, upgrade, old_signed) do
     Err(_) -> Err("reauthorization failed")
     Ok(value)
@@ -408,10 +472,7 @@ fn transcript_proof() -> Bool!String do
   let now = wide("1700000000000")?
   let expires = wide("1731536000000")?
   let later = wide("1739312000000")?
-  let policy = VerificationPolicy {
-    current_time: now,
-    minimum_directory_sequence: wide("1")?
-  }
+  let policy = VerificationPolicy { current_time: now, minimum_directory_sequence: wide("1")? }
   let (sender_account_keys, sender_account) = account(now)?
   let sender = device()?
   let sender_post_quantum = post_quantum_prekey()?
@@ -438,7 +499,8 @@ fn transcript_proof() -> Bool!String do
     first_post_quantum))?
   let next_post_quantum = post_quantum_prekey()?
   let next_signed = renewal_signed_prekey(device_keys, credential, wide("2")?, later)?
-  let published = requesting(current, request(device_keys, credential, next_signed, next_post_quantum)?)?
+  let published = requesting(current,
+    request(device_keys, credential, next_signed, next_post_quantum)?)?
   # Two logged bundles share signed prekey 1: only the transcript tells which
   # one a first message was sealed to, and the responder needs that exact one.
   let one_time = one_time_prekey("7")?

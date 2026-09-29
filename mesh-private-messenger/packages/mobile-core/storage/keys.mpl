@@ -11,7 +11,10 @@ from Transport.Packet import ClientProfile
 
 ##! Storage.Keys implementation.
 
-pub fn context(account_id :: Bytes, device_id :: Bytes, label :: String, purpose :: Int) -> Bytes!String do
+pub fn context(account_id :: Bytes,
+  device_id :: Bytes,
+  label :: String,
+  purpose :: Int) -> Bytes!String do
   if Bytes.length(account_id) != 32 || Bytes.length(device_id) != 16 do
     Err("invalid_storage_identity")
   else
@@ -97,35 +100,45 @@ pub fn seal_mlkem(key :: borrow MlKemPrivateKey,
   end
 end
 
-pub fn open_signing(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> SigningPrivateKey!String do
+pub fn open_signing(blob :: Bytes,
+  wrapping_key :: borrow StorageKey,
+  value_context :: Bytes) -> SigningPrivateKey!String do
   case SigningPrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
     Err(_) -> Err("identity_open_failed")
     Ok(key)
   end
 end
 
-pub fn open_x25519(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> X25519PrivateKey!String do
+pub fn open_x25519(blob :: Bytes,
+  wrapping_key :: borrow StorageKey,
+  value_context :: Bytes) -> X25519PrivateKey!String do
   case X25519PrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
     Err(_) -> Err("identity_open_failed")
     Ok(key)
   end
 end
 
-pub fn open_mlkem(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> MlKemPrivateKey!String do
+pub fn open_mlkem(blob :: Bytes,
+  wrapping_key :: borrow StorageKey,
+  value_context :: Bytes) -> MlKemPrivateKey!String do
   case MlKemPrivateKey.unseal_from_storage(blob, wrapping_key, value_context) do
     Err(_) -> Err("identity_open_failed")
     Ok(key)
   end
 end
 
-pub fn seal_local(value :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> Bytes!String do
+pub fn seal_local(value :: Bytes,
+  wrapping_key :: borrow StorageKey,
+  value_context :: Bytes) -> Bytes!String do
   case StorageKey.seal_bytes(value, wrapping_key, value_context) do
     Err(_) -> Err("local_state_seal_failed")
     Ok(blob)
   end
 end
 
-pub fn open_local(blob :: Bytes, wrapping_key :: borrow StorageKey, value_context :: Bytes) -> Bytes!String do
+pub fn open_local(blob :: Bytes,
+  wrapping_key :: borrow StorageKey,
+  value_context :: Bytes) -> Bytes!String do
   case StorageKey.unseal_bytes(blob, wrapping_key, value_context) do
     Err(_) -> Err("local_state_open_failed")
     Ok(value)

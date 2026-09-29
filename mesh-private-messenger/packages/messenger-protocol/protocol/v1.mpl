@@ -224,7 +224,8 @@ pub fn protocol_sealed_outer_suite() -> Int do
   4
 end
 
-pub fn protocol_validate_suite_list(values :: List<Int>, index :: Int) -> Result<(), ProtocolError> do
+pub fn protocol_validate_suite_list(values :: List<Int>,
+  index :: Int) -> Result<(), ProtocolError> do
   if List.length(values) == 0 || List.length(values) > 8 do
     Err(InvalidSuiteList)
   else if index >= List.length(values) do
@@ -249,13 +250,11 @@ pub fn negotiate_suites(local_suites :: List<Int>,
   if strongest_authenticated_suite < 0 || strongest_authenticated_suite > 2 do
     Err(InvalidSuiteHistory)
   else
-    let selected = if protocol_contains_suite(local_suites, 2, 0) && protocol_contains_suite(remote_suites,
-      2,
-      0) do
+    let selected = if protocol_contains_suite(local_suites, 2, 0)
+      && protocol_contains_suite(remote_suites, 2, 0) do
       2
-    else if protocol_contains_suite(local_suites, 1, 0) && protocol_contains_suite(remote_suites,
-      1,
-      0) do
+    else if protocol_contains_suite(local_suites, 1, 0)
+      && protocol_contains_suite(remote_suites, 1, 0) do
       1
     else
       0

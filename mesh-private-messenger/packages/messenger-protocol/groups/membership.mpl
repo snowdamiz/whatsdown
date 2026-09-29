@@ -237,7 +237,9 @@ fn prepare_add(state :: borrow GroupState,
   let leaf_tree = group_tree_error(update_leaf_public_key(proposal_tree,
     state.local_leaf,
     generated.leaf_public_key))?
-  let next_tree = group_tree_error(apply_update_path(leaf_tree, state.local_leaf, generated.parents))?
+  let next_tree = group_tree_error(apply_update_path(leaf_tree,
+    state.local_leaf,
+    generated.parents))?
   let context = group_update_path_context(2,
     3,
     state.group_id,
@@ -327,7 +329,16 @@ pub fn commit_add(state :: consume GroupState,
       let commit = prepared.commit
       let welcome = prepared.welcome
       let transcript_hash = prepared.transcript_hash
-      let next = %{state | version: 2, epoch: commit.epoch, tree: tree, tree_hash_cache: tree_hash(tree), transcript_hash: transcript_hash, key_material: prepared.key_material, next_generation: 0, received_generations: List.new()}
+      let next = %{state |
+        version: 2,
+        epoch: commit.epoch,
+        tree: tree,
+        tree_hash_cache: tree_hash(tree),
+        transcript_hash: transcript_hash,
+        key_material: prepared.key_material,
+        next_generation: 0,
+        received_generations: List.new()
+      }
       GroupMemberAdded(next, commit, welcome)
     end
   end
@@ -428,7 +439,16 @@ pub fn commit_remove(state :: consume GroupState,
       let tree = prepared.tree
       let commit = prepared.commit
       let transcript_hash = prepared.transcript_hash
-      let next = %{state | version: 2, epoch: commit.epoch, tree: tree, tree_hash_cache: tree_hash(tree), transcript_hash: transcript_hash, key_material: prepared.key_material, next_generation: 0, received_generations: List.new()}
+      let next = %{state |
+        version: 2,
+        epoch: commit.epoch,
+        tree: tree,
+        tree_hash_cache: tree_hash(tree),
+        transcript_hash: transcript_hash,
+        key_material: prepared.key_material,
+        next_generation: 0,
+        received_generations: List.new()
+      }
       GroupMemberRemoved(next, commit)
     end
   end
@@ -463,9 +483,10 @@ fn prepare_join(welcome :: GroupWelcome,
   init_private_key :: borrow X25519PrivateKey,
   leaf_public_key :: X25519PublicKey) -> PreparedJoin!GroupError do
   group_validate_welcome_shape(welcome)?
-  if (welcome.commit.version != 1 && welcome.commit.version != 2) || welcome.commit.suite != 3 || Bytes.length(welcome.commit.group_id) != 32 || !group_valid_extensions(welcome.extensions,
-    0,
-    0) do
+  if (welcome.commit.version != 1 && welcome.commit.version != 2)
+    || welcome.commit.suite != 3
+    || Bytes.length(welcome.commit.group_id) != 32
+    || !group_valid_extensions(welcome.extensions, 0, 0) do
     Err(InvalidGroup)
   else
     group_validate_policy(welcome.policy)?
@@ -480,8 +501,8 @@ fn prepare_join(welcome :: GroupWelcome,
         Ok(value)
       end?
       let recipient = group_tree_member_error(member_at(tree, welcome.recipient_leaf))?
-      if !Bytes.secure_equals(recipient.init_public_key.bytes, init_public_key.bytes) || !Bytes.secure_equals(recipient.leaf_public_key.bytes,
-        leaf_public_key.bytes) do
+      if !Bytes.secure_equals(recipient.init_public_key.bytes, init_public_key.bytes)
+        || !Bytes.secure_equals(recipient.leaf_public_key.bytes, leaf_public_key.bytes) do
         Err(AuthenticationRejected)
       else
         let context = group_update_path_context(welcome.commit.version,
@@ -578,10 +599,13 @@ pub fn join_from_welcome(welcome :: GroupWelcome,
   end
 end
 
-fn apply_verified_commit(state :: borrow GroupState, commit :: GroupCommit) -> PreparedAppliedCommit!GroupError do
+fn apply_verified_commit(state :: borrow GroupState,
+  commit :: GroupCommit) -> PreparedAppliedCommit!GroupError do
   group_validate_commit_shape(commit)?
-  if (commit.version != 1 && commit.version != 2) || commit.version < state.version || commit.suite != state.suite || !Bytes.secure_equals(commit.group_id,
-    state.group_id) do
+  if (commit.version != 1 && commit.version != 2)
+    || commit.version < state.version
+    || commit.suite != state.suite
+    || !Bytes.secure_equals(commit.group_id, state.group_id) do
     Err(AuthenticationRejected)
   else if U64.compare(commit.prior_epoch, state.epoch) < 0 do
     Err(StaleEpoch)
@@ -609,10 +633,7 @@ fn apply_verified_commit(state :: borrow GroupState, commit :: GroupCommit) -> P
           commit.tree_hash,
           commit.proposal,
           commit.update_path)?
-        Ok(PreparedAppliedCommit {
-          tree: next_tree,
-          context: context
-        })
+        Ok(PreparedAppliedCommit { tree: next_tree, context: context })
       end
     end
   end
@@ -702,6 +723,7 @@ fn finish_applied(state :: consume GroupState,
   })
 end
 
-pub fn commit_update(state :: consume GroupState, signing_key :: borrow SigningPrivateKey) -> GroupRemoveOutcome do
+pub fn commit_update(state :: consume GroupState,
+  signing_key :: borrow SigningPrivateKey) -> GroupRemoveOutcome do
   commit_remove(state, signing_key, -1)
 end

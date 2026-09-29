@@ -11,9 +11,20 @@ from Mobile.Codec import (
   mobile_write_u64,
   mobile_zeroes
 )
-from Mobile.DeviceSet import account_device_profiles, bundle_lapses_at, local_device_set, verified_device_set
+from Mobile.DeviceSet import (
+  account_device_profiles,
+  bundle_lapses_at,
+  local_device_set,
+  verified_device_set
+)
 from Mobile.Platform import stamped_request
-from Mobile.Profile import directory_bytes, load_profile, open_account, open_device, open_post_quantum_prekey
+from Mobile.Profile import (
+  directory_bytes,
+  load_profile,
+  open_account,
+  open_device,
+  open_post_quantum_prekey
+)
 from Mobile.Transparency import require_transparency_device_set
 from Mobile.Types import MobileOneTimePrekey, MobilePayloadRequest
 from Prekeys.Bundle import (
@@ -122,7 +133,9 @@ fn encode_kept(values :: List<KeptBundle>, index :: Int, output :: Bytes) -> Byt
   end
 end
 
-fn decode_kept(input :: Bytes, offset :: Int, output :: List<KeptBundle>) -> List<KeptBundle>!String do
+fn decode_kept(input :: Bytes,
+  offset :: Int,
+  output :: List<KeptBundle>) -> List<KeptBundle>!String do
   if offset >= Bytes.length(input) do
     Ok(output)
   else
@@ -144,7 +157,9 @@ fn decode_kept(input :: Bytes, offset :: Int, output :: List<KeptBundle>) -> Lis
   end
 end
 
-fn sealed_state(path :: String, wrapping_key :: borrow StorageKey, label :: String) -> Option<Bytes>!String do
+fn sealed_state(path :: String,
+  wrapping_key :: borrow StorageKey,
+  label :: String) -> Option<Bytes>!String do
   case load_blob(path, label) do
     Err(error) -> if error == "local_state_not_found" do
       Ok(None)
@@ -170,7 +185,8 @@ end
 
 # What a linked device asked the account key for, until it is answered.
 
-fn load_request(path :: String, wrapping_key :: borrow StorageKey) -> Option<RenewalRequest>!String do
+fn load_request(path :: String,
+  wrapping_key :: borrow StorageKey) -> Option<RenewalRequest>!String do
   case sealed_state(path, wrapping_key, "renewal-request/v1")? do
     None -> Ok(None)
     Some(encoded) -> case decode_renewal_request(encoded) do
@@ -226,9 +242,11 @@ fn open_signed_secret(profile :: ClientProfile,
   id :: U64) -> X25519PrivateKey!String do
   let label = signed_prekey_label(id)
   case load_blob(path, label) do
-    Ok(blob) -> open_x25519(blob, wrapping_key, context(profile.account_id, profile.device_id, label, 9)?)
-    Err(error) -> if error == "local_state_not_found" && U64.compare(id,
-      profile.bundle.signed_prekey_id) == 0 do
+    Ok(blob) -> open_x25519(blob,
+      wrapping_key,
+      context(profile.account_id, profile.device_id, label, 9)?)
+    Err(error) -> if error == "local_state_not_found"
+      && U64.compare(id, profile.bundle.signed_prekey_id) == 0 do
       open_x25519(load_blob(path, "signed-prekey/v1")?,
         wrapping_key,
         context(profile.account_id, profile.device_id, "signed-prekey/v1", 9)?)
@@ -269,7 +287,8 @@ fn open_bundle_post_quantum(profile :: ClientProfile,
   end
 end
 
-fn reject_bundle_open(signed_private :: consume X25519PrivateKey, error :: String) -> Result<(SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String> do
+fn reject_bundle_open(signed_private :: consume X25519PrivateKey,
+  error :: String) -> Result<(SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String> do
   Err(error)
 end
 
@@ -334,7 +353,9 @@ fn matching_bundle(candidates :: List<PrekeyBundle>,
   end
 end
 
-fn kept_prekey_bundles(values :: List<KeptBundle>, index :: Int, output :: List<PrekeyBundle>) -> List<PrekeyBundle>!String do
+fn kept_prekey_bundles(values :: List<KeptBundle>,
+  index :: Int,
+  output :: List<PrekeyBundle>) -> List<PrekeyBundle>!String do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -367,7 +388,9 @@ end
 ## This device checks its own bundle as of when it was still valid: mail sealed
 ## just before a bundle ran out may arrive after.
 
-pub fn own_bundle_policy(local :: ClientProfile, bundle :: PrekeyBundle, now :: U64) -> VerificationPolicy do
+pub fn own_bundle_policy(local :: ClientProfile,
+  bundle :: PrekeyBundle,
+  now :: U64) -> VerificationPolicy do
   let lapse = case decode_device_credential(bundle.device_credential) do
     Err(_) -> now
     Ok(credential) -> bundle_lapses_at(bundle, credential)
@@ -382,7 +405,9 @@ pub fn own_bundle_policy(local :: ClientProfile, bundle :: PrekeyBundle, now :: 
   }
 end
 
-fn find_own(profiles :: List<ClientProfile>, device_id :: Bytes, index :: Int) -> ClientProfile!String do
+fn find_own(profiles :: List<ClientProfile>,
+  device_id :: Bytes,
+  index :: Int) -> ClientProfile!String do
   if index >= List.length(profiles) do
     Err("renewal_device_missing")
   else if Bytes.secure_equals(List.get(profiles, index).device_id, device_id) do
@@ -400,7 +425,9 @@ struct HeldKeys do
   post_quantum_prekey :: Bytes
 end
 
-fn kept_generation(values :: List<KeptBundle>, id :: U64, index :: Int) -> Option<HeldKeys>!String do
+fn kept_generation(values :: List<KeptBundle>,
+  id :: U64,
+  index :: Int) -> Option<HeldKeys>!String do
   if index >= List.length(values) do
     Ok(None)
   else
@@ -450,8 +477,9 @@ end
 fn holds_keys_of(held :: Option<HeldKeys>, bundle :: PrekeyBundle) -> Bool do
   case held do
     None -> false
-    Some(keys) -> Bytes.secure_equals(keys.signed_prekey, bundle.signed_prekey) && (bundle.suite != 2 || Bytes.secure_equals(keys.post_quantum_prekey,
-      bundle.post_quantum_prekey))
+    Some(keys) -> Bytes.secure_equals(keys.signed_prekey, bundle.signed_prekey)
+      && (bundle.suite != 2
+        || Bytes.secure_equals(keys.post_quantum_prekey, bundle.post_quantum_prekey))
   end
 end
 
@@ -483,7 +511,9 @@ fn newer_entry(local :: ClientProfile, logged :: ClientProfile) -> Bool do
   end
 end
 
-fn kept_signed_prekey_ids(values :: List<KeptBundle>, index :: Int, output :: List<U64>) -> List<U64>!String do
+fn kept_signed_prekey_ids(values :: List<KeptBundle>,
+  index :: Int,
+  output :: List<U64>) -> List<U64>!String do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -513,7 +543,10 @@ fn contains_id(values :: List<U64>, id :: U64, index :: Int) -> Bool do
   end
 end
 
-fn secret_labels(ids :: List<U64>, in_use :: List<U64>, index :: Int, output :: List<String>) -> List<String> do
+fn secret_labels(ids :: List<U64>,
+  in_use :: List<U64>,
+  index :: Int,
+  output :: List<String>) -> List<String> do
   if index >= List.length(ids) do
     output
   else
@@ -555,7 +588,7 @@ fn settled(local :: ClientProfile,
   asked :: Option<RenewalRequest>,
   clock :: U64) -> Result<(List<KeptBundle>, List<String>), String> do
   let remaining = List.filter(kept,
-    fn (value) do
+    fn(value) do
       case past_grace(value, clock) do
         Err(_) -> false
         Ok(expired) -> !expired
@@ -566,7 +599,7 @@ fn settled(local :: ClientProfile,
   else
     remaining
   end
-  let dropped = List.filter(kept, fn (value) do !contains_bundle(bounded, value.bundle, 0) end)
+  let dropped = List.filter(kept, fn(value) do !contains_bundle(bounded, value.bundle, 0) end)
   let dropped_ids = kept_signed_prekey_ids(dropped, 0, List.new())?
   let in_use = signed_prekey_ids_in_use(local, bounded, asked)?
   Ok((bounded, secret_labels(dropped_ids, in_use, 0, List.new())))
@@ -582,7 +615,10 @@ fn settle(path :: String,
   if List.length(remaining) == List.length(kept) do
     Ok(nil)
   else
-    store_record_changes(path, ["prekey-bundles/v1"], [kept_blob(remaining, wrapping_key)?], removed)
+    store_record_changes(path,
+      ["prekey-bundles/v1"],
+      [kept_blob(remaining, wrapping_key)?],
+      removed)
   end
 end
 
@@ -622,7 +658,9 @@ fn legacy_secret_moves(local :: ClientProfile,
       let label = post_quantum_prekey_label(id)
       Ok((List.append(signed_labels, label),
         List.append(signed_blobs,
-          seal_mlkem(secret, wrapping_key, context(local.account_id, local.device_id, label, 15)?)?),
+          seal_mlkem(secret,
+            wrapping_key,
+            context(local.account_id, local.device_id, label, 15)?)?),
         List.append(signed_removed, "post-quantum-prekey/v1")))
     end
   end
@@ -631,7 +669,10 @@ end
 # A pending bundle may have been live before the one the directory now shows,
 # so it is kept like any replaced bundle.
 
-fn retire_pending(values :: List<KeptBundle>, now :: U64, index :: Int, output :: List<KeptBundle>) -> List<KeptBundle> do
+fn retire_pending(values :: List<KeptBundle>,
+  now :: U64,
+  index :: Int,
+  output :: List<KeptBundle>) -> List<KeptBundle> do
   if index >= List.length(values) do
     output
   else
@@ -662,18 +703,15 @@ fn adopt(path :: String,
   now :: U64,
   clock :: U64) -> ClientProfile!String do
   let logged_bytes = normalized_bytes(logged.bundle)?
-  let others = List.filter(kept, fn (value) do !Bytes.secure_equals(value.bundle, logged_bytes) end)
+  let others = List.filter(kept, fn(value) do !Bytes.secure_equals(value.bundle, logged_bytes) end)
   let retired = retire_pending(others, now, 0, List.new())
   let with_previous = List.append(retired,
-    KeptBundle {
-      pending: false,
-      confirmed_at: now,
-      bundle: normalized_bytes(local.bundle)?
-    })
+    KeptBundle { pending: false, confirmed_at: now, bundle: normalized_bytes(local.bundle)? })
   # A request the entry now answers is done with.
   let outstanding = case asked do
     None
-    Some(request) -> if U64.compare(logged.bundle.signed_prekey_id, request.signed_prekey_id) >= 0 do
+    Some(request) -> if U64.compare(logged.bundle.signed_prekey_id,
+      request.signed_prekey_id) >= 0 do
       None
     else
       Some(request)
@@ -714,8 +752,8 @@ fn reconcile(path :: String,
     Ok(local)
   else
     let same_keys = Bytes.secure_equals(logged.credential.signing_public_key,
-      local.credential.signing_public_key) && Bytes.secure_equals(logged.credential.dh_public_key,
-      local.credential.dh_public_key)
+      local.credential.signing_public_key)
+      && Bytes.secure_equals(logged.credential.dh_public_key, local.credential.dh_public_key)
     let held = holds_keys_of(known_generation(local, kept, asked, logged.bundle.signed_prekey_id)?,
       logged.bundle)
     if !same_keys || !held || !newer_entry(local, logged) do
@@ -727,7 +765,8 @@ fn reconcile(path :: String,
 end
 
 fn renewal_due(local :: ClientProfile, clock :: U64) -> Bool!String do
-  Ok(U64.compare(bundle_lapses_at(local.bundle, local.credential), U64.add(clock, renewal_margin()?)?) < 0)
+  Ok(U64.compare(bundle_lapses_at(local.bundle, local.credential),
+    U64.add(clock, renewal_margin()?)?) < 0)
 end
 
 fn next_signed_prekey_id(local :: ClientProfile,
@@ -736,7 +775,7 @@ fn next_signed_prekey_id(local :: ClientProfile,
   let ids = signed_prekey_ids_in_use(local, kept, asked)?
   let highest = List.reduce(ids,
     local.bundle.signed_prekey_id,
-    fn (best, id) do
+    fn(best, id) do
       if U64.compare(id, best) > 0 do
         id
       else
@@ -759,13 +798,9 @@ end
 # One pending renewal at a time: a new one replaces any other.
 
 fn with_pending(values :: List<KeptBundle>, bundle :: Bytes) -> List<KeptBundle>!String do
-  let settled_values = List.filter(values, fn (value) do !value.pending end)
+  let settled_values = List.filter(values, fn(value) do !value.pending end)
   Ok(List.append(settled_values,
-    KeptBundle {
-      pending: true,
-      confirmed_at: mobile_wide("0")?,
-      bundle: bundle
-    }))
+    KeptBundle { pending: true, confirmed_at: mobile_wide("0")?, bundle: bundle }))
 end
 
 fn own_request_from(bundle :: PrekeyBundle) -> RenewalRequest!String do
@@ -1005,8 +1040,8 @@ fn answer_requests(path :: String,
       None
     else
       case bundle_renewal_request(device.bundle) do
-        Ok(Some(value)) -> if verify_renewal_request(device.credential, value) && U64.compare(value.signed_prekey_id,
-          device.bundle.signed_prekey_id) > 0 do
+        Ok(Some(value)) -> if verify_renewal_request(device.credential, value)
+          && U64.compare(value.signed_prekey_id, device.bundle.signed_prekey_id) > 0 do
           Some(value)
         else
           None
@@ -1025,7 +1060,8 @@ fn answer_requests(path :: String,
           now,
           U64.add(sequence, mobile_wide("1")?)?,
           index + 1,
-          List.append(output, directory_bytes(%{device.entry | prekey_bundle: bundle_bytes(bundle)?})?))
+          List.append(output,
+            directory_bytes(%{device.entry | prekey_bundle: bundle_bytes(bundle)?})?))
       end
     end
   end
@@ -1078,7 +1114,9 @@ pub fn renew_devices_at(path :: String, device_set :: Bytes, age :: U64) -> List
   end
 end
 
-fn stamped_registrations(entries :: List<Bytes>, index :: Int, output :: List<Bytes>) -> List<Bytes>!String do
+fn stamped_registrations(entries :: List<Bytes>,
+  index :: Int,
+  output :: List<Bytes>) -> List<Bytes>!String do
   if index >= List.length(entries) do
     Ok(output)
   else

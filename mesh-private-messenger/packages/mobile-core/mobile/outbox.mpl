@@ -26,7 +26,10 @@ pub fn outbox_capacity() -> Int do
   256
 end
 
-fn decode_outbox_ids_parts(state :: BinaryReader, count :: Int, index :: Int, ids :: List<Bytes>) -> List<Bytes>!String do
+fn decode_outbox_ids_parts(state :: BinaryReader,
+  count :: Int,
+  index :: Int,
+  ids :: List<Bytes>) -> List<Bytes>!String do
   if index >= count do
     case finish(state) do
       Err(_) -> Err("invalid_outbox")
@@ -73,7 +76,8 @@ fn outbox_tail_label(id :: Bytes) -> String!String do
   end
 end
 
-pub fn load_outbox_ids(database_path :: String, wrapping_key :: borrow StorageKey) -> List<Bytes>!String do
+pub fn load_outbox_ids(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> List<Bytes>!String do
   case load_blob(database_path, "outbox/v1") do
     Err(error) -> if error == "local_state_not_found" do
       Ok(List.new())
@@ -169,7 +173,9 @@ pub fn prepare_outbox_writes(wrapping_key :: borrow StorageKey,
       existing_ids,
       List.new(),
       List.new())?
-    let index_blob = seal_local(encode_output_list(ids)?, wrapping_key, local_context("outbox/v1")?)?
+    let index_blob = seal_local(encode_output_list(ids)?,
+      wrapping_key,
+      local_context("outbox/v1")?)?
     let first = List.length(existing_ids) + tracked_from
     let (delivery_labels, delivery_blobs) = tracked_delivery(database_path,
       wrapping_key,
@@ -179,7 +185,9 @@ pub fn prepare_outbox_writes(wrapping_key :: borrow StorageKey,
   end
 end
 
-fn load_outbox_entry(database_path :: String, wrapping_key :: borrow StorageKey, id :: Bytes) -> Bytes!String do
+fn load_outbox_entry(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  id :: Bytes) -> Bytes!String do
   let label = outbox_entry_label(id)?
   let head = open_local(load_blob(database_path, label)?, wrapping_key, local_context(label)?)?
   if Bytes.length(head) < 4 do
@@ -232,7 +240,10 @@ fn load_outbox_entries(database_path :: String,
   end
 end
 
-fn remove_outbox_id(ids :: List<Bytes>, id :: Bytes, index :: Int, remaining :: List<Bytes>) -> List<Bytes> do
+fn remove_outbox_id(ids :: List<Bytes>,
+  id :: Bytes,
+  index :: Int,
+  remaining :: List<Bytes>) -> List<Bytes> do
   if index >= List.length(ids) do
     remaining
   else if Bytes.secure_equals(List.get(ids, index), id) do
@@ -242,7 +253,9 @@ fn remove_outbox_id(ids :: List<Bytes>, id :: Bytes, index :: Int, remaining :: 
   end
 end
 
-fn update_outbox_index(database :: SqliteConn, remaining :: List<Bytes>, index_blob :: Bytes) -> Result<(), String> do
+fn update_outbox_index(database :: SqliteConn,
+  remaining :: List<Bytes>,
+  index_blob :: Bytes) -> Result<(), String> do
   if List.length(remaining) == 0 do
     delete_blob(database, "outbox/v1")
   else
@@ -258,7 +271,7 @@ fn store_outbox_ack(database_path :: String,
   delivery_blobs :: List<Bytes>,
   removed_labels :: List<String>) -> Result<(), String> do
   with_record_transaction(database_path,
-    fn (database) do
+    fn(database) do
       delete_blob(database, outbox_entry_label(id)?)?
       delete_blob(database, outbox_tail_label(id)?)?
       update_outbox_index(database, remaining, index_blob)?

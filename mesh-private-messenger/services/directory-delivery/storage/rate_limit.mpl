@@ -1,5 +1,9 @@
 fn valid_policy(key :: Bytes, limit :: Int, window_seconds :: Int) -> Result<(), String> do
-  if Bytes.length(key) != 32 || limit <= 0 || limit > 1000000 || window_seconds <= 0 || window_seconds > 86400 do
+  if Bytes.length(key) != 32
+    || limit <= 0
+    || limit > 1000000
+    || window_seconds <= 0
+    || window_seconds > 86400 do
     Err("invalid rate-limit policy")
   else
     Ok(nil)
@@ -17,10 +21,13 @@ pub fn allow_request_on_connection(conn :: borrow PgConn,
   Ok(List.length(rows) == 1)
 end
 
-pub fn allow_request(pool :: PoolHandle, key :: Bytes, limit :: Int, window_seconds :: Int) -> Bool!String do
+pub fn allow_request(pool :: PoolHandle,
+  key :: Bytes,
+  limit :: Int,
+  window_seconds :: Int) -> Bool!String do
   valid_policy(key, limit, window_seconds)?
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> allow_request_on_connection(conn, key, limit, window_seconds) end)
+    fn(conn :: borrow PgConn) -> allow_request_on_connection(conn, key, limit, window_seconds) end)
 end
 
 # No policy keeps a window longer than a day, so an older row can never affect

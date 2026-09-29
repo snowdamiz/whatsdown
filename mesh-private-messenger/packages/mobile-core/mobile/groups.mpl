@@ -17,8 +17,19 @@ from Mobile.Presentation import (
 )
 from Groups.CommitWire import encode_group_commit
 from Groups.GroupCodec import delivery_targets
-from Groups.GroupMessages import decrypt_group_message, encode_group_message, encrypt_group_message_for_transport
-from Groups.Membership import apply_commit, commit_add, commit_remove, commit_update, create_group, join_from_welcome
+from Groups.GroupMessages import (
+  decrypt_group_message,
+  encode_group_message,
+  encrypt_group_message_for_transport
+)
+from Groups.Membership import (
+  apply_commit,
+  commit_add,
+  commit_remove,
+  commit_update,
+  create_group,
+  join_from_welcome
+)
 from Groups.Mls import (
   CommitApplyOutcome,
   GroupAddOutcome,
@@ -35,7 +46,14 @@ from Groups.Mls import (
   GroupWelcome
 )
 from Groups.WelcomeWire import encode_group_welcome
-from Groups.Tree import indexed_members, GroupTree, GroupMember, IndexedGroupMember, find_member_index, member_at
+from Groups.Tree import (
+  indexed_members,
+  GroupTree,
+  GroupMember,
+  IndexedGroupMember,
+  find_member_index,
+  member_at
+)
 from Identity.Device import DeviceKeys
 from Mobile.Codec import canonical_outer, current_time, encode_output_list
 from Mobile.DeviceSet import local_device_set, verified_device_set
@@ -270,7 +288,7 @@ pub fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes!
     Err("group_member_not_found")
   else
     let remaining = List.filter(indexed_members(state.tree),
-      fn (member) -> member.leaf_index != leaf_index end)
+      fn(member) -> member.leaf_index != leaf_index end)
     require_group_authorizations(request.database_path, wrapping_key, remaining, 0)?
     let pending_ids = load_outbox_ids(request.database_path, wrapping_key)?
     let device = open_device(profile, wrapping_key, request.database_path)?
@@ -362,7 +380,8 @@ fn require_group_authorizations(path :: String,
       Ok(value)
       Err(_) -> Err("group_membership_changed")
     end?
-    if !Bytes.secure_equals(profile.credential.signing_public_key, member.signing_public_key.bytes) do
+    if !Bytes.secure_equals(profile.credential.signing_public_key,
+      member.signing_public_key.bytes) do
       Err("group_membership_changed")
     else
       require_group_authorizations(path, key, members, index + 1)
@@ -494,12 +513,16 @@ fn welcome_member(value :: GroupWelcome) -> GroupMember!String do
   end
 end
 
-fn local_welcome_member(profile :: ClientProfile, member :: GroupMember, welcome :: GroupWelcome) -> Bool do
-  Bytes.secure_equals(member.account_id, profile.account_id) && Bytes.secure_equals(member.device_id,
-    profile.device_id) && Bytes.secure_equals(member.signing_public_key.bytes,
-    profile.credential.signing_public_key) && Bytes.secure_equals(member.mailbox_token,
-    profile.entry.mailbox_token) && Bytes.secure_equals(member.transparency_checkpoint_hash,
-    welcome.policy.checkpoint_hash) && member.witness_count == 2 && welcome.policy.witness_threshold == 2
+fn local_welcome_member(profile :: ClientProfile,
+  member :: GroupMember,
+  welcome :: GroupWelcome) -> Bool do
+  Bytes.secure_equals(member.account_id, profile.account_id)
+    && Bytes.secure_equals(member.device_id, profile.device_id)
+    && Bytes.secure_equals(member.signing_public_key.bytes, profile.credential.signing_public_key)
+    && Bytes.secure_equals(member.mailbox_token, profile.entry.mailbox_token)
+    && Bytes.secure_equals(member.transparency_checkpoint_hash, welcome.policy.checkpoint_hash)
+    && member.witness_count == 2
+    && welcome.policy.witness_threshold == 2
 end
 
 # Whoever added this device is the first member it trusts to say what a community is.
@@ -508,7 +531,7 @@ fn store_welcome_anchor(database_path :: String,
   wrapping_key :: borrow StorageKey,
   welcome :: GroupWelcome) -> Result<(), String> do
   case List.find(welcome.members,
-    fn (value) do value.leaf_index == welcome.commit.committer_leaf end) do
+    fn(value) do value.leaf_index == welcome.commit.committer_leaf end) do
     Some(committer) -> store_group_anchor(database_path,
       wrapping_key,
       welcome.commit.group_id,
@@ -529,17 +552,17 @@ fn join_mobile_group(database_path :: String,
   let baseline_hash = checkpoint_hash(baseline)?
   let current_checkpoint = group_checkpoint(database_path, wrapping_key)?
   let view = load_transparency_view(database_path, wrapping_key)?
-  if !Bytes.secure_equals(baseline_hash, welcome.policy.checkpoint_hash) || !local_welcome_member(profile,
-    member,
-    welcome) || !(transparency_checkpoint_precedes(baseline_checkpoint, current_checkpoint, view)?) do
+  if !Bytes.secure_equals(baseline_hash, welcome.policy.checkpoint_hash)
+    || !local_welcome_member(profile, member, welcome)
+    || !(transparency_checkpoint_precedes(baseline_checkpoint, current_checkpoint, view)?) do
     return Err("group_welcome_rejected")
   end
   case load_blob(database_path, state_label) do
     Ok(_) -> do
       let stored_baseline = load_group_baseline(database_path, wrapping_key, group_id)?
       let existing = load_group(database_path, profile, wrapping_key, group_id)?
-      let existing_valid = Bytes.secure_equals(stored_baseline, baseline_checkpoint) && Bytes.secure_equals(existing.policy.checkpoint_hash,
-        baseline_hash)
+      let existing_valid = Bytes.secure_equals(stored_baseline, baseline_checkpoint)
+        && Bytes.secure_equals(existing.policy.checkpoint_hash, baseline_hash)
       consume_group_state(existing)
       if !existing_valid do
         Err("group_welcome_rejected")
@@ -564,20 +587,25 @@ fn join_mobile_group(database_path :: String,
           package_label)?,
         wrapping_key,
         local_context(package_label)?)?)?
-      let package_signature_valid = case Crypto.verify(SigningPublicKey { bytes: profile.credential.signing_public_key },
+      let package_signature_valid = case Crypto.verify(SigningPublicKey {
+          bytes: profile.credential.signing_public_key
+        },
         group_key_package_unsigned(stored_package)?,
         stored_package.signature) do
         Err(_) -> false
         Ok(value) -> value
       end
-      if !package_signature_valid || !Bytes.secure_equals(stored_package.account_id,
-        profile.account_id) || !Bytes.secure_equals(stored_package.device_id, profile.device_id) || !Bytes.secure_equals(stored_package.init_public_key.bytes,
-        member.init_public_key.bytes) || !Bytes.secure_equals(stored_package.leaf_public_key.bytes,
-        member.leaf_public_key.bytes) || !(transparency_checkpoint_precedes(baseline_checkpoint,
-        stored_package.checkpoint,
-        view)?) || !(transparency_checkpoint_precedes(stored_package.checkpoint,
-        current_checkpoint,
-        view)?) do
+      if !package_signature_valid
+        || !Bytes.secure_equals(stored_package.account_id, profile.account_id)
+        || !Bytes.secure_equals(stored_package.device_id, profile.device_id)
+        || !Bytes.secure_equals(stored_package.init_public_key.bytes, member.init_public_key.bytes)
+        || !Bytes.secure_equals(stored_package.leaf_public_key.bytes, member.leaf_public_key.bytes)
+        || !(transparency_checkpoint_precedes(baseline_checkpoint,
+          stored_package.checkpoint,
+          view)?)
+        || !(transparency_checkpoint_precedes(stored_package.checkpoint,
+          current_checkpoint,
+          view)?) do
         Err("group_welcome_rejected")
       else
         let init_private = open_x25519(load_blob(database_path, init_label)?,
@@ -739,8 +767,8 @@ fn receive_mobile_group_result(request :: MobileReceiveRequest) -> Bytes!String 
   let profile = decode_client_profile(load_profile(request.database_path)?)?
   let outer = canonical_outer(request.outer)?
   let sealed_suite = outer.suite == protocol_sealed_outer_suite()
-  if !(outer.suite == 3 || sealed_suite) || !Bytes.secure_equals(outer.mailbox_token,
-    profile.entry.mailbox_token) do
+  if !(outer.suite == 3 || sealed_suite)
+    || !Bytes.secure_equals(outer.mailbox_token, profile.entry.mailbox_token) do
     Err("wrong_group_delivery")
   else
     let wrapping_key = platform_key()?
@@ -782,7 +810,19 @@ fn receive_mobile_group_result(request :: MobileReceiveRequest) -> Bytes!String 
 end
 
 fn permanent_group_delivery_error(error :: String) -> Bool do
-  error == "wrong_group_delivery" || error == "invalid_recipient_packet" || error == "invalid_outer_envelope" || error == "noncanonical_outer_envelope" || error == "invalid_group_packet" || error == "invalid_group_welcome" || error == "group_welcome_rejected" || error == "invalid_group_commit" || error == "group_commit_rejected" || error == "group_stale_epoch" || error == "invalid_group_message" || error == "group_message_rejected" || error == "group_limit_reached"
+  error == "wrong_group_delivery"
+    || error == "invalid_recipient_packet"
+    || error == "invalid_outer_envelope"
+    || error == "noncanonical_outer_envelope"
+    || error == "invalid_group_packet"
+    || error == "invalid_group_welcome"
+    || error == "group_welcome_rejected"
+    || error == "invalid_group_commit"
+    || error == "group_commit_rejected"
+    || error == "group_stale_epoch"
+    || error == "invalid_group_message"
+    || error == "group_message_rejected"
+    || error == "group_limit_reached"
 end
 
 pub fn receive_mobile_group_classified(request :: MobileReceiveRequest) -> MobileGroupReceiveOutcome do
@@ -822,7 +862,8 @@ pub fn save_owned_presentation(request :: MobileTriplePayloadRequest) -> Bytes!S
       let stored = load_presentation_record(request.database_path, wrapping_key, request.first)?
       if record_change_allowed(stored, request.second, local.account_id, creator, Bytes.empty())? do
         save_presentation(request)
-      else if Bytes.length(presentation_fields(request.second)?.community) > 0 || Bytes.length(stored) > 0 && Bytes.length(presentation_fields(stored)?.community) > 0 do
+      else if Bytes.length(presentation_fields(request.second)?.community) > 0
+        || Bytes.length(stored) > 0 && Bytes.length(presentation_fields(stored)?.community) > 0 do
         Err("community_admin_required")
       else
         Err("group_creator_required")

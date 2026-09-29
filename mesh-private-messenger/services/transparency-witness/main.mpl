@@ -1,5 +1,18 @@
-from Transparency.Merkle import TransparencyCheckpoint, checkpoint_conflict, sign_witness, verify_checkpoint, verify_consistency
-from Transparency.Wire import TransparencyTreeQuery, decode_checkpoint, decode_consistency_proof, encode_checkpoint, encode_transparency_tree_query, encode_witnesses
+from Transparency.Merkle import (
+  TransparencyCheckpoint,
+  checkpoint_conflict,
+  sign_witness,
+  verify_checkpoint,
+  verify_consistency
+)
+from Transparency.Wire import (
+  TransparencyTreeQuery,
+  decode_checkpoint,
+  decode_consistency_proof,
+  encode_checkpoint,
+  encode_transparency_tree_query,
+  encode_witnesses
+)
 
 fn configured_public_key(name :: String) -> Bytes!String do
   case Bytes.from_hex(Env.get(name, "")) do
@@ -151,10 +164,14 @@ end
 fn witness_once() -> Result<(), String> do
   let witness_id = Env.get("MESSENGER_WITNESS_ID", "")
   let checkpoint_path = Env.get("MESSENGER_WITNESS_CHECKPOINT_PATH", "")
-  if String.length(witness_id) == 0 || String.length(witness_id) > 64 || String.length(checkpoint_path) == 0 do
+  if String.length(witness_id) == 0
+    || String.length(witness_id) > 64
+    || String.length(checkpoint_path) == 0 do
     return Err("invalid witness configuration")
   end
-  let trusted_log_key = SigningPublicKey { bytes: configured_public_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX")? }
+  let trusted_log_key = SigningPublicKey {
+    bytes: configured_public_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX")?
+  }
   let signer = configured_signer()?
   if !Bytes.secure_equals(signer.public_key.bytes,
     configured_public_key("MESSENGER_WITNESS_PUBLIC_KEY_HEX")?) do

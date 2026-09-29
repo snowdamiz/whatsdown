@@ -44,7 +44,10 @@ fn exercise() -> Bool!String do
     Bytes.from_utf8("data:image/jpeg;base64,/9j/2Q==")
   ])?
   presentation_save_export(group_vectors([Bytes.from_utf8(path), key, data])?)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([Bytes.from_utf8(path), key])?)?,
+  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+      Bytes.from_utf8(path),
+      key
+    ])?)?,
     data))
   let group_id = repeated(7, 32)?
   let group_key = Bytes.from_utf8("group/" <> Bytes.to_hex(group_id))
@@ -118,7 +121,10 @@ fn exercise() -> Bool!String do
   end
   let removed = group_vectors([Bytes.from_utf8("alice"), Bytes.empty()])?
   presentation_save_export(group_vectors([Bytes.from_utf8(path), key, removed])?)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([Bytes.from_utf8(path), key])?)?,
+  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+      Bytes.from_utf8(path),
+      key
+    ])?)?,
     removed))
   File.delete(path)?
   Ok(true)
@@ -147,7 +153,10 @@ fn exercise_nicknames() -> Bool!String do
   ])?
   let before = present_message(path, Bytes.empty(), Bytes.from_utf8("hello"))?
   presentation_save_export(group_vectors([Bytes.from_utf8(path), key, nickname])?)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([Bytes.from_utf8(path), key])?)?,
+  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+      Bytes.from_utf8(path),
+      key
+    ])?)?,
     nickname))
   assert(!Bytes.secure_equals(load_blob(path, "presentation/v1/nickname/" <> Bytes.to_hex(peer))?,
     nickname))
@@ -161,7 +170,10 @@ fn exercise_nicknames() -> Bool!String do
     Bytes.empty(),
     Bytes.empty(),
     encode_presented_message(Bytes.from_utf8("hi"), shared, Bytes.empty())?)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([Bytes.from_utf8(path), key])?)?,
+  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+      Bytes.from_utf8(path),
+      key
+    ])?)?,
     nickname))
   presentation_save_export(group_vectors([Bytes.from_utf8(path), key, Bytes.from_hex("00")?])?)?
   assert(Bytes.length(presentation_load_export(group_vectors([Bytes.from_utf8(path), key])?)?) == 0)
@@ -185,7 +197,10 @@ test("contact nicknames persist encrypted, stay off the wire and clear without c
 end
 
 # A community's record adds its details and roles: the owner, then admins in ascending order.
-fn community_record(name :: String, revision :: Int, details :: Bytes, roles :: List<Bytes>) -> Bytes!String do
+fn community_record(name :: String,
+  revision :: Int,
+  details :: Bytes,
+  roles :: List<Bytes>) -> Bytes!String do
   group_vectors([
     Bytes.from_utf8(name),
     Bytes.empty(),
@@ -193,7 +208,7 @@ fn community_record(name :: String, revision :: Int, details :: Bytes, roles :: 
     details,
     List.reduce(roles,
       Bytes.empty(),
-      fn (joined, id) do
+      fn(joined, id) do
         case Bytes.concat(joined, id) do
           Ok(value) -> value
           Err(_) -> Bytes.empty()
@@ -248,7 +263,7 @@ fn exercise_community_bounds() -> Bool!String do
     ])?
   ]
   List.map(rejected,
-    fn (value) -> case encode_presented_message(Bytes.empty(), sender, value) do
+    fn(value) -> case encode_presented_message(Bytes.empty(), sender, value) do
       Ok(_) -> assert(false)
       Err(_) -> assert(true)
     end end)

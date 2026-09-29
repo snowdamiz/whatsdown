@@ -18,7 +18,12 @@ from MobileCore import (
 from Privacy.Edge import RequestStamp, decode_stamped_request
 from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.V1 import OuterEnvelope
-from Transparency.Wire import TransparencyTreeQuery, decode_transparency_lookup, decode_witnesses, encode_transparency_tree_query
+from Transparency.Wire import (
+  TransparencyTreeQuery,
+  decode_transparency_lookup,
+  decode_witnesses,
+  encode_transparency_tree_query
+)
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes!String do
   case Bytes.concat(left, right) do
@@ -64,7 +69,11 @@ fn read_u32_at(input :: Bytes, offset :: Int) -> Int!String do
   end
 end
 
-fn output_parts(input :: Bytes, count :: Int, index :: Int, offset :: Int, items :: List<Bytes>) -> List<Bytes>!String do
+fn output_parts(input :: Bytes,
+  count :: Int,
+  index :: Int,
+  offset :: Int,
+  items :: List<Bytes>) -> List<Bytes>!String do
   if index >= count do
     if offset == Bytes.length(input) do
       Ok(items)
@@ -117,7 +126,15 @@ fn install_security_config(service_public_key :: Bytes,
   witness_b_public_key :: Bytes,
   delivery_public_key :: Bytes) -> Bool do
   Test.set_push_token(Bytes.from_utf8("messenger/config/v1"),
-    Bytes.from_utf8("1\n" <> Bytes.to_hex(service_public_key) <> "\n" <> Bytes.to_hex(witness_a_public_key) <> "\n" <> Bytes.to_hex(witness_b_public_key) <> "\n" <> Bytes.to_hex(delivery_public_key) <> "\n8"))
+    Bytes.from_utf8("1\n"
+      <> Bytes.to_hex(service_public_key)
+      <> "\n"
+      <> Bytes.to_hex(witness_a_public_key)
+      <> "\n"
+      <> Bytes.to_hex(witness_b_public_key)
+      <> "\n"
+      <> Bytes.to_hex(delivery_public_key)
+      <> "\n8"))
 end
 
 fn delivery_key_pair() -> X25519KeyPair!String do
@@ -211,7 +228,9 @@ fn submit_and_receive_group(core_url :: String,
   envelopes :: Bytes) -> Bool!String do
   let values = output_list(envelopes)?
   assert(List.length(values) == 1)
-  assert(post(edge_url, "/v1/envelopes/batch", privacy_submission_export(List.head(values))?)?.status == 202)
+  assert(post(edge_url,
+    "/v1/envelopes/batch",
+    privacy_submission_export(List.head(values))?)?.status == 202)
   let batch = post(core_url, "/v1/mailbox/fetch", mailbox_fetch_export(Bytes.from_utf8(bob_path))?)?
   assert(batch.status == 200)
   assert(Bytes.length(process_delivery_batch_export(request([
@@ -234,7 +253,11 @@ fn proof() -> Bool!String do
   let alice_path = Env.get("MESSENGER_M13_ALICE_DB_PATH", "")
   let bob_path = Env.get("MESSENGER_M13_BOB_DB_PATH", "")
   let proof_plaintext = Env.get("MESSENGER_M13_PROOF_PLAINTEXT", "")
-  if String.length(core_url) == 0 || String.length(edge_url) == 0 || String.length(alice_path) == 0 || String.length(bob_path) == 0 || String.length(proof_plaintext) == 0 do
+  if String.length(core_url) == 0
+    || String.length(edge_url) == 0
+    || String.length(alice_path) == 0
+    || String.length(bob_path) == 0
+    || String.length(proof_plaintext) == 0 do
     Err("missing live proof configuration")
   else
     let _alice = create_account_export(request([
@@ -250,7 +273,9 @@ fn proof() -> Bool!String do
       register_request_export(Bytes.from_utf8(bob_path))?)?.status == 201)
     assert(post(core_url,
       "/v1/transparency/consistency",
-      encode_transparency_tree_query(TransparencyTreeQuery { previous_tree_size: 0 })?)?.status == 200)
+      encode_transparency_tree_query(TransparencyTreeQuery {
+        previous_tree_size: 0
+      })?)?.status == 200)
     wait_for_witnesses(core_url, 0)?
     let alice_set = verified_set(core_url, alice_path, "alice", 0)?
     let bob_set = verified_set(core_url, alice_path, "bob", 2)?

@@ -1,8 +1,35 @@
 import Store.Database
 import RuntimeJobs
-from Store.Database import ObjectRecord, PartRecord, begin_immediate, binary_value, decode_object, decode_part, find_object, find_part, open_database
-from Store.Files import maximum_object_bytes, maximum_part_bytes, part_path, read_part_file, remove_file, remove_parts, validate_paths, write_part_file
-from Objects.Grant import ObjectGrantRequest, ObjectGrantResponse, decode_complete, decode_delete, decode_grant, encode_grant_response, verify_grant
+from Store.Database import (
+  ObjectRecord,
+  PartRecord,
+  begin_immediate,
+  binary_value,
+  decode_object,
+  decode_part,
+  find_object,
+  find_part,
+  open_database
+)
+from Store.Files import (
+  maximum_object_bytes,
+  maximum_part_bytes,
+  part_path,
+  read_part_file,
+  remove_file,
+  remove_parts,
+  validate_paths,
+  write_part_file
+)
+from Objects.Grant import (
+  ObjectGrantRequest,
+  ObjectGrantResponse,
+  decode_complete,
+  decode_delete,
+  decode_grant,
+  encode_grant_response,
+  verify_grant
+)
 
 pub struct ObjectResult do
   status :: Int
@@ -10,10 +37,7 @@ pub struct ObjectResult do
 end
 
 fn response(status :: Int, body :: Bytes) -> ObjectResult do
-  ObjectResult {
-    status: status,
-    body: body
-  }
+  ObjectResult { status: status, body: body }
 end
 
 fn empty(status :: Int) -> ObjectResult do
@@ -21,16 +45,18 @@ fn empty(status :: Int) -> ObjectResult do
 end
 
 fn upload_authorized(value :: ObjectRecord, capability :: Bytes) -> Bool do
-  Bytes.length(capability) == 32 && Bytes.secure_equals(Crypto.sha256(capability),
-    value.upload_hash)
+  Bytes.length(capability) == 32
+    && Bytes.secure_equals(Crypto.sha256(capability), value.upload_hash)
 end
 
 fn download_authorized(value :: ObjectRecord, capability :: Bytes) -> Bool do
-  Bytes.length(capability) == 32 && Bytes.secure_equals(Crypto.sha256(capability),
-    value.download_hash)
+  Bytes.length(capability) == 32
+    && Bytes.secure_equals(Crypto.sha256(capability), value.download_hash)
 end
 
-fn grant_open(database :: borrow PgConn, body :: Bytes, grant_value :: ObjectGrantRequest) -> ObjectResult!String do
+fn grant_open(database :: borrow PgConn,
+  body :: Bytes,
+  grant_value :: ObjectGrantRequest) -> ObjectResult!String do
   let grant_hash = Crypto.sha256(body)
   let existing = Pg.query_values(database,
     "SELECT grant_hash FROM objects WHERE object_id = $1",
@@ -164,8 +190,8 @@ fn put_open(database :: borrow PgConn,
       let content_hash = Crypto.sha256(body)
       let path = part_path(root, object_id, part_index)?
       case find_part(database, object_id, part_index)? do
-        Some(existing) -> if existing.size != Bytes.length(body) || !Bytes.secure_equals(existing.content_hash,
-          content_hash) do
+        Some(existing) -> if existing.size != Bytes.length(body)
+          || !Bytes.secure_equals(existing.content_hash, content_hash) do
           Ok(empty(409))
         else
           replay_part(path, existing.size, body)
@@ -205,7 +231,10 @@ pub fn put_part(database_path :: String,
   end
 end
 
-fn read_part(root :: String, object_id :: Bytes, part_index :: Int, part :: PartRecord) -> ObjectResult!String do
+fn read_part(root :: String,
+  object_id :: Bytes,
+  part_index :: Int,
+  part :: PartRecord) -> ObjectResult!String do
   case part_path(root, object_id, part_index) do
     Err(_) -> Err("object part integrity failure")
     Ok(path) -> case read_part_file(path, part.size) do
@@ -290,7 +319,10 @@ fn files_present(rows :: List<Map<String, DbValue>>,
   end
 end
 
-fn complete_open(database :: borrow PgConn, root :: String, body :: Bytes, now :: Int) -> ObjectResult!String do
+fn complete_open(database :: borrow PgConn,
+  root :: String,
+  body :: Bytes,
+  now :: Int) -> ObjectResult!String do
   let control = decode_complete(body)?
   case find_object(database, control.object_id)? do
     None -> Ok(empty(404))
@@ -304,11 +336,8 @@ fn complete_open(database :: borrow PgConn, root :: String, body :: Bytes, now :
       let rows = Pg.query_values(database,
         "SELECT part_index, size, content_hash FROM object_parts WHERE object_id = $1 ORDER BY part_index",
         [Binary(control.object_id)])?
-      if List.length(rows) != object.part_count || !files_present(rows,
-        root,
-        control.object_id,
-        object.part_count,
-        0)? do
+      if List.length(rows) != object.part_count
+        || !files_present(rows, root, control.object_id, object.part_count, 0)? do
         Ok(empty(409))
       else
         let changed = Pg.execute_values(database,
@@ -324,7 +353,10 @@ fn complete_open(database :: borrow PgConn, root :: String, body :: Bytes, now :
   end
 end
 
-pub fn complete(database_path :: String, root :: String, body :: Bytes, now :: U64) -> ObjectResult do
+pub fn complete(database_path :: String,
+  root :: String,
+  body :: Bytes,
+  now :: U64) -> ObjectResult do
   case validate_paths(database_path, root) do
     Err(_) -> empty(500)
     Ok(_) -> case U64.to_int(now) do
@@ -360,7 +392,10 @@ fn delete_open(database :: borrow PgConn, root :: String, body :: Bytes) -> Obje
   end
 end
 
-pub fn delete_object(database_path :: String, root :: String, body :: Bytes, _now :: U64) -> ObjectResult do
+pub fn delete_object(database_path :: String,
+  root :: String,
+  body :: Bytes,
+  _now :: U64) -> ObjectResult do
   case validate_paths(database_path, root) do
     Err(_) -> empty(500)
     Ok(_) -> case open_transaction(database_path) do
@@ -394,7 +429,10 @@ fn purge_rows(database :: borrow PgConn,
   end
 end
 
-pub fn purge_expired(database_path :: String, root :: String, now :: U64, limit :: Int) -> Int!String do
+pub fn purge_expired(database_path :: String,
+  root :: String,
+  now :: U64,
+  limit :: Int) -> Int!String do
   validate_paths(database_path, root)?
   if limit <= 0 || limit > 32 do
     return Err("invalid object purge limit")
@@ -456,8 +494,8 @@ end
 
 fn control_response(result :: Result<ObjectResult, String>) -> ObjectResult do
   case result do
-    Err(error) -> if String.contains(error, "object wire") || String.contains(error,
-      "object control") do
+    Err(error) -> if String.contains(error, "object wire")
+      || String.contains(error, "object control") do
       empty(400)
     else
       empty(500)
@@ -466,7 +504,10 @@ fn control_response(result :: Result<ObjectResult, String>) -> ObjectResult do
   end
 end
 
-fn verified_grant(body :: Bytes, now :: U64, maximum_work_future :: U64, difficulty :: Int) -> ObjectGrantRequest!Int do
+fn verified_grant(body :: Bytes,
+  now :: U64,
+  maximum_work_future :: U64,
+  difficulty :: Int) -> ObjectGrantRequest!Int do
   let maximum_object_future = case U64.parse("604800000") do
     Err(_) -> Err(500)
     Ok(value)
@@ -493,7 +534,8 @@ fn open_transaction(path :: String) -> PgConn!String do
   end
 end
 
-fn finish_database(database :: PgConn, result :: Result<ObjectResult, String>) -> ObjectResult!String do
+fn finish_database(database :: PgConn,
+  result :: Result<ObjectResult, String>) -> ObjectResult!String do
   let committed = case result do
     Err(error) -> do
       Pg.rollback(database)

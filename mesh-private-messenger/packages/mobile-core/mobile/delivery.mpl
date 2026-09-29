@@ -1,5 +1,12 @@
 from Binary.Reader import BinaryReader, finish, reader
-from Mobile.Codec import encode_output_list, mobile_byte, mobile_join, mobile_read_u32, mobile_zeroes, take_vector
+from Mobile.Codec import (
+  encode_output_list,
+  mobile_byte,
+  mobile_join,
+  mobile_read_u32,
+  mobile_zeroes,
+  take_vector
+)
 from Mobile.Types import MobileReadBytes
 from Storage.Blobs import load_blob
 from Storage.Keys import local_context, open_local, seal_local
@@ -35,7 +42,9 @@ fn encode_record(value :: DeliveryRecord) -> Bytes!String do
   mobile_join([mobile_byte(value.kind)?, value.envelope_id, value.message_id], 0, Bytes.empty())
 end
 
-fn encode_records(values :: List<DeliveryRecord>, index :: Int, output :: List<Bytes>) -> List<Bytes>!String do
+fn encode_records(values :: List<DeliveryRecord>,
+  index :: Int,
+  output :: List<Bytes>) -> List<Bytes>!String do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -43,7 +52,9 @@ fn encode_records(values :: List<DeliveryRecord>, index :: Int, output :: List<B
   end
 end
 
-fn decode_records(state :: BinaryReader, remaining :: Int, output :: List<DeliveryRecord>) -> List<DeliveryRecord>!String do
+fn decode_records(state :: BinaryReader,
+  remaining :: Int,
+  output :: List<DeliveryRecord>) -> List<DeliveryRecord>!String do
   if remaining <= 0 do
     case finish(state) do
       Err(_) -> Err("invalid_delivery_state")
@@ -75,7 +86,8 @@ fn decode_records(state :: BinaryReader, remaining :: Int, output :: List<Delive
   end
 end
 
-pub fn load_delivery(database_path :: String, wrapping_key :: borrow StorageKey) -> List<DeliveryRecord>!String do
+pub fn load_delivery(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> List<DeliveryRecord>!String do
   case load_blob(database_path, "delivery/v1") do
     Err(error) -> if error == "local_state_not_found" do
       Ok(List.new())
@@ -95,7 +107,8 @@ pub fn load_delivery(database_path :: String, wrapping_key :: borrow StorageKey)
   end
 end
 
-fn sealed(values :: List<DeliveryRecord>, wrapping_key :: borrow StorageKey) -> Result<(List<String>, List<Bytes>), String> do
+fn sealed(values :: List<DeliveryRecord>,
+  wrapping_key :: borrow StorageKey) -> Result<(List<String>, List<Bytes>), String> do
   Ok((["delivery/v1"],
     [
       seal_local(encode_output_list(encode_records(values, 0, List.new())?)?,
@@ -109,10 +122,8 @@ fn has(values :: List<DeliveryRecord>, kind :: Int, message_id :: Bytes, index :
     false
   else
     let value = List.get(values, index)
-    (value.kind == kind && Bytes.secure_equals(value.message_id, message_id)) || has(values,
-      kind,
-      message_id,
-      index + 1)
+    (value.kind == kind && Bytes.secure_equals(value.message_id, message_id))
+      || has(values, kind, message_id, index + 1)
   end
 end
 
@@ -146,11 +157,7 @@ fn without(values :: List<DeliveryRecord>,
 end
 
 fn marker(kind :: Int, message_id :: Bytes) -> DeliveryRecord!String do
-  Ok(DeliveryRecord {
-    kind: kind,
-    envelope_id: mobile_zeroes(16)?,
-    message_id: message_id
-  })
+  Ok(DeliveryRecord { kind: kind, envelope_id: mobile_zeroes(16)?, message_id: message_id })
 end
 
 fn count_kind(values :: List<DeliveryRecord>, kind :: Int, index :: Int, total :: Int) -> Int do
@@ -215,7 +222,9 @@ pub fn tracked_delivery(database_path :: String,
   end
 end
 
-fn linked_message(values :: List<DeliveryRecord>, envelope_id :: Bytes, index :: Int) -> Option<Bytes> do
+fn linked_message(values :: List<DeliveryRecord>,
+  envelope_id :: Bytes,
+  index :: Int) -> Option<Bytes> do
   if index >= List.length(values) do
     None
   else
@@ -244,7 +253,9 @@ fn without_link(values :: List<DeliveryRecord>,
   end
 end
 
-fn resolved(values :: List<DeliveryRecord>, message_id :: Bytes, accepted :: Bool) -> List<DeliveryRecord>!String do
+fn resolved(values :: List<DeliveryRecord>,
+  message_id :: Bytes,
+  accepted :: Bool) -> List<DeliveryRecord>!String do
   let waiting = has(values, link_kind(), message_id, 0)
   let reached = accepted || has(values, accepted_kind(), message_id, 0)
   let cleared = without(values, accepted_kind(), message_id, 0, List.new())

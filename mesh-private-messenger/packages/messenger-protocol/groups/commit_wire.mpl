@@ -142,7 +142,9 @@ pub fn group_parent_bytes(value :: TreeKemParentNode) -> Bytes!GroupError do
     Bytes.empty())
 end
 
-fn update_public_bytes(values :: List<TreeKemUpdateNode>, index :: Int, output :: Bytes) -> Bytes!GroupError do
+fn update_public_bytes(values :: List<TreeKemUpdateNode>,
+  index :: Int,
+  output :: Bytes) -> Bytes!GroupError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -152,7 +154,9 @@ fn update_public_bytes(values :: List<TreeKemUpdateNode>, index :: Int, output :
   end
 end
 
-fn ciphertext_bytes(values :: List<TreeKemCiphertext>, index :: Int, output :: Bytes) -> Bytes!GroupError do
+fn ciphertext_bytes(values :: List<TreeKemCiphertext>,
+  index :: Int,
+  output :: Bytes) -> Bytes!GroupError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -163,7 +167,9 @@ fn ciphertext_bytes(values :: List<TreeKemCiphertext>, index :: Int, output :: B
   end
 end
 
-fn update_ciphertexts_bytes(values :: List<TreeKemUpdateNode>, index :: Int, output :: Bytes) -> Bytes!GroupError do
+fn update_ciphertexts_bytes(values :: List<TreeKemUpdateNode>,
+  index :: Int,
+  output :: Bytes) -> Bytes!GroupError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -240,10 +246,7 @@ pub fn group_read_extensions(state :: BinaryReader,
   if count < 0 || count > 16 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadInts {
-      state: state,
-      value: output
-    })
+    Ok(GroupReadInts { state: state, value: output })
   else
     let extension = group_wire_u16(state)?
     if extension.value <= previous || extension.value <= 0 do
@@ -266,10 +269,7 @@ pub fn group_read_levels(state :: BinaryReader,
   if count < 0 || count > 6 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadInts {
-      state: state,
-      value: output
-    })
+    Ok(GroupReadInts { state: state, value: output })
   else
     let level = group_wire_u8(state)?
     if level.value < 0 || level.value >= 6 || level.value <= previous do
@@ -331,15 +331,9 @@ fn read_proposal(state :: BinaryReader) -> GroupReadProposal!GroupError do
       value: AddMember(leaf.value, group_decode_member_wire(member.value)?)
     })
   else if kind.value == 3 && leaf.value == 0 do
-    Ok(GroupReadProposal {
-      state: leaf.state,
-      value: UpdateKeys
-    })
+    Ok(GroupReadProposal { state: leaf.state, value: UpdateKeys })
   else if kind.value == 2 do
-    Ok(GroupReadProposal {
-      state: leaf.state,
-      value: RemoveMember(leaf.value)
-    })
+    Ok(GroupReadProposal { state: leaf.state, value: RemoveMember(leaf.value) })
   else
     Err(InvalidGroup)
   end
@@ -353,10 +347,7 @@ pub fn group_read_unmerged(state :: BinaryReader,
   if count < 0 || count > 64 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadInts {
-      state: state,
-      value: output
-    })
+    Ok(GroupReadInts { state: state, value: output })
   else
     let leaf = group_wire_u16(state)?
     if leaf.value < 0 || leaf.value >= 64 || leaf.value <= previous do
@@ -374,10 +365,7 @@ fn read_ciphertexts(state :: BinaryReader,
   if count < 0 || count > 64 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadCiphertexts {
-      state: state,
-      value: output
-    })
+    Ok(GroupReadCiphertexts { state: state, value: output })
   else
     let recipient = group_wire_u16(state)?
     let sealed = group_wire_fixed(recipient.state, 80)?
@@ -388,10 +376,7 @@ fn read_ciphertexts(state :: BinaryReader,
         count,
         index + 1,
         List.append(output,
-          TreeKemCiphertext {
-            recipient_node: recipient.value,
-            sealed: sealed.value
-          }))
+          TreeKemCiphertext { recipient_node: recipient.value, sealed: sealed.value }))
     end
   end
 end
@@ -403,10 +388,7 @@ fn read_update_nodes(state :: BinaryReader,
   if count != 6 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadParents {
-      state: state,
-      value: output
-    })
+    Ok(GroupReadParents { state: state, value: output })
   else
     let node_index = group_wire_u16(state)?
     let public_key = group_wire_fixed(node_index.state, 32)?
@@ -433,10 +415,7 @@ fn read_update_ciphertexts(state :: BinaryReader,
   index :: Int,
   output :: List<TreeKemUpdateNode>) -> GroupReadUpdateNodes!GroupError do
   if index >= List.length(parents) do
-    Ok(GroupReadUpdateNodes {
-      state: state,
-      value: output
-    })
+    Ok(GroupReadUpdateNodes { state: state, value: output })
   else
     let ciphertext_count = group_wire_u8(state)?
     let ciphertexts = read_ciphertexts(ciphertext_count.state,
@@ -447,10 +426,7 @@ fn read_update_ciphertexts(state :: BinaryReader,
       parents,
       index + 1,
       List.append(output,
-        TreeKemUpdateNode {
-          parent: List.get(parents, index),
-          ciphertexts: ciphertexts.value
-        }))
+        TreeKemUpdateNode { parent: List.get(parents, index), ciphertexts: ciphertexts.value }))
   end
 end
 
@@ -470,14 +446,17 @@ fn validate_proposal_shape(value :: GroupProposal) -> Result<(), GroupError> do
   end
 end
 
-fn validate_ciphertexts_shape(values :: List<TreeKemCiphertext>, index :: Int) -> Result<(), GroupError> do
+fn validate_ciphertexts_shape(values :: List<TreeKemCiphertext>,
+  index :: Int) -> Result<(), GroupError> do
   if List.length(values) > 64 do
     Err(InvalidGroup)
   else if index >= List.length(values) do
     Ok(nil)
   else
     let value = List.get(values, index)
-    if value.recipient_node < 0 || value.recipient_node >= 127 || Bytes.length(value.sealed) != 80 do
+    if value.recipient_node < 0
+      || value.recipient_node >= 127
+      || Bytes.length(value.sealed) != 80 do
       Err(InvalidGroup)
     else
       validate_ciphertexts_shape(values, index + 1)
@@ -495,7 +474,9 @@ fn validate_update_nodes_shape(values :: List<TreeKemUpdateNode>,
     Ok(nil)
   else
     let value = List.get(values, index)
-    if value.parent.node_index != List.get(expected, index) || Bytes.length(value.parent.public_key.bytes) != 32 || List.length(value.parent.unmerged_leaves) != 0 do
+    if value.parent.node_index != List.get(expected, index)
+      || Bytes.length(value.parent.public_key.bytes) != 32
+      || List.length(value.parent.unmerged_leaves) != 0 do
       Err(InvalidGroup)
     else
       validate_ciphertexts_shape(value.ciphertexts, 0)?
@@ -508,7 +489,16 @@ fn validate_update_nodes_shape(values :: List<TreeKemUpdateNode>,
 end
 
 pub fn group_validate_commit_shape(value :: GroupCommit) -> Result<(), GroupError> do
-  let valid = (value.version == 1 || value.version == 2) && ((value.version == 1 && Bytes.length(value.confirmation) == 0) || (value.version == 2 && Bytes.length(value.confirmation) == 16)) && value.suite == 3 && Bytes.length(value.group_id) == 32 && value.committer_leaf >= 0 && value.committer_leaf < 64 && Bytes.length(value.prior_transcript_hash) == 32 && Bytes.length(value.tree_hash) == 32 && Bytes.length(value.signature.bytes) == 64
+  let valid = (value.version == 1 || value.version == 2)
+    && ((value.version == 1 && Bytes.length(value.confirmation) == 0)
+      || (value.version == 2 && Bytes.length(value.confirmation) == 16))
+    && value.suite == 3
+    && Bytes.length(value.group_id) == 32
+    && value.committer_leaf >= 0
+    && value.committer_leaf < 64
+    && Bytes.length(value.prior_transcript_hash) == 32
+    && Bytes.length(value.tree_hash) == 32
+    && Bytes.length(value.signature.bytes) == 64
   let legacy_update = case value.proposal do
     UpdateKeys -> value.version == 1
     _ -> false

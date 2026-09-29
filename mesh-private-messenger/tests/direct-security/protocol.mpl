@@ -13,9 +13,13 @@ fn check_outer(value :: OuterEnvelope, expected :: Bytes) do
   end
   case decode_outer_envelope(expected) do
     Err(_) -> println("outer-decode-error")
-    Ok(decoded) -> if decoded.version == 1 && decoded.suite == 1 && decoded.padding_bucket == 256 && U64.compare(decoded.expiration,
-      value.expiration) == 0 && Bytes.secure_equals(decoded.envelope_id, value.envelope_id) && Bytes.secure_equals(decoded.mailbox_token,
-      value.mailbox_token) && Bytes.secure_equals(decoded.ciphertext, value.ciphertext) do
+    Ok(decoded) -> if decoded.version == 1
+      && decoded.suite == 1
+      && decoded.padding_bucket == 256
+      && U64.compare(decoded.expiration, value.expiration) == 0
+      && Bytes.secure_equals(decoded.envelope_id, value.envelope_id)
+      && Bytes.secure_equals(decoded.mailbox_token, value.mailbox_token)
+      && Bytes.secure_equals(decoded.ciphertext, value.ciphertext) do
       println("outer-decode")
     else
       println("outer-decode-mismatch")
@@ -34,12 +38,18 @@ fn check_credential(value :: DeviceCredential, expected :: Bytes) do
   end
   case decode_device_credential(expected) do
     Err(_) -> println("credential-decode-error")
-    Ok(decoded) -> if decoded.version == 1 && decoded.suite == 1 && U64.compare(decoded.capabilities,
-      value.capabilities) == 0 && U64.compare(decoded.created_at, value.created_at) == 0 && U64.compare(decoded.expires_at,
-      value.expires_at) == 0 && U64.compare(decoded.directory_sequence, value.directory_sequence) == 0 && Bytes.secure_equals(decoded.account_id,
-      value.account_id) && Bytes.secure_equals(decoded.device_id, value.device_id) && Bytes.secure_equals(decoded.signing_public_key,
-      value.signing_public_key) && Bytes.secure_equals(decoded.dh_public_key, value.dh_public_key) && Bytes.secure_equals(decoded.post_quantum_public_key,
-      value.post_quantum_public_key) && Bytes.secure_equals(decoded.signature, value.signature) do
+    Ok(decoded) -> if decoded.version == 1
+      && decoded.suite == 1
+      && U64.compare(decoded.capabilities, value.capabilities) == 0
+      && U64.compare(decoded.created_at, value.created_at) == 0
+      && U64.compare(decoded.expires_at, value.expires_at) == 0
+      && U64.compare(decoded.directory_sequence, value.directory_sequence) == 0
+      && Bytes.secure_equals(decoded.account_id, value.account_id)
+      && Bytes.secure_equals(decoded.device_id, value.device_id)
+      && Bytes.secure_equals(decoded.signing_public_key, value.signing_public_key)
+      && Bytes.secure_equals(decoded.dh_public_key, value.dh_public_key)
+      && Bytes.secure_equals(decoded.post_quantum_public_key, value.post_quantum_public_key)
+      && Bytes.secure_equals(decoded.signature, value.signature) do
       println("credential-decode")
     else
       println("credential-decode-mismatch")

@@ -33,7 +33,11 @@ from Protocol.V1 import (
 )
 
 fn valid_username_byte(value :: Int) -> Bool do
-  (value >= 97 && value <= 122) || (value >= 48 && value <= 57) || value == 45 || value == 46 || value == 95
+  (value >= 97 && value <= 122)
+    || (value >= 48 && value <= 57)
+    || value == 45
+    || value == 46
+    || value == 95
 end
 
 fn validate_username_bytes(value :: Bytes, index :: Int) -> Result<(), ProtocolError> do
@@ -101,7 +105,11 @@ fn validate_directory_entry(value :: DirectoryEntry) -> Result<(), ProtocolError
     Err(UnsupportedVersion)
   else
     encode_username(value.username)?
-    if Bytes.length(value.account_identity) == 0 || Bytes.length(value.account_identity) > 16582 || Bytes.length(value.prekey_bundle) == 0 || Bytes.length(value.prekey_bundle) > 19312 || Bytes.length(value.mailbox_token) != 32 do
+    if Bytes.length(value.account_identity) == 0
+      || Bytes.length(value.account_identity) > 16582
+      || Bytes.length(value.prekey_bundle) == 0
+      || Bytes.length(value.prekey_bundle) > 19312
+      || Bytes.length(value.mailbox_token) != 32 do
       Err(InvalidFieldLength)
     else
       Ok(nil)
@@ -152,9 +160,13 @@ fn validate_device_link_request(value :: DeviceLinkRequest) -> Result<(), Protoc
     Err(UnsupportedVersion)
   else if (value.version == 1 && value.suite != 1) || (value.version == 2 && value.suite != 2) do
     Err(UnsupportedSuite)
-  else if Bytes.length(value.nonce) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.dh_public_key) != 32 do
+  else if Bytes.length(value.nonce) != 32
+    || Bytes.length(value.device_id) != 16
+    || Bytes.length(value.signing_public_key) != 32
+    || Bytes.length(value.dh_public_key) != 32 do
     Err(InvalidFieldLength)
-  else if (value.suite == 1 && Bytes.length(value.post_quantum_public_key) != 0) || (value.suite == 2 && Bytes.length(value.post_quantum_public_key) != 1184) do
+  else if (value.suite == 1 && Bytes.length(value.post_quantum_public_key) != 0)
+    || (value.suite == 2 && Bytes.length(value.post_quantum_public_key) != 1184) do
     Err(InvalidFieldLength)
   else if U64.compare(value.created_at, value.expires_at) > 0 do
     Err(InvalidExpiration)
@@ -197,10 +209,7 @@ pub fn decode_device_link_request(input :: Bytes) -> DeviceLinkRequest!ProtocolE
     let suite = if version.value == 2 do
       protocol_take_u16(magic.state)?
     else
-      ProtocolReadInt {
-        state: magic.state,
-        value: 1
-      }
+      ProtocolReadInt { state: magic.state, value: 1 }
     end
     let nonce = protocol_take_fixed(suite.state, 32)?
     let device_id = protocol_take_fixed(nonce.state, 16)?
@@ -233,7 +242,12 @@ fn validate_device_link_authorization(value :: DeviceLinkAuthorization) -> Resul
     Err(UnsupportedVersion)
   else
     encode_username(value.username)?
-    if Bytes.length(value.request_hash) != 32 || Bytes.length(value.account_identity) == 0 || Bytes.length(value.account_identity) > 16582 || Bytes.length(value.device_credential) == 0 || Bytes.length(value.device_credential) > 4096 || Bytes.length(value.authorization_signature) != 64 do
+    if Bytes.length(value.request_hash) != 32
+      || Bytes.length(value.account_identity) == 0
+      || Bytes.length(value.account_identity) > 16582
+      || Bytes.length(value.device_credential) == 0
+      || Bytes.length(value.device_credential) > 4096
+      || Bytes.length(value.authorization_signature) != 64 do
       Err(InvalidFieldLength)
     else
       Ok(nil)
@@ -310,8 +324,8 @@ fn validate_device_entries(value :: DeviceSet, index :: Int) -> Result<(), Proto
   else
     let entry = List.get(value.devices, index)
     validate_directory_entry(entry)?
-    if entry.username != value.username || !Bytes.secure_equals(entry.account_identity,
-      value.account_identity) do
+    if entry.username != value.username
+      || !Bytes.secure_equals(entry.account_identity, value.account_identity) do
       Err(InvalidPolicy)
     else if contains_mailbox(value.devices, entry.mailbox_token, index + 1) do
       Err(NonCanonicalEncoding)
@@ -349,7 +363,9 @@ fn validate_device_set(value :: DeviceSet) -> Result<(), ProtocolError> do
   end
 end
 
-fn encode_device_entries(values :: List<DirectoryEntry>, index :: Int, output :: Bytes) -> Bytes!ProtocolError do
+fn encode_device_entries(values :: List<DirectoryEntry>,
+  index :: Int,
+  output :: Bytes) -> Bytes!ProtocolError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -364,10 +380,7 @@ fn read_device_entries(state :: BinaryReader,
   index :: Int,
   output :: List<DirectoryEntry>) -> ProtocolReadDirectoryEntries!ProtocolError do
   if index >= count do
-    Ok(ProtocolReadDirectoryEntries {
-      state: state,
-      value: output
-    })
+    Ok(ProtocolReadDirectoryEntries { state: state, value: output })
   else
     let entry = protocol_take_vector(state, 36006)?
     read_device_entries(entry.state,
@@ -422,7 +435,10 @@ pub fn decode_device_set(input :: Bytes) -> DeviceSet!ProtocolError do
       if revoked_count.value > 32 do
         Err(OversizedInput)
       else
-        let revoked = protocol_read_ack_ids(revoked_count.state, revoked_count.value, 0, List.new())?
+        let revoked = protocol_read_ack_ids(revoked_count.state,
+          revoked_count.value,
+          0,
+          List.new())?
         protocol_require_end(revoked.state)?
         let value = DeviceSet {
           version: version.value,
@@ -442,7 +458,9 @@ end
 fn validate_device_revocation(value :: DeviceRevocation) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
-  else if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signature) != 64 do
+  else if Bytes.length(value.account_id) != 32
+    || Bytes.length(value.device_id) != 16
+    || Bytes.length(value.signature) != 64 do
     Err(InvalidFieldLength)
   else
     Ok(nil)
@@ -535,7 +553,9 @@ end
 fn validate_device_departure(value :: DeviceDeparture) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
-  else if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signature) != 64 do
+  else if Bytes.length(value.account_id) != 32
+    || Bytes.length(value.device_id) != 16
+    || Bytes.length(value.signature) != 64 do
     Err(InvalidFieldLength)
   else
     Ok(nil)

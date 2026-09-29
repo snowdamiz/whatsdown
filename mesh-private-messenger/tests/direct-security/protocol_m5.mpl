@@ -1,6 +1,18 @@
-from Protocol.V1 import AccountIdentity, HandshakeTranscript, InnerEnvelope, PrekeyBundle, ProtocolError, ProtocolExtension, negotiate_profile_a
+from Protocol.V1 import (
+  AccountIdentity,
+  HandshakeTranscript,
+  InnerEnvelope,
+  PrekeyBundle,
+  ProtocolError,
+  ProtocolExtension,
+  negotiate_profile_a
+)
 from Protocol.IdentityWire import decode_account_identity, encode_account_identity
-from Protocol.HandshakeWire import decode_handshake_transcript, encode_handshake_transcript, hash_handshake_transcript
+from Protocol.HandshakeWire import (
+  decode_handshake_transcript,
+  encode_handshake_transcript,
+  hash_handshake_transcript
+)
 from Protocol.EnvelopeWire import decode_inner_envelope, encode_inner_envelope
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 
@@ -52,13 +64,7 @@ fn account_proof() -> Int!String do
     authorization_public_key: Bytes.from_hex("202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f")?,
     created_at: U64.parse("1700000000000")?,
     directory_sequence: U64.parse("42")?,
-    extensions: [
-      ProtocolExtension {
-        id: 7,
-        mandatory: false,
-        value: Bytes.from_hex("a0a1a2")?
-      }
-    ]
+    extensions: [ProtocolExtension { id: 7, mandatory: false, value: Bytes.from_hex("a0a1a2")? }]
   }
   case encode_account_identity(account) do
     Err(_) -> println("account-encode-error")
@@ -139,9 +145,10 @@ fn prekey_roundtrip(encoded :: Bytes, one_time_prekey :: Bytes) do
     Err(_) -> println("prekey-decode-error")
     Ok(decoded) -> case encode_prekey_bundle(decoded) do
       Err(_) -> println("prekey-reencode-error")
-      Ok(reencoded) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(decoded.one_time_prekey,
-        one_time_prekey) && List.length(decoded.supported_suites) == 1 && List.get(decoded.supported_suites,
-        0) == 1 do
+      Ok(reencoded) -> if Bytes.secure_equals(encoded, reencoded)
+        && Bytes.secure_equals(decoded.one_time_prekey, one_time_prekey)
+        && List.length(decoded.supported_suites) == 1
+        && List.get(decoded.supported_suites, 0) == 1 do
         println("prekey-roundtrip")
       else
         println("prekey-noncanonical")
@@ -166,11 +173,7 @@ fn prekey_proof() -> Int!String do
     supported_suites: [1],
     expires_at: U64.parse("1700604800000")?,
     extensions: [
-      ProtocolExtension {
-        id: 11,
-        mandatory: false,
-        value: Bytes.from_utf8("optional-proof")
-      }
+      ProtocolExtension { id: 11, mandatory: false, value: Bytes.from_utf8("optional-proof") }
     ]
   }
   case encode_prekey_bundle(bundle) do
@@ -233,7 +236,8 @@ fn inner_round_trip(size :: Int, timestamp :: U64) -> Bool do
         Err(_) -> false
         Ok(decoded) -> case encode_inner_envelope(decoded) do
           Err(_) -> false
-          Ok(reencoded) -> Bytes.secure_equals(encoded, reencoded) && Bytes.length(decoded.body) == size
+          Ok(reencoded) -> Bytes.secure_equals(encoded, reencoded)
+            && Bytes.length(decoded.body) == size
         end
       end
     end
@@ -244,9 +248,8 @@ fn inner_properties(sizes :: List<Int>, index :: Int, timestamp :: U64) -> Bool 
   if index >= List.length(sizes) do
     true
   else
-    inner_round_trip(List.get(sizes, index), timestamp) && inner_properties(sizes,
-      index + 1,
-      timestamp)
+    inner_round_trip(List.get(sizes, index), timestamp)
+      && inner_properties(sizes, index + 1, timestamp)
   end
 end
 
@@ -287,8 +290,9 @@ fn transcript_hashes(transcript :: HandshakeTranscript,
     Err(_) -> println("transcript-hash-error")
     Ok(first_hash) -> case hash_handshake_transcript(decoded) do
       Err(_) -> println("transcript-hash-error")
-      Ok(second_hash) -> if Bytes.secure_equals(encoded, reencoded) && Bytes.secure_equals(first_hash,
-        second_hash) && Bytes.secure_equals(first_hash, Bytes.from_hex("__TRANSCRIPT_HASH_HEX__")?) do
+      Ok(second_hash) -> if Bytes.secure_equals(encoded, reencoded)
+        && Bytes.secure_equals(first_hash, second_hash)
+        && Bytes.secure_equals(first_hash, Bytes.from_hex("__TRANSCRIPT_HASH_HEX__")?) do
         println("transcript-roundtrip")
       else
         println("transcript-noncanonical")
@@ -311,11 +315,7 @@ fn transcript_proof() -> Int!String do
     responder_one_time_prekey: Bytes.empty(),
     responder_post_quantum_prekey: Bytes.empty(),
     extensions: [
-      ProtocolExtension {
-        id: 13,
-        mandatory: false,
-        value: Bytes.from_utf8("transcript")
-      }
+      ProtocolExtension { id: 13, mandatory: false, value: Bytes.from_utf8("transcript") }
     ]
   }
   case encode_handshake_transcript(transcript) do

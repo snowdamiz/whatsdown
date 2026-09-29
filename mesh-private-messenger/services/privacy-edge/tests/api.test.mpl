@@ -1,5 +1,10 @@
 from Api.Binary import prepare_submission
-from Privacy.Edge import encode_privacy_submission, encode_sealed_delivery, mint_submission, seal_delivery
+from Privacy.Edge import (
+  encode_privacy_submission,
+  encode_sealed_delivery,
+  mint_submission,
+  seal_delivery
+)
 from Protocol.EnvelopeWire import encode_outer_envelope
 from Protocol.V1 import OuterEnvelope
 
@@ -36,7 +41,9 @@ fn proof() -> Bool!String do
       ciphertext: repeated(3, 32)?
     }))?,
     pair.public_key)?
-  let valid = prepare_submission(encode_privacy_submission(mint_submission(sealed, wide("2000")?, 8)?)?,
+  let valid = prepare_submission(encode_privacy_submission(mint_submission(sealed,
+      wide("2000")?,
+      8)?)?,
     wide("1000")?,
     wide("5000")?,
     8)
@@ -49,7 +56,10 @@ fn proof() -> Bool!String do
     wide("5000")?,
     8)
   assert(expired.status == 429)
-  assert(prepare_submission(Bytes.from_utf8("hostile"), wide("1000")?, wide("5000")?, 8).status == 400)
+  assert(prepare_submission(Bytes.from_utf8("hostile"),
+    wide("1000")?,
+    wide("5000")?,
+    8).status == 400)
   Ok(true)
 end
 

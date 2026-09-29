@@ -1,5 +1,17 @@
 import RuntimeJobs
-from Transparency.Merkle import ConsistencyProof, InclusionProof, TransparencyCheckpoint, WitnessAttestation, WitnessKey, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint, verify_witnesses
+from Transparency.Merkle import (
+  ConsistencyProof,
+  InclusionProof,
+  TransparencyCheckpoint,
+  WitnessAttestation,
+  WitnessKey,
+  checkpoint_hash,
+  consistency_proof,
+  inclusion_proof,
+  leaf_hash,
+  sign_checkpoint,
+  verify_witnesses
+)
 from Transparency.Wire import account_lookup_id, TransparencyEvidence
 
 fn binary(value :: DbValue) -> Bytes!String do
@@ -103,14 +115,17 @@ end
 ## A deleted account's leaves stay, since every proof covers the whole tree.
 ## The entries behind them name the account and its devices, and go with it.
 
-pub fn forget_account_entries_on_connection(conn :: borrow PgConn, account_id :: Bytes) -> Result<(), String> do
+pub fn forget_account_entries_on_connection(conn :: borrow PgConn,
+  account_id :: Bytes) -> Result<(), String> do
   Pg.execute_values(conn,
     "UPDATE transparency_entries SET entry_bytes = NULL WHERE account_commitment = $1",
     [Binary(account_commitment(account_id)?)])?
   Ok(nil)
 end
 
-fn hashes(rows :: List<Map<String, DbValue>>, index :: Int, output :: List<Bytes>) -> List<Bytes>!String do
+fn hashes(rows :: List<Map<String, DbValue>>,
+  index :: Int,
+  output :: List<Bytes>) -> List<Bytes>!String do
   if index >= List.length(rows) do
     Ok(output)
   else
@@ -150,7 +165,10 @@ fn checkpoint_rows(conn :: borrow PgConn) -> List<Map<String, DbValue>>!String d
     [])
 end
 
-fn prefix(values :: List<Bytes>, count :: Int, index :: Int, output :: List<Bytes>) -> List<Bytes> do
+fn prefix(values :: List<Bytes>,
+  count :: Int,
+  index :: Int,
+  output :: List<Bytes>) -> List<Bytes> do
   if index >= count do
     output
   else
@@ -176,7 +194,8 @@ fn witness_values(rows :: List<Map<String, DbValue>>,
   end
 end
 
-fn witnesses_on_connection(conn :: borrow PgConn, checkpoint_sequence :: U64) -> List<WitnessAttestation>!String do
+fn witnesses_on_connection(conn :: borrow PgConn,
+  checkpoint_sequence :: U64) -> List<WitnessAttestation>!String do
   let rows = Pg.query_values(conn,
     "SELECT witness_id, checkpoint_hash, signature FROM witness_signatures WHERE checkpoint_sequence = $1::bigint ORDER BY witness_id",
     [Text(U64.to_string(checkpoint_sequence))])?
@@ -222,9 +241,10 @@ fn create_checkpoint_on_connection(conn :: borrow PgConn,
     Err("transparency log is empty")
   else
     let previous_rows = checkpoint_rows(conn)?
-    if List.length(previous_rows) > 0 && U64.to_int(wide(Map.get(List.head(previous_rows),
-      "tree_size"))?)? == List.length(leaf_hashes) && checkpoint_recent(checkpoint_from_row(List.head(previous_rows))?,
-      current_time()?) do
+    if List.length(previous_rows) > 0
+      && U64.to_int(wide(Map.get(List.head(previous_rows),
+        "tree_size"))?)? == List.length(leaf_hashes)
+      && checkpoint_recent(checkpoint_from_row(List.head(previous_rows))?, current_time()?) do
       checkpoint_from_row(List.head(previous_rows))
     else
       let previous = if List.length(previous_rows) == 0 do
@@ -267,7 +287,8 @@ fn create_checkpoint_on_connection(conn :: borrow PgConn,
   end
 end
 
-fn create_checkpoint_from_seed_on_connection(conn :: borrow PgConn, signing_seed :: Bytes) -> TransparencyCheckpoint!String do
+fn create_checkpoint_from_seed_on_connection(conn :: borrow PgConn,
+  signing_seed :: Bytes) -> TransparencyCheckpoint!String do
   let signer = case Crypto.signing_from_seed(signing_seed) do
     Err(_) -> Err("invalid transparency signing seed")
     Ok(value)
@@ -280,18 +301,21 @@ fn create_configured_checkpoint_on_connection(conn :: borrow PgConn) -> Transpar
   create_checkpoint_on_connection(conn, signer.private_key, signer.public_key.bytes)
 end
 
-pub fn create_checkpoint(pool :: PoolHandle, signing_seed :: Bytes) -> TransparencyCheckpoint!String do
+pub fn create_checkpoint(pool :: PoolHandle,
+  signing_seed :: Bytes) -> TransparencyCheckpoint!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> create_checkpoint_from_seed_on_connection(conn, signing_seed) end)
+    fn(conn :: borrow PgConn) -> create_checkpoint_from_seed_on_connection(conn, signing_seed) end)
 end
 
 pub fn create_configured_checkpoint(pool :: PoolHandle) -> TransparencyCheckpoint!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> create_configured_checkpoint_on_connection(conn) end)
+    fn(conn :: borrow PgConn) -> create_configured_checkpoint_on_connection(conn) end)
 end
 
 pub fn entry_count(pool :: PoolHandle) -> Int!String do
-  let rows = Pool.query_values(pool, "SELECT count(*)::text AS count FROM transparency_entries", [])?
+  let rows = Pool.query_values(pool,
+    "SELECT count(*)::text AS count FROM transparency_entries",
+    [])?
   if List.length(rows) != 1 do
     Err("transparency count failed")
   else
@@ -348,9 +372,10 @@ pub fn latest_checkpoint(pool :: PoolHandle) -> Option<TransparencyCheckpoint>!S
   end
 end
 
-pub fn witnesses_for_checkpoint(pool :: PoolHandle, checkpoint_sequence :: U64) -> List<WitnessAttestation>!String do
+pub fn witnesses_for_checkpoint(pool :: PoolHandle,
+  checkpoint_sequence :: U64) -> List<WitnessAttestation>!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> witnesses_on_connection(conn, checkpoint_sequence) end)
+    fn(conn :: borrow PgConn) -> witnesses_on_connection(conn, checkpoint_sequence) end)
 end
 
 fn evidence_on_connection(conn :: borrow PgConn,
@@ -411,7 +436,7 @@ pub fn evidence_for_username(pool :: PoolHandle,
   old_tree_size :: Int,
   signing_seed :: Bytes) -> TransparencyEvidence!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> evidence_from_seed_on_connection(conn,
+    fn(conn :: borrow PgConn) -> evidence_from_seed_on_connection(conn,
       username,
       old_tree_size,
       signing_seed) end)
@@ -421,7 +446,9 @@ pub fn configured_evidence_for_username(pool :: PoolHandle,
   username :: String,
   old_tree_size :: Int) -> TransparencyEvidence!String do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> configured_evidence_on_connection(conn, username, old_tree_size) end)
+    fn(conn :: borrow PgConn) -> configured_evidence_on_connection(conn,
+      username,
+      old_tree_size) end)
 end
 
 fn store_witness_on_connection(conn :: borrow PgConn,
@@ -432,10 +459,8 @@ fn store_witness_on_connection(conn :: borrow PgConn,
     Err("transparency checkpoint not found")
   else
     let checkpoint = checkpoint_from_row(List.head(rows))?
-    if attestation.witness_id != trusted.witness_id || !verify_witnesses(checkpoint,
-      [attestation],
-      [trusted],
-      1)? do
+    if attestation.witness_id != trusted.witness_id
+      || !verify_witnesses(checkpoint, [attestation], [trusted], 1)? do
       Err("invalid witness attestation")
     else
       let changed = Pg.execute_values(conn,
@@ -469,9 +494,11 @@ fn store_witness_on_connection(conn :: borrow PgConn,
   end
 end
 
-pub fn store_witness(pool :: PoolHandle, attestation :: WitnessAttestation, trusted :: WitnessKey) -> Result<(), String> do
+pub fn store_witness(pool :: PoolHandle,
+  attestation :: WitnessAttestation,
+  trusted :: WitnessKey) -> Result<(), String> do
   Repo.transaction(pool,
-    fn (conn :: borrow PgConn) -> store_witness_on_connection(conn, attestation, trusted) end)
+    fn(conn :: borrow PgConn) -> store_witness_on_connection(conn, attestation, trusted) end)
 end
 
 pub fn transparency_username(pool :: PoolHandle, reference :: String) -> Option<String>!String do

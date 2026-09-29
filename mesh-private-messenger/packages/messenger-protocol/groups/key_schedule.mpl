@@ -1,7 +1,14 @@
 ##! Groups.KeySchedule for the bounded messenger group protocol.
 
 from Groups.CommitWire import group_extensions_bytes, group_policy_bytes
-from Groups.GroupCodec import group_append, group_byte, group_join, group_tree_path_error, group_tree_resolution_error, group_write_u16
+from Groups.GroupCodec import (
+  group_append,
+  group_byte,
+  group_join,
+  group_tree_path_error,
+  group_tree_resolution_error,
+  group_write_u16
+)
 from Groups.Mls import (
   GeneratedTreeKemPath,
   GroupError,
@@ -247,11 +254,7 @@ fn seal_resolution(values :: List<TreeKemResolutionNode>,
         generated,
         level,
         context,
-        List.append(output,
-          TreeKemCiphertext {
-            recipient_node: value.node_index,
-            sealed: sealed
-          }))
+        List.append(output, TreeKemCiphertext { recipient_node: value.node_index, sealed: sealed }))
     end
   end
 end
@@ -282,21 +285,20 @@ pub fn group_seal_update_nodes(tree :: borrow GroupTree,
       context,
       level + 1,
       List.append(output,
-        TreeKemUpdateNode {
-          parent: List.get(generated.parents, level),
-          ciphertexts: ciphertexts
-        }))
+        TreeKemUpdateNode { parent: List.get(generated.parents, level), ciphertexts: ciphertexts }))
   end
 end
 
-pub fn group_next_epoch_secret(root :: borrow SecretBytes, context :: Bytes) -> SecretBytes!GroupError do
+pub fn group_next_epoch_secret(root :: borrow SecretBytes,
+  context :: Bytes) -> SecretBytes!GroupError do
   case Crypto.hkdf_sha256(root, Crypto.sha256(context), Bytes.from_utf8("mesh-mls/v1/epoch"), 32) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
   end
 end
 
-pub fn group_finish_generated(value :: consume GeneratedTreeKemPath, epoch_secret :: SecretBytes) -> TreeKemKeyMaterial do
+pub fn group_finish_generated(value :: consume GeneratedTreeKemPath,
+  epoch_secret :: SecretBytes) -> TreeKemKeyMaterial do
   let key_material = value.key_material
   %{key_material | epoch_secret: epoch_secret}
 end
@@ -497,7 +499,9 @@ fn dummy_private() -> X25519PrivateKey!GroupError do
   Ok((fresh_x25519()?).private_key)
 end
 
-fn build_patch0(secret0 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, context :: Bytes) -> TreeKemPathPatch!GroupError do
+fn build_patch0(secret0 :: SecretBytes,
+  nodes :: List<TreeKemUpdateNode>,
+  context :: Bytes) -> TreeKemPathPatch!GroupError do
   let secret1 = derive_path_secret(secret0)?
   let secret2 = derive_path_secret(secret1)?
   let secret3 = derive_path_secret(secret2)?
@@ -516,12 +520,12 @@ fn build_patch0(secret0 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, contex
   Secret.destroy(secret3)
   Secret.destroy(secret4)
   Secret.destroy(secret5)
-  if !Bytes.secure_equals(key0.public_key.bytes, List.get(nodes, 0).parent.public_key.bytes) || !Bytes.secure_equals(key1.public_key.bytes,
-    List.get(nodes, 1).parent.public_key.bytes) || !Bytes.secure_equals(key2.public_key.bytes,
-    List.get(nodes, 2).parent.public_key.bytes) || !Bytes.secure_equals(key3.public_key.bytes,
-    List.get(nodes, 3).parent.public_key.bytes) || !Bytes.secure_equals(key4.public_key.bytes,
-    List.get(nodes, 4).parent.public_key.bytes) || !Bytes.secure_equals(key5.public_key.bytes,
-    List.get(nodes, 5).parent.public_key.bytes) do
+  if !Bytes.secure_equals(key0.public_key.bytes, List.get(nodes, 0).parent.public_key.bytes)
+    || !Bytes.secure_equals(key1.public_key.bytes, List.get(nodes, 1).parent.public_key.bytes)
+    || !Bytes.secure_equals(key2.public_key.bytes, List.get(nodes, 2).parent.public_key.bytes)
+    || !Bytes.secure_equals(key3.public_key.bytes, List.get(nodes, 3).parent.public_key.bytes)
+    || !Bytes.secure_equals(key4.public_key.bytes, List.get(nodes, 4).parent.public_key.bytes)
+    || !Bytes.secure_equals(key5.public_key.bytes, List.get(nodes, 5).parent.public_key.bytes) do
     Err(AuthenticationRejected)
   else
     Ok(TreeKemPatch0(epoch_secret,
@@ -534,7 +538,9 @@ fn build_patch0(secret0 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, contex
   end
 end
 
-fn build_patch1(secret1 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, context :: Bytes) -> TreeKemPathPatch!GroupError do
+fn build_patch1(secret1 :: SecretBytes,
+  nodes :: List<TreeKemUpdateNode>,
+  context :: Bytes) -> TreeKemPathPatch!GroupError do
   let secret2 = derive_path_secret(secret1)?
   let secret3 = derive_path_secret(secret2)?
   let secret4 = derive_path_secret(secret3)?
@@ -550,11 +556,11 @@ fn build_patch1(secret1 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, contex
   Secret.destroy(secret3)
   Secret.destroy(secret4)
   Secret.destroy(secret5)
-  if !Bytes.secure_equals(key1.public_key.bytes, List.get(nodes, 1).parent.public_key.bytes) || !Bytes.secure_equals(key2.public_key.bytes,
-    List.get(nodes, 2).parent.public_key.bytes) || !Bytes.secure_equals(key3.public_key.bytes,
-    List.get(nodes, 3).parent.public_key.bytes) || !Bytes.secure_equals(key4.public_key.bytes,
-    List.get(nodes, 4).parent.public_key.bytes) || !Bytes.secure_equals(key5.public_key.bytes,
-    List.get(nodes, 5).parent.public_key.bytes) do
+  if !Bytes.secure_equals(key1.public_key.bytes, List.get(nodes, 1).parent.public_key.bytes)
+    || !Bytes.secure_equals(key2.public_key.bytes, List.get(nodes, 2).parent.public_key.bytes)
+    || !Bytes.secure_equals(key3.public_key.bytes, List.get(nodes, 3).parent.public_key.bytes)
+    || !Bytes.secure_equals(key4.public_key.bytes, List.get(nodes, 4).parent.public_key.bytes)
+    || !Bytes.secure_equals(key5.public_key.bytes, List.get(nodes, 5).parent.public_key.bytes) do
     Err(AuthenticationRejected)
   else
     Ok(TreeKemPatch1(epoch_secret,
@@ -566,7 +572,9 @@ fn build_patch1(secret1 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, contex
   end
 end
 
-fn build_patch2(secret2 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, context :: Bytes) -> TreeKemPathPatch!GroupError do
+fn build_patch2(secret2 :: SecretBytes,
+  nodes :: List<TreeKemUpdateNode>,
+  context :: Bytes) -> TreeKemPathPatch!GroupError do
   let secret3 = derive_path_secret(secret2)?
   let secret4 = derive_path_secret(secret3)?
   let secret5 = derive_path_secret(secret4)?
@@ -579,10 +587,10 @@ fn build_patch2(secret2 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, contex
   Secret.destroy(secret3)
   Secret.destroy(secret4)
   Secret.destroy(secret5)
-  if !Bytes.secure_equals(key2.public_key.bytes, List.get(nodes, 2).parent.public_key.bytes) || !Bytes.secure_equals(key3.public_key.bytes,
-    List.get(nodes, 3).parent.public_key.bytes) || !Bytes.secure_equals(key4.public_key.bytes,
-    List.get(nodes, 4).parent.public_key.bytes) || !Bytes.secure_equals(key5.public_key.bytes,
-    List.get(nodes, 5).parent.public_key.bytes) do
+  if !Bytes.secure_equals(key2.public_key.bytes, List.get(nodes, 2).parent.public_key.bytes)
+    || !Bytes.secure_equals(key3.public_key.bytes, List.get(nodes, 3).parent.public_key.bytes)
+    || !Bytes.secure_equals(key4.public_key.bytes, List.get(nodes, 4).parent.public_key.bytes)
+    || !Bytes.secure_equals(key5.public_key.bytes, List.get(nodes, 5).parent.public_key.bytes) do
     Err(AuthenticationRejected)
   else
     Ok(TreeKemPatch2(epoch_secret,
@@ -593,7 +601,9 @@ fn build_patch2(secret2 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, contex
   end
 end
 
-fn build_patch3(secret3 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, context :: Bytes) -> TreeKemPathPatch!GroupError do
+fn build_patch3(secret3 :: SecretBytes,
+  nodes :: List<TreeKemUpdateNode>,
+  context :: Bytes) -> TreeKemPathPatch!GroupError do
   let secret4 = derive_path_secret(secret3)?
   let secret5 = derive_path_secret(secret4)?
   let key3 = derive_node_key(secret3, List.get(nodes, 3).parent.node_index)?
@@ -603,31 +613,35 @@ fn build_patch3(secret3 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, contex
   Secret.destroy(secret3)
   Secret.destroy(secret4)
   Secret.destroy(secret5)
-  if !Bytes.secure_equals(key3.public_key.bytes, List.get(nodes, 3).parent.public_key.bytes) || !Bytes.secure_equals(key4.public_key.bytes,
-    List.get(nodes, 4).parent.public_key.bytes) || !Bytes.secure_equals(key5.public_key.bytes,
-    List.get(nodes, 5).parent.public_key.bytes) do
+  if !Bytes.secure_equals(key3.public_key.bytes, List.get(nodes, 3).parent.public_key.bytes)
+    || !Bytes.secure_equals(key4.public_key.bytes, List.get(nodes, 4).parent.public_key.bytes)
+    || !Bytes.secure_equals(key5.public_key.bytes, List.get(nodes, 5).parent.public_key.bytes) do
     Err(AuthenticationRejected)
   else
     Ok(TreeKemPatch3(epoch_secret, key3.private_key, key4.private_key, key5.private_key))
   end
 end
 
-fn build_patch4(secret4 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, context :: Bytes) -> TreeKemPathPatch!GroupError do
+fn build_patch4(secret4 :: SecretBytes,
+  nodes :: List<TreeKemUpdateNode>,
+  context :: Bytes) -> TreeKemPathPatch!GroupError do
   let secret5 = derive_path_secret(secret4)?
   let key4 = derive_node_key(secret4, List.get(nodes, 4).parent.node_index)?
   let key5 = derive_node_key(secret5, List.get(nodes, 5).parent.node_index)?
   let epoch_secret = group_next_epoch_secret(secret5, context)?
   Secret.destroy(secret4)
   Secret.destroy(secret5)
-  if !Bytes.secure_equals(key4.public_key.bytes, List.get(nodes, 4).parent.public_key.bytes) || !Bytes.secure_equals(key5.public_key.bytes,
-    List.get(nodes, 5).parent.public_key.bytes) do
+  if !Bytes.secure_equals(key4.public_key.bytes, List.get(nodes, 4).parent.public_key.bytes)
+    || !Bytes.secure_equals(key5.public_key.bytes, List.get(nodes, 5).parent.public_key.bytes) do
     Err(AuthenticationRejected)
   else
     Ok(TreeKemPatch4(epoch_secret, key4.private_key, key5.private_key))
   end
 end
 
-fn build_patch5(secret5 :: SecretBytes, nodes :: List<TreeKemUpdateNode>, context :: Bytes) -> TreeKemPathPatch!GroupError do
+fn build_patch5(secret5 :: SecretBytes,
+  nodes :: List<TreeKemUpdateNode>,
+  context :: Bytes) -> TreeKemPathPatch!GroupError do
   let key5 = derive_node_key(secret5, List.get(nodes, 5).parent.node_index)?
   let epoch_secret = group_next_epoch_secret(secret5, context)?
   Secret.destroy(secret5)
@@ -660,7 +674,10 @@ pub fn group_derive_verified_patch(secret :: SecretBytes,
   Ok(patch)
 end
 
-fn preserved_levels(values :: List<Int>, start_level :: Int, index :: Int, output :: List<Int>) -> List<Int> do
+fn preserved_levels(values :: List<Int>,
+  start_level :: Int,
+  index :: Int,
+  output :: List<Int>) -> List<Int> do
   if index >= List.length(values) do
     output
   else
@@ -684,29 +701,57 @@ end
 pub fn group_merge_key_material(base :: consume TreeKemKeyMaterial,
   patch :: consume TreeKemPathPatch) -> TreeKemKeyMaterial do
   case patch do
-    TreeKemPatch0(epoch_secret, level0, level1, level2, level3, level4, level5) -> %{base | epoch_secret: epoch_secret, level0_private_key: level0, level1_private_key: level1, level2_private_key: level2, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5
-    ]}
+    TreeKemPatch0(epoch_secret, level0, level1, level2, level3, level4, level5) -> %{base |
+      epoch_secret: epoch_secret,
+      level0_private_key: level0,
+      level1_private_key: level1,
+      level2_private_key: level2,
+      level3_private_key: level3,
+      level4_private_key: level4,
+      level5_private_key: level5,
+      available_levels: [0, 1, 2, 3, 4, 5]
+    }
     TreeKemPatch1(epoch_secret, level1, level2, level3, level4, level5) -> do
       let levels = append_levels(1, preserved_levels(base.available_levels, 1, 0, List.new()))
-      %{base | epoch_secret: epoch_secret, level1_private_key: level1, level2_private_key: level2, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: levels}
+      %{base |
+        epoch_secret: epoch_secret,
+        level1_private_key: level1,
+        level2_private_key: level2,
+        level3_private_key: level3,
+        level4_private_key: level4,
+        level5_private_key: level5,
+        available_levels: levels
+      }
     end
     TreeKemPatch2(epoch_secret, level2, level3, level4, level5) -> do
       let levels = append_levels(2, preserved_levels(base.available_levels, 2, 0, List.new()))
-      %{base | epoch_secret: epoch_secret, level2_private_key: level2, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: levels}
+      %{base |
+        epoch_secret: epoch_secret,
+        level2_private_key: level2,
+        level3_private_key: level3,
+        level4_private_key: level4,
+        level5_private_key: level5,
+        available_levels: levels
+      }
     end
     TreeKemPatch3(epoch_secret, level3, level4, level5) -> do
       let levels = append_levels(3, preserved_levels(base.available_levels, 3, 0, List.new()))
-      %{base | epoch_secret: epoch_secret, level3_private_key: level3, level4_private_key: level4, level5_private_key: level5, available_levels: levels}
+      %{base |
+        epoch_secret: epoch_secret,
+        level3_private_key: level3,
+        level4_private_key: level4,
+        level5_private_key: level5,
+        available_levels: levels
+      }
     end
     TreeKemPatch4(epoch_secret, level4, level5) -> do
       let levels = append_levels(4, preserved_levels(base.available_levels, 4, 0, List.new()))
-      %{base | epoch_secret: epoch_secret, level4_private_key: level4, level5_private_key: level5, available_levels: levels}
+      %{base |
+        epoch_secret: epoch_secret,
+        level4_private_key: level4,
+        level5_private_key: level5,
+        available_levels: levels
+      }
     end
     TreeKemPatch5(epoch_secret, level5) -> do
       let levels = append_levels(5, preserved_levels(base.available_levels, 5, 0, List.new()))
@@ -722,14 +767,18 @@ pub fn group_empty_keys() -> SecretMap!GroupError do
   end
 end
 
-pub fn group_derive_secret(secret :: borrow SecretBytes, salt :: Bytes, label :: Bytes) -> SecretBytes!GroupError do
+pub fn group_derive_secret(secret :: borrow SecretBytes,
+  salt :: Bytes,
+  label :: Bytes) -> SecretBytes!GroupError do
   case Crypto.hkdf_sha256(secret, salt, label, 32) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
   end
 end
 
-pub fn group_mix_epoch(secret :: SecretBytes, previous :: borrow SecretBytes, context :: Bytes) -> SecretBytes!GroupError do
+pub fn group_mix_epoch(secret :: SecretBytes,
+  previous :: borrow SecretBytes,
+  context :: Bytes) -> SecretBytes!GroupError do
   let prior = group_derive_secret(previous,
     Crypto.sha256(context),
     Bytes.from_utf8("mesh-mls/v2/epoch-mix"))?
@@ -772,7 +821,9 @@ pub fn group_confirmation(secret :: borrow SecretBytes, context :: Bytes) -> Byt
   end
 end
 
-pub fn group_verify_confirmation(secret :: borrow SecretBytes, context :: Bytes, tag :: Bytes) -> Result<(), GroupError> do
+pub fn group_verify_confirmation(secret :: borrow SecretBytes,
+  context :: Bytes,
+  tag :: Bytes) -> Result<(), GroupError> do
   let material = group_derive_secret(secret,
     Crypto.sha256(context),
     Bytes.from_utf8("mesh-mls/v2/confirmation"))?
@@ -837,7 +888,9 @@ end
 
 # No application ancestor survives this split. Tree/HPKE keys alone cannot undo the previous-init mix.
 
-pub fn group_epoch_keys(secret :: borrow SecretBytes, group_id :: Bytes, tree :: borrow GroupTree) -> GroupEpochKeys!GroupError do
+pub fn group_epoch_keys(secret :: borrow SecretBytes,
+  group_id :: Bytes,
+  tree :: borrow GroupTree) -> GroupEpochKeys!GroupError do
   let chains = group_empty_keys()?
   let skipped = group_empty_keys()?
   initialize_sender_chains(secret, group_id, tree, chains, 0)?
@@ -845,9 +898,14 @@ pub fn group_epoch_keys(secret :: borrow SecretBytes, group_id :: Bytes, tree ::
   Ok(EpochKeys(next_init, chains, skipped))
 end
 
-pub fn group_install_epoch(material :: consume TreeKemKeyMaterial, keys :: consume GroupEpochKeys) -> TreeKemKeyMaterial do
+pub fn group_install_epoch(material :: consume TreeKemKeyMaterial,
+  keys :: consume GroupEpochKeys) -> TreeKemKeyMaterial do
   case keys do
-    EpochKeys(init_secret, chains, skipped) -> %{material | epoch_secret: init_secret, sender_chains: chains, skipped_keys: skipped}
+    EpochKeys(init_secret, chains, skipped) -> %{material |
+      epoch_secret: init_secret,
+      sender_chains: chains,
+      skipped_keys: skipped
+    }
   end
 end
 

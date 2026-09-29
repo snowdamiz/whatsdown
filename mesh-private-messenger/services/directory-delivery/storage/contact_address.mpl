@@ -48,12 +48,14 @@ pub fn publish_contact_address_on_connection(conn :: borrow PgConn,
   end
 end
 
-pub fn publish_contact_address(pool :: PoolHandle, mailbox_hash :: Bytes, alias_hash :: Bytes) -> ContactAddressWrite!String do
+pub fn publish_contact_address(pool :: PoolHandle,
+  mailbox_hash :: Bytes,
+  alias_hash :: Bytes) -> ContactAddressWrite!String do
   if Bytes.length(mailbox_hash) != 32 || Bytes.length(alias_hash) != 32 do
     Err("invalid contact address")
   else
     Repo.transaction(pool,
-      fn (conn :: borrow PgConn) -> publish_contact_address_on_connection(conn,
+      fn(conn :: borrow PgConn) -> publish_contact_address_on_connection(conn,
         mailbox_hash,
         alias_hash) end)
   end
@@ -67,7 +69,8 @@ end
 # someone's contact address therefore cannot intercept it; it only makes its
 # own public address unreachable.
 
-pub fn resolve_deposit_address(conn :: borrow PgConn, address_hash :: Bytes) -> Result<(Bytes, Bool), String> do
+pub fn resolve_deposit_address(conn :: borrow PgConn,
+  address_hash :: Bytes) -> Result<(Bytes, Bool), String> do
   let rows = Pg.query_values(conn,
     "SELECT mailbox_token_hash, (retired_at IS NULL)::text AS current FROM messenger_mailbox_aliases WHERE alias_hash = $1",
     [Binary(address_hash)])?

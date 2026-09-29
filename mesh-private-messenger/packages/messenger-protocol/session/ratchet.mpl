@@ -1,5 +1,13 @@
 from Transport.Padding import pad_message, unpad_message
-from Binary.Reader import BinaryReader, finish, read_fixed, read_u16_be, read_u8, read_vector, reader
+from Binary.Reader import (
+  BinaryReader,
+  finish,
+  read_fixed,
+  read_u16_be,
+  read_u8,
+  read_vector,
+  reader
+)
 from Session.Handshake import RatchetState
 
 pub type RatchetError do
@@ -112,30 +120,21 @@ end
 fn take_u8(state :: BinaryReader) -> ReadInt!RatchetError do
   case read_u8(state) do
     Err(_) -> Err(InvalidMessage)
-    Ok((next, value)) -> Ok(ReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
   end
 end
 
 fn take_u16(state :: BinaryReader) -> ReadInt!RatchetError do
   case read_u16_be(state) do
     Err(_) -> Err(InvalidMessage)
-    Ok((next, value)) -> Ok(ReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!RatchetError do
   case read_fixed(state, length) do
     Err(_) -> Err(InvalidMessage)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -145,10 +144,7 @@ fn take_u32(state :: BinaryReader) -> ReadInt!RatchetError do
     Err(_) -> Err(InvalidMessage)
     Ok(value) -> case U64.to_int(value) do
       Err(_) -> Err(InvalidMessage)
-      Ok(number) -> Ok(ReadInt {
-        state: bytes.state,
-        value: number
-      })
+      Ok(number) -> Ok(ReadInt { state: bytes.state, value: number })
     end
   end
 end
@@ -156,10 +152,7 @@ end
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!RatchetError do
   case read_vector(state, maximum) do
     Err(_) -> Err(InvalidMessage)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -172,7 +165,15 @@ end
 
 fn validate_message(value :: RatchetMessage) -> Result<(), RatchetError> do
   let valid_suite = value.suite == 1 || value.suite == 2
-  let valid = (value.version == 1 || value.version == 2 || value.version == 3) && valid_suite && Bytes.length(value.session_id) == 32 && Bytes.length(value.ratchet_public_key.bytes) == 32 && value.previous_chain_length >= 0 && value.message_number >= 0 && Bytes.length(value.nonce) == 12 && Bytes.length(value.ciphertext) >= 16 && Bytes.length(value.ciphertext) <= 65536
+  let valid = (value.version == 1 || value.version == 2 || value.version == 3)
+    && valid_suite
+    && Bytes.length(value.session_id) == 32
+    && Bytes.length(value.ratchet_public_key.bytes) == 32
+    && value.previous_chain_length >= 0
+    && value.message_number >= 0
+    && Bytes.length(value.nonce) == 12
+    && Bytes.length(value.ciphertext) >= 16
+    && Bytes.length(value.ciphertext) <= 65536
   if valid do
     Ok(nil)
   else
@@ -221,12 +222,15 @@ pub fn decode_ratchet_message(input :: Bytes) -> RatchetMessage!RatchetError do
   end
 end
 
-fn keyed_info(label :: String, ratchet_public_key :: X25519PublicKey, message_number :: Int) -> Bytes!RatchetError do
+fn keyed_info(label :: String,
+  ratchet_public_key :: X25519PublicKey,
+  message_number :: Int) -> Bytes!RatchetError do
   let value = append(Bytes.from_utf8(label), ratchet_public_key.bytes)?
   append(value, write_u32(message_number)?)
 end
 
-fn skipped_key_id(ratchet_public_key :: X25519PublicKey, message_number :: Int) -> Bytes!RatchetError do
+fn skipped_key_id(ratchet_public_key :: X25519PublicKey,
+  message_number :: Int) -> Bytes!RatchetError do
   keyed_info("mesh-msg/v1/skipped-key", ratchet_public_key, message_number)
 end
 
@@ -318,7 +322,9 @@ end
 # The list is in the order the keys were set aside, so the ones that are too
 # old are at its head.
 
-fn forget_aged(skipped :: borrow SecretMap, index :: Bytes, generation :: Int) -> Bytes!RatchetError do
+fn forget_aged(skipped :: borrow SecretMap,
+  index :: Bytes,
+  generation :: Int) -> Bytes!RatchetError do
   if Bytes.length(index) < 40 do
     Ok(index)
   else
@@ -354,7 +360,9 @@ fn authenticated_data(version :: Int,
   append(value, caller_data)
 end
 
-fn derived_secret(input :: borrow SecretBytes, salt :: Bytes, info :: Bytes) -> SecretBytes!RatchetError do
+fn derived_secret(input :: borrow SecretBytes,
+  salt :: Bytes,
+  info :: Bytes) -> SecretBytes!RatchetError do
   case Crypto.hkdf_sha256(input, salt, info, 32) do
     Err(_) -> Err(CryptoFailure)
     Ok(value)
@@ -521,9 +529,20 @@ fn encrypt_rotated(state :: consume RatchetState,
     Err(_) -> Err(CryptoFailure)
     Ok(value)
   end?
-  let (root_key, sending_chain_key) = ratchet_root(state.root_key, dh, state.session_id, public_key)?
+  let (root_key, sending_chain_key) = ratchet_root(state.root_key,
+    dh,
+    state.session_id,
+    public_key)?
   let previous_chain_length = state.sent_count
-  let rotated = %{state | root_key: root_key, sending_chain_key: sending_chain_key, local_ratchet_private: private_key, local_ratchet_public: public_key, previous_chain_length: previous_chain_length, sent_count: 0, pending_send_ratchet: false}
+  let rotated = %{state |
+    root_key: root_key,
+    sending_chain_key: sending_chain_key,
+    local_ratchet_private: private_key,
+    local_ratchet_public: public_key,
+    previous_chain_length: previous_chain_length,
+    sent_count: 0,
+    pending_send_ratchet: false
+  }
   encrypt_active(rotated, plaintext, associated_data, version)
 end
 
@@ -532,7 +551,10 @@ fn encrypt_version(state :: consume RatchetState,
   associated_data :: Bytes,
   version :: Int,
   maximum :: Int) -> Result<(RatchetState, RatchetMessage), RatchetError> do
-  if state.version != 1 || !(state.suite == 1 || state.suite == 2) || Bytes.length(plaintext) > maximum || state.sent_count < 0 do
+  if state.version != 1
+    || !(state.suite == 1 || state.suite == 2)
+    || Bytes.length(plaintext) > maximum
+    || state.sent_count < 0 do
     Err(InvalidMessage)
   else if state.pending_send_ratchet do
     encrypt_rotated(state, plaintext, associated_data, version)
@@ -544,14 +566,18 @@ end
 ## Version 2: padded, for a packet that travels bare. Retained so queued and
 ## not-yet-upgraded peers interoperate; new sends use `encrypt_sealed`.
 
-pub fn encrypt(state :: consume RatchetState, plaintext :: Bytes, associated_data :: Bytes) -> Result<(RatchetState, RatchetMessage), RatchetError> do
+pub fn encrypt(state :: consume RatchetState,
+  plaintext :: Bytes,
+  associated_data :: Bytes) -> Result<(RatchetState, RatchetMessage), RatchetError> do
   encrypt_version(state, plaintext, associated_data, 2, 65409)
 end
 
 ## Version 3: unpadded, valid only inside the recipient-sealed transport. The
 ## limit keeps the complete `M8P` packet within that transport's 65,480 bytes.
 
-pub fn encrypt_sealed(state :: consume RatchetState, plaintext :: Bytes, associated_data :: Bytes) -> Result<(RatchetState, RatchetMessage), RatchetError> do
+pub fn encrypt_sealed(state :: consume RatchetState,
+  plaintext :: Bytes,
+  associated_data :: Bytes) -> Result<(RatchetState, RatchetMessage), RatchetError> do
   encrypt_version(state, plaintext, associated_data, 3, 65357)
 end
 
@@ -567,11 +593,15 @@ pub fn ratchet_transport_matches(message :: RatchetMessage, sealed :: Bool) -> B
   end
 end
 
-fn reject_key(key :: consume AeadKey, state :: consume RatchetState, error :: RatchetError) -> DecryptOutcome do
+fn reject_key(key :: consume AeadKey,
+  state :: consume RatchetState,
+  error :: RatchetError) -> DecryptOutcome do
   Rejected(state, error)
 end
 
-fn reject_map(candidate :: consume SecretMap, state :: consume RatchetState, error :: RatchetError) -> DecryptOutcome do
+fn reject_map(candidate :: consume SecretMap,
+  state :: consume RatchetState,
+  error :: RatchetError) -> DecryptOutcome do
   Rejected(state, error)
 end
 
@@ -622,7 +652,9 @@ fn reject_new_key_material(key :: consume AeadKey,
   Rejected(state, error)
 end
 
-fn open_message(key :: borrow AeadKey, message :: RatchetMessage, data :: Bytes) -> Bytes!RatchetError do
+fn open_message(key :: borrow AeadKey,
+  message :: RatchetMessage,
+  data :: Bytes) -> Bytes!RatchetError do
   let plaintext = case Crypto.aead_open(key, message.nonce, data, message.ciphertext) do
     Err(error) -> Err(ratchet_open_error(error))
     Ok(value)
@@ -694,7 +726,11 @@ fn commit_current(key :: consume AeadKey,
       Ok(index) -> case SecretMap.merge(state.skipped_keys, candidate) do
         Err(_) -> reject_chain_key(key, next_chain, state, CryptoFailure)
         Ok(_) -> do
-          let next = %{state | receiving_chain_key: next_chain, received_count: message_number + 1, skipped_index: index}
+          let next = %{state |
+            receiving_chain_key: next_chain,
+            received_count: message_number + 1,
+            skipped_index: index
+          }
           Opened(next, plaintext)
         end
       end
@@ -776,7 +812,15 @@ fn commit_new_chain(key :: consume AeadKey,
       Ok(_) -> case forget_aged(state.skipped_keys, listed, generation) do
         Err(error) -> reject_new_key_material(key, root_key, next_chain, state, error)
         Ok(index) -> do
-          let next = %{state | root_key: root_key, receiving_chain_key: next_chain, remote_ratchet_public: message.ratchet_public_key, received_count: message.message_number + 1, skipped_index: index, receive_generation: generation, pending_send_ratchet: true}
+          let next = %{state |
+            root_key: root_key,
+            receiving_chain_key: next_chain,
+            remote_ratchet_public: message.ratchet_public_key,
+            received_count: message.message_number + 1,
+            skipped_index: index,
+            receive_generation: generation,
+            pending_send_ratchet: true
+          }
           Opened(next, plaintext)
         end
       end
@@ -866,7 +910,9 @@ fn decrypt_new_chain(state :: consume RatchetState,
   # Both gaps are set aside together, and together they must fit what a
   # session keeps. More is a jump, not a fault to try again.
   let old_gap = message.previous_chain_length - state.received_count
-  let too_far = old_gap > 64 || message.message_number > 64 || (old_gap > 0 && old_gap + message.message_number > 64)
+  let too_far = old_gap > 64
+    || message.message_number > 64
+    || (old_gap > 0 && old_gap + message.message_number > 64)
   if too_far do
     Rejected(state, ExcessiveJump)
   else
@@ -885,9 +931,18 @@ fn decrypt_new_chain(state :: consume RatchetState,
   end
 end
 
-pub fn decrypt(state :: consume RatchetState, message :: RatchetMessage, associated_data :: Bytes) -> DecryptOutcome do
-  let wrong_header = !(message.version == 1 || message.version == 2 || message.version == 3) || !(state.suite == 1 || state.suite == 2) || message.suite != state.suite || !Bytes.secure_equals(message.session_id,
-    state.session_id) || Bytes.length(message.ratchet_public_key.bytes) != 32 || message.previous_chain_length < 0 || message.message_number < 0 || Bytes.length(message.nonce) != 12 || Bytes.length(message.ciphertext) > 65536
+pub fn decrypt(state :: consume RatchetState,
+  message :: RatchetMessage,
+  associated_data :: Bytes) -> DecryptOutcome do
+  let wrong_header = !(message.version == 1 || message.version == 2 || message.version == 3)
+    || !(state.suite == 1 || state.suite == 2)
+    || message.suite != state.suite
+    || !Bytes.secure_equals(message.session_id, state.session_id)
+    || Bytes.length(message.ratchet_public_key.bytes) != 32
+    || message.previous_chain_length < 0
+    || message.message_number < 0
+    || Bytes.length(message.nonce) != 12
+    || Bytes.length(message.ciphertext) > 65536
   if wrong_header do
     Rejected(state, InvalidMessage)
   else

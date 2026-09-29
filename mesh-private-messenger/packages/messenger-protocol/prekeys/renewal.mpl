@@ -63,7 +63,12 @@ end
 pub fn encode_renewal_request(value :: RenewalRequest) -> Bytes!ProtocolError do
   if value.version != 1 do
     Err(UnsupportedVersion)
-  else if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signed_prekey) != 32 || Bytes.length(value.signed_prekey_signature) != 64 || Bytes.length(value.post_quantum_prekey) != 1184 || Bytes.length(value.signature) != 64 do
+  else if Bytes.length(value.account_id) != 32
+    || Bytes.length(value.device_id) != 16
+    || Bytes.length(value.signed_prekey) != 32
+    || Bytes.length(value.signed_prekey_signature) != 64
+    || Bytes.length(value.post_quantum_prekey) != 1184
+    || Bytes.length(value.signature) != 64 do
     Err(InvalidFieldLength)
   else if protocol_is_zero(value.signed_prekey_id) do
     Err(InvalidFieldLength)
@@ -169,8 +174,9 @@ end
 ## for a signed prekey that device signed for the hybrid suite.
 
 pub fn verify_renewal_request(credential :: DeviceCredential, request :: RenewalRequest) -> Bool do
-  let names_device = request.version == 1 && Bytes.secure_equals(request.account_id,
-    credential.account_id) && Bytes.secure_equals(request.device_id, credential.device_id)
+  let names_device = request.version == 1
+    && Bytes.secure_equals(request.account_id, credential.account_id)
+    && Bytes.secure_equals(request.device_id, credential.device_id)
   if !names_device || Bytes.length(credential.signing_public_key) != 32 do
     false
   else
@@ -181,7 +187,9 @@ pub fn verify_renewal_request(credential :: DeviceCredential, request :: Renewal
       request.signed_prekey_signature)
     let request_signed = case request_signing_bytes(request) do
       Err(_) -> false
-      Ok(signing_bytes) -> case Crypto.verify(SigningPublicKey { bytes: credential.signing_public_key },
+      Ok(signing_bytes) -> case Crypto.verify(SigningPublicKey {
+          bytes: credential.signing_public_key
+        },
         signing_bytes,
         Signature { bytes: request.signature }) do
         Err(_) -> false
@@ -263,7 +271,8 @@ fn without_renewal_request(bundle :: PrekeyBundle) -> PrekeyBundle do
   %{bundle | extensions: other_extensions(bundle.extensions, 0, List.new())}
 end
 
-pub fn bundle_with_renewal_request(bundle :: PrekeyBundle, request :: RenewalRequest) -> PrekeyBundle!PrekeyError do
+pub fn bundle_with_renewal_request(bundle :: PrekeyBundle,
+  request :: RenewalRequest) -> PrekeyBundle!PrekeyError do
   let wire = prekey_protocol(encode_renewal_request(request))?
   let first = case Bytes.slice(wire, 0, 1024) do
     Err(_) -> Err(InvalidBundle)
@@ -274,19 +283,12 @@ pub fn bundle_with_renewal_request(bundle :: PrekeyBundle, request :: RenewalReq
     Ok(value)
   end?
   let parts = [
-    ProtocolExtension {
-      id: 1,
-      mandatory: false,
-      value: first
-    },
-    ProtocolExtension {
-      id: 2,
-      mandatory: false,
-      value: second
-    }
+    ProtocolExtension { id: 1, mandatory: false, value: first },
+    ProtocolExtension { id: 2, mandatory: false, value: second }
   ]
-  let output = %{bundle | extensions: List.concat(parts,
-    other_extensions(bundle.extensions, 0, List.new()))}
+  let output = %{bundle |
+    extensions: List.concat(parts, other_extensions(bundle.extensions, 0, List.new()))
+  }
   prekey_protocol(encode_prekey_bundle(output))?
   Ok(output)
 end
@@ -294,10 +296,12 @@ end
 ## The bundle that answers a request: the new credential, the requested signed
 ## prekey and ML-KEM prekey, no one-time prekey and no request.
 
-pub fn renewed_prekey_bundle(credential :: DeviceCredential, request :: RenewalRequest) -> PrekeyBundle!PrekeyError do
-  let answers = credential.suite == 2 && Bytes.secure_equals(credential.account_id,
-    request.account_id) && Bytes.secure_equals(credential.device_id, request.device_id) && Bytes.secure_equals(credential.post_quantum_public_key,
-    request.post_quantum_prekey)
+pub fn renewed_prekey_bundle(credential :: DeviceCredential,
+  request :: RenewalRequest) -> PrekeyBundle!PrekeyError do
+  let answers = credential.suite == 2
+    && Bytes.secure_equals(credential.account_id, request.account_id)
+    && Bytes.secure_equals(credential.device_id, request.device_id)
+    && Bytes.secure_equals(credential.post_quantum_public_key, request.post_quantum_prekey)
   if !answers do
     Err(InvalidBundle)
   else
@@ -361,16 +365,22 @@ fn credential_transition(stored :: PrekeyBundle,
   proposed :: PrekeyBundle,
   proposed_credential :: DeviceCredential,
   next_sequence :: U64) -> BundleTransition do
-  if U64.compare(proposed_credential.directory_sequence, stored_credential.directory_sequence) < 0 do
+  if U64.compare(proposed_credential.directory_sequence,
+    stored_credential.directory_sequence) < 0 do
     TransitionReplayed
-  else if U64.compare(proposed_credential.directory_sequence, next_sequence) != 0 || proposed_credential.suite < stored_credential.suite || carries_request(proposed) do
+  else if U64.compare(proposed_credential.directory_sequence, next_sequence) != 0
+    || proposed_credential.suite < stored_credential.suite
+    || carries_request(proposed) do
     TransitionRefused
   else
-    let same_signed_prekey = U64.compare(stored.signed_prekey_id, proposed.signed_prekey_id) == 0 && Bytes.secure_equals(stored.signed_prekey,
-      proposed.signed_prekey) && U64.compare(stored.expires_at, proposed.expires_at) == 0
-    let upgrade = stored_credential.suite == 1 && proposed_credential.suite == 2 && same_signed_prekey
-    let renewal = proposed_credential.suite == 2 && U64.compare(proposed.signed_prekey_id,
-      stored.signed_prekey_id) > 0
+    let same_signed_prekey = U64.compare(stored.signed_prekey_id, proposed.signed_prekey_id) == 0
+      && Bytes.secure_equals(stored.signed_prekey, proposed.signed_prekey)
+      && U64.compare(stored.expires_at, proposed.expires_at) == 0
+    let upgrade = stored_credential.suite == 1
+      && proposed_credential.suite == 2
+      && same_signed_prekey
+    let renewal = proposed_credential.suite == 2
+      && U64.compare(proposed.signed_prekey_id, stored.signed_prekey_id) > 0
     if upgrade || renewal do
       TransitionAccepted
     else
@@ -412,8 +422,8 @@ fn request_transition(stored :: PrekeyBundle,
       else
         TransitionRefused
       end
-      Ok(Some(asked)) -> if !verify_renewal_request(stored_credential, asked) || U64.compare(asked.signed_prekey_id,
-        stored.signed_prekey_id) <= 0 do
+      Ok(Some(asked)) -> if !verify_renewal_request(stored_credential, asked)
+        || U64.compare(asked.signed_prekey_id, stored.signed_prekey_id) <= 0 do
         TransitionRefused
       else
         newer_request(stored, asked)
@@ -428,10 +438,11 @@ fn classified_transition(stored :: PrekeyBundle,
   proposed_credential :: DeviceCredential,
   next_sequence :: U64) -> BundleTransition do
   let same_device = Bytes.secure_equals(stored_credential.account_id,
-    proposed_credential.account_id) && Bytes.secure_equals(stored_credential.device_id,
-    proposed_credential.device_id) && Bytes.secure_equals(stored_credential.signing_public_key,
-    proposed_credential.signing_public_key) && Bytes.secure_equals(stored_credential.dh_public_key,
-    proposed_credential.dh_public_key)
+    proposed_credential.account_id)
+    && Bytes.secure_equals(stored_credential.device_id, proposed_credential.device_id)
+    && Bytes.secure_equals(stored_credential.signing_public_key,
+      proposed_credential.signing_public_key)
+    && Bytes.secure_equals(stored_credential.dh_public_key, proposed_credential.dh_public_key)
   if !same_device do
     TransitionRefused
   else if same_wire(stored, proposed) do

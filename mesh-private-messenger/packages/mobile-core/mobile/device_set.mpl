@@ -29,7 +29,9 @@ fn canonical_device_set(input :: Bytes) -> DeviceSet!String do
   end
 end
 
-pub fn contains_device_id(profiles :: List<ClientProfile>, device_id :: Bytes, index :: Int) -> Bool do
+pub fn contains_device_id(profiles :: List<ClientProfile>,
+  device_id :: Bytes,
+  index :: Int) -> Bool do
   if index >= List.length(profiles) do
     false
   else if Bytes.secure_equals(List.get(profiles, index).device_id, device_id) do
@@ -79,10 +81,7 @@ fn verified_device_profiles(value :: DeviceSet,
   profiles :: List<ClientProfile>,
   expired :: List<ClientProfile>) -> SortedProfiles!String do
   if index >= List.length(value.devices) do
-    Ok(SortedProfiles {
-      profiles: profiles,
-      expired: expired
-    })
+    Ok(SortedProfiles { profiles: profiles, expired: expired })
   else
     let entry = List.get(value.devices, index)
     let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
@@ -101,9 +100,10 @@ fn verified_device_profiles(value :: DeviceSet,
     let profile = decode_client_profile(encode_client_profile(entry,
       account.account_id,
       credential.device_id)?)?
-    let invalid = (!current && !lapsed) || contains_device_id(profiles, profile.device_id, 0) || contains_device_id(expired,
-      profile.device_id,
-      0) || contains_revoked_id(value.revoked_device_ids, profile.device_id, 0)
+    let invalid = (!current && !lapsed)
+      || contains_device_id(profiles, profile.device_id, 0)
+      || contains_device_id(expired, profile.device_id, 0)
+      || contains_revoked_id(value.revoked_device_ids, profile.device_id, 0)
     if invalid do
       Err("invalid_device_set")
     else if current do
@@ -177,11 +177,15 @@ fn device_identity(device :: DirectoryEntry) -> Bytes!String do
   end
 end
 
-fn device_identities(values :: List<DirectoryEntry>, index :: Int, output :: List<Bytes>) -> List<Bytes>!String do
+fn device_identities(values :: List<DirectoryEntry>,
+  index :: Int,
+  output :: List<Bytes>) -> List<Bytes>!String do
   if index >= List.length(values) do
     Ok(output)
   else
-    device_identities(values, index + 1, List.append(output, device_identity(List.get(values, index))?))
+    device_identities(values,
+      index + 1,
+      List.append(output, device_identity(List.get(values, index))?))
   end
 end
 
@@ -222,8 +226,8 @@ pub fn cached_device_set_changed(database_path :: String,
     Ok(blob) -> do
       let previous_wire = open_local(blob, wrapping_key, local_context(label)?)?
       let previous = canonical_device_set(previous_wire)?
-      let same_identity = previous.username == next.value.username && Bytes.secure_equals(previous.account_identity,
-        next.value.account_identity)
+      let same_identity = previous.username == next.value.username
+        && Bytes.secure_equals(previous.account_identity, next.value.account_identity)
       let sequence = U64.compare(next.value.sequence, previous.sequence)
       if !same_identity || sequence < 0 do
         Err("device_set_rollback")
@@ -239,9 +243,8 @@ pub fn cached_device_set_changed(database_path :: String,
 end
 
 pub fn local_device_set(local :: ClientProfile, value :: MobileVerifiedDeviceSet) -> Bool do
-  local.username == value.value.username && Bytes.secure_equals(local.account_id,
-    value.account.account_id) && Bytes.secure_equals(local.entry.account_identity,
-    value.value.account_identity) && contains_device_id(account_device_profiles(value),
-    local.device_id,
-    0)
+  local.username == value.value.username
+    && Bytes.secure_equals(local.account_id, value.account.account_id)
+    && Bytes.secure_equals(local.entry.account_identity, value.value.account_identity)
+    && contains_device_id(account_device_profiles(value), local.device_id, 0)
 end

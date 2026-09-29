@@ -23,7 +23,9 @@ fn delete_key(keys :: borrow SecretMap, id :: Bytes) -> Result<(), GroupError> d
   end
 end
 
-fn insert_key(keys :: borrow SecretMap, id :: Bytes, key :: SecretBytes) -> Result<(), GroupError> do
+fn insert_key(keys :: borrow SecretMap,
+  id :: Bytes,
+  key :: SecretBytes) -> Result<(), GroupError> do
   case SecretMap.insert(keys, id, key) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(_) -> Ok(nil)
@@ -44,7 +46,10 @@ pub fn sender_message_key(chains :: borrow SecretMap,
     group_append(Bytes.from_utf8("mesh-mls/v2/message-key"), skipped_id(leaf, generation)?)?)
 end
 
-fn step_chain(chains :: borrow SecretMap, group_id :: Bytes, leaf :: Int, generation :: Int) -> Result<(), GroupError> do
+fn step_chain(chains :: borrow SecretMap,
+  group_id :: Bytes,
+  leaf :: Int,
+  generation :: Int) -> Result<(), GroupError> do
   let id = group_chain_id(leaf)?
   let chain = copy_key(chains, id)?
   let next = group_derive_secret(chain,
@@ -54,7 +59,10 @@ fn step_chain(chains :: borrow SecretMap, group_id :: Bytes, leaf :: Int, genera
   insert_key(chains, id, next)
 end
 
-pub fn advance_sender(chains :: borrow SecretMap, group_id :: Bytes, leaf :: Int, generation :: Int) -> SecretMap!GroupError do
+pub fn advance_sender(chains :: borrow SecretMap,
+  group_id :: Bytes,
+  leaf :: Int,
+  generation :: Int) -> SecretMap!GroupError do
   let candidate = fork_keys(chains)?
   step_chain(candidate, group_id, leaf, generation)?
   Ok(candidate)
@@ -63,7 +71,10 @@ end
 # The reordering window is 32 generations per sender, at most 64 keys per group.
 # Capacity errors preserve committed state; an authenticated epoch refresh clears the window.
 
-fn prune_skipped(skipped :: borrow SecretMap, leaf :: Int, generation :: Int, stop :: Int) -> Result<(), GroupError> do
+fn prune_skipped(skipped :: borrow SecretMap,
+  leaf :: Int,
+  generation :: Int,
+  stop :: Int) -> Result<(), GroupError> do
   if generation >= stop do
     Ok(nil)
   else

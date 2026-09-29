@@ -15,7 +15,9 @@ from Protocol.WirePrimitives import (
 )
 from Protocol.V1 import ProtocolError, ProtocolExtension, protocol_validate_suite_list
 
-fn encode_suite_entries(values :: List<Int>, index :: Int, output :: Bytes) -> Bytes!ProtocolError do
+fn encode_suite_entries(values :: List<Int>,
+  index :: Int,
+  output :: Bytes) -> Bytes!ProtocolError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -35,13 +37,13 @@ pub fn protocol_encode_suites(values :: List<Int>) -> Bytes!ProtocolError do
     Bytes.empty())
 end
 
-fn read_suite_entries(state :: BinaryReader, count :: Int, index :: Int, output :: List<Int>) -> ProtocolReadSuites!ProtocolError do
+fn read_suite_entries(state :: BinaryReader,
+  count :: Int,
+  index :: Int,
+  output :: List<Int>) -> ProtocolReadSuites!ProtocolError do
   if index >= count do
     protocol_validate_suite_list(output, 0)?
-    Ok(ProtocolReadSuites {
-      state: state,
-      value: output
-    })
+    Ok(ProtocolReadSuites { state: state, value: output })
   else
     let suite = protocol_take_u16(state)?
     read_suite_entries(suite.state, count, index + 1, List.append(output, suite.value))
@@ -78,7 +80,9 @@ pub fn protocol_validate_extensions(values :: List<ProtocolExtension>,
   end
 end
 
-fn encode_extension_entries(values :: List<ProtocolExtension>, index :: Int, output :: Bytes) -> Bytes!ProtocolError do
+fn encode_extension_entries(values :: List<ProtocolExtension>,
+  index :: Int,
+  output :: Bytes) -> Bytes!ProtocolError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -110,10 +114,7 @@ fn read_extension_entries(state :: BinaryReader,
   previous_id :: Int,
   output :: List<ProtocolExtension>) -> ProtocolReadExtensions!ProtocolError do
   if index >= count do
-    Ok(ProtocolReadExtensions {
-      state: state,
-      value: output
-    })
+    Ok(ProtocolReadExtensions { state: state, value: output })
   else
     let id = protocol_take_u16(state)?
     let flag = protocol_take_u8(id.state)?
@@ -130,11 +131,7 @@ fn read_extension_entries(state :: BinaryReader,
         index + 1,
         id.value,
         List.append(output,
-          ProtocolExtension {
-            id: id.value,
-            mandatory: false,
-            value: value.value
-          }))
+          ProtocolExtension { id: id.value, mandatory: false, value: value.value }))
     end
   end
 end

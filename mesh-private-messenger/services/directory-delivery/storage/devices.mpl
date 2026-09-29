@@ -1,8 +1,18 @@
-from Identity.Device import verify_account_deletion, verify_device_departure, verify_device_revocation
+from Identity.Device import (
+  verify_account_deletion,
+  verify_device_departure,
+  verify_device_revocation
+)
 from Prekeys.Pool import OneTimePrekeyPublic
 from Prekeys.Bundle import normalize_prekey_bundle, verify_prekey_bundle
 from Prekeys.Renewal import BundleTransition, classify_bundle_transition
-from Protocol.DirectoryWire import encode_account_deletion, encode_device_departure, encode_device_revocation, encode_device_set, encode_directory_entry
+from Protocol.DirectoryWire import (
+  encode_account_deletion,
+  encode_device_departure,
+  encode_device_revocation,
+  encode_device_set,
+  encode_directory_entry
+)
 from Protocol.IdentityWire import decode_account_identity, decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 from Protocol.MailboxWire import mailbox_request_is_fresh
@@ -120,14 +130,12 @@ fn verified_registration(entry :: DirectoryEntry) -> VerifiedRegistration!String
   else
     credential.expires_at
   end
-  let lapsed = !current && U64.compare(lapse, now) < 0 && case verify_prekey_bundle(account,
-    bundle,
-    1,
-    lapse,
-    account.directory_sequence) do
-    Err(_) -> false
-    Ok(valid) -> valid
-  end
+  let lapsed = !current
+    && U64.compare(lapse, now) < 0
+    && case verify_prekey_bundle(account, bundle, 1, lapse, account.directory_sequence) do
+      Err(_) -> false
+      Ok(valid) -> valid
+    end
   if !current && !lapsed do
     Err("invalid device registration")
   else
@@ -154,7 +162,9 @@ fn verified_registration(entry :: DirectoryEntry) -> VerifiedRegistration!String
   end
 end
 
-fn entries(rows :: List<Map<String, DbValue>>, username :: String, account_identity :: Bytes) -> List<DirectoryEntry>!String do
+fn entries(rows :: List<Map<String, DbValue>>,
+  username :: String,
+  account_identity :: Bytes) -> List<DirectoryEntry>!String do
   let values = for row in rows do
     DirectoryEntry {
       version: 1,
@@ -274,11 +284,11 @@ fn rotate_on_connection(conn :: borrow PgConn,
   device_row :: Map<String, DbValue>,
   token_hash :: Bytes,
   lapsed :: Bool) -> DeviceWrite!String do
-  let mailbox_matches = text(Map.get(device_row, "mailbox_active"))? == "true" && Bytes.secure_equals(binary(Map.get(device_row,
-      "mailbox_token"))?,
-    entry.mailbox_token) && Bytes.secure_equals(binary(Map.get(device_row, "mailbox_token_hash"))?,
-    token_hash)
-  if Bytes.secure_equals(binary(Map.get(device_row, "prekey_bundle"))?, entry.prekey_bundle) && mailbox_matches do
+  let mailbox_matches = text(Map.get(device_row, "mailbox_active"))? == "true"
+    && Bytes.secure_equals(binary(Map.get(device_row, "mailbox_token"))?, entry.mailbox_token)
+    && Bytes.secure_equals(binary(Map.get(device_row, "mailbox_token_hash"))?, token_hash)
+  if Bytes.secure_equals(binary(Map.get(device_row, "prekey_bundle"))?, entry.prekey_bundle)
+    && mailbox_matches do
     return Ok(DeviceUnchanged)
   end
   let stored_bundle = case decode_prekey_bundle(binary(Map.get(device_row, "prekey_bundle"))?) do
@@ -316,7 +326,11 @@ fn rotate_on_connection(conn :: borrow PgConn,
     [Binary(account.account_id), Binary(credential.device_id), Binary(entry.prekey_bundle)])?
   let sequence_changed = Pg.execute_values(conn,
     "UPDATE messenger_accounts SET sequence = $2::bigint, updated_at = now() WHERE account_id = $1 AND sequence = $3::bigint",
-    [Binary(account.account_id), Text(U64.to_string(next_sequence)), Text(U64.to_string(sequence))])?
+    [
+      Binary(account.account_id),
+      Text(U64.to_string(next_sequence)),
+      Text(U64.to_string(sequence))
+    ])?
   if changed != 1 || sequence_changed != 1 do
     return Err("device rotation changed concurrently")
   end
@@ -346,10 +360,9 @@ fn register_on_connection(conn :: borrow PgConn,
     return Err("messenger_devices_conflict")
   end
   let row = List.head(accounts)
-  let account_matches = text(Map.get(row, "username"))? == entry.username && Bytes.secure_equals(binary(Map.get(row,
-      "account_id"))?,
-    account.account_id) && Bytes.secure_equals(binary(Map.get(row, "account_identity"))?,
-    entry.account_identity)
+  let account_matches = text(Map.get(row, "username"))? == entry.username
+    && Bytes.secure_equals(binary(Map.get(row, "account_id"))?, account.account_id)
+    && Bytes.secure_equals(binary(Map.get(row, "account_identity"))?, entry.account_identity)
   if !account_matches do
     return Err("messenger_devices_conflict")
   end
@@ -378,8 +391,8 @@ fn register_on_connection(conn :: borrow PgConn,
   end
   let sequence = wide(Map.get(row, "sequence"))?
   let next_sequence = U64.add(sequence, U64.parse("1")?)?
-  if U64.compare(credential.directory_sequence, next_sequence) != 0 || integer(Map.get(row,
-    "active_count"))? >= 8 do
+  if U64.compare(credential.directory_sequence, next_sequence) != 0
+    || integer(Map.get(row, "active_count"))? >= 8 do
     return Err("messenger_devices_conflict")
   end
   Pg.execute_values(conn,
@@ -406,7 +419,11 @@ fn register_on_connection(conn :: borrow PgConn,
     initial_prekey)?
   let changed = Pg.execute_values(conn,
     "UPDATE messenger_accounts SET sequence = $2::bigint, updated_at = now() WHERE account_id = $1 AND sequence = $3::bigint",
-    [Binary(account.account_id), Text(U64.to_string(next_sequence)), Text(U64.to_string(sequence))])?
+    [
+      Binary(account.account_id),
+      Text(U64.to_string(next_sequence)),
+      Text(U64.to_string(sequence))
+    ])?
   if changed != 1 do
     return Err("device sequence changed")
   end
@@ -421,7 +438,7 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
     Err(_) -> Ok(DeviceInvalid)
     Ok(verified) -> do
       case Repo.transaction(pool,
-        fn (conn :: borrow PgConn) -> register_on_connection(conn,
+        fn(conn :: borrow PgConn) -> register_on_connection(conn,
           verified.entry,
           verified.account,
           verified.credential,
@@ -437,8 +454,8 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
           Ok(DeviceRemoved(removal_statement(pool,
             verified.account.account_id,
             verified.credential.device_id)?))
-        else if String.contains(error, "messenger_devices_") || String.contains(error,
-          "duplicate key") do
+        else if String.contains(error, "messenger_devices_")
+          || String.contains(error, "duplicate key") do
           Ok(DeviceConflict)
         else
           Err(error)
@@ -450,7 +467,7 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
 end
 
 pub fn resolve_devices(pool :: PoolHandle, username :: String) -> Option<DeviceSet>!String do
-  Repo.transaction(pool, fn (conn :: borrow PgConn) -> resolve_on_connection(conn, username) end)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> resolve_on_connection(conn, username) end)
 end
 
 fn revoke_on_connection(conn :: borrow PgConn, value :: DeviceRevocation) -> DeviceWrite!String do
@@ -536,11 +553,11 @@ pub fn revoke_device(pool :: PoolHandle, value :: DeviceRevocation) -> DeviceWri
   case encode_device_revocation(value) do
     Err(_) -> Ok(DeviceInvalid)
     Ok(_) -> case Repo.transaction(pool,
-      fn (conn :: borrow PgConn) -> revoke_on_connection(conn, value) end) do
+      fn(conn :: borrow PgConn) -> revoke_on_connection(conn, value) end) do
       Err(error) -> if String.contains(error, "transparency_log_full") do
         Ok(DeviceLogFull)
-      else if String.contains(error, "messenger_revoked_devices_") || String.contains(error,
-        "duplicate key") do
+      else if String.contains(error, "messenger_revoked_devices_")
+        || String.contains(error, "duplicate key") do
         Ok(DeviceConflict)
       else
         Err(error)
@@ -557,7 +574,8 @@ fn delete_on_connection(conn :: borrow PgConn, value :: AccountDeletion) -> Acco
   if List.length(accounts) != 1 do
     return Ok(AccountRemoved([]))
   end
-  let account = case decode_account_identity(binary(Map.get(List.head(accounts), "account_identity"))?) do
+  let account = case decode_account_identity(binary(Map.get(List.head(accounts),
+    "account_identity"))?) do
     Err(_) -> Err("invalid stored account identity")
     Ok(decoded)
   end?
@@ -603,7 +621,7 @@ pub fn delete_account(pool :: PoolHandle, value :: AccountDeletion) -> AccountRe
   if !mailbox_request_is_fresh(value.issued_at, current_time()?) do
     Ok(AccountRemovalRefused)
   else
-    Repo.transaction(pool, fn (conn :: borrow PgConn) -> delete_on_connection(conn, value) end)
+    Repo.transaction(pool, fn(conn :: borrow PgConn) -> delete_on_connection(conn, value) end)
   end
 end
 
@@ -658,11 +676,12 @@ pub fn leave_device(pool :: PoolHandle, value :: DeviceDeparture) -> DeviceWrite
   if !mailbox_request_is_fresh(value.issued_at, current_time()?) do
     Ok(DeviceInvalid)
   else
-    case Repo.transaction(pool, fn (conn :: borrow PgConn) -> leave_on_connection(conn, value) end) do
+    case Repo.transaction(pool,
+      fn(conn :: borrow PgConn) -> leave_on_connection(conn, value) end) do
       Err(error) -> if String.contains(error, "transparency_log_full") do
         Ok(DeviceLogFull)
-      else if String.contains(error, "messenger_revoked_devices_") || String.contains(error,
-        "duplicate key") do
+      else if String.contains(error, "messenger_revoked_devices_")
+        || String.contains(error, "duplicate key") do
         Ok(DeviceConflict)
       else
         Err(error)

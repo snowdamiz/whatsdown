@@ -84,7 +84,15 @@ pub fn decode_object(row :: Map<String, DbValue>) -> ObjectRecord!String do
     expires_at: integer_value(row, "expires_at")?,
     completed: integer_value(row, "completed")?
   }
-  if Bytes.length(value.object_id) != 32 || Bytes.length(value.upload_hash) != 32 || Bytes.length(value.download_hash) != 32 || value.part_count < 1 || value.part_count > 257 || value.total_bytes < 0 || value.total_bytes > maximum_object_bytes() || value.expires_at < 0 || (value.completed != 0 && value.completed != 1) do
+  if Bytes.length(value.object_id) != 32
+    || Bytes.length(value.upload_hash) != 32
+    || Bytes.length(value.download_hash) != 32
+    || value.part_count < 1
+    || value.part_count > 257
+    || value.total_bytes < 0
+    || value.total_bytes > maximum_object_bytes()
+    || value.expires_at < 0
+    || (value.completed != 0 && value.completed != 1) do
     Err("invalid object metadata")
   else
     Ok(value)
@@ -97,7 +105,11 @@ pub fn decode_part(row :: Map<String, DbValue>) -> PartRecord!String do
     size: integer_value(row, "size")?,
     content_hash: binary_value(row, "content_hash")?
   }
-  if value.part_index < 0 || value.part_index > 256 || value.size < 1 || value.size > maximum_part_bytes() || Bytes.length(value.content_hash) != 32 do
+  if value.part_index < 0
+    || value.part_index > 256
+    || value.size < 1
+    || value.size > maximum_part_bytes()
+    || Bytes.length(value.content_hash) != 32 do
     Err("invalid object metadata")
   else
     Ok(value)
@@ -119,7 +131,9 @@ pub fn find_object(database :: borrow PgConn, object_id :: Bytes) -> Option<Obje
   end
 end
 
-pub fn find_part(database :: borrow PgConn, object_id :: Bytes, part_index :: Int) -> Option<PartRecord>!String do
+pub fn find_part(database :: borrow PgConn,
+  object_id :: Bytes,
+  part_index :: Int) -> Option<PartRecord>!String do
   let rows = Pg.query_values(database,
     "SELECT part_index, size, content_hash FROM object_parts WHERE object_id = $1 AND part_index = $2",
     [Binary(object_id), Text(Int.to_string(part_index))])?

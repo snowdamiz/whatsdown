@@ -187,7 +187,10 @@ fn proof() -> Bool!String do
   assert(outer(preferred)?.suite == 4)
   assert(test_inner_suite(bob_path, preferred)? == 2)
   assert(acknowledge(alice_path, preferred)?)
-  assert(Bytes.secure_equals(receive_message_export(request([Bytes.from_utf8(bob_path), preferred])?)?,
+  assert(Bytes.secure_equals(receive_message_export(request([
+      Bytes.from_utf8(bob_path),
+      preferred
+    ])?)?,
     preferred_body))
   case send_message_export(request([
     Bytes.from_utf8(alice_path),
@@ -217,7 +220,11 @@ fn proof() -> Bool!String do
   end
   let downgraded_set = device_set("bob", classical_bob, 2)?
   assert(install_view(alice_path, downgraded_set, alice_set)?)
-  case fanout_prekey_claims_export(request([Bytes.from_utf8(alice_path), downgraded_set, alice_set])?) do
+  case fanout_prekey_claims_export(request([
+    Bytes.from_utf8(alice_path),
+    downgraded_set,
+    alice_set
+  ])?) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "peer_keys_changed")
   end

@@ -13,7 +13,14 @@ from Mobile.Types import (
   MobileReadBytes,
   MobileSecurityConfig
 )
-from Privacy.Edge import RequestStamp, encode_privacy_submission, encode_stamped_request, mint_request_stamp, mint_submission, seal_delivery
+from Privacy.Edge import (
+  RequestStamp,
+  encode_privacy_submission,
+  encode_stamped_request,
+  mint_request_stamp,
+  mint_submission,
+  seal_delivery
+)
 
 ##! Mobile.Platform implementation.
 
@@ -62,7 +69,12 @@ fn parse_expo_raw_token_inner(input :: Bytes) -> MobileExpoRawToken!String do
   let version_value = mobile_read_byte(version.value)?
   let platform_value = mobile_read_byte(platform.value)?
   let development_value = mobile_read_byte(development.value)?
-  if version_value != 1 || (platform_value != 1 && platform_value != 2) || (development_value != 0 && development_value != 1) || (platform_value == 2 && development_value != 0) || Bytes.length(app_id.value) == 0 || Bytes.length(device_token.value) == 0 do
+  if version_value != 1
+    || (platform_value != 1 && platform_value != 2)
+    || (development_value != 0 && development_value != 1)
+    || (platform_value == 2 && development_value != 0)
+    || Bytes.length(app_id.value) == 0
+    || Bytes.length(device_token.value) == 0 do
     Err("invalid")
   else
     Ok(MobileExpoRawToken {
@@ -98,9 +110,15 @@ fn expo_device_id(device_id :: Bytes) -> String!String do
     Err("push_device_id_invalid")
   else
     let value = Bytes.to_hex(device_id)
-    Ok(String.slice(value, 0, 8) <> "-" <> String.slice(value, 8, 12) <> "-" <> String.slice(value,
-      12,
-      16) <> "-" <> String.slice(value, 16, 20) <> "-" <> String.slice(value, 20, 32))
+    Ok(String.slice(value, 0, 8)
+      <> "-"
+      <> String.slice(value, 8, 12)
+      <> "-"
+      <> String.slice(value, 12, 16)
+      <> "-"
+      <> String.slice(value, 16, 20)
+      <> "-"
+      <> String.slice(value, 20, 32))
   end
 end
 
@@ -117,7 +135,19 @@ pub fn expo_registration_body(material :: MobileExpoRawToken,
   else
     "false"
   end
-  Ok("{\"type\":" <> Json.encode_string(kind) <> ",\"deviceId\":" <> Json.encode_string(expo_device_id(device_id)?) <> ",\"development\":" <> development <> ",\"appId\":" <> Json.encode_string(material.app_id) <> ",\"deviceToken\":" <> Json.encode_string(material.device_token) <> ",\"projectId\":" <> Json.encode_string(project_id) <> "}")
+  Ok("{\"type\":"
+    <> Json.encode_string(kind)
+    <> ",\"deviceId\":"
+    <> Json.encode_string(expo_device_id(device_id)?)
+    <> ",\"development\":"
+    <> development
+    <> ",\"appId\":"
+    <> Json.encode_string(material.app_id)
+    <> ",\"deviceToken\":"
+    <> Json.encode_string(material.device_token)
+    <> ",\"projectId\":"
+    <> Json.encode_string(project_id)
+    <> "}")
 end
 
 fn expo_provider_token_inner(body :: String) -> Bytes!String do
@@ -208,10 +238,7 @@ pub fn native_push_build_config() -> MobilePushBuildConfig!String do
         Err("invalid_push_broker_public_key")
       else
         let key = push_broker_public_key(broker_public_key)?
-        Ok(MobilePushBuildConfig {
-          project_id: project_id,
-          broker_public_key: key.bytes
-        })
+        Ok(MobilePushBuildConfig { project_id: project_id, broker_public_key: key.bytes })
       end
     end
   end
@@ -252,9 +279,20 @@ fn parse_security_config(frame :: Bytes) -> MobileSecurityConfig!String do
         None -> Err("invalid_messenger_configuration")
         Some(value) -> Ok(value)
       end?
-      let canonical = "1\n" <> Bytes.to_hex(service_key) <> "\n" <> Bytes.to_hex(witness_a) <> "\n" <> Bytes.to_hex(witness_b) <> "\n" <> Bytes.to_hex(delivery_bytes) <> "\n" <> Int.to_string(difficulty)
-      if difficulty < 1 || difficulty > 24 || text != canonical || Bytes.secure_equals(witness_a,
-        witness_b) do
+      let canonical = "1\n"
+        <> Bytes.to_hex(service_key)
+        <> "\n"
+        <> Bytes.to_hex(witness_a)
+        <> "\n"
+        <> Bytes.to_hex(witness_b)
+        <> "\n"
+        <> Bytes.to_hex(delivery_bytes)
+        <> "\n"
+        <> Int.to_string(difficulty)
+      if difficulty < 1
+        || difficulty > 24
+        || text != canonical
+        || Bytes.secure_equals(witness_a, witness_b) do
         Err("invalid_messenger_configuration")
       else
         let delivery_key = security_delivery_key(delivery_bytes)?

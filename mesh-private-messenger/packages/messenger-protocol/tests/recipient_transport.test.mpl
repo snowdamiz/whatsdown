@@ -1,5 +1,20 @@
-from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  VerificationPolicy,
+  generate_account,
+  generate_device,
+  issue_device_credential
+)
+from Prekeys.Bundle import (
+  OneTimePrekeySecrets,
+  PostQuantumPrekeySecrets,
+  SignedPrekeySecrets,
+  build_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey
+)
 from Protocol.HandshakeWire import encode_initial_message
 from Protocol.IdentityWire import encode_account_identity
 from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle
@@ -16,7 +31,12 @@ from Session.Ratchet import (
   ratchet_transport_matches
 )
 from Transport.Packet import TransportPacket, encode_packet
-from Transport.Recipient import is_recipient_packet, open_recipient_packet, recipient_packet_kind, seal_recipient_packet
+from Transport.Recipient import (
+  is_recipient_packet,
+  open_recipient_packet,
+  recipient_packet_kind,
+  seal_recipient_packet
+)
 
 fn wide(value :: String) -> U64!String do
   case U64.parse(value) do
@@ -122,10 +142,7 @@ end
 fn proof() -> Bool!String do
   let now = wide("1700000000000")?
   let expires = wide("1700604800000")?
-  let policy = VerificationPolicy {
-    current_time: now,
-    minimum_directory_sequence: wide("1")?
-  }
+  let policy = VerificationPolicy { current_time: now, minimum_directory_sequence: wide("1")? }
   let (alice_account_keys, alice_account) = account(now)?
   let alice = device()?
   let alice_credential = credential(alice_account_keys, alice, now, expires)?
@@ -205,7 +222,8 @@ fn proof() -> Bool!String do
   assert(recipient_packet_kind(initial_inner) == 1)
   let initial_sealed = seal_recipient_packet(initial_inner, bob.identity_public_key)?
   assert(Bytes.secure_equals(Bytes.slice(initial_sealed, 0, 4)?, Bytes.slice(sealed, 0, 4)?))
-  assert(recipient_packet_kind(open_recipient_packet(initial_sealed, bob.identity_private_key)?) == 1)
+  assert(recipient_packet_kind(open_recipient_packet(initial_sealed,
+    bob.identity_private_key)?) == 1)
   assert(recipient_packet_kind(Bytes.concat(Bytes.from_hex("01475250")?, repeated(7, 40)?)?) == 3)
   assert(recipient_packet_kind(Bytes.from_utf8("neither")) == 0)
   assert(recipient_packet_kind(Bytes.empty()) == 0)
@@ -228,7 +246,8 @@ fn proof() -> Bool!String do
   # Only a size bucket is visible, up to the 65,536-byte envelope ceiling.
   assert(Bytes.length(seal_recipient_packet(repeated(1, 200)?, bob.identity_public_key)?) == 256)
   assert(Bytes.length(seal_recipient_packet(repeated(1, 201)?, bob.identity_public_key)?) == 512)
-  assert(Bytes.length(seal_recipient_packet(repeated(1, 65480)?, bob.identity_public_key)?) == 65536)
+  assert(Bytes.length(seal_recipient_packet(repeated(1, 65480)?,
+    bob.identity_public_key)?) == 65536)
   assert(rejected(seal_recipient_packet(repeated(1, 65481)?, bob.identity_public_key)))
   assert(rejected(seal_recipient_packet(Bytes.empty(), bob.identity_public_key)))
   Ok(true)

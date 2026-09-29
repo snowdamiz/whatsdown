@@ -42,7 +42,7 @@ fn record(revision :: Int, details :: String, roles :: List<Bytes>) -> Bytes!Str
     Bytes.from_utf8(details),
     List.reduce(roles,
       Bytes.empty(),
-      fn (joined, id) do
+      fn(joined, id) do
         case Bytes.concat(joined, id) do
           Ok(value) -> value
           Err(_) -> Bytes.empty()
@@ -74,7 +74,10 @@ fn refused(result :: Bytes!String, expected :: String) -> Result<(), String> do
 end
 
 # Sends from one device and delivers the envelope addressed to each listed mailbox.
-fn post(from :: String, group_id :: Bytes, body :: String, targets :: List<(String, Bytes)>) -> Result<(), String> do
+fn post(from :: String,
+  group_id :: Bytes,
+  body :: String,
+  targets :: List<(String, Bytes)>) -> Result<(), String> do
   let output = group_send_export(group_vectors([
     Bytes.from_utf8(from),
     group_id,
@@ -83,18 +86,26 @@ fn post(from :: String, group_id :: Bytes, body :: String, targets :: List<(Stri
   deliver(from, output_list(output)?, targets, 0)
 end
 
-fn deliver(from :: String, envelopes :: List<Bytes>, targets :: List<(String, Bytes)>, index :: Int) -> Result<(), String> do
+fn deliver(from :: String,
+  envelopes :: List<Bytes>,
+  targets :: List<(String, Bytes)>,
+  index :: Int) -> Result<(), String> do
   if index >= List.length(targets) do
     acknowledge(from, envelopes, 0)
   else
     let (path, mailbox) = List.get(targets, index)
-    group_receive_export(group_vectors([Bytes.from_utf8(path), envelope_for(envelopes, mailbox, 0)?])?)?
+    group_receive_export(group_vectors([
+      Bytes.from_utf8(path),
+      envelope_for(envelopes, mailbox, 0)?
+    ])?)?
     deliver(from, envelopes, targets, index + 1)
   end
 end
 
 # A commit made outside the core's own checks, as a modified client could send it.
-fn forged_removal(accounts :: GroupAccountFixture, group_id :: Bytes, leaf :: Int) -> Bytes!String do
+fn forged_removal(accounts :: GroupAccountFixture,
+  group_id :: Bytes,
+  leaf :: Int) -> Bytes!String do
   let local = decode_client_profile(load_profile(accounts.bob_path)?)?
   let key = platform_key()?
   let state = load_group(accounts.bob_path, local, key, group_id)?
@@ -166,7 +177,8 @@ fn exercise() -> Bool!String do
       accounts.linked_credential.device_id
     ])?),
     "community_admin_required")?
-  refused(save(accounts.bob_path, group_id, record(2, "[1]", [alice])?), "community_admin_required")?
+  refused(save(accounts.bob_path, group_id, record(2, "[1]", [alice])?),
+    "community_admin_required")?
   # An admin edits it but cannot change the roles.
   let promoted = record(2, "[]", [alice, bob])?
   save(accounts.alice_path, group_id, promoted)?
@@ -175,7 +187,8 @@ fn exercise() -> Bool!String do
     "promotion reaches the admin")?
   let edited = record(3, "[1]", [alice, bob])?
   save(accounts.bob_path, group_id, edited)?
-  refused(save(accounts.bob_path, group_id, record(4, "[1]", [alice])?), "community_admin_required")?
+  refused(save(accounts.bob_path, group_id, record(4, "[1]", [alice])?),
+    "community_admin_required")?
   refused(save(accounts.bob_path, group_id, record(4, "[1]", [bob, alice])?),
     "community_admin_required")?
   post(accounts.bob_path,

@@ -1,5 +1,17 @@
-from Identity.Device import DeviceKeys, IdentityError, VerificationPolicy, is_retryable_identity_verification_error, verify_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, verify_prekey_bundle
+from Identity.Device import (
+  DeviceKeys,
+  IdentityError,
+  VerificationPolicy,
+  is_retryable_identity_verification_error,
+  verify_device_credential
+)
+from Prekeys.Bundle import (
+  OneTimePrekeySecrets,
+  PostQuantumPrekeySecrets,
+  PrekeyError,
+  SignedPrekeySecrets,
+  verify_prekey_bundle
+)
 from Protocol.HandshakeWire import decode_initial_message, hash_handshake_transcript
 from Protocol.IdentityWire import decode_device_credential, encode_device_credential
 from Protocol.PrekeyWire import encode_prekey_bundle
@@ -74,7 +86,9 @@ fn initial_snapshot_version() -> U64!SessionError do
   end
 end
 
-fn chain_key(root_key :: borrow SecretBytes, session_id :: Bytes, label :: String) -> SecretBytes!SessionError do
+fn chain_key(root_key :: borrow SecretBytes,
+  session_id :: Bytes,
+  label :: String) -> SecretBytes!SessionError do
   let info = case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/chain/"), Bytes.from_utf8(label)) do
     Err(_) -> Err(InvalidHandshake)
     Ok(value)
@@ -118,9 +132,13 @@ fn selected_suite(credential :: DeviceCredential,
   end
 end
 
-fn initiator_ikm(suite :: Int, classical_ikm :: SecretBytes, bundle :: PrekeyBundle) -> Result<(Bytes, SecretBytes), SessionError> do
+fn initiator_ikm(suite :: Int,
+  classical_ikm :: SecretBytes,
+  bundle :: PrekeyBundle) -> Result<(Bytes, SecretBytes), SessionError> do
   if suite == 2 do
-    let (ciphertext, shared_secret) = Crypto.mlkem_encapsulate(MlKemPublicKey { bytes: bundle.post_quantum_prekey })?
+    let (ciphertext, shared_secret) = Crypto.mlkem_encapsulate(MlKemPublicKey {
+      bytes: bundle.post_quantum_prekey
+    })?
     Ok((ciphertext.bytes, concat(classical_ikm, shared_secret)?))
   else
     Ok((Bytes.empty(), classical_ikm))
@@ -313,13 +331,14 @@ pub fn receive_initial(responder :: borrow DeviceKeys,
   let credential = decoded_credential(message.initiator_credential)?
   let suite = selected_suite(credential, responder_bundle, strongest_authenticated_suite)?
   let wrong_version = message.version != 1 || message.suite != suite
-  let wrong_ids = U64.compare(message.signed_prekey_id, signed_prekey.id) != 0 || U64.compare(message.one_time_prekey_id,
-    one_time_prekey.id) != 0
+  let wrong_ids = U64.compare(message.signed_prekey_id, signed_prekey.id) != 0
+    || U64.compare(message.one_time_prekey_id, one_time_prekey.id) != 0
   let wrong_keys = !Bytes.secure_equals(responder_bundle.signed_prekey,
-    signed_prekey.public_key.bytes) || !Bytes.secure_equals(responder_bundle.one_time_prekey,
-    one_time_prekey.public_key.bytes)
-  let wrong_post_quantum_key = suite == 2 && !Bytes.secure_equals(responder_bundle.post_quantum_prekey,
-    post_quantum_prekey.public_key.bytes)
+    signed_prekey.public_key.bytes)
+    || !Bytes.secure_equals(responder_bundle.one_time_prekey, one_time_prekey.public_key.bytes)
+  let wrong_post_quantum_key = suite == 2
+    && !Bytes.secure_equals(responder_bundle.post_quantum_prekey,
+      post_quantum_prekey.public_key.bytes)
   if wrong_version || wrong_ids || wrong_keys || wrong_post_quantum_key do
     return Err(InvalidHandshake)
   end
@@ -424,8 +443,10 @@ end
 fn bundle_matches_message(responder_bundle :: PrekeyBundle,
   strongest_authenticated_suite :: Int,
   message_bytes :: Bytes) -> Option<Bool> do
-  let message = decode_initial_message(message_bytes) |> Result.ok()?
-  let credential = decode_device_credential(message.initiator_credential) |> Result.ok()?
+  let message = decode_initial_message(message_bytes)
+    |> Result.ok()?
+  let credential = decode_device_credential(message.initiator_credential)
+    |> Result.ok()?
   let suite = selected_suite(credential, responder_bundle, strongest_authenticated_suite)
     |> Result.ok()?
   let transcript = transcript_for(credential,
@@ -433,7 +454,8 @@ fn bundle_matches_message(responder_bundle :: PrekeyBundle,
     message.initiator_ephemeral_public_key,
     suite)
     |> Result.ok()?
-  let hash = transcript_hash(transcript) |> Result.ok()?
+  let hash = transcript_hash(transcript)
+    |> Result.ok()?
   Some(U64.compare(message.signed_prekey_id, responder_bundle.signed_prekey_id) == 0
     && Bytes.secure_equals(hash, message.transcript_hash))
 end

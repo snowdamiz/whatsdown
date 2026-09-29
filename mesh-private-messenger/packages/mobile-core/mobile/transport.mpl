@@ -7,7 +7,12 @@
 
 from Mobile.Codec import outer_bytes
 from Protocol.V1 import OuterEnvelope, protocol_sealed_outer_suite
-from Transport.Recipient import is_recipient_packet, open_recipient_packet, recipient_packet_kind, seal_recipient_packet
+from Transport.Recipient import (
+  is_recipient_packet,
+  open_recipient_packet,
+  recipient_packet_kind,
+  seal_recipient_packet
+)
 
 pub struct MobileOpenedPacket do
   sealed :: Bool
@@ -26,7 +31,8 @@ end
 ## carry a sealed packet, or a sealed packet under a legacy suite, is rejected
 ## rather than reinterpreted.
 
-pub fn open_outer_packet(outer :: OuterEnvelope, recipient :: borrow X25519PrivateKey) -> MobileOpenedPacket!String do
+pub fn open_outer_packet(outer :: OuterEnvelope,
+  recipient :: borrow X25519PrivateKey) -> MobileOpenedPacket!String do
   let sealed_suite = outer.suite == protocol_sealed_outer_suite()
   if sealed_suite != is_recipient_packet(outer.ciphertext) do
     Err("invalid_recipient_packet")
@@ -36,10 +42,7 @@ pub fn open_outer_packet(outer :: OuterEnvelope, recipient :: borrow X25519Priva
       packet: open_recipient_packet(outer.ciphertext, recipient)?
     })
   else
-    Ok(MobileOpenedPacket {
-      sealed: false,
-      packet: outer.ciphertext
-    })
+    Ok(MobileOpenedPacket { sealed: false, packet: outer.ciphertext })
   end
 end
 

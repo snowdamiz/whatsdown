@@ -9,8 +9,19 @@ from MobileCore import (
 )
 from Protocol.V1 import AccountIdentity, OuterEnvelope
 from Tests.GroupConsistencySupport import SignedTransparencyViewFixture
-from Tests.GroupLifecycleSupport import GroupAccountFixture, install_group_lifecycle_transparency, install_signed_transparency
-from Tests.GroupLifecycleWire import acknowledge, assert_group_transport, group_vectors, outer, output_list, read_u32_at
+from Tests.GroupLifecycleSupport import (
+  GroupAccountFixture,
+  install_group_lifecycle_transparency,
+  install_signed_transparency
+)
+from Tests.GroupLifecycleWire import (
+  acknowledge,
+  assert_group_transport,
+  group_vectors,
+  outer,
+  output_list,
+  read_u32_at
+)
 from Tests.Support import repeated
 
 fn group_create_ensure(value :: Bool, error :: String) -> Result<(), String> do

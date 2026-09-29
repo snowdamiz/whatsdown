@@ -1,8 +1,20 @@
 import File
-from MobileCore import group_add_export, group_create_export, group_key_package_export, group_receive_export
+from MobileCore import (
+  group_add_export,
+  group_create_export,
+  group_key_package_export,
+  group_receive_export
+)
 from Tests.GroupConsistencyAdvance import advance_both
 from Tests.GroupConsistencyCrypto import checkpoint, expect_group_key_rejection, tamper_last
-from Tests.GroupConsistencySupport import account_fixture, evidence_bytes, request, signing_pair, verify_for, wide
+from Tests.GroupConsistencySupport import (
+  account_fixture,
+  evidence_bytes,
+  request,
+  signing_pair,
+  verify_for,
+  wide
+)
 from Tests.Support import repeated
 from Transparency.Merkle import TransparencyCheckpoint, leaf_hash
 
@@ -187,7 +199,10 @@ fn proof() -> Bool!String do
     witness_b_pair.private_key,
     witness_b_public_key)?
   assert(Bytes.secure_equals(bob_package, group_key_package_export(Bytes.from_utf8(bob.path))?))
-  assert(expect_group_key_rejection(alice.path, group_id, bob.device_set, tamper_last(bob_package)?)?)
+  assert(expect_group_key_rejection(alice.path,
+    group_id,
+    bob.device_set,
+    tamper_last(bob_package)?)?)
   assert(expect_group_key_rejection(alice.path, group_id, mallory.device_set, fork_package)?)
   let future_checkpoint = checkpoint(service_pair.private_key,
     service_public_key,

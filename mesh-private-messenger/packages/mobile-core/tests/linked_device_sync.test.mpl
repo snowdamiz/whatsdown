@@ -102,7 +102,11 @@ fn slice(input :: Bytes, offset :: Int, length :: Int) -> Bytes!String do
   end
 end
 
-fn output_items(input :: Bytes, count :: Int, index :: Int, offset :: Int, items :: List<Bytes>) -> List<Bytes>!String do
+fn output_items(input :: Bytes,
+  count :: Int,
+  index :: Int,
+  offset :: Int,
+  items :: List<Bytes>) -> List<Bytes>!String do
   if index >= count do
     if offset == Bytes.length(input) do
       Ok(items)
@@ -171,7 +175,8 @@ fn same_bodies(actual :: List<Bytes>, expected :: List<String>, index :: Int) ->
     false
   else if index >= List.length(expected) do
     true
-  else if !Bytes.secure_equals(List.get(actual, index), Bytes.from_utf8(List.get(expected, index))) do
+  else if !Bytes.secure_equals(List.get(actual, index),
+    Bytes.from_utf8(List.get(expected, index))) do
     false
   else
     same_bodies(actual, expected, index + 1)
@@ -197,7 +202,10 @@ fn fresh_bundle(path :: String, claimed :: PrekeyBundle) -> Bytes!String do
   bundle_wire(%{claimed | one_time_prekey_id: prekey.id, one_time_prekey: prekey.public_key})
 end
 
-fn reserve(path :: String, peer_set :: Bytes, local_set :: Bytes, claimed :: Bytes) -> Bool!String do
+fn reserve(path :: String,
+  peer_set :: Bytes,
+  local_set :: Bytes,
+  claimed :: Bytes) -> Bool!String do
   assert(Bytes.length(reserve_fanout_prekey_export(request([
     Bytes.from_utf8(path),
     peer_set,
@@ -207,7 +215,9 @@ fn reserve(path :: String, peer_set :: Bytes, local_set :: Bytes, claimed :: Byt
   Ok(true)
 end
 
-fn install(path :: String, view :: SignedTransparencyViewFixture, device_set :: Bytes) -> Bool!String do
+fn install(path :: String,
+  view :: SignedTransparencyViewFixture,
+  device_set :: Bytes) -> Bool!String do
   install_group_transparency_for_test(path,
     view.checkpoint,
     view.consistency,
@@ -217,7 +227,10 @@ fn install(path :: String, view :: SignedTransparencyViewFixture, device_set :: 
     device_set)
 end
 
-fn fanout(path :: String, peer_set :: Bytes, local_set :: Bytes, body :: String) -> List<Bytes>!String do
+fn fanout(path :: String,
+  peer_set :: Bytes,
+  local_set :: Bytes,
+  body :: String) -> List<Bytes>!String do
   output_list(send_fanout_export(request([
     Bytes.from_utf8(path),
     peer_set,

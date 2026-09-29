@@ -1,7 +1,27 @@
 from Api.Binary import register_device_request
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_hybrid_device_credential
-from Prekeys.Bundle import PostQuantumPrekeySecrets, SignedPrekeySecrets, build_hybrid_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle
-from Prekeys.Renewal import RenewalRequest, bundle_with_renewal_request, generate_renewal_signed_prekey, issue_renewal_request, renewed_prekey_bundle
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  generate_account,
+  generate_device,
+  issue_hybrid_device_credential
+)
+from Prekeys.Bundle import (
+  PostQuantumPrekeySecrets,
+  SignedPrekeySecrets,
+  build_hybrid_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey,
+  normalize_prekey_bundle
+)
+from Prekeys.Renewal import (
+  RenewalRequest,
+  bundle_with_renewal_request,
+  generate_renewal_signed_prekey,
+  issue_renewal_request,
+  renewed_prekey_bundle
+)
 from Protocol.DirectoryWire import encode_directory_entry
 from Protocol.IdentityWire import encode_account_identity
 from Protocol.PrekeyWire import encode_prekey_bundle
@@ -166,7 +186,9 @@ fn bundle_wire(bundle :: PrekeyBundle) -> Bytes!String do
   end
 end
 
-fn entry(identity :: AccountIdentity, bundle :: PrekeyBundle, mailbox_token :: Bytes) -> Bytes!String do
+fn entry(identity :: AccountIdentity,
+  bundle :: PrekeyBundle,
+  mailbox_token :: Bytes) -> Bytes!String do
   let account_wire = case encode_account_identity(identity) do
     Err(_) -> Err("account encoding failed")
     Ok(output)
@@ -183,7 +205,10 @@ fn entry(identity :: AccountIdentity, bundle :: PrekeyBundle, mailbox_token :: B
   end
 end
 
-fn status(pool :: PoolHandle, identity :: AccountIdentity, bundle :: PrekeyBundle, mailbox_token :: Bytes) -> Int!String do
+fn status(pool :: PoolHandle,
+  identity :: AccountIdentity,
+  bundle :: PrekeyBundle,
+  mailbox_token :: Bytes) -> Int!String do
   Ok(register_device_request(pool, entry(identity, bundle, mailbox_token)?).status)
 end
 
@@ -194,7 +219,9 @@ fn stored_bundle(pool :: PoolHandle, mailbox_token :: Bytes) -> Bytes!String do
   end
 end
 
-fn stored_in(devices :: List<DirectoryEntry>, mailbox_token :: Bytes, index :: Int) -> Bytes!String do
+fn stored_in(devices :: List<DirectoryEntry>,
+  mailbox_token :: Bytes,
+  index :: Int) -> Bytes!String do
   if index >= List.length(devices) do
     Err("device missing")
   else
@@ -215,7 +242,8 @@ fn renewal_proof() -> Bool!String do
   let t = now()?
   let later = U64.add(t, year()?)?
   # Created three years ago, so that a credential can have come and gone.
-  let (account_keys, identity) = account(U64.subtract(t, U64.add(year()?, U64.add(year()?, year()?)?)?)?)?
+  let (account_keys, identity) = account(U64.subtract(t,
+    U64.add(year()?, U64.add(year()?, year()?)?)?)?)?
   let primary = device()?
   let linked = device()?
   let primary_mailbox = filled(81, 32)
@@ -294,7 +322,12 @@ fn renewal_proof() -> Bool!String do
   assert(status(pool, identity, lapsed, away_mailbox)? == 200)
   let stranger = device()?
   let stranger_keys = post_quantum()?
-  let stranger_credential = credential(account_keys, stranger, stranger_keys, long_ago, past, wide("7")?)?
+  let stranger_credential = credential(account_keys,
+    stranger,
+    stranger_keys,
+    long_ago,
+    past,
+    wide("7")?)?
   assert(status(pool,
     identity,
     first_bundle(stranger, stranger_credential, stranger_keys, past)?,
@@ -304,7 +337,12 @@ fn renewal_proof() -> Bool!String do
   let away_next_signed = next_signed(away, lapsed_credential, "2", renewal_expiry)?
   let away_request = ask(away, lapsed_credential, away_next_signed, away_next_keys)?
   assert(status(pool, identity, asking(lapsed, away_request)?, away_mailbox)? == 201)
-  let back = answered(credential(account_keys, away, away_next_keys, t, renewal_expiry, wide("8")?)?,
+  let back = answered(credential(account_keys,
+      away,
+      away_next_keys,
+      t,
+      renewal_expiry,
+      wide("8")?)?,
     away_request)?
   assert(status(pool, identity, back, away_mailbox)? == 201)
   assert(logged(pool)? == "8:8")

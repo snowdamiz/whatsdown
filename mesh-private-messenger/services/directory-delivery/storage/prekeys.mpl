@@ -1,4 +1,11 @@
-from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
+from Prekeys.Pool import (
+  OneTimePrekeyPublic,
+  PrekeyClaimRequest,
+  PrekeyPublishRequest,
+  encode_prekey_claim,
+  encode_prekey_publish,
+  prekey_publish_signing_bytes
+)
 from Prekeys.Bundle import normalize_prekey_bundle
 from Protocol.IdentityWire import decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
@@ -65,7 +72,10 @@ fn integer(value :: DbValue) -> Int!String do
   end
 end
 
-fn active_bundle(conn :: borrow PgConn, account_id :: Bytes, device_id :: Bytes, exclusive :: Bool) -> Option<Bytes>!String do
+fn active_bundle(conn :: borrow PgConn,
+  account_id :: Bytes,
+  device_id :: Bytes,
+  exclusive :: Bool) -> Option<Bytes>!String do
   let rows = if exclusive do
     Pg.query_values(conn,
       "SELECT device.prekey_bundle FROM messenger_devices AS device JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = device.mailbox_token_hash WHERE device.account_id = $1 AND device.device_id = $2 AND device.revoked_at IS NULL AND mailbox.active FOR UPDATE OF device, mailbox",
@@ -99,10 +109,7 @@ fn publication_check(conn :: borrow PgConn,
   index :: Int,
   new_count :: Int) -> PublicationCheck!String do
   if index >= List.length(request.prekeys) do
-    Ok(PublicationCheck {
-      new_count: new_count,
-      conflict: false
-    })
+    Ok(PublicationCheck { new_count: new_count, conflict: false })
   else
     let value = List.get(request.prekeys, index)
     let rows = Pg.query_values(conn,
@@ -110,20 +117,18 @@ fn publication_check(conn :: borrow PgConn,
       [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(value.id))])?
     if List.length(rows) == 0 do
       publication_check(conn, request, index + 1, new_count + 1)
-    else if List.length(rows) == 1 && Bytes.secure_equals(binary(Map.get(List.head(rows),
-        "public_key"))?,
-      value.public_key) do
+    else if List.length(rows) == 1
+      && Bytes.secure_equals(binary(Map.get(List.head(rows), "public_key"))?, value.public_key) do
       publication_check(conn, request, index + 1, new_count)
     else
-      Ok(PublicationCheck {
-        new_count: new_count,
-        conflict: true
-      })
+      Ok(PublicationCheck { new_count: new_count, conflict: true })
     end
   end
 end
 
-fn insert_prekeys(conn :: borrow PgConn, request :: PrekeyPublishRequest, index :: Int) -> Result<(), String> do
+fn insert_prekeys(conn :: borrow PgConn,
+  request :: PrekeyPublishRequest,
+  index :: Int) -> Result<(), String> do
   if index >= List.length(request.prekeys) do
     Ok(nil)
   else
@@ -140,7 +145,9 @@ fn insert_prekeys(conn :: borrow PgConn, request :: PrekeyPublishRequest, index 
   end
 end
 
-fn prekey_row_ids(rows :: List<Map<String, DbValue>>, index :: Int, output :: List<U64>) -> List<U64>!String do
+fn prekey_row_ids(rows :: List<Map<String, DbValue>>,
+  index :: Int,
+  output :: List<U64>) -> List<U64>!String do
   if index >= List.length(rows) do
     Ok(output)
   else
@@ -150,7 +157,9 @@ fn prekey_row_ids(rows :: List<Map<String, DbValue>>, index :: Int, output :: Li
   end
 end
 
-fn active_prekey_ids(conn :: borrow PgConn, account_id :: Bytes, device_id :: Bytes) -> List<U64>!String do
+fn active_prekey_ids(conn :: borrow PgConn,
+  account_id :: Bytes,
+  device_id :: Bytes) -> List<U64>!String do
   let rows = Pg.query_values(conn,
     "SELECT prekey_id::text FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL AND NOT last_resort ORDER BY messenger_one_time_prekeys.prekey_id",
     [Binary(account_id), Binary(device_id)])?
@@ -178,9 +187,8 @@ fn publish_last_resort(conn :: borrow PgConn, request :: PrekeyPublishRequest) -
         key)?
       if List.length(rows) > 0 do
         let row = List.head(rows)
-        if text(Map.get(row, "last_resort"))? == "true" && Bytes.secure_equals(binary(Map.get(row,
-            "public_key"))?,
-          value.public_key) do
+        if text(Map.get(row, "last_resort"))? == "true"
+          && Bytes.secure_equals(binary(Map.get(row, "public_key"))?, value.public_key) do
           Ok(0)
         else
           Ok(2)
@@ -213,7 +221,8 @@ end
 # The hash of the device's contact address, for its own mailbox only: 0
 # unchanged, 1 published, 2 conflict.
 
-fn publish_contact_address_hash(conn :: borrow PgConn, request :: PrekeyPublishRequest) -> Int!String do
+fn publish_contact_address_hash(conn :: borrow PgConn,
+  request :: PrekeyPublishRequest) -> Int!String do
   case request.contact_address_hash do
     None -> Ok(0)
     Some(hash) -> do
@@ -235,7 +244,8 @@ fn publish_contact_address_hash(conn :: borrow PgConn, request :: PrekeyPublishR
   end
 end
 
-fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest) -> PrekeyPublishWrite!String do
+fn publish_on_connection(conn :: borrow PgConn,
+  request :: PrekeyPublishRequest) -> PrekeyPublishWrite!String do
   case active_bundle(conn, request.account_id, request.device_id, true)? do
     None -> Ok(PrekeysUnauthorized)
     Some(encoded_bundle) -> do
@@ -284,9 +294,10 @@ fn publish_on_connection(conn :: borrow PgConn, request :: PrekeyPublishRequest)
   end
 end
 
-pub fn publish_prekeys(pool :: PoolHandle, request :: PrekeyPublishRequest) -> PrekeyPublishWrite!String do
+pub fn publish_prekeys(pool :: PoolHandle,
+  request :: PrekeyPublishRequest) -> PrekeyPublishWrite!String do
   encode_prekey_publish(request)?
-  Repo.transaction(pool, fn (conn :: borrow PgConn) -> publish_on_connection(conn, request) end)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> publish_on_connection(conn, request) end)
 end
 
 pub fn seed_registration_prekey_on_connection(conn :: borrow PgConn,
@@ -369,7 +380,8 @@ fn stored_claim(rows :: List<Map<String, DbValue>>) -> Option<StoredClaim>!Strin
   end
 end
 
-fn existing_claim(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option<StoredClaim>!String do
+fn existing_claim(conn :: borrow PgConn,
+  request :: PrekeyClaimRequest) -> Option<StoredClaim>!String do
   let rows = Pg.query_values(conn,
     "SELECT account_id, device_id, prekey_id::text, public_key, claim_base_bundle_hash, claim_response FROM messenger_one_time_prekeys WHERE claim_id_hash = $1 FOR SHARE",
     [Binary(Crypto.sha256(request.reservation_id))])?
@@ -377,8 +389,9 @@ fn existing_claim(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Optio
 end
 
 fn claim_binding_matches(stored :: borrow StoredClaim, request :: PrekeyClaimRequest) -> Bool do
-  Bytes.secure_equals(stored.account_id, request.account_id) && Bytes.secure_equals(stored.device_id,
-    request.device_id) && Bytes.secure_equals(stored.base_bundle_hash, request.base_bundle_hash)
+  Bytes.secure_equals(stored.account_id, request.account_id)
+    && Bytes.secure_equals(stored.device_id, request.device_id)
+    && Bytes.secure_equals(stored.base_bundle_hash, request.base_bundle_hash)
 end
 
 fn encoded_bundle(bundle :: PrekeyBundle) -> Bytes!String do
@@ -405,11 +418,12 @@ fn stored_response_bundle(stored :: borrow StoredClaim,
   end?
   let canonical = encoded_bundle(bundle)?
   let base_hash = Crypto.sha256(encoded_bundle(base)?)
-  let common = Bytes.secure_equals(canonical, encoded) && Bytes.secure_equals(credential.account_id,
-    request.account_id) && Bytes.secure_equals(credential.device_id, request.device_id) && Bytes.secure_equals(base_hash,
-    request.base_bundle_hash)
-  let claimed = U64.compare(bundle.one_time_prekey_id, stored.claimed.id) == 0 && Bytes.secure_equals(bundle.one_time_prekey,
-    stored.claimed.public_key)
+  let common = Bytes.secure_equals(canonical, encoded)
+    && Bytes.secure_equals(credential.account_id, request.account_id)
+    && Bytes.secure_equals(credential.device_id, request.device_id)
+    && Bytes.secure_equals(base_hash, request.base_bundle_hash)
+  let claimed = U64.compare(bundle.one_time_prekey_id, stored.claimed.id) == 0
+    && Bytes.secure_equals(bundle.one_time_prekey, stored.claimed.public_key)
   if common && claimed do
     Ok(bundle)
   else if common && Bytes.length(bundle.one_time_prekey) == 0 do
@@ -419,14 +433,16 @@ fn stored_response_bundle(stored :: borrow StoredClaim,
   end
 end
 
-fn lock_claim_reservation(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Result<(), String> do
+fn lock_claim_reservation(conn :: borrow PgConn,
+  request :: PrekeyClaimRequest) -> Result<(), String> do
   Pg.query_values(conn,
     "SELECT pg_advisory_xact_lock(hashtextextended(encode($1, 'hex'), 1835365485))",
     [Binary(Crypto.sha256(request.reservation_id))])?
   Ok(nil)
 end
 
-fn claim_candidate(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option<OneTimePrekeyPublic>!String do
+fn claim_candidate(conn :: borrow PgConn,
+  request :: PrekeyClaimRequest) -> Option<OneTimePrekeyPublic>!String do
   let rows = Pg.query_values(conn,
     "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NULL AND NOT last_resort ORDER BY messenger_one_time_prekeys.prekey_id FOR UPDATE SKIP LOCKED LIMIT 1",
     [Binary(request.account_id), Binary(request.device_id)])?
@@ -436,7 +452,8 @@ end
 # Handed out only when the one-time pool is empty, and never consumed: there is
 # nothing to reserve, so a retried claim simply reads it again.
 
-fn last_resort_candidate(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> Option<OneTimePrekeyPublic>!String do
+fn last_resort_candidate(conn :: borrow PgConn,
+  request :: PrekeyClaimRequest) -> Option<OneTimePrekeyPublic>!String do
   let rows = Pg.query_values(conn,
     "SELECT prekey_id::text, public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND last_resort AND consumed_at IS NULL",
     [Binary(request.account_id), Binary(request.device_id)])?
@@ -531,7 +548,9 @@ fn replayed_claim(conn :: borrow PgConn,
   end
 end
 
-fn new_claim(conn :: borrow PgConn, request :: PrekeyClaimRequest, current_bundle :: Bytes) -> PrekeyClaimWrite!String do
+fn new_claim(conn :: borrow PgConn,
+  request :: PrekeyClaimRequest,
+  current_bundle :: Bytes) -> PrekeyClaimWrite!String do
   case claim_candidate(conn, request)? do
     None -> case last_resort_candidate(conn, request)? do
       None -> Ok(PrekeyClaimExhausted)
@@ -545,7 +564,8 @@ fn new_claim(conn :: borrow PgConn, request :: PrekeyClaimRequest, current_bundl
   end
 end
 
-fn claim_on_connection(conn :: borrow PgConn, request :: PrekeyClaimRequest) -> PrekeyClaimWrite!String do
+fn claim_on_connection(conn :: borrow PgConn,
+  request :: PrekeyClaimRequest) -> PrekeyClaimWrite!String do
   case active_bundle(conn, request.account_id, request.device_id, false)? do
     None -> Ok(PrekeyClaimMissing)
     Some(current_bundle) -> do
@@ -568,5 +588,5 @@ end
 
 pub fn claim_prekey(pool :: PoolHandle, request :: PrekeyClaimRequest) -> PrekeyClaimWrite!String do
   encode_prekey_claim(request)?
-  Repo.transaction(pool, fn (conn :: borrow PgConn) -> claim_on_connection(conn, request) end)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> claim_on_connection(conn, request) end)
 end

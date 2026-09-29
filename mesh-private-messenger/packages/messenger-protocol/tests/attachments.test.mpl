@@ -1,4 +1,13 @@
-from Attachments.Protocol import AttachmentError, AttachmentManifest, generate_attachment_id, generate_attachment_key, open_chunk, open_manifest, seal_chunk, seal_manifest
+from Attachments.Protocol import (
+  AttachmentError,
+  AttachmentManifest,
+  generate_attachment_id,
+  generate_attachment_key,
+  open_chunk,
+  open_manifest,
+  seal_chunk,
+  seal_manifest
+)
 
 fn repeated(value :: Int, count :: Int) -> Bytes!AttachmentError do
   case Bytes.repeat(value, count) do
@@ -53,7 +62,9 @@ fn attachment_proof() -> Bool!AttachmentError do
   assert(Bytes.length(manifest_wire) <= 514)
   let opened_manifest = open_manifest(key, manifest_wire)?
   assert(Bytes.secure_equals(opened_manifest.attachment_id, manifest.attachment_id))
-  assert(opened_manifest.chunk_size == 16 && opened_manifest.chunk_count == 2 && opened_manifest.plaintext_size == 21)
+  assert(opened_manifest.chunk_size == 16
+    && opened_manifest.chunk_count == 2
+    && opened_manifest.plaintext_size == 21)
   assert(U64.compare(opened_manifest.expires_at, manifest.expires_at) == 0)
   assert(Bytes.secure_equals(opened_manifest.filename, manifest.filename))
   assert(Bytes.secure_equals(opened_manifest.mime_type, manifest.mime_type))

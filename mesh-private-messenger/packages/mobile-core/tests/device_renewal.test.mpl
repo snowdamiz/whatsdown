@@ -1,5 +1,11 @@
 import File
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_hybrid_device_credential
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  generate_account,
+  generate_device,
+  issue_hybrid_device_credential
+)
 from MobileCore import (
   authorize_device_link_for_set_export,
   complete_device_link_export,
@@ -16,11 +22,23 @@ from MobileCore import (
 )
 from Mobile.DeviceSet import verified_device_set
 from Mobile.Types import MobileVerifiedDeviceSet
-from Prekeys.Bundle import PostQuantumPrekeySecrets, build_hybrid_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle, verify_prekey_bundle
+from Prekeys.Bundle import (
+  PostQuantumPrekeySecrets,
+  build_hybrid_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey,
+  normalize_prekey_bundle,
+  verify_prekey_bundle
+)
 from Prekeys.Pool import OneTimePrekeyPublic, decode_prekey_publish
 from Prekeys.Renewal import bundle_renewal_request
 from Protocol.DirectoryWire import decode_directory_entry, encode_device_set, encode_directory_entry
-from Protocol.IdentityWire import decode_account_identity, decode_device_credential, encode_account_identity
+from Protocol.IdentityWire import (
+  decode_account_identity,
+  decode_device_credential,
+  encode_account_identity
+)
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceSet, DirectoryEntry, PrekeyBundle
 from Tests.GroupConsistencySupport import signed_transparency_view
@@ -102,7 +120,9 @@ fn logged(value :: DirectoryEntry) -> DirectoryEntry!String do
   Ok(%{value | prekey_bundle: bundle_wire(normalized)?})
 end
 
-fn set_wire(first :: DirectoryEntry, sequence :: String, devices :: List<DirectoryEntry>) -> Bytes!String do
+fn set_wire(first :: DirectoryEntry,
+  sequence :: String,
+  devices :: List<DirectoryEntry>) -> Bytes!String do
   case encode_device_set(DeviceSet {
     version: 1,
     username: first.username,
@@ -158,7 +178,10 @@ end
 # A profile a sender could have been handed for one of the device's logged
 # bundles, with its reusable prekey in the one-time slot.
 fn handed_out(value :: DirectoryEntry, key :: OneTimePrekeyPublic) -> Bytes!String do
-  let claimed = %{bundle(value.prekey_bundle)? | one_time_prekey_id: key.id, one_time_prekey: key.public_key}
+  let claimed = %{bundle(value.prekey_bundle)? |
+    one_time_prekey_id: key.id,
+    one_time_prekey: key.public_key
+  }
   let with_key = %{value | prekey_bundle: bundle_wire(claimed)?}
   let credential_value = credential(claimed.device_credential)?
   encode_client_profile(with_key, credential_value.account_id, credential_value.device_id)
@@ -183,7 +206,11 @@ fn refused(path :: String, outer :: Bytes) -> Bool!String do
 end
 
 fn verified(identity :: AccountIdentity, value :: PrekeyBundle) -> Bool!String do
-  case verify_prekey_bundle(identity, value, 2, wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))?, identity.directory_sequence) do
+  case verify_prekey_bundle(identity,
+    value,
+    2,
+    wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))?,
+    identity.directory_sequence) do
     Err(_) -> Ok(false)
     Ok(result)
   end
@@ -231,7 +258,8 @@ fn primary_proof() -> Bool!String do
   assert(Bytes.secure_equals(next.mailbox_token, first.mailbox_token))
   assert(Bytes.secure_equals(next.account_identity, first.account_identity))
   assert(Bytes.secure_equals(next_credential.device_id, first_credential.device_id))
-  assert(Bytes.secure_equals(next_credential.signing_public_key, first_credential.signing_public_key))
+  assert(Bytes.secure_equals(next_credential.signing_public_key,
+    first_credential.signing_public_key))
   assert(Bytes.secure_equals(next_credential.dh_public_key, first_credential.dh_public_key))
   assert(U64.compare(next_credential.directory_sequence, wide("2")?) == 0)
   assert(next_bundle.suite == 2)
@@ -348,7 +376,8 @@ fn linked_proof() -> Bool!String do
   let answer_bundle = bundle(answer.prekey_bundle)?
   let answer_credential = credential(answer_bundle.device_credential)?
   assert(Bytes.secure_equals(answer.mailbox_token, linked.mailbox_token))
-  assert(Bytes.secure_equals(answer_credential.device_id, credential(linked_bundle.device_credential)?.device_id))
+  assert(Bytes.secure_equals(answer_credential.device_id,
+    credential(linked_bundle.device_credential)?.device_id))
   assert(U64.compare(answer_credential.directory_sequence, wide("4")?) == 0)
   assert(U64.compare(answer_bundle.signed_prekey_id, wanted.signed_prekey_id) == 0)
   assert(Bytes.secure_equals(answer_bundle.signed_prekey, wanted.signed_prekey))
@@ -492,7 +521,8 @@ fn expiry_proof() -> Bool!String do
   let devices = verified_device_set(set_wire(present_entry, "2", [present_entry, away_entry])?)?
   assert(List.length(devices.profiles) == 1)
   assert(List.length(devices.expired) == 1)
-  assert(Bytes.secure_equals(List.head(devices.expired).entry.mailbox_token, away_entry.mailbox_token))
+  assert(Bytes.secure_equals(List.head(devices.expired).entry.mailbox_token,
+    away_entry.mailbox_token))
   # Expired is not unverified: a bundle that never verified, at any time,
   # still invalidates the whole set.
   let forged = device_entry(identity_wire,
