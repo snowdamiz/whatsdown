@@ -1,4 +1,29 @@
-from Api.Binary import Admission, BinaryResult, CheckedRequest, acknowledge_request, admission_failure, check_request, bind_push_request, checkpoint_request, claim_prekey_request, consistency_request, delete_account_request, fetch_request, leave_device_request, inclusion_request, publish_prekeys_request, register_device_request, resolve_devices_request, revoke_device_request, spend_request, submit_configured_sealed_request, submit_request, submit_witness_request, unbind_push_request, witnesses_request
+from Api.Binary import (
+  Admission,
+  BinaryResult,
+  CheckedRequest,
+  acknowledge_request,
+  admission_failure,
+  check_request,
+  bind_push_request,
+  checkpoint_request,
+  claim_prekey_request,
+  consistency_request,
+  delete_account_request,
+  fetch_request,
+  leave_device_request,
+  inclusion_request,
+  publish_prekeys_request,
+  register_device_request,
+  resolve_devices_request,
+  revoke_device_request,
+  spend_request,
+  submit_configured_sealed_request,
+  submit_request,
+  submit_witness_request,
+  unbind_push_request,
+  witnesses_request
+)
 from Prekeys.Pool import decode_prekey_claim
 from Privacy.Edge import internal_delivery_authorized, internal_delivery_token
 from Runtime.Registry import get_pool
@@ -141,10 +166,7 @@ end
 pub fn handle_prekey_claim(request :: Request) -> Response do
   case admitted(request, "mesh-msg/v1/work/prekey-claim", 100) do
     Ok(Admitted(body)) -> case decode_prekey_claim(body) do
-      Err(_) -> respond_no_store(BinaryResult {
-        status: 400,
-        body: Bytes.empty()
-      })
+      Err(_) -> respond_no_store(BinaryResult { status: 400, body: Bytes.empty() })
       Ok(_) -> respond_no_store(claim_prekey_request(get_pool(), body))
     end
     refused -> respond_no_store(admission_failure(refused))

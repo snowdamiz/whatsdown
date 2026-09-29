@@ -69,6 +69,9 @@ These limits are part of Profile A and are enforced before expensive work:
 | Initial messages consuming one one-time prekey | 1 |
 | Initial messages accepted through the reusable last-resort prekey | Unbounded; each transcript accepted once (newest 1,024 remembered) |
 | Last-resort prekey lifetime | Replaced a week after it was made; the old secret is destroyed 35 days after the directory confirms the new key |
+| Device credential and signed prekey lifetime | One year; renewed once fewer than 275 days remain, by a logged transition |
+| ML-KEM-768 prekey lifetime | Replaced with every renewal of its device's credential |
+| Replaced signed and ML-KEM prekeys | Kept until 35 days after the verified device set shows their successor; at most sixteen replaced bundles |
 
 A mailbox delivers in the order it received, and a sender never lets one of its
 envelopes overtake another for the same mailbox, so a gap comes only from an
@@ -100,11 +103,20 @@ nothing, and an envelope cannot outlive 31 days in a mailbox anyway. A
 version `1` snapshot cannot say which keys it holds, so reading one leaves them
 behind.
 
-Not yet enforced, and therefore not claimed: signed prekeys are issued with the
-device credential's one-year lifetime and are not rotated. That is tracked as
-hardening work. Earlier revisions of this table stated 1,000-key limits, a
-seven-day skipped-key policy, a two-session cap, and a seven-day signed-prekey
-lifetime that the implementation never had.
+A device's credential, signed prekey and ML-KEM prekey are renewed together,
+through the logged device set, ninety days into their one-year life
+(`multi-device-wire-v1.md`, "Renewal"): the device holding the account key
+renews itself, and a linked device asks it with a request signed by its own
+key. The replaced secrets stay until no first message sealed to them can still
+arrive, then are destroyed. A device that is not renewed in time (it stayed
+away for nine months, or the device holding the account key never answered)
+stops receiving new sessions when its credential runs out, without making the
+rest of its account's device set fail to verify, and is renewed when it asks
+again and is answered. Earlier revisions of this table stated 1,000-key
+limits, a seven-day skipped-key policy, a two-session cap, and a seven-day
+signed-prekey lifetime that the implementation never had; until renewal was
+built, signed prekeys lived the credential's full year and credentials were
+never renewed, so every account stopped verifying a year after it was made.
 
 Content that does not fit the 64 KiB ciphertext bucket uses encrypted
 attachments. Decoders also enforce canonical integer widths, bounded vectors

@@ -25,7 +25,8 @@ from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.V1 import DeliveredEnvelope, MailboxAck, MailboxFetch, ProtocolError
 from Transparency.Client import checkpoint_fresh_at
 
-fn mailbox_signature(signing_key :: borrow SigningPrivateKey, signing_bytes :: Bytes) -> Bytes!ProtocolError do
+fn mailbox_signature(signing_key :: borrow SigningPrivateKey,
+  signing_bytes :: Bytes) -> Bytes!ProtocolError do
   case Crypto.sign(signing_key, signing_bytes) do
     Err(_) -> Err(MalformedEncoding)
     Ok(signature) -> Ok(signature.bytes)
@@ -107,7 +108,8 @@ pub fn decode_mailbox_fetch(input :: Bytes) -> MailboxFetch!ProtocolError do
   end
 end
 
-fn validate_delivery_entries(values :: List<DeliveredEnvelope>, index :: Int) -> Result<(), ProtocolError> do
+fn validate_delivery_entries(values :: List<DeliveredEnvelope>,
+  index :: Int) -> Result<(), ProtocolError> do
   if List.length(values) > 8 do
     Err(OversizedInput)
   else if index >= List.length(values) do
@@ -118,7 +120,9 @@ fn validate_delivery_entries(values :: List<DeliveredEnvelope>, index :: Int) ->
   end
 end
 
-fn encode_delivery_entries(values :: List<DeliveredEnvelope>, index :: Int, output :: Bytes) -> Bytes!ProtocolError do
+fn encode_delivery_entries(values :: List<DeliveredEnvelope>,
+  index :: Int,
+  output :: Bytes) -> Bytes!ProtocolError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -148,10 +152,7 @@ fn read_delivery_entries(state :: BinaryReader,
   index :: Int,
   output :: List<DeliveredEnvelope>) -> ProtocolReadDeliveries!ProtocolError do
   if index >= count do
-    Ok(ProtocolReadDeliveries {
-      state: state,
-      value: output
-    })
+    Ok(ProtocolReadDeliveries { state: state, value: output })
   else
     let sequence = protocol_take_u64(state)?
     let envelope = protocol_take_vector(sequence.state, 65606)?
@@ -159,11 +160,7 @@ fn read_delivery_entries(state :: BinaryReader,
     read_delivery_entries(envelope.state,
       count,
       index + 1,
-      List.append(output,
-        DeliveredEnvelope {
-          sequence: sequence.value,
-          envelope: envelope.value
-        }))
+      List.append(output, DeliveredEnvelope { sequence: sequence.value, envelope: envelope.value }))
   end
 end
 

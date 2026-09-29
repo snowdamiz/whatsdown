@@ -3,6 +3,7 @@ import { parseReadState, type ReadState } from './read-state';
 import { parseNotificationPreview, type NotificationPreview } from './notification-policy';
 import { parseReceiptMarks, type ReceiptMarks } from './receipts';
 import { journals } from './sealed-journals';
+import { parseDeclined } from './community-requests';
 import { databasePath } from './storage';
 
 // The journals are sealed in the app's database (sealed-journals.ts). These keys are
@@ -20,6 +21,11 @@ export async function loadNotificationState(account: string): Promise<ReadState 
 }
 export const saveNotificationState = (_account: string, state: ReadState): Promise<void> =>
   journals.save('notification-state', state);
+
+// Requests to join a community this admin declined, by the chat they came in.
+export const loadDeclinedRequests = async (): Promise<Record<string, string[]>> =>
+  parseDeclined(await journals.load('community-requests'));
+export const saveDeclinedRequests = (declined: Record<string, string[]>): Promise<void> => journals.save('community-requests', declined);
 
 // Whether this account tells people when it has read their messages. On unless turned off.
 const receiptsKey = (account: string) => `${databasePath}/read-receipts/v1/${account}`;

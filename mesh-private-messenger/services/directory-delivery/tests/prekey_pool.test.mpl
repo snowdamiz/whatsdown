@@ -1,7 +1,30 @@
 from Api.Binary import claim_prekey_request, publish_prekeys_request, revoke_device_request
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
-from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, reauthorize_signed_prekey
-from Prekeys.Pool import OneTimePrekeyPublic, PrekeyClaimRequest, PrekeyPublishRequest, decode_prekey_publish_response, encode_prekey_claim, encode_prekey_publish, prekey_publish_signing_bytes
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  generate_account,
+  generate_device,
+  issue_device_credential,
+  issue_device_revocation,
+  issue_hybrid_device_credential
+)
+from Prekeys.Bundle import (
+  build_hybrid_prekey_bundle,
+  build_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey,
+  reauthorize_signed_prekey
+)
+from Prekeys.Pool import (
+  OneTimePrekeyPublic,
+  PrekeyClaimRequest,
+  PrekeyPublishRequest,
+  decode_prekey_publish_response,
+  encode_prekey_claim,
+  encode_prekey_publish,
+  prekey_publish_signing_bytes
+)
 from Protocol.DirectoryWire import encode_device_revocation, encode_directory_entry
 from Protocol.IdentityWire import encode_account_identity
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
@@ -75,7 +98,8 @@ fn registration(account :: borrow AccountKeys,
   })
 end
 
-fn sign_publish(key :: borrow SigningPrivateKey, request :: PrekeyPublishRequest) -> PrekeyPublishRequest!String do
+fn sign_publish(key :: borrow SigningPrivateKey,
+  request :: PrekeyPublishRequest) -> PrekeyPublishRequest!String do
   let signature = case Crypto.sign(key, prekey_publish_signing_bytes(request)?) do
     Err(_) -> Err("prekey publication signing failed")
     Ok(output)
@@ -115,7 +139,9 @@ fn unsigned_claim(identity :: AccountIdentity,
   }
 end
 
-fn find_bundle(entries :: List<DirectoryEntry>, mailbox_token :: Bytes, index :: Int) -> Bytes!String do
+fn find_bundle(entries :: List<DirectoryEntry>,
+  mailbox_token :: Bytes,
+  index :: Int) -> Bytes!String do
   if index >= List.length(entries) do
     Err("target base bundle missing")
   else
@@ -179,7 +205,11 @@ fn record_claim(pool :: PoolHandle, body :: Bytes, claim_order :: Int) -> Int do
   let response = claim_prekey_request(pool, body)
   case Pool.execute_values(pool,
     "INSERT INTO mesh_test_concurrent_claims (claim_order, status, body) VALUES ($1::integer, $2::integer, $3)",
-    [Text(Int.to_string(claim_order)), Text(Int.to_string(response.status)), Binary(response.body)]) do
+    [
+      Text(Int.to_string(claim_order)),
+      Text(Int.to_string(response.status)),
+      Binary(response.body)
+    ]) do
     Err(_) -> 0
     Ok(_) -> response.status
   end
@@ -192,7 +222,10 @@ fn binary_value(value :: DbValue) -> Bytes!String do
   end
 end
 
-fn prekey_range(start_id :: Int, count :: Int, index :: Int, output :: List<OneTimePrekeyPublic>) -> List<OneTimePrekeyPublic>!String do
+fn prekey_range(start_id :: Int,
+  count :: Int,
+  index :: Int,
+  output :: List<OneTimePrekeyPublic>) -> List<OneTimePrekeyPublic>!String do
   if index >= count do
     Ok(output)
   else
@@ -224,7 +257,9 @@ fn target_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes)
   end
 end
 
-fn target_consumed_key_count(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes) -> Int!String do
+fn target_consumed_key_count(pool :: PoolHandle,
+  account_id :: Bytes,
+  device_id :: Bytes) -> Int!String do
   let rows = Pool.query_values(pool,
     "SELECT count(*)::text AS key_count FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND consumed_at IS NOT NULL",
     [Binary(account_id), Binary(device_id)])?
@@ -291,7 +326,8 @@ fn happy_path() -> Bool!String do
     reservation_id: claim.reservation_id
   }
   assert(claim_prekey_request(pool, encode_prekey_claim(stale_claim)?).status == 404)
-  assert(claim_prekey_request(pool, append_bytes(encode_prekey_claim(claim)?, repeated(0, 1)?)?).status == 400)
+  assert(claim_prekey_request(pool,
+    append_bytes(encode_prekey_claim(claim)?, repeated(0, 1)?)?).status == 400)
   Pool.execute(pool, "DROP TABLE IF EXISTS mesh_test_concurrent_claims", [])?
   Pool.execute(pool,
     "DROP TRIGGER IF EXISTS mesh_test_pause_identical_claim ON messenger_one_time_prekeys",
@@ -308,8 +344,8 @@ fn happy_path() -> Bool!String do
     [])?
   let initial_claim_body = encode_prekey_claim(claim)?
   let second_initial_claim_body = encode_prekey_claim(claim)?
-  let initial_job = Job.async(fn () -> record_claim(pool, initial_claim_body, 1) end)
-  let second_initial_job = Job.async(fn () -> record_claim(pool, second_initial_claim_body, 2) end)
+  let initial_job = Job.async(fn() -> record_claim(pool, initial_claim_body, 1) end)
+  let second_initial_job = Job.async(fn() -> record_claim(pool, second_initial_claim_body, 2) end)
   assert(await_claim_id(initial_job, 0)? == 200)
   assert(await_claim_id(second_initial_job, 0)? == 200)
   let concurrent_claims = Pool.query_values(pool,
@@ -334,14 +370,8 @@ fn happy_path() -> Bool!String do
   let unsigned = unsigned_publish(identity,
     target,
     [
-      OneTimePrekeyPublic {
-        id: wide("100")?,
-        public_key: repeated(41, 32)?
-      },
-      OneTimePrekeyPublic {
-        id: wide("101")?,
-        public_key: repeated(42, 32)?
-      }
+      OneTimePrekeyPublic { id: wide("100")?, public_key: repeated(41, 32)? },
+      OneTimePrekeyPublic { id: wide("101")?, public_key: repeated(42, 32)? }
     ])?
   let forged = sign_publish(requester.signing_private_key, unsigned)?
   assert(publish_prekeys_request(pool, encode_prekey_publish(forged)?).status == 403)
@@ -372,12 +402,7 @@ fn happy_path() -> Bool!String do
   let tampered = PrekeyPublishRequest {
     account_id: published.account_id,
     device_id: published.device_id,
-    prekeys: [
-      OneTimePrekeyPublic {
-        id: wide("100")?,
-        public_key: repeated(44, 32)?
-      }
-    ],
+    prekeys: [OneTimePrekeyPublic { id: wide("100")?, public_key: repeated(44, 32)? }],
     last_resort: None,
     contact_address_hash: None,
     signature: published.signature
@@ -386,21 +411,17 @@ fn happy_path() -> Bool!String do
   let conflicting = sign_publish(target.signing_private_key,
     unsigned_publish(identity,
       target,
-      [
-        OneTimePrekeyPublic {
-          id: wide("100")?,
-          public_key: repeated(43, 32)?
-        }
-      ])?)?
+      [OneTimePrekeyPublic { id: wide("100")?, public_key: repeated(43, 32)? }])?)?
   assert(publish_prekeys_request(pool, encode_prekey_publish(conflicting)?).status == 409)
   let first_claim_body = encode_prekey_claim(%{claim | reservation_id: repeated(60, 16)?})?
   let second_claim_body = encode_prekey_claim(%{claim | reservation_id: repeated(61, 16)?})?
-  let first_job = Job.async(fn () -> claimed_id(pool, first_claim_body) end)
-  let second_job = Job.async(fn () -> claimed_id(pool, second_claim_body) end)
+  let first_job = Job.async(fn() -> claimed_id(pool, first_claim_body) end)
+  let second_job = Job.async(fn() -> claimed_id(pool, second_claim_body) end)
   let first_claim_id = await_claim_id(first_job, 0)?
   let second_claim_id = await_claim_id(second_job, 0)?
   assert(first_claim_id != second_claim_id)
-  let ids_match = (first_claim_id == 100 && second_claim_id == 101) || (first_claim_id == 101 && second_claim_id == 100)
+  let ids_match = (first_claim_id == 100 && second_claim_id == 101)
+    || (first_claim_id == 101 && second_claim_id == 100)
   assert(ids_match)
   let first_replay_body = encode_prekey_claim(%{claim | reservation_id: repeated(60, 16)?})?
   let second_replay_body = encode_prekey_claim(%{claim | reservation_id: repeated(61, 16)?})?
@@ -417,7 +438,8 @@ fn happy_path() -> Bool!String do
   let first_replay_id = U64.to_int(decoded_bundle(first_replay.body)?.one_time_prekey_id)?
   let second_replay_id = U64.to_int(decoded_bundle(second_replay.body)?.one_time_prekey_id)?
   assert(first_replay_id != second_replay_id)
-  let replay_ids_match = (first_replay_id == 100 && second_replay_id == 101) || (first_replay_id == 101 && second_replay_id == 100)
+  let replay_ids_match = (first_replay_id == 100 && second_replay_id == 101)
+    || (first_replay_id == 101 && second_replay_id == 100)
   assert(replay_ids_match)
   let exhausted_claim_body = encode_prekey_claim(%{claim | reservation_id: repeated(62, 16)?})?
   assert(claim_prekey_request(pool, exhausted_claim_body).status == 409)
@@ -427,17 +449,13 @@ fn happy_path() -> Bool!String do
   let replenished = sign_publish(target.signing_private_key,
     unsigned_publish(identity,
       target,
-      [
-        OneTimePrekeyPublic {
-          id: wide("102")?,
-          public_key: repeated(45, 32)?
-        }
-      ])?)?
+      [OneTimePrekeyPublic { id: wide("102")?, public_key: repeated(45, 32)? }])?)?
   assert(publish_prekeys_request(pool, encode_prekey_publish(replenished)?).status == 201)
   let replenished_claim = claim_prekey_request(pool, exhausted_claim_body)
   assert(replenished_claim.status == 200)
   assert(U64.compare(decoded_bundle(replenished_claim.body)?.one_time_prekey_id, wide("102")?) == 0)
-  assert(U64.compare(decoded_bundle(claim_prekey_request(pool, exhausted_claim_body).body)?.one_time_prekey_id,
+  assert(U64.compare(decoded_bundle(claim_prekey_request(pool,
+      exhausted_claim_body).body)?.one_time_prekey_id,
     wide("102")?) == 0)
   assert(claim_prekey_request(pool,
     encode_prekey_claim(%{claim | reservation_id: repeated(63, 16)?})?).status == 409)
@@ -453,12 +471,7 @@ fn happy_path() -> Bool!String do
   let overflow = sign_publish(target.signing_private_key,
     unsigned_publish(identity,
       target,
-      [
-        OneTimePrekeyPublic {
-          id: wide("400")?,
-          public_key: repeated(46, 32)?
-        }
-      ])?)?
+      [OneTimePrekeyPublic { id: wide("400")?, public_key: repeated(46, 32)? }])?)?
   let overflow_response = publish_prekeys_request(pool, encode_prekey_publish(overflow)?)
   assert(overflow_response.status == 429)
   let overflow_active = decode_prekey_publish_response(overflow_response.body)?
@@ -533,14 +546,8 @@ fn rotation_replay_assertions(pool :: PoolHandle,
     unsigned_publish(identity,
       target,
       [
-        OneTimePrekeyPublic {
-          id: wide("100")?,
-          public_key: repeated(74, 32)?
-        },
-        OneTimePrekeyPublic {
-          id: wide("101")?,
-          public_key: repeated(77, 32)?
-        }
+        OneTimePrekeyPublic { id: wide("100")?, public_key: repeated(74, 32)? },
+        OneTimePrekeyPublic { id: wide("101")?, public_key: repeated(77, 32)? }
       ])?)?
   case publish_prekeys(pool, published) do
     Err(error) -> Err("rotation prekey publication failed: #{error}")
@@ -630,16 +637,15 @@ fn rotation_replay_assertions(pool :: PoolHandle,
     reservation_id: claim.reservation_id
   }
   assert(claim_prekey_request(pool, encode_prekey_claim(changed_device)?).status == 404)
-  assert(target_consumed_key_count(pool, identity.account_id, other_target.device_id)? == other_consumed)
+  assert(target_consumed_key_count(pool,
+    identity.account_id,
+    other_target.device_id)? == other_consumed)
   assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 2)
   Ok(nil)
 end
 
 fn last_resort(id :: String, fill :: Int) -> Option<OneTimePrekeyPublic>!String do
-  Ok(Some(OneTimePrekeyPublic {
-    id: wide(id)?,
-    public_key: repeated(fill, 32)?
-  }))
+  Ok(Some(OneTimePrekeyPublic { id: wide(id)?, public_key: repeated(fill, 32)? }))
 end
 
 fn publish_status(pool :: PoolHandle,
@@ -746,7 +752,9 @@ fn contact_address_path() -> Bool!String do
     _ -> Err("target registration failed")
   end?
   let address = repeated(42, 32)?
-  let named = %{unsigned_publish(identity, target, List.new())? | contact_address_hash: Some(Crypto.sha256(address))}
+  let named = %{unsigned_publish(identity, target, List.new())? |
+    contact_address_hash: Some(Crypto.sha256(address))
+  }
   let signed = sign_publish(target.signing_private_key, named)?
   assert(publish_prekeys_request(pool, encode_prekey_publish(signed)?).status == 201)
   assert(publish_prekeys_request(pool, encode_prekey_publish(signed)?).status == 200)
@@ -759,7 +767,9 @@ fn contact_address_path() -> Bool!String do
   assert(publish_prekeys_request(pool, encode_prekey_publish(forged)?).status == 403)
   # Nobody may name an address that already routes somewhere.
   let taken = sign_publish(target.signing_private_key,
-    %{unsigned_publish(identity, target, List.new())? | contact_address_hash: Some(Crypto.sha256(mailbox))})?
+    %{unsigned_publish(identity, target, List.new())? |
+      contact_address_hash: Some(Crypto.sha256(mailbox))
+    })?
   assert(publish_prekeys_request(pool, encode_prekey_publish(taken)?).status == 409)
   Ok(true)
 end

@@ -13,8 +13,21 @@ from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
 from Protocol.IdentityWire import decode_account_identity
 from Protocol.V1 import AccountIdentity, DeviceSet, DirectoryEntry
 from Tests.Support import append, database_path, install_security_config, repeated, vector
-from Transparency.Merkle import TransparencyCheckpoint, checkpoint_hash, consistency_proof, inclusion_proof, leaf_hash, sign_checkpoint, sign_witness
-from Transparency.Wire import TransparencyEvidence, encode_checkpoint, encode_consistency_proof, encode_transparency_evidence
+from Transparency.Merkle import (
+  TransparencyCheckpoint,
+  checkpoint_hash,
+  consistency_proof,
+  inclusion_proof,
+  leaf_hash,
+  sign_checkpoint,
+  sign_witness
+)
+from Transparency.Wire import (
+  TransparencyEvidence,
+  encode_checkpoint,
+  encode_consistency_proof,
+  encode_transparency_evidence
+)
 
 pub struct ConsistencyAccount do
   path :: String
@@ -114,12 +127,7 @@ pub fn account_fixture(label :: String, username :: String) -> ConsistencyAccoun
     devices: [entry],
     revoked_device_ids: List.new()
   })?
-  Ok(ConsistencyAccount {
-    path: path,
-    username: username,
-    entry: entry,
-    device_set: device_set
-  })
+  Ok(ConsistencyAccount { path: path, username: username, entry: entry, device_set: device_set })
 end
 
 pub fn evidence_bytes(entry_bytes :: Bytes,

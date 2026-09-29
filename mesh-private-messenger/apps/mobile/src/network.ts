@@ -3,6 +3,7 @@ import { fetch, openMailboxSocket, isDevelopmentBuild } from './transport';
 import type { MailboxSocket } from './mailbox-sync';
 import {
   account_deletion_export,
+  group_forget_export,
   attachment_open_chunk_export,
   attachment_prepare_export,
   attachment_seal_chunk_export,
@@ -12,6 +13,7 @@ import {
   erase_account_export,
   forget_on_proof_export,
   register_request_export,
+  renew_devices_export,
   group_add_export,
   group_create_export,
   group_history_export,
@@ -290,7 +292,33 @@ export async function loadAccountDevices(
   profile: Uint8Array,
 ): Promise<{ wire: Uint8Array; summary: DeviceSetSummary }> {
   const wire = await resolveDeviceSet(databasePath, parseProfileSummary(profile).username);
-  return { wire, summary: await inspectDeviceSet(databasePath, wire) };
+  const summary = await inspectDeviceSet(databasePath, wire);
+  await renewDevices(databasePath, wire);
+  return { wire, summary };
+}
+
+// Credentials, signed prekeys and ML-KEM prekeys are renewed through the
+// directory well before they expire; on the device holding the account key
+// that includes answering linked devices that asked. The core decides from the
+// verified set, taking on first whatever the set shows of this device. Each
+// registration is the next transition of the set, so they go in order, and a
+// refusal or an outage ends the pass: the next pass starts again from the set
+// the directory shows then.
+export async function renewDevices(databasePath: string, deviceSet: Uint8Array): Promise<void> {
+  const registrations = parseByteList(
+    await renew_devices_export(vectors(utf8(databasePath), deviceSet)),
+    8,
+    65_536,
+  );
+  for (const registration of registrations) {
+    try {
+      await binaryRequest('/v1/devices/register', registration, 'PUT');
+    } catch (error) {
+      if (error instanceof ServerStatusError && error.status === 410) throw new RemovedFromAccount(error.body);
+      if (error instanceof ServerStatusError) return;
+      throw error;
+    }
+  }
 }
 
 export async function authorizeDeviceLink(
@@ -580,6 +608,11 @@ export async function downloadAttachment(
   }
   if (offset !== output.length) throw new Error('The attachment does not match its manifest');
   return output;
+}
+
+// Forgets a group on this device alone: its state, keys, history and records.
+export async function forgetGroup(databasePath: string, groupId: Uint8Array): Promise<void> {
+  await group_forget_export(vectors(utf8(databasePath), groupId));
 }
 
 export async function removeGroupMember(

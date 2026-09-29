@@ -58,7 +58,8 @@ pub fn seal_recipient_packet(packet :: Bytes, recipient :: X25519PublicKey) -> B
   end
 end
 
-pub fn open_recipient_packet(input :: Bytes, recipient :: borrow X25519PrivateKey) -> Bytes!String do
+pub fn open_recipient_packet(input :: Bytes,
+  recipient :: borrow X25519PrivateKey) -> Bytes!String do
   if !is_recipient_packet(input) do
     Err("invalid_recipient_packet")
   else

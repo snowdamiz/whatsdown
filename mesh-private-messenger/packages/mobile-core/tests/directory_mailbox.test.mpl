@@ -9,7 +9,11 @@ from MobileCore import (
 )
 from Protocol.DirectoryWire import decode_directory_entry, decode_directory_lookup
 from Protocol.IdentityWire import decode_device_credential
-from Protocol.MailboxWire import decode_mailbox_fetch, mailbox_fetch_signing_bytes, mailbox_request_is_fresh
+from Protocol.MailboxWire import (
+  decode_mailbox_fetch,
+  mailbox_fetch_signing_bytes,
+  mailbox_request_is_fresh
+)
 from Protocol.PrekeyWire import decode_prekey_bundle
 from Tests.Support import append, database_path, vector
 

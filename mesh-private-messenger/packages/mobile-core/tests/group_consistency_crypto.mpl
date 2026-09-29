@@ -1,6 +1,12 @@
 from Mobile.Codec import current_time
 from MobileCore import group_add_export
-from Tests.GroupConsistencySupport import ConsistencyAccount, evidence_bytes, request, verify_for, wide
+from Tests.GroupConsistencySupport import (
+  ConsistencyAccount,
+  evidence_bytes,
+  request,
+  verify_for,
+  wide
+)
 from Tests.Support import append, repeated
 from Transparency.Merkle import TransparencyCheckpoint, checkpoint_hash, sign_checkpoint
 

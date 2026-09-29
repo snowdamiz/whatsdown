@@ -1,10 +1,23 @@
 from Api.Binary import bind_push_request, unbind_push_request
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  generate_account,
+  generate_device,
+  issue_device_credential
+)
 from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
 from Protocol.IdentityWire import encode_account_identity
 from Protocol.PrekeyWire import encode_prekey_bundle
 from Protocol.V1 import AccountIdentity, DirectoryEntry, OuterEnvelope, ProtocolError
-from Push.Binding import PushBindRequest, PushUnbindRequest, encode_push_bind, encode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
+from Push.Binding import (
+  PushBindRequest,
+  PushUnbindRequest,
+  encode_push_bind,
+  encode_push_unbind,
+  push_bind_signing_bytes,
+  push_unbind_signing_bytes
+)
 from Push.Token import seal_provider_token
 from Runtime.FakePushProvider import generic_push_payload
 from Runtime.PushDispatch import broker_status, dispatch_push
@@ -81,7 +94,8 @@ fn registration(account :: borrow AccountKeys,
   })
 end
 
-fn sign_bind(key :: borrow SigningPrivateKey, request :: PushBindRequest) -> PushBindRequest!String do
+fn sign_bind(key :: borrow SigningPrivateKey,
+  request :: PushBindRequest) -> PushBindRequest!String do
   let signature = case Crypto.sign(key, push_bind_signing_bytes(request)?) do
     Err(_) -> Err("push bind signing failed")
     Ok(output)
@@ -96,7 +110,8 @@ fn sign_bind(key :: borrow SigningPrivateKey, request :: PushBindRequest) -> Pus
   })
 end
 
-fn sign_unbind(key :: borrow SigningPrivateKey, request :: PushUnbindRequest) -> PushUnbindRequest!String do
+fn sign_unbind(key :: borrow SigningPrivateKey,
+  request :: PushUnbindRequest) -> PushUnbindRequest!String do
   let signature = case Crypto.sign(key, push_unbind_signing_bytes(request)?) do
     Err(_) -> Err("push unbind signing failed")
     Ok(output)
@@ -276,8 +291,9 @@ fn proof() -> Bool!String do
   let stored = find_push_binding_for_mailbox(pool, mailbox_token_hash)?
   case stored do
     None -> Err("push binding missing")
-    Some(binding) -> if Bytes.secure_equals(binding.wake_token_hash, second_wake_token_hash) && binding.provider == 1 && Bytes.secure_equals(binding.provider_token_ciphertext,
-      second.provider_token_ciphertext) do
+    Some(binding) -> if Bytes.secure_equals(binding.wake_token_hash, second_wake_token_hash)
+      && binding.provider == 1
+      && Bytes.secure_equals(binding.provider_token_ciphertext, second.provider_token_ciphertext) do
       Ok(nil)
     else
       Err("stale push binding replaced newer state")
@@ -379,8 +395,8 @@ fn unbind_before_bind_proof() -> Bool!String do
   assert(bind_push_request(pool, encode_push_bind(newer)?).status == 201)
   case find_push_binding_for_mailbox(pool, mailbox_token_hash)? do
     None -> Err("higher-revision push binding missing")
-    Some(binding) -> if Bytes.secure_equals(binding.wake_token_hash, newer.wake_token_hash) && Bytes.secure_equals(binding.provider_token_ciphertext,
-      newer.provider_token_ciphertext) do
+    Some(binding) -> if Bytes.secure_equals(binding.wake_token_hash, newer.wake_token_hash)
+      && Bytes.secure_equals(binding.provider_token_ciphertext, newer.provider_token_ciphertext) do
       Ok(nil)
     else
       Err("higher-revision push binding was not activated")

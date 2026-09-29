@@ -6,7 +6,9 @@ fn legacy_text(row :: Map<String, DbValue>, column :: String) -> String!String d
   end
 end
 
-fn migrate_rows(database :: SqliteConn, rows :: List<Map<String, DbValue>>, index :: Int) -> Result<(), String> do
+fn migrate_rows(database :: SqliteConn,
+  rows :: List<Map<String, DbValue>>,
+  index :: Int) -> Result<(), String> do
   if index >= List.length(rows) do
     Ok(nil)
   else

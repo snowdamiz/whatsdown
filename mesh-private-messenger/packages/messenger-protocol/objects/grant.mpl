@@ -78,10 +78,7 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid object wire")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -93,10 +90,7 @@ fn take_u32(state :: BinaryReader) -> ReadInt!String do
   end?
   case U64.to_int(wide) do
     Err(_) -> Err("invalid object integer")
-    Ok(value) -> Ok(ReadInt {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadInt { state: encoded.state, value: value })
   end
 end
 
@@ -104,10 +98,7 @@ fn take_u64(state :: BinaryReader) -> ReadWide!String do
   let encoded = take_fixed(state, 8)?
   case Bytes.read_u64_be(encoded.value, 0) do
     Err(_) -> Err("invalid object integer")
-    Ok(value) -> Ok(ReadWide {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadWide { state: encoded.state, value: value })
   end
 end
 
@@ -121,8 +112,8 @@ fn start(input :: Bytes, size :: Int, magic_value :: String) -> BinaryReader!Str
     end?
     let version = take_fixed(initial, 1)?
     let magic = take_fixed(version.state, 3)?
-    if Bytes.secure_equals(version.value, byte(1)?) && Bytes.secure_equals(magic.value,
-      Bytes.from_utf8(magic_value)) do
+    if Bytes.secure_equals(version.value, byte(1)?)
+      && Bytes.secure_equals(magic.value, Bytes.from_utf8(magic_value)) do
       Ok(magic.state)
     else
       Err("invalid object wire")
@@ -138,8 +129,12 @@ fn done(state :: BinaryReader) -> Result<(), String> do
 end
 
 fn valid_shape(value :: ObjectGrantRequest) -> Bool do
-  Bytes.length(value.object_id) == 32 && value.part_count >= 1 && value.part_count <= 257 && Bytes.length(value.upload_capability) == 32 && Bytes.length(value.download_capability) == 32 && !Bytes.secure_equals(value.upload_capability,
-    value.download_capability)
+  Bytes.length(value.object_id) == 32
+    && value.part_count >= 1
+    && value.part_count <= 257
+    && Bytes.length(value.upload_capability) == 32
+    && Bytes.length(value.download_capability) == 32
+    && !Bytes.secure_equals(value.upload_capability, value.download_capability)
 end
 
 fn work_hash(value :: ObjectGrantRequest, nonce :: Int) -> Bytes!String do
@@ -180,7 +175,9 @@ fn leading_zero_bits(hash :: Bytes, index :: Int, remaining :: Int) -> Bool do
   end
 end
 
-fn mine(value :: ObjectGrantRequest, difficulty :: Int, nonce :: Int) -> ObjectGrantRequest!String do
+fn mine(value :: ObjectGrantRequest,
+  difficulty :: Int,
+  nonce :: Int) -> ObjectGrantRequest!String do
   if nonce >= 2147483647 do
     Err("object work search exhausted")
   else if leading_zero_bits(work_hash(value, nonce)?, 0, difficulty) do
@@ -274,9 +271,13 @@ pub fn verify_grant(input :: Bytes,
   let value = decode_grant(input)?
   let latest_work = U64.add(now, maximum_work_future)?
   let latest_object = U64.add(now, maximum_object_future)?
-  Ok(difficulty >= 1 && difficulty <= 24 && U64.compare(value.work_expires_at, now) >= 0 && U64.compare(value.work_expires_at,
-    latest_work) <= 0 && U64.compare(value.expires_at, now) > 0 && U64.compare(value.expires_at,
-    latest_object) <= 0 && leading_zero_bits(work_hash(value, value.nonce)?, 0, difficulty))
+  Ok(difficulty >= 1
+    && difficulty <= 24
+    && U64.compare(value.work_expires_at, now) >= 0
+    && U64.compare(value.work_expires_at, latest_work) <= 0
+    && U64.compare(value.expires_at, now) > 0
+    && U64.compare(value.expires_at, latest_object) <= 0
+    && leading_zero_bits(work_hash(value, value.nonce)?, 0, difficulty))
 end
 
 pub fn encode_grant_response(value :: ObjectGrantResponse) -> Bytes!String do
@@ -307,10 +308,7 @@ fn decode_control(input :: Bytes, magic_value :: String) -> ObjectControl!String
   let object_id = take_fixed(start(input, 68, magic_value)?, 32)?
   let capability = take_fixed(object_id.state, 32)?
   done(capability.state)?
-  Ok(ObjectControl {
-    object_id: object_id.value,
-    capability: capability.value
-  })
+  Ok(ObjectControl { object_id: object_id.value, capability: capability.value })
 end
 
 pub fn encode_complete(value :: ObjectControl) -> Bytes!String do

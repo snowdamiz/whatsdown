@@ -1,5 +1,6 @@
 import { list_conversations_export, load_history_export, load_profile_export } from '../modules/mesh-messenger';
-import { hex, parseConversations, parseHistory, parseProfileSummary, peerRequest, utf8 } from './codec';
+import { hex, parseConversations, parseHistory, parseProfileSummary, peerRequest, utf8, type GroupSummary } from './codec';
+import { communityId, communityThread, indexCommunities } from './communities';
 import { inspectGroup, listGroups, loadGroupHistory, sendFanout, synchronizeMailbox } from './network';
 import { loadPresentation } from './presentation-store';
 import { getPushStatus } from './push';
@@ -18,7 +19,7 @@ export function setActiveNotificationScope(scope: string | null, readReceipts = 
   readScope = readReceipts ? scope : null;
 }
 
-async function loadThreads(path: string): Promise<NotificationThread[]> {
+async function loadThreads(path: string, own: string): Promise<NotificationThread[]> {
   const [conversations, groups] = await Promise.all([
     list_conversations_export(utf8(path)).then(parseConversations), listGroups(path),
   ]);
@@ -28,16 +29,39 @@ async function loadThreads(path: string): Promise<NotificationThread[]> {
       ...(chat.blocked || chat.requestPending ? {} : { peer: { username: chat.username, accountId: chat.peerAccountId } }),
       messages: parseHistory(await load_history_export(peerRequest(path, chat.peerAccountId))),
     })),
-    ...groups.map(async (group): Promise<NotificationThread> => {
-      const [messages, details, presentation] = await Promise.all([
-        loadGroupHistory(path, group.groupId), inspectGroup(path, group.groupId),
-        loadPresentation(path, `group/${hex(group.groupId)}`),
-      ]);
-      return { scope: `group/${hex(group.groupId)}`, title: presentation?.name ?? 'Group message', messages,
-        senders: Object.fromEntries(details.members.flatMap((member) => member.username
-          ? [[hex(member.accountId), `@${member.username}`]] : [])) };
-    }),
+    ...(await groupThreads(path, groups, own)),
   ]);
+}
+
+// A community is one thread however many parts it spans, told only what its
+// owner and admins post, plus, for them, who asked to join its groups.
+async function groupThreads(path: string, groups: GroupSummary[], own: string): Promise<NotificationThread[]> {
+  const loaded = await Promise.all(groups.map(async (group) => {
+    const [messages, details, presentation] = await Promise.all([
+      loadGroupHistory(path, group.groupId), inspectGroup(path, group.groupId),
+      loadPresentation(path, `group/${hex(group.groupId)}`),
+    ]);
+    return { id: hex(group.groupId), messages, details, presentation };
+  }));
+  const byId = new Map(loaded.map((group) => [group.id, group]));
+  const index = indexCommunities(loaded.map((group) => group.id), (id) => byId.get(id)?.presentation);
+  const parts = new Set([...index.values()].flatMap((entry) => entry.parts));
+  const senders = (members: { accountId: Uint8Array; username?: string }[]) => Object.fromEntries(members.flatMap((member) =>
+    member.username ? [[hex(member.accountId), `@${member.username}`]] : []));
+  return [
+    ...loaded.filter((group) => !parts.has(group.id)).map((group) => ({
+      scope: `group/${group.id}`, title: group.presentation?.name ?? 'Group message', messages: group.messages,
+      senders: senders(group.details.members),
+    })),
+    ...[...index.values()].map((entry) => {
+      const held = entry.parts.map((part) => byId.get(part)!);
+      return {
+        scope: `group/${communityId(entry.community)}`, title: held[0]!.presentation?.name ?? 'Community',
+        messages: communityThread(held.map((part) => ({ id: part.id, messages: part.messages })), entry.community, own),
+        senders: senders(held.flatMap((part) => part.details.members)),
+      };
+    }),
+  ];
 }
 
 // What the other side acknowledged has to outlive its receipts; see ReceiptMarks.
@@ -76,7 +100,7 @@ export function synchronizeWithNotifications(path: string): Promise<{ receipts: 
     try {
       previous = await loadNotificationState(own.accountId);
       if (previous === null) {
-        previous = planNotifications(await loadThreads(path), {}, own, null).state;
+        previous = planNotifications(await loadThreads(path, own.accountId), {}, own, null).state;
         await saveNotificationState(own.accountId, previous);
       }
     } catch (error) {
@@ -88,7 +112,7 @@ export function synchronizeWithNotifications(path: string): Promise<{ receipts: 
     try {
       await synchronizeMailbox(path);
     } finally {
-      const threads = await loadThreads(path);
+      const threads = await loadThreads(path, own.accountId);
       await rememberReceipts(own.accountId, threads);
       const plan = planNotifications(threads, previous, own, activeScope, readScope);
       if (await getPushStatus(path) === 'enabled') {

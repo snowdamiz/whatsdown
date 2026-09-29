@@ -1,6 +1,34 @@
-from Api.Binary import checkpoint_request, consistency_request, fetch_request, inclusion_request, register_device_request, resolve_devices_request, revoke_device_request, submit_request, submit_witness_request, validate_transparency_config, witnesses_request
-from Identity.Device import AccountKeys, DeviceKeys, credential_signing_bytes, generate_account, generate_device, issue_device_credential, issue_device_revocation, issue_hybrid_device_credential
-from Prekeys.Bundle import build_hybrid_prekey_bundle, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, reauthorize_signed_prekey
+from Api.Binary import (
+  checkpoint_request,
+  consistency_request,
+  fetch_request,
+  inclusion_request,
+  register_device_request,
+  resolve_devices_request,
+  revoke_device_request,
+  submit_request,
+  submit_witness_request,
+  validate_transparency_config,
+  witnesses_request
+)
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  credential_signing_bytes,
+  generate_account,
+  generate_device,
+  issue_device_credential,
+  issue_device_revocation,
+  issue_hybrid_device_credential
+)
+from Prekeys.Bundle import (
+  build_hybrid_prekey_bundle,
+  build_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey,
+  reauthorize_signed_prekey
+)
 from Protocol.DirectoryWire import (
   decode_device_set,
   encode_device_revocation,
@@ -8,7 +36,11 @@ from Protocol.DirectoryWire import (
   encode_directory_entry
 )
 from Protocol.EnvelopeWire import encode_outer_envelope
-from Protocol.IdentityWire import decode_device_credential, encode_account_identity, encode_device_credential
+from Protocol.IdentityWire import (
+  decode_device_credential,
+  encode_account_identity,
+  encode_device_credential
+)
 from Tests.MailboxSupport import signed_fetch
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 from Protocol.V1 import (
@@ -21,9 +53,40 @@ from Protocol.V1 import (
   ProtocolExtension
 )
 from Storage.Devices import resolve_devices
-from Storage.Transparency import latest_checkpoint, append_entry_on_connection, create_checkpoint, entry_count, consistency_from, evidence_for_username, inclusion_for_account
-from Transparency.Merkle import checkpoint_hash, sign_checkpoint, WitnessKey, leaf_hash, sign_witness, verify_checkpoint, verify_consistency, verify_inclusion, verify_witnesses
-from Transparency.Wire import TransparencyEvidence, TransparencyLookup, TransparencyTreeQuery, decode_checkpoint, decode_consistency_proof, decode_inclusion_proof, decode_transparency_evidence, decode_witnesses, encode_transparency_evidence, encode_transparency_lookup, encode_transparency_tree_query, encode_witnesses
+from Storage.Transparency import (
+  latest_checkpoint,
+  append_entry_on_connection,
+  create_checkpoint,
+  entry_count,
+  consistency_from,
+  evidence_for_username,
+  inclusion_for_account
+)
+from Transparency.Merkle import (
+  checkpoint_hash,
+  sign_checkpoint,
+  WitnessKey,
+  leaf_hash,
+  sign_witness,
+  verify_checkpoint,
+  verify_consistency,
+  verify_inclusion,
+  verify_witnesses
+)
+from Transparency.Wire import (
+  TransparencyEvidence,
+  TransparencyLookup,
+  TransparencyTreeQuery,
+  decode_checkpoint,
+  decode_consistency_proof,
+  decode_inclusion_proof,
+  decode_transparency_evidence,
+  decode_witnesses,
+  encode_transparency_evidence,
+  encode_transparency_lookup,
+  encode_transparency_tree_query,
+  encode_witnesses
+)
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
@@ -99,11 +162,7 @@ fn maximal_extensions(index :: Int, output :: List<ProtocolExtension>) -> List<P
   else
     maximal_extensions(index + 1,
       List.append(output,
-        ProtocolExtension {
-          id: index + 1,
-          mandatory: false,
-          value: repeated(index, 1024)
-        }))
+        ProtocolExtension { id: index + 1, mandatory: false, value: repeated(index, 1024) }))
   end
 end
 
@@ -112,7 +171,10 @@ fn entry(identity :: AccountIdentity,
   device_credential :: DeviceCredential,
   mailbox_token :: Bytes,
   expires_at :: U64) -> DirectoryEntry!String do
-  let signed = case generate_signed_prekey(device_keys, device_credential, wide("1")?, expires_at) do
+  let signed = case generate_signed_prekey(device_keys,
+    device_credential,
+    wide("1")?,
+    expires_at) do
     Err(_) -> Err("signed prekey generation failed")
     Ok(value)
   end?
@@ -154,7 +216,10 @@ fn maximal_hybrid_entry(identity :: AccountIdentity,
     Err(_) -> Err("hybrid credential generation failed")
     Ok(value)
   end?
-  let signed = case generate_signed_prekey(device_keys, device_credential, wide("1")?, expires_at) do
+  let signed = case generate_signed_prekey(device_keys,
+    device_credential,
+    wide("1")?,
+    expires_at) do
     Err(_) -> Err("signed prekey generation failed")
     Ok(value)
   end?
@@ -202,7 +267,9 @@ struct RotationEntries do
   downgrade :: DirectoryEntry
 end
 
-fn bundled_entry(identity :: AccountIdentity, bundle :: PrekeyBundle, mailbox_token :: Bytes) -> DirectoryEntry!String do
+fn bundled_entry(identity :: AccountIdentity,
+  bundle :: PrekeyBundle,
+  mailbox_token :: Bytes) -> DirectoryEntry!String do
   Ok(DirectoryEntry {
     version: 1,
     username: "alice",
@@ -459,18 +526,16 @@ fn proof() -> Bool!String do
     Err(_) -> Err("witness generation failed")
     Ok(value)
   end?
-  let witness_a_key = WitnessKey {
-    witness_id: "witness-a",
-    public_key: witness_a.public_key.bytes
-  }
-  let witness_b_key = WitnessKey {
-    witness_id: "witness-b",
-    public_key: witness_b.public_key.bytes
-  }
+  let witness_a_key = WitnessKey { witness_id: "witness-a", public_key: witness_a.public_key.bytes }
+  let witness_b_key = WitnessKey { witness_id: "witness-b", public_key: witness_b.public_key.bytes }
   assert(submit_witness_request(pool,
-    encode_witnesses([sign_witness("witness-a", witness_a.private_key, second_checkpoint)?])?).status == 201)
+    encode_witnesses([
+      sign_witness("witness-a", witness_a.private_key, second_checkpoint)?
+    ])?).status == 201)
   assert(submit_witness_request(pool,
-    encode_witnesses([sign_witness("witness-b", witness_b.private_key, second_checkpoint)?])?).status == 201)
+    encode_witnesses([
+      sign_witness("witness-b", witness_b.private_key, second_checkpoint)?
+    ])?).status == 201)
   let lookup = encode_transparency_lookup(TransparencyLookup {
     username: "alice",
     previous_tree_size: 1
@@ -501,7 +566,9 @@ fn proof() -> Bool!String do
     second_checkpoint.tree_root))
   assert(decode_inclusion_proof(inclusion_request(pool, lookup).body)?.tree_size == 2)
   assert(decode_consistency_proof(consistency_request(pool,
-    encode_transparency_tree_query(TransparencyTreeQuery { previous_tree_size: 1 })?).body)?.old_tree_size == 1)
+    encode_transparency_tree_query(TransparencyTreeQuery {
+      previous_tree_size: 1
+    })?).body)?.old_tree_size == 1)
   assert(List.length(decode_witnesses(witnesses_request(pool).body)?) == 2)
   let device_set = case decode_device_set(evidence.entry_bytes) do
     Err(_) -> Err("invalid device set")
@@ -522,7 +589,9 @@ fn proof() -> Bool!String do
     ciphertext: Bytes.from_utf8("queued")
   }))?
   assert(submit_request(pool, queued_delivery).status == 202)
-  let revocation = case issue_device_revocation(account_keys, second_device.device_id, wide("3")?) do
+  let revocation = case issue_device_revocation(account_keys,
+    second_device.device_id,
+    wide("3")?) do
     Err(_) -> Err("revocation signing failed")
     Ok(value)
   end?
@@ -544,10 +613,7 @@ fn proof() -> Bool!String do
     "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM messenger_revoked_devices), ':', (SELECT count(*) FROM messenger_devices WHERE revoked_at IS NOT NULL), ':', (SELECT count(*) FROM messenger_mailboxes WHERE NOT active), ':', (SELECT count(*) FROM messenger_one_time_prekeys), ':', (SELECT count(*) FROM messenger_push_bindings), ':', (SELECT count(*) FROM transparency_entries), ':', (SELECT count(*) FROM messenger_envelopes), ':', (SELECT count(*) FROM messenger_outbox_events), ':', (SELECT sum(pending_count) FROM messenger_mailboxes)) AS value")? == "2:0:0:0:2:1:2:1:1:1")
   assert(revoke_device_request(pool, protocol(encode_device_revocation(revocation))?).status == 200)
   let updated = resolve_devices_request(pool,
-    encode_transparency_lookup(TransparencyLookup {
-      username: "alice",
-      previous_tree_size: 2
-    })?)
+    encode_transparency_lookup(TransparencyLookup { username: "alice", previous_tree_size: 2 })?)
   let updated_evidence = decode_transparency_evidence(updated.body)?
   let updated_set = case decode_device_set(updated_evidence.entry_bytes) do
     Err(_) -> Err("invalid updated device set")
@@ -564,8 +630,8 @@ fn proof() -> Bool!String do
   # The removed device is told so with the account's own revocation, which it
   # checks before it erases itself.
   let removed = register_device_request(pool, protocol(encode_directory_entry(second))?)
-  assert(removed.status == 410 && Bytes.secure_equals(removed.body,
-    protocol(encode_device_revocation(revocation))?))
+  assert(removed.status == 410
+    && Bytes.secure_equals(removed.body, protocol(encode_device_revocation(revocation))?))
   # Revocation also ends the revoked device's authority to read its mailbox.
   assert(fetch_request(pool, signed_fetch(second_device, second.mailbox_token)?).status == 403)
   assert(fetch_request(pool, signed_fetch(first_device, first.mailbox_token)?).status == 200)
@@ -589,7 +655,9 @@ fn proof() -> Bool!String do
   Ok(true)
 end
 
-fn checkpoint_hashes(rows :: List<Map<String, DbValue>>, index :: Int, output :: List<Bytes>) -> List<Bytes>!String do
+fn checkpoint_hashes(rows :: List<Map<String, DbValue>>,
+  index :: Int,
+  output :: List<Bytes>) -> List<Bytes>!String do
   if index >= List.length(rows) do
     Ok(output)
   else
@@ -646,7 +714,7 @@ fn assert_checkpoint_order(pool :: PoolHandle,
     Ok(nil)
   else
     Repo.transaction(pool,
-      fn (conn :: borrow PgConn) -> append_entry_on_connection(conn, account_id, entry, false) end)?
+      fn(conn :: borrow PgConn) -> append_entry_on_connection(conn, account_id, entry, false) end)?
     let checkpoint = create_checkpoint(pool, seed)?
     assert(U64.to_int(checkpoint.sequence)? == sequence)
     let response = checkpoint_request(pool)
@@ -685,7 +753,9 @@ fn reset_rotation_state(pool :: PoolHandle) -> Result<(), String> do
   Ok(nil)
 end
 
-fn tombstone_registration_prekey(pool :: PoolHandle, account_id :: Bytes, device_id :: Bytes) -> Result<(), String> do
+fn tombstone_registration_prekey(pool :: PoolHandle,
+  account_id :: Bytes,
+  device_id :: Bytes) -> Result<(), String> do
   let changed = Pool.execute_values(pool,
     "UPDATE messenger_one_time_prekeys SET consumed_at = '2020-01-01 00:00:00+00', claim_id_hash = $3, claim_base_bundle_hash = $4 WHERE account_id = $1 AND device_id = $2 AND prekey_id = 2",
     [Binary(account_id), Binary(device_id), Binary(repeated(73, 32)), Binary(repeated(74, 32))])?
@@ -734,7 +804,8 @@ fn credential_rotation_proof() -> Bool!String do
     mailbox_token,
     created_at,
     expires_at)?
-  assert(register_device_request(pool, protocol(encode_directory_entry(entries.classical))?).status == 201)
+  assert(register_device_request(pool,
+    protocol(encode_directory_entry(entries.classical))?).status == 201)
   tombstone_registration_prekey(pool, identity.account_id, primary.device_id)?
   let original_bundle = binary_scalar(pool,
     "SELECT prekey_bundle AS value FROM messenger_devices WHERE revoked_at IS NULL")?
@@ -746,7 +817,8 @@ fn credential_rotation_proof() -> Bool!String do
   Pool.execute(pool,
     "CREATE TRIGGER mesh_test_fail_rotation_append BEFORE INSERT ON transparency_entries FOR EACH ROW EXECUTE FUNCTION pg_temp.mesh_test_fail_rotation_append()",
     [])?
-  assert(register_device_request(pool, protocol(encode_directory_entry(entries.first_hybrid))?).status == 500)
+  assert(register_device_request(pool,
+    protocol(encode_directory_entry(entries.first_hybrid))?).status == 500)
   Pool.execute(pool, "DROP TRIGGER mesh_test_fail_rotation_append ON transparency_entries", [])?
   assert(Bytes.secure_equals(binary_scalar(pool,
       "SELECT prekey_bundle AS value FROM messenger_devices WHERE revoked_at IS NULL")?,
@@ -755,9 +827,11 @@ fn credential_rotation_proof() -> Bool!String do
   assert(prekey_snapshot(pool)? == original_prekeys)
   assert(scalar(pool,
     "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value")? == "1:1")
-  assert(register_device_request(pool, protocol(encode_directory_entry(entries.replayed_sequence))?).status == 409)
+  assert(register_device_request(pool,
+    protocol(encode_directory_entry(entries.replayed_sequence))?).status == 409)
   let moved_mailbox = %{entries.first_hybrid | mailbox_token: repeated(72, 32)}
-  assert(register_device_request(pool, protocol(encode_directory_entry(moved_mailbox))?).status == 409)
+  assert(register_device_request(pool,
+    protocol(encode_directory_entry(moved_mailbox))?).status == 409)
   let substituted = substituted_hybrid_entry(identity,
     account_keys,
     primary.device_id,
@@ -766,7 +840,8 @@ fn credential_rotation_proof() -> Bool!String do
     created_at,
     expires_at,
     wide("2")?)?
-  assert(register_device_request(pool, protocol(encode_directory_entry(substituted))?).status == 409)
+  assert(register_device_request(pool,
+    protocol(encode_directory_entry(substituted))?).status == 409)
   assert(register_device_request(pool,
     protocol(encode_directory_entry(entries.swapped_signed_prekey))?).status == 409)
   let decoded_hybrid = case decode_prekey_bundle(entries.first_hybrid.prekey_bundle) do
@@ -778,16 +853,22 @@ fn credential_rotation_proof() -> Bool!String do
     Ok(value)
   end?
   let unsigned_credential = %{decoded_credential | signature: repeated(0, 64)}
-  let unauthorized_bundle = %{decoded_hybrid | device_credential: protocol(encode_device_credential(unsigned_credential))?}
-  let unauthorized = %{entries.first_hybrid | prekey_bundle: protocol(encode_prekey_bundle(unauthorized_bundle))?}
-  assert(register_device_request(pool, protocol(encode_directory_entry(unauthorized))?).status == 400)
+  let unauthorized_bundle = %{decoded_hybrid |
+    device_credential: protocol(encode_device_credential(unsigned_credential))?
+  }
+  let unauthorized = %{entries.first_hybrid |
+    prekey_bundle: protocol(encode_prekey_bundle(unauthorized_bundle))?
+  }
+  assert(register_device_request(pool,
+    protocol(encode_directory_entry(unauthorized))?).status == 400)
   let first_wire = protocol(encode_directory_entry(entries.first_hybrid))?
   let second_wire = protocol(encode_directory_entry(entries.second_hybrid))?
-  let first_job = Job.async(fn () -> register_wire_status(pool, first_wire) end)
-  let second_job = Job.async(fn () -> register_wire_status(pool, second_wire) end)
+  let first_job = Job.async(fn() -> register_wire_status(pool, first_wire) end)
+  let second_job = Job.async(fn() -> register_wire_status(pool, second_wire) end)
   let first_status = await_registration(first_job)?
   let second_status = await_registration(second_job)?
-  let distinct_result = (first_status == 201 && second_status == 409) || (first_status == 409 && second_status == 201)
+  let distinct_result = (first_status == 201 && second_status == 409)
+    || (first_status == 409 && second_status == 201)
   assert(distinct_result)
   assert(scalar(pool,
     "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value")? == "2:2")
@@ -801,7 +882,8 @@ fn credential_rotation_proof() -> Bool!String do
   assert(register_device_request(pool, protocol(encode_directory_entry(accepted))?).status == 200)
   assert(scalar(pool,
     "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value")? == "2:2")
-  assert(register_device_request(pool, protocol(encode_directory_entry(entries.downgrade))?).status == 409)
+  assert(register_device_request(pool,
+    protocol(encode_directory_entry(entries.downgrade))?).status == 409)
   let stored_set = case resolve_devices(pool, "alice")? do
     None -> Err("rotated device set missing")
     Some(value) -> Ok(value)
@@ -839,14 +921,16 @@ fn credential_rotation_proof() -> Bool!String do
   assert(scalar(pool,
     "SELECT concat(count(*)::text, ':', count(*) FILTER (WHERE consumed_at IS NULL)::text, ':', count(*) FILTER (WHERE claim_id_hash IS NOT NULL AND claim_base_bundle_hash IS NOT NULL)::text) AS value FROM messenger_one_time_prekeys")? == "1:0:1")
   reset_rotation_state(pool)?
-  assert(register_device_request(pool, protocol(encode_directory_entry(entries.classical))?).status == 201)
+  assert(register_device_request(pool,
+    protocol(encode_directory_entry(entries.classical))?).status == 201)
   tombstone_registration_prekey(pool, identity.account_id, primary.device_id)?
   let identical_wire = protocol(encode_directory_entry(entries.first_hybrid))?
-  let identical_first_job = Job.async(fn () -> register_wire_status(pool, identical_wire) end)
-  let identical_second_job = Job.async(fn () -> register_wire_status(pool, identical_wire) end)
+  let identical_first_job = Job.async(fn() -> register_wire_status(pool, identical_wire) end)
+  let identical_second_job = Job.async(fn() -> register_wire_status(pool, identical_wire) end)
   let identical_first_status = await_registration(identical_first_job)?
   let identical_second_status = await_registration(identical_second_job)?
-  let identical_result = (identical_first_status == 201 && identical_second_status == 200) || (identical_first_status == 200 && identical_second_status == 201)
+  let identical_result = (identical_first_status == 201 && identical_second_status == 200)
+    || (identical_first_status == 200 && identical_second_status == 201)
   assert(identical_result)
   assert(scalar(pool,
     "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value")? == "2:2")

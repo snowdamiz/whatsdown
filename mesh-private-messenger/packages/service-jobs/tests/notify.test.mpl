@@ -21,6 +21,7 @@ test("wakeup registration controls whether the database transaction commits") do
       println(error)
       assert(false)
     end
-    Ok(succeeded) -> assert(succeeded == (Env.get("MESSENGER_JOB_EXPECT_FAILURE", "false") != "true"))
+    Ok(succeeded) -> assert(succeeded == (Env.get("MESSENGER_JOB_EXPECT_FAILURE",
+        "false") != "true"))
   end
 end

@@ -49,11 +49,14 @@ end
 # Contacts and strangers are limited separately, so a stranger who exhausts the
 # deposit rate cannot stop a contact's envelope getting through.
 
-fn deposit_rate_allowed(conn :: borrow PgConn, mailbox_hash :: Bytes, contact :: Bool) -> Bool!String do
+fn deposit_rate_allowed(conn :: borrow PgConn,
+  mailbox_hash :: Bytes,
+  contact :: Bool) -> Bool!String do
   if contact do
     allow_request_on_connection(conn, mailbox_hash, 32, 60)
   else
-    let bucket = case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/stranger-deposits"), mailbox_hash) do
+    let bucket = case Bytes.concat(Bytes.from_utf8("mesh-msg/v1/stranger-deposits"),
+      mailbox_hash) do
       Err(_) -> Err("rate bucket allocation failed")
       Ok(joined) -> Ok(Crypto.sha256(joined))
     end?
@@ -117,7 +120,7 @@ pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryI
   if !(expiry_acceptable(value.expiration)?) do
     return Ok(ExpiryRejected)
   end
-  case Repo.transaction(pool, fn (conn :: borrow PgConn) -> insert_envelope(conn, value) end) do
+  case Repo.transaction(pool, fn(conn :: borrow PgConn) -> insert_envelope(conn, value) end) do
     Ok(result)
     Err(error) -> if String.contains(error, "messenger_envelopes_mailbox_envelope_key") do
       Ok(Duplicate)
@@ -139,7 +142,8 @@ pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryI
   end
 end
 
-fn deliveries(rows :: List<Map<String, DbValue>>, token :: Bytes) -> List<DeliveredEnvelope>!String do
+fn deliveries(rows :: List<Map<String, DbValue>>,
+  token :: Bytes) -> List<DeliveredEnvelope>!String do
   let values = for row in rows do
     let envelope = OuterEnvelope {
       version: 1,
@@ -154,10 +158,7 @@ fn deliveries(rows :: List<Map<String, DbValue>>, token :: Bytes) -> List<Delive
       Err(_) -> Err("invalid stored envelope")
       Ok(value)
     end?
-    DeliveredEnvelope {
-      sequence: wide(Map.get(row, "sequence"))?,
-      envelope: encoded
-    }
+    DeliveredEnvelope { sequence: wide(Map.get(row, "sequence"))?, envelope: encoded }
   end
   Ok(values)
 end
@@ -165,7 +166,9 @@ end
 ## Reads require the `MailboxOwner` produced by `Storage.MailboxAuth`: knowing a
 ## mailbox address is never enough to read or acknowledge its envelopes.
 
-pub fn fetch_mailbox(pool :: PoolHandle, owner :: MailboxOwner, after_sequence :: U64) -> List<DeliveredEnvelope>!String do
+pub fn fetch_mailbox(pool :: PoolHandle,
+  owner :: MailboxOwner,
+  after_sequence :: U64) -> List<DeliveredEnvelope>!String do
   let rows = Pool.query_values(pool,
     "SELECT envelope.sequence::text, envelope.envelope_id, envelope.suite::text, envelope.expiration_ms::text, envelope.padding_bucket::text, envelope.ciphertext FROM messenger_envelopes AS envelope JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = envelope.mailbox_token_hash AND mailbox.active WHERE envelope.mailbox_token_hash = $1 AND envelope.sequence > $2::bigint AND envelope.acknowledged_at IS NULL AND envelope.expiration_ms > floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint ORDER BY envelope.sequence LIMIT 8",
     [Binary(Crypto.sha256(owner.mailbox_token)), Text(U64.to_string(after_sequence))])?
@@ -191,11 +194,13 @@ fn acknowledge_ids(pool :: PoolHandle,
     Ok(count)
   else
     let changed = Repo.transaction(pool,
-      fn (conn :: borrow PgConn) -> acknowledge_one(conn, token_hash, List.get(ids, index)) end)?
+      fn(conn :: borrow PgConn) -> acknowledge_one(conn, token_hash, List.get(ids, index)) end)?
     acknowledge_ids(pool, token_hash, ids, index + 1, count + changed)
   end
 end
 
-pub fn acknowledge_mailbox(pool :: PoolHandle, owner :: MailboxOwner, envelope_ids :: List<Bytes>) -> Int!String do
+pub fn acknowledge_mailbox(pool :: PoolHandle,
+  owner :: MailboxOwner,
+  envelope_ids :: List<Bytes>) -> Int!String do
   acknowledge_ids(pool, Crypto.sha256(owner.mailbox_token), envelope_ids, 0, 0)
 end

@@ -16,13 +16,18 @@ from Protocol.WirePrimitives import (
   protocol_write_u32,
   protocol_write_u64
 )
-from Protocol.ExtensionWire import protocol_encode_extensions, protocol_take_extensions, protocol_validate_extensions
+from Protocol.ExtensionWire import (
+  protocol_encode_extensions,
+  protocol_take_extensions,
+  protocol_validate_extensions
+)
 from Protocol.V1 import AccountIdentity, DeviceCredential, ProtocolError, protocol_supported_suite
 
 fn validate_account(value :: AccountIdentity) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
-  else if Bytes.length(value.account_id) != 32 || Bytes.length(value.authorization_public_key) != 32 do
+  else if Bytes.length(value.account_id) != 32
+    || Bytes.length(value.authorization_public_key) != 32 do
     Err(InvalidFieldLength)
   else
     protocol_validate_extensions(value.extensions, 0, 0)
@@ -84,7 +89,11 @@ fn validate_credential(value :: DeviceCredential) -> Result<(), ProtocolError> d
     else
       0
     end
-    if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.dh_public_key) != 32 || Bytes.length(value.signature) != 64 do
+    if Bytes.length(value.account_id) != 32
+      || Bytes.length(value.device_id) != 16
+      || Bytes.length(value.signing_public_key) != 32
+      || Bytes.length(value.dh_public_key) != 32
+      || Bytes.length(value.signature) != 64 do
       Err(InvalidFieldLength)
     else if Bytes.length(value.post_quantum_public_key) != post_quantum_length do
       Err(InvalidFieldLength)

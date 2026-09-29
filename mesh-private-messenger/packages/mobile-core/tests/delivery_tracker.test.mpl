@@ -1,5 +1,11 @@
 import File
-from Mobile.Delivery import DeliveryRecord, delivery_state, load_delivery, resolved_delivery, tracked_delivery
+from Mobile.Delivery import (
+  DeliveryRecord,
+  delivery_state,
+  load_delivery,
+  resolved_delivery,
+  tracked_delivery
+)
 from Storage.Blobs import ensure_schema
 from Storage.Keys import platform_key
 from Storage.Records import put_blobs

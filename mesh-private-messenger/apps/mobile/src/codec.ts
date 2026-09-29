@@ -1,6 +1,7 @@
 import { applyReactions, type Reaction } from './reactions.ts';
 import { applyReceipts, type ReceiptState } from './receipts.ts';
 import { applyReplies, type Reply } from './replies.ts';
+import { applyCommunityControls, type CommunityControl } from './community-requests.ts';
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
@@ -49,6 +50,8 @@ export type HistoryMessage = {
   reply?: Reply<Omit<HistoryMessage, 'reply'>>;
   // The furthest the other side has acknowledged a sent message, or this account a received one.
   receipt?: ReceiptState;
+  // A request to join a community, or its answer, which the body now reads as.
+  community?: CommunityControl;
   direction: 'sent' | 'received';
   messageId: Uint8Array;
   timestamp: number;
@@ -61,6 +64,9 @@ export type DeviceSummary = {
   deviceId: Uint8Array;
   active: boolean;
   current: boolean;
+  // In the account, but its credential ran out: it receives nothing until it
+  // is opened again and renewed.
+  expired: boolean;
 };
 
 export type DeviceSetSummary = {
@@ -521,7 +527,7 @@ export function parseHistory(input: Uint8Array): HistoryMessage[] {
   }
   list.finish();
   const keyOf = (message: HistoryMessage) => hex(message.messageId);
-  return applyReplies(applyReactions(applyReceipts(messages), keyOf, (message) => message.direction), keyOf);
+  return applyCommunityControls(applyReplies(applyReactions(applyReceipts(messages), keyOf, (message) => message.direction), keyOf));
 }
 
 // The core stamps an envelope to expire 30 days after the timestamp of the message
@@ -554,10 +560,10 @@ export function parseDeviceSetSummary(input: Uint8Array): DeviceSetSummary {
     const activeValue = readByte(encoded.vector(1));
     const currentValue = readByte(encoded.vector(1));
     encoded.finish();
-    if (activeValue > 1 || currentValue > 1 || (currentValue === 1 && activeValue === 0)) {
+    if (activeValue > 2 || currentValue > 1 || (currentValue === 1 && activeValue === 0)) {
       throw new Error('Invalid device state');
     }
-    devices.push({ deviceId, active: activeValue === 1, current: currentValue === 1 });
+    devices.push({ deviceId, active: activeValue !== 0, current: currentValue === 1, expired: activeValue === 2 });
   }
   encodedDevices.finish();
   summary.finish();

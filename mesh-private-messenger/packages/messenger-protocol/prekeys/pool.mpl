@@ -110,20 +110,14 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid prekey pool wire")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt!String do
   case read_u8(state) do
     Err(_) -> Err("invalid prekey pool wire")
-    Ok((next, value)) -> Ok(ReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
   end
 end
 
@@ -131,10 +125,7 @@ fn take_u64(state :: BinaryReader) -> ReadWide!String do
   let value = take_fixed(state, 8)?
   case Bytes.read_u64_be(value.value, 0) do
     Err(_) -> Err("invalid prekey pool integer")
-    Ok(output) -> Ok(ReadWide {
-      state: value.state,
-      value: output
-    })
+    Ok(output) -> Ok(ReadWide { state: value.state, value: output })
   end
 end
 
@@ -151,13 +142,16 @@ fn valid_id(value :: U64) -> Bool!String do
   Ok(U64.compare(value, zero) > 0 && U64.compare(value, maximum) <= 0)
 end
 
-fn valid_prekeys(values :: List<OneTimePrekeyPublic>, index :: Int, previous :: U64) -> Bool!String do
+fn valid_prekeys(values :: List<OneTimePrekeyPublic>,
+  index :: Int,
+  previous :: U64) -> Bool!String do
   if index >= List.length(values) do
     Ok(true)
   else
     let value = List.get(values, index)
-    if !(valid_id(value.id)?) || Bytes.length(value.public_key) != 32 || U64.compare(value.id,
-      previous) <= 0 do
+    if !(valid_id(value.id)?)
+      || Bytes.length(value.public_key) != 32
+      || U64.compare(value.id, previous) <= 0 do
       Ok(false)
     else
       valid_prekeys(values, index + 1, value.id)
@@ -178,7 +172,9 @@ fn valid_ids(values :: List<U64>, index :: Int, previous :: U64) -> Bool!String 
   end
 end
 
-fn encode_prekeys(values :: List<OneTimePrekeyPublic>, index :: Int, output :: Bytes) -> Bytes!String do
+fn encode_prekeys(values :: List<OneTimePrekeyPublic>,
+  index :: Int,
+  output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -194,10 +190,7 @@ fn decode_prekeys(state :: BinaryReader,
   previous :: U64,
   output :: List<OneTimePrekeyPublic>) -> ReadPrekeys!String do
   if remaining <= 0 do
-    Ok(ReadPrekeys {
-      state: state,
-      value: output
-    })
+    Ok(ReadPrekeys { state: state, value: output })
   else
     let id = take_u64(state)?
     let public_key = take_fixed(id.state, 32)?
@@ -207,11 +200,7 @@ fn decode_prekeys(state :: BinaryReader,
       decode_prekeys(public_key.state,
         remaining - 1,
         id.value,
-        List.append(output,
-          OneTimePrekeyPublic {
-            id: id.value,
-            public_key: public_key.value
-          }))
+        List.append(output, OneTimePrekeyPublic { id: id.value, public_key: public_key.value }))
     end
   end
 end
@@ -227,9 +216,9 @@ end
 fn encode_last_resort(value :: PrekeyPublishRequest) -> Bytes!String do
   case value.last_resort do
     None -> byte(0)
-    Some(key) -> if !(valid_id(key.id)?) || Bytes.length(key.public_key) != 32 || contains_prekey(value.prekeys,
-      key.id,
-      0) do
+    Some(key) -> if !(valid_id(key.id)?)
+      || Bytes.length(key.public_key) != 32
+      || contains_prekey(value.prekeys, key.id, 0) do
       Err("invalid last-resort prekey")
     else
       join([byte(1)?, write_u64(key.id)?, key.public_key], 0, Bytes.empty())
@@ -251,16 +240,10 @@ end
 fn decode_contact_address_hash(state :: BinaryReader) -> ReadOptionalHash!String do
   let present = take_u8(state)?
   if present.value == 0 do
-    Ok(ReadOptionalHash {
-      state: present.state,
-      value: None
-    })
+    Ok(ReadOptionalHash { state: present.state, value: None })
   else if present.value == 1 do
     let hash = take_fixed(present.state, 32)?
-    Ok(ReadOptionalHash {
-      state: hash.state,
-      value: Some(hash.value)
-    })
+    Ok(ReadOptionalHash { state: hash.state, value: Some(hash.value) })
   else
     Err("invalid contact address flag")
   end
@@ -269,19 +252,13 @@ end
 fn decode_last_resort(state :: BinaryReader) -> ReadLastResort!String do
   let present = take_u8(state)?
   if present.value == 0 do
-    Ok(ReadLastResort {
-      state: present.state,
-      value: None
-    })
+    Ok(ReadLastResort { state: present.state, value: None })
   else if present.value == 1 do
     let id = take_u64(present.state)?
     let public_key = take_fixed(id.state, 32)?
     Ok(ReadLastResort {
       state: public_key.state,
-      value: Some(OneTimePrekeyPublic {
-        id: id.value,
-        public_key: public_key.value
-      })
+      value: Some(OneTimePrekeyPublic { id: id.value, public_key: public_key.value })
     })
   else
     Err("invalid last-resort prekey flag")
@@ -296,12 +273,12 @@ fn encode_ids(values :: List<U64>, index :: Int, output :: Bytes) -> Bytes!Strin
   end
 end
 
-fn decode_ids(state :: BinaryReader, remaining :: Int, previous :: U64, output :: List<U64>) -> ReadIds!String do
+fn decode_ids(state :: BinaryReader,
+  remaining :: Int,
+  previous :: U64,
+  output :: List<U64>) -> ReadIds!String do
   if remaining <= 0 do
-    Ok(ReadIds {
-      state: state,
-      value: output
-    })
+    Ok(ReadIds { state: state, value: output })
   else
     let id = take_u64(state)?
     if !(valid_id(id.value)?) || U64.compare(id.value, previous) <= 0 do
@@ -314,9 +291,10 @@ end
 
 fn publish_content(value :: PrekeyPublishRequest) -> Bytes!String do
   let count = List.length(value.prekeys)
-  if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || count > 64 || !(valid_prekeys(value.prekeys,
-    0,
-    U64.parse("0")?)?) do
+  if Bytes.length(value.account_id) != 32
+    || Bytes.length(value.device_id) != 16
+    || count > 64
+    || !(valid_prekeys(value.prekeys, 0, U64.parse("0")?)?) do
     Err("invalid prekey publication")
   else
     let prefix = join([
@@ -339,7 +317,10 @@ fn publish_content(value :: PrekeyPublishRequest) -> Bytes!String do
 end
 
 fn claim_content(value :: PrekeyClaimRequest) -> Bytes!String do
-  if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || Bytes.length(value.base_bundle_hash) != 32 || Bytes.length(value.reservation_id) != 16 do
+  if Bytes.length(value.account_id) != 32
+    || Bytes.length(value.device_id) != 16
+    || Bytes.length(value.base_bundle_hash) != 32
+    || Bytes.length(value.reservation_id) != 16 do
     Err("invalid prekey claim")
   else
     join([
@@ -424,9 +405,10 @@ end
 
 pub fn encode_prekey_publish_response(value :: PrekeyPublishResponse) -> Bytes!String do
   let count = List.length(value.active_ids)
-  if Bytes.length(value.account_id) != 32 || Bytes.length(value.device_id) != 16 || count > 64 || !(valid_ids(value.active_ids,
-    0,
-    U64.parse("0")?)?) do
+  if Bytes.length(value.account_id) != 32
+    || Bytes.length(value.device_id) != 16
+    || count > 64
+    || !(valid_ids(value.active_ids, 0, U64.parse("0")?)?) do
     Err("invalid prekey publication response")
   else
     let prefix = join([

@@ -118,7 +118,9 @@ temporary database. Build the native library before running them.
 
 [Desktop build and release](../../../.github/workflows/desktop-release.yml)
 builds and tests Windows x64, macOS Intel, and macOS Apple silicon on native
-runners. Every push to `release` builds production installers against the
+runners. Every push to `release` that changes the desktop app, the mobile app
+it wraps, or their Mesh core ([`release-changes.mjs`](../../scripts/release-changes.mjs))
+builds production installers against the
 deployed backend with release signing, and publishes them as GitHub Release
 `desktop-v<MAJOR>.<MINOR>.<RUN>`: the version in `package.json` with the
 workflow run number as its patch. The install commands then pick it up as the

@@ -1,5 +1,11 @@
 from Push.Binding import PushBindRequest, decode_push_bind, encode_push_bind
-from Push.Token import PushWakeRequest, decode_push_wake, encode_push_wake, open_provider_token_with_key, seal_provider_token
+from Push.Token import (
+  PushWakeRequest,
+  decode_push_wake,
+  encode_push_wake,
+  open_provider_token_with_key,
+  seal_provider_token
+)
 
 fn seed(value :: Int) -> Bytes!String do
   case Bytes.repeat(value, 32) do

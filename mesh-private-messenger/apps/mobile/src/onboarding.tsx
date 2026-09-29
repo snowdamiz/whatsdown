@@ -6,7 +6,7 @@ import { AccessibilityInfo, Animated, StyleSheet, Text, View } from "react-nativ
 
 import { formatClock } from "./format";
 import { fonts, isDesktop, motion, radius, size as sizes, space, themed, useTheme, withAlpha } from "./theme";
-import { Glow, Icon, type IconName } from "./ui";
+import { Glow, Icon, metaRoom, type IconName } from "./ui";
 
 // Null until the setting has been read, so nothing starts moving early.
 function useReducedMotion(): boolean | null {
@@ -69,7 +69,7 @@ function ArtBubble({ sent, text, minute, at, still }: {
   at: number;
   still: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, type } = useTheme();
   const styles = useStyles();
   const [landed] = useState(() => new Animated.Value(still ? 1 : 0));
   const [opened] = useState(() => new Animated.Value(still || sent ? 1 : 0));
@@ -87,6 +87,7 @@ function ArtBubble({ sent, text, minute, at, still }: {
   // wipe on; each layer's clip moves while what it holds stays put.
   const wipe = Animated.multiply(opened, width);
   const metaColor = sent ? colors.onAccentMuted : colors.text3;
+  const clock = formatClock(new Date().setHours(9, minute, 0, 0));
   return (
     <Animated.View
       style={[
@@ -104,7 +105,10 @@ function ArtBubble({ sent, text, minute, at, still }: {
       <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
         <Animated.View style={[styles.clip, { transform: [{ translateX: Animated.subtract(wipe, width) }] }]}>
           <Animated.View style={{ transform: [{ translateX: Animated.subtract(width, wipe) }] }}>
-            <Text style={[styles.body, sent && styles.bodySent]}>{text}</Text>
+            <Text style={[styles.body, sent && styles.bodySent]}>
+              {text}
+              <Text style={styles.room}>{metaRoom(clock, sent ? sizes.icon.xs + space[1] : 0, type.micro.fontSize)}</Text>
+            </Text>
           </Animated.View>
         </Animated.View>
         {sent ? null : (
@@ -114,10 +118,10 @@ function ArtBubble({ sent, text, minute, at, still }: {
             </Animated.View>
           </Animated.View>
         )}
-      </View>
-      <View style={styles.meta}>
-        <Text style={[styles.time, { color: metaColor }]}>{formatClock(new Date().setHours(9, minute, 0, 0))}</Text>
-        {sent ? <Icon name="checks" size={sizes.icon.xs} color={metaColor} strokeWidth={2.4} /> : null}
+        <View style={styles.meta}>
+          <Text style={[styles.time, { color: metaColor }]}>{clock}</Text>
+          {sent ? <Icon name="checks" size={sizes.icon.xs} color={metaColor} strokeWidth={2.4} /> : null}
+        </View>
       </View>
     </Animated.View>
   );
@@ -249,8 +253,16 @@ const useStyles = themed(({ colors, type }) =>
     clip: { overflow: "hidden" },
     body: { ...type.body, color: colors.text },
     bodySent: { color: colors.onAccent },
-    meta: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space[1], marginTop: space[0.5] },
+    // The time sits over the room the words leave at the end of their line.
+    meta: { position: "absolute", right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: space[1] },
     time: { ...type.micro, fontVariant: ["tabular-nums"] },
+    room: {
+      fontFamily: type.micro.fontFamily,
+      fontSize: type.micro.fontSize,
+      letterSpacing: type.micro.letterSpacing,
+      fontVariant: ["tabular-nums"],
+      color: "transparent",
+    },
     noise: { flexDirection: "row", flexWrap: "wrap", columnGap: space[2] },
     noiseWord: { height: type.body.lineHeight, flexDirection: "row", alignItems: "center", gap: space[1] - 1 },
     symbol: { width: space[1], height: space[1], borderRadius: space[0.5] },

@@ -8,7 +8,11 @@ from MobileCore import (
   forget_on_proof_export,
   load_profile_export
 )
-from Protocol.DirectoryWire import decode_account_deletion, decode_device_departure, decode_directory_entry
+from Protocol.DirectoryWire import (
+  decode_account_deletion,
+  decode_device_departure,
+  decode_directory_entry
+)
 from Protocol.IdentityWire import decode_account_identity, decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle
 from Protocol.V1 import AccountIdentity

@@ -103,10 +103,19 @@ end
 
 pub fn encode_packet(value :: TransportPacket) -> Bytes!String do
   let encoded = case value do
-    InitialPacket(account_identity, message) -> if Bytes.length(account_identity) == 0 || Bytes.length(account_identity) > 16582 || Bytes.length(message) == 0 || Bytes.length(message) > 48800 do
+    InitialPacket(account_identity, message) -> if Bytes.length(account_identity) == 0
+      || Bytes.length(account_identity) > 16582
+      || Bytes.length(message) == 0
+      || Bytes.length(message) > 48800 do
       Err("invalid initial transport packet")
     else
-      join([byte(1)?, Bytes.from_utf8("M8P"), byte(1)?, vector(account_identity)?, vector(message)?],
+      join([
+          byte(1)?,
+          Bytes.from_utf8("M8P"),
+          byte(1)?,
+          vector(account_identity)?,
+          vector(message)?
+        ],
         0,
         Bytes.empty())
     end
@@ -128,30 +137,21 @@ end
 fn take_u8(state :: BinaryReader) -> ReadInt!String do
   case read_u8(state) do
     Err(_) -> Err("invalid transport packet")
-    Ok((next, value)) -> Ok(ReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid transport packet")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid transport packet")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -169,9 +169,13 @@ pub fn decode_packet(input :: Bytes) -> TransportPacket!String do
     Err(_) -> Err("invalid transport packet")
     Ok(_) -> Ok(nil)
   end?
-  if version.value != 1 || !Bytes.secure_equals(magic.value, Bytes.from_utf8("M8P")) || Bytes.length(message.value) == 0 do
+  if version.value != 1
+    || !Bytes.secure_equals(magic.value, Bytes.from_utf8("M8P"))
+    || Bytes.length(message.value) == 0 do
     Err("invalid transport packet")
-  else if kind.value == 1 && Bytes.length(account.value) > 0 && Bytes.length(message.value) <= 48800 do
+  else if kind.value == 1
+    && Bytes.length(account.value) > 0
+    && Bytes.length(message.value) <= 48800 do
     Ok(InitialPacket(account.value, message.value))
   else if kind.value == 2 && Bytes.length(account.value) == 0 do
     Ok(RatchetPacket(message.value))
@@ -207,7 +211,8 @@ pub fn seal_initial_packet(account_identity :: Bytes,
   end
 end
 
-pub fn open_initial_packet(input :: Bytes, recipient :: borrow X25519PrivateKey) -> TransportPacket!String do
+pub fn open_initial_packet(input :: Bytes,
+  recipient :: borrow X25519PrivateKey) -> TransportPacket!String do
   if !is_sealed_initial_packet(input) do
     Err("invalid sealed initial packet")
   else
@@ -236,10 +241,7 @@ end
 fn profile_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid_profile")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -257,7 +259,9 @@ fn profile_directory_bytes(value :: DirectoryEntry) -> Bytes!String do
   end
 end
 
-pub fn encode_client_profile(value :: DirectoryEntry, account_id :: Bytes, device_id :: Bytes) -> Bytes!String do
+pub fn encode_client_profile(value :: DirectoryEntry,
+  account_id :: Bytes,
+  device_id :: Bytes) -> Bytes!String do
   client_join([
       client_vector(Bytes.from_utf8(value.username))?,
       client_vector(account_id)?,
@@ -296,9 +300,10 @@ pub fn decode_client_profile(encoded :: Bytes) -> ClientProfile!String do
             Err(_) -> Err("invalid_profile")
             Ok(value)
           end?
-          let mismatch = entry.username != username || !Bytes.secure_equals(account_id.value,
-            account.account_id) || !Bytes.secure_equals(device_id.value, credential.device_id) || !Bytes.secure_equals(account.account_id,
-            credential.account_id)
+          let mismatch = entry.username != username
+            || !Bytes.secure_equals(account_id.value, account.account_id)
+            || !Bytes.secure_equals(device_id.value, credential.device_id)
+            || !Bytes.secure_equals(account.account_id, credential.account_id)
           if mismatch do
             Err("invalid_profile")
           else
@@ -322,10 +327,7 @@ end
 fn plaintext_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid_initial_plaintext")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -341,10 +343,7 @@ pub fn decode_initial_plaintext(input :: Bytes) -> InitialPlaintext!String do
       let inner = plaintext_vector(profile.state, 49144)?
       case finish(inner.state) do
         Err(_) -> Err("invalid_initial_plaintext")
-        Ok(_) -> Ok(InitialPlaintext {
-          profile: profile.value,
-          inner: inner.value
-        })
+        Ok(_) -> Ok(InitialPlaintext { profile: profile.value, inner: inner.value })
       end
     end
   end
@@ -358,7 +357,8 @@ end
 ## either account, on any client, arrives at the same name with nothing to
 ## coordinate, and a receiver checks the name instead of trusting it.
 
-pub fn direct_conversation_id(first_account_id :: Bytes, second_account_id :: Bytes) -> Bytes!String do
+pub fn direct_conversation_id(first_account_id :: Bytes,
+  second_account_id :: Bytes) -> Bytes!String do
   let (lower, higher) = if account_before(first_account_id, second_account_id, 0)? do
     (first_account_id, second_account_id)
   else

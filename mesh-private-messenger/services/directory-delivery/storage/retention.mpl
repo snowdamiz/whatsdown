@@ -1,5 +1,10 @@
-pub fn purge_envelopes(pool :: PoolHandle, acknowledged_retention_seconds :: Int, limit :: Int) -> Int!String do
-  if acknowledged_retention_seconds < 0 || acknowledged_retention_seconds > 2592000 || limit <= 0 || limit > 1000 do
+pub fn purge_envelopes(pool :: PoolHandle,
+  acknowledged_retention_seconds :: Int,
+  limit :: Int) -> Int!String do
+  if acknowledged_retention_seconds < 0
+    || acknowledged_retention_seconds > 2592000
+    || limit <= 0
+    || limit > 1000 do
     Err("invalid retention policy")
   else
     Pool.execute_values(pool,

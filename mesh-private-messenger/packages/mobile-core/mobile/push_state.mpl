@@ -40,7 +40,9 @@ pub fn push_state_context(profile :: ClientProfile) -> Bytes!String do
 end
 
 fn push_signature_valid(public_key :: Bytes, signed :: Bytes, signature :: Bytes) -> Bool do
-  case Crypto.verify(SigningPublicKey { bytes: public_key }, signed, Signature { bytes: signature }) do
+  case Crypto.verify(SigningPublicKey { bytes: public_key },
+    signed,
+    Signature { bytes: signature }) do
     Err(_) -> false
     Ok(valid) -> valid
   end
@@ -53,11 +55,13 @@ fn stored_bind_valid(state :: MobilePushState, profile :: ClientProfile) -> Bool
       Err(_) -> false
       Ok(canonical) -> case push_bind_signing_bytes(value) do
         Err(_) -> false
-        Ok(signed) -> Bytes.secure_equals(canonical, state.pending_wire) && Bytes.secure_equals(value.mailbox_token_hash,
-          Crypto.sha256(profile.entry.mailbox_token)) && Bytes.secure_equals(value.wake_token_hash,
-          state.wake_token_hash) && U64.compare(value.revision, state.revision) == 0 && value.provider == 1 && push_signature_valid(profile.credential.signing_public_key,
-          signed,
-          value.signature)
+        Ok(signed) -> Bytes.secure_equals(canonical, state.pending_wire)
+          && Bytes.secure_equals(value.mailbox_token_hash,
+            Crypto.sha256(profile.entry.mailbox_token))
+          && Bytes.secure_equals(value.wake_token_hash, state.wake_token_hash)
+          && U64.compare(value.revision, state.revision) == 0
+          && value.provider == 1
+          && push_signature_valid(profile.credential.signing_public_key, signed, value.signature)
       end
     end
   end
@@ -70,10 +74,11 @@ fn stored_unbind_valid(state :: MobilePushState, profile :: ClientProfile) -> Bo
       Err(_) -> false
       Ok(canonical) -> case push_unbind_signing_bytes(value) do
         Err(_) -> false
-        Ok(signed) -> Bytes.secure_equals(canonical, state.pending_wire) && Bytes.secure_equals(value.mailbox_token_hash,
-          Crypto.sha256(profile.entry.mailbox_token)) && U64.compare(value.revision, state.revision) == 0 && push_signature_valid(profile.credential.signing_public_key,
-          signed,
-          value.signature)
+        Ok(signed) -> Bytes.secure_equals(canonical, state.pending_wire)
+          && Bytes.secure_equals(value.mailbox_token_hash,
+            Crypto.sha256(profile.entry.mailbox_token))
+          && U64.compare(value.revision, state.revision) == 0
+          && push_signature_valid(profile.credential.signing_public_key, signed, value.signature)
       end
     end
   end
@@ -95,8 +100,8 @@ fn push_state_valid(state :: MobilePushState, profile :: ClientProfile) -> Bool!
   let revision_zero = U64.compare(state.revision, mobile_wide("0")?) == 0
   let revision_valid = U64.compare(state.revision, mobile_wide("9223372036854775807")?) <= 0
   let action_epoch_valid = U64.compare(state.action_epoch, mobile_wide("9223372036854775807")?) <= 0
-  let hashes_zero = Bytes.secure_equals(state.wake_token_hash, zero) && Bytes.secure_equals(state.provider_token_hash,
-    zero)
+  let hashes_zero = Bytes.secure_equals(state.wake_token_hash, zero)
+    && Bytes.secure_equals(state.provider_token_hash, zero)
   let pending_shape = if state.pending_kind == 0 do
     Bytes.length(state.pending_wire) == 0
   else if state.pending_kind == 1 do
@@ -109,15 +114,21 @@ fn push_state_valid(state :: MobilePushState, profile :: ClientProfile) -> Bool!
   let mode_shape = if state.mode == 0 do
     hashes_zero && (state.pending_kind == 0 || state.pending_kind == 2)
   else if state.mode == 1 do
-    Bytes.length(state.wake_token_hash) == 32 && Bytes.length(state.provider_token_hash) == 32 && !Bytes.secure_equals(state.wake_token_hash,
-      zero) && !Bytes.secure_equals(state.provider_token_hash, zero) && !Bytes.secure_equals(state.wake_token_hash,
-      Crypto.sha256(profile.entry.mailbox_token)) && (state.pending_kind == 0 || state.pending_kind == 1)
+    Bytes.length(state.wake_token_hash) == 32
+      && Bytes.length(state.provider_token_hash) == 32
+      && !Bytes.secure_equals(state.wake_token_hash, zero)
+      && !Bytes.secure_equals(state.provider_token_hash, zero)
+      && !Bytes.secure_equals(state.wake_token_hash, Crypto.sha256(profile.entry.mailbox_token))
+      && (state.pending_kind == 0 || state.pending_kind == 1)
   else
     false
   end
-  let config_empty = Bytes.length(state.project_id) == 0 && Bytes.length(state.broker_public_key) == 0
+  let config_empty = Bytes.length(state.project_id) == 0
+    && Bytes.length(state.broker_public_key) == 0
   let config_valid = stored_push_config_valid(state.project_id, state.broker_public_key)
-  let config_shape = if state.action_kind == 1 || state.action_kind == 2 || (state.target_mode == 1 && (state.action_kind == 4 || state.action_kind == 5)) do
+  let config_shape = if state.action_kind == 1
+    || state.action_kind == 2
+    || (state.target_mode == 1 && (state.action_kind == 4 || state.action_kind == 5)) do
     config_valid
   else if state.action_kind == 3 do
     config_empty || config_valid
@@ -139,9 +150,17 @@ fn push_state_valid(state :: MobilePushState, profile :: ClientProfile) -> Bool!
   else
     false
   end
-  let action_epoch_shape = state.action_kind == 0 || U64.compare(state.action_epoch,
-    mobile_wide("0")?) > 0
-  Ok(revision_valid && action_epoch_valid && pending_shape && mode_shape && config_shape && action_shape && action_epoch_shape && (state.target_mode == 0 || state.target_mode == 1) && (!revision_zero || (state.mode == 0 && state.pending_kind == 0)))
+  let action_epoch_shape = state.action_kind == 0
+    || U64.compare(state.action_epoch, mobile_wide("0")?) > 0
+  Ok(revision_valid
+    && action_epoch_valid
+    && pending_shape
+    && mode_shape
+    && config_shape
+    && action_shape
+    && action_epoch_shape
+    && (state.target_mode == 0 || state.target_mode == 1)
+    && (!revision_zero || (state.mode == 0 && state.pending_kind == 0)))
 end
 
 fn pristine_push_state() -> MobilePushState!String do
@@ -317,7 +336,8 @@ end
 ## Expo tie a push token to a Morse account. This one is random, never leaves
 ## the device except to Expo, and is stable so Expo can replace a rotated token.
 
-pub fn push_install_id(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes!String do
+pub fn push_install_id(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   let label = "push-install-id/v1"
   case load_blob(database_path, label) do
     Ok(blob) -> case open_local(blob, wrapping_key, local_context(label)?) do
@@ -370,7 +390,8 @@ fn signed_push_bind(database_path :: String,
     signature: Bytes.empty()
   }
   let device = open_device(profile, wrapping_key, database_path)?
-  let signature = case Crypto.sign(device.signing_private_key, push_bind_signing_bytes(unsigned)?) do
+  let signature = case Crypto.sign(device.signing_private_key,
+    push_bind_signing_bytes(unsigned)?) do
     Err(_) -> Err("push_binding_sign_failed")
     Ok(value) -> Ok(value.bytes)
   end?
@@ -387,7 +408,8 @@ pub fn signed_push_unbind(database_path :: String,
     signature: Bytes.empty()
   }
   let device = open_device(profile, wrapping_key, database_path)?
-  let signature = case Crypto.sign(device.signing_private_key, push_unbind_signing_bytes(unsigned)?) do
+  let signature = case Crypto.sign(device.signing_private_key,
+    push_unbind_signing_bytes(unsigned)?) do
     Err(_) -> Err("push_binding_sign_failed")
     Ok(value) -> Ok(value.bytes)
   end?
@@ -439,7 +461,14 @@ pub fn prepare_new_push_bind(request :: MobilePayloadRequest,
       wake_hash,
       revision,
       sealed)?
-    let updated = %{state | revision: revision, mode: 1, wake_token_hash: wake_hash, provider_token_hash: token_hash, pending_kind: 1, pending_wire: wire}
+    let updated = %{state |
+      revision: revision,
+      mode: 1,
+      wake_token_hash: wake_hash,
+      provider_token_hash: token_hash,
+      pending_kind: 1,
+      pending_wire: wire
+    }
     store_push_state(request.database_path, profile, wrapping_key, updated)?
     Ok(wire)
   end
@@ -463,7 +492,13 @@ pub fn prepare_push_bind_with_config(request :: MobilePayloadRequest,
       Err(_) -> Err("push_material_unavailable")
       Ok(value)
     end?
-    let action_state = %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 3, target_mode: 1, project_id: request.payload, broker_public_key: broker_public_key.bytes}
+    let action_state = %{state |
+      action_epoch: next_push_action_epoch(state.action_epoch)?,
+      action_kind: 3,
+      target_mode: 1,
+      project_id: request.payload,
+      broker_public_key: broker_public_key.bytes
+    }
     prepare_new_push_bind(request,
       profile,
       wrapping_key,
@@ -486,7 +521,14 @@ pub fn prepare_push_unbind_loaded(database_path :: String,
   else
     let revision = next_push_revision(state.revision)?
     let wire = signed_push_unbind(database_path, profile, wrapping_key, revision)?
-    let updated = %{state | revision: revision, mode: 0, wake_token_hash: mobile_zeroes(32)?, provider_token_hash: mobile_zeroes(32)?, pending_kind: 2, pending_wire: wire}
+    let updated = %{state |
+      revision: revision,
+      mode: 0,
+      wake_token_hash: mobile_zeroes(32)?,
+      provider_token_hash: mobile_zeroes(32)?,
+      pending_kind: 2,
+      pending_wire: wire
+    }
     store_push_state(database_path, profile, wrapping_key, updated)?
     Ok(wire)
   end
@@ -503,7 +545,13 @@ pub fn prepare_push_unbind(database_path :: String) -> Bytes!String do
     if state.pending_kind == 2 do
       Ok(state.pending_wire)
     else
-      let action_state = %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 4, target_mode: 0, project_id: Bytes.empty(), broker_public_key: Bytes.empty()}
+      let action_state = %{state |
+        action_epoch: next_push_action_epoch(state.action_epoch)?,
+        action_kind: 4,
+        target_mode: 0,
+        project_id: Bytes.empty(),
+        broker_public_key: Bytes.empty()
+      }
       prepare_push_unbind_loaded(database_path, profile, wrapping_key, action_state)
     end
   end
@@ -526,7 +574,13 @@ pub fn commit_push_update(request :: MobilePayloadRequest) -> Bytes!String do
       store_push_state(request.database_path,
         profile,
         wrapping_key,
-        %{state | pending_kind: 0, pending_wire: Bytes.empty(), action_epoch: epoch, action_kind: 0, target_mode: state.mode})?
+        %{state |
+          pending_kind: 0,
+          pending_wire: Bytes.empty(),
+          action_epoch: epoch,
+          action_kind: 0,
+          target_mode: state.mode
+        })?
       Ok(Bytes.empty())
     end
   end

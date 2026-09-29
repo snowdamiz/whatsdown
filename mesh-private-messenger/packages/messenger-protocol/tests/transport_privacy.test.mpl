@@ -1,6 +1,11 @@
 from Transport.GroupRecipient import seal_group_transport, open_group_transport
 from Transport.Padding import pad_message, unpad_message
-from Transport.Packet import TransportPacket, encode_packet, open_initial_packet, seal_initial_packet
+from Transport.Packet import (
+  TransportPacket,
+  encode_packet,
+  open_initial_packet,
+  seal_initial_packet
+)
 
 fn repeated(value :: Int, length :: Int) -> Bytes!String do
   case Bytes.repeat(value, length) do

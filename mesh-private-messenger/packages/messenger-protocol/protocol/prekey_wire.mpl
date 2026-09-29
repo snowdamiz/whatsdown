@@ -24,7 +24,13 @@ from Protocol.ExtensionWire import (
   protocol_validate_extensions
 )
 from Protocol.IdentityWire import decode_device_credential
-from Protocol.V1 import PrekeyBundle, ProtocolError, protocol_contains_suite, protocol_supported_suite, protocol_validate_suite_list
+from Protocol.V1 import (
+  PrekeyBundle,
+  ProtocolError,
+  protocol_contains_suite,
+  protocol_supported_suite,
+  protocol_validate_suite_list
+)
 
 fn validate_prekey_bundle(value :: PrekeyBundle) -> Result<(), ProtocolError> do
   if value.version != 1 do
@@ -42,11 +48,20 @@ fn validate_prekey_bundle(value :: PrekeyBundle) -> Result<(), ProtocolError> do
     else
       0
     end
-    if Bytes.length(value.device_credential) != credential_length || Bytes.length(value.identity_dh_public_key) != 32 || Bytes.length(value.signing_public_key) != 32 || Bytes.length(value.signed_prekey) != 32 || Bytes.length(value.signed_prekey_signature) != 64 || Bytes.length(value.post_quantum_prekey) != post_quantum_length do
+    if Bytes.length(value.device_credential) != credential_length
+      || Bytes.length(value.identity_dh_public_key) != 32
+      || Bytes.length(value.signing_public_key) != 32
+      || Bytes.length(value.signed_prekey) != 32
+      || Bytes.length(value.signed_prekey_signature) != 64
+      || Bytes.length(value.post_quantum_prekey) != post_quantum_length do
       Err(InvalidFieldLength)
-    else if protocol_is_zero(value.signed_prekey_id) || !(Bytes.length(value.one_time_prekey) == 0 || Bytes.length(value.one_time_prekey) == 32) do
+    else if protocol_is_zero(value.signed_prekey_id)
+      || !(Bytes.length(value.one_time_prekey) == 0 || Bytes.length(value.one_time_prekey) == 32) do
       Err(InvalidFieldLength)
-    else if (Bytes.length(value.one_time_prekey) == 0 && !protocol_is_zero(value.one_time_prekey_id)) || (Bytes.length(value.one_time_prekey) == 32 && protocol_is_zero(value.one_time_prekey_id)) do
+    else if (Bytes.length(value.one_time_prekey) == 0
+      && !protocol_is_zero(value.one_time_prekey_id))
+      || (Bytes.length(value.one_time_prekey) == 32
+        && protocol_is_zero(value.one_time_prekey_id)) do
       Err(InvalidFieldLength)
     else
       protocol_validate_suite_list(value.supported_suites, 0)?
@@ -57,10 +72,10 @@ fn validate_prekey_bundle(value :: PrekeyBundle) -> Result<(), ProtocolError> do
           Err(_) -> Err(MalformedEncoding)
           Ok(credential)
         end?
-        if credential.suite != value.suite || !Bytes.secure_equals(credential.signing_public_key,
-          value.signing_public_key) || !Bytes.secure_equals(credential.dh_public_key,
-          value.identity_dh_public_key) || !Bytes.secure_equals(credential.post_quantum_public_key,
-          value.post_quantum_prekey) do
+        if credential.suite != value.suite
+          || !Bytes.secure_equals(credential.signing_public_key, value.signing_public_key)
+          || !Bytes.secure_equals(credential.dh_public_key, value.identity_dh_public_key)
+          || !Bytes.secure_equals(credential.post_quantum_public_key, value.post_quantum_prekey) do
           Err(MalformedEncoding)
         else
           protocol_validate_extensions(value.extensions, 0, 0)

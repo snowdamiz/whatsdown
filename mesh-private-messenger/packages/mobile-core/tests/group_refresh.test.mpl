@@ -3,12 +3,19 @@ from Protocol.IdentityWire import decode_account_identity
 from Mobile.Transparency import transparency_device_set_label
 from Storage.Blobs import load_blob, put_blob
 import File
-from MobileCore import group_send_export, group_receive_export, outbox_list_export, process_delivery_batch_export
+from MobileCore import (
+  group_send_export,
+  group_receive_export,
+  outbox_list_export,
+  process_delivery_batch_export
+)
 from Tests.GroupLifecycleCreate import create_group_with_bob
 from Tests.GroupLifecycleSupport import GroupAccountFixture, group_account_fixture
 from Tests.GroupLifecycleWire import acknowledge, delivery_batch, group_vectors, output_list
 
-fn send_until_refresh(accounts :: GroupAccountFixture, group_id :: Bytes, remaining :: Int) -> Result<(), String> do
+fn send_until_refresh(accounts :: GroupAccountFixture,
+  group_id :: Bytes,
+  remaining :: Int) -> Result<(), String> do
   if remaining == 0 do
     Ok(nil)
   else

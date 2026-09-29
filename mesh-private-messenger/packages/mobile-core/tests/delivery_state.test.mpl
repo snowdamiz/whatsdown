@@ -28,7 +28,7 @@ fn states(path :: String, peer :: Bytes) -> List<Int>!String do
     0,
     Bytes.empty())?)?)?
   Ok(List.map(summaries,
-    fn (summary) do
+    fn(summary) do
       case Bytes.get(summary, Bytes.length(summary) - 1) do
         Err(_) -> 255
         Ok(value) -> value
@@ -74,7 +74,9 @@ fn proof() -> Bool!String do
   assert(states(alice, bob_profile)? == [1])
   # The service refuses it for good: it leaves the outbox and the conversation
   # says so, instead of reading as sent.
-  assert(Bytes.length(outbox_fail_export(request([Bytes.from_utf8(alice), first], 0, Bytes.empty())?)?) == 0)
+  assert(Bytes.length(outbox_fail_export(request([Bytes.from_utf8(alice), first],
+    0,
+    Bytes.empty())?)?) == 0)
   assert(queued(alice, 0)? == 0)
   assert(states(alice, bob_profile)? == [2])
   # An accepted one reads as sent, and the earlier failure stays a failure.
@@ -86,10 +88,14 @@ fn proof() -> Bool!String do
     0,
     Bytes.empty())?)?
   assert(states(alice, bob_profile)? == [2, 1])
-  assert(Bytes.length(outbox_ack_export(request([Bytes.from_utf8(alice), second], 0, Bytes.empty())?)?) == 0)
+  assert(Bytes.length(outbox_ack_export(request([Bytes.from_utf8(alice), second],
+    0,
+    Bytes.empty())?)?) == 0)
   assert(states(alice, bob_profile)? == [2, 0])
   # Refusing something that is not queued changes nothing.
-  assert(Bytes.length(outbox_fail_export(request([Bytes.from_utf8(alice), second], 0, Bytes.empty())?)?) == 0)
+  assert(Bytes.length(outbox_fail_export(request([Bytes.from_utf8(alice), second],
+    0,
+    Bytes.empty())?)?) == 0)
   assert(states(alice, bob_profile)? == [2, 0])
   # The outbox holds more than the first page shows, and an offset reaches the
   # rest, so envelopes that must wait cannot hide the ones behind them.

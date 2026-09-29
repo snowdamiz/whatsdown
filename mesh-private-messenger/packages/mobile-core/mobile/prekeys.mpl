@@ -32,16 +32,24 @@ from Storage.Keys import (
   seal_local,
   seal_x25519
 )
-from Storage.Records import store_last_resort_prekey, store_prekey_batch, store_prekey_reconciliation, store_record_changes
+from Storage.Records import (
+  store_last_resort_prekey,
+  store_prekey_batch,
+  store_prekey_reconciliation,
+  store_record_changes
+)
 from Transport.Packet import ClientProfile, decode_client_profile
 
 ##! Mobile.Prekeys implementation.
 
 fn valid_prekey_id(id :: U64) -> Bool!String do
-  Ok(U64.compare(id, mobile_wide("0")?) > 0 && U64.compare(id, mobile_wide("9223372036854775807")?) <= 0)
+  Ok(U64.compare(id, mobile_wide("0")?) > 0
+    && U64.compare(id, mobile_wide("9223372036854775807")?) <= 0)
 end
 
-fn encode_prekey_entries(entries :: List<MobileOneTimePrekey>, index :: Int, output :: Bytes) -> Bytes!String do
+fn encode_prekey_entries(entries :: List<MobileOneTimePrekey>,
+  index :: Int,
+  output :: Bytes) -> Bytes!String do
   if List.length(entries) > 128 do
     Err("prekey_pool_full")
   else if index >= List.length(entries) do
@@ -73,11 +81,7 @@ fn decode_prekey_entries(encoded :: Bytes,
       decode_prekey_entries(encoded,
         offset + 40,
         id,
-        List.append(entries,
-          MobileOneTimePrekey {
-            id: id,
-            public_key: public_key
-          }))
+        List.append(entries, MobileOneTimePrekey { id: id, public_key: public_key }))
     end
   end
 end
@@ -100,7 +104,9 @@ fn contains_prekey_id(ids :: List<U64>, id :: U64, index :: Int) -> Bool do
   end
 end
 
-fn mobile_prekey_ids(entries :: List<MobileOneTimePrekey>, index :: Int, output :: List<U64>) -> List<U64> do
+fn mobile_prekey_ids(entries :: List<MobileOneTimePrekey>,
+  index :: Int,
+  output :: List<U64>) -> List<U64> do
   if index >= List.length(entries) do
     output
   else
@@ -109,7 +115,10 @@ fn mobile_prekey_ids(entries :: List<MobileOneTimePrekey>, index :: Int, output 
   end
 end
 
-fn encode_active_prekey_ids(ids :: List<U64>, index :: Int, previous :: U64, output :: Bytes) -> Bytes!String do
+fn encode_active_prekey_ids(ids :: List<U64>,
+  index :: Int,
+  previous :: U64,
+  output :: Bytes) -> Bytes!String do
   if List.length(ids) > 64 do
     Err("active_prekey_pool_full")
   else if index >= List.length(ids) do
@@ -133,9 +142,9 @@ fn decode_active_prekey_ids(encoded :: Bytes,
     Ok(output)
   else
     let id = mobile_read_u64(Bytes.slice(encoded, offset, 8)?)?
-    if !(valid_prekey_id(id)?) || U64.compare(id, previous) <= 0 || !contains_prekey_id(entry_ids,
-      id,
-      0) do
+    if !(valid_prekey_id(id)?)
+      || U64.compare(id, previous) <= 0
+      || !contains_prekey_id(entry_ids, id, 0) do
       Err("invalid_active_prekey_pool")
     else
       decode_active_prekey_ids(encoded, offset + 8, id, entry_ids, List.append(output, id))
@@ -151,24 +160,32 @@ fn decode_active_prekey_pool(encoded :: Bytes, entry_ids :: List<U64>) -> List<U
   end
 end
 
-pub fn seal_prekey_pool(entries :: List<MobileOneTimePrekey>, wrapping_key :: borrow StorageKey) -> Bytes!String do
+pub fn seal_prekey_pool(entries :: List<MobileOneTimePrekey>,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   seal_local(encode_prekey_entries(entries, 0, Bytes.empty())?,
     wrapping_key,
     local_context("one-time-prekeys/v1")?)
 end
 
-pub fn seal_active_prekey_pool(ids :: List<U64>, wrapping_key :: borrow StorageKey) -> Bytes!String do
+pub fn seal_active_prekey_pool(ids :: List<U64>,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   seal_local(encode_active_prekey_ids(ids, 0, mobile_wide("0")?, Bytes.empty())?,
     wrapping_key,
     local_context("one-time-prekey-active/v1")?)
 end
 
-pub fn seal_prekey_wide(label :: String, value :: U64, wrapping_key :: borrow StorageKey) -> Bytes!String do
+pub fn seal_prekey_wide(label :: String,
+  value :: U64,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   seal_local(mobile_write_u64(value)?, wrapping_key, local_context(label)?)
 end
 
-fn load_prekey_wide(database_path :: String, label :: String, wrapping_key :: borrow StorageKey) -> U64!String do
-  mobile_read_u64(open_local(load_blob(database_path, label)?, wrapping_key, local_context(label)?)?)
+fn load_prekey_wide(database_path :: String,
+  label :: String,
+  wrapping_key :: borrow StorageKey) -> U64!String do
+  mobile_read_u64(open_local(load_blob(database_path, label)?,
+    wrapping_key,
+    local_context(label)?)?)
 end
 
 fn migrate_legacy_prekey(profile :: ClientProfile,
@@ -183,19 +200,16 @@ fn migrate_legacy_prekey(profile :: ClientProfile,
       context(profile.account_id, profile.device_id, "one-time-prekey/v1", 10)?)?
     let label = one_time_prekey_label(id)
     let blob = seal_x25519(legacy_private, wrapping_key, one_time_prekey_context(profile, id)?)?
-    let entries = [
-      MobileOneTimePrekey {
-        id: id,
-        public_key: profile.bundle.one_time_prekey
-      }
-    ]
+    let entries = [MobileOneTimePrekey { id: id, public_key: profile.bundle.one_time_prekey }]
     store_prekey_batch(database_path,
       [label],
       [blob],
       List.new(),
       seal_prekey_pool(entries, wrapping_key)?,
       seal_active_prekey_pool([id], wrapping_key)?,
-      seal_prekey_wide("one-time-prekey-next-id/v1", U64.add(id, mobile_wide("1")?)?, wrapping_key)?,
+      seal_prekey_wide("one-time-prekey-next-id/v1",
+        U64.add(id, mobile_wide("1")?)?,
+        wrapping_key)?,
       true)?
     Ok(entries)
   end
@@ -281,10 +295,7 @@ fn decode_last_resort(encoded :: Bytes) -> MobileOneTimePrekey!String do
     if !(valid_prekey_id(id)?) do
       Err("invalid_last_resort_prekey")
     else
-      Ok(MobileOneTimePrekey {
-        id: id,
-        public_key: Bytes.slice(encoded, 8, 32)?
-      })
+      Ok(MobileOneTimePrekey { id: id, public_key: Bytes.slice(encoded, 8, 32)? })
     end
   end
 end
@@ -305,7 +316,8 @@ end
 # The key being handed out: identifier, public key and, since keys are replaced,
 # when it was made. A record from before then has no time and counts as due.
 
-fn load_last_resort_record(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes!String do
+fn load_last_resort_record(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   let stored = load_last_resort_state(database_path, wrapping_key, "last-resort-prekey/v1")?
   if Bytes.length(stored) == 0 || Bytes.length(stored) == 40 || Bytes.length(stored) == 48 do
     Ok(stored)
@@ -318,7 +330,8 @@ end
 # identifier, the public key, and when the directory confirmed the successor
 # (zero until it has).
 
-fn load_last_resort_retired(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes!String do
+fn load_last_resort_retired(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   let stored = load_last_resort_state(database_path, wrapping_key, "last-resort-retired/v1")?
   if Bytes.length(stored) % 48 != 0 do
     Err("invalid_last_resort_prekey")
@@ -327,7 +340,9 @@ fn load_last_resort_retired(database_path :: String, wrapping_key :: borrow Stor
   end
 end
 
-fn retired_last_resort(retired :: Bytes, id :: U64, offset :: Int) -> Option<MobileOneTimePrekey>!String do
+fn retired_last_resort(retired :: Bytes,
+  id :: U64,
+  offset :: Int) -> Option<MobileOneTimePrekey>!String do
   if offset >= Bytes.length(retired) do
     Ok(None)
   else
@@ -389,10 +404,7 @@ fn new_last_resort_prekey(profile :: ClientProfile,
       local_context("last-resort-prekey/v1")?)?,
     retired_blob,
     removed_labels)?
-  Ok(MobileOneTimePrekey {
-    id: id,
-    public_key: public_key
-  })
+  Ok(MobileOneTimePrekey { id: id, public_key: public_key })
 end
 
 fn ensure_last_resort_prekey(profile :: ClientProfile,
@@ -485,7 +497,8 @@ fn settled_retired(retired :: Bytes,
   end
 end
 
-fn settled_last_resort_writes(database_path :: String, wrapping_key :: borrow StorageKey) -> Result<(List<String>, List<Bytes>, List<String>), String> do
+fn settled_last_resort_writes(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> Result<(List<String>, List<Bytes>, List<String>), String> do
   let retired = load_last_resort_retired(database_path, wrapping_key)?
   let (kept, removed) = settled_retired(retired, 0, current_time()?, Bytes.empty(), List.new())?
   if Bytes.secure_equals(kept, retired) do
@@ -500,7 +513,8 @@ end
 # First messages that used the reusable key, oldest first. One-time prekeys
 # cannot be replayed because their secret is deleted; this one can.
 
-fn load_last_resort_replays(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes!String do
+fn load_last_resort_replays(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   case load_blob(database_path, "last-resort-replays/v1") do
     Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
@@ -569,10 +583,7 @@ fn generate_prekey_batch(profile :: ClientProfile,
       U64.add(next_id, mobile_wide("1")?)?,
       remaining - 1,
       List.append(entries,
-        MobileOneTimePrekey {
-          id: next_id,
-          public_key: generated.public_key.bytes
-        }),
+        MobileOneTimePrekey { id: next_id, public_key: generated.public_key.bytes }),
       List.append(labels, label),
       List.append(blobs, blob))
   end
@@ -597,15 +608,13 @@ fn public_prekeys(entries :: List<MobileOneTimePrekey>,
     let entry = List.get(entries, index)
     public_prekeys(entries,
       index + 1,
-      List.append(output,
-        OneTimePrekeyPublic {
-          id: entry.id,
-          public_key: entry.public_key
-        }))
+      List.append(output, OneTimePrekeyPublic { id: entry.id, public_key: entry.public_key }))
   end
 end
 
-pub fn find_prekey(entries :: List<MobileOneTimePrekey>, id :: U64, index :: Int) -> MobileOneTimePrekey!String do
+pub fn find_prekey(entries :: List<MobileOneTimePrekey>,
+  id :: U64,
+  index :: Int) -> MobileOneTimePrekey!String do
   if index >= List.length(entries) do
     Err("one_time_prekey_not_found")
   else
@@ -634,7 +643,10 @@ pub fn remove_prekey(entries :: List<MobileOneTimePrekey>,
   end
 end
 
-pub fn remove_prekey_id(ids :: List<U64>, id :: U64, index :: Int, remaining :: List<U64>) -> List<U64> do
+pub fn remove_prekey_id(ids :: List<U64>,
+  id :: U64,
+  index :: Int,
+  remaining :: List<U64>) -> List<U64> do
   if index >= List.length(ids) do
     remaining
   else
@@ -673,10 +685,7 @@ fn signed_prekey_publication(profile :: ClientProfile,
     account_id: profile.account_id,
     device_id: profile.device_id,
     prekeys: public_prekeys(entries, 0, List.new()),
-    last_resort: Some(OneTimePrekeyPublic {
-      id: reusable.id,
-      public_key: reusable.public_key
-    }),
+    last_resort: Some(OneTimePrekeyPublic { id: reusable.id, public_key: reusable.public_key }),
     contact_address_hash: Some(Crypto.sha256(contact_address)),
     signature: Bytes.empty()
   }
@@ -805,8 +814,8 @@ pub fn reconcile_prekeys(request :: MobilePrekeyReconcileRequest) -> Bytes!Strin
     Err(_) -> Err("invalid_prekey_reconciliation")
     Ok(value)
   end?
-  if !Bytes.secure_equals(response.account_id, profile.account_id) || !Bytes.secure_equals(response.device_id,
-    profile.device_id) do
+  if !Bytes.secure_equals(response.account_id, profile.account_id)
+    || !Bytes.secure_equals(response.device_id, profile.device_id) do
     Err("wrong_prekey_reconciliation_identity")
   else
     let wrapping_key = platform_key()?

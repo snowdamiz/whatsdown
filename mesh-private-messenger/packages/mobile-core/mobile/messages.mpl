@@ -2,7 +2,11 @@ from Mobile.Attachments import rewrap_reference
 from Mobile.Presentation import presented_body
 from Identity.Device import DeviceKeys, VerificationPolicy
 from Mobile.Codec import canonical_outer, current_time, random_bytes
-from Mobile.ContactAddress import deposit_address, learned_contact_address_writes, outgoing_extensions
+from Mobile.ContactAddress import (
+  deposit_address,
+  learned_contact_address_writes,
+  outgoing_extensions
+)
 from Mobile.FanoutPrekeys import matching_fanout_prekey_state_labels
 from Mobile.History import accepted_request_writes, updated_history
 from Mobile.GroupInvitesState import received_invitation_writes
@@ -19,7 +23,8 @@ from Mobile.Prekeys import (
   seal_last_resort_replay,
   seal_prekey_pool
 )
-from Mobile.Profile import load_profile, open_device, open_prekeys, policy
+from Mobile.Profile import load_profile, open_device, policy
+from Mobile.Renewal import open_bundle_prekeys, own_bundle_policy, responder_prekey_bundle
 from Mobile.Transport import MobileOpenedPacket, open_outer_packet, sealed_outer_bytes
 from Mobile.Sessions import (
   ensure_conversation_alias,
@@ -322,14 +327,12 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         Some(value) -> Ok(value)
         None -> find_prekey(prekeys, initial.one_time_prekey_id, 0)
       end?
-      if reusable && last_resort_replayed(request.database_path,
-        wrapping_key,
-        initial.transcript_hash)? do
+      if reusable
+        && last_resort_replayed(request.database_path, wrapping_key, initial.transcript_hash)? do
         Err("replayed_initial_message")
       else
         Ok(nil)
       end?
-      let responder_bundle = %{local.bundle | one_time_prekey_id: selected_prekey.id, one_time_prekey: selected_prekey.public_key}
       let initiator_credential = case decode_device_credential(initial.initiator_credential) do
         Err(_) -> Err("invalid_initiator_credential")
         Ok(value)
@@ -341,9 +344,18 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         session_ids,
         0,
         0)?
-      let (signed, one_time, post_quantum) = open_prekeys(local,
+      # The bundle this message was sealed to: the current one, or one renewed
+      # away from recently enough that its mail may still arrive.
+      let responder_bundle = responder_prekey_bundle(request.database_path,
+        wrapping_key,
+        local,
+        selected_prekey,
+        strongest_suite,
+        packet_message)?
+      let (signed, one_time, post_quantum) = open_bundle_prekeys(local,
         wrapping_key,
         request.database_path,
+        responder_bundle,
         selected_prekey)?
       let now = current_time()?
       let (state, plaintext) = case receive_initial(local_device,
@@ -353,7 +365,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         one_time,
         post_quantum,
         initiator_account,
-        policy(local, now),
+        own_bundle_policy(local, responder_bundle, now),
         VerificationPolicy {
           current_time: now,
           minimum_directory_sequence: initiator_account.directory_sequence
@@ -391,10 +403,11 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
           Err(error)
         end
       end?
-      let self_sync = inner.message_type == 2 && Bytes.secure_equals(peer.account_id,
-        local.account_id)
-      let valid_kind = self_sync || ((inner.message_type == 1 || inner.message_type == 3 || inner.message_type == 4) && !Bytes.secure_equals(peer.account_id,
-        local.account_id))
+      let self_sync = inner.message_type == 2
+        && Bytes.secure_equals(peer.account_id, local.account_id)
+      let valid_kind = self_sync
+        || ((inner.message_type == 1 || inner.message_type == 3 || inner.message_type == 4)
+          && !Bytes.secure_equals(peer.account_id, local.account_id))
       let expected_conversation = if self_sync do
         self_sync_conversation_id(local.account_id)?
       else
@@ -402,20 +415,24 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
       end
       # A conversation from before names were derived still goes by the name
       # in this device's record, so what was in flight at an upgrade arrives.
-      let conversation_mismatch = !Bytes.secure_equals(inner.conversation_id, expected_conversation) && case previous do
-        None -> true
-        Some(loaded) -> !Bytes.secure_equals(inner.conversation_id, loaded.record.conversation_id)
-      end
+      let conversation_mismatch = !Bytes.secure_equals(inner.conversation_id, expected_conversation)
+        && case previous do
+          None -> true
+          Some(loaded) -> !Bytes.secure_equals(inner.conversation_id, loaded.record.conversation_id)
+        end
       # The name this device files the conversation under is its own records'
       # business; a wire name only ever adds to what is already here.
       let conversation_key = case previous do
         None -> inner.conversation_id
         Some(loaded) -> loaded.record.conversation_id
       end
-      let mismatch = !valid_kind || conversation_mismatch || !Bytes.secure_equals(peer.entry.account_identity,
-        packet_account_identity) || !Bytes.secure_equals(inner.sender_account_id, peer.account_id) || !Bytes.secure_equals(inner.sender_device_id,
-        peer.device_id) || !Bytes.secure_equals(peer.device_id, initiator_credential.device_id) || !Bytes.secure_equals(inner.recipient_device_id,
-        local.device_id)
+      let mismatch = !valid_kind
+        || conversation_mismatch
+        || !Bytes.secure_equals(peer.entry.account_identity, packet_account_identity)
+        || !Bytes.secure_equals(inner.sender_account_id, peer.account_id)
+        || !Bytes.secure_equals(inner.sender_device_id, peer.device_id)
+        || !Bytes.secure_equals(peer.device_id, initiator_credential.device_id)
+        || !Bytes.secure_equals(inner.recipient_device_id, local.device_id)
       if mismatch do
         Err("initial_identity_mismatch")
       else
@@ -539,14 +556,16 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes!String do
     requested_peer.account_id,
     session_ids,
     0)?
-  let changed = !Bytes.secure_equals(loaded.record.peer_device_id, requested_peer.device_id) || !Bytes.secure_equals(loaded.record.peer_mailbox,
-    requested_peer.entry.mailbox_token) || (Bytes.length(loaded.record.safety_number) == 64 && !Bytes.secure_equals(loaded.record.safety_number,
-    safety_number(local, requested_peer)?))
+  let changed = !Bytes.secure_equals(loaded.record.peer_device_id, requested_peer.device_id)
+    || !Bytes.secure_equals(loaded.record.peer_mailbox, requested_peer.entry.mailbox_token)
+    || (Bytes.length(loaded.record.safety_number) == 64
+      && !Bytes.secure_equals(loaded.record.safety_number, safety_number(local, requested_peer)?))
   if changed do
     Err("peer_keys_changed")
   else if loaded.record.strongest_suite > requested_peer.bundle.suite do
     Err("peer_keys_changed")
-  else if loaded.record.strongest_suite < requested_peer.bundle.suite || Bytes.length(loaded.record.safety_number) == 0 do
+  else if loaded.record.strongest_suite < requested_peer.bundle.suite
+    || Bytes.length(loaded.record.safety_number) == 0 do
     Err("session_upgrade_required")
   else if loaded.record.blocked do
     Err("conversation_blocked")
@@ -575,9 +594,11 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes!String do
       Ok(history_inner)
     else
       let local_device = open_device(local, wrapping_key, request.database_path)?
-      Ok(%{history_inner | attachment_manifest: rewrap_reference(local_device,
-        request.attachment,
-        requested_peer.credential.dh_public_key)?})
+      Ok(%{history_inner |
+        attachment_manifest: rewrap_reference(local_device,
+          request.attachment,
+          requested_peer.credential.dh_public_key)?
+      })
     end?
     # The sent copy hands over this device's contact address; history does not keep it.
     let handed_over = outgoing_extensions(request.database_path, wrapping_key)?
@@ -674,20 +695,22 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
           Err(_) -> Err("invalid_inner_envelope")
           Ok(value)
         end?
-        let self_sync = inner.message_type == 2 && Bytes.secure_equals(loaded.record.peer_account_id,
-          local.account_id)
-        let valid_kind = self_sync || ((inner.message_type == 1 || inner.message_type == 3 || inner.message_type == 4) && !Bytes.secure_equals(loaded.record.peer_account_id,
-          local.account_id))
+        let self_sync = inner.message_type == 2
+          && Bytes.secure_equals(loaded.record.peer_account_id, local.account_id)
+        let valid_kind = self_sync
+          || ((inner.message_type == 1 || inner.message_type == 3 || inner.message_type == 4)
+            && !Bytes.secure_equals(loaded.record.peer_account_id, local.account_id))
         let expected_conversation = if self_sync do
           self_sync_conversation_id(local.account_id)?
         else
           direct_conversation_id(local.account_id, loaded.record.peer_account_id)?
         end
-        let mismatch = !valid_kind || !Bytes.secure_equals(inner.sender_account_id,
-          loaded.record.peer_account_id) || !Bytes.secure_equals(inner.sender_device_id,
-          loaded.record.peer_device_id) || !Bytes.secure_equals(inner.recipient_device_id,
-          local.device_id) || (!Bytes.secure_equals(inner.conversation_id, expected_conversation) && !Bytes.secure_equals(inner.conversation_id,
-          loaded.record.conversation_id))
+        let mismatch = !valid_kind
+          || !Bytes.secure_equals(inner.sender_account_id, loaded.record.peer_account_id)
+          || !Bytes.secure_equals(inner.sender_device_id, loaded.record.peer_device_id)
+          || !Bytes.secure_equals(inner.recipient_device_id, local.device_id)
+          || (!Bytes.secure_equals(inner.conversation_id, expected_conversation)
+            && !Bytes.secure_equals(inner.conversation_id, loaded.record.conversation_id))
         if mismatch do
           reject_message(next_state, "message_rejected")
         else

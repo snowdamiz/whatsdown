@@ -68,10 +68,7 @@ fn proof() -> Bool!ProtocolError do
     ciphertext: Bytes.from_utf8("opaque ciphertext")
   })?
   let batch = decode_delivery_batch(encode_delivery_batch([
-    DeliveredEnvelope {
-      sequence: wide(4)?,
-      envelope: outer
-    }
+    DeliveredEnvelope { sequence: wide(4)?, envelope: outer }
   ])?)?
   assert(List.length(batch) == 1)
   assert(U64.compare(List.head(batch).sequence, wide(4)?) == 0)

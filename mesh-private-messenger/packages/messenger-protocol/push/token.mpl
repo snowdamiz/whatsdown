@@ -68,30 +68,21 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid push token wire")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
 fn take_u8(state :: BinaryReader) -> ReadInt!String do
   case read_u8(state) do
     Err(_) -> Err("invalid push token wire")
-    Ok((next, value)) -> Ok(ReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid push token wire")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -171,7 +162,10 @@ fn token_key(shared :: SecretBytes, authenticated_data :: Bytes) -> AeadKey!Stri
 end
 
 fn encode_sealed(value :: SealedProviderToken) -> Bytes!String do
-  if Bytes.length(value.ephemeral_public_key) != 32 || Bytes.length(value.nonce) != 12 || Bytes.length(value.ciphertext) < 36 || Bytes.length(value.ciphertext) > 528 do
+  if Bytes.length(value.ephemeral_public_key) != 32
+    || Bytes.length(value.nonce) != 12
+    || Bytes.length(value.ciphertext) < 36
+    || Bytes.length(value.ciphertext) > 528 do
     Err("invalid sealed provider token")
   else
     join([
@@ -193,7 +187,9 @@ fn decode_sealed(input :: Bytes) -> SealedProviderToken!String do
   let nonce = take_fixed(public_key.state, 12)?
   let ciphertext = take_vector(nonce.state, 528)?
   done(ciphertext.state)?
-  if version.value != 1 || !Bytes.secure_equals(magic.value, Bytes.from_utf8("SPT")) || Bytes.length(ciphertext.value) < 36 do
+  if version.value != 1
+    || !Bytes.secure_equals(magic.value, Bytes.from_utf8("SPT"))
+    || Bytes.length(ciphertext.value) < 36 do
     Err("invalid sealed provider token")
   else
     Ok(SealedProviderToken {
@@ -244,7 +240,8 @@ pub fn seal_provider_token(token :: Bytes, broker_public_key :: X25519PublicKey)
   end
 end
 
-pub fn open_provider_token_with_key(input :: Bytes, broker_private_key :: borrow X25519PrivateKey) -> Bytes!String do
+pub fn open_provider_token_with_key(input :: Bytes,
+  broker_private_key :: borrow X25519PrivateKey) -> Bytes!String do
   let sealed = decode_sealed(input)?
   let broker_public_key = case Crypto.x25519_public(broker_private_key) do
     Err(_) -> Err("invalid push broker key")

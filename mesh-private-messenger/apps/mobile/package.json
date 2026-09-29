@@ -19,6 +19,7 @@
     "test:profiles": "node scripts/test-profiles.mjs",
     "test:account-deletion": "node scripts/test-account-deletion.mjs",
     "test:receipts": "node scripts/test-receipts.mjs",
+    "test:communities": "node scripts/test-communities.mjs",
     "test:notifications": "node scripts/test-unread.mjs --notifications"
   },
   "dependencies": {

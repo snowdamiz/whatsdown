@@ -1,4 +1,18 @@
-from Backups.Protocol import BackupError, BackupManifest, BackupProfile, create_backup_profile, derive_backup_key, generate_backup_id, generate_recovery_secret, open_backup_chunk, open_backup_manifest, profile_from_backup, seal_backup_chunk, seal_backup_manifest, verify_backup_snapshot
+from Backups.Protocol import (
+  BackupError,
+  BackupManifest,
+  BackupProfile,
+  create_backup_profile,
+  derive_backup_key,
+  generate_backup_id,
+  generate_recovery_secret,
+  open_backup_chunk,
+  open_backup_manifest,
+  profile_from_backup,
+  seal_backup_chunk,
+  seal_backup_manifest,
+  verify_backup_snapshot
+)
 
 fn wide(value :: String) -> U64!BackupError do
   case U64.parse(value) do

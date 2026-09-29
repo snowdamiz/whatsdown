@@ -1,4 +1,16 @@
-from Identity.Device import IdentityError, authorize_device_link, generate_account, generate_device, issue_account_deletion, issue_device_departure, issue_device_revocation, verify_account_deletion, verify_device_departure, verify_device_link_authorization, verify_device_revocation
+from Identity.Device import (
+  IdentityError,
+  authorize_device_link,
+  generate_account,
+  generate_device,
+  issue_account_deletion,
+  issue_device_departure,
+  issue_device_revocation,
+  verify_account_deletion,
+  verify_device_departure,
+  verify_device_link_authorization,
+  verify_device_revocation
+)
 from Protocol.DirectoryWire import (
   decode_account_deletion,
   decode_device_departure,

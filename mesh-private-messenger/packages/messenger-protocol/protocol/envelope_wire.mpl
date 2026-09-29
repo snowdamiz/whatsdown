@@ -17,17 +17,37 @@ from Protocol.WirePrimitives import (
   protocol_write_u16,
   protocol_write_u64
 )
-from Protocol.ExtensionWire import protocol_encode_extensions, protocol_take_extensions, protocol_validate_extensions
-from Protocol.V1 import InnerEnvelope, OuterEnvelope, ProtocolError, protocol_sealed_outer_suite, protocol_supported_suite
+from Protocol.ExtensionWire import (
+  protocol_encode_extensions,
+  protocol_take_extensions,
+  protocol_validate_extensions
+)
+from Protocol.V1 import (
+  InnerEnvelope,
+  OuterEnvelope,
+  ProtocolError,
+  protocol_sealed_outer_suite,
+  protocol_supported_suite
+)
 
 fn validate_inner_envelope(value :: InnerEnvelope) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
-  else if Bytes.length(value.sender_account_id) != 32 || Bytes.length(value.sender_device_id) != 16 || Bytes.length(value.recipient_device_id) != 16 || Bytes.length(value.conversation_id) != 16 || Bytes.length(value.client_message_id) != 16 || !(Bytes.length(value.reply_reference) == 0 || Bytes.length(value.reply_reference) == 16) do
+  else if Bytes.length(value.sender_account_id) != 32
+    || Bytes.length(value.sender_device_id) != 16
+    || Bytes.length(value.recipient_device_id) != 16
+    || Bytes.length(value.conversation_id) != 16
+    || Bytes.length(value.client_message_id) != 16
+    || !(Bytes.length(value.reply_reference) == 0 || Bytes.length(value.reply_reference) == 16) do
     Err(InvalidFieldLength)
   else if Bytes.length(value.body) > 32768 || Bytes.length(value.attachment_manifest) > 16384 do
     Err(OversizedInput)
-  else if value.message_type <= 0 || value.message_type > 65535 || value.receipt_policy < 0 || value.receipt_policy > 2 || value.disappearing_seconds < 0 || value.disappearing_seconds > 4294967295 do
+  else if value.message_type <= 0
+    || value.message_type > 65535
+    || value.receipt_policy < 0
+    || value.receipt_policy > 2
+    || value.disappearing_seconds < 0
+    || value.disappearing_seconds > 4294967295 do
     Err(InvalidPolicy)
   else
     protocol_validate_extensions(value.extensions, 0, 0)
@@ -108,7 +128,15 @@ pub fn decode_inner_envelope(input :: Bytes) -> InnerEnvelope!ProtocolError do
 end
 
 fn supported_bucket(value :: Int) -> Bool do
-  value == 256 || value == 512 || value == 1024 || value == 2048 || value == 4096 || value == 8192 || value == 16384 || value == 32768 || value == 65536
+  value == 256
+    || value == 512
+    || value == 1024
+    || value == 2048
+    || value == 4096
+    || value == 8192
+    || value == 16384
+    || value == 32768
+    || value == 65536
 end
 
 # 1-3 are the legacy outer suites that named the protocol in the clear; they
@@ -125,7 +153,8 @@ fn validate_outer(value :: OuterEnvelope) -> Result<(), ProtocolError> do
     Err(UnsupportedSuite)
   else if Bytes.length(value.envelope_id) != 16 || Bytes.length(value.mailbox_token) != 32 do
     Err(InvalidFieldLength)
-  else if !supported_bucket(value.padding_bucket) || Bytes.length(value.ciphertext) > value.padding_bucket do
+  else if !supported_bucket(value.padding_bucket)
+    || Bytes.length(value.ciphertext) > value.padding_bucket do
     Err(InvalidPaddingBucket)
   else
     Ok(nil)

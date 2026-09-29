@@ -16,8 +16,11 @@ pub fn broker_status(status :: Int) -> PushResult do
 end
 
 pub fn broker_authorization(value :: String) -> String!String do
-  if String.length(value) < 32 || String.length(value) > 256 || String.trim(value) != value || String.contains(value,
-    "\r") || String.contains(value, "\n") do
+  if String.length(value) < 32
+    || String.length(value) > 256
+    || String.trim(value) != value
+    || String.contains(value, "\r")
+    || String.contains(value, "\n") do
     Err("invalid broker credential")
   else
     Ok("Bearer " <> value)
@@ -58,7 +61,9 @@ fn send_broker_push(binding :: ProviderPushBinding,
   end
 end
 
-pub fn dispatch_push(pool :: PoolHandle, event :: OutboxEvent, local_fake_available :: Bool) -> PushResult!String do
+pub fn dispatch_push(pool :: PoolHandle,
+  event :: OutboxEvent,
+  local_fake_available :: Bool) -> PushResult!String do
   case find_push_binding_for_mailbox(pool, event.mailbox_token_hash)? do
     None -> Ok(PushDelivered)
     Some(binding) -> Ok(send_local_fake_push(binding, generic_push_payload(), local_fake_available))
@@ -76,7 +81,10 @@ pub fn dispatch_broker_push(pool :: PoolHandle,
     else
       case broker_authorization(broker_token) do
         Err(_) -> Ok(PushRetryable("broker_auth_unconfigured"))
-        Ok(authorization) -> Ok(send_broker_push(binding, event.event_id, broker_url, authorization))
+        Ok(authorization) -> Ok(send_broker_push(binding,
+          event.event_id,
+          broker_url,
+          authorization))
       end
     end
   end

@@ -75,10 +75,7 @@ fn proof() -> Bool!String do
     "INSERT INTO messenger_mailboxes (mailbox_token_hash) VALUES ($1)",
     [Binary(Crypto.sha256(token))])?
   # Storage is exercised below the authorization boundary; Api tests cover it.
-  let owner = MailboxOwner {
-    mailbox_token: token,
-    signing_public_key: repeated(0, 32)
-  }
+  let owner = MailboxOwner { mailbox_token: token, signing_public_key: repeated(0, 32) }
   let first_id = repeated(1, 16)
   let second_id = repeated(2, 16)
   let first = OuterEnvelope {
@@ -165,7 +162,9 @@ fn proof() -> Bool!String do
   # The number of rows is bounded as well, at 4,096.
   expect(deposit(pool, busy_token, 12)? == 1, "the envelope count is not bounded")?
   expect(scalar(pool,
-      "SELECT concat(pending_count, ':', pending_bytes) AS value FROM messenger_mailboxes WHERE mailbox_token_hash = decode('" <> Bytes.to_hex(busy_hash) <> "', 'hex')")? == "4096:1048576",
+      "SELECT concat(pending_count, ':', pending_bytes) AS value FROM messenger_mailboxes WHERE mailbox_token_hash = decode('"
+        <> Bytes.to_hex(busy_hash)
+        <> "', 'hex')")? == "4096:1048576",
     "the mailbox did not account for what it holds")?
   Pool.close(pool)
   Ok(true)

@@ -51,7 +51,8 @@ pub fn parse_store_request(input :: Bytes) -> MobileStoreRequest!String do
     mobile_finish(envelope.state, "invalid_store_request")?
     case Bytes.to_utf8(path.value) do
       Err(_) -> Err("invalid_database_path")
-      Ok(database_path) -> if String.length(database_path) == 0 || Bytes.length(record_key.value) == 0 do
+      Ok(database_path) -> if String.length(database_path) == 0
+        || Bytes.length(record_key.value) == 0 do
         Err("invalid_store_request")
       else
         Ok(MobileStoreRequest {
@@ -72,10 +73,7 @@ pub fn parse_account_request(input :: Bytes) -> MobileAccountRequest!String do
     let path = take_vector(state, 4096)?
     let username = take_vector(path.state, 64)?
     mobile_finish(username.state, "invalid_account_request")?
-    Ok(MobileAccountRequest {
-      database_path: path.value,
-      username: username.value
-    })
+    Ok(MobileAccountRequest { database_path: path.value, username: username.value })
   end
 end
 
@@ -89,10 +87,7 @@ pub fn parse_prekey_request(input :: Bytes) -> MobilePrekeyRequest!String do
   if String.length(database_path) == 0 || count_value > 64 do
     Err("invalid_prekey_request")
   else
-    Ok(MobilePrekeyRequest {
-      database_path: database_path,
-      count: count_value
-    })
+    Ok(MobilePrekeyRequest { database_path: database_path, count: count_value })
   end
 end
 
@@ -105,10 +100,7 @@ pub fn parse_prekey_reconcile_request(input :: Bytes) -> MobilePrekeyReconcileRe
   if String.length(database_path) == 0 do
     Err("invalid_prekey_reconcile_request")
   else
-    Ok(MobilePrekeyReconcileRequest {
-      database_path: database_path,
-      response: response.value
-    })
+    Ok(MobilePrekeyReconcileRequest { database_path: database_path, response: response.value })
   end
 end
 
@@ -120,7 +112,8 @@ pub fn parse_start_request(input :: Bytes) -> MobileStartRequest!String do
   let attachment = take_optional_vector(body.state, 16384, "invalid_start_request")?
   mobile_finish(attachment.state, "invalid_start_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  if String.length(database_path) == 0 || (Bytes.length(body.value) == 0 && Bytes.length(attachment.value) == 0) do
+  if String.length(database_path) == 0
+    || (Bytes.length(body.value) == 0 && Bytes.length(attachment.value) == 0) do
     Err("invalid_start_request")
   else
     validate_attachment(attachment.value)?
@@ -201,7 +194,8 @@ pub fn parse_fanout_request(input :: Bytes) -> MobileFanoutRequest!String do
   let attachment = take_optional_vector(body.state, 16384, "invalid_fanout_request")?
   mobile_finish(attachment.state, "invalid_fanout_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  if String.length(database_path) == 0 || (Bytes.length(body.value) == 0 && Bytes.length(attachment.value) == 0) do
+  if String.length(database_path) == 0
+    || (Bytes.length(body.value) == 0 && Bytes.length(attachment.value) == 0) do
     Err("invalid_fanout_request")
   else
     validate_attachment(attachment.value)?
@@ -224,10 +218,7 @@ pub fn parse_receive_request(input :: Bytes) -> MobileReceiveRequest!String do
   if String.length(database_path) == 0 do
     Err("invalid_receive_request")
   else
-    Ok(MobileReceiveRequest {
-      database_path: database_path,
-      outer: outer.value
-    })
+    Ok(MobileReceiveRequest { database_path: database_path, outer: outer.value })
   end
 end
 
@@ -277,10 +268,7 @@ pub fn parse_payload_request(input :: Bytes) -> MobilePayloadRequest!String do
   if String.length(database_path) == 0 || Bytes.length(payload.value) == 0 do
     Err("invalid_payload_request")
   else
-    Ok(MobilePayloadRequest {
-      database_path: database_path,
-      payload: payload.value
-    })
+    Ok(MobilePayloadRequest { database_path: database_path, payload: payload.value })
   end
 end
 
@@ -293,10 +281,7 @@ fn parse_push_bind_request_inner(input :: Bytes) -> MobilePayloadRequest!String 
   if String.length(database_path) == 0 do
     Err("invalid")
   else
-    Ok(MobilePayloadRequest {
-      database_path: database_path,
-      payload: project_id.value
-    })
+    Ok(MobilePayloadRequest { database_path: database_path, payload: project_id.value })
   end
 end
 
@@ -313,14 +298,12 @@ pub fn parse_push_intent_request(input :: Bytes) -> MobilePushIntentRequest!Stri
   let intent = take_vector_error(path.state, 1, "invalid_push_intent")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
   let intent_value = mobile_read_byte(intent.value)?
-  if String.length(database_path) == 0 || (intent_value != 0 && intent_value != 1 && intent_value != 2) do
+  if String.length(database_path) == 0
+    || (intent_value != 0 && intent_value != 1 && intent_value != 2) do
     Err("invalid_push_intent")
   else
     mobile_finish(intent.state, "invalid_push_intent")?
-    Ok(MobilePushIntentRequest {
-      database_path: database_path,
-      intent: intent_value
-    })
+    Ok(MobilePushIntentRequest { database_path: database_path, intent: intent_value })
   end
 end
 
@@ -332,7 +315,9 @@ pub fn parse_push_action_completion(input :: Bytes) -> MobilePushActionCompletio
   mobile_finish(outcome.state, "invalid_push_action_completion")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
   let outcome_value = mobile_read_byte(outcome.value)?
-  if String.length(database_path) == 0 || Bytes.length(action.value) < 18 || (outcome_value != 0 && outcome_value != 1) do
+  if String.length(database_path) == 0
+    || Bytes.length(action.value) < 18
+    || (outcome_value != 0 && outcome_value != 1) do
     Err("invalid_push_action_completion")
   else
     Ok(MobilePushActionCompletion {
@@ -350,7 +335,9 @@ pub fn parse_triple_payload_request(input :: Bytes) -> MobileTriplePayloadReques
   let second = take_vector(first.state, 305260)?
   mobile_finish(second.state, "invalid_payload_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  if String.length(database_path) == 0 || Bytes.length(first.value) == 0 || Bytes.length(second.value) == 0 do
+  if String.length(database_path) == 0
+    || Bytes.length(first.value) == 0
+    || Bytes.length(second.value) == 0 do
     Err("invalid_payload_request")
   else
     Ok(MobileTriplePayloadRequest {
@@ -369,7 +356,10 @@ pub fn parse_group_add_request(input :: Bytes) -> MobileGroupAddRequest!String d
   let key_package = take_group_vector(device_set.state, 369)?
   mobile_finish(key_package.state, "invalid_group_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  if String.length(database_path) == 0 || Bytes.length(group_id.value) != 32 || Bytes.length(device_set.value) == 0 || Bytes.length(key_package.value) != 369 do
+  if String.length(database_path) == 0
+    || Bytes.length(group_id.value) != 32
+    || Bytes.length(device_set.value) == 0
+    || Bytes.length(key_package.value) != 369 do
     Err("invalid_group_request")
   else
     Ok(MobileGroupAddRequest {
@@ -389,7 +379,10 @@ pub fn parse_group_remove_request(input :: Bytes) -> MobileGroupRemoveRequest!St
   let device_id = take_vector(account_id.state, 16)?
   mobile_finish(device_id.state, "invalid_group_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  if String.length(database_path) == 0 || Bytes.length(group_id.value) != 32 || Bytes.length(account_id.value) != 32 || Bytes.length(device_id.value) != 16 do
+  if String.length(database_path) == 0
+    || Bytes.length(group_id.value) != 32
+    || Bytes.length(account_id.value) != 32
+    || Bytes.length(device_id.value) != 16 do
     Err("invalid_group_request")
   else
     Ok(MobileGroupRemoveRequest {
@@ -410,10 +403,7 @@ pub fn parse_group_reference_request(input :: Bytes) -> MobileGroupReferenceRequ
   if String.length(database_path) == 0 || Bytes.length(group_id.value) != 32 do
     Err("invalid_group_request")
   else
-    Ok(MobileGroupReferenceRequest {
-      database_path: database_path,
-      group_id: group_id.value
-    })
+    Ok(MobileGroupReferenceRequest { database_path: database_path, group_id: group_id.value })
   end
 end
 
@@ -451,7 +441,10 @@ pub fn parse_attachment_prepare_request(input :: Bytes) -> MobileAttachmentPrepa
   mobile_utf8(filename.value, "invalid_attachment_request")?
   mobile_utf8(mime_type.value, "invalid_attachment_request")?
   let difficulty_value = mobile_read_u32(difficulty.value)?
-  if String.length(database_path) == 0 || Bytes.length(mime_type.value) == 0 || difficulty_value < 1 || difficulty_value > 24 do
+  if String.length(database_path) == 0
+    || Bytes.length(mime_type.value) == 0
+    || difficulty_value < 1
+    || difficulty_value > 24 do
     Err("invalid_attachment_request")
   else
     Ok(MobileAttachmentPrepareRequest {
@@ -472,7 +465,9 @@ pub fn parse_attachment_chunk_request(input :: Bytes) -> MobileAttachmentChunkRe
   let payload = take_vector_error(index.state, 65576, "invalid_attachment_request")?
   mobile_finish(payload.state, "invalid_attachment_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  if String.length(database_path) == 0 || Bytes.length(reference.value) == 0 || Bytes.length(payload.value) == 0 do
+  if String.length(database_path) == 0
+    || Bytes.length(reference.value) == 0
+    || Bytes.length(payload.value) == 0 do
     Err("invalid_attachment_request")
   else
     Ok(MobileAttachmentChunkRequest {
@@ -492,7 +487,9 @@ pub fn parse_transparency_request(input :: Bytes) -> MobileTransparencyRequest!S
   mobile_finish(evidence.state, "invalid_transparency_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
   let expected_username = mobile_utf8(username.value, "invalid_username")?
-  if String.length(database_path) == 0 || String.length(expected_username) == 0 || Bytes.length(evidence.value) == 0 do
+  if String.length(database_path) == 0
+    || String.length(expected_username) == 0
+    || Bytes.length(evidence.value) == 0 do
     Err("invalid_transparency_request")
   else
     Ok(MobileTransparencyRequest {

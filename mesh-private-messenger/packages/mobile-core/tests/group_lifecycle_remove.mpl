@@ -48,7 +48,10 @@ fn assert_creator_protected(accounts :: GroupAccountFixture, group_id :: Bytes) 
         3,
         encode_group_packet(2, wire)?,
         current_time()?)?
-      case group_receive_export(group_vectors([Bytes.from_utf8(accounts.linked_path), delivery])?) do
+      case group_receive_export(group_vectors([
+        Bytes.from_utf8(accounts.linked_path),
+        delivery
+      ])?) do
         Ok(_) -> Err("a remote commit removed the creator")
         Err(error) -> do
           group_remove_ensure(error == "group_commit_rejected", "wrong creator protection error")?
@@ -93,7 +96,9 @@ pub fn exercise_group_removal(accounts :: GroupAccountFixture, group_id :: Bytes
       accounts.bob_entry.mailbox_token),
     "post-removal mailbox mismatch")?
   let bob_after_outer = outer(bob_after)?
-  let retargeted = case encode_outer_envelope(%{bob_after_outer | mailbox_token: accounts.linked_entry.mailbox_token}) do
+  let retargeted = case encode_outer_envelope(%{bob_after_outer |
+    mailbox_token: accounts.linked_entry.mailbox_token
+  }) do
     Err(_) -> Err("outer envelope encode failed")
     Ok(encoded)
   end?

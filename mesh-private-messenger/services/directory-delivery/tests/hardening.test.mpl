@@ -154,10 +154,7 @@ fn proof() -> Bool!String do
     "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext) VALUES ($1, $2, 1, 1, 256, $3)",
     [Binary(Crypto.sha256(token)), Binary(repeated(3, 16)), Binary(Bytes.from_utf8("opaque"))])?
   let fetched = fetch_mailbox(reopened,
-    MailboxOwner {
-      mailbox_token: token,
-      signing_public_key: repeated(0, 32)
-    },
+    MailboxOwner { mailbox_token: token, signing_public_key: repeated(0, 32) },
     wide("0")?)?
   expect(List.length(fetched) == 2, "expired envelope was returned")?
   expect(purge_envelopes(reopened, 3600, 128)? == 1, "expired envelope was not purged")?

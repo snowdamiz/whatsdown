@@ -1,10 +1,43 @@
-from Identity.Device import AccountKeys, DeviceKeys, IdentityError, VerificationPolicy, generate_account, generate_device, issue_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, PrekeyError, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  IdentityError,
+  VerificationPolicy,
+  generate_account,
+  generate_device,
+  issue_device_credential
+)
+from Prekeys.Bundle import (
+  OneTimePrekeySecrets,
+  PostQuantumPrekeySecrets,
+  PrekeyError,
+  SignedPrekeySecrets,
+  build_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey
+)
 from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle
 from Protocol.HandshakeWire import encode_initial_message
 from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
-from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt, is_retryable_ratchet_error
-from Session.Snapshot import ReplacementOutcome, SnapshotError, SnapshotOutcome, replace_session, restore, snapshot
+from Session.Ratchet import (
+  DecryptOutcome,
+  RatchetError,
+  RatchetMessage,
+  decode_ratchet_message,
+  decrypt,
+  encode_ratchet_message,
+  encrypt,
+  is_retryable_ratchet_error
+)
+from Session.Snapshot import (
+  ReplacementOutcome,
+  SnapshotError,
+  SnapshotOutcome,
+  replace_session,
+  restore,
+  snapshot
+)
 from Session.SnapshotV1 import SnapshotOutcomeV1, snapshot_v1
 
 type ProofError do
@@ -53,7 +86,9 @@ fn credential(account_keys :: borrow AccountKeys,
   end
 end
 
-fn signed_prekey(device_keys :: borrow DeviceKeys, value :: DeviceCredential, expires_at :: U64) -> SignedPrekeySecrets!ProofError do
+fn signed_prekey(device_keys :: borrow DeviceKeys,
+  value :: DeviceCredential,
+  expires_at :: U64) -> SignedPrekeySecrets!ProofError do
   case generate_signed_prekey(device_keys, value, wide("1")?, expires_at) do
     Err(error) -> Err(PrekeyProblem(error))
     Ok(value)
@@ -143,7 +178,9 @@ fn accept_message(state :: consume RatchetState,
   end
 end
 
-fn expect_replay(state :: consume RatchetState, message :: RatchetMessage, associated_data :: Bytes) -> RatchetState do
+fn expect_replay(state :: consume RatchetState,
+  message :: RatchetMessage,
+  associated_data :: Bytes) -> RatchetState do
   case decrypt(state, message, associated_data) do
     Opened(next, _) -> do
       println("replay:opened")
@@ -202,7 +239,9 @@ end
 # held the message back could open it after taking the device much later. The
 # refusal has to be final, or the envelope would wait in the mailbox instead.
 
-fn expect_aged(state :: consume RatchetState, message :: RatchetMessage, associated_data :: Bytes) -> RatchetState do
+fn expect_aged(state :: consume RatchetState,
+  message :: RatchetMessage,
+  associated_data :: Bytes) -> RatchetState do
   case decrypt(state, message, associated_data) do
     Opened(next, _) -> do
       println("aged:opened")
@@ -219,7 +258,9 @@ fn expect_aged(state :: consume RatchetState, message :: RatchetMessage, associa
   end
 end
 
-fn quiet_accept(state :: consume RatchetState, message :: RatchetMessage, associated_data :: Bytes) -> RatchetState do
+fn quiet_accept(state :: consume RatchetState,
+  message :: RatchetMessage,
+  associated_data :: Bytes) -> RatchetState do
   case decrypt(state, message, associated_data) do
     Opened(next, _) -> next
     Rejected(next, _) -> do
@@ -229,7 +270,9 @@ fn quiet_accept(state :: consume RatchetState, message :: RatchetMessage, associ
   end
 end
 
-fn sent(state :: consume RatchetState, text :: String, associated_data :: Bytes) -> Result<(RatchetState, RatchetMessage), ProofError> do
+fn sent(state :: consume RatchetState,
+  text :: String,
+  associated_data :: Bytes) -> Result<(RatchetState, RatchetMessage), ProofError> do
   case encrypt(state, Bytes.from_utf8(text), associated_data) do
     Err(error) -> Err(RatchetProblem(error))
     Ok(value)
@@ -238,7 +281,9 @@ end
 
 # Sends `count` messages and hands back only the last: the rest are lost.
 
-fn burn(state :: consume RatchetState, count :: Int, associated_data :: Bytes) -> Result<(RatchetState, RatchetMessage), ProofError> do
+fn burn(state :: consume RatchetState,
+  count :: Int,
+  associated_data :: Bytes) -> Result<(RatchetState, RatchetMessage), ProofError> do
   let (next, message) = sent(state, "lost", associated_data)?
   if count <= 1 do
     Ok((next, message))
@@ -351,7 +396,11 @@ fn skipped_keys_age_out(alice_session :: consume RatchetState,
   let (alice_session, lost_early) = sent(alice_session, "early", associated_data)?
   let (alice_session, kept) = sent(alice_session, "kept", associated_data)?
   let bob_session = accept_message(bob_session, kept, associated_data, Bytes.from_utf8("kept"))
-  let (_stored_session, blob) = sealed(bob_session, wrapping_key, account_id, device_id, wide("3")?)?
+  let (_stored_session, blob) = sealed(bob_session,
+    wrapping_key,
+    account_id,
+    device_id,
+    wide("3")?)?
   let bob_session = restored(blob, wrapping_key, account_id, device_id, wide("3")?)?
   let (bob_session, reply) = sent(bob_session, "reply", associated_data)?
   let alice_session = quiet_accept(alice_session, reply, associated_data)

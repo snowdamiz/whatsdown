@@ -24,6 +24,7 @@ from Mobile.Codec import (
   random_bytes
 )
 from Mobile.DeviceSet import (
+  account_device_profiles,
   cached_device_set_changed,
   contains_device_id,
   device_set_label,
@@ -213,10 +214,7 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes!String do
     end?
     let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1")?)?
     let prekey_index_blob = seal_prekey_pool([
-        MobileOneTimePrekey {
-          id: one_time.id,
-          public_key: one_time.public_key.bytes
-        }
+        MobileOneTimePrekey { id: one_time.id, public_key: one_time.public_key.bytes }
       ],
       wrapping_key)?
     let prekey_active_blob = seal_active_prekey_pool([one_time.id], wrapping_key)?
@@ -288,7 +286,8 @@ fn parse_link_authorization(input :: Bytes) -> DeviceLinkAuthorization!String do
   end
 end
 
-fn load_pending_link_request(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes!String do
+fn load_pending_link_request(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   open_local(load_blob(database_path, "pending-link-request/v1")?,
     wrapping_key,
     local_context("pending-link-request/v1")?)
@@ -364,8 +363,8 @@ pub fn authorize_link(request :: MobilePayloadRequest) -> Bytes!String do
   let local = decode_client_profile(load_profile(request.database_path)?)?
   let requested_device = parse_link_request(request.payload)?
   let now = current_time()?
-  if U64.compare(requested_device.created_at, now) > 0 || U64.compare(requested_device.expires_at,
-    now) < 0 do
+  if U64.compare(requested_device.created_at, now) > 0
+    || U64.compare(requested_device.expires_at, now) < 0 do
     Err("link_request_expired")
   else
     let wrapping_key = platform_key()?
@@ -391,7 +390,10 @@ pub fn complete_link(request :: MobilePayloadRequest) -> Bytes!String do
   let pending_wire = load_pending_link_request(request.database_path, wrapping_key)?
   let pending = parse_link_request(pending_wire)?
   let now = current_time()?
-  let valid = case verify_device_link_authorization(pending, authorization, now, mobile_wide("1")?) do
+  let valid = case verify_device_link_authorization(pending,
+    authorization,
+    now,
+    mobile_wide("1")?) do
     Err(_) -> Err("link_authorization_failed")
     Ok(value)
   end?
@@ -454,10 +456,7 @@ pub fn complete_link(request :: MobilePayloadRequest) -> Bytes!String do
       context(account.account_id, credential.device_id, "post-quantum-prekey/v1", 15)?)?
     let profile_blob = seal_local(profile, wrapping_key, local_context("profile/v1")?)?
     let prekey_index_blob = seal_prekey_pool([
-        MobileOneTimePrekey {
-          id: one_time.id,
-          public_key: one_time.public_key.bytes
-        }
+        MobileOneTimePrekey { id: one_time.id, public_key: one_time.public_key.bytes }
       ],
       wrapping_key)?
     let prekey_active_blob = seal_active_prekey_pool([one_time.id], wrapping_key)?
@@ -500,8 +499,12 @@ pub fn device_link_sas(input :: Bytes) -> Bytes!String do
   end
 end
 
+# state: 1 receives messages, 2 is signed into the account but expired, so it
+# receives nothing until it is opened and renewed.
+
 fn active_device_rows(profiles :: List<ClientProfile>,
   local_device_id :: Bytes,
+  state :: Int,
   index :: Int,
   rows :: List<Bytes>) -> List<Bytes>!String do
   if index >= List.length(profiles) do
@@ -510,7 +513,7 @@ fn active_device_rows(profiles :: List<ClientProfile>,
     let profile = List.get(profiles, index)
     let row = mobile_join([
         mobile_vector(profile.device_id)?,
-        mobile_vector(mobile_byte(1)?)?,
+        mobile_vector(mobile_byte(state)?)?,
         mobile_vector(mobile_byte(if Bytes.secure_equals(profile.device_id, local_device_id) do
           1
         else
@@ -519,11 +522,13 @@ fn active_device_rows(profiles :: List<ClientProfile>,
       ],
       0,
       Bytes.empty())?
-    active_device_rows(profiles, local_device_id, index + 1, List.append(rows, row))
+    active_device_rows(profiles, local_device_id, state, index + 1, List.append(rows, row))
   end
 end
 
-fn revoked_device_rows(values :: List<Bytes>, index :: Int, rows :: List<Bytes>) -> List<Bytes>!String do
+fn revoked_device_rows(values :: List<Bytes>,
+  index :: Int,
+  rows :: List<Bytes>) -> List<Bytes>!String do
   if index >= List.length(values) do
     Ok(rows)
   else
@@ -556,7 +561,8 @@ pub fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes!String do
     end
     Ok(_) -> Ok(true)
   end?
-  let active = active_device_rows(verified.profiles, local.device_id, 0, List.new())?
+  let reachable = active_device_rows(verified.profiles, local.device_id, 1, 0, List.new())?
+  let active = active_device_rows(verified.expired, local.device_id, 2, 0, reachable)?
   let rows = revoked_device_rows(verified.value.revoked_device_ids, 0, active)?
   mobile_join([
       mobile_vector(Bytes.from_utf8(verified.value.username))?,
@@ -586,8 +592,9 @@ pub fn authorize_link_for_set(request :: MobileTriplePayloadRequest) -> Bytes!St
   require_transparency_device_set(request.database_path, wrapping_key, devices)?
   let requested_device = parse_link_request(request.second)?
   let now = current_time()?
-  if !local_device_set(local, devices) || U64.compare(requested_device.created_at, now) > 0 || U64.compare(requested_device.expires_at,
-    now) < 0 do
+  if !local_device_set(local, devices)
+    || U64.compare(requested_device.created_at, now) > 0
+    || U64.compare(requested_device.expires_at, now) < 0 do
     Err("link_authorization_failed")
   else
     let account = open_account(local, wrapping_key, request.database_path)?
@@ -611,9 +618,11 @@ pub fn create_device_revocation(request :: MobileTriplePayloadRequest) -> Bytes!
   let wrapping_key = platform_key()?
   require_transparency_device_set(request.database_path, wrapping_key, devices)?
   let target = request.second
-  let allowed = Bytes.length(target) == 16 && local_device_set(local, devices) && List.length(devices.profiles) > 1 && contains_device_id(devices.profiles,
-    target,
-    0) && !Bytes.secure_equals(local.device_id, target)
+  let allowed = Bytes.length(target) == 16
+    && local_device_set(local, devices)
+    && List.length(account_device_profiles(devices)) > 1
+    && contains_device_id(account_device_profiles(devices), target, 0)
+    && !Bytes.secure_equals(local.device_id, target)
   if !allowed do
     Err("invalid_device_revocation")
   else
@@ -709,8 +718,8 @@ fn departure_proven(profile :: ClientProfile, statement :: Bytes) -> Bool do
   case decode_device_departure(statement) do
     Err(_) -> false
     Ok(departure) -> do
-      let this_device = Bytes.secure_equals(departure.account_id, profile.account_id) && Bytes.secure_equals(departure.device_id,
-        profile.device_id)
+      let this_device = Bytes.secure_equals(departure.account_id, profile.account_id)
+        && Bytes.secure_equals(departure.device_id, profile.device_id)
       let own_key = profile.credential.signing_public_key
       this_device && proven(verify_device_departure(own_key, departure))
     end

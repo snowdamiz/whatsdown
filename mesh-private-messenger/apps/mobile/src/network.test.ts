@@ -15,8 +15,10 @@ const meshExports = [
   'erase_account_export',
   'forget_on_proof_export',
   'register_request_export',
+  'renew_devices_export',
   'group_add_export',
   'group_create_export',
+  'group_forget_export',
   'group_history_export',
   'group_inspect_export',
   'group_key_package_export',
@@ -786,4 +788,46 @@ test('a registration the directory will never take is told apart from an outage'
   await assert.rejects(registerDirectory('/data/refused.db'), /removed_from_account/);
   status = 503;
   await assert.rejects(registerDirectory('/data/refused.db'), /Server returned 503/);
+});
+
+test('loading the account\'s devices renews them through the directory, in order, until one is refused', async (t) => {
+  const { RemovedFromAccount, loadAccountDevices } = await import('./network.ts');
+  const database = '/data/renew.db';
+  const profile = vectors(utf8('alice'), new Uint8Array(32).fill(1), new Uint8Array(16).fill(2), Uint8Array.of(0));
+  const deviceSet = Uint8Array.of(0xd5, 0x5e);
+  meshMocks.resolve_request_export = async () => Uint8Array.of(1);
+  meshMocks.verify_transparency_export = async () => deviceSet;
+  meshMocks.inspect_device_set_export = async () =>
+    vectors(utf8('alice'), new Uint8Array(32).fill(1), new Uint8Array(8), Uint8Array.of(0), Uint8Array.of(1), vectors(writeU32(0)));
+  const renewed: Uint8Array[] = [];
+  meshMocks.renew_devices_export = async (request) => {
+    renewed.push(request);
+    return vectors(writeU32(2), Uint8Array.of(0xa1), Uint8Array.of(0xa2));
+  };
+  const registered: string[] = [];
+  let answers: number[] = [];
+  t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {
+    const path = new URL(String(input)).pathname;
+    if (path === '/v1/devices/resolve') return new Response(Uint8Array.of(1));
+    registered.push(`${init?.method} ${path} ${hexOf(new Uint8Array(init?.body as ArrayBuffer))}`);
+    return new Response(null, { status: answers.shift() ?? 500 });
+  });
+  // Each registration is the next transition of the account's device set, so
+  // they go in order.
+  answers = [201, 201];
+  const loaded = await loadAccountDevices(database, profile);
+  assert.deepEqual(loaded.wire, deviceSet);
+  assert.deepEqual(renewed, [vectors(utf8(database), deviceSet)]);
+  assert.deepEqual(registered, ['PUT /v1/devices/register a1', 'PUT /v1/devices/register a2']);
+  // A refusal (the set moved on, or no room in the log) or an outage ends the
+  // pass; the next one starts again from the set the directory shows then.
+  for (const refusal of [409, 507, 503]) {
+    registered.length = 0;
+    answers = [refusal, 201];
+    await loadAccountDevices(database, profile);
+    assert.deepEqual(registered, ['PUT /v1/devices/register a1']);
+  }
+  // Removal comes with its proof, as on any registration.
+  answers = [410];
+  await assert.rejects(loadAccountDevices(database, profile), (error) => error instanceof RemovedFromAccount);
 });

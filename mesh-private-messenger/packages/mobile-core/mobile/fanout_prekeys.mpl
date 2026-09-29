@@ -31,8 +31,8 @@ fn fanout_base_profiles(profiles :: List<ClientProfile>, index :: Int) -> Bool d
       Err(_) -> false
       Ok(normalized) -> case encode_prekey_bundle(normalized) do
         Err(_) -> false
-        Ok(encoded) -> Bytes.secure_equals(encoded, profile.entry.prekey_bundle) && fanout_base_profiles(profiles,
-          index + 1)
+        Ok(encoded) -> Bytes.secure_equals(encoded, profile.entry.prekey_bundle)
+          && fanout_base_profiles(profiles, index + 1)
       end
     end
   end
@@ -41,9 +41,11 @@ end
 pub fn invalid_fanout_sets(local :: ClientProfile,
   peers :: MobileVerifiedDeviceSet,
   local_devices :: MobileVerifiedDeviceSet) -> Bool do
-  !local_device_set(local, local_devices) || Bytes.secure_equals(local.account_id,
-    peers.account.account_id) || List.length(peers.profiles) == 0 || !fanout_base_profiles(peers.profiles,
-    0) || !fanout_base_profiles(local_devices.profiles, 0)
+  !local_device_set(local, local_devices)
+    || Bytes.secure_equals(local.account_id, peers.account.account_id)
+    || List.length(peers.profiles) == 0
+    || !fanout_base_profiles(peers.profiles, 0)
+    || !fanout_base_profiles(local_devices.profiles, 0)
 end
 
 fn append_missing_prekey_claims(database_path :: String,
@@ -198,8 +200,9 @@ pub fn matching_fanout_prekey_state_labels(database_path :: String,
       let reserved = fanout_prekey_bundle(open_local(blob,
         wrapping_key,
         local_context(reservation_label)?)?)?
-      if accepted_suite >= reserved.suite && Bytes.secure_equals(fanout_prekey_base(reserved)?,
-        fanout_prekey_base(profile.bundle)?) do
+      if accepted_suite >= reserved.suite
+        && Bytes.secure_equals(fanout_prekey_base(reserved)?,
+          fanout_prekey_base(profile.bundle)?) do
         Ok([reservation_label, fanout_prekey_claim_label(profile)])
       else
         Ok(List.new())
@@ -224,8 +227,8 @@ fn load_fanout_prekey_claim(database_path :: String,
         Err(_) -> Err("invalid_fanout_prekeys")
         Ok(value)
       end?
-      if !Bytes.secure_equals(claim.account_id, profile.account_id) || !Bytes.secure_equals(claim.device_id,
-        profile.device_id) do
+      if !Bytes.secure_equals(claim.account_id, profile.account_id)
+        || !Bytes.secure_equals(claim.device_id, profile.device_id) do
         Err("invalid_fanout_prekeys")
       else if !Bytes.secure_equals(claim.base_bundle_hash,
         Crypto.sha256(profile.entry.prekey_bundle)) do
@@ -333,8 +336,8 @@ fn count_prekey_targets(profiles :: List<ClientProfile>,
     count
   else
     let profile = List.get(profiles, index)
-    let matches = !(skip_local_device && Bytes.secure_equals(profile.device_id, local_device_id)) && Bytes.secure_equals(profile.entry.prekey_bundle,
-      base_bundle)
+    let matches = !(skip_local_device && Bytes.secure_equals(profile.device_id, local_device_id))
+      && Bytes.secure_equals(profile.entry.prekey_bundle, base_bundle)
     count_prekey_targets(profiles,
       base_bundle,
       local_device_id,
@@ -357,8 +360,8 @@ fn find_prekey_target(profiles :: List<ClientProfile>,
     Err("invalid_fanout_prekeys")
   else
     let profile = List.get(profiles, index)
-    if !(skip_local_device && Bytes.secure_equals(profile.device_id, local_device_id)) && Bytes.secure_equals(profile.entry.prekey_bundle,
-      base_bundle) do
+    if !(skip_local_device && Bytes.secure_equals(profile.device_id, local_device_id))
+      && Bytes.secure_equals(profile.entry.prekey_bundle, base_bundle) do
       Ok(profile)
     else
       find_prekey_target(profiles, base_bundle, local_device_id, skip_local_device, index + 1)
@@ -366,7 +369,9 @@ fn find_prekey_target(profiles :: List<ClientProfile>,
   end
 end
 
-fn claimed_prekey_exists(claims :: List<MobileClaimedPrekey>, base_bundle :: Bytes, index :: Int) -> Bool do
+fn claimed_prekey_exists(claims :: List<MobileClaimedPrekey>,
+  base_bundle :: Bytes,
+  index :: Int) -> Bool do
   if index >= List.length(claims) do
     false
   else if Bytes.secure_equals(List.get(claims, index).base_bundle, base_bundle) do
@@ -397,7 +402,8 @@ fn validate_claimed_prekey(input :: Bytes,
   local_device_id :: Bytes,
   now :: U64) -> MobileClaimedPrekey!String do
   let bundle = fanout_prekey_bundle(input)?
-  if U64.compare(bundle.one_time_prekey_id, mobile_wide("0")?) <= 0 || Bytes.length(bundle.one_time_prekey) != 32 do
+  if U64.compare(bundle.one_time_prekey_id, mobile_wide("0")?) <= 0
+    || Bytes.length(bundle.one_time_prekey) != 32 do
     Err("invalid_fanout_prekeys")
   else
     let base_bundle = fanout_prekey_base(bundle)?
@@ -433,10 +439,7 @@ fn validate_claimed_prekey(input :: Bytes,
           Err(_) -> Err("invalid_fanout_prekeys")
           Ok(value)
         end?
-        Ok(MobileClaimedPrekey {
-          base_bundle: base_bundle,
-          profile: claimed_profile
-        })
+        Ok(MobileClaimedPrekey { base_bundle: base_bundle, profile: claimed_profile })
       end
     end
   end

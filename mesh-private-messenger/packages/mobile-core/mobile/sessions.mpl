@@ -49,7 +49,9 @@ pub fn inner_bytes(value :: InnerEnvelope) -> Bytes!String do
   end
 end
 
-pub fn encode_sync_payload(local :: ClientProfile, peer :: ClientProfile, inner :: InnerEnvelope) -> Bytes!String do
+pub fn encode_sync_payload(local :: ClientProfile,
+  peer :: ClientProfile,
+  inner :: InnerEnvelope) -> Bytes!String do
   mobile_join([
       mobile_vector(Bytes.from_utf8(peer.username))?,
       mobile_vector(peer.account_id)?,
@@ -80,7 +82,12 @@ pub fn parse_sync_payload(input :: Bytes) -> MobileSyncPayload!String do
         Err(_) -> Err("invalid_sync_payload")
         Ok(_) -> do
           let username = mobile_utf8(peer_username.value, "invalid_sync_payload")?
-          if String.length(username) == 0 || Bytes.length(peer_account_id.value) != 32 || Bytes.length(conversation_id.value) != 16 || Bytes.length(client_message_id.value) != 16 || Bytes.length(client_timestamp.value) != 8 || Bytes.length(disappearing_seconds.value) != 4 do
+          if String.length(username) == 0
+            || Bytes.length(peer_account_id.value) != 32
+            || Bytes.length(conversation_id.value) != 16
+            || Bytes.length(client_message_id.value) != 16
+            || Bytes.length(client_timestamp.value) != 8
+            || Bytes.length(disappearing_seconds.value) != 4 do
             Err("invalid_sync_payload")
           else
             let timestamp = case mobile_read_u64(client_timestamp.value) do
@@ -110,7 +117,9 @@ end
 
 ## The sync envelope's attachment field already targets this device, so it is stored as-is.
 
-pub fn sync_history_inner(local :: ClientProfile, value :: MobileSyncPayload, attachment :: Bytes) -> InnerEnvelope!String do
+pub fn sync_history_inner(local :: ClientProfile,
+  value :: MobileSyncPayload,
+  attachment :: Bytes) -> InnerEnvelope!String do
   Ok(InnerEnvelope {
     version: 1,
     sender_account_id: local.account_id,
@@ -136,7 +145,8 @@ pub fn initial_bytes(value :: InitialMessage) -> Bytes!String do
   end
 end
 
-pub fn parse_initial_packet(input :: Bytes, recipient :: borrow X25519PrivateKey) -> Result<(Bytes, Bytes), String> do
+pub fn parse_initial_packet(input :: Bytes,
+  recipient :: borrow X25519PrivateKey) -> Result<(Bytes, Bytes), String> do
   case open_initial_packet(input, recipient) do
     Err(error) -> if error == "initial_crypto_failed" do
       Err(error)
@@ -186,10 +196,7 @@ end
 
 fn optional_safety_number(state :: BinaryReader) -> MobileReadBytes!String do
   if state.offset == Bytes.length(state.input) do
-    Ok(MobileReadBytes {
-      state: state,
-      value: Bytes.empty()
-    })
+    Ok(MobileReadBytes { state: state, value: Bytes.empty() })
   else
     let value = take_vector(state, 64)?
     if Bytes.length(value.value) != 0 && Bytes.length(value.value) != 64 do
@@ -218,10 +225,7 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
       let key_changed = take_vector(verified.state, 1)?
       let disappearing_seconds = take_vector(key_changed.state, 4)?
       let strongest_suite = if disappearing_seconds.state.offset == Bytes.length(disappearing_seconds.state.input) do
-        MobileReadBytes {
-          state: disappearing_seconds.state,
-          value: mobile_byte(1)?
-        }
+        MobileReadBytes { state: disappearing_seconds.state, value: mobile_byte(1)? }
       else
         take_vector(disappearing_seconds.state, 1)?
       end
@@ -236,7 +240,18 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
           let changed_value = mobile_read_byte(key_changed.value)?
           let disappearing_value = mobile_read_u32(disappearing_seconds.value)?
           let strongest_value = mobile_read_byte(strongest_suite.value)?
-          let valid = Bytes.length(local_account_id.value) == 32 && Bytes.length(local_device_id.value) == 16 && Bytes.length(peer_account_id.value) == 32 && Bytes.length(peer_device_id.value) == 16 && String.length(username) > 0 && Bytes.length(peer_mailbox.value) == 32 && Bytes.length(conversation_id.value) == 16 && (request_value == 0 || request_value == 1) && blocked_value <= 1 && verified_value <= 1 && changed_value <= 1 && (strongest_value == 1 || strongest_value == 2)
+          let valid = Bytes.length(local_account_id.value) == 32
+            && Bytes.length(local_device_id.value) == 16
+            && Bytes.length(peer_account_id.value) == 32
+            && Bytes.length(peer_device_id.value) == 16
+            && String.length(username) > 0
+            && Bytes.length(peer_mailbox.value) == 32
+            && Bytes.length(conversation_id.value) == 16
+            && (request_value == 0 || request_value == 1)
+            && blocked_value <= 1
+            && verified_value <= 1
+            && changed_value <= 1
+            && (strongest_value == 1 || strongest_value == 2)
           if !valid do
             Err("invalid_session_record")
           else
@@ -293,7 +308,8 @@ pub fn contains_session_id(values :: List<Bytes>, session_id :: Bytes, index :: 
   end
 end
 
-pub fn load_session_ids(database_path :: String, wrapping_key :: borrow StorageKey) -> List<Bytes>!String do
+pub fn load_session_ids(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> List<Bytes>!String do
   case load_blob(database_path, "sessions/v1") do
     Err(error) -> if error == "local_state_not_found" do
       Ok(List.new())
@@ -344,7 +360,8 @@ pub fn prepared_envelopes(prepared :: List<MobilePreparedSend>,
   end
 end
 
-pub fn seal_session_ids(session_ids :: List<Bytes>, wrapping_key :: borrow StorageKey) -> Bytes!String do
+pub fn seal_session_ids(session_ids :: List<Bytes>,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   seal_local(mobile_join(session_ids, 0, Bytes.empty())?,
     wrapping_key,
     local_context("sessions/v1")?)
@@ -364,7 +381,8 @@ end
 
 # ponytail: the MVP scans encrypted session IDs; add an encrypted peer index if measured conversation counts make this slow.
 
-fn preferred_session(first :: MobileLoadedSession, second :: MobileLoadedSession) -> MobileLoadedSession do
+fn preferred_session(first :: MobileLoadedSession,
+  second :: MobileLoadedSession) -> MobileLoadedSession do
   let first_active = Bytes.length(first.record.snapshot) > 0
   let second_active = Bytes.length(second.record.snapshot) > 0
   if second_active && !first_active do
@@ -373,8 +391,9 @@ fn preferred_session(first :: MobileLoadedSession, second :: MobileLoadedSession
     first
   else if second.record.strongest_suite > first.record.strongest_suite do
     second
-  else if second.record.strongest_suite == first.record.strongest_suite && Bytes.length(second.record.safety_number) == 64 && !Bytes.secure_equals(first.record.safety_number,
-    second.record.safety_number) do
+  else if second.record.strongest_suite == first.record.strongest_suite
+    && Bytes.length(second.record.safety_number) == 64
+    && !Bytes.secure_equals(first.record.safety_number, second.record.safety_number) do
     second
   else
     first
@@ -391,7 +410,11 @@ pub fn find_peer_session(database_path :: String,
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index))?
     if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) do
-      case find_peer_session(database_path, wrapping_key, peer_account_id, session_ids, index + 1) do
+      case find_peer_session(database_path,
+        wrapping_key,
+        peer_account_id,
+        session_ids,
+        index + 1) do
         Err(error) -> if error == "session_not_found" do
           Ok(loaded)
         else
@@ -415,8 +438,8 @@ pub fn find_device_session(database_path :: String,
     Err("session_not_found")
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index))?
-    if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) && Bytes.secure_equals(loaded.record.peer_device_id,
-      peer_device_id) do
+    if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id)
+      && Bytes.secure_equals(loaded.record.peer_device_id, peer_device_id) do
       case find_device_session(database_path,
         wrapping_key,
         peer_account_id,
@@ -452,8 +475,8 @@ pub fn strongest_device_suite(database_path :: String,
     Ok(strongest)
   else
     let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index))?
-    let matches = Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) && Bytes.secure_equals(loaded.record.peer_device_id,
-      peer_device_id)
+    let matches = Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id)
+      && Bytes.secure_equals(loaded.record.peer_device_id, peer_device_id)
     let next = if matches && loaded.record.strongest_suite > strongest do
       loaded.record.strongest_suite
     else
@@ -487,7 +510,8 @@ pub fn device_needs_prekey(database_path :: String,
     Ok(loaded) -> if loaded.record.strongest_suite > profile.bundle.suite do
       Err("peer_keys_changed")
     else
-      Ok(loaded.record.strongest_suite < profile.bundle.suite || Bytes.length(loaded.record.safety_number) == 0)
+      Ok(loaded.record.strongest_suite < profile.bundle.suite
+        || Bytes.length(loaded.record.safety_number) == 0)
     end
   end
 end
@@ -642,7 +666,17 @@ fn finish_upgraded_session_snapshot(state :: consume RatchetState,
   label :: String) -> Result<(Bytes, String, Bytes), String> do
   let safety = safety_number(local, peer)?
   let changed = !Bytes.secure_equals(previous.record.safety_number, safety)
-  let record = %{previous.record | snapshot: snapshot_blob, peer_account_id: peer.account_id, peer_device_id: peer.device_id, peer_username: peer.username, peer_mailbox: peer.entry.mailbox_token, strongest_suite: state.suite, safety_number: safety, verified: previous.record.verified && !changed, key_changed: previous.record.key_changed || changed}
+  let record = %{previous.record |
+    snapshot: snapshot_blob,
+    peer_account_id: peer.account_id,
+    peer_device_id: peer.device_id,
+    peer_username: peer.username,
+    peer_mailbox: peer.entry.mailbox_token,
+    strongest_suite: state.suite,
+    safety_number: safety,
+    verified: previous.record.verified && !changed,
+    key_changed: previous.record.key_changed || changed
+  }
   Ok((session_id,
     label,
     seal_local(updated_session_record(record.snapshot, record)?,
@@ -699,7 +733,8 @@ pub fn parse_ratchet_packet(input :: Bytes) -> Bytes!String do
   end
 end
 
-pub fn restore_session(loaded :: MobileLoadedSession, wrapping_key :: borrow StorageKey) -> RatchetState!String do
+pub fn restore_session(loaded :: MobileLoadedSession,
+  wrapping_key :: borrow StorageKey) -> RatchetState!String do
   case restore(loaded.record.snapshot,
     wrapping_key,
     loaded.record.local_account_id,
@@ -710,7 +745,8 @@ pub fn restore_session(loaded :: MobileLoadedSession, wrapping_key :: borrow Sto
   end
 end
 
-pub fn updated_session_record(snapshot_blob :: Bytes, record :: MobileSessionRecord) -> Bytes!String do
+pub fn updated_session_record(snapshot_blob :: Bytes,
+  record :: MobileSessionRecord) -> Bytes!String do
   mobile_join([
       mobile_vector(snapshot_blob)?,
       mobile_vector(record.local_account_id)?,

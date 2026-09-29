@@ -1,7 +1,13 @@
 from Identity.Device import DeviceKeys, IdentityError, verify_device_credential
 from Protocol.IdentityWire import decode_device_credential, encode_device_credential
 from Protocol.PrekeyWire import encode_prekey_bundle
-from Protocol.V1 import AccountIdentity, DeviceCredential, PrekeyBundle, ProtocolError, negotiate_suites
+from Protocol.V1 import (
+  AccountIdentity,
+  DeviceCredential,
+  PrekeyBundle,
+  ProtocolError,
+  negotiate_suites
+)
 
 pub type PrekeyError do
   CryptoFailure(error :: CryptoError)
@@ -100,17 +106,42 @@ pub fn reauthorize_signed_prekey(device :: borrow DeviceKeys,
   end
 end
 
+## Whether a device signed this prekey for a credential of this version, suite,
+## account and device. The statement binds no other credential field, so a
+## signature made ahead of a renewal stays valid under the new credential.
+
+pub fn signed_prekey_signature_valid(credential :: DeviceCredential,
+  id :: U64,
+  public_key :: Bytes,
+  expires_at :: U64,
+  signature :: Bytes) -> Bool do
+  if Bytes.length(public_key) != 32
+    || Bytes.length(signature) != 64
+    || Bytes.length(credential.signing_public_key) != 32 do
+    false
+  else
+    case signed_prekey_statement(credential,
+      id,
+      X25519PublicKey { bytes: public_key },
+      expires_at) do
+      Err(_) -> false
+      Ok(statement) -> case Crypto.verify(SigningPublicKey { bytes: credential.signing_public_key },
+        statement,
+        Signature { bytes: signature }) do
+        Err(_) -> false
+        Ok(valid) -> valid
+      end
+    end
+  end
+end
+
 pub fn generate_one_time_prekey(id :: U64) -> OneTimePrekeySecrets!PrekeyError do
   case Crypto.x25519_generate() do
     Err(error) -> Err(CryptoFailure(error))
     Ok(pair) -> do
       let public_key = pair.public_key
       let private_key = pair.private_key
-      Ok(OneTimePrekeySecrets {
-        id: id,
-        private_key: private_key,
-        public_key: public_key
-      })
+      Ok(OneTimePrekeySecrets { id: id, private_key: private_key, public_key: public_key })
     end
   end
 end
@@ -121,10 +152,7 @@ pub fn generate_post_quantum_prekey() -> PostQuantumPrekeySecrets!PrekeyError do
     Ok(pair) -> do
       let public_key = pair.public_key
       let private_key = pair.private_key
-      Ok(PostQuantumPrekeySecrets {
-        private_key: private_key,
-        public_key: public_key
-      })
+      Ok(PostQuantumPrekeySecrets { private_key: private_key, public_key: public_key })
     end
   end
 end
@@ -214,7 +242,10 @@ pub fn verify_prekey_bundle(account :: AccountIdentity,
       bundle.signing_public_key)
     let post_quantum_key_mismatch = !Bytes.secure_equals(credential.post_quantum_public_key,
       bundle.post_quantum_prekey)
-    if !credential_valid || identity_key_mismatch || signing_key_mismatch || post_quantum_key_mismatch do
+    if !credential_valid
+      || identity_key_mismatch
+      || signing_key_mismatch
+      || post_quantum_key_mismatch do
       Err(InvalidBundle)
     else
       case negotiate_suites([2, 1], bundle.supported_suites, strongest_authenticated_suite) do

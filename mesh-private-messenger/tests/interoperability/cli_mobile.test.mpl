@@ -75,7 +75,10 @@ fn proof() -> Bool!String do
   assert(interop_state_suite(cli_state) == 2)
   assert(cli_session.suite == 2)
   assert(!String.contains(Bytes.to_hex(initial_outer), Bytes.to_hex(greeting)))
-  assert(Bytes.secure_equals(receive_initial_export(request([Bytes.from_utf8(path), initial_outer])?)?,
+  assert(Bytes.secure_equals(receive_initial_export(request([
+      Bytes.from_utf8(path),
+      initial_outer
+    ])?)?,
     greeting))
   assert(Bytes.secure_equals(update_conversation_export(request([
       Bytes.from_utf8(path),

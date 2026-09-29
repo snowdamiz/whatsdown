@@ -186,7 +186,10 @@ containers and delivery Worker, then verify live health, the edge's routes, and 
 authorization. The separate Workers keep the secrets provisioned on them; CI only
 ships their code. A parallel job runs `apps/landing/check.mjs` and publishes the
 landing page as the static `morse-landing` Worker
-(`https://morse-landing.snowdamiz.workers.dev`). Pushes to `main` run the ordinary CI tests without deploying.
+(`https://morse-landing.snowdamiz.workers.dev`). Each of the two jobs runs only when its
+inputs changed since the workflow's last successful push run (`scripts/release-changes.mjs`),
+so a failed deploy retries on the next push; running the workflow by hand deploys both.
+Pushes to `main` run the ordinary CI tests without deploying.
 Deployments serialize in the `cloudflare-production` concurrency group and use
 the `production` environment, restricted to the `release` branch.
 

@@ -92,14 +92,18 @@ fn proof() -> Bool!String do
     greeting
   ])?)?
   assert(acknowledge(alice_path, initial)?)
-  assert(Bytes.secure_equals(receive_initial_export(request([Bytes.from_utf8(bob_path), initial])?)?,
+  assert(Bytes.secure_equals(receive_initial_export(request([
+      Bytes.from_utf8(bob_path),
+      initial
+    ])?)?,
     greeting))
   let alice_safety = safety_number_export(request([Bytes.from_utf8(alice_path), bob_profile])?)?
   let bob_safety = safety_number_export(request([Bytes.from_utf8(bob_path), alice_profile])?)?
   assert(Bytes.secure_equals(alice_safety, bob_safety))
   let alice_identity = decode_client_profile(alice_profile)?.account
   let bob_identity = decode_client_profile(bob_profile)?.account
-  let alice_fingerprint = append(alice_identity.account_id, alice_identity.authorization_public_key)?
+  let alice_fingerprint = append(alice_identity.account_id,
+    alice_identity.authorization_public_key)?
   let bob_fingerprint = append(bob_identity.account_id, bob_identity.authorization_public_key)?
   let label = Bytes.from_utf8("mesh-msg/mobile/account-safety/v2")
   let forward = Bytes.from_utf8(Bytes.to_hex(Crypto.sha256(append(label,
@@ -185,7 +189,9 @@ fn proof() -> Bool!String do
     Ok(_) -> assert(false)
     Err(_) -> assert(true)
   end
-  let replacement = case encode_account_identity(%{bob_identity | authorization_public_key: alice_identity.authorization_public_key}) do
+  let replacement = case encode_account_identity(%{bob_identity |
+    authorization_public_key: alice_identity.authorization_public_key
+  }) do
     Err(_) -> Err("test account encoding failed")
     Ok(value)
   end?

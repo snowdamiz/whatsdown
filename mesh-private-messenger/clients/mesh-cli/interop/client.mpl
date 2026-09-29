@@ -1,5 +1,20 @@
-from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_hybrid_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_hybrid_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  VerificationPolicy,
+  generate_account,
+  generate_device,
+  issue_hybrid_device_credential
+)
+from Prekeys.Bundle import (
+  OneTimePrekeySecrets,
+  PostQuantumPrekeySecrets,
+  SignedPrekeySecrets,
+  build_hybrid_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey
+)
 from Protocol.EnvelopeWire import (
   decode_inner_envelope,
   decode_outer_envelope,
@@ -19,8 +34,23 @@ from Protocol.V1 import (
   PrekeyBundle
 )
 from Session.Handshake import RatchetState, initiate
-from Session.Ratchet import DecryptOutcome, RatchetMessage, decode_ratchet_message, decrypt, ratchet_transport_matches
-from Transport.Packet import TransportPacket, decode_client_profile, decode_packet, direct_conversation_id, encode_client_profile, encode_initial_plaintext, encode_packet, session_aad
+from Session.Ratchet import (
+  DecryptOutcome,
+  RatchetMessage,
+  decode_ratchet_message,
+  decrypt,
+  ratchet_transport_matches
+)
+from Transport.Packet import (
+  TransportPacket,
+  decode_client_profile,
+  decode_packet,
+  direct_conversation_id,
+  encode_client_profile,
+  encode_initial_plaintext,
+  encode_packet,
+  session_aad
+)
 from Transport.Recipient import is_recipient_packet, open_recipient_packet, seal_recipient_packet
 
 pub struct InteropSession do
@@ -121,7 +151,9 @@ fn credential(account_keys :: borrow AccountKeys,
   end
 end
 
-fn signed_prekey(device_keys :: borrow DeviceKeys, value :: DeviceCredential, expires_at :: U64) -> SignedPrekeySecrets!String do
+fn signed_prekey(device_keys :: borrow DeviceKeys,
+  value :: DeviceCredential,
+  expires_at :: U64) -> SignedPrekeySecrets!String do
   case generate_signed_prekey(device_keys, value, wide("1")?, expires_at) do
     Err(_) -> Err("interop signed prekey generation failed")
     Ok(output)
@@ -232,19 +264,26 @@ fn initial_matches(state :: borrow RatchetState,
   peer_mailbox :: Bytes,
   local_account_wire :: Bytes) -> Bool!String do
   # Delivery sees only the sealed transport (outer suite 4), never suite 2.
-  Ok(outer.suite == 4 && state.suite == 2 && is_recipient_packet(outer.ciphertext) && Bytes.secure_equals(outer.mailbox_token,
-    peer_mailbox) && !String.contains(Bytes.to_hex(outer.ciphertext),
-    Bytes.to_hex(local_account_wire)))
+  Ok(outer.suite == 4
+    && state.suite == 2
+    && is_recipient_packet(outer.ciphertext)
+    && Bytes.secure_equals(outer.mailbox_token, peer_mailbox)
+    && !String.contains(Bytes.to_hex(outer.ciphertext), Bytes.to_hex(local_account_wire)))
 end
 
-pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result<(RatchetState, DeviceKeys, InteropSession, Bytes, Bytes), String> do
+pub fn start_mobile_session(peer_profile :: Bytes,
+  body :: Bytes) -> Result<(RatchetState, DeviceKeys, InteropSession, Bytes, Bytes), String> do
   let peer = decode_client_profile(peer_profile)?
   let created_at = now()?
   let expires_at = U64.add(created_at, wide("31536000000")?)?
   let (account_keys, account_identity) = account(created_at)?
   let device_keys = device()?
   let post_quantum = post_quantum_prekey()?
-  let local_credential = credential(account_keys, device_keys, post_quantum, created_at, expires_at)?
+  let local_credential = credential(account_keys,
+    device_keys,
+    post_quantum,
+    created_at,
+    expires_at)?
   let signed = signed_prekey(device_keys, local_credential, expires_at)?
   let one_time = one_time_prekey()?
   let local_bundle = bundle(local_credential, signed, one_time, post_quantum)?
@@ -296,7 +335,10 @@ pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result<(Rat
       initial_wire(initial)?))?,
     X25519PublicKey { bytes: peer.credential.dh_public_key })?
   let outer = outer_wire(peer.entry.mailbox_token, 4, packet, created_at)?
-  if !initial_matches(state, canonical_outer(outer)?, peer.entry.mailbox_token, local_account_wire)? do
+  if !initial_matches(state,
+    canonical_outer(outer)?,
+    peer.entry.mailbox_token,
+    local_account_wire)? do
     Err("interop initial invariants failed")
   else
     let session = InteropSession {
@@ -313,17 +355,23 @@ pub fn start_mobile_session(peer_profile :: Bytes, body :: Bytes) -> Result<(Rat
   end
 end
 
-fn reject(state :: consume RatchetState, session :: InteropSession, error :: String) -> InteropOpenOutcome do
+fn reject(state :: consume RatchetState,
+  session :: InteropSession,
+  error :: String) -> InteropOpenOutcome do
   ReplyRejected(state, session, error)
 end
 
 fn validate_reply_inner(value :: InnerEnvelope, session :: InteropSession) -> Bool do
-  value.version == 1 && value.message_type == 1 && Bytes.secure_equals(value.sender_account_id,
-    session.peer_account_id) && Bytes.secure_equals(value.sender_device_id, session.peer_device_id) && Bytes.secure_equals(value.recipient_device_id,
-    session.local_device_id) && Bytes.secure_equals(value.conversation_id, session.conversation_id)
+  value.version == 1
+    && value.message_type == 1
+    && Bytes.secure_equals(value.sender_account_id, session.peer_account_id)
+    && Bytes.secure_equals(value.sender_device_id, session.peer_device_id)
+    && Bytes.secure_equals(value.recipient_device_id, session.local_device_id)
+    && Bytes.secure_equals(value.conversation_id, session.conversation_id)
 end
 
-fn opened_reply_message(outer :: OuterEnvelope, recipient :: borrow DeviceKeys) -> RatchetMessage!String do
+fn opened_reply_message(outer :: OuterEnvelope,
+  recipient :: borrow DeviceKeys) -> RatchetMessage!String do
   let packet = case decode_packet(open_recipient_packet(outer.ciphertext,
     recipient.identity_private_key)?) do
     Err(_) -> Err("invalid interop ratchet packet")
@@ -345,8 +393,9 @@ end
 fn open_reply_message(state :: consume RatchetState,
   session :: InteropSession,
   message :: RatchetMessage) -> InteropOpenOutcome do
-  if message.suite != 2 || !Bytes.secure_equals(message.session_id, session.session_id) || !Bytes.secure_equals(message.session_id,
-    state.session_id) do
+  if message.suite != 2
+    || !Bytes.secure_equals(message.session_id, session.session_id)
+    || !Bytes.secure_equals(message.session_id, state.session_id) do
     reject(state, session, "interop reply session mismatch")
   else
     case session_aad(state.session_id) do
@@ -359,7 +408,9 @@ fn open_reply_message(state :: consume RatchetState,
   end
 end
 
-fn reply_outcome(state :: consume RatchetState, session :: InteropSession, plaintext :: Bytes) -> InteropOpenOutcome do
+fn reply_outcome(state :: consume RatchetState,
+  session :: InteropSession,
+  plaintext :: Bytes) -> InteropOpenOutcome do
   case decode_inner_envelope(plaintext) do
     Err(_) -> ReplyRejected(state, session, "invalid interop reply inner envelope")
     Ok(inner) -> if validate_reply_inner(inner, session) do
@@ -376,8 +427,10 @@ pub fn open_mobile_reply(state :: consume RatchetState,
   input :: Bytes) -> InteropOpenOutcome do
   case canonical_outer(input) do
     Err(error) -> reject(state, session, error)
-    Ok(outer) -> if outer.suite != 4 || session.suite != 2 || state.suite != 2 || !Bytes.secure_equals(outer.mailbox_token,
-      session.local_mailbox) do
+    Ok(outer) -> if outer.suite != 4
+      || session.suite != 2
+      || state.suite != 2
+      || !Bytes.secure_equals(outer.mailbox_token, session.local_mailbox) do
       reject(state, session, "interop reply outer mismatch")
     else
       case opened_reply_message(outer, recipient) do

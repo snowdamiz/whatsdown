@@ -40,7 +40,10 @@ fn exercise() -> Bool!String do
     4)?)?
   let granted = post("/v1/attachments/grant", grant)?
   assert(granted.status == 201)
-  let path = Env.get("MESSENGER_EVENT_OBJECT_URL", "") <> "/v1/objects/" <> Bytes.to_hex(id) <> "/parts/0"
+  let path = Env.get("MESSENGER_EVENT_OBJECT_URL", "")
+    <> "/v1/objects/"
+    <> Bytes.to_hex(id)
+    <> "/parts/0"
   let uploaded = Http.build(:put, path)
     |> Http.header("Accept-Encoding", "identity")
     |> Http.header("x-object-capability", Bytes.to_hex(upload))
@@ -51,10 +54,7 @@ fn exercise() -> Bool!String do
   let accepted = uploaded?
   assert(accepted.status == 201)
   let completed = post("/v1/attachments/complete",
-    encode_complete(ObjectControl {
-      object_id: id,
-      capability: upload
-    })?)?
+    encode_complete(ObjectControl { object_id: id, capability: upload })?)?
   assert(completed.status == 200)
   let fetched = download(path, read)?
   assert(fetched.status == 200)

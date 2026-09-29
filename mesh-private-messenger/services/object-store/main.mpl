@@ -1,4 +1,13 @@
-from Store.Service import ObjectResult, complete, delete_object, get_part, grant, initialize, purge_expired, put_part
+from Store.Service import (
+  ObjectResult,
+  complete,
+  delete_object,
+  get_part,
+  grant,
+  initialize,
+  purge_expired,
+  put_part
+)
 from Store.Service import next_expiry, transaction_in_progress
 import RuntimeJobs
 
@@ -90,11 +99,7 @@ fn part_request(request :: Request) -> PartRequest!String do
   if part_index < 0 || part_index > 256 do
     Err("invalid object request")
   else
-    Ok(PartRequest {
-      object_id: object_id,
-      part_index: part_index,
-      capability: capability
-    })
+    Ok(PartRequest { object_id: object_id, part_index: part_index, capability: capability })
   end
 end
 

@@ -255,7 +255,9 @@ fn proof() -> Bool!GroupError do
     alice_signing.private_key,
     carol))?
   let bob_state = applied(apply_commit(bob_state, carol_commit))?
-  let carol_state = join_from_welcome(carol_welcome, carol_init.private_key, carol_leaf.private_key)?
+  let carol_state = join_from_welcome(carol_welcome,
+    carol_init.private_key,
+    carol_leaf.private_key)?
   let key = storage_key()?
   let wrong_key = storage_key()?
   let (bob_state, blob) = sealed(group_snapshot(bob_state, key, bob_account, bob_device, wide(1)?))?

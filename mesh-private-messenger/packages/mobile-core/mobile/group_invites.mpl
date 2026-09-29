@@ -1,6 +1,13 @@
 from Groups.Mls import GroupState, GroupTransparencyPolicy
 from Groups.Tree import GroupTree, GroupMember, member_at
-from Mobile.Codec import current_time, encode_output_list, mobile_byte, mobile_wide, mobile_write_u64, random_bytes
+from Mobile.Codec import (
+  current_time,
+  encode_output_list,
+  mobile_byte,
+  mobile_wide,
+  mobile_write_u64,
+  random_bytes
+)
 from Mobile.DeviceSet import verified_device_set
 from Mobile.Fanout import send_fanout_control
 from Mobile.GroupInvitesState import (
@@ -20,10 +27,19 @@ from Mobile.GroupState import (
   load_group_baseline
 )
 from Mobile.Groups import add_mobile_group_member_with_updates
+from Mobile.Presentation import community_change_allowed
 from Mobile.Profile import load_profile
 from Mobile.Sessions import find_peer_session, load_session_ids
 from Mobile.Transparency import require_transparency_device_set
-from Mobile.Types import MobileFanoutRequest, MobileGroupAddRequest, MobilePayloadRequest, MobileTriplePayloadRequest, MobileVerifiedDeviceSet, MobileLoadedSession, MobileSessionRecord
+from Mobile.Types import (
+  MobileFanoutRequest,
+  MobileGroupAddRequest,
+  MobilePayloadRequest,
+  MobileTriplePayloadRequest,
+  MobileVerifiedDeviceSet,
+  MobileLoadedSession,
+  MobileSessionRecord
+)
 from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceSet, DirectoryEntry, PrekeyBundle
 from Storage.Blobs import load_blob
 from Storage.Keys import platform_key
@@ -42,14 +58,18 @@ pub fn invite_to_group(request :: MobileFanoutRequest) -> Bytes!String do
   let group = load_group(path, local, key, request.body)?
   let member = member_at(group.tree, group.local_leaf)
   consume_group_state(group)
+  if !community_change_allowed(path, key, request.body, local.account_id, Bytes.empty())? do
+    return Err("community_admin_required")
+  end
   case member do
     Err(_) -> return Err("group_member_not_found")
     Ok(_) -> nil
   end
   let existing = load_invitations(path, key)?
   let pending = List.find(existing,
-    fn (value) do (value.state == 0 || value.state == 3) && Bytes.secure_equals(value.group_id,
-      request.body) && Bytes.secure_equals(value.recipient_account, peers.account.account_id) end)
+    fn(value) do (value.state == 0 || value.state == 3)
+      && Bytes.secure_equals(value.group_id, request.body)
+      && Bytes.secure_equals(value.recipient_account, peers.account.account_id) end)
   case pending do
     Some(_) -> return encode_output_list([])
     None -> nil
@@ -84,8 +104,8 @@ pub fn accept_group_invitation(request :: MobileFanoutRequest) -> Bytes!String d
   let local = decode_client_profile(load_profile(path)?)?
   let values = load_invitations(path, key)?
   let invitation = find_invitation(values, request.body)?
-  if !Bytes.secure_equals(invitation.recipient_account, local.account_id) || !Bytes.secure_equals(invitation.recipient_device,
-    local.device_id) do
+  if !Bytes.secure_equals(invitation.recipient_account, local.account_id)
+    || !Bytes.secure_equals(invitation.recipient_device, local.device_id) do
     return Err("invalid_group_invitation")
   end
   if invitation.state == 2 do
@@ -112,7 +132,12 @@ pub fn accept_group_invitation(request :: MobileFanoutRequest) -> Bytes!String d
   # A welcome committed before the invitation deadline may spend 30 days in delivery.
   let retain_until = U64.add(invitation.expires_at, mobile_wide("2592000000")?)?
   let updated = replace_invitation(values,
-    %{invitation | state: 2, key_package: package, inviter_signing_key: inviter.credential.signing_public_key, expires_at: retain_until})
+    %{invitation |
+      state: 2,
+      key_package: package,
+      inviter_signing_key: inviter.credential.signing_public_key,
+      expires_at: retain_until
+    })
   let body = encode_output_list([invitation.id, invitation.group_id, package])?
   send_fanout_control(%{request | body: body},
     4,
@@ -126,8 +151,8 @@ pub fn complete_group_invitation(request :: MobileTriplePayloadRequest) -> Bytes
   let local = decode_client_profile(load_profile(path)?)?
   let values = load_invitations(path, key)?
   let invitation = find_invitation(values, request.second)?
-  if !Bytes.secure_equals(invitation.inviter_account, local.account_id) || !Bytes.secure_equals(invitation.inviter_device,
-    local.device_id) do
+  if !Bytes.secure_equals(invitation.inviter_account, local.account_id)
+    || !Bytes.secure_equals(invitation.inviter_device, local.device_id) do
     return Err("invalid_group_invitation")
   end
   if invitation.state == 4 do
@@ -180,7 +205,7 @@ pub fn list_group_invitations(path :: String) -> Bytes!String do
   let summaries = for value in values do
     invitation_summary(path, key, sessions, value)?
   end
-  encode_output_list(List.filter(summaries, fn (value) do Bytes.length(value) > 0 end))
+  encode_output_list(List.filter(summaries, fn(value) do Bytes.length(value) > 0 end))
 end
 
 fn invitation_summary(path :: String,

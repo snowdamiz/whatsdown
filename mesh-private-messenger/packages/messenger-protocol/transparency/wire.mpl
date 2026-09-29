@@ -1,5 +1,18 @@
-from Binary.Reader import BinaryReader, finish, read_fixed, read_u16_be, read_u8, read_vector, reader
-from Transparency.Merkle import ConsistencyProof, InclusionProof, TransparencyCheckpoint, WitnessAttestation
+from Binary.Reader import (
+  BinaryReader,
+  finish,
+  read_fixed,
+  read_u16_be,
+  read_u8,
+  read_vector,
+  reader
+)
+from Transparency.Merkle import (
+  ConsistencyProof,
+  InclusionProof,
+  TransparencyCheckpoint,
+  WitnessAttestation
+)
 
 pub struct TransparencyLookup do
   username :: String
@@ -119,40 +132,28 @@ end
 fn take_u8(state :: BinaryReader) -> ReadInt!String do
   case read_u8(state) do
     Err(_) -> Err("invalid transparency wire")
-    Ok((next, value)) -> Ok(ReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
   end
 end
 
 fn take_u16(state :: BinaryReader) -> ReadInt!String do
   case read_u16_be(state) do
     Err(_) -> Err("invalid transparency wire")
-    Ok((next, value)) -> Ok(ReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadInt { state: next, value: value })
   end
 end
 
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!String do
   case read_fixed(state, length) do
     Err(_) -> Err("invalid transparency wire")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!String do
   case read_vector(state, maximum) do
     Err(_) -> Err("invalid transparency wire")
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -162,10 +163,7 @@ fn take_u32(state :: BinaryReader) -> ReadInt!String do
     Err(_) -> Err("invalid transparency wire integer")
     Ok(output) -> case U64.to_int(output) do
       Err(_) -> Err("invalid transparency wire integer")
-      Ok(parsed) -> Ok(ReadInt {
-        state: value.state,
-        value: parsed
-      })
+      Ok(parsed) -> Ok(ReadInt { state: value.state, value: parsed })
     end
   end
 end
@@ -174,10 +172,7 @@ fn take_u64(state :: BinaryReader) -> ReadWide!String do
   let value = take_fixed(state, 8)?
   case Bytes.read_u64_be(value.value, 0) do
     Err(_) -> Err("invalid transparency wire integer")
-    Ok(output) -> Ok(ReadWide {
-      state: value.state,
-      value: output
-    })
+    Ok(output) -> Ok(ReadWide { state: value.state, value: output })
   end
 end
 
@@ -200,7 +195,11 @@ fn start(input :: Bytes, maximum :: Int, expected :: String) -> BinaryReader!Str
 end
 
 fn valid_username_byte(value :: Int) -> Bool do
-  (value >= 97 && value <= 122) || (value >= 48 && value <= 57) || value == 45 || value == 46 || value == 95
+  (value >= 97 && value <= 122)
+    || (value >= 48 && value <= 57)
+    || value == 45
+    || value == 46
+    || value == 95
 end
 
 fn valid_username(value :: Bytes, index :: Int) -> Bool do
@@ -253,7 +252,12 @@ pub fn encode_transparency_lookup(value :: TransparencyLookup) -> Bytes!String d
   else if !valid_username(username, 0) do
     Err("invalid transparency lookup")
   else
-    join([byte(1)?, Bytes.from_utf8("KTQ"), vector(username)?, write_u32(value.previous_tree_size)?],
+    join([
+        byte(1)?,
+        Bytes.from_utf8("KTQ"),
+        vector(username)?,
+        write_u32(value.previous_tree_size)?
+      ],
       0,
       Bytes.empty())
   end
@@ -289,10 +293,7 @@ pub fn decode_transparency_lookup(input :: Bytes) -> TransparencyLookup!String d
     else
       case Bytes.to_utf8(username.value) do
         Err(_) -> Err("invalid transparency lookup")
-        Ok(value) -> Ok(TransparencyLookup {
-          username: value,
-          previous_tree_size: previous.value
-        })
+        Ok(value) -> Ok(TransparencyLookup { username: value, previous_tree_size: previous.value })
       end
     end
   end
@@ -326,12 +327,12 @@ fn encode_hashes(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!
   end
 end
 
-fn read_hashes(state :: BinaryReader, count :: Int, index :: Int, output :: List<Bytes>) -> ReadHashes!String do
+fn read_hashes(state :: BinaryReader,
+  count :: Int,
+  index :: Int,
+  output :: List<Bytes>) -> ReadHashes!String do
   if index >= count do
-    Ok(ReadHashes {
-      state: state,
-      value: output
-    })
+    Ok(ReadHashes { state: state, value: output })
   else
     let value = take_fixed(state, 32)?
     read_hashes(value.state, count, index + 1, List.append(output, value.value))
@@ -348,7 +349,11 @@ fn take_hashes(state :: BinaryReader) -> ReadHashes!String do
 end
 
 pub fn encode_inclusion_proof(value :: InclusionProof) -> Bytes!String do
-  if value.tree_size != List.length(value.leaf_hashes) || value.tree_size <= 0 || value.tree_size > 4096 || value.leaf_index < 0 || value.leaf_index >= value.tree_size do
+  if value.tree_size != List.length(value.leaf_hashes)
+    || value.tree_size <= 0
+    || value.tree_size > 4096
+    || value.leaf_index < 0
+    || value.leaf_index >= value.tree_size do
     Err("invalid inclusion proof")
   else
     join([
@@ -369,7 +374,9 @@ pub fn decode_inclusion_proof(input :: Bytes) -> InclusionProof!String do
   let tree_size = take_u32(leaf_index.state)?
   let hashes = take_hashes(tree_size.state)?
   done(hashes.state)?
-  if tree_size.value != List.length(hashes.value) || tree_size.value <= 0 || leaf_index.value >= tree_size.value do
+  if tree_size.value != List.length(hashes.value)
+    || tree_size.value <= 0
+    || leaf_index.value >= tree_size.value do
     Err("invalid inclusion proof")
   else
     Ok(InclusionProof {
@@ -381,7 +388,10 @@ pub fn decode_inclusion_proof(input :: Bytes) -> InclusionProof!String do
 end
 
 pub fn encode_consistency_proof(value :: ConsistencyProof) -> Bytes!String do
-  if value.old_tree_size < 0 || value.old_tree_size > value.new_tree_size || value.new_tree_size != List.length(value.leaf_hashes) || value.new_tree_size > 4096 do
+  if value.old_tree_size < 0
+    || value.old_tree_size > value.new_tree_size
+    || value.new_tree_size != List.length(value.leaf_hashes)
+    || value.new_tree_size > 4096 do
     Err("invalid consistency proof")
   else
     join([
@@ -414,7 +424,11 @@ pub fn decode_consistency_proof(input :: Bytes) -> ConsistencyProof!String do
 end
 
 pub fn encode_checkpoint(value :: TransparencyCheckpoint) -> Bytes!String do
-  if value.version != 1 || Bytes.length(value.tree_root) != 32 || Bytes.length(value.previous_checkpoint_hash) != 32 || Bytes.length(value.service_public_key) != 32 || Bytes.length(value.signature) != 64 do
+  if value.version != 1
+    || Bytes.length(value.tree_root) != 32
+    || Bytes.length(value.previous_checkpoint_hash) != 32
+    || Bytes.length(value.service_public_key) != 32
+    || Bytes.length(value.signature) != 64 do
     Err("invalid transparency checkpoint")
   else
     join([
@@ -454,13 +468,18 @@ pub fn decode_checkpoint(input :: Bytes) -> TransparencyCheckpoint!String do
   })
 end
 
-fn encode_witness_entries(values :: List<WitnessAttestation>, index :: Int, output :: Bytes) -> Bytes!String do
+fn encode_witness_entries(values :: List<WitnessAttestation>,
+  index :: Int,
+  output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
     Ok(output)
   else
     let value = List.get(values, index)
     let witness_id = Bytes.from_utf8(value.witness_id)
-    if Bytes.length(witness_id) == 0 || Bytes.length(witness_id) > 64 || Bytes.length(value.checkpoint_hash) != 32 || Bytes.length(value.signature) != 64 do
+    if Bytes.length(witness_id) == 0
+      || Bytes.length(witness_id) > 64
+      || Bytes.length(value.checkpoint_hash) != 32
+      || Bytes.length(value.signature) != 64 do
       Err("invalid witness attestation")
     else
       encode_witness_entries(values,
@@ -491,10 +510,7 @@ fn read_witnesses(state :: BinaryReader,
   index :: Int,
   output :: List<WitnessAttestation>) -> ReadWitnesses!String do
   if index >= count do
-    Ok(ReadWitnesses {
-      state: state,
-      value: output
-    })
+    Ok(ReadWitnesses { state: state, value: output })
   else
     let witness_id = take_vector(state, 64)?
     let checkpoint_hash = take_fixed(witness_id.state, 32)?

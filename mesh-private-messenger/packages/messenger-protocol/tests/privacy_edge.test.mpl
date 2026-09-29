@@ -1,4 +1,19 @@
-from Privacy.Edge import AnonymousAbuseToken, PrivacySubmission, RequestStamp, decode_privacy_submission, decode_stamped_request, encode_privacy_submission, encode_stamped_request, mint_request_stamp, mint_submission, open_delivery_with_key, request_stamp_key, seal_delivery, verify_request_stamp, verify_submission
+from Privacy.Edge import (
+  AnonymousAbuseToken,
+  PrivacySubmission,
+  RequestStamp,
+  decode_privacy_submission,
+  decode_stamped_request,
+  encode_privacy_submission,
+  encode_stamped_request,
+  mint_request_stamp,
+  mint_submission,
+  open_delivery_with_key,
+  request_stamp_key,
+  seal_delivery,
+  verify_request_stamp,
+  verify_submission
+)
 from Protocol.EnvelopeWire import encode_outer_envelope
 from Protocol.V1 import OuterEnvelope
 
@@ -45,10 +60,7 @@ fn token_rejects_alternate(expires_at :: U64,
       }))?,
       public_key)?
     let encoded = encode_privacy_submission(PrivacySubmission {
-      token: AnonymousAbuseToken {
-        expires_at: expires_at,
-        nonce: nonce
-      },
+      token: AnonymousAbuseToken { expires_at: expires_at, nonce: nonce },
       sealed: sealed
     })?
     if verify_submission(encoded, wide("1000")?, wide("5000")?, 8)? do
@@ -141,11 +153,10 @@ fn stamp_proof() -> Bool!String do
   # Known answer computed independently (Python hashlib) from the documented
   # layout: SHA-256(label || u64be expires_at || u32be nonce || SHA-256(payload)).
   # It pins the label, field order, widths and byte order against silent drift.
-  let known = RequestStamp {
-    expires_at: expires_at,
-    nonce: 4955
-  }
-  assert(Bytes.to_hex(request_stamp_key("mesh-msg/v1/work/resolve", payload, known)?) == "00023b3d0a240d4533a3e38336235c04f53b49c378093ffa92de14159221d639")
+  let known = RequestStamp { expires_at: expires_at, nonce: 4955 }
+  assert(Bytes.to_hex(request_stamp_key("mesh-msg/v1/work/resolve",
+    payload,
+    known)?) == "00023b3d0a240d4533a3e38336235c04f53b49c378093ffa92de14159221d639")
   assert(verify_request_stamp("mesh-msg/v1/work/resolve", payload, known, now, window, 14)?)
   assert(!(verify_request_stamp("mesh-msg/v1/work/resolve", payload, known, now, window, 15)?))
   # The key that marks a stamp as spent is unique to the stamp and the endpoint.

@@ -1,7 +1,20 @@
 import File
-from MobileCore import age_last_resort_for_test, create_account_export, receive_initial_export, reconcile_prekeys_export, replenish_prekeys_export, start_conversation_export
+from MobileCore import (
+  age_last_resort_for_test,
+  create_account_export,
+  receive_initial_export,
+  reconcile_prekeys_export,
+  replenish_prekeys_export,
+  start_conversation_export
+)
 from Mobile.Inbox import permanent_direct_delivery_error
-from Prekeys.Pool import OneTimePrekeyPublic, PrekeyPublishRequest, PrekeyPublishResponse, decode_prekey_publish, encode_prekey_publish_response
+from Prekeys.Pool import (
+  OneTimePrekeyPublic,
+  PrekeyPublishRequest,
+  PrekeyPublishResponse,
+  decode_prekey_publish,
+  encode_prekey_publish_response
+)
 from Protocol.PrekeyWire import encode_prekey_bundle
 from Protocol.V1 import DirectoryEntry, PrekeyBundle
 from Tests.Support import append, database_path, vector, write_u32
@@ -33,7 +46,10 @@ end
 
 fn exhausted_profile(encoded :: Bytes, reusable :: OneTimePrekeyPublic) -> Bytes!String do
   let profile = decode_client_profile(encoded)?
-  let bundle = case encode_prekey_bundle(%{profile.bundle | one_time_prekey_id: reusable.id, one_time_prekey: reusable.public_key}) do
+  let bundle = case encode_prekey_bundle(%{profile.bundle |
+    one_time_prekey_id: reusable.id,
+    one_time_prekey: reusable.public_key
+  }) do
     Err(_) -> Err("bundle encode failed")
     Ok(value)
   end?

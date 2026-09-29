@@ -62,7 +62,9 @@ pub fn initialize(path :: String) -> Result<(), String> do
   end
 end
 
-fn enqueue_open(database :: borrow PgConn, input :: Bytes, now_ms :: Int) -> EnqueueOutcome!String do
+fn enqueue_open(database :: borrow PgConn,
+  input :: Bytes,
+  now_ms :: Int) -> EnqueueOutcome!String do
   configure(database)?
   Pg.begin(database)?
   let wake = decode_push_wake(input)?
@@ -70,7 +72,13 @@ fn enqueue_open(database :: borrow PgConn, input :: Bytes, now_ms :: Int) -> Enq
   let request_hash = Bytes.to_hex(Crypto.sha256(input))
   let changed = Pg.execute(database,
     "INSERT INTO broker_jobs (wake_hash, request_hash, sealed_request, state, ticket_id, attempts, next_attempt_ms, updated_ms) VALUES ($1, $2, $3, 'pending', '', 0, $4, $5) ON CONFLICT(wake_hash) DO UPDATE SET request_hash = excluded.request_hash, sealed_request = excluded.sealed_request, state = 'pending', ticket_id = '', attempts = 0, next_attempt_ms = excluded.next_attempt_ms, updated_ms = excluded.updated_ms WHERE broker_jobs.request_hash <> excluded.request_hash",
-    [wake_hash, request_hash, Bytes.to_base64(input), Int.to_string(now_ms), Int.to_string(now_ms)])?
+    [
+      wake_hash,
+      request_hash,
+      Bytes.to_base64(input),
+      Int.to_string(now_ms),
+      Int.to_string(now_ms)
+    ])?
   if changed > 0 do
     RuntimeJobs.notify(database, "push")?
   end
@@ -137,7 +145,12 @@ fn decode_job(row :: Map<String, String>) -> Result<QueueJob, String> do
     None -> Err("invalid broker queue state")
     Some(value) -> Ok(value)
   end?
-  if String.length(wake_hash) != 64 || String.length(request_hash) != 64 || Bytes.length(sealed_request) == 0 || Bytes.length(sealed_request) > 621 || Bytes.to_hex(Crypto.sha256(sealed_request)) != request_hash || attempts < 0 do
+  if String.length(wake_hash) != 64
+    || String.length(request_hash) != 64
+    || Bytes.length(sealed_request) == 0
+    || Bytes.length(sealed_request) > 621
+    || Bytes.to_hex(Crypto.sha256(sealed_request)) != request_hash
+    || attempts < 0 do
     Err("invalid broker queue state")
   else
     Ok(QueueJob {
@@ -206,7 +219,10 @@ fn update_exact(path :: String,
   end
 end
 
-pub fn mark_terminal(path :: String, wake_hash :: String, request_hash :: String, now_ms :: Int) -> Result<(), String> do
+pub fn mark_terminal(path :: String,
+  wake_hash :: String,
+  request_hash :: String,
+  now_ms :: Int) -> Result<(), String> do
   update_exact(path,
     "UPDATE broker_jobs SET state = 'terminal', ticket_id = '', updated_ms = $1 WHERE wake_hash = $2 AND request_hash = $3",
     wake_hash,
@@ -214,9 +230,15 @@ pub fn mark_terminal(path :: String, wake_hash :: String, request_hash :: String
     [Int.to_string(now_ms)])
 end
 
-pub fn record_ticket(path :: String, job :: QueueJob, ticket_id :: String, now_ms :: Int) -> Result<(), String> do
-  if String.length(ticket_id) == 0 || String.length(ticket_id) > 256 || now_ms < 0 || String.contains(ticket_id,
-    "\r") || String.contains(ticket_id, "\n") do
+pub fn record_ticket(path :: String,
+  job :: QueueJob,
+  ticket_id :: String,
+  now_ms :: Int) -> Result<(), String> do
+  if String.length(ticket_id) == 0
+    || String.length(ticket_id) > 256
+    || now_ms < 0
+    || String.contains(ticket_id, "\r")
+    || String.contains(ticket_id, "\n") do
     Err("invalid Expo ticket")
   else
     update_exact(path,

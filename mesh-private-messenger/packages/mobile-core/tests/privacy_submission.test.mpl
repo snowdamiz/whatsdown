@@ -72,7 +72,16 @@ fn config_frame(service_hex :: String,
   witness_b_hex :: String,
   delivery_hex :: String,
   difficulty :: String) -> Bytes do
-  Bytes.from_utf8("1\n" <> service_hex <> "\n" <> witness_a_hex <> "\n" <> witness_b_hex <> "\n" <> delivery_hex <> "\n" <> difficulty)
+  Bytes.from_utf8("1\n"
+    <> service_hex
+    <> "\n"
+    <> witness_a_hex
+    <> "\n"
+    <> witness_b_hex
+    <> "\n"
+    <> delivery_hex
+    <> "\n"
+    <> difficulty)
 end
 
 fn rejects_config(frame :: Bytes, outer :: Bytes) -> Bool!String do
@@ -120,7 +129,15 @@ fn config_validation_proof() -> Bool!String do
     outer)?)
   assert(rejects_config(config_frame(service_hex, first_witness, second_witness, delivery, "08"),
     outer)?)
-  assert(rejects_config(Bytes.from_utf8("1\n" <> service_hex <> "\n" <> first_witness <> "\n" <> second_witness <> "\n" <> delivery <> "\n8\n"),
+  assert(rejects_config(Bytes.from_utf8("1\n"
+      <> service_hex
+      <> "\n"
+      <> first_witness
+      <> "\n"
+      <> second_witness
+      <> "\n"
+      <> delivery
+      <> "\n8\n"),
     outer)?)
   Ok(true)
 end

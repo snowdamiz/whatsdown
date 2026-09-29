@@ -6,11 +6,35 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { encodeReaction, setReaction } from "./reactions";
+import {
+  LEAVE_REQUEST,
+  MAX_ADMINS,
+  authorities,
+  departures,
+  encodeLeft,
+  leftBy,
+  communityId,
+  deviceRequests,
+  encodeDeviceRequest,
+  encodeJoinRequest,
+  fromHex,
+  indexCommunities,
+  joinRequests,
+  mergeParts,
+  pickPart,
+  sameRecord,
+  withRoles,
+  type Community,
+  type CommunityEntry,
+  type Copy,
+  type JoinRequest,
+} from "./communities";
 import { encodeReply } from "./replies";
 import { encodeReceipt, messageStatus, receiptDue, type ReceiptMarks } from "./receipts";
 import {
   ActivityIndicator,
   Alert,
+  Clipboard,
   AppState,
   BackHandler,
   FlatList,
@@ -113,6 +137,7 @@ import {
 import {
   RemovedFromAccount,
   addGroupMember,
+  forgetGroup,
   acceptGroupInvitation,
   declineGroupInvitation,
   inviteToGroup,
@@ -156,7 +181,17 @@ import {
 import { createQrCollector } from "./qr";
 import { databasePath } from "./storage";
 import { receivedMessageKeys, unreadCount, type ReadState } from "./read-state";
-import { forgetPreferences, loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveNotificationPreview, saveReadReceipts, saveReadState } from "./read-state-store";
+import { forgetPreferences, loadDeclinedRequests, loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveDeclinedRequests, saveNotificationPreview, saveReadReceipts, saveReadState } from "./read-state-store";
+import {
+  encodeCommunityAnswer,
+  encodeCommunityLink,
+  encodeCommunityRequest,
+  ownRequests,
+  parseCommunityLink,
+  unansweredRequests,
+  type CommunityLink,
+  type UnansweredRequest,
+} from "./community-requests";
 import type { NotificationPreview } from "./notification-policy";
 import { describeSafety } from "./safety";
 import { Fact, IdentityPreview, SealedChat, Steps, Strong } from "./onboarding";
@@ -420,6 +455,27 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const [presentations, setPresentations] = useState<Record<string, Presentation | undefined>>({});
   const [groupDraftName, setGroupDraftName] = useState("");
   const [groupDraftAvatar, setGroupDraftAvatar] = useState<string>();
+  // A new community starts as a group whose record also lists its linked groups.
+  const [draftCommunity, setDraftCommunity] = useState(false);
+  const [groupDraftAbout, setGroupDraftAbout] = useState("");
+  // The owner's unsaved edit of the open community's description.
+  const [aboutDraft, setAboutDraft] = useState<string | null>(null);
+  // Who is in each group linked to the open community, for its owner to see which requests are done.
+  const [linkedMembers, setLinkedMembers] = useState<Record<string, string[]>>({});
+  // Every part of the open community this device is in: who is there and what was said.
+  const [communityParts, setCommunityParts] = useState<Record<string, { details: GroupDetails; messages: GroupHistoryMessage[] }>>({});
+  // The person whose role the owner is changing, in a dialog over the community's details.
+  const [managing, setManaging] = useState<string | null>(null);
+  // A community link read from a code, waiting for this account to ask to join.
+  const [scannedCommunity, setScannedCommunity] = useState<CommunityLink | null>(null);
+  // Requests to join a community this admin declined, by the chat they came in.
+  const [declinedRequests, setDeclinedRequests] = useState<Record<string, string[]>>({});
+  // The request to join a community an admin is answering.
+  const [reviewing, setReviewing] = useState<{ conversation: Conversation; request: UnansweredRequest } | null>(null);
+  // Invitations this session already accepted because an approved request led to them.
+  const acceptedApprovals = useRef(new Set<string>());
+  // Devices this session already added to a part, so a slow welcome is not answered twice.
+  const addedDevices = useRef(new Set<string>());
   // The members dialog over the open group's thread, and whether the way it
   // led to the group's details was to invite someone.
   const [membersOpen, setMembersOpen] = useState(false);
@@ -487,18 +543,18 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   useEffect(() => {
     setActiveNotificationScope(foreground && !preview && !membersOpen
       ? screen === "chat" && selected ? `chat/${hex(selected.conversationId)}`
-        : screen === "group" && selectedGroupId ? `group/${hex(selectedGroupId)}` : null
+        : screen === "group" && selectedGroupId ? threadScope(hex(selectedGroupId)) : null
       : null, readReceipts);
     return () => setActiveNotificationScope(null);
-  }, [foreground, preview, membersOpen, screen, selected, selectedGroupId, readReceipts]);
+  }, [foreground, preview, membersOpen, screen, selected, selectedGroupId, presentations, readReceipts]);
 
   useEffect(() => listenForNotificationOpens(setNotificationTarget), []);
   useEffect(() => {
     if (!notificationTarget || preview) return;
     const chat = conversations.find((item) => notificationTarget === `chat/${hex(item.conversationId)}`);
-    const group = groups.find((item) => notificationTarget === `group/${hex(item.groupId)}`);
+    const group = groups.find((item) => notificationTarget === threadScope(hex(item.groupId)));
     if (chat) openConversation(chat);
-    else if (group) { setSelectedGroupId(group.groupId); setScreen("group"); }
+    else if (group) openGroup(group);
     else return;
     setNotificationTarget(null);
   }, [notificationTarget, conversations, groups, preview]);
@@ -556,9 +612,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const scope = screen === "chat" && selected && historyFor === hex(selected.conversationId)
       ? `chat/${historyFor}`
       : screen === "group" && selectedGroupId && groupHistoryFor === hex(selectedGroupId)
-        ? `group/${groupHistoryFor}` : null;
+        ? threadScope(groupHistoryFor) : null;
     if (!scope) return;
-    const keys = receivedMessageKeys(screen === "chat" ? history : groupHistory, accountId);
+    // A community's thread is what its owner and admins posted across its parts.
+    const keys = receivedMessageKeys(screen === "chat" ? history : selectedEntry ? communityPosts : groupHistory, accountId);
     const current = preview ? previewReadState : readState;
     if (!unreadCount(keys, current[scope])) return;
     const next = { ...current, [scope]: keys };
@@ -576,7 +633,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       }
     }
   }, [foreground, accountId, readAccount, membersOpen, screen, selected, selectedGroupId,
-    historyFor, groupHistoryFor, history, groupHistory, preview, previewReadState, readState, readReceipts]);
+    historyFor, groupHistoryFor, history, groupHistory, communityParts, preview, previewReadState, readState, readReceipts]);
 
   const read = preview ? previewReadState : readState;
   // Until the sealed journal is back, nothing is known to be unread: better no
@@ -586,9 +643,18 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     receivedMessageKeys((preview?.histories ?? previews)[hex(conversation.conversationId)] ?? []),
     read[`chat/${hex(conversation.conversationId)}`],
   );
+  // Sample content merges a community's parts here; real ones arrive merged.
+  const threadHistory = (group: GroupSummary) => {
+    const entry = communityOfGroup(hex(group.groupId));
+    if (preview && entry) {
+      return mergeParts(entry.parts.flatMap((part) => preview.groupHistories[part] ? [{ id: part, messages: preview.groupHistories[part]! }] : []),
+        authorities(entry.community));
+    }
+    return (preview?.groupHistories ?? groupPreviews)[threadScope(hex(group.groupId)).slice(6)] ?? [];
+  };
   const groupUnread = (group: GroupSummary) => !readKnown ? 0 : unreadCount(
-    receivedMessageKeys((preview?.groupHistories ?? groupPreviews)[hex(group.groupId)] ?? [], accountId ?? undefined),
-    read[`group/${hex(group.groupId)}`],
+    receivedMessageKeys(threadHistory(group), accountId ?? undefined),
+    read[threadScope(hex(group.groupId))],
   );
 
   function toggleDevPreview(enabled: boolean): void {
@@ -596,7 +662,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     let nextPreview: DevPreview | null = null;
     // Keep build constants beside require so Metro excludes the fixtures from releases.
     if (__DEV__ || (process.env.EXPO_OS === "web" && process.env.EXPO_PUBLIC_DESKTOP_DEVELOPMENT === "true")) {
-      if (enabled) nextPreview = (require("./dev-preview") as typeof import("./dev-preview")).createDevPreview();
+      if (enabled) nextPreview = (require("./dev-preview") as typeof import("./dev-preview")).createDevPreview(Date.now(), ownProfile?.accountId);
     }
     setDevPreview(nextPreview);
     setPreviewReadState(nextPreview?.readState ?? {});
@@ -607,17 +673,72 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     setError("");
   }
 
-  async function refreshPresentations(keys: string[]): Promise<void> {
+  async function refreshPresentations(keys: string[]): Promise<Record<string, Presentation | undefined>> {
     const allKeys = keys.flatMap((key) => key.startsWith("user/") ? [key, `nickname/${key.slice(5)}`] : [key]);
     const entries = await Promise.all([...new Set(allKeys)].map(async (key) => [key, await loadPresentation(databasePath, key)] as const));
-    setPresentations((previous) => ({ ...previous, ...Object.fromEntries(entries) }));
+    const loaded = Object.fromEntries(entries);
+    setPresentations((previous) => ({ ...previous, ...loaded }));
+    return loaded;
   }
 
   const presentationOf = (key: string) => preview?.presentations[key] ?? presentations[key];
   const contactName = (contact: Conversation) => identityName(contact.username,
     presentationOf(`user/${hex(contact.peerAccountId)}`), presentationOf(`nickname/${hex(contact.peerAccountId)}`))!;
-  const groupName = (id: Uint8Array) => presentationOf(`group/${hex(id)}`)?.name ?? `Group ${hex(id).slice(0, 6)}`;
+  // A group you are not in yet is named by the community that lists it.
+  const linkedName = (id: string) => Object.values(preview?.presentations ?? presentations)
+    .flatMap((item) => item?.community?.groups ?? []).find((group) => group.id === id)?.name;
+  const groupName = (id: Uint8Array) => presentationOf(`group/${hex(id)}`)?.name ?? linkedName(hex(id)) ??
+    communityAsks.find((ask) => ask.state === "approved" && ask.part === hex(id))?.name ?? `Group ${hex(id).slice(0, 6)}`;
   const groupAvatar = (id: Uint8Array) => presentationOf(`group/${hex(id)}`)?.avatar;
+  // Communities are shown once, by their first part this device is in.
+  const communityIndex = indexCommunities(groups.map((group) => hex(group.groupId)), (id) => presentationOf(`group/${id}`));
+  const communityOfGroup = (id: string) => [...communityIndex.values()].find((entry) => entry.parts.includes(id));
+  const selectedEntry = selectedGroupId ? communityOfGroup(hex(selectedGroupId)) : undefined;
+  // A community keeps one thread, read state and notifications under its own ID,
+  // whichever of its parts this device is in.
+  const threadScope = (id: string) => {
+    const entry = communityOfGroup(id);
+    return `group/${entry ? communityId(entry.community) : id}`;
+  };
+  const listedGroups = groups.filter((group) => (communityOfGroup(hex(group.groupId))?.parts[0] ?? hex(group.groupId)) === hex(group.groupId));
+  // A community's size is for those who run it, in its details.
+  const groupSubtitle = (group: GroupSummary) => communityOfGroup(hex(group.groupId)) ? "Community"
+    : `${group.memberCount} ${group.memberCount === 1 ? "member" : "members"}`;
+  // A community's latest is its latest announcement, never a request hidden in a part.
+  const groupLast = (group: GroupSummary) => threadHistory(group).at(-1);
+  // A group's row shows its latest words as a conversation's does: yours
+  // marked as yours, anyone else's by name where the name is known. A
+  // community's row keeps saying what it is.
+  function groupPreviewText(group: GroupSummary): string {
+    const last = groupLast(group);
+    if (!last || communityOfGroup(hex(group.groupId))) return groupSubtitle(group);
+    const text = attachmentPreviewText(last);
+    if (last.direction === "sent") return `You: ${text}`;
+    const id = hex(last.senderAccountId);
+    const contact = conversations.find((item) => hex(item.peerAccountId) === id);
+    const name = identityName(contact?.username ?? null, presentationOf(`user/${id}`), presentationOf(`nickname/${id}`));
+    return name ? `${name}: ${text}` : text;
+  }
+  const selectedCommunity = selectedEntry?.community;
+  const communityAuthority = selectedCommunity ? authorities(selectedCommunity) : new Set<string>();
+  // Sample content stands in for the parts' rosters and histories.
+  const communityData: typeof communityParts = preview && selectedEntry
+    ? Object.fromEntries(selectedEntry.parts.flatMap((part) => preview.groupDetails[part] && preview.groupHistories[part]
+      ? [[part, { details: preview.groupDetails[part]!, messages: preview.groupHistories[part]! }]] : []))
+    : communityParts;
+  const communityHeard = selectedEntry ? selectedEntry.parts.flatMap((part) => communityData[part]?.messages ?? []) : [];
+  const communityPosts = selectedEntry ? mergeParts(selectedEntry.parts.flatMap((part) =>
+    communityData[part] ? [{ id: part, messages: communityData[part]!.messages }] : []), communityAuthority) : [];
+  // Asking to join from outside travels in direct chats: what this account asked
+  // to join and has not joined yet, with who it asked.
+  const chatHistories = preview?.histories ?? previews;
+  const communityAsks = conversations.flatMap((conversation) =>
+    ownRequests(chatHistories[hex(conversation.conversationId)] ?? []).map((request) => ({ ...request, conversation })))
+    .filter((request) => !communityIndex.has(request.community));
+  const readCommunityLink = (value: string): CommunityLink | undefined => {
+    try { return parseCommunityLink(decodeUtf8(payloadFromQr(value.trim(), "community", 1_024))); }
+    catch { return undefined; }
+  };
 
   function rememberPreview(
     conversation: Conversation,
@@ -682,17 +803,29 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     ]);
     setGroups(next);
     setGroupInvitations(invitations);
-    await Promise.all([
-      refreshPresentations(next.map((group) => `group/${hex(group.groupId)}`)),
-      ...next.map(async (group) => {
-        try {
-          const messages = await loadGroupHistory(databasePath, group.groupId);
-          setGroupPreviews((previous) => ({ ...previous, [hex(group.groupId)]: messages }));
-        } catch {
-          // Keep the last known count if this group's history is unavailable.
-        }
-      }),
-    ]);
+    const loaded = await refreshPresentations(next.map((group) => `group/${hex(group.groupId)}`));
+    const histories: Record<string, GroupHistoryMessage[]> = {};
+    await Promise.all(next.map(async (group) => {
+      try {
+        histories[hex(group.groupId)] = await loadGroupHistory(databasePath, group.groupId);
+      } catch {
+        // Keep the last known count if this group's history is unavailable.
+      }
+    }));
+    // A community counts as one thread: its first part holds what every part heard.
+    const index = indexCommunities(next.map((group) => hex(group.groupId)), (id) => loaded[`group/${id}`]);
+    const parts = new Set([...index.values()].flatMap((entry) => entry.parts));
+    const previews = Object.fromEntries(Object.entries(histories).filter(([id]) => !parts.has(id)));
+    for (const entry of index.values()) {
+      const held = entry.parts.filter((part) => histories[part]);
+      if (held.length) previews[communityId(entry.community)] = mergeParts(held.map((part) => ({ id: part, messages: histories[part]! })), authorities(entry.community));
+    }
+    setGroupPreviews((previous) => ({ ...previous, ...previews }));
+    // The list names whoever spoke last in each group.
+    void refreshPresentations(Object.values(previews).flatMap((messages) => {
+      const last = messages.at(-1);
+      return last?.direction === "received" ? [`user/${hex(last.senderAccountId)}`] : [];
+    })).catch(() => undefined);
     // Announce identities after joining or changing membership; empty messages stay out of history.
     for (const group of next) {
       const key = hex(group.groupId);
@@ -702,13 +835,93 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         await drainOutbox(databasePath);
       }
     }
+    // Read here, not from state: a sync may run this from an earlier render.
+    const own = index.size ? hex(parseProfileSummary(await load_profile_export(utf8(databasePath))).accountId) : "";
+    // Leaving on one device leaves on them all: the others forget the community when they hear it.
+    const forgotten = [...index.values()].filter((entry) => entry.community.owner !== own &&
+      entry.parts.some((part) => leftBy(histories[part] ?? [], own))).flatMap((entry) => entry.parts);
+    for (const part of forgotten) await forgetGroup(databasePath, fromHex(part));
+    if (forgotten.length) setGroups(next.filter((group) => !forgotten.includes(hex(group.groupId))));
+    for (const entry of index.values()) {
+      if (entry.parts.some((part) => forgotten.includes(part))) continue;
+      try { await maintainCommunity(own, entry, histories, loaded); }
+      catch { /* The next refresh tries again. */ }
+    }
     return next;
+  }
+
+  // An owner's or admin's device belongs in every part of the community, so its
+  // posts reach everyone. A device missing a part asks for it, one part at a
+  // time; the owner's or admin's device that joined that part first adds it.
+  async function maintainCommunity(own: string, entry: CommunityEntry, histories: Record<string, GroupHistoryMessage[]>,
+    records: Record<string, Presentation | undefined>): Promise<void> {
+    const authority = authorities(entry.community);
+    if (!authority.has(own)) return;
+    const heard = entry.parts.flatMap((part) => histories[part] ?? []);
+    // A change made in one part reaches the others through the devices in both.
+    const newest = records[`group/${entry.parts.reduce((best, part) =>
+      (records[`group/${part}`]?.revision ?? 0) > (records[`group/${best}`]?.revision ?? 0) ? part : best)}`];
+    for (const part of entry.parts) {
+      const record = records[`group/${part}`];
+      if (!newest || !record?.community || sameRecord(record, newest)) continue;
+      const roles = (value: Community) => [value.owner, ...value.admins].join();
+      if (record.community.owner !== own && roles(record.community) !== roles(newest.community!)) continue;
+      await savePresentation(databasePath, `group/${part}`, newest);
+      advertisedGroups.current.delete(part);
+    }
+    const missing = entry.community.parts.find((part) => !entry.parts.includes(part));
+    if (missing) {
+      const request = encodeDeviceRequest(missing, await getGroupKeyPackage(databasePath));
+      if (!heard.some((message) => message.direction === "sent" && message.body === request)) {
+        await sendGroupMessage(databasePath, fromHex(entry.parts[0]!), request);
+      }
+    }
+    const rosters = new Map<string, GroupDetails>();
+    const roster = async (part: string) => rosters.get(part) ?? rosters.set(part, await inspectGroup(databasePath, fromHex(part))).get(part)!;
+    // Someone who left is removed, device by device, by the first device there
+    // allowed to: the owner's for an admin, which also ends their role.
+    for (const part of entry.parts) {
+      const members = (await roster(part)).members;
+      for (const departure of departures(histories[part] ?? [], new Set(members.map((member) => hex(member.accountId))), authority)) {
+        const admin = entry.community.admins.includes(departure.accountId);
+        const remover = members.filter((member) => admin ? hex(member.accountId) === entry.community.owner : authority.has(hex(member.accountId)))
+          .filter((member) => hex(member.accountId) !== departure.accountId).sort((left, right) => left.leaf - right.leaf)[0];
+        if (departure.accountId === entry.community.owner || !remover?.local) continue;
+        if (admin) {
+          const community = withRoles(entry.community, { admins: entry.community.admins.filter((item) => item !== departure.accountId) });
+          for (const held of entry.parts) {
+            await savePresentation(databasePath, `group/${held}`, { ...newest!, community });
+            advertisedGroups.current.delete(held);
+          }
+        }
+        for (const member of members.filter((item) => hex(item.accountId) === departure.accountId)) {
+          await removeGroupMember(databasePath, fromHex(part), member.accountId, member.deviceId);
+        }
+        await sendGroupMessage(databasePath, fromHex(part), encodeLeft(departure.accountId));
+      }
+    }
+    for (const request of deviceRequests(heard, entry.community)) {
+      const key = `${request.deviceId}/${hex(request.keyPackage)}`;
+      if (!entry.parts.includes(request.part) || addedDevices.current.has(key)) continue;
+      const members = (await roster(request.part)).members;
+      const adder = members.filter((member) => authority.has(hex(member.accountId))).sort((left, right) => left.leaf - right.leaf)[0];
+      if (!adder?.local || members.some((member) => hex(member.deviceId) === request.deviceId)) continue;
+      let username: string | undefined;
+      for (const part of entry.parts) {
+        username ??= (await roster(part)).members.find((member) => hex(member.accountId) === request.accountId)?.username;
+      }
+      if (!username) continue;
+      addedDevices.current.add(key);
+      await addGroupMember(databasePath, fromHex(request.part), username, request.keyPackage);
+    }
   }
 
   function refreshLocalData(): Promise<void> {
     return reloadByDatabase(databasePath, async () => {
       try { if (accountId) setReceiptMarks(await loadReceiptMarks(accountId)); }
       catch { /* Keep the last known marks. */ }
+      try { setDeclinedRequests(await loadDeclinedRequests()); }
+      catch { /* Keep the last known answers. */ }
       const results = await Promise.allSettled([refreshConversations(), refreshGroups()]);
       const failure = results.find((result) => result.status === "rejected");
       if (failure?.status === "rejected") throw failure.reason;
@@ -726,7 +939,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       setGroupDetails(details);
       setGroupHistory(messages);
       setGroupHistoryFor(hex(selectedGroup.groupId));
-      setGroupPreviews((previous) => ({ ...previous, [hex(selectedGroup.groupId)]: messages }));
+      if (!presentationOf(`group/${hex(selectedGroup.groupId)}`)?.community) {
+        setGroupPreviews((previous) => ({ ...previous, [hex(selectedGroup.groupId)]: messages }));
+      }
       await refreshPresentations([...details.members.map((member) => `user/${hex(member.accountId)}`), ...messages.map((message) => `user/${hex(message.senderAccountId)}`)]);
     }).catch((caught) => {
       if (!cancelled) setError(friendlyError(caught));
@@ -991,7 +1206,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     }
     void perform("Sending reaction…", async () => {
       const body = encodeReaction(hex(message.messageId!), emoji);
-      if (group) await sendGroupMessage(databasePath, selectedGroupId!, body);
+      // A community post is one message per part; the reaction goes to each.
+      const copies = "copies" in message ? (message as { copies: Copy[] }).copies : undefined;
+      if (copies) {
+        for (const copy of copies) {
+          if (copy.messageId) await sendGroupMessage(databasePath, fromHex(copy.part), encodeReaction(hex(copy.messageId), emoji));
+        }
+      } else if (group) await sendGroupMessage(databasePath, selectedGroupId!, body);
       else {
         const changed = await sendFanout(databasePath, selected!.username, body, selected!.peerAccountId);
         noteSent(selected!.username, changed);
@@ -1013,7 +1234,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // What the open composer answers, while that message is still in the thread:
   // once it expires, the reply bar goes and the words are sent on their own.
   const replyTarget = replying && replying.scope === openScope
-    ? [...history, ...groupHistory].find((message) => message.messageId && hex(message.messageId) === replying.target)
+    ? [...history, ...groupHistory, ...communityPosts].find((message) => message.messageId && hex(message.messageId) === replying.target)
     : undefined;
   const outgoingBody = (text: string): string => replyTarget ? encodeReply(replying!.target, text) : text;
 
@@ -1220,6 +1441,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     setScannedProfile(null);
     setScannedLinkRequest(null);
     setScannedGroupPackage(null);
+    setScannedCommunity(null);
     setError("");
     setScreen("scanner");
   }
@@ -1244,11 +1466,15 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     });
   }
 
-  function openGroup(group: GroupSummary): void {
+  function openGroup(chosen: GroupSummary): void {
+    // A community opens at its first part this device is in.
+    const first = communityOfGroup(hex(chosen.groupId))?.parts[0];
+    const group = groups.find((item) => hex(item.groupId) === first) ?? chosen;
     if (!selectedGroupId || hex(selectedGroupId) !== hex(group.groupId)) {
       setGroupDetails(null);
       setGroupHistory([]);
       setGroupHistoryFor(null);
+      setAboutDraft(null);
     }
     setSelectedGroupId(group.groupId);
     setScreen("group");
@@ -1258,18 +1484,23 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (preview) { setError("Turn off sample preview to create a group."); return; }
     setGroupDraftName("");
     setGroupDraftAvatar(undefined);
+    setDraftCommunity(false);
+    setGroupDraftAbout("");
     pendingCreatedGroup.current = null;
     go("new-group");
   }
 
   function finishGroupCreation(): void {
-    try { encodePresentation({ name: groupDraftName, avatar: groupDraftAvatar }); }
+    // A new community is its own first part, owned by whoever creates it.
+    const draft = (part: string) => ({ name: groupDraftName, avatar: groupDraftAvatar,
+      ...(draftCommunity && accountId ? { community: { about: groupDraftAbout, groups: [], parts: [part], owner: accountId, admins: [] } } : {}) });
+    try { encodePresentation({ ...draft("0".repeat(64)), revision: 0 }); }
     catch (caught) { setError(friendlyError(caught)); return; }
-    void perform("Creating your group…", async () => {
+    void perform(draftCommunity ? "Creating your community…" : "Creating your group…", async () => {
       const groupId = pendingCreatedGroup.current ?? await createGroup(databasePath);
       pendingCreatedGroup.current = groupId;
       const key = `group/${hex(groupId)}`;
-      const saved = await savePresentation(databasePath, key, { name: groupDraftName, avatar: groupDraftAvatar });
+      const saved = await savePresentation(databasePath, key, draft(hex(groupId)));
       setPresentations((previous) => ({ ...previous, [key]: saved }));
       setSelectedGroupId(groupId);
       setGroupDetails(null);
@@ -1277,13 +1508,19 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       setGroupHistoryFor(null);
       pendingCreatedGroup.current = null;
       setScreen("group-info");
-      setStatus("Group created. Invite someone to get started.");
+      setStatus(draftCommunity ? "Community created. Invite members, then link groups." : "Group created. Invite someone to get started.");
     });
   }
 
   function updateAvatar(key: string, name: string, avatar?: string): void {
+    const entry = key.startsWith("group/") ? communityOfGroup(key.slice(6)) : undefined;
     void perform("Saving photo…", async () => {
-      const saved = await savePresentation(databasePath, key, { name, avatar });
+      if (entry) {
+        await writeCommunity(entry, { name, avatar });
+        setStatus("Photo saved");
+        return;
+      }
+      const saved = await savePresentation(databasePath, key, { ...presentationOf(key), name, avatar });
       setPresentations((previous) => ({ ...previous, [key]: saved }));
       if (key.startsWith("user/")) advertisedGroups.current.clear();
       else advertisedGroups.current.delete(key.slice(6));
@@ -1376,7 +1613,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // sits as a narrow sheet in the pane.
   function renderNewGroup() {
     return (
-      <Page header={<Header title="New group" onBack={() => go("groups")} backLabel="Cancel" />}>
+      <Page header={<Header title={draftCommunity ? "New community" : "New group"} onBack={() => go("groups")} backLabel="Cancel" />}>
         <ScrollView
           contentContainerStyle={[layout.content, styles.newGroup]}
           keyboardShouldPersistTaps="handled"
@@ -1386,17 +1623,35 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             {groupDraftAvatar ? renderRemovePhoto(() => setGroupDraftAvatar(undefined)) : null}
           </View>
           <Field
-            label="Group name"
+            label={draftCommunity ? "Community name" : "Group name"}
             value={groupDraftName}
             onChangeText={setGroupDraftName}
-            placeholder="Weekend walks"
+            placeholder={draftCommunity ? "Solana builders" : "Weekend walks"}
             maxLength={96}
             autoFocus
             hint="Shown to everyone you invite. You can change both later in group details."
           />
+          <RowGroup>
+            <Row
+              icon="megaphone"
+              title="Community"
+              subtitle="Announcements only you post, and groups members can ask to join."
+              trailing={<Toggle label="Community" value={draftCommunity} onValueChange={setDraftCommunity} />}
+            />
+          </RowGroup>
+          {draftCommunity ? (
+            <Field
+              label="Description"
+              value={groupDraftAbout}
+              onChangeText={setGroupDraftAbout}
+              placeholder="What this community is for"
+              multiline
+              maxLength={500}
+            />
+          ) : null}
           <Actions>
             <Button
-              label="Create group"
+              label={draftCommunity ? "Create community" : "Create group"}
               onPress={finishGroupCreation}
               disabled={busy || pickingPhoto || !groupDraftName.trim()}
             />
@@ -1423,8 +1678,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       setError("Enter their exact username.");
       return;
     }
+    const entry = selectedEntry;
+    if (entry && Object.values(communityData).some((part) => part.details.members.some((member) => member.username === target))) {
+      setError(`@${target} is already in the community.`);
+      return;
+    }
     void perform("Sending invitation…", async () => {
-      await inviteToGroup(databasePath, selectedGroupId, target);
+      await inviteToGroup(databasePath, entry ? await communityPartFor(entry) : selectedGroupId, target);
       setGroupUsername("");
       setStatus(`Invitation sent to @${target}`);
     });
@@ -1451,10 +1711,17 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (!selectedGroupId) return;
     const scope = `group/${hex(selectedGroupId)}`;
     if (!groupComposer.trim() && !stagedFor(scope).length) return;
+    const text = groupComposer.trim();
+    const answered = replyTarget && communityPosts.find((post) => post.messageId && hex(post.messageId) === replying!.target);
     void perform("Sending…", async () => {
-      await sendWithAttachment(scope, (attachment) =>
-        sendGroupMessage(databasePath, selectedGroupId, outgoingBody(groupComposer.trim()), attachment),
-      );
+      await sendWithAttachment(scope, async (attachment) => {
+        if (!selectedEntry) return sendGroupMessage(databasePath, selectedGroupId, outgoingBody(text), attachment);
+        // An announcement goes to every part; a reply quotes each part's own copy.
+        for (const part of selectedEntry.parts) {
+          const copy = answered?.copies.find((item) => item.part === part && item.messageId);
+          await sendGroupMessage(databasePath, fromHex(part), copy ? encodeReply(hex(copy.messageId!), text) : text, attachment);
+        }
+      });
       setGroupComposer("");
       setReplying(null);
       setStatus("Sent");
@@ -1469,6 +1736,172 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         await removeGroupMember(databasePath, selectedGroupId, person.accountId, deviceId);
       }
       setStatus(`${name} removed from the group`);
+    });
+  }
+
+  // The owner changes what members see of the community; the record reaches
+  // them with the next message from this device, which the refresh sends.
+  // Every part carries the same record. The owner or an admin writes each part
+  // this device is in; members get it with the next message from this device,
+  // which the refresh sends, and the other parts from devices that are there.
+  async function writeCommunity(entry: CommunityEntry, change: Partial<Presentation>): Promise<void> {
+    const base = presentationOf(`group/${entry.parts[0]}`);
+    if (!base) throw new Error("The community is still loading.");
+    for (const part of entry.parts) {
+      const key = `group/${part}`;
+      const saved = await savePresentation(databasePath, key, { ...base, ...change });
+      setPresentations((previous) => ({ ...previous, [key]: saved }));
+      advertisedGroups.current.delete(part);
+    }
+  }
+
+  function saveCommunity(community: Community, done: string): void {
+    const entry = selectedEntry;
+    const base = entry && presentationOf(`group/${entry.parts[0]}`);
+    if (!entry || !base) return;
+    try { encodePresentation({ ...base, revision: 0, community }); }
+    catch (caught) { setError(friendlyError(caught)); return; }
+    void perform("Saving the community…", async () => {
+      await writeCommunity(entry, { community });
+      setAboutDraft(null);
+      setStatus(done);
+    });
+  }
+
+  // A new member joins the first part with room; a full community grows a
+  // part, which the owner's and admins' devices then ask to join.
+  async function communityPartFor(entry: CommunityEntry): Promise<Uint8Array> {
+    const pending = (part: string) => groupInvitations.filter((item) => hex(item.groupId) === part && (item.state === 0 || item.state === 3)).length;
+    const room = pickPart(entry.parts.map((part) => ({
+      id: part, leaves: groups.find((group) => hex(group.groupId) === part)?.memberCount ?? 64, pending: pending(part),
+    })));
+    if (room) return fromHex(room);
+    const created = await createGroup(databasePath);
+    const community = { ...entry.community, parts: [...entry.community.parts, hex(created)] };
+    const base = presentationOf(`group/${entry.parts[0]}`)!;
+    const key = `group/${hex(created)}`;
+    const saved = await savePresentation(databasePath, key, { ...base, community });
+    setPresentations((previous) => ({ ...previous, [key]: saved }));
+    await writeCommunity(entry, { community });
+    return created;
+  }
+
+  // Someone leaves the community from every part they are in, device by device.
+  function removeFromCommunity(accountId: string, name: string): void {
+    const community = selectedCommunity;
+    void perform(`Removing ${name} from the community…`, async () => {
+      if (community?.admins.includes(accountId)) {
+        await writeCommunity(selectedEntry!, { community: withRoles(community, { admins: community.admins.filter((admin) => admin !== accountId) }) });
+      }
+      for (const [part, { details }] of Object.entries(communityData)) {
+        for (const member of details.members.filter((item) => hex(item.accountId) === accountId)) {
+          await removeGroupMember(databasePath, fromHex(part), member.accountId, member.deviceId);
+        }
+      }
+      setStatus(`${name} removed from the community`);
+    });
+  }
+
+  // Asking to join from outside is a message to whoever shared the link.
+  function askToJoinCommunity(link: CommunityLink): void {
+    if (link.admin === ownUsername) { setError("That’s your own community’s link."); return; }
+    if (communityIndex.has(link.community)) { setError(`You’re already in ${link.name}.`); return; }
+    void perform(`Asking @${link.admin}…`, async () => {
+      const changed = await sendFanout(databasePath, link.admin, encodeCommunityRequest(link.community, link.name));
+      setScannedCommunity(null);
+      setScreen("groups");
+      noteSent(link.admin, changed);
+      setStatus(`Asked @${link.admin} to let you into ${link.name}`);
+    });
+  }
+
+  // Approving someone accepts their message request, invites them to a part
+  // with room and tells them which, so their device accepts it for them.
+  function approveAsk(conversation: Conversation, request: UnansweredRequest): void {
+    const entry = selectedEntry;
+    if (!entry) return;
+    setReviewing(null);
+    void perform(`Letting @${conversation.username} in…`, async () => {
+      if (conversation.requestPending) {
+        await update_conversation_export(policyRequest(databasePath, conversation.peerAccountId, 1, 0));
+      }
+      const part = await communityPartFor(entry);
+      await inviteToGroup(databasePath, part, conversation.username);
+      await sendFanout(databasePath, conversation.username, encodeCommunityAnswer(request.community, hex(part)), conversation.peerAccountId);
+      setStatus(`@${conversation.username} is invited`);
+    });
+  }
+
+  // Declining stays on this device: a request that was never accepted can't be answered.
+  function declineAsk(conversation: Conversation, request: UnansweredRequest): void {
+    setReviewing(null);
+    const scope = `chat/${hex(conversation.conversationId)}`;
+    const next = { ...declinedRequests, [scope]: [...(declinedRequests[scope] ?? []), request.key].slice(-256) };
+    setDeclinedRequests(next);
+    saveDeclinedRequests(next).catch(() => setError("That couldn’t be saved. The request may come back after restarting."));
+    setStatus(`Declined @${conversation.username}`);
+  }
+
+  // A community link shared in a message can be answered from that message.
+  function communityLinkAction(body: string) {
+    const link = /mesh:\/\/community\/[A-Za-z0-9_-]+/.exec(body)?.[0];
+    const read = link ? readCommunityLink(link) : undefined;
+    return read ? {
+      icon: "link" as const,
+      label: `Ask to join ${read.name}`,
+      onPress: () => { openScanner("community"); setScannedCommunity(read); },
+    } : undefined;
+  }
+
+  function copyCommunityLink(value: string): void {
+    Clipboard.setString(value);
+    setStatus("Link copied");
+  }
+
+  function confirmLeave(entry: CommunityEntry): void {
+    confirm({
+      title: "Leave this community?",
+      body: "It’s removed from all your devices, and its admins remove you from it. Groups you joined through it stay.",
+      action: "Leave community",
+      run: () => void perform("Leaving the community…", async () => {
+        for (const part of entry.parts) await sendGroupMessage(databasePath, fromHex(part), LEAVE_REQUEST);
+        for (const part of entry.parts) await forgetGroup(databasePath, fromHex(part));
+        setSelectedGroupId(null);
+        setScreen("groups");
+        setStatus("You left the community");
+      }),
+    });
+  }
+
+  function changeRoles(change: Partial<{ owner: string; admins: string[] }>, done: string): void {
+    if (!selectedCommunity) return;
+    saveCommunity(withRoles(selectedCommunity, change), done);
+  }
+
+  function confirmHandover(accountId: string, name: string): void {
+    confirm({
+      title: `Make ${name} the owner?`,
+      body: "They take over the community’s roles, and you stay on as an admin. Only they can make you owner again.",
+      action: "Make owner",
+      run: () => changeRoles({ owner: accountId }, `${name} owns the community now`),
+    });
+  }
+
+  function askToJoin(groupId: string): void {
+    if (!selectedGroupId) return;
+    const communityId = selectedGroupId;
+    void perform("Asking to join…", async () => {
+      await sendGroupMessage(databasePath, communityId, encodeJoinRequest(groupId));
+      setStatus("Asked. The invitation appears here when an admin adds you.");
+    });
+  }
+
+  function approveRequest(request: JoinRequest, username: string): void {
+    const group = groups.find((item) => hex(item.groupId) === request.groupId);
+    if (!group) return;
+    void perform(`Inviting @${username}…`, async () => {
+      await inviteToGroup(databasePath, group.groupId, username);
+      setStatus(`Invitation sent to @${username}`);
     });
   }
 
@@ -1580,7 +2013,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
 
   function onQrScanned(result: Pick<BarcodeScanningResult, "data">): void {
-    if (scannedProfile || scannedLinkRequest || scannedGroupPackage) return;
+    if (scannedProfile || scannedLinkRequest || scannedGroupPackage || scannedCommunity) return;
     let data: string;
     try {
       const assembled = qrCollector.scan(result.data);
@@ -1591,7 +2024,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       setError(friendlyError(caught));
       return;
     }
-    if (scanMode === "contact") {
+    if (scanMode === "community") {
+      const link = readCommunityLink(data);
+      if (link) {
+        setScannedCommunity(link);
+        setError("");
+      } else {
+        qrCollector.reset();
+        setError("That isn’t a community link. Ask for the link again.");
+      }
+    } else if (scanMode === "contact") {
       try {
         const contact = profileFromQr(data);
         parseProfileSummary(contact);
@@ -1643,7 +2085,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           );
           setScannedGroupPackage(keyPackage);
           try {
-            await addGroupMember(databasePath, groupId, target, keyPackage);
+            const entry = communityOfGroup(hex(groupId));
+            await addGroupMember(databasePath, entry ? await communityPartFor(entry) : groupId, target, keyPackage);
             setGroupUsername("");
             setScreen("group");
             setStatus(`@${target} added to the group`);
@@ -1663,12 +2106,46 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const ownAvatar = ownId ? presentationOf(`user/${ownId}`)?.avatar : undefined;
   const creatorId = groupDetails?.members.find((member) => member.leaf === 0)?.accountId;
   const isGroupCreator = Boolean(creatorId && (preview ? groupDetails?.members.find((member) => member.leaf === 0)?.local : ownProfile && hex(creatorId) === hex(ownProfile.accountId)));
+  // A community is run by its owner and admins; a plain group by its creator.
+  const canManage = selectedCommunity ? Boolean(ownId && communityAuthority.has(ownId)) : isGroupCreator;
+  const isOwner = Boolean(ownId && selectedCommunity?.owner === ownId);
+  const partsKey = selectedEntry?.parts.join() ?? "";
+  useEffect(() => {
+    if (preview || !partsKey) return;
+    let cancelled = false;
+    void Promise.all(partsKey.split(",").map(async (part) => {
+      const [details, messages] = await Promise.all([inspectGroup(databasePath, fromHex(part)), loadGroupHistory(databasePath, fromHex(part))]);
+      return [part, { details, messages }] as const;
+    })).then(async (entries) => {
+      if (cancelled) return;
+      setCommunityParts(Object.fromEntries(entries));
+      await refreshPresentations(entries.flatMap(([, part]) => [
+        ...part.details.members.map((member) => `user/${hex(member.accountId)}`),
+        ...part.messages.map((message) => `user/${hex(message.senderAccountId)}`),
+      ]));
+    }).catch((caught) => {
+      if (!cancelled) setError(friendlyError(caught));
+    });
+    return () => { cancelled = true; };
+  }, [partsKey, groups, preview]);
+  useEffect(() => {
+    if (preview || !selectedCommunity || !canManage) return;
+    let cancelled = false;
+    const linked = groups.filter((group) => selectedCommunity.groups.some((item) => item.id === hex(group.groupId)));
+    void Promise.all(linked.map(async (group) =>
+      [hex(group.groupId), (await inspectGroup(databasePath, group.groupId)).members.map((member) => hex(member.accountId))] as const))
+      .then((entries) => { if (!cancelled) setLinkedMembers(Object.fromEntries(entries)); })
+      .catch(() => { /* Requests wait until their groups can be read. */ });
+    return () => { cancelled = true; };
+  }, [selectedCommunity, canManage, groups, preview]);
   function senderIdentity(accountId: Uint8Array | string, local = false) {
     const id = typeof accountId === "string" ? accountId : hex(accountId);
     const stored = presentationOf(`user/${id}`);
     const contact = conversations.find((item) => hex(item.peerAccountId) === id);
     const invitation = groupInvitations.find((item) => hex(item.accountId) === id);
-    const member = groupDetails?.members.find((item) => hex(item.accountId) === id);
+    // A community's members are spread over its parts.
+    const member = groupDetails?.members.find((item) => hex(item.accountId) === id) ??
+      Object.values(communityData).flatMap((part) => part.details.members).find((item) => hex(item.accountId) === id);
     const own = local || id === (ownProfile && hex(ownProfile.accountId));
     const username = own ? ownUsername : contact?.username ?? invitation?.username ?? member?.username ?? null;
     const name = identityName(username, stored, own ? undefined : presentationOf(`nickname/${id}`));
@@ -1699,7 +2176,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
   const groupRequestCount = groupInvitations.filter((item) => item.state === 1).length;
   const chatBadgeCount = conversations.reduce((total, item) => total + (item.requestPending ? 1 : chatUnread(item)), 0);
-  const groupBadgeCount = groupRequestCount + groups.reduce((total, item) => total + groupUnread(item), 0);
+  const groupBadgeCount = groupRequestCount + listedGroups.reduce((total, item) => total + groupUnread(item), 0);
   const mainScreen = profile && ["home", "groups", "settings"].includes(screen);
   const chatRows = buildChatRows(history, (message) => hex(message.messageId)).reverse();
   const chatScope =
@@ -1708,8 +2185,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     chatRows.map((row) => row.key),
     chatScope,
   );
+  const threadMessages: (GroupHistoryMessage & { copies?: Copy[] })[] = selectedCommunity ? communityPosts : groupHistory;
   const groupRows = buildChatRows(
-    groupHistory,
+    threadMessages,
     (message, index) => message.messageId ? hex(message.messageId) : `${message.epoch}-${hex(message.senderDeviceId)}-${index}`,
     Date.now(),
     (message) => hex(message.senderAccountId),
@@ -1720,6 +2198,33 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     groupRows.map((row) => row.key),
     groupScope,
   );
+  const communityRequests = selectedCommunity ? joinRequests(communityHeard, selectedCommunity) : [];
+  // What an owner or admin has yet to act on: someone outside a linked group this device can invite them to.
+  const linkedRosters = preview ? Object.fromEntries(Object.entries(preview.groupDetails).map(([id, details]) =>
+    [id, details.members.map((member) => hex(member.accountId))])) : linkedMembers;
+  const joinWaiting = selectedCommunity && canManage ? communityRequests.filter((request) => request.accountId !== ownId &&
+    linkedRosters[request.groupId]?.includes(request.accountId) === false &&
+    !groupInvitations.some((item) => hex(item.groupId) === request.groupId && hex(item.accountId) === request.accountId &&
+      (item.state === 0 || item.state === 3))) : [];
+  // Who asked, through a link this admin shared, to join the open community and is not in it yet.
+  const communityMembers = new Set(Object.values(communityData).flatMap((part) => part.details.members)
+    .flatMap((member) => member.username ? [member.username] : []));
+  const incomingAsks = selectedCommunity && canManage ? conversations.flatMap((conversation) =>
+    unansweredRequests(chatHistories[hex(conversation.conversationId)] ?? [], declinedRequests[`chat/${hex(conversation.conversationId)}`] ?? [])
+      .filter((request) => request.community === communityId(selectedCommunity) && !communityMembers.has(conversation.username))
+      .map((request) => ({ conversation, request }))) : [];
+  // An invitation that follows an approved request is the one this account asked for.
+  useEffect(() => {
+    if (preview) return;
+    const due = groupInvitations.filter((invitation) => invitation.state === 1 && !acceptedApprovals.current.has(hex(invitation.reference)) &&
+      communityAsks.some((ask) => ask.state === "approved" && ask.part === hex(invitation.groupId) && ask.conversation.username === invitation.username));
+    if (!due.length) return;
+    due.forEach((invitation) => acceptedApprovals.current.add(hex(invitation.reference)));
+    void perform("Joining the community…", async () => {
+      for (const invitation of due) await acceptGroupInvitation(databasePath, invitation);
+      setStatus("Approved. You join as soon as they’re next online.");
+    });
+  }, [groupInvitations, chatHistories, preview]);
   const previewOf = (conversation: Conversation) =>
     (preview?.histories ?? previews)[hex(conversation.conversationId)]?.at(-1);
   const sortedConversations = [...conversations].sort(
@@ -2037,14 +2542,37 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       <Page
         header={
           <Header
-            title={Platform.OS === "web" ? "Enter a code" : "Scan a code"}
+            title={scanMode === "community" ? "Join a community" : Platform.OS === "web" ? "Enter a code" : "Scan a code"}
             onBack={backToScannerOrigin}
             backLabel="Cancel"
             {...sheetHeader}
           />
         }
       >
-        {scannedProfile ? (
+        {scannedCommunity ? (
+          <ScrollView
+            contentContainerStyle={[layout.content, sheetContent]}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Hero
+              name={scannedCommunity.name}
+              colorSeed={scannedCommunity.community}
+              group
+              title={scannedCommunity.name}
+              subtitle={`Community · shared by @${scannedCommunity.admin}`}
+              badge={<Badge label="Community link" icon="link" />}
+            />
+            <Notice text={`Your request goes to @${scannedCommunity.admin} as a message. Once they let you in, you join on this device.`} />
+            <Actions>
+              <Button label="Ask to join" onPress={() => askToJoinCommunity(scannedCommunity)} />
+              <Button
+                label={Platform.OS === "web" ? "Enter another link" : "Scan again"}
+                onPress={() => openScanner("community")}
+                variant="ghost"
+              />
+            </Actions>
+          </ScrollView>
+        ) : scannedProfile ? (
           <ScrollView
             contentContainerStyle={[layout.content, sheetContent]}
             keyboardShouldPersistTaps="handled"
@@ -2110,22 +2638,23 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           // codes it reads are the ones that link devices: pasted as text.
           <ScrollView contentContainerStyle={[layout.content, sheetContent]}>
             <View style={layout.stack}>
-              <Text style={type.title}>Paste the code from the other device</Text>
+              <Text style={type.title}>{scanMode === "community" ? "Paste a community link" : "Paste the code from the other device"}</Text>
               <Text style={type.body}>
-                On the other device, choose Show text code under the code, copy it, and paste
-                it here.
+                {scanMode === "community"
+                  ? "Ask someone who runs the community for its link, then paste it here."
+                  : "On the other device, choose Show text code under the code, copy it, and paste it here."}
               </Text>
             </View>
             <Field
-              label="Device code"
-              placeholder="Paste the code here"
+              label={scanMode === "community" ? "Community link" : "Device code"}
+              placeholder={scanMode === "community" ? "Paste the link here" : "Paste the code here"}
               value={pastedCode}
               onChangeText={setPastedCode}
               multiline
             />
             <Actions>
               <Button
-                label="Read code"
+                label={scanMode === "community" ? "Read link" : "Read code"}
                 disabled={!pastedCode.trim()}
                 onPress={() => {
                   onQrScanned({ data: pastedCode.trim() });
@@ -2299,6 +2828,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 }
                 onPress={openDevices}
               />
+            </RowGroup>
+          </Section>
+          <Section title="Notifications">
+            <RowGroup>
               <Row
                 icon="bell"
                 title="Notifications"
@@ -2323,7 +2856,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 }
               />
               <Row
-                icon="bell"
+                icon="chat"
                 title="Previews"
                 subtitle={notificationPreviewOptions.find((option) => option.value === notificationPreview)?.label}
                 trailing={
@@ -2339,6 +2872,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                   />
                 }
               />
+            </RowGroup>
+          </Section>
+          <Section title="Privacy">
+            <RowGroup>
               <Row
                 icon="checks"
                 title="Read receipts"
@@ -2355,16 +2892,6 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                     }}
                   />
                 }
-              />
-              <Row
-                icon="warning"
-                tone="danger"
-                emphasis="danger"
-                title={devices?.canManage === false ? "Erase this device" : "Delete account"}
-                subtitle={devices?.canManage === false
-                  ? "Leaves your account and erases this device"
-                  : "Erases your username and messages everywhere"}
-                onPress={preview || busy ? undefined : confirmDeleteAccount}
               />
             </RowGroup>
           </Section>
@@ -2415,6 +2942,21 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               </RowGroup>
             </Section>
           ) : null}
+          {/* The one step that cannot be undone stands apart, at the end. */}
+          <Section>
+            <RowGroup>
+              <Row
+                icon="warning"
+                tone="danger"
+                emphasis="danger"
+                title={devices?.canManage === false ? "Erase this device" : "Delete account"}
+                subtitle={devices?.canManage === false
+                  ? "Leaves your account and erases this device"
+                  : "Erases your username and messages everywhere"}
+                onPress={preview || busy ? undefined : confirmDeleteAccount}
+              />
+            </RowGroup>
+          </Section>
         </ScrollView>
       </Page>
     );
@@ -2454,9 +2996,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                   subtitle={
                     device.current
                       ? "The device you’re using now"
-                      : device.active
-                        ? "Receives your messages"
-                        : "No longer has access"
+                      : device.expired
+                        ? "Gets no messages until it’s opened again"
+                        : device.active
+                          ? "Receives your messages"
+                          : "No longer has access"
                   }
                   trailing={
                     devices.canManage && device.active && !device.current ? (
@@ -2468,8 +3012,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                       />
                     ) : (
                       <Icon
-                        name={device.active ? "check" : "close"}
-                        color={device.active ? colors.success : colors.text3}
+                        name={device.expired ? "warning" : device.active ? "check" : "close"}
+                        color={device.expired ? colors.warning : device.active ? colors.success : colors.text3}
                         size={size.icon.lg}
                       />
                     )
@@ -2564,6 +3108,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // sidebar, where it marks the group open in the pane.
   function renderGroupList(sidebar: boolean) {
     const incoming = groupInvitations.filter((item) => item.state === 1 || item.state === 2);
+    // Once its invitation arrives, an approved request is that invitation.
+    const asked = communityAsks.filter((ask) => ask.state !== "approved" ||
+      !groupInvitations.some((item) => hex(item.groupId) === ask.part));
     const openGroupId =
       sidebar && selectedGroupId && (screen === "group" || screen === "group-info")
         ? hex(selectedGroupId)
@@ -2571,11 +3118,27 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     return (
       <FlatList
         contentContainerStyle={sidebar ? layout.sidebarList : layout.list}
-        data={groups}
+        // The most recently active first, as chats are.
+        data={[...listedGroups].sort((a, b) => (groupLast(b)?.timestamp ?? 0) - (groupLast(a)?.timestamp ?? 0))}
         keyExtractor={(group) => hex(group.groupId)}
-        ListHeaderComponent={incoming.length ? (
+        ItemSeparatorComponent={sidebar ? null : ListSeparator}
+        ListHeaderComponent={incoming.length || asked.length ? (
           <View style={styles.listHeader}>
-            <Section title="Invitations">
+            {asked.length ? (
+              <Section title="Asked to join">
+                {asked.map((ask) => (
+                  <Card key={ask.community}>
+                    <Text style={type.headline}>{ask.name}</Text>
+                    <Text style={type.body}>
+                      {ask.state === "approved" ? `@${ask.conversation.username} let you in. Joining…`
+                        : ask.state === "declined" ? `@${ask.conversation.username} didn’t let you in.`
+                        : `Waiting for @${ask.conversation.username} to let you in.`}
+                    </Text>
+                  </Card>
+                ))}
+              </Section>
+            ) : null}
+            {incoming.length ? <Section title="Invitations">
               {incoming.map((invitation) => (
                 <Card key={hex(invitation.reference)}>
                   <Text style={type.headline}>{groupName(invitation.groupId)}</Text>
@@ -2592,15 +3155,20 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                   ) : null}
                 </Card>
               ))}
-            </Section>
+            </Section> : null}
           </View>
         ) : null}
         ListEmptyComponent={sidebar ? <SidebarEmptyState title="No groups yet." /> : (
           <EmptyState
             icon="groups"
             title="No groups yet."
-            body={`Ask a member to invite @${ownUsername}. Invitations appear here.`}
-            action={<Button label="Start a group" onPress={createNewGroup} />}
+            body={`Ask a member to invite @${ownUsername}, or open a community’s link. Invitations appear here.`}
+            action={
+              <View style={layout.row}>
+                <Button label="Start a group" onPress={createNewGroup} />
+                <Button label="Join a community" variant="ghost" onPress={() => openScanner("community")} />
+              </View>
+            }
           />
         )}
         renderItem={({ item }) => (
@@ -2609,7 +3177,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             avatar={groupAvatar(item.groupId)}
             colorSeed={hex(item.groupId)}
             label={groupName(item.groupId)}
-            subtitle={`${item.memberCount} ${item.memberCount === 1 ? "member" : "members"}`}
+            subtitle={groupPreviewText(item)}
+            time={groupLast(item) ? formatInboxTime(groupLast(item)!.timestamp) : ""}
             unread={groupUnread(item)}
             selected={openGroupId === hex(item.groupId)}
             onPress={() => openGroup(item)}
@@ -2628,6 +3197,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             actions={
               <>
                 <IconButton
+                  label="Join a community"
+                  variant="tonal"
+                  name="link"
+                  onPress={() => openScanner("community")}
+                />
+                <IconButton
                   label="Join with QR"
                   variant="tonal"
                   name="qr"
@@ -2645,6 +3220,409 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         }
       >
         {renderGroupList(false)}
+      </Page>
+    );
+  }
+
+  const askedWhen = (timestamp: number) => {
+    const when = formatInboxTime(timestamp);
+    return /^\d/.test(when) ? `Asked at ${when}` : `Asked ${when === "Yesterday" ? "yesterday" : when}`;
+  };
+
+  // An admin answers someone who asked, through their link, to join.
+  function renderReviewDialog(name: string) {
+    const identity = reviewing ? senderIdentity(reviewing.conversation.peerAccountId) : null;
+    const buttonSize = isDesktop ? "sm" : "md";
+    return (
+      <Dialog visible={Boolean(reviewing)} label={identity ? `Review ${identity.name}` : "Review"} onClose={() => setReviewing(null)}>
+        {reviewing && identity ? (
+          <>
+            <View style={styles.dialogHero}>
+              <Avatar name={identity.name} uri={identity.avatar} colorSeed={identity.accountId} size={size.avatar["2xl"]} />
+              <Text numberOfLines={1} style={type.title2}>{identity.name}</Text>
+              <Text style={type.subhead}>{`${askedWhen(reviewing.request.timestamp)} to join ${name}`}</Text>
+            </View>
+            <View style={styles.dialogActions}>
+              <Button label="Let them in" size={buttonSize} disabled={preview !== null}
+                onPress={() => approveAsk(reviewing.conversation, reviewing.request)} />
+              <Button label="Decline" variant="secondary" size={buttonSize} disabled={preview !== null}
+                onPress={() => declineAsk(reviewing.conversation, reviewing.request)} />
+            </View>
+          </>
+        ) : null}
+      </Dialog>
+    );
+  }
+
+  // What the owner can make of one person: admin or owner, or no longer either.
+  function renderRoleDialog(community: Community) {
+    const accountId = managing;
+    const identity = accountId ? senderIdentity(accountId) : null;
+    const admin = Boolean(accountId && community.admins.includes(accountId));
+    const act = (run: () => void) => { setManaging(null); run(); };
+    const buttonSize = isDesktop ? "sm" : "md";
+    return (
+      <Dialog visible={Boolean(accountId && identity)} label={identity ? `Manage ${identity.name}` : "Manage"} onClose={() => setManaging(null)}>
+        {accountId && identity ? (
+          <>
+            <View style={styles.dialogHero}>
+              <Avatar name={identity.name} uri={identity.avatar} colorSeed={accountId} size={size.avatar["2xl"]} />
+              <Text numberOfLines={1} style={type.title2}>{identity.name}</Text>
+              <Text style={type.subhead}>{admin ? "Admin" : "Member"}</Text>
+            </View>
+            <View style={styles.dialogActions}>
+              {admin ? (
+                <>
+                  <Button label="Make owner" size={buttonSize} onPress={() => act(() => confirmHandover(accountId, identity.name))} />
+                  <Button label="Remove as admin" variant="secondary" size={buttonSize}
+                    onPress={() => act(() => changeRoles({ admins: community.admins.filter((item) => item !== accountId) },
+                      `${identity.name} is no longer an admin`))} />
+                </>
+              ) : (
+                <>
+                  <Button label="Make admin" size={buttonSize} disabled={community.admins.length >= MAX_ADMINS}
+                    onPress={() => act(() => changeRoles({ admins: [...community.admins, accountId] }, `${identity.name} is an admin now`))} />
+                  <Button label="Remove from community" variant="secondary" size={buttonSize}
+                    onPress={() => act(() => removeFromCommunity(accountId, identity.name))} />
+                </>
+              )}
+            </View>
+          </>
+        ) : null}
+      </Dialog>
+    );
+  }
+
+  // A community's details: what it is for, the requests its owner and admins
+  // answer, its groups with the way in that fits each reader, who runs it and,
+  // for those who run it, everyone in it across its parts.
+  function renderCommunityInfo(entry: CommunityEntry) {
+    const community = entry.community;
+    const primary = fromHex(entry.parts[0]!);
+    const name = groupName(primary);
+    const avatar = groupAvatar(primary);
+    const setPhoto = (value: string | undefined) => updateAvatar(`group/${entry.parts[0]}`, name, value);
+    const everyone = [...new Map(Object.values(communityData).flatMap((part) => part.details.members)
+      .map((member) => [hex(member.deviceId), member])).values()];
+    const summary = everyone.length ? summarizeMembers(everyone) : null;
+    const staff = [community.owner, ...community.admins];
+    const others = (summary?.people ?? []).filter((item) => !staff.includes(hex(item.accountId)));
+    const linkable = groups.filter((item) => !communityOfGroup(hex(item.groupId)) &&
+      !community.groups.some((group) => group.id === hex(item.groupId)));
+    const members = (count: number) => `${count} ${count === 1 ? "member" : "members"}`;
+    const canInvite = preview === null && groupUsername.trim().length > 0;
+    const pending = [...new Map(groupInvitations
+      .filter((item) => entry.parts.includes(hex(item.groupId)) && (item.state === 0 || item.state === 3))
+      .map((item) => [hex(item.accountId), item])).values()];
+    const spread = community.parts.length > 1 ? `Spread across ${community.parts.length} groups of up to 64 devices. ` : "";
+    const communityLink = payloadQrValue("community", utf8(encodeCommunityLink({ community: communityId(community), admin: ownUsername || "_", name })));
+    return (
+      <Page header={<Header title="Community details" onBack={() => go("group")} />}>
+        {renderRoleDialog(community)}
+        {renderReviewDialog(name)}
+        <ScrollView
+          contentContainerStyle={layout.contentTight}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Hero
+            name={name}
+            avatar={avatar}
+            colorSeed={entry.parts[0]}
+            group
+            leading={canManage ? renderPhotoButton(name, avatar, setPhoto, { group: true, seed: entry.parts[0] }) : undefined}
+            title={name}
+            subtitle={canManage && summary ? `Community · ${describeMembers(summary)}` : "Community"}
+            actions={canManage && avatar ? renderRemovePhoto(() => setPhoto(undefined)) : undefined}
+          />
+        {canManage ? (
+          <Section title="About">
+            <Card>
+              <Field
+                label="Description"
+                value={aboutDraft ?? community.about}
+                onChangeText={setAboutDraft}
+                placeholder="What this community is for"
+                multiline
+                maxLength={500}
+              />
+              {aboutDraft !== null && aboutDraft.trim() !== community.about ? (
+                <Actions>
+                  <Button label="Save description" onPress={() => saveCommunity({ ...community, about: aboutDraft }, "Description saved")} />
+                </Actions>
+              ) : null}
+            </Card>
+          </Section>
+        ) : community.about ? (
+          <Section title="About">
+            <Card><Text style={type.body}>{community.about}</Text></Card>
+          </Section>
+        ) : null}
+        {incomingAsks.length ? (
+          <Section title="Asking to join" footer="They opened your link. Letting someone in accepts their message request and invites them.">
+            <RowGroup>
+              {incomingAsks.map(({ conversation, request }) => {
+                const identity = senderIdentity(conversation.peerAccountId);
+                return (
+                  <Row
+                    key={request.key}
+                    leading={<Avatar name={identity.name} uri={identity.avatar} colorSeed={identity.accountId} size={size.avatar.md} />}
+                    title={identity.name}
+                    subtitle={askedWhen(request.timestamp)}
+                    trailing={
+                      <Button label="Review" accessibilityLabel={`Review ${identity.name}`} variant="secondary" size="sm"
+                        onPress={() => setReviewing({ conversation, request })} />
+                    }
+                  />
+                );
+              })}
+            </RowGroup>
+          </Section>
+        ) : null}
+        {joinWaiting.length ? (
+          <Section title="Join requests" footer="Inviting sends that group’s usual encrypted invitation.">
+            <RowGroup>
+              {joinWaiting.map((request) => {
+                const identity = senderIdentity(request.accountId);
+                const group = community.groups.find((item) => item.id === request.groupId);
+                return (
+                  <Row
+                    key={`${request.accountId}/${request.groupId}`}
+                    leading={<Avatar name={identity.name} uri={identity.avatar} colorSeed={identity.accountId} size={size.avatar.md} />}
+                    title={identity.name}
+                    subtitle={`Asked to join ${group?.name ?? "a group"}`}
+                    trailing={
+                      <Button
+                        label="Invite"
+                        accessibilityLabel={`Invite ${identity.name} to ${group?.name ?? "the group"}`}
+                        size="sm"
+                        disabled={!identity.username}
+                        onPress={() => identity.username && approveRequest(request, identity.username)}
+                      />
+                    }
+                  />
+                );
+              })}
+            </RowGroup>
+          </Section>
+        ) : null}
+        <Section
+          title="Groups"
+          footer={canManage
+            ? "Members see these names and can ask to join. You invite them from here."
+            : "Ask to join a group and the community’s owner or an admin can invite you."}
+        >
+          {community.groups.length ? (
+            <RowGroup>
+              {community.groups.map((group) => {
+                const joined = groups.find((item) => hex(item.groupId) === group.id);
+                const invitation = groupInvitations.find((item) => hex(item.groupId) === group.id && (item.state === 1 || item.state === 2));
+                const requested = communityRequests.some((item) => item.accountId === ownId && item.groupId === group.id);
+                return (
+                  <Row
+                    key={group.id}
+                    leading={<Avatar name={group.name} uri={presentationOf(`group/${group.id}`)?.avatar} colorSeed={group.id} size={size.avatar.md} group />}
+                    title={group.name}
+                    subtitle={joined ? members(joined.memberCount) : undefined}
+                    onPress={joined ? () => openGroup(joined) : undefined}
+                    trailing={
+                      canManage ? (
+                        <Button
+                          label="Unlink"
+                          accessibilityLabel={`Unlink ${group.name}`}
+                          variant="secondary"
+                          size="sm"
+                          onPress={() => saveCommunity({ ...community, groups: community.groups.filter((item) => item.id !== group.id) }, `${group.name} unlinked`)}
+                        />
+                      ) : joined ? (
+                        <Badge label="Joined" />
+                      ) : invitation?.state === 1 ? (
+                        <Button label="Join" accessibilityLabel={`Join ${group.name}`} size="sm" onPress={() => answerGroupInvitation(invitation, true)} />
+                      ) : invitation ? (
+                        <Badge label="Joining" tone="accent" />
+                      ) : requested ? (
+                        <Badge label="Requested" tone="muted" />
+                      ) : (
+                        <Button
+                          label="Ask to join"
+                          accessibilityLabel={`Ask to join ${group.name}`}
+                          variant="secondary"
+                          size="sm"
+                          disabled={preview !== null}
+                          onPress={() => askToJoin(group.id)}
+                        />
+                      )
+                    }
+                  />
+                );
+              })}
+            </RowGroup>
+          ) : (
+            <Card>
+              <Text style={type.body}>{canManage ? "Link groups you’re in so members can find them." : "No groups yet."}</Text>
+            </Card>
+          )}
+        </Section>
+        {canManage && linkable.length ? (
+          <Section title="Link a group">
+            <RowGroup>
+              {linkable.map((item) => (
+                <Row
+                  key={hex(item.groupId)}
+                  leading={<Avatar name={groupName(item.groupId)} uri={groupAvatar(item.groupId)} colorSeed={hex(item.groupId)} size={size.avatar.md} group />}
+                  title={groupName(item.groupId)}
+                  subtitle={members(item.memberCount)}
+                  trailing={
+                    <Button
+                      label="Link"
+                      accessibilityLabel={`Link ${groupName(item.groupId)}`}
+                      variant="secondary"
+                      size="sm"
+                      onPress={() => saveCommunity({ ...community, groups: [...community.groups, { id: hex(item.groupId), name: groupName(item.groupId) }] },
+                        `${groupName(item.groupId)} linked`)}
+                    />
+                  }
+                />
+              ))}
+            </RowGroup>
+          </Section>
+        ) : null}
+          {canManage && ownUsername ? (
+            <Section
+              title="Invite link"
+              footer="Anyone with this link or code can ask you to let them in. Their request comes to you as a message."
+            >
+              <QrCard value={communityLink} caption="Scan with Morse to ask to join" />
+              <Actions>
+                <Button label="Copy link" icon="copy" variant="secondary" onPress={() => copyCommunityLink(communityLink)} />
+              </Actions>
+            </Section>
+          ) : null}
+          {canManage ? (
+            <Section
+              title="Invite members"
+              footer="They’ll receive an encrypted invitation and choose whether to join. Or scan the code from their Groups tab to add them right away."
+            >
+              <Card>
+                <View style={isDesktop && styles.inviteRow}>
+                  <View style={isDesktop && [layout.flex, { minWidth: 180 }]}>
+                    <Field
+                      label="Exact username"
+                      value={groupUsername}
+                      onChangeText={setGroupUsername}
+                      placeholder="their_name"
+                      prefix="@"
+                      autoFocus={focusInvite}
+                    />
+                  </View>
+                  <Actions style={isDesktop ? { maxWidth: "100%" } : styles.inviteActions}>
+                    <Button label="Send invitation" disabled={!canInvite} onPress={inviteByUsername} />
+                    <Button
+                      label={isDesktop ? "Enter their code" : "Scan their code"}
+                      icon="scan"
+                      variant="ghost"
+                      disabled={!canInvite}
+                      onPress={scanGroupKeyPackage}
+                    />
+                  </Actions>
+                </View>
+              </Card>
+            </Section>
+          ) : null}
+          <Section
+            title="Admins"
+            footer={isOwner
+              ? "Admins post announcements, answer requests, invite and remove members, and edit the community. Only you change who runs it."
+              : "They post the announcements and invite people to the community’s groups."}
+          >
+            <RowGroup>
+              {staff.map((accountId) => {
+                const identity = senderIdentity(accountId, accountId === ownId);
+                return (
+                  <Row
+                    key={accountId}
+                    leading={<Avatar name={identity.name} uri={identity.avatar} colorSeed={accountId} size={size.avatar.md} />}
+                    title={identity.name}
+                    subtitle={accountId === community.owner ? "Owner" : "Admin"}
+                    trailing={accountId === ownId ? (
+                      <Badge label="You" />
+                    ) : isOwner ? (
+                      <Button label="Manage" accessibilityLabel={`Manage ${identity.name}`} variant="secondary" size="sm"
+                        onPress={() => setManaging(accountId)} />
+                    ) : null}
+                  />
+                );
+              })}
+            </RowGroup>
+          </Section>
+          {canManage ? (
+            <Section title="Members" footer={`${spread}Members see only who runs the community.`}>
+              {!summary ? (
+                <Card style={layout.center}>
+                  <ActivityIndicator color={colors.accent} />
+                </Card>
+              ) : others.length ? (
+                <RowGroup>
+                  {others.map((item) => {
+                    const identity = senderIdentity(item.accountId, item.local);
+                    const accountId = hex(item.accountId);
+                    return (
+                      <Row
+                        key={accountId}
+                        leading={<Avatar name={identity.name} uri={identity.avatar} colorSeed={accountId} size={size.avatar.md} />}
+                        title={identity.name}
+                        subtitle={[describeMember({ local: item.local, creator: false, conversation: identity.conversation }),
+                          item.devices > 1 ? `${item.devices} devices` : undefined].filter(Boolean).join(" · ") || undefined}
+                        trailing={isOwner ? (
+                          <Button label="Manage" accessibilityLabel={`Manage ${identity.name}`} variant="secondary" size="sm"
+                            onPress={() => setManaging(accountId)} />
+                        ) : (
+                          <Button
+                            label="Remove"
+                            accessibilityLabel={`Remove ${identity.name}`}
+                            variant="secondary"
+                            size="sm"
+                            disabled={preview !== null}
+                            onPress={() => removeFromCommunity(accountId, identity.name)}
+                          />
+                        )}
+                      />
+                    );
+                  })}
+                </RowGroup>
+              ) : (
+                <Card>
+                  <Text style={type.body}>No one else yet. Invite members above.</Text>
+                </Card>
+              )}
+            </Section>
+          ) : null}
+          {canManage && pending.length > 0 ? (
+            <Section title="Invited" footer="They join once they accept.">
+              <RowGroup>
+                {pending.map((item) => (
+                  <Row
+                    key={hex(item.reference)}
+                    leading={<Avatar name={`@${item.username}`} size={size.avatar.md} />}
+                    title={`@${item.username}`}
+                    subtitle={item.state === 3 ? "Finishing their invitation…" : "Waiting for them to accept"}
+                    trailing={<Badge label={item.state === 3 ? "Joining" : "Invited"} tone={item.state === 3 ? "accent" : "muted"} />}
+                  />
+                ))}
+              </RowGroup>
+            </Section>
+          ) : null}
+          <Section footer={isOwner ? "Make an admin the owner before you leave." : undefined}>
+            <RowGroup>
+              <Row
+                icon="close"
+                tone="danger"
+                emphasis="danger"
+                title="Leave community"
+                onPress={isOwner || preview ? undefined : () => confirmLeave(entry)}
+              />
+            </RowGroup>
+          </Section>
+        </ScrollView>
       </Page>
     );
   }
@@ -2820,12 +3798,17 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
 
   function renderGroup(groupId: Uint8Array) {
-    const mentionMembers = (groupDetails?.members ?? []).flatMap((member) => {
+    const mentionSource = selectedEntry ? Object.values(communityData).flatMap((part) => part.details.members) : groupDetails?.members ?? [];
+    const mentionMembers = [...new Map(mentionSource.map((member) => [hex(member.accountId), member])).values()].flatMap((member) => {
       const identity = senderIdentity(member.accountId, member.local);
       return identity.username ? [{ username: identity.username, name: identity.name }] : [];
     });
     const scope = `group/${hex(groupId)}`;
-    const canReply = (selectedGroup?.memberCount ?? 0) >= 2;
+    // Asked to join the community itself, or one of its groups.
+    const waiting = joinWaiting.length + incomingAsks.length;
+    // In a community only the owner and admins post, so only they reply.
+    const readOnly = Boolean(selectedCommunity) && !canManage;
+    const canReply = (selectedGroup?.memberCount ?? 0) >= 2 && !readOnly;
     // A quoted message is named by who this device knows sent it.
     const quoteOf = (message: Omit<GroupHistoryMessage, "reply">) => {
       const own = message.direction === "sent" || hex(message.senderAccountId) === accountId;
@@ -2842,28 +3825,49 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             colorSeed={hex(groupId)}
             group
             {...backTo("groups", "Back to groups")}
-            onAvatarPress={() => setMembersOpen(true)}
-            avatarLabel="Group members"
+            onAvatarPress={() => selectedCommunity ? go("group-info") : setMembersOpen(true)}
+            avatarLabel={selectedCommunity ? "Community details" : "Group members"}
             onInfo={() => go("group-info")}
-            infoLabel="Group details"
+            infoLabel={selectedCommunity ? "Community details" : "Group details"}
           />
         }
       >
         {renderGroupMembers(groupId)}
+        {waiting ? (
+          <View style={[styles.banners, isDesktop && layout.threadContent]}>
+            <Card tone="accent">
+              <Text style={type.body}>
+                {waiting === 1 ? "Someone is" : `${waiting} people are`} waiting for you to let them in.
+              </Text>
+              <Actions>
+                <Button label="Review requests" size="sm" onPress={() => go("group-info")} />
+              </Actions>
+            </Card>
+          </View>
+        ) : null}
         <FlatList
           ref={(list) => { thread.current = list; }}
           onScrollToIndexFailed={retryShowOriginal}
           inverted
           data={groupScope ? groupRows : []}
-          contentContainerStyle={[layout.messages, { paddingTop: composerHeight + composerClearance }]}
+          contentContainerStyle={[layout.messages, { paddingTop: composerHeight + composerClearance },
+            waiting > 0 && styles.messagesBelowBanners]}
           keyExtractor={(row) => row.key}
           ListEmptyComponent={
             <View style={styles.flipped}>
-              <EmptyState
-                icon="lock"
-                title="Nothing here yet."
-                body="Add people from group details to begin."
-              />
+              {selectedCommunity ? (
+                <EmptyState
+                  icon="megaphone"
+                  title="No announcements yet."
+                  body={canManage ? "Only you and the other admins post here. Members read, react and find the community’s groups in its details." : "Announcements from the people who run the community appear here. Find its groups in its details."}
+                />
+              ) : (
+                <EmptyState
+                  icon="lock"
+                  title="Nothing here yet."
+                  body="Add people from group details to begin."
+                />
+              )}
             </View>
           }
           renderItem={({ item }) =>
@@ -2872,6 +3876,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             ) : (
               <MessageBubble
                 body={item.message.body}
+                action={communityLinkAction(item.message.body)}
                 mentionUsernames={mentionMembers.map((member) => member.username)}
                 timestamp={item.message.timestamp}
                 sent={item.message.direction === "sent" || (ownProfile !== null && hex(item.message.senderAccountId) === hex(ownProfile.accountId))}
@@ -2904,8 +3909,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           value={groupComposer}
           onChangeText={setGroupComposer}
           onSend={sendGroupText}
-          disabled={busy || preview !== null}
-          placeholder={preview ? "Sample preview · read-only" : "Message · @mention someone"}
+          disabled={busy || preview !== null || readOnly}
+          placeholder={preview ? "Sample preview · read-only" : readOnly ? "Only admins post here"
+            : selectedCommunity ? "Announce something" : "Message · @mention someone"}
           sendDisabled={(selectedGroup?.memberCount ?? 0) < 2}
           onHeightChange={setComposerHeight}
           attachments={composerAttachments(scope)}
@@ -3098,6 +4104,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             ) : (
               <MessageBubble
                 body={item.message.body}
+                action={communityLinkAction(item.message.body)}
                 timestamp={item.message.timestamp}
                 sent={item.message.direction === "sent"}
                 status={messageStatus(item.message, preview !== null || readReceipts,
@@ -3287,6 +4294,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         action={
           <View style={layout.row}>
             <Button label="Create group" icon="plus" onPress={createNewGroup} />
+            <Button label="Join a community" variant="ghost" onPress={() => openScanner("community")} />
             <Button label="Join with a code" variant="ghost" onPress={showGroupKeyPackage} />
           </View>
         }
@@ -3309,6 +4317,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         action={
           <View style={layout.row}>
             <Button label="Create group" icon="plus" onPress={createNewGroup} />
+            <Button label="Join a community" variant="ghost" onPress={() => openScanner("community")} />
             <Button label="Join with a code" variant="ghost" onPress={showGroupKeyPackage} />
           </View>
         }
@@ -3357,12 +4366,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               />
             ) : (
               <>
+                {/* The strip fits two actions; a group code is offered in the pane beside it. */}
                 <IconButton
-                  name="qr"
-                  label="Join with a code"
+                  name="link"
+                  label="Join a community"
                   variant="tonal"
                   size={chrome.sidebarControl}
-                  onPress={showGroupKeyPackage}
+                  onPress={() => openScanner("community")}
                 />
                 <IconButton name="plus" label="Create group" variant="tonal" size={chrome.sidebarControl} onPress={createNewGroup} />
               </>
@@ -3389,6 +4399,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       return renderGroupPackage(groupKeyPackage);
     if (screen === "new-group") return renderNewGroup();
     if (screen === "groups") return split ? renderPanePlaceholder("groups") : renderGroups();
+    if (screen === "group-info" && selectedEntry) return renderCommunityInfo(selectedEntry);
     if (screen === "group-info" && selectedGroupId) return renderGroupInfo(selectedGroupId);
     if (screen === "group" && selectedGroupId) return renderGroup(selectedGroupId);
     if (screen === "chat-info" && selected) return renderChatInfo(selected);

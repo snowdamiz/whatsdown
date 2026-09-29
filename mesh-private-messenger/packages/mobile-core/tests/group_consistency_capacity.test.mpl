@@ -7,7 +7,13 @@ from MobileCore import (
   replace_group_transparency_chunk_for_test
 )
 from Tests.GroupConsistencyCrypto import checkpoint, tamper_last
-from Tests.GroupConsistencySupport import account_fixture, evidence_bytes, signing_pair, verify_for, wide
+from Tests.GroupConsistencySupport import (
+  account_fixture,
+  evidence_bytes,
+  signing_pair,
+  verify_for,
+  wide
+)
 from Tests.Support import repeated
 from Transparency.Merkle import TransparencyCheckpoint, consistency_proof, leaf_hash
 from Transparency.Wire import encode_checkpoint, encode_consistency_proof

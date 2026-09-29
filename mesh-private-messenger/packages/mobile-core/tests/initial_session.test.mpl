@@ -11,7 +11,11 @@ from MobileCore import (
   replenish_prekeys_export,
   start_conversation_export
 )
-from Prekeys.Pool import PrekeyPublishResponse, decode_prekey_publish, encode_prekey_publish_response
+from Prekeys.Pool import (
+  PrekeyPublishResponse,
+  decode_prekey_publish,
+  encode_prekey_publish_response
+)
 from Protocol.EnvelopeWire import encode_outer_envelope
 from Protocol.V1 import DirectoryEntry, MailboxAck, OuterEnvelope
 from Tests.GroupLifecycleWire import ack, delivery_batch, outer
@@ -39,7 +43,9 @@ fn row_text(row :: Map<String, DbValue>, key :: String) -> String!String do
   end
 end
 
-fn fingerprint_rows(rows :: List<Map<String, DbValue>>, index :: Int, output :: String) -> String!String do
+fn fingerprint_rows(rows :: List<Map<String, DbValue>>,
+  index :: Int,
+  output :: String) -> String!String do
   if index >= List.length(rows) do
     Ok(output)
   else
@@ -51,7 +57,11 @@ fn fingerprint_rows(rows :: List<Map<String, DbValue>>, index :: Int, output :: 
     end
     fingerprint_rows(rows,
       index + 1,
-      output <> separator <> row_text(row, "record_hash")? <> ":" <> row_text(row, "ciphertext_hex")?)
+      output
+        <> separator
+        <> row_text(row, "record_hash")?
+        <> ":"
+        <> row_text(row, "ciphertext_hex")?)
   end
 end
 
@@ -191,7 +201,10 @@ fn proof() -> Bool!String do
   let initial_id = outer(initial_outer)?.envelope_id
   let before_failure = database_fingerprint(bob_path)?
   set_receive_failure(bob_path, true)?
-  let failed_ack = process_delivery_batch_export(request([Bytes.from_utf8(bob_path), initial_batch])?)?
+  let failed_ack = process_delivery_batch_export(request([
+    Bytes.from_utf8(bob_path),
+    initial_batch
+  ])?)?
   set_receive_failure(bob_path, false)?
   assert(Bytes.length(failed_ack) == 0)
   assert(database_fingerprint(bob_path)? == before_failure)

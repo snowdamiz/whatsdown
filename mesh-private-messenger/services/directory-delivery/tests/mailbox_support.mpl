@@ -4,7 +4,13 @@
 ##! so tests that fetch must register a real account-signed device.
 
 from Api.Binary import register_device_request
-from Identity.Device import AccountKeys, DeviceKeys, generate_account, generate_device, issue_device_credential
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  generate_account,
+  generate_device,
+  issue_device_credential
+)
 from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
 from Protocol.DirectoryWire import encode_directory_entry
 from Protocol.IdentityWire import encode_account_identity
@@ -133,7 +139,9 @@ end
 ## Registers a fresh account and device that owns `mailbox_token`; the returned
 ## keys sign that mailbox's requests.
 
-pub fn register_test_mailbox(pool :: PoolHandle, username :: String, mailbox_token :: Bytes) -> DeviceKeys!String do
+pub fn register_test_mailbox(pool :: PoolHandle,
+  username :: String,
+  mailbox_token :: Bytes) -> DeviceKeys!String do
   let created_at = mailbox_test_now()?
   let (account_keys, identity) = case generate_account(created_at, support_wide("1")?) do
     Err(_) -> Err("account generation failed")

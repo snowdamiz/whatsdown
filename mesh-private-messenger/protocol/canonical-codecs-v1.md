@@ -104,6 +104,11 @@ pool in the same transaction. A successful pool claim returns a canonical
 `PKB` made from that exact base bundle plus one claimed ID and public key. The
 base bundle remains unchanged, so its transparency evidence remains valid.
 
+Bundle extensions 1 and 2 are registered, as optional extensions, for a linked
+device's renewal request (`RNW`, 1,412 bytes): extension 1 carries its first
+1,024 bytes and extension 2 the other 388. A bundle carries both or neither.
+See `multi-device-wire-v1.md`, "Renewal".
+
 ## One-time prekey publication (`OTB`)
 
 ```text

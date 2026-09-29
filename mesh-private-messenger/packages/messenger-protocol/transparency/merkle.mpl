@@ -122,8 +122,10 @@ end
 # ponytail: proofs carry bounded leaf commitments; replace with compact RFC 6962 paths when log bandwidth matters.
 
 pub fn inclusion_proof(values :: List<Bytes>, leaf_index :: Int) -> InclusionProof!String do
-  if leaf_index < 0 || leaf_index >= List.length(values) || List.length(values) > 4096 || !valid_hashes(values,
-    0) do
+  if leaf_index < 0
+    || leaf_index >= List.length(values)
+    || List.length(values) > 4096
+    || !valid_hashes(values, 0) do
     Err("invalid_inclusion_proof")
   else
     Ok(InclusionProof {
@@ -134,22 +136,33 @@ pub fn inclusion_proof(values :: List<Bytes>, leaf_index :: Int) -> InclusionPro
   end
 end
 
-pub fn verify_inclusion(value :: Bytes, proof :: InclusionProof, expected_root :: Bytes) -> Bool!String do
-  let valid = proof.tree_size == List.length(proof.leaf_hashes) && proof.tree_size > 0 && proof.leaf_index >= 0 && proof.leaf_index < proof.tree_size && Bytes.length(value) == 32 && Bytes.length(expected_root) == 32 && valid_hashes(proof.leaf_hashes,
-    0)
+pub fn verify_inclusion(value :: Bytes,
+  proof :: InclusionProof,
+  expected_root :: Bytes) -> Bool!String do
+  let valid = proof.tree_size == List.length(proof.leaf_hashes)
+    && proof.tree_size > 0
+    && proof.leaf_index >= 0
+    && proof.leaf_index < proof.tree_size
+    && Bytes.length(value) == 32
+    && Bytes.length(expected_root) == 32
+    && valid_hashes(proof.leaf_hashes, 0)
   if !valid do
     Ok(false)
   else
-    Ok(Bytes.secure_equals(List.get(proof.leaf_hashes, proof.leaf_index), value) && Bytes.secure_equals(merkle_root(proof.leaf_hashes)?,
-      expected_root))
+    Ok(Bytes.secure_equals(List.get(proof.leaf_hashes, proof.leaf_index), value)
+      && Bytes.secure_equals(merkle_root(proof.leaf_hashes)?, expected_root))
   end
 end
 
-pub fn consistency_proof(old_values :: List<Bytes>, new_values :: List<Bytes>) -> ConsistencyProof!String do
+pub fn consistency_proof(old_values :: List<Bytes>,
+  new_values :: List<Bytes>) -> ConsistencyProof!String do
   let old_size = List.length(old_values)
   let new_size = List.length(new_values)
-  if old_size < 0 || old_size > new_size || new_size > 4096 || !valid_hashes(old_values, 0) || !valid_hashes(new_values,
-    0) do
+  if old_size < 0
+    || old_size > new_size
+    || new_size > 4096
+    || !valid_hashes(old_values, 0)
+    || !valid_hashes(new_values, 0) do
     Err("invalid_consistency_proof")
   else
     Ok(ConsistencyProof {
@@ -160,7 +173,10 @@ pub fn consistency_proof(old_values :: List<Bytes>, new_values :: List<Bytes>) -
   end
 end
 
-fn prefix(values :: List<Bytes>, count :: Int, index :: Int, output :: List<Bytes>) -> List<Bytes> do
+fn prefix(values :: List<Bytes>,
+  count :: Int,
+  index :: Int,
+  output :: List<Bytes>) -> List<Bytes> do
   if index >= count do
     output
   else
@@ -168,14 +184,25 @@ fn prefix(values :: List<Bytes>, count :: Int, index :: Int, output :: List<Byte
   end
 end
 
-pub fn verify_consistency(old_root :: Bytes, new_root :: Bytes, proof :: ConsistencyProof) -> Bool!String do
-  let valid = proof.old_tree_size >= 0 && proof.old_tree_size <= proof.new_tree_size && proof.new_tree_size == List.length(proof.leaf_hashes) && proof.new_tree_size <= 4096 && Bytes.length(old_root) == 32 && Bytes.length(new_root) == 32 && valid_hashes(proof.leaf_hashes,
-    0)
+pub fn verify_consistency(old_root :: Bytes,
+  new_root :: Bytes,
+  proof :: ConsistencyProof) -> Bool!String do
+  let valid = proof.old_tree_size >= 0
+    && proof.old_tree_size <= proof.new_tree_size
+    && proof.new_tree_size == List.length(proof.leaf_hashes)
+    && proof.new_tree_size <= 4096
+    && Bytes.length(old_root) == 32
+    && Bytes.length(new_root) == 32
+    && valid_hashes(proof.leaf_hashes, 0)
   if !valid do
     Ok(false)
   else
-    Ok(Bytes.secure_equals(merkle_root(prefix(proof.leaf_hashes, proof.old_tree_size, 0, List.new()))?,
-      old_root) && Bytes.secure_equals(merkle_root(proof.leaf_hashes)?, new_root))
+    Ok(Bytes.secure_equals(merkle_root(prefix(proof.leaf_hashes,
+        proof.old_tree_size,
+        0,
+        List.new()))?,
+      old_root)
+      && Bytes.secure_equals(merkle_root(proof.leaf_hashes)?, new_root))
   end
 end
 
@@ -185,7 +212,9 @@ fn checkpoint_statement(sequence :: U64,
   previous_checkpoint_hash :: Bytes,
   timestamp :: U64,
   service_public_key :: Bytes) -> Bytes!String do
-  if Bytes.length(tree_root) != 32 || Bytes.length(previous_checkpoint_hash) != 32 || Bytes.length(service_public_key) != 32 do
+  if Bytes.length(tree_root) != 32
+    || Bytes.length(previous_checkpoint_hash) != 32
+    || Bytes.length(service_public_key) != 32 do
     Err("invalid_checkpoint")
   else
     concat_parts([
@@ -243,8 +272,11 @@ pub fn sign_checkpoint(signing_key :: borrow SigningPrivateKey,
   end
 end
 
-pub fn verify_checkpoint(value :: TransparencyCheckpoint, trusted_key :: SigningPublicKey) -> Bool!String do
-  if value.version != 1 || !Bytes.secure_equals(value.service_public_key, trusted_key.bytes) || Bytes.length(value.signature) != 64 do
+pub fn verify_checkpoint(value :: TransparencyCheckpoint,
+  trusted_key :: SigningPublicKey) -> Bool!String do
+  if value.version != 1
+    || !Bytes.secure_equals(value.service_public_key, trusted_key.bytes)
+    || Bytes.length(value.signature) != 64 do
     Ok(false)
   else
     let statement = checkpoint_statement(value.sequence,
@@ -299,7 +331,9 @@ pub fn sign_witness(witness_id :: String,
   end
 end
 
-fn trusted_witness(keys :: List<WitnessKey>, witness_id :: String, index :: Int) -> WitnessKey!String do
+fn trusted_witness(keys :: List<WitnessKey>,
+  witness_id :: String,
+  index :: Int) -> WitnessKey!String do
   if index >= List.length(keys) do
     Err("untrusted_witness")
   else
@@ -333,8 +367,9 @@ fn count_valid_witnesses(checkpoint :: TransparencyCheckpoint,
     Ok(count)
   else
     let attestation = List.get(attestations, index)
-    if contains_witness(seen, attestation.witness_id, 0) || !Bytes.secure_equals(attestation.checkpoint_hash,
-      checkpoint_digest) || Bytes.length(attestation.signature) != 64 do
+    if contains_witness(seen, attestation.witness_id, 0)
+      || !Bytes.secure_equals(attestation.checkpoint_hash, checkpoint_digest)
+      || Bytes.length(attestation.signature) != 64 do
       count_valid_witnesses(checkpoint,
         checkpoint_digest,
         attestations,
@@ -386,19 +421,30 @@ pub fn verify_witnesses(checkpoint :: TransparencyCheckpoint,
   attestations :: List<WitnessAttestation>,
   trusted_keys :: List<WitnessKey>,
   threshold :: Int) -> Bool!String do
-  if threshold < 1 || threshold > List.length(trusted_keys) || List.length(attestations) > 16 || List.length(trusted_keys) > 16 do
+  if threshold < 1
+    || threshold > List.length(trusted_keys)
+    || List.length(attestations) > 16
+    || List.length(trusted_keys) > 16 do
     Ok(false)
   else
     let digest = checkpoint_hash(checkpoint)?
-    Ok(count_valid_witnesses(checkpoint, digest, attestations, trusted_keys, 0, List.new(), 0)? >= threshold)
+    Ok(count_valid_witnesses(checkpoint,
+      digest,
+      attestations,
+      trusted_keys,
+      0,
+      List.new(),
+      0)? >= threshold)
   end
 end
 
 pub fn checkpoint_conflict(first :: TransparencyCheckpoint,
   second :: TransparencyCheckpoint,
   trusted_key :: SigningPublicKey) -> Bool!String do
-  let same_position = U64.compare(first.sequence, second.sequence) == 0 && U64.compare(first.tree_size,
-    second.tree_size) == 0
-  Ok(same_position && !Bytes.secure_equals(first.tree_root, second.tree_root) && verify_checkpoint(first,
-    trusted_key)? && verify_checkpoint(second, trusted_key)?)
+  let same_position = U64.compare(first.sequence, second.sequence) == 0
+    && U64.compare(first.tree_size, second.tree_size) == 0
+  Ok(same_position
+    && !Bytes.secure_equals(first.tree_root, second.tree_root)
+    && verify_checkpoint(first, trusted_key)?
+    && verify_checkpoint(second, trusted_key)?)
 end

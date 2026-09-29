@@ -34,14 +34,36 @@ from Transport.Packet import ClientProfile, decode_client_profile, is_sealed_ini
 ##! Mobile.Inbox implementation.
 
 pub fn permanent_direct_delivery_error(error :: String) -> Bool do
-  error == "wrong_mailbox" || error == "invalid_recipient_packet" || error == "invalid_outer_envelope" || error == "noncanonical_outer_envelope" || error == "invalid_initial_packet" || error == "invalid_initial_message" || error == "outer_suite_mismatch" || error == "invalid_initiator_account" || error == "invalid_initiator_credential" || error == "initial_receive_failed" || error == "invalid_initial_plaintext" || error == "invalid_peer_profile" || error == "invalid_inner_envelope" || error == "initial_identity_mismatch" || error == "invalid_sync_payload" || error == "invalid_ratchet_packet" || error == "invalid_ratchet_message" || error == "message_rejected" || error == "one_time_prekey_not_found" || error == "replayed_initial_message" || error == "blocked_message"
+  error == "wrong_mailbox"
+    || error == "invalid_recipient_packet"
+    || error == "invalid_outer_envelope"
+    || error == "noncanonical_outer_envelope"
+    || error == "invalid_initial_packet"
+    || error == "invalid_initial_message"
+    || error == "outer_suite_mismatch"
+    || error == "invalid_initiator_account"
+    || error == "invalid_initiator_credential"
+    || error == "initial_receive_failed"
+    || error == "invalid_initial_plaintext"
+    || error == "invalid_peer_profile"
+    || error == "invalid_inner_envelope"
+    || error == "initial_identity_mismatch"
+    || error == "invalid_sync_payload"
+    || error == "invalid_ratchet_packet"
+    || error == "invalid_ratchet_message"
+    || error == "message_rejected"
+    || error == "one_time_prekey_not_found"
+    || error == "replayed_initial_message"
+    || error == "blocked_message"
 end
 
 # Packet kinds: 1 initial, 2 ratchet, 3 group, 0 unknown. A sealed envelope
 # reveals its kind only after this device opens it; legacy envelopes named it in
 # the clear through the outer suite and the packet magic.
 
-fn sealed_packet_kind(database_path :: String, profile :: ClientProfile, outer :: OuterEnvelope) -> Int!String do
+fn sealed_packet_kind(database_path :: String,
+  profile :: ClientProfile,
+  outer :: OuterEnvelope) -> Int!String do
   let wrapping_key = platform_key()?
   let device = open_device(profile, wrapping_key, database_path)?
   # ponytail: the chosen receive path opens the seal again (one extra X25519
@@ -50,7 +72,9 @@ fn sealed_packet_kind(database_path :: String, profile :: ClientProfile, outer :
   Ok(opened_packet_kind(opened))
 end
 
-fn delivery_kind(database_path :: String, profile :: ClientProfile, outer :: OuterEnvelope) -> Int!String do
+fn delivery_kind(database_path :: String,
+  profile :: ClientProfile,
+  outer :: OuterEnvelope) -> Int!String do
   if outer.suite == protocol_sealed_outer_suite() do
     sealed_packet_kind(database_path, profile, outer)
   else if outer.suite == 3 do
@@ -62,7 +86,8 @@ fn delivery_kind(database_path :: String, profile :: ClientProfile, outer :: Out
   end
 end
 
-fn receive_mobile_direct_classified(request :: MobileReceiveRequest, kind :: Int) -> MobileDirectReceiveOutcome do
+fn receive_mobile_direct_classified(request :: MobileReceiveRequest,
+  kind :: Int) -> MobileDirectReceiveOutcome do
   let received = if kind == 1 do
     receive_initial_message(request)
   else
@@ -85,10 +110,7 @@ fn acknowledge_delivery(database_path :: String,
   profile :: ClientProfile,
   outer :: OuterEnvelope,
   encoded :: Bytes) -> Bool do
-  let request = MobileReceiveRequest {
-    database_path: database_path,
-    outer: encoded
-  }
+  let request = MobileReceiveRequest { database_path: database_path, outer: encoded }
   case delivery_kind(database_path, profile, outer) do
     Err(error) -> permanent_direct_delivery_error(error)
     Ok(3) -> case receive_mobile_group_classified(request) do
@@ -174,7 +196,12 @@ fn process_deliveries(database_path :: String,
         profile,
         deliveries,
         index + 1,
-        settle_delivery(database_path, profile, outer, delivered.envelope, pass, delivered.sequence)?)
+        settle_delivery(database_path,
+          profile,
+          outer,
+          delivered.envelope,
+          pass,
+          delivered.sequence)?)
     end
   end
 end

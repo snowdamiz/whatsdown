@@ -182,13 +182,15 @@ fn send_to_device(database_path :: String,
     session_ids,
     0) do
     Ok(loaded) -> do
-      let changed = !Bytes.secure_equals(loaded.record.peer_mailbox, peer.entry.mailbox_token) || (Bytes.length(loaded.record.safety_number) == 64 && !Bytes.secure_equals(loaded.record.safety_number,
-        safety_number(local, peer)?))
+      let changed = !Bytes.secure_equals(loaded.record.peer_mailbox, peer.entry.mailbox_token)
+        || (Bytes.length(loaded.record.safety_number) == 64
+          && !Bytes.secure_equals(loaded.record.safety_number, safety_number(local, peer)?))
       if changed do
         Err("peer_keys_changed")
       else if loaded.record.strongest_suite > peer.bundle.suite do
         Err("peer_keys_changed")
-      else if loaded.record.strongest_suite < peer.bundle.suite || Bytes.length(loaded.record.safety_number) == 0 do
+      else if loaded.record.strongest_suite < peer.bundle.suite
+        || Bytes.length(loaded.record.safety_number) == 0 do
         let strongest_suite = loaded.record.strongest_suite
         start_device_session(claimed_prekeys,
           local_device,
@@ -277,7 +279,9 @@ fn peer_fanout(database_path :: String,
       message_type: message_type,
       body: body,
       reply_reference: Bytes.empty(),
-      attachment_manifest: rewrap_reference(local_device, attachment, peer.credential.dh_public_key)?,
+      attachment_manifest: rewrap_reference(local_device,
+        attachment,
+        peer.credential.dh_public_key)?,
       receipt_policy: 0,
       disappearing_seconds: disappearing_seconds,
       extensions: handed_over
@@ -394,9 +398,9 @@ fn self_fanout(database_path :: String,
 end
 
 pub fn send_fanout(request :: MobileFanoutRequest) -> Bytes!String do
-  send_fanout_control(%{request | body: present_message(request.database_path,
-      Bytes.empty(),
-      request.body)?},
+  send_fanout_control(%{request |
+      body: present_message(request.database_path, Bytes.empty(), request.body)?
+    },
     1,
     [],
     [])
@@ -471,11 +475,12 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
       end
       Ok(loaded) -> Ok(loaded.record)
     end?
-    let added_count = List.length(peers.profiles) + if message_type == 1 do
-      List.length(local_devices.profiles) - 1
-    else
-      0
-    end
+    let added_count = List.length(peers.profiles)
+      + if message_type == 1 do
+        List.length(local_devices.profiles) - 1
+      else
+        0
+      end
     if List.length(pending_ids) + added_count > outbox_capacity() do
       Err("outbox_full")
     else if anchor.blocked do

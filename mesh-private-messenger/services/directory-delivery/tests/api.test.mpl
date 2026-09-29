@@ -3,7 +3,14 @@ from Privacy.Edge import encode_sealed_delivery, seal_delivery
 from Protocol.EnvelopeWire import decode_outer_envelope, encode_outer_envelope
 from Protocol.MailboxWire import decode_delivery_batch
 from Protocol.V1 import OuterEnvelope
-from Tests.MailboxSupport import mailbox_test_now, register_test_mailbox, signed_ack, signed_ack_at, signed_fetch, signed_fetch_at
+from Tests.MailboxSupport import (
+  mailbox_test_now,
+  register_test_mailbox,
+  signed_ack,
+  signed_ack_at,
+  signed_fetch,
+  signed_fetch_at
+)
 
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
@@ -48,7 +55,10 @@ fn outer(value :: Bytes) -> OuterEnvelope!String do
   end
 end
 
-fn database_rejects_suite(pool :: PoolHandle, token :: Bytes, envelope_id :: Bytes, suite :: Int) -> Bool do
+fn database_rejects_suite(pool :: PoolHandle,
+  token :: Bytes,
+  envelope_id :: Bytes,
+  suite :: Int) -> Bool do
   case Pool.execute_values(pool,
     "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6)",
     [
@@ -187,16 +197,20 @@ fn mailbox_takeover_proof() -> Bool!String do
   assert(acknowledge_request(pool, legacy_ack(victim_token, envelope_id)?).status == 400)
   # 2. A validly registered device signing for somebody else's mailbox.
   assert(fetch_request(pool, signed_fetch(attacker, victim_token)?).status == 403)
-  assert(acknowledge_request(pool, signed_ack(attacker, victim_token, [envelope_id])?).status == 403)
+  assert(acknowledge_request(pool,
+    signed_ack(attacker, victim_token, [envelope_id])?).status == 403)
   # 3. An unregistered mailbox is indistinguishable from an unauthorized one.
   assert(fetch_request(pool, signed_fetch(attacker, repeated(24, 32))?).status == 403)
   # 4. A captured request stops working outside its signed time window.
   let now = mailbox_test_now()?
   let expired = U64.subtract(now, wide("301000")?)?
   let premature = U64.add(now, wide("120000")?)?
-  assert(fetch_request(pool, signed_fetch_at(victim, victim_token, wide("0")?, expired)?).status == 403)
-  assert(fetch_request(pool, signed_fetch_at(victim, victim_token, wide("0")?, premature)?).status == 403)
-  assert(acknowledge_request(pool, signed_ack_at(victim, victim_token, [envelope_id], expired)?).status == 403)
+  assert(fetch_request(pool,
+    signed_fetch_at(victim, victim_token, wide("0")?, expired)?).status == 403)
+  assert(fetch_request(pool,
+    signed_fetch_at(victim, victim_token, wide("0")?, premature)?).status == 403)
+  assert(acknowledge_request(pool,
+    signed_ack_at(victim, victim_token, [envelope_id], expired)?).status == 403)
   # 4b. An envelope cannot be parked forever. The client's own lifetime is 30
   # days; anything that would outlast it, or has already expired, is refused,
   # so a full mailbox always drains by itself.

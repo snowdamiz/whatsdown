@@ -2,7 +2,12 @@
 
 from Groups.KeySchedule import group_empty_keys
 from Binary.Reader import BinaryReader
-from Groups.CommitWire import group_extensions_bytes, group_policy_bytes, group_read_extensions, group_read_levels
+from Groups.CommitWire import (
+  group_extensions_bytes,
+  group_policy_bytes,
+  group_read_extensions,
+  group_read_levels
+)
 from Groups.GroupCodec import (
   group_append,
   group_byte,
@@ -56,9 +61,17 @@ from Groups.Tree import (
   tree_from_public,
   tree_hash
 )
-from Groups.WelcomeWire import group_encode_members, group_encode_parents, group_read_members, group_read_parents
+from Groups.WelcomeWire import (
+  group_encode_members,
+  group_encode_parents,
+  group_read_members,
+  group_read_parents
+)
 
-fn generation_seen(values :: List<SenderGeneration>, leaf_index :: Int, limit :: Int, index :: Int) -> Bool do
+fn generation_seen(values :: List<SenderGeneration>,
+  leaf_index :: Int,
+  limit :: Int,
+  index :: Int) -> Bool do
   if index >= limit do
     false
   else if List.get(values, index).leaf_index == leaf_index do
@@ -68,17 +81,19 @@ fn generation_seen(values :: List<SenderGeneration>, leaf_index :: Int, limit ::
   end
 end
 
-fn validate_generations(values :: List<SenderGeneration>, tree :: borrow GroupTree, index :: Int) -> Result<(), GroupError> do
+fn validate_generations(values :: List<SenderGeneration>,
+  tree :: borrow GroupTree,
+  index :: Int) -> Result<(), GroupError> do
   if List.length(values) > 64 do
     Err(InvalidGroup)
   else if index >= List.length(values) do
     Ok(nil)
   else
     let value = List.get(values, index)
-    if value.leaf_index < 0 || value.leaf_index >= 64 || value.generation < 0 || generation_seen(values,
-      value.leaf_index,
-      index,
-      0) do
+    if value.leaf_index < 0
+      || value.leaf_index >= 64
+      || value.generation < 0
+      || generation_seen(values, value.leaf_index, index, 0) do
       Err(InvalidGroup)
     else
       case member_at(tree, value.leaf_index) do
@@ -89,7 +104,9 @@ fn validate_generations(values :: List<SenderGeneration>, tree :: borrow GroupTr
   end
 end
 
-fn encode_generations(values :: List<SenderGeneration>, index :: Int, output :: Bytes) -> Bytes!GroupError do
+fn encode_generations(values :: List<SenderGeneration>,
+  index :: Int,
+  output :: Bytes) -> Bytes!GroupError do
   if index >= List.length(values) do
     Ok(output)
   else
@@ -109,27 +126,20 @@ fn read_generations(state :: BinaryReader,
   if count < 0 || count > 64 do
     Err(InvalidGroup)
   else if index >= count do
-    Ok(GroupReadGenerations {
-      state: state,
-      value: output
-    })
+    Ok(GroupReadGenerations { state: state, value: output })
   else
     let leaf = group_wire_u16(state)?
     let generation = group_wire_u32(leaf.state)?
-    if leaf.value < 0 || leaf.value >= 64 || generation_seen(output,
-      leaf.value,
-      List.length(output),
-      0) do
+    if leaf.value < 0
+      || leaf.value >= 64
+      || generation_seen(output, leaf.value, List.length(output), 0) do
       Err(InvalidGroup)
     else
       read_generations(generation.state,
         count,
         index + 1,
         List.append(output,
-          SenderGeneration {
-            leaf_index: leaf.value,
-            generation: generation.value
-          }))
+          SenderGeneration { leaf_index: leaf.value, generation: generation.value }))
     end
   end
 end
@@ -140,8 +150,8 @@ fn local_identity_matches(tree :: borrow GroupTree,
   device_id :: Bytes) -> Bool do
   case member_at(tree, local_leaf) do
     Err(_) -> false
-    Ok(member) -> Bytes.secure_equals(member.account_id, account_id) && Bytes.secure_equals(member.device_id,
-      device_id)
+    Ok(member) -> Bytes.secure_equals(member.account_id, account_id)
+      && Bytes.secure_equals(member.device_id, device_id)
   end
 end
 
@@ -168,11 +178,22 @@ fn validate_snapshot_state(state :: borrow GroupState,
   account_id :: Bytes,
   device_id :: Bytes,
   snapshot_version :: U64) -> Result<(), GroupError> do
-  let valid = (state.version == 1 || state.version == 2) && state.suite == 3 && Bytes.length(state.group_id) == 32 && Bytes.length(state.tree_hash_cache) == 32 && Bytes.length(state.transcript_hash) == 32 && state.local_leaf >= 0 && state.local_leaf < 64 && state.next_generation >= 0 && Bytes.length(account_id) == 32 && Bytes.length(device_id) == 16 && U64.compare(snapshot_version,
-    group_zero()?) > 0 && Bytes.secure_equals(state.tree_hash_cache, tree_hash(state.tree))
-  if !valid || !group_valid_extensions(state.extensions, 0, 0) || !valid_levels(state.key_material.available_levels,
-    0,
-    -1) || !local_identity_matches(state.tree, state.local_leaf, account_id, device_id) do
+  let valid = (state.version == 1 || state.version == 2)
+    && state.suite == 3
+    && Bytes.length(state.group_id) == 32
+    && Bytes.length(state.tree_hash_cache) == 32
+    && Bytes.length(state.transcript_hash) == 32
+    && state.local_leaf >= 0
+    && state.local_leaf < 64
+    && state.next_generation >= 0
+    && Bytes.length(account_id) == 32
+    && Bytes.length(device_id) == 16
+    && U64.compare(snapshot_version, group_zero()?) > 0
+    && Bytes.secure_equals(state.tree_hash_cache, tree_hash(state.tree))
+  if !valid
+    || !group_valid_extensions(state.extensions, 0, 0)
+    || !valid_levels(state.key_material.available_levels, 0, -1)
+    || !local_identity_matches(state.tree, state.local_leaf, account_id, device_id) do
     Err(InvalidGroup)
   else
     group_validate_policy(state.policy)?
@@ -222,7 +243,13 @@ fn group_storage_context(account_id :: Bytes,
   purpose :: Int,
   key_slot :: Int,
   snapshot_version :: U64) -> Bytes!GroupError do
-  if Bytes.length(account_id) != 32 || Bytes.length(device_id) != 16 || Bytes.length(group_id) != 32 || (purpose != 12 && purpose != 16 && purpose != 17) || (purpose == 12 && key_slot != 8 && key_slot != 9) || (purpose == 16 && key_slot != 0) || (purpose == 17 && (key_slot < 1 || key_slot > 7)) do
+  if Bytes.length(account_id) != 32
+    || Bytes.length(device_id) != 16
+    || Bytes.length(group_id) != 32
+    || (purpose != 12 && purpose != 16 && purpose != 17)
+    || (purpose == 12 && key_slot != 8 && key_slot != 9)
+    || (purpose == 16 && key_slot != 0)
+    || (purpose == 17 && (key_slot < 1 || key_slot > 7)) do
     Err(InvalidGroup)
   else
     let object = Crypto.sha256(group_join([
@@ -269,7 +296,9 @@ fn seal_group_snapshot(state :: borrow GroupState,
     16,
     0,
     snapshot_version)?
-  let sealed = case Secret.seal_for_storage(state.key_material.epoch_secret, wrapping_key, context) do
+  let sealed = case Secret.seal_for_storage(state.key_material.epoch_secret,
+    wrapping_key,
+    context) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
   end?
@@ -297,14 +326,26 @@ fn seal_group_snapshot(state :: borrow GroupState,
   let chains = if state.version == 2 do
     seal_group_map(state.key_material.sender_chains,
       wrapping_key,
-      group_storage_context(account_id, device_id, state.group_id, header, 12, 8, snapshot_version)?)?
+      group_storage_context(account_id,
+        device_id,
+        state.group_id,
+        header,
+        12,
+        8,
+        snapshot_version)?)?
   else
     Bytes.empty()
   end
   let skipped = if state.version == 2 do
     seal_group_map(state.key_material.skipped_keys,
       wrapping_key,
-      group_storage_context(account_id, device_id, state.group_id, header, 12, 9, snapshot_version)?)?
+      group_storage_context(account_id,
+        device_id,
+        state.group_id,
+        header,
+        12,
+        9,
+        snapshot_version)?)?
   else
     Bytes.empty()
   end
@@ -313,7 +354,15 @@ fn seal_group_snapshot(state :: borrow GroupState,
   else
     Bytes.empty()
   end
-  if Bytes.length(header) + Bytes.length(maps) > 64711 || Bytes.length(sealed) != 99 || Bytes.length(leaf_private) != 99 || Bytes.length(level0) != 99 || Bytes.length(level1) != 99 || Bytes.length(level2) != 99 || Bytes.length(level3) != 99 || Bytes.length(level4) != 99 || Bytes.length(level5) != 99 do
+  if Bytes.length(header) + Bytes.length(maps) > 64711
+    || Bytes.length(sealed) != 99
+    || Bytes.length(leaf_private) != 99
+    || Bytes.length(level0) != 99
+    || Bytes.length(level1) != 99
+    || Bytes.length(level2) != 99
+    || Bytes.length(level3) != 99
+    || Bytes.length(level4) != 99
+    || Bytes.length(level5) != 99 do
     Err(InvalidGroup)
   else
     group_join([
@@ -386,7 +435,14 @@ fn parse_group_snapshot(input :: Bytes) -> ParsedGroupSnapshot!GroupError do
   let chains = group_wire_vector_if(level5.state, state_version.value)?
   let skipped = group_wire_vector_if(chains.state, state_version.value)?
   group_wire_end(skipped.state)?
-  if Bytes.length(sealed.value) != 99 || Bytes.length(leaf_private.value) != 99 || Bytes.length(level0.value) != 99 || Bytes.length(level1.value) != 99 || Bytes.length(level2.value) != 99 || Bytes.length(level3.value) != 99 || Bytes.length(level4.value) != 99 || Bytes.length(level5.value) != 99 do
+  if Bytes.length(sealed.value) != 99
+    || Bytes.length(leaf_private.value) != 99
+    || Bytes.length(level0.value) != 99
+    || Bytes.length(level1.value) != 99
+    || Bytes.length(level2.value) != 99
+    || Bytes.length(level3.value) != 99
+    || Bytes.length(level4.value) != 99
+    || Bytes.length(level5.value) != 99 do
     Err(InvalidGroup)
   else
     Ok(ParsedGroupSnapshot {
@@ -451,21 +507,30 @@ fn parsed_group_header(value :: ParsedGroupSnapshot) -> Bytes!GroupError do
     Bytes.empty())
 end
 
-fn validate_parsed_snapshot(value :: ParsedGroupSnapshot, account_id :: Bytes, device_id :: Bytes) -> GroupTree!GroupError do
-  let valid = (value.version == 1 || value.version == 2) && value.suite == 3 && Bytes.length(value.group_id) == 32 && Bytes.length(value.tree_hash) == 32 && Bytes.length(value.transcript_hash) == 32 && value.local_leaf >= 0 && value.local_leaf < 64 && value.next_generation >= 0 && Bytes.length(account_id) == 32 && Bytes.length(device_id) == 16 && U64.compare(value.snapshot_version,
-    group_zero()?) > 0 && group_valid_extensions(value.extensions, 0, 0) && valid_levels(value.available_levels,
-    0,
-    -1)
+fn validate_parsed_snapshot(value :: ParsedGroupSnapshot,
+  account_id :: Bytes,
+  device_id :: Bytes) -> GroupTree!GroupError do
+  let valid = (value.version == 1 || value.version == 2)
+    && value.suite == 3
+    && Bytes.length(value.group_id) == 32
+    && Bytes.length(value.tree_hash) == 32
+    && Bytes.length(value.transcript_hash) == 32
+    && value.local_leaf >= 0
+    && value.local_leaf < 64
+    && value.next_generation >= 0
+    && Bytes.length(account_id) == 32
+    && Bytes.length(device_id) == 16
+    && U64.compare(value.snapshot_version, group_zero()?) > 0
+    && group_valid_extensions(value.extensions, 0, 0)
+    && valid_levels(value.available_levels, 0, -1)
   if !valid do
     Err(InvalidGroup)
   else
     group_validate_policy(value.policy)?
     group_validate_members(value.members, value.extensions, value.policy, 0)?
     let group_tree = group_tree_error(tree_from_public(value.members, value.parent_nodes))?
-    if !Bytes.secure_equals(tree_hash(group_tree), value.tree_hash) || !local_identity_matches(group_tree,
-      value.local_leaf,
-      account_id,
-      device_id) do
+    if !Bytes.secure_equals(tree_hash(group_tree), value.tree_hash)
+      || !local_identity_matches(group_tree, value.local_leaf, account_id, device_id) do
       Err(InvalidGroup)
     else
       validate_generations(value.received_generations, group_tree, 0)?
@@ -474,14 +539,18 @@ fn validate_parsed_snapshot(value :: ParsedGroupSnapshot, account_id :: Bytes, d
   end
 end
 
-fn unseal_group_private(blob :: Bytes, wrapping_key :: borrow StorageKey, context :: Bytes) -> X25519PrivateKey!GroupError do
+fn unseal_group_private(blob :: Bytes,
+  wrapping_key :: borrow StorageKey,
+  context :: Bytes) -> X25519PrivateKey!GroupError do
   case X25519PrivateKey.unseal_from_storage(blob, wrapping_key, context) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
   end
 end
 
-fn parent_public_key(values :: List<TreeKemParentNode>, node_index :: Int, index :: Int) -> X25519PublicKey!GroupError do
+fn parent_public_key(values :: List<TreeKemParentNode>,
+  node_index :: Int,
+  index :: Int) -> X25519PublicKey!GroupError do
   if index >= List.length(values) do
     Err(InvalidGroup)
   else
@@ -502,7 +571,8 @@ fn level_is_available(values :: List<Int>, level :: Int, index :: Int) -> Bool d
   end
 end
 
-fn validate_private_key(value :: borrow X25519PrivateKey, expected :: X25519PublicKey) -> Result<(), GroupError> do
+fn validate_private_key(value :: borrow X25519PrivateKey,
+  expected :: X25519PublicKey) -> Result<(), GroupError> do
   case Crypto.x25519_public(value) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(actual) -> if Bytes.secure_equals(actual.bytes, expected.bytes) do
@@ -543,7 +613,9 @@ pub fn restore_group(blob :: Bytes,
       16,
       0,
       value.snapshot_version)?
-    let secret = case Secret.unseal_from_storage(value.sealed_epoch_secret, wrapping_key, context) do
+    let secret = case Secret.unseal_from_storage(value.sealed_epoch_secret,
+      wrapping_key,
+      context) do
       Err(error) -> Err(CryptoFailure(error))
       Ok(output)
     end?
@@ -678,21 +750,22 @@ fn group_wire_vector_if(reader :: BinaryReader, version :: Int) -> GroupReadByte
   if version == 2 do
     group_wire_vector(reader, 16384)
   else
-    Ok(GroupReadBytes {
-      state: reader,
-      value: Bytes.empty()
-    })
+    Ok(GroupReadBytes { state: reader, value: Bytes.empty() })
   end
 end
 
-fn seal_group_map(map :: borrow SecretMap, key :: borrow StorageKey, context :: Bytes) -> Bytes!GroupError do
+fn seal_group_map(map :: borrow SecretMap,
+  key :: borrow StorageKey,
+  context :: Bytes) -> Bytes!GroupError do
   case SecretMap.seal_for_storage(map, key, context) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
   end
 end
 
-fn unseal_group_map(blob :: Bytes, key :: borrow StorageKey, context :: Bytes) -> SecretMap!GroupError do
+fn unseal_group_map(blob :: Bytes,
+  key :: borrow StorageKey,
+  context :: Bytes) -> SecretMap!GroupError do
   case SecretMap.unseal_from_storage(blob, key, context) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)

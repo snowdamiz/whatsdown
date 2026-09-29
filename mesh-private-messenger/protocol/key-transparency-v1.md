@@ -52,12 +52,17 @@ Registration is anonymous, so the ceiling has to fail safe. It used not to: an
 append past 4,096 succeeded, after which building evidence failed and every
 lookup for every account returned an error. The directory now refuses to
 append past the ceiling, and refuses *new accounts* from 3,584 entries,
-reserving 512 for existing accounts to link, rotate, and revoke devices. A
+reserving 512 for existing accounts to link, renew, and revoke devices. A
 registration flood can therefore close registration (`507`, nothing committed)
 but cannot take lookups down or stop anyone revoking a compromised device.
 `transparency_capacity.test.mpl` forces the log to both limits and shows
 lookups still answer. Reaching the ceiling still ends growth for the
-deployment; it is a development bound, not a production capacity.
+deployment; it is a development bound, not a production capacity. Renewal
+spends it steadily: every device renews its credential through the log
+(`multi-device-wire-v1.md`, "Renewal"), about four entries a year for the device
+holding an account key and eight for each linked device. A full log refuses
+renewals (`507`) like any other transition, so devices then expire a year
+after their last renewal.
 
 Witnesses and optional blockchain anchors receive checkpoint commitments only,
 never usernames, device records, mailbox capabilities, account identifiers, or

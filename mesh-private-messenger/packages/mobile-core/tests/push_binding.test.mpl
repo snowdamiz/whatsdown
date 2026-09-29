@@ -19,7 +19,14 @@ from Protocol.DirectoryWire import decode_directory_entry
 from Protocol.IdentityWire import decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle
 from Protocol.V1 import DeviceCredential, DirectoryEntry, PrekeyBundle
-from Push.Binding import PushBindRequest, PushUnbindRequest, decode_push_bind, decode_push_unbind, push_bind_signing_bytes, push_unbind_signing_bytes
+from Push.Binding import (
+  PushBindRequest,
+  PushUnbindRequest,
+  decode_push_bind,
+  decode_push_unbind,
+  push_bind_signing_bytes,
+  push_unbind_signing_bytes
+)
 from Push.Token import open_provider_token
 from Tests.Support import append, database_path, repeated, vector
 
@@ -46,7 +53,10 @@ fn byte(value :: Int) -> Bytes!String do
   end
 end
 
-fn raw_push_frame(platform :: Int, development :: Int, app_id :: Bytes, device_token :: Bytes) -> Bytes!String do
+fn raw_push_frame(platform :: Int,
+  development :: Int,
+  app_id :: Bytes,
+  device_token :: Bytes) -> Bytes!String do
   let header = case Bytes.from_list([1, platform, development]) do
     Err(_) -> Err("test byte encoding failed")
     Ok(value)
@@ -110,8 +120,10 @@ fn push_action_epoch(action :: Bytes) -> U64!String do
 end
 
 fn push_done_matches(action :: Bytes, status :: Int, surface_error :: Int) -> Bool!String do
-  Ok(Bytes.length(action) == 19 && (push_action_kind(action)?) == 0 && (push_action_byte(action, 5)?) == surface_error && (push_action_byte(action,
-    18)?) == status)
+  Ok(Bytes.length(action) == 19
+    && (push_action_kind(action)?) == 0
+    && (push_action_byte(action, 5)?) == surface_error
+    && (push_action_byte(action, 18)?) == status)
 end
 
 fn complete_push_action_for_test(path :: String,
@@ -145,7 +157,9 @@ fn seed(value :: Int) -> Bytes!String do
 end
 
 fn signature_valid(public_key :: Bytes, signed :: Bytes, signature :: Bytes) -> Bool!String do
-  case Crypto.verify(SigningPublicKey { bytes: public_key }, signed, Signature { bytes: signature }) do
+  case Crypto.verify(SigningPublicKey { bytes: public_key },
+    signed,
+    Signature { bytes: signature }) do
     Err(_) -> Ok(false)
     Ok(value)
   end
@@ -201,9 +215,15 @@ end
 
 fn uuid_text(value :: Bytes) -> String do
   let hex = Bytes.to_hex(value)
-  String.slice(hex, 0, 8) <> "-" <> String.slice(hex, 8, 12) <> "-" <> String.slice(hex, 12, 16) <> "-" <> String.slice(hex,
-    16,
-    20) <> "-" <> String.slice(hex, 20, 32)
+  String.slice(hex, 0, 8)
+    <> "-"
+    <> String.slice(hex, 8, 12)
+    <> "-"
+    <> String.slice(hex, 12, 16)
+    <> "-"
+    <> String.slice(hex, 16, 20)
+    <> "-"
+    <> String.slice(hex, 20, 32)
 end
 
 fn valid_expo_request_for_project(request :: Request,
@@ -227,9 +247,14 @@ fn valid_expo_request_for_project(request :: Request,
   # Keep what the provider was told, so the proof can show it is not the
   # public protocol device identifier.
   File.write(expo_device_id_record(), device_id)
-  Ok(Request.method(request) == "POST" && Request.path(request) == path && content_type && Regex.is_match(~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-    device_id) && request_string(root, "appId")? == "com.example.morse" && request_string(root,
-    "projectId")? == expected_project_id && ((kind == "apns" && development) || (kind == "fcm" && !development)) && device_token == expected_token)
+  Ok(Request.method(request) == "POST"
+    && Request.path(request) == path
+    && content_type
+    && Regex.is_match(~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, device_id)
+    && request_string(root, "appId")? == "com.example.morse"
+    && request_string(root, "projectId")? == expected_project_id
+    && ((kind == "apns" && development) || (kind == "fcm" && !development))
+    && device_token == expected_token)
 end
 
 fn expo_response(request :: Request,
@@ -321,7 +346,12 @@ fn durable_push_action_loop_proof(project_id :: Bytes,
   let raw_frame = raw_push_frame(1, 1, app_id, raw_token)?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), raw_frame))
   assert(push_done_matches(push_intent_export(request([Bytes.from_utf8(path), byte(0)?])?)?, 0, 0)?)
-  case push_intent_export(request([Bytes.from_utf8(path), byte(1)?, project_id, broker_public_key])?) do
+  case push_intent_export(request([
+    Bytes.from_utf8(path),
+    byte(1)?,
+    project_id,
+    broker_public_key
+  ])?) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "invalid_push_intent")
   end
@@ -378,7 +408,8 @@ fn durable_push_action_loop_proof(project_id :: Bytes,
   let enabled = complete_push_action_for_test(path, bind_action, 0, endpoint)?
   assert(push_done_matches(enabled, 1, 0)?)
   assert(U64.compare(push_action_epoch(enabled)?, push_action_epoch(bind_action)?) > 0)
-  assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path))?, Bytes.from_utf8("enabled")))
+  assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path))?,
+    Bytes.from_utf8("enabled")))
   assert(install_push_config(project_id, broker_public_key)?)
   let stale_prime = push_intent_export(request([Bytes.from_utf8(path), byte(0)?])?)?
   assert((push_action_kind(stale_prime)?) == 2)
@@ -412,7 +443,10 @@ fn durable_push_action_loop_proof(project_id :: Bytes,
   assert((push_action_kind(disable_during_unbind)?) == 4)
   assert(U64.compare(push_action_epoch(disable_during_unbind)?,
     push_action_epoch(enable_during_unbind)?) > 0)
-  assert(Bytes.secure_equals(complete_push_action_for_test(path, enable_during_unbind, 0, endpoint)?,
+  assert(Bytes.secure_equals(complete_push_action_for_test(path,
+      enable_during_unbind,
+      0,
+      endpoint)?,
     disable_during_unbind))
   assert(Bytes.secure_equals(complete_push_action_for_test(path, stale_prime, 0, endpoint)?,
     disable_during_unbind))
@@ -430,7 +464,8 @@ fn durable_push_action_loop_proof(project_id :: Bytes,
     disable_during_unbind))
   let final_clear = complete_push_action_for_test(path, disable_during_unbind, 0, endpoint)?
   assert((push_action_kind(final_clear)?) == 5)
-  assert(U64.compare(push_action_epoch(final_clear)?, push_action_epoch(disable_during_unbind)?) > 0)
+  assert(U64.compare(push_action_epoch(final_clear)?,
+    push_action_epoch(disable_during_unbind)?) > 0)
   let final_clear_failed = complete_push_action_for_test(path, final_clear, 1, endpoint)?
   assert(push_done_matches(final_clear_failed, 3, 1)?)
   assert(Bytes.secure_equals(push_action_export(Bytes.from_utf8(path))?, final_clear))
@@ -524,7 +559,9 @@ fn rotated_push_config_proof(project_a :: Bytes,
     Err(_) -> assert(true)
   end
   assert(install_push_config(project_b, broker_b_public_key)?)
-  assert(push_done_matches(complete_push_action_for_test(path, bind_b_action, 0, endpoint_b)?, 1, 0)?)
+  assert(push_done_matches(complete_push_action_for_test(path, bind_b_action, 0, endpoint_b)?,
+    1,
+    0)?)
   assert(install_push_config(project_b, broker_b_public_key)?)
   let persisted_prime = push_intent_export(request([Bytes.from_utf8(path), byte(0)?])?)?
   assert((push_action_kind(persisted_prime)?) == 2)
@@ -580,7 +617,9 @@ fn proof() -> Bool!String do
   let rebound_endpoint = "http://127.0.0.1:18997/rebound"
   let rotated_endpoint = "http://127.0.0.1:18997/rotated"
   let device_fixture = Bytes.from_hex("00112233445566778899aabbccddeeff")?
-  assert(expo_registration_body_for_test(first_frame, device_fixture, project_id)? == "{\"type\":\"apns\",\"deviceId\":\"00112233-4455-6677-8899-aabbccddeeff\",\"development\":true,\"appId\":\"com.example.morse\",\"deviceToken\":\"apns-device-token\",\"projectId\":\"01234567-89ab-cdef-0123-456789abcdef\"}")
+  assert(expo_registration_body_for_test(first_frame,
+    device_fixture,
+    project_id)? == "{\"type\":\"apns\",\"deviceId\":\"00112233-4455-6677-8899-aabbccddeeff\",\"development\":true,\"appId\":\"com.example.morse\",\"deviceToken\":\"apns-device-token\",\"projectId\":\"01234567-89ab-cdef-0123-456789abcdef\"}")
   assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path))?,
     Bytes.from_utf8("disabled")))
   let _server = spawn(expo_registration_server)
@@ -646,7 +685,10 @@ fn proof() -> Bool!String do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "push_provider_rejected")
   end
-  let malformed_response = raw_push_frame(1, 1, app_id, Bytes.from_utf8("malformed-response-token"))?
+  let malformed_response = raw_push_frame(1,
+    1,
+    app_id,
+    Bytes.from_utf8("malformed-response-token"))?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), malformed_response))
   case push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id])?,
     broker.public_key.bytes,
@@ -714,16 +756,23 @@ fn proof() -> Bool!String do
       endpoint)?,
     first_wire))
   assert(Bytes.length(commit_push_wire_for_test(path, first_wire)?) == 0)
-  assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path))?, Bytes.from_utf8("enabled")))
+  assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path))?,
+    Bytes.from_utf8("enabled")))
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), first_frame))
-  assert(Bytes.length(push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id])?,
+  assert(Bytes.length(push_bind_prepare_with_test_config(request([
+      Bytes.from_utf8(path),
+      project_id
+    ])?,
     broker.public_key.bytes,
     endpoint)?) == 0)
   let second_raw_token = Bytes.from_utf8("fcm-device-token")
   let second_frame = raw_push_frame(2, 0, app_id, second_raw_token)?
   let second_token = Bytes.from_utf8("ExponentPushToken[second-device-token]")
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), second_frame))
-  let second_wire = push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id])?,
+  let second_wire = push_bind_prepare_with_test_config(request([
+      Bytes.from_utf8(path),
+      project_id
+    ])?,
     broker.public_key.bytes,
     second_endpoint)?
   # A rotated token re-registers under the same installation identifier.
@@ -768,7 +817,10 @@ fn proof() -> Bool!String do
   let rebound_token = Bytes.from_utf8("ExpoPushToken[rebound-device-token]")
   let rebound_frame = raw_push_frame(1, 1, app_id, rebound_raw_token)?
   assert(Test.set_push_token(Bytes.from_utf8("expo/raw/v1"), rebound_frame))
-  let rebound_wire = push_bind_prepare_with_test_config(request([Bytes.from_utf8(path), project_id])?,
+  let rebound_wire = push_bind_prepare_with_test_config(request([
+      Bytes.from_utf8(path),
+      project_id
+    ])?,
     broker.public_key.bytes,
     rebound_endpoint)?
   Process.request_shutdown()

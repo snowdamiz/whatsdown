@@ -2,7 +2,15 @@ from Groups.Mls import invalid_group_member_error
 
 ##! Groups.GroupCodec for the bounded messenger group protocol.
 
-from Binary.Reader import BinaryReader, finish, read_fixed, read_u16_be, read_u8, read_vector, reader
+from Binary.Reader import (
+  BinaryReader,
+  finish,
+  read_fixed,
+  read_u16_be,
+  read_u8,
+  read_vector,
+  reader
+)
 from Groups.Mls import (
   GroupDeliveryTarget,
   GroupError,
@@ -134,9 +142,10 @@ pub fn group_valid_extensions(values :: List<Int>, index :: Int, previous :: Int
     true
   else
     let value = List.get(values, index)
-    value > previous && value > 0 && value <= 65535 && group_valid_extensions(values,
-      index + 1,
-      value)
+    value > previous
+      && value > 0
+      && value <= 65535
+      && group_valid_extensions(values, index + 1, value)
   end
 end
 
@@ -154,19 +163,19 @@ fn supports_extensions(member :: GroupMember, extensions :: List<Int>, index :: 
   if index >= List.length(extensions) do
     true
   else
-    has_extension(member.extensions, List.get(extensions, index), 0) && supports_extensions(member,
-      extensions,
-      index + 1)
+    has_extension(member.extensions, List.get(extensions, index), 0)
+      && supports_extensions(member, extensions, index + 1)
   end
 end
 
-fn all_members_support(values :: List<IndexedGroupMember>, extension :: Int, index :: Int) -> Bool do
+fn all_members_support(values :: List<IndexedGroupMember>,
+  extension :: Int,
+  index :: Int) -> Bool do
   if index >= List.length(values) do
     true
   else
-    has_extension(List.get(values, index).member.extensions, extension, 0) && all_members_support(values,
-      extension,
-      index + 1)
+    has_extension(List.get(values, index).member.extensions, extension, 0)
+      && all_members_support(values, extension, index + 1)
   end
 end
 
@@ -187,7 +196,8 @@ fn negotiated_extensions(values :: List<IndexedGroupMember>,
   end
 end
 
-pub fn negotiate_group_extensions(tree :: borrow GroupTree, preferred :: List<Int>) -> List<Int>!GroupError do
+pub fn negotiate_group_extensions(tree :: borrow GroupTree,
+  preferred :: List<Int>) -> List<Int>!GroupError do
   let members = indexed_members(tree)
   if List.length(members) == 0 || !group_valid_extensions(preferred, 0, 0) do
     Err(InvalidGroup)
@@ -219,7 +229,8 @@ fn collect_delivery_targets(values :: List<IndexedGroupMember>,
   end
 end
 
-pub fn delivery_targets(tree :: borrow GroupTree, excluded_leaf :: Int) -> List<GroupDeliveryTarget>!GroupError do
+pub fn delivery_targets(tree :: borrow GroupTree,
+  excluded_leaf :: Int) -> List<GroupDeliveryTarget>!GroupError do
   if excluded_leaf < -1 || excluded_leaf >= 64 do
     Err(InvalidGroup)
   else
@@ -228,7 +239,9 @@ pub fn delivery_targets(tree :: borrow GroupTree, excluded_leaf :: Int) -> List<
 end
 
 pub fn group_validate_policy(value :: GroupTransparencyPolicy) -> Result<(), GroupError> do
-  if Bytes.length(value.checkpoint_hash) != 32 || value.witness_threshold < 0 || value.witness_threshold > 255 do
+  if Bytes.length(value.checkpoint_hash) != 32
+    || value.witness_threshold < 0
+    || value.witness_threshold > 255 do
     Err(InvalidPolicy)
   else
     Ok(nil)
@@ -242,9 +255,10 @@ pub fn group_validate_member_policy(member :: GroupMember,
   group_validate_policy(policy)?
   let current = U64.compare(member.directory_sequence, policy.minimum_directory_sequence) >= 0
   let checkpoint = Bytes.secure_equals(member.transparency_checkpoint_hash, policy.checkpoint_hash)
-  if current && checkpoint && member.witness_count >= policy.witness_threshold && supports_extensions(member,
-    extensions,
-    0) do
+  if current
+    && checkpoint
+    && member.witness_count >= policy.witness_threshold
+    && supports_extensions(member, extensions, 0) do
     Ok(nil)
   else
     Err(invalid_group_member_error())
@@ -265,40 +279,28 @@ end
 pub fn group_wire_u8(state :: BinaryReader) -> GroupReadInt!GroupError do
   case read_u8(state) do
     Err(_) -> Err(InvalidGroup)
-    Ok((next, value)) -> Ok(GroupReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(GroupReadInt { state: next, value: value })
   end
 end
 
 pub fn group_wire_u16(state :: BinaryReader) -> GroupReadInt!GroupError do
   case read_u16_be(state) do
     Err(_) -> Err(InvalidGroup)
-    Ok((next, value)) -> Ok(GroupReadInt {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(GroupReadInt { state: next, value: value })
   end
 end
 
 pub fn group_wire_fixed(state :: BinaryReader, length :: Int) -> GroupReadBytes!GroupError do
   case read_fixed(state, length) do
     Err(_) -> Err(InvalidGroup)
-    Ok((next, value)) -> Ok(GroupReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(GroupReadBytes { state: next, value: value })
   end
 end
 
 pub fn group_wire_vector(state :: BinaryReader, maximum :: Int) -> GroupReadBytes!GroupError do
   case read_vector(state, maximum) do
     Err(_) -> Err(InvalidGroup)
-    Ok((next, value)) -> Ok(GroupReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(GroupReadBytes { state: next, value: value })
   end
 end
 
@@ -308,10 +310,7 @@ pub fn group_wire_u32(state :: BinaryReader) -> GroupReadInt!GroupError do
     Err(_) -> Err(InvalidGroup)
     Ok(wide) -> case U64.to_int(wide) do
       Err(_) -> Err(InvalidGroup)
-      Ok(value) -> Ok(GroupReadInt {
-        state: encoded.state,
-        value: value
-      })
+      Ok(value) -> Ok(GroupReadInt { state: encoded.state, value: value })
     end
   end
 end
@@ -320,10 +319,7 @@ pub fn group_wire_u64(state :: BinaryReader) -> GroupReadWide!GroupError do
   let encoded = group_wire_fixed(state, 8)?
   case Bytes.read_u64_be(encoded.value, 0) do
     Err(_) -> Err(InvalidGroup)
-    Ok(value) -> Ok(GroupReadWide {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(GroupReadWide { state: encoded.state, value: value })
   end
 end
 
@@ -344,7 +340,9 @@ pub fn group_wire_magic(state :: BinaryReader, expected :: String) -> BinaryRead
   end
 end
 
-pub fn group_wire_start(input :: Bytes, maximum :: Int, magic :: String) -> BinaryReader!GroupError do
+pub fn group_wire_start(input :: Bytes,
+  maximum :: Int,
+  magic :: String) -> BinaryReader!GroupError do
   let version = group_wire_u8(group_wire_reader(input, maximum)?)?
   if version.value == 1 do
     group_wire_magic(version.state, magic)

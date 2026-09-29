@@ -19,7 +19,11 @@ from Protocol.WirePrimitives import (
   protocol_write_u16,
   protocol_write_u64
 )
-from Protocol.ExtensionWire import protocol_encode_extensions, protocol_take_extensions, protocol_validate_extensions
+from Protocol.ExtensionWire import (
+  protocol_encode_extensions,
+  protocol_take_extensions,
+  protocol_validate_extensions
+)
 from Protocol.IdentityWire import decode_device_credential
 from Protocol.V1 import HandshakeTranscript, InitialMessage, ProtocolError, protocol_supported_suite
 
@@ -34,9 +38,19 @@ fn validate_handshake_transcript(value :: HandshakeTranscript) -> Result<(), Pro
     else
       0
     end
-    if Bytes.length(value.initiator_credential_hash) != 32 || Bytes.length(value.responder_prekey_bundle_hash) != 32 || Bytes.length(value.initiator_ephemeral_public_key) != 32 || Bytes.length(value.responder_signed_prekey) != 32 || Bytes.length(value.responder_post_quantum_prekey) != post_quantum_length || protocol_is_zero(value.signed_prekey_id) || !(Bytes.length(value.responder_one_time_prekey) == 0 || Bytes.length(value.responder_one_time_prekey) == 32) do
+    if Bytes.length(value.initiator_credential_hash) != 32
+      || Bytes.length(value.responder_prekey_bundle_hash) != 32
+      || Bytes.length(value.initiator_ephemeral_public_key) != 32
+      || Bytes.length(value.responder_signed_prekey) != 32
+      || Bytes.length(value.responder_post_quantum_prekey) != post_quantum_length
+      || protocol_is_zero(value.signed_prekey_id)
+      || !(Bytes.length(value.responder_one_time_prekey) == 0
+        || Bytes.length(value.responder_one_time_prekey) == 32) do
       Err(InvalidFieldLength)
-    else if (Bytes.length(value.responder_one_time_prekey) == 0 && !protocol_is_zero(value.one_time_prekey_id)) || (Bytes.length(value.responder_one_time_prekey) == 32 && protocol_is_zero(value.one_time_prekey_id)) do
+    else if (Bytes.length(value.responder_one_time_prekey) == 0
+      && !protocol_is_zero(value.one_time_prekey_id))
+      || (Bytes.length(value.responder_one_time_prekey) == 32
+        && protocol_is_zero(value.one_time_prekey_id)) do
       Err(InvalidFieldLength)
     else
       protocol_validate_extensions(value.extensions, 0, 0)
@@ -124,9 +138,16 @@ fn validate_initial_message(value :: InitialMessage) -> Result<(), ProtocolError
     end
     let credential_length = Bytes.length(value.initiator_credential)
     let invalid_credential_length = !(credential_length == 211 || credential_length == 1395)
-    let invalid_lengths = invalid_credential_length || Bytes.length(value.initiator_identity_public_key.bytes) != 32 || Bytes.length(value.initiator_ephemeral_public_key.bytes) != 32 || Bytes.length(value.post_quantum_ciphertext) != post_quantum_length || Bytes.length(value.transcript_hash) != 32 || Bytes.length(value.nonce) != 12
+    let invalid_lengths = invalid_credential_length
+      || Bytes.length(value.initiator_identity_public_key.bytes) != 32
+      || Bytes.length(value.initiator_ephemeral_public_key.bytes) != 32
+      || Bytes.length(value.post_quantum_ciphertext) != post_quantum_length
+      || Bytes.length(value.transcript_hash) != 32
+      || Bytes.length(value.nonce) != 12
     let maximum_ciphertext = 65398 - credential_length - post_quantum_length
-    if invalid_lengths || protocol_is_zero(value.signed_prekey_id) || protocol_is_zero(value.one_time_prekey_id) do
+    if invalid_lengths
+      || protocol_is_zero(value.signed_prekey_id)
+      || protocol_is_zero(value.one_time_prekey_id) do
       Err(InvalidFieldLength)
     else if Bytes.length(value.ciphertext) < 16 do
       Err(InvalidFieldLength)
@@ -201,8 +222,12 @@ pub fn decode_initial_message(input :: Bytes) -> InitialMessage!ProtocolError do
         signed_prekey_id: signed_prekey_id.value,
         one_time_prekey_id: one_time_prekey_id.value,
         initiator_credential: initiator_credential.value,
-        initiator_identity_public_key: X25519PublicKey { bytes: initiator_identity_public_key.value },
-        initiator_ephemeral_public_key: X25519PublicKey { bytes: initiator_ephemeral_public_key.value },
+        initiator_identity_public_key: X25519PublicKey {
+          bytes: initiator_identity_public_key.value
+        },
+        initiator_ephemeral_public_key: X25519PublicKey {
+          bytes: initiator_ephemeral_public_key.value
+        },
         post_quantum_ciphertext: post_quantum_ciphertext.value,
         transcript_hash: transcript_hash.value,
         nonce: nonce.value,

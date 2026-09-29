@@ -28,6 +28,7 @@ export const group_invitation_accept_export = (request: Uint8Array): Promise<Uin
 export const group_invitation_complete_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_invitation_complete', request);
 export const group_invitation_decline_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_invitation_decline', request);
 export const group_invitations_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_invitations', request);
+export const group_forget_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_forget', request);
 export const group_create_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_create', request);
 export const group_add_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_add', request);
 export const group_remove_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_group_remove', request);
@@ -49,6 +50,7 @@ export const directory_entry_export = (request: Uint8Array): Promise<Uint8Array>
 export const directory_lookup_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_directory_lookup', request);
 export const transparency_lookup_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_transparency_lookup', request);
 export const register_request_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_register_request', request);
+export const renew_devices_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_renew_devices', request);
 export const resolve_request_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_resolve_request', request);
 export const verify_transparency_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_verify_transparency', request);
 export const privacy_submission_export = (request: Uint8Array): Promise<Uint8Array> => native.invoke('mesh_messenger_privacy_submission', request);

@@ -23,7 +23,9 @@ pub fn delivery_attempt_span() -> U64!String do
   mobile_wide("86400000")
 end
 
-fn load_state(database_path :: String, wrapping_key :: borrow StorageKey, label :: String) -> Bytes!String do
+fn load_state(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  label :: String) -> Bytes!String do
   case load_blob(database_path, label) do
     Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
@@ -36,7 +38,8 @@ end
 
 # Where the next fetch starts: zero, or past what this pass has set aside.
 
-pub fn load_fetch_cursor(database_path :: String, wrapping_key :: borrow StorageKey) -> U64!String do
+pub fn load_fetch_cursor(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> U64!String do
   let stored = load_state(database_path, wrapping_key, "inbox-cursor/v1")?
   if Bytes.length(stored) != 8 do
     mobile_wide("0")
@@ -48,7 +51,8 @@ end
 # Twenty-five bytes an envelope: its identifier, how often it was set aside,
 # and when it first was.
 
-pub fn load_delivery_attempts(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes!String do
+pub fn load_delivery_attempts(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   let stored = load_state(database_path, wrapping_key, "delivery-retries/v1")?
   if Bytes.length(stored) % 25 != 0 do
     Ok(Bytes.empty())
@@ -126,7 +130,9 @@ pub fn with_delivery_attempt(records :: Bytes, envelope_id :: Bytes, now :: U64)
   mobile_append(mobile_append(mobile_append(bounded, envelope_id)?, mobile_byte(counted)?)?, first)
 end
 
-pub fn inbox_state_writes(wrapping_key :: borrow StorageKey, attempts :: Bytes, cursor :: U64) -> Result<(List<String>, List<Bytes>), String> do
+pub fn inbox_state_writes(wrapping_key :: borrow StorageKey,
+  attempts :: Bytes,
+  cursor :: U64) -> Result<(List<String>, List<Bytes>), String> do
   Ok((["delivery-retries/v1", "inbox-cursor/v1"],
     [
       seal_local(attempts, wrapping_key, local_context("delivery-retries/v1")?)?,

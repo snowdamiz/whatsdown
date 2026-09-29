@@ -69,7 +69,10 @@ fn batch_header() -> Bytes!String do
   mobile_join([mobile_byte(1)?, Bytes.from_utf8("ATB")], 0, Bytes.empty())
 end
 
-fn read_batch_parts(state :: BinaryReader, remaining :: Int, maximum :: Int, values :: List<Bytes>) -> List<Bytes>!String do
+fn read_batch_parts(state :: BinaryReader,
+  remaining :: Int,
+  maximum :: Int,
+  values :: List<Bytes>) -> List<Bytes>!String do
   if remaining == 0 do
     mobile_finish(state, "invalid_attachment_reference")?
     Ok(values)
@@ -140,7 +143,12 @@ fn describe_attachment_error(error :: AttachmentError) -> String do
 end
 
 fn valid_reference(value :: MobileAttachmentReference) -> Bool do
-  Bytes.length(value.object_id) == 32 && Bytes.length(value.download_capability) == 32 && Bytes.length(value.encrypted_manifest) > 0 && Bytes.length(value.encrypted_manifest) <= 640 && Bytes.length(value.wrapped_key) > 0 && Bytes.length(value.wrapped_key) <= 160
+  Bytes.length(value.object_id) == 32
+    && Bytes.length(value.download_capability) == 32
+    && Bytes.length(value.encrypted_manifest) > 0
+    && Bytes.length(value.encrypted_manifest) <= 640
+    && Bytes.length(value.wrapped_key) > 0
+    && Bytes.length(value.wrapped_key) <= 160
 end
 
 pub fn encode_reference(value :: MobileAttachmentReference) -> Bytes!String do
@@ -167,7 +175,9 @@ fn read_reference(input :: Bytes) -> MobileAttachmentReference!String do
   let encrypted_manifest = take_vector_error(download_capability.state,
     640,
     "invalid_attachment_reference")?
-  let wrapped_key = take_vector_error(encrypted_manifest.state, 160, "invalid_attachment_reference")?
+  let wrapped_key = take_vector_error(encrypted_manifest.state,
+    160,
+    "invalid_attachment_reference")?
   mobile_finish(wrapped_key.state, "invalid_attachment_reference")?
   let value = MobileAttachmentReference {
     object_id: object_id.value,
@@ -213,7 +223,8 @@ fn wrap_key(secret :: borrow SecretBytes, object_id :: Bytes, recipient :: Bytes
   end
 end
 
-fn unwrap_key(device :: borrow DeviceKeys, value :: MobileAttachmentReference) -> SecretBytes!String do
+fn unwrap_key(device :: borrow DeviceKeys,
+  value :: MobileAttachmentReference) -> SecretBytes!String do
   case Crypto.hpke_open_secret(device.identity_private_key,
     wrap_info(),
     wrap_aad(value.object_id)?,
@@ -223,7 +234,8 @@ fn unwrap_key(device :: borrow DeviceKeys, value :: MobileAttachmentReference) -
   end
 end
 
-fn opened_manifest(secret :: borrow SecretBytes, encrypted_manifest :: Bytes) -> AttachmentManifest!String do
+fn opened_manifest(secret :: borrow SecretBytes,
+  encrypted_manifest :: Bytes) -> AttachmentManifest!String do
   case open_manifest(secret, encrypted_manifest) do
     Err(error) -> Err(describe_attachment_error(error))
     Ok(value)
@@ -242,14 +254,16 @@ fn rewrap_parts(device :: borrow DeviceKeys,
   else
     let value = decode_reference(List.get(parts, index))?
     let secret = unwrap_key(device, value)?
-    let wrapped = encode_reference(%{value | wrapped_key: wrap_key(secret,
-      value.object_id,
-      recipient)?})?
+    let wrapped = encode_reference(%{value |
+      wrapped_key: wrap_key(secret, value.object_id, recipient)?
+    })?
     rewrap_parts(device, parts, recipient, index + 1, List.append(output, wrapped))
   end
 end
 
-pub fn rewrap_reference(device :: borrow DeviceKeys, encoded :: Bytes, recipient :: Bytes) -> Bytes!String do
+pub fn rewrap_reference(device :: borrow DeviceKeys,
+  encoded :: Bytes,
+  recipient :: Bytes) -> Bytes!String do
   rewrap_parts(device, attachment_parts(encoded, 1024)?, recipient, 0, [])
 end
 
@@ -330,16 +344,13 @@ fn find_group_entry(state :: BinaryReader,
   found :: Bytes) -> MobileReadBytes!String do
   if remaining <= 0 do
     mobile_finish(state, "invalid_group_attachment")?
-    Ok(MobileReadBytes {
-      state: state,
-      value: found
-    })
+    Ok(MobileReadBytes { state: state, value: found })
   else
     let entry_account = take_fixed(state, 32)?
     let entry_device = take_fixed(entry_account.state, 16)?
     let wrapped = take_vector_error(entry_device.state, 160, "invalid_group_attachment")?
-    let matches = Bytes.secure_equals(entry_account.value, account_id) && Bytes.secure_equals(entry_device.value,
-      device_id)
+    let matches = Bytes.secure_equals(entry_account.value, account_id)
+      && Bytes.secure_equals(entry_device.value, device_id)
     find_group_entry(wrapped.state,
       remaining - 1,
       account_id,
@@ -355,12 +366,14 @@ end
 ## Extract this device's reference from a group envelope. Empty input or a missing
 ## entry yields an empty reference so the text body still lands in history.
 
-pub fn group_attachment_reference(input :: Bytes, account_id :: Bytes, device_id :: Bytes) -> Bytes!String do
+pub fn group_attachment_reference(input :: Bytes,
+  account_id :: Bytes,
+  device_id :: Bytes) -> Bytes!String do
   let parts = attachment_parts(input, 65536)?
   let references = for part in parts do
     read_group_attachment(part, account_id, device_id)?
   end
-  encode_batch(List.filter(references, fn (value) do Bytes.length(value) > 0 end))
+  encode_batch(List.filter(references, fn(value) do Bytes.length(value) > 0 end))
 end
 
 fn read_group_attachment(input :: Bytes, account_id :: Bytes, device_id :: Bytes) -> Bytes!String do
@@ -376,10 +389,16 @@ fn read_group_attachment(input :: Bytes, account_id :: Bytes, device_id :: Bytes
       "invalid_group_attachment")?
     let count = take_fixed(encrypted_manifest.state, 4)?
     let count_value = mobile_read_u32(count.value)?
-    if !Bytes.secure_equals(header.value, group_header()?) || count_value == 0 || count_value > 256 do
+    if !Bytes.secure_equals(header.value, group_header()?)
+      || count_value == 0
+      || count_value > 256 do
       Err("invalid_group_attachment")
     else
-      let wrapped = find_group_entry(count.state, count_value, account_id, device_id, Bytes.empty())?
+      let wrapped = find_group_entry(count.state,
+        count_value,
+        account_id,
+        device_id,
+        Bytes.empty())?
       if Bytes.length(wrapped.value) == 0 do
         Ok(Bytes.empty())
       else
@@ -448,7 +467,9 @@ end
 pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!String do
   if request.plaintext_size <= 0 || request.plaintext_size > maximum_attachment_size() do
     Err("attachment_too_large")
-  else if Bytes.length(request.mime_type) == 0 || Bytes.length(request.mime_type) > 127 || Bytes.length(request.filename) > 255 do
+  else if Bytes.length(request.mime_type) == 0
+    || Bytes.length(request.mime_type) > 127
+    || Bytes.length(request.filename) > 255 do
     Err("invalid_attachment_metadata")
   else
     ensure_schema(request.database_path)?
@@ -497,10 +518,7 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!St
       upload_capability,
       download_capability,
       request.difficulty)?)?
-    let control = ObjectControl {
-      object_id: object_id,
-      capability: upload_capability
-    }
+    let control = ObjectControl { object_id: object_id, capability: upload_capability }
     let reference = encode_reference(MobileAttachmentReference {
       object_id: object_id,
       download_capability: download_capability,

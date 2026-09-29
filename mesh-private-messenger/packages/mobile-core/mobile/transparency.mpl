@@ -51,7 +51,8 @@ from Transport.Packet import ClientProfile
 
 ##! Mobile.Transparency implementation.
 
-pub fn transparency_checkpoint_bytes(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes!String do
+pub fn transparency_checkpoint_bytes(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   let label = "transparency-checkpoint/v1"
   case load_blob(database_path, label) do
     Err(error) -> if error == "local_state_not_found" do
@@ -68,7 +69,9 @@ pub fn transparency_device_set_label(account_id :: Bytes) -> String do
 end
 
 pub fn encode_verified_transparency_set(value :: MobileVerifiedTransparencySet) -> Bytes!String do
-  if Bytes.length(value.checkpoint) != 188 || Bytes.length(value.device_set) == 0 || Bytes.length(value.device_set) > 305260 do
+  if Bytes.length(value.checkpoint) != 188
+    || Bytes.length(value.device_set) == 0
+    || Bytes.length(value.device_set) > 305260 do
     Err("invalid_transparency_cache")
   else
     let checkpoint = decode_checkpoint(value.checkpoint)?
@@ -102,9 +105,11 @@ fn decode_verified_transparency_set(input :: Bytes) -> MobileVerifiedTransparenc
             checkpoint: checkpoint.value,
             device_set: device_set.value
           }
-          if mobile_read_byte(version.value)? != 1 || !Bytes.secure_equals(magic.value,
-            Bytes.from_utf8("KTS")) || Bytes.length(checkpoint.value) != 188 || Bytes.length(device_set.value) == 0 || !Bytes.secure_equals(encode_verified_transparency_set(value)?,
-            input) do
+          if mobile_read_byte(version.value)? != 1
+            || !Bytes.secure_equals(magic.value, Bytes.from_utf8("KTS"))
+            || Bytes.length(checkpoint.value) != 188
+            || Bytes.length(device_set.value) == 0
+            || !Bytes.secure_equals(encode_verified_transparency_set(value)?, input) do
             Err("invalid_transparency_cache")
           else
             Ok(value)
@@ -116,13 +121,18 @@ fn decode_verified_transparency_set(input :: Bytes) -> MobileVerifiedTransparenc
 end
 
 fn encode_transparency_view(value :: MobileTransparencyView) -> Bytes!String do
-  if Bytes.length(value.checkpoint) != 188 || Bytes.length(value.consistency) == 0 || Bytes.length(value.consistency) > 131086 || Bytes.length(value.service_public_key) != 32 || Bytes.length(value.witness_a_public_key) != 32 || Bytes.length(value.witness_b_public_key) != 32 do
+  if Bytes.length(value.checkpoint) != 188
+    || Bytes.length(value.consistency) == 0
+    || Bytes.length(value.consistency) > 131086
+    || Bytes.length(value.service_public_key) != 32
+    || Bytes.length(value.witness_a_public_key) != 32
+    || Bytes.length(value.witness_b_public_key) != 32 do
     Err("invalid_transparency_view")
   else
     let checkpoint = decode_checkpoint(value.checkpoint)?
     let consistency = decode_consistency_proof(value.consistency)?
-    if !Bytes.secure_equals(encode_checkpoint(checkpoint)?, value.checkpoint) || !Bytes.secure_equals(encode_consistency_proof(consistency)?,
-      value.consistency) do
+    if !Bytes.secure_equals(encode_checkpoint(checkpoint)?, value.checkpoint)
+      || !Bytes.secure_equals(encode_consistency_proof(consistency)?, value.consistency) do
       Err("invalid_transparency_view")
     else
       mobile_join([
@@ -161,8 +171,9 @@ fn decode_transparency_view(input :: Bytes) -> MobileTransparencyView!String do
             witness_a_public_key: witness_a.value,
             witness_b_public_key: witness_b.value
           }
-          if mobile_read_byte(version.value)? != 1 || !Bytes.secure_equals(magic.value,
-            Bytes.from_utf8("KTV")) || !Bytes.secure_equals(encode_transparency_view(value)?, input) do
+          if mobile_read_byte(version.value)? != 1
+            || !Bytes.secure_equals(magic.value, Bytes.from_utf8("KTV"))
+            || !Bytes.secure_equals(encode_transparency_view(value)?, input) do
             Err("invalid_transparency_view")
           else
             Ok(value)
@@ -184,13 +195,20 @@ end
 fn encode_transparency_manifest(value :: MobileTransparencyView) -> Bytes!String do
   let consistency_length = Bytes.length(value.consistency)
   let chunk_count = transparency_view_chunk_count(consistency_length)
-  if Bytes.length(value.checkpoint) != 188 || consistency_length == 0 || consistency_length > 131086 || chunk_count < 1 || chunk_count > 3 || Bytes.length(value.service_public_key) != 32 || Bytes.length(value.witness_a_public_key) != 32 || Bytes.length(value.witness_b_public_key) != 32 do
+  if Bytes.length(value.checkpoint) != 188
+    || consistency_length == 0
+    || consistency_length > 131086
+    || chunk_count < 1
+    || chunk_count > 3
+    || Bytes.length(value.service_public_key) != 32
+    || Bytes.length(value.witness_a_public_key) != 32
+    || Bytes.length(value.witness_b_public_key) != 32 do
     Err("invalid_transparency_view")
   else
     let checkpoint = decode_checkpoint(value.checkpoint)?
     let consistency = decode_consistency_proof(value.consistency)?
-    if !Bytes.secure_equals(encode_checkpoint(checkpoint)?, value.checkpoint) || !Bytes.secure_equals(encode_consistency_proof(consistency)?,
-      value.consistency) do
+    if !Bytes.secure_equals(encode_checkpoint(checkpoint)?, value.checkpoint)
+      || !Bytes.secure_equals(encode_consistency_proof(consistency)?, value.consistency) do
       Err("invalid_transparency_view")
     else
       mobile_join([
@@ -237,8 +255,15 @@ fn decode_transparency_manifest(input :: Bytes) -> MobileTransparencyManifest!St
             witness_a_public_key: witness_a.value,
             witness_b_public_key: witness_b.value
           }
-          if mobile_read_byte(version.value)? != 1 || !Bytes.secure_equals(magic.value,
-            Bytes.from_utf8("KVM")) || Bytes.length(checkpoint.value) != 188 || length_value == 0 || length_value > 131086 || count_value != transparency_view_chunk_count(length_value) || count_value < 1 || count_value > 3 || Bytes.length(consistency_hash.value) != 32 do
+          if mobile_read_byte(version.value)? != 1
+            || !Bytes.secure_equals(magic.value, Bytes.from_utf8("KVM"))
+            || Bytes.length(checkpoint.value) != 188
+            || length_value == 0
+            || length_value > 131086
+            || count_value != transparency_view_chunk_count(length_value)
+            || count_value < 1
+            || count_value > 3
+            || Bytes.length(consistency_hash.value) != 32 do
             Err("invalid_transparency_view")
           else
             Ok(manifest)
@@ -255,10 +280,7 @@ fn seal_transparency_view_chunks(consistency :: Bytes,
   labels :: List<String>,
   blobs :: List<Bytes>) -> MobileTransparencyStorage!String do
   if index >= 3 do
-    Ok(MobileTransparencyStorage {
-      labels: labels,
-      blobs: blobs
-    })
+    Ok(MobileTransparencyStorage { labels: labels, blobs: blobs })
   else
     let offset = index * 65536
     let remaining = Bytes.length(consistency) - offset
@@ -284,7 +306,8 @@ fn seal_transparency_view_chunks(consistency :: Bytes,
   end
 end
 
-pub fn transparency_view_storage(value :: MobileTransparencyView, wrapping_key :: borrow StorageKey) -> MobileTransparencyStorage!String do
+pub fn transparency_view_storage(value :: MobileTransparencyView,
+  wrapping_key :: borrow StorageKey) -> MobileTransparencyStorage!String do
   let label = "transparency-view/v1"
   let manifest = encode_transparency_manifest(value)?
   let blob = seal_local(manifest, wrapping_key, local_context(label)?)?
@@ -323,7 +346,8 @@ fn load_transparency_view_chunks(database_path :: String,
   end
 end
 
-fn transparency_view_bytes(database_path :: String, wrapping_key :: borrow StorageKey) -> Bytes!String do
+fn transparency_view_bytes(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> Bytes!String do
   let label = "transparency-view/v1"
   case load_blob(database_path, label) do
     Err(error) -> if error == "local_state_not_found" do
@@ -340,8 +364,8 @@ fn transparency_view_bytes(database_path :: String, wrapping_key :: borrow Stora
         manifest,
         0,
         Bytes.empty())?
-      if Bytes.length(consistency) != manifest.consistency_length || !Bytes.secure_equals(Crypto.sha256(consistency),
-        manifest.consistency_hash) do
+      if Bytes.length(consistency) != manifest.consistency_length
+        || !Bytes.secure_equals(Crypto.sha256(consistency), manifest.consistency_hash) do
         Err("invalid_transparency_view")
       else
         encode_transparency_view(MobileTransparencyView {
@@ -356,7 +380,8 @@ fn transparency_view_bytes(database_path :: String, wrapping_key :: borrow Stora
   end
 end
 
-pub fn load_transparency_view(database_path :: String, wrapping_key :: borrow StorageKey) -> MobileTransparencyView!String do
+pub fn load_transparency_view(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> MobileTransparencyView!String do
   let encoded = transparency_view_bytes(database_path, wrapping_key)?
   let checkpoint = transparency_checkpoint_bytes(database_path, wrapping_key)?
   if Bytes.length(encoded) == 0 || Bytes.length(checkpoint) == 0 do
@@ -384,7 +409,8 @@ pub fn canonical_transparency_checkpoint(input :: Bytes) -> TransparencyCheckpoi
   end
 end
 
-pub fn transparency_checkpoint_in_view(encoded_checkpoint :: Bytes, view :: MobileTransparencyView) -> Bool!String do
+pub fn transparency_checkpoint_in_view(encoded_checkpoint :: Bytes,
+  view :: MobileTransparencyView) -> Bool!String do
   let anchor = canonical_transparency_checkpoint(encoded_checkpoint)?
   let current = canonical_transparency_checkpoint(view.checkpoint)?
   let full_proof = decode_consistency_proof(view.consistency)?
@@ -402,13 +428,18 @@ pub fn transparency_checkpoint_in_view(encoded_checkpoint :: Bytes, view :: Mobi
     new_tree_size: current_size,
     leaf_hashes: full_proof.leaf_hashes
   }
-  if full_proof.new_tree_size != current_size || full_proof.new_tree_size != List.length(full_proof.leaf_hashes) || anchor_size > current_size || sequence_order > 0 || (sequence_order == 0 && !Bytes.secure_equals(encoded_checkpoint,
-    view.checkpoint)) do
+  if full_proof.new_tree_size != current_size
+    || full_proof.new_tree_size != List.length(full_proof.leaf_hashes)
+    || anchor_size > current_size
+    || sequence_order > 0
+    || (sequence_order == 0 && !Bytes.secure_equals(encoded_checkpoint, view.checkpoint)) do
     Ok(false)
   else
     let anchor_valid = verify_checkpoint(anchor, trusted_key)?
     let current_valid = verify_checkpoint(current, trusted_key)?
-    let current_tree_valid = verify_consistency(current.tree_root, current.tree_root, current_proof)?
+    let current_tree_valid = verify_consistency(current.tree_root,
+      current.tree_root,
+      current_proof)?
     let prefix_valid = verify_consistency(anchor.tree_root, current.tree_root, anchor_proof)?
     Ok(anchor_valid && current_valid && current_tree_valid && prefix_valid)
   end
@@ -421,12 +452,13 @@ pub fn transparency_checkpoint_precedes(first :: Bytes,
   let second_checkpoint = canonical_transparency_checkpoint(second)?
   let sequence_order = U64.compare(first_checkpoint.sequence, second_checkpoint.sequence)
   let tree_order = U64.compare(first_checkpoint.tree_size, second_checkpoint.tree_size)
-  if sequence_order > 0 || tree_order > 0 || (sequence_order == 0 && !Bytes.secure_equals(first,
-    second)) do
+  if sequence_order > 0
+    || tree_order > 0
+    || (sequence_order == 0 && !Bytes.secure_equals(first, second)) do
     Ok(false)
   else
-    Ok(transparency_checkpoint_in_view(first, view)? && transparency_checkpoint_in_view(second,
-      view)?)
+    Ok(transparency_checkpoint_in_view(first, view)?
+      && transparency_checkpoint_in_view(second, view)?)
   end
 end
 
@@ -452,8 +484,8 @@ pub fn require_transparency_device_set(database_path :: String,
         end
         Ok(loaded)
       end?
-      if Bytes.secure_equals(cached.device_set, devices.wire) && transparency_checkpoint_in_view(cached.checkpoint,
-        view)? do
+      if Bytes.secure_equals(cached.device_set, devices.wire)
+        && transparency_checkpoint_in_view(cached.checkpoint, view)? do
         if checkpoint_fresh_at(decode_checkpoint(cached.checkpoint)?.timestamp, current_time()?) do
           Ok(cached.checkpoint)
         else
@@ -470,7 +502,9 @@ pub fn verified_transparency_device_set(database_path :: String,
   wrapping_key :: borrow StorageKey,
   devices :: MobileVerifiedDeviceSet,
   baseline_checkpoint :: Bytes) -> Bytes!String do
-  let cached_checkpoint = case require_transparency_device_set(database_path, wrapping_key, devices) do
+  let cached_checkpoint = case require_transparency_device_set(database_path,
+    wrapping_key,
+    devices) do
     Err(error) -> if error == "device_set_transparency_unverified" do
       Err("group_transparency_unverified")
     else
@@ -479,9 +513,8 @@ pub fn verified_transparency_device_set(database_path :: String,
     Ok(checkpoint)
   end?
   let view = load_transparency_view(database_path, wrapping_key)?
-  if transparency_checkpoint_precedes(baseline_checkpoint, cached_checkpoint, view)? && transparency_checkpoint_precedes(cached_checkpoint,
-    view.checkpoint,
-    view)? do
+  if transparency_checkpoint_precedes(baseline_checkpoint, cached_checkpoint, view)?
+    && transparency_checkpoint_precedes(cached_checkpoint, view.checkpoint, view)? do
     Ok(cached_checkpoint)
   else
     Err("group_transparency_unverified")
@@ -520,21 +553,16 @@ pub fn verify_transparency_response(request :: MobileTransparencyRequest) -> Byt
     true
   else
     let existing_view = decode_transparency_view(existing_view_bytes)?
-    Bytes.secure_equals(existing_view.checkpoint, previous) && Bytes.secure_equals(existing_view.service_public_key,
-      config.transparency_service_public_key) && Bytes.secure_equals(existing_view.witness_a_public_key,
-      config.witness_a_public_key) && Bytes.secure_equals(existing_view.witness_b_public_key,
-      config.witness_b_public_key)
+    Bytes.secure_equals(existing_view.checkpoint, previous)
+      && Bytes.secure_equals(existing_view.service_public_key,
+        config.transparency_service_public_key)
+      && Bytes.secure_equals(existing_view.witness_a_public_key, config.witness_a_public_key)
+      && Bytes.secure_equals(existing_view.witness_b_public_key, config.witness_b_public_key)
   end
   let trusted_service_key = SigningPublicKey { bytes: config.transparency_service_public_key }
   let trusted_witnesses = [
-    WitnessKey {
-      witness_id: "witness-a",
-      public_key: config.witness_a_public_key
-    },
-    WitnessKey {
-      witness_id: "witness-b",
-      public_key: config.witness_b_public_key
-    }
+    WitnessKey { witness_id: "witness-a", public_key: config.witness_a_public_key },
+    WitnessKey { witness_id: "witness-b", public_key: config.witness_b_public_key }
   ]
   if !trust_matches do
     Err("transparency_trust_mismatch")

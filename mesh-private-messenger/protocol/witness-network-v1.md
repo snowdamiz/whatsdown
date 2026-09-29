@@ -28,6 +28,22 @@ with optional, anonymous credits.
 - Nothing rewards in-app activity. Measuring activity is what the servers are
   built not to do.
 
+## Trust profiles
+
+The network always runs, whoever the witnesses are. With `m` the number of
+pinned witnesses Morse runs and `k` the threshold:
+
+- **Bootstrap** (`m ≥ k`): every pinned witness may be Morse's. This is how
+  production runs before outside witnesses join. Anchors, phone checks, monitors,
+  bonds and fork proofs all work, but no outside signature is required.
+- **Transitional** (`1 < m < k`): forking needs at least `k − m` outside
+  witnesses.
+- **Open** (`m = 1`): Morse runs exactly one witness and can't reach a majority,
+  alone or with the directory.
+
+Apps and the site state the current profile. Nothing may call the witnesses
+independent before the Open profile.
+
 ## Steps
 
 1. **Public checkpoints.** The directory posts each checkpoint commitment (tree

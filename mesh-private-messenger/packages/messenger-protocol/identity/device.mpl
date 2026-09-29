@@ -93,16 +93,13 @@ fn empty_signature() -> Bytes!IdentityError do
   end
 end
 
-pub fn generate_account(created_at :: U64, directory_sequence :: U64) -> Result<(AccountKeys, AccountIdentity), IdentityError> do
+pub fn generate_account(created_at :: U64,
+  directory_sequence :: U64) -> Result<(AccountKeys, AccountIdentity), IdentityError> do
   let account_id = random_public(32)?
   let pair = signing_pair()?
   let public_key = pair.public_key
   let private_key = pair.private_key
-  Ok((AccountKeys {
-      account_id: account_id,
-      private_key: private_key,
-      public_key: public_key
-    },
+  Ok((AccountKeys { account_id: account_id, private_key: private_key, public_key: public_key },
     AccountIdentity {
       version: 1,
       account_id: account_id,
@@ -211,6 +208,32 @@ pub fn issue_public_device_credential(account :: borrow AccountKeys,
     directory_sequence)
 end
 
+## The next hybrid credential for a device the account already holds: the same
+## device and keys, the ML-KEM prekey it asked for, a new lifetime and the
+## next device-set sequence.
+
+pub fn issue_renewed_device_credential(account :: borrow AccountKeys,
+  previous :: DeviceCredential,
+  post_quantum_public_key :: Bytes,
+  created_at :: U64,
+  expires_at :: U64,
+  directory_sequence :: U64) -> DeviceCredential!IdentityError do
+  if !Bytes.secure_equals(previous.account_id, account.account_id) do
+    Err(InvalidCredential)
+  else
+    issue_credential(account,
+      previous.device_id,
+      previous.signing_public_key,
+      previous.dh_public_key,
+      post_quantum_public_key,
+      2,
+      previous.capabilities,
+      created_at,
+      expires_at,
+      directory_sequence)
+  end
+end
+
 fn issue_credential(account :: borrow AccountKeys,
   device_id :: Bytes,
   signing_public_key :: Bytes,
@@ -226,7 +249,10 @@ fn issue_credential(account :: borrow AccountKeys,
   else
     0
   end
-  if Bytes.length(device_id) != 16 || Bytes.length(signing_public_key) != 32 || Bytes.length(dh_public_key) != 32 || Bytes.length(post_quantum_public_key) != expected_post_quantum_length do
+  if Bytes.length(device_id) != 16
+    || Bytes.length(signing_public_key) != 32
+    || Bytes.length(dh_public_key) != 32
+    || Bytes.length(post_quantum_public_key) != expected_post_quantum_length do
     Err(InvalidCredential)
   else
     let unsigned = DeviceCredential {
@@ -271,10 +297,11 @@ pub fn verify_device_credential(account :: AccountIdentity,
   if !Bytes.secure_equals(account.account_id, credential.account_id) do
     Err(InvalidCredential)
   else
-    let invalid_time = U64.compare(account.created_at, current_time) > 0 || U64.compare(credential.created_at,
-      current_time) > 0 || U64.compare(credential.expires_at, current_time) < 0
-    let rollback = U64.compare(account.directory_sequence, minimum_directory_sequence) < 0 || U64.compare(credential.directory_sequence,
-      minimum_directory_sequence) < 0
+    let invalid_time = U64.compare(account.created_at, current_time) > 0
+      || U64.compare(credential.created_at, current_time) > 0
+      || U64.compare(credential.expires_at, current_time) < 0
+    let rollback = U64.compare(account.directory_sequence, minimum_directory_sequence) < 0
+      || U64.compare(credential.directory_sequence, minimum_directory_sequence) < 0
     if invalid_time || rollback do
       Err(InvalidCredential)
     else
@@ -336,8 +363,8 @@ pub fn authorize_device_link(account :: borrow AccountKeys,
   username :: String,
   credential_expires_at :: U64,
   directory_sequence :: U64) -> DeviceLinkAuthorization!IdentityError do
-  if !Bytes.secure_equals(account.account_id, identity.account_id) || !Bytes.secure_equals(account.public_key.bytes,
-    identity.authorization_public_key) do
+  if !Bytes.secure_equals(account.account_id, identity.account_id)
+    || !Bytes.secure_equals(account.public_key.bytes, identity.authorization_public_key) do
     Err(InvalidCredential)
   else
     let request_wire = protocol_bytes(encode_device_link_request(request))?
@@ -385,14 +412,15 @@ pub fn verify_device_link_authorization(request :: DeviceLinkRequest,
     credential,
     current_time,
     minimum_directory_sequence)?
-  let request_current = U64.compare(request.created_at, current_time) <= 0 && U64.compare(request.expires_at,
-    current_time) >= 0
-  let request_matches = Bytes.secure_equals(authorization.request_hash, Crypto.sha256(request_wire)) && Bytes.secure_equals(request.device_id,
-    credential.device_id) && Bytes.secure_equals(request.signing_public_key,
-    credential.signing_public_key) && Bytes.secure_equals(request.dh_public_key,
-    credential.dh_public_key) && request.suite == credential.suite && Bytes.secure_equals(request.post_quantum_public_key,
-    credential.post_quantum_public_key) && U64.compare(request.capabilities,
-    credential.capabilities) == 0
+  let request_current = U64.compare(request.created_at, current_time) <= 0
+    && U64.compare(request.expires_at, current_time) >= 0
+  let request_matches = Bytes.secure_equals(authorization.request_hash, Crypto.sha256(request_wire))
+    && Bytes.secure_equals(request.device_id, credential.device_id)
+    && Bytes.secure_equals(request.signing_public_key, credential.signing_public_key)
+    && Bytes.secure_equals(request.dh_public_key, credential.dh_public_key)
+    && request.suite == credential.suite
+    && Bytes.secure_equals(request.post_quantum_public_key, credential.post_quantum_public_key)
+    && U64.compare(request.capabilities, credential.capabilities) == 0
   if !credential_valid || !request_current || !request_matches do
     Ok(false)
   else
@@ -418,7 +446,9 @@ fn revocation_signing_bytes(value :: DeviceRevocation) -> Bytes!IdentityError do
     protocol_bytes(encode_device_revocation(unsigned))?)
 end
 
-pub fn issue_device_revocation(account :: borrow AccountKeys, device_id :: Bytes, sequence :: U64) -> DeviceRevocation!IdentityError do
+pub fn issue_device_revocation(account :: borrow AccountKeys,
+  device_id :: Bytes,
+  sequence :: U64) -> DeviceRevocation!IdentityError do
   if Bytes.length(device_id) != 16 do
     Err(InvalidCredential)
   else
@@ -442,7 +472,8 @@ pub fn issue_device_revocation(account :: borrow AccountKeys, device_id :: Bytes
   end
 end
 
-pub fn verify_device_revocation(account :: AccountIdentity, value :: DeviceRevocation) -> Bool!IdentityError do
+pub fn verify_device_revocation(account :: AccountIdentity,
+  value :: DeviceRevocation) -> Bool!IdentityError do
   if !Bytes.secure_equals(account.account_id, value.account_id) do
     Ok(false)
   else
@@ -463,7 +494,8 @@ end
 ## Deletes the whole account: every device, the username, and all it left on
 ## the directory. The time is signed so a verifier can refuse a stale statement.
 
-pub fn issue_account_deletion(account :: borrow AccountKeys, issued_at :: U64) -> AccountDeletion!IdentityError do
+pub fn issue_account_deletion(account :: borrow AccountKeys,
+  issued_at :: U64) -> AccountDeletion!IdentityError do
   let unsigned = AccountDeletion {
     version: 1,
     account_id: account.account_id,
@@ -476,7 +508,8 @@ pub fn issue_account_deletion(account :: borrow AccountKeys, issued_at :: U64) -
   end
 end
 
-pub fn verify_account_deletion(account :: AccountIdentity, value :: AccountDeletion) -> Bool!IdentityError do
+pub fn verify_account_deletion(account :: AccountIdentity,
+  value :: AccountDeletion) -> Bool!IdentityError do
   if !Bytes.secure_equals(account.account_id, value.account_id) do
     Ok(false)
   else
@@ -498,7 +531,9 @@ end
 ## only ever remove itself. Linked devices hold no account key, so this is how
 ## one leaves instead of lingering as a device that no one can reach.
 
-pub fn issue_device_departure(device :: borrow DeviceKeys, account_id :: Bytes, issued_at :: U64) -> DeviceDeparture!IdentityError do
+pub fn issue_device_departure(device :: borrow DeviceKeys,
+  account_id :: Bytes,
+  issued_at :: U64) -> DeviceDeparture!IdentityError do
   let unsigned = DeviceDeparture {
     version: 1,
     account_id: account_id,
@@ -512,7 +547,8 @@ pub fn issue_device_departure(device :: borrow DeviceKeys, account_id :: Bytes, 
   end
 end
 
-pub fn verify_device_departure(signing_public_key :: Bytes, value :: DeviceDeparture) -> Bool!IdentityError do
+pub fn verify_device_departure(signing_public_key :: Bytes,
+  value :: DeviceDeparture) -> Bool!IdentityError do
   case Crypto.verify(SigningPublicKey { bytes: signing_public_key },
     departure_signing_bytes(value)?,
     Signature { bytes: value.signature }) do

@@ -1,5 +1,10 @@
 from Api.Binary import register_device_request, resolve_devices_request
-from Storage.Transparency import entry_count, evidence_for_username, transparency_new_account_ceiling, transparency_proof_ceiling
+from Storage.Transparency import (
+  entry_count,
+  evidence_for_username,
+  transparency_new_account_ceiling,
+  transparency_proof_ceiling
+)
 from Tests.MailboxSupport import register_test_mailbox, test_directory_entry_wire
 from Transparency.Merkle import InclusionProof
 from Transparency.Wire import TransparencyEvidence

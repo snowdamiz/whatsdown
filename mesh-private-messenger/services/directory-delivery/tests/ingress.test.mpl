@@ -1,5 +1,9 @@
 from Api.Router import build_router, direct_delivery_compatibility_enabled
-from Privacy.Edge import internal_delivery_authorization, internal_delivery_authorized, internal_delivery_token
+from Privacy.Edge import (
+  internal_delivery_authorization,
+  internal_delivery_authorized,
+  internal_delivery_token
+)
 
 test("direct delivery compatibility is denied by default and requires exact opt in") do
   assert(!direct_delivery_compatibility_enabled(""))

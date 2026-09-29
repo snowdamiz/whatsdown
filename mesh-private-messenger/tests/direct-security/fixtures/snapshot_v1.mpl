@@ -73,10 +73,18 @@ fn zero_v1() -> U64!SnapshotErrorV1 do
   end
 end
 
-fn encode_header_v1(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes!SnapshotErrorV1 do
+fn encode_header_v1(state :: borrow RatchetState,
+  snapshot_version :: U64) -> Bytes!SnapshotErrorV1 do
   let valid_suite = state.suite == 1 || state.suite == 2
-  let valid = state.version == 1 && valid_suite && Bytes.length(state.session_id) == 32 && Bytes.length(state.local_ratchet_public.bytes) == 32 && Bytes.length(state.remote_ratchet_public.bytes) == 32 && state.previous_chain_length >= 0 && state.sent_count >= 0 && state.received_count >= 0 && U64.compare(snapshot_version,
-    zero_v1()?) > 0
+  let valid = state.version == 1
+    && valid_suite
+    && Bytes.length(state.session_id) == 32
+    && Bytes.length(state.local_ratchet_public.bytes) == 32
+    && Bytes.length(state.remote_ratchet_public.bytes) == 32
+    && state.previous_chain_length >= 0
+    && state.sent_count >= 0
+    && state.received_count >= 0
+    && U64.compare(snapshot_version, zero_v1()?) > 0
   if !valid do
     Err(InvalidSnapshotV1)
   else
@@ -121,7 +129,10 @@ fn storage_context_v1(account_id :: Bytes,
   purpose :: Int,
   snapshot_version :: U64) -> Bytes!SnapshotErrorV1 do
   let supported = purpose == 1 || purpose == 2 || purpose == 3 || purpose == 12 || purpose == 13
-  if Bytes.length(account_id) != 32 || Bytes.length(device_id) != 16 || Bytes.length(session_id) != 32 || !supported do
+  if Bytes.length(account_id) != 32
+    || Bytes.length(device_id) != 16
+    || Bytes.length(session_id) != 32
+    || !supported do
     Err(InvalidSnapshotV1)
   else
     join_v1([
@@ -138,7 +149,9 @@ fn storage_context_v1(account_id :: Bytes,
   end
 end
 
-fn seal_secret_v1(secret :: borrow SecretBytes, wrapping_key :: borrow StorageKey, context :: Bytes) -> Bytes!SnapshotErrorV1 do
+fn seal_secret_v1(secret :: borrow SecretBytes,
+  wrapping_key :: borrow StorageKey,
+  context :: Bytes) -> Bytes!SnapshotErrorV1 do
   case Secret.seal_for_storage(secret, wrapping_key, context) do
     Err(error) -> Err(CryptoFailureV1(error))
     Ok(blob)
@@ -154,7 +167,9 @@ fn seal_private_v1(secret :: borrow X25519PrivateKey,
   end
 end
 
-fn seal_map_v1(secret :: borrow SecretMap, wrapping_key :: borrow StorageKey, context :: Bytes) -> Bytes!SnapshotErrorV1 do
+fn seal_map_v1(secret :: borrow SecretMap,
+  wrapping_key :: borrow StorageKey,
+  context :: Bytes) -> Bytes!SnapshotErrorV1 do
   case SecretMap.seal_for_storage(secret, wrapping_key, context) do
     Err(error) -> Err(CryptoFailureV1(error))
     Ok(blob)

@@ -39,10 +39,7 @@ end
 
 pub fn delivery_batch(envelope :: Bytes) -> Bytes!String do
   case encode_delivery_batch([
-    DeliveredEnvelope {
-      sequence: group_wide("1")?,
-      envelope: envelope
-    }
+    DeliveredEnvelope { sequence: group_wide("1")?, envelope: envelope }
   ]) do
     Err(_) -> Err("delivery batch encode failed")
     Ok(value)
@@ -59,7 +56,11 @@ pub fn read_u32_at(input :: Bytes, offset :: Int) -> Int!String do
   end
 end
 
-fn output_parts(input :: Bytes, count :: Int, index :: Int, offset :: Int, items :: List<Bytes>) -> List<Bytes>!String do
+fn output_parts(input :: Bytes,
+  count :: Int,
+  index :: Int,
+  offset :: Int,
+  items :: List<Bytes>) -> List<Bytes>!String do
   if index >= count do
     if offset == Bytes.length(input) do
       Ok(items)
@@ -114,13 +115,18 @@ end
 
 # Inspect what delivery sees after the privacy edge opens its envelope.
 
-pub fn assert_group_transport(envelope :: Bytes, group_id :: Bytes, account_id :: Bytes) -> Bool!String do
+pub fn assert_group_transport(envelope :: Bytes,
+  group_id :: Bytes,
+  account_id :: Bytes) -> Bool!String do
   let ciphertext = outer(envelope)?.ciphertext
   let captured = Bytes.to_hex(ciphertext)
   # Group packets use the same sealed transport and outer suite as direct
   # packets, so delivery cannot tell that an envelope belongs to a group at all.
-  if (!String.starts_with(captured, "01524350") || outer(envelope)?.suite != 4 || String.contains(captured,
-    Bytes.to_hex(group_id)) || String.contains(captured, Bytes.to_hex(account_id)) || Bytes.length(ciphertext) != outer(envelope)?.padding_bucket) do
+  if (!String.starts_with(captured, "01524350")
+    || outer(envelope)?.suite != 4
+    || String.contains(captured, Bytes.to_hex(group_id))
+    || String.contains(captured, Bytes.to_hex(account_id))
+    || Bytes.length(ciphertext) != outer(envelope)?.padding_bucket) do
     Err("group transport exposed metadata or used the wrong padding bucket")
   else
     Ok(true)

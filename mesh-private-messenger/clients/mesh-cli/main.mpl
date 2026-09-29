@@ -1,5 +1,21 @@
-from Identity.Device import AccountKeys, DeviceKeys, VerificationPolicy, generate_account, generate_device, issue_device_credential
-from Prekeys.Bundle import OneTimePrekeySecrets, PostQuantumPrekeySecrets, SignedPrekeySecrets, build_prekey_bundle, generate_one_time_prekey, generate_post_quantum_prekey, generate_signed_prekey, normalize_prekey_bundle
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  VerificationPolicy,
+  generate_account,
+  generate_device,
+  issue_device_credential
+)
+from Prekeys.Bundle import (
+  OneTimePrekeySecrets,
+  PostQuantumPrekeySecrets,
+  SignedPrekeySecrets,
+  build_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey,
+  normalize_prekey_bundle
+)
 from Prekeys.Pool import PrekeyClaimRequest, encode_prekey_claim
 from Privacy.Edge import RequestStamp, encode_stamped_request, mint_request_stamp
 from Protocol.DirectoryWire import decode_device_set, encode_directory_entry
@@ -10,7 +26,11 @@ from Protocol.EnvelopeWire import (
   encode_outer_envelope
 )
 from Protocol.HandshakeWire import encode_initial_message
-from Protocol.IdentityWire import decode_account_identity, decode_device_credential, encode_account_identity
+from Protocol.IdentityWire import (
+  decode_account_identity,
+  decode_device_credential,
+  encode_account_identity
+)
 from Protocol.MailboxWire import decode_delivery_batch, sign_mailbox_ack, sign_mailbox_fetch
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 from Protocol.V1 import (
@@ -24,11 +44,31 @@ from Protocol.V1 import (
   PrekeyBundle
 )
 from Session.Handshake import RatchetState, initiate, receive_initial
-from Session.Ratchet import DecryptOutcome, RatchetError, RatchetMessage, decode_ratchet_message, decrypt, encode_ratchet_message, encrypt_sealed, ratchet_transport_matches
+from Session.Ratchet import (
+  DecryptOutcome,
+  RatchetError,
+  RatchetMessage,
+  decode_ratchet_message,
+  decrypt,
+  encode_ratchet_message,
+  encrypt_sealed,
+  ratchet_transport_matches
+)
 from Transparency.Client import checkpoint_fresh_at, verify_evidence
 from Transparency.Merkle import TransparencyCheckpoint, WitnessKey
-from Transparency.Wire import TransparencyEvidence, TransparencyLookup, decode_transparency_evidence, encode_transparency_lookup
-from Transport.Packet import TransportPacket, decode_packet, direct_conversation_id, encode_packet, session_aad
+from Transparency.Wire import (
+  TransparencyEvidence,
+  TransparencyLookup,
+  decode_transparency_evidence,
+  encode_transparency_lookup
+)
+from Transport.Packet import (
+  TransportPacket,
+  decode_packet,
+  direct_conversation_id,
+  encode_packet,
+  session_aad
+)
 from Transport.Recipient import open_recipient_packet, seal_recipient_packet
 
 fn wide(value :: String) -> U64!String do
@@ -74,7 +114,9 @@ fn credential(account_keys :: borrow AccountKeys,
   end
 end
 
-fn signed_prekey(device_keys :: borrow DeviceKeys, value :: DeviceCredential, expires_at :: U64) -> SignedPrekeySecrets!String do
+fn signed_prekey(device_keys :: borrow DeviceKeys,
+  value :: DeviceCredential,
+  expires_at :: U64) -> SignedPrekeySecrets!String do
   case generate_signed_prekey(device_keys, value, wide("1")?, expires_at) do
     Err(_) -> Err("signed prekey generation failed")
     Ok(output)
@@ -239,7 +281,9 @@ fn verified_entry(evidence :: TransparencyEvidence, username :: String) -> Direc
   end
 end
 
-fn retry_resolution(username :: String, attempt :: Int, reason :: String) -> DirectoryEntry!String do
+fn retry_resolution(username :: String,
+  attempt :: Int,
+  reason :: String) -> DirectoryEntry!String do
   if attempt < 240 do
     Timer.sleep(250)
     resolve_entry(username, attempt + 1)
@@ -320,7 +364,9 @@ fn submit_envelope(encoded :: Bytes, expected :: Int) -> Int!String do
   end
 end
 
-fn fetch_envelopes(device_keys :: borrow DeviceKeys, token :: Bytes, attempt :: Int) -> List<DeliveredEnvelope>!String do
+fn fetch_envelopes(device_keys :: borrow DeviceKeys,
+  token :: Bytes,
+  attempt :: Int) -> List<DeliveredEnvelope>!String do
   let body = case sign_mailbox_fetch(device_keys.signing_private_key,
     Crypto.sha256(token),
     wide("0")?,
@@ -346,7 +392,9 @@ fn fetch_envelopes(device_keys :: borrow DeviceKeys, token :: Bytes, attempt :: 
   end
 end
 
-fn acknowledge(device_keys :: borrow DeviceKeys, token :: Bytes, ids :: List<Bytes>) -> Int!String do
+fn acknowledge(device_keys :: borrow DeviceKeys,
+  token :: Bytes,
+  ids :: List<Bytes>) -> Int!String do
   let body = case sign_mailbox_ack(device_keys.signing_private_key,
     Crypto.sha256(token),
     clock()?,
@@ -363,10 +411,7 @@ fn acknowledge(device_keys :: borrow DeviceKeys, token :: Bytes, ids :: List<Byt
 end
 
 fn policy(now :: U64) -> VerificationPolicy!String do
-  Ok(VerificationPolicy {
-    current_time: now,
-    minimum_directory_sequence: wide("1")?
-  })
+  Ok(VerificationPolicy { current_time: now, minimum_directory_sequence: wide("1")? })
 end
 
 fn inner(account_id :: Bytes,
@@ -393,7 +438,9 @@ fn inner(account_id :: Bytes,
   })
 end
 
-fn encrypt_message(state :: consume RatchetState, value :: InnerEnvelope, aad :: Bytes) -> Result<(RatchetState, RatchetMessage), String> do
+fn encrypt_message(state :: consume RatchetState,
+  value :: InnerEnvelope,
+  aad :: Bytes) -> Result<(RatchetState, RatchetMessage), String> do
   case encrypt_sealed(state, inner_wire(value)?, aad) do
     Err(_) -> Err("ratchet encryption failed")
     Ok(output)
@@ -514,7 +561,8 @@ fn display(value :: Bytes) do
   end
 end
 
-fn opened_packet(outer :: OuterEnvelope, recipient :: borrow DeviceKeys) -> TransportPacket!String do
+fn opened_packet(outer :: OuterEnvelope,
+  recipient :: borrow DeviceKeys) -> TransportPacket!String do
   decode_packet(open_recipient_packet(outer.ciphertext, recipient.identity_private_key)?)
 end
 
@@ -586,7 +634,9 @@ fn received_ratchet(state :: consume RatchetState,
   end
 end
 
-fn envelope_ids(deliveries :: List<DeliveredEnvelope>, index :: Int, ids :: List<Bytes>) -> List<Bytes> do
+fn envelope_ids(deliveries :: List<DeliveredEnvelope>,
+  index :: Int,
+  ids :: List<Bytes>) -> List<Bytes> do
   if index >= List.length(deliveries) do
     ids
   else

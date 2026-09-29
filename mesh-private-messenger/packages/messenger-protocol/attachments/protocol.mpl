@@ -97,20 +97,14 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!AttachmentError do
   case read_fixed(state, length) do
     Err(_) -> Err(InvalidManifest)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!AttachmentError do
   case read_vector(state, maximum) do
     Err(_) -> Err(InvalidManifest)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -120,10 +114,7 @@ fn take_u32(state :: BinaryReader) -> ReadInt!AttachmentError do
     Err(_) -> Err(InvalidManifest)
     Ok(value) -> case U64.to_int(value) do
       Err(_) -> Err(InvalidManifest)
-      Ok(parsed) -> Ok(ReadInt {
-        state: encoded.state,
-        value: parsed
-      })
+      Ok(parsed) -> Ok(ReadInt { state: encoded.state, value: parsed })
     end
   end
 end
@@ -132,10 +123,7 @@ fn take_u64(state :: BinaryReader) -> ReadWide!AttachmentError do
   let encoded = take_fixed(state, 8)?
   case Bytes.read_u64_be(encoded.value, 0) do
     Err(_) -> Err(InvalidManifest)
-    Ok(value) -> Ok(ReadWide {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadWide { state: encoded.state, value: value })
   end
 end
 
@@ -148,8 +136,8 @@ fn start(input :: Bytes, maximum :: Int, expected :: String) -> BinaryReader!Att
       Ok(initial) -> do
         let version = take_fixed(initial, 1)?
         let magic = take_fixed(version.state, 3)?
-        if Bytes.secure_equals(version.value, byte(1)?) && Bytes.secure_equals(magic.value,
-          Bytes.from_utf8(expected)) do
+        if Bytes.secure_equals(version.value, byte(1)?)
+          && Bytes.secure_equals(magic.value, Bytes.from_utf8(expected)) do
           Ok(magic.state)
         else
           Err(InvalidManifest)
@@ -170,14 +158,19 @@ fn validate_manifest(value :: AttachmentManifest) -> Result<(), AttachmentError>
   # ponytail: 256 x 64 KiB caps this first slice at 16 MiB; raise it with streaming file APIs.
   if value.version != 1 || Bytes.length(value.attachment_id) != 32 do
     Err(InvalidManifest)
-  else if value.chunk_size <= 0 || value.chunk_size > 65536 || value.chunk_count <= 0 || value.chunk_count > 256 do
+  else if value.chunk_size <= 0
+    || value.chunk_size > 65536
+    || value.chunk_count <= 0
+    || value.chunk_count > 256 do
     Err(InvalidManifest)
   else
     let maximum_size = value.chunk_count * value.chunk_size
     let minimum_size = (value.chunk_count - 1) * value.chunk_size
     if value.plaintext_size <= minimum_size || value.plaintext_size > maximum_size do
       Err(InvalidManifest)
-    else if Bytes.length(value.filename) > 255 || Bytes.length(value.mime_type) <= 0 || Bytes.length(value.mime_type) > 127 do
+    else if Bytes.length(value.filename) > 255
+      || Bytes.length(value.mime_type) <= 0
+      || Bytes.length(value.mime_type) > 127 do
       Err(InvalidManifest)
     else
       Ok(nil)
@@ -245,7 +238,9 @@ fn chunk_aad(value :: AttachmentManifest, index :: Int) -> Bytes!AttachmentError
   join([chunk_label(), Crypto.sha256(encode_manifest(value)?), write_u32(index)?], 0, Bytes.empty())
 end
 
-fn derive_key(secret :: borrow SecretBytes, salt :: Bytes, info :: Bytes) -> AeadKey!AttachmentError do
+fn derive_key(secret :: borrow SecretBytes,
+  salt :: Bytes,
+  info :: Bytes) -> AeadKey!AttachmentError do
   let material = case Crypto.hkdf_sha256(secret, salt, info, 32) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
@@ -285,7 +280,10 @@ fn open(key :: borrow AeadKey,
 end
 
 fn encode_encrypted_manifest(value :: EncryptedManifest) -> Bytes!AttachmentError do
-  if Bytes.length(value.attachment_id) != 32 || Bytes.length(value.nonce) != 12 || Bytes.length(value.ciphertext) < 16 || Bytes.length(value.ciphertext) > 462 do
+  if Bytes.length(value.attachment_id) != 32
+    || Bytes.length(value.nonce) != 12
+    || Bytes.length(value.ciphertext) < 16
+    || Bytes.length(value.ciphertext) > 462 do
     Err(InvalidManifest)
   else
     join([
@@ -328,7 +326,11 @@ fn expected_chunk_size(value :: AttachmentManifest, index :: Int) -> Int!Attachm
 end
 
 fn encode_chunk(value :: EncryptedChunk) -> Bytes!AttachmentError do
-  if value.index < 0 || value.index >= 256 || Bytes.length(value.nonce) != 12 || Bytes.length(value.ciphertext) < 16 || Bytes.length(value.ciphertext) > 65552 do
+  if value.index < 0
+    || value.index >= 256
+    || Bytes.length(value.nonce) != 12
+    || Bytes.length(value.ciphertext) < 16
+    || Bytes.length(value.ciphertext) > 65552 do
     Err(InvalidChunk)
   else
     join([
@@ -373,7 +375,8 @@ pub fn generate_attachment_id() -> Bytes!AttachmentError do
   end
 end
 
-pub fn seal_manifest(secret :: borrow SecretBytes, value :: AttachmentManifest) -> Bytes!AttachmentError do
+pub fn seal_manifest(secret :: borrow SecretBytes,
+  value :: AttachmentManifest) -> Bytes!AttachmentError do
   let plaintext = encode_manifest(value)?
   let nonce_value = nonce()?
   let authenticated_data = manifest_aad(value.attachment_id)?
@@ -386,7 +389,8 @@ pub fn seal_manifest(secret :: borrow SecretBytes, value :: AttachmentManifest) 
   })
 end
 
-pub fn open_manifest(secret :: borrow SecretBytes, input :: Bytes) -> AttachmentManifest!AttachmentError do
+pub fn open_manifest(secret :: borrow SecretBytes,
+  input :: Bytes) -> AttachmentManifest!AttachmentError do
   let encrypted = decode_encrypted_manifest(input)?
   let authenticated_data = manifest_aad(encrypted.attachment_id)?
   let key = derive_key(secret, encrypted.attachment_id, attachment_key_label())?
@@ -409,11 +413,7 @@ pub fn seal_chunk(secret :: borrow SecretBytes,
     let nonce_value = nonce()?
     let key = derive_key(secret, manifest.attachment_id, attachment_key_label())?
     let ciphertext = seal(key, nonce_value, chunk_aad(manifest, index)?, plaintext)?
-    encode_chunk(EncryptedChunk {
-      index: index,
-      nonce: nonce_value,
-      ciphertext: ciphertext
-    })
+    encode_chunk(EncryptedChunk { index: index, nonce: nonce_value, ciphertext: ciphertext })
   end
 end
 

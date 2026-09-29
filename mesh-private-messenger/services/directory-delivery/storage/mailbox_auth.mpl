@@ -5,7 +5,11 @@
 ##! fresh statement signed by the one active, unrevoked device registered for it.
 
 from Protocol.IdentityWire import decode_device_credential
-from Protocol.MailboxWire import mailbox_ack_signing_bytes, mailbox_fetch_signing_bytes, mailbox_request_is_fresh
+from Protocol.MailboxWire import (
+  mailbox_ack_signing_bytes,
+  mailbox_fetch_signing_bytes,
+  mailbox_request_is_fresh
+)
 from Protocol.PrekeyWire import decode_prekey_bundle
 from Protocol.V1 import MailboxAck, MailboxFetch
 
@@ -35,7 +39,8 @@ pub fn bundle_signing_public_key(bundle_bytes :: Bytes) -> Bytes!String do
   Ok(credential.signing_public_key)
 end
 
-pub fn mailbox_owner(pool :: PoolHandle, mailbox_token_hash :: Bytes) -> Option<MailboxOwner>!String do
+pub fn mailbox_owner(pool :: PoolHandle,
+  mailbox_token_hash :: Bytes) -> Option<MailboxOwner>!String do
   let rows = Pool.query_values(pool,
     "SELECT device.prekey_bundle, device.mailbox_token FROM messenger_devices AS device JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = device.mailbox_token_hash WHERE device.mailbox_token_hash = $1 AND device.revoked_at IS NULL AND mailbox.active",
     [Binary(mailbox_token_hash)])?
@@ -85,7 +90,8 @@ fn authorize(pool :: PoolHandle,
   end
 end
 
-pub fn authorize_mailbox_fetch(pool :: PoolHandle, request :: MailboxFetch) -> Option<MailboxOwner>!String do
+pub fn authorize_mailbox_fetch(pool :: PoolHandle,
+  request :: MailboxFetch) -> Option<MailboxOwner>!String do
   let signing_bytes = case mailbox_fetch_signing_bytes(request) do
     Err(_) -> Err("invalid mailbox fetch")
     Ok(output)
@@ -93,7 +99,8 @@ pub fn authorize_mailbox_fetch(pool :: PoolHandle, request :: MailboxFetch) -> O
   authorize(pool, request.mailbox_token_hash, request.issued_at, signing_bytes, request.signature)
 end
 
-pub fn authorize_mailbox_ack(pool :: PoolHandle, request :: MailboxAck) -> Option<MailboxOwner>!String do
+pub fn authorize_mailbox_ack(pool :: PoolHandle,
+  request :: MailboxAck) -> Option<MailboxOwner>!String do
   let signing_bytes = case mailbox_ack_signing_bytes(request) do
     Err(_) -> Err("invalid mailbox acknowledgement")
     Ok(output)

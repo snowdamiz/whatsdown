@@ -108,10 +108,7 @@ end
 fn take_fixed(state :: BinaryReader, length :: Int) -> ReadBytes!BackupError do
   case read_fixed(state, length) do
     Err(_) -> Err(InvalidManifest)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -119,10 +116,7 @@ fn take_u8(state :: BinaryReader) -> ReadInt!BackupError do
   let encoded = take_fixed(state, 1)?
   case Bytes.get(encoded.value, 0) do
     Err(_) -> Err(InvalidManifest)
-    Ok(value) -> Ok(ReadInt {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadInt { state: encoded.state, value: value })
   end
 end
 
@@ -134,10 +128,7 @@ fn take_u32(state :: BinaryReader) -> ReadInt!BackupError do
   end?
   case U64.to_int(wide) do
     Err(_) -> Err(InvalidManifest)
-    Ok(value) -> Ok(ReadInt {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadInt { state: encoded.state, value: value })
   end
 end
 
@@ -145,20 +136,14 @@ fn take_u64(state :: BinaryReader) -> ReadWide!BackupError do
   let encoded = take_fixed(state, 8)?
   case Bytes.read_u64_be(encoded.value, 0) do
     Err(_) -> Err(InvalidManifest)
-    Ok(value) -> Ok(ReadWide {
-      state: encoded.state,
-      value: value
-    })
+    Ok(value) -> Ok(ReadWide { state: encoded.state, value: value })
   end
 end
 
 fn take_vector(state :: BinaryReader, maximum :: Int) -> ReadBytes!BackupError do
   case read_vector(state, maximum) do
     Err(_) -> Err(InvalidManifest)
-    Ok((next, value)) -> Ok(ReadBytes {
-      state: next,
-      value: value
-    })
+    Ok((next, value)) -> Ok(ReadBytes { state: next, value: value })
   end
 end
 
@@ -189,7 +174,11 @@ end
 
 fn valid_profile(value :: BackupProfile) -> Result<(), BackupError> do
   # ponytail: one reviewed mobile profile; add a new version instead of mutable parameters.
-  if value.version != 1 || Bytes.length(value.salt) != 16 || value.memory_kib != 65536 || value.iterations != 3 || value.parallelism != 1 do
+  if value.version != 1
+    || Bytes.length(value.salt) != 16
+    || value.memory_kib != 65536
+    || value.iterations != 3
+    || value.parallelism != 1 do
     Err(InvalidProfile)
   else
     Ok(nil)
@@ -227,9 +216,14 @@ fn decode_profile(state :: BinaryReader) -> Result<(BinaryReader, BackupProfile)
 end
 
 fn validate_manifest(value :: BackupManifest) -> Result<(), BackupError> do
-  if value.version != 1 || Bytes.length(value.backup_id) != 32 || Bytes.length(value.snapshot_hash) != 32 do
+  if value.version != 1
+    || Bytes.length(value.backup_id) != 32
+    || Bytes.length(value.snapshot_hash) != 32 do
     Err(InvalidManifest)
-  else if value.chunk_size <= 0 || value.chunk_size > 65536 || value.chunk_count <= 0 || value.chunk_count > 256 do
+  else if value.chunk_size <= 0
+    || value.chunk_size > 65536
+    || value.chunk_count <= 0
+    || value.chunk_count > 256 do
     Err(InvalidManifest)
   else
     let maximum = value.chunk_size * value.chunk_count
@@ -308,7 +302,9 @@ fn nonce() -> Bytes!BackupError do
   end
 end
 
-fn content_key(key :: borrow SecretBytes, backup_id :: Bytes, label :: Bytes) -> AeadKey!BackupError do
+fn content_key(key :: borrow SecretBytes,
+  backup_id :: Bytes,
+  label :: Bytes) -> AeadKey!BackupError do
   let material = case Crypto.hkdf_sha256(key, backup_id, label, 32) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(output)
@@ -319,14 +315,20 @@ fn content_key(key :: borrow SecretBytes, backup_id :: Bytes, label :: Bytes) ->
   end
 end
 
-fn seal(key :: borrow AeadKey, nonce_value :: Bytes, aad :: Bytes, plaintext :: Bytes) -> Bytes!BackupError do
+fn seal(key :: borrow AeadKey,
+  nonce_value :: Bytes,
+  aad :: Bytes,
+  plaintext :: Bytes) -> Bytes!BackupError do
   case Crypto.aead_seal(key, nonce_value, aad, plaintext) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(output)
   end
 end
 
-fn open(key :: borrow AeadKey, nonce_value :: Bytes, aad :: Bytes, ciphertext :: Bytes) -> Bytes!BackupError do
+fn open(key :: borrow AeadKey,
+  nonce_value :: Bytes,
+  aad :: Bytes,
+  ciphertext :: Bytes) -> Bytes!BackupError do
   case Crypto.aead_open(key, nonce_value, aad, ciphertext) do
     Err(AuthenticationFailed) -> Err(AuthenticationRejected)
     Err(error) -> Err(CryptoFailure(error))
@@ -336,7 +338,9 @@ end
 
 fn encode_sealed_manifest(value :: SealedBackupManifest) -> Bytes!BackupError do
   valid_profile(value.profile)?
-  if Bytes.length(value.backup_id) != 32 || Bytes.length(value.nonce) != 12 || Bytes.length(value.ciphertext) != 104 do
+  if Bytes.length(value.backup_id) != 32
+    || Bytes.length(value.nonce) != 12
+    || Bytes.length(value.ciphertext) != 104 do
     Err(InvalidManifest)
   else
     join([
@@ -382,7 +386,12 @@ fn expected_chunk_size(value :: BackupManifest, index :: Int) -> Int!BackupError
 end
 
 fn encode_chunk(value :: SealedBackupChunk) -> Bytes!BackupError do
-  if Bytes.length(value.backup_id) != 32 || value.index < 0 || value.index >= 256 || Bytes.length(value.nonce) != 12 || Bytes.length(value.ciphertext) < 17 || Bytes.length(value.ciphertext) > 65552 do
+  if Bytes.length(value.backup_id) != 32
+    || value.index < 0
+    || value.index >= 256
+    || Bytes.length(value.nonce) != 12
+    || Bytes.length(value.ciphertext) < 17
+    || Bytes.length(value.ciphertext) > 65552 do
     Err(InvalidChunk)
   else
     join([
@@ -428,16 +437,11 @@ pub fn create_backup_profile() -> BackupProfile!BackupError do
     Err(error) -> Err(CryptoFailure(error))
     Ok(output)
   end?
-  Ok(BackupProfile {
-    version: 1,
-    salt: salt,
-    memory_kib: 65536,
-    iterations: 3,
-    parallelism: 1
-  })
+  Ok(BackupProfile { version: 1, salt: salt, memory_kib: 65536, iterations: 3, parallelism: 1 })
 end
 
-pub fn derive_backup_key(recovery :: borrow SecretBytes, profile :: BackupProfile) -> SecretBytes!BackupError do
+pub fn derive_backup_key(recovery :: borrow SecretBytes,
+  profile :: BackupProfile) -> SecretBytes!BackupError do
   valid_profile(profile)?
   let domain_salt = append(key_label(), profile.salt)?
   case Crypto.argon2id(recovery,
@@ -478,7 +482,8 @@ pub fn profile_from_backup(input :: Bytes) -> BackupProfile!BackupError do
   Ok(decode_sealed_manifest(input)?.profile)
 end
 
-pub fn open_backup_manifest(key :: borrow SecretBytes, input :: Bytes) -> BackupManifest!BackupError do
+pub fn open_backup_manifest(key :: borrow SecretBytes,
+  input :: Bytes) -> BackupManifest!BackupError do
   let sealed = decode_sealed_manifest(input)?
   let aead = content_key(key, sealed.backup_id, manifest_label())?
   let plaintext = open(aead,
@@ -544,7 +549,7 @@ end
 pub fn verify_backup_snapshot(manifest :: BackupManifest, plaintext :: Bytes) -> Bool do
   case validate_manifest(manifest) do
     Err(_) -> false
-    Ok(_) -> Bytes.length(plaintext) == manifest.plaintext_size && Bytes.secure_equals(Crypto.sha256(plaintext),
-      manifest.snapshot_hash)
+    Ok(_) -> Bytes.length(plaintext) == manifest.plaintext_size
+      && Bytes.secure_equals(Crypto.sha256(plaintext), manifest.snapshot_hash)
   end
 end

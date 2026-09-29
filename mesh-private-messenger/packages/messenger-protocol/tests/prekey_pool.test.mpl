@@ -1,4 +1,13 @@
-from Prekeys.Pool import OneTimePrekeyPublic, PrekeyPublishRequest, PrekeyPublishResponse, decode_prekey_publish, decode_prekey_publish_response, encode_prekey_publish, encode_prekey_publish_response, prekey_publish_signing_bytes
+from Prekeys.Pool import (
+  OneTimePrekeyPublic,
+  PrekeyPublishRequest,
+  PrekeyPublishResponse,
+  decode_prekey_publish,
+  decode_prekey_publish_response,
+  encode_prekey_publish,
+  encode_prekey_publish_response,
+  prekey_publish_signing_bytes
+)
 
 fn repeated(value :: Int, length :: Int) -> Bytes!String do
   case Bytes.repeat(value, length) do
@@ -40,7 +49,9 @@ fn proof() -> Bool!String do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end
-  case encode_prekey_publish_response(%{response | active_ids: [U64.parse("9")?, U64.parse("2")?]}) do
+  case encode_prekey_publish_response(%{response |
+    active_ids: [U64.parse("9")?, U64.parse("2")?]
+  }) do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end
@@ -48,7 +59,9 @@ fn proof() -> Bool!String do
     Err(_) -> assert(true)
     Ok(_) -> assert(false)
   end
-  let empty = decode_prekey_publish_response(encode_prekey_publish_response(%{response | active_ids: List.new()})?)?
+  let empty = decode_prekey_publish_response(encode_prekey_publish_response(%{response |
+    active_ids: List.new()
+  })?)?
   assert(List.length(empty.active_ids) == 0)
   let recovery = encode_prekey_publish(PrekeyPublishRequest {
     account_id: response.account_id,
@@ -71,18 +84,12 @@ test("publication acknowledgement identifies the exact active server prekeys") d
 end
 
 fn last_resort_proof() -> Bool!String do
-  let one_time = OneTimePrekeyPublic {
-    id: U64.parse("4")?,
-    public_key: repeated(7, 32)?
-  }
+  let one_time = OneTimePrekeyPublic { id: U64.parse("4")?, public_key: repeated(7, 32)? }
   let request = PrekeyPublishRequest {
     account_id: repeated(1, 32)?,
     device_id: repeated(2, 16)?,
     prekeys: [one_time],
-    last_resort: Some(OneTimePrekeyPublic {
-      id: U64.parse("9")?,
-      public_key: repeated(8, 32)?
-    }),
+    last_resort: Some(OneTimePrekeyPublic { id: U64.parse("9")?, public_key: repeated(8, 32)? }),
     contact_address_hash: Some(repeated(9, 32)?),
     signature: repeated(3, 64)?
   }

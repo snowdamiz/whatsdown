@@ -17,7 +17,13 @@ from Objects.Grant import ObjectGrantRequest, decode_grant, verify_grant
 from Protocol.V1 import DirectoryEntry
 from Tests.GroupLifecycleCreate import create_group_with_bob
 from Tests.GroupLifecycleSupport import GroupAccountFixture, group_account_fixture
-from Tests.GroupLifecycleWire import acknowledge, envelope_for, group_vectors, output_list, read_u32_at
+from Tests.GroupLifecycleWire import (
+  acknowledge,
+  envelope_for,
+  group_vectors,
+  output_list,
+  read_u32_at
+)
 from Tests.Support import database_path, read_u32, repeated, write_u32
 
 struct PreparedAttachment do
@@ -64,7 +70,10 @@ fn wide(value :: String) -> U64!String do
   end
 end
 
-fn prepare(path :: String, filename :: String, mime_type :: String, size :: Int) -> PreparedAttachment!String do
+fn prepare(path :: String,
+  filename :: String,
+  mime_type :: String,
+  size :: Int) -> PreparedAttachment!String do
   let output = attachment_prepare_export(group_vectors([
     Bytes.from_utf8(path),
     Bytes.from_utf8(filename),
@@ -268,7 +277,10 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool!St
     album
   ])?)?
   acknowledge(carol_path, [initial], 0)?
-  ensure(Bytes.length(receive_initial_export(group_vectors([Bytes.from_utf8(dave_path), initial])?)?) == 0,
+  ensure(Bytes.length(receive_initial_export(group_vectors([
+      Bytes.from_utf8(dave_path),
+      initial
+    ])?)?) == 0,
     "attachment-only message body mismatch")?
   let dave_history = output_list(load_history_export(group_vectors([
     Bytes.from_utf8(dave_path),
@@ -304,7 +316,8 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool!St
     ensure(Bytes.secure_equals(own, photo.reference), "sender lost album reference")?
     case open(dave_path, photo.reference, 0, chunk) do
       Ok(_) -> Err("peer opened sender reference")?
-      Err(error) -> ensure(error == "attachment_key_unwrap_failed", "wrong foreign reference error")?
+      Err(error) -> ensure(error == "attachment_key_unwrap_failed",
+        "wrong foreign reference error")?
     end
   end
   Ok(true)

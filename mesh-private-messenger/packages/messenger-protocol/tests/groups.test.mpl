@@ -2,8 +2,19 @@ from Groups.GroupSnapshot import group_snapshot, restore_group
 from Groups.Mls import GroupSnapshotOutcome
 from Groups.GroupCodec import delivery_targets, negotiate_group_extensions
 from Groups.GroupMessages import decrypt_group_message, encrypt_group_message
-from Groups.Membership import apply_commit, commit_add, commit_remove, commit_update, create_group, join_from_welcome
-from Groups.KeySchedule import group_open_update_path, group_derive_verified_patch, group_prepare_patch
+from Groups.Membership import (
+  apply_commit,
+  commit_add,
+  commit_remove,
+  commit_update,
+  create_group,
+  join_from_welcome
+)
+from Groups.KeySchedule import (
+  group_open_update_path,
+  group_derive_verified_patch,
+  group_prepare_patch
+)
 from Groups.CommitWire import group_update_path_context, encode_group_commit
 from Groups.SenderKeys import sender_message_key
 from Groups.Mls import (
@@ -17,11 +28,19 @@ from Groups.Mls import (
   GroupTransparencyPolicy
 )
 from Groups.Tree import GroupMember, member_count
-from Groups.GroupCodec import group_byte, group_join, group_write_u16, group_write_u32, group_write_u64
+from Groups.GroupCodec import (
+  group_byte,
+  group_join,
+  group_write_u16,
+  group_write_u32,
+  group_write_u64
+)
 
 # Independent attacker derivation of the original retained-root schedule.
 
-fn retained_root_opens(state :: borrow GroupState, message :: GroupMessage, aad :: Bytes) -> Bool!GroupError do
+fn retained_root_opens(state :: borrow GroupState,
+  message :: GroupMessage,
+  aad :: Bytes) -> Bool!GroupError do
   let info = group_join([
       Bytes.from_utf8("mesh-mls/v1/message-key"),
       group_write_u16(message.sender_leaf)?,
@@ -39,7 +58,9 @@ fn retained_root_opens(state :: borrow GroupState, message :: GroupMessage, aad 
   captured_message_opens(material, message, aad)
 end
 
-fn current_chain_opens(state :: borrow GroupState, message :: GroupMessage, aad :: Bytes) -> Bool!GroupError do
+fn current_chain_opens(state :: borrow GroupState,
+  message :: GroupMessage,
+  aad :: Bytes) -> Bool!GroupError do
   let key = sender_message_key(state.key_material.sender_chains,
     message.group_id,
     message.sender_leaf,
@@ -47,7 +68,9 @@ fn current_chain_opens(state :: borrow GroupState, message :: GroupMessage, aad 
   captured_message_opens(key, message, aad)
 end
 
-fn captured_message_opens(material :: SecretBytes, message :: GroupMessage, aad :: Bytes) -> Bool!GroupError do
+fn captured_message_opens(material :: SecretBytes,
+  message :: GroupMessage,
+  aad :: Bytes) -> Bool!GroupError do
   let key = case Crypto.aead_key(material) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
@@ -226,7 +249,8 @@ fn applied(outcome :: CommitApplyOutcome) -> GroupState!GroupError do
   end
 end
 
-fn rejected_commit(outcome :: CommitApplyOutcome, expected :: GroupError) -> GroupState!GroupError do
+fn rejected_commit(outcome :: CommitApplyOutcome,
+  expected :: GroupError) -> GroupState!GroupError do
   case outcome do
     CommitApplied(state) -> do
       consume_state(state)
@@ -453,12 +477,16 @@ fn removal_proof() -> Bool!GroupError do
     carol_leaf.public_key,
     checkpoint)?
   let alice_state = create_group(alice, alice_leaf.private_key, [1], policy)?
-  let (alice_state, _, bob_welcome) = added(commit_add(alice_state, alice_signing.private_key, bob))?
+  let (alice_state, _, bob_welcome) = added(commit_add(alice_state,
+    alice_signing.private_key,
+    bob))?
   let bob_state = join_from_welcome(bob_welcome, bob_init.private_key, bob_leaf.private_key)?
   let (alice_state, carol_commit, carol_welcome) = added(commit_add(alice_state,
     alice_signing.private_key,
     carol))?
-  let carol_state = join_from_welcome(carol_welcome, carol_init.private_key, carol_leaf.private_key)?
+  let carol_state = join_from_welcome(carol_welcome,
+    carol_init.private_key,
+    carol_leaf.private_key)?
   let alice_state = rejected_remove(commit_remove(alice_state, bob_signing.private_key, 1))?
   let (alice_state, removal_commit) = removed(commit_remove(alice_state,
     alice_signing.private_key,
@@ -543,11 +571,7 @@ fn seeded_group_step(alice :: consume GroupState,
       Ok((next,
         bob,
         List.append(pending,
-          PendingGroupMessage {
-            message: message,
-            body: body,
-            from_alice: true
-          })))
+          PendingGroupMessage { message: message, body: body, from_alice: true })))
     else
       let (next, message) = encrypted(encrypt_group_message(bob, bob_key, body, aad))?
       if current_chain_opens(next, message, aad)? do
@@ -556,11 +580,7 @@ fn seeded_group_step(alice :: consume GroupState,
       Ok((alice,
         next,
         List.append(pending,
-          PendingGroupMessage {
-            message: message,
-            body: body,
-            from_alice: false
-          })))
+          PendingGroupMessage { message: message, body: body, from_alice: false })))
     end
   else
     let index = random % List.length(pending)

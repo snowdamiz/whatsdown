@@ -42,7 +42,10 @@ pub struct GroupInvitation do
   inviter_signing_key :: Bytes
 end
 
-fn read_parts(state :: BinaryReader, remaining :: Int, maximum :: Int, values :: List<Bytes>) -> List<Bytes>!String do
+fn read_parts(state :: BinaryReader,
+  remaining :: Int,
+  maximum :: Int,
+  values :: List<Bytes>) -> List<Bytes>!String do
   if remaining == 0 do
     mobile_finish(state, "invalid_group_invitation")?
     Ok(values)
@@ -103,7 +106,20 @@ fn decode_record(input :: Bytes) -> GroupInvitation!String do
     key_package: List.get(p, 10),
     inviter_signing_key: List.get(p, 11)
   }
-  if Bytes.length(value.id) != 16 || Bytes.length(value.group_id) != 32 || Bytes.length(value.inviter_account) != 32 || Bytes.length(value.inviter_device) != 16 || Bytes.length(value.recipient_account) != 32 || Bytes.length(value.recipient_device) != 16 || String.length(value.username) == 0 || String.length(value.username) > 64 || Bytes.length(value.baseline) != 188 || value.state > 5 || (Bytes.length(value.inviter_signing_key) != 0 && Bytes.length(value.inviter_signing_key) != 32) || (value.state == 2 && Bytes.length(value.inviter_signing_key) != 32) || (Bytes.length(value.key_package) != 0 && Bytes.length(value.key_package) != 369) do
+  if Bytes.length(value.id) != 16
+    || Bytes.length(value.group_id) != 32
+    || Bytes.length(value.inviter_account) != 32
+    || Bytes.length(value.inviter_device) != 16
+    || Bytes.length(value.recipient_account) != 32
+    || Bytes.length(value.recipient_device) != 16
+    || String.length(value.username) == 0
+    || String.length(value.username) > 64
+    || Bytes.length(value.baseline) != 188
+    || value.state > 5
+    || (Bytes.length(value.inviter_signing_key) != 0
+      && Bytes.length(value.inviter_signing_key) != 32)
+    || (value.state == 2 && Bytes.length(value.inviter_signing_key) != 32)
+    || (Bytes.length(value.key_package) != 0 && Bytes.length(value.key_package) != 369) do
     Err("invalid_group_invitation")
   else
     Ok(value)
@@ -140,11 +156,11 @@ pub fn load_invitations(path :: String, key :: borrow StorageKey) -> List<GroupI
     decode_record(part)?
   end
   let now = current_time()?
-  let live = List.filter(records, fn (value) do U64.compare(value.expires_at, now) > 0 end)
+  let live = List.filter(records, fn(value) do U64.compare(value.expires_at, now) > 0 end)
   if List.length(live) != List.length(records) do
-    let expired = List.filter(records, fn (value) do U64.compare(value.expires_at, now) <= 0 end)
+    let expired = List.filter(records, fn(value) do U64.compare(value.expires_at, now) <= 0 end)
     let removed = List.flat_map(expired,
-      fn (value) do [
+      fn(value) do [
         invitation_key_label(value.id, "package"),
         invitation_key_label(value.id, "init"),
         invitation_key_label(value.id, "leaf")
@@ -154,25 +170,27 @@ pub fn load_invitations(path :: String, key :: borrow StorageKey) -> List<GroupI
   Ok(live)
 end
 
-pub fn find_invitation(values :: List<GroupInvitation>, reference :: Bytes) -> GroupInvitation!String do
+pub fn find_invitation(values :: List<GroupInvitation>,
+  reference :: Bytes) -> GroupInvitation!String do
   if Bytes.length(reference) != 32 do
     return Err("invalid_group_invitation")
   end
   let id = Bytes.slice(reference, 0, 16)?
   let device = Bytes.slice(reference, 16, 16)?
   case List.find(values,
-    fn (value) do Bytes.secure_equals(value.id, id) && Bytes.secure_equals(value.recipient_device,
-      device) end) do
+    fn(value) do Bytes.secure_equals(value.id, id)
+      && Bytes.secure_equals(value.recipient_device, device) end) do
     Some(value) -> Ok(value)
     None -> Err("group_invitation_not_found")
   end
 end
 
-pub fn replace_invitation(values :: List<GroupInvitation>, next :: GroupInvitation) -> List<GroupInvitation> do
+pub fn replace_invitation(values :: List<GroupInvitation>,
+  next :: GroupInvitation) -> List<GroupInvitation> do
   List.map(values,
-    fn (value) do
-      if Bytes.secure_equals(value.id, next.id) && Bytes.secure_equals(value.recipient_device,
-        next.recipient_device) do
+    fn(value) do
+      if Bytes.secure_equals(value.id, next.id)
+        && Bytes.secure_equals(value.recipient_device, next.recipient_device) do
         next
       else
         value
@@ -193,8 +211,11 @@ fn receive_control(path :: String,
     let group_id = List.get(p, 1)
     let expires_at = mobile_read_u64(List.get(p, 2))?
     let baseline = List.get(p, 3)
-    if Bytes.length(id) != 16 || Bytes.length(group_id) != 32 || Bytes.length(baseline) != 188 || U64.compare(expires_at,
-      now) <= 0 || U64.compare(expires_at, U64.add(now, mobile_wide("604800000")?)?) > 0 do
+    if Bytes.length(id) != 16
+      || Bytes.length(group_id) != 32
+      || Bytes.length(baseline) != 188
+      || U64.compare(expires_at, now) <= 0
+      || U64.compare(expires_at, U64.add(now, mobile_wide("604800000")?)?) > 0 do
       return Ok(values)
     end
     let reference = mobile_append(id, local.device_id)?
@@ -230,10 +251,13 @@ fn receive_control(path :: String,
       Ok(value) -> value
       Err(_) -> return Ok(values)
     end
-    if previous.state != 0 || !Bytes.secure_equals(previous.group_id, group_id) || !Bytes.secure_equals(previous.inviter_account,
-      local.account_id) || !Bytes.secure_equals(previous.inviter_device, local.device_id) || !Bytes.secure_equals(previous.recipient_account,
-      inner.sender_account_id) || !Bytes.secure_equals(package.account_id, inner.sender_account_id) || !Bytes.secure_equals(package.device_id,
-      inner.sender_device_id) do
+    if previous.state != 0
+      || !Bytes.secure_equals(previous.group_id, group_id)
+      || !Bytes.secure_equals(previous.inviter_account, local.account_id)
+      || !Bytes.secure_equals(previous.inviter_device, local.device_id)
+      || !Bytes.secure_equals(previous.recipient_account, inner.sender_account_id)
+      || !Bytes.secure_equals(package.account_id, inner.sender_account_id)
+      || !Bytes.secure_equals(package.device_id, inner.sender_device_id) do
       return Ok(values)
     end
     Ok(replace_invitation(values, %{previous | state: 3, key_package: List.get(p, 2)}))
@@ -296,18 +320,20 @@ fn accepted_scope(values :: List<GroupInvitation>,
   if value.state == 2 && Bytes.secure_equals(value.group_id, welcome.commit.group_id) do
     let package = decode_group_key_package(value.key_package)?
     let recipient = List.find(welcome.members,
-      fn (member) do member.leaf_index == welcome.recipient_leaf end)
+      fn(member) do member.leaf_index == welcome.recipient_leaf end)
     let committer = List.find(welcome.members,
-      fn (member) do member.leaf_index == welcome.commit.committer_leaf end)
+      fn(member) do member.leaf_index == welcome.commit.committer_leaf end)
     case (recipient, committer) do
       (Some(target), Some(sender)) -> if Bytes.secure_equals(target.member.init_public_key.bytes,
-        package.init_public_key.bytes) && Bytes.secure_equals(target.member.leaf_public_key.bytes,
-        package.leaf_public_key.bytes) do
-        if !Bytes.secure_equals(sender.member.signing_public_key.bytes, value.inviter_signing_key) do
+        package.init_public_key.bytes)
+        && Bytes.secure_equals(target.member.leaf_public_key.bytes,
+          package.leaf_public_key.bytes) do
+        if !Bytes.secure_equals(sender.member.signing_public_key.bytes,
+          value.inviter_signing_key) do
           Err("group_welcome_rejected")
-        else if !Bytes.secure_equals(baseline, value.baseline) || !Bytes.secure_equals(sender.member.account_id,
-          value.inviter_account) || !Bytes.secure_equals(sender.member.device_id,
-          value.inviter_device) do
+        else if !Bytes.secure_equals(baseline, value.baseline)
+          || !Bytes.secure_equals(sender.member.account_id, value.inviter_account)
+          || !Bytes.secure_equals(sender.member.device_id, value.inviter_device) do
           Err("group_welcome_rejected")
         else
           Ok(Bytes.to_hex(value.id))

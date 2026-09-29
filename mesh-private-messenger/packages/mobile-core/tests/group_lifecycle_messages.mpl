@@ -11,7 +11,16 @@ from MobileCore import (
 from Protocol.EnvelopeWire import encode_outer_envelope
 from Protocol.V1 import AccountIdentity, DirectoryEntry, MailboxAck, OuterEnvelope
 from Tests.GroupLifecycleSupport import GroupAccountFixture
-from Tests.GroupLifecycleWire import ack, acknowledge, assert_group_transport, delivery_batch, envelope_for, group_vectors, outer, output_list
+from Tests.GroupLifecycleWire import (
+  ack,
+  acknowledge,
+  assert_group_transport,
+  delivery_batch,
+  envelope_for,
+  group_vectors,
+  outer,
+  output_list
+)
 from Tests.Support import append, repeated, vector, write_u32
 
 fn group_messages_ensure(value :: Bool, error :: String) -> Result<(), String> do
@@ -51,12 +60,13 @@ fn assert_poison_ack(path :: String, envelope :: Bytes) -> Result<(), String> do
     Bytes.from_utf8(path),
     delivery_batch(envelope)?
   ])?)?)?
-  group_messages_ensure(List.length(acknowledgement.envelope_ids) == 1 && Bytes.secure_equals(List.head(acknowledgement.envelope_ids),
-      outer(envelope)?.envelope_id),
+  group_messages_ensure(List.length(acknowledgement.envelope_ids) == 1
+      && Bytes.secure_equals(List.head(acknowledgement.envelope_ids), outer(envelope)?.envelope_id),
     "malformed group delivery was not acknowledged")
 end
 
-pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Bytes) -> Bool!String do
+pub fn exercise_linked_greeting(accounts :: GroupAccountFixture,
+  group_id :: Bytes) -> Bool!String do
   let linked_package = group_key_package_export(Bytes.from_utf8(accounts.linked_path))?
   let linked_welcome_output = group_add_export(group_vectors([
     Bytes.from_utf8(accounts.alice_path),
@@ -154,17 +164,16 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
     "bob greeting history count mismatch")?
   let bob_greeting_record = output_list(List.head(bob_greeting_history))?
   # Nine fields end with the message ID; the tenth says what became of a sent message.
-  group_messages_ensure(List.length(bob_greeting_record) == 10 && Bytes.length(List.get(bob_greeting_record,
-      8)) == 32,
+  group_messages_ensure(List.length(bob_greeting_record) == 10
+      && Bytes.length(List.get(bob_greeting_record, 8)) == 32,
     "group history must expose a stable message ID")?
   let alice_greeting_history = output_list(group_history_export(group_vectors([
     Bytes.from_utf8(accounts.alice_path),
     group_id
   ])?)?)?
   let alice_greeting_record = output_list(List.head(alice_greeting_history))?
-  group_messages_ensure(Bytes.length(List.get(bob_greeting_record, 8)) == 32 && Bytes.secure_equals(List.get(bob_greeting_record,
-        8),
-      List.get(alice_greeting_record, 8)),
+  group_messages_ensure(Bytes.length(List.get(bob_greeting_record, 8)) == 32
+      && Bytes.secure_equals(List.get(bob_greeting_record, 8), List.get(alice_greeting_record, 8)),
     "sender and recipient group message IDs differ")?
   group_messages_ensure(Bytes.secure_equals(List.get(bob_greeting_record, 6), greeting),
     "bob greeting history body mismatch")?
@@ -209,7 +218,8 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture, group_id :: Byt
   Ok(true)
 end
 
-pub fn exercise_group_message_boundary(accounts :: GroupAccountFixture, group_id :: Bytes) -> Bool!String do
+pub fn exercise_group_message_boundary(accounts :: GroupAccountFixture,
+  group_id :: Bytes) -> Bool!String do
   let maximum = repeated(97, 65290)?
   let maximum_output = group_send_export(group_vectors([
     Bytes.from_utf8(accounts.alice_path),

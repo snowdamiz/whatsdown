@@ -1,5 +1,22 @@
-from Broker.Expo import BrokerOutcome, classify_expo_receipt, parse_expo_ticket, prepare_expo_request_with_key, receipt_message
-from Broker.Queue import EnqueueOutcome, QueueJob, complete_job, enqueue_with_key, mark_terminal, next_job, purge_tombstones, record_ticket, retry_job, tombstone_cutoff_ms
+from Broker.Expo import (
+  BrokerOutcome,
+  classify_expo_receipt,
+  parse_expo_ticket,
+  prepare_expo_request_with_key,
+  receipt_message
+)
+from Broker.Queue import (
+  EnqueueOutcome,
+  QueueJob,
+  complete_job,
+  enqueue_with_key,
+  mark_terminal,
+  next_job,
+  purge_tombstones,
+  record_ticket,
+  retry_job,
+  tombstone_cutoff_ms
+)
 from Broker.Queue import next_work_at
 import RuntimeJobs
 
@@ -9,7 +26,10 @@ fn drain_due(path :: String,
   remaining :: Int) -> Result<(), String> do
   if remaining <= 0 do
     Ok(nil)
-  else if process_once_with_key(path, private_key, token, DateTime.to_unix_ms(DateTime.utc_now()))? do
+  else if process_once_with_key(path,
+    private_key,
+    token,
+    DateTime.to_unix_ms(DateTime.utc_now()))? do
     drain_due(path, private_key, token, remaining - 1)
   else
     Ok(nil)
@@ -53,8 +73,10 @@ end
 pub fn access_token(value :: String) -> Option<String>!String do
   if String.length(value) == 0 do
     Ok(None)
-  else if String.length(value) > 2048 || String.trim(value) != value || String.contains(value, "\r") || String.contains(value,
-    "\n") do
+  else if String.length(value) > 2048
+    || String.trim(value) != value
+    || String.contains(value, "\r")
+    || String.contains(value, "\n") do
     Err("invalid Expo access token")
   else
     Ok(Some(value))
@@ -62,8 +84,11 @@ pub fn access_token(value :: String) -> Option<String>!String do
 end
 
 pub fn internal_token(value :: String) -> String!String do
-  if String.length(value) < 32 || String.length(value) > 256 || String.trim(value) != value || String.contains(value,
-    "\r") || String.contains(value, "\n") do
+  if String.length(value) < 32
+    || String.length(value) > 256
+    || String.trim(value) != value
+    || String.contains(value, "\r")
+    || String.contains(value, "\n") do
     Err("invalid internal broker token")
   else
     Ok(value)
@@ -78,7 +103,8 @@ pub fn authorized(header :: Option<String>, secret :: String) -> Bool do
   end
 end
 
-pub fn prepare_delivery_with_key(input :: Bytes, broker_private_key :: borrow X25519PrivateKey) -> Result<String, BrokerOutcome> do
+pub fn prepare_delivery_with_key(input :: Bytes,
+  broker_private_key :: borrow X25519PrivateKey) -> Result<String, BrokerOutcome> do
   if Bytes.length(input) == 0 || Bytes.length(input) > 621 do
     Err(Permanent)
   else
@@ -157,7 +183,10 @@ fn process_send_with_key(path :: String,
   end
 end
 
-fn process_receipt(path :: String, job :: QueueJob, token :: String, now_ms :: Int) -> Result<(), String> do
+fn process_receipt(path :: String,
+  job :: QueueJob,
+  token :: String,
+  now_ms :: Int) -> Result<(), String> do
   case check_receipt(job.ticket_id, token) do
     Delivered -> complete_job(path, job, now_ms)
     Permanent -> mark_terminal(path, job.wake_hash, job.request_hash, now_ms)
