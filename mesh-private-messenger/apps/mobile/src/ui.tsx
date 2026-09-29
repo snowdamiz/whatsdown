@@ -53,6 +53,7 @@ import Svg, {
 import { MAXIMUM_ATTACHMENTS } from "./codec";
 import { mentionAt, completeMention, mentionSpans } from "./mentions";
 import { placeMenu, type Frame } from "./message-menu";
+import { tabBarClearance } from "./phone-chrome";
 import { scatterDoodles } from "./wallpaper";
 import { REPLY_SWIPE_TRIGGER, replySwipeOffset, startsReplySwipe } from "./reply-swipe";
 import { describeStatus, type MessageStatus } from "./receipts";
@@ -226,6 +227,7 @@ const paths = {
   download: "M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14",
   reply: "M9.5 7 4.5 12l5 5M4.5 12H14a5.5 5.5 0 0 1 5.5 5.5V19",
   copy: "M9.5 8h8A1.5 1.5 0 0 1 19 9.5v9a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 8 18.5v-9A1.5 1.5 0 0 1 9.5 8ZM16 8V5.5A1.5 1.5 0 0 0 14.5 4h-8A1.5 1.5 0 0 0 5 5.5v9A1.5 1.5 0 0 0 6.5 16H8",
+  megaphone: "M4.5 9.5h3L14 5v14l-6.5-4.5h-3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1ZM17.5 9a4 4 0 0 1 0 6M8 14.5 9.5 20",
 };
 export type IconName = keyof typeof paths | "qr";
 
@@ -946,10 +948,7 @@ export function IconButton({
 const tabHeight = control["2xl"];
 const tabPillPadding = space[1.5];
 const tabGap = space[3];
-// The pill rests on the home indicator's inset where there is one. Android's
-// navigation bar has no indicator to rest on, so the pill clears it instead.
-const tabBarPadding = Math.max((initialWindowMetrics?.insets.bottom ?? 0) - space[1.5], screenInset) +
-  (Platform.OS === "android" ? space[2.5] : 0);
+const tabBarPadding = tabBarClearance(Platform.OS, initialWindowMetrics?.insets.bottom ?? 0);
 const tabBarHeight = tabHeight + 2 * (tabPillPadding + 1);
 const paneHeaderPadding = space[4];
 // Centre pane controls on the inset sidebar's toolbar.
@@ -2957,6 +2956,17 @@ function ReplySwipe({ onReply, children }: { onReply: () => void; children: Reac
 // desktop's is a plain pane that watches the pointer instead.
 const BubbleShell = (isDesktop ? Animated.View : Animated.createAnimatedComponent(Pressable)) as typeof Animated.View;
 
+// Geist's no-break space, as a share of the type size.
+const NBSP_EM = 0.243;
+
+// The invisible end of a bubble's words: a gap that may break, then room as
+// wide as the time and the glyphs beside it, which may not. When the last
+// line is too full to hold the room, all of it moves to a line of its own.
+export function metaRoom(clock: string, glyphs: number, fontSize: number): string {
+  const room = " ".repeat(Math.ceil(glyphs / (NBSP_EM * fontSize)));
+  return `   ${clock.replace(/ /g, " ")}${room}`;
+}
+
 // The message a reply answers, as its bubble quotes it. Without a name the
 // original is no longer on this device, and the text says so.
 export type BubbleQuote = { name?: string; accountId?: string; text: string; onPress?: () => void };
@@ -2981,6 +2991,7 @@ export function MessageBubble({
   quote,
   onReply,
   highlighted = false,
+  action,
 }: {
   body: string;
   sender?: { name: string; accountId: string; avatar?: string };
@@ -3009,6 +3020,8 @@ export function MessageBubble({
   onReply?: () => void;
   // The thread has just jumped here from a quote: the bubble flashes once.
   highlighted?: boolean;
+  // One more thing the message's menu offers, such as answering a link it carries.
+  action?: MessageAction;
 }) {
   const { colors, scheme, type } = useTheme();
   const styles = useStyles();
@@ -3023,6 +3036,7 @@ export function MessageBubble({
     // ponytail: core Clipboard is deprecated but ships on every platform; move
     // to expo-clipboard with the next native rebuild.
     ...(body ? [{ icon: "copy" as const, label: "Copy", onPress: () => Clipboard.setString(body) }] : []),
+    ...(action ? [action] : []),
   ];
   const hasMenu = Boolean(onReact) || actions.length > 0;
   // On desktop the controls keep out of the way until the pointer rests on the
@@ -3082,6 +3096,43 @@ export function MessageBubble({
       }
     : { accessible: false, onLongPress: longPress, delayLongPress: longPressDelay };
   const quoteInk = quote?.accountId && !sent ? avatarTone(quote.accountId, scheme).ink : sent ? colors.onAccent : colors.accent;
+  // A run from one sender reads as one stack: the corners it joins at on the
+  // sender's side tighten, and so does the foot of every bubble in it. A
+  // picture's own corner is concentric with the bubble's, so a framed
+  // bubble keeps its top corner.
+  const corners = [
+    sent ? styles.bubbleTailSent : styles.bubbleTailReceived,
+    !spaced && !framed && (sent ? styles.bubbleJoinSent : styles.bubbleJoinReceived),
+  ];
+  const clock = formatClock(timestamp);
+  // How wide the glyphs beside the time are, each with its gap; the read
+  // chip carries padding of its own.
+  const metaGlyphs = (disappearing ? sizes.icon.xs + space[1] : 0)
+    + (status ? sizes.icon.xs + space[1] + (status === "read" ? 2 * space[0.5] : 0) : 0);
+  const meta = (
+    // Over the words, touches and the pointer pass through to them.
+    <View pointerEvents={body ? "none" : "auto"} style={[styles.bubbleMeta, body ? styles.bubbleMetaOver : null]}>
+      {disappearing ? <Icon name="timer" size={sizes.icon.xs} color={metaColor} strokeWidth={2.2} /> : null}
+      <Text {...(body ? { "aria-hidden": true } : menuAction)} style={[styles.bubbleTime, { color: metaColor }]}>{clock}</Text>
+      {status ? (
+        // The bubble is already the accent, so "read" inverts: accent ticks on a
+        // light chip. The shape tells it from "delivered" without relying on hue.
+        <View
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={describeStatus(status)}
+          style={status === "read" && styles.bubbleRead}
+        >
+          <Icon
+            name={status === "pending" ? "clock" : status === "sent" ? "check" : status === "failed" ? "warning" : "checks"}
+            size={sizes.icon.xs}
+            color={status === "read" ? colors.accentDeep : metaColor}
+            strokeWidth={2.4}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
   const bubble = (
     <BubbleShell
       ref={shell}
@@ -3090,7 +3141,7 @@ export function MessageBubble({
       style={[
         styles.bubble,
         sent ? styles.bubbleSent : styles.bubbleReceived,
-        tail && (sent ? styles.bubbleTailSent : styles.bubbleTailReceived),
+        corners,
         sender ? styles.bubbleInGroup : spaced && styles.bubbleSpaced,
         framed && styles.bubbleFramed,
         reacted && styles.bubbleReacted,
@@ -3148,33 +3199,20 @@ export function MessageBubble({
       ))}
       <View style={framed && styles.bubbleCaption}>
         {body ? (
-          // A phone's long press belongs to the menu, which carries Copy; the
-          // desktop's pointer selects the words themselves.
-          <Text selectable={isDesktop} {...menuAction} style={[styles.bubbleBody, sent && styles.bubbleBodySent]}>
-            {highlightMentions(body, mentionUsernames)}
-          </Text>
-        ) : null}
-        <View style={styles.bubbleMeta}>
-          {disappearing ? <Icon name="timer" size={sizes.icon.xs} color={metaColor} strokeWidth={2.2} /> : null}
-          <Text {...(body ? {} : menuAction)} style={[styles.bubbleTime, { color: metaColor }]}>{formatClock(timestamp)}</Text>
-          {status ? (
-            // The bubble is already the accent, so "read" inverts: accent ticks on a
-            // light chip. The shape tells it from "delivered" without relying on hue.
-            <View
-              accessible
-              accessibilityRole="image"
-              accessibilityLabel={describeStatus(status)}
-              style={status === "read" && styles.bubbleRead}
-            >
-              <Icon
-                name={status === "pending" ? "clock" : status === "sent" ? "check" : status === "failed" ? "warning" : "checks"}
-                size={sizes.icon.xs}
-                color={status === "read" ? colors.accentDeep : metaColor}
-                strokeWidth={2.4}
-              />
-            </View>
-          ) : null}
-        </View>
+          // The time sits over the end of the last line, in room the words
+          // leave for it, so a short message stays one line tall. The room
+          // carries the time for screen readers; the drawn one is hidden.
+          <View>
+            {/* A phone's long press belongs to the menu, which carries Copy;
+                the desktop's pointer selects the words themselves. */}
+            <Text selectable={isDesktop} {...menuAction} style={[styles.bubbleBody, sent && styles.bubbleBodySent]}>
+              {/* The words keep an element of their own, apart from the room. */}
+              <Text>{highlightMentions(body, mentionUsernames)}</Text>
+              <Text style={styles.bubbleMetaRoom}>{metaRoom(clock, metaGlyphs, type.micro.fontSize)}</Text>
+            </Text>
+            {meta}
+          </View>
+        ) : meta}
       </View>
       {reacted ? (
         <Pressable
@@ -3204,7 +3242,7 @@ export function MessageBubble({
         style={[
           styles.bubbleFlash,
           sent ? styles.bubbleFlashSent : styles.bubbleFlashReceived,
-          tail && (sent ? styles.bubbleTailSent : styles.bubbleTailReceived),
+          corners,
           { opacity: flash },
         ]}
       />
@@ -3534,6 +3572,7 @@ export function GroupRow({
   colorSeed,
   subtitle,
   label,
+  time = "",
   unread = 0,
   selected = false,
   onPress,
@@ -3541,14 +3580,17 @@ export function GroupRow({
   name: string;
   avatar?: string;
   colorSeed?: string;
+  // The latest message, or what the group is while it has none.
   subtitle: string;
   label: string;
+  time?: string;
   unread?: number;
   selected?: boolean;
   onPress: () => void;
 }) {
-  const { colors, type } = useTheme();
+  const { type } = useTheme();
   const styles = useStyles();
+  // Laid out as a conversation's row, so both lists read the same way.
   return (
     <Tap
       label={`${label}${unread ? `, ${unreadLabel(unread)}` : ""}`}
@@ -3559,16 +3601,20 @@ export function GroupRow({
     >
       <Avatar name={name} uri={avatar} colorSeed={colorSeed} size={conversationRow.avatar} group />
       <View style={styles.conversationBody}>
-        <Text numberOfLines={1} style={[type.headline, styles.conversationName, unread > 0 && styles.unreadName]}>
-          {name}
-        </Text>
-        <Text numberOfLines={1} style={styles.conversationPreview}>
-          {subtitle}
-        </Text>
+        <View style={styles.conversationLine}>
+          <Text numberOfLines={1} style={[type.headline, styles.conversationName, unread > 0 && styles.unreadName]}>
+            {name}
+          </Text>
+          <View style={layout.flex} />
+          {time ? <Text style={[styles.conversationTime, unread > 0 && styles.unreadTime]}>{time}</Text> : null}
+        </View>
+        <View style={styles.conversationLine}>
+          <Text numberOfLines={1} style={[styles.conversationPreview, layout.flex, unread > 0 && styles.unreadPreview]}>
+            {subtitle}
+          </Text>
+          <UnreadBadge count={unread} />
+        </View>
       </View>
-      <UnreadBadge count={unread} />
-      {/* A sidebar row opens beside the list, so it needs no disclosure arrow. */}
-      {isDesktop ? null : <Icon name="chevron" size={sizes.icon.md} color={colors.text3} strokeWidth={2.4} />}
     </Tap>
   );
 }
@@ -3874,7 +3920,7 @@ export function TabBar<T extends string>({
                   color={active ? colors.accent : colors.text2}
                   strokeWidth={active ? 2.3 : 1.9}
                 />
-                {tab.badge ? <View style={styles.tabBadge}><UnreadBadge count={tab.badge} /></View> : null}
+                {tab.badge ? <View style={[styles.tabBadge, !liquid && styles.tabBadgeRing]}><UnreadBadge count={tab.badge} /></View> : null}
               </View>
             </Pressable>
           );
@@ -4788,6 +4834,8 @@ const useStyles = themed(({ colors, type, elevation }) =>
   bubbleReceived: { alignSelf: "flex-start", backgroundColor: colors.raised },
   bubbleTailSent: { borderBottomRightRadius: isDesktop ? space[1] : space[1.5] },
   bubbleTailReceived: { borderBottomLeftRadius: isDesktop ? space[1] : space[1.5] },
+  bubbleJoinSent: { borderTopRightRadius: isDesktop ? space[1] : space[1.5] },
+  bubbleJoinReceived: { borderTopLeftRadius: isDesktop ? space[1] : space[1.5] },
   // In a group the row spaces the runs, and the gutter takes some of the
   // width a lone bubble could have had.
   bubbleInGroup: { flexShrink: 1, maxWidth: isDesktop ? "70%" : "82%", marginTop: 0 },
@@ -4808,6 +4856,18 @@ const useStyles = themed(({ colors, type, elevation }) =>
     marginTop: space[0.5],
   },
   bubbleTime: { ...type.micro, fontVariant: ["tabular-nums"] },
+  // Over the last line: its foot hangs a touch below the words' baseline.
+  bubbleMetaOver: { position: "absolute", right: 0, bottom: 0, marginTop: 0 },
+  // Set like the time so it measures the same; the line keeps the body's
+  // height, and nothing in it can be seen or selected.
+  bubbleMetaRoom: {
+    fontFamily: type.micro.fontFamily,
+    fontSize: type.micro.fontSize,
+    letterSpacing: type.micro.letterSpacing,
+    fontVariant: ["tabular-nums"],
+    color: "transparent",
+    userSelect: "none",
+  },
   bubbleRead: { backgroundColor: colors.onAccent, borderRadius: radius.pill, paddingHorizontal: space[0.5] },
   // The desktop's react and reply controls: a capsule beside the bubble, on
   // the side facing the thread's centre, shown while the pointer rests on the
@@ -5074,6 +5134,15 @@ const useStyles = themed(({ colors, type, elevation }) =>
   },
   unreadBadgeText: { ...type.micro, color: colors.onAccent, fontFamily: fonts.bold, fontVariant: ["tabular-nums"] },
   tabBadge: { position: "absolute", top: -space[1.5], left: sizes.icon.lg - space[1] },
+  // On the opaque pill a ring in its own colour cuts the badge out of the
+  // glyph beneath, so neither blurs into the other.
+  tabBadgeRing: {
+    top: -space[1.5] - space[0.5],
+    left: sizes.icon.lg - space[1] - space[0.5],
+    padding: space[0.5],
+    borderRadius: radius.pill,
+    backgroundColor: colors.thumb,
+  },
   // The separator starts where a row's text does, past its avatar.
   listSeparator: {
     height: StyleSheet.hairlineWidth,

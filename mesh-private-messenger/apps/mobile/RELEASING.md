@@ -1,7 +1,8 @@
 # Mobile releases
 
 The [Mobile release workflow](../../../.github/workflows/mobile-release.yml)
-runs on every push to `release`. It verifies the candidate, then builds the
+runs on every push to `release` that changes the app or its native core
+([`release-changes.mjs`](../../scripts/release-changes.mjs)). It verifies the candidate, then builds the
 `staging` profile in EAS: an internal-distribution Android APK that uses the
 production EAS environment, so it talks to the deployed backend and its
 database. Each run's summary links the EAS build page, which carries the

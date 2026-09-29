@@ -107,6 +107,8 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.group_invitation_decline_export(request)
       case "mesh_messenger_group_invitations":
         return try MeshLibrary.group_invitations_export(request)
+      case "mesh_messenger_group_forget":
+        return try MeshLibrary.group_forget_export(request)
       case "mesh_messenger_group_key_package":
         return try MeshLibrary.group_key_package_export(request)
       case "mesh_messenger_group_create":
@@ -151,6 +153,8 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.transparency_lookup_export(request)
       case "mesh_messenger_register_request":
         return try MeshLibrary.register_request_export(request)
+      case "mesh_messenger_renew_devices":
+        return try MeshLibrary.renew_devices_export(request)
       case "mesh_messenger_resolve_request":
         return try MeshLibrary.resolve_request_export(request)
       case "mesh_messenger_verify_transparency":

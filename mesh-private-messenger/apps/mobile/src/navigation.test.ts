@@ -38,6 +38,7 @@ test('the scanner returns to the screen that opened it', () => {
   assert.equal(scannerOrigin('link-request'), 'devices');
   assert.equal(scannerOrigin('link-authorization'), 'link-device');
   assert.equal(scannerOrigin('group-key-package'), 'group-info');
+  assert.equal(scannerOrigin('community'), 'groups');
 });
 
 test('every pushed screen has a parent to return to and root screens have none', () => {

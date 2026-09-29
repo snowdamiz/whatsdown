@@ -44,6 +44,7 @@ object MeshLibrary {
     @JvmStatic external fun group_list_export(request: ByteArray): ByteArray
     @JvmStatic external fun group_inspect_export(request: ByteArray): ByteArray
     @JvmStatic external fun group_history_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_forget_export(request: ByteArray): ByteArray
     @JvmStatic external fun receive_message_export(request: ByteArray): ByteArray
     @JvmStatic external fun update_conversation_export(request: ByteArray): ByteArray
     @JvmStatic external fun push_intent_export(request: ByteArray): ByteArray
@@ -57,6 +58,7 @@ object MeshLibrary {
     @JvmStatic external fun directory_lookup_export(request: ByteArray): ByteArray
     @JvmStatic external fun transparency_lookup_export(request: ByteArray): ByteArray
     @JvmStatic external fun register_request_export(request: ByteArray): ByteArray
+    @JvmStatic external fun renew_devices_export(request: ByteArray): ByteArray
     @JvmStatic external fun resolve_request_export(request: ByteArray): ByteArray
     @JvmStatic external fun verify_transparency_export(request: ByteArray): ByteArray
     @JvmStatic external fun privacy_submission_export(request: ByteArray): ByteArray

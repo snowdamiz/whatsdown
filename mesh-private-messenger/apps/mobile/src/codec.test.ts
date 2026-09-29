@@ -94,6 +94,20 @@ test('device summaries and linking QR payloads stay bounded and canonical', () =
   assert.equal(summary.canManage, true);
   assert.equal(summary.devices[0]?.current, true);
   assert.equal(summary.devices[1]?.active, false);
+  // A device still in the account whose credential ran out receives nothing
+  // until it is opened and renewed; it can still be removed.
+  const expired = vectors(new Uint8Array(16).fill(4), Uint8Array.of(2), Uint8Array.of(0));
+  const lapsed = parseDeviceSetSummary(
+    vectors(utf8('alice'), new Uint8Array(32).fill(3), u64(9n), Uint8Array.of(0), Uint8Array.of(1),
+      vectors(writeU32(2), current, expired)),
+  );
+  assert.equal(lapsed.devices[0]?.expired, false);
+  assert.equal(lapsed.devices[1]?.active, true);
+  assert.equal(lapsed.devices[1]?.expired, true);
+  assert.throws(() => parseDeviceSetSummary(
+    vectors(utf8('alice'), new Uint8Array(32).fill(3), u64(9n), Uint8Array.of(0), Uint8Array.of(1),
+      vectors(writeU32(1), vectors(new Uint8Array(16).fill(4), Uint8Array.of(3), Uint8Array.of(0)))),
+  ));
 
   const profile = vectors(
     utf8('alice'),

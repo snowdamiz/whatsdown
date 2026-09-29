@@ -65,6 +65,21 @@ it next connects. Each device accepts separately, and QR joining is optional.
 Both devices need a native build with the
 [group invitation protocol](../../protocol/group-invitations-v1.md).
 
+Turn on **Community** when creating a group to make it a community: a thread
+where only its owner and admins post announcements, plus groups linked from
+**Community details** that members ask to join. Requests notify the owner and
+admins and appear in the same details, where **Invite** sends the usual group
+invitation. The owner makes members admins or hands ownership over from
+**Manage**; anyone else can **Leave community** on all their devices at once.
+Owners and admins share an **Invite link** (a QR code or text link); anyone who
+opens it with **Join a community** in Groups, or from a message it was shared
+in, asks that admin to let them in, and joins once approved. A
+community past 64 devices spreads over more groups, which the app joins and
+merges on its own. Every member needs a native build with the
+[community record](../../protocol/communities-v1.md). After the desktop web
+export, `npm run test:communities` checks these flows in the real UI with native
+I/O mocked.
+
 [Client privacy revision 2](../../protocol/client-privacy-v2.md) binds safety
 numbers to account keys, encrypts initial sender credentials for the recipient,
 and pads new message packets inside encryption. Update mobile and CLI clients

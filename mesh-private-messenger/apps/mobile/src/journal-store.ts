@@ -6,7 +6,7 @@
 // one record per chat plus one naming the chats that have a record. Opening a chat
 // then rewrites that chat's few kilobytes and nothing else.
 
-export type JournalName = 'read-state' | 'notification-state' | 'receipt-marks';
+export type JournalName = 'read-state' | 'notification-state' | 'receipt-marks' | 'community-requests';
 // Where a journal was kept before it was sealed: read once, removed once sealed.
 export type LegacyJournal = { read: () => string | null; remove: () => void };
 

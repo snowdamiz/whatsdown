@@ -56,7 +56,8 @@ export type ScanMode =
   | 'contact'
   | 'link-request'
   | 'link-authorization'
-  | 'group-key-package';
+  | 'group-key-package'
+  | 'community';
 
 // The scanner is pushed from four places; cancelling returns to whichever one
 // opened it.
@@ -67,6 +68,7 @@ const scannerOrigins: Record<ScanMode, ScannerOrigin> = {
   'link-request': 'devices',
   'link-authorization': 'link-device',
   'group-key-package': 'group-info',
+  community: 'groups',
 };
 
 export function scannerOrigin(mode: ScanMode): ScannerOrigin {
