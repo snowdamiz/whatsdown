@@ -55,6 +55,11 @@ fn proof() -> Bool!String do
   let group = "notification-state/group/" <> Bytes.to_hex(repeated(12, 32)?)
   saved(path, group, Bytes.from_utf8("[]"))?
   assert(Bytes.secure_equals(loaded(path, group)?, Bytes.from_utf8("[]")))
+  # Which requests to join a community an admin declined, by the chat they came in.
+  let answered = "community-requests/chat/" <> Bytes.to_hex(repeated(10, 16)?)
+  saved(path, answered, marks)?
+  assert(Bytes.secure_equals(loaded(path, answered)?, marks))
+  assert(refused(path, "community-requests/group/" <> Bytes.to_hex(repeated(12, 32)?)))
   # A single zero byte removes a record.
   saved(path, chat, Bytes.from_hex("00")?)?
   assert(Bytes.length(loaded(path, chat)?) == 0)
@@ -74,7 +79,7 @@ fn proof() -> Bool!String do
   Ok(true)
 end
 
-test("the app's read, notification and receipt journals are sealed, and only they can be named") do
+test("the app's read, notification, receipt and community-request journals are sealed, and only they can be named") do
   case proof() do
     Err(error) -> do
       println(error)

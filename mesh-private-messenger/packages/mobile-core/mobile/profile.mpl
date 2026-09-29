@@ -6,14 +6,7 @@ from Identity.Device import (
   generate_device
 )
 from Mobile.Codec import mobile_wide
-from Mobile.Types import MobileOneTimePrekey
-from Prekeys.Bundle import (
-  OneTimePrekeySecrets,
-  PostQuantumPrekeySecrets,
-  PrekeyError,
-  SignedPrekeySecrets,
-  generate_post_quantum_prekey
-)
+from Prekeys.Bundle import PostQuantumPrekeySecrets, generate_post_quantum_prekey
 from Protocol.DirectoryWire import encode_directory_entry
 from Protocol.V1 import (
   AccountIdentity,
@@ -26,8 +19,6 @@ from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import (
   context,
   local_context,
-  one_time_prekey_context,
-  one_time_prekey_label,
   open_local,
   open_mlkem,
   open_signing,
@@ -103,16 +94,6 @@ pub fn open_account(profile :: ClientProfile,
       public_key: SigningPublicKey { bytes: profile.account.authorization_public_key }
     })
   end
-end
-
-fn reject_prekey_open(signed_private :: consume X25519PrivateKey, error :: String) -> Result<(SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String> do
-  Err(error)
-end
-
-fn reject_post_quantum_open(signed_private :: consume X25519PrivateKey,
-  one_time_private :: consume X25519PrivateKey,
-  error :: String) -> Result<(SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String> do
-  Err(error)
 end
 
 pub fn open_post_quantum_prekey(profile :: ClientProfile,
@@ -197,37 +178,4 @@ pub fn open_pending_post_quantum_prekey(request :: DeviceLinkRequest,
     private_key: private_key,
     public_key: MlKemPublicKey { bytes: request.post_quantum_public_key }
   })
-end
-
-pub fn open_prekeys(profile :: ClientProfile,
-  wrapping_key :: borrow StorageKey,
-  database_path :: String,
-  selected :: MobileOneTimePrekey) -> Result<(SignedPrekeySecrets, OneTimePrekeySecrets, PostQuantumPrekeySecrets), String> do
-  let signed_blob = load_blob(database_path, "signed-prekey/v1")?
-  let one_time_label = one_time_prekey_label(selected.id)
-  let one_time_blob = load_blob(database_path, one_time_label)?
-  let signed_context = context(profile.account_id, profile.device_id, "signed-prekey/v1", 9)?
-  let one_time_context = one_time_prekey_context(profile, selected.id)?
-  case open_x25519(signed_blob, wrapping_key, signed_context) do
-    Err(error)
-    Ok(signed_private) -> case open_x25519(one_time_blob, wrapping_key, one_time_context) do
-      Err(error) -> reject_prekey_open(signed_private, error)
-      Ok(one_time_private) -> case open_post_quantum_prekey(profile, wrapping_key, database_path) do
-        Err(error) -> reject_post_quantum_open(signed_private, one_time_private, error)
-        Ok(post_quantum) -> Ok((SignedPrekeySecrets {
-            id: profile.bundle.signed_prekey_id,
-            private_key: signed_private,
-            public_key: X25519PublicKey { bytes: profile.bundle.signed_prekey },
-            signature: Signature { bytes: profile.bundle.signed_prekey_signature },
-            expires_at: profile.bundle.expires_at
-          },
-          OneTimePrekeySecrets {
-            id: selected.id,
-            private_key: one_time_private,
-            public_key: X25519PublicKey { bytes: selected.public_key }
-          },
-          post_quantum))
-      end
-    end
-  end
 end

@@ -258,11 +258,16 @@ pub struct MobileExpoRawToken do
   device_token :: String
 end
 
+# profiles: the devices anyone may encrypt to. expired: devices still signed
+# into the account whose credential or signed prekey has run out; no one
+# encrypts to them until they are renewed, but they can be renewed and removed.
+
 pub struct MobileVerifiedDeviceSet do
   wire :: Bytes
   value :: DeviceSet
   account :: AccountIdentity
   profiles :: List<ClientProfile>
+  expired :: List<ClientProfile>
 end
 
 pub struct MobileClaimedPrekey do

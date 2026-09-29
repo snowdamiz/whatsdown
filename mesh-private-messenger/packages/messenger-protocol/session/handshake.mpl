@@ -406,3 +406,34 @@ pub fn receive_initial(responder :: borrow DeviceKeys,
     },
     plaintext))
 end
+
+## Whether a first message was sealed to exactly this responder bundle, with
+## the one-time prekey it names filled in. A device that renews keeps earlier
+## bundles for a while, and some share a signed prekey: only the transcript,
+## which binds the bundle's hash, tells them apart.
+
+pub fn initial_message_uses_bundle(responder_bundle :: PrekeyBundle,
+  strongest_authenticated_suite :: Int,
+  message_bytes :: Bytes) -> Bool do
+  bundle_matches_message(responder_bundle, strongest_authenticated_suite, message_bytes)
+    |> Option.unwrap_or(false)
+end
+
+## Whether the message was sealed to the bundle, or `None` when any step of
+## reading it fails, which is a no.
+fn bundle_matches_message(responder_bundle :: PrekeyBundle,
+  strongest_authenticated_suite :: Int,
+  message_bytes :: Bytes) -> Option<Bool> do
+  let message = decode_initial_message(message_bytes) |> Result.ok()?
+  let credential = decode_device_credential(message.initiator_credential) |> Result.ok()?
+  let suite = selected_suite(credential, responder_bundle, strongest_authenticated_suite)
+    |> Result.ok()?
+  let transcript = transcript_for(credential,
+    responder_bundle,
+    message.initiator_ephemeral_public_key,
+    suite)
+    |> Result.ok()?
+  let hash = transcript_hash(transcript) |> Result.ok()?
+  Some(U64.compare(message.signed_prekey_id, responder_bundle.signed_prekey_id) == 0
+    && Bytes.secure_equals(hash, message.transcript_hash))
+end

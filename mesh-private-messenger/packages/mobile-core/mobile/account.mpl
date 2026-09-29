@@ -24,6 +24,7 @@ from Mobile.Codec import (
   random_bytes
 )
 from Mobile.DeviceSet import (
+  account_device_profiles,
   cached_device_set_changed,
   contains_device_id,
   device_set_label,
@@ -500,8 +501,12 @@ pub fn device_link_sas(input :: Bytes) -> Bytes!String do
   end
 end
 
+# state: 1 receives messages, 2 is signed into the account but expired, so it
+# receives nothing until it is opened and renewed.
+
 fn active_device_rows(profiles :: List<ClientProfile>,
   local_device_id :: Bytes,
+  state :: Int,
   index :: Int,
   rows :: List<Bytes>) -> List<Bytes>!String do
   if index >= List.length(profiles) do
@@ -510,7 +515,7 @@ fn active_device_rows(profiles :: List<ClientProfile>,
     let profile = List.get(profiles, index)
     let row = mobile_join([
         mobile_vector(profile.device_id)?,
-        mobile_vector(mobile_byte(1)?)?,
+        mobile_vector(mobile_byte(state)?)?,
         mobile_vector(mobile_byte(if Bytes.secure_equals(profile.device_id, local_device_id) do
           1
         else
@@ -519,7 +524,7 @@ fn active_device_rows(profiles :: List<ClientProfile>,
       ],
       0,
       Bytes.empty())?
-    active_device_rows(profiles, local_device_id, index + 1, List.append(rows, row))
+    active_device_rows(profiles, local_device_id, state, index + 1, List.append(rows, row))
   end
 end
 
@@ -556,7 +561,8 @@ pub fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes!String do
     end
     Ok(_) -> Ok(true)
   end?
-  let active = active_device_rows(verified.profiles, local.device_id, 0, List.new())?
+  let reachable = active_device_rows(verified.profiles, local.device_id, 1, 0, List.new())?
+  let active = active_device_rows(verified.expired, local.device_id, 2, 0, reachable)?
   let rows = revoked_device_rows(verified.value.revoked_device_ids, 0, active)?
   mobile_join([
       mobile_vector(Bytes.from_utf8(verified.value.username))?,
@@ -611,7 +617,7 @@ pub fn create_device_revocation(request :: MobileTriplePayloadRequest) -> Bytes!
   let wrapping_key = platform_key()?
   require_transparency_device_set(request.database_path, wrapping_key, devices)?
   let target = request.second
-  let allowed = Bytes.length(target) == 16 && local_device_set(local, devices) && List.length(devices.profiles) > 1 && contains_device_id(devices.profiles,
+  let allowed = Bytes.length(target) == 16 && local_device_set(local, devices) && List.length(account_device_profiles(devices)) > 1 && contains_device_id(account_device_profiles(devices),
     target,
     0) && !Bytes.secure_equals(local.device_id, target)
   if !allowed do

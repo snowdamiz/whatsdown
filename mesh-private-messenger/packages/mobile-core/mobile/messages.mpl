@@ -19,7 +19,8 @@ from Mobile.Prekeys import (
   seal_last_resort_replay,
   seal_prekey_pool
 )
-from Mobile.Profile import load_profile, open_device, open_prekeys, policy
+from Mobile.Profile import load_profile, open_device, policy
+from Mobile.Renewal import open_bundle_prekeys, own_bundle_policy, responder_prekey_bundle
 from Mobile.Transport import MobileOpenedPacket, open_outer_packet, sealed_outer_bytes
 from Mobile.Sessions import (
   ensure_conversation_alias,
@@ -329,7 +330,6 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
       else
         Ok(nil)
       end?
-      let responder_bundle = %{local.bundle | one_time_prekey_id: selected_prekey.id, one_time_prekey: selected_prekey.public_key}
       let initiator_credential = case decode_device_credential(initial.initiator_credential) do
         Err(_) -> Err("invalid_initiator_credential")
         Ok(value)
@@ -341,9 +341,18 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         session_ids,
         0,
         0)?
-      let (signed, one_time, post_quantum) = open_prekeys(local,
+      # The bundle this message was sealed to: the current one, or one renewed
+      # away from recently enough that its mail may still arrive.
+      let responder_bundle = responder_prekey_bundle(request.database_path,
+        wrapping_key,
+        local,
+        selected_prekey,
+        strongest_suite,
+        packet_message)?
+      let (signed, one_time, post_quantum) = open_bundle_prekeys(local,
         wrapping_key,
         request.database_path,
+        responder_bundle,
         selected_prekey)?
       let now = current_time()?
       let (state, plaintext) = case receive_initial(local_device,
@@ -353,7 +362,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         one_time,
         post_quantum,
         initiator_account,
-        policy(local, now),
+        own_bundle_policy(local, responder_bundle, now),
         VerificationPolicy {
           current_time: now,
           minimum_directory_sequence: initiator_account.directory_sequence

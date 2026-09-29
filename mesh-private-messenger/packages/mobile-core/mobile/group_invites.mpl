@@ -20,6 +20,7 @@ from Mobile.GroupState import (
   load_group_baseline
 )
 from Mobile.Groups import add_mobile_group_member_with_updates
+from Mobile.Presentation import community_change_allowed
 from Mobile.Profile import load_profile
 from Mobile.Sessions import find_peer_session, load_session_ids
 from Mobile.Transparency import require_transparency_device_set
@@ -42,6 +43,9 @@ pub fn invite_to_group(request :: MobileFanoutRequest) -> Bytes!String do
   let group = load_group(path, local, key, request.body)?
   let member = member_at(group.tree, group.local_leaf)
   consume_group_state(group)
+  if !community_change_allowed(path, key, request.body, local.account_id, Bytes.empty())? do
+    return Err("community_admin_required")
+  end
   case member do
     Err(_) -> return Err("group_member_not_found")
     Ok(_) -> nil

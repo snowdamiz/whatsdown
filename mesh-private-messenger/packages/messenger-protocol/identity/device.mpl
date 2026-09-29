@@ -211,6 +211,32 @@ pub fn issue_public_device_credential(account :: borrow AccountKeys,
     directory_sequence)
 end
 
+## The next hybrid credential for a device the account already holds: the same
+## device and keys, the ML-KEM prekey it asked for, a new lifetime and the
+## next device-set sequence.
+
+pub fn issue_renewed_device_credential(account :: borrow AccountKeys,
+  previous :: DeviceCredential,
+  post_quantum_public_key :: Bytes,
+  created_at :: U64,
+  expires_at :: U64,
+  directory_sequence :: U64) -> DeviceCredential!IdentityError do
+  if !Bytes.secure_equals(previous.account_id, account.account_id) do
+    Err(InvalidCredential)
+  else
+    issue_credential(account,
+      previous.device_id,
+      previous.signing_public_key,
+      previous.dh_public_key,
+      post_quantum_public_key,
+      2,
+      previous.capabilities,
+      created_at,
+      expires_at,
+      directory_sequence)
+  end
+end
+
 fn issue_credential(account :: borrow AccountKeys,
   device_id :: Bytes,
   signing_public_key :: Bytes,

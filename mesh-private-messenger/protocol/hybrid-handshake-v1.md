@@ -32,9 +32,15 @@ and fails initial AEAD authentication without producing a session.
   `0x0001` offer as `DowngradeDetected`.
 - Existing classical snapshots and mobile session records remain suite
   `0x0001`; there is no in-place key conversion.
-- New development accounts publish hybrid credentials. Existing or linked
-  classical devices move to suite `0x0002` only after credential/prekey
-  rotation; established classical sessions remain valid until replaced.
+- New development accounts publish hybrid credentials. A classical device
+  moves to suite `0x0002` at its first renewal (`multi-device-wire-v1.md`,
+  "Renewal"): every renewed credential is hybrid, and a linked device's
+  request signs its next signed prekey for suite `0x0002` ahead of the answer.
+  Established classical sessions remain valid until replaced.
+- The ML-KEM-768 prekey is not static: each renewal of a device's credential,
+  ninety days into its one-year life, binds a new one. Its secret outlives the
+  switch by 35 days, like the signed prekey's, and the responder opens a first
+  message with the prekeys of the exact bundle its transcript names.
 
 Suite 1 wire vectors are unchanged. The compiler proof pins the ML-KEM-768 key
 generation result to NIST ACVP FIPS 203 `tcId 26`; messenger tests cover hybrid

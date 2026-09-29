@@ -29,6 +29,7 @@ from Mobile.GroupInvites import (
 from Mobile.FanoutPrekeys import fanout_prekey_claims, prepare_fanout_prekeys, reserve_fanout_prekey
 from Mobile.GroupState import (
   create_group_key_package,
+  forget_mobile_group,
   inspect_mobile_group,
   list_mobile_groups,
   mobile_group_history
@@ -55,6 +56,7 @@ from Mobile.Prekeys import reconcile_prekeys, replenish_prekeys
 from Mobile.Journal import load_journal, save_journal
 from Mobile.Presentation import load_presentation
 from Mobile.Profile import load_profile
+from Mobile.Renewal import renew_devices
 from Mobile.Push import complete_push_action, push_action, push_intent, push_status
 from Mobile.Requests import (
   parse_account_request,
@@ -297,6 +299,10 @@ end
   mobile_group_history(parse_group_reference_request(request)?)
 end
 
+@export("mesh_messenger_group_forget") pub fn group_forget_export(request :: Bytes) -> Bytes!String do
+  forget_mobile_group(parse_group_reference_request(request)?)
+end
+
 @export("mesh_messenger_receive_message") pub fn receive_message_export(request :: Bytes) -> Bytes!String do
   receive_message(parse_receive_request(request)?)
 end
@@ -356,6 +362,15 @@ end
 @export("mesh_messenger_register_request") pub fn register_request_export(request :: Bytes) -> Bytes!String do
   stamped_request("mesh-msg/v1/work/register",
     directory_entry_for(mobile_utf8(request, "invalid_database_path")?)?)
+end
+
+# The registrations that renew this device (and, on the device holding the
+# account key, the linked devices that asked), for its account's verified
+# device set. Each is already wrapped in proof of work for the register
+# endpoint; send them in order and stop at the first refusal.
+
+@export("mesh_messenger_renew_devices") pub fn renew_devices_export(request :: Bytes) -> Bytes!String do
+  renew_devices(parse_payload_request(request)?)
 end
 
 @export("mesh_messenger_resolve_request") pub fn resolve_request_export(request :: Bytes) -> Bytes!String do

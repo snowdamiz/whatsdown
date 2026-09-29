@@ -28,6 +28,7 @@ from Mobile.Inbox import permanent_direct_delivery_error
 from Mobile.InboxState import inbox_state_writes, load_delivery_attempts, load_fetch_cursor
 from Mobile.Platform import expo_project_id, expo_registration_body, parse_expo_raw_token
 from Mobile.Prekeys import load_prekey_pool
+from Mobile.Renewal import renew_devices_at
 from Mobile.Profile import (
   directory_bytes,
   load_profile,
@@ -746,4 +747,11 @@ pub fn has_fanout_prekey_state_for_test(database_path :: String, profile_wire ::
     end
   end
   Ok(reservation || claim)
+end
+
+# The registrations renewal would make now, unstamped, with the renewal clock
+# moved `age` milliseconds ahead: how a test lets months pass.
+
+pub fn renew_devices_for_test(database_path :: String, device_set :: Bytes, age :: Int) -> List<Bytes>!String do
+  renew_devices_at(database_path, device_set, U64.parse(Int.to_string(age))?)
 end

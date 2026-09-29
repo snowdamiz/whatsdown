@@ -3,7 +3,7 @@ from Mobile.ContactAddress import deposit_address
 from Mobile.Delivery import DeliveryRecord, delivery_state, load_delivery
 from Mobile.Transparency import fresh_account_device_set
 from Mobile.Transport import sealed_outer_bytes
-from Mobile.Presentation import presented_message_writes
+from Mobile.Presentation import group_record_labels, presented_message_writes
 from Binary.Reader import BinaryReader, finish, reader
 from Groups.CommitWire import decode_group_commit, encode_group_commit
 from Groups.GroupMessages import decode_group_message, encode_group_message
@@ -59,7 +59,7 @@ from Mobile.Types import (
 from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceSet, DirectoryEntry, PrekeyBundle
 from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import context, local_context, open_local, platform_key, seal_local, seal_x25519
-from Storage.Records import store_blobs
+from Storage.Records import store_blobs, store_record_changes
 from Transparency.Merkle import TransparencyCheckpoint, checkpoint_hash
 from Transparency.Wire import decode_checkpoint, encode_checkpoint
 from Transport.Packet import ClientProfile, decode_client_profile
@@ -797,6 +797,25 @@ pub fn list_mobile_groups(database_path :: String) -> Bytes!String do
       0,
       List.new())?)
   end
+end
+
+# Leaving a community forgets it here in one transaction: its place in the
+# index, its state and keys, its history, baseline and records.
+
+pub fn forget_mobile_group(request :: MobileGroupReferenceRequest) -> Bytes!String do
+  ensure_schema(request.database_path)?
+  let wrapping_key = platform_key()?
+  let remaining = List.filter(load_group_ids(request.database_path, wrapping_key)?,
+    fn (id) do !Bytes.secure_equals(id, request.group_id) end)
+  store_record_changes(request.database_path,
+    ["groups/v1"],
+    [seal_local(encode_output_list(remaining)?, wrapping_key, local_context("groups/v1")?)?],
+    [
+      group_state_label(request.group_id)?,
+      group_history_label(request.group_id),
+      group_baseline_label(request.group_id)?
+    ] ++ group_record_labels(request.group_id))?
+  Ok(Bytes.empty())
 end
 
 pub fn mobile_group_history(request :: MobileGroupReferenceRequest) -> Bytes!String do

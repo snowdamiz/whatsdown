@@ -1,6 +1,7 @@
 from Identity.Device import verify_account_deletion, verify_device_departure, verify_device_revocation
 from Prekeys.Pool import OneTimePrekeyPublic
 from Prekeys.Bundle import normalize_prekey_bundle, verify_prekey_bundle
+from Prekeys.Renewal import BundleTransition, classify_bundle_transition
 from Protocol.DirectoryWire import encode_account_deletion, encode_device_departure, encode_device_revocation, encode_device_set, encode_directory_entry
 from Protocol.IdentityWire import decode_account_identity, decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
@@ -44,11 +45,16 @@ pub type AccountRemoval do
   AccountRemovalRefused
 end deriving(Eq, Debug)
 
+# lapsed: the bundle verifies, but its credential or signed prekey has expired.
+# Such a device may still answer its own entry as registered and ask for its
+# renewal; nothing else.
+
 struct VerifiedRegistration do
   entry :: DirectoryEntry
   account :: AccountIdentity
   credential :: DeviceCredential
   initial_prekey :: Option<OneTimePrekeyPublic>
+  lapsed :: Bool
 end
 
 fn binary(value :: DbValue) -> Bytes!String do
@@ -104,30 +110,47 @@ fn verified_registration(entry :: DirectoryEntry) -> VerifiedRegistration!String
     Err(_) -> Err("invalid device registration")
     Ok(value)
   end?
-  case verify_prekey_bundle(account, bundle, 1, current_time()?, account.directory_sequence) do
-    Err(_) -> Err("invalid device registration")
-    Ok(false) -> Err("invalid device registration")
-    Ok(true) -> do
-      let initial_prekey = if Bytes.length(bundle.one_time_prekey) == 32 do
-        Some(OneTimePrekeyPublic {
-          id: bundle.one_time_prekey_id,
-          public_key: bundle.one_time_prekey
-        })
-      else
-        None
-      end
-      let base = normalized_bundle(bundle)?
-      let encoded_base = case encode_prekey_bundle(base) do
-        Err(_) -> Err("invalid normalized prekey bundle")
-        Ok(output)
-      end?
-      Ok(VerifiedRegistration {
-        entry: %{entry | prekey_bundle: encoded_base},
-        account: account,
-        credential: credential,
-        initial_prekey: initial_prekey
+  let now = current_time()?
+  let current = case verify_prekey_bundle(account, bundle, 1, now, account.directory_sequence) do
+    Err(_) -> false
+    Ok(valid) -> valid
+  end
+  let lapse = if U64.compare(bundle.expires_at, credential.expires_at) < 0 do
+    bundle.expires_at
+  else
+    credential.expires_at
+  end
+  let lapsed = !current && U64.compare(lapse, now) < 0 && case verify_prekey_bundle(account,
+    bundle,
+    1,
+    lapse,
+    account.directory_sequence) do
+    Err(_) -> false
+    Ok(valid) -> valid
+  end
+  if !current && !lapsed do
+    Err("invalid device registration")
+  else
+    let initial_prekey = if Bytes.length(bundle.one_time_prekey) == 32 do
+      Some(OneTimePrekeyPublic {
+        id: bundle.one_time_prekey_id,
+        public_key: bundle.one_time_prekey
       })
+    else
+      None
     end
+    let base = normalized_bundle(bundle)?
+    let encoded_base = case encode_prekey_bundle(base) do
+      Err(_) -> Err("invalid normalized prekey bundle")
+      Ok(output)
+    end?
+    Ok(VerifiedRegistration {
+      entry: %{entry | prekey_bundle: encoded_base},
+      account: account,
+      credential: credential,
+      initial_prekey: initial_prekey,
+      lapsed: lapsed
+    })
   end
 end
 
@@ -238,13 +261,19 @@ fn record_device_set(conn :: borrow PgConn,
   Ok(DeviceAccepted)
 end
 
+# A registration for a device already here: the same entry, one it has since
+# replaced (both answer as registered), or the next logged transition of its
+# bundle, which classify_bundle_transition defines. A lapsed device may only
+# ask for its renewal, which keeps its credential.
+
 fn rotate_on_connection(conn :: borrow PgConn,
   entry :: DirectoryEntry,
   account :: AccountIdentity,
   credential :: DeviceCredential,
   row :: Map<String, DbValue>,
   device_row :: Map<String, DbValue>,
-  token_hash :: Bytes) -> DeviceWrite!String do
+  token_hash :: Bytes,
+  lapsed :: Bool) -> DeviceWrite!String do
   let mailbox_matches = text(Map.get(device_row, "mailbox_active"))? == "true" && Bytes.secure_equals(binary(Map.get(device_row,
       "mailbox_token"))?,
     entry.mailbox_token) && Bytes.secure_equals(binary(Map.get(device_row, "mailbox_token_hash"))?,
@@ -256,26 +285,30 @@ fn rotate_on_connection(conn :: borrow PgConn,
     Err(_) -> Err("invalid stored prekey bundle")
     Ok(value)
   end?
-  let stored_credential = case decode_device_credential(stored_bundle.device_credential) do
-    Err(_) -> Err("invalid stored device credential")
-    Ok(value)
-  end?
   let proposed_bundle = case decode_prekey_bundle(entry.prekey_bundle) do
     Err(_) -> Err("invalid proposed prekey bundle")
     Ok(value)
   end?
   let sequence = wide(Map.get(row, "sequence"))?
   let next_sequence = U64.add(sequence, U64.parse("1")?)?
-  let same_keys = Bytes.secure_equals(stored_credential.signing_public_key,
-    credential.signing_public_key) && Bytes.secure_equals(stored_credential.dh_public_key,
-    credential.dh_public_key)
-  let same_signed_prekey = U64.compare(stored_bundle.signed_prekey_id,
-    proposed_bundle.signed_prekey_id) == 0 && Bytes.secure_equals(stored_bundle.signed_prekey,
-    proposed_bundle.signed_prekey) && U64.compare(stored_bundle.expires_at,
-    proposed_bundle.expires_at) == 0
-  let rotates_to_hybrid = stored_credential.suite == 1 && credential.suite == 2 && Bytes.length(credential.post_quantum_public_key) == 1184
-  if !mailbox_matches || !same_keys || !same_signed_prekey || !rotates_to_hybrid || U64.compare(credential.directory_sequence,
-    next_sequence) != 0 do
+  if !mailbox_matches do
+    return Err("messenger_devices_conflict")
+  end
+  let transition = classify_bundle_transition(stored_bundle, proposed_bundle, next_sequence)
+  let accepted = case transition do
+    TransitionAccepted -> true
+    _ -> false
+  end
+  let replayed = case transition do
+    TransitionReplayed -> true
+    _ -> false
+  end
+  if replayed do
+    return Ok(DeviceUnchanged)
+  end
+  let keeps_credential = Bytes.secure_equals(stored_bundle.device_credential,
+    proposed_bundle.device_credential)
+  if !accepted || (lapsed && !keeps_credential) do
     return Err("messenger_devices_conflict")
   end
   let changed = Pg.execute_values(conn,
@@ -294,7 +327,8 @@ fn register_on_connection(conn :: borrow PgConn,
   entry :: DirectoryEntry,
   account :: AccountIdentity,
   credential :: DeviceCredential,
-  initial_prekey :: Option<OneTimePrekeyPublic>) -> DeviceWrite!String do
+  initial_prekey :: Option<OneTimePrekeyPublic>,
+  lapsed :: Bool) -> DeviceWrite!String do
   Pg.execute_values(conn,
     "INSERT INTO messenger_accounts (username, account_id, account_identity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
     [Text(entry.username), Binary(account.account_id), Binary(entry.account_identity)])?
@@ -336,7 +370,11 @@ fn register_on_connection(conn :: borrow PgConn,
       credential,
       row,
       List.head(existing),
-      token_hash)
+      token_hash,
+      lapsed)
+  end
+  if lapsed do
+    return Err("messenger_device_lapsed")
   end
   let sequence = wide(Map.get(row, "sequence"))?
   let next_sequence = U64.add(sequence, U64.parse("1")?)?
@@ -387,9 +425,12 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
           verified.entry,
           verified.account,
           verified.credential,
-          verified.initial_prekey) end) do
+          verified.initial_prekey,
+          verified.lapsed) end) do
         Err(error) -> if String.contains(error, "transparency_log_full") do
           Ok(DeviceLogFull)
+        else if String.contains(error, "messenger_device_lapsed") do
+          Ok(DeviceInvalid)
         else if String.contains(error, "messenger_account_deleted") do
           Ok(DeviceRemoved(deletion_statement(pool, verified.account.account_id)?))
         else if String.contains(error, "messenger_device_revoked") do

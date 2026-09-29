@@ -100,6 +100,30 @@ pub fn reauthorize_signed_prekey(device :: borrow DeviceKeys,
   end
 end
 
+## Whether a device signed this prekey for a credential of this version, suite,
+## account and device. The statement binds no other credential field, so a
+## signature made ahead of a renewal stays valid under the new credential.
+
+pub fn signed_prekey_signature_valid(credential :: DeviceCredential,
+  id :: U64,
+  public_key :: Bytes,
+  expires_at :: U64,
+  signature :: Bytes) -> Bool do
+  if Bytes.length(public_key) != 32 || Bytes.length(signature) != 64 || Bytes.length(credential.signing_public_key) != 32 do
+    false
+  else
+    case signed_prekey_statement(credential, id, X25519PublicKey { bytes: public_key }, expires_at) do
+      Err(_) -> false
+      Ok(statement) -> case Crypto.verify(SigningPublicKey { bytes: credential.signing_public_key },
+        statement,
+        Signature { bytes: signature }) do
+        Err(_) -> false
+        Ok(valid) -> valid
+      end
+    end
+  end
+end
+
 pub fn generate_one_time_prekey(id :: U64) -> OneTimePrekeySecrets!PrekeyError do
   case Crypto.x25519_generate() do
     Err(error) -> Err(CryptoFailure(error))

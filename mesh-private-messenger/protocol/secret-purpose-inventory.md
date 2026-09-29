@@ -9,10 +9,10 @@ the version 1 classical and experimental hybrid profiles.
 | Account authorization private key | `SigningPrivateKey` | Account device; until rotation or revocation | Sealed |
 | Device signing private key | `SigningPrivateKey` | Device; until revocation | Sealed |
 | Device identity DH private key | `X25519PrivateKey` | Device; until rotation or revocation | Sealed |
-| Signed-prekey private key | `X25519PrivateKey` | Device; one key for the life of its credential (a year). It is not rotated yet, so there is no overlap window | Sealed |
+| Signed-prekey private key | `X25519PrivateKey` | Device; replaced with each renewal, ninety days into its one-year life, then kept until 35 days after the verified device set shows its successor; at most sixteen replaced bundles | Sealed until destroyed |
 | One-time-prekey private key | `X25519PrivateKey` | Device; consumed by one accepted establishment | Sealed until consumed |
 | Last-resort-prekey private key | `X25519PrivateKey` | Device; handed out for a week, then kept until 35 days after the directory confirms its replacement; at most sixteen replaced keys | Sealed until destroyed |
-| Post-quantum prekey seed | `MlKemPrivateKey` | Device; current hybrid prekey | Sealed |
+| Post-quantum prekey seed | `MlKemPrivateKey` | Device; replaced with each renewal of its credential, then kept as long as the signed prekey it was renewed with | Sealed until destroyed |
 | ML-KEM shared secret | `SecretBytes` | Hybrid establishment operation only | Never |
 | Handshake shared secret | `SecretBytes` | Establishment operation only | Never |
 | Ratchet root key | `SecretBytes` | One local session | Sealed in the session snapshot |

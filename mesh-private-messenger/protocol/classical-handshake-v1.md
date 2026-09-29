@@ -50,7 +50,9 @@ unsigned encoding retains the 64-byte signature field filled with zeroes.
 Verification also requires an explicit current Unix-millisecond time and the
 caller's minimum observed directory sequence. Credentials created in the
 future, expired credentials or bundles, and account or credential sequence
-rollback are rejected before key agreement.
+rollback are rejected before key agreement. A responder checks its own bundle
+as of the last moment it was valid, so a first message sealed to it just
+before it ran out, or before a renewal replaced it, still opens.
 
 ## Agreement and derivation
 
