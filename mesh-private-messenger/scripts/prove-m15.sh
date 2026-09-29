@@ -59,10 +59,8 @@ main() {
     cargo test -p meshc --test e2e_crypto_v2 -- --exact \
       crypto_v2_public_api_compiles_and_executes_natively)
 
-  "$meshc_bin" fmt "$protocol_root/groups" --check
-  "$meshc_bin" fmt "$protocol_root/tests" --check
+  # Layout is owned by .github/workflows/mesh-format.yml, not checked here.
   "$meshc_bin" test "$protocol_root/tests"
-  "$meshc_bin" fmt "$mobile_root" --check
   for group_test in "$mobile_root"/tests/group_consistency*.test.mpl \
     "$mobile_root/tests/groups.test.mpl"; do
     "$meshc_bin" test "$group_test"
