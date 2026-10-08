@@ -13,6 +13,7 @@ from Groups.CommitWire import (
 from Groups.GroupCodec import (
   group_join,
   group_next_epoch,
+  group_policy_after,
   group_tree_error,
   group_tree_member_error,
   group_valid_extensions,
@@ -220,8 +221,10 @@ end
 
 fn prepare_add(state :: borrow GroupState,
   signing_key :: borrow SigningPrivateKey,
-  member :: GroupMember) -> PreparedGroupAdd!GroupError do
-  group_validate_member_policy(member, state.extensions, state.policy)?
+  member :: GroupMember,
+  witness_set :: Bytes) -> PreparedGroupAdd!GroupError do
+  let policy = group_policy_after(state.policy, witness_set)?
+  group_validate_member_policy(member, state.extensions, policy)?
   let inserted = case insert_member(state.tree, member) do
     Err(error) -> Err(TreeFailure(error))
     Ok(value)
@@ -249,6 +252,7 @@ fn prepare_add(state :: borrow GroupState,
     state.transcript_hash,
     tree_hash(next_tree),
     proposal,
+    witness_set,
     public_path)?
   let update_path = TreeKemUpdatePath {
     leaf_public_key: generated.leaf_public_key,
@@ -275,7 +279,8 @@ fn prepare_add(state :: borrow GroupState,
     proposal: proposal,
     update_path: update_path,
     confirmation: group_confirmation(secret, context)?,
-    signature: Signature { bytes: Bytes.empty() }
+    signature: Signature { bytes: Bytes.empty() },
+    witness_set: witness_set
   }
   let signature = case Crypto.sign(signing_key, group_commit_unsigned(unsigned)?) do
     Err(error) -> Err(CryptoFailure(error))
@@ -285,7 +290,7 @@ fn prepare_add(state :: borrow GroupState,
   verify_commit(commit, state.tree)?
   let transcript_hash = Crypto.sha256(group_signed_commit_bytes(commit)?)
   let level = group_joiner_level(state.local_leaf, recipient_leaf, 0)?
-  let join_context = group_welcome_context(context, state.extensions, state.policy)?
+  let join_context = group_welcome_context(context, state.extensions, policy)?
   let joiner_secret = group_seal_generated_secret(generated,
     level,
     member.init_public_key,
@@ -295,7 +300,7 @@ fn prepare_add(state :: borrow GroupState,
     commit: commit,
     members: indexed_members(next_tree),
     extensions: state.extensions,
-    policy: state.policy,
+    policy: policy,
     recipient_leaf: recipient_leaf,
     parent_nodes: public_parent_nodes(next_tree),
     joiner_path_level: level,
@@ -322,7 +327,16 @@ end
 pub fn commit_add(state :: consume GroupState,
   signing_key :: borrow SigningPrivateKey,
   member :: GroupMember) -> GroupAddOutcome do
-  case prepare_add(state, signing_key, member) do
+  commit_add_with_set(state, signing_key, member, Bytes.empty())
+end
+
+# witness_set: empty, or set_id32 || u8 k to move the group to that set.
+
+pub fn commit_add_with_set(state :: consume GroupState,
+  signing_key :: borrow SigningPrivateKey,
+  member :: GroupMember,
+  witness_set :: Bytes) -> GroupAddOutcome do
+  case prepare_add(state, signing_key, member, witness_set) do
     Err(error) -> GroupAddRejected(state, error)
     Ok(prepared) -> do
       let tree = prepared.tree
@@ -337,7 +351,8 @@ pub fn commit_add(state :: consume GroupState,
         transcript_hash: transcript_hash,
         key_material: prepared.key_material,
         next_generation: 0,
-        received_generations: List.new()
+        received_generations: List.new(),
+        policy: welcome.policy
       }
       GroupMemberAdded(next, commit, welcome)
     end
@@ -346,7 +361,9 @@ end
 
 fn prepare_remove(state :: borrow GroupState,
   signing_key :: borrow SigningPrivateKey,
-  leaf_index :: Int) -> PreparedGroupRemove!GroupError do
+  leaf_index :: Int,
+  witness_set :: Bytes) -> PreparedGroupRemove!GroupError do
+  let policy = group_policy_after(state.policy, witness_set)?
   if leaf_index == state.local_leaf do
     Err(invalid_group_member_error())
   else
@@ -384,6 +401,7 @@ fn prepare_remove(state :: borrow GroupState,
       state.transcript_hash,
       tree_hash(next_tree),
       proposal,
+      witness_set,
       public_path)?
     let update_path = TreeKemUpdatePath {
       leaf_public_key: generated.leaf_public_key,
@@ -410,7 +428,8 @@ fn prepare_remove(state :: borrow GroupState,
       proposal: proposal,
       update_path: update_path,
       confirmation: group_confirmation(secret, context)?,
-      signature: Signature { bytes: Bytes.empty() }
+      signature: Signature { bytes: Bytes.empty() },
+      witness_set: witness_set
     }
     let signature = case Crypto.sign(signing_key, group_commit_unsigned(unsigned)?) do
       Err(error) -> Err(CryptoFailure(error))
@@ -425,7 +444,8 @@ fn prepare_remove(state :: borrow GroupState,
         state.group_id,
         next_tree)?,
       commit: commit,
-      transcript_hash: transcript_hash
+      transcript_hash: transcript_hash,
+      policy: policy
     })
   end
 end
@@ -433,12 +453,20 @@ end
 pub fn commit_remove(state :: consume GroupState,
   signing_key :: borrow SigningPrivateKey,
   leaf_index :: Int) -> GroupRemoveOutcome do
-  case prepare_remove(state, signing_key, leaf_index) do
+  commit_remove_with_set(state, signing_key, leaf_index, Bytes.empty())
+end
+
+pub fn commit_remove_with_set(state :: consume GroupState,
+  signing_key :: borrow SigningPrivateKey,
+  leaf_index :: Int,
+  witness_set :: Bytes) -> GroupRemoveOutcome do
+  case prepare_remove(state, signing_key, leaf_index, witness_set) do
     Err(error) -> GroupRemoveRejected(state, error)
     Ok(prepared) -> do
       let tree = prepared.tree
       let commit = prepared.commit
       let transcript_hash = prepared.transcript_hash
+      let policy = prepared.policy
       let next = %{state |
         version: 2,
         epoch: commit.epoch,
@@ -447,7 +475,8 @@ pub fn commit_remove(state :: consume GroupState,
         transcript_hash: transcript_hash,
         key_material: prepared.key_material,
         next_generation: 0,
-        received_generations: List.new()
+        received_generations: List.new(),
+        policy: policy
       }
       GroupMemberRemoved(next, commit)
     end
@@ -514,6 +543,7 @@ fn prepare_join(welcome :: GroupWelcome,
           welcome.commit.prior_transcript_hash,
           welcome.commit.tree_hash,
           welcome.commit.proposal,
+          welcome.commit.witness_set,
           welcome.commit.update_path)?
         let path_secret = case Crypto.hpke_open_secret(init_private_key,
           group_hpke_info(),
@@ -619,7 +649,8 @@ fn apply_verified_commit(state :: borrow GroupState,
     verify_commit(commit, state.tree)?
     let next_tree = transition_tree(state.tree, commit)?
     let next_members = indexed_members(next_tree)
-    group_validate_members(next_members, state.extensions, state.policy, 0)?
+    let policy = group_policy_after(state.policy, commit.witness_set)?
+    group_validate_members(next_members, state.extensions, policy, 0)?
     case member_at(next_tree, state.local_leaf) do
       Err(_) -> Err(RemovedMember)
       Ok(_) -> do
@@ -632,8 +663,9 @@ fn apply_verified_commit(state :: borrow GroupState,
           commit.prior_transcript_hash,
           commit.tree_hash,
           commit.proposal,
+          commit.witness_set,
           commit.update_path)?
-        Ok(PreparedAppliedCommit { tree: next_tree, context: context })
+        Ok(PreparedAppliedCommit { tree: next_tree, context: context, policy: policy })
       end
     end
   end
@@ -698,7 +730,7 @@ fn finish_applied(state :: consume GroupState,
   let group_id = state.group_id
   let local_leaf = state.local_leaf
   let extensions = state.extensions
-  let policy = state.policy
+  let policy = prepared.policy
   let snapshot_version = state.snapshot_version
   let material = group_merge_key_material(state.key_material, patch)
   let material = case keys do
@@ -726,4 +758,10 @@ end
 pub fn commit_update(state :: consume GroupState,
   signing_key :: borrow SigningPrivateKey) -> GroupRemoveOutcome do
   commit_remove(state, signing_key, -1)
+end
+
+pub fn commit_update_with_set(state :: consume GroupState,
+  signing_key :: borrow SigningPrivateKey,
+  witness_set :: Bytes) -> GroupRemoveOutcome do
+  commit_remove_with_set(state, signing_key, -1, witness_set)
 end

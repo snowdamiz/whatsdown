@@ -1,7 +1,7 @@
 from Binary.Reader import BinaryReader, finish, reader, read_fixed, read_vector
 from Mobile.Types import MobileReadBytes
 from Protocol.EnvelopeWire import decode_outer_envelope, encode_outer_envelope
-from Protocol.V1 import OuterEnvelope
+from Protocol.V1 import OuterEnvelope, protocol_sealed_outer_suite
 
 ##! Mobile.Codec implementation.
 
@@ -185,10 +185,16 @@ fn padding_bucket(length :: Int) -> Int!String do
   end
 end
 
+## Every envelope this device deposits goes through here, and only under the
+## sealed outer suite: no send path can name a legacy suite 1-3.
+
 pub fn outer_bytes(mailbox_token :: Bytes,
   suite :: Int,
   packet :: Bytes,
   now :: U64) -> Bytes!String do
+  if suite != protocol_sealed_outer_suite() do
+    return Err("legacy_outer_suite")
+  end
   let expiration = U64.add(now, mobile_wide("2592000000")?)?
   case encode_outer_envelope(OuterEnvelope {
     version: 1,

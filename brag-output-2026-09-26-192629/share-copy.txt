@@ -1,0 +1,1 @@
+Encryption was the easy part. The hard part is proving the key your phone locked a message with really belongs to your friend. On Morse every key goes into a log that only grows, witnesses sign each version, and a server that shows two people two different logs leaves a witness who signed both. Join the waitlist at morseapp.io.

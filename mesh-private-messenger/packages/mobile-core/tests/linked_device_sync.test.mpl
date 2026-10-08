@@ -220,7 +220,6 @@ fn install(path :: String,
   device_set :: Bytes) -> Bool!String do
   install_group_transparency_for_test(path,
     view.checkpoint,
-    view.consistency,
     view.service_public_key,
     view.witness_a_public_key,
     view.witness_b_public_key,

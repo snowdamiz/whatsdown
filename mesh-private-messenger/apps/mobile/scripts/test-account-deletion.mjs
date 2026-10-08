@@ -103,8 +103,8 @@ try {
   await primary.getByRole('button', { name: 'Get started', exact: true }).waitFor();
   assert.deepEqual(
     since(await calls(primary), 'mesh_messenger_account_deletion').filter((call) => !call.startsWith('mesh_messenger_journal')),
-    ['mesh_messenger_account_deletion', '/v1/accounts/delete', 'mesh_messenger_erase_account', 'mesh_messenger_load_profile'],
-    'The account leaves the directory before this device forgets it, and the app starts over',
+    ['mesh_messenger_account_deletion', '/v1/accounts/delete', 'mesh_messenger_backup_disable', 'mesh_messenger_erase_account', 'mesh_messenger_load_profile'],
+    'The account leaves the directory before this device forgets it (its backups with it), and the app starts over',
   );
   await primary.getByRole('button', { name: 'Get started', exact: true }).click();
   await createAccount(primary, 'alice');
@@ -131,8 +131,8 @@ try {
   await deleteFromSettings(linked, 'Erase this device', 'Erase this device?', 'Erase device');
   await linked.getByRole('button', { name: 'Get started', exact: true }).waitFor();
   assert.equal((await calls(linked)).includes('/v1/accounts/delete'), false);
-  assert.deepEqual(since(await calls(linked), 'mesh_messenger_device_departure').slice(0, 3),
-    ['mesh_messenger_device_departure', '/v1/devices/leave', 'mesh_messenger_erase_account'],
+  assert.deepEqual(since(await calls(linked), 'mesh_messenger_device_departure').slice(0, 4),
+    ['mesh_messenger_device_departure', '/v1/devices/leave', 'mesh_messenger_backup_disable', 'mesh_messenger_erase_account'],
     'A linked device leaves the account before it forgets it, so no one sends to it after');
   await linked.close();
   console.log('Account deletion: a linked device leaves the account and erases only its own copy');

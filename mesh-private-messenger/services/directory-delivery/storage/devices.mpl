@@ -27,6 +27,12 @@ from Protocol.V1 import (
   PrekeyBundle
 )
 from Storage.MailboxAuth import bundle_signing_public_key
+from Storage.Credits import (
+  RedeemOutcome,
+  credits_redeem_on_connection,
+  credits_take_hold_on_connection
+)
+from Credits.CreditFrames import CreditFrame
 from Storage.Prekeys import seed_registration_prekey_on_connection
 from Storage.Transparency import append_entry_on_connection, forget_account_entries_on_connection
 
@@ -40,7 +46,6 @@ pub type DeviceWrite do
   DeviceUnchanged
   DeviceConflict
   DeviceInvalid
-  DeviceLogFull
   DeviceRemoved(statement :: Bytes)
   DeviceRetired(mailbox :: Bytes)
 end deriving(Eq, Debug)
@@ -257,8 +262,7 @@ end
 
 fn record_device_set(conn :: borrow PgConn,
   account_id :: Bytes,
-  username :: String,
-  new_account :: Bool) -> DeviceWrite!String do
+  username :: String) -> DeviceWrite!String do
   let device_set = case resolve_on_connection(conn, username)? do
     None -> Err("device set disappeared")
     Some(value) -> Ok(value)
@@ -267,7 +271,7 @@ fn record_device_set(conn :: borrow PgConn,
     Err(_) -> Err("invalid stored device set")
     Ok(value)
   end?
-  append_entry_on_connection(conn, account_id, encoded, new_account)?
+  append_entry_on_connection(conn, account_id, encoded)?
   Ok(DeviceAccepted)
 end
 
@@ -334,7 +338,7 @@ fn rotate_on_connection(conn :: borrow PgConn,
   if changed != 1 || sequence_changed != 1 do
     return Err("device rotation changed concurrently")
   end
-  record_device_set(conn, account.account_id, entry.username, false)
+  record_device_set(conn, account.account_id, entry.username)
 end
 
 fn register_on_connection(conn :: borrow PgConn,
@@ -427,42 +431,95 @@ fn register_on_connection(conn :: borrow PgConn,
   if changed != 1 do
     return Err("device sequence changed")
   end
-  record_device_set(conn,
-    account.account_id,
-    entry.username,
-    U64.compare(sequence, U64.parse("0")?) == 0)
+  record_device_set(conn, account.account_id, entry.username)
 end
 
 pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWrite!String do
   case verified_registration(entry) do
     Err(_) -> Ok(DeviceInvalid)
-    Ok(verified) -> do
-      case Repo.transaction(pool,
+    Ok(verified) -> registration_outcome(pool,
+      verified,
+      Repo.transaction(pool,
         fn(conn :: borrow PgConn) -> register_on_connection(conn,
           verified.entry,
           verified.account,
           verified.credential,
           verified.initial_prekey,
-          verified.lapsed) end) do
-        Err(error) -> if String.contains(error, "transparency_log_full") do
-          Ok(DeviceLogFull)
-        else if String.contains(error, "messenger_device_lapsed") do
-          Ok(DeviceInvalid)
-        else if String.contains(error, "messenger_account_deleted") do
-          Ok(DeviceRemoved(deletion_statement(pool, verified.account.account_id)?))
-        else if String.contains(error, "messenger_device_revoked") do
-          Ok(DeviceRemoved(removal_statement(pool,
-            verified.account.account_id,
-            verified.credential.device_id)?))
-        else if String.contains(error, "messenger_devices_")
-          || String.contains(error, "duplicate key") do
-          Ok(DeviceConflict)
-        else
-          Err(error)
-        end
-        Ok(result)
-      end
+          verified.lapsed) end))
+  end
+end
+
+# Priority sign-up: the credits are spent in the registration's own
+# transaction, so a registration that fails spends nothing. Err
+# "credit_refused", "credit_spent", "credit_short" or "credit_closed" when the
+# frame does not pay.
+
+fn paid_register_on_connection(conn :: borrow PgConn,
+  verified :: VerifiedRegistration,
+  mode :: String,
+  frame :: CreditFrame,
+  price :: Int,
+  now_ms :: Int) -> DeviceWrite!String do
+  case credits_redeem_on_connection(conn, mode, 3, frame, now_ms)? do
+    Redeemed(redemption) -> if redemption.credits < price do
+      Err("credit_short")
+    else
+      credits_take_hold_on_connection(conn, redemption.redemption_id, 3)?
+      register_on_connection(conn,
+        verified.entry,
+        verified.account,
+        verified.credential,
+        verified.initial_prekey,
+        verified.lapsed)
     end
+    RedeemRefused -> Err("credit_refused")
+    RedeemSpent -> Err("credit_spent")
+    RedeemClosed -> Err("credit_closed")
+  end
+end
+
+## As register_device, paid with at least `price` credits (the priority
+## sign-up bypass of a raised proof-of-work difficulty).
+
+pub fn register_device_paid(pool :: PoolHandle,
+  entry :: DirectoryEntry,
+  mode :: String,
+  frame :: CreditFrame,
+  price :: Int,
+  now_ms :: Int) -> DeviceWrite!String do
+  case verified_registration(entry) do
+    Err(_) -> Ok(DeviceInvalid)
+    Ok(verified) -> registration_outcome(pool,
+      verified,
+      Repo.transaction(pool,
+        fn(conn :: borrow PgConn) -> paid_register_on_connection(conn,
+          verified,
+          mode,
+          frame,
+          price,
+          now_ms) end))
+  end
+end
+
+fn registration_outcome(pool :: PoolHandle,
+  verified :: VerifiedRegistration,
+  written :: DeviceWrite!String) -> DeviceWrite!String do
+  case written do
+    Err(error) -> if String.contains(error, "messenger_device_lapsed") do
+      Ok(DeviceInvalid)
+    else if String.contains(error, "messenger_account_deleted") do
+      Ok(DeviceRemoved(deletion_statement(pool, verified.account.account_id)?))
+    else if String.contains(error, "messenger_device_revoked") do
+      Ok(DeviceRemoved(removal_statement(pool,
+        verified.account.account_id,
+        verified.credential.device_id)?))
+    else if String.contains(error, "messenger_devices_")
+      || String.contains(error, "duplicate key") do
+      Ok(DeviceConflict)
+    else
+      Err(error)
+    end
+    Ok(result)
   end
 end
 
@@ -545,7 +602,7 @@ fn retire_on_connection(conn :: borrow PgConn,
   if changed != 1 || mailbox_changed != 1 || sequence_changed != 1 do
     return Err("device revocation changed concurrently")
   end
-  record_device_set(conn, account_id, username, false)?
+  record_device_set(conn, account_id, username)?
   Ok(DeviceRetired(mailbox_token_hash))
 end
 
@@ -554,9 +611,7 @@ pub fn revoke_device(pool :: PoolHandle, value :: DeviceRevocation) -> DeviceWri
     Err(_) -> Ok(DeviceInvalid)
     Ok(_) -> case Repo.transaction(pool,
       fn(conn :: borrow PgConn) -> revoke_on_connection(conn, value) end) do
-      Err(error) -> if String.contains(error, "transparency_log_full") do
-        Ok(DeviceLogFull)
-      else if String.contains(error, "messenger_revoked_devices_")
+      Err(error) -> if String.contains(error, "messenger_revoked_devices_")
         || String.contains(error, "duplicate key") do
         Ok(DeviceConflict)
       else
@@ -678,9 +733,7 @@ pub fn leave_device(pool :: PoolHandle, value :: DeviceDeparture) -> DeviceWrite
   else
     case Repo.transaction(pool,
       fn(conn :: borrow PgConn) -> leave_on_connection(conn, value) end) do
-      Err(error) -> if String.contains(error, "transparency_log_full") do
-        Ok(DeviceLogFull)
-      else if String.contains(error, "messenger_revoked_devices_")
+      Err(error) -> if String.contains(error, "messenger_revoked_devices_")
         || String.contains(error, "duplicate key") do
         Ok(DeviceConflict)
       else

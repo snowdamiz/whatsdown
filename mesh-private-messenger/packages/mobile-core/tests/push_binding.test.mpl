@@ -28,6 +28,7 @@ from Push.Binding import (
   push_unbind_signing_bytes
 )
 from Push.Token import open_provider_token
+from Storage.Rows import storage_row_for
 from Tests.Support import append, database_path, repeated, vector
 
 fn encode_vectors(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
@@ -847,13 +848,11 @@ fn proof() -> Bool!String do
   assert(Bytes.length(commit_push_wire_for_test(path, cancel_rebound_wire)?) == 0)
   assert(Bytes.secure_equals(push_status_export(Bytes.from_utf8(path))?,
     Bytes.from_utf8("disabled")))
+  let binding_row = storage_row_for(path, "push-binding/v1")?
   let database = Sqlite.open(path)?
   Sqlite.execute_values(database,
     "UPDATE encrypted_blobs SET ciphertext = ? WHERE record_hash = ?",
-    [
-      Binary(Bytes.from_utf8("corrupt")),
-      Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("push-binding/v1"))))
-    ])?
+    [Binary(Bytes.from_utf8("corrupt value, masked or not")), Text(binding_row)])?
   Sqlite.close(database)
   case push_unbind_prepare_export(Bytes.from_utf8(path)) do
     Ok(_) -> assert(false)

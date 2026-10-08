@@ -17,7 +17,16 @@ from Mobile.Account import (
   mailbox_fetch
 )
 from Mobile.Attachments import open_attachment_chunk, prepare_attachment, seal_attachment_chunk
-from Mobile.Codec import canonical_outer, mobile_utf8
+from Mobile.Codec import canonical_outer, mobile_read_u32, mobile_utf8, mobile_write_u32
+from Mobile.Expiry import expiry_purge
+from Mobile.GroupTimer import group_timer_load
+from Mobile.SafetyCode import safety_code, safety_code_check
+from Mobile.ViewOnce import (
+  open_group_view_once,
+  open_view_once,
+  send_group_view_once,
+  send_view_once
+)
 from Mobile.Fanout import send_fanout
 from Mobile.GroupInvites import (
   invite_to_group,
@@ -40,7 +49,8 @@ from Mobile.Groups import (
   create_mobile_group,
   receive_mobile_group,
   remove_mobile_group_member,
-  send_mobile_group_message
+  send_mobile_group_message,
+  send_mobile_group_message_with
 )
 from Mobile.History import (
   conversation_safety,
@@ -59,6 +69,22 @@ from Mobile.Outbox import acknowledge_outbox, fail_outbox, list_outbox, page_out
 from Mobile.Platform import privacy_submission, stamped_request
 from Mobile.Prekeys import reconcile_prekeys, replenish_prekeys
 from Mobile.Journal import load_journal, save_journal
+from Mobile.Backup import (
+  backup_begin,
+  backup_confirm,
+  backup_disable,
+  backup_finish,
+  backup_part,
+  backup_prepare,
+  backup_restore_begin,
+  backup_restore_account,
+  backup_restore_chunk,
+  backup_restore_finish,
+  backup_restore_identity,
+  backup_restore_slots,
+  backup_status,
+  parse_backup_request
+)
 from Mobile.Presentation import load_presentation
 from Mobile.Profile import load_profile
 from Mobile.Renewal import renew_devices
@@ -89,7 +115,17 @@ from Mobile.Requests import (
   parse_transparency_request,
   parse_triple_payload_request
 )
-from Mobile.Transparency import transparency_lookup, verify_transparency_response
+from Mobile.Anchor import anchor_check
+from Mobile.GossipRun import gossip_check
+from Mobile.NetworkStatus import network_status
+from Mobile.TrustAlarm import trust_alarm_details
+from Mobile.WalletConfig import wallet_rpc_urls
+from Mobile.Transparency import (
+  accept_transparency_anchor_proof,
+  transparency_anchor_requests,
+  transparency_lookup,
+  verify_transparency_response
+)
 from Mobile.Types import (
   MobileAccountRequest,
   MobileAttachmentChunkRequest,
@@ -116,9 +152,29 @@ from Mobile.Types import (
   MobileTransparencyRequest,
   MobileTriplePayloadRequest
 )
+from Mobile.CreditsBuy import credits_quote
+from Mobile.CreditsGroup import credits_group_handover
+
+# The one import that needs a Mesh release with Crypto.BlindRsa (profile BR1):
+# the credits issue exchange. Everything else of credits builds without it.
+from Mobile.CreditsIssue import credits_issue
+from Mobile.CreditsKeys import credits_refresh_keys
+from Mobile.Oblivious import oblivious_decapsulate, oblivious_encapsulate
+from Mobile.CreditsSpend import (
+  credits_inbox_policy,
+  credits_postage,
+  credits_postage_quote,
+  credits_register_at,
+  credits_retention,
+  credits_settle,
+  credits_signup,
+  credits_spend,
+  credits_status
+)
 from Protocol.EnvelopeWire import encode_outer_envelope
 from Protocol.V1 import OuterEnvelope
 from Storage.Blobs import ensure_schema
+from Storage.Keys import platform_key
 from Storage.Records import store_envelope
 
 ##! Native messenger entrypoints; implementation is organized under Mobile and Storage.
@@ -379,12 +435,72 @@ end
   renew_devices(parse_payload_request(request)?)
 end
 
+# Oblivious HTTP (Mobile.Oblivious): the app posts what the first returns to
+# the pinned relay and hands the answer to the second.
+
+@export("mesh_messenger_oblivious_encapsulate") pub fn oblivious_encapsulate_export(request :: Bytes) -> Bytes!String do
+  oblivious_encapsulate(request)
+end
+
+@export("mesh_messenger_oblivious_decapsulate") pub fn oblivious_decapsulate_export(request :: Bytes) -> Bytes!String do
+  oblivious_decapsulate(request)
+end
+
 @export("mesh_messenger_resolve_request") pub fn resolve_request_export(request :: Bytes) -> Bytes!String do
   stamped_request("mesh-msg/v1/work/resolve", transparency_lookup(parse_payload_request(request)?)?)
 end
 
 @export("mesh_messenger_verify_transparency") pub fn verify_transparency_export(request :: Bytes) -> Bytes!String do
   verify_transparency_response(parse_transparency_request(request)?)
+end
+
+# Anchor checkpoints (group baselines, key packages) this device must prove are
+# prefixes of its view: a list of 397-byte requests whose first 21 bytes are
+# the KTS v2 query for POST /v1/transparency/consistency.
+
+@export("mesh_messenger_transparency_anchor_requests") pub fn transparency_anchor_requests_export(request :: Bytes) -> Bytes!String do
+  transparency_anchor_requests(mobile_utf8(request, "invalid_database_path")?)
+end
+
+# The directory's KTC v2 answer for one request: verified, then remembered.
+
+@export("mesh_messenger_transparency_anchor_proof") pub fn transparency_anchor_proof_export(request :: Bytes) -> Bytes!String do
+  accept_transparency_anchor_proof(parse_triple_payload_request(request)?)
+end
+
+# The phone's check against the public record, one step at a time: the app
+# performs the requests each step returns and calls again with every exchange
+# of the run (Mobile.AnchorSteps, Mobile.Anchor).
+
+@export("mesh_messenger_anchor_check") pub fn anchor_check_export(request :: Bytes) -> Bytes!String do
+  anchor_check(request)
+end
+
+# Checkpoint gossip, one step at a time in the same framing: what contacts'
+# messages said about the key log, settled after each pass over the mailbox
+# (Mobile.GossipRun).
+
+@export("mesh_messenger_gossip_check") pub fn gossip_check_export(request :: Bytes) -> Bytes!String do
+  gossip_check(request)
+end
+
+# "Details" for Morse's key log being in question: each trust alarm with its
+# evidence, where its proofs were filed and where they landed.
+
+@export("mesh_messenger_trust_alarm_details") pub fn trust_alarm_details_export(request :: Bytes) -> Bytes!String do
+  trust_alarm_details(mobile_utf8(request, "invalid_database_path")?)
+end
+
+# The Solana RPC URLs the in-app wallet may use; see Mobile.WalletConfig.
+
+@export("mesh_messenger_wallet_rpc_urls") pub fn wallet_rpc_urls_export(request :: Bytes) -> Bytes!String do
+  wallet_rpc_urls(request)
+end
+
+# Settings -> Network: profile, k of n, the pinned witnesses; see Mobile.NetworkStatus.
+
+@export("mesh_messenger_network_status") pub fn network_status_export(request :: Bytes) -> Bytes!String do
+  network_status(mobile_utf8(request, "invalid_database_path")?)
 end
 
 @export("mesh_messenger_privacy_submission") pub fn privacy_submission_export(request :: Bytes) -> Bytes!String do
@@ -437,6 +553,61 @@ end
   save_journal(parse_triple_payload_request(request)?)
 end
 
+# Encrypted backups (`Mobile.Backup`, `protocol/backup-wire-v1.md` version 2).
+# Each request is the database path, then that many vectors.
+
+@export("mesh_messenger_backup_begin") pub fn backup_begin_export(request :: Bytes) -> Bytes!String do
+  backup_begin(parse_backup_request(request, 0)?)
+end
+
+@export("mesh_messenger_backup_confirm") pub fn backup_confirm_export(request :: Bytes) -> Bytes!String do
+  backup_confirm(parse_backup_request(request, 1)?)
+end
+
+@export("mesh_messenger_backup_status") pub fn backup_status_export(request :: Bytes) -> Bytes!String do
+  backup_status(parse_backup_request(request, 0)?)
+end
+
+@export("mesh_messenger_backup_prepare") pub fn backup_prepare_export(request :: Bytes) -> Bytes!String do
+  backup_prepare(parse_backup_request(request, 2)?)
+end
+
+@export("mesh_messenger_backup_part") pub fn backup_part_export(request :: Bytes) -> Bytes!String do
+  backup_part(parse_backup_request(request, 1)?)
+end
+
+@export("mesh_messenger_backup_finish") pub fn backup_finish_export(request :: Bytes) -> Bytes!String do
+  backup_finish(parse_backup_request(request, 1)?)
+end
+
+@export("mesh_messenger_backup_disable") pub fn backup_disable_export(request :: Bytes) -> Bytes!String do
+  backup_disable(parse_backup_request(request, 0)?)
+end
+
+@export("mesh_messenger_backup_restore_slots") pub fn backup_restore_slots_export(request :: Bytes) -> Bytes!String do
+  backup_restore_slots(parse_backup_request(request, 1)?)
+end
+
+@export("mesh_messenger_backup_restore_begin") pub fn backup_restore_begin_export(request :: Bytes) -> Bytes!String do
+  backup_restore_begin(parse_backup_request(request, 2)?)
+end
+
+@export("mesh_messenger_backup_restore_chunk") pub fn backup_restore_chunk_export(request :: Bytes) -> Bytes!String do
+  backup_restore_chunk(parse_backup_request(request, 2)?)
+end
+
+@export("mesh_messenger_backup_restore_finish") pub fn backup_restore_finish_export(request :: Bytes) -> Bytes!String do
+  backup_restore_finish(parse_backup_request(request, 0)?)
+end
+
+@export("mesh_messenger_backup_restore_identity") pub fn backup_restore_identity_export(request :: Bytes) -> Bytes!String do
+  backup_restore_identity(parse_backup_request(request, 0)?)
+end
+
+@export("mesh_messenger_backup_restore_account") pub fn backup_restore_account_export(request :: Bytes) -> Bytes!String do
+  backup_restore_account(parse_backup_request(request, 1)?)
+end
+
 @export("mesh_messenger_presentation_load") pub fn presentation_load_export(request :: Bytes) -> Bytes!String do
   load_presentation(parse_payload_request(request)?)
 end
@@ -455,4 +626,122 @@ end
 
 @export("mesh_messenger_attachment_open_chunk") pub fn attachment_open_chunk_export(request :: Bytes) -> Bytes!String do
   open_attachment_chunk(parse_attachment_chunk_request(request)?)
+end
+
+# Disappearing messages: every one whose time is up leaves storage, then the
+# next expiry and the objects of purged attachments (`Mobile.Expiry`).
+
+@export("mesh_messenger_expiry_purge") pub fn expiry_purge_export(request :: Bytes) -> Bytes!String do
+  expiry_purge(mobile_utf8(request, "invalid_database_path")?)
+end
+
+# A group's disappearing-message timer: set it (path, group ID, u32 seconds),
+# which sends a timer change to the group, or read it (`Mobile.GroupTimer`).
+
+@export("mesh_messenger_group_timer") pub fn group_timer_export(request :: Bytes) -> Bytes!String do
+  let parsed = parse_triple_payload_request(request)?
+  if Bytes.length(parsed.first) != 32 || Bytes.length(parsed.second) != 4 do
+    return Err("invalid_group_timer")
+  end
+  send_mobile_group_message_with(MobileGroupSendRequest {
+      database_path: parsed.database_path,
+      group_id: parsed.first,
+      body: Bytes.empty(),
+      attachment: Bytes.empty()
+    },
+    0,
+    mobile_read_u32(parsed.second)?)
+end
+
+@export("mesh_messenger_group_timer_state") pub fn group_timer_state_export(request :: Bytes) -> Bytes!String do
+  let parsed = parse_group_reference_request(request)?
+  ensure_schema(parsed.database_path)?
+  let wrapping_key = platform_key()?
+  mobile_write_u32(group_timer_load(parsed.database_path, wrapping_key, parsed.group_id)?.seconds)
+end
+
+# View-once messages (`Mobile.ViewOnce`): sent like any message, and opened
+# once, which deletes the content.
+
+@export("mesh_messenger_send_view_once") pub fn send_view_once_export(request :: Bytes) -> Bytes!String do
+  send_view_once(parse_fanout_request(request)?)
+end
+
+@export("mesh_messenger_group_send_view_once") pub fn group_send_view_once_export(request :: Bytes) -> Bytes!String do
+  send_group_view_once(parse_group_send_request(request)?)
+end
+
+@export("mesh_messenger_open_view_once") pub fn open_view_once_export(request :: Bytes) -> Bytes!String do
+  open_view_once(parse_triple_payload_request(request)?)
+end
+
+@export("mesh_messenger_group_open_view_once") pub fn group_open_view_once_export(request :: Bytes) -> Bytes!String do
+  open_group_view_once(parse_triple_payload_request(request)?)
+end
+
+# The safety number as a code to show as a QR code, and the check of one
+# scanned or pasted (`Mobile.SafetyCode`).
+
+@export("mesh_messenger_safety_code") pub fn safety_code_export(request :: Bytes) -> Bytes!String do
+  safety_code(parse_peer_request(request)?)
+end
+
+@export("mesh_messenger_safety_code_check") pub fn safety_code_check_export(request :: Bytes) -> Bytes!String do
+  safety_code_check(parse_triple_payload_request(request)?)
+end
+
+# Credits (protocol/credits-v1.md "Client"): Mobile.CreditsKeys, CreditsBuy,
+# CreditsIssue, CreditsSpend and CreditsGroup. Tokens leave the core only
+# inside the requests these return.
+
+@export("mesh_messenger_credits_status") pub fn credits_status_export(request :: Bytes) -> Bytes!String do
+  credits_status(request)
+end
+
+@export("mesh_messenger_credits_refresh_keys") pub fn credits_refresh_keys_export(request :: Bytes) -> Bytes!String do
+  credits_refresh_keys(request)
+end
+
+@export("mesh_messenger_credits_quote") pub fn credits_quote_export(request :: Bytes) -> Bytes!String do
+  credits_quote(request)
+end
+
+@export("mesh_messenger_credits_issue") pub fn credits_issue_export(request :: Bytes) -> Bytes!String do
+  credits_issue(request)
+end
+
+@export("mesh_messenger_credits_postage") pub fn credits_postage_export(request :: Bytes) -> Bytes!String do
+  credits_postage(request)
+end
+
+@export("mesh_messenger_credits_postage_quote") pub fn credits_postage_quote_export(request :: Bytes) -> Bytes!String do
+  credits_postage_quote(request)
+end
+
+@export("mesh_messenger_credits_retention") pub fn credits_retention_export(request :: Bytes) -> Bytes!String do
+  credits_retention(request)
+end
+
+@export("mesh_messenger_credits_signup") pub fn credits_signup_export(request :: Bytes) -> Bytes!String do
+  credits_signup(request)
+end
+
+@export("mesh_messenger_credits_register_at") pub fn credits_register_at_export(request :: Bytes) -> Bytes!String do
+  credits_register_at(request)
+end
+
+@export("mesh_messenger_credits_spend") pub fn credits_spend_export(request :: Bytes) -> Bytes!String do
+  credits_spend(request)
+end
+
+@export("mesh_messenger_credits_settle") pub fn credits_settle_export(request :: Bytes) -> Bytes!String do
+  credits_settle(request)
+end
+
+@export("mesh_messenger_credits_inbox_policy") pub fn credits_inbox_policy_export(request :: Bytes) -> Bytes!String do
+  credits_inbox_policy(request)
+end
+
+@export("mesh_messenger_credits_group_handover") pub fn credits_group_handover_export(request :: Bytes) -> Bytes!String do
+  credits_group_handover(request)
 end

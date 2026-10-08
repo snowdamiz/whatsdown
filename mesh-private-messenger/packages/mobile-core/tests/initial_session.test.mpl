@@ -19,6 +19,7 @@ from Prekeys.Pool import (
 from Protocol.EnvelopeWire import encode_outer_envelope
 from Protocol.V1 import DirectoryEntry, MailboxAck, OuterEnvelope
 from Tests.GroupLifecycleWire import ack, delivery_batch, outer
+from Storage.Rows import storage_row_for
 from Tests.Support import append, database_path, read_u32, repeated, vector, write_u32
 from Transport.Packet import ClientProfile, decode_client_profile
 from Transport.Recipient import is_recipient_packet, seal_recipient_packet
@@ -65,18 +66,19 @@ fn fingerprint_rows(rows :: List<Map<String, DbValue>>,
   end
 end
 
-fn record_hash(label :: String) -> String do
-  Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
+fn record_hash(path :: String, label :: String) -> DbValue!String do
+  Ok(Text(storage_row_for(path, label)?))
 end
 
 # Everything the device keeps, except its note of which envelopes it has set
 # aside: a receive that fails is meant to leave that note and nothing else.
 
 fn database_fingerprint(path :: String) -> String!String do
+  let changing = [record_hash(path, "delivery-retries/v1")?, record_hash(path, "inbox-cursor/v1")?]
   let database = Sqlite.open(path)?
   case Sqlite.query_values(database,
     "SELECT record_hash, hex(ciphertext) AS ciphertext_hex FROM encrypted_blobs WHERE record_hash NOT IN (?, ?) ORDER BY record_hash",
-    [Text(record_hash("delivery-retries/v1")), Text(record_hash("inbox-cursor/v1"))]) do
+    changing) do
     Err(error) -> do
       Sqlite.close(database)
       Err(error)
@@ -89,9 +91,12 @@ fn database_fingerprint(path :: String) -> String!String do
 end
 
 fn set_receive_failure(path :: String, enabled :: Bool) -> Result<(), String> do
+  let index_row = storage_row_for(path, "one-time-prekeys/v1")?
   let database = Sqlite.open(path)?
   let statement = if enabled do
-    "CREATE TRIGGER mesh_test_fail_receive BEFORE UPDATE ON encrypted_blobs WHEN NEW.record_hash = '1157310c10370fde0a5d9bd24a1963b3d14362f1d666addd33e692f9bc246a63' BEGIN SELECT RAISE(ABORT, 'forced late receive write failure'); END"
+    "CREATE TRIGGER mesh_test_fail_receive BEFORE UPDATE ON encrypted_blobs WHEN NEW.record_hash = '"
+      <> index_row
+      <> "' BEGIN SELECT RAISE(ABORT, 'forced late receive write failure'); END"
   else
     "DROP TRIGGER mesh_test_fail_receive"
   end

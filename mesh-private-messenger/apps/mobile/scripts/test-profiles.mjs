@@ -49,7 +49,7 @@ async function open({ scheme = 'dark', account = true, creator = true, width = 1
       if (symbol === 'mesh_messenger_create_account') { state.account = true; return profile; }
       if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_resolve_request' || symbol === 'mesh_messenger_verify_transparency') return [1];
       if (symbol === 'mesh_messenger_inspect_device_set') return vectors(text(creator ? 'alice' : 'maya'), id(self), u64(1), [0], [1], list(vectors(id(self, 16), [1], [1])));
-      if (symbol === 'mesh_messenger_list_conversations') return contact ? list(vectors(id(20, 16), text('alex_1987'), id(2), id(2, 16), text('1234'.repeat(16)), [1], [0], [0], [0], u32(0))) : list();
+      if (symbol === 'mesh_messenger_list_conversations') return contact ? list(vectors(id(20, 16), text('alex_1987'), id(2), id(2, 16), text('1234'.repeat(16)), [1], [0], [0], [0], u32(0), u64(0))) : list();
       if (symbol === 'mesh_messenger_load_history' || symbol === 'mesh_messenger_group_invitations' || symbol === 'mesh_messenger_outbox_list' || symbol === 'mesh_messenger_outbox_page') return list();
       if (symbol === 'mesh_messenger_group_list') return list(...state.groups.map((g) => list([1], g.id, u64(1), u32(g.count))));
       if (symbol === 'mesh_messenger_group_create') { state.creates++; const g = { id: id(80 + state.creates), count: 1 }; state.groups.push(g); return g.id; }

@@ -50,9 +50,14 @@ test('native witness accepts an empty new log, persists signed HTTP checkpoints,
   const key = createPrivateKey({ key: Buffer.from(`302e020100300506032b657004220420${seed}`, 'hex'), format: 'der', type: 'pkcs8' });
   const publicKey = createPublicKey(key).export({ format: 'der', type: 'spki' }).subarray(-32);
   const one = Buffer.alloc(8); one.writeBigUInt64BE(1n);
-  const fields = Buffer.concat([one, one, Buffer.alloc(32, 5), Buffer.alloc(32), one, publicKey]);
-  const signature = sign(null, Buffer.concat([Buffer.from('mesh-key-transparency-v1'), Buffer.from([0, 1]), fields]), key);
-  const checkpoint = Buffer.concat([Buffer.from([1]), Buffer.from('KTK'), fields, signature]);
+  // Stamped when signed: the witness refuses checkpoints more than 60 s from its clock.
+  const signed = () => {
+    const now = Buffer.alloc(8); now.writeBigUInt64BE(BigInt(Date.now()));
+    const fields = Buffer.concat([one, one, Buffer.alloc(32, 5), Buffer.alloc(32), now, publicKey]);
+    const signature = sign(null, Buffer.concat([Buffer.from('mesh-key-transparency-v1'), Buffer.from([0, 1]), fields]), key);
+    return Buffer.concat([Buffer.from([1]), Buffer.from('KTK'), fields, signature]);
+  };
+  let checkpoint;
   const mf = new Miniflare(convertV4MiniflareOptions({
     compatibilityDate: '2026-09-18',
     modules: [
@@ -65,6 +70,7 @@ test('native witness accepts an empty new log, persists signed HTTP checkpoints,
           if (path === '/checkpoint' && r.method === 'PUT' && rejectWrites) return new Response(null, {status:409});
           if (path === '/fixture') { checkpoint = r.method === 'PUT' ? await r.arrayBuffer() : undefined; return new Response(null, {status:204}); }
           if (path === '/core/v1/transparency/checkpoint') return new Response(checkpoint, {status:checkpoint ? 200 : 404});
+          if (path === '/core/v1/transparency/witnesses' && r.method === 'GET') return new Response(new Uint8Array([1, 75, 84, 87, 0, 0]));
           if (path === '/core/v1/transparency/witnesses') { submissions++; return new Response(null, {status:201}); }
           return e.STATE.getByName('witness-a').fetch(r);
         } };` },
@@ -84,6 +90,7 @@ test('native witness accepts an empty new log, persists signed HTTP checkpoints,
       MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX: publicKey.toString('hex'),
     } });
     await attest();
+    checkpoint = signed();
     await mf.dispatchFetch(`${origin}/fixture`, { method: 'PUT', body: checkpoint });
     await assert.rejects(attest(), error => error.stderr.includes('checkpoint write failed'));
     assert.equal(await (await mf.dispatchFetch(`${origin}/submissions`)).text(), '0', 'failed durable checkpoint must not release a signature');

@@ -2,6 +2,7 @@ from Protocol.V1 import DirectoryEntry, AccountIdentity
 from Protocol.IdentityWire import decode_account_identity
 from Mobile.Transparency import transparency_device_set_label
 from Storage.Blobs import load_blob, put_blob
+from Storage.Rows import storage_row_for
 import File
 from MobileCore import (
   group_send_export,
@@ -41,10 +42,9 @@ fn proof() -> Bool!String do
   end?
   let label = transparency_device_set_label(bob_identity.account_id)
   let saved = load_blob(accounts.alice_path, label)?
+  let row = storage_row_for(accounts.alice_path, label)?
   let database = Sqlite.open(accounts.alice_path)?
-  Sqlite.execute_values(database,
-    "DELETE FROM encrypted_blobs WHERE record_hash = ?",
-    [Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label))))])?
+  Sqlite.execute_values(database, "DELETE FROM encrypted_blobs WHERE record_hash = ?", [Text(row)])?
   Sqlite.close(database)
   case group_send_export(group_vectors([
     Bytes.from_utf8(accounts.alice_path),

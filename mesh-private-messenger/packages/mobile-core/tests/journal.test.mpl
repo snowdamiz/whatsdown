@@ -60,6 +60,20 @@ fn proof() -> Bool!String do
   saved(path, answered, marks)?
   assert(Bytes.secure_equals(loaded(path, answered)?, marks))
   assert(refused(path, "community-requests/group/" <> Bytes.to_hex(repeated(12, 32)?)))
+  # The app lock's setting, which must be readable before anything is shown.
+  let lock = Bytes.from_utf8("{\"minutes\":15}")
+  saved(path, "settings/app-lock", lock)?
+  assert(Bytes.secure_equals(loaded(path, "settings/app-lock")?, lock))
+  # The settings the app used to keep in the clear beside the database.
+  saved(path, "settings/read-receipts", Bytes.from_utf8("off"))?
+  saved(path, "settings/notification-preview", Bytes.from_utf8("name"))?
+  saved(path, "settings/appearance", Bytes.from_utf8("light"))?
+  assert(Bytes.secure_equals(loaded(path, "settings/read-receipts")?, Bytes.from_utf8("off")))
+  assert(Bytes.secure_equals(loaded(path, "settings/notification-preview")?,
+    Bytes.from_utf8("name")))
+  assert(Bytes.secure_equals(loaded(path, "settings/appearance")?, Bytes.from_utf8("light")))
+  assert(!(stored_in_clear(path, "light")?))
+  assert(refused(path, "settings/drafts"))
   # A single zero byte removes a record.
   saved(path, chat, Bytes.from_hex("00")?)?
   assert(Bytes.length(loaded(path, chat)?) == 0)

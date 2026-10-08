@@ -8,10 +8,17 @@ import { appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const m = 'mesh-private-messenger/';
-// Every build compiles with the Mesh release mesh-release.mjs resolves.
-const protocol = [`${m}packages/messenger-protocol/`, `${m}scripts/mesh-release.mjs`];
-const app = [...protocol, `${m}packages/mobile-core/`, `${m}apps/mobile/`];
+// Every build compiles with the Mesh release mesh-release.mjs resolves. The
+// services and the mobile core also link the credits and OHTTP packages.
+const protocol = [`${m}packages/messenger-protocol/`, `${m}packages/messenger-credits/`, `${m}packages/messenger-ohttp/`,
+  `${m}scripts/mesh-release.mjs`];
+// Both apps link the wallet core (packages/wallet-core) as well as the Mesh core.
+const app = [...protocol, `${m}packages/mobile-core/`, `${m}packages/wallet-core/`, `${m}apps/mobile/`];
 
+// No release workflow deploys programs/ (deploying the Solana programs is the
+// manual runbook in protocol/morse-judge-v1.md §12), ops/relay, ops/witness,
+// ops/drills or clients/monitor: operators build and run those themselves.
+// CI still tests all of them.
 export const INPUTS = {
   backend: [...protocol, `${m}packages/service-jobs/`, `${m}services/`, `${m}ops/cloudflare/`],
   // check.mjs verifies the page's links to the issue forms.

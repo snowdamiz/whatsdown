@@ -60,6 +60,11 @@ const sections: Record<ScannerOrigin, SidebarSection> = {
   settings: 'you',
   account: 'you',
   devices: 'you',
+  network: 'you',
+  'trust-details': 'you',
+  wallet: 'you',
+  credits: 'you',
+  backups: 'you',
   'link-device': 'you',
   'link-authorization': 'you',
 };

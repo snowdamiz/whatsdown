@@ -8,6 +8,39 @@ TestFlight submissions, and production OTA updates through GitHub Actions.
 The [Windows and macOS app](../desktop/README.md) reuses these screens through
 React Native Web and provides its own native Mesh bridge and installer workflow.
 
+**You → Wallet** is a Solana wallet on the device ([plan §6.13](../../../WITNESS_NETWORK_PLAN.md)):
+create one (the 12-word recovery phrase is shown once, then confirmed by typing two
+of its words back) or restore one, see the address and its SOL and USDC balance,
+pay a Solana Pay link, list the one-time bounty addresses with their balances and
+**Move** a bounty to an address you enter, show the phrase again (behind Face ID,
+Touch ID or the passcode on iOS; biometrics or the screen lock on Android), or delete
+the wallet. `packages/wallet-core` (Rust) holds the seed and signs, behind the native
+`MorseWallet` module: the seed (BIP39 entropy) stays in the Keychain, this device
+only, or under the app's Android Keystore key, and never crosses into TypeScript;
+only the phrase for display, public keys and signed transactions do.
+`src/wallet.ts` is the one façade for phones and the desktop. Balances and
+transfers go only to the Solana RPC providers the security config pins (the core
+hands the list over through `mesh_messenger_wallet_rpc_urls`); a build that pins
+none has no balances or transfers. Which mint counts as USDC follows the chain those providers
+serve, from `getGenesisHash` (at least two must agree): Circle's USDC on
+mainnet-beta and on devnet; any other chain (a local validator) has no USDC,
+unless a development build sets `EXPO_PUBLIC_MORSE_DEV_USDC_MINT` (release
+builds ignore it). No wallet address or balance query goes to a
+Morse server ([privacy contract](../../protocol/privacy-contract.md)).
+**You → Network → Collect fork bounties** is off until turned on, needs the wallet,
+and is offered once when the wallet is set up; with it on, a fork proof names a
+fresh bounty address (`walletFinderAddress`, handed to the anchor check through
+`setFinderAddressSource`). The first bounty move and the first payment each say
+first that they are as public as any on-chain transfer.
+`scripts/build-mobile-native.sh` builds `MorseWalletCore.xcframework` and the
+Android `libmorse_wallet_core.a` archives next to the Mesh core's with rustup's
+toolchain (`rustup target add aarch64-apple-ios aarch64-apple-ios-sim` or
+`aarch64-linux-android x86_64-linux-android`); `generated/morse_wallet.h` must equal
+`packages/wallet-core/include/morse_wallet.h`, and the script refuses to build if not.
+After the desktop web export, `npm run test:wallet` walks the wallet in the real UI
+(create, confirm, the bounty offer, balances, the bounty notice, a move, the Network
+toggle) with the native wallet, the core and the RPC provider mocked.
+
 In a development build, open **You → Development → Sample content** to preview
 16 chats, 6 groups, and 528 messages, with read rows and varied unread counts.
 Opening a sample conversation clears its badge; toggle the preview off and on
@@ -109,7 +142,10 @@ Release builds require a `wss://` stream URL. If no stream URL is configured,
 the app uses `/v1/mailbox/stream` on the HTTP service's origin; route that path
 to `MESSENGER_STREAM_PORT` (default 18090) through the TLS reverse proxy.
 `./run.sh` configures both local stream endpoints automatically.
-Messages accept up to 10 files of any type (16 MiB each). Pick multiple files,
+Messages accept up to 10 files of any type, free up to 16 MiB each. Larger
+files, up to 512 MiB, use credits (1 for every extra 16 MiB): the app says what a
+file uses before staging it, reads and uploads it a chunk at a time, and saves a
+large download straight to the chosen folder as it arrives. Pick multiple files,
 or drop/paste them on desktop; remove individual files before sending. Click a
 photo to open a larger view with a Download button. File cards download other
 attachments through the system save picker. Albums require updated native
@@ -128,7 +164,7 @@ New development accounts advertise experimental hybrid suite `0x0002`; linked
 classical devices remain on suite `0x0001` until credential rotation. Suite
 `0x0002` is not production-approved until the independent cryptographic review
 [gate](../../protocol/hybrid-handshake-v1.md) is complete.
-Transparency, witness, and delivery keys plus abuse difficulty are provisioned together as the canonical signed native `messenger/config/v1` resource; they are never OTA TypeScript configuration. Mesh validates the exact frame, distinct witness keys, contributory delivery key, and difficulty 1 through 24 before verifying directory evidence or sealing a send.
+Transparency and delivery keys, abuse difficulty, the pinned witness set, and the anchor, RPC, relay, credit-issuer, C2SP log-origin and minimum-suite pins are provisioned together as one canonical signed native security config v2 frame ([plan §6.1](../../../WITNESS_NETWORK_PLAN.md)), read through the `messenger/config/v1` host selector; they are never OTA TypeScript configuration. `plugins/security-config.cjs` builds the frame from the variables listed in [RELEASING.md](RELEASING.md) and refuses any value the core would reject; without `MESSENGER_WITNESSES` it pins `witness-a` and `witness-b` from `MESSENGER_WITNESS_A/B_PUBLIC_KEY_HEX` with threshold 2. Mesh validates the exact frame, unique witness IDs and keys, the majority threshold, contributory delivery key, and difficulty 1 through 24 before verifying directory evidence or sealing a send.
 Notification enablement requires the Expo project UUID and push-broker X25519 public key together. The broker key is a 32-byte lowercase-hex public build pin. Both non-public environment variables are provisioned into signed native resources during prebuild; they are not OTA JavaScript configuration. Missing, partial, or malformed build configuration fails before notification permission is requested. No-push startup recovery remains available when both pins are absent.
 
 Group messages support exact `@username` tags, member suggestions at the cursor,
@@ -146,8 +182,9 @@ Disappearing messages use a generic preview so their text does not outlive them
 in OS notification history. You → Notifications show sets how much any alert
 says, because an alert is read by whoever holds the phone: the name and the
 message, the name only, or neither (“Morse: New message”). It is applied on the
-device, to foreground and headless alerts alike, and is kept per account beside
-the other local choices.
+device, to foreground and headless alerts alike, and is sealed in the database
+with the app's other settings (read receipts, appearance, app lock), not kept
+beside it in the clear.
 
 A message's menu holds its emoji reactions, Reply and Copy. Long-press a bubble
 on a phone, or swipe it right to reply; on desktop, rest the pointer on it for

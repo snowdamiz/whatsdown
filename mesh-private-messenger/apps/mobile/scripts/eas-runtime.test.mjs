@@ -48,7 +48,17 @@ test('OTA compatibility follows native sources, toolchain and pins, not JS or ar
     mkdirSync(path.join(app, 'modules/mesh-messenger'), { recursive: true });
     writeFileSync(path.join(app, 'package.json'), '{"name":"runtime-test"}');
     writeFileSync(path.join(core, 'main.mpl'), 'native v1');
+    const credits = path.join(root, 'mesh-private-messenger/packages/messenger-credits');
+    mkdirSync(credits, { recursive: true });
+    writeFileSync(path.join(credits, 'credits.mpl'), 'credits v1');
+    const ohttp = path.join(root, 'mesh-private-messenger/packages/messenger-ohttp');
+    mkdirSync(ohttp, { recursive: true });
+    writeFileSync(path.join(ohttp, 'ohttp.mpl'), 'ohttp v1');
     writeFileSync(path.join(app, 'modules/mesh-messenger/module.swift'), 'bridge v1');
+    const wallet = path.join(root, 'mesh-private-messenger/packages/wallet-core');
+    for (const directory of ['src', 'include', 'target/release']) mkdirSync(path.join(wallet, directory), { recursive: true });
+    for (const file of ['Cargo.toml', 'Cargo.lock', 'include/morse_wallet.h']) writeFileSync(path.join(wallet, file), 'v1');
+    writeFileSync(path.join(wallet, 'src/lib.rs'), 'wallet v1');
     const fingerprint = () => createFingerprintAsync(app, {
       ...config, platforms: [], useRNCoreAutolinkingFromExpo: true, silent: true,
     });
@@ -56,10 +66,26 @@ test('OTA compatibility follows native sources, toolchain and pins, not JS or ar
     writeFileSync(path.join(app, 'App.tsx'), 'UI v2');
     mkdirSync(path.join(app, 'modules/mesh-messenger/native/ios'), { recursive: true });
     writeFileSync(path.join(app, 'modules/mesh-messenger/native/ios/library.a'), 'build output');
+    writeFileSync(path.join(wallet, 'target/release/libmorse_wallet_core.a'), 'build output');
     assert.equal((await fingerprint()).hash, original.hash);
+    // The wallet core is linked into the native app.
+    writeFileSync(path.join(wallet, 'src/lib.rs'), 'wallet v2');
+    assert.notEqual((await fingerprint()).hash, original.hash);
+    writeFileSync(path.join(wallet, 'src/lib.rs'), 'wallet v1');
+    writeFileSync(path.join(wallet, 'Cargo.lock'), 'v2');
+    assert.notEqual((await fingerprint()).hash, original.hash);
+    writeFileSync(path.join(wallet, 'Cargo.lock'), 'v1');
     writeFileSync(path.join(core, 'main.mpl'), 'native v2');
     assert.notEqual((await fingerprint()).hash, original.hash);
     writeFileSync(path.join(core, 'main.mpl'), 'native v1');
+    // The mobile core links the credits package.
+    writeFileSync(path.join(credits, 'credits.mpl'), 'credits v2');
+    assert.notEqual((await fingerprint()).hash, original.hash);
+    writeFileSync(path.join(credits, 'credits.mpl'), 'credits v1');
+    // And the OHTTP package.
+    writeFileSync(path.join(ohttp, 'ohttp.mpl'), 'ohttp v2');
+    assert.notEqual((await fingerprint()).hash, original.hash);
+    writeFileSync(path.join(ohttp, 'ohttp.mpl'), 'ohttp v1');
     writeFileSync(path.join(app, 'modules/mesh-messenger/module.swift'), 'bridge v2');
     assert.notEqual((await fingerprint()).hash, original.hash);
     writeFileSync(path.join(app, 'modules/mesh-messenger/module.swift'), 'bridge v1');

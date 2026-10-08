@@ -53,6 +53,7 @@ from Protocol.V1 import (
   ProtocolExtension
 )
 from Storage.Devices import resolve_devices
+from Storage.TransparencyWitnesses import transparency_seed_registry
 from Storage.Transparency import (
   latest_checkpoint,
   append_entry_on_connection,
@@ -470,6 +471,8 @@ fn proof() -> Bool!String do
   Pool.execute(pool,
     "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
     [])?
+  # The legacy witness-a/witness-b keys seed the registry, as at startup.
+  transparency_seed_registry(pool)?
   let transparency_seed = repeated(91, 32)
   let created_at = now()?
   let expires_at = U64.add(created_at, wide("31536000000")?)?
@@ -714,7 +717,7 @@ fn assert_checkpoint_order(pool :: PoolHandle,
     Ok(nil)
   else
     Repo.transaction(pool,
-      fn(conn :: borrow PgConn) -> append_entry_on_connection(conn, account_id, entry, false) end)?
+      fn(conn :: borrow PgConn) -> append_entry_on_connection(conn, account_id, entry) end)?
     let checkpoint = create_checkpoint(pool, seed)?
     assert(U64.to_int(checkpoint.sequence)? == sequence)
     let response = checkpoint_request(pool)

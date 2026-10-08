@@ -61,7 +61,7 @@ pub fn lease_outbox(pool :: PoolHandle,
   lease_seconds :: Int) -> List<OutboxEvent>!String do
   valid_lease(owner, limit, lease_seconds)?
   let rows = Pool.query_values(pool,
-    "WITH exhausted AS (UPDATE messenger_outbox_events SET status = 'permanent_failure', completed_at = clock_timestamp(), lease_owner = NULL, lease_expires_at = NULL, last_error_code = 'lease_attempts_exhausted' WHERE status = 'leased' AND attempts >= 5 AND lease_expires_at <= clock_timestamp()), candidates AS (SELECT event_id FROM messenger_outbox_events WHERE completed_at IS NULL AND attempts < 5 AND available_at <= clock_timestamp() AND (status IN ('pending', 'retryable_failure') OR (status = 'leased' AND lease_expires_at <= clock_timestamp())) ORDER BY created_at, event_id FOR UPDATE SKIP LOCKED LIMIT $2::integer) UPDATE messenger_outbox_events AS event SET status = 'leased', lease_owner = $1, lease_expires_at = clock_timestamp() + ($3::integer * interval '1 second'), attempts = event.attempts + 1, last_error_code = NULL FROM candidates WHERE event.event_id = candidates.event_id RETURNING event.event_id::text, event.mailbox_token_hash, event.attempts::text",
+    "WITH exhausted AS (UPDATE messenger_outbox_events SET status = 'permanent_failure', completed_at = date_trunc('minute', clock_timestamp(), 'UTC'), available_at = date_trunc('minute', available_at, 'UTC'), lease_owner = NULL, lease_expires_at = NULL, last_error_code = 'lease_attempts_exhausted' WHERE status = 'leased' AND attempts >= 5 AND lease_expires_at <= clock_timestamp()), candidates AS (SELECT event_id FROM messenger_outbox_events WHERE completed_at IS NULL AND attempts < 5 AND available_at <= clock_timestamp() AND (status IN ('pending', 'retryable_failure') OR (status = 'leased' AND lease_expires_at <= clock_timestamp())) ORDER BY created_at, event_id FOR UPDATE SKIP LOCKED LIMIT $2::integer) UPDATE messenger_outbox_events AS event SET status = 'leased', lease_owner = $1, lease_expires_at = clock_timestamp() + ($3::integer * interval '1 second'), attempts = event.attempts + 1, last_error_code = NULL FROM candidates WHERE event.event_id = candidates.event_id RETURNING event.event_id::text, event.mailbox_token_hash, event.attempts::text",
     [Text(owner), Text(Int.to_string(limit)), Text(Int.to_string(lease_seconds))])?
   decode_events(rows)
 end
@@ -80,7 +80,7 @@ fn complete(pool :: PoolHandle,
   status :: String,
   error_code :: String) -> Result<(), String> do
   let changed = Pool.execute_values(pool,
-    "UPDATE messenger_outbox_events SET status = $3, completed_at = clock_timestamp(), lease_owner = NULL, lease_expires_at = NULL, last_error_code = NULLIF(left($4, 64), '') WHERE event_id = $1::uuid AND status = 'leased' AND lease_owner = $2 AND lease_expires_at > clock_timestamp()",
+    "UPDATE messenger_outbox_events SET status = $3, completed_at = date_trunc('minute', clock_timestamp(), 'UTC'), available_at = date_trunc('minute', available_at, 'UTC'), lease_owner = NULL, lease_expires_at = NULL, last_error_code = NULLIF(left($4, 64), '') WHERE event_id = $1::uuid AND status = 'leased' AND lease_owner = $2 AND lease_expires_at > clock_timestamp()",
     [Text(event.event_id), Text(owner), Text(status), Text(error_code)])?
   expect_fenced_update(changed)
 end
@@ -90,7 +90,7 @@ fn retry(pool :: PoolHandle,
   owner :: String,
   error_code :: String) -> Result<(), String> do
   let changed = Pool.execute_values(pool,
-    "UPDATE messenger_outbox_events SET status = CASE WHEN attempts >= 5 THEN 'permanent_failure' ELSE 'retryable_failure' END, completed_at = CASE WHEN attempts >= 5 THEN clock_timestamp() ELSE NULL END, available_at = CASE WHEN attempts >= 5 THEN available_at ELSE clock_timestamp() + (LEAST(60, (1 << LEAST(attempts - 1, 5))) * interval '1 second') END, lease_owner = NULL, lease_expires_at = NULL, last_error_code = left($3, 64) WHERE event_id = $1::uuid AND status = 'leased' AND lease_owner = $2 AND lease_expires_at > clock_timestamp()",
+    "UPDATE messenger_outbox_events SET status = CASE WHEN attempts >= 5 THEN 'permanent_failure' ELSE 'retryable_failure' END, completed_at = CASE WHEN attempts >= 5 THEN date_trunc('minute', clock_timestamp(), 'UTC') ELSE NULL END, available_at = CASE WHEN attempts >= 5 THEN date_trunc('minute', available_at, 'UTC') ELSE clock_timestamp() + (LEAST(60, (1 << LEAST(attempts - 1, 5))) * interval '1 second') END, lease_owner = NULL, lease_expires_at = NULL, last_error_code = left($3, 64) WHERE event_id = $1::uuid AND status = 'leased' AND lease_owner = $2 AND lease_expires_at > clock_timestamp()",
     [Text(event.event_id), Text(owner), Text(error_code)])?
   expect_fenced_update(changed)
 end

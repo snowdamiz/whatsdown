@@ -7,6 +7,10 @@ license = "MIT"
 [dependencies]
 mesh-binary = { path = "../../../mesh-lang/packages/mesh-binary" }
 messenger-protocol = { path = "../messenger-protocol" }
+# Credits blinding (Mobile.CreditsIssue) needs a Mesh release with Crypto.BlindRsa.
+messenger-credits = { path = "../messenger-credits" }
+# Oblivious HTTP for stateless requests (Mobile.Oblivious) needs the HPKE export.
+messenger-ohttp = { path = "../messenger-ohttp" }
 
 [build]
 entrypoint = "main.mpl"

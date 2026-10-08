@@ -1,6 +1,11 @@
 ##! PostgreSQL metadata and typed row decoding.
 
-from Store.Files import maximum_object_bytes, maximum_part_bytes, validate_paths
+from Store.Files import (
+  maximum_part_bytes,
+  maximum_part_index,
+  object_bytes_limit,
+  validate_paths
+)
 
 pub struct ObjectRecord do
   object_id :: Bytes
@@ -32,13 +37,21 @@ end
 fn schema(database :: borrow PgConn) -> Result<(), String> do
   lock_writer(database)?
   Pg.execute(database,
-    "CREATE TABLE IF NOT EXISTS objects (object_id BYTEA PRIMARY KEY CHECK(octet_length(object_id) = 32), grant_hash BYTEA NOT NULL UNIQUE CHECK(octet_length(grant_hash) = 32), upload_hash BYTEA NOT NULL CHECK(octet_length(upload_hash) = 32), download_hash BYTEA NOT NULL CHECK(octet_length(download_hash) = 32), part_count INTEGER NOT NULL CHECK(part_count BETWEEN 1 AND 257), total_bytes INTEGER NOT NULL DEFAULT 0 CHECK(total_bytes BETWEEN 0 AND 16795830), expires_at BIGINT NOT NULL CHECK(expires_at >= 0), completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1)))",
+    "CREATE TABLE IF NOT EXISTS objects (object_id BYTEA PRIMARY KEY CHECK(octet_length(object_id) = 32), grant_hash BYTEA NOT NULL UNIQUE CHECK(octet_length(grant_hash) = 32), upload_hash BYTEA NOT NULL CHECK(octet_length(upload_hash) = 32), download_hash BYTEA NOT NULL CHECK(octet_length(download_hash) = 32), part_count INTEGER NOT NULL CHECK(part_count BETWEEN 1 AND 8193), total_bytes INTEGER NOT NULL DEFAULT 0 CHECK(total_bytes BETWEEN 0 AND 537199106), expires_at BIGINT NOT NULL CHECK(expires_at >= 0), completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1)))",
     [])?
   Pg.execute(database,
-    "CREATE TABLE IF NOT EXISTS object_parts (object_id BYTEA NOT NULL REFERENCES objects(object_id) ON DELETE CASCADE CHECK(octet_length(object_id) = 32), part_index INTEGER NOT NULL CHECK(part_index BETWEEN 0 AND 256), size INTEGER NOT NULL CHECK(size BETWEEN 1 AND 65608), content_hash BYTEA NOT NULL CHECK(octet_length(content_hash) = 32), PRIMARY KEY (object_id, part_index))",
+    "CREATE TABLE IF NOT EXISTS object_parts (object_id BYTEA NOT NULL REFERENCES objects(object_id) ON DELETE CASCADE CHECK(octet_length(object_id) = 32), part_index INTEGER NOT NULL CHECK(part_index BETWEEN 0 AND 8192), size INTEGER NOT NULL CHECK(size BETWEEN 1 AND 65608), content_hash BYTEA NOT NULL CHECK(octet_length(content_hash) = 32), PRIMARY KEY (object_id, part_index))",
     [])?
   Pg.execute(database,
     "CREATE INDEX IF NOT EXISTS objects_expiry ON objects (expires_at, object_id)",
+    [])?
+  # Tables made before large objects carry the 16 MiB bounds; widen them to
+  # 512 MiB attachments (8,193 parts, 537,199,106 bytes).
+  Pg.execute(database,
+    "ALTER TABLE objects DROP CONSTRAINT IF EXISTS objects_part_count_check, DROP CONSTRAINT IF EXISTS objects_total_bytes_check, ADD CONSTRAINT objects_part_count_check CHECK(part_count BETWEEN 1 AND 8193), ADD CONSTRAINT objects_total_bytes_check CHECK(total_bytes BETWEEN 0 AND 537199106)",
+    [])?
+  Pg.execute(database,
+    "ALTER TABLE object_parts DROP CONSTRAINT IF EXISTS object_parts_part_index_check, ADD CONSTRAINT object_parts_part_index_check CHECK(part_index BETWEEN 0 AND 8192)",
     [])?
   Ok(nil)
 end
@@ -88,9 +101,9 @@ pub fn decode_object(row :: Map<String, DbValue>) -> ObjectRecord!String do
     || Bytes.length(value.upload_hash) != 32
     || Bytes.length(value.download_hash) != 32
     || value.part_count < 1
-    || value.part_count > 257
+    || value.part_count > maximum_part_index() + 1
     || value.total_bytes < 0
-    || value.total_bytes > maximum_object_bytes()
+    || value.total_bytes > object_bytes_limit(value.part_count)
     || value.expires_at < 0
     || (value.completed != 0 && value.completed != 1) do
     Err("invalid object metadata")
@@ -106,7 +119,7 @@ pub fn decode_part(row :: Map<String, DbValue>) -> PartRecord!String do
     content_hash: binary_value(row, "content_hash")?
   }
   if value.part_index < 0
-    || value.part_index > 256
+    || value.part_index > maximum_part_index()
     || value.size < 1
     || value.size > maximum_part_bytes()
     || Bytes.length(value.content_hash) != 32 do

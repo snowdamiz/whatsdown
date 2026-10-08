@@ -1,0 +1,24 @@
+[package]
+name = "morse-wallet-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+description = "Morse's non-custodial Solana wallet core: seed, derivation and signing only"
+license = "UNLICENSED"
+publish = false
+
+[lib]
+name = "morse_wallet_core"
+crate-type = ["staticlib", "rlib"]
+
+# Exact pins: this crate holds wallet seeds, so upgrades are deliberate.
+[dependencies]
+base64 = "=0.22.1"
+bip39 = { version = "=2.2.2", default-features = false, features = ["zeroize"] }
+bs58 = "=0.5.1"
+curve25519-dalek = { version = "=4.1.3", default-features = false }
+ed25519-dalek = "=2.2.0"
+getrandom = "=0.3.4"
+hmac = "=0.12.1"
+sha2 = "=0.10.9"
+zeroize = "=1.8.2"

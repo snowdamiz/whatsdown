@@ -1,0 +1,8 @@
+file '/Volumes/SSK-SSD/whatsdown/brag-output-2026-09-26-192629/work/segs/seg0.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output-2026-09-26-192629/work/segs/seg1.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output-2026-09-26-192629/work/segs/seg2.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output-2026-09-26-192629/work/segs/seg3.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output-2026-09-26-192629/work/segs/seg4.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output-2026-09-26-192629/work/segs/seg5.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output-2026-09-26-192629/work/segs/seg6.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output-2026-09-26-192629/work/segs/seg7.mp4'

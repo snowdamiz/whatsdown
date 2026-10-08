@@ -12,8 +12,9 @@ from Store.Database import (
   open_database
 )
 from Store.Files import (
-  maximum_object_bytes,
+  large_part_size,
   maximum_part_bytes,
+  object_bytes_limit,
   part_path,
   read_part_file,
   remove_file,
@@ -21,6 +22,9 @@ from Store.Files import (
   validate_paths,
   write_part_file
 )
+from Credits.CreditFrames import CreditFrame
+from Objects.CreditGrant import object_grant_entitle, object_grant_split
+from Privacy.CreditEdge import CreditEdgeResult
 from Objects.Grant import (
   ObjectGrantRequest,
   ObjectGrantResponse,
@@ -54,9 +58,15 @@ fn download_authorized(value :: ObjectRecord, capability :: Bytes) -> Bool do
     && Bytes.secure_equals(Crypto.sha256(capability), value.download_hash)
 end
 
+# A new large grant is entitled before it is written: the core redeems its CRD
+# frame (Objects.CreditGrant). An exact replay answers from the stored grant and
+# redeems nothing, so a phone that lost the answer can ask again.
+
 fn grant_open(database :: borrow PgConn,
   body :: Bytes,
-  grant_value :: ObjectGrantRequest) -> ObjectResult!String do
+  grant_value :: ObjectGrantRequest,
+  frame :: Option<CreditFrame>,
+  redeem :: Fun(Bytes) -> CreditEdgeResult!String) -> ObjectResult!String do
   let grant_hash = Crypto.sha256(body)
   let existing = Pg.query_values(database,
     "SELECT grant_hash FROM objects WHERE object_id = $1",
@@ -71,6 +81,10 @@ fn grant_open(database :: borrow PgConn,
   else if List.length(existing) > 1 do
     Err("invalid object metadata")
   else
+    let entitled = object_grant_entitle(frame, grant_value.part_count, redeem)
+    if entitled != 0 do
+      return Ok(empty(entitled))
+    end
     let expires_at = U64.to_int(grant_value.expires_at)?
     let changed = Pg.execute_values(database,
       "INSERT INTO objects (object_id, grant_hash, upload_hash, download_hash, part_count, total_bytes, expires_at, completed) VALUES ($1, $2, $3, $4, $5, 0, $6, 0)",
@@ -92,25 +106,47 @@ fn grant_open(database :: borrow PgConn,
   end
 end
 
+## POST /v1/attachments/grant: `OGR`, or `CRD ‖ OGR` for an object above 16
+## MiB. `redeem` posts an RDQ frame to the core's redeem route.
+
+pub fn grant_with_credits(database_path :: String,
+  root :: String,
+  body :: Bytes,
+  now :: U64,
+  maximum_work_future :: U64,
+  difficulty :: Int,
+  redeem :: Fun(Bytes) -> CreditEdgeResult!String) -> ObjectResult do
+  case validate_paths(database_path, root) do
+    Err(_) -> empty(500)
+    Ok(_) -> case object_grant_split(body) do
+      Err(_) -> empty(400)
+      Ok((frame, request)) -> case verified_grant(request, now, maximum_work_future, difficulty) do
+        Err(status) -> empty(status)
+        Ok(value) -> case open_transaction(database_path) do
+          Err(_) -> empty(500)
+          Ok(database) -> do
+            let result = grant_open(database, request, value, frame, redeem)
+            operation_response(finish_database(database, result))
+          end
+        end
+      end
+    end
+  end
+end
+
+fn no_credits(_request :: Bytes) -> CreditEdgeResult!String do
+  Ok(CreditEdgeResult { status: 403, body: Bytes.empty() })
+end
+
+## A store that redeems no credits: large grants answer 403.
+
 pub fn grant(database_path :: String,
   root :: String,
   body :: Bytes,
   now :: U64,
   maximum_work_future :: U64,
   difficulty :: Int) -> ObjectResult do
-  case validate_paths(database_path, root) do
-    Err(_) -> empty(500)
-    Ok(_) -> case verified_grant(body, now, maximum_work_future, difficulty) do
-      Err(status) -> empty(status)
-      Ok(value) -> case open_transaction(database_path) do
-        Err(_) -> empty(500)
-        Ok(database) -> do
-          let result = grant_open(database, body, value)
-          operation_response(finish_database(database, result))
-        end
-      end
-    end
-  end
+  grant_with_credits(database_path, root, body, now, maximum_work_future, difficulty, no_credits)
 end
 
 fn replay_part(path :: String, size :: Int, body :: Bytes) -> ObjectResult!String do
@@ -129,7 +165,8 @@ fn store_part(database :: borrow PgConn,
   object_id :: Bytes,
   part_index :: Int,
   body :: Bytes,
-  content_hash :: Bytes) -> ObjectResult!String do
+  content_hash :: Bytes,
+  limit :: Int) -> ObjectResult!String do
   case write_part_file(path, body) do
     ## Failed or uncertain transactions leave parts for exact replay;
     ## the R2 lifecycle eventually removes unreferenced parts.
@@ -148,11 +185,12 @@ fn store_part(database :: borrow PgConn,
       let updated = case inserted do
         Err(error)
         Ok(_) -> Pg.execute_values(database,
-          "UPDATE objects SET total_bytes = total_bytes + $1 WHERE object_id = $2 AND completed = 0 AND total_bytes + $3 <= 16795830",
+          "UPDATE objects SET total_bytes = total_bytes + $1 WHERE object_id = $2 AND completed = 0 AND total_bytes + $3 <= $4",
           [
             Text(Int.to_string(Bytes.length(body))),
             Binary(object_id),
-            Text(Int.to_string(Bytes.length(body)))
+            Text(Int.to_string(Bytes.length(body))),
+            Text(Int.to_string(limit))
           ])
       end
       case updated do
@@ -186,6 +224,8 @@ fn put_open(database :: borrow PgConn,
       Ok(empty(404))
     else if object.completed == 1 do
       Ok(empty(409))
+    else if object.part_count > 257 && Bytes.length(body) != large_part_size(part_index) do
+      Ok(empty(400))
     else
       let content_hash = Crypto.sha256(body)
       let path = part_path(root, object_id, part_index)?
@@ -196,10 +236,17 @@ fn put_open(database :: borrow PgConn,
         else
           replay_part(path, existing.size, body)
         end
-        None -> if object.total_bytes + Bytes.length(body) > maximum_object_bytes() do
+        None -> if object.total_bytes
+          + Bytes.length(body) > object_bytes_limit(object.part_count) do
           Ok(empty(413))
         else
-          store_part(database, path, object_id, part_index, body, content_hash)
+          store_part(database,
+            path,
+            object_id,
+            part_index,
+            body,
+            content_hash,
+            object_bytes_limit(object.part_count))
         end
       end
     end
@@ -319,6 +366,44 @@ fn files_present(rows :: List<Map<String, DbValue>>,
   end
 end
 
+# A large object's parts all have their canonical sizes (put_open), so every
+# index is present exactly when the object holds its whole bucket. Its files
+# are not read back here: a download checks each part's hash before serving it.
+# ponytail: re-reading 8,193 remote parts under the writer lock would stall the
+# store; verify in the background if lost writes ever show up.
+
+fn parts_present(database :: borrow PgConn,
+  root :: String,
+  object_id :: Bytes,
+  object :: ObjectRecord) -> Bool!String do
+  if object.part_count > 257 do
+    Ok(object.total_bytes == object_bytes_limit(object.part_count)
+      && part_count(database, object_id)? == object.part_count)
+  else
+    let rows = Pg.query_values(database,
+      "SELECT part_index, size, content_hash FROM object_parts WHERE object_id = $1 ORDER BY part_index",
+      [Binary(object_id)])?
+    Ok(List.length(rows) == object.part_count
+      && files_present(rows, root, object_id, object.part_count, 0)?)
+  end
+end
+
+fn part_count(database :: borrow PgConn, object_id :: Bytes) -> Int!String do
+  let rows = Pg.query_values(database,
+    "SELECT count(*)::text AS parts FROM object_parts WHERE object_id = $1",
+    [Binary(object_id)])?
+  case rows do
+    [row] -> case Map.get(row, "parts") do
+      Text(value) -> case String.to_int(value) do
+        Some(parsed) -> Ok(parsed)
+        None -> Err("invalid object metadata")
+      end
+      _ -> Err("invalid object metadata")
+    end
+    _ -> Err("invalid object metadata")
+  end
+end
+
 fn complete_open(database :: borrow PgConn,
   root :: String,
   body :: Bytes,
@@ -332,22 +417,16 @@ fn complete_open(database :: borrow PgConn,
       Ok(empty(410))
     else if object.completed == 1 do
       Ok(empty(200))
+    else if !parts_present(database, root, control.object_id, object)? do
+      Ok(empty(409))
     else
-      let rows = Pg.query_values(database,
-        "SELECT part_index, size, content_hash FROM object_parts WHERE object_id = $1 ORDER BY part_index",
+      let changed = Pg.execute_values(database,
+        "UPDATE objects SET completed = 1 WHERE object_id = $1 AND completed = 0",
         [Binary(control.object_id)])?
-      if List.length(rows) != object.part_count
-        || !files_present(rows, root, control.object_id, object.part_count, 0)? do
-        Ok(empty(409))
+      if changed == 1 do
+        Ok(empty(200))
       else
-        let changed = Pg.execute_values(database,
-          "UPDATE objects SET completed = 1 WHERE object_id = $1 AND completed = 0",
-          [Binary(control.object_id)])?
-        if changed == 1 do
-          Ok(empty(200))
-        else
-          Err("object completion conflict")
-        end
+        Err("object completion conflict")
       end
     end
   end

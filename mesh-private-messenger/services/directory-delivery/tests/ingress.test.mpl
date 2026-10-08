@@ -39,7 +39,7 @@ actor directory_router() do
     |> HTTP.serve(18994)
 end
 
-test("default router exposes neither GET prekey claims nor public direct delivery") do
+test("default router exposes neither GET prekey claims, public direct delivery nor unauthenticated jobs routes") do
   let _server = spawn(directory_router)
   Timer.sleep(100)
   case Http.build(:get, "http://127.0.0.1:18994/v1/prekeys/bundle")
@@ -63,6 +63,19 @@ test("default router exposes neither GET prekey claims nor public direct deliver
     |> Http.send() do
     Err(_) -> assert(false)
     Ok(response) -> assert(response.status == 404)
+  end
+  # The jobs Worker's transparency routes need its bearer.
+  case Http.build(:post, "http://127.0.0.1:18994/internal/v1/transparency/anchors")
+    |> Http.body("{}")
+    |> Http.send() do
+    Err(_) -> assert(false)
+    Ok(response) -> assert(response.status == 401)
+  end
+  case Http.build(:get, "http://127.0.0.1:18994/internal/v1/transparency/push-witnesses")
+    |> Http.header("Authorization", "Bearer wrong")
+    |> Http.send() do
+    Err(_) -> assert(false)
+    Ok(response) -> assert(response.status == 401)
   end
   Process.request_shutdown()
   Timer.sleep(50)

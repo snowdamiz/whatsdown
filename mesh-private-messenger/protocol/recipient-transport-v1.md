@@ -82,17 +82,36 @@ receive traffic at correlated times.
 
 The seal uses a long-lived classical key. It claims neither forward secrecy nor
 post-quantum protection for the *metadata* it hides: later compromise of a
-recipient's device identity key exposes the headers of envelopes captured
-earlier. Message content is governed by the inner handshake and ratchet, not by
-this layer. Signal's sealed sender has the same property.
+recipient's device identity key exposes the headers of version 3 ratchet
+messages captured earlier. Message content is governed by the inner handshake
+and ratchet, not by this layer. Signal's sealed sender has the same property.
+Ratchet message version `4` ([`ratchet-message-v2.md`](ratchet-message-v2.md)),
+which upgraded sessions send, seals its own header under keys from the root
+chain, so opening the seal of one shows no session ID, ratchet key or counter.
+Initial packets still show the sender's credential and account once opened.
 
 ## Compatibility
 
-New sends are always sealed. Receivers still read, for envelopes queued before
-the sender upgraded: bare `M8P` ratchet packets at versions `1`-`2` under outer
-suites `1`-`2`, `SIP`-wrapped initial packets, and `SGP`-wrapped or bare group
-packets under outer suite `3`. Their exposed metadata is not retroactively
-hidden. A bare initial packet is never accepted. Clients that predate this
+New sends are always sealed: the core's only envelope builder refuses any outer
+suite but `4`. Until the cutoff, receivers still read, for envelopes queued
+before the sender upgraded: bare `M8P` ratchet packets at versions `1`-`2` under
+outer suites `1`-`2`, `SIP`-wrapped initial packets, and `SGP`-wrapped or bare
+group packets under outer suite `3`. Their exposed metadata is not retroactively
+hidden. A bare initial packet is never accepted.
+
+The cutoff is `2026-11-20T00:00:00Z` (`protocol_legacy_packet_cutoff_ms`,
+`1795132800000`): 60 days after `2026-09-21`, the first releases (desktop
+`v0.1.13`, the first mobile builds) from which every supported build sealed
+every send. An envelope under outer suite `1`, `2` or `3` comes from an older
+build, so by the cutoff it has outlived the 30-day expiry clients give their
+envelopes twice over. From the cutoff, by the receiving device's own clock, every
+receive path (direct initial, direct ratchet, group) refuses such an envelope
+as `legacy_packet_refused` before opening it. The error is permanent: the inbox
+acknowledges and drops the envelope instead of fetching it again. No release is
+needed on the day. A device whose clock runs slow keeps reading them a little
+longer, which exposes nothing new. Sealed envelopes do not depend on the date.
+Ratchet versions `1` and `2` travel only bare, so from the cutoff only version
+`3` and `4` messages are read. Clients that predate this
 transport cannot open sealed envelopes; update mobile, desktop, and CLI
 together. Migration `012` admits outer suite `4` in the delivery database.
 

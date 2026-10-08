@@ -59,6 +59,7 @@ export const groupDigits = (value: string, size: number): string[] =>
 const knownErrors: readonly [RegExp, string][] = [
   [/transparency_stale/, 'Security information is out of date. Reconnect and refresh before sending.'],
   [/peer_keys_changed/, 'Their security keys changed. Verify before sending.'],
+  [/peer_suite_below_floor/, 'This contact’s app needs an update to start a secure session.'],
   [/message_request_pending/, 'Accept this message request before replying.'],
   [/conversation_blocked/, 'Unblock this conversation before sending.'],
   [/recipient_unavailable/, 'Someone can’t receive more messages right now. Yours will send on its own when they can.'],
@@ -68,6 +69,16 @@ const knownErrors: readonly [RegExp, string][] = [
   [
     /account_deletion_refused/,
     'The server refused to delete the account. Check this device’s date and time, then try again.',
+  ],
+  [/group_witness_set_unknown/, 'A group you’re in moved to newer witnesses. Update Morse to keep using it.'],
+  [
+    /transparency_anchor_proof_invalid/,
+    'The directory’s proof for this group’s key history didn’t check out. Nothing was changed.',
+  ],
+  [/account_changed_while_away/, 'Your account changed while this device was away.'],
+  [
+    /trust_alarm_active/,
+    'New chats and key changes are paused while Morse’s key log is in question. Existing chats keep working.',
   ],
   [/removed_from_account/, 'This device is no longer part of its account. Erase it in You to start again.'],
   [

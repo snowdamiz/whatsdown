@@ -9,6 +9,11 @@ export type Screen =
   | 'scanner'
   | 'chat'
   | 'devices'
+  | 'network'
+  | 'trust-details'
+  | 'wallet'
+  | 'credits'
+  | 'backups'
   | 'link-device'
   | 'link-authorization'
   | 'groups'
@@ -35,6 +40,11 @@ const depth: Record<ScreenKey, number> = {
   chat: 1,
   account: 1,
   devices: 1,
+  network: 1,
+  'trust-details': 2,
+  wallet: 1,
+  credits: 1,
+  backups: 1,
   group: 1,
   'group-package': 1,
   'link-device': 1,
@@ -92,6 +102,11 @@ const parents: Record<Screen, Screen | null> = {
   'group-package': 'groups',
   account: 'settings',
   devices: 'settings',
+  network: 'settings',
+  'trust-details': 'network',
+  wallet: 'settings',
+  credits: 'settings',
+  backups: 'settings',
   'link-authorization': 'devices',
 };
 

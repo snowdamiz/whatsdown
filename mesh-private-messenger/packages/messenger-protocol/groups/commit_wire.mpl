@@ -14,7 +14,7 @@ from Groups.GroupCodec import (
   group_wire_fixed,
   group_wire_magic,
   group_wire_reader,
-  group_wire_start,
+  group_wire_start_versioned,
   group_wire_u16,
   group_wire_u64,
   group_wire_u8,
@@ -67,11 +67,14 @@ pub fn group_extensions_bytes(values :: List<Int>) -> Bytes!GroupError do
   end
 end
 
+# A version 1 policy has no set_id, so its bytes are unchanged.
+
 pub fn group_policy_bytes(value :: GroupTransparencyPolicy) -> Bytes!GroupError do
   group_join([
       group_write_u64(value.minimum_directory_sequence)?,
       value.checkpoint_hash,
-      group_byte(value.witness_threshold)?
+      group_byte(value.witness_threshold)?,
+      value.set_id
     ],
     0,
     Bytes.empty())
@@ -104,7 +107,8 @@ fn commit_context(version :: Int,
   committer_leaf :: Int,
   prior_transcript_hash :: Bytes,
   next_tree_hash :: Bytes,
-  proposal :: GroupProposal) -> Bytes!GroupError do
+  proposal :: GroupProposal,
+  witness_set :: Bytes) -> Bytes!GroupError do
   group_join([
       Bytes.from_utf8("mesh-mls/v1/commit"),
       group_byte(version)?,
@@ -115,7 +119,8 @@ fn commit_context(version :: Int,
       group_write_u16(committer_leaf)?,
       prior_transcript_hash,
       next_tree_hash,
-      proposal_bytes(proposal)?
+      proposal_bytes(proposal)?,
+      witness_set
     ],
     0,
     Bytes.empty())
@@ -195,6 +200,7 @@ pub fn group_update_path_context(version :: Int,
   prior_transcript_hash :: Bytes,
   next_tree_hash :: Bytes,
   proposal :: GroupProposal,
+  witness_set :: Bytes,
   update_path :: TreeKemUpdatePath) -> Bytes!GroupError do
   let prefix = commit_context(version,
     suite,
@@ -204,7 +210,8 @@ pub fn group_update_path_context(version :: Int,
     committer_leaf,
     prior_transcript_hash,
     next_tree_hash,
-    proposal)?
+    proposal,
+    witness_set)?
   group_join([
       prefix,
       update_path.leaf_public_key.bytes,
@@ -225,6 +232,7 @@ pub fn group_commit_unsigned(value :: GroupCommit) -> Bytes!GroupError do
     value.prior_transcript_hash,
     value.tree_hash,
     value.proposal,
+    value.witness_set,
     value.update_path)?
   let body = update_ciphertexts_bytes(value.update_path.nodes, 0, context)?
   if value.version == 1 do
@@ -488,6 +496,14 @@ fn validate_update_nodes_shape(values :: List<TreeKemUpdateNode>,
   end
 end
 
+fn witness_set_valid(value :: Bytes) -> Bool do
+  Bytes.length(value) == 33
+    && case Bytes.get(value, 32) do
+      Ok(threshold) -> threshold >= 1 && threshold <= 16
+      Err(_) -> false
+    end
+end
+
 pub fn group_validate_commit_shape(value :: GroupCommit) -> Result<(), GroupError> do
   let valid = (value.version == 1 || value.version == 2)
     && ((value.version == 1 && Bytes.length(value.confirmation) == 0)
@@ -503,7 +519,9 @@ pub fn group_validate_commit_shape(value :: GroupCommit) -> Result<(), GroupErro
     UpdateKeys -> value.version == 1
     _ -> false
   end
-  if !valid || legacy_update do
+  let set_valid = Bytes.length(value.witness_set) == 0
+    || (value.version == 2 && witness_set_valid(value.witness_set))
+  if !valid || legacy_update || !set_valid do
     Err(InvalidGroup)
   else if U64.compare(value.epoch, group_next_epoch(value.prior_epoch)?) != 0 do
     Err(InvalidGroup)
@@ -520,17 +538,25 @@ pub fn group_validate_commit_shape(value :: GroupCommit) -> Result<(), GroupErro
   end
 end
 
+# A commit that moves the group to another witness set is frame version 2 and
+# carries set_id32 || u8 k right after its proposal; everything else is version 1.
+
 pub fn encode_group_commit(value :: GroupCommit) -> Bytes!GroupError do
   group_validate_commit_shape(value)?
   let body = group_signed_commit_bytes(value)?
+  let frame = if Bytes.length(value.witness_set) == 0 do
+    1
+  else
+    2
+  end
   if Bytes.length(body) > 8192 do
     Err(InvalidGroup)
   else
-    group_join([group_byte(1)?, Bytes.from_utf8("GCM"), group_vector(body)?], 0, Bytes.empty())
+    group_join([group_byte(frame)?, Bytes.from_utf8("GCM"), group_vector(body)?], 0, Bytes.empty())
   end
 end
 
-fn decode_commit_body(input :: Bytes) -> GroupCommit!GroupError do
+fn decode_commit_body(input :: Bytes, frame :: Int) -> GroupCommit!GroupError do
   let domain = group_wire_magic(group_wire_reader(input, 8192)?, "mesh-mls/v1/commit")?
   let version = group_wire_u8(domain)?
   let suite = group_wire_u16(version.state)?
@@ -541,7 +567,13 @@ fn decode_commit_body(input :: Bytes) -> GroupCommit!GroupError do
   let prior_transcript = group_wire_fixed(committer.state, 32)?
   let tree = group_wire_fixed(prior_transcript.state, 32)?
   let proposal = read_proposal(tree.state)?
-  let leaf_public = group_wire_fixed(proposal.state, 32)?
+  let witness_set = group_wire_fixed(proposal.state,
+    if frame == 2 do
+      33
+    else
+      0
+    end)?
+  let leaf_public = group_wire_fixed(witness_set.state, 32)?
   let node_count = group_wire_u8(leaf_public.state)?
   let parents = read_update_nodes(node_count.state, node_count.value, 0, List.new())?
   let nodes = read_update_ciphertexts(parents.state, parents.value, 0, List.new())?
@@ -568,14 +600,16 @@ fn decode_commit_body(input :: Bytes) -> GroupCommit!GroupError do
       nodes: nodes.value
     },
     confirmation: confirmation.value,
-    signature: Signature { bytes: signature.value }
+    signature: Signature { bytes: signature.value },
+    witness_set: witness_set.value
   }
   group_validate_commit_shape(value)?
   Ok(value)
 end
 
 pub fn decode_group_commit(input :: Bytes) -> GroupCommit!GroupError do
-  let body = group_wire_vector(group_wire_start(input, 8200, "GCM")?, 8192)?
+  let start = group_wire_start_versioned(input, 8200, "GCM")?
+  let body = group_wire_vector(start.state, 8192)?
   group_wire_end(body.state)?
-  decode_commit_body(body.value)
+  decode_commit_body(body.value, start.value)
 end

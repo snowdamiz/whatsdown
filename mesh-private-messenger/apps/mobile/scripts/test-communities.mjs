@@ -106,7 +106,7 @@ try {
       if (symbol === 'mesh_messenger_load_profile') return vectors(text('alice'), id(1), id(1, 16), []);
       if (symbol === 'mesh_messenger_list_conversations') {
         return list(...Object.keys(state.direct).map(Number).map((n) => vectors(id(20 + n, 16), text(names[n]), id(n), id(n, 16),
-          text('1234'.repeat(16)), [state.pending.includes(n) ? 0 : 1], [0], [0], [0], u32(0))));
+          text('1234'.repeat(16)), [state.pending.includes(n) ? 0 : 1], [0], [0], [0], u32(0), u64(0))));
       }
       if (symbol === 'mesh_messenger_load_history') return list(...(state.direct[fields(request)[1][0]] ?? []));
       if (symbol === 'mesh_messenger_update_conversation') {

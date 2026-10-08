@@ -1,4 +1,12 @@
 from Api.Http import (
+  handle_credits_health,
+  handle_credits_totals,
+  handle_mailbox_policy,
+  handle_mailbox_retention,
+  handle_register_work,
+  handle_credits_issuer_keys,
+  handle_credits_issuer_leaf,
+  handle_credits_redeem,
   handle_jobs,
   handle_witness_job,
   handle_acknowledge,
@@ -18,9 +26,18 @@ from Api.Http import (
   handle_transparency_checkpoint,
   handle_transparency_consistency,
   handle_transparency_inclusion,
+  handle_internal_anchor,
+  handle_internal_push_witnesses,
+  handle_transparency_anchor,
+  handle_transparency_leaf,
+  handle_transparency_leaves,
+  handle_transparency_note,
+  handle_transparency_registry,
   handle_transparency_witness_submit,
   handle_transparency_witnesses
 )
+from Api.WitnessNetwork import handle_transparency_witnesses_at
+from Api.Gateway import handle_ohttp, handle_ohttp_keys
 
 pub fn direct_delivery_compatibility_enabled(value :: String) -> Bool do
   value == "enabled"
@@ -29,7 +46,9 @@ end
 pub fn build_router() do
   let router = HTTP.router()
     |> HTTP.on_get("/health", handle_health)
+    |> HTTP.on_get("/v1/transparency/health", handle_health)
     |> HTTP.on_put("/v1/devices/register", handle_register_device)
+    |> HTTP.on_get("/v1/devices/register/work", handle_register_work)
     |> HTTP.on_post("/v1/devices/resolve", handle_resolve_devices)
     |> HTTP.on_post("/v1/devices/revoke", handle_revoke_device)
     |> HTTP.on_post("/v1/accounts/delete", handle_delete_account)
@@ -46,6 +65,8 @@ pub fn build_router() do
     |> HTTP.on_post("/internal/v1/jobs/directory", handle_jobs)
     |> HTTP.on_post("/internal/v1/jobs/witness", handle_witness_job)
     |> HTTP.on_post("/internal/v1/envelopes/sealed", handle_sealed_submit)
+    |> HTTP.on_post("/internal/v1/ohttp", handle_ohttp)
+    |> HTTP.on_get("/v1/ohttp/keys", handle_ohttp_keys)
     |> HTTP.on_post("/v1/mailbox/fetch", handle_fetch)
     |> HTTP.on_post("/v1/mailbox/ack", handle_acknowledge)
     |> HTTP.on_put("/v1/push/bind", handle_push_bind)
@@ -56,5 +77,20 @@ pub fn build_router() do
     |> HTTP.on_get("/v1/transparency/consistency", handle_transparency_consistency)
     |> HTTP.on_post("/v1/transparency/consistency", handle_transparency_consistency)
     |> HTTP.on_get("/v1/transparency/witnesses", handle_transparency_witnesses)
+    |> HTTP.on_get("/v1/transparency/witnesses/:sequence", handle_transparency_witnesses_at)
     |> HTTP.on_post("/v1/transparency/witnesses", handle_transparency_witness_submit)
+    |> HTTP.on_get("/v1/transparency/checkpoint.note", handle_transparency_note)
+    |> HTTP.on_get("/v1/transparency/registry", handle_transparency_registry)
+    |> HTTP.on_get("/v1/transparency/anchor/:sequence", handle_transparency_anchor)
+    |> HTTP.on_post("/v1/transparency/leaf", handle_transparency_leaf)
+    |> HTTP.on_get("/v1/transparency/leaves", handle_transparency_leaves)
+    |> HTTP.on_post("/internal/v1/transparency/anchors", handle_internal_anchor)
+    |> HTTP.on_get("/internal/v1/transparency/push-witnesses", handle_internal_push_witnesses)
+    |> HTTP.on_post("/internal/v1/credits/redeem", handle_credits_redeem)
+    |> HTTP.on_post("/internal/v1/credits/issuer-keys", handle_credits_issuer_leaf)
+    |> HTTP.on_get("/v1/credits/issuer-keys", handle_credits_issuer_keys)
+    |> HTTP.on_get("/v1/credits/health", handle_credits_health)
+    |> HTTP.on_get("/internal/v1/credits/totals", handle_credits_totals)
+    |> HTTP.on_put("/v1/mailbox/policy", handle_mailbox_policy)
+    |> HTTP.on_post("/internal/v1/mailbox/retention", handle_mailbox_retention)
 end

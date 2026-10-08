@@ -50,6 +50,15 @@ test('every pushed screen has a parent to return to and root screens have none',
   assert.equal(parentScreen('group-package'), 'groups');
   assert.equal(parentScreen('account'), 'settings');
   assert.equal(parentScreen('devices'), 'settings');
+  assert.equal(parentScreen('network'), 'settings');
+  assert.equal(transitionDirection('settings', 'network'), 'forward');
+  // Details of Morse's key log being in question sit under Network.
+  assert.equal(parentScreen('trust-details'), 'network');
+  assert.equal(transitionDirection('network', 'trust-details'), 'forward');
+  // Settings -> Wallet.
+  assert.equal(parentScreen('wallet'), 'settings');
+  assert.equal(parentScreen('credits'), 'settings');
+  assert.equal(transitionDirection('settings', 'wallet'), 'forward');
   assert.equal(parentScreen('link-authorization'), 'devices');
   assert.equal(parentScreen('link-device'), 'home');
   for (const root of ['home', 'groups', 'settings'] as const) {

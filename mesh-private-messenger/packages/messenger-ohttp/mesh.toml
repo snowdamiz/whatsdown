@@ -1,0 +1,8 @@
+[package]
+name = "messenger-ohttp"
+version = "0.1.0"
+description = "Oblivious HTTP (RFC 9458) encapsulation over Mesh's HPKE export (needs a Mesh release with Crypto.hpke_seal_export)"
+license = "MIT"
+
+[dependencies]
+messenger-protocol = { path = "../messenger-protocol" }

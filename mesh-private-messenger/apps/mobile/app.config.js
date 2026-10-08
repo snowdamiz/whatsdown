@@ -26,6 +26,9 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'io.morseapp',
+      // Face ID guards the wallet's recovery phrase (MorseWalletModule.swift) and,
+      // when it is turned on, the app lock (MorseLockModule.swift).
+      infoPlist: { NSFaceIDUsageDescription: 'Morse asks for Face ID to unlock the app when app lock is on, and before it shows your wallet’s recovery phrase.' },
       icon: {
         light: './assets/icon.png',
         dark: './assets/icon-dark.png',

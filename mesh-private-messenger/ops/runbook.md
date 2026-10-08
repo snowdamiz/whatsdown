@@ -54,13 +54,20 @@ The broker sends a data-only wake with `contentAvailable=true`, `priority=normal
 
 ## Transparency log capacity
 
-`PUT /v1/devices/register` and `POST /v1/devices/revoke` answer `507` when the
-transparency log has no room for the transition; nothing is committed. New
-accounts are refused from 3,584 entries and every transition from 4,096 (see
-[key transparency](../protocol/key-transparency-v1.md#proof-representation-and-its-ceiling)).
-Lookups, mailbox access, and messaging are unaffected. Alert on the entry count
-well before 3,584: reaching it closes registration for the deployment, and the
-reserved 512 entries are what let existing accounts keep revoking devices.
+The transparency log has no append limit: proofs are compact and built from
+stored tree nodes, so registration, renewal and revocation never answer `507`
+(see [key transparency](../protocol/key-transparency-v1.md#directory-storage)).
+Two thresholds still matter:
+
+- At 4,096 entries, clients still sending version 1 lookups get `426`. Ship the
+  version 2 client well before then.
+- At 8 million entries, plan moving the tree to tiles (plan section 6.15, G5)
+  before 10 million.
+
+The daily pruning job (`MESSENGER_TRANSPARENCY_PRUNING`, default `on`) keeps the
+table bounded: superseded entry bytes go after 90 days, checkpoints after 35
+unless anchored. Each run is a row in `transparency_pruning_runs`, and the
+directory's `/health` reports `last_pruning_day`. Warn when it is two days old.
 
 ## Account deletion
 
@@ -117,6 +124,13 @@ or its account is already gone, `403` for a stale or foreign signature, and
 - Mobile clients reconcile each `OTA` body before generating replacements. They retain at most 64 non-active secrets for delayed initial messages and at most 64 active secrets. If the retired bound is full, replenishment evicts the oldest retired secrets atomically; more than 64 claimed-but-undelivered initial messages can therefore become undecryptable and require incident investigation.
 - During upgrade, a legacy singleton secret is opened with its historical context, resealed under its per-ID context, and held provisionally active until `OTA` reports whether the server still has it. An already-consumed singleton becomes retired without permitting its ID to be reused.
 - Investigate sustained `429` responses before changing limits. The 64-key cap is a protocol and abuse-control boundary, not a deployment tuning knob.
+
+## Acceptance, alerts and the status page
+
+The witness network's production checks (plan §4.3), its alert routing (§12)
+and the public status page run from `.github/workflows/acceptance.yml`; how each
+check works, how to run one by hand, where alerts go and how the page is
+published are in [`acceptance/README.md`](acceptance/README.md).
 
 ## Operate
 

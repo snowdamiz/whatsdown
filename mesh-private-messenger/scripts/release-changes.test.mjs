@@ -35,6 +35,35 @@ test('the mobile app is also the desktop app', () => {
   assert.deepEqual(changed(['mesh-private-messenger/apps/desktop/src-tauri/src/main.rs']), only('desktop'));
 });
 
+test('the wallet core is linked into both apps', () => {
+  assert.deepEqual(changed(['mesh-private-messenger/packages/wallet-core/src/tx.rs']), only('mobile', 'desktop'));
+  assert.deepEqual(changed(['mesh-private-messenger/packages/wallet-core/Cargo.lock']), only('mobile', 'desktop'));
+});
+
+test('the credits package is linked into the services and both apps', () => {
+  assert.deepEqual(
+    changed(['mesh-private-messenger/packages/messenger-credits/credits/credit_crypto.mpl']),
+    only('backend', 'mobile', 'desktop'),
+  );
+  assert.deepEqual(changed(['mesh-private-messenger/services/credit-issuer/main.mpl']), only('backend'));
+  // So is the OHTTP package: the gateway in the directory, the client in the core.
+  assert.deepEqual(changed(['mesh-private-messenger/packages/messenger-ohttp/privacy/ohttp.mpl']), only('backend', 'mobile', 'desktop'));
+});
+
+test('what operators build and run themselves deploys nothing', () => {
+  assert.deepEqual(
+    changed([
+      'mesh-private-messenger/programs/morse-judge/src/lib.rs',
+      'mesh-private-messenger/ops/relay/relay.mjs',
+      'mesh-private-messenger/ops/witness/build.sh',
+      'mesh-private-messenger/ops/drills/local.mjs',
+      'mesh-private-messenger/ops/acceptance/run.mjs',
+      'mesh-private-messenger/clients/monitor/main.mpl',
+    ]),
+    only(),
+  );
+});
+
 test('backend services and their deploy tooling deploy the backend', () => {
   assert.deepEqual(
     changed(['mesh-private-messenger/services/privacy-edge/main.mpl', 'mesh-private-messenger/ops/cloudflare/worker.mjs']),

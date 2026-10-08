@@ -1,6 +1,6 @@
 from Binary.Reader import BinaryReader
 from Mobile.Attachments import validate_attachment
-from Mobile.Codec import mobile_reader, mobile_finish
+from Mobile.Codec import current_time, mobile_reader, mobile_finish
 from Mobile.Codec import (
   mobile_read_byte,
   mobile_read_u32,
@@ -218,7 +218,11 @@ pub fn parse_receive_request(input :: Bytes) -> MobileReceiveRequest!String do
   if String.length(database_path) == 0 do
     Err("invalid_receive_request")
   else
-    Ok(MobileReceiveRequest { database_path: database_path, outer: outer.value })
+    Ok(MobileReceiveRequest {
+      database_path: database_path,
+      outer: outer.value,
+      now: current_time()?
+    })
   end
 end
 
@@ -429,14 +433,36 @@ pub fn parse_group_send_request(input :: Bytes) -> MobileGroupSendRequest!String
   end
 end
 
+# A file over 16 MiB brings the credit tokens its bucket costs, 354 bytes each,
+# as a sixth vector; the host takes them from the device's credits.
+
+fn split_tokens(input :: Bytes, output :: List<Bytes>) -> List<Bytes>!String do
+  if Bytes.length(input) == 0 do
+    Ok(output)
+  else if Bytes.length(input) < 354 do
+    Err("invalid_attachment_credits")
+  else
+    case (Bytes.slice(input, 0, 354), Bytes.slice(input, 354, Bytes.length(input) - 354)) do
+      (Ok(token), Ok(rest)) -> split_tokens(rest, List.append(output, token))
+      _ -> Err("invalid_attachment_credits")
+    end
+  end
+end
+
+fn prepare_credits(state :: BinaryReader) -> List<Bytes>!String do
+  let tokens = take_optional_vector(state, 64 * 354, "invalid_attachment_request")?
+  mobile_finish(tokens.state, "invalid_attachment_request")?
+  split_tokens(tokens.value, [])
+end
+
 pub fn parse_attachment_prepare_request(input :: Bytes) -> MobileAttachmentPrepareRequest!String do
-  let state = mobile_reader(input, 4506, "invalid_attachment_request")?
+  let state = mobile_reader(input, 4510 + 64 * 354, "invalid_attachment_request")?
   let path = take_vector_error(state, 4096, "invalid_attachment_request")?
   let filename = take_vector_error(path.state, 255, "invalid_attachment_request")?
   let mime_type = take_vector_error(filename.state, 127, "invalid_attachment_request")?
   let plaintext_size = take_vector_error(mime_type.state, 4, "invalid_attachment_request")?
   let difficulty = take_vector_error(plaintext_size.state, 4, "invalid_attachment_request")?
-  mobile_finish(difficulty.state, "invalid_attachment_request")?
+  let credits = prepare_credits(difficulty.state)?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
   mobile_utf8(filename.value, "invalid_attachment_request")?
   mobile_utf8(mime_type.value, "invalid_attachment_request")?
@@ -452,7 +478,8 @@ pub fn parse_attachment_prepare_request(input :: Bytes) -> MobileAttachmentPrepa
       filename: filename.value,
       mime_type: mime_type.value,
       plaintext_size: mobile_read_u32(plaintext_size.value)?,
-      difficulty: difficulty_value
+      difficulty: difficulty_value,
+      credits: credits
     })
   end
 end
@@ -465,9 +492,8 @@ pub fn parse_attachment_chunk_request(input :: Bytes) -> MobileAttachmentChunkRe
   let payload = take_vector_error(index.state, 65576, "invalid_attachment_request")?
   mobile_finish(payload.state, "invalid_attachment_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  if String.length(database_path) == 0
-    || Bytes.length(reference.value) == 0
-    || Bytes.length(payload.value) == 0 do
+  # A padding-only chunk is sealed from an empty payload.
+  if String.length(database_path) == 0 || Bytes.length(reference.value) == 0 do
     Err("invalid_attachment_request")
   else
     Ok(MobileAttachmentChunkRequest {

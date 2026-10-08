@@ -3,7 +3,8 @@ from Groups.GroupMessages import (
   decode_group_message,
   decrypt_group_message,
   encode_group_message,
-  encrypt_group_message
+  encrypt_group_message,
+  encrypt_group_message_with_options
 )
 from Groups.Membership import commit_add, create_group, join_from_welcome
 from Groups.Mls import (
@@ -106,6 +107,16 @@ fn opened(outcome :: GroupDecryptOutcome, expected :: Bytes) -> GroupState!Group
   end
 end
 
+fn refused(outcome :: GroupDecryptOutcome) -> GroupState!GroupError do
+  case outcome do
+    MessageOpened(state, _) -> do
+      consume_state(state)
+      Err(InvalidGroup)
+    end
+    MessageRejected(state, _) -> Ok(state)
+  end
+end
+
 fn append(left :: Bytes, right :: Bytes) -> Bytes!GroupError do
   case Bytes.concat(left, right) do
     Err(_) -> Err(InvalidGroup)
@@ -139,7 +150,8 @@ fn proof() -> Bool!GroupError do
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: Bytes.empty()
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?
@@ -198,6 +210,18 @@ fn proof() -> Bool!GroupError do
   let message_wire = encode_group_message(message)?
   let bob_state = opened(decrypt_group_message(bob_state,
       decode_group_message(message_wire)?,
+      caller_data),
+    plaintext)?
+  # Version 5 carries the caller's option frame unpadded; its version is signed,
+  # so it cannot be passed off as version 4.
+  let (alice_state, optioned) = encrypted(encrypt_group_message_with_options(alice_state,
+    alice_signing.private_key,
+    plaintext,
+    caller_data))?
+  assert(optioned.version == 5)
+  let bob_state = refused(decrypt_group_message(bob_state, %{optioned | version: 4}, caller_data))?
+  let bob_state = opened(decrypt_group_message(bob_state,
+      decode_group_message(encode_group_message(optioned)?)?,
       caller_data),
     plaintext)?
   assert(Bytes.length(encode_group_welcome(decode_group_welcome(welcome_wire)?)?) == Bytes.length(welcome_wire))

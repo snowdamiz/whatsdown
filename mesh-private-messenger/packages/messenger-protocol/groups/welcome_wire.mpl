@@ -16,6 +16,9 @@ from Groups.GroupCodec import (
   group_append,
   group_byte,
   group_join,
+  group_policy_after,
+  group_policy_version,
+  group_read_policy,
   group_tree_error,
   group_tree_member_error,
   group_tree_path_error,
@@ -25,7 +28,7 @@ from Groups.GroupCodec import (
   group_vector,
   group_wire_end,
   group_wire_fixed,
-  group_wire_start,
+  group_wire_start_versioned,
   group_wire_u16,
   group_wire_u64,
   group_wire_u8,
@@ -227,6 +230,12 @@ pub fn group_validate_welcome_shape(value :: GroupWelcome) -> Result<(), GroupEr
     Err(InvalidGroup)
   else
     group_validate_policy(value.policy)?
+    # A commit that moved the group names the policy the welcome must carry.
+    let moved = group_policy_after(value.policy, value.commit.witness_set)?
+    if !Bytes.secure_equals(moved.set_id, value.policy.set_id)
+      || moved.witness_threshold != value.policy.witness_threshold do
+      return Err(InvalidPolicy)
+    end
     group_validate_members(value.members, value.extensions, value.policy, 0)?
     let group_tree = group_tree_error(tree_from_public(value.members, value.parent_nodes))?
     let proposal_matches = welcome_proposal_matches(value.commit.proposal,
@@ -285,12 +294,17 @@ pub fn encode_group_welcome(value :: GroupWelcome) -> Bytes!GroupError do
   if Bytes.length(body) > 65523 do
     Err(InvalidGroup)
   else
-    group_join([group_byte(1)?, Bytes.from_utf8("GWL"), body], 0, Bytes.empty())
+    group_join([group_byte(group_policy_version(value.policy))?, Bytes.from_utf8("GWL"), body],
+      0,
+      Bytes.empty())
   end
 end
 
+# Version 1 welcomes carry a version 1 policy; version 2 adds the set_id.
+
 pub fn decode_group_welcome(input :: Bytes) -> GroupWelcome!GroupError do
-  let commit = group_wire_vector(group_wire_start(input, 65527, "GWL")?, 8200)?
+  let start = group_wire_start_versioned(input, 65527, "GWL")?
+  let commit = group_wire_vector(start.state, 8200)?
   let member_count = group_wire_u8(commit.state)?
   let members = group_read_members(member_count.state, member_count.value, 0, -1, List.new())?
   let extension_count = group_wire_u8(members.state)?
@@ -299,10 +313,8 @@ pub fn decode_group_welcome(input :: Bytes) -> GroupWelcome!GroupError do
     0,
     0,
     List.new())?
-  let minimum_sequence = group_wire_u64(extensions.state)?
-  let checkpoint = group_wire_fixed(minimum_sequence.state, 32)?
-  let witness = group_wire_u8(checkpoint.state)?
-  let recipient = group_wire_u16(witness.state)?
+  let policy = group_read_policy(extensions.state, start.value)?
+  let recipient = group_wire_u16(policy.state)?
   let parent_count = group_wire_u8(recipient.state)?
   let parents = group_read_parents(parent_count.state, parent_count.value, 0, -1, List.new())?
   let group_joiner_level = group_wire_u8(parents.state)?
@@ -319,11 +331,7 @@ pub fn decode_group_welcome(input :: Bytes) -> GroupWelcome!GroupError do
     commit: decoded_commit,
     members: members.value,
     extensions: extensions.value,
-    policy: GroupTransparencyPolicy {
-      minimum_directory_sequence: minimum_sequence.value,
-      checkpoint_hash: checkpoint.value,
-      witness_threshold: witness.value
-    },
+    policy: policy.value,
     recipient_leaf: recipient.value,
     parent_nodes: parents.value,
     joiner_path_level: group_joiner_level.value,

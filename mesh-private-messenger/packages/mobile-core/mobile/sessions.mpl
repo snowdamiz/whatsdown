@@ -15,9 +15,11 @@ from Mobile.Codec import (
   take_vector,
   take_vector_error
 )
+from Mobile.Platform import native_security_config
 from Mobile.Types import (
   MobileLoadedSession,
   MobilePreparedSend,
+  MobileSecurityConfig,
   MobileReadBytes,
   MobileSessionRecord,
   MobileSyncPayload
@@ -32,12 +34,14 @@ from Protocol.V1 import (
   InnerEnvelope,
   PrekeyBundle
 )
+from Security.Config import SecurityConfig
 from Session.Handshake import RatchetState
 from Session.Ratchet import RatchetError, RatchetMessage, encode_ratchet_message
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
 from Storage.Blobs import load_blob
 from Storage.Keys import local_context, open_local, seal_local
 from Storage.Records import store_new_session
+from Storage.Rows import storage_load
 from Transport.Packet import ClientProfile, TransportPacket, decode_packet, open_initial_packet
 
 ##! Mobile.Sessions implementation.
@@ -188,7 +192,10 @@ fn encode_session_record(snapshot_blob :: Bytes,
       end)?)?,
       mobile_vector(mobile_write_u32(0)?)?,
       mobile_vector(mobile_byte(strongest_suite)?)?,
-      mobile_vector(safety_number(local, peer)?)?
+      mobile_vector(safety_number(local, peer)?)?,
+      mobile_vector(mobile_byte(0)?)?,
+      mobile_vector(mobile_write_u64(mobile_wide("0")?)?)?,
+      mobile_vector(peer.credential.dh_public_key)?
     ],
     0,
     Bytes.empty())
@@ -203,6 +210,43 @@ fn optional_safety_number(state :: BinaryReader) -> MobileReadBytes!String do
       Err("invalid_safety_number")
     else
       Ok(value)
+    end
+  end
+end
+
+struct SessionReset do
+  state :: BinaryReader
+  reset_state :: Int
+  reset_at :: U64
+  peer_identity_key :: Bytes
+end
+
+# Records from before session healing end at the safety number.
+
+fn optional_reset(state :: BinaryReader) -> SessionReset!String do
+  if state.offset == Bytes.length(state.input) do
+    Ok(SessionReset {
+      state: state,
+      reset_state: 0,
+      reset_at: mobile_wide("0")?,
+      peer_identity_key: Bytes.empty()
+    })
+  else
+    let reset_state = take_vector(state, 1)?
+    let reset_at = take_vector(reset_state.state, 8)?
+    let identity = take_vector(reset_at.state, 32)?
+    let value = mobile_read_byte(reset_state.value)?
+    if value > 2
+      || Bytes.length(reset_at.value) != 8
+      || (Bytes.length(identity.value) != 0 && Bytes.length(identity.value) != 32) do
+      Err("invalid_session_record")
+    else
+      Ok(SessionReset {
+        state: identity.state,
+        reset_state: value,
+        reset_at: mobile_read_u64(reset_at.value)?,
+        peer_identity_key: identity.value
+      })
     end
   end
 end
@@ -230,7 +274,8 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
         take_vector(disappearing_seconds.state, 1)?
       end
       let safety = optional_safety_number(strongest_suite.state)?
-      case finish(safety.state) do
+      let reset = optional_reset(safety.state)?
+      case finish(reset.state) do
         Err(_) -> Err("invalid_session_record")
         Ok(_) -> do
           let username = mobile_utf8(peer_username.value, "invalid_session_record")?
@@ -270,7 +315,10 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
               key_changed: changed_value == 1 || Bytes.length(safety.value) == 0,
               disappearing_seconds: disappearing_value,
               strongest_suite: strongest_value,
-              safety_number: safety.value
+              safety_number: safety.value,
+              reset_state: reset.reset_state,
+              reset_at: reset.reset_at,
+              peer_identity_key: reset.peer_identity_key
             })
           end
         end
@@ -371,7 +419,9 @@ pub fn load_session_record(database_path :: String,
   wrapping_key :: borrow StorageKey,
   session_id :: Bytes) -> MobileLoadedSession!String do
   let label = session_label(session_id)
-  let record = open_local(load_blob(database_path, label)?, wrapping_key, local_context(label)?)?
+  let record = open_local(storage_load(database_path, label, wrapping_key)?,
+    wrapping_key,
+    local_context(label)?)?
   Ok(MobileLoadedSession {
     session_id: session_id,
     label: label,
@@ -383,8 +433,9 @@ end
 
 fn preferred_session(first :: MobileLoadedSession,
   second :: MobileLoadedSession) -> MobileLoadedSession do
-  let first_active = Bytes.length(first.record.snapshot) > 0
-  let second_active = Bytes.length(second.record.snapshot) > 0
+  # A session a reset replaced is kept for what was on its way, never chosen.
+  let first_active = Bytes.length(first.record.snapshot) > 0 && first.record.reset_state != 2
+  let second_active = Bytes.length(second.record.snapshot) > 0 && second.record.reset_state != 2
   if second_active && !first_active do
     second
   else if first_active && !second_active do
@@ -492,7 +543,17 @@ pub fn strongest_device_suite(database_path :: String,
   end
 end
 
-pub fn device_needs_prekey(database_path :: String,
+## The security config's minimum suite for new sessions. A device without a
+## config has nothing to raise it, which is suite 1, as version 1 configs say.
+
+pub fn session_suite_floor() -> Int do
+  case native_security_config() do
+    Err(_) -> 1
+    Ok(config) -> config.config.minimum_suite
+  end
+end
+
+fn needs_new_session(database_path :: String,
   wrapping_key :: borrow StorageKey,
   session_ids :: List<Bytes>,
   profile :: ClientProfile) -> Bool!String do
@@ -513,6 +574,22 @@ pub fn device_needs_prekey(database_path :: String,
       Ok(loaded.record.strongest_suite < profile.bundle.suite
         || Bytes.length(loaded.record.safety_number) == 0)
     end
+  end
+end
+
+## Whether sending to this device starts a new session, which needs a claimed
+## prekey. A new session below the suite floor is refused here, before a
+## prekey is claimed: the device has not been renewed into suite 2 yet.
+
+pub fn device_needs_prekey(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  session_ids :: List<Bytes>,
+  profile :: ClientProfile) -> Bool!String do
+  let needed = needs_new_session(database_path, wrapping_key, session_ids, profile)?
+  if needed && profile.bundle.suite < session_suite_floor() do
+    Err("peer_suite_below_floor")
+  else
+    Ok(needed)
   end
 end
 
@@ -563,7 +640,10 @@ pub fn ensure_conversation_alias(database_path :: String,
         key_changed: false,
         disappearing_seconds: sync.disappearing_seconds,
         strongest_suite: 1,
-        safety_number: sync.safety_number
+        safety_number: sync.safety_number,
+        reset_state: 0,
+        reset_at: mobile_wide("0")?,
+        peer_identity_key: Bytes.empty()
       }
       let blob = seal_local(updated_session_record(record.snapshot, record)?,
         wrapping_key,
@@ -663,7 +743,8 @@ fn finish_upgraded_session_snapshot(state :: consume RatchetState,
   local :: ClientProfile,
   peer :: ClientProfile,
   session_id :: Bytes,
-  label :: String) -> Result<(Bytes, String, Bytes), String> do
+  label :: String,
+  reset_at :: U64) -> Result<(Bytes, String, Bytes), String> do
   let safety = safety_number(local, peer)?
   let changed = !Bytes.secure_equals(previous.record.safety_number, safety)
   let record = %{previous.record |
@@ -675,7 +756,10 @@ fn finish_upgraded_session_snapshot(state :: consume RatchetState,
     strongest_suite: state.suite,
     safety_number: safety,
     verified: previous.record.verified && !changed,
-    key_changed: previous.record.key_changed || changed
+    key_changed: previous.record.key_changed || changed,
+    reset_state: 0,
+    reset_at: reset_at,
+    peer_identity_key: peer.credential.dh_public_key
   }
   Ok((session_id,
     label,
@@ -689,6 +773,18 @@ pub fn seal_upgraded_session(state :: consume RatchetState,
   previous :: MobileLoadedSession,
   local :: ClientProfile,
   peer :: ClientProfile) -> Result<(Bytes, String, Bytes), String> do
+  seal_replacing_session(state, wrapping_key, previous, local, peer, previous.record.reset_at)
+end
+
+## A session that replaces `previous` in its conversation; `reset_at` is when
+## the conversation's secure session was reset, if this is why.
+
+pub fn seal_replacing_session(state :: consume RatchetState,
+  wrapping_key :: borrow StorageKey,
+  previous :: MobileLoadedSession,
+  local :: ClientProfile,
+  peer :: ClientProfile,
+  reset_at :: U64) -> Result<(Bytes, String, Bytes), String> do
   let session_id = state.session_id
   let label = session_label(session_id)
   case snapshot(state,
@@ -704,7 +800,8 @@ pub fn seal_upgraded_session(state :: consume RatchetState,
       local,
       peer,
       session_id,
-      label)
+      label,
+      reset_at)
   end
 end
 
@@ -774,7 +871,10 @@ pub fn updated_session_record(snapshot_blob :: Bytes,
       end)?)?,
       mobile_vector(mobile_write_u32(record.disappearing_seconds)?)?,
       mobile_vector(mobile_byte(record.strongest_suite)?)?,
-      mobile_vector(record.safety_number)?
+      mobile_vector(record.safety_number)?,
+      mobile_vector(mobile_byte(record.reset_state)?)?,
+      mobile_vector(mobile_write_u64(record.reset_at)?)?,
+      mobile_vector(record.peer_identity_key)?
     ],
     0,
     Bytes.empty())
@@ -797,6 +897,14 @@ fn finish_updated_snapshot(state :: consume RatchetState,
   seal_local(updated_session_record(snapshot_blob, %{record | strongest_suite: strongest_suite})?,
     wrapping_key,
     local_context(label)?)
+end
+
+## The session record, now knowing the peer device's identity key (records
+## from before session healing lack it; a send fills it in).
+
+pub fn with_peer_identity(loaded :: MobileLoadedSession,
+  identity_key :: Bytes) -> MobileLoadedSession do
+  %{loaded | record: %{loaded.record | peer_identity_key: identity_key}}
 end
 
 pub fn seal_updated_session(state :: consume RatchetState,

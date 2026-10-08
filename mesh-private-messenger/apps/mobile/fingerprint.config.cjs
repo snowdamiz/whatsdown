@@ -7,19 +7,24 @@ module.exports = {
       id: 'meshNativeBuildPins',
       reasons: ['meshNativeBuildPins'],
       contents: JSON.stringify(Object.fromEntries([
-        'MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX',
-        'MESSENGER_WITNESS_A_PUBLIC_KEY_HEX',
-        'MESSENGER_WITNESS_B_PUBLIC_KEY_HEX',
-        'MESSENGER_DELIVERY_PUBLIC_KEY_HEX',
-        'MESSENGER_ABUSE_DIFFICULTY',
+        // Every variable that feeds the native security config frame.
+        ...require('./plugins/security-config.cjs').variables,
         'MESSENGER_EXPO_PROJECT_ID',
         'MESSENGER_PUSH_BROKER_PUBLIC_KEY_HEX',
         // The Mesh commit the native core is compiled with (eas-build-native.sh).
         'MESH_LANG_REVISION',
       ].map((name) => [name, process.env[name] ?? null]))),
     },
-    ...['modules/mesh-messenger', '../../packages/mobile-core', '../../packages/messenger-protocol'].map(
+    ...['modules/mesh-messenger', '../../packages/mobile-core', '../../packages/messenger-protocol', '../../packages/messenger-credits',
+      '../../packages/messenger-ohttp'].map(
       (filePath) => ({ type: 'dir', filePath, reasons: ['meshNativeSources'] }),
+    ),
+    // The wallet core's sources and pins, not its target/ build output.
+    ...['../../packages/wallet-core/src', '../../packages/wallet-core/include'].map(
+      (filePath) => ({ type: 'dir', filePath, reasons: ['walletNativeSources'] }),
+    ),
+    ...['../../packages/wallet-core/Cargo.toml', '../../packages/wallet-core/Cargo.lock'].map(
+      (filePath) => ({ type: 'file', filePath, reasons: ['walletNativeSources'] }),
     ),
     ...['../../scripts/eas-build-native.sh', '../../scripts/build-mobile-native.sh'].map(
       (filePath) => ({ type: 'file', filePath, reasons: ['meshNativeToolchain'] }),

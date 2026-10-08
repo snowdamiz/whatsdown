@@ -1,5 +1,6 @@
 import File
 from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
+from Storage.Rows import storage_row_for
 
 fn text(row :: Map<String, DbValue>, key :: String) -> String!String do
   case Map.get(row, key) do
@@ -17,6 +18,10 @@ fn binary(row :: Map<String, DbValue>, key :: String) -> Bytes!String do
   end
 end
 
+fn legacy_row(label :: String) -> String do
+  Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
+end
+
 fn create_legacy(path :: String) -> Result<(), String> do
   case Sqlite.open(path) do
     Err(error)
@@ -26,7 +31,9 @@ fn create_legacy(path :: String) -> Result<(), String> do
         []) do
         Err(error)
         Ok(_) -> case Sqlite.execute(database,
-          "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'AP+A', '2026-01-02 03:04:05')",
+          "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES ('"
+            <> legacy_row("legacy-a")
+            <> "', 'AP+A', '2026-01-02 03:04:05')",
           []) do
           Err(error)
           Ok(_) -> Ok(nil)
@@ -39,6 +46,7 @@ fn create_legacy(path :: String) -> Result<(), String> do
 end
 
 fn proof() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
   let random = case Crypto.random_bytes(8) do
     Err(_) -> Err("test path generation failed")
     Ok(value)
@@ -57,7 +65,9 @@ fn proof() -> Bool!String do
   assert(valid_created && invalid_created)
   let valid_legacy = Sqlite.open(valid_path)?
   Sqlite.execute(valid_legacy,
-    "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'AQ==', '2026-01-03 04:05:06')",
+    "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES ('"
+      <> legacy_row("legacy-b")
+      <> "', 'AQ==', '2026-01-03 04:05:06')",
     [])?
   Sqlite.close(valid_legacy)
   let invalid_legacy = Sqlite.open(invalid_path)?
@@ -67,20 +77,23 @@ fn proof() -> Bool!String do
   Sqlite.close(invalid_legacy)
   ensure_schema(valid_path)?
   ensure_schema(valid_path)?
+  # Each record moves to its keyed row, as binary, and without its time.
+  assert(Bytes.secure_equals(load_blob(valid_path, "legacy-a")?, Bytes.from_hex("00ff80")?))
+  assert(Bytes.secure_equals(load_blob(valid_path, "legacy-b")?, Bytes.from_hex("01")?))
   let database = Sqlite.open(valid_path)?
   let rows = Sqlite.query_values(database,
-    "SELECT ciphertext, updated_at, typeof(ciphertext) AS storage_type FROM encrypted_blobs WHERE record_hash = ?",
-    [Text("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")])?
+    "SELECT ciphertext, typeof(ciphertext) AS storage_type FROM encrypted_blobs WHERE record_hash = ?",
+    [Text(storage_row_for(valid_path, "legacy-a")?)])?
   assert(List.length(rows) == 1)
-  let row = List.head(rows)
-  assert(Bytes.secure_equals(binary(row, "ciphertext")?, Bytes.from_hex("00ff80")?))
-  assert(text(row, "updated_at")? == "2026-01-02 03:04:05")
-  assert(text(row, "storage_type")? == "blob")
+  assert(text(List.head(rows), "storage_type")? == "blob")
+  assert(Bytes.length(binary(List.head(rows), "ciphertext")?) == 19)
   let columns = Sqlite.query_values(database,
-    "SELECT type FROM pragma_table_info('encrypted_blobs') WHERE name = 'ciphertext'",
+    "SELECT name, type FROM pragma_table_info('encrypted_blobs') ORDER BY name",
     [])?
-  assert(List.length(columns) == 1)
-  assert(text(List.head(columns), "type")? == "BLOB")
+  assert(List.length(columns) == 2)
+  assert(text(List.get(columns, 0), "name")? == "ciphertext")
+  assert(text(List.get(columns, 0), "type")? == "BLOB")
+  assert(text(List.get(columns, 1), "name")? == "record_hash")
   insert_blob(database, "typed-round-trip", Bytes.from_hex("0102")?)?
   put_blob(database, "typed-round-trip", Bytes.from_hex("00ff8003")?)?
   Sqlite.close(database)
@@ -108,7 +121,7 @@ fn proof() -> Bool!String do
   Ok(true)
 end
 
-test("legacy encrypted blobs migrate atomically to typed binary storage") do
+test("legacy encrypted blobs migrate atomically to keyed binary rows") do
   case proof() do
     Err(error) -> do
       println(error)

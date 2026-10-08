@@ -1,5 +1,8 @@
+from Credits.MailboxExtras import MailboxPolicy, credits_decode_claim_answer
 from Mobile.Codec import current_time, encode_output_list, mobile_wide, random_bytes
+from Mobile.CreditsStore import credits_note_policy
 from Mobile.DeviceSet import local_device_set, verified_device_set
+from Mobile.Oblivious import ObliviousPin, oblivious_exchange, oblivious_pin
 from Mobile.Platform import stamped_request
 from Mobile.Profile import load_profile
 from Mobile.Sessions import device_needs_prekey, load_session_ids
@@ -520,8 +523,33 @@ pub fn reserve_fanout_prekey(request :: MobileFanoutPrekeyReservationRequest) ->
   end
 end
 
+# A build that pins an OHTTP gateway claims through the privacy edge
+# (protocol/ohttp-v1.md): the answer is sealed to this device, so no cache on
+# the way could hand it to another, and its headers aren't carried.
+
+fn fetch_oblivious_prekey(pin :: ObliviousPin, stamped :: Bytes) -> Bytes!String do
+  let (status, body) = case oblivious_exchange(pin, "POST", "/v1/prekeys/bundle", stamped, 8000) do
+    Err(_) -> Err("prekey_claim_failed")
+    Ok(value)
+  end?
+  if status != 200 do
+    Err("prekey_claim_failed")
+  else if Bytes.length(body) > 19312 do
+    Err("prekey_claim_too_large")
+  else
+    Ok(body)
+  end
+end
+
 fn fetch_fanout_prekey(directory_url :: String, claim :: Bytes) -> Bytes!String do
   let stamped = stamped_request("mesh-msg/v1/work/prekey-claim", claim)?
+  case oblivious_pin()? do
+    Some(pin) -> fetch_oblivious_prekey(pin, stamped)
+    None -> fetch_direct_prekey(directory_url, stamped)
+  end
+end
+
+fn fetch_direct_prekey(directory_url :: String, stamped :: Bytes) -> Bytes!String do
   let response = case (Http.build(:post, directory_url <> "/v1/prekeys/bundle")
     |> Http.header("Content-Type", "application/octet-stream")
     |> Http.header("Cache-Control", "no-store")
@@ -552,19 +580,65 @@ fn fetch_fanout_prekey(directory_url :: String, claim :: Bytes) -> Bytes!String 
   end
 end
 
+# A version 2 claim (OTQ v2) is answered with PKC: the bundle and the device's
+# signed mailbox price, so this device knows the postage of a first message
+# before sending it (protocol/credits-v1.md "Postage"). A directory without
+# version 2 refuses it (400) and is asked the version 1 way.
+
+fn claim_with_policy(directory_url :: String,
+  claim :: Bytes) -> (Bytes, Option<MailboxPolicy>)!String do
+  let versioned = case (Bytes.from_list([2]), Bytes.slice(claim, 1, Bytes.length(claim) - 1)) do
+    (Ok(head), Ok(rest)) -> Bytes.concat(head, rest)
+    _ -> Err("prekey_claim_failed")
+  end
+  let answered = case versioned do
+    Err(_) -> Err("prekey_claim_failed")
+    Ok(value) -> fetch_fanout_prekey(directory_url, value)
+  end
+  case answered do
+    Ok(answer) -> case credits_decode_claim_answer(answer) do
+      Err(_) -> Err("prekey_claim_failed")
+      Ok(pair)
+    end
+    Err(error) -> if error == "prekey_claim_failed" do
+      Ok((fetch_fanout_prekey(directory_url, claim)?, None))
+    else
+      Err(error)
+    end
+  end
+end
+
+fn note_claim_policy(request :: MobileFanoutPrepareRequest,
+  claim :: Bytes,
+  policy :: Option<MailboxPolicy>) -> Result<(), String> do
+  let wanted = case decode_prekey_claim(claim) do
+    Err(_) -> return Ok(nil)
+    Ok(value) -> value
+  end
+  let peers = verified_device_set(request.peer_device_set)?
+  case List.find(peers.profiles,
+    fn profile -> Bytes.secure_equals(profile.account_id, wanted.account_id)
+      && Bytes.secure_equals(profile.device_id, wanted.device_id) end) do
+    None -> Ok(nil)
+    Some(profile) -> credits_note_policy(request.database_path, profile, policy)
+  end
+end
+
 fn prepare_fanout_prekey_claims(request :: MobileFanoutPrepareRequest,
   claims :: List<Bytes>,
   index :: Int) -> Result<(), String> do
   if index >= List.length(claims) do
     Ok(nil)
   else
-    let claimed_prekey = fetch_fanout_prekey(request.directory_url, List.get(claims, index))?
+    let (claimed_prekey, policy) = claim_with_policy(request.directory_url,
+      List.get(claims, index))?
     reserve_fanout_prekey(MobileFanoutPrekeyReservationRequest {
       database_path: request.database_path,
       peer_device_set: request.peer_device_set,
       local_device_set: request.local_device_set,
       claimed_prekey: claimed_prekey
     })?
+    note_claim_policy(request, List.get(claims, index), policy)?
     prepare_fanout_prekey_claims(request, claims, index + 1)
   end
 end

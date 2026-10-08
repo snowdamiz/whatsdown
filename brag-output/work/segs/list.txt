@@ -1,0 +1,6 @@
+file '/Volumes/SSK-SSD/whatsdown/brag-output/work/segs/seg0.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output/work/segs/seg1.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output/work/segs/seg2.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output/work/segs/seg3.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output/work/segs/seg4.mp4'
+file '/Volumes/SSK-SSD/whatsdown/brag-output/work/segs/seg5.mp4'

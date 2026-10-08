@@ -2,6 +2,12 @@
 
 This is a custom protocol, not RFC 9420 interoperability. Commits and state
 use version 2, recipient-wrapped application messages use version 4, and the suite remains 3. Version 3 retains its original padded application format.
+Version 5 is version 4 whose plaintext is a `GOP` options frame (disappearing
+timer and view-once, [mls-groups-v1.md](mls-groups-v1.md#disappearing-and-view-once-messages)).
+Version 6 is version 5 signed with a per-sender, per-epoch key announced over
+the pairwise sessions instead of the long-term device key
+([mls-groups-v1.md](mls-groups-v1.md#deniable-sender-authentication)); the
+sender chains, message keys and AEAD context are those of version 5.
 All versions are authenticated. Legacy snapshots and messages retain their
 original decoders; a legacy group cannot send new application messages until
 an authenticated version-2 epoch transition succeeds. A version-2 state

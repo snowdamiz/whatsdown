@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { runSql } from './postgres.mjs';
 
-const directory = new URL('../../services/directory-delivery/migrations/', import.meta.url);
+// `node migrate.mjs` migrates the backend's database (MESSENGER_DATABASE_URL);
+// `node migrate.mjs --credit-issuer` the issuer's own (CREDIT_DATABASE_URL).
+const issuer = process.argv[2] === '--credit-issuer';
+const directory = new URL(issuer ? '../../services/credit-issuer/migrations/' : '../../services/directory-delivery/migrations/', import.meta.url);
 const files = (await readdir(directory)).filter(name => /^\d+_[a-z_]+\.sql$/.test(name)).sort();
 if (!files.length) throw new Error('No migrations found');
 let sql = `SELECT pg_advisory_lock(1835365488);
@@ -25,5 +28,5 @@ COMMIT;
 \endif
 `;
 }
-runSql(process.env.MESSENGER_DATABASE_URL, sql);
+runSql(issuer ? process.env.CREDIT_DATABASE_URL : process.env.MESSENGER_DATABASE_URL, sql);
 console.log(`Verified ${files.length} database migrations.`);

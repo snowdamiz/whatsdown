@@ -1,7 +1,7 @@
 from Mobile.Attachments import rewrap_reference
 from Mobile.Presentation import present_message
 from Identity.Device import DeviceKeys, VerificationPolicy
-from Mobile.Codec import current_time, encode_output_list, random_bytes
+from Mobile.Codec import current_time, encode_output_list, mobile_wide, random_bytes
 from Mobile.ContactAddress import deposit_address, outgoing_extensions
 from Mobile.DeviceSet import verified_device_set
 from Mobile.FanoutPrekeys import (
@@ -10,7 +10,8 @@ from Mobile.FanoutPrekeys import (
   invalid_fanout_sets,
   load_fanout_prekey_reservation
 )
-from Mobile.History import updated_history
+from Mobile.Healing import with_session_features
+from Mobile.History import history_view_once_type, updated_history
 from Mobile.Outbox import load_outbox_ids, outbox_capacity, prepare_outbox_writes
 from Mobile.Profile import load_profile, open_device, policy
 from Mobile.Transport import sealed_outer_bytes
@@ -31,9 +32,12 @@ from Mobile.Sessions import (
   seal_session_ids,
   seal_updated_session,
   seal_upgraded_session,
-  self_sync_conversation_id
+  self_sync_conversation_id,
+  session_suite_floor,
+  with_peer_identity
 )
 from Mobile.Transparency import require_transparency_device_set
+from Mobile.TrustAlarm import trust_alarm_gate
 from Mobile.Types import (
   MobileClaimedPrekey,
   MobileFanoutRequest,
@@ -52,7 +56,7 @@ from Protocol.V1 import (
   InnerEnvelope,
   PrekeyBundle
 )
-from Session.Handshake import RatchetState, SessionError, initiate
+from Session.Handshake import RatchetState, SessionError, initiate_at_floor
 from Session.Ratchet import RatchetError, RatchetMessage, encrypt_sealed
 from Session.Snapshot import SnapshotOutcome, snapshot
 from Storage.Blobs import ensure_schema
@@ -137,13 +141,15 @@ fn start_device_session(claimed_prekeys :: List<MobileClaimedPrekey>,
     Err(_) -> Err("invalid_initial_plaintext")
     Ok(value)
   end?
-  let (state, initial) = case initiate(local_device,
+  let (state, initial) = case initiate_at_floor(local_device,
     local.credential,
     claimed_peer.account,
     claimed_peer.bundle,
     policy(claimed_peer, inner.client_timestamp),
     strongest_suite,
+    session_suite_floor(),
     plaintext) do
+    Err(SuiteBelowFloor) -> Err("peer_suite_below_floor")
     Err(_) -> Err("session_start_failed")
     Ok(value)
   end?
@@ -218,7 +224,9 @@ fn send_to_device(database_path :: String,
           packet,
           peer.credential.dh_public_key,
           inner.client_timestamp)?
-        let session_blob = seal_updated_session(next_state, loaded, wrapping_key)?
+        let session_blob = seal_updated_session(next_state,
+          with_peer_identity(loaded, peer.credential.dh_public_key),
+          wrapping_key)?
         Ok(MobilePreparedSend {
           envelope: outer,
           session_id: loaded.session_id,
@@ -231,6 +239,8 @@ fn send_to_device(database_path :: String,
     Err(error) -> if error != "session_not_found" do
       Err(error)
     else
+      # A new session is a new chat: none start while a trust alarm is active.
+      trust_alarm_gate(database_path)?
       start_device_session(claimed_prekeys,
         local_device,
         local_encode_client_profile,
@@ -267,7 +277,7 @@ fn peer_fanout(database_path :: String,
     Ok(output)
   else
     let peer = List.get(profiles, index)
-    let handed_over = outgoing_extensions(database_path, wrapping_key)?
+    let handed_over = with_session_features(outgoing_extensions(database_path, wrapping_key)?)?
     let inner = InnerEnvelope {
       version: 1,
       sender_account_id: local.account_id,
@@ -350,7 +360,7 @@ fn self_fanout(database_path :: String,
         index + 1,
         output)
     else
-      let handed_over = outgoing_extensions(database_path, wrapping_key)?
+      let handed_over = with_session_features(outgoing_extensions(database_path, wrapping_key)?)?
       let inner = InnerEnvelope {
         version: 1,
         sender_account_id: local.account_id,
@@ -468,7 +478,10 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
           key_changed: false,
           disappearing_seconds: 0,
           strongest_suite: 1,
-          safety_number: safety_number(local, representative)?
+          safety_number: safety_number(local, representative)?,
+          reset_state: 0,
+          reset_at: mobile_wide("0")?,
+          peer_identity_key: representative.credential.dh_public_key
         })
       else
         Err(error)
@@ -489,6 +502,7 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
       Err("message_request_pending")
     else
       let client_message_id = random_bytes(16)?
+      let view_once = message_type == history_view_once_type()
       let local_device = open_device(local, wrapping_key, request.database_path)?
       let prepared_peers = peer_fanout(request.database_path,
         wrapping_key,
@@ -504,7 +518,7 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
         request.body,
         request.attachment,
         message_type,
-        if message_type == 1 do
+        if message_type == 1 || view_once do
           anchor.disappearing_seconds
         else
           0
@@ -519,7 +533,11 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
         conversation_id: anchor.conversation_id,
         client_message_id: client_message_id,
         client_timestamp: now,
-        message_type: 1,
+        message_type: if view_once do
+          message_type
+        else
+          1
+        end,
         body: request.body,
         reply_reference: Bytes.empty(),
         attachment_manifest: request.attachment,
@@ -527,7 +545,8 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
         disappearing_seconds: anchor.disappearing_seconds,
         extensions: List.new()
       }
-      let (history_keys, history_blobs) = if message_type != 1 do
+      # A view-once message keeps a stub here and goes to no other device of this account.
+      let (history_keys, history_blobs) = if message_type != 1 && !view_once do
         Ok((extra_labels, extra_blobs))
       else
         let (history_keys, history_blobs) = updated_history(request.database_path,
@@ -560,7 +579,7 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
         wrapping_key)?
       # The peer's devices come first; envelopes for this account's own devices
       # follow and say nothing about whether the message arrived.
-      let tracked = if message_type == 1 do
+      let tracked = if message_type == 1 || view_once do
         List.length(prepared_peers)
       else
         0

@@ -77,5 +77,7 @@ neither the address nor the bit, which travel inside the sealed delivery.
 
 There is no setting to rotate without blocking, and no way to refuse the public
 address altogether. Group members who are not direct contacts reach each other
-at the public address. A contact who turns hostile can fill the mailbox until
+at the public address, unless the device asks a price for message requests: it
+then hands its address to its group members too, in a signed group packet of
+kind 4 ([credits-v1.md](credits-v1.md#what-credits-pay-for), "Group members"). A contact who turns hostile can fill the mailbox until
 they are blocked.

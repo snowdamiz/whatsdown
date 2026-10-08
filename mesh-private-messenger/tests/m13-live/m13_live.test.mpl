@@ -18,9 +18,9 @@ from MobileCore import (
 from Privacy.Edge import RequestStamp, decode_stamped_request
 from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.V1 import OuterEnvelope
+from Transparency.CompactWire import transparency_decode_lookup_v2
 from Transparency.Wire import (
   TransparencyTreeQuery,
-  decode_transparency_lookup,
   decode_witnesses,
   encode_transparency_tree_query
 )
@@ -208,8 +208,8 @@ fn verified_set(base_url :: String,
   ])?)?
   # The lookup leaves the core wrapped in proof of work; the request inside is
   # what names the previous tree size.
-  let (_stamp, inner_lookup) = decode_stamped_request(lookup, 76)?
-  assert(decode_transparency_lookup(inner_lookup)?.previous_tree_size == expected_previous_size)
+  let (_stamp, inner_lookup) = decode_stamped_request(lookup, 80)?
+  assert(transparency_decode_lookup_v2(inner_lookup)?.previous_tree_size == expected_previous_size)
   let response = post(base_url, "/v1/devices/resolve", lookup)?
   if response.status != 200 do
     Err("live transparency resolution returned #{response.status}")

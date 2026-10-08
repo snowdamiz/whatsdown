@@ -32,6 +32,10 @@ account_authorization_signature[64]
 
 The device credential binds the new device keys to the account. The final account signature is domain-separated and covers the request hash, username, account identity, and credential, preventing authorization replay across link attempts.
 
+A device restored from a [backup](backup-wire-v1.md#restoring) is a new device authorized with this
+`LNA`: by another device of the account, or, when every device is lost, by the account key the backup
+carried, at the device set's next sequence. Either way the directory and the key log record it as a link.
+
 ## Device set (`DVS`)
 
 ```text

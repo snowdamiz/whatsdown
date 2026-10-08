@@ -1,6 +1,8 @@
 from Attachments.Protocol import (
   AttachmentError,
   AttachmentManifest,
+  attachment_credit_cost,
+  attachment_padded_size,
   generate_attachment_id,
   generate_attachment_key,
   open_chunk,
@@ -9,6 +11,7 @@ from Attachments.Protocol import (
   seal_manifest
 )
 from Binary.Reader import BinaryReader
+from Credits.CreditFrames import credits_attach
 from Identity.Device import DeviceKeys
 from Mobile.Codec import (
   current_time,
@@ -50,8 +53,10 @@ pub fn attachment_chunk_size() -> Int do
   65536
 end
 
+# Up to 16 MiB is free; beyond it, up to 512 MiB, the grant carries credits.
+
 fn maximum_attachment_size() -> Int do
-  256 * attachment_chunk_size()
+  8192 * attachment_chunk_size()
 end
 
 fn reference_header() -> Bytes!String do
@@ -138,6 +143,7 @@ fn describe_attachment_error(error :: AttachmentError) -> String do
     InvalidChunkIndex -> "invalid_attachment_chunk_index"
     InvalidChunkSize -> "invalid_attachment_chunk_size"
     AuthenticationRejected -> "attachment_authentication_failed"
+    InvalidPadding -> "invalid_attachment_padding"
     CryptoFailure(_) -> "attachment_crypto_failed"
   end
 end
@@ -207,6 +213,22 @@ pub fn validate_attachment(input :: Bytes) -> Result<(), String> do
     decode_reference(part)?
   end
   Ok(nil)
+end
+
+## The objects a local reference names, so the host can drop what it cached of
+## them (`Mobile.Expiry`). An unreadable reference names none.
+
+pub fn attachment_object_ids(input :: Bytes) -> List<Bytes> do
+  case attachment_parts(input, 1024) do
+    Err(_) -> []
+    Ok(parts) -> List.filter(for part in parts do
+        case decode_reference(part) do
+          Err(_) -> Bytes.empty()
+          Ok(value) -> value.object_id
+        end
+      end,
+      fn(value) do Bytes.length(value) == 32 end)
+  end
 end
 
 fn wrap_key(secret :: borrow SecretBytes, object_id :: Bytes, recipient :: Bytes) -> Bytes!String do
@@ -457,12 +479,41 @@ pub fn attachment_summary(device :: borrow DeviceKeys, encoded :: Bytes) -> Byte
   end
 end
 
+# The object holds the padded file (attachment wire version 2), so the store
+# sees only its bucket; the host uploads every chunk, padding-only ones too.
+
 fn chunk_count_for(plaintext_size :: Int) -> Int do
-  (plaintext_size + attachment_chunk_size() - 1) / attachment_chunk_size()
+  (attachment_padded_size(plaintext_size) + attachment_chunk_size() - 1) / attachment_chunk_size()
+end
+
+# A file above 16 MiB pays for its bucket: the host passes exactly the tokens it
+# costs and the grant goes out as CRD ‖ OGR, bound to that grant alone.
+
+fn paid_grant(request :: MobileAttachmentPrepareRequest, grant :: Bytes) -> Bytes!String do
+  if List.length(request.credits) == 0 do
+    Ok(grant)
+  else
+    case credits_attach(request.credits, grant) do
+      Err(_) -> Err("invalid_attachment_credits")
+      Ok(paid)
+    end
+  end
+end
+
+fn check_credits(request :: MobileAttachmentPrepareRequest) -> Result<(), String> do
+  let cost = attachment_credit_cost(request.plaintext_size)
+  if List.length(request.credits) < cost do
+    Err("attachment_credits_required")
+  else if List.length(request.credits) > cost do
+    Err("invalid_attachment_credits")
+  else
+    Ok(nil)
+  end
 end
 
 ## Mint everything the host needs to upload one attachment: the local reference, the
-## object grant (with proof of work), completion and deletion controls, and part 0.
+## object grant (with proof of work, and credits above 16 MiB), completion and deletion
+## controls, part 0, and how many chunks follow it.
 
 pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!String do
   if request.plaintext_size <= 0 || request.plaintext_size > maximum_attachment_size() do
@@ -472,6 +523,7 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!St
     || Bytes.length(request.filename) > 255 do
     Err("invalid_attachment_metadata")
   else
+    check_credits(request)?
     ensure_schema(request.database_path)?
     let local = decode_client_profile(load_profile(request.database_path)?)?
     let wrapping_key = platform_key()?
@@ -495,7 +547,7 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!St
     end?
     let chunk_count = chunk_count_for(request.plaintext_size)
     let manifest = AttachmentManifest {
-      version: 1,
+      version: 2,
       attachment_id: attachment_id,
       chunk_size: attachment_chunk_size(),
       chunk_count: chunk_count,
@@ -511,13 +563,14 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!St
     let object_id = random_bytes(32)?
     let upload_capability = random_bytes(32)?
     let download_capability = random_bytes(32)?
-    let grant = encode_grant(mint_grant(object_id,
-      chunk_count + 1,
-      expires_at,
-      work_expires_at,
-      upload_capability,
-      download_capability,
-      request.difficulty)?)?
+    let grant = paid_grant(request,
+      encode_grant(mint_grant(object_id,
+        chunk_count + 1,
+        expires_at,
+        work_expires_at,
+        upload_capability,
+        download_capability,
+        request.difficulty)?)?)?
     let control = ObjectControl { object_id: object_id, capability: upload_capability }
     let reference = encode_reference(MobileAttachmentReference {
       object_id: object_id,
@@ -532,7 +585,8 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!St
       grant,
       encode_complete(control)?,
       encode_delete(control)?,
-      encrypted_manifest
+      encrypted_manifest,
+      mobile_write_u32(chunk_count)?
     ])
   end
 end

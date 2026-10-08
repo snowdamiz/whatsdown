@@ -864,3 +864,27 @@ pub fn reconcile_prekeys(request :: MobilePrekeyReconcileRequest) -> Bytes!Strin
     end
   end
 end
+
+## A one-time prekey this device hands a peer inside a session rather than
+## through the directory, for a session reset (`Mobile.SessionReset`). It joins
+## the pool unpublished and goes like any other when the first message sealed
+## to it arrives. Returns the key and the writes that keep it.
+
+pub fn reset_prekey_writes(profile :: ClientProfile,
+  wrapping_key :: borrow StorageKey,
+  database_path :: String) -> Result<(MobileOneTimePrekey, List<String>, List<Bytes>), String> do
+  let existing = load_prekey_pool(profile, wrapping_key, database_path)?
+  let next_id = load_prekey_wide(database_path, "one-time-prekey-next-id/v1", wrapping_key)?
+  let (generated, labels, blobs, following_id) = generate_prekey_batch(profile,
+    wrapping_key,
+    next_id,
+    1,
+    List.new(),
+    List.new(),
+    List.new())?
+  let pool = seal_prekey_pool(append_prekeys(generated, 0, existing), wrapping_key)?
+  let counter = seal_prekey_wide("one-time-prekey-next-id/v1", following_id, wrapping_key)?
+  Ok((List.head(generated),
+    List.concat(labels, ["one-time-prekeys/v1", "one-time-prekey-next-id/v1"]),
+    List.concat(blobs, [pool, counter])))
+end

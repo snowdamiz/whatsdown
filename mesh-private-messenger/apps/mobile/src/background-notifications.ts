@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import { BACKGROUND_NOTIFICATION_TASK, backgroundWakeup, GENERIC_PUSH_BODY } from './push-policy';
 import { synchronizeWithNotifications, setActiveNotificationScope } from './message-notifications';
 import { getPushStatus } from './push';
+import { schedulePublicRecordCheck } from './network';
 import { databasePath } from './storage';
 
 TaskManager.defineTask<Notifications.NotificationTaskPayload>(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => {
@@ -15,6 +16,9 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(BACKGROUND_NOTIFIC
   try {
     // Still running when this returns means suspended before the receipt leaves.
     await (await synchronizeWithNotifications(databasePath)).receipts;
+    // A wakeup is also when the daily check against the public record runs if
+    // the app has not been opened; it does nothing when not due.
+    await schedulePublicRecordCheck(databasePath, 'daily').catch(() => false);
     return Notifications.BackgroundNotificationTaskResult.NewData;
   } catch {
     // A wakeup contains no plaintext. Keep a generic alert if local decryption/network access fails.

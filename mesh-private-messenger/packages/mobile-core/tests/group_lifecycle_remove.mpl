@@ -2,9 +2,10 @@ from Identity.Device import DeviceKeys
 from Groups.CommitWire import encode_group_commit
 from Groups.Membership import commit_remove
 from Groups.Mls import GroupRemoveOutcome
-from Mobile.Codec import current_time, outer_bytes
+from Mobile.Codec import current_time
 from Mobile.GroupState import load_group, consume_group_state, encode_group_packet
 from Mobile.Profile import load_profile, open_device
+from Mobile.Transport import sealed_outer_bytes
 from Storage.Keys import platform_key
 from Transport.Packet import decode_client_profile
 from MobileCore import (
@@ -44,9 +45,9 @@ fn assert_creator_protected(accounts :: GroupAccountFixture, group_id :: Bytes) 
         Ok(value)
         Err(_) -> Err("test commit encoding failed")
       end?
-      let delivery = outer_bytes(accounts.linked_entry.mailbox_token,
-        3,
+      let delivery = sealed_outer_bytes(accounts.linked_entry.mailbox_token,
         encode_group_packet(2, wire)?,
+        accounts.linked_credential.dh_public_key,
         current_time()?)?
       case group_receive_export(group_vectors([
         Bytes.from_utf8(accounts.linked_path),

@@ -59,8 +59,17 @@ object MeshLibrary {
     @JvmStatic external fun transparency_lookup_export(request: ByteArray): ByteArray
     @JvmStatic external fun register_request_export(request: ByteArray): ByteArray
     @JvmStatic external fun renew_devices_export(request: ByteArray): ByteArray
+    @JvmStatic external fun oblivious_encapsulate_export(request: ByteArray): ByteArray
+    @JvmStatic external fun oblivious_decapsulate_export(request: ByteArray): ByteArray
     @JvmStatic external fun resolve_request_export(request: ByteArray): ByteArray
     @JvmStatic external fun verify_transparency_export(request: ByteArray): ByteArray
+    @JvmStatic external fun transparency_anchor_requests_export(request: ByteArray): ByteArray
+    @JvmStatic external fun transparency_anchor_proof_export(request: ByteArray): ByteArray
+    @JvmStatic external fun anchor_check_export(request: ByteArray): ByteArray
+    @JvmStatic external fun gossip_check_export(request: ByteArray): ByteArray
+    @JvmStatic external fun trust_alarm_details_export(request: ByteArray): ByteArray
+    @JvmStatic external fun wallet_rpc_urls_export(request: ByteArray): ByteArray
+    @JvmStatic external fun network_status_export(request: ByteArray): ByteArray
     @JvmStatic external fun privacy_submission_export(request: ByteArray): ByteArray
     @JvmStatic external fun mailbox_fetch_export(request: ByteArray): ByteArray
     @JvmStatic external fun process_delivery_batch_export(request: ByteArray): ByteArray
@@ -70,9 +79,44 @@ object MeshLibrary {
     @JvmStatic external fun outbox_page_export(request: ByteArray): ByteArray
     @JvmStatic external fun journal_load_export(request: ByteArray): ByteArray
     @JvmStatic external fun journal_save_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_begin_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_confirm_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_status_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_prepare_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_part_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_finish_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_disable_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_restore_slots_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_restore_begin_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_restore_chunk_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_restore_finish_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_restore_identity_export(request: ByteArray): ByteArray
+    @JvmStatic external fun backup_restore_account_export(request: ByteArray): ByteArray
     @JvmStatic external fun presentation_load_export(request: ByteArray): ByteArray
     @JvmStatic external fun presentation_save_export(request: ByteArray): ByteArray
     @JvmStatic external fun attachment_prepare_export(request: ByteArray): ByteArray
     @JvmStatic external fun attachment_seal_chunk_export(request: ByteArray): ByteArray
     @JvmStatic external fun attachment_open_chunk_export(request: ByteArray): ByteArray
+    @JvmStatic external fun expiry_purge_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_timer_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_timer_state_export(request: ByteArray): ByteArray
+    @JvmStatic external fun send_view_once_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_send_view_once_export(request: ByteArray): ByteArray
+    @JvmStatic external fun open_view_once_export(request: ByteArray): ByteArray
+    @JvmStatic external fun group_open_view_once_export(request: ByteArray): ByteArray
+    @JvmStatic external fun safety_code_export(request: ByteArray): ByteArray
+    @JvmStatic external fun safety_code_check_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_status_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_refresh_keys_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_quote_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_issue_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_postage_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_postage_quote_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_retention_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_signup_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_register_at_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_spend_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_settle_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_inbox_policy_export(request: ByteArray): ByteArray
+    @JvmStatic external fun credits_group_handover_export(request: ByteArray): ByteArray
 }

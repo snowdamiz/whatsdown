@@ -127,3 +127,78 @@ keys, resource handles, or decrypted values.
 Production has no deterministic mode. Tests use a compile-time-only provider
 to fix the nonce, assert one golden blob, round-trip every registered purpose,
 and verify that changing each context field or authenticated blob field fails.
+
+## Local record format 2
+
+A device keeps its sealed records in one SQLite database. Format 2 decides where
+each record sits and what its row shows, so that a copy of the file names no
+label, and so no account, contact, group or conversation, and dates nothing.
+SQLite's `user_version` is `2` in a database in this format; the core checks it
+on every open.
+
+```sql
+CREATE TABLE storage_label_key (id INTEGER PRIMARY KEY CHECK(id = 1),
+  sealed BLOB NOT NULL CHECK(length(sealed) > 0)) STRICT;
+CREATE TABLE encrypted_blobs (record_hash TEXT PRIMARY KEY CHECK(length(record_hash) = 64),
+  ciphertext BLOB NOT NULL CHECK(length(ciphertext) > 16)) STRICT;
+```
+
+**Label key.** `K` is 32 random bytes made with the database. It is sealed
+under the platform `StorageKey` as local data, with the context: version `1`,
+32 zero bytes of account ID, 16 zero bytes of device ID, Session ID
+`SHA-256("mesh-msg/mobile/storage-session/v1")`, Object ID
+`SHA-256("storage-label-key/v1")`, purpose `14`, snapshot `1`. The sealed blob
+is the one row of `storage_label_key`. It is never replaced, never exported,
+and never in a backup (see [secret-purpose-inventory.md](secret-purpose-inventory.md)).
+
+**Row.** A record with label `L` (its UTF-8 bytes) is kept under
+
+```text
+R = lowercase hex of HMAC-SHA-256(K, "mesh-msg/mobile/storage-row/v1" || SHA-256(L))
+```
+
+A record stored under a caller's record key (`mesh_messenger_store_envelope`)
+uses `SHA-256(record key)` in place of `SHA-256(L)`.
+
+**Value.** A value `V` of at least one byte is stored as
+
+```text
+salt || (V[0..n] XOR M[0..n]) || V[n..]
+n    = min(64, length(V))
+M    = HMAC-SHA-256(K, D || R || salt || 0x01) || HMAC-SHA-256(K, D || R || salt || 0x02)
+D    = "mesh-msg/mobile/storage-mask/v1"
+```
+
+where `salt` is 16 fresh random bytes for each write and `R` is the row's 64
+ASCII characters. The mask covers a storage-wrap blob's version, algorithm,
+nonce (its prefix and write counter), context binding, length, and the start of
+its ciphertext. It adds no integrity: the blob's own authentication covers
+every byte it unmasks to. Nothing else is stored with a row: no time, no
+counter, no type.
+
+**Moving a format 1 database.** Format 1 kept the same table under
+`SHA-256(L)` in hex, with an `updated_at` time on each row, its values binary
+or, in the first databases, base64 text. The first open of such a database
+(`user_version` `0`) moves it in one transaction, with SQLite's `secure_delete`
+on so the pages the old rows leave are zeroed:
+
+1. Make `K` and `storage_label_key`, and an empty `encrypted_blobs_keyed` with
+   the format 2 columns (dropping either table first if it exists).
+2. Take the old rows 256 at a time in row order. For each, decode the old row
+   ID (exactly 32 bytes of hex) and the value (a non-empty blob, or canonical
+   base64 text), insert it under `R = lowercase hex of HMAC-SHA-256(K,
+   "mesh-msg/mobile/storage-row/v1" || old row ID)` with its value masked as
+   above, and delete the old row.
+3. Drop the old table, rename `encrypted_blobs_keyed` to `encrypted_blobs`, set
+   `user_version` to `2`, and commit.
+
+Every record keeps its label; its time is dropped. An old row that cannot be
+read (an ID that is not 32 bytes of hex, an empty value, base64 that is not
+canonical) stops the move and rolls it back: the database stays in format 1,
+unchanged, and the next open tries again. A move that stops for any other
+reason, a crash included, leaves the same. A database already in format 2 is
+never moved again. A new database is made in format 2 directly.
+
+A backup never copies rows: restoring one writes each record through the
+storage API, under the restoring device's own label key. A build from before
+format 2 cannot open a format 2 database; going back to one is unsupported.

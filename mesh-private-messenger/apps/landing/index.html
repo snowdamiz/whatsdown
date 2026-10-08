@@ -16,6 +16,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z'/%3E%3C/svg%3E">
 <script>document.documentElement.classList.add("js")</script>
+<script src="network.js" defer></script>
 <style>
 /* Self-hosted, the same files the app ships: a privacy page shouldn't introduce
    its visitors to a third party. Geist is SIL OFL 1.1 (fonts/OFL.txt).
@@ -527,6 +528,15 @@ img.ava{object-fit:cover;background:#E4E4EA}
 .net .cta{margin-top:clamp(28px,3vw,40px)}
 .soon{display:inline-flex;align-items:center;gap:9px;margin-bottom:clamp(20px,2.4vw,28px);padding:7px 15px 7px 12px;border-radius:999px;background:rgba(255,255,255,.1);font-weight:500;font-size:.92rem;color:rgba(255,255,255,.86)}
 .soon i{width:8px;height:8px;border-radius:50%;background:var(--blue-3);animation:blink 1.6s steps(1) infinite}
+/* The bond counter (plan §6.17), filled by network.js from the chain's numbers, each linked to its explorer
+   page. Empty, and hidden, until there is something real to count. */
+.counter{display:flex;flex-wrap:wrap;gap:8px;margin-top:clamp(24px,2.6vw,32px);max-width:34em}
+.counter[hidden]{display:none}
+.counter span{display:inline-block;padding:8px 15px;border-radius:999px;background:rgba(255,255,255,.1);font-weight:500;font-size:.92rem;color:rgba(255,255,255,.8)}
+.counter a{color:#fff;text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);text-underline-offset:3px}
+.counter i{display:inline-block;width:8px;height:8px;margin-right:9px;vertical-align:1px;border-radius:50%;background:#5EE39B;animation:blink 1.6s steps(1) infinite}
+/* A line that wraps on a phone reads as a card, not a stretched pill. */
+@media (max-width:420px){.counter span{border-radius:16px}}
 @keyframes blink{50%{opacity:.25}}
 .caught{display:flex;flex-direction:column;align-items:center}
 .caught .lean-r{margin-top:-14px}
@@ -954,7 +964,7 @@ footer li a:hover{color:var(--blue-3)}
   <div class="wrap">
     <div class="copy reveal">
       <h2>Gone when you want it gone.</h2>
-      <p class="lead">Put a timer on any one-to-one chat. A minute, an hour or a day later, the messages delete themselves.</p>
+      <p class="lead">Put a timer on any chat or group. A minute, an hour or a day later, the messages delete themselves.</p>
     </div>
     <div class="field lilac reveal" aria-hidden="true">
       <div class="timer"><i><svg class="ic"><use href="#i-timer"/></svg></i><div><b>Timer</b><small>1 hour</small></div><div class="pick"><span>Off</span><span>1m</span><span class="on">1h</span><span>1d</span></div></div>
@@ -996,6 +1006,7 @@ footer li a:hover{color:var(--blue-3)}
         <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>A lie proves itself: to show two people different logs, a witness has to sign both.</li>
         <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Anyone can post that proof on-chain, where code, not Morse, slashes the bond. Part goes to whoever caught it, none of it to us.</li>
       </ul>
+      <p class="counter" data-net="counter" hidden></p>
       <div class="cta">
         <a class="btn light" href="#credits">What changes for you</a>
         <a class="btn line" href="#witness">Run a witness</a>
@@ -1172,7 +1183,7 @@ footer li a:hover{color:var(--blue-3)}
       </details>
       <details>
         <summary>What doesn’t Morse do?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
-        <p>There are no voice or video calls, no voice messages, no stickers and no message search. Disappearing messages work in one-to-one chats, not in groups.</p>
+        <p>There are no voice or video calls, no voice messages, no stickers and no message search.</p>
       </details>
       <details>
         <summary>Isn’t writing your own programming language risky?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>

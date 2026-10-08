@@ -1,0 +1,8 @@
+[package]
+name = "credit-issuer"
+version = "0.1.0"
+
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }
+messenger-credits = { path = "../../packages/messenger-credits" }
+mesh-solana = { path = "../../../mesh-lang/packages/mesh-solana" }

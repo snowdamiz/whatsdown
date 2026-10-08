@@ -1,5 +1,10 @@
 from Transport.GroupRecipient import is_group_transport, open_group_transport
-from Mobile.Transport import MobileOpenedPacket, open_outer_packet, opened_packet_kind
+from Mobile.Transport import (
+  MobileOpenedPacket,
+  open_outer_packet,
+  opened_packet_kind,
+  refuse_legacy_outer
+)
 from Mobile.Transparency import fresh_account_device_set
 from Mobile.Attachments import encode_group_attachment
 from Mobile.GroupState import group_attachment_recipients, group_profile
@@ -18,15 +23,31 @@ from Mobile.Presentation import (
 from Groups.CommitWire import encode_group_commit
 from Groups.GroupCodec import delivery_targets
 from Groups.GroupMessages import (
+  decrypt_deniable_group_message,
   decrypt_group_message,
   encode_group_message,
-  encrypt_group_message_for_transport
+  encrypt_group_message_deniable,
+  encrypt_group_message_for_transport,
+  encrypt_group_message_with_options
+)
+from Mobile.GroupSigning import (
+  GroupSigningPlan,
+  group_signer_key,
+  group_signing_key,
+  group_signing_plan,
+  group_signing_start
+)
+from Mobile.GroupTimer import (
+  GroupReceivedPlan,
+  GroupSendPlan,
+  group_received_plan,
+  group_send_plan
 )
 from Groups.Membership import (
   apply_commit,
-  commit_add,
-  commit_remove,
-  commit_update,
+  commit_add_with_set,
+  commit_remove_with_set,
+  commit_update_with_set,
   create_group,
   join_from_welcome
 )
@@ -56,6 +77,7 @@ from Groups.Tree import (
 )
 from Identity.Device import DeviceKeys
 from Mobile.Codec import canonical_outer, current_time, encode_output_list
+from Mobile.CreditsGroup import credits_group_contact_received
 from Mobile.DeviceSet import local_device_set, verified_device_set
 from Mobile.GroupInvitesState import accepted_invitation_scope
 from Mobile.GroupState import (
@@ -87,7 +109,15 @@ from Mobile.GroupState import (
   updated_group_index_blob,
   verified_group_member
 )
+from Mobile.GroupSets import (
+  group_commit_set_known,
+  group_policy_for_config,
+  group_policy_known,
+  group_set_move
+)
 from Mobile.Outbox import load_outbox_ids, prepare_outbox_writes
+from Mobile.Platform import native_security_config
+from Security.Config import SecurityConfig, SecurityWitness
 from Mobile.Profile import load_profile, open_device
 from Mobile.Transparency import (
   canonical_transparency_checkpoint,
@@ -106,6 +136,7 @@ from Mobile.Types import (
   MobileGroupSendRequest,
   MobileGroupWelcomePacket,
   MobileReceiveRequest,
+  MobileSecurityConfig,
   MobileTransparencyView,
   MobileVerifiedDeviceSet
 )
@@ -143,6 +174,7 @@ pub fn create_mobile_group(database_path :: String) -> Bytes!String do
   end
   let checkpoint = group_checkpoint(database_path, wrapping_key)?
   let checkpoint_hash_value = checkpoint_hash(canonical_transparency_checkpoint(checkpoint)?)?
+  let config = native_security_config()?
   let leaf_keys = case Crypto.x25519_generate() do
     Err(_) -> Err("group_key_generation_failed")
     Ok(value)
@@ -152,15 +184,11 @@ pub fn create_mobile_group(database_path :: String) -> Bytes!String do
     leaf_keys.public_key,
     profile.account.directory_sequence,
     checkpoint_hash_value,
-    2)
+    config.config.threshold)
   let state = case create_group(creator,
     leaf_keys.private_key,
     [1],
-    GroupTransparencyPolicy {
-      minimum_directory_sequence: profile.account.directory_sequence,
-      checkpoint_hash: checkpoint_hash_value,
-      witness_threshold: 2
-    }) do
+    group_policy_for_config(config, profile.account.directory_sequence, checkpoint_hash_value)) do
     Err(_) -> Err("group_create_failed")
     Ok(value)
   end?
@@ -204,14 +232,16 @@ pub fn add_mobile_group_member_with_updates(request :: MobileGroupAddRequest,
       wrapping_key,
       devices,
       baseline)?
-    let member = verified_group_member(devices,
+    let member = verified_group_member(request.database_path,
+      devices,
       request.key_package,
       proof_checkpoint,
       baseline,
       view)?
     let pending_ids = load_outbox_ids(request.database_path, wrapping_key)?
     let device = open_device(profile, wrapping_key, request.database_path)?
-    case commit_add(state, device.signing_private_key, member) do
+    let set_move = group_set_move(native_security_config()?, state.policy)?
+    case commit_add_with_set(state, device.signing_private_key, member, set_move) do
       GroupAddRejected(rejected, _) -> do
         consume_group_state(rejected)
         Err("group_add_rejected")
@@ -292,7 +322,8 @@ pub fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes!
     require_group_authorizations(request.database_path, wrapping_key, remaining, 0)?
     let pending_ids = load_outbox_ids(request.database_path, wrapping_key)?
     let device = open_device(profile, wrapping_key, request.database_path)?
-    case commit_remove(state, device.signing_private_key, leaf_index) do
+    let set_move = group_set_move(native_security_config()?, state.policy)?
+    case commit_remove_with_set(state, device.signing_private_key, leaf_index, set_move) do
       GroupRemoveRejected(rejected, _) -> do
         consume_group_state(rejected)
         Err("group_remove_rejected")
@@ -340,11 +371,15 @@ fn refresh_for_send(path :: String,
   state :: consume GroupState,
   signing :: borrow SigningPrivateKey,
   targets :: List<GroupDeliveryTarget>,
-  now :: U64) -> Result<(GroupState, List<Bytes>), String> do
-  if state.version == 2 && state.next_generation < 256 do
+  now :: U64,
+  set_move :: Bytes,
+  upgrade :: Bool) -> Result<(GroupState, List<Bytes>), String> do
+  # A group still on an older witness set moves to this build's at once, and a
+  # device that can now sign deniably starts a new epoch to do so.
+  if state.version == 2 && state.next_generation < 256 && Bytes.length(set_move) == 0 && !upgrade do
     Ok((state, List.new()))
   else
-    case commit_update(state, signing) do
+    case commit_update_with_set(state, signing, set_move) do
       GroupRemoveRejected(rejected, _) -> do
         consume_group_state(rejected)
         Err("group_refresh_rejected")
@@ -390,7 +425,21 @@ fn require_group_authorizations(path :: String,
 end
 
 pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes!String do
-  let presented = present_message(input.database_path, input.group_id, input.body)?
+  send_mobile_group_message_with(input, 0, -1)
+end
+
+## A message with `GOP` flags (view-once), or with `change` at 0 or more a
+## change of the group's disappearing-message timer to that many seconds
+## (`Mobile.GroupTimer`), whose body is empty.
+
+pub fn send_mobile_group_message_with(input :: MobileGroupSendRequest,
+  flags :: Int,
+  change :: Int) -> Bytes!String do
+  let presented = if change >= 0 do
+    Bytes.empty()
+  else
+    present_message(input.database_path, input.group_id, input.body)?
+  end
   let text_only = %{input | body: presented}
   if Bytes.length(input.attachment) == 0 && Bytes.length(text_only.body) > 65290 do
     Err("group_message_too_large")
@@ -431,22 +480,53 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes!Strin
         end
       end?
       let now = current_time()?
+      let set_move = group_set_move(native_security_config()?, state.policy)?
+      let signing = group_signing_start(request.database_path,
+        wrapping_key,
+        profile,
+        state.group_id,
+        state.epoch,
+        targets)?
       let (state, refresh_envelopes) = refresh_for_send(request.database_path,
         wrapping_key,
         state,
         device.signing_private_key,
         targets,
-        now)?
+        now,
+        set_move,
+        signing.upgrade)?
       let sender = case member_at(state.tree, state.local_leaf) do
         Err(_) -> Err("group_message_rejected")
         Ok(value)
       end?
       let creator_id = creator_account(state.tree)
       let epoch = state.epoch
-      case encrypt_group_message_for_transport(state,
-        device.signing_private_key,
+      let signer = group_signing_plan(request.database_path,
+        wrapping_key,
+        profile,
+        signing,
+        request.group_id,
+        epoch,
+        targets,
+        now)?
+      let plan = group_send_plan(request.database_path,
+        wrapping_key,
+        request.group_id,
+        sender.account_id,
+        flags,
+        change,
         request.body,
-        Bytes.from_utf8("mesh-mobile-group/v1")) do
+        now,
+        signer.deniable)?
+      if Bytes.length(plan.plaintext) > 65290 do
+        return Err("group_message_too_large")
+      end
+      case encrypt_for_send(state,
+        device.signing_private_key,
+        signer,
+        plan,
+        wrapping_key,
+        profile)? do
         GroupEncryptRejected(rejected, _) -> do
           consume_group_state(rejected)
           Err("group_message_rejected")
@@ -456,22 +536,25 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes!Strin
             Err(_) -> Err("group_message_encoding_failed")
             Ok(value)
           end?
+          # Membership refreshes lead the list, then the epoch's signing-key
+          # announcements; the message's own envelopes follow.
+          let leading = List.concat(refresh_envelopes, signer.envelopes)
           let envelopes = group_target_envelopes(request.database_path,
             wrapping_key,
             targets,
             encode_group_packet(3, message_wire)?,
             now,
             0,
-            refresh_envelopes)?
-          # Membership refreshes lead the list; the message's own envelopes follow.
+            leading)?
           let (outbox_labels, outbox_blobs, outbox_index_blob) = prepare_outbox_writes(wrapping_key,
             pending_ids,
             envelopes,
             request.database_path,
             Crypto.sha256(message_wire),
-            List.length(refresh_envelopes),
-            List.length(envelopes) - List.length(refresh_envelopes))?
+            List.length(leading),
+            List.length(envelopes) - List.length(leading))?
           let (state_label, state_blob) = group_snapshot_blob(next, profile, wrapping_key)?
+          let change_notice = change >= 0
           let (history_labels, history_blobs) = updated_group_history_blob(request.database_path,
             wrapping_key,
             request.group_id,
@@ -483,14 +566,24 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes!Strin
               sender_account_id: sender.account_id,
               sender_device_id: sender.device_id,
               timestamp: now,
-              body: request.body,
-              attachment: input.attachment
+              body: if change_notice do
+                plan.notice
+              else
+                request.body
+              end,
+              attachment: input.attachment,
+              expires_at: plan.expires_at,
+              kind: if change_notice && Bytes.length(plan.notice) == 0 do
+                0
+              else
+                plan.kind
+              end
             })?
           store_group_message_outbound(request.database_path,
             state_label,
             state_blob,
-            history_labels,
-            history_blobs,
+            List.concat(List.concat(history_labels, plan.labels), signer.labels),
+            List.concat(List.concat(history_blobs, plan.blobs), signer.blobs),
             outbox_labels,
             outbox_blobs,
             outbox_index_blob)?
@@ -498,6 +591,29 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes!Strin
         end
       end
     end
+  end
+end
+
+# Version 6 under this epoch's announced key, or the long-term device key as before.
+
+fn encrypt_for_send(state :: consume GroupState,
+  device_key :: borrow SigningPrivateKey,
+  signer :: GroupSigningPlan,
+  plan :: GroupSendPlan,
+  wrapping_key :: borrow StorageKey,
+  profile :: ClientProfile) -> Result<GroupEncryptOutcome, String> do
+  let caller_data = Bytes.from_utf8("mesh-mobile-group/v1")
+  if signer.deniable do
+    let sender_key = group_signing_key(signer, wrapping_key, profile)?
+    Ok(encrypt_group_message_deniable(state,
+      sender_key,
+      SigningPublicKey { bytes: signer.public_key },
+      plan.plaintext,
+      caller_data))
+  else if plan.framed do
+    Ok(encrypt_group_message_with_options(state, device_key, plan.plaintext, caller_data))
+  else
+    Ok(encrypt_group_message_for_transport(state, device_key, plan.plaintext, caller_data))
   end
 end
 
@@ -521,8 +637,7 @@ fn local_welcome_member(profile :: ClientProfile,
     && Bytes.secure_equals(member.signing_public_key.bytes, profile.credential.signing_public_key)
     && Bytes.secure_equals(member.mailbox_token, profile.entry.mailbox_token)
     && Bytes.secure_equals(member.transparency_checkpoint_hash, welcome.policy.checkpoint_hash)
-    && member.witness_count == 2
-    && welcome.policy.witness_threshold == 2
+    && member.witness_count >= 1
 end
 
 # Whoever added this device is the first member it trusts to say what a community is.
@@ -552,9 +667,13 @@ fn join_mobile_group(database_path :: String,
   let baseline_hash = checkpoint_hash(baseline)?
   let current_checkpoint = group_checkpoint(database_path, wrapping_key)?
   let view = load_transparency_view(database_path, wrapping_key)?
+  group_policy_known(database_path, wrapping_key, native_security_config()?, welcome.policy)?
   if !Bytes.secure_equals(baseline_hash, welcome.policy.checkpoint_hash)
     || !local_welcome_member(profile, member, welcome)
-    || !(transparency_checkpoint_precedes(baseline_checkpoint, current_checkpoint, view)?) do
+    || !(transparency_checkpoint_precedes(database_path,
+      baseline_checkpoint,
+      current_checkpoint,
+      view)?) do
     return Err("group_welcome_rejected")
   end
   case load_blob(database_path, state_label) do
@@ -600,10 +719,12 @@ fn join_mobile_group(database_path :: String,
         || !Bytes.secure_equals(stored_package.device_id, profile.device_id)
         || !Bytes.secure_equals(stored_package.init_public_key.bytes, member.init_public_key.bytes)
         || !Bytes.secure_equals(stored_package.leaf_public_key.bytes, member.leaf_public_key.bytes)
-        || !(transparency_checkpoint_precedes(baseline_checkpoint,
+        || !(transparency_checkpoint_precedes(database_path,
+          baseline_checkpoint,
           stored_package.checkpoint,
           view)?)
-        || !(transparency_checkpoint_precedes(stored_package.checkpoint,
+        || !(transparency_checkpoint_precedes(database_path,
+          stored_package.checkpoint,
           current_checkpoint,
           view)?) do
         Err("group_welcome_rejected")
@@ -647,6 +768,11 @@ fn apply_mobile_group_commit(database_path :: String,
   # A community protects its owner, which the role check below enforces, rather than its creator.
   let community = community_group(database_path, wrapping_key, group_id)?
   let state = load_group(database_path, profile, wrapping_key, group_id)?
+  group_commit_set_known(database_path,
+    wrapping_key,
+    native_security_config()?,
+    state.policy,
+    commit.witness_set)?
   let epoch_order = U64.compare(commit.prior_epoch, state.epoch)
   let removes_creator = case commit.proposal do
     RemoveMember(leaf) -> leaf == 0 && !community
@@ -715,19 +841,46 @@ fn open_mobile_group_message(database_path :: String,
   message :: GroupMessage) -> Bytes!String do
   let state = load_group(database_path, profile, wrapping_key, message.group_id)?
   let epoch_order = U64.compare(message.epoch, state.epoch)
+  # The key the sender's device announced for this epoch over its session with
+  # this device (Mobile.GroupSigning). Once it has one, that device's
+  # long-term-signed messages in the epoch are a downgrade.
+  let announced = case member_at(state.tree, message.sender_leaf) do
+    Err(_) -> Bytes.empty()
+    Ok(member) -> group_signer_key(database_path,
+      wrapping_key,
+      message.group_id,
+      message.epoch,
+      member.account_id,
+      member.device_id)?
+  end
   if epoch_order > 0 do
     consume_group_state(state)
     Err("group_future_epoch")
   else if epoch_order < 0 do
     consume_group_state(state)
     Err("group_stale_epoch")
+  else if message.version == 6 && Bytes.length(announced) == 0 do
+    consume_group_state(state)
+    Err("group_sender_key_pending")
+  else if message.version != 6 && Bytes.length(announced) > 0 do
+    consume_group_state(state)
+    Err("group_downgrade_rejected")
   else
     let sender = case member_at(state.tree, message.sender_leaf) do
       Err(_) -> Err("group_message_rejected")
       Ok(value)
     end?
     let creator_id = creator_account(state.tree)
-    case decrypt_group_message(state, message, Bytes.from_utf8("mesh-mobile-group/v1")) do
+    let caller_data = Bytes.from_utf8("mesh-mobile-group/v1")
+    let outcome = if message.version == 6 do
+      decrypt_deniable_group_message(state,
+        message,
+        caller_data,
+        SigningPublicKey { bytes: announced })
+    else
+      decrypt_group_message(state, message, caller_data)
+    end
+    case outcome do
       MessageRejected(rejected, error) -> do
         consume_group_state(rejected)
         case error do
@@ -738,6 +891,14 @@ fn open_mobile_group_message(database_path :: String,
       end
       MessageOpened(next, plaintext) -> do
         let (label, blob) = group_snapshot_blob(next, profile, wrapping_key)?
+        let now = current_time()?
+        let received = group_received_plan(database_path,
+          wrapping_key,
+          message.group_id,
+          sender.account_id,
+          message.version,
+          plaintext,
+          now)?
         let (history_labels, history_blobs) = updated_group_history_blob(database_path,
           wrapping_key,
           message.group_id,
@@ -751,12 +912,18 @@ fn open_mobile_group_message(database_path :: String,
             epoch: message.epoch,
             sender_account_id: sender.account_id,
             sender_device_id: sender.device_id,
-            timestamp: current_time()?,
-            body: plaintext,
-            attachment: Bytes.empty()
+            timestamp: now,
+            body: received.body,
+            attachment: Bytes.empty(),
+            expires_at: received.expires_at,
+            kind: received.kind
           })?
-        store_group_state_history(database_path, label, blob, history_labels, history_blobs)?
-        Ok(presented_body(plaintext))
+        store_group_state_history(database_path,
+          label,
+          blob,
+          List.concat(history_labels, received.labels),
+          List.concat(history_blobs, received.blobs))?
+        Ok(received.shown)
       end
     end
   end
@@ -766,6 +933,7 @@ fn receive_mobile_group_result(request :: MobileReceiveRequest) -> Bytes!String 
   ensure_schema(request.database_path)?
   let profile = decode_client_profile(load_profile(request.database_path)?)?
   let outer = canonical_outer(request.outer)?
+  refuse_legacy_outer(outer, request.now)?
   let sealed_suite = outer.suite == protocol_sealed_outer_suite()
   if !(outer.suite == 3 || sealed_suite)
     || !Bytes.secure_equals(outer.mailbox_token, profile.entry.mailbox_token) do
@@ -800,6 +968,8 @@ fn receive_mobile_group_result(request :: MobileReceiveRequest) -> Bytes!String 
         profile,
         wrapping_key,
         canonical_group_commit(packet.payload)?)
+    else if packet.kind == 4 do
+      credits_group_contact_received(request.database_path, profile, wrapping_key, packet.payload)
     else
       open_mobile_group_message(request.database_path,
         profile,
@@ -822,7 +992,9 @@ fn permanent_group_delivery_error(error :: String) -> Bool do
     || error == "group_stale_epoch"
     || error == "invalid_group_message"
     || error == "group_message_rejected"
+    || error == "group_downgrade_rejected"
     || error == "group_limit_reached"
+    || error == "legacy_packet_refused"
 end
 
 pub fn receive_mobile_group_classified(request :: MobileReceiveRequest) -> MobileGroupReceiveOutcome do

@@ -209,6 +209,8 @@ const paths = {
     "M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9ZM15 12.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
   block: "M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0ZM6 6l12 12",
   timer: "M12 8v4.5l2.8 1.7M9.5 3h5M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z",
+  // A view-once message: an eye, the one look it allows.
+  eye: "M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   smile: "M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0ZM9.2 9.8h.01M14.8 9.8h.01M8.6 13.8a3.9 3.9 0 0 0 6.8 0",
   key: "M14.5 9.5 21 3M18.5 5.5 21 8M9 21a6 6 0 1 0 0-12 6 6 0 0 0 0 12Zm0-8.5v.01",
   inbox:
@@ -2391,10 +2393,13 @@ export function Composer({
   mentionMembers = [],
   reply,
   onCancelReply,
+  viewOnce,
 }: {
   value: string;
   onChangeText: (value: string) => void;
   onSend: () => void;
+  // Offers sending the next message view-once; without it the bar has no such toggle.
+  viewOnce?: { on: boolean; onToggle: () => void };
   group?: boolean;
   disabled?: boolean;
   sendDisabled?: boolean;
@@ -2538,6 +2543,19 @@ export function Composer({
                   size={isDesktop ? control.xs : sizes.tile.md}
                   disabled={disabled || attachments.length >= MAXIMUM_ATTACHMENTS}
                   onPress={onAttach}
+                />
+              </View>
+            ) : null}
+            {viewOnce ? (
+              <View style={styles.composerAttach}>
+                <IconButton
+                  name="eye"
+                  label={viewOnce.on ? "View once: on" : "View once: off"}
+                  variant={viewOnce.on ? "filled" : "plain"}
+                  glass={false}
+                  size={isDesktop ? control.xs : sizes.tile.md}
+                  disabled={disabled}
+                  onPress={viewOnce.onToggle}
                 />
               </View>
             ) : null}
@@ -3350,6 +3368,50 @@ export function MessageBubble({
     </View>
   );
   return !isDesktop && onReply ? <ReplySwipe onReply={onReply}>{row}</ReplySwipe> : row;
+}
+
+// A view-once message never shows its content in the thread, only what it is and
+// what a tap does; the tap opens it (ViewOnceDialog), and then it is gone.
+export function ViewOnceBubble({
+  text,
+  sent,
+  timestamp,
+  tail = true,
+  spaced = true,
+  onOpen,
+}: {
+  text: string;
+  sent: boolean;
+  timestamp: number;
+  tail?: boolean;
+  spaced?: boolean;
+  onOpen?: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const ink = sent ? colors.onAccent : onOpen ? colors.accent : colors.text2;
+  const bubble = (
+    <View
+      style={[
+        styles.bubble,
+        sent ? styles.bubbleSent : styles.bubbleReceived,
+        !onOpen && spaced && styles.bubbleSpaced,
+        tail && (sent ? styles.bubbleTailSent : styles.bubbleTailReceived),
+        styles.viewOnceBubble,
+        // Inside the tap target the target takes the bubble's width limit.
+        onOpen && styles.viewOnceInTap,
+      ]}
+    >
+      <Icon name="eye" size={sizes.icon.sm} color={ink} strokeWidth={2.2} />
+      <Text style={[styles.bubbleBody, { color: ink }]}>{text}</Text>
+      <Text style={[styles.viewOnceClock, sent && { color: colors.onAccent }]}>{formatClock(timestamp)}</Text>
+    </View>
+  );
+  return onOpen ? (
+    <Tap label={text} onPress={onOpen} containerStyle={[styles.viewOnceTap, { alignSelf: sent ? "flex-end" : "flex-start" }, spaced && styles.bubbleSpaced]}>
+      {bubble}
+    </Tap>
+  ) : bubble;
 }
 
 export function DayDivider({ label }: { label: string }) {
@@ -4831,6 +4893,10 @@ const useStyles = themed(({ colors, type, elevation }) =>
   ),
   bubbleSpaced: { marginTop: isDesktop ? space[2] : space[2.5] },
   bubbleSent: { alignSelf: "flex-end", backgroundColor: colors.accentDeep },
+  viewOnceBubble: { flexDirection: "row", alignItems: "center", gap: space[2], paddingBottom: space[2] },
+  viewOnceClock: { ...type.caption, color: colors.text3 },
+  viewOnceTap: { maxWidth: isDesktop ? "70%" : "78%" },
+  viewOnceInTap: { maxWidth: "100%", alignSelf: "auto" },
   bubbleReceived: { alignSelf: "flex-start", backgroundColor: colors.raised },
   bubbleTailSent: { borderBottomRightRadius: isDesktop ? space[1] : space[1.5] },
   bubbleTailReceived: { borderBottomLeftRadius: isDesktop ? space[1] : space[1.5] },

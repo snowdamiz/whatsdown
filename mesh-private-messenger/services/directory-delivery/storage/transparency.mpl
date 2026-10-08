@@ -1,4 +1,29 @@
 import RuntimeJobs
+from Storage.TransparencyTree import (
+  dtree_append_on_connection,
+  dtree_consistency_on_connection,
+  dtree_inclusion_on_connection,
+  dtree_root_on_connection,
+  dtree_size_on_connection,
+  dtree_view_on_connection
+)
+from Storage.TransparencyWitnesses import (
+  AttestationWrite,
+  RegistryWitness,
+  transparency_attestations_on_connection,
+  transparency_c2sp_witnesses_on_connection,
+  transparency_registry_witness_on_connection,
+  transparency_statements_on_connection,
+  transparency_store_attestation_on_connection
+)
+from Transparency.Codec import tcodec_join
+from Transparency.CompactWire import (
+  CompactConsistency,
+  CompactInclusion,
+  TransparencyEvidenceV2,
+  TransparencyLeafProof,
+  WitnessCosignature
+)
 from Transparency.Merkle import (
   ConsistencyProof,
   InclusionProof,
@@ -9,10 +34,16 @@ from Transparency.Merkle import (
   consistency_proof,
   inclusion_proof,
   leaf_hash,
-  sign_checkpoint,
+  transparency_sign_checkpoint_root,
   verify_witnesses
 )
-from Transparency.Wire import account_lookup_id, TransparencyEvidence
+from Transparency.Note import (
+  NoteCosignature,
+  note_checkpoint_body,
+  note_read_cosignatures,
+  note_sign
+)
+from Transparency.Wire import account_lookup_id, encode_checkpoint, TransparencyEvidence
 
 fn binary(value :: DbValue) -> Bytes!String do
   case value do
@@ -61,66 +92,72 @@ fn account_commitment(account_id :: Bytes) -> Bytes!String do
   end
 end
 
-# Proofs carry every leaf commitment, which lets a client check any earlier
-# checkpoint against its cached view offline, and bounds the log. Registration
-# is anonymous, so that bound has to fail safe: an append past it used to
-# succeed and then make every lookup fail for every account.
+# The log has no ceiling: proofs are compact RFC 9162 paths built from stored
+# nodes, so appends and proofs cost O(log n). Registration is still limited by
+# proof of work.
 #
-# Appends now stop at the ceiling, and new accounts stop earlier. A flood can
-# close registration; it cannot take the directory down, and existing accounts
-# keep the reserved room to link, rotate, and above all revoke devices.
+# Version 1 clients still get full-list proofs, which only fit while the log
+# holds at most this many leaves; above it their lookups fail closed.
 
-pub fn transparency_proof_ceiling() -> Int do
+fn v1_ceiling() -> Int do
   4096
 end
 
-pub fn transparency_new_account_ceiling() -> Int do
-  3584
-end
-
-fn log_size_on_connection(conn :: borrow PgConn) -> Int!String do
-  let rows = Pg.query_values(conn, "SELECT count(*)::text AS count FROM transparency_entries", [])?
-  if List.length(rows) != 1 do
-    Err("transparency count failed")
-  else
-    integer(Map.get(List.head(rows), "count"))
-  end
-end
+## Appends one entry (a device set) at the next leaf index, stores its device
+## records once each, and completes the tree nodes it closes, all in the
+## caller's transaction. Returns the entry's sequence.
 
 pub fn append_entry_on_connection(conn :: borrow PgConn,
   account_id :: Bytes,
-  entry_bytes :: Bytes,
-  new_account :: Bool) -> Int!String do
+  entry_bytes :: Bytes) -> Int!String do
   let commitment = account_commitment(account_id)?
   let hash = leaf_hash(entry_bytes)?
   Pg.query_values(conn, "SELECT pg_advisory_xact_lock(1835365485)", [])?
-  let ceiling = if new_account do
-    transparency_new_account_ceiling()
-  else
-    transparency_proof_ceiling()
-  end
-  if log_size_on_connection(conn)? >= ceiling do
-    return Err("transparency_log_full")
-  end
+  let index = dtree_size_on_connection(conn)?
+  # The parts must reassemble to the exact entry, or nothing is stored.
   let rows = Pg.query_values(conn,
-    "INSERT INTO transparency_entries (account_commitment, entry_bytes, leaf_hash) VALUES ($1, $2, $3) RETURNING sequence::text",
-    [Binary(commitment), Binary(entry_bytes), Binary(hash)])?
+    "WITH parts AS (SELECT header, records, trailer FROM transparency_entry_parts($2) WHERE header || COALESCE((SELECT string_agg(int4send(octet_length(record)) || record, ''::bytea ORDER BY ordinal) FROM unnest(records) WITH ORDINALITY AS listed (record, ordinal)), ''::bytea) || trailer = $2), stored AS (INSERT INTO transparency_device_records (record_hash, record_bytes) SELECT sha256(listed.record), listed.record FROM parts, unnest(parts.records) AS listed (record) ON CONFLICT DO NOTHING) INSERT INTO transparency_entries (account_commitment, leaf_hash, leaf_index, entry_header, record_hashes, entry_trailer) SELECT $1, $3, $4::bigint, parts.header, ARRAY(SELECT sha256(listed.record) FROM unnest(parts.records) WITH ORDINALITY AS listed (record, ordinal) ORDER BY listed.ordinal), parts.trailer FROM parts RETURNING sequence::text",
+    [Binary(commitment), Binary(entry_bytes), Binary(hash), Text(Int.to_string(index))])?
   if List.length(rows) != 1 do
     Err("transparency append failed")
   else
+    dtree_append_on_connection(conn, index, hash)?
     integer(Map.get(List.head(rows), "sequence"))
   end
 end
 
 ## A deleted account's leaves stay, since every proof covers the whole tree.
-## The entries behind them name the account and its devices, and go with it.
+## The entries behind them name the account and its devices, and go with it,
+## as do its device records.
 
 pub fn forget_account_entries_on_connection(conn :: borrow PgConn,
   account_id :: Bytes) -> Result<(), String> do
+  let commitment = account_commitment(account_id)?
   Pg.execute_values(conn,
-    "UPDATE transparency_entries SET entry_bytes = NULL WHERE account_commitment = $1",
-    [Binary(account_commitment(account_id)?)])?
+    "DELETE FROM transparency_device_records AS record USING (SELECT DISTINCT unnest(record_hashes) AS record_hash FROM transparency_entries WHERE account_commitment = $1) AS forgotten WHERE record.record_hash = forgotten.record_hash AND NOT EXISTS (SELECT 1 FROM transparency_entries AS other WHERE other.account_commitment <> $1 AND other.record_hashes @> ARRAY[record.record_hash])",
+    [Binary(commitment)])?
+  Pg.execute_values(conn,
+    "UPDATE transparency_entries SET entry_bytes = NULL, entry_header = NULL, record_hashes = NULL, entry_trailer = NULL, pruned_at = COALESCE(pruned_at, now()) WHERE account_commitment = $1",
+    [Binary(commitment)])?
   Ok(nil)
+end
+
+# The canonical bytes of a stored entry, checked against its leaf hash.
+
+fn stored_entry_bytes(row :: Map<String, DbValue>) -> Bytes!String do
+  let bytes = case Map.get(row, "entry_bytes") do
+    Binary(value) -> Ok(value)
+    _ -> Err("transparency entry pruned")
+  end?
+  if !Bytes.secure_equals(leaf_hash(bytes)?, binary(Map.get(row, "leaf_hash"))?) do
+    Err("transparency entry does not match its leaf")
+  else
+    Ok(bytes)
+  end
+end
+
+fn entry_columns() -> String do
+  "SELECT COALESCE(entry_bytes, transparency_entry_rebuild(entry_header, record_hashes, entry_trailer)) AS entry_bytes, leaf_hash, leaf_index::text AS leaf_index FROM transparency_entries"
 end
 
 fn hashes(rows :: List<Map<String, DbValue>>,
@@ -135,12 +172,14 @@ fn hashes(rows :: List<Map<String, DbValue>>,
   end
 end
 
+# Every leaf hash, for version 1 full-list proofs only.
+
 fn all_hashes_on_connection(conn :: borrow PgConn) -> List<Bytes>!String do
   let rows = Pg.query_values(conn,
-    "SELECT leaf_hash FROM transparency_entries ORDER BY sequence LIMIT 4097",
+    "SELECT leaf_hash FROM transparency_entries ORDER BY leaf_index LIMIT 4097",
     [])?
-  if List.length(rows) > 4096 do
-    Err("transparency log exceeds proof ceiling")
+  if List.length(rows) > v1_ceiling() do
+    Err("transparency_v1_ceiling")
   else
     hashes(rows, 0, List.new())
   end
@@ -176,30 +215,24 @@ fn prefix(values :: List<Bytes>,
   end
 end
 
-fn witness_values(rows :: List<Map<String, DbValue>>,
-  index :: Int,
-  output :: List<WitnessAttestation>) -> List<WitnessAttestation>!String do
-  if index >= List.length(rows) do
-    Ok(output)
-  else
-    let row = List.get(rows, index)
-    witness_values(rows,
-      index + 1,
-      List.append(output,
-        WitnessAttestation {
-          witness_id: text(Map.get(row, "witness_id"))?,
-          checkpoint_hash: binary(Map.get(row, "checkpoint_hash"))?,
-          signature: binary(Map.get(row, "signature"))?
-        }))
+## The latest checkpoint, locked against a concurrent refresh.
+
+pub fn transparency_current_checkpoint_on_connection(conn :: borrow PgConn) -> Option<TransparencyCheckpoint>!String do
+  case checkpoint_rows(conn)? do
+    [row] -> Ok(Some(checkpoint_from_row(row)?))
+    _ -> Ok(None)
   end
 end
 
-fn witnesses_on_connection(conn :: borrow PgConn,
-  checkpoint_sequence :: U64) -> List<WitnessAttestation>!String do
+pub fn transparency_checkpoint_at_on_connection(conn :: borrow PgConn,
+  sequence :: Int) -> Option<TransparencyCheckpoint>!String do
   let rows = Pg.query_values(conn,
-    "SELECT witness_id, checkpoint_hash, signature FROM witness_signatures WHERE checkpoint_sequence = $1::bigint ORDER BY witness_id",
-    [Text(U64.to_string(checkpoint_sequence))])?
-  witness_values(rows, 0, List.new())
+    "SELECT sequence::text, tree_size::text, tree_root, previous_checkpoint_hash, timestamp_ms::text, service_public_key, service_signature FROM transparency_checkpoints WHERE sequence = $1::bigint",
+    [Text(Int.to_string(sequence))])?
+  case rows do
+    [row] -> Ok(Some(checkpoint_from_row(row)?))
+    _ -> Ok(None)
+  end
 end
 
 fn current_time() -> U64!String do
@@ -236,14 +269,13 @@ fn create_checkpoint_on_connection(conn :: borrow PgConn,
   signing_key :: borrow SigningPrivateKey,
   signing_public_key :: Bytes) -> TransparencyCheckpoint!String do
   Pg.query_values(conn, "SELECT pg_advisory_xact_lock(1835365485)", [])?
-  let leaf_hashes = all_hashes_on_connection(conn)?
-  if List.length(leaf_hashes) == 0 do
+  let size = dtree_size_on_connection(conn)?
+  if size == 0 do
     Err("transparency log is empty")
   else
     let previous_rows = checkpoint_rows(conn)?
     if List.length(previous_rows) > 0
-      && U64.to_int(wide(Map.get(List.head(previous_rows),
-        "tree_size"))?)? == List.length(leaf_hashes)
+      && U64.to_int(wide(Map.get(List.head(previous_rows), "tree_size"))?)? == size
       && checkpoint_recent(checkpoint_from_row(List.head(previous_rows))?, current_time()?) do
       checkpoint_from_row(List.head(previous_rows))
     else
@@ -260,10 +292,12 @@ fn create_checkpoint_on_connection(conn :: borrow PgConn,
         None -> zero_hash()
         Some(value) -> checkpoint_hash(value)
       end?
-      let checkpoint = sign_checkpoint(signing_key,
+      # The root comes from the stored right-edge nodes, never from the leaves.
+      let checkpoint = transparency_sign_checkpoint_root(signing_key,
         signing_public_key,
         sequence,
-        leaf_hashes,
+        int_wide(size)?,
+        dtree_root_on_connection(conn, 1, size)?,
         previous_hash,
         current_time()?)?
       let changed = Pg.execute_values(conn,
@@ -312,53 +346,70 @@ pub fn create_configured_checkpoint(pool :: PoolHandle) -> TransparencyCheckpoin
     fn(conn :: borrow PgConn) -> create_configured_checkpoint_on_connection(conn) end)
 end
 
+## Leaves in the log.
+
 pub fn entry_count(pool :: PoolHandle) -> Int!String do
   let rows = Pool.query_values(pool,
-    "SELECT count(*)::text AS count FROM transparency_entries",
+    "SELECT COALESCE(max(leaf_index) + 1, 0)::text AS count FROM transparency_entries",
     [])?
-  if List.length(rows) != 1 do
-    Err("transparency count failed")
-  else
-    integer(Map.get(List.head(rows), "count"))
+  case rows do
+    [row] -> integer(Map.get(row, "count"))
+    _ -> Err("transparency count failed")
   end
 end
+
+fn latest_entry_on_connection(conn :: borrow PgConn,
+  commitment :: Bytes) -> Map<String, DbValue>!String do
+  let rows = Pg.query_values(conn,
+    entry_columns() <> " WHERE account_commitment = $1 ORDER BY sequence DESC LIMIT 1",
+    [Binary(commitment)])?
+  case rows do
+    [row] -> Ok(row)
+    _ -> Err("transparency entry not found")
+  end
+end
+
+fn account_entry_on_connection(conn :: borrow PgConn,
+  username :: String) -> Map<String, DbValue>!String do
+  let accounts = Pg.query_values(conn,
+    "SELECT account_id FROM messenger_accounts WHERE username = $1",
+    [Text(username)])?
+  case accounts do
+    [account] -> latest_entry_on_connection(conn,
+      account_commitment(binary(Map.get(account, "account_id"))?)?)
+    _ -> Err("transparency entry not found")
+  end
+end
+
+fn v1_inclusion_on_connection(conn :: borrow PgConn,
+  account_id :: Bytes) -> InclusionProof!String do
+  let row = latest_entry_on_connection(conn, account_commitment(account_id)?)?
+  inclusion_proof(all_hashes_on_connection(conn)?, integer(Map.get(row, "leaf_index"))?)
+end
+
+## A version 1 (full-list) inclusion proof; only while the log fits one.
 
 pub fn inclusion_for_account(pool :: PoolHandle, account_id :: Bytes) -> InclusionProof!String do
-  let commitment = account_commitment(account_id)?
-  let positions = Pool.query_values(pool,
-    "SELECT (SELECT count(*) FROM transparency_entries AS earlier WHERE earlier.sequence < current.sequence)::text AS leaf_index FROM transparency_entries AS current WHERE account_commitment = $1 ORDER BY sequence DESC LIMIT 1",
-    [Binary(commitment)])?
-  if List.length(positions) != 1 do
-    Err("transparency entry not found")
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> v1_inclusion_on_connection(conn, account_id) end)
+end
+
+fn v1_consistency_on_connection(conn :: borrow PgConn,
+  old_tree_size :: Int) -> ConsistencyProof!String do
+  let all = all_hashes_on_connection(conn)?
+  if old_tree_size < 0 || old_tree_size > List.length(all) do
+    Err("invalid consistency size")
   else
-    let rows = Pool.query_values(pool,
-      "SELECT leaf_hash FROM transparency_entries ORDER BY sequence LIMIT 4097",
-      [])?
-    if List.length(rows) > 4096 do
-      Err("transparency log exceeds proof ceiling")
-    else
-      inclusion_proof(hashes(rows, 0, List.new())?,
-        integer(Map.get(List.head(positions), "leaf_index"))?)
-    end
+    consistency_proof(prefix(all, old_tree_size, 0, List.new()), all)
   end
 end
 
+## A version 1 (full-list) consistency proof to the whole log; only while the
+## log fits one.
+
 pub fn consistency_from(pool :: PoolHandle, old_tree_size :: Int) -> ConsistencyProof!String do
-  if old_tree_size < 0 || old_tree_size > 4096 do
-    Err("invalid consistency size")
-  else
-    let old_rows = Pool.query_values(pool,
-      "SELECT leaf_hash FROM transparency_entries ORDER BY sequence LIMIT $1::bigint",
-      [Text(Int.to_string(old_tree_size))])?
-    let new_rows = Pool.query_values(pool,
-      "SELECT leaf_hash FROM transparency_entries ORDER BY sequence LIMIT 4097",
-      [])?
-    if List.length(new_rows) > 4096 || List.length(old_rows) != old_tree_size do
-      Err("invalid consistency size")
-    else
-      consistency_proof(hashes(old_rows, 0, List.new())?, hashes(new_rows, 0, List.new())?)
-    end
-  end
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> v1_consistency_on_connection(conn, old_tree_size) end)
 end
 
 pub fn latest_checkpoint(pool :: PoolHandle) -> Option<TransparencyCheckpoint>!String do
@@ -372,10 +423,22 @@ pub fn latest_checkpoint(pool :: PoolHandle) -> Option<TransparencyCheckpoint>!S
   end
 end
 
+## Morse statements for a checkpoint, as KTW v1 carries them.
+
 pub fn witnesses_for_checkpoint(pool :: PoolHandle,
   checkpoint_sequence :: U64) -> List<WitnessAttestation>!String do
   Repo.transaction(pool,
-    fn(conn :: borrow PgConn) -> witnesses_on_connection(conn, checkpoint_sequence) end)
+    fn(conn :: borrow PgConn) -> transparency_statements_on_connection(conn,
+      checkpoint_sequence) end)
+end
+
+## Attestations of both kinds for a checkpoint, as KTW v2 carries them.
+
+pub fn attestations_for_checkpoint(pool :: PoolHandle,
+  checkpoint_sequence :: U64) -> List<WitnessCosignature>!String do
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> transparency_attestations_on_connection(conn,
+      checkpoint_sequence) end)
 end
 
 fn evidence_on_connection(conn :: borrow PgConn,
@@ -388,28 +451,66 @@ fn evidence_on_connection(conn :: borrow PgConn,
   if old_tree_size < 0 || old_tree_size > List.length(all) do
     Err("invalid consistency size")
   else
-    let accounts = Pg.query_values(conn,
-      "SELECT account_id FROM messenger_accounts WHERE username = $1",
-      [Text(username)])?
-    if List.length(accounts) != 1 do
-      Err("transparency entry not found")
-    else
-      let positions = Pg.query_values(conn,
-        "SELECT entry_bytes, (SELECT count(*) FROM transparency_entries AS earlier WHERE earlier.sequence < current.sequence)::text AS leaf_index FROM transparency_entries AS current WHERE account_commitment = $1 ORDER BY sequence DESC LIMIT 1",
-        [Binary(account_commitment(binary(Map.get(List.head(accounts), "account_id"))?)?)])?
-      if List.length(positions) != 1 do
-        Err("transparency entry not found")
-      else
-        let position = List.head(positions)
-        Ok(TransparencyEvidence {
-          entry_bytes: binary(Map.get(position, "entry_bytes"))?,
-          inclusion: inclusion_proof(all, integer(Map.get(position, "leaf_index"))?)?,
-          consistency: consistency_proof(prefix(all, old_tree_size, 0, List.new()), all)?,
-          checkpoint: checkpoint,
-          witnesses: witnesses_on_connection(conn, checkpoint.sequence)?
-        })
-      end
-    end
+    let row = account_entry_on_connection(conn, username)?
+    Ok(TransparencyEvidence {
+      entry_bytes: stored_entry_bytes(row)?,
+      inclusion: inclusion_proof(all, integer(Map.get(row, "leaf_index"))?)?,
+      consistency: consistency_proof(prefix(all, old_tree_size, 0, List.new()), all)?,
+      checkpoint: checkpoint,
+      witnesses: transparency_statements_on_connection(conn, checkpoint.sequence)?
+    })
+  end
+end
+
+fn c2sp_view_on_connection(conn :: borrow PgConn,
+  witnesses :: List<WitnessCosignature>,
+  index :: Int,
+  size :: Int) -> (Bytes, List<Bytes>)!String do
+  if List.any(witnesses, fn value -> value.kind == 2 end) do
+    dtree_view_on_connection(conn, 2, index, size)
+  else
+    Ok((Bytes.empty(), List.new()))
+  end
+end
+
+fn evidence_v2_on_connection(conn :: borrow PgConn,
+  username :: String,
+  old_tree_size :: Int,
+  signing_key :: borrow SigningPrivateKey,
+  signing_public_key :: Bytes) -> TransparencyEvidenceV2!String do
+  let checkpoint = create_checkpoint_on_connection(conn, signing_key, signing_public_key)?
+  let size = U64.to_int(checkpoint.tree_size)?
+  if old_tree_size < 0 || old_tree_size > size do
+    Err("invalid consistency size")
+  else
+    let row = account_entry_on_connection(conn, username)?
+    let index = integer(Map.get(row, "leaf_index"))?
+    let witnesses = transparency_attestations_on_connection(conn, checkpoint.sequence)?
+    let (c2sp_root, c2sp_path) = c2sp_view_on_connection(conn, witnesses, index, size)?
+    Ok(TransparencyEvidenceV2 {
+      entry_bytes: stored_entry_bytes(row)?,
+      inclusion: CompactInclusion {
+        leaf_index: index,
+        tree_size: size,
+        path: dtree_inclusion_on_connection(conn, 1, index, size)?
+      },
+      consistency: CompactConsistency {
+        old_size: old_tree_size,
+        new_size: size,
+        path: dtree_consistency_on_connection(conn, 1, old_tree_size, size)?
+      },
+      checkpoint: checkpoint,
+      witnesses: witnesses,
+      c2sp_root: c2sp_root,
+      c2sp_path: c2sp_path
+    })
+  end
+end
+
+fn seeded_signer(signing_seed :: Bytes) -> SigningKeyPair!String do
+  case Crypto.signing_from_seed(signing_seed) do
+    Err(_) -> Err("invalid transparency signing seed")
+    Ok(value)
   end
 end
 
@@ -417,10 +518,7 @@ fn evidence_from_seed_on_connection(conn :: borrow PgConn,
   username :: String,
   old_tree_size :: Int,
   signing_seed :: Bytes) -> TransparencyEvidence!String do
-  let signer = case Crypto.signing_from_seed(signing_seed) do
-    Err(_) -> Err("invalid transparency signing seed")
-    Ok(value)
-  end?
+  let signer = seeded_signer(signing_seed)?
   evidence_on_connection(conn, username, old_tree_size, signer.private_key, signer.public_key.bytes)
 end
 
@@ -430,6 +528,32 @@ fn configured_evidence_on_connection(conn :: borrow PgConn,
   let signer = configured_signer()?
   evidence_on_connection(conn, username, old_tree_size, signer.private_key, signer.public_key.bytes)
 end
+
+fn evidence_v2_from_seed_on_connection(conn :: borrow PgConn,
+  username :: String,
+  old_tree_size :: Int,
+  signing_seed :: Bytes) -> TransparencyEvidenceV2!String do
+  let signer = seeded_signer(signing_seed)?
+  evidence_v2_on_connection(conn,
+    username,
+    old_tree_size,
+    signer.private_key,
+    signer.public_key.bytes)
+end
+
+fn configured_evidence_v2_on_connection(conn :: borrow PgConn,
+  username :: String,
+  old_tree_size :: Int) -> TransparencyEvidenceV2!String do
+  let signer = configured_signer()?
+  evidence_v2_on_connection(conn,
+    username,
+    old_tree_size,
+    signer.private_key,
+    signer.public_key.bytes)
+end
+
+## Version 1 evidence (full lists): only while the log holds at most 4,096
+## leaves; above it this fails with "transparency_v1_ceiling".
 
 pub fn evidence_for_username(pool :: PoolHandle,
   username :: String,
@@ -451,54 +575,285 @@ pub fn configured_evidence_for_username(pool :: PoolHandle,
       old_tree_size) end)
 end
 
-fn store_witness_on_connection(conn :: borrow PgConn,
-  attestation :: WitnessAttestation,
-  trusted :: WitnessKey) -> Result<(), String> do
-  let rows = checkpoint_rows(conn)?
-  if List.length(rows) != 1 do
-    Err("transparency checkpoint not found")
-  else
-    let checkpoint = checkpoint_from_row(List.head(rows))?
-    if attestation.witness_id != trusted.witness_id
-      || !verify_witnesses(checkpoint, [attestation], [trusted], 1)? do
-      Err("invalid witness attestation")
-    else
-      let changed = Pg.execute_values(conn,
-        "INSERT INTO witness_signatures (checkpoint_sequence, witness_id, witness_public_key, checkpoint_hash, signature) VALUES ($1::bigint, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
-        [
-          Text(U64.to_string(checkpoint.sequence)),
-          Text(attestation.witness_id),
-          Binary(trusted.public_key),
-          Binary(attestation.checkpoint_hash),
-          Binary(attestation.signature)
-        ])?
-      if changed == 1 do
-        Ok(nil)
-      else
-        let existing = Pg.query_values(conn,
-          "SELECT witness_id FROM witness_signatures WHERE checkpoint_sequence = $1::bigint AND witness_id = $2 AND witness_public_key = $3 AND checkpoint_hash = $4 AND signature = $5",
-          [
-            Text(U64.to_string(checkpoint.sequence)),
-            Text(attestation.witness_id),
-            Binary(trusted.public_key),
-            Binary(attestation.checkpoint_hash),
-            Binary(attestation.signature)
-          ])?
-        if List.length(existing) == 1 do
-          Ok(nil)
-        else
-          Err("witness conflict")
-        end
-      end
-    end
+## Version 2 evidence: compact proofs, attestations of both kinds, and the
+## RFC 6962 view of the same leaf whenever a C2SP cosignature is included.
+
+pub fn evidence_v2_for_username(pool :: PoolHandle,
+  username :: String,
+  old_tree_size :: Int,
+  signing_seed :: Bytes) -> TransparencyEvidenceV2!String do
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> evidence_v2_from_seed_on_connection(conn,
+      username,
+      old_tree_size,
+      signing_seed) end)
+end
+
+pub fn configured_evidence_v2_for_username(pool :: PoolHandle,
+  username :: String,
+  old_tree_size :: Int) -> TransparencyEvidenceV2!String do
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> configured_evidence_v2_on_connection(conn,
+      username,
+      old_tree_size) end)
+end
+
+fn current_checkpoint(conn :: borrow PgConn) -> TransparencyCheckpoint!String do
+  case transparency_current_checkpoint_on_connection(conn)? do
+    None -> Err("transparency checkpoint not found")
+    Some(value) -> Ok(value)
   end
 end
 
+fn statement_on_connection(conn :: borrow PgConn,
+  attestation :: WitnessAttestation) -> AttestationWrite!String do
+  let checkpoint = current_checkpoint(conn)?
+  let witness = case transparency_registry_witness_on_connection(conn, attestation.witness_id)? do
+    Some(entry) -> if entry.software == "mesh" do
+      Ok(entry)
+    else
+      Err("invalid witness attestation")
+    end
+    None -> Err("invalid witness attestation")
+  end?
+  let trusted = WitnessKey { witness_id: witness.witness_id, public_key: witness.public_key }
+  if !verify_witnesses(checkpoint, [attestation], [trusted], 1)? do
+    Err("invalid witness attestation")
+  else
+    transparency_store_attestation_on_connection(conn,
+      checkpoint.sequence,
+      witness,
+      attestation.checkpoint_hash,
+      attestation.signature,
+      -1)
+  end
+end
+
+## Stores a Morse statement on the current checkpoint from any non-retired
+## Morse-software registry entry. Err when it does not verify.
+
 pub fn store_witness(pool :: PoolHandle,
-  attestation :: WitnessAttestation,
-  trusted :: WitnessKey) -> Result<(), String> do
+  attestation :: WitnessAttestation) -> AttestationWrite!String do
   Repo.transaction(pool,
-    fn(conn :: borrow PgConn) -> store_witness_on_connection(conn, attestation, trusted) end)
+    fn(conn :: borrow PgConn) -> statement_on_connection(conn, attestation) end)
+end
+
+## The C2SP checkpoint body (tlog-checkpoint plus the morse-checkpoint
+## extension line) of a checkpoint: its size, the RFC 6962 root at that size,
+## and the whole KTK.
+
+pub fn transparency_note_body_on_connection(conn :: borrow PgConn,
+  checkpoint :: TransparencyCheckpoint,
+  origin :: String) -> String!String do
+  let size = U64.to_int(checkpoint.tree_size)?
+  note_checkpoint_body(origin,
+    size,
+    dtree_root_on_connection(conn, 2, size)?,
+    encode_checkpoint(checkpoint)?)
+end
+
+fn note_on_connection(conn :: borrow PgConn,
+  origin :: String,
+  signing_key :: borrow SigningPrivateKey,
+  signing_public_key :: Bytes) -> Option<String>!String do
+  case transparency_current_checkpoint_on_connection(conn)? do
+    None -> Ok(None)
+    Some(checkpoint) -> Ok(Some(note_sign(transparency_note_body_on_connection(conn,
+        checkpoint,
+        origin)?,
+      origin,
+      signing_key,
+      signing_public_key)?))
+  end
+end
+
+fn configured_note_on_connection(conn :: borrow PgConn,
+  origin :: String) -> Option<String>!String do
+  let signer = configured_signer()?
+  note_on_connection(conn, origin, signer.private_key, signer.public_key.bytes)
+end
+
+fn seeded_note_on_connection(conn :: borrow PgConn,
+  origin :: String,
+  signing_seed :: Bytes) -> Option<String>!String do
+  let signer = seeded_signer(signing_seed)?
+  note_on_connection(conn, origin, signer.private_key, signer.public_key.bytes)
+end
+
+## The current checkpoint as a C2SP signed note, signed by the log's service
+## key under the origin's key name. None before the first checkpoint.
+
+pub fn checkpoint_note(pool :: PoolHandle,
+  origin :: String,
+  signing_seed :: Bytes) -> Option<String>!String do
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> seeded_note_on_connection(conn, origin, signing_seed) end)
+end
+
+pub fn configured_checkpoint_note(pool :: PoolHandle, origin :: String) -> Option<String>!String do
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> configured_note_on_connection(conn, origin) end)
+end
+
+fn newest_cosignature(values :: List<NoteCosignature>) -> Option<NoteCosignature> do
+  List.reduce(values,
+    None,
+    fn best, value -> case best do
+      None -> Some(value)
+      Some(current) -> if value.timestamp > current.timestamp do
+        Some(value)
+      else
+        Some(current)
+      end
+    end end)
+end
+
+fn cosignatures_on_connection(conn :: borrow PgConn,
+  checkpoint :: TransparencyCheckpoint,
+  digest :: Bytes,
+  body :: String,
+  response :: String,
+  latest_seconds :: Int,
+  witnesses :: List<RegistryWitness>,
+  index :: Int,
+  output :: List<AttestationWrite>) -> List<AttestationWrite>!String do
+  if index >= List.length(witnesses) do
+    Ok(output)
+  else
+    let witness = List.get(witnesses, index)
+    let verified = note_read_cosignatures(response, witness.c2sp_name, witness.public_key, body)?
+    let next = case newest_cosignature(verified) do
+      None -> Ok(output)
+      Some(value) -> if value.timestamp > latest_seconds do
+        Err("cosignature from the future")
+      else
+        Ok(List.append(output,
+          transparency_store_attestation_on_connection(conn,
+            checkpoint.sequence,
+            witness,
+            digest,
+            value.signature,
+            value.timestamp)?))
+      end
+    end?
+    cosignatures_on_connection(conn,
+      checkpoint,
+      digest,
+      body,
+      response,
+      latest_seconds,
+      witnesses,
+      index + 1,
+      next)
+  end
+end
+
+fn c2sp_on_connection(conn :: borrow PgConn,
+  response :: String,
+  origin :: String,
+  now_seconds :: Int) -> List<AttestationWrite>!String do
+  let checkpoint = current_checkpoint(conn)?
+  let written = cosignatures_on_connection(conn,
+    checkpoint,
+    checkpoint_hash(checkpoint)?,
+    transparency_note_body_on_connection(conn, checkpoint, origin)?,
+    response,
+    now_seconds + 60,
+    transparency_c2sp_witnesses_on_connection(conn)?,
+    0,
+    List.new())?
+  if List.length(written) == 0 do
+    Err("no cosignature from a registered witness")
+  else
+    Ok(written)
+  end
+end
+
+## Stores C2SP cosignature lines on the current checkpoint's note, one per
+## registered C2SP witness they verify under. Err when none does, or when a
+## line under a registered key fails to verify.
+
+pub fn store_cosignatures(pool :: PoolHandle,
+  response :: String,
+  origin :: String,
+  now_seconds :: Int) -> List<AttestationWrite>!String do
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> c2sp_on_connection(conn, response, origin, now_seconds) end)
+end
+
+fn tree_size_checked(conn :: borrow PgConn, size :: Int) -> Int!String do
+  if size < 0 || size > dtree_size_on_connection(conn)? do
+    Err("invalid tree size")
+  else
+    Ok(size)
+  end
+end
+
+fn consistency_v2_on_connection(conn :: borrow PgConn,
+  tree :: Int,
+  old_size :: Int,
+  new_size :: Int) -> CompactConsistency!String do
+  let size = tree_size_checked(conn, new_size)?
+  if old_size < 0 || old_size > size do
+    Err("invalid tree size")
+  else
+    Ok(CompactConsistency {
+      old_size: old_size,
+      new_size: size,
+      path: dtree_consistency_on_connection(conn, tree, old_size, size)?
+    })
+  end
+end
+
+## A compact consistency proof in either tree, between any two sizes the log
+## has reached.
+
+pub fn transparency_consistency_v2(pool :: PoolHandle,
+  tree :: Int,
+  old_size :: Int,
+  new_size :: Int) -> CompactConsistency!String do
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> consistency_v2_on_connection(conn, tree, old_size, new_size) end)
+end
+
+fn leaf_proof_on_connection(conn :: borrow PgConn,
+  tree :: Int,
+  index :: Int,
+  size :: Int) -> TransparencyLeafProof!String do
+  let checked = tree_size_checked(conn, size)?
+  let rows = Pg.query_values(conn,
+    "SELECT leaf_hash FROM transparency_entries WHERE leaf_index = $1::bigint",
+    [Text(Int.to_string(index))])?
+  case rows do
+    [row] -> Ok(TransparencyLeafProof {
+      leaf_hash: binary(Map.get(row, "leaf_hash"))?,
+      inclusion: CompactInclusion {
+        leaf_index: index,
+        tree_size: checked,
+        path: dtree_inclusion_on_connection(conn, tree, index, checked)?
+      }
+    })
+    _ -> Err("invalid tree size")
+  end
+end
+
+## The Morse leaf hash at an index and its inclusion path in either tree.
+
+pub fn transparency_leaf_proof(pool :: PoolHandle,
+  tree :: Int,
+  index :: Int,
+  size :: Int) -> TransparencyLeafProof!String do
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> leaf_proof_on_connection(conn, tree, index, size) end)
+end
+
+## Up to `count` Morse leaf hashes from `start`, concatenated.
+
+pub fn transparency_leaves(pool :: PoolHandle, start :: Int, count :: Int) -> Bytes!String do
+  let rows = Pool.query_values(pool,
+    "SELECT leaf_hash FROM transparency_entries WHERE leaf_index >= $1::bigint AND leaf_index < $1::bigint + $2::bigint ORDER BY leaf_index",
+    [Text(Int.to_string(start)), Text(Int.to_string(count))])?
+  tcodec_join(hashes(rows, 0, List.new())?)
 end
 
 pub fn transparency_username(pool :: PoolHandle, reference :: String) -> Option<String>!String do

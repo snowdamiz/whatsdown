@@ -69,11 +69,16 @@ import {
   pickAttachmentFiles,
   releasePreviewUri,
   saveAttachmentFile,
+  saveAttachmentStream,
 } from "./attachment-io";
 import {
+  attachmentCreditCost,
   attachmentPreviewText,
   attachmentSelectionError,
+  closedPreviews,
   composerScope,
+  creditShortfall,
+  creditSpendPrompt,
   describeAttachmentState,
   formatBytes,
   isImageAttachment,
@@ -99,6 +104,7 @@ import {
   Conversation,
   decodeUtf8,
   DeviceSetSummary,
+  FREE_ATTACHMENT_SIZE,
   GroupDetails,
   GroupHistoryMessage,
   GroupInvitation,
@@ -122,6 +128,10 @@ import { formatInboxTime, friendlyError } from "./format";
 import { Glass } from "./glass";
 import { describeMember, describeMembers, summarizeMembers, type Person } from "./group-members";
 import { historyRefreshDelay } from "./expiry";
+import { purgeDelay, timerLength, timerNotice, viewOnceCaution, viewOnceText } from "./ephemeral";
+import { checkSafetyCode, groupTimer, openGroupViewOnce, openViewOnce, purgeExpired, safetyCode } from "./ephemeral-native";
+import { SafetyCodeDialog, ViewOnceDialog, type ViewOnceOpened } from "./EphemeralDialogs";
+import { AppLockRow } from "./LockGate";
 import { createMailboxSync } from "./mailbox-sync";
 import { setActiveNotificationScope, synchronizeWithNotifications } from "./message-notifications";
 import { createKeyedSerialQueue } from "./single-flight";
@@ -146,6 +156,7 @@ import {
   drainOutbox,
   createGroup,
   connectMailboxStream,
+  creditBalance,
   deleteAccount,
   downloadAttachment,
   eraseAccount,
@@ -157,6 +168,11 @@ import {
   listGroups,
   loadAccountDevices,
   loadGroupHistory,
+  loadNetworkStatus,
+  loadTrustDetails,
+  onAccountChangedWhileAway,
+  onPublicRecordChecked,
+  schedulePublicRecordCheck,
   onUndeliverable,
   registerDirectory,
   type Removal,
@@ -164,7 +180,11 @@ import {
   revokeDevice,
   sendFanout,
   sendGroupMessage,
+  sendGroupViewOnce,
+  sendViewOnce,
+  setGroupTimer,
   sendWithAttachments,
+  streamAttachment,
   type OutgoingAttachment,
 } from "./network";
 import {
@@ -180,6 +200,11 @@ import {
 } from "./push";
 import { createQrCollector } from "./qr";
 import { databasePath } from "./storage";
+import { CreditPrompts, CreditsRow, CreditsScreen, InboxPriceRow } from "./CreditsScreen";
+import { BackupsRow, BackupsScreen } from "./BackupsScreen";
+import { backUpIfDue } from "./backup-app-state";
+import type { AppState as BackupAppState } from "./backup-model.ts";
+import { installCredits } from "./credits";
 import { receivedMessageKeys, unreadCount, type ReadState } from "./read-state";
 import { forgetPreferences, loadDeclinedRequests, loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveDeclinedRequests, saveNotificationPreview, saveReadReceipts, saveReadState } from "./read-state-store";
 import {
@@ -194,10 +219,31 @@ import {
 } from "./community-requests";
 import type { NotificationPreview } from "./notification-policy";
 import { describeSafety } from "./safety";
+import { sessionResetNotice } from "./session-reset";
+import { keyCheckedLine, profileLine, witnessNote, type NetworkStatus } from "./witnesses";
+import {
+  base58,
+  bondCounterLine,
+  checkResultLine,
+  forkTarget,
+  forkTargetLine,
+  trustBanner,
+  witnessBondLine,
+  type TrustDetails,
+} from "./public-record";
 import { Fact, IdentityPreview, SealedChat, Steps, Strong } from "./onboarding";
 import { usernameProblem } from "./username";
 import { StartupScreen } from "./StartupScreen";
 import { ResizableSidebar } from "./ResizableSidebar";
+import { BountyNoticeCard, CollectBountiesRow, WalletScreen } from "./WalletScreen";
+import { setFinderAddressSource } from "./network";
+import { walletFinderAddress } from "./wallet-store";
+
+// A fork proof names one of the wallet's bounty addresses when the person collects
+// fork bounties (plan §6.3, §10); otherwise its finder field stays zero.
+setFinderAddressSource(walletFinderAddress);
+// Credits pay for postage, storage, busy sign-ups and large files (plan §6.10).
+installCredits(databasePath);
 import { isDevelopmentBuild } from "./transport";
 import {
   isDesktop,
@@ -222,6 +268,7 @@ import {
   composerClearance,
   ConversationRow,
   DayDivider,
+  ViewOnceBubble,
   Dialog,
   DragStrip,
   EmptyState,
@@ -255,6 +302,7 @@ import {
   SidebarEmptyState,
   StatusPill,
   TabBar,
+  Tap,
   Toggle,
   useFreshKeys,
   Wallpaper,
@@ -381,7 +429,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const split = usesSplitLayout(Platform.OS, width) && profile !== null;
   // Until there is an account the pane belongs to onboarding, except while
   // it has pushed the scanner or the device-linking screen over it.
-  const onboardingActive = !profile && screen !== "scanner" && screen !== "link-device";
+  const onboardingActive = !profile && screen !== "scanner" && screen !== "link-device" && screen !== "backups";
   const [storedConversations, setConversations] = useState<Conversation[]>([]);
   const [previews, setPreviews] = useState<Record<string, HistoryMessage[]>>({});
   const [groupPreviews, setGroupPreviews] = useState<Record<string, GroupHistoryMessage[]>>({});
@@ -409,6 +457,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const [storedGroupHistory, setGroupHistory] = useState<GroupHistoryMessage[]>([]);
   const [storedGroupHistoryFor, setGroupHistoryFor] = useState<string | null>(null);
   const [syncError, setSyncError] = useState("");
+  // The witness set this build pins (Settings -> Network, safety numbers), and
+  // whether this device's own account changed while it was away.
+  const [networkStatus, setNetworkStatus] = useState<NetworkStatus | null>(null);
+  const [accountAway, setAccountAway] = useState(false);
+  // Settings -> Network -> Details: each trust alarm's evidence and filings.
+  const [trustDetails, setTrustDetails] = useState<TrustDetails[] | null>(null);
   // The mailbox reports the same failure on every retry of an outage, so a
   // dismissed message stays dismissed while that outage lasts. Reconnecting
   // clears the slate: a later outage, or a different failure, shows again.
@@ -501,6 +555,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const stagedSerial = useRef(0);
   const [dropping, setDropping] = useState(false);
   const [attachmentStates, setAttachmentStates] = useState<Record<string, AttachmentState>>({});
+  // Disappearing and view-once messages, and safety codes (ephemeral.ts).
+  const [viewOnceScope, setViewOnceScope] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<ViewOnceOpened | null>(null);
+  const viewingOpen = useRef(false);
+  const [groupTimers, setGroupTimers] = useState<Record<string, number>>({});
+  const [safetyCodeOpen, setSafetyCodeOpen] = useState(false);
+  const [safetyCodeValue, setSafetyCodeValue] = useState<string | null>(null);
   const attachmentBytes = useRef(new Map<string, Uint8Array>());
   const downloading = useRef(new Set<string>());
   const [scannedProfile, setScannedProfile] = useState<Uint8Array | null>(null);
@@ -512,6 +573,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     null,
   );
   const [linkSas, setLinkSas] = useState("");
+  // "Restore from a backup" links this device first, then asks for the code.
+  const [restoreAfterLink, setRestoreAfterLink] = useState(false);
+  const [backupStart, setBackupStart] = useState<"status" | "restore" | "recover">("status");
   const [deviceSet, setDeviceSet] = useState<Uint8Array | null>(null);
   const [devices, setDevices] = useState<DeviceSetSummary | null>(null);
   const [busy, setBusy] = useState(true);
@@ -559,19 +623,44 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     setNotificationTarget(null);
   }, [notificationTarget, conversations, groups, preview]);
 
+  // Backups, once they are on, are made once a day while the app is open.
+  useEffect(() => {
+    if (!accountId || preview) return;
+    void backUpIfDue();
+    const timer = setInterval(() => { void backUpIfDue(); }, 3_600_000);
+    return () => clearInterval(timer);
+  }, [accountId, preview]);
+
+  // A restore brings settings and read marks with it; show them at once.
+  function backupRestored(settings: BackupAppState | null): void {
+    if (settings) {
+      setAppearance(settings.appearance);
+      setReadReceipts(settings.readReceipts);
+      setNotificationPreview(settings.notificationPreview);
+      setReadState(settings.readState);
+      setReceiptMarks(settings.receiptMarks);
+    }
+    void refreshLocalData().catch(() => {});
+  }
+
   useEffect(() => {
     if (!accountId) return;
     let current = true;
-    // The journals are sealed in the database, so they come back a moment later
-    // than the choices kept beside it. Unread counts wait for them.
+    // The journals and settings are sealed in the database, so they come back a
+    // moment after the account. Unread counts wait for them.
     void (async () => {
       try {
-        const [read, marks] = await Promise.all([loadReadState(accountId), loadReceiptMarks(accountId)]);
+        const [read, marks, receipts, previews] = await Promise.all([
+          loadReadState(accountId),
+          loadReceiptMarks(accountId),
+          loadReadReceipts(accountId),
+          loadNotificationPreview(accountId),
+        ]);
         if (!current) return;
         setReadState(read);
         setReceiptMarks(marks);
-        setReadReceipts(loadReadReceipts(accountId));
-        setNotificationPreview(loadNotificationPreview(accountId));
+        setReadReceipts(receipts);
+        setNotificationPreview(previews);
       } catch {
         if (!current) return;
         setReadState({});
@@ -949,6 +1038,58 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     return () => { cancelled = true; };
   }, [selectedGroup, preview]);
 
+  // The group's disappearing-message timer, read again as its history changes,
+  // since a member's change arrives as a notice in it.
+  useEffect(() => {
+    if (preview || !selectedGroup) return;
+    let cancelled = false;
+    const key = hex(selectedGroup.groupId);
+    groupTimer(databasePath, selectedGroup.groupId).then(
+      (seconds) => { if (!cancelled) setGroupTimers((previous) => ({ ...previous, [key]: seconds })); },
+      () => undefined,
+    );
+    return () => { cancelled = true; };
+  }, [selectedGroup, preview, groupHistory]);
+
+  // Disappearing messages leave storage at each sync (the core does that) and on
+  // this timer while the app runs, and what this device cached of their files
+  // goes with them. Once something was due, the lists and threads load again.
+  useEffect(() => {
+    if (preview || !profile) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
+    let due = 0;
+    const run = async () => {
+      let next = 0;
+      try {
+        const purge = await purgeExpired(databasePath);
+        next = purge.next;
+        forgetObjects(purge.objectIds);
+        if ((due && due <= Date.now()) || purge.objectIds.length) void refreshLocalData().catch(() => undefined);
+      } catch {
+        // The next sync purges too; this timer tries again in a minute.
+      }
+      due = next;
+      if (!stopped) timer = setTimeout(() => void run(), purgeDelay(next, Date.now()));
+    };
+    void run();
+    return () => { stopped = true; clearTimeout(timer); };
+  }, [preview, profile]);
+
+  function forgetObjects(objectIds: string[]): void {
+    if (!objectIds.length) return;
+    for (const id of objectIds) attachmentBytes.current.delete(id);
+    setAttachmentStates((previous) => {
+      const next = { ...previous };
+      for (const id of objectIds) {
+        const uri = next[id]?.previewUri;
+        if (uri) releasePreviewUri(uri);
+        delete next[id];
+      }
+      return next;
+    });
+  }
+
   async function refreshDevices(
     currentProfile: Uint8Array,
   ): Promise<DeviceSetSummary> {
@@ -1004,6 +1145,40 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     };
   }, []);
 
+  useEffect(() => onAccountChangedWhileAway(() => setAccountAway(true)), []);
+
+  // The check against the public record (plan section 6.7): daily while the
+  // app runs or comes back to the foreground, after a contact's keys change,
+  // and when Network opens. Each finished check reloads what Network and the
+  // banners show.
+  useEffect(() => {
+    if (!profile || leaving) return undefined;
+    const reload = () => { loadNetworkStatus(databasePath).then(setNetworkStatus, () => {}); };
+    const removeListener = onPublicRecordChecked(reload);
+    const daily = () => { void schedulePublicRecordCheck(databasePath, "daily").catch(() => {}); };
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") daily();
+    });
+    const hourly = setInterval(daily, 3_600_000);
+    daily();
+    return () => {
+      removeListener();
+      appState.remove();
+      clearInterval(hourly);
+    };
+  }, [profile, leaving]);
+
+  // The witness set comes from this build's config; a group needing a newer
+  // build shows up after a mailbox pass, which loads it again.
+  useEffect(() => {
+    if (profile) loadNetworkStatus(databasePath).then(setNetworkStatus, () => {});
+  }, [profile]);
+
+  // Plan section 6.15: shown once, with the account's devices to check.
+  useEffect(() => {
+    if (accountAway && profile && screen !== "devices") openDevices();
+  }, [accountAway]);
+
   useEffect(() => {
     if (!profile || leaving) return undefined;
     const sync = createMailboxSync(
@@ -1016,6 +1191,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             setError("The devices on your account changed. Check your linked devices.");
           }
         } finally {
+          // A pass can find a group on witnesses this build does not know. An
+          // older native build has no status export; its rows stay hidden.
+          loadNetworkStatus(databasePath).then(setNetworkStatus, () => {});
           // Native writes may have committed even if delivery or acknowledgement failed.
           await refreshLocalData();
         }
@@ -1178,14 +1356,94 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (!selected) return;
     const scope = `chat/${selected.conversationId.join(".")}`;
     if (!composer.trim() && !stagedFor(scope).length) return;
+    const viewOnce = viewOnceScope === scope;
+    if (viewOnce && !viewOnceSendable(scope)) return;
     void perform("Sending…", async () => {
       let changed = false;
       await sendWithAttachment(scope, async (attachment) => {
-        changed = await sendFanout(databasePath, selected.username, outgoingBody(composer.trim()), selected.peerAccountId, attachment);
-      });
+        changed = viewOnce
+          ? await sendViewOnce(databasePath, selected.username, composer.trim(), selected.peerAccountId, attachment)
+          : await sendFanout(databasePath, selected.username, outgoingBody(composer.trim()), selected.peerAccountId, attachment);
+      }, !viewOnce);
       setComposer("");
       setReplying(null);
+      if (viewOnce) setViewOnceScope(null);
       noteSent(selected.username, changed);
+    });
+  }
+
+  // A view-once message is words and pictures only: a file would be saved, which
+  // is the one thing view-once is for not doing.
+  function viewOnceSendable(scope: string): boolean {
+    if (stagedFor(scope).every((entry) => isImageAttachment(entry.file.mimeType))) return true;
+    setError("Only photos can be sent view once. Remove the other files or turn view once off.");
+    return false;
+  }
+
+  function toggleViewOnce(scope: string): void {
+    const on = viewOnceScope !== scope;
+    setViewOnceScope(on ? scope : null);
+    if (on) setStatus(viewOnceCaution);
+  }
+
+  // Opening hands the content over once and deletes it from this device in the
+  // same call; the pictures are decrypted for this look and deleted on close.
+  function openViewOnceMessage(message: HistoryMessage | GroupHistoryMessage): void {
+    if (!message.messageId || viewingOpen.current || preview) return;
+    const group = "senderAccountId" in message;
+    const groupId = selectedGroupId;
+    const peer = selected?.peerAccountId;
+    if (group ? !groupId : !peer) return;
+    viewingOpen.current = true;
+    setViewing({ body: "", images: [], loading: true });
+    void (async () => {
+      const images: string[] = [];
+      try {
+        const opened = group
+          ? await openGroupViewOnce(databasePath, groupId!, message.messageId!)
+          : await openViewOnce(databasePath, peer!, message.messageId!);
+        for (const attachment of opened.attachments ?? []) {
+          if (!isImageAttachment(attachment.mimeType)) continue;
+          const bytes = await downloadAttachment(databasePath, attachment, () => undefined);
+          images.push(attachmentPreviewUri(`once-${hex(attachment.objectId)}`, attachment.mimeType, bytes));
+        }
+        if (viewingOpen.current) setViewing({ body: opened.body, images, loading: false });
+        else for (const uri of images) releasePreviewUri(uri);
+      } catch (caught) {
+        for (const uri of images) releasePreviewUri(uri);
+        viewingOpen.current = false;
+        setViewing(null);
+        setError(friendlyError(caught));
+      } finally {
+        void refreshLocalData().catch(() => undefined);
+      }
+    })();
+  }
+
+  function closeViewOnce(): void {
+    for (const uri of viewing?.images ?? []) releasePreviewUri(uri);
+    viewingOpen.current = false;
+    setViewing(null);
+  }
+
+  function openSafetyCode(conversation: Conversation): void {
+    setSafetyCodeValue(null);
+    setSafetyCodeOpen(true);
+    safetyCode(databasePath, conversation.peerAccountId).then(setSafetyCodeValue, (caught) => {
+      setSafetyCodeOpen(false);
+      setError(friendlyError(caught));
+    });
+  }
+
+  // A community's parts each carry the timer; they change one after another.
+  function changeGroupTimer(groupIds: Uint8Array[], seconds: number): void {
+    void perform("Changing the timer…", async () => {
+      for (const groupId of groupIds) {
+        await setGroupTimer(databasePath, groupId, seconds);
+        setGroupTimers((previous) => ({ ...previous, [hex(groupId)]: seconds }));
+      }
+      await refreshLocalData();
+      setStatus(seconds ? `Messages now disappear after ${timerLength(seconds)}` : "Disappearing messages are off");
     });
   }
 
@@ -1231,6 +1489,17 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
 
   // Staged files stay with the composer that accepted them.
   const openScope = composerScope(screen, selectedId, selectedGroupId ? hex(selectedGroupId) : null);
+  // A conversation's decrypted pictures go when it closes (closedPreviews); one
+  // still on its way then is not drawn.
+  const previewGeneration = useRef(0);
+  useEffect(() => () => {
+    previewGeneration.current += 1;
+    setAttachmentStates((previous) => {
+      const { kept, released } = closedPreviews(previous);
+      for (const uri of released) releasePreviewUri(uri);
+      return kept;
+    });
+  }, [openScope]);
   // What the open composer answers, while that message is still in the thread:
   // once it expires, the reply bar goes and the words are sent on their own.
   const replyTarget = replying && replying.scope === openScope
@@ -1269,13 +1538,34 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       setError("Sample preview is read-only. Turn it off in You → Development to make changes.");
       return;
     }
-    const limit = attachmentSelectionError(files.map((file) => file.bytes.length), stagedFor(scope).length);
+    const limit = attachmentSelectionError(files.map((file) => file.size), stagedFor(scope).length);
     if (limit) { setError(limit); return; }
+    // Files over 16 MB use credits: say what they use before they are staged.
+    const spend = creditSpendPrompt(files);
+    if (!spend) { stageNow(scope, files); return; }
+    const cost = files.reduce((total, file) => total + attachmentCreditCost(file.size), 0);
+    creditBalance().then((balance) => {
+      const shortfall = creditShortfall(cost, balance);
+      if (shortfall) {
+        for (const file of files) file.release?.();
+        setError(shortfall);
+        return;
+      }
+      confirm({
+        title: spend,
+        body: `Files over 16 MB use 1 credit for every extra 16 MB. You have ${balance}.`,
+        action: `Use ${cost === 1 ? "1 credit" : `${cost} credits`}`,
+        run: () => stageNow(scope, files),
+      });
+    }, (caught) => setError(friendlyError(caught)));
+  }
+
+  function stageNow(scope: string, files: OutgoingAttachment[]): void {
     const entries: StagedAttachment[] = [];
     try {
       for (const file of files) {
         const id = `staged-${stagedSerial.current++}`;
-        const previewUri = isImageAttachment(file.mimeType) ? attachmentPreviewUri(id, file.mimeType, file.bytes) : undefined;
+        const previewUri = isImageAttachment(file.mimeType) && file.bytes ? attachmentPreviewUri(id, file.mimeType, file.bytes) : undefined;
         entries.push({ id, scope, file, previewUri });
       }
     } catch (caught) {
@@ -1290,6 +1580,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   function unstageAttachment(id: string): void {
     const entry = stagedRef.current.find((entry) => entry.id === id);
     if (entry?.previewUri) releasePreviewUri(entry.previewUri);
+    entry?.file.release?.();
     updateStaged(stagedRef.current.filter((entry) => entry.id !== id));
   }
 
@@ -1305,7 +1596,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     staged.filter((entry) => entry.scope === scope).map((entry) => ({
       id: entry.id,
       filename: entry.file.filename,
-      size: formatBytes(entry.file.bytes.length),
+      size: formatBytes(entry.file.size),
       previewUri: entry.previewUri,
     }));
 
@@ -1315,7 +1606,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     onError: setError,
   }));
 
-  async function sendWithAttachment(scope: string, send: (attachment?: Uint8Array) => Promise<void>): Promise<void> {
+  // `keep` is false for a view-once message, whose sender keeps nothing of it.
+  async function sendWithAttachment(scope: string, send: (attachment?: Uint8Array) => Promise<void>, keep = true): Promise<void> {
     const entries = stagedFor(scope);
     const uploaded = await sendWithAttachments(databasePath, entries.map((entry) => entry.file), async (reference) => {
       setStatus("Sending…");
@@ -1324,6 +1616,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     uploaded.forEach((file, index) => {
       const entry = entries[index]!;
       const key = hex(file.objectId);
+      entry.file.release?.();
+      if (!keep) {
+        if (entry.previewUri) releasePreviewUri(entry.previewUri);
+        return;
+      }
+      // A large file was read from disk as it went; this device fetches it again if asked.
+      if (!entry.file.bytes) return;
       rememberBytes(key, entry.file.bytes);
       setAttachmentState(key, { status: "ready", previewUri: entry.previewUri });
     });
@@ -1354,16 +1653,24 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     (attachment.expiresAt < Date.now() ? { status: "error", message: "Expired" } : undefined);
 
   // Fetches and decrypts a file once; a tap on it then writes it where the
-  // person chooses. A second tap while it is on its way does nothing.
+  // person chooses. A second tap while it is on its way does nothing. A file
+  // over 16 MB is never held whole: a tap writes it where the person picks as
+  // it downloads.
   function openAttachment(attachment: AttachmentSummary, save: boolean): void {
     const key = hex(attachment.objectId);
     if (downloading.current.has(key)) return;
+    if (attachment.size > FREE_ATTACHMENT_SIZE) {
+      if (save) saveLargeAttachment(attachment, key);
+      return;
+    }
     // A picture whose bytes have since left the cache keeps its preview.
     const current = attachmentStates[key];
     let previewUri = current?.previewUri;
+    const shown = previewGeneration.current;
     void (async () => {
       try {
         let bytes = attachmentBytes.current.get(key);
+        const fetched = !bytes;
         if (!bytes) {
           downloading.current.add(key);
           setAttachmentState(key, { status: "downloading", completed: 0, total: attachment.chunkCount, previewUri });
@@ -1375,9 +1682,20 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             downloading.current.delete(key);
           }
           rememberBytes(key, bytes);
-          if (previewUri === undefined && isImageAttachment(attachment.mimeType)) {
-            previewUri = attachmentPreviewUri(key, attachment.mimeType, bytes);
-          }
+        }
+        if (shown !== previewGeneration.current) {
+          // Its conversation closed meanwhile: nothing is drawn, and the picture
+          // comes back from memory when that conversation opens again.
+          setAttachmentStates((previous) => {
+            const next = { ...previous };
+            delete next[key];
+            return next;
+          });
+        } else if (previewUri === undefined && isImageAttachment(attachment.mimeType)) {
+          // Just fetched, or drawn again from memory as its conversation reopens.
+          previewUri = attachmentPreviewUri(key, attachment.mimeType, bytes);
+          setAttachmentState(key, { status: "ready", previewUri });
+        } else if (fetched) {
           setAttachmentState(key, { status: "ready", previewUri });
         }
         if (!save) return;
@@ -1389,6 +1707,26 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         setAttachmentState(key, { status: "error", message, previewUri });
         // A fetch nobody asked for fails quietly, on its own card.
         if (save) setError(message);
+      }
+    })();
+  }
+
+  function saveLargeAttachment(attachment: AttachmentSummary, key: string): void {
+    downloading.current.add(key);
+    void (async () => {
+      try {
+        const saved = await saveAttachmentStream(attachment.filename, attachment.mimeType, async (write) => {
+          setAttachmentState(key, { status: "downloading", completed: 0, total: attachment.chunkCount });
+          await streamAttachment(databasePath, attachment, write, (completed, total) =>
+            setAttachmentState(key, { status: "downloading", completed, total }));
+        });
+        setAttachmentState(key, saved ? { status: "saved" } : { status: "ready" });
+      } catch (caught) {
+        const message = friendlyError(caught);
+        setAttachmentState(key, { status: "error", message });
+        setError(message);
+      } finally {
+        downloading.current.delete(key);
       }
     })();
   }
@@ -1713,6 +2051,18 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (!groupComposer.trim() && !stagedFor(scope).length) return;
     const text = groupComposer.trim();
     const answered = replyTarget && communityPosts.find((post) => post.messageId && hex(post.messageId) === replying!.target);
+    const viewOnce = !selectedEntry && viewOnceScope === scope;
+    if (viewOnce && !viewOnceSendable(scope)) return;
+    if (viewOnce) {
+      void perform("Sending…", async () => {
+        await sendWithAttachment(scope, (attachment) => sendGroupViewOnce(databasePath, selectedGroupId, text, attachment), false);
+        setGroupComposer("");
+        setReplying(null);
+        setViewOnceScope(null);
+        setStatus("Sent");
+      });
+      return;
+    }
     void perform("Sending…", async () => {
       await sendWithAttachment(scope, async (attachment) => {
         if (!selectedEntry) return sendGroupMessage(databasePath, selectedGroupId, outgoingBody(text), attachment);
@@ -2065,6 +2415,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         setLinkSas("");
         enterApp();
         setStatus("This device is linked");
+        if (restoreAfterLink) {
+          setRestoreAfterLink(false);
+          setBackupStart("restore");
+          setScreen("backups");
+        }
       });
     } else {
       const groupId = selectedGroupId;
@@ -2376,7 +2731,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               <Button label="Get started" onPress={() => goOnboarding("profile")} />
               <Button
                 label="Link an existing account"
-                onPress={beginDeviceLink}
+                onPress={() => { setRestoreAfterLink(false); beginDeviceLink(); }}
+                variant="ghost"
+              />
+              <Button
+                label="Restore from a backup"
+                onPress={() => { setBackupStart("recover"); setScreen("backups"); }}
                 variant="ghost"
               />
             </Actions>
@@ -2504,6 +2864,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             intro={
               <View style={layout.stackLoose}>
                 <Text style={type.title}>Bring your account along.</Text>
+                {restoreAfterLink ? (
+                  <Notice text="A backup comes back onto a device of its account. Link this one from a device that is still signed in; then you enter your recovery code." />
+                ) : null}
                 <Steps>
                   {[
                     <>On the device you signed up on, open <Strong>You → Linked devices</Strong> and choose <Strong>Link another device</Strong>.</>,
@@ -2828,6 +3191,26 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 }
                 onPress={openDevices}
               />
+              {preview ? null : <BackupsRow onPress={() => { setBackupStart("status"); go("backups"); }} />}
+            </RowGroup>
+          </Section>
+          {networkStatus ? (
+            <Section title="Network">
+              <RowGroup>
+                <Row
+                  icon="shield"
+                  title="Witnesses"
+                  subtitle={networkStatus.updateRequired ? "A group needs a newer Morse" : profileLine(networkStatus)}
+                  tone={networkStatus.updateRequired ? "danger" : "accent"}
+                  onPress={openNetwork}
+                />
+              </RowGroup>
+            </Section>
+          ) : null}
+          <Section title="Wallet">
+            <RowGroup>
+              <Row icon="key" title="Wallet" subtitle="Solana, held on this device" onPress={() => go("wallet")} />
+              <CreditsRow onPress={() => go("credits")} />
             </RowGroup>
           </Section>
           <Section title="Notifications">
@@ -2866,8 +3249,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                     value={notificationPreview}
                     onSelect={(chosen) => {
                       setNotificationPreview(chosen);
-                      try { if (accountId) saveNotificationPreview(accountId, chosen); }
-                      catch { setError("That choice couldn’t be saved. It applies until you restart."); }
+                      if (accountId) saveNotificationPreview(accountId, chosen)
+                        .catch(() => setError("That choice couldn’t be saved. It applies until you restart."));
                     }}
                   />
                 }
@@ -2887,12 +3270,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                     disabled={preview !== null || !accountId}
                     onValueChange={(enabled) => {
                       setReadReceipts(enabled);
-                      try { if (accountId) saveReadReceipts(accountId, enabled); }
-                      catch { setError("That choice couldn’t be saved. It applies until you restart."); }
+                      if (accountId) saveReadReceipts(accountId, enabled)
+                        .catch(() => setError("That choice couldn’t be saved. It applies until you restart."));
                     }}
                   />
                 }
               />
+              <AppLockRow disabled={preview !== null} />
+              <InboxPriceRow disabled={preview !== null} />
             </RowGroup>
           </Section>
           <Section title="Appearance">
@@ -2962,6 +3347,176 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     );
   }
 
+  // Settings -> Network: which witnesses must sign the key log before this
+  // device trusts a key, and who runs them (plan section 4.4); the check
+  // against the public record and the bond counter, read from the chain
+  // (plan sections 6.7, 6.17).
+  function openNetwork() {
+    go("network");
+    void schedulePublicRecordCheck(databasePath, "network-screen").catch(() => {});
+  }
+
+  function openTrustDetails() {
+    setTrustDetails(null);
+    loadTrustDetails(databasePath).then(setTrustDetails, () => setTrustDetails([]));
+    go("trust-details");
+  }
+
+  // The banner every chat list shows while Morse's key log is in question
+  // (blocking), or while the public record is behind (quiet).
+  function renderTrustBanner() {
+    const banner = trustBanner(networkStatus, Date.now());
+    if (!banner) return null;
+    if (!banner.blocking) return <Notice tone="warning" text={banner.text} />;
+    return (
+      <Tap label="Details" onPress={openTrustDetails} feedback="highlight">
+        <Notice
+          tone="error"
+          text={`${banner.text} New chats and key changes are paused; existing chats keep working. Details`}
+        />
+      </Tap>
+    );
+  }
+
+  function renderNetwork() {
+    const now = Date.now();
+    const counter = networkStatus ? bondCounterLine(networkStatus.bonds, networkStatus.anchor, now) : null;
+    const lastCheck = networkStatus ? checkResultLine(networkStatus.anchor, now) : null;
+    return (
+      <Page header={<Header title="Network" onBack={() => go("settings")} />}>
+        <ScrollView contentContainerStyle={layout.content}>
+          {networkStatus ? (
+            <>
+              <Text style={type.body}>{profileLine(networkStatus)}</Text>
+              {networkStatus.updateRequired ? (
+                <Notice
+                  tone="warning"
+                  text="A group you’re in moved to newer witnesses. Update Morse to keep using it."
+                />
+              ) : null}
+              {renderTrustBanner()}
+              {counter || lastCheck ? (
+                <Section
+                  title="Public record"
+                  footer="Read from the chain through the providers this build pins, never through Morse. Nothing is reported back."
+                >
+                  <RowGroup>
+                    {counter ? <Row icon="shield" title={counter} /> : null}
+                    {lastCheck ? (
+                      <Row
+                        icon={networkStatus.alarm ? "warning" : "check"}
+                        tone={networkStatus.alarm ? "danger" : "accent"}
+                        title="Last check"
+                        subtitle={lastCheck}
+                      />
+                    ) : null}
+                    <Row
+                      icon="info"
+                      title="Details"
+                      subtitle="Evidence this phone kept, and where it was filed"
+                      onPress={openTrustDetails}
+                    />
+                  </RowGroup>
+                </Section>
+              ) : null}
+              <Section
+                title="Pinned witnesses"
+                footer={`A key is used only once ${networkStatus.threshold} of these ${networkStatus.witnesses.length} witnesses have signed the key log that holds it.`}
+              >
+                <RowGroup>
+                  {networkStatus.witnesses.map((witness) => {
+                    const bond = witnessBondLine(networkStatus.bonds?.witnesses.find((row) => row.id === witness.id));
+                    return (
+                      <Row
+                        key={witness.id}
+                        icon="shield"
+                        tone={witness.morseRun ? "muted" : "accent"}
+                        title={witness.label}
+                        subtitle={bond ? `${witness.id} · ${bond}` : witness.id}
+                        trailing={witness.morseRun ? <Badge label="Run by Morse" tone="muted" /> : null}
+                      />
+                    );
+                  })}
+                </RowGroup>
+              </Section>
+              <BountyNoticeCard />
+              <CollectBountiesRow />
+            </>
+          ) : (
+            <Notice text="Network details aren’t available on this build." />
+          )}
+        </ScrollView>
+      </Page>
+    );
+  }
+
+  async function exportEvidence(bytes: Uint8Array) {
+    try {
+      // Anyone can land it: morse-relay submit evidence.frk (plan section 6.9).
+      await saveAttachmentFile("evidence.frk", "application/octet-stream", bytes);
+    } catch (caught) {
+      setError(friendlyError(caught));
+    }
+  }
+
+  const relayWords = { pending: "Not reached yet; tried again later", sent: "Received it", refused: "Refused it" } as const;
+  const alarmTitles = {
+    anchor_mismatch: "Morse’s key log doesn’t match the public record",
+    service_slashed: "Morse’s key log was caught signing two versions",
+    contact_fork: "A contact’s phone was shown a different key log",
+  } as const;
+
+  // Details: the two versions that disagree, each proof and the relays it went
+  // to, and, once it landed, who the judge paid.
+  function renderTrustDetails() {
+    return (
+      <Page header={<Header title="Details" onBack={() => go("network")} />}>
+        <ScrollView contentContainerStyle={layout.content}>
+          {trustDetails === null ? null : trustDetails.length === 0 ? (
+            <Notice text="Morse’s key log has matched the public record on every check this phone made." />
+          ) : trustDetails.map((alarm, index) => (
+            <Section
+              key={`${alarm.kind}-${alarm.raisedAt}-${index}`}
+              title={alarm.active ? alarmTitles[alarm.kind] : `${alarmTitles[alarm.kind]} (resolved)`}
+              footer={alarm.proofs.length === 0
+                ? "This phone kept the two versions but had no leaf it could prove differs; nothing was filed."
+                : "Evidence goes to every relay this build pins. It holds Morse’s signed checkpoints and proofs over them, never your messages."}
+            >
+              <RowGroup>
+                {alarm.yours ? (
+                  <Row icon="key" title="Your phone’s version" subtitle={`${alarm.yours.treeSize.toLocaleString("en-US")} entries · ${hex(alarm.yours.root).slice(0, 16)}…`} />
+                ) : null}
+                {alarm.other ? (
+                  <Row icon="shield" title={alarm.kind === "contact_fork" ? "Your contact’s version" : "The public record"} subtitle={`${alarm.other.treeSize.toLocaleString("en-US")} entries · ${hex(alarm.other.root).slice(0, 16)}…`} />
+                ) : null}
+                {alarm.kind === "contact_fork" ? (
+                  <Row icon="info" title="Which phone was targeted" subtitle={forkTargetLine(forkTarget(alarm, trustDetails, networkStatus?.anchor))} />
+                ) : null}
+                {alarm.proofs.map((proof, position) => (
+                  <View key={hex(proof.proofHash)}>
+                    <Row
+                      icon="file"
+                      title={`Proof ${position + 1}${proof.complete ? "" : " (the relays complete it)"}`}
+                      subtitle={proof.landed
+                        ? `Landed in slot ${(proof.landedSlot ?? 0).toLocaleString("en-US")}; ${proof.paidElsewhere
+                          ? `the bounty went to ${base58(proof.paidTo ?? new Uint8Array(32))}, not this phone`
+                          : "the bounty went to this phone’s address"}`
+                        : "Waiting to land on chain"}
+                      trailing={<Button label="Export" variant="ghost" onPress={() => { void exportEvidence(proof.bytes); }} />}
+                    />
+                    {proof.relays.map((relay) => (
+                      <Row key={relay.url} icon="link" tone={relay.status === "refused" ? "danger" : "muted"} title={relay.url.replace(/^https:\/\//, "")} subtitle={relayWords[relay.status]} />
+                    ))}
+                  </View>
+                ))}
+              </RowGroup>
+            </Section>
+          ))}
+        </ScrollView>
+      </Page>
+    );
+  }
+
   function renderDevices() {
     return (
       <Page header={<Header title="Linked devices" onBack={() => go("settings")} />}>
@@ -2970,6 +3525,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             Only these devices can receive your messages. Remove any device you
             no longer trust.
           </Text>
+          {accountAway ? (
+            <Notice
+              tone="warning"
+              text="Your account changed while this device was away. Check that you know every device below."
+              onDismiss={() => setAccountAway(false)}
+            />
+          ) : null}
           {devices?.changed ? (
             <Notice
               tone="warning"
@@ -3462,6 +4024,32 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             </Card>
           )}
         </Section>
+        {canManage ? (
+          <Section
+            title="Disappearing announcements"
+            footer="Only you and the other admins set it. Announcements go from every member’s device when their time is up."
+          >
+            <RowGroup>
+              <Row
+                icon="timer"
+                title="Timer"
+                subtitle={disappearingOptions.find((option) => option.value === (groupTimers[entry.parts[0]!] ?? 0))?.label
+                  ?? timerLength(groupTimers[entry.parts[0]!] ?? 0)}
+                trailing={
+                  <Segmented
+                    label="Disappear"
+                    options={disappearingOptions}
+                    value={groupTimers[entry.parts[0]!] ?? 0}
+                    onSelect={(seconds) => {
+                      // Every part carries the same timer, as it carries the same record.
+                      if (preview === null && !busy) changeGroupTimer(entry.parts.map(fromHex), seconds);
+                    }}
+                  />
+                }
+              />
+            </RowGroup>
+          </Section>
+        ) : null}
         {canManage && linkable.length ? (
           <Section title="Link a group">
             <RowGroup>
@@ -3721,6 +4309,38 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               </Card>
             )}
           </Section>
+          <Section
+            title="Disappearing messages"
+            footer="Anyone in the group can change it, and everyone’s messages follow it, even on devices that join later. Messages go from every device when their time is up."
+          >
+            <RowGroup>
+              <Row
+                icon="timer"
+                title="Timer"
+                subtitle={disappearingOptions.find((option) => option.value === (groupTimers[hex(groupId)] ?? 0))?.label ?? timerLength(groupTimers[hex(groupId)] ?? 0)}
+                trailing={
+                  <Segmented
+                    label="Disappear"
+                    options={disappearingOptions}
+                    value={groupTimers[hex(groupId)] ?? 0}
+                    onSelect={(seconds) => { if (preview === null && !busy) changeGroupTimer([groupId], seconds); }}
+                  />
+                }
+              />
+            </RowGroup>
+          </Section>
+          {groupDetails?.senderSigning ? (
+            <Section
+              title="Message signing"
+              footer={groupDetails.senderSigning === 2
+                ? "Members' devices check your messages here with a key your device gave each of them in your direct chat. That shows them it was you, and proves nothing to anyone else."
+                : "Your messages here carry your device's own signature, which can show anyone they came from you. They become deniable once your device and every other device in the group have exchanged direct messages."}
+            >
+              <RowGroup>
+                <Row title={groupDetails.senderSigning === 2 ? "Deniable" : "Signed with your device key"} />
+              </RowGroup>
+            </Section>
+          ) : null}
           {pending.length > 0 ? (
             <Section title="Invited" footer="They join once they accept.">
               <RowGroup>
@@ -3873,6 +4493,24 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           renderItem={({ item }) =>
             item.kind === "day" ? (
               <DayDivider label={item.label} />
+            ) : item.message.timerNotice !== undefined ? (
+              <DayDivider label={timerNotice(
+                item.message.direction === "sent" || hex(item.message.senderAccountId) === accountId
+                  ? "You" : senderIdentity(item.message.senderAccountId, false).name,
+                item.message.timerNotice)} />
+            ) : item.message.viewOnce ? (
+              <ViewOnceBubble
+                text={viewOnceText({
+                  direction: item.message.direction === "sent" || hex(item.message.senderAccountId) === accountId ? "sent" : "received",
+                  viewOnce: item.message.viewOnce,
+                })}
+                sent={item.message.direction === "sent" || hex(item.message.senderAccountId) === accountId}
+                timestamp={item.message.timestamp}
+                tail={item.tail}
+                spaced={item.spaced}
+                onOpen={item.message.direction === "received" && hex(item.message.senderAccountId) !== accountId
+                  && item.message.viewOnce === "unopened" ? () => openViewOnceMessage(item.message) : undefined}
+              />
             ) : (
               <MessageBubble
                 body={item.message.body}
@@ -3909,6 +4547,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           value={groupComposer}
           onChangeText={setGroupComposer}
           onSend={sendGroupText}
+          viewOnce={preview === null && !selectedCommunity
+            ? { on: viewOnceScope === scope, onToggle: () => toggleViewOnce(scope) } : undefined}
           disabled={busy || preview !== null || readOnly}
           placeholder={preview ? "Sample preview · read-only" : readOnly ? "Only admins post here"
             : selectedCommunity ? "Announce something" : "Message · @mention someone"}
@@ -3961,6 +4601,22 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             <RowGroup>
               <Row icon="shield" tone={safety.tone} title="Safety number" subtitle={safety.status} />
               {conversation.safetyNumber ? <SafetyNumber value={conversation.safetyNumber} tone={safety.tone} /> : null}
+              {networkStatus ? (
+                <Row
+                  icon="checks"
+                  tone="muted"
+                  title={keyCheckedLine(networkStatus)}
+                  subtitle={networkStatus.witnesses.map((witness) => `${witness.id}: ${witnessNote(witness)}`).join(" · ")}
+                />
+              ) : null}
+              {conversation.safetyNumber && preview === null ? (
+                <Row
+                  icon="qr"
+                  title="Verify with a code"
+                  subtitle={isDesktop ? "Show your code, or paste theirs" : "Scan their code, or show yours"}
+                  onPress={() => openSafetyCode(conversation)}
+                />
+              ) : null}
               {safety.verifiable ? (
                 <Row
                   icon="check"
@@ -4015,7 +4671,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   function renderChat(conversation: Conversation) {
     // Banners sit in flow under the floating header; the thread then starts
     // right below them instead of leaving room for the header a second time.
-    const banners = conversation.requestPending || conversation.keyChanged || conversation.blocked;
+    const resetNotice = sessionResetNotice(conversation);
+    const banners = conversation.requestPending || conversation.keyChanged || conversation.blocked || resetNotice;
     const scope = `chat/${conversation.conversationId.join(".")}`;
     const canReply = !conversation.blocked && !conversation.requestPending;
     // Each side of a chat is named in its own colour, as group members are.
@@ -4076,6 +4733,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             {conversation.blocked ? (
               <Notice text="This contact is blocked. You can unblock them in conversation details." />
             ) : null}
+            {resetNotice ? <Notice text={resetNotice} /> : null}
           </View>
         ) : null}
         <FlatList
@@ -4101,6 +4759,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           renderItem={({ item }) =>
             item.kind === "day" ? (
               <DayDivider label={item.label} />
+            ) : item.message.viewOnce ? (
+              <ViewOnceBubble
+                text={viewOnceText({ direction: item.message.direction, viewOnce: item.message.viewOnce })}
+                sent={item.message.direction === "sent"}
+                timestamp={item.message.timestamp}
+                tail={item.tail}
+                spaced={item.spaced}
+                onOpen={item.message.direction === "received" && item.message.viewOnce === "unopened"
+                  ? () => openViewOnceMessage(item.message) : undefined}
+              />
             ) : (
               <MessageBubble
                 body={item.message.body}
@@ -4141,6 +4809,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           value={composer}
           onChangeText={setComposer}
           onSend={sendMessage}
+          viewOnce={preview === null ? { on: viewOnceScope === scope, onToggle: () => toggleViewOnce(scope) } : undefined}
           disabled={busy || preview !== null || conversation.blocked || conversation.requestPending}
           placeholder={
             preview
@@ -4180,6 +4849,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             : ({ leadingItem }: { leadingItem: HomeItem }) =>
                 leadingItem.kind === "chat" ? <ListSeparator /> : null
         }
+        ListHeaderComponent={<>{renderTrustBanner()}<BountyNoticeCard /></>}
         ListEmptyComponent={sidebar ? <SidebarEmptyState title="No chats yet." /> : (
           <EmptyState
             icon="chat"
@@ -4393,6 +5063,23 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (screen === "account" && profile) return renderAccount(profile);
     if (screen === "settings") return renderSettings();
     if (screen === "devices") return renderDevices();
+    if (screen === "network") return renderNetwork();
+    if (screen === "wallet") return <WalletScreen onBack={() => go("settings")} />;
+    if (screen === "backups") {
+      return (
+        <BackupsScreen
+          key={backupStart}
+          start={backupStart}
+          onBack={() => go(backupStart === "recover" ? "home" : "settings")}
+          onRestored={backupRestored}
+          onRecovered={async () => { setProfile(await load_profile_export(utf8(databasePath))); }}
+          onReviewDevices={openDevices}
+          onLinkInstead={() => { setRestoreAfterLink(true); beginDeviceLink(); }}
+        />
+      );
+    }
+    if (screen === "credits") return <CreditsScreen onBack={() => go("settings")} />;
+    if (screen === "trust-details") return renderTrustDetails();
     if (screen === "link-authorization" && linkAuthorization)
       return renderLinkAuthorization(linkAuthorization);
     if (screen === "group-package" && groupKeyPackage)
@@ -4505,6 +5192,21 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           </ScrollView>
         </Dialog>
       ) : null}
+      <ViewOnceDialog opened={viewing} onClose={closeViewOnce} />
+      {selected ? (
+        <SafetyCodeDialog
+          visible={safetyCodeOpen}
+          username={selected.username}
+          code={safetyCodeValue}
+          onCheck={async (text) => {
+            const outcome = await checkSafetyCode(databasePath, selected.peerAccountId, text);
+            await refreshConversations();
+            return outcome;
+          }}
+          onClose={() => setSafetyCodeOpen(false)}
+        />
+      ) : null}
+      <CreditPrompts />
       <Modal visible={pendingConfirm !== null} transparent onRequestClose={() => setPendingConfirm(null)}>
         <View style={styles.confirmOverlay}>
           <Card style={styles.confirmCard}>

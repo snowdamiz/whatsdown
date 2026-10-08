@@ -7,6 +7,7 @@ from Protocol.V1 import (
   InnerEnvelope,
   PrekeyBundle
 )
+from Security.Config import SecurityConfig
 from Session.Handshake import RatchetState
 from Session.Snapshot import SnapshotOutcome, snapshot
 from Transport.Packet import ClientProfile
@@ -65,6 +66,7 @@ pub struct MobileAttachmentPrepareRequest do
   mime_type :: Bytes
   plaintext_size :: Int
   difficulty :: Int
+  credits :: List<Bytes>
 end
 
 pub struct MobileAttachmentChunkRequest do
@@ -107,9 +109,13 @@ pub struct MobileFanoutPrekeyReservationRequest do
   claimed_prekey :: Bytes
 end
 
+## `now` is this device's clock at receipt; tests set it to stand on either side
+## of the legacy packet cutoff.
+
 pub struct MobileReceiveRequest do
   database_path :: String
   outer :: Bytes
+  now :: U64
 end
 
 pub struct MobileSessionRecord do
@@ -128,6 +134,15 @@ pub struct MobileSessionRecord do
   disappearing_seconds :: Int
   strongest_suite :: Int
   safety_number :: Bytes
+  # Session healing (`Mobile.SessionReset`): 0, 1 once this device asked the
+  # peer for a new session, 2 once a new session replaced this one (it stays
+  # readable for what was already on its way, and is never sent on again).
+  reset_state :: Int
+  # When the conversation's secure session was last reset, 0 if never.
+  reset_at :: U64
+  # The peer device's X25519 identity key, which the recipient seal needs.
+  # Empty in records from before session healing.
+  peer_identity_key :: Bytes
 end
 
 pub struct MobileLoadedSession do
@@ -183,6 +198,7 @@ pub struct ConversationSummary do
   verified :: Bool
   key_changed :: Bool
   disappearing_seconds :: Int
+  session_reset_at :: U64
 end
 
 pub struct MobileBatchRequest do
@@ -207,12 +223,16 @@ pub struct MobileTransparencyRequest do
   evidence :: Bytes
 end
 
+# The whole security config (pinned witnesses with labels, k, set_id, chain
+# anchor and RPC URLs, relays, issuer, C2SP origin, minimum suite) with the
+# fields most callers need lifted out. profile: bootstrap | transitional | open.
+
 pub struct MobileSecurityConfig do
   transparency_service_public_key :: Bytes
-  witness_a_public_key :: Bytes
-  witness_b_public_key :: Bytes
   delivery_public_key :: Bytes
   abuse_difficulty :: Int
+  profile :: String
+  config :: SecurityConfig
 end
 
 pub struct MobilePushState do
@@ -275,27 +295,25 @@ pub struct MobileClaimedPrekey do
   profile :: ClientProfile
 end
 
+# A device set this device verified: the checkpoint it was in, and the pinned
+# witness set that checkpoint was verified under.
+
 pub struct MobileVerifiedTransparencySet do
   checkpoint :: Bytes
   device_set :: Bytes
+  set_id :: Bytes
 end
+
+# What this device has verified of the log: the newest checkpoint, the service
+# key and witness set it was verified under, and the hashes of older
+# checkpoints known to be prefixes of it (ones this device verified, and
+# anchors whose consistency proofs it verified).
 
 pub struct MobileTransparencyView do
   checkpoint :: Bytes
-  consistency :: Bytes
   service_public_key :: Bytes
-  witness_a_public_key :: Bytes
-  witness_b_public_key :: Bytes
-end
-
-pub struct MobileTransparencyManifest do
-  checkpoint :: Bytes
-  consistency_length :: Int
-  consistency_hash :: Bytes
-  chunk_count :: Int
-  service_public_key :: Bytes
-  witness_a_public_key :: Bytes
-  witness_b_public_key :: Bytes
+  set_id :: Bytes
+  known :: List<Bytes>
 end
 
 pub struct MobileTransparencyStorage do
@@ -358,6 +376,10 @@ pub struct MobileGroupHistoryEntry do
   timestamp :: U64
   body :: Bytes
   attachment :: Bytes
+  # When a disappearing message goes (0: it stays), and what the entry is:
+  # 0 a message, 1 a view-once message, 2 a notice that the group timer changed.
+  expires_at :: U64
+  kind :: Int
 end
 
 pub type MobileGroupReceiveOutcome do

@@ -37,5 +37,8 @@ export function desktopConfig(env, development = false) {
     (development && !env.EXPO_PUBLIC_MESSENGER_BASE_URL ? 'http://127.0.0.1:18089' : baseUrl));
   const securityFrame = securityConfig(env) ?? '';
   assert.ok(development || securityFrame, 'Set the MESSENGER security pins before building a release');
+  // A release sends its stateless requests through the edge as OHTTP; only development may send them directly.
+  assert.ok(development || (env.MESSENGER_OHTTP_KEY && env.MESSENGER_OHTTP_RELAY === new URL(edgeUrl).origin),
+    'Set MESSENGER_OHTTP_KEY and MESSENGER_OHTTP_RELAY (the privacy edge origin) before building a release');
   return { baseUrl, edgeUrl, streamUrl, objectUrl, securityFrame, development };
 }

@@ -1,0 +1,47 @@
+# The Morse witness in pull mode, run from the reproducible binary
+# (install and failover: ops/witness/README.md). On a standby host keep it
+# disabled; start it only after the primary has stopped.
+[Unit]
+Description=Morse transparency witness (pull mode)
+Documentation=https://github.com/snowdamiz/whatsdown/blob/main/mesh-private-messenger/ops/witness/README.md
+Wants=network-online.target time-sync.target
+After=network-online.target time-sync.target
+RequiresMountsFor=/var/lib/morse-witness
+
+[Service]
+Type=simple
+User=morse-witness
+Group=morse-witness
+Environment=MESSENGER_WITNESS_MODE=pull
+Environment=MESSENGER_WITNESS_CHECKPOINT_PATH=/var/lib/morse-witness/checkpoint
+Environment=MESSENGER_WITNESS_EVIDENCE_DIR=/var/lib/morse-witness
+# The guard lives on this host's own disk, never on the shared volume.
+Environment=MESSENGER_WITNESS_GUARD_PATH=/var/lib/morse-witness-guard/checkpoint
+StateDirectory=morse-witness-guard
+StateDirectoryMode=0700
+# Settings, then the signing seed (root-only). Files override the lines above.
+EnvironmentFile=/etc/morse-witness/witness.env
+EnvironmentFile=/etc/morse-witness/seed.env
+ExecStart=/opt/morse-witness/transparency-witness
+Restart=on-failure
+RestartSec=10
+# 3 = halted: stale state or broken history. Restarting would only halt again.
+RestartPreventExitStatus=3
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ReadWritePaths=/var/lib/morse-witness
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

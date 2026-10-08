@@ -181,7 +181,7 @@ This includes source APIs omitted by the website's summary, such as `Host`,
 | `IO`, `Env`, `File` | Console and environment access, secret environment ingestion, filesystem operations, bounded binary range I/O. |
 | `DateTime`, `Monotonic`, `Duration` | Wall-clock dates/timestamps, elapsed time, checked duration conversions. |
 | `Random` | Deterministic state-threaded random streams; never key generation. |
-| `Crypto` | OS randomness, SHA-256/512, HMAC/HKDF, Argon2id, X25519, Ed25519, ChaCha20-Poly1305, HPKE including secret payloads, ML-KEM-768, UUIDs. |
+| `Crypto` | OS randomness, SHA-256/512, HMAC/HKDF, Argon2id, X25519, Ed25519, ChaCha20-Poly1305, HPKE including secret payloads and a context export, a derived-key AEAD (OHTTP responses), ML-KEM-768, UUIDs. |
 | `Secret`, `SecretMap` | Move-only random/derived material, explicit destruction, bounded secret collections with independent `SecretMap.fork` candidates, authenticated storage wrapping. |
 | `StorageKey`, `X25519PrivateKey`, `SigningPrivateKey`, `MlKemPrivateKey` | Platform/ephemeral storage keys and typed private-key sealing/unsealing; context/purpose binding. |
 | `Host` | Native callbacks for secure storage, push tokens, background scheduling, network state, clocks, redacted logs. |

@@ -24,6 +24,9 @@ test('C8 release configuration requires signed updates, valid pins and secure se
     MESSENGER_WITNESS_B_PUBLIC_KEY_HEX: '33'.repeat(32),
     MESSENGER_DELIVERY_PUBLIC_KEY_HEX: '44'.repeat(32),
     MESSENGER_ABUSE_DIFFICULTY: '16',
+    // Stateless requests go through the edge as OHTTP (protocol/ohttp-v1.md).
+    MESSENGER_OHTTP_KEY: `1:${'31e1f05a740102115220e9af918f738674aec95f54db6e04eb705aae8e798155'}`,
+    MESSENGER_OHTTP_RELAY: 'https://edge.example.com',
     MORSE_OTA_CERTIFICATE: certificate,
   };
   const check = (overrides = {}) => spawnSync(process.execPath, ['scripts/check-release-config.mjs'], {
@@ -31,6 +34,9 @@ test('C8 release configuration requires signed updates, valid pins and secure se
   });
   const valid = check();
   assert.equal(valid.status, 0, valid.stderr);
+  // Hand-computed: SHA-256 of "morse-witness-set-v1" + the k, n and witness lines of today's set.
+  assert.match(valid.stdout,
+    /set_id b51e1e61e569d854d3efa8f247b328e3ad6e0074d5a8b7c18757188cc01b83b0, Bootstrap, 2 of 2/);
   for (const overrides of [
     { MORSE_OTA_CERTIFICATE: '' },
     { MORSE_OTA_CERTIFICATE: join(dir, 'missing.pem') },
@@ -44,6 +50,10 @@ test('C8 release configuration requires signed updates, valid pins and secure se
     { MESSENGER_DELIVERY_PUBLIC_KEY_HEX: '' },
     { MESSENGER_WITNESS_B_PUBLIC_KEY_HEX: env.MESSENGER_WITNESS_A_PUBLIC_KEY_HEX },
     { MESSENGER_EXPO_PROJECT_ID: env.EXPO_PROJECT_ID },
+    { MESSENGER_WITNESSES: `witness-a:${env.MESSENGER_WITNESS_A_PUBLIC_KEY_HEX}:Morse;witness-a:${'55'.repeat(32)}:Morse` },
+    { MESSENGER_ANCHOR: 'not-an-address' },
+    { MESSENGER_OHTTP_KEY: '', MESSENGER_OHTTP_RELAY: '' },
+    { MESSENGER_OHTTP_RELAY: 'https://other.example.com' },
   ]) {
     assert.notEqual(check(overrides).status, 0, JSON.stringify(overrides));
   }

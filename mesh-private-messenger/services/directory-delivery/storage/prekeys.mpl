@@ -116,7 +116,12 @@ fn publication_check(conn :: borrow PgConn,
       "SELECT public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint",
       [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(value.id))])?
     if List.length(rows) == 0 do
-      publication_check(conn, request, index + 1, new_count + 1)
+      let added = if deleted_prekey(conn, request, value.id)? do
+        0
+      else
+        1
+      end
+      publication_check(conn, request, index + 1, new_count + added)
     else if List.length(rows) == 1
       && Bytes.secure_equals(binary(Map.get(List.head(rows), "public_key"))?, value.public_key) do
       publication_check(conn, request, index + 1, new_count)
@@ -124,6 +129,19 @@ fn publication_check(conn :: borrow PgConn,
       Ok(PublicationCheck { new_count: new_count, conflict: true })
     end
   end
+end
+
+# A consumed key's row is deleted a day after its claim (Storage.PrekeyPruning),
+# but the device remembers the highest identifier deleted, so a publication
+# replayed later cannot put the key back: it stays consumed.
+
+fn deleted_prekey(conn :: borrow PgConn,
+  request :: PrekeyPublishRequest,
+  id :: U64) -> Bool!String do
+  let rows = Pg.query_values(conn,
+    "SELECT 1 AS found FROM messenger_devices WHERE account_id = $1 AND device_id = $2 AND pruned_prekey_id >= $3::bigint",
+    [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(id))])?
+  Ok(List.length(rows) > 0)
 end
 
 fn insert_prekeys(conn :: borrow PgConn,
@@ -134,7 +152,7 @@ fn insert_prekeys(conn :: borrow PgConn,
   else
     let value = List.get(request.prekeys, index)
     Pg.execute_values(conn,
-      "INSERT INTO messenger_one_time_prekeys (account_id, device_id, prekey_id, public_key) VALUES ($1, $2, $3::bigint, $4) ON CONFLICT DO NOTHING",
+      "INSERT INTO messenger_one_time_prekeys (account_id, device_id, prekey_id, public_key) SELECT $1::bytea, $2::bytea, $3::bigint, $4::bytea WHERE NOT EXISTS (SELECT 1 FROM messenger_devices WHERE account_id = $1 AND device_id = $2 AND pruned_prekey_id >= $3::bigint) ON CONFLICT DO NOTHING",
       [
         Binary(request.account_id),
         Binary(request.device_id),

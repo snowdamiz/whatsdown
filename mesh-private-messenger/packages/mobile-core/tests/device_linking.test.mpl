@@ -225,7 +225,6 @@ fn proof() -> Bool!String do
   let root_view = signed_transparency_view([leaf_hash(root_set)?])?
   assert(install_group_transparency_for_test(root_path,
     root_view.checkpoint,
-    root_view.consistency,
     root_view.service_public_key,
     root_view.witness_a_public_key,
     root_view.witness_b_public_key,
@@ -343,7 +342,6 @@ fn proof() -> Bool!String do
   let linked_view = signed_transparency_view([leaf_hash(linked_set)?])?
   assert(install_group_transparency_for_test(root_path,
     linked_view.checkpoint,
-    linked_view.consistency,
     linked_view.service_public_key,
     linked_view.witness_a_public_key,
     linked_view.witness_b_public_key,
@@ -382,7 +380,6 @@ fn proof() -> Bool!String do
   let revoked_view = signed_transparency_view([leaf_hash(revoked_set)?])?
   assert(install_group_transparency_for_test(root_path,
     revoked_view.checkpoint,
-    revoked_view.consistency,
     revoked_view.service_public_key,
     revoked_view.witness_a_public_key,
     revoked_view.witness_b_public_key,

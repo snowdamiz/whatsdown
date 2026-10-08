@@ -15,8 +15,15 @@ from Tests.GroupConsistencySupport import (
   verify_for,
   wide
 )
-from Tests.Support import repeated
+from Tests.Support import repeated, supply_anchor_proofs
 from Transparency.Merkle import TransparencyCheckpoint, leaf_hash
+
+fn error_of(result :: Result<Bytes, String>) -> String do
+  case result do
+    Ok(_) -> ""
+    Err(error) -> error
+  end
+end
 
 fn read_u32_at(input :: Bytes, offset :: Int) -> Int!String do
   case Bytes.read_u32_be(input, offset) do
@@ -203,7 +210,17 @@ fn proof() -> Bool!String do
     group_id,
     bob.device_set,
     tamper_last(bob_package)?)?)
-  assert(expect_group_key_rejection(alice.path, group_id, mallory.device_set, fork_package)?)
+  # A key package from a forked log names a checkpoint that no honest
+  # consistency proof connects to Alice's view, so it is never accepted.
+  let fork_add = request([Bytes.from_utf8(alice.path), group_id, mallory.device_set, fork_package])?
+  assert(String.starts_with(error_of(group_add_export(fork_add)),
+    "transparency_anchor_proof_needed"))
+  case supply_anchor_proofs(alice.path, main_leaves) do
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "transparency_anchor_proof_invalid")
+  end
+  assert(String.starts_with(error_of(group_add_export(fork_add)),
+    "transparency_anchor_proof_needed"))
   let future_checkpoint = checkpoint(service_pair.private_key,
     service_public_key,
     133,
@@ -248,8 +265,12 @@ fn proof() -> Bool!String do
     bob_package
   ])?)?
   let welcome = welcome_envelope(welcome_output)?
-  assert(Bytes.secure_equals(group_receive_export(request([Bytes.from_utf8(bob.path), welcome])?)?,
-    group_id))
+  # Bob never verified the group's baseline himself: he proves it once.
+  let joining = request([Bytes.from_utf8(bob.path), welcome])?
+  assert(String.starts_with(error_of(group_receive_export(joining)),
+    "transparency_anchor_proof_needed"))
+  assert(supply_anchor_proofs(bob.path, main_leaves)? == 1)
+  assert(Bytes.secure_equals(group_receive_export(joining)?, group_id))
   File.delete(alice.path)?
   File.delete(bob.path)?
   File.delete(mallory.path)?

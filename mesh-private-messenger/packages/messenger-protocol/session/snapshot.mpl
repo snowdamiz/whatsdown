@@ -8,6 +8,7 @@ from Binary.Reader import (
   reader
 )
 from Session.Handshake import RatchetState
+from Session.Header import ratchet_header_role
 
 pub type SnapshotError do
   CryptoFailure(error :: CryptoError)
@@ -58,6 +59,30 @@ struct ParsedSnapshot do
   receiving_chain_key :: Bytes
   local_ratchet_private :: Bytes
   skipped_keys :: Bytes
+  extension :: SnapshotExtension
+  header_send :: Bytes
+  header_next_send :: Bytes
+  header_receive :: Bytes
+  header_next_receive :: Bytes
+  earlier_header_keys :: Bytes
+  pq_secrets :: Bytes
+end
+
+# What version 3 adds to the authenticated header: the peer's features, whether
+# sends encrypt their headers, the earlier chains whose header keys are kept,
+# and the public half of the post-quantum ratchet.
+
+struct SnapshotExtension do
+  peer_features :: Int
+  header_encrypted :: Bool
+  header_key_owners :: Bytes
+  pq_epoch :: Int
+  pq_phase :: Int
+  pq_cursor :: Int
+  pq_send_mix :: Int
+  pq_own :: Bytes
+  pq_peer :: Bytes
+  pq_have :: Bytes
 end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes!SnapshotError do
@@ -125,6 +150,66 @@ fn valid_index(index :: Bytes) -> Bool do
   Bytes.length(index) <= 2560 && Bytes.length(index) % 40 == 0
 end
 
+fn valid_pq_bytes(value :: Bytes) -> Bool do
+  Bytes.length(value) == 0 || Bytes.length(value) == 1184 || Bytes.length(value) == 1088
+end
+
+fn valid_extension(value :: SnapshotExtension) -> Bool do
+  value.peer_features >= 0
+    && value.peer_features <= 255
+    && Bytes.length(value.header_key_owners) <= 256
+    && Bytes.length(value.header_key_owners) % 32 == 0
+    && value.pq_epoch >= 0
+    && value.pq_phase >= 0
+    && value.pq_phase <= 6
+    && value.pq_cursor >= 0
+    && value.pq_cursor < 37
+    && value.pq_send_mix >= 0
+    && valid_pq_bytes(value.pq_own)
+    && valid_pq_bytes(value.pq_peer)
+    && Bytes.length(value.pq_have) <= 37
+end
+
+fn state_extension(state :: borrow RatchetState) -> SnapshotExtension do
+  SnapshotExtension {
+    peer_features: state.peer_features,
+    header_encrypted: state.header_encrypted,
+    header_key_owners: state.header_key_owners,
+    pq_epoch: state.pq_epoch,
+    pq_phase: state.pq_phase,
+    pq_cursor: state.pq_cursor,
+    pq_send_mix: state.pq_send_mix,
+    pq_own: state.pq_own,
+    pq_peer: state.pq_peer,
+    pq_have: state.pq_have
+  }
+end
+
+fn encode_extension(value :: SnapshotExtension) -> Bytes!SnapshotError do
+  if !valid_extension(value) do
+    Err(InvalidSnapshot)
+  else
+    join([
+        byte(value.peer_features)?,
+        byte(if value.header_encrypted do
+          1
+        else
+          0
+        end)?,
+        vector(value.header_key_owners)?,
+        write_u32(value.pq_epoch)?,
+        byte(value.pq_phase)?,
+        write_u32(value.pq_cursor)?,
+        write_u32(value.pq_send_mix)?,
+        vector(value.pq_own)?,
+        vector(value.pq_peer)?,
+        vector(value.pq_have)?
+      ],
+      0,
+      Bytes.empty())
+  end
+end
+
 fn encode_header(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes!SnapshotError do
   let valid_suite = state.suite == 1 || state.suite == 2
   let valid = state.version == 1
@@ -147,7 +232,7 @@ fn encode_header(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes
       0
     end
     join([
-        byte(2)?,
+        byte(3)?,
         Bytes.from_utf8("RST"),
         write_u16(state.suite)?,
         state.session_id,
@@ -159,7 +244,8 @@ fn encode_header(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes
         write_u32(state.received_count)?,
         byte(pending)?,
         write_u32(state.receive_generation)?,
-        vector(state.skipped_index)?
+        vector(state.skipped_index)?,
+        encode_extension(state_extension(state))?
       ],
       0,
       Bytes.empty())
@@ -177,13 +263,50 @@ fn storage_object(header :: Bytes, purpose :: Int) -> Bytes!SnapshotError do
   Ok(Crypto.sha256(input))
 end
 
+# Parts version 3 added are named by a slot, so two parts sealed for the same
+# purpose (the four header keys, the two extra maps) never share a context.
+
+fn slot_object(header :: Bytes, purpose :: Int, slot :: String) -> Bytes!SnapshotError do
+  let input = join([
+      Bytes.from_utf8("mesh-msg/v2/ratchet-snapshot-object/" <> slot),
+      header,
+      write_u16(purpose)?
+    ],
+    0,
+    Bytes.empty())?
+  Ok(Crypto.sha256(input))
+end
+
+fn object_for(header :: Bytes, purpose :: Int, slot :: String) -> Bytes!SnapshotError do
+  if slot == "" do
+    storage_object(header, purpose)
+  else
+    slot_object(header, purpose, slot)
+  end
+end
+
 fn storage_context(account_id :: Bytes,
   device_id :: Bytes,
   session_id :: Bytes,
   header :: Bytes,
   purpose :: Int,
   snapshot_version :: U64) -> Bytes!SnapshotError do
-  let supported = purpose == 1 || purpose == 2 || purpose == 3 || purpose == 12 || purpose == 13
+  slot_context(account_id, device_id, session_id, header, purpose, "", snapshot_version)
+end
+
+fn slot_context(account_id :: Bytes,
+  device_id :: Bytes,
+  session_id :: Bytes,
+  header :: Bytes,
+  purpose :: Int,
+  slot :: String,
+  snapshot_version :: U64) -> Bytes!SnapshotError do
+  let supported = purpose == 1
+    || purpose == 2
+    || purpose == 3
+    || purpose == 4
+    || purpose == 12
+    || purpose == 13
   if Bytes.length(account_id) != 32
     || Bytes.length(device_id) != 16
     || Bytes.length(session_id) != 32
@@ -195,7 +318,7 @@ fn storage_context(account_id :: Bytes,
         account_id,
         device_id,
         session_id,
-        storage_object(header, purpose)?,
+        object_for(header, purpose, slot)?,
         write_u16(purpose)?,
         write_u64(snapshot_version)?
       ],
@@ -231,6 +354,108 @@ fn seal_map(secret :: borrow SecretMap,
   end
 end
 
+fn header_roles() -> List<String> do
+  ["send", "next-send", "receive", "next-receive"]
+end
+
+# A header key the session does not hold yet is an empty part.
+
+fn seal_header_role(keys :: borrow SecretMap,
+  role :: String,
+  wrapping_key :: borrow StorageKey,
+  context :: Bytes) -> Bytes!SnapshotError do
+  let id = ratchet_header_role(role)
+  if !SecretMap.contains(keys, id) do
+    Ok(Bytes.empty())
+  else
+    case SecretMap.copy(keys, id) do
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(key) -> seal_secret(key, wrapping_key, context)
+    end
+  end
+end
+
+fn drop_roles(keys :: borrow SecretMap,
+  roles :: List<String>,
+  index :: Int) -> Result<(), SnapshotError> do
+  if index >= List.length(roles) do
+    Ok(nil)
+  else
+    case SecretMap.delete(keys, ratchet_header_role(List.get(roles, index))) do
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(_) -> drop_roles(keys, roles, index + 1)
+    end
+  end
+end
+
+# The header keys of earlier chains, without the four sealed on their own.
+
+fn seal_earlier_header_keys(keys :: borrow SecretMap,
+  wrapping_key :: borrow StorageKey,
+  context :: Bytes) -> Bytes!SnapshotError do
+  case SecretMap.fork(keys) do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(earlier) -> do
+      drop_roles(earlier, header_roles(), 0)?
+      seal_map(earlier, wrapping_key, context)
+    end
+  end
+end
+
+struct SealedExtension do
+  header_send :: Bytes
+  header_next_send :: Bytes
+  header_receive :: Bytes
+  header_next_receive :: Bytes
+  earlier_header_keys :: Bytes
+  pq_secrets :: Bytes
+end
+
+fn seal_extension(state :: borrow RatchetState,
+  wrapping_key :: borrow StorageKey,
+  account_id :: Bytes,
+  device_id :: Bytes,
+  header :: Bytes,
+  snapshot_version :: U64) -> SealedExtension!SnapshotError do
+  let session_id = state.session_id
+  Ok(SealedExtension {
+    header_send: seal_header_role(state.header_keys,
+      "send",
+      wrapping_key,
+      slot_context(account_id, device_id, session_id, header, 4, "send", snapshot_version)?)?,
+    header_next_send: seal_header_role(state.header_keys,
+      "next-send",
+      wrapping_key,
+      slot_context(account_id, device_id, session_id, header, 4, "next-send", snapshot_version)?)?,
+    header_receive: seal_header_role(state.header_keys,
+      "receive",
+      wrapping_key,
+      slot_context(account_id, device_id, session_id, header, 4, "receive", snapshot_version)?)?,
+    header_next_receive: seal_header_role(state.header_keys,
+      "next-receive",
+      wrapping_key,
+      slot_context(account_id,
+        device_id,
+        session_id,
+        header,
+        4,
+        "next-receive",
+        snapshot_version)?)?,
+    earlier_header_keys: seal_earlier_header_keys(state.header_keys,
+      wrapping_key,
+      slot_context(account_id,
+        device_id,
+        session_id,
+        header,
+        12,
+        "header-keys",
+        snapshot_version)?)?,
+    pq_secrets: seal_map(state.pq_secrets,
+      wrapping_key,
+      slot_context(account_id, device_id, session_id, header, 12, "pq", snapshot_version)?)?
+  })
+end
+
 fn seal_snapshot(state :: borrow RatchetState,
   wrapping_key :: borrow StorageKey,
   account_id :: Bytes,
@@ -252,13 +477,25 @@ fn seal_snapshot(state :: borrow RatchetState,
   let skipped_keys = seal_map(state.skipped_keys,
     wrapping_key,
     storage_context(account_id, device_id, state.session_id, header, 12, snapshot_version)?)?
+  let extension = seal_extension(state,
+    wrapping_key,
+    account_id,
+    device_id,
+    header,
+    snapshot_version)?
   join([
       header,
       vector(root_key)?,
       vector(sending_chain_key)?,
       vector(receiving_chain_key)?,
       vector(local_ratchet_private)?,
-      vector(skipped_keys)?
+      vector(skipped_keys)?,
+      vector(extension.header_send)?,
+      vector(extension.header_next_send)?,
+      vector(extension.header_receive)?,
+      vector(extension.header_next_receive)?,
+      vector(extension.earlier_header_keys)?,
+      vector(extension.pq_secrets)?
     ],
     0,
     Bytes.empty())
@@ -359,12 +596,105 @@ struct ReadAging do
 end
 
 fn take_aging(state :: BinaryReader, format :: Int) -> ReadAging!SnapshotError do
-  if format == 2 do
+  if format == 2 || format == 3 do
     let generation = take_u32(state)?
     let index = take_vector(generation.state, 2560)?
     Ok(ReadAging { state: index.state, generation: generation.value, index: index.value })
   else
     Ok(ReadAging { state: state, generation: 0, index: Bytes.empty() })
+  end
+end
+
+struct ReadExtension do
+  state :: BinaryReader
+  value :: SnapshotExtension
+end
+
+fn empty_extension() -> SnapshotExtension do
+  SnapshotExtension {
+    peer_features: 0,
+    header_encrypted: false,
+    header_key_owners: Bytes.empty(),
+    pq_epoch: 0,
+    pq_phase: 0,
+    pq_cursor: 0,
+    pq_send_mix: 0,
+    pq_own: Bytes.empty(),
+    pq_peer: Bytes.empty(),
+    pq_have: Bytes.empty()
+  }
+end
+
+fn take_extension(state :: BinaryReader, format :: Int) -> ReadExtension!SnapshotError do
+  if format != 3 do
+    Ok(ReadExtension { state: state, value: empty_extension() })
+  else
+    let features = take_u8(state)?
+    let encrypted = take_u8(features.state)?
+    let owners = take_vector(encrypted.state, 256)?
+    let epoch = take_u32(owners.state)?
+    let phase = take_u8(epoch.state)?
+    let cursor = take_u32(phase.state)?
+    let send_mix = take_u32(cursor.state)?
+    let own = take_vector(send_mix.state, 1184)?
+    let peer = take_vector(own.state, 1184)?
+    let have = take_vector(peer.state, 37)?
+    let value = SnapshotExtension {
+      peer_features: features.value,
+      header_encrypted: encrypted.value == 1,
+      header_key_owners: owners.value,
+      pq_epoch: epoch.value,
+      pq_phase: phase.value,
+      pq_cursor: cursor.value,
+      pq_send_mix: send_mix.value,
+      pq_own: own.value,
+      pq_peer: peer.value,
+      pq_have: have.value
+    }
+    if encrypted.value > 1 || !valid_extension(value) do
+      Err(InvalidSnapshot)
+    else
+      Ok(ReadExtension { state: have.state, value: value })
+    end
+  end
+end
+
+struct ReadSealed do
+  state :: BinaryReader
+  value :: SealedExtension
+end
+
+fn take_sealed_extension(state :: BinaryReader, format :: Int) -> ReadSealed!SnapshotError do
+  if format != 3 do
+    Ok(ReadSealed {
+      state: state,
+      value: SealedExtension {
+        header_send: Bytes.empty(),
+        header_next_send: Bytes.empty(),
+        header_receive: Bytes.empty(),
+        header_next_receive: Bytes.empty(),
+        earlier_header_keys: Bytes.empty(),
+        pq_secrets: Bytes.empty()
+      }
+    })
+  else
+    let header_send = take_vector(state, 99)?
+    let header_next_send = take_vector(header_send.state, 99)?
+    let header_receive = take_vector(header_next_send.state, 99)?
+    let header_next_receive = take_vector(header_receive.state, 99)?
+    let earlier = take_vector(header_next_receive.state, 2048)?
+    let pq = take_vector(earlier.state, 512)?
+    Ok(ReadSealed {
+      state: pq.state,
+      value: SealedExtension {
+        header_send: header_send.value,
+        header_next_send: header_next_send.value,
+        header_receive: header_receive.value,
+        header_next_receive: header_next_receive.value,
+        earlier_header_keys: earlier.value,
+        pq_secrets: pq.value
+      }
+    })
   end
 end
 
@@ -381,14 +711,16 @@ fn decode_snapshot(input :: Bytes) -> ParsedSnapshot!SnapshotError do
   let received_count = take_u32(sent_count.state)?
   let pending = take_u8(received_count.state)?
   let aging = take_aging(pending.state, version.value)?
-  let root_key = take_vector(aging.state, 99)?
+  let extension = take_extension(aging.state, version.value)?
+  let root_key = take_vector(extension.state, 99)?
   let sending_chain_key = take_vector(root_key.state, 99)?
   let receiving_chain_key = take_vector(sending_chain_key.state, 99)?
   let local_private = take_vector(receiving_chain_key.state, 99)?
   let skipped_keys = take_vector(local_private.state, 65603)?
-  require_end(skipped_keys.state)?
+  let sealed = take_sealed_extension(skipped_keys.state, version.value)?
+  require_end(sealed.state)?
   let valid_suite = suite.value == 1 || suite.value == 2
-  let valid = (version.value == 1 || version.value == 2)
+  let valid = (version.value == 1 || version.value == 2 || version.value == 3)
     && Bytes.secure_equals(magic.value, Bytes.from_utf8("RST"))
     && valid_suite
     && pending.value >= 0
@@ -415,7 +747,14 @@ fn decode_snapshot(input :: Bytes) -> ParsedSnapshot!SnapshotError do
       sending_chain_key: sending_chain_key.value,
       receiving_chain_key: receiving_chain_key.value,
       local_ratchet_private: local_private.value,
-      skipped_keys: skipped_keys.value
+      skipped_keys: skipped_keys.value,
+      extension: extension.value,
+      header_send: sealed.value.header_send,
+      header_next_send: sealed.value.header_next_send,
+      header_receive: sealed.value.header_receive,
+      header_next_receive: sealed.value.header_next_receive,
+      earlier_header_keys: sealed.value.earlier_header_keys,
+      pq_secrets: sealed.value.pq_secrets
     })
   end
 end
@@ -443,8 +782,17 @@ fn parsed_header(value :: ParsedSnapshot) -> Bytes!SnapshotError do
     Bytes.empty())?
   if value.format == 1 do
     Ok(header)
-  else
+  else if value.format == 2 do
     join([header, write_u32(value.receive_generation)?, vector(value.skipped_index)?],
+      0,
+      Bytes.empty())
+  else
+    join([
+        header,
+        write_u32(value.receive_generation)?,
+        vector(value.skipped_index)?,
+        encode_extension(value.extension)?
+      ],
       0,
       Bytes.empty())
   end
@@ -498,6 +846,85 @@ fn restored_skipped_keys(value :: ParsedSnapshot,
   end
 end
 
+fn restore_header_role(keys :: borrow SecretMap,
+  blob :: Bytes,
+  role :: String,
+  wrapping_key :: borrow StorageKey,
+  context :: Bytes) -> Result<(), SnapshotError> do
+  if Bytes.length(blob) == 0 do
+    Ok(nil)
+  else
+    let key = unseal_secret(blob, wrapping_key, context)?
+    case SecretMap.insert(keys, ratchet_header_role(role), key) do
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(_) -> Ok(nil)
+    end
+  end
+end
+
+fn restored_header_keys(value :: ParsedSnapshot,
+  wrapping_key :: borrow StorageKey,
+  account_id :: Bytes,
+  device_id :: Bytes,
+  header :: Bytes) -> SecretMap!SnapshotError do
+  if value.format != 3 do
+    case SecretMap.new(16) do
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(empty)
+    end
+  else
+    let session_id = value.session_id
+    let version = value.snapshot_version
+    let keys = unseal_map(value.earlier_header_keys,
+      wrapping_key,
+      slot_context(account_id, device_id, session_id, header, 12, "header-keys", version)?)?
+    restore_header_role(keys,
+      value.header_send,
+      "send",
+      wrapping_key,
+      slot_context(account_id, device_id, session_id, header, 4, "send", version)?)?
+    restore_header_role(keys,
+      value.header_next_send,
+      "next-send",
+      wrapping_key,
+      slot_context(account_id, device_id, session_id, header, 4, "next-send", version)?)?
+    restore_header_role(keys,
+      value.header_receive,
+      "receive",
+      wrapping_key,
+      slot_context(account_id, device_id, session_id, header, 4, "receive", version)?)?
+    restore_header_role(keys,
+      value.header_next_receive,
+      "next-receive",
+      wrapping_key,
+      slot_context(account_id, device_id, session_id, header, 4, "next-receive", version)?)?
+    Ok(keys)
+  end
+end
+
+fn restored_pq_secrets(value :: ParsedSnapshot,
+  wrapping_key :: borrow StorageKey,
+  account_id :: Bytes,
+  device_id :: Bytes,
+  header :: Bytes) -> SecretMap!SnapshotError do
+  if value.format != 3 do
+    case SecretMap.new(2) do
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(empty)
+    end
+  else
+    unseal_map(value.pq_secrets,
+      wrapping_key,
+      slot_context(account_id,
+        device_id,
+        value.session_id,
+        header,
+        12,
+        "pq",
+        value.snapshot_version)?)
+  end
+end
+
 fn restore_parsed(value :: ParsedSnapshot,
   wrapping_key :: borrow StorageKey,
   account_id :: Bytes,
@@ -516,6 +943,9 @@ fn restore_parsed(value :: ParsedSnapshot,
     wrapping_key,
     storage_context(account_id, device_id, value.session_id, header, 13, value.snapshot_version)?)?
   let skipped_keys = restored_skipped_keys(value, wrapping_key, account_id, device_id, header)?
+  let header_keys = restored_header_keys(value, wrapping_key, account_id, device_id, header)?
+  let pq_secrets = restored_pq_secrets(value, wrapping_key, account_id, device_id, header)?
+  let extension = value.extension
   Ok(RatchetState {
     version: 1,
     suite: value.suite,
@@ -533,7 +963,19 @@ fn restore_parsed(value :: ParsedSnapshot,
     skipped_index: value.skipped_index,
     receive_generation: value.receive_generation,
     pending_send_ratchet: value.pending_send_ratchet,
-    snapshot_version: value.snapshot_version
+    snapshot_version: value.snapshot_version,
+    peer_features: extension.peer_features,
+    header_encrypted: extension.header_encrypted,
+    header_keys: header_keys,
+    header_key_owners: extension.header_key_owners,
+    pq_epoch: extension.pq_epoch,
+    pq_phase: extension.pq_phase,
+    pq_cursor: extension.pq_cursor,
+    pq_send_mix: extension.pq_send_mix,
+    pq_own: extension.pq_own,
+    pq_peer: extension.pq_peer,
+    pq_have: extension.pq_have,
+    pq_secrets: pq_secrets
   })
 end
 

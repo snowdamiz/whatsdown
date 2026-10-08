@@ -4,6 +4,15 @@ Windows 10/11 (x64), macOS 12+ (Intel and Apple silicon). Tauri hosts the shared
 Expo/React Native Web interface and the same Mesh protocol library as mobile.
 Keys stay in native code, protected by Windows Credential Manager or macOS
 Keychain; Mesh keeps encrypted history in the app's local data directory.
+The in-app wallet (You → Wallet) links `packages/wallet-core` into the binary
+(`src-tauri/src/wallet.rs`, Tauri commands `wallet_*`) and keeps its seed in the
+same credential store; the web view gets the recovery phrase for display, public
+keys and signed transactions, never the seed. Showing the phrase again asks for
+no device-owner check on the desktop yet. Its balance reads and transfers go
+through `binary_request` to the Solana RPC URLs the security config pins, and
+nowhere else. Release builds turn core dumps off at startup through the Mesh
+runtime's `mesh_rt_disable_core_dumps` when the bundled library exports it
+(runtimes after Mesh v0.1.8).
 
 Desktop has a resizable window with a persistent sidebar (chats and
 groups, your account) beside the open conversation, Enter to send (Shift+Enter
@@ -80,7 +89,12 @@ backend URLs and public pins with the desktop build automatically;
 `./run.sh mobile` starts only the mobile simulator app with Expo instead.
 
 `npm run native` creates the host DLL/dylib and configuration. Rerun it after
-Mesh or service-configuration changes. `npm run dev` bundles the web UI and
+Mesh or service-configuration changes. `npm run native -- --release` (what the
+desktop workflow runs, for previews too) first builds the Mesh runtime in
+release (`cargo build --locked --release -p mesh-rt --lib`), links the library
+against it through `MESH_RT_LIB_PATH` and compiles the core at `--opt-level 2`.
+Without it the library links the compiler's own (debug) runtime at `-O0`, which
+runs crypto and proof of work more than ten times slower. `npm run dev` bundles the web UI and
 starts Tauri. Restart it after UI edits. Set `MORSE_DEVTOOLS=1` to open the
 webview inspector in a debug build.
 
@@ -139,10 +153,18 @@ and match the mobile EAS production environment:
 | `EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL` | HTTPS privacy-edge URL |
 | `EXPO_PUBLIC_MESSENGER_STREAM_URL` | Optional WSS URL; defaults to the messenger origin's `/v1/mailbox/stream` |
 | `MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX` | Service public key, 64 lowercase hex characters |
-| `MESSENGER_WITNESS_A_PUBLIC_KEY_HEX` | First witness public key |
-| `MESSENGER_WITNESS_B_PUBLIC_KEY_HEX` | Distinct second witness public key |
 | `MESSENGER_DELIVERY_PUBLIC_KEY_HEX` | Delivery X25519 public key |
 | `MESSENGER_ABUSE_DIFFICULTY` | Canonical integer 1–24 |
+| `MESSENGER_WITNESSES` | Pinned witness set, `id:hexkey:label;…`; unset pins `witness-a`/`witness-b` from the two variables below |
+| `MESSENGER_WITNESS_A_PUBLIC_KEY_HEX`, `MESSENGER_WITNESS_B_PUBLIC_KEY_HEX` | Today's two witness public keys (used while `MESSENGER_WITNESSES` is unset) |
+| `MESSENGER_ANCHOR`, `MESSENGER_RPC_URLS`, `MESSENGER_RELAY_URLS`, `MESSENGER_CREDIT_ISSUER`, `MESSENGER_LOG_ORIGIN`, `MESSENGER_MINIMUM_SUITE` | Optional; unset turns each feature off (suite defaults to 1) |
+| `MESSENGER_OHTTP_KEY`, `MESSENGER_OHTTP_RELAY` | Required for a release: the OHTTP gateway key (`<key id>:<public key hex>`) and the privacy edge origin its stateless requests go through ([ohttp-v1.md](../../protocol/ohttp-v1.md#pinning)); development builds without them send directly |
+
+The security variables build the same security config v2 frame as mobile
+([formats and rules](../mobile/RELEASING.md)); `npm run native` prints its witness
+`set_id` and trust profile. Changing one takes effect only with a new desktop
+release build, which a variable change alone does not start: run the workflow
+by hand on `release`.
 
 Keep `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` versions
 aligned; bump the major or minor version there. To publish an exact version

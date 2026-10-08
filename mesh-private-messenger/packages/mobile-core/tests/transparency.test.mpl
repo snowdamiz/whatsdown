@@ -9,19 +9,17 @@ from MobileCore import (
 from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
 from Protocol.IdentityWire import decode_account_identity
 from Protocol.V1 import DeviceSet
-from Tests.Support import append, database_path, install_security_config, repeated, vector
-from Transparency.Merkle import (
-  consistency_proof,
-  inclusion_proof,
-  leaf_hash,
-  sign_checkpoint,
-  sign_witness
+from Tests.Support import (
+  append,
+  database_path,
+  evidence_v2,
+  install_security_config,
+  repeated,
+  vector
 )
-from Transparency.Wire import (
-  TransparencyEvidence,
-  decode_transparency_lookup,
-  encode_transparency_evidence
-)
+from Transparency.CompactWire import transparency_decode_lookup_v2
+from Transparency.Wire import TransparencyLookup
+from Transparency.Merkle import leaf_hash, sign_checkpoint, sign_witness
 
 fn join(parts :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
   if index >= List.length(parts) do
@@ -97,16 +95,15 @@ fn proof() -> Bool!String do
     leaves,
     repeated(0, 32)?,
     wide("1000")?)?
-  let stale_evidence = encode_transparency_evidence(TransparencyEvidence {
-    entry_bytes: device_set,
-    inclusion: inclusion_proof(leaves, 0)?,
-    consistency: consistency_proof(List.new(), leaves)?,
-    checkpoint: stale,
-    witnesses: [
+  let stale_evidence = evidence_v2(device_set,
+    leaves,
+    0,
+    0,
+    stale,
+    [
       sign_witness("witness-a", witness_a.private_key, stale)?,
       sign_witness("witness-b", witness_b.private_key, stale)?
-    ]
-  })?
+    ])?
   case verify_transparency_export(join([
       vector(path_bytes)?,
       vector(username_bytes)?,
@@ -117,7 +114,7 @@ fn proof() -> Bool!String do
     Err(error) -> assert(error == "transparency_stale")
     Ok(_) -> assert(false)
   end
-  let unchanged_lookup = decode_transparency_lookup(transparency_lookup_export(append(vector(path_bytes)?,
+  let unchanged_lookup = transparency_decode_lookup_v2(transparency_lookup_export(append(vector(path_bytes)?,
     vector(username_bytes)?)?)?)?
   assert(unchanged_lookup.previous_tree_size == 0)
   let checkpoint = sign_checkpoint(service_pair.private_key,
@@ -126,19 +123,15 @@ fn proof() -> Bool!String do
     leaves,
     repeated(0, 32)?,
     current_time()?)?
-  let evidence = case encode_transparency_evidence(TransparencyEvidence {
-    entry_bytes: device_set,
-    inclusion: inclusion_proof(leaves, 0)?,
-    consistency: consistency_proof(List.new(), leaves)?,
-    checkpoint: checkpoint,
-    witnesses: [
+  let evidence = evidence_v2(device_set,
+    leaves,
+    0,
+    0,
+    checkpoint,
+    [
       sign_witness("witness-a", witness_a.private_key, checkpoint)?,
       sign_witness("witness-b", witness_b.private_key, checkpoint)?
-    ]
-  }) do
-    Err(_) -> Err("transparency evidence encode failed")
-    Ok(value)
-  end?
+    ])?
   let path_vector = vector(path_bytes)?
   let username_vector = vector(username_bytes)?
   let evidence_vector = vector(evidence)?
@@ -171,7 +164,7 @@ fn proof() -> Bool!String do
   else
     nil
   end
-  let lookup = decode_transparency_lookup(lookup_bytes)?
+  let lookup = transparency_decode_lookup_v2(lookup_bytes)?
   assert(lookup.username == "alice")
   assert(lookup.previous_tree_size == 1)
   File.delete(path)?

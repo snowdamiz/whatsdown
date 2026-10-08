@@ -152,6 +152,37 @@ test("mobile privacy submission is canonical sealed delivery produced in Mesh") 
   end
 end
 
+fn accepts_rollout_v2_config() -> Bool!String do
+  let outer = fixture_outer()?
+  let service_hex = Bytes.to_hex(signing_pair()?.public_key.bytes)
+  let first = Bytes.to_hex(signing_pair()?.public_key.bytes)
+  let second = Bytes.to_hex(signing_pair()?.public_key.bytes)
+  let delivery = case Crypto.x25519_generate() do
+    Err(_) -> Err("test delivery key generation failed")
+    Ok(value) -> Ok(Bytes.to_hex(value.public_key.bytes))
+  end?
+  let frame = "2\n#{service_hex}\n#{delivery}\n8\n2\n2\nwitness-a #{first} Morse\nwitness-b #{second} Morse\n-\n0\n0\n-\n-\n1"
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/config/v1"), Bytes.from_utf8(frame)))
+  let accepted = case privacy_submission_export(outer) do
+    Err(error) -> error != "invalid_messenger_configuration"
+      && error != "messenger_configuration_required"
+    Ok(_) -> true
+  end
+  let unsupported = frame <> "\n"
+  assert(rejects_config(Bytes.from_utf8(unsupported), outer)?)
+  Ok(accepted)
+end
+
+test("mobile security config accepts the v2 frame that pins witness-a and witness-b") do
+  case accepts_rollout_v2_config() do
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok(value) -> assert(value)
+  end
+end
+
 test("mobile security config rejects missing and noncanonical native resources") do
   case config_validation_proof() do
     Err(error) -> do

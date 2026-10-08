@@ -5,9 +5,10 @@ from Groups.Mls import GroupRemoveOutcome
 from Groups.Tree import find_member_index
 from Identity.Device import DeviceKeys
 from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, OuterEnvelope
-from Mobile.Codec import current_time, mobile_wide, mobile_write_u64, outer_bytes
+from Mobile.Codec import current_time, mobile_wide, mobile_write_u64
 from Mobile.GroupState import consume_group_state, encode_group_packet, load_group
 from Mobile.Profile import load_profile, open_device
+from Mobile.Transport import sealed_outer_bytes
 from MobileCore import (
   group_add_export,
   group_forget_export,
@@ -121,9 +122,9 @@ fn forged_removal(accounts :: GroupAccountFixture,
         Ok(value)
         Err(_) -> Err("forged commit encoding failed")
       end?
-      outer_bytes(accounts.alice_entry.mailbox_token,
-        3,
+      sealed_outer_bytes(accounts.alice_entry.mailbox_token,
         encode_group_packet(2, wire)?,
+        decode_client_profile(load_profile(accounts.alice_path)?)?.credential.dh_public_key,
         current_time()?)
     end
   end

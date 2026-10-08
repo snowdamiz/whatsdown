@@ -224,6 +224,23 @@ pub fn protocol_sealed_outer_suite() -> Int do
   4
 end
 
+## Bare packets under the legacy outer suites 1-3 are refused from
+## 2026-11-20T00:00:00Z, 60 days after 2026-09-21, when every released build
+## already sealed every send (D17). Receivers read their own clock, so the
+## removal takes effect without a release on the day.
+
+pub fn protocol_legacy_packet_cutoff_ms() -> Int do
+  1795132800000
+end
+
+pub fn protocol_legacy_packet_refused(outer_suite :: Int, now_ms :: U64) -> Bool do
+  outer_suite != protocol_sealed_outer_suite()
+    && case U64.to_int(now_ms) do
+      Err(_) -> true
+      Ok(now) -> now >= protocol_legacy_packet_cutoff_ms()
+    end
+end
+
 pub fn protocol_validate_suite_list(values :: List<Int>,
   index :: Int) -> Result<(), ProtocolError> do
   if List.length(values) == 0 || List.length(values) > 8 do

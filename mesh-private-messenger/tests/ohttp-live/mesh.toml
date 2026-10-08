@@ -1,0 +1,8 @@
+[package]
+name = "messenger-ohttp-live-proof"
+version = "0.1.0"
+
+[dependencies]
+messenger-mobile-core = { path = "../../packages/mobile-core" }
+messenger-protocol = { path = "../../packages/messenger-protocol" }
+messenger-ohttp = { path = "../../packages/messenger-ohttp" }

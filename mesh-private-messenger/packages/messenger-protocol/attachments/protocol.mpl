@@ -6,6 +6,7 @@ pub type AttachmentError do
   InvalidChunkIndex
   InvalidChunkSize
   AuthenticationRejected
+  InvalidPadding
   CryptoFailure(error :: CryptoError)
 end
 
@@ -127,7 +128,9 @@ fn take_u64(state :: BinaryReader) -> ReadWide!AttachmentError do
   end
 end
 
-fn start(input :: Bytes, maximum :: Int, expected :: String) -> BinaryReader!AttachmentError do
+# The version byte and tag, returning the version for the caller to check.
+
+fn start_any(input :: Bytes, maximum :: Int, expected :: String) -> ReadInt!AttachmentError do
   if Bytes.length(input) > maximum do
     Err(InvalidManifest)
   else
@@ -136,14 +139,25 @@ fn start(input :: Bytes, maximum :: Int, expected :: String) -> BinaryReader!Att
       Ok(initial) -> do
         let version = take_fixed(initial, 1)?
         let magic = take_fixed(version.state, 3)?
-        if Bytes.secure_equals(version.value, byte(1)?)
-          && Bytes.secure_equals(magic.value, Bytes.from_utf8(expected)) do
-          Ok(magic.state)
-        else
-          Err(InvalidManifest)
+        case Bytes.get(version.value, 0) do
+          Ok(value) -> if Bytes.secure_equals(magic.value, Bytes.from_utf8(expected)) do
+            Ok(ReadInt { state: magic.state, value: value })
+          else
+            Err(InvalidManifest)
+          end
+          Err(_) -> Err(InvalidManifest)
         end
       end
     end
+  end
+end
+
+fn start(input :: Bytes, maximum :: Int, expected :: String) -> BinaryReader!AttachmentError do
+  let started = start_any(input, maximum, expected)?
+  if started.value == 1 do
+    Ok(started.state)
+  else
+    Err(InvalidManifest)
   end
 end
 
@@ -154,19 +168,84 @@ fn done(state :: BinaryReader) -> Result<(), AttachmentError> do
   end
 end
 
+# Version 2 pads every object to a size bucket, so object storage sees one of
+# 53 sizes instead of the exact one: a single 64 KiB chunk for anything that
+# fits, then four steps per doubling up to the 512 MiB ceiling. A step is a
+# quarter of the power of two below the size, so no file above one chunk grows
+# by more than 25% (attachment-wire-v1.md, "Version 2"). Buckets above 16 MiB
+# cost credits ("Large files").
+
+fn highest_power(value :: Int, power :: Int) -> Int do
+  if power * 2 > value do
+    power
+  else
+    highest_power(value, power * 2)
+  end
+end
+
+pub fn attachment_padded_size(plaintext_size :: Int) -> Int do
+  if plaintext_size <= 65536 do
+    65536
+  else
+    let step = highest_power(plaintext_size, 1) / 4
+    (plaintext_size + step - 1) / step * step
+  end
+end
+
+## Files up to 16 MiB are free. A larger bucket costs one credit for every 16
+## MiB it holds beyond the first (plan §6.10), from 1 at 20 MiB to 31 at 512 MiB.
+
+pub fn attachment_credit_cost(plaintext_size :: Int) -> Int do
+  (attachment_padded_size(plaintext_size) + 16777215) / 16777216 - 1
+end
+
+fn padded_size(value :: AttachmentManifest) -> Int do
+  if value.version == 2 do
+    attachment_padded_size(value.plaintext_size)
+  else
+    value.plaintext_size
+  end
+end
+
+fn validate_padding(value :: AttachmentManifest) -> Result<(), AttachmentError> do
+  if value.version == 1 do
+    Ok(nil)
+  else if value.version != 2
+    || value.chunk_size != 65536
+    || value.plaintext_size > 536870912
+    || value.chunk_count != (padded_size(value) + 65535) / 65536 do
+    Err(InvalidManifest)
+  else
+    Ok(nil)
+  end
+end
+
+# Version 1 stays at 256 chunks (16 MiB); version 2 goes to 8,192 (512 MiB),
+# and hosts move one chunk at a time.
+
+fn maximum_chunks(version :: Int) -> Int do
+  if version == 2 do
+    8192
+  else
+    256
+  end
+end
+
 fn validate_manifest(value :: AttachmentManifest) -> Result<(), AttachmentError> do
-  # ponytail: 256 x 64 KiB caps this first slice at 16 MiB; raise it with streaming file APIs.
-  if value.version != 1 || Bytes.length(value.attachment_id) != 32 do
+  validate_padding(value)?
+  if Bytes.length(value.attachment_id) != 32 do
     Err(InvalidManifest)
   else if value.chunk_size <= 0
     || value.chunk_size > 65536
     || value.chunk_count <= 0
-    || value.chunk_count > 256 do
+    || value.chunk_count > maximum_chunks(value.version) do
     Err(InvalidManifest)
   else
     let maximum_size = value.chunk_count * value.chunk_size
     let minimum_size = (value.chunk_count - 1) * value.chunk_size
-    if value.plaintext_size <= minimum_size || value.plaintext_size > maximum_size do
+    if value.plaintext_size <= 0
+      || padded_size(value) <= minimum_size
+      || padded_size(value) > maximum_size do
       Err(InvalidManifest)
     else if Bytes.length(value.filename) > 255
       || Bytes.length(value.mime_type) <= 0
@@ -180,8 +259,13 @@ end
 
 fn encode_manifest(value :: AttachmentManifest) -> Bytes!AttachmentError do
   validate_manifest(value)?
+  let padding = if value.version == 2 do
+    zeros(382 - Bytes.length(value.filename) - Bytes.length(value.mime_type))?
+  else
+    Bytes.empty()
+  end
   join([
-      byte(1)?,
+      byte(value.version)?,
       Bytes.from_utf8("AMF"),
       value.attachment_id,
       write_u32(value.chunk_size)?,
@@ -189,23 +273,61 @@ fn encode_manifest(value :: AttachmentManifest) -> Bytes!AttachmentError do
       write_u32(value.plaintext_size)?,
       write_u64(value.expires_at)?,
       vector(value.filename)?,
-      vector(value.mime_type)?
+      vector(value.mime_type)?,
+      padding
     ],
     0,
     Bytes.empty())
 end
 
+fn zeros(length :: Int) -> Bytes!AttachmentError do
+  case Bytes.repeat(0, length) do
+    Err(_) -> Err(InvalidPadding)
+    Ok(value)
+  end
+end
+
+fn all_zero(value :: Bytes) -> Bool!AttachmentError do
+  Ok(Bytes.secure_equals(value, zeros(Bytes.length(value))?))
+end
+
+# A version 2 manifest is always 446 bytes, zero-filled after the MIME type, so
+# its encrypted form is always 514 bytes whatever the filename.
+
+fn manifest_padding(state :: BinaryReader,
+  version :: Int,
+  input :: Bytes,
+  filename :: Bytes,
+  mime_type :: Bytes) -> Result<(), AttachmentError> do
+  if version == 1 do
+    done(state)
+  else if Bytes.length(input) != 446 do
+    Err(InvalidManifest)
+  else
+    let padding = take_fixed(state, 382 - Bytes.length(filename) - Bytes.length(mime_type))?
+    if !all_zero(padding.value)? do
+      Err(InvalidManifest)
+    else
+      done(padding.state)
+    end
+  end
+end
+
 fn decode_manifest(input :: Bytes) -> AttachmentManifest!AttachmentError do
-  let attachment_id = take_fixed(start(input, 446, "AMF")?, 32)?
+  let started = start_any(input, 446, "AMF")?
+  if started.value != 1 && started.value != 2 do
+    return Err(InvalidManifest)
+  end
+  let attachment_id = take_fixed(started.state, 32)?
   let chunk_size = take_u32(attachment_id.state)?
   let chunk_count = take_u32(chunk_size.state)?
   let plaintext_size = take_u32(chunk_count.state)?
   let expires_at = take_u64(plaintext_size.state)?
   let filename = take_vector(expires_at.state, 255)?
   let mime_type = take_vector(filename.state, 127)?
-  done(mime_type.state)?
+  manifest_padding(mime_type.state, started.value, input, filename.value, mime_type.value)?
   let value = AttachmentManifest {
-    version: 1,
+    version: started.value,
     attachment_id: attachment_id.value,
     chunk_size: chunk_size.value,
     chunk_count: chunk_count.value,
@@ -314,20 +436,52 @@ fn decode_encrypted_manifest(input :: Bytes) -> EncryptedManifest!AttachmentErro
   end
 end
 
+# The chunk's length as sealed: in version 2 the padded stream is cut into
+# chunks, so trailing chunks may be partly or wholly zero padding.
+
 fn expected_chunk_size(value :: AttachmentManifest, index :: Int) -> Int!AttachmentError do
   validate_manifest(value)?
   if index < 0 || index >= value.chunk_count do
     Err(InvalidChunkIndex)
   else if index == value.chunk_count - 1 do
-    Ok(value.plaintext_size - ((value.chunk_count - 1) * value.chunk_size))
+    Ok(padded_size(value) - ((value.chunk_count - 1) * value.chunk_size))
   else
     Ok(value.chunk_size)
   end
 end
 
+# The file's own bytes in that chunk; the rest of the chunk is padding.
+
+fn chunk_data_size(value :: AttachmentManifest, index :: Int) -> Int!AttachmentError do
+  let sealed = expected_chunk_size(value, index)?
+  let remaining = value.plaintext_size - index * value.chunk_size
+  if remaining <= 0 do
+    Ok(0)
+  else if remaining < sealed do
+    Ok(remaining)
+  else
+    Ok(sealed)
+  end
+end
+
+fn strip_padding(plaintext :: Bytes, data_size :: Int) -> Bytes!AttachmentError do
+  let padding = case Bytes.slice(plaintext, data_size, Bytes.length(plaintext) - data_size) do
+    Err(_) -> Err(InvalidChunkSize)
+    Ok(value)
+  end?
+  if !all_zero(padding)? do
+    Err(InvalidPadding)
+  else
+    case Bytes.slice(plaintext, 0, data_size) do
+      Err(_) -> Err(InvalidChunkSize)
+      Ok(value)
+    end
+  end
+end
+
 fn encode_chunk(value :: EncryptedChunk) -> Bytes!AttachmentError do
   if value.index < 0
-    || value.index >= 256
+    || value.index >= 8192
     || Bytes.length(value.nonce) != 12
     || Bytes.length(value.ciphertext) < 16
     || Bytes.length(value.ciphertext) > 65552 do
@@ -350,7 +504,7 @@ fn decode_chunk(input :: Bytes) -> EncryptedChunk!AttachmentError do
   let nonce_value = take_fixed(index.state, 12)?
   let ciphertext = take_vector(nonce_value.state, 65552)?
   done(ciphertext.state)?
-  if index.value >= 256 || Bytes.length(ciphertext.value) < 16 do
+  if index.value >= 8192 || Bytes.length(ciphertext.value) < 16 do
     Err(InvalidChunk)
   else
     Ok(EncryptedChunk {
@@ -407,12 +561,14 @@ pub fn seal_chunk(secret :: borrow SecretBytes,
   manifest :: AttachmentManifest,
   index :: Int,
   plaintext :: Bytes) -> Bytes!AttachmentError do
-  if Bytes.length(plaintext) != expected_chunk_size(manifest, index)? do
+  let sealed_size = expected_chunk_size(manifest, index)?
+  if Bytes.length(plaintext) != chunk_data_size(manifest, index)? do
     Err(InvalidChunkSize)
   else
+    let padded = append(plaintext, zeros(sealed_size - Bytes.length(plaintext))?)?
     let nonce_value = nonce()?
     let key = derive_key(secret, manifest.attachment_id, attachment_key_label())?
-    let ciphertext = seal(key, nonce_value, chunk_aad(manifest, index)?, plaintext)?
+    let ciphertext = seal(key, nonce_value, chunk_aad(manifest, index)?, padded)?
     encode_chunk(EncryptedChunk { index: index, nonce: nonce_value, ciphertext: ciphertext })
   end
 end
@@ -434,7 +590,7 @@ pub fn open_chunk(secret :: borrow SecretBytes,
       chunk_aad(manifest, expected_index)?,
       encrypted.ciphertext)?
     if Bytes.length(plaintext) == expected_size do
-      Ok(plaintext)
+      strip_padding(plaintext, chunk_data_size(manifest, expected_index)?)
     else
       Err(InvalidChunkSize)
     end

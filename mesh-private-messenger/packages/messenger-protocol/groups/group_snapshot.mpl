@@ -12,6 +12,8 @@ from Groups.GroupCodec import (
   group_append,
   group_byte,
   group_join,
+  group_policy_version,
+  group_read_policy,
   group_tree_error,
   group_tree_member_error,
   group_tree_path_error,
@@ -21,7 +23,7 @@ from Groups.GroupCodec import (
   group_vector,
   group_wire_end,
   group_wire_fixed,
-  group_wire_start,
+  group_wire_start_versioned,
   group_wire_u16,
   group_wire_u32,
   group_wire_u64,
@@ -210,7 +212,7 @@ fn group_snapshot_header(state :: borrow GroupState,
   let members = indexed_members(state.tree)
   let parents = public_parent_nodes(state.tree)
   group_join([
-      group_byte(1)?,
+      group_byte(group_policy_version(state.policy))?,
       Bytes.from_utf8("GST"),
       group_byte(state.version)?,
       group_write_u16(state.suite)?,
@@ -397,8 +399,11 @@ pub fn group_snapshot(state :: consume GroupState,
   end
 end
 
+# Version 2 snapshots hold a policy under a pinned witness set.
+
 fn parse_group_snapshot(input :: Bytes) -> ParsedGroupSnapshot!GroupError do
-  let state_version = group_wire_u8(group_wire_start(input, 65535, "GST")?)?
+  let start = group_wire_start_versioned(input, 65535, "GST")?
+  let state_version = group_wire_u8(start.state)?
   let suite = group_wire_u16(state_version.state)?
   let group_id = group_wire_fixed(suite.state, 32)?
   let epoch = group_wire_u64(group_id.state)?
@@ -421,10 +426,8 @@ fn parse_group_snapshot(input :: Bytes) -> ParsedGroupSnapshot!GroupError do
     List.new())?
   let level_count = group_wire_u8(extensions.state)?
   let levels = group_read_levels(level_count.state, level_count.value, 0, -1, List.new())?
-  let minimum_sequence = group_wire_u64(levels.state)?
-  let checkpoint = group_wire_fixed(minimum_sequence.state, 32)?
-  let witness = group_wire_u8(checkpoint.state)?
-  let sealed = group_wire_vector(witness.state, 99)?
+  let policy = group_read_policy(levels.state, start.value)?
+  let sealed = group_wire_vector(policy.state, 99)?
   let leaf_private = group_wire_vector(sealed.state, 99)?
   let level0 = group_wire_vector(leaf_private.state, 99)?
   let level1 = group_wire_vector(level0.state, 99)?
@@ -460,11 +463,7 @@ fn parse_group_snapshot(input :: Bytes) -> ParsedGroupSnapshot!GroupError do
       received_generations: generations.value,
       extensions: extensions.value,
       available_levels: levels.value,
-      policy: GroupTransparencyPolicy {
-        minimum_directory_sequence: minimum_sequence.value,
-        checkpoint_hash: checkpoint.value,
-        witness_threshold: witness.value
-      },
+      policy: policy.value,
       sealed_sender_chains: chains.value,
       sealed_skipped_keys: skipped.value,
       sealed_epoch_secret: sealed.value,
@@ -481,7 +480,7 @@ end
 
 fn parsed_group_header(value :: ParsedGroupSnapshot) -> Bytes!GroupError do
   group_join([
-      group_byte(1)?,
+      group_byte(group_policy_version(value.policy))?,
       Bytes.from_utf8("GST"),
       group_byte(value.version)?,
       group_write_u16(value.suite)?,

@@ -97,10 +97,26 @@ Run the commands below from `mesh-private-messenger/apps/mobile`.
    | `EXPO_PUBLIC_MESSENGER_OBJECT_URL` | Optional HTTPS object-store URL; defaults to the messenger origin, where the worker serves `/v1/objects` |
    | `EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY` | Optional integer 1–24, at least the object store's difficulty; defaults to 16 |
    | `MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX` | Transparency service's 32-byte lowercase-hex public key |
-   | `MESSENGER_WITNESS_A_PUBLIC_KEY_HEX` | First witness's public key |
-   | `MESSENGER_WITNESS_B_PUBLIC_KEY_HEX` | Distinct second witness's public key |
    | `MESSENGER_DELIVERY_PUBLIC_KEY_HEX` | Delivery service's X25519 public key |
    | `MESSENGER_ABUSE_DIFFICULTY` | Canonical integer 1–24 matching the service |
+   | `MESSENGER_WITNESSES` | Pinned witness set: `id:hexkey:label` entries joined by `;`. IDs `[a-z0-9-]{1,64}`; labels 1–48 printable ASCII without `;`, `:` or edge spaces; `Morse` marks a Morse-run witness. 1–16 entries; the threshold is always a majority |
+   | `MESSENGER_WITNESS_A_PUBLIC_KEY_HEX`, `MESSENGER_WITNESS_B_PUBLIC_KEY_HEX` | Used only while `MESSENGER_WITNESSES` is unset: pins `witness-a` and `witness-b`, both `Morse`, 2 of 2 |
+   | `MESSENGER_ANCHOR` | Optional `<judge program id> <log account>` (base58); unset or `-` turns the anchor check off |
+   | `MESSENGER_RPC_URLS` | Comma-separated `https://` RPC URLs without userinfo, query or fragment: 3–8 with an anchor, none without |
+   | `MESSENGER_RELAY_URLS` | Optional comma-separated `https://` relay origins, at most 8 |
+   | `MESSENGER_CREDIT_ISSUER` | Optional `https://` credit issuer origin; unset or `-` turns credits off |
+   | `MESSENGER_LOG_ORIGIN` | Optional C2SP log origin, e.g. `morseapp.io/log/main`; unset or `-` means C2SP cosignatures never count |
+   | `MESSENGER_MINIMUM_SUITE` | Optional minimum session suite, `1` (default) or `2` |
+   | `MESSENGER_OHTTP_KEY` | Required: the OHTTP gateway key, `<key id>:<X25519 public key hex>` ([ohttp-v1.md](../../protocol/ohttp-v1.md#pinning)); lookups, prekey claims, proofs and the mailbox go through the edge sealed to it |
+   | `MESSENGER_OHTTP_RELAY` | Required: the privacy edge origin (the same as `EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL`) |
+
+   These variables become one security config v2 frame baked into the native
+   build, so changing any of them needs a new store build, never just an OTA
+   update. The first v2 release keeps `MESSENGER_WITNESSES` unset, pinning
+   exactly today's two witnesses. The release check refuses any frame the core
+   would reject and prints the build's witness `set_id` and trust profile
+   (Bootstrap, Transitional or Open). `ops/cloudflare/client-env.mjs` writes
+   `MESSENGER_WITNESSES` from the witnesses' public keys.
 
    For notifications, also set **both** `MESSENGER_EXPO_PROJECT_ID` (the same
    EAS UUID) and `MESSENGER_PUSH_BROKER_PUBLIC_KEY_HEX`. Omitting both preserves
@@ -118,9 +134,17 @@ Run the commands below from `mesh-private-messenger/apps/mobile`.
 
 EAS invokes `eas-build-pre-install` before prebuild and CocoaPods. It checks out
 the Mesh compiler, installs Rust 1.97.0 and checksum-verified LLVM 21.1.8,
-builds the target runtimes, then calls the existing `build-mobile-native.sh`.
-That script verifies generated bindings and produces the iOS XCFramework or
-Android arm64/x86_64 static libraries. Compiler source and generated archives
+builds the compiler, then calls `build-mobile-native.sh --release`.
+That script verifies generated bindings and produces the iOS XCFrameworks or
+Android arm64/x86_64 static libraries: the Mesh core, and `packages/wallet-core`
+built with the same Rust 1.97.0 (`cargo build --locked --release`, its own
+exact-pinned `Cargo.lock`). With `--release` it builds each target's Mesh
+runtime in release (`cargo build --locked --release -p mesh-rt --lib --target
+<triple>`), links it through `MESH_RT_LIB_PATH` and compiles the core at
+`--opt-level 2`. Without the flag, as `./run.sh` builds for the simulator, the
+core links the runtime of the compiler's own profile (debug) at `-O0`, which
+runs crypto and proof of work more than ten times slower. CI's Android archive
+check builds the release way. Compiler source and generated archives
 remain ignored by Git. CI builds with the latest published Mesh release, resolved
 on every run by `mesh-private-messenger/scripts/mesh-release.mjs`. The release
 workflow passes the commit it verified to the build hook through `eas.json`; a
@@ -129,7 +153,8 @@ build started any other way resolves the latest release itself.
 The [fingerprint runtime policy](https://docs.expo.dev/eas-update/runtime-versions/)
 limits updates to compatible installed builds. The fingerprint includes Mesh
 core/protocol sources, native bridges, compiler/build scripts, and native build
-pins. It ignores generated archives, allowing an OTA export without a native
+pins, and the wallet core's sources and lockfile. It ignores generated archives
+(and `wallet-core/target`), allowing an OTA export without a native
 toolchain to match an EAS build. Native changes require a new binary; they
 cannot be delivered through OTA. Use the same production environment for
 builds and updates, including native public pins.

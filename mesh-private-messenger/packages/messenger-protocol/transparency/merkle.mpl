@@ -238,8 +238,25 @@ pub fn sign_checkpoint(signing_key :: borrow SigningPrivateKey,
   leaf_hashes :: List<Bytes>,
   previous_checkpoint_hash :: Bytes,
   timestamp :: U64) -> TransparencyCheckpoint!String do
-  let root = merkle_root(leaf_hashes)?
-  let tree_size = wide(List.length(leaf_hashes))?
+  transparency_sign_checkpoint_root(signing_key,
+    service_public_key,
+    sequence,
+    wide(List.length(leaf_hashes))?,
+    merkle_root(leaf_hashes)?,
+    previous_checkpoint_hash,
+    timestamp)
+end
+
+# Signs a checkpoint over a root computed elsewhere (Transparency.Tree), so the
+# signer never needs the leaf list and no size ceiling applies.
+
+pub fn transparency_sign_checkpoint_root(signing_key :: borrow SigningPrivateKey,
+  service_public_key :: Bytes,
+  sequence :: U64,
+  tree_size :: U64,
+  root :: Bytes,
+  previous_checkpoint_hash :: Bytes,
+  timestamp :: U64) -> TransparencyCheckpoint!String do
   let statement = checkpoint_statement(sequence,
     tree_size,
     root,

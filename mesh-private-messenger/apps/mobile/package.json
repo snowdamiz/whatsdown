@@ -18,8 +18,12 @@
     "test:attachments": "node scripts/test-attachments.mjs",
     "test:profiles": "node scripts/test-profiles.mjs",
     "test:account-deletion": "node scripts/test-account-deletion.mjs",
+    "test:backups": "node scripts/test-backups.mjs",
     "test:receipts": "node scripts/test-receipts.mjs",
     "test:communities": "node scripts/test-communities.mjs",
+    "test:wallet": "node scripts/test-wallet.mjs",
+    "test:credits": "node scripts/test-credits.mjs",
+    "test:ephemeral": "node scripts/test-ephemeral.mjs",
     "test:notifications": "node scripts/test-unread.mjs --notifications"
   },
   "dependencies": {

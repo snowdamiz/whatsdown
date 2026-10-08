@@ -5,6 +5,8 @@ version `3` inside the [recipient-sealed transport](recipient-transport-v1.md),
 which hides every field below from delivery. Version `2` added encrypted
 padding for bare packets ([client privacy revision 2](client-privacy-v2.md));
 receivers still read versions `1` and `2` for previously queued messages.
+Sessions between current clients upgrade to version `4`, which seals the
+fields below too: see [`ratchet-message-v2.md`](ratchet-message-v2.md).
 
 The Profile A ratchet wire message is canonical, big-endian, and bounded to
 65,630 bytes. It is authenticated by the ratchet AEAD together with the

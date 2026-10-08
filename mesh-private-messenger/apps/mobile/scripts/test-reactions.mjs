@@ -55,7 +55,7 @@ try {
       const symbol = options?.headers?.['X-Mesh-Symbol'];
       const request = args instanceof Uint8Array ? [...args] : [];
       if (symbol === 'mesh_messenger_load_profile') return vectors(text('alice'), id(1), id(1, 16), []);
-      if (symbol === 'mesh_messenger_list_conversations') return list(vectors(id(20, 16), text('bob'), id(2), id(2, 16), text('1234'.repeat(16)), [state.pending ? 0 : 1], [state.blocked ? 1 : 0], [0], [0], u32(0)));
+      if (symbol === 'mesh_messenger_list_conversations') return list(vectors(id(20, 16), text('bob'), id(2), id(2, 16), text('1234'.repeat(16)), [state.pending ? 0 : 1], [state.blocked ? 1 : 0], [0], [0], u32(0), u64(0)));
       if (symbol === 'mesh_messenger_load_history') return list(...state.direct);
       if (symbol === 'mesh_messenger_group_history') return list(...state.group);
       if (symbol === 'mesh_messenger_group_list') return list(list([1], id(80), u64(1), u32(2)));

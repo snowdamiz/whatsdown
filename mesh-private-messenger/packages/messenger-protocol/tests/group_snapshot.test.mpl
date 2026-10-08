@@ -208,7 +208,8 @@ fn proof() -> Bool!GroupError do
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: Bytes.empty()
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?

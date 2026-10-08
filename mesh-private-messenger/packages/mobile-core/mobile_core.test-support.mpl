@@ -64,12 +64,13 @@ from Mobile.Sessions import (
   updated_session_index,
   updated_session_record
 )
+from Mobile.Platform import native_security_config
+from Security.Config import SecurityConfig, SecurityWitness
 from Mobile.Transparency import (
   encode_verified_transparency_set,
   load_transparency_view,
-  transparency_checkpoint_in_view,
+  transparency_checkpoint_known,
   transparency_device_set_label,
-  transparency_view_chunk_label,
   transparency_view_storage
 )
 from Mobile.Types import (
@@ -80,6 +81,7 @@ from Mobile.Types import (
   MobilePushActionCompletion,
   MobilePushState,
   MobileSessionRecord,
+  MobileSecurityConfig,
   MobileTransparencyStorage,
   MobileTransparencyView,
   MobileVerifiedDeviceSet,
@@ -125,6 +127,15 @@ from Session.Ratchet import (
   ratchet_open_error,
   skipped_key_error
 )
+from Session.Header import (
+  ratchet_header_decode,
+  ratchet_header_encode,
+  ratchet_header_open,
+  ratchet_header_role,
+  ratchet_header_seal,
+  ratchet_upgrade_header_keys
+)
+from Mobile.Healing import locate_header_session
 from Session.Snapshot import SnapshotOutcome, snapshot
 from Storage.Blobs import ensure_schema, insert_blob, load_blob
 from Storage.Keys import (
@@ -146,7 +157,7 @@ from Storage.Records import (
   store_updated_session,
   with_record_transaction
 )
-from Transparency.Merkle import TransparencyCheckpoint
+from Transparency.Merkle import TransparencyCheckpoint, checkpoint_hash
 from Transparency.Wire import decode_checkpoint
 from Transport.Packet import (
   ClientProfile,
@@ -171,7 +182,11 @@ pub fn remove_safety_binding_for_test(database_path :: String,
     load_session_ids(database_path, wrapping_key)?,
     0)?
   let record = updated_session_record(loaded.record.snapshot, %{loaded.record | verified: true})?
-  let legacy = Bytes.slice(record, 0, Bytes.length(record) - 68)?
+  # A legacy record ends before the safety number (68 bytes) and the three
+  # session-reset fields after it (21 bytes and the peer identity key).
+  let legacy = Bytes.slice(record,
+    0,
+    Bytes.length(record) - 68 - 21 - Bytes.length(loaded.record.peer_identity_key))?
   let blob = seal_local(legacy, wrapping_key, local_context(loaded.label)?)?
   store_updated_session(database_path, loaded.label, blob)?
   Ok(true)
@@ -205,22 +220,62 @@ pub fn install_group_checkpoint_for_test(database_path :: String,
   Ok(true)
 end
 
+# Pins a version 1 config for these keys (witness-a and witness-b, 2 of 2) and
+# installs a view whose newest verified checkpoint is `encoded_checkpoint`,
+# with `encoded_device_set` verified in it.
+
 pub fn install_group_transparency_for_test(database_path :: String,
   encoded_checkpoint :: Bytes,
-  encoded_consistency :: Bytes,
   service_public_key :: Bytes,
   witness_a_public_key :: Bytes,
   witness_b_public_key :: Bytes,
   encoded_device_set :: Bytes) -> Bool!String do
+  let delivery = case Crypto.x25519_generate() do
+    Err(_) -> Err("test delivery key generation failed")
+    Ok(value)
+  end?
+  let installed = Test.set_push_token(Bytes.from_utf8("messenger/config/v1"),
+    Bytes.from_utf8("1\n"
+      <> Bytes.to_hex(service_public_key)
+      <> "\n"
+      <> Bytes.to_hex(witness_a_public_key)
+      <> "\n"
+      <> Bytes.to_hex(witness_b_public_key)
+      <> "\n"
+      <> Bytes.to_hex(delivery.public_key.bytes)
+      <> "\n8"))
+  if !installed do
+    return Err("test security config install failed")
+  end
+  install_transparency_view_for_test(database_path, encoded_checkpoint, encoded_device_set)
+end
+
+# Installs a view under the config pinned now: `encoded_checkpoint` is the
+# newest checkpoint this device verified, with `encoded_device_set` in it.
+
+pub fn install_transparency_view_for_test(database_path :: String,
+  encoded_checkpoint :: Bytes,
+  encoded_device_set :: Bytes) -> Bool!String do
+  let config = native_security_config()?
+  let set_id = config.config.set_id
   let devices = verified_device_set(encoded_device_set)?
+  # Checkpoints installed before stay known, as a device's earlier lookups do.
+  let earlier = case load_transparency_view(database_path, platform_key()?) do
+    Ok(value) -> if Bytes.secure_equals(value.service_public_key,
+      config.transparency_service_public_key) do
+      value.known
+    else
+      List.new()
+    end
+    Err(_) -> List.new()
+  end
   let view = MobileTransparencyView {
     checkpoint: encoded_checkpoint,
-    consistency: encoded_consistency,
-    service_public_key: service_public_key,
-    witness_a_public_key: witness_a_public_key,
-    witness_b_public_key: witness_b_public_key
+    service_public_key: config.transparency_service_public_key,
+    set_id: set_id,
+    known: earlier ++ [checkpoint_hash(decode_checkpoint(encoded_checkpoint)?)?]
   }
-  if !(transparency_checkpoint_in_view(encoded_checkpoint, view)?) do
+  if !(transparency_checkpoint_known(encoded_checkpoint, view)?) do
     Err("invalid_transparency_view")
   else
     ensure_schema(database_path)?
@@ -233,7 +288,8 @@ pub fn install_group_transparency_for_test(database_path :: String,
     let view_storage = transparency_view_storage(view, wrapping_key)?
     let device_set_blob = seal_local(encode_verified_transparency_set(MobileVerifiedTransparencySet {
         checkpoint: encoded_checkpoint,
-        device_set: devices.wire
+        device_set: devices.wire,
+        set_id: set_id
       })?,
       wrapping_key,
       local_context(device_set_label)?)?
@@ -244,36 +300,37 @@ pub fn install_group_transparency_for_test(database_path :: String,
   end
 end
 
-pub fn replace_group_transparency_chunk_for_test(database_path :: String,
-  index :: Int,
-  value :: Bytes) -> Bool!String do
-  if index < 0 || index >= 3 || Bytes.length(value) > 65536 do
-    Err("invalid_transparency_chunk")
-  else
-    let wrapping_key = platform_key()?
-    let label = transparency_view_chunk_label(index)
-    let blob = seal_local(value, wrapping_key, local_context(label)?)?
-    store_updated_blobs(database_path, [label], [blob])?
-    Ok(true)
-  end
+# Caches `encoded_device_set` as verified in `encoded_checkpoint` under the
+# config pinned now, without touching the view (as an earlier lookup did).
+
+pub fn install_transparency_set_for_test(database_path :: String,
+  encoded_checkpoint :: Bytes,
+  encoded_device_set :: Bytes) -> Bool!String do
+  ensure_schema(database_path)?
+  let devices = verified_device_set(encoded_device_set)?
+  let wrapping_key = platform_key()?
+  let label = transparency_device_set_label(devices.account.account_id)
+  let blob = seal_local(encode_verified_transparency_set(MobileVerifiedTransparencySet {
+      checkpoint: encoded_checkpoint,
+      device_set: devices.wire,
+      set_id: native_security_config()?.config.set_id
+    })?,
+    wrapping_key,
+    local_context(label)?)?
+  store_updated_blobs(database_path, [label], [blob])?
+  Ok(true)
 end
 
-pub fn remove_group_transparency_chunk_for_test(database_path :: String,
-  index :: Int) -> Bool!String do
-  if index < 0 || index >= 3 do
-    Err("invalid_transparency_chunk")
-  else
-    case Sqlite.open(database_path) do
-      Err(_) -> Err("database_open_failed")
-      Ok(database) -> do
-        let label = transparency_view_chunk_label(index)
-        let result = delete_blob(database, label)
-        Sqlite.close(database)
-        result?
-        Ok(true)
-      end
-    end
-  end
+pub fn transparency_view_bytes_for_test(database_path :: String) -> Bytes!String do
+  let label = "transparency-view/v2"
+  open_local(load_blob(database_path, label)?, platform_key()?, local_context(label)?)
+end
+
+pub fn replace_transparency_view_for_test(database_path :: String, value :: Bytes) -> Bool!String do
+  let label = "transparency-view/v2"
+  let blob = seal_local(value, platform_key()?, local_context(label)?)?
+  store_updated_blobs(database_path, [label], [blob])?
+  Ok(true)
 end
 
 pub fn group_transparency_valid_for_test(database_path :: String) -> Bool!String do
@@ -366,9 +423,89 @@ fn test_encode_ratchet_outer(recipient_path :: String,
   end
 end
 
+fn header_under_key(key :: SecretBytes,
+  message :: RatchetMessage,
+  number :: Int) -> Option<Bytes> do
+  case ratchet_header_open(key, message.encrypted_header) do
+    Err(_) -> None
+    Ok(plain) -> case ratchet_header_decode(plain) do
+      Err(_) -> None
+      Ok(header) -> case ratchet_header_encode(%{header | message_number: number}) do
+        Err(_) -> None
+        Ok(changed) -> case ratchet_header_seal(key, changed) do
+          Err(_) -> None
+          Ok(blob) -> Some(blob)
+        end
+      end
+    end
+  end
+end
+
+fn header_under_role(state :: borrow RatchetState,
+  role :: String,
+  message :: RatchetMessage,
+  number :: Int) -> Option<Bytes> do
+  case SecretMap.copy(state.header_keys, ratchet_header_role(role)) do
+    Err(_) -> None
+    Ok(key) -> header_under_key(key, message, number)
+  end
+end
+
+# The recipient holds the header keys, so it can seal a header of its own that
+# claims another position. The body then no longer authenticates.
+
+fn rewritten_header(state :: borrow RatchetState,
+  message :: RatchetMessage,
+  number :: Int) -> Bytes!String do
+  case header_under_role(state, "receive", message, number) do
+    Some(blob) -> Ok(blob)
+    None -> case header_under_role(state, "next-receive", message, number) do
+      Some(blob) -> Ok(blob)
+      None -> case ratchet_upgrade_header_keys(state.root_key, state.session_id) do
+        Err(_) -> Err("invalid_ratchet_message")
+        Ok(keys) -> do
+          let (first, second) = keys
+          case header_under_key(first, message, number) do
+            None -> Err("invalid_ratchet_message")
+            Some(blob) -> Ok(blob)
+          end
+        end
+      end
+    end
+  end
+end
+
+fn drop_test_state(state :: consume RatchetState) do
+  nil
+end
+
+fn jumped_v4(recipient_path :: String, message :: RatchetMessage) -> RatchetMessage!String do
+  let wrapping_key = platform_key()?
+  let (loaded, state) = locate_header_session(recipient_path,
+    wrapping_key,
+    message,
+    load_session_ids(recipient_path, wrapping_key)?,
+    0)?
+  let blob = case rewritten_header(state, message, 65) do
+    Err(error) -> do
+      drop_test_state(state)
+      Err(error)
+    end
+    Ok(value) -> do
+      drop_test_state(state)
+      Ok(value)
+    end
+  end?
+  Ok(%{message | encrypted_header: blob})
+end
+
 pub fn test_ratchet_jump_envelope(recipient_path :: String, input :: Bytes) -> Bytes!String do
   let (outer, message) = test_ratchet_outer(recipient_path, input)?
-  test_encode_ratchet_outer(recipient_path, outer, %{message | message_number: 65})
+  if message.version == 4 do
+    test_encode_ratchet_outer(recipient_path, outer, jumped_v4(recipient_path, message)?)
+  else
+    test_encode_ratchet_outer(recipient_path, outer, %{message | message_number: 65})
+  end
 end
 
 pub fn test_ratchet_tamper_envelope(recipient_path :: String, input :: Bytes) -> Bytes!String do
@@ -635,6 +772,20 @@ pub fn install_legacy_pending_unbind_push_state_for_test(database_path :: String
     })
 end
 
+## What a build from before the sealed transport deposited: a bare packet under
+## the outer suite that names its protocol. The core itself never builds one.
+
+pub fn legacy_outer_for_test(mailbox_token :: Bytes,
+  suite :: Int,
+  packet :: Bytes,
+  now :: U64) -> Bytes!String do
+  let shape = canonical_outer(outer_bytes(mailbox_token, 4, packet, now)?)?
+  case encode_outer_envelope(%{shape | suite: suite}) do
+    Err(_) -> Err("outer_encoding_failed")
+    Ok(encoded)
+  end
+end
+
 pub fn install_classical_session_for_test(initiator_path :: String,
   responder_path :: String) -> Bytes!String do
   let wrapping_key = platform_key()?
@@ -732,7 +883,7 @@ pub fn install_classical_session_for_test(initiator_path :: String,
       Err(_) -> Err("classical_ratchet_failed")
       Ok(value)
     end?
-    let envelope = outer_bytes(initiator.entry.mailbox_token,
+    let envelope = legacy_outer_for_test(initiator.entry.mailbox_token,
       message.suite,
       encode_packet(RatchetPacket(ratchet_bytes(message)?))?,
       now)?

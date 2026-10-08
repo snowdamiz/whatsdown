@@ -1,0 +1,25 @@
+# The Morse witness in pull mode from the reproducible image
+# (ops/witness/README.md). Load the image and verify it first:
+#   sha256sum -c SHA256SUMS-amd64 && docker load -i morse-witness-amd64.oci.tar
+# then set MORSE_WITNESS_IMAGE to the tag `docker load` printed.
+# Run it on one host at a time: a standby starts only after the primary stops.
+services:
+  witness:
+    image: ${MORSE_WITNESS_IMAGE:?set MORSE_WITNESS_IMAGE to the loaded morse-witness tag}
+    restart: unless-stopped
+    env_file:
+      - /etc/morse-witness/witness.env
+      - /etc/morse-witness/seed.env
+    volumes:
+      # The state volume (a Hetzner Volume, for witness-c), owned by 65532.
+      - /var/lib/morse-witness:/var/lib/morse-witness
+      # The guard: this host's own disk, never the shared volume.
+      - /var/lib/morse-witness-guard:/var/lib/morse-witness-guard
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "5" }

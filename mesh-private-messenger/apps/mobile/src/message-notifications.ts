@@ -118,7 +118,7 @@ export function synchronizeWithNotifications(path: string): Promise<{ receipts: 
       if (await getPushStatus(path) === 'enabled') {
         for (const notification of plan.notifications) {
           if (await getPushStatus(path) !== 'enabled') break;
-          await showMessageNotification(redactNotification(notification, loadNotificationPreview(own.accountId)));
+          await showMessageNotification(redactNotification(notification, await loadNotificationPreview(own.accountId)));
           // Persist each success so a later failure cannot replay the whole batch.
           const key = notification.id.slice(notification.scope.length + 1);
           previous[notification.scope] = [...(previous[notification.scope] ?? []), key].slice(-256);

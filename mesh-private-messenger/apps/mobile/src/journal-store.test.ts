@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createJournalStore } from './journal-store.ts';
+import { createJournalStore, createSettingStore } from './journal-store.ts';
 
 // Stands in for the core: sealed records under keys it cannot list.
 function core() {
@@ -65,4 +65,25 @@ test('a journal erased underneath the store is written out in full again', async
   assert.equal(await store.load('read-state'), null);
   await store.save('read-state', { [chat]: ['01'] });
   assert.deepEqual(JSON.parse((await createJournalStore(sealed.load, sealed.save).load('read-state'))!), { [chat]: ['01'] });
+});
+
+test('a setting kept in the clear moves into the sealed store once, and the clear copy goes', async () => {
+  const sealed = core();
+  const settings = createSettingStore(sealed.load, sealed.save);
+  assert.equal(await settings.load('read-receipts'), null);
+  let legacy: string | null = 'off';
+  const old = { read: () => legacy, remove: () => { legacy = null; } };
+  assert.equal(await settings.load('read-receipts', old), 'off');
+  assert.equal(legacy, null);
+  assert.equal(sealed.records.get('settings/read-receipts'), 'off');
+  // From then on the sealed value is the one, and a clear copy left behind goes unread.
+  await settings.save('read-receipts', 'on');
+  legacy = 'off';
+  assert.equal(await settings.load('read-receipts', old), 'on');
+  assert.equal(legacy, null);
+  // A clear copy is only removed once it is sealed.
+  const failing = createSettingStore(async () => '', async () => { throw new Error('disk full'); });
+  let kept: string | null = 'light';
+  await assert.rejects(failing.load('appearance', { read: () => kept, remove: () => { kept = null; } }));
+  assert.equal(kept, 'light');
 });

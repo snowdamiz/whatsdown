@@ -38,7 +38,12 @@ from Groups.Tree import GroupTree, member_at, tree_hash
 from Transport.Padding import pad_message, unpad_message
 
 fn validate_message_shape(value :: GroupMessage) -> Result<(), GroupError> do
-  let valid = (value.version == 1 || value.version == 2 || value.version == 3 || value.version == 4)
+  let valid = (value.version == 1
+    || value.version == 2
+    || value.version == 3
+    || value.version == 4
+    || value.version == 5
+    || value.version == 6)
     && value.suite == 3
     && Bytes.length(value.group_id) == 32
     && Bytes.length(value.tree_hash) == 32
@@ -217,13 +222,16 @@ fn prepare_group_message(state :: borrow GroupState,
   signing_key :: borrow SigningPrivateKey,
   plaintext :: Bytes,
   caller_data :: Bytes,
-  version :: Int) -> GroupMessage!GroupError do
-  let maximum = if version == 4 do
+  version :: Int,
+  announced :: Bytes) -> GroupMessage!GroupError do
+  let maximum = if version >= 4 do
     65290
   else
     65342
   end
-  if (version != 3 && version != 4)
+  if (version != 3 && version != 4 && version != 5 && version != 6)
+    || (version == 6) != (Bytes.length(announced) == 32)
+    || (version != 6 && Bytes.length(announced) != 0)
     || state.version != 2
     || Bytes.length(plaintext) > maximum
     || Bytes.length(caller_data) > 4096
@@ -253,7 +261,7 @@ fn prepare_group_message(state :: borrow GroupState,
       metadata.generation,
       nonce,
       caller_data)?
-    let padded = if version == 4 do
+    let padded = if version >= 4 do
       Ok(plaintext)
     else
       case pad_message(plaintext, 190) do
@@ -277,7 +285,12 @@ fn prepare_group_message(state :: borrow GroupState,
       Ok(value)
     end?
     let signed = signed_message_bytes(message, context)?
-    case Crypto.verify(sender.signing_public_key, signed, message.signature) do
+    let verifier = if version == 6 do
+      SigningPublicKey { bytes: announced }
+    else
+      sender.signing_public_key
+    end
+    case Crypto.verify(verifier, signed, message.signature) do
       Err(error) -> Err(CryptoFailure(error))
       Ok(false) -> Err(AuthenticationRejected)
       Ok(true) -> Ok(message)
@@ -289,24 +302,52 @@ pub fn encrypt_group_message(state :: consume GroupState,
   signing_key :: borrow SigningPrivateKey,
   plaintext :: Bytes,
   caller_data :: Bytes) -> GroupEncryptOutcome do
-  encrypt_group_message_version(state, signing_key, plaintext, caller_data, 3)
+  encrypt_group_message_version(state, signing_key, plaintext, caller_data, 3, Bytes.empty())
 end
 
 # Version 4 delegates padding to the encrypted recipient transport.
+# Version 5 is version 4 whose plaintext the caller frames with message options
+# (the mobile core's `GOP`: disappearing timer and view-once). Its version is
+# bound into the signature, and a build that predates it rejects it unread.
 
 pub fn encrypt_group_message_for_transport(state :: consume GroupState,
   signing_key :: borrow SigningPrivateKey,
   plaintext :: Bytes,
   caller_data :: Bytes) -> GroupEncryptOutcome do
-  encrypt_group_message_version(state, signing_key, plaintext, caller_data, 4)
+  encrypt_group_message_version(state, signing_key, plaintext, caller_data, 4, Bytes.empty())
+end
+
+pub fn encrypt_group_message_with_options(state :: consume GroupState,
+  signing_key :: borrow SigningPrivateKey,
+  plaintext :: Bytes,
+  caller_data :: Bytes) -> GroupEncryptOutcome do
+  encrypt_group_message_version(state, signing_key, plaintext, caller_data, 5, Bytes.empty())
+end
+
+# Version 6 is version 5 signed with the sender's key for this epoch, which it
+# announced over its pairwise sessions, instead of its long-term device key
+# (deniable sender authentication). `sender_public_key` checks the signature.
+
+pub fn encrypt_group_message_deniable(state :: consume GroupState,
+  sender_key :: borrow SigningPrivateKey,
+  sender_public_key :: SigningPublicKey,
+  plaintext :: Bytes,
+  caller_data :: Bytes) -> GroupEncryptOutcome do
+  encrypt_group_message_version(state,
+    sender_key,
+    plaintext,
+    caller_data,
+    6,
+    sender_public_key.bytes)
 end
 
 fn encrypt_group_message_version(state :: consume GroupState,
   signing_key :: borrow SigningPrivateKey,
   plaintext :: Bytes,
   caller_data :: Bytes,
-  version :: Int) -> GroupEncryptOutcome do
-  case prepare_group_message(state, signing_key, plaintext, caller_data, version) do
+  version :: Int,
+  announced :: Bytes) -> GroupEncryptOutcome do
+  case prepare_group_message(state, signing_key, plaintext, caller_data, version, announced) do
     Err(error) -> GroupEncryptRejected(state, error)
     Ok(message) -> do
       case advance_sender(state.key_material.sender_chains,
@@ -379,7 +420,7 @@ fn open_group_plaintext(key :: borrow AeadKey,
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
   end?
-  if message.version == 1 || message.version == 4 do
+  if message.version == 1 || message.version >= 4 do
     Ok(plaintext)
   else
     case unpad_message(plaintext, 190) do
@@ -391,10 +432,12 @@ end
 
 fn open_epoch_message(state :: borrow GroupState,
   message :: GroupMessage,
-  caller_data :: Bytes) -> Result<(Bytes, SecretMap, SecretMap), GroupError> do
+  caller_data :: Bytes,
+  announced :: Bytes) -> Result<(Bytes, SecretMap, SecretMap), GroupError> do
   let public = open_message_context(state, message)?
   let wrong_header = !((state.version == 1 && (message.version == 1 || message.version == 2))
-    || (state.version == 2 && (message.version == 3 || message.version == 4)))
+    || (state.version == 2 && message.version >= 3 && message.version <= 6))
+    || (message.version == 6) != (Bytes.length(announced) == 32)
     || (state.version == 2 && message.sender_leaf == state.local_leaf)
     || message.suite != public.suite
     || !Bytes.secure_equals(message.group_id, public.group_id)
@@ -423,7 +466,12 @@ fn open_epoch_message(state :: borrow GroupState,
     message.nonce,
     caller_data)?
   let signed = signed_message_bytes(message, context)?
-  case Crypto.verify(public.tree.sender.signing_public_key, signed, message.signature) do
+  let verifier = if message.version == 6 do
+    SigningPublicKey { bytes: announced }
+  else
+    public.tree.sender.signing_public_key
+  end
+  case Crypto.verify(verifier, signed, message.signature) do
     Err(error) -> Err(CryptoFailure(error))
     Ok(false) -> Err(AuthenticationRejected)
     Ok(true) -> Ok(nil)
@@ -452,10 +500,50 @@ fn open_epoch_message(state :: borrow GroupState,
   end
 end
 
+## Versions 1 to 5, signed with the sender leaf's long-term device key.
+
 pub fn decrypt_group_message(state :: consume GroupState,
   message :: GroupMessage,
   caller_data :: Bytes) -> GroupDecryptOutcome do
-  case open_epoch_message(state, message, caller_data) do
+  decrypt_group_message_under(state, message, caller_data, Bytes.empty())
+end
+
+## Version 6 only, under the key the sender leaf's device announced to this
+## device for the message's epoch; finding that key is the caller's part.
+
+pub fn decrypt_deniable_group_message(state :: consume GroupState,
+  message :: GroupMessage,
+  caller_data :: Bytes,
+  announced :: SigningPublicKey) -> GroupDecryptOutcome do
+  if Bytes.length(announced.bytes) != 32 do
+    MessageRejected(state, InvalidGroup)
+  else
+    decrypt_group_message_under(state, message, caller_data, announced.bytes)
+  end
+end
+
+## What a message's signature covers: its signed header, the caller's data and
+## its ciphertext. A version 6 signature verifies under an announced key only.
+
+pub fn group_message_signed_input(message :: GroupMessage,
+  caller_data :: Bytes) -> Bytes!GroupError do
+  let context = message_context(message.version,
+    message.suite,
+    message.group_id,
+    message.epoch,
+    message.tree_hash,
+    message.sender_leaf,
+    message.generation,
+    message.nonce,
+    caller_data)?
+  signed_message_bytes(message, context)
+end
+
+fn decrypt_group_message_under(state :: consume GroupState,
+  message :: GroupMessage,
+  caller_data :: Bytes,
+  announced :: Bytes) -> GroupDecryptOutcome do
+  case open_epoch_message(state, message, caller_data, announced) do
     Err(error) -> MessageRejected(state, error)
     Ok(value) -> do
       let (plaintext, chains, skipped) = value

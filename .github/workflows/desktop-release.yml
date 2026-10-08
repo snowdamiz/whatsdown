@@ -85,6 +85,15 @@ jobs:
       MESSENGER_WITNESS_B_PUBLIC_KEY_HEX: ${{ vars.MESSENGER_WITNESS_B_PUBLIC_KEY_HEX }}
       MESSENGER_DELIVERY_PUBLIC_KEY_HEX: ${{ vars.MESSENGER_DELIVERY_PUBLIC_KEY_HEX }}
       MESSENGER_ABUSE_DIFFICULTY: ${{ vars.MESSENGER_ABUSE_DIFFICULTY }}
+      MESSENGER_WITNESSES: ${{ vars.MESSENGER_WITNESSES }}
+      MESSENGER_ANCHOR: ${{ vars.MESSENGER_ANCHOR }}
+      MESSENGER_RPC_URLS: ${{ vars.MESSENGER_RPC_URLS }}
+      MESSENGER_RELAY_URLS: ${{ vars.MESSENGER_RELAY_URLS }}
+      MESSENGER_CREDIT_ISSUER: ${{ vars.MESSENGER_CREDIT_ISSUER }}
+      MESSENGER_LOG_ORIGIN: ${{ vars.MESSENGER_LOG_ORIGIN }}
+      MESSENGER_MINIMUM_SUITE: ${{ vars.MESSENGER_MINIMUM_SUITE }}
+      MESSENGER_OHTTP_KEY: ${{ vars.MESSENGER_OHTTP_KEY }}
+      MESSENGER_OHTTP_RELAY: ${{ vars.MESSENGER_OHTTP_RELAY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -202,7 +211,8 @@ jobs:
       - name: Build the pinned Mesh compiler and runtime
         working-directory: mesh-lang
         run: |
-          cargo build --locked -p mesh-rt
+          # The library links the release runtime (build-native.mjs --release).
+          cargo build --locked --release -p mesh-rt --lib
           if [[ "$RUNNER_OS" == Windows ]]; then
             # Windows gives the main thread 1 MiB, and the debug compiler overflows
             # it on the mobile core (exit 0xC00000FD); macOS and Linux give 8 MiB.
@@ -213,11 +223,12 @@ jobs:
       - name: Build native messenger library
         run: |
           if [[ "$RELEASE_BUILD" == true ]]; then
-            npm run native
+            npm run native -- --release
           else
             # PR previews use local endpoints and no production pins.
             for name in $(compgen -e | awk '/^(EXPO_PUBLIC_MESSENGER_|MESSENGER_)/'); do unset "$name"; done
-            npm run native -- --development
+            # Previews link the optimised core too, so the tests below check what releases ship.
+            npm run native -- --development --release
           fi
       - name: Verify native bridge and networking boundaries
         run: |

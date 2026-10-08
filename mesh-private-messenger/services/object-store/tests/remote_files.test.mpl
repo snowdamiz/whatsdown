@@ -1,4 +1,11 @@
-from Store.Files import part_path, read_part_file, remove_file, validate_paths, write_part_file
+from Store.Files import (
+  part_path,
+  read_part_file,
+  remove_file,
+  remove_parts,
+  validate_paths,
+  write_part_file
+)
 
 fn proof() -> Result<(), String> do
   let root = Env.get("MESSENGER_OBJECT_TEST_STORAGE_ROOT", "")
@@ -26,6 +33,17 @@ fn proof() -> Result<(), String> do
   case read_part_file(path, 65608) do
     None -> nil
     Some(_) -> assert(false)
+  end
+  # A 512 MiB attachment's parts go in one request.
+  let last = part_path(root, id, 8192)?
+  write_part_file(path, body)?
+  write_part_file(last, body)?
+  remove_parts(root, id, 8193, 0)?
+  for removed in [path, last] do
+    case read_part_file(removed, 65608) do
+      None -> nil
+      Some(_) -> assert(false)
+    end
   end
   Ok(nil)
 end

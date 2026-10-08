@@ -20,8 +20,9 @@ fn request(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String
   end
 end
 
-# What the conversation shows for each message, oldest first: the last field of
-# a history summary is one byte, 0 sent, 1 waiting to leave, 2 not delivered.
+# What the conversation shows for each message, oldest first: the seventh field
+# of a history summary is one byte, 0 sent, 1 waiting to leave, 2 not delivered.
+# The eighth and last, also one byte, is the kind of message (Mobile.History).
 
 fn states(path :: String, peer :: Bytes) -> List<Int>!String do
   let summaries = output_list(load_history_export(request([Bytes.from_utf8(path), peer],
@@ -29,7 +30,7 @@ fn states(path :: String, peer :: Bytes) -> List<Int>!String do
     Bytes.empty())?)?)?
   Ok(List.map(summaries,
     fn(summary) do
-      case Bytes.get(summary, Bytes.length(summary) - 1) do
+      case Bytes.get(summary, Bytes.length(summary) - 6) do
         Err(_) -> 255
         Ok(value) -> value
       end

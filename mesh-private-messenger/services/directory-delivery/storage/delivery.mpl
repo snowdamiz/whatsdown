@@ -3,6 +3,8 @@ from Protocol.V1 import DeliveredEnvelope, OuterEnvelope
 from Storage.MailboxAuth import MailboxOwner
 from Storage.ContactAddress import resolve_deposit_address
 from Storage.RateLimit import allow_request_on_connection
+from Storage.Credits import credits_take_hold_on_connection
+from Storage.PaidMailboxes import mailbox_policy_on_connection, mailbox_retention_on_connection
 import RuntimeJobs
 
 pub type DeliveryInsert do
@@ -12,6 +14,7 @@ pub type DeliveryInsert do
   MailboxRevoked
   RateLimited
   ExpiryRejected
+  PostageRequired(policy :: Bytes)
 end deriving(Eq, Debug)
 
 fn binary(value :: DbValue) -> Bytes!String do
@@ -68,38 +71,101 @@ end
 # mailbox, so it is stored under the mailbox's own hash: fetch, acknowledgement,
 # deduplication and the delivered envelope are all unchanged.
 
+# What a public-address envelope must still pay: the mailbox's signed policy
+# when its postage exceeds `paid` credits. A contact-address envelope never
+# pays.
+
+fn postage_due(conn :: borrow PgConn,
+  token_hash :: Bytes,
+  contact :: Bool,
+  paid :: Int) -> Option<Bytes>!String do
+  if contact do
+    Ok(None)
+  else
+    case mailbox_policy_on_connection(conn, token_hash)? do
+      Some((postage, policy)) -> if postage > paid do
+        Ok(Some(policy))
+      else
+        Ok(None)
+      end
+      None -> Ok(None)
+    end
+  end
+end
+
+# An entitled mailbox accepts envelopes up to its retention (plus the day of
+# skew) and keeps each at least that long from its arrival; any other keeps
+# the sender's expiry, at most 31 days ahead.
+
+fn stored_expiration(conn :: borrow PgConn,
+  token_hash :: Bytes,
+  expiration :: U64) -> Option<U64>!String do
+  let now = DateTime.to_unix_ms(DateTime.utc_now())
+  let days = case mailbox_retention_on_connection(conn, token_hash)? do
+    Some(value) -> value
+    None -> 30
+  end
+  let requested = U64.to_int(expiration)?
+  if requested > now + (days + 1) * 86400000 do
+    Ok(None)
+  else if days > 30 && requested < now + days * 86400000 do
+    Ok(Some(U64.parse(Int.to_string(now + days * 86400000))?))
+  else
+    Ok(Some(expiration))
+  end
+end
+
 fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryInsert!String do
+  insert_paid_envelope(conn, value, 0)
+end
+
+fn insert_paid_envelope(conn :: borrow PgConn,
+  value :: OuterEnvelope,
+  paid :: Int) -> DeliveryInsert!String do
   let (token_hash, contact) = resolve_deposit_address(conn, Crypto.sha256(value.mailbox_token))?
   let existing = Pg.query_values(conn,
     "SELECT sequence::text FROM messenger_envelopes WHERE mailbox_token_hash = $1 AND envelope_id = $2",
     [Binary(token_hash), Binary(value.envelope_id)])?
   if List.length(existing) > 0 do
-    Ok(Duplicate)
-  else
+    return Ok(Duplicate)
+  end
+  case postage_due(conn, token_hash, contact, paid)? do
+    Some(policy) -> return Ok(PostageRequired(policy))
+    None -> nil
+  end
+  case stored_expiration(conn, token_hash, value.expiration)? do
+    None -> Ok(ExpiryRejected)
+    Some(expiration) -> store_envelope(conn, %{value | expiration: expiration}, token_hash, contact)
+  end
+end
+
+fn store_envelope(conn :: borrow PgConn,
+  value :: OuterEnvelope,
+  token_hash :: Bytes,
+  contact :: Bool) -> DeliveryInsert!String do
+  Pg.execute_values(conn,
+    "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext, contact) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6, $7::boolean)",
+    [
+      Binary(token_hash),
+      Binary(value.envelope_id),
+      Text(Int.to_string(value.suite)),
+      Text(U64.to_string(value.expiration)),
+      Text(Int.to_string(value.padding_bucket)),
+      Binary(value.ciphertext),
+      Text(if contact do
+        "true"
+      else
+        "false"
+      end)
+    ])?
+  if deposit_rate_allowed(conn, token_hash, contact)? do
     Pg.execute_values(conn,
-      "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext, contact) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6, $7::boolean)",
-      [
-        Binary(token_hash),
-        Binary(value.envelope_id),
-        Text(Int.to_string(value.suite)),
-        Text(U64.to_string(value.expiration)),
-        Text(Int.to_string(value.padding_bucket)),
-        Binary(value.ciphertext),
-        Text(if contact do
-          "true"
-        else
-          "false"
-        end)
-      ])?
-    if deposit_rate_allowed(conn, token_hash, contact)? do
-      Pg.execute_values(conn,
-        "INSERT INTO messenger_outbox_events (mailbox_token_hash, envelope_id) VALUES ($1, $2)",
-        [Binary(token_hash), Binary(value.envelope_id)])?
-      RuntimeJobs.notify(conn, "directory")?
-      Ok(Accepted)
-    else
-      Err("messenger_rate_limited")
-    end
+      "INSERT INTO messenger_outbox_events (mailbox_token_hash, envelope_id) VALUES ($1, $2)",
+      [Binary(token_hash), Binary(value.envelope_id)])?
+    RuntimeJobs.notify(conn, "directory")?
+    Ok(Accepted)
+  else
+    Err("messenger_rate_limited")
   end
 end
 
@@ -109,9 +175,13 @@ end
 # of clock skew, and nothing already expired, so a full mailbox always drains by
 # itself.
 
+# Checked before the database: nothing already expired, and nothing past the
+# longest storage any mailbox can have (180 days plus the day). The mailbox's
+# own limit is checked in the insert (stored_expiration).
+
 fn expiry_acceptable(expiration :: U64) -> Bool!String do
   let now = U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))?
-  let latest = U64.add(now, U64.parse("2678400000")?)?
+  let latest = U64.add(now, U64.parse("15638400000")?)?
   Ok(U64.compare(expiration, now) > 0 && U64.compare(expiration, latest) <= 0)
 end
 
@@ -120,8 +190,13 @@ pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryI
   if !(expiry_acceptable(value.expiration)?) do
     return Ok(ExpiryRejected)
   end
-  case Repo.transaction(pool, fn(conn :: borrow PgConn) -> insert_envelope(conn, value) end) do
-    Ok(result)
+  delivery_outcome(Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> insert_envelope(conn, value) end))
+end
+
+fn delivery_outcome(result :: DeliveryInsert!String) -> DeliveryInsert!String do
+  case result do
+    Ok(inserted)
     Err(error) -> if String.contains(error, "messenger_envelopes_mailbox_envelope_key") do
       Ok(Duplicate)
     else if String.contains(error, "messenger_mailbox_capacity") do
@@ -140,6 +215,33 @@ pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryI
       Err(error)
     end
   end
+end
+
+# The hold goes with the envelope: taken in the envelope's own transaction, so
+# a rolled-back insert leaves it, and one hold delivers one envelope.
+
+fn insert_held_envelope(conn :: borrow PgConn,
+  value :: OuterEnvelope,
+  redemption_id :: Bytes) -> DeliveryInsert!String do
+  case credits_take_hold_on_connection(conn, redemption_id, 1)? do
+    None -> Err("credit_hold_missing")
+    Some((credits, _binding)) -> insert_paid_envelope(conn, value, credits)
+  end
+end
+
+## As enqueue_envelope, for an envelope the privacy edge was paid for in
+## credits: it takes the envelope hold `redemption_id` names in the same
+## transaction. Err "credit_hold_missing" when there is none to take.
+
+pub fn enqueue_held_envelope(pool :: PoolHandle,
+  value :: OuterEnvelope,
+  redemption_id :: Bytes) -> DeliveryInsert!String do
+  valid_outer(value)?
+  if !(expiry_acceptable(value.expiration)?) do
+    return Ok(ExpiryRejected)
+  end
+  delivery_outcome(Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> insert_held_envelope(conn, value, redemption_id) end))
 end
 
 fn deliveries(rows :: List<Map<String, DbValue>>,

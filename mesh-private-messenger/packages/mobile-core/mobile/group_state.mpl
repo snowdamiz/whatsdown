@@ -1,4 +1,5 @@
-from Mobile.Attachments import attachment_summary, group_attachment_reference
+from Mobile.Attachments import attachment_object_ids, attachment_summary, group_attachment_reference
+from Mobile.ExpiredObjects import expired_objects_added
 from Mobile.ContactAddress import deposit_address
 from Mobile.Delivery import DeliveryRecord, delivery_state, load_delivery
 from Mobile.Transparency import fresh_account_device_set
@@ -23,26 +24,32 @@ from Groups.WelcomeWire import decode_group_welcome, encode_group_welcome
 from Groups.Tree import GroupMember, IndexedGroupMember, indexed_members
 from Identity.Device import DeviceKeys
 from Mobile.Codec import (
+  current_time,
   encode_output_list,
   mobile_append,
   mobile_byte,
+  mobile_finish,
   mobile_join,
   mobile_read_byte,
   mobile_read_u32,
   mobile_read_u64,
+  mobile_reader,
   mobile_vector,
   mobile_wide,
   mobile_write_u32,
   mobile_write_u64,
   take_fixed,
-  take_vector
+  take_vector,
+  take_vector_error
 )
 from Mobile.Profile import load_profile, open_device
+from Mobile.Platform import native_security_config
+from Security.Config import SecurityConfig, SecurityWitness
 from Mobile.Transparency import (
   canonical_transparency_checkpoint,
   load_transparency_view,
   transparency_checkpoint_bytes,
-  transparency_checkpoint_in_view,
+  transparency_checkpoint_known,
   transparency_checkpoint_precedes
 )
 from Mobile.Types import (
@@ -53,13 +60,14 @@ from Mobile.Types import (
   MobileGroupReferenceRequest,
   MobileGroupWelcomePacket,
   MobileReadBytes,
+  MobileSecurityConfig,
   MobileTransparencyView,
   MobileVerifiedDeviceSet
 )
 from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceSet, DirectoryEntry, PrekeyBundle
 from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import context, local_context, open_local, platform_key, seal_local, seal_x25519
-from Storage.Records import store_blobs, store_record_changes
+from Storage.Records import store_blobs, store_record_changes, store_updated_blobs
 from Transparency.Merkle import TransparencyCheckpoint, checkpoint_hash
 from Transparency.Wire import decode_checkpoint, encode_checkpoint
 from Transport.Packet import ClientProfile, decode_client_profile
@@ -153,7 +161,7 @@ fn decode_group_ids(input :: Bytes) -> List<Bytes>!String do
   end
 end
 
-fn load_group_ids(database_path :: String,
+pub fn load_group_ids(database_path :: String,
   wrapping_key :: borrow StorageKey) -> List<Bytes>!String do
   let label = "groups/v1"
   case load_blob(database_path, label) do
@@ -191,6 +199,8 @@ fn valid_group_history_entry(value :: MobileGroupHistoryEntry) -> Bool do
     && Bytes.length(value.sender_device_id) == 16
     && Bytes.length(value.body) <= 65346
     && Bytes.length(value.attachment) <= 16384
+    && value.kind >= 0
+    && value.kind <= 2
 end
 
 fn encode_group_history_entry(value :: MobileGroupHistoryEntry) -> Bytes!String do
@@ -206,18 +216,25 @@ fn encode_group_history_entry(value :: MobileGroupHistoryEntry) -> Bytes!String 
       mobile_write_u64(value.timestamp)?,
       value.body,
       value.attachment,
-      value.message_id
+      value.message_id,
+      mobile_write_u64(value.expires_at)?,
+      mobile_byte(value.kind)?
     ])
   end
 end
 
 # Exported entries replace the opaque local reference with its opened manifest summary.
-# The last field says what became of a sent message: 0 sent, 1 still waiting
+# The tenth field says what became of a sent message: 0 sent, 1 still waiting
 # to leave, 2 refused for good by every device it was addressed to.
+# Then when a disappearing message goes (0: it stays), and what it is: 0 a
+# message, 1 a view-once message not yet opened, whose content only
+# `Mobile.ViewOnce` hands out, 2 a view-once message whose content is gone, 3 a
+# notice that the group timer changed, its body the new timer in seconds.
 
-fn encode_group_history_summary(device :: borrow DeviceKeys,
+pub fn encode_group_history_summary(device :: borrow DeviceKeys,
   value :: MobileGroupHistoryEntry,
-  delivery :: List<DeliveryRecord>) -> Bytes!String do
+  delivery :: List<DeliveryRecord>,
+  reveal :: Bool) -> Bytes!String do
   if !valid_group_history_entry(value) do
     Err("invalid_group_history")
   else
@@ -226,6 +243,18 @@ fn encode_group_history_summary(device :: borrow DeviceKeys,
     else
       0
     end
+    let unopened = value.kind == 1
+      && (Bytes.length(value.body) > 0 || Bytes.length(value.attachment) > 0)
+    let kind = if unopened do
+      1
+    else if value.kind == 1 do
+      2
+    else if value.kind == 2 do
+      3
+    else
+      0
+    end
+    let shown = !unopened || reveal
     encode_output_list([
       mobile_byte(1)?,
       mobile_byte(value.direction)?,
@@ -233,16 +262,26 @@ fn encode_group_history_summary(device :: borrow DeviceKeys,
       value.sender_account_id,
       value.sender_device_id,
       mobile_write_u64(value.timestamp)?,
-      value.body,
-      attachment_summary(device, value.attachment),
+      if shown do
+        value.body
+      else
+        Bytes.empty()
+      end,
+      if shown do
+        attachment_summary(device, value.attachment)
+      else
+        Bytes.empty()
+      end,
       value.message_id,
-      mobile_byte(state)?
+      mobile_byte(state)?,
+      mobile_write_u64(value.expires_at)?,
+      mobile_byte(kind)?
     ])
   end
 end
 
 fn decode_group_history_entry(input :: Bytes) -> MobileGroupHistoryEntry!String do
-  case reader(input, 81872) do
+  case reader(input, 81889) do
     Err(_) -> Err("invalid_group_history")
     Ok(state) -> do
       let count = take_vector(state, 4)?
@@ -261,21 +300,34 @@ fn decode_group_history_entry(input :: Bytes) -> MobileGroupHistoryEntry!String 
         MobileReadBytes { state: body.state, value: Bytes.empty() }
       end
       # Legacy histories remain readable; their missing wire IDs cannot be reconstructed.
-      let message_id = if count_value == 9 do
+      let message_id = if count_value >= 9 do
         take_vector(attachment.state, 32)?
       else
         MobileReadBytes { state: attachment.state, value: Bytes.empty() }
       end
-      case finish(message_id.state) do
+      # Entries written before disappearing and view-once group messages have nine.
+      let expires_at = if count_value == 11 do
+        take_vector(message_id.state, 8)?
+      else
+        MobileReadBytes { state: message_id.state, value: mobile_write_u64(mobile_wide("0")?)? }
+      end
+      let kind = if count_value == 11 do
+        take_vector(expires_at.state, 1)?
+      else
+        MobileReadBytes { state: expires_at.state, value: mobile_byte(0)? }
+      end
+      case finish(kind.state) do
         Err(_) -> Err("invalid_group_history")
         Ok(_) -> do
           let direction_value = mobile_read_byte(direction.value)?
-          if (count_value != 7 && count_value != 8 && count_value != 9)
+          let kind_value = mobile_read_byte(kind.value)?
+          if (count_value != 7 && count_value != 8 && count_value != 9 && count_value != 11)
             || (Bytes.length(message_id.value) != 0 && Bytes.length(message_id.value) != 32)
             || mobile_read_byte(version.value)? != 1
             || (direction_value != 1 && direction_value != 2)
             || Bytes.length(account_id.value) != 32
-            || Bytes.length(device_id.value) != 16 do
+            || Bytes.length(device_id.value) != 16
+            || kind_value > 2 do
             Err("invalid_group_history")
           else
             Ok(MobileGroupHistoryEntry {
@@ -286,7 +338,9 @@ fn decode_group_history_entry(input :: Bytes) -> MobileGroupHistoryEntry!String 
               sender_device_id: device_id.value,
               timestamp: mobile_read_u64(timestamp.value)?,
               body: body.value,
-              attachment: attachment.value
+              attachment: attachment.value,
+              expires_at: mobile_read_u64(expires_at.value)?,
+              kind: kind_value
             })
           end
         end
@@ -305,7 +359,7 @@ fn decode_group_history_parts(state :: BinaryReader,
       Ok(_) -> Ok(entries)
     end
   else
-    let entry = take_vector(state, 81872)?
+    let entry = take_vector(state, 81889)?
     decode_group_history_parts(entry.state,
       count,
       index + 1,
@@ -374,7 +428,7 @@ fn encode_group_history_summaries(device :: borrow DeviceKeys,
       delivery,
       index + 1,
       List.append(encoded,
-        encode_group_history_summary(device, List.get(values, index), delivery)?))
+        encode_group_history_summary(device, List.get(values, index), delivery, false)?))
   end
 end
 
@@ -406,20 +460,28 @@ pub fn updated_group_history_blob(database_path :: String,
     entry.body)?
   # Senders pass their own local reference; receivers pick theirs out of the group envelope.
   # A malformed envelope must not block the text body, so it degrades to "no attachment".
+  let local = decode_client_profile(load_profile(database_path)?)?
   let attachment = if Bytes.length(entry.attachment) > 0 do
     entry.attachment
   else
-    let local = decode_client_profile(load_profile(database_path)?)?
     case group_attachment_reference(envelope, local.account_id, local.device_id) do
       Err(_) -> Bytes.empty()
       Ok(value) -> value
     end
   end
+  # No device of the sender's account keeps a view-once message's content.
+  let own_view_once = entry.kind == 1
+    && (entry.direction == 1 || Bytes.secure_equals(entry.sender_account_id, local.account_id))
+  let kept = if own_view_once do
+    %{entry | body: Bytes.empty(), attachment: Bytes.empty()}
+  else
+    %{entry | body: body, attachment: attachment}
+  end
   let previous = load_group_history(database_path, wrapping_key, group_id)?
-  let entries = if Bytes.length(body) == 0 && Bytes.length(attachment) == 0 do
+  let entries = if kept.kind == 0 && Bytes.length(body) == 0 && Bytes.length(attachment) == 0 do
     previous
   else
-    List.append(previous, %{entry | body: body, attachment: attachment})
+    List.append(previous, kept)
   end
   Ok((List.append(presentation_labels, label),
     List.append(presentation_blobs,
@@ -445,7 +507,7 @@ pub fn group_checkpoint(database_path :: String,
     Err("group_transparency_unverified")
   else
     let view = load_transparency_view(database_path, wrapping_key)?
-    if transparency_checkpoint_in_view(encoded, view)? do
+    if transparency_checkpoint_known(encoded, view)? do
       Ok(encoded)
     else
       Err("group_transparency_unverified")
@@ -530,7 +592,8 @@ pub fn decode_group_key_package(input :: Bytes) -> MobileGroupKeyPackage!String 
         if mobile_read_byte(version.value)? != 1
           || !Bytes.secure_equals(magic.value, Bytes.from_utf8("GKP"))
           || Bytes.secure_equals(init_public.value, leaf_public.value)
-          || value.witness_count != 2
+          || value.witness_count < 1
+          || value.witness_count > 16
           || !Bytes.secure_equals(encode_checkpoint(decode_checkpoint(checkpoint.value)?)?,
             checkpoint.value)
           || !Bytes.secure_equals(encode_group_key_package(value)?, input) do
@@ -560,7 +623,8 @@ pub fn group_profile(profiles :: List<ClientProfile>,
   end
 end
 
-pub fn verified_group_member(devices :: MobileVerifiedDeviceSet,
+pub fn verified_group_member(database_path :: String,
+  devices :: MobileVerifiedDeviceSet,
   encoded_package :: Bytes,
   proof_checkpoint :: Bytes,
   baseline_checkpoint :: Bytes,
@@ -576,8 +640,14 @@ pub fn verified_group_member(devices :: MobileVerifiedDeviceSet,
     Ok(value) -> value
   end
   if !valid_signature
-    || !(transparency_checkpoint_precedes(baseline_checkpoint, package.checkpoint, view)?)
-    || !(transparency_checkpoint_precedes(package.checkpoint, proof_checkpoint, view)?) do
+    || !(transparency_checkpoint_precedes(database_path,
+      baseline_checkpoint,
+      package.checkpoint,
+      view)?)
+    || !(transparency_checkpoint_precedes(database_path,
+      package.checkpoint,
+      proof_checkpoint,
+      view)?) do
     Err("invalid_group_key_package")
   else
     let baseline_hash = checkpoint_hash(canonical_transparency_checkpoint(baseline_checkpoint)?)?
@@ -616,7 +686,7 @@ pub fn create_group_key_package_scoped(database_path :: String, scope :: String)
       if signature_valid
         && Bytes.secure_equals(package.account_id, profile.account_id)
         && Bytes.secure_equals(package.device_id, profile.device_id)
-        && transparency_checkpoint_precedes(package.checkpoint, checkpoint, view)? do
+        && transparency_checkpoint_precedes(database_path, package.checkpoint, checkpoint, view)? do
         Ok(encoded)
       else
         Err("group_key_package_pending")
@@ -639,7 +709,7 @@ pub fn create_group_key_package_scoped(database_path :: String, scope :: String)
         init_public_key: init_keys.public_key,
         leaf_public_key: leaf_keys.public_key,
         checkpoint: checkpoint,
-        witness_count: 2,
+        witness_count: native_security_config()?.config.threshold,
         signature: Signature { bytes: Bytes.empty() }
       }
       let device = open_device(profile, wrapping_key, database_path)?
@@ -775,6 +845,8 @@ pub fn inspect_mobile_group(request :: MobileGroupReferenceRequest) -> Bytes!Str
     state.local_leaf,
     0,
     List.new())?
+  # The eighth field says how this device signs in the current epoch
+  # (`group_signing_mode`: 0 not yet, 1 long-term, 2 deniable).
   let encoded = encode_output_list([
     mobile_byte(1)?,
     state.group_id,
@@ -782,7 +854,11 @@ pub fn inspect_mobile_group(request :: MobileGroupReferenceRequest) -> Bytes!Str
     mobile_write_u32(state.local_leaf)?,
     state.tree_hash_cache,
     state.policy.checkpoint_hash,
-    encode_output_list(members)?
+    encode_output_list(members)?,
+    mobile_byte(group_signing_mode(request.database_path,
+      wrapping_key,
+      state.group_id,
+      state.epoch)?)?
   ])?
   consume_group_state(state)
   Ok(encoded)
@@ -839,7 +915,10 @@ pub fn forget_mobile_group(request :: MobileGroupReferenceRequest) -> Bytes!Stri
     [
       group_state_label(request.group_id)?,
       group_history_label(request.group_id),
-      group_baseline_label(request.group_id)?
+      group_baseline_label(request.group_id)?,
+      group_timer_label(request.group_id),
+      group_signing_label(request.group_id),
+      group_signers_label(request.group_id)
     ]
       ++ group_record_labels(request.group_id))?
   Ok(Bytes.empty())
@@ -851,13 +930,148 @@ pub fn mobile_group_history(request :: MobileGroupReferenceRequest) -> Bytes!Str
   let wrapping_key = platform_key()?
   let state = load_group(request.database_path, profile, wrapping_key, request.group_id)?
   consume_group_state(state)
-  let entries = load_group_history(request.database_path, wrapping_key, request.group_id)?
+  let stored = load_group_history(request.database_path, wrapping_key, request.group_id)?
+  # A disappearing message that ran out goes when it would next be shown, as
+  # well as at each sync (`Mobile.Expiry`).
+  let now = current_time()?
+  let entries = List.filter(stored, fn(entry) do !group_entry_expired(entry, now) end)
+  if List.length(entries) != List.length(stored) do
+    let objects = List.reduce(List.filter(stored, fn(entry) do group_entry_expired(entry, now) end),
+      [],
+      fn(ids, entry) do List.concat(ids, attachment_object_ids(entry.attachment)) end)
+    let (label, blob) = group_history_sealed(entries, wrapping_key, request.group_id)?
+    let (objects_label, objects_blob) = expired_objects_added(request.database_path,
+      wrapping_key,
+      objects)?
+    store_updated_blobs(request.database_path, [label, objects_label], [blob, objects_blob])?
+  end
   let device = open_device(profile, wrapping_key, request.database_path)?
   encode_output_list(encode_group_history_summaries(device,
     entries,
     load_delivery(request.database_path, wrapping_key)?,
     0,
     List.new())?)
+end
+
+## Every group this device is in.
+
+pub fn group_index_ids(database_path :: String,
+  wrapping_key :: borrow StorageKey) -> List<Bytes>!String do
+  load_group_ids(database_path, wrapping_key)
+end
+
+## The group's history as this device keeps it, oldest first.
+
+pub fn group_history_entries(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  group_id :: Bytes) -> List<MobileGroupHistoryEntry>!String do
+  load_group_history(database_path, wrapping_key, group_id)
+end
+
+## The label and sealed blob that keep `values` as the group's history.
+
+pub fn group_history_sealed(values :: List<MobileGroupHistoryEntry>,
+  wrapping_key :: borrow StorageKey,
+  group_id :: Bytes) -> Result<(String, Bytes), String> do
+  let label = group_history_label(group_id)
+  Ok((label, seal_local(encode_group_history(values)?, wrapping_key, local_context(label)?)?))
+end
+
+pub fn group_entry_expired(entry :: MobileGroupHistoryEntry, now :: U64) -> Bool do
+  U64.to_string(entry.expires_at) != "0" && U64.compare(entry.expires_at, now) <= 0
+end
+
+## Where the group's disappearing-message timer is kept (`Mobile.GroupTimer`).
+
+pub fn group_timer_label(group_id :: Bytes) -> String do
+  "group-timer/v1/#{Bytes.to_hex(group_id)}"
+end
+
+## Where this device keeps its own key for signing the group's messages in the
+## current epoch, and the keys other member devices announced to it
+## (`Mobile.GroupSigning`).
+
+pub fn group_signing_label(group_id :: Bytes) -> String do
+  "group-signing/v1/#{Bytes.to_hex(group_id)}"
+end
+
+pub fn group_signers_label(group_id :: Bytes) -> String do
+  "group-signers/v1/#{Bytes.to_hex(group_id)}"
+end
+
+## This device's record for a group: the epoch it last sent in and how it
+## signs there (1 long-term, 2 deniable; 0 nothing sent yet), with the
+## deniable key's public half and its sealed private half.
+
+pub struct GroupSigningRecord do
+  epoch :: U64
+  mode :: Int
+  public_key :: Bytes
+  sealed_key :: Bytes
+end
+
+fn none_record() -> GroupSigningRecord!String do
+  Ok(GroupSigningRecord {
+    epoch: mobile_wide("0")?,
+    mode: 0,
+    public_key: Bytes.empty(),
+    sealed_key: Bytes.empty()
+  })
+end
+
+fn decode_signing_record(value :: Bytes) -> GroupSigningRecord!String do
+  let state = mobile_reader(value, 4096, "invalid_group_signing")?
+  let version = take_fixed(state, 1)?
+  let epoch = take_fixed(version.state, 8)?
+  let mode = take_fixed(epoch.state, 1)?
+  let public_key = take_vector_error(mode.state, 32, "invalid_group_signing")?
+  let sealed_key = take_vector_error(public_key.state, 2048, "invalid_group_signing")?
+  mobile_finish(sealed_key.state, "invalid_group_signing")?
+  let record = GroupSigningRecord {
+    epoch: mobile_read_u64(epoch.value)?,
+    mode: mobile_read_byte(mode.value)?,
+    public_key: public_key.value,
+    sealed_key: sealed_key.value
+  }
+  let deniable = record.mode == 2
+  if mobile_read_byte(version.value)? != 1
+    || (record.mode != 1 && !deniable)
+    || deniable != (Bytes.length(record.public_key) == 32)
+    || deniable != (Bytes.length(record.sealed_key) > 0) do
+    Err("invalid_group_signing")
+  else
+    Ok(record)
+  end
+end
+
+pub fn load_group_signing(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  group_id :: Bytes) -> GroupSigningRecord!String do
+  let label = group_signing_label(group_id)
+  case load_blob(database_path, label) do
+    Err(error) -> if error == "local_state_not_found" do
+      none_record()
+    else
+      Err(error)
+    end
+    Ok(blob) -> decode_signing_record(open_local(blob, wrapping_key, local_context(label)?)?)
+  end
+end
+
+## What the group's inspection reports for this device: 0 nothing sent in the
+## current epoch, 1 its messages there are signed with its long-term device
+## key, 2 they are deniable.
+
+pub fn group_signing_mode(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  group_id :: Bytes,
+  epoch :: U64) -> Int!String do
+  let record = load_group_signing(database_path, wrapping_key, group_id)?
+  if U64.compare(record.epoch, epoch) == 0 do
+    Ok(record.mode)
+  else
+    Ok(0)
+  end
 end
 
 pub fn encode_group_welcome_packet(value :: MobileGroupWelcomePacket) -> Bytes!String do
@@ -916,7 +1130,8 @@ pub fn decode_group_welcome_packet(input :: Bytes) -> MobileGroupWelcomePacket!S
 end
 
 pub fn encode_group_packet(kind :: Int, payload :: Bytes) -> Bytes!String do
-  if kind < 1 || kind > 3 || Bytes.length(payload) == 0 || Bytes.length(payload) > 65527 do
+  # Kind 4 is a member's contact address (Mobile.CreditsGroup).
+  if kind < 1 || kind > 4 || Bytes.length(payload) == 0 || Bytes.length(payload) > 65527 do
     Err("invalid_group_packet")
   else
     let encoded = mobile_join([
@@ -951,7 +1166,7 @@ fn decode_group_packet_inner(input :: Bytes) -> MobileGroupPacket!String do
           if mobile_read_byte(version.value)? != 1
             || !Bytes.secure_equals(magic.value, Bytes.from_utf8("GRP"))
             || kind_value < 1
-            || kind_value > 3
+            || kind_value > 4
             || Bytes.length(payload.value) == 0
             || !Bytes.secure_equals(encode_group_packet(kind_value, payload.value)?, input) do
             Err("invalid_group_packet")

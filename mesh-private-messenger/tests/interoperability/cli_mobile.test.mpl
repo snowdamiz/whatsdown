@@ -1,9 +1,18 @@
 import File
-from Interop.Client import interop_state_suite, open_mobile_reply, opened_body, start_mobile_session
+from Interop.Client import (
+  close_interop_session,
+  interop_header_encrypted,
+  interop_state_suite,
+  open_mobile_reply,
+  opened_reply,
+  send_mobile_message,
+  start_mobile_session
+)
 from MobileCore import (
   create_account_export,
   outbox_ack_export,
   receive_initial_export,
+  receive_message_export,
   send_message_export,
   update_conversation_export
 )
@@ -92,12 +101,35 @@ fn proof() -> Bool!String do
   # Neither direction shows delivery the session both sides share.
   assert(!String.contains(Bytes.to_hex(initial_outer), Bytes.to_hex(cli_session.session_id)))
   assert(!String.contains(Bytes.to_hex(reply_outer), Bytes.to_hex(cli_session.session_id)))
-  assert(Bytes.secure_equals(opened_body(open_mobile_reply(cli_state,
-      cli_device,
-      cli_session,
-      reply_outer))?,
-    reply))
+  let (cli_state, opened) = opened_reply(open_mobile_reply(cli_state,
+    cli_device,
+    cli_session,
+    reply_outer))?
+  assert(Bytes.secure_equals(opened, reply))
   outbox_ack_export(request([Bytes.from_utf8(path), reply_outer])?)?
+  # The reply said the app reads ratchet message 4: the CLI's next sending root
+  # step upgrades the session, and the app answers in kind.
+  let upgraded = Bytes.from_utf8("m10-cli-upgraded-opaque")
+  let (cli_state, upgraded_outer) = send_mobile_message(cli_state,
+    cli_session,
+    mobile_profile,
+    upgraded)?
+  assert(interop_header_encrypted(cli_state) && interop_state_suite(cli_state) == 2)
+  assert(!String.contains(Bytes.to_hex(upgraded_outer), Bytes.to_hex(cli_session.session_id)))
+  assert(Bytes.secure_equals(receive_message_export(request([
+      Bytes.from_utf8(path),
+      upgraded_outer
+    ])?)?,
+    upgraded))
+  let answer = Bytes.from_utf8("m10-mobile-answer-opaque")
+  let answer_outer = send_message_export(request([Bytes.from_utf8(path), cli_profile, answer])?)?
+  let (cli_state, opened_answer) = opened_reply(open_mobile_reply(cli_state,
+    cli_device,
+    cli_session,
+    answer_outer))?
+  assert(Bytes.secure_equals(opened_answer, answer))
+  close_interop_session(cli_state)
+  outbox_ack_export(request([Bytes.from_utf8(path), answer_outer])?)?
   if String.length(Env.get("MESSENGER_M10_INTEROP_PATH", "")) == 0 do
     File.delete(path)?
   else
@@ -106,7 +138,7 @@ fn proof() -> Bool!String do
   Ok(true)
 end
 
-test("Mesh CLI and mobile share a hybrid session and exact client wire") do
+test("Mesh CLI and mobile share a hybrid session, exact client wire, and its upgrade to ratchet message 4") do
   case proof() do
     Err(error) -> do
       println(error)

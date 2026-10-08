@@ -1,5 +1,6 @@
-from Mobile.Attachments import attachment_summary
+from Mobile.Attachments import attachment_object_ids, attachment_summary
 from Mobile.ContactAddress import rotated_contact_address_writes
+from Mobile.ExpiredObjects import expired_objects_added
 from Mobile.Delivery import DeliveryRecord, delivery_state, load_delivery
 from Mobile.Presentation import presented_message_writes
 from Binary.Reader import BinaryReader, finish, reader
@@ -12,6 +13,7 @@ from Mobile.Codec import (
   mobile_join,
   mobile_read_byte,
   mobile_read_u32,
+  mobile_read_u64,
   mobile_utf8,
   mobile_vector,
   mobile_wide,
@@ -49,7 +51,7 @@ from Session.Handshake import RatchetState
 from Session.Snapshot import SnapshotOutcome, snapshot
 from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import local_context, open_local, platform_key, seal_local
-from Storage.Records import store_updated_blobs, store_updated_session
+from Storage.Records import store_updated_blobs
 from Transport.Packet import ClientProfile, decode_client_profile
 
 ##! Mobile.History implementation.
@@ -159,6 +161,14 @@ fn load_history(database_path :: String,
   end
 end
 
+## Inner message type 8 is a view-once message (`protocol/privacy-contract.md`).
+## Its sender keeps a stub without the content; its recipient keeps the content
+## until it is opened once (`Mobile.ViewOnce`).
+
+pub fn history_view_once_type() -> Int do
+  8
+end
+
 pub fn updated_history(database_path :: String,
   wrapping_key :: borrow StorageKey,
   inner :: InnerEnvelope,
@@ -171,7 +181,14 @@ pub fn updated_history(database_path :: String,
     Bytes.empty(),
     Bytes.empty(),
     inner.body)?
-  let updated = if Bytes.length(body) == 0 && Bytes.length(inner.attachment_manifest) == 0 do
+  let view_once = inner.message_type == history_view_once_type()
+  let updated = if view_once && direction == 1 do
+    List.append(entries,
+      MobileHistoryEntry {
+        direction: direction,
+        inner: %{inner | body: Bytes.empty(), attachment_manifest: Bytes.empty()}
+      })
+  else if Bytes.length(body) == 0 && Bytes.length(inner.attachment_manifest) == 0 do
     entries
   else
     List.append(entries, MobileHistoryEntry { direction: direction, inner: %{inner | body: body} })
@@ -204,7 +221,8 @@ fn conversation_summary(loaded :: MobileLoadedSession) -> Bytes!String do
       else
         0
       end)?)?,
-      mobile_vector(mobile_write_u32(loaded.record.disappearing_seconds)?)?
+      mobile_vector(mobile_write_u32(loaded.record.disappearing_seconds)?)?,
+      mobile_vector(mobile_write_u64(loaded.record.reset_at)?)?
     ],
     0,
     Bytes.empty())
@@ -230,6 +248,7 @@ pub fn decode_conversation_summary(input :: Bytes) -> ConversationSummary!String
       let verified = take_vector(blocked.state, 1)?
       let key_changed = take_vector(verified.state, 1)?
       let disappearing = take_vector(key_changed.state, 4)?
+      let reset_at = take_vector(disappearing.state, 8)?
       let request_value = mobile_read_byte(request_state.value)?
       let blocked_value = mobile_read_byte(blocked.value)?
       let verified_value = mobile_read_byte(verified.value)?
@@ -249,7 +268,7 @@ pub fn decode_conversation_summary(input :: Bytes) -> ConversationSummary!String
         && changed_value <= 1
       case finish(entry_bytes.state) do
         Err(_) -> Err("invalid_conversation_summary")
-        Ok(_) -> case finish(disappearing.state) do
+        Ok(_) -> case finish(reset_at.state) do
           Err(_) -> Err("invalid_conversation_summary")
           Ok(_) -> if !valid do
             Err("invalid_conversation_summary")
@@ -264,7 +283,8 @@ pub fn decode_conversation_summary(input :: Bytes) -> ConversationSummary!String
               blocked: blocked_value == 1,
               verified: verified_value == 1,
               key_changed: changed_value == 1,
-              disappearing_seconds: mobile_read_u32(disappearing.value)?
+              disappearing_seconds: mobile_read_u32(disappearing.value)?,
+              session_reset_at: mobile_read_u64(reset_at.value)?
             })
           end
         end
@@ -364,25 +384,49 @@ fn visible_history(values :: List<MobileHistoryEntry>,
   end
 end
 
-# The last field says what became of a sent message: 0 sent, 1 still waiting
-# to leave, 2 refused for good by every device it was addressed to.
+# The seventh field says what became of a sent message: 0 sent, 1 still
+# waiting to leave, 2 refused for good by every device it was addressed to. The
+# eighth says what kind of message it is: 0 an ordinary one, 1 a view-once
+# message not yet opened, whose content only `Mobile.ViewOnce` hands out, 2 a
+# view-once message whose content is gone (opened here, or sent from here).
 
-fn history_summary(device :: borrow DeviceKeys,
+pub fn history_summary(device :: borrow DeviceKeys,
   value :: MobileHistoryEntry,
-  delivery :: List<DeliveryRecord>) -> Bytes!String do
+  delivery :: List<DeliveryRecord>,
+  reveal :: Bool) -> Bytes!String do
   let state = if value.direction == 1 do
     delivery_state(delivery, value.inner.client_message_id)
   else
     0
   end
+  let view_once = value.inner.message_type == history_view_once_type()
+  let unopened = view_once
+    && (Bytes.length(value.inner.body) > 0 || Bytes.length(value.inner.attachment_manifest) > 0)
+  let kind = if unopened do
+    1
+  else if view_once do
+    2
+  else
+    0
+  end
+  let shown = !unopened || reveal
   mobile_join([
       mobile_vector(mobile_byte(value.direction)?)?,
       mobile_vector(value.inner.client_message_id)?,
       mobile_vector(mobile_write_u64(value.inner.client_timestamp)?)?,
-      mobile_vector(value.inner.body)?,
+      mobile_vector(if shown do
+        value.inner.body
+      else
+        Bytes.empty()
+      end)?,
       mobile_vector(mobile_write_u32(value.inner.disappearing_seconds)?)?,
-      mobile_vector(attachment_summary(device, value.inner.attachment_manifest))?,
-      mobile_vector(mobile_byte(state)?)?
+      mobile_vector(if shown do
+        attachment_summary(device, value.inner.attachment_manifest)
+      else
+        Bytes.empty()
+      end)?,
+      mobile_vector(mobile_byte(state)?)?,
+      mobile_vector(mobile_byte(kind)?)?
     ],
     0,
     Bytes.empty())
@@ -400,7 +444,35 @@ fn history_summaries(device :: borrow DeviceKeys,
       values,
       delivery,
       index + 1,
-      List.append(summaries, history_summary(device, List.get(values, index), delivery)?))
+      List.append(summaries, history_summary(device, List.get(values, index), delivery, false)?))
+  end
+end
+
+## The conversation's history as this device keeps it, oldest first.
+
+pub fn history_entries_for(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  conversation_id :: Bytes) -> List<MobileHistoryEntry>!String do
+  load_history(database_path, wrapping_key, conversation_id)
+end
+
+## The label and sealed blob that keep `values` as the conversation's history.
+
+pub fn history_sealed_for(values :: List<MobileHistoryEntry>,
+  wrapping_key :: borrow StorageKey,
+  conversation_id :: Bytes) -> Result<(String, Bytes), String> do
+  let label = history_label(conversation_id)
+  Ok((label, seal_local(encode_history(values)?, wrapping_key, local_context(label)?)?))
+end
+
+## When a disappearing message stops being shown, or None for one that stays.
+
+pub fn history_expires_at(value :: MobileHistoryEntry) -> Option<U64>!String do
+  if value.inner.disappearing_seconds == 0 do
+    Ok(None)
+  else
+    let lifetime = mobile_wide(Int.to_string(value.inner.disappearing_seconds * 1000))?
+    Ok(Some(U64.add(value.inner.client_timestamp, lifetime)?))
   end
 end
 
@@ -415,13 +487,24 @@ pub fn load_visible_history(request :: MobilePeerRequest) -> Bytes!String do
     load_session_ids(request.database_path, wrapping_key)?,
     0)?
   let entries = load_history(request.database_path, wrapping_key, loaded.record.conversation_id)?
-  let visible = visible_history(entries, current_time()?, 0, List.new())?
+  let now = current_time()?
+  let visible = visible_history(entries, now, 0, List.new())?
   if List.length(visible) != List.length(entries) do
+    # What is deleted here is deleted as at a sync, its objects left for the app.
+    let objects = List.reduce(entries,
+      [],
+      fn(ids, entry) do
+        case message_visible(entry, now) do
+          Ok(true) -> ids
+          _ -> List.concat(ids, attachment_object_ids(entry.inner.attachment_manifest))
+        end
+      end)
     let label = history_label(loaded.record.conversation_id)
     let blob = seal_local(encode_history(visible)?, wrapping_key, local_context(label)?)?
-    store_updated_session(request.database_path, label, blob)?
-  else
-    nil
+    let (objects_label, objects_blob) = expired_objects_added(request.database_path,
+      wrapping_key,
+      objects)?
+    store_updated_blobs(request.database_path, [label, objects_label], [blob, objects_blob])?
   end
   let device = open_device(local, wrapping_key, request.database_path)?
   encode_output_list(history_summaries(device,
@@ -456,6 +539,9 @@ fn updated_policy(record :: MobileSessionRecord,
     Ok(%{record | verified: true, key_changed: false})
   else if action == 5 && value >= 0 && value <= 2592000 do
     Ok(%{record | disappearing_seconds: value})
+  else if action == 6 do
+    # A scanned safety code that did not match (`Mobile.SafetyCode`).
+    Ok(%{record | verified: false})
   else
     Err("invalid_conversation_policy")
   end
@@ -596,4 +682,103 @@ pub fn update_conversation(request :: MobilePolicyRequest) -> Bytes!String do
     List.concat(labels, rotation_labels),
     List.concat(blobs, rotation_blobs))?
   Ok(Bytes.from_utf8("ok"))
+end
+
+# What session healing (`Mobile.SessionReset`) reads from a conversation.
+
+fn newest_from(values :: List<MobileHistoryEntry>,
+  sender_account_id :: Bytes,
+  sender_device_id :: Bytes,
+  index :: Int,
+  newest :: U64) -> U64 do
+  if index >= List.length(values) do
+    newest
+  else
+    let value = List.get(values, index)
+    let from_sender = value.direction == 2
+      && Bytes.secure_equals(value.inner.sender_account_id, sender_account_id)
+      && Bytes.secure_equals(value.inner.sender_device_id, sender_device_id)
+    let next = if from_sender && U64.compare(value.inner.client_timestamp, newest) > 0 do
+      value.inner.client_timestamp
+    else
+      newest
+    end
+    newest_from(values, sender_account_id, sender_device_id, index + 1, next)
+  end
+end
+
+## The newest client timestamp of a message kept from that device, or 0: the
+## sender's own clock, so the sender can tell what came after it.
+
+pub fn history_newest_from(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  conversation_id :: Bytes,
+  sender_account_id :: Bytes,
+  sender_device_id :: Bytes) -> U64!String do
+  let values = load_history(database_path, wrapping_key, conversation_id)?
+  Ok(newest_from(values, sender_account_id, sender_device_id, 0, mobile_wide("0")?))
+end
+
+fn sent_after(values :: List<MobileHistoryEntry>,
+  since :: U64,
+  now :: U64,
+  index :: Int,
+  output :: List<InnerEnvelope>) -> List<InnerEnvelope>!String do
+  if index >= List.length(values) do
+    Ok(output)
+  else
+    let value = List.get(values, index)
+    let wanted = value.direction == 1
+      && U64.compare(value.inner.client_timestamp, since) > 0
+      && message_visible(value, now)?
+    sent_after(values,
+      since,
+      now,
+      index + 1,
+      if wanted do
+        List.append(output, value.inner)
+      else
+        output
+      end)
+  end
+end
+
+## This account's messages in the conversation from after `since`, still
+## visible, the newest `limit` of them, oldest first. `since` has to be the
+## exact time of a message this account sent: the peer only knows the times of
+## messages it received, so it cannot ask for what was sent before it was
+## there (a device linked later, say). Anything else, 0 included, is nothing.
+
+pub fn history_sent_after(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  conversation_id :: Bytes,
+  since :: U64,
+  limit :: Int) -> List<InnerEnvelope>!String do
+  let values = load_history(database_path, wrapping_key, conversation_id)?
+  let known = List.any(values,
+    fn value -> value.direction == 1 && U64.compare(value.inner.client_timestamp, since) == 0 end)
+  let sent = if known do
+    sent_after(values, since, current_time()?, 0, List.new())
+  else
+    Ok(List.new())
+  end?
+  if List.length(sent) > limit do
+    Ok(List.drop(sent, List.length(sent) - limit))
+  else
+    Ok(sent)
+  end
+end
+
+## Whether the conversation already holds this message from that sender: a
+## message sent again after a session reset is not shown twice.
+
+pub fn history_holds(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  conversation_id :: Bytes,
+  sender_account_id :: Bytes,
+  client_message_id :: Bytes) -> Bool!String do
+  let values = load_history(database_path, wrapping_key, conversation_id)?
+  Ok(List.any(values,
+    fn value -> Bytes.secure_equals(value.inner.sender_account_id, sender_account_id)
+      && Bytes.secure_equals(value.inner.client_message_id, client_message_id) end))
 end

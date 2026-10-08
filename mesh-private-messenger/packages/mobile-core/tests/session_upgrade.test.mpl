@@ -17,10 +17,13 @@ from MobileCore import (
   test_inner_suite,
   update_conversation_export
 )
+from Mobile.Codec import mobile_wide
+from Mobile.Messages import receive_message
+from Mobile.Types import MobileReceiveRequest
 from Prekeys.Bundle import normalize_prekey_bundle
 from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
-from Protocol.V1 import DeviceSet, DirectoryEntry, PrekeyBundle
+from Protocol.V1 import DeviceSet, DirectoryEntry, PrekeyBundle, protocol_legacy_packet_cutoff_ms
 from Tests.GroupConsistencySupport import request, signed_transparency_view, wide
 from Tests.GroupLifecycleWire import outer, output_list
 from Tests.Support import database_path, write_u32
@@ -70,19 +73,27 @@ fn install_view(path :: String, peer_set :: Bytes, local_set :: Bytes) -> Bool!S
   let view = signed_transparency_view([leaf_hash(peer_set)?, leaf_hash(local_set)?])?
   assert(install_group_transparency_for_test(path,
     view.checkpoint,
-    view.consistency,
     view.service_public_key,
     view.witness_a_public_key,
     view.witness_b_public_key,
     peer_set)?)
   assert(install_group_transparency_for_test(path,
     view.checkpoint,
-    view.consistency,
     view.service_public_key,
     view.witness_a_public_key,
     view.witness_b_public_key,
     local_set)?)
   Ok(true)
+end
+
+# Delayed suite-1 traffic is a bare legacy packet, which reads only before the cutoff.
+
+fn before_cutoff(path :: String, envelope :: Bytes) -> Bytes!String do
+  receive_message(MobileReceiveRequest {
+    database_path: path,
+    outer: envelope,
+    now: mobile_wide(Int.to_string(protocol_legacy_packet_cutoff_ms() - 1))?
+  })
 end
 
 fn acknowledge(path :: String, envelope :: Bytes) -> Bool!String do
@@ -209,12 +220,12 @@ fn proof() -> Bool!String do
     Bytes.from_utf8("ok")))
   let history_request = request([Bytes.from_utf8(alice_path), bob_profile])?
   let history_before_delayed = load_history_export(history_request)?
-  case receive_message_export(request([Bytes.from_utf8(alice_path), delayed])?) do
+  case before_cutoff(alice_path, delayed) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "blocked_message")
   end
   assert(Bytes.secure_equals(load_history_export(history_request)?, history_before_delayed))
-  case receive_message_export(request([Bytes.from_utf8(alice_path), delayed])?) do
+  case before_cutoff(alice_path, delayed) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "message_rejected")
   end

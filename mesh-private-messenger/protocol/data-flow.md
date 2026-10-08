@@ -90,13 +90,20 @@ sequenceDiagram
     Delivery->>Push: Generic wake token
     Push-->>Recipient: Encrypted data available
   end
-  Recipient->>Delivery: Fetch after cursor
+  Recipient->>Edge: Signed fetch after cursor, sealed to the gateway (OHTTP)
+  Edge->>Delivery: Encapsulated request only
   Delivery->>DB: Read opaque envelopes
-  Delivery-->>Recipient: Ciphertext batch
+  Delivery-->>Edge: Encapsulated ciphertext batch
+  Edge-->>Recipient: Encapsulated ciphertext batch
   Recipient->>Recipient: Authenticate, decrypt, and deduplicate
-  Recipient->>Delivery: Acknowledge envelope IDs
+  Recipient->>Edge: Signed acknowledgement, sealed to the gateway (OHTTP)
+  Edge->>Delivery: Encapsulated request only
   Delivery->>DB: Mark acknowledged or schedule deletion
 ```
+
+The fetch and acknowledgement travel as Oblivious HTTP through the edge
+([ohttp-v1.md](ohttp-v1.md)) in builds that pin a gateway; the stream stays a
+direct connection.
 
 The envelope and outbox event commit together. Delivery is at least once until
 expiry, insertion is idempotent by mailbox and envelope ID, and retrieval is
@@ -112,7 +119,7 @@ device ID, and conversation-local ordering data.
 | Delivery core | Opaque mailbox token, ciphertext, size, and expiry |
 | Directory | Username and public device set |
 | Push broker | Wake token and provider token |
-| Object store | Random object ID, encrypted bytes, approximate size, timing, and expiry |
+| Object store | Random object ID, encrypted bytes, size bucket (one of 33), timing, and expiry |
 | Transparency service and witnesses | Public commitments, proofs, and checkpoints |
 
 Application payloads are canonical binary. The foreground WebSocket uses the

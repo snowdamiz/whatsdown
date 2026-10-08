@@ -32,6 +32,13 @@ skew. An envelope that never expired would otherwise hold its space until the
 owner next came online, letting any sender keep an offline device's mailbox
 full. With the bound, a full mailbox always drains by itself.
 
+A mailbox with paid storage ([credits-v1.md](credits-v1.md), "Longer
+storage") relaxes both only while its entitlement lasts: it accepts expiries up
+to its retention (60 to 180 days) plus the day, and keeps every envelope that
+arrives at least that long, raising a shorter expiry. A device's public address
+may also carry a price for message requests ("Postage" there): an envelope to
+it without enough credits answers `402` with the device's signed price.
+
 ## What a sender does with each answer
 
 A client sends its queued envelopes in the order it queued them, and never lets
@@ -43,6 +50,7 @@ one overtake another for the same mailbox.
 | `410` | That mailbox was revoked, or nothing is registered under that address | removes it, counts it against its message, and stops using the address if it was a contact address: nothing sent there can ever arrive |
 | `400`, and the envelope's own expiry has passed | It waited more than 30 days | the same |
 | `429` | That mailbox cannot take it now | leaves it, and everything queued behind it for that mailbox, and carries on with other mailboxes |
+| `402` with an `MBP` body | The device charges postage for message requests at its public address | verifies the policy under the device's key, then asks its user; leaves the envelope (and what is queued behind it for that mailbox) until it is sent with credits or given up |
 | any other `400`, `5xx`, `502`, no connection | Not about this envelope | stops and retries later, discarding nothing |
 
 An unexplained `400` stops everything rather than discarding, because it may

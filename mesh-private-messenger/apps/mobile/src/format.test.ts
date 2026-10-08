@@ -60,6 +60,10 @@ test('friendlyError maps known protocol and network failures to plain language',
     'Their security keys changed. Verify before sending.',
   );
   assert.equal(
+    friendlyError(new Error('Mesh library call failed (status=7): peer_suite_below_floor')),
+    'This contact’s app needs an update to start a secure session.',
+  );
+  assert.equal(
     friendlyError(new Error('message_request_pending')),
     'Accept this message request before replying.',
   );
@@ -104,6 +108,22 @@ test('friendlyError maps known protocol and network failures to plain language',
   assert.equal(
     friendlyError(new Error('registration_refused')),
     'The server won’t register this device. If it was removed from your account, erase it in You to start again.',
+  );
+  assert.equal(
+    friendlyError(new Error('group_witness_set_unknown')),
+    'A group you’re in moved to newer witnesses. Update Morse to keep using it.',
+  );
+  assert.equal(
+    friendlyError(new Error('transparency_anchor_proof_invalid')),
+    'The directory’s proof for this group’s key history didn’t check out. Nothing was changed.',
+  );
+  assert.equal(
+    friendlyError(new Error('account_changed_while_away')),
+    'Your account changed while this device was away.',
+  );
+  assert.equal(
+    friendlyError(new Error('Mesh library call failed (status=9): trust_alarm_active')),
+    'New chats and key changes are paused while Morse’s key log is in question. Existing chats keep working.',
   );
 });
 

@@ -38,7 +38,8 @@ trailing data. The exact limits and independent-review release gate are in
 [`../../protocol/mls-groups-v1.md`](../../protocol/mls-groups-v1.md).
 
 `Attachments.Protocol` exports a bounded encrypted manifest and authenticated
-64 KiB chunks. Its exact labels, wire layouts, and 16 MiB development ceiling
+64 KiB chunks, padded in version 2 to one of 33 size buckets
+(`attachment_padded_size`). Its exact labels, wire layouts, and 16 MiB development ceiling
 are specified in
 [`../../protocol/attachment-wire-v1.md`](../../protocol/attachment-wire-v1.md).
 

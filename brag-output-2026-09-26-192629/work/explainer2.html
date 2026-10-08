@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Morse explainer v2</title>
+<style>
+@font-face{font-family:"Geist";font-weight:400;src:url(fonts/Geist_400Regular.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:500;src:url(fonts/Geist_500Medium.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:600;src:url(fonts/Geist_600SemiBold.ttf) format("truetype")}
+:root{--paper:#F6F2EA;--ink:#0B0B0F;--ink-2:#4A4A55;--ink-3:#6B6B77;--blue:#2459D0;--blue-2:#2F6BEA;--blue-3:#6AA6FF;--sky:#D5E2FF;--butter:#FFE8AD;--red:#D8323A;--green:#178A4E;--night:#0B0D14}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#F6F2EA}
+body{font:400 17px/1.5 "Geist",system-ui,sans-serif;color:#0B0B0F;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,p{margin:0}
+svg{display:block}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:radial-gradient(120% 100% at 50% 40%,#FBF8F2 0%,#F6F2EA 60%,#EFE9DD 100%)}
+.layer{position:absolute;inset:0}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.full{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:visible}
+.glow{position:absolute;border-radius:50%;pointer-events:none}
+#gA{width:1500px;height:1500px;background:radial-gradient(closest-side,rgba(106,166,255,.30),rgba(106,166,255,0))}
+#gB{width:1300px;height:1300px;background:radial-gradient(closest-side,rgba(255,221,140,.45),rgba(255,221,140,0))}
+#gR{width:1400px;height:1400px;background:radial-gradient(closest-side,rgba(255,150,140,.38),rgba(255,150,140,0));opacity:0}
+#blue{position:absolute;left:24px;top:24px;right:24px;bottom:24px;border-radius:48px;overflow:hidden;background:radial-gradient(90% 90% at 50% 45%,#3474F0 0%,#2459D0 55%,#1F4BB8 100%);clip-path:circle(0px at 50% 50%)}
+#flood{background:radial-gradient(90% 90% at 50% 45%,#3474F0 0%,#2459D0 55%,#1A43A6 100%)}
+canvas{position:absolute;left:0;top:0}
+#grain{width:1920px;height:1080px;opacity:.05;mix-blend-mode:soft-light}
+#vign{background:radial-gradient(ellipse 80% 75% at 50% 50%,rgba(120,95,60,0) 60%,rgba(120,95,60,.10) 100%);pointer-events:none}
+#ring{position:absolute;border-radius:50%;box-shadow:inset 0 0 0 6px var(--blue-2);opacity:0}
+
+.big{font-weight:600;letter-spacing:-.05em;line-height:1.04}
+.wd{display:inline-block;opacity:0;transform-origin:0 100%}
+.wk{display:inline-block;clip-path:inset(-.25em -.35em -.24em -.35em)} /* words rise through their line */
+.pshadow{position:absolute;width:380px;height:70px;border-radius:50%;background:radial-gradient(closest-side,rgba(20,24,60,.30),rgba(20,24,60,0));filter:blur(8px);opacity:0}
+.sh{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(105deg,rgba(255,255,255,0) 38%,rgba(255,255,255,.34) 50%,rgba(255,255,255,0) 62%) 150% 0/260% 100% no-repeat}
+.acc{color:var(--blue)}
+.redt{color:var(--red)}
+.w{color:#fff}
+.hd{position:absolute;left:0;right:0;top:92px;text-align:center;font-size:104px}
+.hd>div{white-space:nowrap}
+.col{position:absolute;left:150px;width:720px}
+.sub{font-size:44px;line-height:1.3;letter-spacing:-.02em;color:var(--ink-2);text-wrap:balance;opacity:0}
+.spec{position:absolute;font-size:24px;font-weight:500;letter-spacing:.01em;color:var(--ink-3);white-space:nowrap;opacity:0}
+.c{translate:-50% -50%}
+
+/* lockup: the mark in the logo's own proportions (gap = .36 of the dot, dash = 3 dots) */
+.lock{display:flex;align-items:center;gap:56px}
+.mk{position:relative;flex:none}
+.mk i{position:absolute;left:0;background:var(--blue-2);border-radius:999px}
+#s10Mk i{background:#fff}
+#s1Mk{width:66px;height:52px}#s1Mk .d1{top:0;width:22px;height:22px}#s1Mk .d2{top:30px;width:66px;height:22px}
+#s10Mk{width:190px;height:150px}#s10Mk .d1{top:0;width:64px;height:64px}#s10Mk .d2{top:86px;width:190px;height:64px}
+.wm{font-weight:600;letter-spacing:-.055em;line-height:1;white-space:nowrap}
+.wm span{display:inline-block}
+.tagl{margin-top:46px;font-weight:500;font-size:58px;letter-spacing:-.03em;color:rgba(255,255,255,.94);opacity:0}
+
+/* phones, from apps/landing/index.html */
+.p3{position:absolute;inset:0;perspective:2200px}
+.rig{position:absolute;top:344px;transform-style:preserve-3d}
+#pY{left:250px}#pA{left:1312px}
+.rig .phone{zoom:1.06}
+.phone{position:relative;width:318px;padding:8px;border:2px solid transparent;border-radius:54px;
+  background:linear-gradient(#0E0E12,#0E0E12) padding-box,linear-gradient(150deg,#B4B4C0,#3A3A44 14%,#18181D 40%,#18181D 62%,#3A3A44 86%,#9A9AA6) border-box;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 70px 110px -44px rgba(8,10,40,.55),0 24px 50px -24px rgba(8,10,40,.4)}
+.phone::before{content:"";position:absolute;z-index:3;top:19px;left:50%;width:88px;height:26px;margin-left:-44px;border-radius:999px;background:#0E0E12}
+.screen{position:relative;display:flex;flex-direction:column;height:640px;border-radius:44px;overflow:hidden;background:#fff;color:#0A0A0C;font-size:14.5px;line-height:1.36;letter-spacing:-.006em}
+.screen::after{content:"";position:absolute;left:50%;bottom:7px;width:112px;height:4px;margin-left:-56px;border-radius:9px;background:currentColor;opacity:.2}
+.glare{position:absolute;inset:0;z-index:4;pointer-events:none;background:linear-gradient(112deg,rgba(120,150,220,0) 38%,rgba(120,150,220,.10) 47%,rgba(120,150,220,.02) 52%,rgba(120,150,220,0) 60%) 0 0/320% 100% no-repeat}
+.status{display:flex;align-items:center;justify-content:space-between;flex:none;height:50px;padding:6px 30px 0;font-weight:600;font-size:13.5px}
+.status>span+span{display:flex;align-items:center;gap:5px}
+.status .ic{width:17px;height:12px;fill:currentColor;stroke:none}
+.bat{position:relative;width:24px;height:11.5px;border-radius:3.5px;box-shadow:inset 0 0 0 1.2px currentColor;opacity:.85}
+.bat::after{content:"";position:absolute;inset:2.4px 6px 2.4px 2.4px;border-radius:1.5px;background:currentColor}
+.chead{position:relative;display:flex;align-items:center;gap:10px;flex:none;padding:6px 14px 10px;min-height:50px}
+.chead>.ic{width:22px;height:22px}
+.chead b{font-weight:600;font-size:15.5px;letter-spacing:-.02em;line-height:1.2}
+.chead .end{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;box-shadow:0 1px 5px rgba(10,10,12,.14)}
+.chead .end .ic{width:17px;height:17px}
+.ava{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;object-fit:cover;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:12px}
+.t0{--a:#5B9DFF;--b:#3462FF}.t1{--a:#B57BFF;--b:#7B4DFF}.t2{--a:#FF7DBA;--b:#F0468C}.t3{--a:#FFB35C;--b:#FF7A3D}.t4{--a:#5EE39B;--b:#22AD6C}
+.thread{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:0;padding:8px 12px 12px}
+.day{align-self:center;margin-bottom:5px;padding:4px 11px;border-radius:999px;background:#F2F2F5;font-size:11px;color:#63636D}
+.b{position:relative;max-width:82%;padding:8px 13px 6px;border-radius:20px}
+.b.in{align-self:flex-start;background:#E9E9EE;border-bottom-left-radius:6px}
+.b.out{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:6px}
+.b small{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:1px;font-size:10.5px;opacity:.6}
+.b small .ic{width:13px;height:13px}
+.nw{display:flex;flex-direction:column;overflow:visible;flex:none}
+.nw.r{align-items:flex-end}.nw.l{align-items:flex-start}
+.nw>.b{max-width:82%}
+.seal{position:relative;display:block}
+.seal>i{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;gap:14.7px 9px;padding-top:7.4px;overflow:hidden;color:rgba(10,10,12,.42)}
+.mc{--u:5px;display:inline-flex;align-items:center;gap:calc(var(--u)*.8);flex:none}
+.mc i{flex:none;width:var(--u);height:var(--u);border-radius:999px;background:currentColor}
+.mc i.D{width:calc(var(--u)*3)}
+.mc i.g{width:calc(var(--u)*1.2);background:none}
+.composer{display:flex;align-items:center;gap:9px;flex:none;height:44px;margin:0 12px 22px;padding:0 6px 0 13px;border-radius:999px;font-size:13.5px;box-shadow:inset 0 0 0 1px #DFDFE6,0 2px 8px rgba(10,10,12,.05);color:#8E8E98}
+.composer .ic{width:18px;height:18px}
+.composer.typing>span{color:#0A0A0C}
+.composer>span>u{display:inline-block;width:1.5px;height:16px;margin-left:1px;vertical-align:-3px;background:var(--blue-2);text-decoration:none}
+.composer i{display:grid;place-items:center;width:32px;height:32px;margin-left:auto;border-radius:50%;background:#A9C1F3;color:#fff}
+
+/* diagram pieces */
+.node{position:absolute;display:flex;align-items:center;gap:14px;height:74px;padding:0 30px 0 14px;border-radius:999px;background:var(--night);color:#fff;font-weight:600;font-size:26px;letter-spacing:-.02em;white-space:nowrap;box-shadow:0 26px 46px -22px rgba(11,11,15,.55)}
+.node>i{position:relative;display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.1)}
+.node>i .ic{position:absolute;width:24px;height:24px}
+.node.light{background:#fff;color:var(--ink)}
+.node.light>i{background:var(--sky);color:var(--blue)}
+.note{position:absolute;font-size:24px;font-weight:500;color:var(--ink-3);white-space:nowrap;opacity:0}
+.note.red{color:var(--red)}
+.kc{position:absolute;width:384px;height:100px;transform-style:preserve-3d}
+.kc>div{position:absolute;inset:0;display:flex;align-items:center;gap:16px;padding:0 22px;border-radius:26px;background:#fff;box-shadow:0 26px 44px -22px rgba(11,11,15,.45);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.kc .bk{transform:rotateX(180deg)}
+.kc i{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:17px;background:var(--blue-2);color:#fff}
+.kc i .ic{width:28px;height:28px}
+.kc b{display:block;font-weight:500;font-size:19px;letter-spacing:-.01em;line-height:1.2;color:var(--ink-3)}
+.kc span{display:block;font-weight:600;font-size:25px;white-space:nowrap;letter-spacing:.03em;line-height:1.25;font-variant-numeric:tabular-nums;color:var(--ink)}
+.kc .bk i{background:var(--red)}.kc .bk span{color:var(--red)}
+.pkt{position:absolute;left:0;top:0;height:66px;border-radius:33px;font-size:28px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;opacity:0}
+.pkt>*{position:absolute;inset:0;display:flex;align-items:center;border-radius:33px}
+.pkt .pl{justify-content:center;background:var(--blue);color:#fff}
+.pkt .sl{gap:12px;padding:0 20px;background:#171A24;color:rgba(160,190,255,.6);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(160,190,255,.12)}
+.pkt .sl>svg{width:28px;height:28px;flex:none;color:#fff}
+.pkt .sl>span{display:flex;gap:12px}
+.pkt .mc{--u:7px}
+.pkt{box-shadow:0 26px 44px -20px rgba(11,11,15,.5)}
+.edge{position:absolute;top:-6px;bottom:-6px;width:4px;margin-left:-2px;border-radius:2px;background:#CFE0FF;box-shadow:0 0 14px 4px rgba(106,166,255,.85);opacity:0}
+
+/* 3 · ratchet */
+#gear{position:absolute;left:0;top:0}
+#routes{z-index:2}
+#routes .rv{fill:none;stroke-width:5;stroke-linecap:round;stroke-dasharray:.01 13 20 13}
+.node,.kc,.pkt,.note{z-index:3}
+.kt{position:absolute;left:0;top:0;width:236px;height:132px;padding:0 24px;border-radius:32px;background:#fff;color:var(--ink);display:flex;flex-direction:column;justify-content:center;gap:4px;box-shadow:0 30px 50px -26px rgba(6,14,50,.6)}
+.kt small{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:500;color:var(--ink-3)}
+.kt small .ic{width:22px;height:22px;color:var(--blue-2)}
+.kt b{font-size:31px;font-weight:600;letter-spacing:.03em;font-variant-numeric:tabular-nums}
+.lnk{position:absolute;left:0;top:0;width:80px;height:4px;border-radius:2px;background:rgba(255,255,255,.5)}
+.lnk::after{content:"";position:absolute;right:-2px;top:-5px;width:10px;height:10px;border-top:4px solid rgba(255,255,255,.5);border-right:4px solid rgba(255,255,255,.5);transform:rotate(45deg)}
+.drop{position:absolute;left:0;top:0;height:64px;border-radius:32px;font-size:28px;font-weight:500;white-space:nowrap}
+.drop>*{position:absolute;inset:0;display:flex;align-items:center;border-radius:32px}
+.drop .pl{position:relative;inset:auto;height:64px;padding:0 28px;justify-content:center;background:#fff;color:var(--ink)}
+.drop .sl{padding:0 18px;background:#171A24;color:rgba(160,190,255,.6);overflow:hidden}
+.drop .mc{--u:6px}
+.drop .sl>span{display:flex;gap:10px}
+.pillw{display:inline-flex;align-items:center;gap:12px;padding:12px 26px 12px 20px;border-radius:999px;background:rgba(255,255,255,.14);font-weight:500;font-size:28px;color:rgba(255,255,255,.92);opacity:0}
+.pillw .ic{width:26px;height:26px}
+
+/* 4 · sealed and padded */
+.row{position:absolute;left:0;top:0}
+.bub{position:absolute;left:0;top:0;border-radius:30px;border-bottom-right-radius:10px;font-size:28px;font-weight:500;line-height:1.3;letter-spacing:-.01em;color:#fff}
+.bub>*{position:absolute;inset:0;border-radius:inherit}
+.bub .pl{display:block;background:var(--blue);padding:14px 24px}
+.bub .pl span{display:block;width:max-content;max-width:470px}
+.bub .sl{background:#171A24;color:rgba(160,190,255,.6);overflow:hidden;display:flex;align-items:center;gap:12px;padding:0 18px}
+.bub .sl .mc{--u:6px}
+.bub .sl>span{display:flex;gap:10px}
+.bub .sl>svg{width:26px;height:26px;flex:none;color:#fff}
+.from{position:absolute;left:0;top:0;display:inline-flex;align-items:center;gap:10px;padding:6px 18px 6px 6px;border-radius:999px;background:#fff;font-size:22px;font-weight:500;color:var(--ink-2);box-shadow:0 10px 22px -12px rgba(11,11,15,.35);white-space:nowrap}
+.from img{width:32px;height:32px;border-radius:50%}
+#gate{position:absolute;left:858px;top:440px;width:4px;height:520px;border-radius:2px;background:linear-gradient(rgba(106,166,255,0),var(--blue-3) 15%,var(--blue-3) 85%,rgba(106,166,255,0))}
+#gateGlow{position:absolute;left:760px;top:440px;width:200px;height:520px;background:radial-gradient(50% 50% at 50% 50%,rgba(106,166,255,.35),rgba(106,166,255,0))}
+#queue{position:absolute;left:1180px;top:430px;width:600px;height:470px;border-radius:44px;background:var(--night);color:#F2F2F4;box-shadow:0 50px 90px -40px rgba(8,10,40,.6)}
+#queue header{display:flex;align-items:center;gap:16px;padding:30px 34px}
+#queue header>i{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:17px;box-shadow:inset 0 0 0 1px #27272F;color:#9C9CA6}
+#queue header .ic{width:28px;height:28px;stroke-width:1.7}
+#queue b{display:block;font-weight:600;font-size:27px;letter-spacing:-.02em;line-height:1.2}
+#queue small{display:block;font-size:20px;color:#8E8E98}
+
+/* 7–9 · the log, the witnesses, the fork */
+#sky{position:absolute;left:900px;top:110px;width:900px;height:860px;border-radius:64px;background:var(--sky);box-shadow:inset 0 0 0 1px rgba(36,89,208,.06)}
+.tn{position:absolute;left:0;top:0;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:18px;background:#fff;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.02em;box-shadow:0 14px 26px -16px rgba(20,40,110,.45);white-space:nowrap}
+.tn.lf{width:92px;height:70px;flex-direction:column;gap:2px;font-size:20px}
+.tn.lf .ic{width:20px;height:20px;color:var(--blue-2)}
+.tn.in{width:100px;height:46px;border-radius:23px;font-size:20px;color:var(--ink-2)}
+.tn.rt{width:260px;height:74px;border-radius:37px;background:var(--blue-2);color:#fff;font-size:27px;gap:12px}
+.tn.rt small{font-size:19px;font-weight:500;letter-spacing:0;opacity:.8}
+.tn.ghost{background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 2px rgba(47,107,234,.25)}
+.tag{position:absolute;padding:5px 14px;border-radius:999px;background:var(--ink);color:#fff;font-size:19px;font-weight:600;white-space:nowrap}
+.okp{position:absolute;display:inline-flex;align-items:center;gap:10px;padding:12px 24px 12px 16px;border-radius:999px;background:#fff;color:var(--green);font-weight:600;font-size:26px;white-space:nowrap;box-shadow:0 16px 30px -16px rgba(11,11,15,.35);opacity:0}
+.okp .ic{width:28px;height:28px;stroke-width:2.6}
+.sheet{border-radius:28px;background:#fff;color:#0A0A0C}
+.slip{zoom:1.3;width:380px;padding:20px 20px 22px;box-shadow:0 34px 56px -30px rgba(11,11,15,.4)}
+.slip header{display:flex;align-items:center;gap:12px}
+.slip header b{display:block;font-weight:600;font-size:16px;letter-spacing:-.02em;line-height:1.25}
+.slip header small{display:block;font-size:13px;color:#63636D}
+.vt{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:var(--blue-2);color:#fff}
+.vt .ic{width:19px;height:19px}
+.fp{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:16px;padding:12px 8px;border-radius:14px;background:#F2F2F5;text-align:center;font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.fp span{padding:3px 0;border-radius:7px}
+.sig{display:flex;align-items:center;margin-top:14px;font-size:13.5px;color:#63636D;white-space:nowrap}
+.sig .ava{width:26px;height:26px;font-size:10px;box-shadow:0 0 0 2px #fff}
+.sig .ava+.ava{margin-left:5px}
+.sig .off{--a:#E4E4EA;--b:#E4E4EA;color:#9C9CA6}
+.sig .by{margin-left:10px}
+.card{position:absolute;left:0;top:0}
+#ck{z-index:2}#ck2{z-index:1} /* the second version slides out from under the first */
+.wt{position:absolute;left:0;top:0;width:88px;height:88px}
+.wt>b{position:absolute;inset:0;display:grid;place-items:center;border-radius:50%;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:36px;box-shadow:0 16px 30px -14px rgba(20,40,110,.55),0 0 0 4px #fff}
+.wt>svg{position:absolute;left:-12px;top:-12px;width:112px;height:112px;overflow:visible}
+.wt>i{position:absolute;right:-6px;bottom:-6px;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#fff;color:var(--green);box-shadow:0 4px 10px rgba(11,11,15,.2);opacity:0}
+.wt>i .ic{width:20px;height:20px;stroke-width:3}
+.tok{position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:14px;box-shadow:0 0 0 2px #fff,0 6px 14px rgba(11,11,15,.3);opacity:0}
+.soon{display:inline-flex;align-items:center;gap:12px;padding:11px 24px 11px 18px;border-radius:999px;background:#fff;box-shadow:0 10px 24px -14px rgba(11,11,15,.3);font-weight:500;font-size:28px;color:var(--ink-2);opacity:0}
+.soon i{width:12px;height:12px;border-radius:50%;background:var(--blue-2)}
+.verdict{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:14px;padding:20px 34px 20px 24px;border-radius:999px;background:var(--red);color:#fff;font-weight:500;font-size:30px;white-space:nowrap;box-shadow:0 22px 40px -18px rgba(216,50,58,.7);opacity:0}
+.verdict .ic{width:32px;height:32px}
+
+/* 10 · end card */
+.cta{display:flex;align-items:center;gap:40px;margin-top:64px;opacity:0}
+.btnw{display:inline-flex;align-items:center;height:92px;padding:0 50px;border-radius:999px;background:#0B0B0F;color:#fff;font-weight:600;font-size:36px;letter-spacing:-.02em;box-shadow:0 24px 50px -20px rgba(6,12,40,.7)}
+.url{font-weight:500;font-size:40px;letter-spacing:-.02em;color:rgba(255,255,255,.92)}
+.soon6{display:inline-flex;align-items:center;gap:12px;margin-bottom:48px;padding:11px 24px 11px 18px;border-radius:999px;background:rgba(255,255,255,.14);font-weight:500;font-size:28px;color:rgba(255,255,255,.92);opacity:0}
+.soon6 i{width:12px;height:12px;border-radius:50%;background:var(--butter)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-signal" viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="4.6" y="5.5" width="3" height="6.5" rx=".8"/><rect x="9.2" y="3" width="3" height="9" rx=".8"/><rect x="13.8" y="0" width="3" height="12" rx=".8"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 17 12"><path d="M8.5 2.6c2.3 0 4.4.9 6 2.4l1.1-1.2A10.3 10.3 0 0 0 8.5.9C5.7.9 3.2 2 1.4 3.8l1.1 1.2a8.6 8.6 0 0 1 6-2.4Zm0 3.5c1.4 0 2.7.5 3.7 1.4l1.1-1.2a7.1 7.1 0 0 0-9.6 0l1.1 1.2c1-.9 2.3-1.4 3.7-1.4Zm0 3.4c.6 0 1.2.2 1.6.6L8.5 11.8 6.9 10.1c.4-.4 1-.6 1.6-.6Z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8h.01"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m20 11.5-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></symbol>
+  <symbol id="i-checks" viewBox="0 0 24 24"><path d="m2 12.5 4.5 4.5 9-9.5M12 16l1 1 9-9.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.5 2.8v5.7c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.8L12 3Z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 9.2-9.2M16.5 6.5l2.5 2.5M14 9l2 2"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v14H7.5A2.5 2.5 0 0 0 5 19.5v-14Z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-4"/><circle cx="12" cy="8.6" r="2"/><path d="M8.8 13.6a3.4 3.4 0 0 1 6.4 0"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+</svg>
+<div id="stage">
+  <div class="glow" id="gA"></div><div class="glow" id="gB"></div><div class="glow" id="gR"></div>
+  <div id="blue"></div>
+  <div class="layer" id="flood"></div>
+  <canvas id="fx" width="1920" height="1080"></canvas>
+
+  <!-- 1 · the opening card (frame 0, the poster, and the loop seam) -->
+  <div class="layer center" id="s1">
+    <div id="s1T" class="big" style="font-size:176px;text-align:center">
+      <div><span class="wd">Encryption</span> <span class="wd">was</span></div>
+      <div class="acc"><span class="wd">the</span> <span class="wd">easy</span> <span class="wd">part.</span></div>
+    </div>
+    <div id="s1L" style="position:absolute;left:0;right:0;top:916px;display:flex;justify-content:center">
+      <div class="lock" style="gap:20px"><div class="mk" id="s1Mk"><i class="d1"></i><i class="d2"></i></div><div class="wm" style="font-size:58px">Morse</div></div>
+    </div>
+  </div>
+
+  <!-- 2, 5, 6 · two phones and the servers between them -->
+  <div class="layer" id="dia">
+    <div class="hd big" id="h2"><div><span class="wd">Locked</span> <span class="wd">on</span> <span class="wd">your</span> <span class="wd">phone.</span></div><div class="acc"><span class="wd">Opened</span> <span class="wd">only</span> <span class="wd">on</span> <span class="wd">Ada’s.</span></div></div>
+    <div class="hd big" id="h5"><div><span class="wd">Where</span> <span class="wd">did</span> <span class="wd">your</span> <span class="wd">phone</span></div><div class="acc"><span class="wd">get</span> <span class="wd">Ada’s</span> <span class="wd">key?</span></div></div>
+    <div class="hd big" id="h6a" style="top:150px"><div><span class="wd">Suppose</span> <span class="wd">it</span> <span class="wd">lies.</span></div></div>
+    <div class="hd big" id="h6b"><div><span class="wd">Encrypted</span> <span class="wd">perfectly.</span></div><div class="redt"><span class="wd">For</span> <span class="wd">the</span> <span class="wd">wrong</span> <span class="wd">person.</span></div></div>
+    <p class="spec c" id="spec2" style="left:960px;top:1000px">X25519 + ML-KEM-768 handshake · ChaCha20-Poly1305</p>
+    <i class="pshadow" id="shY"></i><i class="pshadow" id="shA"></i>
+    <svg id="routes" class="full"></svg>
+    <div class="p3">
+      <div class="rig" id="pY"><div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+        <div class="chead"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/ada.jpg" alt=""><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+        <div class="thread">
+          <p class="day">Today</p>
+          <p class="b in">Did the scans arrive?<small>9:24 AM</small></p>
+          <p class="b out">All four. Sending the signed copy now.<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+          <p class="b in">Perfect, thank you. Dinner on Friday?<small>9:31 AM</small></p>
+          <div class="nw r" id="yN1"><p class="b out">See you at 7.<small>9:33 AM<svg class="ic"><use href="#i-checks"/></svg></small></p></div>
+          <div class="nw r" id="yN2"><p class="b out">Door code is 4471.<small>9:36 AM<svg class="ic"><use href="#i-checks"/></svg></small></p></div>
+        </div>
+        <div class="composer" id="yComp"><svg class="ic"><use href="#i-clip"/></svg><span id="yTyped">Message</span><i id="ySend"><svg class="ic"><use href="#i-up"/></svg></i></div>
+        <i class="glare" id="glY"></i>
+      </div></div></div>
+      <div class="rig" id="pA"><div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+        <div class="chead"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/you.jpg" alt=""><b>@you</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+        <div class="thread">
+          <p class="day">Today</p>
+          <p class="b out">Did the scans arrive?<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+          <p class="b in">All four. Sending the signed copy now.<small>9:24 AM</small></p>
+          <p class="b out">Perfect, thank you. Dinner on Friday?<small>9:31 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+          <div class="nw l" id="aN1"><p class="b in"><span class="seal"><span class="pl">See you at 7.</span><i class="sl" data-seal="3"></i></span><small>9:33 AM</small></p></div>
+          <div class="nw l" id="aN2"><p class="b in"><span class="seal"><span class="pl">Door code is 4471.</span><i class="sl" data-seal="4"></i></span><small>9:36 AM</small></p></div>
+        </div>
+        <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+        <i class="glare" id="glA"></i>
+      </div></div></div>
+    </div>
+    <div class="node c" id="srv" style="left:960px;top:706px"><i><svg class="ic" id="srvI1"><use href="#i-server"/></svg><svg class="ic" id="srvI2" style="opacity:0"><use href="#i-eye"/></svg></i>Morse servers</div>
+    <p class="note c" id="srvNote" style="left:960px;top:782px">Sees only noise</p>
+    <div class="node light c" id="dir" style="left:960px;top:486px"><i><svg class="ic"><use href="#i-book"/></svg></i>Key directory</div>
+    <div class="kc c" id="kc"><div><i><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><span>9f3a c107 b82e 64d1</span></div></div><div class="bk"><i><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><span>7c21 e0a4 5d0e b913</span></div></div></div>
+    <p class="note red" id="kcNote" style="left:652px;top:386px">Really the server’s own key</p>
+    <div class="pkt c" id="pk1" style="width:270px"><span class="pl">See you at 7.</span><span class="sl"><svg class="ic"><use href="#i-lock"/></svg><span data-seal="3"></span><i class="sh"></i></span><i class="edge"></i></div>
+    <div class="pkt c" id="pk2" style="width:330px"><span class="pl">Door code is 4471.</span><span class="sl"><svg class="ic"><use href="#i-lock"/></svg><span data-seal="4"></span><i class="sh"></i></span><i class="edge"></i></div>
+  </div>
+
+  <!-- 3 · the ratchet, on blue -->
+  <div class="layer" id="s3">
+    <div class="hd big w" id="h3"><div><span class="wd">A</span> <span class="wd">new</span> <span class="wd">key</span></div><div><span class="wd">for</span> <span class="wd">every</span> <span class="wd">message.</span></div></div>
+    <svg id="gear" class="full"><g id="gearG" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"><path id="gearP"/><circle r="118"/><circle r="30"/></g></svg>
+    <div id="chain"></div>
+    <div id="drops"></div>
+    <p class="sub w c" id="s3Sub" style="position:absolute;left:960px;top:900px;white-space:nowrap;color:rgba(255,255,255,.92)">Used once. Then destroyed.</p>
+    <p class="pillw c" id="s3Spec" style="position:absolute;left:960px;top:990px">Double Ratchet</p>
+  </div>
+
+  <!-- 4 · sealed and padded -->
+  <div class="layer" id="s4">
+    <div class="big" id="h4" style="position:absolute;left:150px;top:112px;font-size:112px;white-space:nowrap"><span class="wd">Sealed</span> <span class="wd">and</span> <span class="wd acc">padded.</span></div>
+    <p class="sub" id="s4Sub" style="position:absolute;left:150px;top:262px;width:1000px">Our servers can’t see who sent it, or tell “OK” from a paragraph.</p>
+    <p class="note c" id="gateNote" style="left:860px;top:418px">Sealed on your phone</p>
+    <i id="gateGlow"></i><i id="gate"></i>
+    <div id="queue"><header><i><svg class="ic"><use href="#i-server"/></svg></i><div><b>Our delivery queue</b><small id="qCount">Waiting</small></div></header></div>
+    <div id="rows"></div>
+  </div>
+
+  <!-- 1b · the callback -->
+  <div class="layer center" id="s5t">
+    <div id="s5T" class="big" style="font-size:176px;text-align:center">
+      <div><span class="wd">That</span> <span class="wd">was</span></div>
+      <div class="acc"><span class="wd">the</span> <span class="wd">easy</span> <span class="wd">part.</span></div>
+    </div>
+  </div>
+
+  <!-- 7, 8, 9 · the log, the witnesses, the fork -->
+  <div class="layer" id="net">
+    <div id="netG" class="layer">
+      <div id="sky"></div>
+      <svg id="tsv" class="full"><defs><filter id="gl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter></defs><g id="edges"></g><g id="proof"></g><g id="wlines"></g></svg>
+      <div id="tree"></div>
+      <p class="note c" id="wsNote" style="left:1350px;top:252px">What a witness sees</p>
+      <div class="card" id="ck"><div class="sheet slip">
+        <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small id="ckS">2,981 keys</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+        <p class="sig"><span class="ava off">A</span><span class="ava off">B</span><span class="ava off">C</span><span class="ava off">D</span><span class="ava off">E</span><span class="by"></span></p>
+      </div></div>
+      <div class="card" id="ck2"><div class="sheet slip">
+        <header><i class="vt" style="background:var(--red)"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to Ada</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span id="diff">b82e</span><span>64d1</span></p>
+        <p class="sig"><span class="ava off">A</span><span class="ava off">B</span><span class="ava off">C</span><span class="ava off">D</span><span class="ava off">E</span><span class="by"></span></p>
+      </div></div>
+      <div id="wits"></div>
+      <p class="okp c" id="accept" style="left:1350px;top:622px"><svg class="ic"><use href="#i-check"/></svg>Majority signed. Your phone accepts it.</p>
+      <p class="okp c" id="inlog" style="left:1596px;top:300px"><svg class="ic"><use href="#i-check"/></svg>In the log</p>
+    </div>
+    <div class="col" style="top:0;height:1080px;display:flex;flex-direction:column;justify-content:center">
+      <div id="c7" style="position:absolute;left:0;top:318px">
+        <div class="big" id="h7" style="font-size:88px"><span class="wd">Every</span> <span class="wd">key</span> <span class="wd">goes</span><br><span class="wd">into</span> <span class="wd">a</span> <span class="wd">log</span> <span class="wd">that</span><br><span class="wd acc">only</span> <span class="wd acc">grows.</span></div>
+        <p class="sub" id="s7Sub" style="margin-top:36px">Your phone checks it. Every time.</p>
+      </div>
+      <p class="spec" id="s7Spec" style="left:0;top:920px">Append-only Merkle log · inclusion proofs</p>
+      <div id="c8" style="position:absolute;left:0;top:318px">
+        <div class="big" id="h8" style="font-size:88px"><span class="wd">Witnesses</span><br><span class="wd">check</span> <span class="wd">every</span> <span class="wd">version,</span><br><span class="wd acc">then</span> <span class="wd acc">sign</span> <span class="wd acc">it.</span></div>
+        <p class="sub" id="s8Sub" style="margin-top:36px">Your phone needs a majority.</p>
+      </div>
+      <p class="spec" id="s8Spec" style="left:0;top:920px">Ed25519 signatures on every checkpoint</p>
+      <div id="c9" style="position:absolute;left:0;top:300px">
+        <p class="soon" id="s9Soon"><i></i>Launching in stages</p>
+        <div class="big" id="h9" style="font-size:118px;margin-top:34px"><span class="wd">A</span> <span class="wd">lie</span><br><span class="wd acc">proves</span> <span class="wd acc">itself.</span></div>
+        <p class="verdict" id="s9V" style="margin-top:52px"><svg class="ic"><use href="#i-alert"/></svg>Witness C signed both. Bond slashed.<i class="sh"></i></p>
+        <p class="sub" id="s9Tx" style="margin-top:22px;font-size:30px;color:#3B4A73">Proof checked on Solana</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10 · end card -->
+  <div class="layer center" id="s10">
+    <div id="s10C" class="center">
+      <p class="soon6" id="s10Soon"><i></i>In development</p>
+      <div class="lock" style="gap:50px"><div class="mk" id="s10Mk"><i class="d1"></i><i class="d2"></i></div><div class="wm" id="s10W" style="font-size:190px;color:#fff"><span>M</span><span>o</span><span>r</span><span>s</span><span>e</span></div></div>
+      <p class="tagl" id="s10Tag">Private messaging, kept honest.</p>
+      <div class="cta" id="s10Cta"><span class="btnw" style="position:relative;overflow:hidden">Join the waitlist<i class="sh"></i></span><span class="url">morseapp.io</span></div>
+    </div>
+  </div>
+
+  <i id="ring"></i>
+  <div class="layer" id="vign"></div>
+  <canvas id="grain" width="480" height="270"></canvas>
+</div>
+
+<script>
+// Every frame is a pure function of t: render(t) sets all animated state from scratch.
+const $ = s => document.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+// Kick grid of idea.mp3 (120 BPM): intro to G(32), build to G(96), big section to G(160),
+// then audio2.mjs cuts from the outro's second bar straight to the final hit on G(168).
+const G = k => 0.18 + 0.5 * k;
+const LOOP = 2580 / 30;   // the final hit's fade wraps onto the track's opening
+let MEASURE = false;      // while ready() measures, no camera moves
+
+// ---- Sealed strips are seeded random Morse noise, as on the landing page
+const M = {A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--.."};
+let seed = 11;
+const rand = () => (seed = seed * 16807 % 2147483647) / 2147483647, letters = Object.keys(M);
+const group = () => Array.from({length: 2 + rand() * 3 | 0}, () => [...M[letters[rand() * 26 | 0]]].map(s => s === "-" ? '<i class="D"></i>' : "<i></i>").join("")).join('<i class="g"></i>');
+const noise = n => Array.from({length: n}, () => `<span class="mc">${group()}</span>`).join("");
+const hex4 = () => (rand() * 65536 | 0).toString(16).padStart(4, "0");
+
+// ---- Easing: long soft settles, springs for things that land
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, p) => a + (b - a) * p;
+function bez(x1, y1, x2, y2) {
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const X = s => ((ax * s + bx) * s + cx) * s, Y = s => ((ay * s + by) * s + cy) * s;
+  return t => { if (t <= 0) return 0; if (t >= 1) return 1; let lo = 0, hi = 1, s = t; for (let i = 0; i < 30; i++) { X(s) < t ? lo = s : hi = s; s = (lo + hi) / 2; } return Y(s); };
+}
+const OUT = bez(.16, 1, .3, 1), INOUT = bez(.65, 0, .35, 1), IN = bez(.55, 0, .8, .3), SOFT = bez(.3, .05, .2, 1), BLOOM = bez(.5, 0, .15, 1);
+const spring = (x, w = 13, z = 9) => x <= 0 ? 0 : 1 - Math.exp(-x * z) * Math.cos(x * w); // x in seconds: ~10% overshoot, settled by .5s
+const P = (t, a, d, e = SOFT) => e(clamp((t - a) / d));
+const smooth = (a, b, x) => { const p = clamp((x - a) / (b - a)); return p * p * (3 - 2 * p); };
+const on = (t, a, b, fa = .25, fb = .25) => smooth(a - fa, a, t) * (1 - smooth(b, b + fb, t));
+
+// ---- Moves
+function rev(w, t, a, d = 1.05) { // a word rising through its line
+  const p = P(t, a, d, OUT);
+  w.style.opacity = t < a ? 0 : clamp((t - a) / .3);
+  w.style.transform = p >= 1 ? "none" : `translateY(${(1 - p) * 118}%) rotate(${(1 - p) * 5}deg)`;
+}
+function unrev(w, t, a, d = .6) { if (t < a) return; const p = P(t, a, d, IN); w.style.opacity = 1 - p; w.style.transform = `translateY(${-p * 118}%)`; }
+const words = (sel, t, a, step = .07, d) => $$(sel + " .wd").forEach((w, n) => rev(w, t, a + n * step, d));
+const wordsOut = (sel, t, a, step = .025) => $$(sel + " .wd").forEach((w, n) => unrev(w, t, a + n * step));
+function rise(el, t, a, d = 1, dy = 28) {
+  const p = P(t, a, d, OUT);
+  el.style.opacity = t < a ? 0 : clamp((t - a) / (d * .45)); el.style.transform = `translateY(${(1 - p) * dy}px)`;
+  el.style.filter = p > .995 || t < a ? "none" : `blur(${(1 - p) * 8}px)`;
+}
+function fall(el, t, a, d = .55, dy = -18) {
+  if (t < a) return false;
+  const p = P(t, a, d, IN);
+  el.style.opacity = 1 - p; el.style.transform = `translateY(${p * dy}px)`; el.style.filter = p > 0 ? `blur(${p * 6}px)` : "none";
+  return true;
+}
+function pop(el, t, a, from = .5) { const x = t - a; el.style.opacity = x < 0 ? 0 : clamp(x / .15); el.style.scale = x < 0 ? .01 : lerp(from, 1, spring(x)); }
+function sheen(el, t, a, d = 1.1) { const s = el.querySelector(".sh"); if (s) s.style.backgroundPosition = `${lerp(150, -50, P(t, a, d, INOUT))}% 0`; }
+const show = (el, v) => { el.style.visibility = v ? "" : "hidden"; }; // "" inherits, so a hidden layer hides everything in it
+const tr3 = (el, {x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, s = 1}) => { el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})`; };
+const at = (el, x, y) => { el.style.left = x + "px"; el.style.top = y + "px"; };
+const dolly = (t, a, b, amt = .025) => MEASURE ? 1 : 1 + amt * smooth(a, b, t);
+// a hard wipe with a glowing edge: `lead` covers [0, u] of the width, `rest` covers [u, 1]
+function wipe(lead, rest, u, edge) {
+  const e = clamp(u) * 100;
+  lead.style.clipPath = `inset(0 ${100 - e}% 0 0)`; rest.style.clipPath = `inset(0 0 0 ${e}%)`;
+  if (edge) { edge.style.left = e + "%"; edge.style.opacity = u > .01 && u < .99 ? 1 : 0; }
+}
+const seal = (el, u) => wipe(el.querySelector(".sl"), el.querySelector(".pl"), u, el.querySelector(".edge"));
+const unseal = (el, u) => wipe(el.querySelector(".pl"), el.querySelector(".sl"), u, el.querySelector(".edge"));
+const qbez = (a, c, b, p) => [(1 - p) ** 2 * a[0] + 2 * (1 - p) * p * c[0] + p * p * b[0], (1 - p) ** 2 * a[1] + 2 * (1 - p) * p * c[1] + p * p * b[1]];
+
+// ---- Particles: a calm field of Morse dots and dashes drifting through depth
+const fx = $("#fx"), cx = fx.getContext("2d");
+let ps = 5; const R = () => (ps = ps * 16807 % 2147483647) / 2147483647;
+const NP = 800, parts = Array.from({length: NP}, () => {
+  const a = R() * Math.PI * 2, r = .22 + Math.pow(R(), .7) * 1.9;
+  return {x: Math.cos(a) * r * 1.35, y: Math.sin(a) * r * .8, z0: R(), dash: R() < .38, s: [.5, .75, 1, 1.25][R() * 4 | 0], w: R(), k: R(), jx: R(), jy: R()};
+});
+function vel(t) {
+  const burst = (a, amp, tau) => t >= a ? amp * Math.exp(-(t - a) / tau) : 0;
+  return burst(G(0), .8, .7) + burst(G(31.4), .7, .7) + burst(G(64), .5, .7) + burst(G(95.8), .7, .7) + burst(G(159) - .1, .5, .7)
+    + .05 * smooth(G(0), G(2), t) * (1 - smooth(G(6), G(8), t));
+}
+const DT = .001, DN = Math.ceil(LOOP / DT) + 10, Dtab = new Float32Array(DN + 1);
+for (let i = 1; i <= DN; i++) Dtab[i] = Dtab[i - 1] + vel(i * DT) * DT;
+{ const iL = Math.round(LOOP / DT), target = 4 * Math.ceil((Dtab[iL] + 1) / 4), drift = (target - Dtab[iL]) / LOOP; for (let i = 0; i <= DN; i++) Dtab[i] += drift * i * DT; } // whole depth cycles per pass, so the field loops
+const Dist = t => Dtab[Math.min(DN, Math.max(0, Math.round(t / DT)))];
+function inten(t) {
+  let I = .12;
+  I += .33 * (1 - smooth(G(7), G(8.5), t));      // the opening card's field
+  I += .25 * on(t, G(0), G(5), .1, 1.2);          // the track's first hit
+  I += .3 * on(t, G(31.5), G(33.5), .3, 1.2);     // into the blue
+  I += .3 * on(t, G(64), G(68), .2, 1.2);         // "That was the easy part."
+  I += .3 * on(t, G(96), G(97.5), .2, 1.2);
+  I += .33 * smooth(LOOP - 1.4, LOOP - .3, t);    // back to the opening card
+  return I;
+}
+let tg10 = null;
+function tgt(p, T) {
+  if (!p.dash) { const a = p.jx * Math.PI * 2, r = Math.sqrt(p.jy) * T.dot.r * .8; return [T.dot.x + Math.cos(a) * r, T.dot.y + Math.sin(a) * r]; }
+  return [T.dash.x + T.dash.r * .6 + p.jx * (T.dash.w - T.dash.r * 1.2), T.dash.y + (p.jy - .5) * T.dash.r * 1.2];
+}
+const E10 = G(168); // the final hit: the end card drains back into its dot
+function floodR(t) { return (t < G(159) - .1 ? 0 : P(t, G(159) - .1, 1.3, BLOOM) * 2300) * (1 - P(t, E10 + .15, .7, INOUT)); }
+const shatters = []; // [time, x, y, w, h, seed] key tiles that break into dots
+function drawParticles(t) {
+  cx.clearRect(0, 0, 1920, 1080);
+  const I = inten(t), fr = floodR(t), D = Dist(t), F = 560;
+  const blueOn = t > G(31.8) && t < G(47.2);
+  const cst = G(157.3), conv = t > cst && t < G(159) + .05;
+  for (const p of parts) {
+    const z = ((p.z0 - D * p.s) % 1 + 1) % 1, zz = .07 + z;
+    let X = 960 + p.x * F / zz, Y = 540 + p.y * F / zz, h = 3.6 / zz;
+    let a = I * smooth(1.07, .78, zz) * smooth(.07, .16, zz) * (.45 + .55 * p.k);
+    if (conv) {
+      if (p.k < .6) {
+        const k = INOUT(clamp((t - cst - p.w * .25) / .95)), [tx, ty] = tgt(p, tg10);
+        X = lerp(X, tx, k); Y = lerp(Y, ty, k); h = lerp(h, 9, k);
+        a = lerp(a, .9, Math.min(1, k * 1.5)) * (1 - smooth(.9, 1, k));
+      } else a *= 1 - smooth(cst, cst + .5, t);
+    }
+    if (a < .01 || X < -80 || X > 2000 || Y < -80 || Y > 1160) continue;
+    const w = p.dash ? h * 3 : h;
+    const onBlue = blueOn || (fr > 0 && (X - tg10.dot.x) ** 2 + (Y - tg10.dot.y) ** 2 < fr * fr);
+    cx.globalAlpha = Math.min(1, a * (onBlue ? .45 : 1.1));
+    cx.fillStyle = onBlue ? "#FFFFFF" : (p.k > .82 ? "#0B0B0F" : p.k > .6 ? "#6AA6FF" : "#2F6BEA");
+    cx.beginPath(); cx.roundRect(X - w / 2, Y - h / 2, w, h, h / 2); cx.fill();
+  }
+  // key tiles dissolving into Morse dots
+  cx.fillStyle = "#FFFFFF";
+  for (const [ts, x0, y0, w0, h0, sd] of shatters) {
+    const dt = t - ts; if (dt < 0 || dt > 1.3) continue;
+    let q = sd; const r = () => (q = q * 16807 % 2147483647) / 2147483647;
+    for (let n = 0; n < 38; n++) {
+      const px = x0 + (r() - .5) * w0, py = y0 + (r() - .5) * h0, ang = Math.atan2(py - y0, px - x0) + (r() - .5) * .9, sp = 140 + r() * 320, dash = r() < .4, sz = 5 + r() * 6;
+      const k = 1 - Math.exp(-dt * 2.4), X = px + Math.cos(ang) * sp * k / 2.4, Y = py + Math.sin(ang) * sp * k / 2.4 + 50 * dt * dt;
+      cx.globalAlpha = clamp(1 - dt / 1.3) ** 1.5 * .9;
+      const w = dash ? sz * 3 : sz; cx.beginPath(); cx.roundRect(X - w / 2, Y - sz / 2, w, sz, sz / 2); cx.fill();
+    }
+  }
+  cx.globalAlpha = 1;
+}
+
+// ---- Film grain, one pattern per video frame
+const gr = $("#grain"), gx = gr.getContext("2d"), gimg = gx.createImageData(480, 270);
+function drawGrain(t) {
+  let s = (Math.round(t * 30) * 7919 + 13) % 2147483647 || 1;
+  for (let i = 0; i < gimg.data.length; i += 4) { s = s * 16807 % 2147483647; const v = s & 255; gimg.data[i] = gimg.data[i + 1] = gimg.data[i + 2] = v; gimg.data[i + 3] = 255; }
+  gx.putImageData(gimg, 0, 0);
+}
+
+function spell(root, t, a, step = .06) {
+  $$("span", root).forEach((s, n) => {
+    const p = P(t, a + n * step, .95, OUT);
+    s.style.opacity = t < a + n * step ? 0 : clamp((t - a - n * step) / .3);
+    s.style.transform = `translateY(${(1 - p) * 50}px)`; s.style.filter = p > .99 ? "none" : `blur(${(1 - p) * 10}px)`;
+  });
+}
+function mark(mk, t, dotAt, dashAt, dashDur = .7) {
+  const d = mk.querySelector(".d1"), s = mk.querySelector(".d2");
+  const x = t - dotAt;
+  d.style.opacity = x < 0 ? 0 : 1; d.style.scale = x < 0 ? .5 : lerp(.5, 1, spring(x, 11, 8));
+  d.style.boxShadow = `0 0 ${50 * clamp(1 - x / .6)}px rgba(170,205,255,${.8 * clamp(1 - x / .6)})`;
+  const sp = P(t, dashAt, dashDur, OUT);
+  s.style.clipPath = `inset(0 ${(1 - sp) * 100}% 0 0 round 999px)`;
+  s.style.opacity = t < dashAt ? 0 : 1;
+}
+
+// =================================================================== build the generated parts
+for (const w of $$(".wd")) { const m = document.createElement("span"); m.className = "wk"; w.replaceWith(m); m.append(w); }
+for (const el of $$("[data-seal]")) el.innerHTML = noise(+el.dataset.seal);
+
+// 3 · the ratchet: key tiles on a chain, one message dropped onto each
+const MSGS = ["Did the scans arrive?", "Dinner on Friday?", "By the river?", "See you at 7."];
+const L3 = MSGS.map((_, k) => G(36 + 3 * k)); // each message lands on a kick, three beats apart
+const A3 = L3.map(l => l - .8);                // the chain starts moving
+const NT = 7, tiles = [], links = [], drops = [];
+for (let i = 0; i < NT; i++) {
+  const k = document.createElement("div"); k.className = "kt";
+  k.innerHTML = `<small><svg class="ic"><use href="#i-key"/></svg>Message key</small><b>${hex4()} ${hex4()}</b>`;
+  $("#chain").append(k); tiles.push(k);
+  const l = document.createElement("i"); l.className = "lnk"; $("#chain").append(l); links.push(l);
+}
+MSGS.forEach(m => {
+  const d = document.createElement("div"); d.className = "drop";
+  d.innerHTML = `<span class="pl">${m}</span><span class="sl"><span>${noise(2 + m.length / 8 | 0)}</span></span><i class="edge"></i>`;
+  $("#drops").append(d); drops.push(d);
+});
+const SLOT = 960, STEP = 300, CHY = 700;
+function chainPos(t) {
+  let s = -1; for (const a of A3) s += INOUT(clamp((t - a) / .65));
+  return s - 5 * (1 - P(t, G(32.4), 1.6, OUT));
+}
+{ // a ratchet wheel: sawtooth teeth
+  const N = 18, Ro = 330, Ri = 292; let d = `M${Ri} 0`;
+  for (let i = 0; i < N; i++) { const a1 = (i + 1) / N * 2 * Math.PI; d += `L${Ro * Math.cos(a1 - .02)} ${Ro * Math.sin(a1 - .02)}L${Ri * Math.cos(a1)} ${Ri * Math.sin(a1)}`; }
+  $("#gearP").setAttribute("d", d + "Z");
+}
+
+// 4 · three messages of very different lengths
+const ROWS = ["OK", "Running late, save me a seat!", "Here’s the plan for Friday: dinner at 7, then the late show if the rain holds off."];
+const rows = ROWS.map(m => {
+  const r = document.createElement("div"); r.className = "row";
+  r.innerHTML = `<span class="from"><img src="img/you.jpg" alt="">From @you</span><div class="bub"><span class="pl"><span>${m}</span></span><span class="sl"><svg class="ic"><use href="#i-lock"/></svg><span>${noise(5)}</span></span><i class="edge"></i></div>`;
+  $("#rows").append(r); return r;
+});
+const ROWY = [520, 668, 846], SLOTY = [604, 700, 796], STRIP = [490, 66], QX = 1475;
+const R4 = [G(52), G(55), G(58)];
+
+// 8 · the tree: 8 leaves, 4, 2, a root
+const TX = 1350, LY = [790, 630, 470, 300];
+const tnodes = [];
+const mkNode = (cls, html, lvl, i, x, y) => { const e = document.createElement("div"); e.className = "tn c " + cls; e.innerHTML = html; $("#tree").append(e); const n = {el: e, lvl, i, x, y}; tnodes.push(n); at(e, x, y); return n; };
+const HX = Array.from({length: 64}, hex4);
+const leaves = Array.from({length: 8}, (_, i) => mkNode("lf", `<svg class="ic"><use href="#i-key"/></svg><span>${HX[i]}</span>`, 0, i, TX + (i - 3.5) * 104, LY[0]));
+const l1 = Array.from({length: 4}, (_, j) => mkNode("in", `<span>${HX[8 + j]}</span>`, 1, j, TX + (j - 1.5) * 208, LY[1]));
+const l2 = Array.from({length: 2}, (_, j) => mkNode("in", `<span>${HX[12 + j]}</span>`, 2, j, TX + (j - .5) * 416, LY[2]));
+const root = mkNode("rt", `<small>Root</small><span>9f3a c107</span><i class="sh"></i>`, 3, 0, TX, LY[3]);
+const adaTag = document.createElement("span"); adaTag.className = "tag c"; adaTag.textContent = "@ada"; $("#tree").append(adaTag); at(adaTag, leaves[2].x, LY[0] + 62);
+const parentOf = n => n.lvl === 0 ? l1[n.i >> 1] : n.lvl === 1 ? l2[n.i >> 1] : root;
+const edgeEls = [];
+for (const n of [...leaves, ...l1, ...l2]) {
+  const p = parentOf(n), e = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const hA = n.lvl === 0 ? 35 : 23, hB = p.lvl === 3 ? 37 : 23;
+  const y1 = n.y - hA, y2 = p.y + hB;
+  e.setAttribute("d", `M${n.x} ${y1}C${n.x} ${lerp(y1, y2, .55)} ${p.x} ${lerp(y1, y2, .45)} ${p.x} ${y2}`);
+  e.setAttribute("fill", "none"); e.setAttribute("stroke", "#2F6BEA"); e.setAttribute("stroke-width", "3"); e.setAttribute("stroke-linecap", "round");
+  $("#edges").append(e); edgeEls.push({el: e, n, p, len: 0});
+}
+const proofEdges = [[leaves[2], l1[1]], [l1[1], l2[0]], [l2[0], root]].map(([n]) => {
+  const src = edgeEls.find(e => e.n === n), g = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  g.setAttribute("d", src.el.getAttribute("d")); g.setAttribute("fill", "none"); g.setAttribute("stroke", "#2F6BEA"); g.setAttribute("stroke-width", "8"); g.setAttribute("stroke-linecap", "round");
+  g.style.filter = "drop-shadow(0 0 8px rgba(47,107,234,.6))";
+  $("#proof").append(g); return {el: g, len: 0};
+});
+const APP = [G(102), G(104), G(106)]; // leaves 5, 6, 7 are appended on the kicks
+const PROOF = G(108);
+
+// 9 · five witnesses
+const WG = ["t0", "t4", "t3", "t1", "t2"], WL = "ABCDE";
+const WARC = [0, 1, 2, 3, 4].map(n => [TX + (n - 2) * 172, [770, 812, 828, 812, 770][n]]);
+const WROW = [0, 1, 2, 3, 4].map(n => [TX + (n - 2) * 172, 530]);
+const wits = WL.split("").map((L, n) => {
+  const w = document.createElement("div"); w.className = `wt ${WG[n]}`;
+  w.innerHTML = `<svg viewBox="0 0 112 112"><circle cx="56" cy="56" r="52" fill="none" stroke="#2F6BEA" stroke-width="5" stroke-linecap="round" transform="rotate(-90 56 56)" stroke-dasharray="327" stroke-dashoffset="327"/></svg><b>${L}</b><i><svg class="ic"><use href="#i-check"/></svg></i>`;
+  $("#wits").append(w); return w;
+});
+const toks = [0, 1].map(() => WL.split("").map((L, n) => { const k = document.createElement("span"); k.className = `tok ${WG[n]}`; k.textContent = L; $("#wits").append(k); return k; }));
+const wline = [0, 1].map(() => [0, 1, 2, 3, 4].map(() => { const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("fill", "none"); p.setAttribute("stroke-width", "4"); p.setAttribute("stroke-linecap", "round"); $("#wlines").append(p); return p; }));
+const SIGN8 = [G(121), G(123), G(125), G(127.5), G(129)];
+const SIGN9 = [[G(141), G(142), G(143)], [G(144.5), G(145.5), G(146.5)]]; // upper: A, B, C  lower: C, D, E
+const who = n => ["A", "A and B", "A, B and C", "A, B, C and D", "All five"][n];
+const SPLIT = G(135.4), CRED = G(149), VERD = G(150);
+
+let pk1Path = null, pk2Path = null, slotOff = null, routes = {};
+const NS = "http://www.w3.org/2000/svg";
+function mkRoute(id, d) { // a visible dotted path revealed by a masked stroke
+  const svg = $("#routes"), m = document.createElementNS(NS, "mask"), mp = document.createElementNS(NS, "path"), v = document.createElementNS(NS, "path");
+  m.id = "m" + id; m.setAttribute("maskUnits", "userSpaceOnUse"); m.setAttribute("x", 0); m.setAttribute("y", 0); m.setAttribute("width", 1920); m.setAttribute("height", 1080);
+  for (const e of [mp, v]) e.setAttribute("d", d);
+  mp.setAttribute("fill", "none"); mp.setAttribute("stroke", "#fff"); mp.setAttribute("stroke-width", 24);
+  m.append(mp); svg.append(m); v.setAttribute("class", "rv"); v.setAttribute("mask", `url(#m${id})`); svg.append(v);
+  const len = mp.getTotalLength(); mp.style.strokeDasharray = len;
+  return routes[id] = {v, mp, len};
+}
+function route(id, t, p, alpha, color) {
+  const r = routes[id]; if (!r) return; // not built yet while ready() measures
+  r.mp.style.strokeDashoffset = r.len * (1 - clamp(p));
+  r.v.style.opacity = p > 0 ? alpha : 0; r.v.style.stroke = color; r.v.style.strokeDashoffset = -t * 30; // the dots flow along it
+}
+
+// =================================================================== render
+function render(t) {
+  const ph = 2 * Math.PI * t / LOOP;
+  $("#gA").style.transform = `translate(${-300 + Math.sin(ph) * 180}px,${-420 + Math.cos(ph) * 100}px)`;
+  $("#gB").style.transform = `translate(${900 + Math.cos(ph) * 200}px,${300 + Math.sin(ph * 2) * 100}px)`;
+  drawParticles(t); drawGrain(t);
+  const rings = [[G(0), 960, 540, 900], [G(64), 960, 540, 820]], rg = rings.filter(r => t >= r[0] && t < r[0] + 1.3).pop(), ringEl = $("#ring");
+  if (rg) { const p = (t - rg[0]) / 1.3, r = BLOOM(p) * rg[3]; Object.assign(ringEl.style, {left: rg[1] - r + "px", top: rg[2] - r + "px", width: 2 * r + "px", height: 2 * r + "px", opacity: (1 - p) * .55}); }
+  else ringEl.style.opacity = 0;
+
+  sc1(t); sc2(t); sc3(t); sc4(t); sc5(t); scNet(t); sc11(t);
+  // red light while the server lies, and while the fork is caught
+  const gR = $("#gR"), r6 = on(t, G(84), G(94), .8, .8), r9 = on(t, CRED, G(156), .6, .8);
+  gR.style.opacity = .9 * Math.max(r6, r9);
+  gR.style.transform = r9 > r6 ? "translate(-150px,-100px)" : "translate(260px,-40px)";
+}
+
+// ===== 1 · "Encryption was the easy part." Settled at frame 0; rises again at the end of the loop.
+function sc1(t) {
+  const back = t > LOOP - 1.4;
+  show($("#s1"), t < G(10) || back);
+  $$("#s1T .wd").forEach((w, n) => { if (back) rev(w, t, LOOP - 1.25 + n * .06, .95); else { w.style.opacity = 1; w.style.transform = "none"; } });
+  const L = $("#s1L"), T = $("#s1T");
+  const e = back ? 0 : P(t, G(6.8), .9, INOUT);
+  T.style.transform = `translateY(${-e * 50}px) scale(${(1 + .03 * smooth(G(0), G(7), t) * (back ? 0 : 1)) * lerp(1, .9, e)})`;
+  T.style.opacity = 1 - e; T.style.filter = e > 0 ? `blur(${e * 12}px)` : "none";
+  if (back) rise(L, t, LOOP - .95, .9, 20); else Object.assign(L.style, {opacity: 1 - clamp(e * 2), transform: "none", filter: "none"});
+  mark($("#s1Mk"), back ? t : 99, LOOP - .85, LOOP - .7, .6);
+}
+
+// ===== 2, 6, 7 · the phones
+const S6 = G(60); // after this the phones are in their second appearance
+function phonePose(t, side) { // side -1: you (left), +1: Ada (right)
+  const second = t > S6, a = second ? G(70.3) : G(7.9), p = P(t, a + (side > 0 ? .14 : 0), 1.8, OUT);
+  return {x: second ? 0 : lerp(side * 220, 0, p), y: lerp(640, 0, p) + Math.sin(t * 1.1 + side) * 5, z: lerp(-500, 0, p),
+          rx: lerp(40, 3, p), ry: -side * lerp(34, 13, p) + Math.sin(t * .7 + side) * 1.6, p};
+}
+function grow(el, t, a) { // a new bubble opens its space in the thread
+  const h = +el.dataset.h, p = P(t, a, .6, OUT), x = t - a;
+  el.style.height = x < 0 ? "0px" : h * p + "px"; el.style.marginTop = x < 0 ? "-7px" : lerp(-7, 0, p) + "px";
+  el.style.opacity = x < 0 ? 0 : clamp(x / .2);
+  el.firstElementChild.style.transform = `scale(${lerp(.7, 1, spring(x))})`;
+  el.firstElementChild.style.transformOrigin = el.classList.contains("r") ? "100% 100%" : "0 100%";
+}
+function sc2(t) {
+  const vis = (t > G(7.4) && t < G(34)) || (t > G(70) && t < G(97.4));
+  show($("#dia"), vis); if (!vis) return;
+  const dia = $("#dia"), first = t < S6;
+  const ex = MEASURE ? 0 : first ? P(t, G(31), 1.4, INOUT) : P(t, G(94.5), .75, IN);
+  const dl = first ? dolly(t, G(8), G(31)) : dolly(t, G(71), G(95)), ds = dl * (1 + ex * .08);
+  dia.style.transform = `scale(${ds})`;
+  if (first) { // the blue grows out of Ada's message and takes the scene with it
+    const r = MEASURE || !pk1Path ? 0 : burstR(t), c = pk1Path ? pk1Path.b : [0, 0], lx = (c[0] - 960) / ds + 960, ly = (c[1] - 540) / ds + 540;
+    dia.style.mask = r > 0 ? `radial-gradient(circle at ${lx}px ${ly}px, transparent ${r / ds}px, #000 ${r / ds + 1.5}px)` : "none";
+    dia.style.opacity = 1; dia.style.filter = ex > .01 ? `blur(${ex * 5}px)` : "none";
+  } else { dia.style.mask = "none"; dia.style.opacity = 1 - ex; dia.style.filter = ex > .01 ? `blur(${ex * 12}px)` : "none"; }
+
+  const PY = phonePose(t, -1), PA = phonePose(t, 1);
+  tr3($("#pY"), PY); tr3($("#pA"), PA);
+  $("#glY").style.backgroundPosition = `${lerp(100, 0, (PY.ry + 20) / 40)}% 0`; $("#glA").style.backgroundPosition = `${lerp(100, 0, (PA.ry + 20) / 40)}% 0`;
+  [["#shY", PY, 250], ["#shA", PA, 1312]].forEach(([id, p, x]) => { const s = $(id); at(s, x - 10 + p.x, 1004 + p.y * .15); s.style.opacity = p.p * (1 - clamp(p.y / 400)); s.style.transform = `scale(${lerp(.6, 1, p.p)})`; });
+  // the server reads the message: everything else goes soft
+  const dof = MEASURE ? 0 : on(t, G(89.4), G(92), .45, .45);
+  for (const id of ["#pY", "#pA", "#dir", "#kc", "#kcNote"]) $(id).style.filter = dof > .01 ? `blur(${dof * 4}px)` : "none";
+
+  // headlines
+  words("#h2 div:first-child", t, G(8.8), .07); words("#h2 .acc", t, G(22), .07);
+  words("#h5", t, G(72), .07); words("#h6a", t, G(82), .09); words("#h6b", t, G(89), .08);
+  wordsOut("#h5", t, G(81)); wordsOut("#h6a", t, G(88.4));
+  show($("#h2"), first); show($("#h5"), !first && t < G(83)); show($("#h6a"), t > G(80) && t < G(90)); show($("#h6b"), t > G(88));
+  first ? rise($("#spec2"), t, G(24)) : ($("#spec2").style.opacity = 0);
+
+  // typing, then send
+  const keys = Array.from({length: 13}, (_, k) => G(11) + k * .11), txt = "See you at 7.", n = keys.filter(k => t >= k).length;
+  const sent = t >= G(14), typing = n > 0 && !sent && first;
+  $("#yTyped").innerHTML = typing ? txt.slice(0, n) + "<u></u>" : "Message";
+  $("#yComp").classList.toggle("typing", typing);
+  const sx = t - G(14), sendOn = typing || (sx > 0 && sx < .4);
+  $("#ySend").style.background = sendOn ? "#2F6BEA" : "#A9C1F3"; $("#ySend").style.scale = sx > 0 && sx < .6 ? lerp(.8, 1, spring(sx)) : 1;
+  grow($("#yN1"), t, G(14)); grow($("#aN1"), t, G(20.6)); grow($("#yN2"), t, G(85.5)); grow($("#aN2"), t, G(93.8));
+  unseal($("#aN1 .seal"), P(t, G(21), .9));
+  unseal($("#aN2 .seal"), P(t, G(94), .7));
+
+  // packet 1: lifts off the bubble, seals, arcs over the servers, lands in Ada's thread
+  const k1 = $("#pk1");
+  if (t > G(14.6) && t < G(21)) {
+    const lift = P(t, G(14.6), .7, OUT), fl = INOUT(clamp((t - G(16.6)) / 2)), land = P(t, G(20.2), .45, IN);
+    const [x, y] = t < G(16.6) ? [pk1Path.a[0], pk1Path.a[1] - 50 * lift] : qbez([pk1Path.a[0], pk1Path.a[1] - 50], pk1Path.c, pk1Path.b, fl);
+    at(k1, x, y); k1.style.opacity = clamp((t - G(14.6)) / .2) * (1 - land);
+    k1.style.transform = `scale(${lerp(.62, 1, lift) * lerp(1, .55, land)}) rotate(${Math.sin(fl * Math.PI) * -3}deg)`;
+    seal(k1, P(t, G(15.2), .85)); sheen(k1, t, G(16.3));
+  } else k1.style.opacity = 0;
+  const srvHit = on(t, G(18.3), G(18.9), .25, .45);
+  $("#srv").style.boxShadow = `0 0 0 ${12 * srvHit}px rgba(106,166,255,${.25 * srvHit}),0 26px 46px -22px rgba(11,11,15,.55)`;
+  first ? (rise($("#srvNote"), t, G(18.6)), fall($("#srvNote"), t, G(30.4))) : ($("#srvNote").style.opacity = 0);
+  // the servers pill: in with the phones, back with them, red while it lies
+  const srv = $("#srv"), sa = first ? G(9.5) : G(71);
+  pop(srv, t, sa, .6);
+  const red = first ? 0 : P(t, G(88.6), .5) * (1 - P(t, G(94.5), .6));
+  srv.style.background = `rgb(${lerp(11, 216, red)},${lerp(13, 50, red)},${lerp(20, 58, red)})`;
+  $("#srvI1").style.opacity = 1 - red; $("#srvI2").style.opacity = red;
+
+  // the routes things travel
+  const BL = "rgba(47,107,234,1)", RD = "rgba(216,50,58,1)";
+  if (first) {
+    route("r1", t, INOUT(clamp((t - G(16.6)) / 2)), .45 * (1 - P(t, G(30), .6)), BL);
+    for (const id of ["rk", "r2a", "r2b"]) route(id, t, 0, 0, BL);
+  } else {
+    route("r1", t, 0, 0, BL);
+    const kp = P(t, G(76), 1.1, OUT), fl = P(t, G(84), .7, INOUT);
+    route("rk", t, kp, .45 + .15 * fl, fl > .5 ? RD : BL);
+    route("r2a", t, INOUT(clamp((t - G(87.4)) / 1)), .5, RD);
+    route("r2b", t, INOUT(clamp((t - G(92.2)) / .8)), .5, RD);
+  }
+
+  // 6 · the directory hands your phone a key
+  const dir = $("#dir"); first ? (dir.style.opacity = 0) : pop(dir, t, G(74), .6);
+  const kc = $("#kc");
+  if (!first && t > G(76)) {
+    const p = P(t, G(76), 1.1, OUT), [x, y] = qbez([960, 486], [720, 560], [440, 404], p);
+    at(kc, x, y); kc.style.opacity = clamp((t - G(76)) / .2);
+    const flip = P(t, G(84), .7, INOUT);
+    kc.style.transform = `perspective(900px) rotateX(${180 * flip + (1 - p) * -24}deg) rotateZ(${(1 - p) * -10 + Math.sin(t * 1.1) * 1}deg) scale(${lerp(.45, 1, p) * (1 + .1 * Math.sin(flip * Math.PI))})`;
+  } else kc.style.opacity = 0;
+  first ? ($("#kcNote").style.opacity = 0) : rise($("#kcNote"), t, G(85));
+
+  // 7 · the lie: sealed to the server's key, opened and read there, sealed again for Ada
+  const k2 = $("#pk2");
+  if (!first && t > G(86) && t < G(94.2)) {
+    const lift = P(t, G(86), .7, OUT), mid = [960, 706], start = [pk2Path.a[0], pk2Path.a[1] - 50];
+    let x, y;
+    if (t < G(87.4)) { x = pk2Path.a[0]; y = pk2Path.a[1] - 50 * lift; }
+    else if (t < G(92.2)) [x, y] = qbez(start, [640, 560], mid, INOUT(clamp((t - G(87.4)) / 1)));
+    else [x, y] = qbez(mid, [1280, 560], pk2Path.b, INOUT(clamp((t - G(92.2)) / .8)));
+    const land = P(t, G(93.6), .35, IN), atSrv = on(t, G(89.4), G(91.9), .4, .35);
+    at(k2, x, y - atSrv * 96); k2.style.opacity = clamp((t - G(86)) / .2) * (1 - land);
+    k2.style.transform = `scale(${lerp(.62, 1, lift) * lerp(1, .55, land) * (1 + .14 * atSrv)})`;
+    if (t < G(89.6)) seal(k2, P(t, G(86.4), .7));
+    else if (t < G(91.6)) unseal(k2, P(t, G(89.6), .7));
+    else seal(k2, P(t, G(91.6), .6));
+    k2.querySelector(".pl").style.background = t > G(88.6) ? "var(--red)" : "var(--blue)";
+    sheen(k2, t, G(87.2));
+  } else k2.style.opacity = 0;
+}
+
+// ===== 3 · a new key for every message
+const burstR = t => P(t, G(31), 1.4, BLOOM) * 2400;
+function sc3(t) {
+  const vis = t > G(30.8) && t < G(49.4);
+  const bl = $("#blue"); show(bl, vis); show($("#s3"), vis); if (!vis) return;
+  const b = pk1Path.b, burst = P(t, G(31), 1.4, BLOOM), away = P(t, G(47), 1.2, INOUT);
+  bl.style.clipPath = `circle(${burstR(t)}px at ${b[0] - 24}px ${b[1] - 24}px)`;
+  const flyAway = `perspective(1600px) translateY(${-away * 1180}px) rotateX(${away * 10}deg) scale(${(1 - away * .05) * dolly(t, G(32), G(47), .02)})`;
+  bl.style.transform = flyAway; $("#s3").style.transform = flyAway;
+  words("#h3", t, G(32), .08);
+  const s = chainPos(t);
+  $("#gearG").setAttribute("transform", `translate(${SLOT} ${CHY}) rotate(${s * 20 + 30 * (1 - burst)})`);
+  $("#gearG").style.opacity = .15 * P(t, G(32), 1.2);
+  tiles.forEach((k, i) => {
+    const x = SLOT + (i - s) * STEP, L = L3[i] ?? 999, brk = P(t, L + .55, .45, IN);
+    const cur = on(t, (A3[i] ?? 999) + .45, L + .55, .25, .15);
+    at(k, x - 118, CHY - 66);
+    k.style.opacity = brk >= 1 || x < -300 || x > 2300 ? 0 : 1 - brk;
+    k.style.transform = `scale(${(1 + .08 * cur) * (1 - .2 * brk)})`; k.style.filter = brk > 0 ? `blur(${brk * 10}px)` : "none";
+    k.style.boxShadow = `0 0 0 ${6 * cur}px rgba(255,255,255,${.3 * cur}),0 30px 50px -26px rgba(6,14,50,.6)`;
+    const l = links[i], nxt = SLOT + (i + 1 - s) * STEP;
+    at(l, x + 118 + 8, CHY - 2); l.style.width = (nxt - x - 236 - 20) + "px";
+    l.style.opacity = (x > -300 && x < 2200 ? .9 : 0) * (1 - clamp(brk * 2));
+  });
+  drops.forEach((d, k) => {
+    const L = L3[k], a = A3[k] + .25, p = P(t, a, L - a, OUT), fly = P(t, L + .55, .95, INOUT);
+    if (t < a || fly >= 1) { d.style.opacity = 0; return; }
+    at(d, lerp(SLOT, 1640, fly), lerp(lerp(420, CHY, p), 320, fly)); d.style.translate = "-50% -50%";
+    d.style.opacity = clamp((t - a) / .2) * (1 - fly);
+    d.style.transform = `scale(${lerp(1, .55, fly)}) rotate(${fly * -6}deg)`;
+    seal(d, P(t, L + .02, .45));
+  });
+  rise($("#s3Sub"), t, G(38)); rise($("#s3Spec"), t, G(40));
+}
+
+// ===== 4 · sealed and padded
+function sc4(t) {
+  const vis = t > G(46.6) && t < G(65);
+  show($("#s4"), vis); if (!vis) return;
+  const o = P(t, G(63), .9, IN), s4 = $("#s4");
+  s4.style.opacity = 1 - o; s4.style.filter = o > .01 ? `blur(${o * 14}px)` : "none"; s4.style.transform = `scale(${dolly(t, G(48), G(63), .02) * (1 + o * .04)})`;
+  words("#h4", t, G(48.4), .09);
+  rise($("#s4Sub"), t, G(50)); rise($("#gateNote"), t, G(50.6));
+  const gp = P(t, G(48.4), 1.1, OUT);
+  $("#gate").style.transform = `scaleY(${gp})`; $("#gate").style.opacity = gp;
+  const q = $("#queue"), qp = P(t, G(48), 1.4, OUT);
+  q.style.opacity = clamp(qp * 3); q.style.transform = `translateX(${(1 - qp) * 260}px) scale(${lerp(.94, 1, qp)})`;
+  let arrived = 0, glow = 0;
+  rows.forEach((r, n) => {
+    const a = R4[n], b = r.querySelector(".bub"), ch = r.querySelector(".from");
+    const w0 = +b.dataset.w, h0 = +b.dataset.h, ia = G(49) + n * .15;
+    const pA = P(t, a, .8, INOUT), pB = P(t, a + .65, .7), pC = P(t, a + 1.3, .95, OUT);
+    let x = lerp(150 + w0 / 2, 860, pA), y = ROWY[n];
+    x = lerp(x, 940, pB); x = lerp(x, QX, pC); y = lerp(y, SLOTY[n], pC);
+    const w = lerp(w0, STRIP[0], pB), h = lerp(h0, STRIP[1], pB);
+    Object.assign(b.style, {width: w + "px", height: h + "px", left: x - w / 2 + "px", top: y - h / 2 + "px"});
+    b.style.opacity = t < ia ? 0 : clamp((t - ia) / .2); b.style.transform = `scale(${lerp(.7, 1, spring(t - ia))})`;
+    b.style.borderRadius = lerp(30, 33, pB) + "px"; b.style.borderBottomRightRadius = lerp(10, 33, pB) + "px";
+    seal(b, pB);
+    // the sender's name stays behind at the gate
+    const drop = P(t, a + .65, 1.2), ca = ia + .15;
+    at(ch, lerp(150, 860 - w0 / 2, pA) + drop * 16, ROWY[n] - h0 / 2 - 50 + drop * 110);
+    ch.style.opacity = (t < ca ? 0 : clamp((t - ca) / .2)) * (1 - drop);
+    ch.style.transform = `rotate(${drop * 8}deg)`; ch.style.filter = drop > .01 ? `blur(${drop * 4}px)` : "none";
+    if (t > a + 1.9) arrived++;
+    glow = Math.max(glow, on(t, a + .65, a + 1.35, .15, .3));
+  });
+  $("#gateGlow").style.opacity = .5 + .8 * glow; $("#gateGlow").style.transform = `scaleX(${1 + glow * .5})`;
+  $("#qCount").textContent = arrived ? `${arrived} sealed envelope${arrived > 1 ? "s" : ""}` : "Waiting";
+  $$("#rows .bub .sl>span").forEach((s, n) => { s.style.transform = `translateX(${-((t * (10 + n * 2)) % 60)}px)`; });
+}
+
+// ===== 5 · "That was the easy part."
+function sc5(t) {
+  const vis = t > G(63.4) && t < G(73);
+  show($("#s5t"), vis); if (!vis) return;
+  $$("#s5T .wd").forEach((w, n) => rev(w, t, G(64) + n * .16, 1.15));
+  const o = P(t, G(70.4), 1, INOUT), T = $("#s5T");
+  T.style.transform = `translateY(${-o * 50}px) scale(${(1 + .03 * smooth(G(64), G(70.4), t)) * lerp(1, .94, o)})`; T.style.opacity = 1 - o; T.style.filter = o > .01 ? `blur(${o * 12}px)` : "none";
+}
+
+// ===== 8, 9, 10 · the log, the witnesses, a fork
+function scNet(t) {
+  const vis = t > G(95.8) && t < G(158.6);
+  show($("#net"), vis); if (!vis) return;
+  const o = P(t, G(157.2), .9, IN), net = $("#net");
+  net.style.opacity = 1 - o; net.style.filter = o > .01 ? `blur(${o * 14}px)` : "none"; net.style.transform = `scale(${dolly(t, G(96), G(157), .02) * (1 + o * .04)})`;
+  const sk = P(t, G(95.9), 1.4, OUT), sky = $("#sky");
+  sky.style.transform = `scale(${lerp(.35, 1, sk)})`; sky.style.opacity = clamp(sk * 3); sky.style.borderRadius = `${lerp(300, 64, sk)}px`;
+
+  // --- 8 · the tree
+  const treeOut = P(t, G(115), .75, IN), treeVis = t < G(117.4);
+  show($("#tree"), treeVis); show($("#edges"), treeVis); show($("#proof"), treeVis);
+  const appearAt = n => n.lvl === 0 ? (n.i < 5 ? G(96.4) + n.i * .07 : APP[n.i - 5]) : n.lvl === 1 ? (n.i < 3 ? G(97.2) + n.i * .07 : APP[1]) : n.lvl === 2 ? G(97.8) + n.i * .08 : G(98.3);
+  const flashAt = n => { let best = -9; APP.forEach((ap, k) => { let m = leaves[5 + k], d = 0; while (m) { if (m === n && t >= ap + d * .2) best = Math.max(best, ap + d * .2); m = m.lvl < 3 ? parentOf(m) : null; d++; } }); return best; };
+  for (const n of tnodes) {
+    const a = appearAt(n), x = t - a, e = n.el, appended = n.lvl === 0 && n.i >= 5;
+    const fa = flashAt(n), fl = fa > 0 ? Math.exp(-(t - fa) / .3) : 0;
+    e.style.opacity = (x < 0 ? 0 : clamp(x / .2)) * (1 - treeOut);
+    const p = P(t, a, .9, OUT);
+    e.style.transform = `translate(${appended ? (1 - p) * 150 : 0}px,${treeOut * 40 + (n.lvl === 0 && !appended ? (1 - p) * 40 : 0)}px) scale(${lerp(appended ? .85 : .4, 1, spring(x, 12, 8)) * (1 + .1 * fl)})`;
+    e.style.filter = treeOut > .01 ? `blur(${treeOut * 8}px)` : "none";
+    if (n !== root) e.style.boxShadow = `0 0 0 ${5 * fl}px rgba(47,107,234,${.45 * fl}),0 14px 26px -16px rgba(20,40,110,.45)`;
+    // every append rewrites the hashes above it
+    const ver = APP.filter(ap => t >= ap + n.lvl * .2 && n.lvl > 0 && (n === root || n.lvl === 2 && n.i === 1 || n.lvl === 1 && n.i >= 2)).length;
+    const sp = e.querySelector("span");
+    if (n === root) sp.textContent = ["5b2e 11c9", "d7a0 3e58", "40fc 9a17", "9f3a c107"][ver];
+    else if (n.lvl > 0) sp.textContent = ver ? HX[16 + n.lvl * 4 + n.i + ver * 8 % 24] : HX[8 + (n.lvl === 1 ? n.i : 4 + n.i)];
+  }
+  root.el.style.boxShadow = `0 0 0 ${8 * Math.max(0, ...APP.map(a => t > a + .6 ? Math.exp(-(t - a - .6) / .3) : 0))}px rgba(47,107,234,.3),0 18px 34px -16px rgba(20,40,110,.6)`;
+  sheen(root.el, t, APP[2] + .6);
+  adaTag.style.opacity = P(t, G(97), .5) * (1 - treeOut) * (1 - .4 * (1 - on(t, PROOF - .3, G(115), .3, .3)));
+  for (const E of edgeEls) {
+    if (!E.len) E.len = E.el.getTotalLength();
+    const a = Math.max(appearAt(E.n), appearAt(E.p)) - .05, p = P(t, a, .8, OUT);
+    E.el.style.strokeDasharray = E.len; E.el.style.strokeDashoffset = E.len * (1 - p);
+    E.el.style.opacity = (t < a ? 0 : .5) * (1 - treeOut);
+  }
+  proofEdges.forEach((E, k) => {
+    if (!E.len) E.len = E.el.getTotalLength();
+    const p = P(t, PROOF + k * .45, .5, x => x);
+    E.el.style.strokeDasharray = E.len; E.el.style.strokeDashoffset = E.len * (1 - p);
+    E.el.style.opacity = (t < PROOF ? 0 : 1) * (1 - treeOut);
+  });
+  [leaves[2], l1[1], l2[0]].forEach((n, k) => { const p = P(t, PROOF + k * .45, .4); if (t > PROOF + k * .45) n.el.style.boxShadow = `0 0 0 ${4 * p}px #2F6BEA,0 0 0 ${10 * p}px rgba(47,107,234,.18)`; });
+  [leaves[3], l1[0], l2[1]].forEach((n, k) => { const a = PROOF + .25 + k * .45, p = P(t, a, .4); if (t > a) n.el.style.boxShadow = `0 0 0 ${3 * p}px rgba(47,107,234,.4)`; });
+  const inl = $("#inlog"); pop(inl, t, G(110.5)); inl.style.opacity = t < G(110.5) ? 0 : clamp((t - G(110.5)) / .15) * (1 - treeOut);
+  words("#h7", t, G(96.6), .07); rise($("#s7Sub"), t, G(107)); rise($("#s7Spec"), t, G(109));
+  if (t > G(115.2)) { wordsOut("#h7", t, G(115.2)); fall($("#s7Sub"), t, G(115.3)); fall($("#s7Spec"), t, G(115.3)); }
+  show($("#c7"), t < G(117)); show($("#s7Spec"), t < G(117));
+
+  // --- 9 · the root becomes a checkpoint; witnesses check and sign it
+  const ck = $("#ck"), ck2 = $("#ck2");
+  const cIn = P(t, G(115.9), 1.3, OUT), split = P(t, SPLIT, 1.4, INOUT);
+  const ckY = lerp(lerp(LY[3], 420, cIn), 250, split), ck2Y = lerp(420, 810, split), ckS = lerp(.45, 1.1, cIn) * lerp(1, 1 / 1.1, split), ck2S = lerp(1.05, 1, split);
+  at(ck, TX, ckY); ck.style.translate = "-50% -50%";
+  ck.style.opacity = t < G(115.9) ? 0 : clamp((t - G(115.9)) / .3); ck.style.transform = `scale(${ckS})`;
+  root.el.style.opacity = parseFloat(root.el.style.opacity || 1) * (1 - P(t, G(115.9), .4));
+  at(ck2, TX, ck2Y); ck2.style.translate = "-50% -50%"; ck2.style.opacity = t < SPLIT ? 0 : 1; ck2.style.transform = `scale(${ck2S})`;
+  $("#ckS").textContent = t < SPLIT ? "2,981 keys" : "Shown to you";
+  rise($("#wsNote"), t, G(118)); fall($("#wsNote"), t, G(134.6));
+  const d = $("#diff"), cl = P(t, G(139), .6, x => x);
+  d.textContent = t < G(139) ? "b82e" : "5d0e";
+  d.style.background = `rgba(251,213,215,${cl})`; d.style.color = `rgb(${lerp(10, 216, cl)},${lerp(10, 50, cl)},${lerp(12, 58, cl)})`;
+  d.style.boxShadow = `0 0 ${24 * cl * (1 - smooth(G(140), G(141.5), t) * .6)}px rgba(216,50,58,${.7 * cl})`;
+
+  // witnesses: an arc under the checkpoint, then a row between the two versions
+  const wOut = P(t, G(157.2), .5, IN), wpos = [];
+  wits.forEach((w, n) => {
+    const a = G(116.4) + n * .12, x0 = t - a;
+    const [ax, ay] = WARC[n], [bx, by] = WROW[n], x = lerp(ax, bx, split), y = lerp(ay, by, split) + (1 - P(t, a, 1, OUT)) * 140;
+    wpos[n] = [x, y];
+    at(w, x - 44, y - 44);
+    w.style.opacity = x0 < 0 ? 0 : clamp(x0 / .2); w.style.scale = x0 < 0 ? .01 : lerp(.5, 1, spring(x0));
+    // checking: a ring sweeps round, then a tick
+    const sa = SIGN8[n], rp = P(t, sa - .6, .6), reset = P(t, G(134.6), .5);
+    w.querySelector("circle").style.strokeDashoffset = 327 * (1 - rp * (1 - reset));
+    const ti = w.querySelector("i"); ti.style.opacity = t < sa ? 0 : 1 - reset; ti.style.scale = t < sa ? .01 : spring(t - sa);
+    const isC = n === 2, c9 = isC ? P(t, CRED, .6) : 0;
+    w.querySelector("b").style.boxShadow = `0 16px 30px -14px rgba(20,40,110,.55),0 0 0 4px ${c9 > 0 ? `rgb(${lerp(255, 216, c9)},${lerp(255, 50, c9)},${lerp(255, 58, c9)})` : "#fff"},0 0 ${30 * c9}px ${8 * c9}px rgba(216,50,58,${.5 * c9})`;
+    const dim = t > CRED && !isC ? .45 * P(t, CRED, .6) : 0;
+    w.style.filter = dim ? `saturate(${1 - dim}) opacity(${1 - dim * .6})` : "none";
+    const sh = isC && t > VERD ? Math.exp(-(t - VERD) / .15) * 5 : 0;
+    w.style.translate = `${Math.sin(t * 93) * sh}px ${Math.cos(t * 71) * sh}px`;
+  });
+  // signatures: tokens arc from each witness to the checkpoint's row of signers
+  const slot = (c, n) => { const [ox, oy] = slotOff[c][n], s = c ? ck2S : ckS; return [TX + ox * s, (c ? ck2Y : ckY) + oy * s]; };
+  const signed = [[], []];
+  toks.flat().forEach(k => { k.style.opacity = 0; });
+  const fire = (tok, c, n, a, d = .7) => {
+    const [sx, sy] = slot(c, n), [wx, wy] = wpos[n], p = P(t, a, d, INOUT);
+    const [x, y] = qbez([wx, wy], [lerp(wx, sx, .5) + (n - 2) * 40, Math.min(wy, sy) - 60], [sx, sy], p);
+    at(tok, x - 15, y - 15); tok.style.opacity = t < a ? 0 : p < 1 ? 1 : 0; tok.style.scale = lerp(1.4, .9, p);
+    return t >= a + d;
+  };
+  if (t < G(134.8)) SIGN8.forEach((a, n) => { if (fire(toks[0][n], 0, n, a)) signed[0].push(n); });
+  else {
+    SIGN9[0].forEach((a, k) => { if (fire(toks[0][k], 0, k, a, .6)) signed[0].push(k); });
+    SIGN9[1].forEach((a, k) => { if (fire(toks[1][k + 2], 1, k + 2, a, .6)) signed[1].push(k + 2); });
+  }
+  [$$("#ck .sig .ava"), $$("#ck2 .sig .ava")].forEach((slots, c) => slots.forEach((s, n) => {
+    const onS = signed[c].includes(n);
+    s.classList.toggle("off", !onS); s.classList.toggle(WG[n], onS);
+    const landed = t < G(134.8) ? SIGN8[n] + .7 : (c ? SIGN9[1][n - 2] : SIGN9[0][n]) + .6;
+    s.style.scale = onS ? lerp(.6, 1, spring(t - landed)) : 1;
+    const isC = n === 2 && t > CRED, c9 = P(t, CRED, .6);
+    s.style.boxShadow = isC ? `0 0 0 2px #fff,0 0 0 ${2 + 3 * c9}px rgba(216,50,58,${c9}),0 0 ${16 * c9}px rgba(216,50,58,${.8 * c9})` : "0 0 0 2px #fff";
+  }));
+  $("#ck .by").textContent = signed[0].length ? (t < G(134.8) ? who(signed[0].length - 1) : ["A", "A and B", "A, B and C"][signed[0].length - 1]) + " signed" : (t < G(134.8) && t > G(119.5) ? "Checking…" : "");
+  $("#ck2 .by").textContent = signed[1].length ? ["C", "C and D", "C, D and E"][signed[1].length - 1] + " signed" : "";
+  // lines from each witness to what it signed
+  wline.forEach((set, c) => set.forEach((pth, n) => {
+    let a = null, s8 = false;
+    if (c === 0 && t < G(134.8)) { a = G(119) + n * .08; s8 = true; }
+    else if (t >= G(134.8) && (c === 0 ? n <= 2 : n >= 2)) a = SIGN9[c][c === 0 ? n : n - 2] - .5;
+    if (a == null || t < a) { pth.style.opacity = 0; return; }
+    const [wx, wy] = wpos[n];
+    let x2, y2, y1;
+    if (s8) { x2 = TX + (n - 2) * 60; y2 = ckY + 110; y1 = wy - 50; }
+    else if (c === 0) { x2 = TX + (n - 2) * 70; y2 = ckY + 118; y1 = wy - 50; }
+    else { x2 = TX + (n - 2) * 70; y2 = ck2Y - 118; y1 = wy + 50; }
+    pth.setAttribute("d", `M${wx} ${y1}C${wx} ${lerp(y1, y2, .5)} ${x2} ${lerp(y1, y2, .5)} ${x2} ${y2}`);
+    const len = 400, p = P(t, a, s8 ? .7 : .5, OUT);
+    pth.style.strokeDasharray = len; pth.style.strokeDashoffset = len * (1 - p);
+    const redC = n === 2 && !s8 ? P(t, CRED, .6) : 0, fade8 = s8 ? 1 - P(t, G(134.6), .5) : 1, dim9 = !s8 && n !== 2 ? 1 - .55 * P(t, CRED, .6) : 1;
+    pth.setAttribute("stroke", redC > .5 ? "#D8323A" : "#2F6BEA");
+    pth.style.strokeWidth = 4 + 3 * redC;
+    pth.style.opacity = (s8 ? .45 : .8) * fade8 * dim9 * (1 - wOut);
+    pth.style.filter = redC > .5 ? "drop-shadow(0 0 6px rgba(216,50,58,.8))" : "none";
+  }));
+  const acc = $("#accept"); pop(acc, t, SIGN8[2] + .75, .7); if (t > G(134.6)) acc.style.opacity = 1 - P(t, G(134.6), .5);
+  words("#h8", t, G(116.6), .07); rise($("#s8Sub"), t, G(122)); rise($("#s8Spec"), t, G(126));
+  if (t > G(134.6)) { wordsOut("#h8", t, G(134.6)); fall($("#s8Sub"), t, G(134.7)); fall($("#s8Spec"), t, G(134.7)); }
+  show($("#c8"), t > G(115) && t < G(136.6)); show($("#s8Spec"), t > G(115) && t < G(136.6));
+
+  // --- 10 · a lie proves itself
+  show($("#c9"), t > G(135));
+  rise($("#s9Soon"), t, G(136)); words("#h9", t, G(136.4), .1, 1.15);
+  const v = $("#s9V"), vx = t - VERD;
+  v.style.opacity = vx < 0 ? 0 : clamp(vx / .15); v.style.transformOrigin = "0 50%"; v.style.transform = `scale(${vx < 0 ? 1.12 : lerp(1.12, 1, spring(vx, 12, 9))})`;
+  sheen(v, t, VERD + .5);
+  const sh = vx > 0 ? Math.exp(-vx / .15) * 5 : 0;
+  $("#netG").style.translate = `${Math.sin(t * 91) * sh}px ${Math.cos(t * 77) * sh}px`;
+  rise($("#s9Tx"), t, G(152));
+}
+
+// ===== 11 · end card: blue floods out of the mark's dot, then drains back for the loop
+function sc11(t) {
+  const vis = t > G(157) && t < LOOP - .6;
+  show($("#s10"), vis);
+  const fr = floodR(t);
+  $("#flood").style.clipPath = fr <= 0 ? "circle(0px at 0 0)" : `circle(${fr}px at ${tg10.dot.x}px ${tg10.dot.y}px)`;
+  if (!vis) return;
+  mark($("#s10Mk"), t, G(159) - .1, G(159) + .25);
+  spell($("#s10W"), t, G(159.6));
+  rise($("#s10Soon"), t, G(161)); rise($("#s10Tag"), t, G(161.4)); rise($("#s10Cta"), t, G(162));
+  sheen($("#s10Cta"), t, G(164));
+  $("#s10C").style.transform = `scale(${1 + .025 * smooth(G(161), E10, t)})`;
+  Object.assign($("#s10W").style, {opacity: 1, filter: "none", transform: "none"});
+  [["#s10Cta", 0], ["#s10Tag", .05], ["#s10Soon", .08], ["#s10W", .12]].forEach(([id, d]) => fall($(id), t, E10 + d, .5, -24));
+  const rt = P(t, E10 + .15, .5, INOUT), dz = P(t, E10 + .6, .35, IN);
+  if (t > E10) { const m = $("#s10Mk"); m.querySelector(".d2").style.clipPath = `inset(0 ${rt * 100}% 0 0 round 999px)`; m.querySelector(".d1").style.scale = 1 - dz; }
+}
+
+window.ready = (async () => {
+  await document.fonts.ready;
+  await Promise.all([...document.fonts].map(f => f.load()));
+  await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
+  MEASURE = true;
+  const mk = $("#s10Mk"), dd = mk.querySelector(".d1").getBoundingClientRect(), ds = mk.querySelector(".d2").getBoundingClientRect();
+  tg10 = {dot: {x: dd.left + dd.width / 2, y: dd.top + dd.height / 2, r: dd.width / 2}, dash: {x: ds.left, y: ds.top + ds.height / 2, w: ds.width, r: ds.height / 2}};
+  // natural sizes of the things that grow or morph
+  for (const el of $$(".nw")) { el.style.height = "auto"; el.dataset.h = el.firstElementChild.getBoundingClientRect().height / 1.06; }
+  for (const b of $$("#rows .bub")) { const r = b.querySelector(".pl span").getBoundingClientRect(); b.dataset.w = r.width + 48; b.dataset.h = r.height + 28; }
+  // where each signer sits on a checkpoint card, relative to its centre at scale 1
+  for (const c of ["#ck", "#ck2"]) { const el = $(c); el.style.translate = "-50% -50%"; el.style.transform = "none"; at(el, TX, 540); }
+  slotOff = ["#ck", "#ck2"].map(c => $$(c + " .sig .ava").map(s => { const r = s.getBoundingClientRect(); return [r.left + r.width / 2 - TX, r.top + r.height / 2 - 540]; }));
+  // where the packets start and land: measured on the settled phones
+  const centre = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  render(G(27)); const a1 = centre($("#yN1 .b")), b1 = centre($("#aN1 .b"));
+  pk1Path = {a: a1, b: b1, c: [960, (628 - .25 * (a1[1] - 50) - .25 * b1[1]) / .5]}; // skims over the servers pill
+  render(G(95)); pk2Path = {a: centre($("#yN2 .b")), b: centre($("#aN2 .b"))};
+  const q = (a, c, b) => `M${a[0]} ${a[1]}Q${c[0]} ${c[1]} ${b[0]} ${b[1]}`, up = a => [a[0], a[1] - 50];
+  mkRoute("r1", q(up(pk1Path.a), pk1Path.c, pk1Path.b));
+  mkRoute("rk", q([960, 486], [720, 560], [440, 404]));
+  mkRoute("r2a", q(up(pk2Path.a), [640, 560], [960, 706]));
+  mkRoute("r2b", q([960, 706], [1280, 560], pk2Path.b));
+  L3.forEach((l, k) => shatters.push([l + .55, SLOT, CHY, 236, 132, 97 + k * 131]));
+  MEASURE = false;
+  render(0);
+  return true;
+})();
+window.render = render;
+window.DURATION = LOOP;
+
+</script>
+</body>
+</html>

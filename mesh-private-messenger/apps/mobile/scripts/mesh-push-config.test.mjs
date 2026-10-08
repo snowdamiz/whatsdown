@@ -25,7 +25,11 @@ const securityFields = [
   ['MESSENGER_DELIVERY_PUBLIC_KEY_HEX', deliveryPublicKeyHex],
   ['MESSENGER_ABUSE_DIFFICULTY', '8'],
 ];
-const securityFrame = `1\n${securityFields.map(([, value]) => value).join('\n')}`;
+const securityFrame = [
+  '2', transparencyPublicKeyHex, deliveryPublicKeyHex, '8', '2', '2',
+  `witness-a ${witnessAPublicKeyHex} Morse`, `witness-b ${witnessBPublicKeyHex} Morse`,
+  '-', '0', '0', '-', '-', '1',
+].join('\n');
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 async function inspect(environment, seeded = false) {

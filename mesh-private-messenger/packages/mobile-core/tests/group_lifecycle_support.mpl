@@ -131,7 +131,6 @@ pub fn install_signed_transparency(path :: String,
   device_set :: Bytes) -> Bool!String do
   install_group_transparency_for_test(path,
     fixture.checkpoint,
-    fixture.consistency,
     fixture.service_public_key,
     fixture.witness_a_public_key,
     fixture.witness_b_public_key,

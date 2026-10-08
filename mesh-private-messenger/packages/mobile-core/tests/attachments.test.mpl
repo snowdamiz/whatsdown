@@ -34,6 +34,7 @@ struct PreparedAttachment do
   complete :: Bytes
   delete :: Bytes
   encrypted_manifest :: Bytes
+  chunk_count :: Int
 end
 
 fn ensure(value :: Bool, error :: String) -> Result<(), String> do
@@ -82,7 +83,7 @@ fn prepare(path :: String,
     write_u32(1)?
   ])?)?
   let items = output_list(output)?
-  ensure(List.length(items) == 7, "prepare output count mismatch")?
+  ensure(List.length(items) == 8, "prepare output count mismatch")?
   Ok(PreparedAttachment {
     reference: List.get(items, 0),
     object_id: List.get(items, 1),
@@ -90,7 +91,8 @@ fn prepare(path :: String,
     grant: List.get(items, 3),
     complete: List.get(items, 4),
     delete: List.get(items, 5),
-    encrypted_manifest: List.get(items, 6)
+    encrypted_manifest: List.get(items, 6),
+    chunk_count: read_u32(List.get(items, 7))?
   })
 end
 
@@ -139,7 +141,7 @@ fn exercise_preparation(path :: String) -> PreparedAttachment!String do
     Bytes.from_utf8(path),
     Bytes.from_utf8("huge.bin"),
     Bytes.from_utf8("application/octet-stream"),
-    write_u32(256 * 65536 + 1)?,
+    write_u32(8192 * 65536 + 1)?,
     write_u32(1)?
   ])?) do
     Ok(_) -> Err("oversized attachment was accepted")?
@@ -169,9 +171,14 @@ fn exercise_preparation(path :: String) -> PreparedAttachment!String do
     "grant proof of work did not verify")?
   ensure(Bytes.length(prepared.complete) == 68 && Bytes.length(prepared.delete) == 68,
     "object control length mismatch")?
-  ensure(Bytes.length(prepared.encrypted_manifest) > 48, "encrypted manifest too small")?
+  # Every manifest is sealed at one length, whatever the filename.
+  ensure(Bytes.length(prepared.encrypted_manifest) == 514, "encrypted manifest length leaks")?
+  ensure(prepared.chunk_count == 2, "prepared chunk count mismatch")?
   Ok(prepared)
 end
+
+# 70,000 bytes pad to the 81,920-byte bucket: the object store sees a 16,384-byte
+# last chunk whatever the file's exact size, and the receiver gets the exact bytes.
 
 fn exercise_chunks(path :: String, prepared :: PreparedAttachment) -> Bool!String do
   let first = repeated(7, 65536)?
@@ -179,7 +186,7 @@ fn exercise_chunks(path :: String, prepared :: PreparedAttachment) -> Bool!Strin
   let sealed_first = seal(path, prepared.reference, 0, first)?
   let sealed_last = seal(path, prepared.reference, 1, last)?
   ensure(Bytes.length(sealed_first) == 65576, "sealed chunk length mismatch")?
-  ensure(Bytes.length(sealed_last) == 4504, "sealed final chunk length mismatch")?
+  ensure(Bytes.length(sealed_last) == 16424, "sealed final chunk was not padded to its bucket")?
   ensure(Bytes.secure_equals(open(path, prepared.reference, 0, sealed_first)?, first),
     "first chunk round trip mismatch")?
   ensure(Bytes.secure_equals(open(path, prepared.reference, 1, sealed_last)?, last),
@@ -199,6 +206,24 @@ fn exercise_chunks(path :: String, prepared :: PreparedAttachment) -> Bool!Strin
     Err(error) -> ensure(error == "invalid_attachment_chunk_index",
       "wrong reordered chunk error" <> ": " <> error)?
   end
+  exercise_padding_chunks(path)
+end
+
+# 524,289 bytes pad to 655,360: ten chunks, the last of them padding only. The
+# host seals and uploads it with nothing of the file in it, and gets nothing back.
+
+fn exercise_padding_chunks(path :: String) -> Bool!String do
+  let clip = prepare(path, "clip.mp4", "image/jpeg", 524289)?
+  ensure(clip.chunk_count == 10, "padded chunk count mismatch")?
+  ensure(decode_grant(clip.grant)?.part_count == 11, "grant does not cover the padding chunks")?
+  let tail = seal(path, clip.reference, 8, repeated(5, 1)?)?
+  let padding = seal(path, clip.reference, 9, Bytes.empty())?
+  ensure(Bytes.length(tail) == 65576 && Bytes.length(padding) == 65576,
+    "padding chunks are not full chunks")?
+  ensure(Bytes.secure_equals(open(path, clip.reference, 8, tail)?, repeated(5, 1)?),
+    "partly padded chunk did not strip its padding")?
+  ensure(Bytes.length(open(path, clip.reference, 9, padding)?) == 0,
+    "padding-only chunk returned bytes")?
   Ok(true)
 end
 
@@ -288,7 +313,8 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool!St
   ])?)?)?
   ensure(List.length(dave_history) == 1, "dave history count mismatch")?
   let dave_entry = vector_items(List.head(dave_history), 0, List.new())?
-  ensure(List.length(dave_entry) == 7, "dave history entry shape mismatch")?
+  # Seven fields, then what kind of message it is (Mobile.History).
+  ensure(List.length(dave_entry) == 8, "dave history entry shape mismatch")?
   # The last field is what became of a sent message; a received one has nothing to say.
   ensure(Bytes.secure_equals(List.get(dave_entry, 6), mobile_byte(0)?),
     "received message carries a delivery state")?
@@ -349,8 +375,8 @@ fn exercise_group_message(accounts :: GroupAccountFixture, group_id :: Bytes) ->
   ])?)?)?
   ensure(List.length(bob_history) == 1, "bob group history count mismatch")?
   let bob_record = output_list(List.head(bob_history))?
-  ensure(List.length(bob_record) == 10, "bob group history record shape mismatch")?
-  # The last field is what became of a sent message; a received one has nothing to say.
+  ensure(List.length(bob_record) == 12, "bob group history record shape mismatch")?
+  # The tenth field is what became of a sent message; a received one has nothing to say.
   ensure(Bytes.secure_equals(List.get(bob_record, 9), mobile_byte(0)?),
     "received group message carries a delivery state")?
   ensure(Bytes.secure_equals(List.get(bob_record, 6), body), "bob group history body mismatch")?

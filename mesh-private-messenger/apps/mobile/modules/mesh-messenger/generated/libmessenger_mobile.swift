@@ -558,6 +558,28 @@ public enum MeshLibrary {
     return payload
   }
 
+  public static func oblivious_encapsulate_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_oblivious_encapsulate(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func oblivious_decapsulate_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_oblivious_decapsulate(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
   public static func resolve_request_export(_ request: Data) throws -> Data {
     var response = MeshLibraryBytes(data: nil, len: 0)
     let status = request.withUnsafeBytes { bytes in
@@ -573,6 +595,83 @@ public enum MeshLibrary {
     var response = MeshLibraryBytes(data: nil, len: 0)
     let status = request.withUnsafeBytes { bytes in
       mesh_messenger_verify_transparency(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func transparency_anchor_requests_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_transparency_anchor_requests(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func transparency_anchor_proof_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_transparency_anchor_proof(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func anchor_check_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_anchor_check(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func gossip_check_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_gossip_check(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func trust_alarm_details_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_trust_alarm_details(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func wallet_rpc_urls_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_wallet_rpc_urls(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func network_status_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_network_status(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
     }
     defer { mesh_library_free_returned_bytes(&response) }
     let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
@@ -679,6 +778,149 @@ public enum MeshLibrary {
     return payload
   }
 
+  public static func backup_begin_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_begin(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_confirm_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_confirm(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_status_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_status(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_prepare_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_prepare(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_part_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_part(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_finish_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_finish(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_disable_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_disable(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_restore_slots_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_restore_slots(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_restore_begin_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_restore_begin(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_restore_chunk_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_restore_chunk(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_restore_finish_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_restore_finish(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_restore_identity_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_restore_identity(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func backup_restore_account_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_backup_restore_account(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
   public static func presentation_load_export(_ request: Data) throws -> Data {
     var response = MeshLibraryBytes(data: nil, len: 0)
     let status = request.withUnsafeBytes { bytes in
@@ -727,6 +969,248 @@ public enum MeshLibrary {
     var response = MeshLibraryBytes(data: nil, len: 0)
     let status = request.withUnsafeBytes { bytes in
       mesh_messenger_attachment_open_chunk(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func expiry_purge_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_expiry_purge(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func group_timer_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_group_timer(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func group_timer_state_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_group_timer_state(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func send_view_once_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_send_view_once(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func group_send_view_once_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_group_send_view_once(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func open_view_once_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_open_view_once(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func group_open_view_once_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_group_open_view_once(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func safety_code_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_safety_code(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func safety_code_check_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_safety_code_check(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_status_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_status(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_refresh_keys_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_refresh_keys(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_quote_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_quote(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_issue_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_issue(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_postage_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_postage(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_postage_quote_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_postage_quote(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_retention_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_retention(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_signup_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_signup(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_register_at_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_register_at(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_spend_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_spend(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_settle_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_settle(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_inbox_policy_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_inbox_policy(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
+    }
+    defer { mesh_library_free_returned_bytes(&response) }
+    let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))
+    guard status == MESH_LIBRARY_OK else { throw MeshLibraryFailure(status: status, payload: payload) }
+    return payload
+  }
+
+  public static func credits_group_handover_export(_ request: Data) throws -> Data {
+    var response = MeshLibraryBytes(data: nil, len: 0)
+    let status = request.withUnsafeBytes { bytes in
+      mesh_messenger_credits_group_handover(bytes.bindMemory(to: UInt8.self).baseAddress, UInt64(bytes.count), &response)
     }
     defer { mesh_library_free_returned_bytes(&response) }
     let payload = response.len == 0 ? Data() : Data(bytes: response.data!, count: Int(response.len))

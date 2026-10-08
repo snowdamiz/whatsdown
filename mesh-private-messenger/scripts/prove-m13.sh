@@ -12,6 +12,9 @@ readonly core_dir="$repo_root/mesh-private-messenger/services/directory-delivery
 readonly edge_dir="$repo_root/mesh-private-messenger/services/privacy-edge"
 readonly witness_dir="$repo_root/mesh-private-messenger/services/transparency-witness"
 readonly meshc_bin="${MESHC:-$repo_root/mesh-lang/target/debug/meshc}"
+# The witness needs File.rename and File.sync, which no Mesh release has yet
+# (v0.1.8 lacks them); point WITNESS_MESHC at a compiler that does.
+readonly witness_meshc_bin="${WITNESS_MESHC:-$meshc_bin}"
 readonly database_port=55436
 # Overridable so the proof can run beside a local ./run.sh stack on the default ports.
 readonly core_port="${M13_CORE_PORT:-18090}"
@@ -306,7 +309,8 @@ main() {
   "$meshc_bin" test "$edge_dir/tests/api.test.mpl"
   (cd "$core_dir" && "$meshc_bin" build .)
   (cd "$edge_dir" && "$meshc_bin" build .)
-  (cd "$witness_dir" && "$meshc_bin" build .)
+  "$witness_meshc_bin" test "$witness_dir/tests"
+  (cd "$witness_dir" && "$witness_meshc_bin" build .)
   if "$witness_dir/output" >/dev/null 2>&1; then
     fail "transparency witness accepted missing configuration"
   fi

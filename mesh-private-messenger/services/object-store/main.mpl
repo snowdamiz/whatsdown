@@ -1,9 +1,11 @@
+from Privacy.CreditEdge import CreditEdgeResult
+from Store.Files import maximum_part_index
 from Store.Service import (
   ObjectResult,
   complete,
   delete_object,
   get_part,
-  grant,
+  grant_with_credits,
   initialize,
   purge_expired,
   put_part
@@ -96,7 +98,7 @@ fn part_request(request :: Request) -> PartRequest!String do
     None -> Err("invalid object request")
     Some(value) -> hex32(value)
   end?
-  if part_index < 0 || part_index > 256 do
+  if part_index < 0 || part_index > maximum_part_index() do
     Err("invalid object request")
   else
     Ok(PartRequest { object_id: object_id, part_index: part_index, capability: capability })
@@ -132,17 +134,41 @@ actor expiry_worker(database :: String, root :: String) do
   purge_loop(database, root, 60000)
 end
 
+# Grants above 16 MiB are paid: the core's redeem route spends their credits
+# (credits-v1.md "Large files"). Without a core to ask, this store redeems
+# nothing and large grants answer 403.
+
+fn redeem_with_core(body :: Bytes) -> CreditEdgeResult!String do
+  let base = Env.get("MESSENGER_DELIVERY_INTERNAL_URL", "")
+  if base == "" do
+    Ok(CreditEdgeResult { status: 403, body: Bytes.empty() })
+  else
+    let answer = Http.build(:post, base <> "/internal/v1/credits/redeem")
+      |> Http.header("Content-Type", "application/octet-stream")
+      |> Http.header("Authorization", "Bearer " <> Env.get("MESSENGER_OBJECT_INTERNAL_TOKEN", ""))
+      |> Http.body_bytes(body)
+      |> Http.timeout(10000)
+      |> Http.max_response_bytes(64)
+      |> Http.send()
+    case answer do
+      Err(error) -> Err("core unreachable: #{error}")
+      Ok(response) -> Ok(CreditEdgeResult { status: response.status, body: response.body_bytes })
+    end
+  end
+end
+
 fn handle_grant(request :: Request) -> Response do
   case current_time() do
     Err(_) -> HTTP.response(500, "")
     Ok(now) -> case U64.parse("300000") do
       Err(_) -> HTTP.response(500, "")
-      Ok(maximum_work_future) -> respond(grant(database_path(),
+      Ok(maximum_work_future) -> respond(grant_with_credits(database_path(),
         storage_root(),
         Request.body_bytes(request),
         now,
         maximum_work_future,
-        Env.get_int("MESSENGER_OBJECT_WORK_DIFFICULTY", 16)))
+        Env.get_int("MESSENGER_OBJECT_WORK_DIFFICULTY", 16),
+        redeem_with_core))
     end
   end
 end

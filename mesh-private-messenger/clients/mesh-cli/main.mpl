@@ -18,6 +18,8 @@ from Prekeys.Bundle import (
 )
 from Prekeys.Pool import PrekeyClaimRequest, encode_prekey_claim
 from Privacy.Edge import RequestStamp, encode_stamped_request, mint_request_stamp
+from Privacy.Ohttp import ohttp_exchange
+from Privacy.OhttpWire import ohttp_key_config_decode
 from Protocol.DirectoryWire import decode_device_set, encode_directory_entry
 from Protocol.EnvelopeWire import (
   decode_inner_envelope,
@@ -43,7 +45,12 @@ from Protocol.V1 import (
   OuterEnvelope,
   PrekeyBundle
 )
-from Session.Handshake import RatchetState, initiate, receive_initial
+from Session.Handshake import (
+  RatchetState,
+  SessionError,
+  initiate_at_floor,
+  receive_initial_at_floor
+)
 from Session.Ratchet import (
   DecryptOutcome,
   RatchetError,
@@ -54,6 +61,7 @@ from Session.Ratchet import (
   encrypt_sealed,
   ratchet_transport_matches
 )
+from Pins import CliPins, cli_pins
 from Transparency.Client import checkpoint_fresh_at, verify_evidence
 from Transparency.Merkle import TransparencyCheckpoint, WitnessKey
 from Transparency.Wire import (
@@ -192,15 +200,6 @@ fn clock() -> U64!String do
   wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
-fn pinned_key(name :: String) -> Bytes!String do
-  let value = Bytes.from_hex(Env.get(name, ""))?
-  if Bytes.length(value) == 32 do
-    Ok(value)
-  else
-    Err("#{name} must be a pinned 32-byte public key")
-  end
-end
-
 fn base_url() -> String do
   Env.get("MESSENGER_BASE_URL", "http://127.0.0.1:18086")
 end
@@ -227,6 +226,31 @@ fn post(path :: String, body :: Bytes) -> HttpResponse!String do
     |> Http.send()
 end
 
+struct CliAnswer do
+  status :: Int
+  body :: Bytes
+end
+
+# Lookups, prekey claims and the signed mailbox fetch and acknowledgement go
+# through the pinned relay as Oblivious HTTP when the config pins a gateway
+# (protocol/ohttp-v1.md), and straight to MESSENGER_BASE_URL otherwise.
+
+fn stateless(path :: String, body :: Bytes) -> CliAnswer!String do
+  let pins = pinned()?
+  if Bytes.length(pins.ohttp_key_config) == 0 do
+    let response = post(path, body)?
+    Ok(CliAnswer { status: response.status, body: response.body_bytes })
+  else
+    let (status, answer) = ohttp_exchange(ohttp_key_config_decode(pins.ohttp_key_config)?,
+      pins.ohttp_relay,
+      "POST",
+      path,
+      body,
+      5000)?
+    Ok(CliAnswer { status: status, body: answer })
+  end
+end
+
 fn put(path :: String, body :: Bytes) -> HttpResponse!String do
   Http.build(:put, base_url() <> path)
     |> Http.header("Content-Type", "application/octet-stream")
@@ -247,25 +271,27 @@ fn register_entry(entry :: DirectoryEntry) -> Int!String do
 end
 
 # The directory is untrusted: an entry is used only with a fresh checkpoint
-# signed by the pinned service key, an inclusion proof, and both pinned witnesses.
+# signed by the pinned service key, an inclusion proof, and k of the pinned
+# witnesses. MESSENGER_SECURITY_CONFIG holds the security config (v1 or v2);
+# without it the version 1 variables pin witness-a and witness-b, 2 of 2.
+
+fn pinned() -> CliPins!String do
+  cli_pins(Env.get("MESSENGER_SECURITY_CONFIG", ""),
+    Env.get("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX", ""),
+    Env.get("MESSENGER_WITNESS_A_PUBLIC_KEY_HEX", ""),
+    Env.get("MESSENGER_WITNESS_B_PUBLIC_KEY_HEX", ""))
+end
 
 fn evidence_verified(evidence :: TransparencyEvidence) -> Bool!String do
-  let witnesses = [
-    WitnessKey {
-      witness_id: "witness-a",
-      public_key: pinned_key("MESSENGER_WITNESS_A_PUBLIC_KEY_HEX")?
-    },
-    WitnessKey {
-      witness_id: "witness-b",
-      public_key: pinned_key("MESSENGER_WITNESS_B_PUBLIC_KEY_HEX")?
-    }
-  ]
-  let service_key_bytes = pinned_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX")?
-  let service_key = SigningPublicKey { bytes: service_key_bytes }
+  let pins = pinned()?
   if !checkpoint_fresh_at(evidence.checkpoint.timestamp, clock()?) do
     Ok(false)
   else
-    verify_evidence(evidence, service_key, witnesses, 2, Bytes.empty())
+    verify_evidence(evidence,
+      SigningPublicKey { bytes: pins.service_key },
+      pins.witnesses,
+      pins.threshold,
+      Bytes.empty())
   end
 end
 
@@ -297,13 +323,13 @@ fn resolve_entry(username :: String, attempt :: Int) -> DirectoryEntry!String do
     username: username,
     previous_tree_size: 0
   })?
-  let response = post("/v1/devices/resolve", stamped("mesh-msg/v1/work/resolve", lookup)?)?
+  let response = stateless("/v1/devices/resolve", stamped("mesh-msg/v1/work/resolve", lookup)?)?
   if response.status == 404 do
     retry_resolution(username, attempt, "device resolution returned 404")
   else if response.status != 200 do
     Err("device resolution returned #{response.status}")
   else
-    let evidence = decode_transparency_evidence(response.body_bytes)?
+    let evidence = decode_transparency_evidence(response.body)?
     if evidence_verified(evidence)? do
       verified_entry(evidence, username)
     else
@@ -331,11 +357,11 @@ fn claim_prekey_bundle(base_bundle :: Bytes) -> PrekeyBundle!String do
     base_bundle_hash: Crypto.sha256(base_bundle),
     reservation_id: random(16)?
   })?
-  let response = post("/v1/prekeys/bundle", stamped("mesh-msg/v1/work/prekey-claim", claim)?)?
+  let response = stateless("/v1/prekeys/bundle", stamped("mesh-msg/v1/work/prekey-claim", claim)?)?
   if response.status != 200 do
     Err("prekey claim returned #{response.status}")
   else
-    let claimed = case decode_prekey_bundle(response.body_bytes) do
+    let claimed = case decode_prekey_bundle(response.body) do
       Err(_) -> Err("invalid claimed prekey bundle")
       Ok(value)
     end?
@@ -374,7 +400,7 @@ fn fetch_envelopes(device_keys :: borrow DeviceKeys,
     Err(_) -> Err("mailbox fetch signing failed")
     Ok(value)
   end?
-  case post("/v1/mailbox/fetch", body) do
+  case stateless("/v1/mailbox/fetch", body) do
     Err(_) -> if attempt < 2 do
       Timer.sleep(250)
       fetch_envelopes(device_keys, token, attempt + 1)
@@ -384,7 +410,7 @@ fn fetch_envelopes(device_keys :: borrow DeviceKeys,
     Ok(response) -> if response.status != 200 do
       Err("mailbox fetch returned #{response.status}")
     else
-      case decode_delivery_batch(response.body_bytes) do
+      case decode_delivery_batch(response.body) do
         Err(_) -> Err("invalid mailbox response")
         Ok(deliveries)
       end
@@ -402,7 +428,7 @@ fn acknowledge(device_keys :: borrow DeviceKeys,
     Err(_) -> Err("mailbox acknowledgement signing failed")
     Ok(value)
   end?
-  let response = post("/v1/mailbox/ack", body)?
+  let response = stateless("/v1/mailbox/ack", body)?
   if response.status == 200 do
     Ok(response.status)
   else
@@ -487,13 +513,16 @@ fn run_device_a() -> Int!String do
     conversation_id,
     random(16)?,
     "initial")?
-  let (alice_session, initial) = case initiate(alice,
+  # The config's floor holds here as in the app: no new session below it.
+  let (alice_session, initial) = case initiate_at_floor(alice,
     alice_credential,
     bob_account,
     bob_bundle,
     policy(now)?,
     1,
+    pinned()?.minimum_suite,
     inner_wire(initial_inner)?) do
+    Err(SuiteBelowFloor) -> Err("this contact's app needs an update to start a secure session")
     Err(_) -> Err("initial handshake failed")
     Ok(value)
   end?
@@ -692,7 +721,7 @@ fn run_device_b() -> Int!String do
           Ok(account_value) -> Ok((account_value, initial_bytes))
         end
       end?
-      let (bob_session, initial_plaintext) = case receive_initial(bob,
+      let (bob_session, initial_plaintext) = case receive_initial_at_floor(bob,
         bob_account,
         published,
         signed,
@@ -702,7 +731,9 @@ fn run_device_b() -> Int!String do
         policy(now)?,
         policy(now)?,
         1,
+        pinned()?.minimum_suite,
         initial) do
+        Err(SuiteBelowFloor) -> Err("the sender's app needs an update to start a secure session")
         Err(_) -> Err("initial receive failed")
         Ok(value)
       end?

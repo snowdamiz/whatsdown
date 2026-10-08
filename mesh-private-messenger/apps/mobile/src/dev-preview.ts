@@ -93,7 +93,7 @@ export function createDevPreview(now = Date.now(), self: Uint8Array = id(1)): De
     preview.conversations.push({
       conversationId, username, peerAccountId: id(index + 10), peerDeviceId: id(index + 10, 16),
       safetyNumber, requestPending: false, blocked: index === 13,
-      verified: index % 3 === 0, keyChanged: index === 8, disappearingSeconds: 0,
+      verified: index % 3 === 0, keyChanged: index === 8, disappearingSeconds: 0, sessionResetAt: 0,
     });
     const history = decorate(messages(index, unread), (message) => [message.direction === 'sent' ? 'received' : 'sent']);
     preview.histories[hex(conversationId)] = history;
@@ -244,7 +244,7 @@ function addCommunities(preview: DevPreview, now: number, self: Uint8Array): voi
     preview.conversations.push({
       conversationId, username, peerAccountId: id(account), peerDeviceId: id(account, 16),
       safetyNumber: 'c4e0a19b52d7f36e81a4b20d9f5e37c16a8b04f2d9e1c7305b6a4f8e2d1c9b07', requestPending, blocked: false,
-      verified: false, keyChanged: false, disappearingSeconds: 0,
+      verified: false, keyChanged: false, disappearingSeconds: 0, sessionResetAt: 0,
     });
     const history = applyCommunityControls(lines.map((line, index) => ({
       direction: line.direction, messageId: id(account + index, 16), timestamp: now - line.age, body: line.body, disappearingSeconds: 0,

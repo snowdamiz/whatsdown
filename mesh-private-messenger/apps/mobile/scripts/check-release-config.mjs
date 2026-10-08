@@ -5,6 +5,7 @@ import { X509Certificate } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 const { getConfig } = require('expo/config');
+const securityConfig = require('../plugins/security-config.cjs');
 const env = process.env;
 
 assert.match(env.EXPO_PROJECT_ID ?? '', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Set EXPO_PROJECT_ID');
@@ -26,15 +27,15 @@ if (env.EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY) {
   assert.match(env.EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY, /^(?:[1-9]|1[0-9]|2[0-4])$/,
     'EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY must be a canonical integer 1–24');
 }
-for (const name of [
-  'MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX',
-  'MESSENGER_WITNESS_A_PUBLIC_KEY_HEX',
-  'MESSENGER_WITNESS_B_PUBLIC_KEY_HEX',
-  'MESSENGER_DELIVERY_PUBLIC_KEY_HEX',
-  'MESSENGER_ABUSE_DIFFICULTY',
-]) {
-  assert.ok(env[name], `Set ${name} in the EAS production environment`);
-}
-// Reuse the native plugin's key, difficulty, and paired push-pin validation.
+// A release carries a valid v2 security frame; securityConfig refuses anything the core would.
+const securityFrame = securityConfig(env);
+assert.ok(securityFrame, 'Set the MESSENGER security pins in the EAS production environment');
+// Stateless requests go through the privacy edge as OHTTP (protocol/ohttp-v1.md); only a
+// development build may send them directly.
+assert.ok(env.MESSENGER_OHTTP_KEY, 'Set MESSENGER_OHTTP_KEY to the OHTTP gateway key (<key id>:<public key hex>)');
+assert.equal(env.MESSENGER_OHTTP_RELAY, new URL(env.EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL).origin,
+  'MESSENGER_OHTTP_RELAY must be the privacy edge origin');
+// Reuse the native plugin's paired push-pin validation.
 getConfig(process.cwd());
-console.log('Release environment is configured.');
+const { setId, profile, k, n } = securityConfig.witnessSet(securityFrame);
+console.log(`Release environment is configured. Witness set_id ${setId}, ${profile}, ${k} of ${n}.`);

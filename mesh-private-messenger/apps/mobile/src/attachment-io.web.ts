@@ -1,11 +1,19 @@
 import { invoke } from '@tauri-apps/api/core';
 
-import { attachmentFileName, attachmentSelectionError } from './attachments.ts';
+import { attachmentFileName, attachmentSelectionError, memoryAttachment } from './attachments.ts';
+import { FREE_ATTACHMENT_SIZE } from './codec.ts';
 import type { OutgoingAttachment } from './network.ts';
 
+// Files up to 16 MB are read at once; a larger one is read a chunk at a time as
+// it uploads.
 export async function fileToAttachment(file: File): Promise<OutgoingAttachment> {
   const mimeType = file.type || 'application/octet-stream';
-  return { filename: attachmentFileName(file.name, mimeType), mimeType, bytes: new Uint8Array(await file.arrayBuffer()) };
+  const filename = attachmentFileName(file.name, mimeType);
+  if (file.size <= FREE_ATTACHMENT_SIZE) return memoryAttachment(filename, mimeType, new Uint8Array(await file.arrayBuffer()));
+  return {
+    filename, mimeType, size: file.size,
+    read: async (offset, length) => new Uint8Array(await file.slice(offset, offset + length).arrayBuffer()),
+  };
 }
 
 async function filesToAttachments(files: File[]): Promise<OutgoingAttachment[]> {
@@ -39,6 +47,28 @@ export function pickAttachmentFiles(): Promise<OutgoingAttachment[]> {
 export function saveAttachmentFile(filename: string, _mimeType: string, bytes: Uint8Array): Promise<boolean> {
   return invoke<boolean>('save_attachment', bytes, { headers: { 'X-File-Name': encodeURIComponent(filename) } })
     .catch((error) => { throw new Error(String(error)); });
+}
+
+// A large download goes where the save dialog points as it arrives: the shell
+// opens the file, appends each chunk, and removes it if the download fails.
+export async function saveAttachmentStream(
+  filename: string,
+  _mimeType: string,
+  stream: (write: (chunk: Uint8Array) => Promise<void>) => Promise<void>,
+): Promise<boolean> {
+  const id = await invoke<number | null>('save_attachment_start', {}, { headers: { 'X-File-Name': encodeURIComponent(filename) } })
+    .catch((error) => { throw new Error(String(error)); });
+  if (id === null) return false;
+  let complete = false;
+  try {
+    await stream(async (chunk) => {
+      await invoke('save_attachment_chunk', chunk, { headers: { 'X-Save-Id': String(id) } });
+    });
+    complete = true;
+  } finally {
+    await invoke('save_attachment_finish', { id, complete });
+  }
+  return true;
 }
 
 export function attachmentPreviewUri(_key: string, mimeType: string, bytes: Uint8Array): string {

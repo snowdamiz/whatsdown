@@ -9,6 +9,17 @@ const services = {
   objects: ['OBJECT_STORE', 'MESSENGER_OBJECT_INTERNAL_TOKEN'],
 };
 
+// A container's `jobs.internal` wakeup: POST /<kind> with a transaction ID.
+export async function registerWakeup(request, env, allowed) {
+  const url = new URL(request.url);
+  const kind = url.pathname.slice(1);
+  if (request.method !== 'POST' || !allowed.includes(kind) || url.search) return new Response(null, { status: 404 });
+  const body = await boundedBody(request, 20);
+  if (!body?.length) return new Response(null, { status: 400 });
+  await env.JOBS.getByName(kind).register(kind, new TextDecoder().decode(body));
+  return new Response(null, { status: 204 });
+}
+
 export class JobScheduler extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -52,6 +63,13 @@ export class JobScheduler extends DurableObject {
     try {
       const state = this.sql.exec('SELECT kind, due FROM state').toArray()[0];
       if (!state) return;
+      const [binding, token] = services[state.kind];
+      // The service moved to a deployment of its own (the push broker, §22 M4),
+      // whose scheduler owns its work now: drop what was left here.
+      if (!this.env[binding]) {
+        this.ctx.storage.transactionSync(() => { this.sql.exec('DELETE FROM pending'); this.sql.exec('DELETE FROM state'); });
+        return;
+      }
       // ponytail: one scheduler per service; shard only when measured throughput requires it.
       let pending = this.sql.exec('SELECT id FROM pending ORDER BY rowid LIMIT 4').toArray();
       if (!pending.length) {
@@ -60,7 +78,6 @@ export class JobScheduler extends DurableObject {
       }
       // Keep a durable recovery alarm before crossing the network boundary.
       await this.ctx.storage.setAlarm(Date.now() + 60_000);
-      const [binding, token] = services[state.kind];
       for (const { id } of pending) {
         const response = await this.env[binding].getByName('primary').fetch(`http://service/internal/v1/jobs/${state.kind}`, {
           method: 'POST', body: id,
@@ -74,7 +91,14 @@ export class JobScheduler extends DurableObject {
         const due = Number(text);
         if (!text || !/^(0|[1-9][0-9]*)$/.test(text) || !Number.isSafeInteger(due)) throw new Error('Invalid job deadline');
         if (state.kind === 'witness') {
-          await attestWitnesses(this.env);
+          try {
+            await attestWitnesses(this.env);
+          } finally {
+            // C2SP push, anchoring and cosigning run in their own scheduler, even
+            // when a witness failed; their outages never fail the witness job.
+            await this.env.NETWORK?.getByName('primary').afterCheckpoint()
+              .catch(error => console.error('Network jobs not scheduled', String(error).slice(0, 300)));
+          }
         }
         this.ctx.storage.transactionSync(() => {
           this.sql.exec('DELETE FROM pending WHERE id = ?', id);

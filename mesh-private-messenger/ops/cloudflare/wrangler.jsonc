@@ -9,7 +9,10 @@
     "enabled": false
   },
   "triggers": {
-    "crons": []
+    "crons": [
+      "* * * * *",
+      "0 * * * *"
+    ]
   },
   "r2_buckets": [
     {
@@ -50,6 +53,14 @@
       {
         "name": "JOBS",
         "class_name": "JobScheduler"
+      },
+      {
+        "name": "NETWORK",
+        "class_name": "NetworkJobs"
+      },
+      {
+        "name": "INGRESS_NONCES",
+        "class_name": "IngressNonces"
       }
     ]
   },
@@ -65,6 +76,18 @@
         "WitnessB",
         "CheckpointStore",
         "JobScheduler"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "NetworkJobs"
+      ]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": [
+        "IngressNonces"
       ]
     }
   ],

@@ -10,14 +10,17 @@ from Storage.Records import store_record_changes
 ##! the app hands them to the core to seal instead of keeping them in the clear.
 ##! The core does not interpret them. It does fix where they may be kept: one of
 ##! three journals, and in it a chat, a group, or the list of those that have a
-##! record; or the requests to join a community an admin declined, by chat. Nothing
-##! else the device stores can be read or written this way.
+##! record; or the requests to join a community an admin declined, by chat; or one
+##! of the app's settings: its lock, read receipts, notification previews and
+##! appearance. Nothing else the device stores can be read or written this way.
 
 fn journal_label(key :: Bytes) -> String!String do
   let text = mobile_utf8(key, "invalid_journal_key")?
   if Regex.is_match(~r/^(read-state|notification-state|receipt-marks)\/(index|chat\/[a-f0-9]{32}|group\/[a-f0-9]{64})$/,
     text)
-    || Regex.is_match(~r/^community-requests\/(index|chat\/[a-f0-9]{32})$/, text) do
+    || Regex.is_match(~r/^community-requests\/(index|chat\/[a-f0-9]{32})$/, text)
+    || Regex.is_match(~r/^settings\/(app-lock|read-receipts|notification-preview|appearance)$/,
+      text) do
     Ok("journal/v1/" <> text)
   else
     Err("invalid_journal_key")

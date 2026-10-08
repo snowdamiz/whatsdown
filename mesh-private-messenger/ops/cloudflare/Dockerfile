@@ -28,8 +28,10 @@ COPY --from=mesh-builder /opt/mesh/ /
 FROM mesh-builder AS services
 COPY mesh-private-messenger/packages/messenger-protocol /build/mesh-private-messenger/packages/messenger-protocol
 COPY mesh-private-messenger/packages/service-jobs /build/mesh-private-messenger/packages/service-jobs
+COPY mesh-private-messenger/packages/messenger-credits /build/mesh-private-messenger/packages/messenger-credits
+COPY mesh-private-messenger/packages/messenger-ohttp /build/mesh-private-messenger/packages/messenger-ohttp
 COPY mesh-private-messenger/services /build/mesh-private-messenger/services
-RUN mkdir /artifacts && for service in directory-delivery privacy-edge push-broker object-store transparency-witness; do \
+RUN mkdir /artifacts && for service in directory-delivery privacy-edge push-broker object-store transparency-witness credit-issuer; do \
     /opt/mesh/meshc build "/build/mesh-private-messenger/services/$service" --opt-level 2 --output "/artifacts/$service" || exit; \
     done
 

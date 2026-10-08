@@ -318,10 +318,23 @@ fn proof() -> Bool!String do
     0,
     expiring_download,
     wide("101001")?).status == 404)
-  case mint_grant(bytes(136, 32)?, 258, wide("700000")?, wide("200000")?, upload, download, 4) do
+  case mint_grant(bytes(136, 32)?, 8194, wide("700000")?, wide("200000")?, upload, download, 4) do
     Err(_) -> nil
     Ok(_) -> assert(false)
   end
+  # 258 parts is past the free ceiling and no attachment bucket.
+  assert(grant(database_path,
+    root,
+    encode_grant(mint_grant(bytes(136, 32)?,
+      258,
+      wide("700000")?,
+      wide("200000")?,
+      upload,
+      download,
+      4)?)?,
+    wide("100000")?,
+    wide("300000")?,
+    4).status == 400)
   Ok(true)
 end
 

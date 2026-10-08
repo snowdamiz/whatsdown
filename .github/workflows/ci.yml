@@ -1,5 +1,18 @@
 name: CI
 
+# The mesh job builds with the newest *published* Mesh release. The tree needs
+# Mesh features that no release has yet (v0.1.8 is the newest), so that job
+# stays red until a release ships them:
+#   - File.rename and File.sync: services/transparency-witness (prove-m13.sh).
+#   - Crypto.BlindRsa (BR1): packages/messenger-credits, which
+#     packages/mobile-core, services/directory-delivery and
+#     services/credit-issuer all link.
+#   - Crypto.hpke_seal_export/hpke_open_export and hkdf_aead_seal/open
+#     (Oblivious HTTP): packages/messenger-ohttp, which packages/mobile-core,
+#     services/directory-delivery and clients/mesh-cli link.
+# Locally, set MESHC (and WITNESS_MESHC for prove-m13.sh) to a meshc built from
+# a mesh-lang checkout that has them.
+
 on:
   pull_request:
     # Nothing here tests documentation or the landing page; release checks the page.
@@ -37,7 +50,7 @@ jobs:
   mesh:
     name: Pinned Mesh and messenger tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 240
     outputs:
       morse-revision: ${{ steps.verified.outputs.morse-revision }}
       mesh-revision: ${{ steps.verified.outputs.mesh-revision }}
@@ -152,7 +165,7 @@ jobs:
         run: ./target/debug/meshc lint ../mesh-private-messenger
 
       - name: Verify Mesh messenger packages
-        timeout-minutes: 30
+        timeout-minutes: 75
         # Formatting is the Mesh formatting workflow's: it reformats what a
         # new Mesh release lays out differently instead of failing here.
         run: |
@@ -160,13 +173,24 @@ jobs:
           ../mesh-private-messenger/scripts/prove-m15.sh
 
       - name: Verify M13 transparency witness
-        timeout-minutes: 15
+        timeout-minutes: 40
         run: |
           bash -n ../mesh-private-messenger/scripts/prove-m13.sh
           ../mesh-private-messenger/scripts/prove-m13.sh
 
+      - name: Verify transparency monitor
+        timeout-minutes: 15
+        run: ./target/debug/meshc test ../mesh-private-messenger/clients/monitor/tests
+
+      - name: Verify privacy edge and CLI security config
+        timeout-minutes: 15
+        # prove-m13.sh runs only the edge's api.test.mpl, prove-m10.sh only the CLI's transport test.
+        run: |
+          ./target/debug/meshc test ../mesh-private-messenger/services/privacy-edge/tests
+          ./target/debug/meshc test ../mesh-private-messenger/clients/mesh-cli/tests/pins.test.mpl
+
       - name: Verify service startup failures
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/object_store.test.mpl
           bash -n ../mesh-private-messenger/scripts/prove-service-startup.sh
@@ -177,14 +201,44 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Verify credits
+        timeout-minutes: 20
+        env:
+          CREDIT_ISSUER_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:55439/credit_issuer_test?sslmode=disable
+        run: |
+          ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-credits/tests
+          ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-ohttp/tests
+          psql postgres://postgres:postgres@127.0.0.1:55439/postgres -v ON_ERROR_STOP=1 -qc 'CREATE DATABASE credit_issuer_test'
+          for migration in ../mesh-private-messenger/services/credit-issuer/migrations/*.sql; do
+            psql "$CREDIT_ISSUER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -1 -f "$migration"
+          done
+          (set -a; source ../mesh-private-messenger/services/credit-issuer/tests/test-keys.env; set +a
+            ./target/debug/meshc test ../mesh-private-messenger/services/credit-issuer/tests)
+          node --test ../mesh-private-messenger/services/credit-issuer/tests/linkability.test.mjs
+
+      - name: Set up Go for the C2SP interop check
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          # litewitness (filippo.io/torchwood v0.10.0) needs Go 1.27.
+          go-version: '1.27'
+          cache: false
+
+      - name: Verify C2SP interop with litewitness
+        timeout-minutes: 15
+        # The script skips without Go; setup-go above makes that impossible here.
+        run: ../mesh-private-messenger/scripts/c2sp-interop.sh
+
       - name: Verify Cloudflare storage and routing
         timeout-minutes: 10
         run: |
           ./target/debug/meshc test ../mesh-private-messenger/services/push-broker/tests
           ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/postgres.test.mpl
+          ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/attachment_buckets.test.mpl
           node --test ../mesh-private-messenger/scripts/*.test.mjs
           npm ci --prefix ../mesh-private-messenger/ops/cloudflare
           MESHC="$PWD/target/debug/meshc" npm test --prefix ../mesh-private-messenger/ops/cloudflare
+          node --test ../mesh-private-messenger/ops/acceptance/*.test.mjs
+          node --test ../mesh-private-messenger/ops/witness/*.test.mjs
 
       - name: Build Android mobile archives
         timeout-minutes: 35
@@ -217,9 +271,11 @@ jobs:
             esac
             output="../mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/android/$abi/libmessenger_mobile.a"
             mkdir -p "$(dirname "$output")"
-            cargo build --locked -p mesh-rt --lib --target "$target"
-            "$preserved_meshc" build ../mesh-private-messenger/packages/mobile-core \
-              --artifact staticlib --target "$target" --output "$output"
+            # As phones ship it (build-mobile-native.sh --release): the release runtime, at -O2.
+            cargo build --locked --release -p mesh-rt --lib --target "$target"
+            MESH_RT_LIB_PATH="$CARGO_TARGET_DIR/$target/release/libmesh_rt.a" \
+              "$preserved_meshc" build ../mesh-private-messenger/packages/mobile-core \
+              --artifact staticlib --opt-level 2 --target "$target" --output "$output"
             test -s "$output"
             cargo clean --target "$target"
           done
@@ -242,3 +298,86 @@ jobs:
           test "$(git -C mesh-lang rev-parse HEAD)" = "$MESH_LANG_REVISION"
           echo "morse-revision=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           echo "mesh-revision=$MESH_LANG_REVISION" >> "$GITHUB_OUTPUT"
+
+  chain:
+    # Needs no Mesh compiler, so it runs beside the mesh job and stays green on its own.
+    name: Wallet core, Solana programs and chain drills
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mesh-private-messenger
+    env:
+      # programs/README.md: Solana CLI 4.1 (cargo-build-sbf, platform-tools v1.54).
+      SOLANA_VERSION: 4.1.1
+    steps:
+      - name: Checkout Morse
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        timeout-minutes: 10
+        with:
+          toolchain: 1.97.0
+          components: clippy, rustfmt
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          key: ci-chain
+          workspaces: |
+            mesh-private-messenger/packages/wallet-core -> target
+            mesh-private-messenger/programs -> target
+
+      - name: Verify wallet core
+        timeout-minutes: 15
+        working-directory: mesh-private-messenger/packages/wallet-core
+        run: |
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+
+      - name: Cache Solana CLI and platform tools
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: cache-solana
+        with:
+          path: |
+            ~/.local/share/solana/install
+            ~/.cache/solana
+          key: solana-${{ env.SOLANA_VERSION }}-x86_64-unknown-linux-gnu
+
+      - name: Install Solana CLI
+        if: steps.cache-solana.outputs.cache-hit != 'true'
+        timeout-minutes: 10
+        run: sh -c "$(curl -sSfL "https://release.anza.xyz/v${SOLANA_VERSION}/install")"
+
+      - name: Put Solana CLI on PATH
+        run: |
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/share/solana/install/active_release/bin/solana" --version | grep -F "solana-cli $SOLANA_VERSION "
+
+      - name: Build and test the Solana programs
+        timeout-minutes: 30
+        working-directory: mesh-private-messenger/programs
+        run: |
+          cargo fmt --all --check
+          cargo-build-sbf --manifest-path morse-judge/Cargo.toml
+          cargo-build-sbf --manifest-path morse-rewards/Cargo.toml
+          cargo clippy --locked -p morse-judge -p morse-rewards -- -D warnings
+          # LiteSVM, against the .so files just built.
+          cargo test --locked -p morse-program-tests
+          ./scripts/smoke.sh
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Verify the relay and the chain drills
+        timeout-minutes: 20
+        run: |
+          npm ci --prefix ops/relay
+          npm test --prefix ops/relay
+          # The drills drive the jobs Worker's chain writers from ops/cloudflare.
+          npm ci --omit=dev --prefix ops/cloudflare
+          node --test ops/drills/local-validator.test.mjs

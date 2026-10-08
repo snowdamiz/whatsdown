@@ -51,7 +51,9 @@ export function planNotifications(
       const group = 'senderAccountId' in message;
       const mention = group && mentionSpans(message.body, [own.username]).length > 0;
       const sender = group ? thread.senders?.[hex(message.senderAccountId)] ?? 'Someone' : '';
-      const preview = 'disappearingSeconds' in message && message.disappearingSeconds > 0
+      const disappearing = ('disappearingSeconds' in message && message.disappearingSeconds > 0)
+        || ('expiresAt' in message && Boolean(message.expiresAt));
+      const preview = disappearing
         ? 'Disappearing message' : attachmentPreviewText(message).replace(/\s+/g, ' ').trim();
       if (!preview) continue;
       notifications.push({ id: `${thread.scope}/${keys[index]}`, scope: thread.scope,

@@ -284,7 +284,8 @@ fn proof() -> Bool!GroupError do
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: Bytes.empty()
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?
@@ -339,6 +340,7 @@ fn proof() -> Bool!GroupError do
     second_commit.prior_transcript_hash,
     second_commit.tree_hash,
     second_commit.proposal,
+    second_commit.witness_set,
     second_commit.update_path)?
   let captured_path = group_open_update_path(second_commit.update_path.nodes,
     0,
@@ -447,7 +449,8 @@ fn removal_proof() -> Bool!GroupError do
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: Bytes.empty()
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?
@@ -660,7 +663,8 @@ fn seeded_group(seed :: Int) -> Bool!GroupError do
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: Bytes.empty()
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?

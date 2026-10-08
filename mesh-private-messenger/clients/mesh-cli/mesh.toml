@@ -5,3 +5,5 @@ version = "0.1.0"
 [dependencies]
 mesh-binary = { path = "../../../mesh-lang/packages/mesh-binary" }
 messenger-protocol = { path = "../../packages/messenger-protocol" }
+# Lookups and the mailbox through the pinned OHTTP relay need the HPKE export.
+messenger-ohttp = { path = "../../packages/messenger-ohttp" }

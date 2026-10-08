@@ -1,9 +1,14 @@
 {
   // Static landing page, deployed by .github/workflows/backend-release.yml.
   "name": "morse-landing",
-  // Files are served as they are; only what isn't a file (the waitlist form's POST) reaches the script.
+  // Files are served as they are; only what isn't a file (the waitlist form's POST, /network/*.json) reaches the script.
   "main": "waitlist.mjs",
   "compatibility_date": "2026-09-18",
+  // The backend is another Worker on this account; fetching its workers.dev address from here needs the public
+  // route, or Cloudflare refuses it (error 1042).
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  // Where /network/registry.json and /network/status.json come from (see waitlist.mjs).
+  "vars": { "MORSE_BACKEND_URL": "https://morse-backend.snowdamiz.workers.dev" },
   "workers_dev": true,
   "preview_urls": false,
   "routes": [

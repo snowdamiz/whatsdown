@@ -33,7 +33,14 @@ from Protocol.V1 import (
   ProtocolExtension,
   negotiate_suites
 )
-from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
+from Session.Handshake import (
+  RatchetState,
+  SessionError,
+  initiate,
+  initiate_at_floor,
+  receive_initial,
+  receive_initial_at_floor
+)
 from Session.Ratchet import DecryptOutcome, decrypt, encrypt
 
 fn wide(value :: String) -> U64!String do
@@ -473,6 +480,123 @@ end
 
 test("hybrid establishment, explicit classical fallback, and downgrade rejection") do
   case hybrid_proof() do
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok(value) -> assert(value)
+  end
+end
+
+fn floor_proof() -> Bool!String do
+  let now = wide("1700000000000")?
+  let expires = wide("1700604800000")?
+  let verification_policy = VerificationPolicy {
+    current_time: now,
+    minimum_directory_sequence: wide("1")?
+  }
+  let (initiator_account_keys, initiator_account) = account(now)?
+  let initiator_device = device()?
+  let initiator_post_quantum = post_quantum_prekey()?
+  let initiator_credential = hybrid_credential(initiator_account_keys,
+    initiator_device,
+    initiator_post_quantum,
+    now,
+    expires)?
+  let (responder_account_keys, responder_account) = account(now)?
+  let responder_device = device()?
+  let responder_post_quantum = post_quantum_prekey()?
+  let classical = classical_credential(responder_account_keys, responder_device, now, expires)?
+  let classical_signed = signed_prekey(responder_device, classical, expires)?
+  let classical_one_time = one_time_prekey()?
+  let classical_bundle_value = classical_bundle(classical, classical_signed, classical_one_time)?
+  # A peer that offers only suite 1 gets no new session once the floor is 2.
+  case initiate_at_floor(initiator_device,
+    initiator_credential,
+    responder_account,
+    classical_bundle_value,
+    verification_policy,
+    0,
+    2,
+    Bytes.from_utf8("below the floor")) do
+    Err(SuiteBelowFloor) -> assert(true)
+    Err(_) -> assert(false)
+    Ok(value) -> do
+      consume_start(value)
+      assert(false)
+    end
+  end
+  # Nor does a first message at suite 1 open one.
+  let (classical_state, classical_initial) = initiated(initiate_at_floor(initiator_device,
+    initiator_credential,
+    responder_account,
+    classical_bundle_value,
+    verification_policy,
+    0,
+    1,
+    Bytes.from_utf8("sent before the floor")))?
+  assert(classical_state.suite == 1)
+  consume_session(classical_state)
+  case receive_initial_at_floor(responder_device,
+    responder_account,
+    classical_bundle_value,
+    classical_signed,
+    classical_one_time,
+    responder_post_quantum,
+    initiator_account,
+    verification_policy,
+    verification_policy,
+    0,
+    2,
+    initial_bytes(classical_initial)?) do
+    Err(SuiteBelowFloor) -> assert(true)
+    Err(_) -> assert(false)
+    Ok(value) -> do
+      let (unexpected, _) = value
+      consume_session(unexpected)
+      assert(false)
+    end
+  end
+  # Two hybrid devices are above it.
+  let hybrid = hybrid_credential(responder_account_keys,
+    responder_device,
+    responder_post_quantum,
+    now,
+    expires)?
+  let hybrid_signed = signed_prekey(responder_device, hybrid, expires)?
+  let hybrid_one_time = one_time_prekey()?
+  let hybrid_bundle_value = hybrid_bundle(hybrid,
+    hybrid_signed,
+    hybrid_one_time,
+    responder_post_quantum)?
+  let (hybrid_state, hybrid_initial) = initiated(initiate_at_floor(initiator_device,
+    initiator_credential,
+    responder_account,
+    hybrid_bundle_value,
+    verification_policy,
+    0,
+    2,
+    Bytes.from_utf8("above the floor")))?
+  let (hybrid_responder, opened) = received(receive_initial_at_floor(responder_device,
+    responder_account,
+    hybrid_bundle_value,
+    hybrid_signed,
+    hybrid_one_time,
+    responder_post_quantum,
+    initiator_account,
+    verification_policy,
+    verification_policy,
+    0,
+    2,
+    initial_bytes(hybrid_initial)?))?
+  assert(hybrid_state.suite == 2 && hybrid_responder.suite == 2)
+  assert(Bytes.secure_equals(opened, Bytes.from_utf8("above the floor")))
+  consume_sessions(hybrid_state, hybrid_responder)
+  Ok(true)
+end
+
+test("a suite floor of 2 refuses new classical sessions both ways and admits hybrid ones") do
+  case floor_proof() do
     Err(error) -> do
       println(error)
       assert(false)

@@ -163,7 +163,7 @@ main() {
   encrypted_database_nonempty "$database" || \
     fail "CLI/mobile interoperability did not persist encrypted SQLite blobs"
   local interop_leaks
-  interop_leaks="$(LC_ALL=C grep -a -E -o 'm10-cli-greeting-opaque|m10-mobile-reply-opaque' "$database" || true)"
+  interop_leaks="$(LC_ALL=C grep -a -E -o 'm10-cli-greeting-opaque|m10-mobile-reply-opaque|m10-cli-upgraded-opaque|m10-mobile-answer-opaque' "$database" || true)"
   if [[ -n "$interop_leaks" ]]; then
     fail "CLI/mobile interoperability leaked message plaintext into SQLite: $interop_leaks"
   fi

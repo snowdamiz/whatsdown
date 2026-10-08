@@ -1,4 +1,5 @@
 from Mobile.Codec import random_bytes
+from Mobile.GossipState import gossip_hint_extensions
 from Protocol.V1 import ProtocolExtension
 from Storage.Blobs import load_blob
 from Storage.Keys import local_context, open_local, seal_local
@@ -101,11 +102,13 @@ end
 pub fn outgoing_extensions(database_path :: String,
   wrapping_key :: borrow StorageKey) -> List<ProtocolExtension>!String do
   let address = confirmed_contact_address(database_path, wrapping_key)?
-  if Bytes.length(address) != 32 do
-    Ok(List.new())
+  let contact = if Bytes.length(address) != 32 do
+    List.new()
   else
-    Ok([ProtocolExtension { id: contact_address_extension(), mandatory: false, value: address }])
+    [ProtocolExtension { id: contact_address_extension(), mandatory: false, value: address }]
   end
+  # Beside it, checkpoint gossip's extension 2: this device's view of the key log.
+  Ok(contact ++ gossip_hint_extensions(database_path, wrapping_key))
 end
 
 fn peer_label(public_address :: Bytes) -> String do

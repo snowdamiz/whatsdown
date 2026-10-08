@@ -2,7 +2,7 @@ import type { LegacyJournal } from './journal-store';
 import { parseReadState, type ReadState } from './read-state';
 import { parseNotificationPreview, type NotificationPreview } from './notification-policy';
 import { parseReceiptMarks, type ReceiptMarks } from './receipts';
-import { journals } from './sealed-journals';
+import { journals, settings } from './sealed-journals';
 import { parseDeclined } from './community-requests';
 import { databasePath } from './storage';
 
@@ -29,19 +29,20 @@ export const saveDeclinedRequests = (declined: Record<string, string[]>): Promis
 
 // Whether this account tells people when it has read their messages. On unless turned off.
 const receiptsKey = (account: string) => `${databasePath}/read-receipts/v1/${account}`;
-export const loadReadReceipts = (account: string): boolean => localStorage.getItem(receiptsKey(account)) !== 'off';
-export function saveReadReceipts(account: string, enabled: boolean): void {
-  localStorage.setItem(receiptsKey(account), enabled ? 'on' : 'off');
-}
+export const loadReadReceipts = async (account: string): Promise<boolean> =>
+  await settings.load('read-receipts', legacy(receiptsKey(account))) !== 'off';
+export const saveReadReceipts = (_account: string, enabled: boolean): Promise<void> =>
+  settings.save('read-receipts', enabled ? 'on' : 'off');
 
 // How much a notification shows; see NotificationPreview. Everything unless changed.
 const previewKey = (account: string) => `${databasePath}/notification-preview/v1/${account}`;
-export const loadNotificationPreview = (account: string): NotificationPreview =>
-  parseNotificationPreview(localStorage.getItem(previewKey(account)));
-export function saveNotificationPreview(account: string, preview: NotificationPreview): void {
-  localStorage.setItem(previewKey(account), preview);
-}
+export const loadNotificationPreview = async (account: string): Promise<NotificationPreview> =>
+  parseNotificationPreview(await settings.load('notification-preview', legacy(previewKey(account))));
+export const saveNotificationPreview = (_account: string, preview: NotificationPreview): Promise<void> =>
+  settings.save('notification-preview', preview);
 
+// The sealed settings go with the database; this removes any copy an older build
+// left in the clear.
 export function forgetPreferences(account: string): void {
   localStorage.removeItem(receiptsKey(account));
   localStorage.removeItem(previewKey(account));

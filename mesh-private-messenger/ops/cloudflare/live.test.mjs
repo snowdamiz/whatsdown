@@ -12,6 +12,7 @@ import test from 'node:test';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { postgresEnv, runSql } from './postgres.mjs';
 import { assertPrivateMarkersAbsent } from '../../scripts/privacy-leaks.mjs';
+import { decapsulateResponse, decodeKeyConfig, decodeKeys, decodeResponse, encapsulateRequest, encodeRequest } from './ohttp.mjs';
 
 const run = promisify(execFile);
 
@@ -59,6 +60,8 @@ test('native encrypted delivery and witnesses work with polling disabled and dur
     MESSENGER_WITNESS_A_PUBLIC_KEY_HEX: 'd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a',
     MESSENGER_WITNESS_B_PUBLIC_KEY_HEX: '3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c',
     MESSENGER_DELIVERY_SEALING_SEED_HEX: '77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a',
+    MESSENGER_OHTTP_GATEWAY_KEY_ID: '1',
+    MESSENGER_OHTTP_GATEWAY_SEED_HEX: '3c168975674b2fa8e465970b79c8dcf09f1c741626480bd4c6162fc5b6a98e1a',
     MESSENGER_PUSH_BROKER_SEED_HEX: '0d'.repeat(32),
     MESSENGER_DELIVERY_INTERNAL_TOKEN: token,
     MESSENGER_PUSH_BROKER_INTERNAL_TOKEN: token,
@@ -144,9 +147,28 @@ test('native encrypted delivery and witnesses work with polling disabled and dur
     for (const [origin, kind] of [[core, 'directory'], [push, 'push'], [objects, 'objects']]) {
       const path = `${origin}/internal/v1/jobs/${kind}`;
       assert.equal((await fetch(path, { method: 'POST', body: '0' })).status, 401);
+      const before = Date.now();
       const response = await fetch(path, { method: 'POST', body: '0', headers: { authorization: `Bearer ${token}` } });
-      assert.equal(response.status, 200); assert.equal(await response.text(), '0');
+      assert.equal(response.status, 200);
+      // The next deadline in Unix milliseconds, 0 when nothing is due. The
+      // directory's daily log pruning has just run, so it is next due at the
+      // following UTC midnight; push and objects have nothing scheduled.
+      const due = await response.text();
+      const midnight = t => { const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); };
+      if (kind === 'directory') assert.ok([midnight(before), midnight(Date.now())].includes(Number(due)), `directory deadline ${due}`);
+      else assert.equal(due, '0');
     }
+    // §22 M3: a query through the real edge's relay to the directory's gateway.
+    const keys = decodeKeys(new Uint8Array(await (await fetch(`${core}/v1/ohttp/keys`)).arrayBuffer()));
+    assert.equal(keys[0].toString('hex'), '01002031e1f05a740102115220e9af918f738674aec95f54db6e04eb705aae8e798155000400010003');
+    const treeQuery = Buffer.concat([Buffer.from([2]), Buffer.from('KTS'), Buffer.alloc(16), Buffer.from([1])]);
+    const { encapsulated, context } = encapsulateRequest(decodeKeyConfig(keys[0]), encodeRequest('POST', '/v1/transparency/consistency', treeQuery));
+    const relayed = await fetch(`${edge}/v1/ohttp`, { method: 'POST', body: encapsulated, headers: { 'content-type': 'message/ohttp-req' } });
+    assert.equal(relayed.status, 200);
+    assert.equal(relayed.headers.get('content-type'), 'message/ohttp-res');
+    const inner = decodeResponse(decapsulateResponse(context, new Uint8Array(await relayed.arrayBuffer())));
+    assert.equal(inner.status, 200);
+    assert.equal(inner.content.subarray(1, 4).toString(), 'KTC');
     assert.equal((await fetch(`${objects}/v1/objects/${'0'.repeat(64)}/parts/0`, {
       headers: { 'x-object-capability': '1'.repeat(64) },
     })).status, 404, 'object capabilities must work through proxies that lowercase headers');
@@ -168,6 +190,11 @@ test('native encrypted delivery and witnesses work with polling disabled and dur
       groupBody: 'private-group-body-373bc740b242', groupName: 'private-group-name-9d128aa39099', groupId: Buffer.from(groupId, 'hex') });
     await run(process.env.MESHC, ['test', fileURLToPath(new URL('../../tests/cloudflare-live', import.meta.url))], {
       env: { ...env, MESSENGER_EVENT_OBJECT_URL: objects }, maxBuffer: 4 * 1024 * 1024,
+    });
+    // The mobile core's lookup and mailbox fetch, sealed through the real edge to the real gateway.
+    await run(process.env.MESHC, ['test', fileURLToPath(new URL('../../tests/ohttp-live', import.meta.url))], {
+      env: { ...env, MESSENGER_OHTTP_LIVE_CORE_URL: core, MESSENGER_OHTTP_LIVE_EDGE_URL: edge,
+        MESSENGER_OHTTP_LIVE_DB_PATH: join(directory, 'carol.db') }, maxBuffer: 4 * 1024 * 1024,
     });
     const status = async () => (await mf.dispatchFetch('http://test/status')).json();
     await until(async () => (await status()).jobs.every(job => job.pending === 0 && job.failures === 0), 'event jobs');

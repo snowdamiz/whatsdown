@@ -30,8 +30,10 @@ from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.IdentityWire import decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 from Protocol.V1 import DeviceCredential, DeviceSet, DirectoryEntry, OuterEnvelope, PrekeyBundle
+from Tests.AnchorSupport import clear_test_alarm, raise_test_alarm
 from Tests.GroupConsistencyCrypto import checkpoint
 from Tests.GroupConsistencySupport import signed_transparency_view, signing_pair
+from Storage.Rows import storage_row_for
 from Tests.Support import (
   append,
   database_path,
@@ -40,8 +42,8 @@ from Tests.Support import (
   vector,
   write_u32
 )
-from Transparency.Merkle import TransparencyCheckpoint, consistency_proof, leaf_hash
-from Transparency.Wire import encode_checkpoint, encode_consistency_proof
+from Transparency.Merkle import TransparencyCheckpoint, leaf_hash
+from Transparency.Wire import encode_checkpoint
 
 fn encode_vectors(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
@@ -234,9 +236,12 @@ fn database_fingerprint(path :: String) -> String!String do
 end
 
 fn set_outbox_failure(path :: String, enabled :: Bool) -> Result<(), String> do
+  let outbox_row = storage_row_for(path, "outbox/v1")?
   let database = Sqlite.open(path)?
   let statement = if enabled do
-    "CREATE TRIGGER mesh_test_fail_fanout BEFORE INSERT ON encrypted_blobs WHEN NEW.record_hash = '2e18a8aa47e3428a0c87b2dd84049e85da6950238b82128496e6c35bd760b220' BEGIN SELECT RAISE(ABORT, 'forced fanout outbox write failure'); END"
+    "CREATE TRIGGER mesh_test_fail_fanout BEFORE INSERT ON encrypted_blobs WHEN NEW.record_hash = '"
+      <> outbox_row
+      <> "' BEGIN SELECT RAISE(ABORT, 'forced fanout outbox write failure'); END"
   else
     "DROP TRIGGER mesh_test_fail_fanout"
   end
@@ -415,7 +420,6 @@ fn proof() -> Bool!String do
     false)?
   assert(install_group_transparency_for_test(alice_path,
     encode_checkpoint(peer_checkpoint)?,
-    encode_consistency_proof(consistency_proof(List.new(), [peer_leaf])?)?,
     service_pair.public_key.bytes,
     witness_a_pair.public_key.bytes,
     witness_b_pair.public_key.bytes,
@@ -429,7 +433,6 @@ fn proof() -> Bool!String do
     true)?
   assert(install_group_transparency_for_test(alice_path,
     encode_checkpoint(current_checkpoint)?,
-    encode_consistency_proof(consistency_proof(List.new(), current_leaves)?)?,
     service_pair.public_key.bytes,
     witness_a_pair.public_key.bytes,
     witness_b_pair.public_key.bytes,
@@ -541,14 +544,12 @@ fn proof() -> Bool!String do
   let bob_view = signed_transparency_view([leaf_hash(alice_set)?, leaf_hash(bob_set)?])?
   assert(install_group_transparency_for_test(bob_path,
     bob_view.checkpoint,
-    bob_view.consistency,
     bob_view.service_public_key,
     bob_view.witness_a_public_key,
     bob_view.witness_b_public_key,
     alice_set)?)
   assert(install_group_transparency_for_test(bob_path,
     bob_view.checkpoint,
-    bob_view.consistency,
     bob_view.service_public_key,
     bob_view.witness_a_public_key,
     bob_view.witness_b_public_key,
@@ -566,6 +567,14 @@ fn proof() -> Bool!String do
     bob_set,
     bundle_wire(next_claimed_linked_bundle)?
   ])?)?) == 0)
+  # While a trust alarm is active no new session starts: this reply would open
+  # one with alice's linked device.
+  raise_test_alarm(bob_path)?
+  case send_fanout_export(reply_request) do
+    Ok(_) -> assert("the alarm let a new session start" == "")
+    Err(error) -> assert(error == "trust_alarm_active")
+  end
+  clear_test_alarm(bob_path)?
   let encoded_reply = send_fanout_export(reply_request)?
   let replies = output_list(encoded_reply)?
   assert(List.length(replies) == 2)
@@ -660,19 +669,19 @@ fn proof() -> Bool!String do
   let revoked_view = signed_transparency_view([leaf_hash(revoked_set)?, leaf_hash(bob_set)?])?
   assert(install_group_transparency_for_test(bob_path,
     revoked_view.checkpoint,
-    revoked_view.consistency,
     revoked_view.service_public_key,
     revoked_view.witness_a_public_key,
     revoked_view.witness_b_public_key,
     revoked_set)?)
   assert(install_group_transparency_for_test(bob_path,
     revoked_view.checkpoint,
-    revoked_view.consistency,
     revoked_view.service_public_key,
     revoked_view.witness_a_public_key,
     revoked_view.witness_b_public_key,
     bob_set)?)
   assert(List.length(output_list(fanout_prekey_claims_export(revoked_claim_targets)?)?) == 0)
+  # An existing chat keeps working while an alarm is active.
+  raise_test_alarm(bob_path)?
   let revoked_fanout = output_list(send_fanout_export(revoked_request)?)?
   assert(List.length(revoked_fanout) == 1)
   let only_active = List.head(revoked_fanout)

@@ -16,6 +16,7 @@ from Groups.Mls import (
   GroupError,
   GroupReadBytes,
   GroupReadInt,
+  GroupReadPolicy,
   GroupReadWide,
   GroupTransparencyPolicy
 )
@@ -238,13 +239,43 @@ pub fn delivery_targets(tree :: borrow GroupTree,
   end
 end
 
+# A version 1 policy (no set_id) keeps its old bounds; a policy under a pinned
+# witness set carries that set's strict majority, 1 to 16.
+
 pub fn group_validate_policy(value :: GroupTransparencyPolicy) -> Result<(), GroupError> do
-  if Bytes.length(value.checkpoint_hash) != 32
-    || value.witness_threshold < 0
-    || value.witness_threshold > 255 do
+  let legacy = Bytes.length(value.set_id) == 0
+    && value.witness_threshold >= 0
+    && value.witness_threshold <= 255
+  let pinned = Bytes.length(value.set_id) == 32
+    && value.witness_threshold >= 1
+    && value.witness_threshold <= 16
+  if Bytes.length(value.checkpoint_hash) != 32 || (!legacy && !pinned) do
     Err(InvalidPolicy)
   else
     Ok(nil)
+  end
+end
+
+# The policy a commit leaves: unchanged, or moved to the committer's set.
+
+pub fn group_policy_after(policy :: GroupTransparencyPolicy,
+  witness_set :: Bytes) -> GroupTransparencyPolicy!GroupError do
+  if Bytes.length(witness_set) == 0 do
+    Ok(policy)
+  else if Bytes.length(witness_set) != 33 do
+    Err(InvalidPolicy)
+  else
+    let set_id = case Bytes.slice(witness_set, 0, 32) do
+      Err(_) -> Err(InvalidPolicy)
+      Ok(value)
+    end?
+    let threshold = case Bytes.get(witness_set, 32) do
+      Err(_) -> Err(InvalidPolicy)
+      Ok(value)
+    end?
+    let moved = %{policy | set_id: set_id, witness_threshold: threshold}
+    group_validate_policy(moved)?
+    Ok(moved)
   end
 end
 
@@ -255,10 +286,14 @@ pub fn group_validate_member_policy(member :: GroupMember,
   group_validate_policy(policy)?
   let current = U64.compare(member.directory_sequence, policy.minimum_directory_sequence) >= 0
   let checkpoint = Bytes.secure_equals(member.transparency_checkpoint_hash, policy.checkpoint_hash)
-  if current
-    && checkpoint
-    && member.witness_count >= policy.witness_threshold
-    && supports_extensions(member, extensions, 0) do
+  # A member's witness count is the k its build pinned when it joined; a set
+  # change moves the policy, not the members already in the group.
+  let witnessed = if Bytes.length(policy.set_id) == 0 do
+    member.witness_count >= policy.witness_threshold
+  else
+    member.witness_count >= 1
+  end
+  if current && checkpoint && witnessed && supports_extensions(member, extensions, 0) do
     Ok(nil)
   else
     Err(invalid_group_member_error())
@@ -348,6 +383,54 @@ pub fn group_wire_start(input :: Bytes,
     group_wire_magic(version.state, magic)
   else
     Err(InvalidGroup)
+  end
+end
+
+# Frames that gained a version 2 (a policy under a pinned witness set): the
+# reader after the magic, and which version it was.
+
+pub fn group_wire_start_versioned(input :: Bytes,
+  maximum :: Int,
+  magic :: String) -> GroupReadInt!GroupError do
+  let version = group_wire_u8(group_wire_reader(input, maximum)?)?
+  if version.value == 1 || version.value == 2 do
+    Ok(GroupReadInt { state: group_wire_magic(version.state, magic)?, value: version.value })
+  else
+    Err(InvalidGroup)
+  end
+end
+
+# Version 1 frames carry a version 1 policy; version 2 frames a pinned set.
+
+pub fn group_policy_version(policy :: GroupTransparencyPolicy) -> Int do
+  if Bytes.length(policy.set_id) == 0 do
+    1
+  else
+    2
+  end
+end
+
+pub fn group_read_policy(state :: BinaryReader, version :: Int) -> GroupReadPolicy!GroupError do
+  let minimum_sequence = group_wire_u64(state)?
+  let checkpoint = group_wire_fixed(minimum_sequence.state, 32)?
+  let witness = group_wire_u8(checkpoint.state)?
+  let set_id = group_wire_fixed(witness.state,
+    if version == 2 do
+      32
+    else
+      0
+    end)?
+  let value = GroupTransparencyPolicy {
+    minimum_directory_sequence: minimum_sequence.value,
+    checkpoint_hash: checkpoint.value,
+    witness_threshold: witness.value,
+    set_id: set_id.value
+  }
+  group_validate_policy(value)?
+  if group_policy_version(value) != version do
+    Err(InvalidPolicy)
+  else
+    Ok(GroupReadPolicy { state: set_id.state, value: value })
   end
 end
 

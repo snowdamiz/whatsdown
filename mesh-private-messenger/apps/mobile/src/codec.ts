@@ -17,6 +17,8 @@ export type Conversation = {
   verified: boolean;
   keyChanged: boolean;
   disappearingSeconds: number;
+  // When the conversation's secure session was last reset, 0 if never.
+  sessionResetAt: number;
 };
 
 // The opened manifest of one attachment, next to the opaque reference that the
@@ -43,6 +45,15 @@ function parseDelivery(state: number): { delivery?: Delivery } {
   return state === 1 ? { delivery: 'pending' } : state === 2 ? { delivery: 'failed' } : {};
 }
 
+// A view-once message: 'unopened' until this device opens it once (its content
+// only comes from that call), then 'gone', which is also what its sender keeps.
+export type ViewOnce = 'unopened' | 'gone';
+
+function viewOnceOf(kind: number): { viewOnce?: ViewOnce } {
+  if (kind > 2) throw new Error('Invalid message kind');
+  return kind === 1 ? { viewOnce: 'unopened' } : kind === 2 ? { viewOnce: 'gone' } : {};
+}
+
 export type HistoryMessage = {
   delivery?: Delivery;
   reactions?: Reaction[];
@@ -58,6 +69,7 @@ export type HistoryMessage = {
   body: string;
   disappearingSeconds: number;
   attachments?: AttachmentSummary[];
+  viewOnce?: ViewOnce;
 };
 
 export type DeviceSummary = {
@@ -110,6 +122,11 @@ export type GroupHistoryMessage = {
   timestamp: number;
   body: string;
   attachments?: AttachmentSummary[];
+  viewOnce?: ViewOnce;
+  // When a disappearing message goes, in milliseconds; absent when it stays.
+  expiresAt?: number;
+  // A notice that the group's disappearing-message timer changed to this many seconds.
+  timerNotice?: number;
 };
 
 export type GroupMemberSummary = {
@@ -128,6 +145,10 @@ export type GroupDetails = {
   treeHash: Uint8Array;
   checkpointHash: Uint8Array;
   members: GroupMemberSummary[];
+  // How this device signs its messages in the current epoch
+  // (protocol/mls-groups-v1.md, "Deniable sender authentication"): 0 nothing
+  // sent yet, 1 with its long-term device key, 2 deniably.
+  senderSigning?: number;
 };
 
 export const utf8 = (value: string): Uint8Array => textEncoder.encode(value);
@@ -184,6 +205,10 @@ export class Reader {
 
   finish(): void {
     if (this.offset !== this.input.length) throw new Error('Trailing bytes');
+  }
+
+  get done(): boolean {
+    return this.offset === this.input.length;
   }
 }
 
@@ -254,7 +279,9 @@ function exactByteList(input: Uint8Array, count: number, maximumItemLength: numb
 }
 
 export const ATTACHMENT_CHUNK_SIZE = 65_536;
-export const MAXIMUM_ATTACHMENT_SIZE = 256 * ATTACHMENT_CHUNK_SIZE;
+// Free up to 16 MiB; larger files, to 512 MiB, cost credits.
+export const FREE_ATTACHMENT_SIZE = 256 * ATTACHMENT_CHUNK_SIZE;
+export const MAXIMUM_ATTACHMENT_SIZE = 8192 * ATTACHMENT_CHUNK_SIZE;
 // A summary with its opened manifest fields; the reference alone is under 1 KiB.
 const MAXIMUM_ATTACHMENT_SUMMARY = 2_048;
 export const MAXIMUM_ATTACHMENTS = 10;
@@ -286,7 +313,9 @@ export function parseAttachmentSummary(input: Uint8Array): AttachmentSummary | u
     summary.size === 0 ||
     summary.size > MAXIMUM_ATTACHMENT_SIZE ||
     summary.chunkSize !== ATTACHMENT_CHUNK_SIZE ||
-    summary.chunkCount !== Math.ceil(summary.size / ATTACHMENT_CHUNK_SIZE)
+    // Padded objects (attachment wire 2) carry trailing chunks of padding alone.
+    summary.chunkCount < Math.ceil(summary.size / ATTACHMENT_CHUNK_SIZE) ||
+    summary.chunkCount > MAXIMUM_ATTACHMENT_SIZE / ATTACHMENT_CHUNK_SIZE
   ) {
     throw new Error('Invalid attachment');
   }
@@ -348,9 +377,10 @@ export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
   // The stored history is bounded to 64 KiB; opened attachment manifests add to the export.
   if (input.length > 65_536 + 256 * MAXIMUM_ATTACHMENT_SUMMARIES) throw new Error('Group history is too large');
   const messages: GroupHistoryMessage[] = parseByteList(input, 256, 65_484 + MAXIMUM_ATTACHMENT_SUMMARIES).map((record) => {
-    const fields = parseByteList(record, 10, 65_346);
+    const fields = parseByteList(record, 12, 65_346);
     if (fields.length < 8) throw new Error('Invalid group history');
-    const [version, direction, epoch, senderAccountId, senderDeviceId, timestamp, body, attachment, messageId, delivery] = fields;
+    const [version, direction, epoch, senderAccountId, senderDeviceId, timestamp, body, attachment, messageId, delivery,
+      expiresAt, kind] = fields;
     if (messageId?.length && messageId.length !== 32) throw new Error('Invalid group message ID');
     if (
       !version ||
@@ -374,9 +404,16 @@ export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
       throw new Error('Invalid group history');
     }
     const attachments = parseAttachmentSummaries(attachment);
+    const kindValue = kind ? readByte(kind) : 0;
+    if (kindValue > 3) throw new Error('Invalid group history');
+    const expiry = expiresAt ? readU64Number(expiresAt) : 0;
     return {
       ...(delivery ? parseDelivery(readByte(delivery)) : {}),
       ...(messageId?.length ? { messageId } : {}),
+      ...viewOnceOf(kindValue === 3 ? 0 : kindValue),
+      ...(expiry ? { expiresAt: expiry } : {}),
+      // A notice that the group's timer changed; its body is the new timer in seconds.
+      ...(kindValue === 3 ? { timerNotice: Number(decodeUtf8(body)) } : {}),
       direction: directionValue === 1 ? 'sent' : 'received',
       epoch: readU64Number(epoch),
       senderAccountId,
@@ -433,8 +470,14 @@ function parseGroupMember(input: Uint8Array): GroupMemberSummary {
 
 export function parseGroupDetails(input: Uint8Array): GroupDetails {
   if (input.length > 11_097) throw new Error('Group details are too large');
-  const [version, groupId, epoch, localLeaf, treeHash, checkpointHash, encodedMembers] =
-    exactByteList(input, 7, 10_952);
+  const fields = parseByteList(input, 8, 10_952);
+  if (fields.length !== 7 && fields.length !== 8) throw new Error('Invalid group details');
+  const [version, groupId, epoch, localLeaf, treeHash, checkpointHash, encodedMembers, signing] = fields;
+  if (
+    signing && (signing.length !== 1 || readByte(signing) > 2)
+  ) {
+    throw new Error('Invalid group details');
+  }
   if (
     !version ||
     !groupId ||
@@ -461,6 +504,7 @@ export function parseGroupDetails(input: Uint8Array): GroupDetails {
     treeHash,
     checkpointHash,
     members: parseByteList(encodedMembers, 64, 167).map(parseGroupMember),
+    senderSigning: signing ? readByte(signing) : 0,
   };
 }
 
@@ -481,6 +525,7 @@ export function parseConversations(input: Uint8Array): Conversation[] {
     const verified = readByte(entry.vector(1)) === 1;
     const keyChanged = readByte(entry.vector(1)) === 1;
     const disappearingSeconds = readU32(entry.vector(4));
+    const sessionResetAt = readU64Number(entry.vector(8));
     entry.finish();
     conversations.push({
       conversationId,
@@ -493,6 +538,7 @@ export function parseConversations(input: Uint8Array): Conversation[] {
       verified,
       keyChanged,
       disappearingSeconds,
+      sessionResetAt,
     });
   }
   list.finish();
@@ -513,10 +559,13 @@ export function parseHistory(input: Uint8Array): HistoryMessage[] {
     const disappearingSeconds = readU32(entry.vector(4));
     const attachments = parseAttachmentSummaries(entry.vector(MAXIMUM_ATTACHMENT_SUMMARIES));
     const delivery = parseDelivery(readByte(entry.vector(1)));
+    // What kind of message it is (Mobile.History); summaries from before view-once end here.
+    const kind = entry.done ? 0 : readByte(entry.vector(1));
     entry.finish();
     if (direction !== 1 && direction !== 2) throw new Error('Invalid message direction');
     messages.push({
       ...delivery,
+      ...viewOnceOf(kind),
       direction: direction === 1 ? 'sent' : 'received',
       messageId,
       timestamp,

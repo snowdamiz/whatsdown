@@ -31,14 +31,24 @@ from Protocol.V1 import (
   InitialMessage,
   InnerEnvelope,
   OuterEnvelope,
-  PrekeyBundle
+  PrekeyBundle,
+  ProtocolExtension
 )
 from Session.Handshake import RatchetState, initiate
+from Session.Header import (
+  ratchet_feature_header_encryption,
+  ratchet_feature_post_quantum,
+  ratchet_session_features_extension
+)
 from Session.Ratchet import (
   DecryptOutcome,
+  RatchetError,
   RatchetMessage,
   decode_ratchet_message,
   decrypt,
+  encode_ratchet_message,
+  encrypt_sealed,
+  ratchet_note_peer_features,
   ratchet_transport_matches
 )
 from Transport.Packet import (
@@ -71,6 +81,43 @@ end
 
 pub fn interop_state_suite(state :: borrow RatchetState) -> Int do
   state.suite
+end
+
+pub fn interop_header_encrypted(state :: borrow RatchetState) -> Bool do
+  state.header_encrypted
+end
+
+pub fn interop_pq_epoch(state :: borrow RatchetState) -> Int do
+  state.pq_epoch
+end
+
+## What this client reads: ratchet message 4 and the post-quantum ratchet. It
+## does not answer session resets, so it does not say it does.
+
+fn session_features() -> List<ProtocolExtension>!String do
+  let value = case Bytes.from_list([
+    ratchet_feature_header_encryption() + ratchet_feature_post_quantum()
+  ]) do
+    Err(_) -> Err("interop feature encoding failed")
+    Ok(encoded)
+  end?
+  Ok([
+    ProtocolExtension { id: ratchet_session_features_extension(), mandatory: false, value: value }
+  ])
+end
+
+fn peer_features(extensions :: List<ProtocolExtension>) -> Int do
+  case List.find(extensions, fn value -> value.id == ratchet_session_features_extension() end) do
+    None -> 0
+    Some(extension) -> if Bytes.length(extension.value) != 1 do
+      0
+    else
+      case Bytes.get(extension.value, 0) do
+        Err(_) -> 0
+        Ok(value) -> value
+      end
+    end
+  end
 end
 
 fn discard_state(state :: consume RatchetState) do
@@ -315,7 +362,7 @@ pub fn start_mobile_session(peer_profile :: Bytes,
     attachment_manifest: Bytes.empty(),
     receipt_policy: 0,
     disappearing_seconds: 0,
-    extensions: List.new()
+    extensions: session_features()?
   }
   let plaintext = encode_initial_plaintext(local_profile, inner_wire(inner)?)?
   let (state, initial) = case initiate(device_keys,
@@ -390,12 +437,17 @@ fn opened_reply_message(outer :: OuterEnvelope,
   end
 end
 
+# A version 4 message names no session: its header opens under this
+# session's keys or not at all.
+
 fn open_reply_message(state :: consume RatchetState,
   session :: InteropSession,
   message :: RatchetMessage) -> InteropOpenOutcome do
-  if message.suite != 2
-    || !Bytes.secure_equals(message.session_id, session.session_id)
-    || !Bytes.secure_equals(message.session_id, state.session_id) do
+  let wrong_session = message.version != 4
+    && (message.suite != 2
+      || !Bytes.secure_equals(message.session_id, session.session_id)
+      || !Bytes.secure_equals(message.session_id, state.session_id))
+  if wrong_session do
     reject(state, session, "interop reply session mismatch")
   else
     case session_aad(state.session_id) do
@@ -414,7 +466,9 @@ fn reply_outcome(state :: consume RatchetState,
   case decode_inner_envelope(plaintext) do
     Err(_) -> ReplyRejected(state, session, "invalid interop reply inner envelope")
     Ok(inner) -> if validate_reply_inner(inner, session) do
-      ReplyOpened(state, session, inner.body)
+      ReplyOpened(ratchet_note_peer_features(state, peer_features(inner.extensions)),
+        session,
+        inner.body)
     else
       ReplyRejected(state, session, "interop reply identity mismatch")
     end
@@ -438,5 +492,81 @@ pub fn open_mobile_reply(state :: consume RatchetState,
         Ok(message) -> open_reply_message(state, session, message)
       end
     end
+  end
+end
+
+fn drop_sent(state :: consume RatchetState,
+  error :: String) -> Result<(RatchetState, Bytes), String> do
+  Err(error)
+end
+
+fn reply_outer(message :: RatchetMessage, peer_profile :: Bytes) -> Bytes!String do
+  let peer = decode_client_profile(peer_profile)?
+  let encoded = case encode_ratchet_message(message) do
+    Err(_) -> Err("interop ratchet encoding failed")
+    Ok(value)
+  end?
+  let sealed = seal_recipient_packet(encode_packet(RatchetPacket(encoded))?,
+    X25519PublicKey { bytes: peer.credential.dh_public_key })?
+  outer_wire(peer.entry.mailbox_token, 4, sealed, now()?)
+end
+
+fn sealed_reply(state :: consume RatchetState,
+  message :: RatchetMessage,
+  peer_profile :: Bytes) -> Result<(RatchetState, Bytes), String> do
+  case reply_outer(message, peer_profile) do
+    Err(error) -> drop_sent(state, error)
+    Ok(outer) -> Ok((state, outer))
+  end
+end
+
+## A message in the session, sealed to the mobile device. The session moves to
+## ratchet message 4 at this client's next sending root step once the mobile
+## side has said it reads it.
+
+pub fn send_mobile_message(state :: consume RatchetState,
+  session :: InteropSession,
+  peer_profile :: Bytes,
+  body :: Bytes) -> Result<(RatchetState, Bytes), String> do
+  let inner = InnerEnvelope {
+    version: 1,
+    sender_account_id: session.local_account_id,
+    sender_device_id: session.local_device_id,
+    recipient_device_id: session.peer_device_id,
+    conversation_id: session.conversation_id,
+    client_message_id: random(16)?,
+    client_timestamp: now()?,
+    message_type: 1,
+    body: body,
+    reply_reference: Bytes.empty(),
+    attachment_manifest: Bytes.empty(),
+    receipt_policy: 0,
+    disappearing_seconds: 0,
+    extensions: session_features()?
+  }
+  let plaintext = inner_wire(inner)?
+  let aad = session_aad(session.session_id)?
+  case encrypt_sealed(state, plaintext, aad) do
+    Err(_) -> Err("interop ratchet encryption failed")
+    Ok(value) -> do
+      let (next, message) = value
+      sealed_reply(next, message, peer_profile)
+    end
+  end
+end
+
+pub fn close_interop_session(state :: consume RatchetState) do
+  discard_state(state)
+end
+
+## The session after a reply, with the reply, to go on sending in it.
+
+pub fn opened_reply(outcome :: InteropOpenOutcome) -> Result<(RatchetState, Bytes), String> do
+  case outcome do
+    ReplyRejected(state, _, error) -> do
+      discard_state(state)
+      Err(error)
+    end
+    ReplyOpened(state, _, body) -> Ok((state, body))
   end
 end

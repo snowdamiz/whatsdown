@@ -3,6 +3,7 @@
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
 #import <os/lock.h>
+#import <sys/resource.h>
 #import <string.h>
 
 #import "libmessenger_mobile.h"
@@ -308,4 +309,15 @@ int32_t MeshMessengerRegisterAppleHostCallbacks(void) {
   callbacks.secure_store_delete = MeshMessengerSecureStoreDelete;
   callbacks.push_get_token = MeshMessengerPushGetToken;
   return mesh_library_register_host_callbacks(&callbacks);
+}
+
+/* mesh-rt turns core dumps off only in programs meshc builds at --opt-level >= 2,
+ * so the app, which embeds Mesh as a library, calls it itself in release builds.
+ * Runtimes up to Mesh v0.1.8 lack the symbol; this weak definition keeps them
+ * linking. When the runtime's own definition is linked in, it wins; otherwise
+ * this one does the same work (iOS has no dumpable flag).
+ * ponytail: drop this fallback once the pinned Mesh release exports the symbol. */
+__attribute__((weak)) void mesh_rt_disable_core_dumps(void) {
+  struct rlimit none = {0, 0};
+  setrlimit(RLIMIT_CORE, &none);
 }

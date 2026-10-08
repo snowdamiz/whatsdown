@@ -1,5 +1,6 @@
 from Identity.Device import DeviceKeys
 from Mobile.Codec import canonical_outer, current_time
+from Mobile.Expiry import expiry_purge_at
 from Mobile.Groups import receive_mobile_group_classified
 from Mobile.InboxState import (
   delivery_given_up,
@@ -55,6 +56,12 @@ pub fn permanent_direct_delivery_error(error :: String) -> Bool do
     || error == "one_time_prekey_not_found"
     || error == "replayed_initial_message"
     || error == "blocked_message"
+    || error == "initial_suite_below_floor"
+    || error == "session_reset_requested"
+    || error == "session_reset_refused"
+    || error == "session_reset_mismatch"
+    || error == "invalid_session_reset"
+    || error == "legacy_packet_refused"
 end
 
 # Packet kinds: 1 initial, 2 ratchet, 3 group, 0 unknown. A sealed envelope
@@ -109,8 +116,9 @@ end
 fn acknowledge_delivery(database_path :: String,
   profile :: ClientProfile,
   outer :: OuterEnvelope,
-  encoded :: Bytes) -> Bool do
-  let request = MobileReceiveRequest { database_path: database_path, outer: encoded }
+  encoded :: Bytes,
+  now :: U64) -> Bool do
+  let request = MobileReceiveRequest { database_path: database_path, outer: encoded, now: now }
   case delivery_kind(database_path, profile, outer) do
     Err(error) -> permanent_direct_delivery_error(error)
     Ok(3) -> case receive_mobile_group_classified(request) do
@@ -151,7 +159,7 @@ fn settle_delivery(database_path :: String,
   else
     pass.highest
   end
-  if acknowledge_delivery(database_path, profile, outer, encoded) do
+  if acknowledge_delivery(database_path, profile, outer, encoded, pass.now) do
     Ok(InboxPass {
       envelope_ids: List.append(pass.envelope_ids, outer.envelope_id),
       attempts: without_delivery_attempts(pass.attempts, outer.envelope_id)?,
@@ -236,6 +244,15 @@ pub fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes!String do
   end
   let (labels, blobs) = inbox_state_writes(wrapping_key, pass.attempts, cursor)?
   store_updated_blobs(request.database_path, labels, blobs)?
+  # Every sync deletes the disappearing messages whose time is up
+  # (`Mobile.Expiry`), with the empty batch that ends it. One that fails is
+  # retried by the app's own timer, so it never holds up the mailbox.
+  if List.length(deliveries) == 0 do
+    case expiry_purge_at(request.database_path, current_time()?) do
+      Err(_) -> nil
+      Ok(_) -> nil
+    end
+  end
   let envelope_ids = pass.envelope_ids
   if List.length(envelope_ids) == 0 do
     Ok(Bytes.empty())

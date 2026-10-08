@@ -12,22 +12,16 @@ from MobileCore import (
 from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
 from Protocol.IdentityWire import decode_account_identity
 from Protocol.V1 import AccountIdentity, DeviceSet, DirectoryEntry
-from Tests.Support import append, database_path, install_security_config, repeated, vector
-from Transparency.Merkle import (
-  TransparencyCheckpoint,
-  checkpoint_hash,
-  consistency_proof,
-  inclusion_proof,
-  leaf_hash,
-  sign_checkpoint,
-  sign_witness
+from Tests.Support import (
+  append,
+  database_path,
+  evidence_v2,
+  install_security_config,
+  repeated,
+  vector
 )
-from Transparency.Wire import (
-  TransparencyEvidence,
-  encode_checkpoint,
-  encode_consistency_proof,
-  encode_transparency_evidence
-)
+from Transparency.Merkle import TransparencyCheckpoint, leaf_hash, sign_checkpoint, sign_witness
+from Transparency.Wire import encode_checkpoint
 
 pub struct ConsistencyAccount do
   path :: String
@@ -38,7 +32,6 @@ end
 
 pub struct SignedTransparencyViewFixture do
   checkpoint :: Bytes
-  consistency :: Bytes
   service_public_key :: Bytes
   witness_a_public_key :: Bytes
   witness_b_public_key :: Bytes
@@ -70,13 +63,23 @@ pub fn signing_pair() -> SigningKeyPair!String do
   end
 end
 
+fn seeded_pair(seed :: Int) -> SigningKeyPair!String do
+  case Crypto.signing_from_seed(repeated(seed, 32)?) do
+    Err(_) -> Err("test signing key generation failed")
+    Ok(value)
+  end
+end
+
+# One service key and witness pair for every fixture, so views installed on
+# several devices in one test pin the same security config.
+
 pub fn signed_transparency_view(leaves :: List<Bytes>) -> SignedTransparencyViewFixture!String do
   if List.length(leaves) == 0 || List.length(leaves) > 4096 do
     Err("invalid_test_transparency_view")
   else
-    let service_pair = signing_pair()?
-    let witness_a_pair = signing_pair()?
-    let witness_b_pair = signing_pair()?
+    let service_pair = seeded_pair(81)?
+    let witness_a_pair = seeded_pair(82)?
+    let witness_b_pair = seeded_pair(83)?
     let checkpoint = sign_checkpoint(service_pair.private_key,
       service_pair.public_key.bytes,
       wide(1)?,
@@ -85,7 +88,6 @@ pub fn signed_transparency_view(leaves :: List<Bytes>) -> SignedTransparencyView
       current_time()?)?
     Ok(SignedTransparencyViewFixture {
       checkpoint: encode_checkpoint(checkpoint)?,
-      consistency: encode_consistency_proof(consistency_proof(List.new(), leaves)?)?,
       service_public_key: service_pair.public_key.bytes,
       witness_a_public_key: witness_a_pair.public_key.bytes,
       witness_b_public_key: witness_b_pair.public_key.bytes
@@ -137,20 +139,15 @@ pub fn evidence_bytes(entry_bytes :: Bytes,
   checkpoint :: TransparencyCheckpoint,
   witness_a :: borrow SigningPrivateKey,
   witness_b :: borrow SigningPrivateKey) -> Bytes!String do
-  let inclusion = inclusion_proof(leaves, leaf_index)?
-  let consistency = consistency_proof(previous_leaves, leaves)?
-  let attestation_a = sign_witness("witness-a", witness_a, checkpoint)?
-  let attestation_b = sign_witness("witness-b", witness_b, checkpoint)?
-  case encode_transparency_evidence(TransparencyEvidence {
-    entry_bytes: entry_bytes,
-    inclusion: inclusion,
-    consistency: consistency,
-    checkpoint: checkpoint,
-    witnesses: [attestation_a, attestation_b]
-  }) do
-    Err(_) -> Err("transparency evidence encode failed")
-    Ok(encoded)
-  end
+  evidence_v2(entry_bytes,
+    leaves,
+    leaf_index,
+    List.length(previous_leaves),
+    checkpoint,
+    [
+      sign_witness("witness-a", witness_a, checkpoint)?,
+      sign_witness("witness-b", witness_b, checkpoint)?
+    ])
 end
 
 pub fn verify_for(account :: ConsistencyAccount,

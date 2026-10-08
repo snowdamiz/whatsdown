@@ -1,6 +1,9 @@
 from Storage.Outbox import finish_outbox, lease_outbox
 from Storage.RateLimit import purge_rate_limits
 from Storage.Retention import purge_envelopes
+from Storage.TransparencyPruning import transparency_prune_scheduled, transparency_pruning_due
+from Storage.Credits import credits_prune_scheduled
+from Storage.PrekeyPruning import prekeys_prune_consumed, prekeys_pruning_due
 from Runtime.Registry import get_pool
 from Runtime.PushDispatch import dispatch_configured_push
 from Runtime.MailboxStream import wake_mailbox
@@ -10,10 +13,23 @@ pub fn transaction_in_progress(pool :: PoolHandle, id :: String) -> Bool!String 
   Repo.transaction(pool, fn(conn :: borrow PgConn) -> RuntimeJobs.in_progress(conn, id) end)
 end
 
+fn earliest(first :: Int, second :: Int) -> Int do
+  if first == 0 || (second != 0 && second < first) do
+    second
+  else
+    first
+  end
+end
+
+## The next deadline in Unix milliseconds (0: nothing due): outbox leases and
+## retries, envelope expiry, consumed prekeys leaving their retry window, and
+## the daily transparency pruning.
+
 pub fn next_work_at(pool :: PoolHandle) -> Int!String do
-  RuntimeJobs.due_time(Pool.query(pool,
+  let queued = RuntimeJobs.due_time(Pool.query(pool,
     "SELECT COALESCE(min(due), 0)::text AS due FROM (SELECT floor(extract(epoch FROM CASE WHEN status = 'leased' THEN lease_expires_at ELSE available_at END) * 1000)::bigint AS due FROM messenger_outbox_events WHERE completed_at IS NULL UNION ALL SELECT LEAST(expiration_ms, COALESCE(floor(extract(epoch FROM acknowledged_at) * 1000)::bigint + 3600000, expiration_ms)) AS due FROM messenger_envelopes) AS deadlines",
-    [])?)
+    [])?)?
+  Ok(earliest(earliest(queued, prekeys_pruning_due(pool)?), transparency_pruning_due(pool)?))
 end
 
 fn drain_outbox(pool :: PoolHandle, owner :: String, remaining :: Int) -> Result<(), String> do
@@ -34,6 +50,18 @@ pub fn run_scheduled(pool :: PoolHandle) -> Int!String do
   drain_outbox(pool, "scheduled-" <> Bytes.to_hex(random), 4)?
   purge_envelopes(pool, 3600, 128)?
   purge_rate_limits(pool, 128)?
+  prekeys_prune_consumed(pool, 128)?
+  let pruned = transparency_prune_scheduled(pool)?
+  # A spent-set pruning failure is reported, never allowed to stop the outbox.
+  case credits_prune_scheduled(pool) do
+    Err(_) -> println("credit spent-set pruning failed")
+    Ok(_) -> nil
+  end
+  if pruned.ran do
+    println("transparency pruning (#{pruned.mode}): #{pruned.entries} entries, #{pruned.records} device records, #{pruned.checkpoints} checkpoints")
+  else
+    nil
+  end
   next_work_at(pool)
 end
 
@@ -70,6 +98,22 @@ fn run_retention() do
   case purge_envelopes(get_pool(), 3600, 128) do
     Err(_) -> println("retention worker failed")
     Ok(_) -> nil
+  end
+  case credits_prune_scheduled(get_pool()) do
+    Err(_) -> println("credit spent-set pruning failed")
+    Ok(_) -> nil
+  end
+  case prekeys_prune_consumed(get_pool(), 128) do
+    Err(_) -> println("consumed prekey pruning failed")
+    Ok(_) -> nil
+  end
+  case transparency_prune_scheduled(get_pool()) do
+    Err(_) -> println("transparency pruning failed")
+    Ok(pruned) -> if pruned.ran do
+      println("transparency pruning (#{pruned.mode}): #{pruned.entries} entries, #{pruned.records} device records, #{pruned.checkpoints} checkpoints")
+    else
+      nil
+    end
   end
 end
 

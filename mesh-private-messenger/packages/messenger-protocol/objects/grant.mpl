@@ -128,10 +128,13 @@ fn done(state :: BinaryReader) -> Result<(), String> do
   end
 end
 
+# Up to 257 parts is free (a 16 MiB attachment or any backup); up to 8,193 is a
+# 512 MiB attachment that credits pay for (Objects.CreditGrant).
+
 fn valid_shape(value :: ObjectGrantRequest) -> Bool do
   Bytes.length(value.object_id) == 32
     && value.part_count >= 1
-    && value.part_count <= 257
+    && value.part_count <= 8193
     && Bytes.length(value.upload_capability) == 32
     && Bytes.length(value.download_capability) == 32
     && !Bytes.secure_equals(value.upload_capability, value.download_capability)

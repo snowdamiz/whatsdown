@@ -12,10 +12,12 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
   s.dependency 'ExpoNotifications', '57.0.15'
   s.dependency 'EXApplication', '57.0.2'
-  s.frameworks = 'Security', 'CoreFoundation'
+  s.frameworks = 'Security', 'CoreFoundation', 'LocalAuthentication'
   s.libraries = 'm'
-  s.vendored_frameworks = 'native/ios/MeshMessengerCore.xcframework'
+  # The Mesh core and the wallet core (packages/wallet-core), both built by
+  # scripts/build-mobile-native.sh.
+  s.vendored_frameworks = 'native/ios/MeshMessengerCore.xcframework', 'native/ios/MorseWalletCore.xcframework'
   s.source_files = 'ios/*.{h,m,swift}', 'generated/*.{h,swift}'
-  s.public_header_files = 'ios/MeshMessengerSecureStore.h', 'generated/libmessenger_mobile.h'
+  s.public_header_files = 'ios/MeshMessengerSecureStore.h', 'generated/libmessenger_mobile.h', 'generated/morse_wallet.h'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 end

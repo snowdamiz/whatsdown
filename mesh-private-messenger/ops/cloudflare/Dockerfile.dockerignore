@@ -5,6 +5,10 @@
 !mesh-private-messenger/packages/messenger-protocol/**
 !mesh-private-messenger/packages/service-jobs/
 !mesh-private-messenger/packages/service-jobs/**
+!mesh-private-messenger/packages/messenger-credits/
+!mesh-private-messenger/packages/messenger-credits/**
+!mesh-private-messenger/packages/messenger-ohttp/
+!mesh-private-messenger/packages/messenger-ohttp/**
 !mesh-private-messenger/services/
 !mesh-private-messenger/services/**
 **/output

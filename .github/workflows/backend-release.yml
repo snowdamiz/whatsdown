@@ -101,6 +101,7 @@ jobs:
           "$MESHC" test mesh-private-messenger/services/push-broker/tests
           "$MESHC" test mesh-private-messenger/services/object-store/tests/object_store.test.mpl
           "$MESHC" test mesh-private-messenger/services/object-store/tests/postgres.test.mpl
+          node --test mesh-private-messenger/services/credit-issuer/tests/linkability.test.mjs
           npm test --prefix mesh-private-messenger/ops/cloudflare
       - name: Require verified candidate
         working-directory: .
@@ -117,20 +118,42 @@ jobs:
           MESSENGER_DATABASE_URL: ${{ secrets.MESSENGER_DATABASE_URL }}
           MORSE_BACKEND_URL: ${{ vars.MORSE_BACKEND_URL }}
           MORSE_EDGE_URL: ${{ vars.MORSE_EDGE_URL }}
+          MORSE_PUSH_BROKER_URL: ${{ vars.MORSE_PUSH_BROKER_URL }}
+          # Credits (services/credit-issuer/README.md): the issuer deploys only
+          # once the operator sets its origin; its mode stays off until its own
+          # Worker's MORSE_CREDITS_MODE says otherwise.
+          MORSE_CREDIT_ISSUER_URL: ${{ vars.MORSE_CREDIT_ISSUER_URL }}
+          CREDIT_DATABASE_URL: ${{ secrets.CREDIT_DATABASE_URL }}
+          # Sealed-ingress edge credential pins (§22 M2); empty until the operator
+          # sets them up. The edge's signing key is its own Worker secret, never here.
+          MORSE_EDGE_INGRESS_PUBLIC_KEY: ${{ vars.MORSE_EDGE_INGRESS_PUBLIC_KEY }}
+          MORSE_INGRESS_HOSTNAME: ${{ vars.MORSE_INGRESS_HOSTNAME }}
+          MORSE_INGRESS_CLIENT_CERT_SHA256: ${{ vars.MORSE_INGRESS_CLIENT_CERT_SHA256 }}
+          MORSE_INGRESS_CLIENT_CERT_ISSUER: ${{ vars.MORSE_INGRESS_CLIENT_CERT_ISSUER }}
+          MORSE_EDGE_CLIENT_CERT_ID: ${{ vars.MORSE_EDGE_CLIENT_CERT_ID }}
           WITNESS_A_URL: ${{ vars.WITNESS_A_URL }}
           WITNESS_B_URL: ${{ vars.WITNESS_B_URL }}
           VERIFICATION_RESULT: ${{ needs.verification.result }}
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
         run: |
-          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID MESSENGER_DATABASE_URL MORSE_BACKEND_URL MORSE_EDGE_URL WITNESS_A_URL WITNESS_B_URL; do
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID MESSENGER_DATABASE_URL MORSE_BACKEND_URL MORSE_EDGE_URL MORSE_PUSH_BROKER_URL WITNESS_A_URL WITNESS_B_URL; do
             test -n "${!name}" || { echo "::error::Set $name for the production deployment"; exit 1; }
           done
-          # The witnesses and privacy edge are separate Workers holding their own
-          # secrets. They go first: the backend attests through the witnesses.
+          # The witnesses, privacy edge and push broker are separate Workers holding
+          # their own secrets. They go first: the backend attests through the
+          # witnesses and hands push jobs to the broker.
           MORSE_DIRECTORY_URL="$MORSE_BACKEND_URL" npm run deploy:witness-a -- --containers-rollout=immediate
           MORSE_DIRECTORY_URL="$MORSE_BACKEND_URL" npm run deploy:witness-b -- --containers-rollout=immediate
-          MORSE_DELIVERY_URL="$MORSE_BACKEND_URL" npm run deploy:edge -- --containers-rollout=immediate
+          # With sealed-ingress mTLS on (§22 M2) the edge sends to its own hostname.
+          ingress="${MORSE_INGRESS_HOSTNAME:+https://$MORSE_INGRESS_HOSTNAME}"
+          MORSE_DELIVERY_URL="${ingress:-$MORSE_BACKEND_URL}" npm run deploy:edge -- --containers-rollout=immediate
+          npm run deploy:push-broker -- --containers-rollout=immediate
+          if [ -n "$MORSE_CREDIT_ISSUER_URL" ]; then
+            test -n "$CREDIT_DATABASE_URL" || { echo "::error::Set CREDIT_DATABASE_URL for the credit issuer"; exit 1; }
+            node migrate.mjs --credit-issuer
+            npm run deploy:credit-issuer -- --containers-rollout=immediate
+          fi
           node migrate.mjs
           npm run deploy -- --containers-rollout=immediate
           curl --fail --silent --show-error --retry 90 --retry-max-time 960 --retry-delay 10 --retry-all-errors --max-time 30 "$MORSE_BACKEND_URL/health"

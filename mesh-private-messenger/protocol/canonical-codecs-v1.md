@@ -192,9 +192,12 @@ This request is exactly 100 bytes. `base_bundle_hash` is
 device bundle without revealing requester identity. `reservation_id` is random,
 generated and durably persisted by Mesh before the HTTP request. The service
 atomically marks at most one available key consumed and returns the reconstructed
-`PKB`; replaying the same reservation returns that exact bundle without consuming
-another key. Concurrent claims cannot receive the same key. Consumed IDs remain
-tombstones and publication cannot reactivate them. An empty pool returns the
+`PKB`; replaying the same reservation within a day returns that exact bundle
+without consuming another key. Concurrent claims cannot receive the same key.
+A day after the claim the directory deletes the consumed row with its claim
+hashes and answer, so a later replay of the reservation is a new claim; the
+device keeps the highest identifier deleted, and publication cannot reactivate
+a consumed ID, deleted or not. An empty pool returns the
 device's last-resort key in the one-time slot without reserving or consuming
 anything; only a device that never published one returns no bundle. Device
 revocation removes that device's pool, last-resort key included.
@@ -236,6 +239,34 @@ followed by both account IDs in ascending byte order. Every device of either
 account derives the same name with nothing to coordinate, and a receiver
 rejects any other name. A copy an account sends to its own other devices is
 filed under `mesh-msg/mobile/self-sync/v1` over its account ID instead.
+
+Registered inner-envelope extensions, all optional (flag `0`, never
+mandatory):
+
+| ID | Value | Meaning |
+|---|---|---|
+| 1 | 32 bytes | The sender device's secret contact address; see `contact-address-v1.md` |
+| 2 | 40 bytes: `tree_size:u64 root:32` | The newest key-log checkpoint the sender verified; see `checkpoint-gossip-v1.md` |
+
+A receiver that does not know an extension keeps it byte for byte and ignores
+it, so an old client ignores extension 2. A malformed extension 2 is ignored,
+never an error (`gossip_hint_from_extensions`).
+
+Registered inner message types (`message_type`). A receiver rejects a type it
+does not know without showing anything, and a sender only sends types 3–7 and 9
+to a device that has shown it reads them:
+
+| Type | Body | Meaning |
+|---|---|---|
+| 1 | presented message | A chat message, kept in history |
+| 2 | sync payload | A copy of a sent message for the sender's own devices |
+| 3 | invitation | A group invitation; see `group-invitations-v1.md` |
+| 4 | acceptance | A group invitation accepted |
+| 5 | `SRQ` 1 | Session reset request; see `session-reset-v1.md` |
+| 6 | `SRA` 1 | Session reset answer, the first message of the new session |
+| 7 | `GCQ` 1 or `GCA` 1 | Checkpoint gossip request or answer, never in history; see `checkpoint-gossip-v1.md` |
+| 8 | presented message | A view-once message: its recipients open it once; no device of its sender's account keeps its content; see `privacy-contract.md` ("View-once messages"). Sent to any device of the peer: a build that predates it rejects it unshown, which is the safe failure for it |
+| 9 | `GSA` 1 | The key the sending device signs one group epoch's messages with (group message 6), never shown or kept in history; the session's peer is its sender. Sent only over a session whose peer advertised session feature `8`; see `mls-groups-v1.md` ("Deniable sender authentication") |
 
 ## Handshake transcript (`HST`)
 

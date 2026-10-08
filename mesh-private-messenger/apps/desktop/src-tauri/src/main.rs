@@ -2,7 +2,10 @@
 
 mod appearance;
 mod mesh;
+mod owner;
 mod request;
+mod saves;
+mod wallet;
 
 use futures_util::StreamExt;
 use serde::Deserialize;
@@ -35,6 +38,8 @@ struct Desktop {
     database: String,
     data: PathBuf,
     config: Config,
+    // The RPC providers and relays the security config pins (request::Pinned).
+    pinned: request::Pinned,
     http: reqwest::Client,
     streams: Mutex<HashMap<u32, tokio::task::JoinHandle<()>>>,
 }
@@ -44,23 +49,83 @@ fn database_path(state: tauri::State<Desktop>) -> String {
     state.database.clone()
 }
 
-#[tauri::command]
-fn appearance(state: tauri::State<Desktop>) -> String {
-    appearance::load(&state.data).as_str().to_owned()
+// The choice is sealed by the core in the app's journal, as the phone keeps it
+// (apps/mobile/src/sealed-journals.ts): a request of vectors, the database path
+// first.
+fn journal_request(database: &str, value: Option<&str>) -> Vec<u8> {
+    let mut request = Vec::new();
+    for part in [Some(database), Some("settings/appearance"), value]
+        .into_iter()
+        .flatten()
+    {
+        request.extend((part.len() as u32).to_be_bytes());
+        request.extend(part.as_bytes());
+    }
+    request
+}
+
+fn seal_appearance(mesh: &mesh::Mesh, database: &str, value: &str) -> Result<(), String> {
+    mesh.invoke(
+        "mesh_messenger_journal_save",
+        &journal_request(database, Some(value)),
+        database,
+    )
+    .map(|_| ())
+}
+
+fn load_appearance(
+    mesh: &mesh::Mesh,
+    database: &str,
+    directory: &std::path::Path,
+) -> appearance::Appearance {
+    appearance::load(
+        directory,
+        || {
+            mesh.invoke(
+                "mesh_messenger_journal_load",
+                &journal_request(database, None),
+                database,
+            )
+            .ok()
+            .and_then(|value| String::from_utf8(value).ok())
+        },
+        |value| seal_appearance(mesh, database, value),
+    )
 }
 
 #[tauri::command]
-fn set_appearance(
+async fn appearance(state: tauri::State<'_, Desktop>) -> Result<String, String> {
+    let mesh = Arc::clone(&state.mesh);
+    let (database, directory) = (state.database.clone(), state.data.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        let mesh = mesh.lock().map_err(|_| "native_lock_failed")?;
+        Ok(load_appearance(&mesh, &database, &directory)
+            .as_str()
+            .to_owned())
+    })
+    .await
+    .map_err(|_| "native_task_failed")?
+}
+
+#[tauri::command]
+async fn set_appearance(
     app: tauri::AppHandle,
-    state: tauri::State<Desktop>,
+    state: tauri::State<'_, Desktop>,
     appearance: String,
 ) -> Result<(), String> {
     let choice = appearance::Appearance::parse(&appearance);
-    appearance::save(&state.data, choice).map_err(|_| "appearance_not_saved")?;
     if let Some(window) = app.get_webview_window("main") {
         apply_appearance(&window, choice);
     }
-    Ok(())
+    let mesh = Arc::clone(&state.mesh);
+    let database = state.database.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mesh = mesh.lock().map_err(|_| "native_lock_failed")?;
+        seal_appearance(&mesh, &database, choice.as_str())
+            .map_err(|_| "appearance_not_saved".to_owned())
+    })
+    .await
+    .map_err(|_| "native_task_failed")?
 }
 
 // The window's theme drives the web view's `prefers-color-scheme`, and its
@@ -145,6 +210,12 @@ async fn mesh_invoke(
     if symbol == "mesh_messenger_prepare_fanout_prekeys" {
         request::validate_prekey_url(&body, &state.config.base_url)?;
     }
+    if symbol == "mesh_messenger_credits_refresh_keys" {
+        request::validate_service_url(&body, &state.config.base_url)?;
+    }
+    if symbol == "mesh_messenger_credits_quote" || symbol == "mesh_messenger_credits_issue" {
+        request::validate_service_url(&body, &state.config.edge_url)?;
+    }
     let mesh = Arc::clone(&state.mesh);
     let database = state.database.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -171,6 +242,7 @@ async fn binary_request(
         base_url: &state.config.base_url,
         edge_url: &state.config.edge_url,
         object_url: &state.config.object_url,
+        pinned: &state.pinned,
     };
     if !request::allowed_request(&routes, url, method, capability)
         || (method == "GET" && !body.is_empty())
@@ -181,7 +253,7 @@ async fn binary_request(
     let mut outgoing = state
         .http
         .request(method.parse().map_err(|_| "invalid_method")?, url)
-        .header("Content-Type", "application/octet-stream")
+        .header("Content-Type", request::content_type(&routes, url))
         .body(body);
     if let Some(capability) = capability {
         outgoing = outgoing.header("X-Object-Capability", capability);
@@ -223,6 +295,49 @@ async fn save_attachment(app: tauri::AppHandle, request: Request<'_>) -> Result<
     })
     .await
     .map_err(|_| "native_task_failed")?
+}
+
+// A large download: the dialog first, then its chunks (saves.rs).
+#[tauri::command]
+async fn save_attachment_start(
+    app: tauri::AppHandle,
+    saves: tauri::State<'_, saves::Saves>,
+    request: Request<'_>,
+) -> Result<Option<u32>, String> {
+    let name = request::safe_file_name(header(&request, "X-File-Name").unwrap_or_default());
+    let dialog = app.dialog().file().set_file_name(name);
+    let path = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+        .await
+        .map_err(|_| "native_task_failed")?;
+    match path {
+        None => Ok(None),
+        Some(path) => Ok(Some(
+            saves.start(path.into_path().map_err(|_| "invalid_save_path")?)?,
+        )),
+    }
+}
+
+#[tauri::command]
+fn save_attachment_chunk(
+    saves: tauri::State<'_, saves::Saves>,
+    request: Request<'_>,
+) -> Result<(), String> {
+    let id = header(&request, "X-Save-Id")
+        .and_then(|value| value.parse().ok())
+        .ok_or("invalid_attachment")?;
+    match request.body() {
+        InvokeBody::Raw(bytes) => saves.append(id, bytes),
+        _ => Err("invalid_attachment".into()),
+    }
+}
+
+#[tauri::command]
+fn save_attachment_finish(
+    saves: tauri::State<'_, saves::Saves>,
+    id: u32,
+    complete: bool,
+) -> Result<(), String> {
+    saves.finish(id, complete)
 }
 
 #[tauri::command]
@@ -394,13 +509,18 @@ fn main() {
             )?;
             // The window already exists but has not painted: dress it in the
             // saved scheme now so the first frame is the right one.
+            let database = directory.join("morse.db").to_string_lossy().into_owned();
             if let Some(window) = app.get_webview_window("main") {
-                apply_appearance(&window, appearance::load(&directory));
+                apply_appearance(&window, load_appearance(&core, &database, &directory));
             }
+            // The wallet keeps its seed beside the Mesh keys, under the same app identifier.
+            app.manage(wallet::Wallet::new(app.config().identifier.clone()));
+            app.manage(saves::Saves::default());
             app.manage(Desktop {
                 mesh: Arc::new(Mutex::new(core)),
-                database: directory.join("morse.db").to_string_lossy().into_owned(),
+                database,
                 data: directory,
+                pinned: request::Pinned::from_frame(&config.security_frame),
                 config,
                 http: reqwest::Client::builder()
                     .redirect(reqwest::redirect::Policy::none())
@@ -423,10 +543,23 @@ fn main() {
             mesh_invoke,
             binary_request,
             save_attachment,
+            save_attachment_start,
+            save_attachment_chunk,
+            save_attachment_finish,
             mailbox_connect,
             mailbox_disconnect,
             check_update,
-            install_update
+            install_update,
+            wallet::wallet_exists,
+            wallet::wallet_create,
+            wallet::wallet_restore,
+            wallet::wallet_phrase,
+            wallet::wallet_wipe,
+            wallet::wallet_call,
+            wallet::wallet_next_bounty_address,
+            wallet::wallet_bounty_index,
+            owner::lock_available,
+            owner::lock_authenticate
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {

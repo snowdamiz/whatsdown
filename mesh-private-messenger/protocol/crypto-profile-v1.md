@@ -21,7 +21,7 @@
 | Authenticated encryption | ChaCha20-Poly1305; 32-byte key, 12-byte nonce, 16-byte tag |
 | Randomness | Operating-system CSPRNG only |
 | Initial establishment | Classical asynchronous signed-prekey handshake |
-| Ongoing session | Classical Double Ratchet |
+| Ongoing session | Double Ratchet; once both sides read it, with encrypted headers (ratchet message `4`, [`ratchet-message-v2.md`](ratchet-message-v2.md)) |
 
 Private keys, root keys, chain keys, message keys, and HKDF/HMAC outputs use
 secret or resource types. Ordinary `Bytes` is limited to public keys,
@@ -52,6 +52,23 @@ mesh-msg/v1/storage-wrap
 mesh-msg/v1/transparency-leaf
 ```
 
+Ratchet message version 4 ([`ratchet-message-v2.md`](ratchet-message-v2.md))
+adds:
+
+```text
+mesh-msg/v2/root-mix
+mesh-msg/v2/ratchet-root
+mesh-msg/v2/ratchet-chain
+mesh-msg/v2/header-key
+mesh-msg/v2/header-key/upgrade/first
+mesh-msg/v2/header-key/upgrade/second
+mesh-msg/v2/header-seal
+mesh-msg/v2/ratchet-header
+mesh-msg/v2/ratchet-message
+mesh-msg/v2/pq-ratchet-key
+mesh-msg/v2/ratchet-snapshot-object/<slot>
+```
+
 These exact ASCII bytes are part of the published protocol. A label for one
 purpose must never be reused for another purpose.
 
@@ -66,6 +83,9 @@ These limits are part of Profile A and are enforced before expensive work:
 | Skipped message keys per session | 64, shared by every receiving chain; newer keys push out the oldest |
 | Skipped message key lifetime | Until its message arrives, or five further receiving chains have begun |
 | Message-number jump | 64 within a chain; into a new chain, what is left of the previous chain and the position in the new one are at most 64 each and 64 together |
+| Jump checked for a session reset | At most 16,384 positions ahead, derived without keeping any key |
+| Messages sent again after a session reset | The newest 32 after the receiver's newest |
+| Post-quantum ratchet | One ML-KEM-768 exchange in flight at a time; 32-byte units only in padding the message has anyway |
 | Initial messages consuming one one-time prekey | 1 |
 | Initial messages accepted through the reusable last-resort prekey | Unbounded; each transcript accepted once (newest 1,024 remembered) |
 | Last-resort prekey lifetime | Replaced a week after it was made; the old secret is destroyed 35 days after the directory confirms the new key |
@@ -82,13 +102,19 @@ receiver acknowledges the envelope unopened, because the messages in between
 are never coming, and an envelope left unacknowledged is handed over again
 ahead of everything behind it (`delivery-wire-v1.md`).
 
-This leaves a gap that is not closed yet. A device that stays offline until
-more than 64 consecutive messages from one sender have expired finds that
-sender's next message too far ahead, and every one after it, so that session
-goes dark until either side starts a new one. There is no way yet for the
-receiver to tell the sender so ("session healing"). The bound no longer
-follows from the mailbox's size, which is now a byte budget that holds
-thousands of ordinary messages; see `delivery-wire-v1.md`.
+A device that stays offline until more than 64 consecutive messages from one
+sender have expired finds that sender's next message too far ahead, and every
+one after it. That session is healed by a **session reset**
+([`session-reset-v1.md`](session-reset-v1.md)): once the far message proves
+genuine (it opens under the key its position gives, derived without keeping
+any key in between), the receiver asks the sender, in the direction that still
+works, for a new session; the sender starts one with an ordinary handshake to a
+one-time prekey the request carried, and sends again, in it, the newest 32 of
+its messages the receiver is missing. Both sides show that the secure session
+was reset. A peer that predates resets, and a gap over 16,384 messages, still
+leave the session dark. The bound no longer follows from the mailbox's size,
+which is now a byte budget that holds thousands of ordinary messages; see
+`delivery-wire-v1.md`.
 
 A key kept for a message that has not come is a key that whoever held the
 message back could use after taking the device, so none is kept for ever. The
@@ -132,10 +158,57 @@ Devices remember the strongest suite previously observed for a remote device;
 a lower suite then fails as a downgrade instead of silently falling back.
 Unsupported higher suites fail explicitly.
 
+## Encrypted headers and the post-quantum ratchet
+
+A session between two current clients upgrades in place to ratchet message
+version `4` ([`ratchet-message-v2.md`](ratchet-message-v2.md)) at its next
+sending root step, negotiated by the session-features inner-envelope extension
+(`3`) each side sends inside its authenticated messages:
+
+- **Header encryption.** Session ID, ratchet key, counters and suite are sealed
+  under header keys from the root chain (the Double Ratchet's
+  header-encryption variant), so someone who later obtains a recipient's device
+  identity key and opens the recipient seal of recorded envelopes learns no
+  session, chain or position. A version 4 message names no session; the
+  receiver finds it by the keys that open its header.
+- **Sparse post-quantum ratchet** (suite `0x0002` sessions only). The sides take
+  turns running ML-KEM-768 exchanges, carried in 32-byte units in the padding
+  messages have anyway, and mix each secret into the root with that step's
+  X25519 output. This gives post-compromise security against an attacker who
+  can break X25519, once an epoch whose key was made after the compromise
+  completes, provided the attacker stays passive. Breaking X25519 or ML-KEM
+  alone recovers no key.
+
+Ratchet snapshots are version `3`; versions 1 and 2 are read and rewritten.
+
+## Deniable group sender authentication
+
+Group messages of version `6` ([mls-groups-v1.md](mls-groups-v1.md#deniable-sender-authentication))
+are signed with Ed25519, but not with the device's long-term signing key: each
+sending device makes a fresh key pair per group epoch, at its first message
+there, and gives the public key to every other member device inside their
+pairwise Double Ratchet session (inner message type `9`, a 76-byte `GSA`
+frame with no signature). The ratchet's message keys are symmetric, so the
+announcement authenticates the key to the receiver and to no one else, and the
+receiver, which also holds the epoch's group sender chains, could have made the
+announcement, the key and the message itself. The signed input is that of
+earlier versions (`mesh-mls/v1/group-message` with the version byte, header,
+caller data and ciphertext); version `6` selects the announced key. The private
+key is a `SigningPrivateKey` sealed under storage purpose `7` for one epoch.
+Commits and welcomes remain signed with the long-term key. A device uses
+version `6` only when every other member device advertised session feature `8`
+over a session it can send on without a handshake; the first message of an
+epoch fixes its mode, and a receiver holding a device's key for an epoch
+refuses that device's long-term-signed messages there as a downgrade.
+
 ## Outside Profile A
 
 Suite `0x0002` is the experimental hybrid Profile B defined in
 [`hybrid-handshake-v1.md`](hybrid-handshake-v1.md). It is implemented for
 interoperability and performance testing and is reachable in the application.
+The security config's minimum session suite (config version 2) sets a floor for
+new sessions: at `2`, no new session starts at suite `0x0001`, in either
+direction, while existing classical sessions keep working until renewal moves
+their devices to suite `0x0002`.
 Release readiness uses the internal criteria in [SECURITY.md](../../SECURITY.md). Independent
 cryptographic review has not been recorded and is not a release prerequisite.

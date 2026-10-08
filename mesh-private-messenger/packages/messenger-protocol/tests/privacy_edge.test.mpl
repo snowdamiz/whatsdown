@@ -157,8 +157,9 @@ fn stamp_proof() -> Bool!String do
   assert(Bytes.to_hex(request_stamp_key("mesh-msg/v1/work/resolve",
     payload,
     known)?) == "00023b3d0a240d4533a3e38336235c04f53b49c378093ffa92de14159221d639")
-  assert(verify_request_stamp("mesh-msg/v1/work/resolve", payload, known, now, window, 14)?)
-  assert(!(verify_request_stamp("mesh-msg/v1/work/resolve", payload, known, now, window, 15)?))
+  # The hash has 14 leading zero bits; a lookup asks for two fewer than the base.
+  assert(verify_request_stamp("mesh-msg/v1/work/resolve", payload, known, now, window, 16)?)
+  assert(!(verify_request_stamp("mesh-msg/v1/work/resolve", payload, known, now, window, 17)?))
   # The key that marks a stamp as spent is unique to the stamp and the endpoint.
   let spent = request_stamp_key("mesh-msg/v1/work/resolve", payload, stamp)?
   assert(Bytes.length(spent) == 32)

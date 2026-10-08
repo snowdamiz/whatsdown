@@ -13,11 +13,12 @@ The canonical protocol is [opaque-object-wire-v1.md](../../protocol/opaque-objec
 | `MESSENGER_OBJECT_PORT` | HTTP port, default `18089` |
 | `MESSENGER_OBJECT_WORK_DIFFICULTY` | Leading-zero proof-of-work bits, 1 through 24; default `16` |
 | `MESSENGER_JOBS_URL` | Optional private durable scheduler; enables event-driven expiry |
-| `MESSENGER_OBJECT_INTERNAL_TOKEN` | Required with external scheduling; authenticates private expiry execution |
+| `MESSENGER_OBJECT_INTERNAL_TOKEN` | Required with external scheduling; authenticates private expiry execution, and the store's credit redemptions at the core |
+| `MESSENGER_DELIVERY_INTERNAL_URL` | The directory-delivery core, for redeeming the credits of objects over 16 MiB; unset, such grants answer `403` |
 
 Startup fails closed when the database URL or storage root is invalid. Provision the database role and, when using local files, the storage directory before starting the process. Initialization creates the PostgreSQL tables idempotently. Existing SQLite databases are not imported or deleted; migrate their data separately before switching an existing installation.
 
-Each part is named only `{64 lowercase object-ID hex}.{index}`, where the index is 0 through 256. A single part is at most 65,608 bytes and an object is at most 16,795,830 bytes across 1 through 257 parts. The aggregate ceiling is exactly one 182-byte encrypted backup manifest plus 256 maximum-size 65,608-byte encrypted backup chunks; attachment objects remain below the same shared bound. PostgreSQL stores typed BYTEA identifiers and hashes; it never stores raw capabilities, object bytes, filenames, MIME types, keys, identities, mailboxes, devices, or conversations.
+Each part is named only `{64 lowercase object-ID hex}.{index}`, where the index is 0 through 8,192. A single part is at most 65,608 bytes and an object of 1 through 257 parts is at most 16,795,830 bytes. That ceiling is exactly one 182-byte encrypted backup manifest plus 256 maximum-size 65,608-byte encrypted backup chunks; attachment objects remain below the same shared bound. An object of more than 257 parts is a paid attachment above 16 MiB ([large objects](../../protocol/opaque-object-wire-v1.md#large-objects)): its grant carries a `CRD` frame the store redeems at the core before granting, its part count must be a padded bucket (up to 8,193 parts, 512 MiB), and its parts have exactly their canonical sizes, at most 537,199,106 bytes in all. Tables created before large objects are widened in place at startup. PostgreSQL stores typed BYTEA identifiers and hashes; it never stores raw capabilities, object bytes, filenames, MIME types, keys, identities, mailboxes, devices, or conversations.
 
 Completion verifies every part’s exact file size and stored SHA-256 hash. Downloads reject missing, truncated, extended, or changed part files.
 

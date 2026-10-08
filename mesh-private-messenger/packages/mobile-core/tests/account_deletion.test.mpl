@@ -1,4 +1,5 @@
 from Identity.Device import verify_account_deletion, verify_device_departure
+from Storage.Rows import storage_row_for
 from MobileCore import (
   account_deletion_export,
   create_account_export,
@@ -49,8 +50,8 @@ fn change_record(path :: String, sql :: String, values :: List<DbValue>) -> Resu
   end
 end
 
-fn record_hash(label :: String) -> DbValue do
-  Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label))))
+fn record_hash(path :: String, label :: String) -> DbValue!String do
+  Ok(Text(storage_row_for(path, label)?))
 end
 
 fn loads(path :: String) -> Bool do
@@ -78,7 +79,10 @@ fn proof() -> Bool!String do
   # A record left under one of a new account's labels must not block it.
   change_record(path,
     "INSERT INTO encrypted_blobs (record_hash, ciphertext) VALUES (?, ?)",
-    [record_hash("one-time-prekeys/v1"), Binary(Bytes.from_utf8("left behind"))])?
+    [
+      record_hash(path, "one-time-prekeys/v1")?,
+      Binary(Bytes.from_utf8("left behind by an erased account"))
+    ])?
   let second = create_account_export(account_request(path, "alice")?)?
   assert(!Bytes.secure_equals(second, first))
   assert(loads(path))
@@ -90,7 +94,7 @@ fn proof() -> Bool!String do
   # A linked device holds no account key, so it gets no statement to send.
   change_record(path,
     "DELETE FROM encrypted_blobs WHERE record_hash = ?",
-    [record_hash("account-signing-key/v1")])?
+    [record_hash(path, "account-signing-key/v1")?])?
   assert(Bytes.length(account_deletion_export(Bytes.from_utf8(path))?) == 0)
   Ok(true)
 end

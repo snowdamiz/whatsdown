@@ -33,6 +33,17 @@ impl Mesh {
         // SAFETY: only the bundled library, built from our pinned Mesh toolchain, is loaded.
         unsafe {
             let library = Library::new(path).map_err(|e| e.to_string())?;
+            // mesh-rt switches core dumps off only in programs meshc builds at
+            // --opt-level >= 2; a host embedding the library does it itself, in release
+            // builds, before the core holds a secret. Runtimes older than the switch
+            // (Mesh v0.1.8) don't export it, and are loaded without it.
+            if !cfg!(debug_assertions) {
+                if let Ok(disable) =
+                    library.get::<unsafe extern "C" fn()>(b"mesh_rt_disable_core_dumps")
+                {
+                    disable();
+                }
+            }
             let init = library
                 .get::<unsafe extern "C" fn() -> i32>(b"mesh_library_init")
                 .map_err(|e| e.to_string())?;
@@ -229,6 +240,31 @@ fn secure_store(service: &str, operation: u8, input: &[u8]) -> Result<Vec<u8>, i
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn security_config_selector_passes_a_full_size_frame() {
+        // Config v2 frames reach 4,096 bytes; the v1 frame was 264.
+        let frame = format!("2\n{}", "f".repeat(4_094));
+        let mut context = Host {
+            config: frame.clone(),
+            service: String::new(),
+        };
+        let selector = b"messenger/config/v1";
+        let mut output = vec![0u8; 4_096];
+        let mut written = 0u64;
+        let status = unsafe {
+            host::<4>(
+                (&mut context as *mut Host).cast(),
+                selector.as_ptr(),
+                selector.len() as u64,
+                output.as_mut_ptr(),
+                output.len() as u64,
+                &mut written,
+            )
+        };
+        assert_eq!((status, written), (0, 4_096));
+        assert_eq!(output, frame.as_bytes());
+    }
+
     #[test]
     fn platform_credentials_round_trip_binary_secrets_and_delete() {
         let service = format!("io.morseapp.desktop.tests.{}", std::process::id());

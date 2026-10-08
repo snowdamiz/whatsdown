@@ -1,5 +1,6 @@
 package expo.modules.meshmessenger
 
+import android.content.pm.ApplicationInfo
 import com.google.firebase.messaging.FirebaseMessaging
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
@@ -22,6 +23,10 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
         Events("onPushRegistrationChanged")
 
         OnCreate {
+            // Release builds turn core dumps off before the core holds any secret
+            // (mesh-rt does it itself only in programs meshc builds, not libraries).
+            val flags = appContext.reactContext?.applicationInfo?.flags ?: ApplicationInfo.FLAG_DEBUGGABLE
+            if ((flags and ApplicationInfo.FLAG_DEBUGGABLE) == 0) MeshMessengerHost.disableCoreDumps()
             addTokenListener(this@MeshMessengerModule)
             MeshMessengerScreenSecurity.protect(appContext.currentActivity)
         }
@@ -86,6 +91,19 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
                     "mesh_messenger_create_account" -> MeshLibrary.create_account_export(request)
                     "mesh_messenger_journal_load" -> MeshLibrary.journal_load_export(request)
                     "mesh_messenger_journal_save" -> MeshLibrary.journal_save_export(request)
+                    "mesh_messenger_backup_begin" -> MeshLibrary.backup_begin_export(request)
+                    "mesh_messenger_backup_confirm" -> MeshLibrary.backup_confirm_export(request)
+                    "mesh_messenger_backup_status" -> MeshLibrary.backup_status_export(request)
+                    "mesh_messenger_backup_prepare" -> MeshLibrary.backup_prepare_export(request)
+                    "mesh_messenger_backup_part" -> MeshLibrary.backup_part_export(request)
+                    "mesh_messenger_backup_finish" -> MeshLibrary.backup_finish_export(request)
+                    "mesh_messenger_backup_disable" -> MeshLibrary.backup_disable_export(request)
+                    "mesh_messenger_backup_restore_slots" -> MeshLibrary.backup_restore_slots_export(request)
+                    "mesh_messenger_backup_restore_begin" -> MeshLibrary.backup_restore_begin_export(request)
+                    "mesh_messenger_backup_restore_chunk" -> MeshLibrary.backup_restore_chunk_export(request)
+                    "mesh_messenger_backup_restore_finish" -> MeshLibrary.backup_restore_finish_export(request)
+                    "mesh_messenger_backup_restore_identity" -> MeshLibrary.backup_restore_identity_export(request)
+                    "mesh_messenger_backup_restore_account" -> MeshLibrary.backup_restore_account_export(request)
                     "mesh_messenger_presentation_load" -> MeshLibrary.presentation_load_export(request)
                     "mesh_messenger_presentation_save" -> MeshLibrary.presentation_save_export(request)
                     "mesh_messenger_load_profile" -> MeshLibrary.load_profile_export(request)
@@ -134,7 +152,29 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
                     "mesh_messenger_register_request" -> MeshLibrary.register_request_export(request)
                     "mesh_messenger_renew_devices" -> MeshLibrary.renew_devices_export(request)
                     "mesh_messenger_resolve_request" -> MeshLibrary.resolve_request_export(request)
+                    "mesh_messenger_oblivious_encapsulate" -> MeshLibrary.oblivious_encapsulate_export(request)
+                    "mesh_messenger_oblivious_decapsulate" -> MeshLibrary.oblivious_decapsulate_export(request)
                     "mesh_messenger_verify_transparency" -> MeshLibrary.verify_transparency_export(request)
+                    "mesh_messenger_transparency_anchor_requests" -> MeshLibrary.transparency_anchor_requests_export(request)
+                    "mesh_messenger_transparency_anchor_proof" -> MeshLibrary.transparency_anchor_proof_export(request)
+                    "mesh_messenger_network_status" -> MeshLibrary.network_status_export(request)
+                    "mesh_messenger_anchor_check" -> MeshLibrary.anchor_check_export(request)
+                    "mesh_messenger_gossip_check" -> MeshLibrary.gossip_check_export(request)
+                    "mesh_messenger_trust_alarm_details" -> MeshLibrary.trust_alarm_details_export(request)
+                    "mesh_messenger_wallet_rpc_urls" -> MeshLibrary.wallet_rpc_urls_export(request)
+                    "mesh_messenger_credits_status" -> MeshLibrary.credits_status_export(request)
+                    "mesh_messenger_credits_refresh_keys" -> MeshLibrary.credits_refresh_keys_export(request)
+                    "mesh_messenger_credits_quote" -> MeshLibrary.credits_quote_export(request)
+                    "mesh_messenger_credits_issue" -> MeshLibrary.credits_issue_export(request)
+                    "mesh_messenger_credits_postage" -> MeshLibrary.credits_postage_export(request)
+                    "mesh_messenger_credits_postage_quote" -> MeshLibrary.credits_postage_quote_export(request)
+                    "mesh_messenger_credits_retention" -> MeshLibrary.credits_retention_export(request)
+                    "mesh_messenger_credits_signup" -> MeshLibrary.credits_signup_export(request)
+                    "mesh_messenger_credits_register_at" -> MeshLibrary.credits_register_at_export(request)
+                    "mesh_messenger_credits_spend" -> MeshLibrary.credits_spend_export(request)
+                    "mesh_messenger_credits_settle" -> MeshLibrary.credits_settle_export(request)
+                    "mesh_messenger_credits_inbox_policy" -> MeshLibrary.credits_inbox_policy_export(request)
+                    "mesh_messenger_credits_group_handover" -> MeshLibrary.credits_group_handover_export(request)
                     "mesh_messenger_privacy_submission" -> MeshLibrary.privacy_submission_export(request)
                     "mesh_messenger_mailbox_fetch" -> MeshLibrary.mailbox_fetch_export(request)
                     "mesh_messenger_process_delivery_batch" -> MeshLibrary.process_delivery_batch_export(request)
@@ -145,6 +185,15 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
                     "mesh_messenger_attachment_prepare" -> MeshLibrary.attachment_prepare_export(request)
                     "mesh_messenger_attachment_seal_chunk" -> MeshLibrary.attachment_seal_chunk_export(request)
                     "mesh_messenger_attachment_open_chunk" -> MeshLibrary.attachment_open_chunk_export(request)
+                    "mesh_messenger_expiry_purge" -> MeshLibrary.expiry_purge_export(request)
+                    "mesh_messenger_group_timer" -> MeshLibrary.group_timer_export(request)
+                    "mesh_messenger_group_timer_state" -> MeshLibrary.group_timer_state_export(request)
+                    "mesh_messenger_send_view_once" -> MeshLibrary.send_view_once_export(request)
+                    "mesh_messenger_group_send_view_once" -> MeshLibrary.group_send_view_once_export(request)
+                    "mesh_messenger_open_view_once" -> MeshLibrary.open_view_once_export(request)
+                    "mesh_messenger_group_open_view_once" -> MeshLibrary.group_open_view_once_export(request)
+                    "mesh_messenger_safety_code" -> MeshLibrary.safety_code_export(request)
+                    "mesh_messenger_safety_code_check" -> MeshLibrary.safety_code_check_export(request)
                     else -> throw IllegalArgumentException("unknown_export")
                 }
             }
@@ -204,7 +253,12 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
 }
 
 internal object MeshMessengerHost {
+    init {
+        System.loadLibrary("messenger_mobile")
+    }
+
     @JvmStatic external fun registerHostCallbacks(): Int
+    @JvmStatic external fun disableCoreDumps()
     @JvmStatic external fun unregisterHostCallbacks()
 }
 

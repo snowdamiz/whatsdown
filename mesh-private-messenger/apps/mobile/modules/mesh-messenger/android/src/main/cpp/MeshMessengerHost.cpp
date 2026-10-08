@@ -5,6 +5,9 @@
 #include <limits>
 #include <mutex>
 
+#include <sys/prctl.h>
+#include <sys/resource.h>
+
 #include "libmessenger_mobile.h"
 
 namespace {
@@ -326,4 +329,21 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *) {
     ClearStore(environment);
   }
   g_vm = nullptr;
+}
+
+// mesh-rt turns core dumps off only in programs meshc builds at --opt-level >= 2,
+// so the app, which embeds Mesh as a library, calls it itself in release builds.
+// Runtimes up to Mesh v0.1.8 lack the symbol; this weak definition keeps them
+// linking. When the runtime's own definition is linked in, it wins; otherwise
+// this one does the same work.
+// ponytail: drop this fallback once the pinned Mesh release exports the symbol.
+extern "C" __attribute__((weak)) void mesh_rt_disable_core_dumps() {
+  rlimit none{0, 0};
+  setrlimit(RLIMIT_CORE, &none);
+  prctl(PR_SET_DUMPABLE, 0, 0, 0, 0);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_meshmessenger_MeshMessengerHost_disableCoreDumps(JNIEnv *, jclass) {
+  mesh_rt_disable_core_dumps();
 }

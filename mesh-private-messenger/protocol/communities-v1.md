@@ -102,6 +102,14 @@ are the owner's and admins' alone. Each recipient's client enforces this: a
 modified client can still send to a part, and members' devices receive and
 store what it sends, but no current client shows it.
 
+Posts and every other message in a part may be deniable group messages
+(version 6, [mls-groups-v1.md](mls-groups-v1.md#deniable-sender-authentication)).
+They still authenticate their sender leaf to each member, so these role checks
+work unchanged; they only stop members proving to anyone else who posted. An
+owner's or admin's device signs a part deniably once it has a session, with
+session feature `8`, with every other device there; until then its posts there
+are signed with its device key.
+
 ## Joining through a link
 
 An owner or admin shares a link, also shown as a QR code: `mesh://community/`

@@ -5,3 +5,6 @@ version = "0.1.0"
 [dependencies]
 service-jobs = { path = "../../packages/service-jobs" }
 messenger-protocol = { path = "../../packages/messenger-protocol" }
+messenger-credits = { path = "../../packages/messenger-credits" }
+# The OHTTP gateway (api/gateway.mpl) needs a Mesh release with the HPKE export.
+messenger-ohttp = { path = "../../packages/messenger-ohttp" }

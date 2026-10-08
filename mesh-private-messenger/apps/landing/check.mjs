@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "../mobile/node_modules/playwright/index.mjs";
+import worker from "./waitlist.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 // Articles are hardcoded files named blog-<slug>.html, listed by hand on blog.html.
@@ -19,9 +20,60 @@ for (const file of pages) {
   const copy = readFileSync(new URL(file, import.meta.url), "utf8").replace(/<(style|script)>[\s\S]*?<\/\1>/g, "");
   // The token is sold on what it does, never on what it might be worth: return talk is how a token becomes a security.
   for (const word of [/military.grade/i, /unbreakable/i, /open.source/i, /audit/i, /invest/i, /profit/i, /\byield/i, /\bAPY\b/, /guarantee/i, /\bprice goes/i]) if (word.test(copy)) problems.push(`${file}: copy says ${word}`);
+  // Copy that has to wait for the thing it describes (WITNESS_NETWORK_PLAN.md §17). When one ships, delete its line here.
+  for (const [claim, until] of [
+    [/your phone catches it|you get paid/i, "the phone bounty ships (Phase 4)"],
+    [/fool everyone you talk to/i, "checkpoint gossip is in a release (Phase 0.6)"],
+    [/\b(messages?|plaintext|what you write)\b[^.]{0,120}\b(compiler?|compiles?|won.t build|doesn.t build)\b|\b(compiler|won.t build|doesn.t build)\b[^.]{0,120}\b(messages?|plaintext)\b/i, "the Phase 6 exit, worded to its limits (§6.18)"],
+  ]) if (claim.test(copy)) problems.push(`${file}: copy says ${claim}, which must wait until ${until}`);
   // Link previews fetch the share card from the live site, which serves this directory.
   const card = copy.match(/property="og:image" content="https:\/\/morseapp\.io\/([^"]+)"/)?.[1];
   if (!card || !existsSync(new URL(card, import.meta.url))) problems.push(`${file}: og:image ${card ?? "is missing"} isn't a file here`);
+}
+
+// ---- The network's live numbers (network.js). The pages ask their own origin for /network/*.json; here those
+// requests go through the real Worker (waitlist.mjs), whose backend answers as ops/cloudflare would in each
+// state below. So the page is held to what it shows for each, and the Worker's shape check is held to keeping
+// anything unexpected off the page.
+const BACKEND = "https://backend.invalid", EX = "https://explorer.solana.com";
+const pinned = (witness_id, operator, c) => ({ witness_id, public_key: c.repeat(64), operator, status: "pinned", software: "mesh", morse_run: operator === "Morse", c2sp_name: null });
+const off = { log: "morse-main", status: "unavailable", reason: "no_snapshot_yet", slash_history: [], stale: false, operations: { anchor_mode: "off", pages: [] } };
+const acct = (c) => c.repeat(44), slash = { proof: acct("P"), kind: 1, slot: "950", link: `${EX}/tx/${"5".repeat(88)}` };
+// Production today (plan §4.1, B0): both witnesses are Morse's, and nothing is anchored, bonded or slashed.
+// When a release pins a different set, change TODAY and the static words in witnesses.html together: those
+// words are what a reader sees whenever the registry can't be read.
+const TODAY = { "/v1/transparency/registry": { witnesses: [pinned("witness-a", "Morse", "a"), pinned("witness-b", "Morse", "b")] }, "/v1/network/status.json": off };
+const FALLBACK = "Both witnesses are run by Morse today. Independent witnesses join in stages.";
+const STATES = {
+  today: TODAY,
+  down: {},
+  // Open, anchored on mainnet and bonded, as it should look once Phase 3 is out.
+  live: {
+    "/v1/transparency/registry": { witnesses: [pinned("witness-a", "Morse", "a"), ...["Lattice Labs", "Northwind Validators", "Kestrel University", "Ember Foundation"].map((o, n) => pinned(`o${n + 1}-${o.split(" ")[0].toLowerCase()}`, o, "cdef"[n]))] },
+    "/v1/network/status.json": () => ({ ...off, status: "ok", cluster: "mainnet-beta", operations: { anchor_mode: "mainnet", pages: [] },
+      last_public_checkpoint: { slot: "900", sequence: "41", tree_size: "12", time: new Date(Date.now() - 40_000).toISOString(), link: `${EX}/block/900` },
+      bonded: { directory: { status: "Active", usd: "50000.00", link: `${EX}/address/${acct("V")}` }, witnesses: [{ witness_id: "witness-a", usd: "10000.00", link: `${EX}/address/${acct("W")}` }] },
+      slashed: { service: false, witnesses: 0, never: true, link: `${EX}/address/${acct("L")}` } }),
+  },
+  // The two chain providers disagree, after a slash: no numbers, but the slash stays.
+  split: { ...TODAY, "/v1/network/status.json": { ...off, reason: "rpc_disagree", last_good_at: "2026-09-29T11:00:00.000Z", slash_history: [slash], operations: { anchor_mode: "mainnet", pages: [] } } },
+  // Answers the Worker must refuse: an operator label past 48 characters, and a link off the explorer.
+  bad: {
+    "/v1/transparency/registry": { witnesses: [pinned("witness-a", "Morse", "a"), pinned("witness-b", "M".repeat(49), "b")] },
+    "/v1/network/status.json": { ...off, status: "ok", cluster: "mainnet-beta", operations: { anchor_mode: "mainnet", pages: [] }, last_public_checkpoint: null,
+      bonded: { directory: { status: "Active", usd: "50000.00", link: "https://evil.example/x" }, witnesses: [] }, slashed: { never: true, link: `${EX}/address/${acct("L")}` } },
+  },
+};
+let state = STATES.today;
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url, init) => {
+  if (!String(url).startsWith(BACKEND)) return realFetch(url, init);
+  const answer = state[new URL(url).pathname];
+  return answer === undefined ? new Response("Not found", { status: 404 }) : Response.json(typeof answer === "function" ? answer() : answer);
+};
+async function viaWorker(route) {
+  const res = await worker.fetch(new Request(`https://morseapp.io/network/${route.request().url().split("/").pop()}`), { MORSE_BACKEND_URL: BACKEND });
+  await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: Buffer.from(await res.arrayBuffer()) });
 }
 
 const browser = await chromium.launch();
@@ -29,11 +81,13 @@ for (const file of pages.filter((f) => existsSync(new URL(f, import.meta.url))))
   for (const [width, height] of [[1440, 900], [390, 844]]) {
     const name = `${file} at ${width}`;
     const page = await browser.newPage({ viewport: { width, height } });
-    page.on("console", (m) => ["error", "assert"].includes(m.type()) && problems.push(`${name}: console ${m.type()}: ${m.text()}`));
+    // A failed /network/*.json is a state the pages are built for (their static words stay), not a page error.
+    page.on("console", (m) => ["error", "assert"].includes(m.type()) && !m.location().url.includes("/network/") && problems.push(`${name}: console ${m.type()}: ${m.text()}`));
     page.on("pageerror", (e) => problems.push(`${name}: ${e.message}`));
     // The footer promises this, so anything outside this directory is a failure.
     page.on("request", (r) => decodeURI(r.url()).startsWith(`file://${here}`) || r.url().startsWith("data:") || problems.push(`${name}: third-party request ${r.url()}`));
 
+    await page.route("**/network/*.json", viaWorker);
     await page.goto(new URL(file, import.meta.url).href, { waitUntil: "networkidle" });
     await page.evaluate(() => document.fonts.ready);
     if (!(await page.evaluate(() => document.fonts.check('600 16px "Geist"')))) problems.push(`${name}: Geist did not load`);
@@ -51,6 +105,7 @@ for (const file of pages.filter((f) => existsSync(new URL(f, import.meta.url))))
     }
 
     await (({ "index.html": home, "how-it-works.html": how, "witnesses.html": witnesses, "blog.html": blog })[file] ?? (() => {}))(page, name);
+    if (await page.$("script[src='network.js']")) await network(page, name);
 
     // Narrow, the nav's links fold behind a menu button, which has to bring every one of them back.
     if (width < 1040) {
@@ -60,6 +115,63 @@ for (const file of pages.filter((f) => existsSync(new URL(f, import.meta.url))))
     }
     await page.close();
   }
+}
+
+async function network(page, name) {
+  const look = async (key) => {
+    state = STATES[key];
+    await page.reload({ waitUntil: "networkidle" });
+    const [doc, win] = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
+    if (doc > win) problems.push(`${name} (${key}): page scrolls sideways (${doc} > ${win})`);
+    return page.evaluate(() => {
+      const all = (s) => [...document.querySelectorAll(s)];
+      const shown = (s) => all(s).filter((e) => !e.closest("[hidden]"));
+      return {
+        profile: shown('[data-net="profile"]').map((e) => e.textContent.trim()),
+        outvote: all('[data-net="outvote"]').map((e) => e.textContent.trim()),
+        rows: all('[data-net="witnesses"] li').map((li) => [...li.querySelectorAll("b, em")].map((e) => e.textContent).join(" ")),
+        bonds: all('[data-net="witnesses"] a').map((a) => a.textContent),
+        counter: shown('[data-net="counter"] span').map((e) => e.textContent.trim()),
+        next: [...new Set(shown("[data-next]").map((e) => e.dataset.next))].sort(),
+        pill: shown("#network .soon").map((e) => e.textContent.trim()),
+        links: all("[data-net] a").map((a) => a.href),
+        // Every number the counter shows has to link to where it can be checked.
+        loose: all('[data-net="counter"] span').flatMap((s) => [...s.childNodes].filter((n) => n.nodeType === 3 && /\d/.test(n.textContent)).map((n) => n.textContent)),
+      };
+    });
+  };
+  const file = name.split(" ")[0];
+  const says = (key, got, want) => String(got) === String(want) || problems.push(`${name} (${key}): shows ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const seen = {};
+  for (const key of ["down", "bad", "today", "live", "split"]) {
+    const v = (seen[key] = await look(key));
+    for (const href of v.links) if (!href.startsWith(`${EX}/`)) problems.push(`${name} (${key}): links a number to ${href}, not the explorer`);
+    if (v.loose.length) problems.push(`${name} (${key}): the counter shows ${v.loose} without a link`);
+    // The pill stays until the Phase 3 exit (plan §4.4), whatever the numbers say.
+    if (file === "index.html") says(key, v.pill, ["Launching in stages"]);
+  }
+  // Nothing real to count: no counter at all, and the map still marks the chain and outside witnesses as next.
+  for (const key of ["down", "bad", "today"]) {
+    says(key, seen[key].counter, []);
+    if (file === "how-it-works.html") says(key, seen[key].next, ["anchor", "outside"]);
+  }
+  says("live", seen.live.counter.map((t) => t.replace(/\d+ seconds/, "N seconds")), ["$50,000 bonded.", "Slashed: never.", "Last public checkpoint: N seconds ago."]);
+  says("split", seen.split.counter, ["Slashed: once.", "Live numbers unavailable: two chain providers must agree before we show any."]);
+  if (file === "how-it-works.html") says("live", seen.live.next, []);
+  if (file === "witnesses.html") {
+    // Without the registry the page keeps words true today, and they say the same as the registry does today.
+    for (const key of ["down", "bad"]) says(key, seen[key].profile, [FALLBACK]);
+    says("today", seen.today.profile, ["Bootstrap: both witnesses are run by Morse. Independent witnesses join in stages."]);
+    says("today", seen.today.rows, seen.down.rows);
+    says("today", seen.today.outvote, seen.down.outvote);
+    if (!/^Today, yes\./.test(seen.down.outvote)) problems.push(`${name}: "Could Morse outvote the witnesses?" doesn't say yes while every witness is Morse's`);
+    says("live", seen.live.profile, ["Open: 4 of 5 witnesses are independent. Morse runs one, and phones need 3."]);
+    if (!/^No\./.test(seen.live.outvote)) problems.push(`${name} (live): the open network's answer to "Could Morse outvote the witnesses?" isn't no`);
+    says("live", seen.live.rows.length, 5);
+    says("live", seen.live.bonds, ["$10,000"]);
+  }
+  state = STATES.today;
+  await page.reload({ waitUntil: "networkidle" });
 }
 
 async function home(page, name) {
@@ -136,6 +248,13 @@ async function how(page, name) {
     }
   }
 
+  // The parts that come next are wired to nothing yet, so no journey may pass through them.
+  const later = await page.$$eval(".stage .node:has([data-next])", (ns) => ns.map((n) => n.dataset.id));
+  const used = await page.$$eval("ol[data-journey] > li", (ls) => ls.flatMap((l) => `${l.dataset.at ?? ""} ${l.dataset.path ?? ""}`.split(/[\s|]+/)));
+  for (const id of later.filter((id) => used.includes(id))) problems.push(`${name}: a journey runs through ${id}, which the map marks as next`);
+  await page.click('.stage .node[data-id="sol"]');
+  if (!/Solana\s*Next/.test(await page.locator("#part").textContent().catch(() => ""))) problems.push(`${name}: tapping Solana doesn't say it comes next`);
+  await page.keyboard.press("Escape");
   await page.click('.stage .node[data-id="edge"]');
   const card = await page.locator("#part").textContent().catch(() => "");
   if (!/Privacy edge/.test(card) || !/sees/i.test(card)) problems.push(`${name}: tapping the privacy edge did not say what it sees`);

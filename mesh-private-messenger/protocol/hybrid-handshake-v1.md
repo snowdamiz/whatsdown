@@ -30,6 +30,16 @@ and fails initial AEAD authentication without producing a session.
   floor is at most `0x0001`.
 - A peer previously authenticated at suite `0x0002` rejects a later suite
   `0x0001` offer as `DowngradeDetected`.
+- With the security config's minimum suite at `2`, no new session starts at
+  suite `0x0001` in either direction (`initiate_at_floor`,
+  `receive_initial_at_floor` return `SuiteBelowFloor`; mobile refuses before
+  claiming a prekey with `peer_suite_below_floor`, and a responder acknowledges a
+  classical first message unopened as `initial_suite_below_floor`). Existing
+  classical sessions keep working until renewal moves their devices to suite
+  `0x0002`; the floor is meant to be raised 90 days after the renewal release,
+  once every active device has renewed into a hybrid credential (plan D17).
+  `hybrid.test.mpl` covers both directions and `session_healing.test.mpl` the
+  mobile refusal.
 - Existing classical snapshots and mobile session records remain suite
   `0x0001`; there is no in-place key conversion.
 - New development accounts publish hybrid credentials. A classical device
@@ -63,5 +73,9 @@ bytes. One receive attempt still burns its claimed one-time X25519 prekey.
 The M14 proof records compile-inclusive hybrid timing on the arm64 development
 host and cross-compiles the iOS library. Physical-device profiling and
 dependency findings must be recorded separately; cross-compilation is not a
-device result. ML-KEM protects initial establishment only. The ongoing
-Double Ratchet is classical, with no continuous post-quantum recovery claim.
+device result. Once both sides run a current client, the ongoing session adds
+the sparse post-quantum ratchet of [`ratchet-message-v2.md`](ratchet-message-v2.md):
+ML-KEM-768 exchanges inside the session, each secret mixed into the root with
+that step's X25519 output, which gives post-compromise security against a
+passive attacker who can break X25519. Between mixes, and with an older peer,
+post-quantum confidentiality rests on this handshake's ML-KEM secret alone.

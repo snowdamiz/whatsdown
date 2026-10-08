@@ -137,12 +137,14 @@ test('conversation and history lists reject trailing bytes and decode policy sta
     Uint8Array.of(0),
     Uint8Array.of(1),
     writeU32(60),
+    u64(1_800_000_000_000n),
   );
   const conversations = parseConversations(vectors(writeU32(1), summary));
   assert.equal(conversations[0]?.username, 'alice');
   assert.equal(conversations[0]?.requestPending, true);
   assert.equal(conversations[0]?.blocked, true);
   assert.equal(conversations[0]?.keyChanged, true);
+  assert.equal(conversations[0]?.sessionResetAt, 1_800_000_000_000);
 
   const message = vectors(
     Uint8Array.of(2),
@@ -192,8 +194,13 @@ test('history entries expose opened attachment manifests next to their opaque re
   }]);
   assert.deepEqual(parseAttachmentSummary(new Uint8Array()), undefined);
   assert.throws(() => parseAttachmentSummary(attachmentSummary(70_000, 1)));
+  // A padded object (attachment wire 2) ends in chunks that hold only padding.
+  assert.equal(parseAttachmentSummary(attachmentSummary(524_289, 10))?.chunkCount, 10);
+  assert.throws(() => parseAttachmentSummary(attachmentSummary(70_000, 8193)));
+  // Files over 16 MiB, paid with credits, go to 512 MiB in 8,192 chunks.
+  assert.equal(parseAttachmentSummary(attachmentSummary(20 * 1_048_576, 320))?.chunkCount, 320);
   assert.throws(() => parseAttachmentSummary(attachmentSummary(0)));
-  assert.throws(() => parseAttachmentSummary(attachmentSummary(256 * 65_536 + 1)));
+  assert.throws(() => parseAttachmentSummary(attachmentSummary(8192 * 65_536 + 1)));
 });
 
 test('binary output lists decode each bounded envelope', () => {
@@ -349,6 +356,16 @@ test('group inspection exposes a separate verified username and accepts older me
   assert.equal(parseGroupDetails(details([member('')])).members[0]?.username, undefined);
   assert.equal(parseGroupDetails(details(Array.from({ length: 64 }, () => member('a'.repeat(64))))).members.length, 64);
   assert.throws(() => parseGroupDetails(details([member('Maya Chen')])));
+});
+
+test('group inspection says how this device signs in the current epoch', () => {
+  const fields = (...extra: Uint8Array[]) => vectors(writeU32(7 + extra.length), Uint8Array.of(1), new Uint8Array(32),
+    u64(1n), writeU32(0), new Uint8Array(32), new Uint8Array(32), vectors(writeU32(0)), ...extra);
+  assert.equal(parseGroupDetails(fields()).senderSigning, 0);
+  assert.equal(parseGroupDetails(fields(Uint8Array.of(1))).senderSigning, 1);
+  assert.equal(parseGroupDetails(fields(Uint8Array.of(2))).senderSigning, 2);
+  assert.throws(() => parseGroupDetails(fields(Uint8Array.of(3))));
+  assert.throws(() => parseGroupDetails(fields(Uint8Array.of(2), Uint8Array.of(0))));
 });
 
 test('policy requests encode the peer reference before the action and value', () => {

@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Morse explainer</title>
+<style>
+@font-face{font-family:"Geist";font-weight:400;src:url(fonts/Geist_400Regular.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:500;src:url(fonts/Geist_500Medium.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:600;src:url(fonts/Geist_600SemiBold.ttf) format("truetype")}
+:root{--paper:#F6F2EA;--ink:#0B0B0F;--ink-2:#4A4A55;--ink-3:#6B6B77;--blue:#2459D0;--blue-2:#2F6BEA;--blue-3:#6AA6FF;--sky:#D5E2FF;--butter:#FFE8AD;--red:#D8323A;--green:#178A4E;--night:#0B0D14}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#F6F2EA}
+body{font:400 17px/1.5 "Geist",system-ui,sans-serif;color:#0B0B0F;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,p{margin:0}
+svg{display:block}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:radial-gradient(120% 100% at 50% 40%,#FBF8F2 0%,#F6F2EA 60%,#EFE9DD 100%)}
+.layer{position:absolute;inset:0}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.full{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:visible}
+.glow{position:absolute;border-radius:50%;pointer-events:none}
+#gA{width:1500px;height:1500px;background:radial-gradient(closest-side,rgba(106,166,255,.30),rgba(106,166,255,0))}
+#gB{width:1300px;height:1300px;background:radial-gradient(closest-side,rgba(255,221,140,.45),rgba(255,221,140,0))}
+#gR{width:1400px;height:1400px;background:radial-gradient(closest-side,rgba(255,150,140,.38),rgba(255,150,140,0));opacity:0}
+#blue{position:absolute;left:24px;top:24px;right:24px;bottom:24px;border-radius:48px;overflow:hidden;background:radial-gradient(90% 90% at 50% 45%,#3474F0 0%,#2459D0 55%,#1F4BB8 100%);clip-path:circle(0px at 50% 50%)}
+#flood{background:radial-gradient(90% 90% at 50% 45%,#3474F0 0%,#2459D0 55%,#1A43A6 100%)}
+canvas{position:absolute;left:0;top:0}
+#grain{width:1920px;height:1080px;opacity:.05;mix-blend-mode:soft-light}
+#vign{background:radial-gradient(ellipse 80% 75% at 50% 50%,rgba(120,95,60,0) 60%,rgba(120,95,60,.10) 100%);pointer-events:none}
+#ring{position:absolute;border-radius:50%;box-shadow:inset 0 0 0 6px var(--blue-2);opacity:0}
+
+.big{font-weight:600;letter-spacing:-.05em;line-height:1.04}
+.wd{display:inline-block;opacity:0}
+.acc{color:var(--blue)}
+.redt{color:var(--red)}
+.w{color:#fff}
+.hd{position:absolute;left:0;right:0;top:92px;text-align:center;font-size:104px}
+.hd>div{white-space:nowrap}
+.col{position:absolute;left:150px;width:720px}
+.sub{font-size:44px;line-height:1.3;letter-spacing:-.02em;color:var(--ink-2);text-wrap:balance;opacity:0}
+.spec{position:absolute;font-size:24px;font-weight:500;letter-spacing:.01em;color:var(--ink-3);white-space:nowrap;opacity:0}
+.c{translate:-50% -50%}
+
+/* lockup: the mark in the logo's own proportions (gap = .36 of the dot, dash = 3 dots) */
+.lock{display:flex;align-items:center;gap:56px}
+.mk{position:relative;flex:none}
+.mk i{position:absolute;left:0;background:var(--blue-2);border-radius:999px}
+#s10Mk i{background:#fff}
+#s1Mk{width:66px;height:52px}#s1Mk .d1{top:0;width:22px;height:22px}#s1Mk .d2{top:30px;width:66px;height:22px}
+#s10Mk{width:190px;height:150px}#s10Mk .d1{top:0;width:64px;height:64px}#s10Mk .d2{top:86px;width:190px;height:64px}
+.wm{font-weight:600;letter-spacing:-.055em;line-height:1;white-space:nowrap}
+.wm span{display:inline-block}
+.tagl{margin-top:46px;font-weight:500;font-size:58px;letter-spacing:-.03em;color:rgba(255,255,255,.94);opacity:0}
+
+/* phones, from apps/landing/index.html */
+.p3{position:absolute;inset:0;perspective:2200px}
+.rig{position:absolute;top:344px;transform-style:preserve-3d}
+#pY{left:250px}#pA{left:1312px}
+.rig .phone{zoom:1.06}
+.phone{position:relative;width:318px;padding:8px;border:2px solid transparent;border-radius:54px;
+  background:linear-gradient(#0E0E12,#0E0E12) padding-box,linear-gradient(150deg,#B4B4C0,#3A3A44 14%,#18181D 40%,#18181D 62%,#3A3A44 86%,#9A9AA6) border-box;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 70px 110px -44px rgba(8,10,40,.55),0 24px 50px -24px rgba(8,10,40,.4)}
+.phone::before{content:"";position:absolute;z-index:3;top:19px;left:50%;width:88px;height:26px;margin-left:-44px;border-radius:999px;background:#0E0E12}
+.screen{position:relative;display:flex;flex-direction:column;height:640px;border-radius:44px;overflow:hidden;background:#fff;color:#0A0A0C;font-size:14.5px;line-height:1.36;letter-spacing:-.006em}
+.screen::after{content:"";position:absolute;left:50%;bottom:7px;width:112px;height:4px;margin-left:-56px;border-radius:9px;background:currentColor;opacity:.2}
+.glare{position:absolute;inset:0;z-index:4;pointer-events:none;background:linear-gradient(112deg,rgba(120,150,220,0) 38%,rgba(120,150,220,.10) 47%,rgba(120,150,220,.02) 52%,rgba(120,150,220,0) 60%) 0 0/320% 100% no-repeat}
+.status{display:flex;align-items:center;justify-content:space-between;flex:none;height:50px;padding:6px 30px 0;font-weight:600;font-size:13.5px}
+.status>span+span{display:flex;align-items:center;gap:5px}
+.status .ic{width:17px;height:12px;fill:currentColor;stroke:none}
+.bat{position:relative;width:24px;height:11.5px;border-radius:3.5px;box-shadow:inset 0 0 0 1.2px currentColor;opacity:.85}
+.bat::after{content:"";position:absolute;inset:2.4px 6px 2.4px 2.4px;border-radius:1.5px;background:currentColor}
+.chead{position:relative;display:flex;align-items:center;gap:10px;flex:none;padding:6px 14px 10px;min-height:50px}
+.chead>.ic{width:22px;height:22px}
+.chead b{font-weight:600;font-size:15.5px;letter-spacing:-.02em;line-height:1.2}
+.chead .end{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;box-shadow:0 1px 5px rgba(10,10,12,.14)}
+.chead .end .ic{width:17px;height:17px}
+.ava{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;object-fit:cover;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:12px}
+.t0{--a:#5B9DFF;--b:#3462FF}.t1{--a:#B57BFF;--b:#7B4DFF}.t2{--a:#FF7DBA;--b:#F0468C}.t3{--a:#FFB35C;--b:#FF7A3D}.t4{--a:#5EE39B;--b:#22AD6C}
+.thread{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:0;padding:8px 12px 12px}
+.day{align-self:center;margin-bottom:5px;padding:4px 11px;border-radius:999px;background:#F2F2F5;font-size:11px;color:#63636D}
+.b{position:relative;max-width:82%;padding:8px 13px 6px;border-radius:20px}
+.b.in{align-self:flex-start;background:#E9E9EE;border-bottom-left-radius:6px}
+.b.out{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:6px}
+.b small{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:1px;font-size:10.5px;opacity:.6}
+.b small .ic{width:13px;height:13px}
+.nw{display:flex;flex-direction:column;overflow:visible;flex:none}
+.nw.r{align-items:flex-end}.nw.l{align-items:flex-start}
+.nw>.b{max-width:82%}
+.seal{position:relative;display:block}
+.seal>i{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;gap:14.7px 9px;padding-top:7.4px;overflow:hidden;color:rgba(10,10,12,.42)}
+.mc{--u:5px;display:inline-flex;align-items:center;gap:calc(var(--u)*.8);flex:none}
+.mc i{flex:none;width:var(--u);height:var(--u);border-radius:999px;background:currentColor}
+.mc i.D{width:calc(var(--u)*3)}
+.mc i.g{width:calc(var(--u)*1.2);background:none}
+.composer{display:flex;align-items:center;gap:9px;flex:none;height:44px;margin:0 12px 22px;padding:0 6px 0 13px;border-radius:999px;font-size:13.5px;box-shadow:inset 0 0 0 1px #DFDFE6,0 2px 8px rgba(10,10,12,.05);color:#8E8E98}
+.composer .ic{width:18px;height:18px}
+.composer.typing>span{color:#0A0A0C}
+.composer>span>u{display:inline-block;width:1.5px;height:16px;margin-left:1px;vertical-align:-3px;background:var(--blue-2);text-decoration:none}
+.composer i{display:grid;place-items:center;width:32px;height:32px;margin-left:auto;border-radius:50%;background:#A9C1F3;color:#fff}
+
+/* diagram pieces */
+.node{position:absolute;display:flex;align-items:center;gap:14px;height:74px;padding:0 30px 0 14px;border-radius:999px;background:var(--night);color:#fff;font-weight:600;font-size:26px;letter-spacing:-.02em;white-space:nowrap;box-shadow:0 26px 46px -22px rgba(11,11,15,.55)}
+.node>i{position:relative;display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.1)}
+.node>i .ic{position:absolute;width:24px;height:24px}
+.node.light{background:#fff;color:var(--ink)}
+.node.light>i{background:var(--sky);color:var(--blue)}
+.note{position:absolute;font-size:24px;font-weight:500;color:var(--ink-3);white-space:nowrap;opacity:0}
+.note.red{color:var(--red)}
+.kc{position:absolute;width:384px;height:100px;transform-style:preserve-3d}
+.kc>div{position:absolute;inset:0;display:flex;align-items:center;gap:16px;padding:0 22px;border-radius:26px;background:#fff;box-shadow:0 26px 44px -22px rgba(11,11,15,.45);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.kc .bk{transform:rotateX(180deg)}
+.kc i{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:17px;background:var(--blue-2);color:#fff}
+.kc i .ic{width:28px;height:28px}
+.kc b{display:block;font-weight:500;font-size:19px;letter-spacing:-.01em;line-height:1.2;color:var(--ink-3)}
+.kc span{display:block;font-weight:600;font-size:25px;white-space:nowrap;letter-spacing:.03em;line-height:1.25;font-variant-numeric:tabular-nums;color:var(--ink)}
+.kc .bk i{background:var(--red)}.kc .bk span{color:var(--red)}
+.pkt{position:absolute;left:0;top:0;height:66px;border-radius:33px;font-size:28px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;opacity:0}
+.pkt>*{position:absolute;inset:0;display:flex;align-items:center;border-radius:33px}
+.pkt .pl{justify-content:center;background:var(--blue);color:#fff}
+.pkt .sl{gap:12px;padding:0 20px;background:#171A24;color:rgba(160,190,255,.6);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(160,190,255,.12)}
+.pkt .sl>svg{width:28px;height:28px;flex:none;color:#fff}
+.pkt .sl>span{display:flex;gap:12px}
+.pkt .mc{--u:7px}
+.pkt{box-shadow:0 26px 44px -20px rgba(11,11,15,.5)}
+.edge{position:absolute;top:-6px;bottom:-6px;width:4px;margin-left:-2px;border-radius:2px;background:#CFE0FF;box-shadow:0 0 14px 4px rgba(106,166,255,.85);opacity:0}
+
+/* 3 · ratchet */
+#gear{position:absolute;left:0;top:0}
+#routes{z-index:2}
+#routes .rv{fill:none;stroke-width:5;stroke-linecap:round;stroke-dasharray:.01 13 20 13}
+.node,.kc,.pkt,.note{z-index:3}
+.kt{position:absolute;left:0;top:0;width:236px;height:132px;padding:0 24px;border-radius:32px;background:#fff;color:var(--ink);display:flex;flex-direction:column;justify-content:center;gap:4px;box-shadow:0 30px 50px -26px rgba(6,14,50,.6)}
+.kt small{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:500;color:var(--ink-3)}
+.kt small .ic{width:22px;height:22px;color:var(--blue-2)}
+.kt b{font-size:31px;font-weight:600;letter-spacing:.03em;font-variant-numeric:tabular-nums}
+.lnk{position:absolute;left:0;top:0;width:80px;height:4px;border-radius:2px;background:rgba(255,255,255,.5)}
+.lnk::after{content:"";position:absolute;right:-2px;top:-5px;width:10px;height:10px;border-top:4px solid rgba(255,255,255,.5);border-right:4px solid rgba(255,255,255,.5);transform:rotate(45deg)}
+.drop{position:absolute;left:0;top:0;height:64px;border-radius:32px;font-size:28px;font-weight:500;white-space:nowrap}
+.drop>*{position:absolute;inset:0;display:flex;align-items:center;border-radius:32px}
+.drop .pl{position:relative;inset:auto;height:64px;padding:0 28px;justify-content:center;background:#fff;color:var(--ink)}
+.drop .sl{padding:0 18px;background:#171A24;color:rgba(160,190,255,.6);overflow:hidden}
+.drop .mc{--u:6px}
+.drop .sl>span{display:flex;gap:10px}
+.pillw{display:inline-flex;align-items:center;gap:12px;padding:12px 26px 12px 20px;border-radius:999px;background:rgba(255,255,255,.14);font-weight:500;font-size:28px;color:rgba(255,255,255,.92);opacity:0}
+.pillw .ic{width:26px;height:26px}
+
+/* 4 · sealed and padded */
+.row{position:absolute;left:0;top:0}
+.bub{position:absolute;left:0;top:0;border-radius:30px;border-bottom-right-radius:10px;font-size:28px;font-weight:500;line-height:1.3;letter-spacing:-.01em;color:#fff}
+.bub>*{position:absolute;inset:0;border-radius:inherit}
+.bub .pl{display:block;background:var(--blue);padding:14px 24px}
+.bub .pl span{display:block;width:max-content;max-width:470px}
+.bub .sl{background:#171A24;color:rgba(160,190,255,.6);overflow:hidden;display:flex;align-items:center;gap:12px;padding:0 18px}
+.bub .sl .mc{--u:6px}
+.bub .sl>span{display:flex;gap:10px}
+.bub .sl>svg{width:26px;height:26px;flex:none;color:#fff}
+.from{position:absolute;left:0;top:0;display:inline-flex;align-items:center;gap:10px;padding:6px 18px 6px 6px;border-radius:999px;background:#fff;font-size:22px;font-weight:500;color:var(--ink-2);box-shadow:0 10px 22px -12px rgba(11,11,15,.35);white-space:nowrap}
+.from img{width:32px;height:32px;border-radius:50%}
+#gate{position:absolute;left:858px;top:440px;width:4px;height:520px;border-radius:2px;background:linear-gradient(rgba(106,166,255,0),var(--blue-3) 15%,var(--blue-3) 85%,rgba(106,166,255,0))}
+#gateGlow{position:absolute;left:760px;top:440px;width:200px;height:520px;background:radial-gradient(50% 50% at 50% 50%,rgba(106,166,255,.35),rgba(106,166,255,0))}
+#queue{position:absolute;left:1180px;top:430px;width:600px;height:470px;border-radius:44px;background:var(--night);color:#F2F2F4;box-shadow:0 50px 90px -40px rgba(8,10,40,.6)}
+#queue header{display:flex;align-items:center;gap:16px;padding:30px 34px}
+#queue header>i{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:17px;box-shadow:inset 0 0 0 1px #27272F;color:#9C9CA6}
+#queue header .ic{width:28px;height:28px;stroke-width:1.7}
+#queue b{display:block;font-weight:600;font-size:27px;letter-spacing:-.02em;line-height:1.2}
+#queue small{display:block;font-size:20px;color:#8E8E98}
+
+/* 7–9 · the log, the witnesses, the fork */
+#sky{position:absolute;left:900px;top:110px;width:900px;height:860px;border-radius:64px;background:var(--sky);box-shadow:inset 0 0 0 1px rgba(36,89,208,.06)}
+.tn{position:absolute;left:0;top:0;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:18px;background:#fff;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.02em;box-shadow:0 14px 26px -16px rgba(20,40,110,.45);white-space:nowrap}
+.tn.lf{width:92px;height:70px;flex-direction:column;gap:2px;font-size:20px}
+.tn.lf .ic{width:20px;height:20px;color:var(--blue-2)}
+.tn.in{width:100px;height:46px;border-radius:23px;font-size:20px;color:var(--ink-2)}
+.tn.rt{width:260px;height:74px;border-radius:37px;background:var(--blue-2);color:#fff;font-size:27px;gap:12px}
+.tn.rt small{font-size:19px;font-weight:500;letter-spacing:0;opacity:.8}
+.tn.ghost{background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 2px rgba(47,107,234,.25)}
+.tag{position:absolute;padding:5px 14px;border-radius:999px;background:var(--ink);color:#fff;font-size:19px;font-weight:600;white-space:nowrap}
+.okp{position:absolute;display:inline-flex;align-items:center;gap:10px;padding:12px 24px 12px 16px;border-radius:999px;background:#fff;color:var(--green);font-weight:600;font-size:26px;white-space:nowrap;box-shadow:0 16px 30px -16px rgba(11,11,15,.35);opacity:0}
+.okp .ic{width:28px;height:28px;stroke-width:2.6}
+.sheet{border-radius:28px;background:#fff;color:#0A0A0C}
+.slip{zoom:1.3;width:380px;padding:20px 20px 22px;box-shadow:0 34px 56px -30px rgba(11,11,15,.4)}
+.slip header{display:flex;align-items:center;gap:12px}
+.slip header b{display:block;font-weight:600;font-size:16px;letter-spacing:-.02em;line-height:1.25}
+.slip header small{display:block;font-size:13px;color:#63636D}
+.vt{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:var(--blue-2);color:#fff}
+.vt .ic{width:19px;height:19px}
+.fp{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:16px;padding:12px 8px;border-radius:14px;background:#F2F2F5;text-align:center;font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.fp span{padding:3px 0;border-radius:7px}
+.sig{display:flex;align-items:center;margin-top:14px;font-size:13.5px;color:#63636D;white-space:nowrap}
+.sig .ava{width:26px;height:26px;font-size:10px;box-shadow:0 0 0 2px #fff}
+.sig .ava+.ava{margin-left:5px}
+.sig .off{--a:#E4E4EA;--b:#E4E4EA;color:#9C9CA6}
+.sig .by{margin-left:10px}
+.card{position:absolute;left:0;top:0}
+.wt{position:absolute;left:0;top:0;width:88px;height:88px}
+.wt>b{position:absolute;inset:0;display:grid;place-items:center;border-radius:50%;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:36px;box-shadow:0 16px 30px -14px rgba(20,40,110,.55),0 0 0 4px #fff}
+.wt>svg{position:absolute;left:-12px;top:-12px;width:112px;height:112px;overflow:visible}
+.wt>i{position:absolute;right:-6px;bottom:-6px;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#fff;color:var(--green);box-shadow:0 4px 10px rgba(11,11,15,.2);opacity:0}
+.wt>i .ic{width:20px;height:20px;stroke-width:3}
+.tok{position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:14px;box-shadow:0 0 0 2px #fff,0 6px 14px rgba(11,11,15,.3);opacity:0}
+.soon{display:inline-flex;align-items:center;gap:12px;padding:11px 24px 11px 18px;border-radius:999px;background:#fff;box-shadow:0 10px 24px -14px rgba(11,11,15,.3);font-weight:500;font-size:28px;color:var(--ink-2);opacity:0}
+.soon i{width:12px;height:12px;border-radius:50%;background:var(--blue-2)}
+.verdict{display:inline-flex;align-items:center;gap:14px;padding:20px 34px 20px 24px;border-radius:999px;background:var(--red);color:#fff;font-weight:500;font-size:30px;white-space:nowrap;box-shadow:0 22px 40px -18px rgba(216,50,58,.7);opacity:0}
+.verdict .ic{width:32px;height:32px}
+
+/* 10 · end card */
+.cta{display:flex;align-items:center;gap:40px;margin-top:64px;opacity:0}
+.btnw{display:inline-flex;align-items:center;height:92px;padding:0 50px;border-radius:999px;background:#0B0B0F;color:#fff;font-weight:600;font-size:36px;letter-spacing:-.02em;box-shadow:0 24px 50px -20px rgba(6,12,40,.7)}
+.url{font-weight:500;font-size:40px;letter-spacing:-.02em;color:rgba(255,255,255,.92)}
+.soon6{display:inline-flex;align-items:center;gap:12px;margin-bottom:48px;padding:11px 24px 11px 18px;border-radius:999px;background:rgba(255,255,255,.14);font-weight:500;font-size:28px;color:rgba(255,255,255,.92);opacity:0}
+.soon6 i{width:12px;height:12px;border-radius:50%;background:var(--butter)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-signal" viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="4.6" y="5.5" width="3" height="6.5" rx=".8"/><rect x="9.2" y="3" width="3" height="9" rx=".8"/><rect x="13.8" y="0" width="3" height="12" rx=".8"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 17 12"><path d="M8.5 2.6c2.3 0 4.4.9 6 2.4l1.1-1.2A10.3 10.3 0 0 0 8.5.9C5.7.9 3.2 2 1.4 3.8l1.1 1.2a8.6 8.6 0 0 1 6-2.4Zm0 3.5c1.4 0 2.7.5 3.7 1.4l1.1-1.2a7.1 7.1 0 0 0-9.6 0l1.1 1.2c1-.9 2.3-1.4 3.7-1.4Zm0 3.4c.6 0 1.2.2 1.6.6L8.5 11.8 6.9 10.1c.4-.4 1-.6 1.6-.6Z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8h.01"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m20 11.5-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></symbol>
+  <symbol id="i-checks" viewBox="0 0 24 24"><path d="m2 12.5 4.5 4.5 9-9.5M12 16l1 1 9-9.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.5 2.8v5.7c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.8L12 3Z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 9.2-9.2M16.5 6.5l2.5 2.5M14 9l2 2"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v14H7.5A2.5 2.5 0 0 0 5 19.5v-14Z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-4"/><circle cx="12" cy="8.6" r="2"/><path d="M8.8 13.6a3.4 3.4 0 0 1 6.4 0"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+</svg>
+<div id="stage">
+  <div class="glow" id="gA"></div><div class="glow" id="gB"></div><div class="glow" id="gR"></div>
+  <div id="blue"></div>
+  <div class="layer" id="flood"></div>
+  <canvas id="fx" width="1920" height="1080"></canvas>
+
+  <!-- 1 · the opening card (frame 0, the poster, and the loop seam) -->
+  <div class="layer center" id="s1">
+    <div id="s1T" class="big" style="font-size:176px;text-align:center">
+      <div><span class="wd">Encryption</span> <span class="wd">was</span></div>
+      <div class="acc"><span class="wd">the</span> <span class="wd">easy</span> <span class="wd">part.</span></div>
+    </div>
+    <div id="s1L" style="position:absolute;left:0;right:0;top:916px;display:flex;justify-content:center">
+      <div class="lock" style="gap:20px"><div class="mk" id="s1Mk"><i class="d1"></i><i class="d2"></i></div><div class="wm" style="font-size:58px">Morse</div></div>
+    </div>
+  </div>
+
+  <!-- 2, 5, 6 · two phones and the servers between them -->
+  <div class="layer" id="dia">
+    <div class="hd big" id="h2"><div><span class="wd">Locked</span> <span class="wd">on</span> <span class="wd">your</span> <span class="wd">phone.</span></div><div class="acc"><span class="wd">Opened</span> <span class="wd">only</span> <span class="wd">on</span> <span class="wd">Ada’s.</span></div></div>
+    <div class="hd big" id="h5"><div><span class="wd">Where</span> <span class="wd">did</span> <span class="wd">your</span> <span class="wd">phone</span></div><div class="acc"><span class="wd">get</span> <span class="wd">Ada’s</span> <span class="wd">key?</span></div></div>
+    <div class="hd big" id="h6a" style="top:150px"><div><span class="wd">Suppose</span> <span class="wd">it</span> <span class="wd">lies.</span></div></div>
+    <div class="hd big" id="h6b"><div><span class="wd">Encrypted</span> <span class="wd">perfectly.</span></div><div class="redt"><span class="wd">For</span> <span class="wd">the</span> <span class="wd">wrong</span> <span class="wd">person.</span></div></div>
+    <p class="spec c" id="spec2" style="left:960px;top:1000px">X25519 + ML-KEM-768 handshake · ChaCha20-Poly1305</p>
+    <svg id="routes" class="full"></svg>
+    <div class="p3">
+      <div class="rig" id="pY"><div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+        <div class="chead"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/ada.jpg" alt=""><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+        <div class="thread">
+          <p class="day">Today</p>
+          <p class="b in">Did the scans arrive?<small>9:24 AM</small></p>
+          <p class="b out">All four. Sending the signed copy now.<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+          <p class="b in">Perfect, thank you. Dinner on Friday?<small>9:31 AM</small></p>
+          <div class="nw r" id="yN1"><p class="b out">See you at 7.<small>9:33 AM<svg class="ic"><use href="#i-checks"/></svg></small></p></div>
+          <div class="nw r" id="yN2"><p class="b out">Door code is 4471.<small>9:36 AM<svg class="ic"><use href="#i-checks"/></svg></small></p></div>
+        </div>
+        <div class="composer" id="yComp"><svg class="ic"><use href="#i-clip"/></svg><span id="yTyped">Message</span><i id="ySend"><svg class="ic"><use href="#i-up"/></svg></i></div>
+        <i class="glare" id="glY"></i>
+      </div></div></div>
+      <div class="rig" id="pA"><div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+        <div class="chead"><svg class="ic"><use href="#i-back"/></svg><img class="ava" src="img/you.jpg" alt=""><b>@you</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+        <div class="thread">
+          <p class="day">Today</p>
+          <p class="b out">Did the scans arrive?<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+          <p class="b in">All four. Sending the signed copy now.<small>9:24 AM</small></p>
+          <p class="b out">Perfect, thank you. Dinner on Friday?<small>9:31 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+          <div class="nw l" id="aN1"><p class="b in"><span class="seal"><span class="pl">See you at 7.</span><i class="sl" data-seal="3"></i></span><small>9:33 AM</small></p></div>
+          <div class="nw l" id="aN2"><p class="b in"><span class="seal"><span class="pl">Door code is 4471.</span><i class="sl" data-seal="4"></i></span><small>9:36 AM</small></p></div>
+        </div>
+        <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+        <i class="glare" id="glA"></i>
+      </div></div></div>
+    </div>
+    <div class="node c" id="srv" style="left:960px;top:706px"><i><svg class="ic" id="srvI1"><use href="#i-server"/></svg><svg class="ic" id="srvI2" style="opacity:0"><use href="#i-eye"/></svg></i>Morse servers</div>
+    <p class="note c" id="srvNote" style="left:960px;top:782px">Sees only noise</p>
+    <div class="node light c" id="dir" style="left:960px;top:486px"><i><svg class="ic"><use href="#i-book"/></svg></i>Key directory</div>
+    <div class="kc c" id="kc"><div><i><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><span>9f3a c107 b82e 64d1</span></div></div><div class="bk"><i><svg class="ic"><use href="#i-key"/></svg></i><div><b>@ada’s key</b><span>7c21 e0a4 5d0e b913</span></div></div></div>
+    <p class="note red" id="kcNote" style="left:652px;top:386px">Really the server’s own key</p>
+    <div class="pkt c" id="pk1" style="width:270px"><span class="pl">See you at 7.</span><span class="sl"><svg class="ic"><use href="#i-lock"/></svg><span data-seal="3"></span></span><i class="edge"></i></div>
+    <div class="pkt c" id="pk2" style="width:330px"><span class="pl">Door code is 4471.</span><span class="sl"><svg class="ic"><use href="#i-lock"/></svg><span data-seal="4"></span></span><i class="edge"></i></div>
+  </div>
+
+  <!-- 3 · the ratchet, on blue -->
+  <div class="layer" id="s3">
+    <div class="hd big w" id="h3"><div><span class="wd">A</span> <span class="wd">new</span> <span class="wd">key</span></div><div><span class="wd">for</span> <span class="wd">every</span> <span class="wd">message.</span></div></div>
+    <svg id="gear" class="full"><g id="gearG" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"><path id="gearP"/><circle r="118"/><circle r="30"/></g></svg>
+    <div id="chain"></div>
+    <div id="drops"></div>
+    <p class="sub w c" id="s3Sub" style="position:absolute;left:960px;top:900px;white-space:nowrap;color:rgba(255,255,255,.92)">Used once. Then destroyed.</p>
+    <p class="pillw c" id="s3Spec" style="position:absolute;left:960px;top:990px">Double Ratchet</p>
+  </div>
+
+  <!-- 4 · sealed and padded -->
+  <div class="layer" id="s4">
+    <div class="big" id="h4" style="position:absolute;left:150px;top:112px;font-size:112px;white-space:nowrap"><span class="wd">Sealed</span> <span class="wd">and</span> <span class="wd acc">padded.</span></div>
+    <p class="sub" id="s4Sub" style="position:absolute;left:150px;top:262px;width:1000px">Our servers can’t see who sent it, or tell “OK” from a paragraph.</p>
+    <p class="note c" id="gateNote" style="left:860px;top:418px">Sealed on your phone</p>
+    <i id="gateGlow"></i><i id="gate"></i>
+    <div id="queue"><header><i><svg class="ic"><use href="#i-server"/></svg></i><div><b>Our delivery queue</b><small id="qCount">Waiting</small></div></header></div>
+    <div id="rows"></div>
+  </div>
+
+  <!-- 1b · the callback -->
+  <div class="layer center" id="s5t">
+    <div id="s5T" class="big" style="font-size:176px;text-align:center">
+      <div><span class="wd">That</span> <span class="wd">was</span></div>
+      <div class="acc"><span class="wd">the</span> <span class="wd">easy</span> <span class="wd">part.</span></div>
+    </div>
+  </div>
+
+  <!-- 7, 8, 9 · the log, the witnesses, the fork -->
+  <div class="layer" id="net">
+    <div id="netG" class="layer">
+      <div id="sky"></div>
+      <svg id="tsv" class="full"><defs><filter id="gl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter></defs><g id="edges"></g><g id="proof"></g><g id="wlines"></g></svg>
+      <div id="tree"></div>
+      <p class="note c" id="wsNote" style="left:1350px;top:252px">What a witness sees</p>
+      <div class="card" id="ck"><div class="sheet slip">
+        <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small id="ckS">2,981 keys</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+        <p class="sig"><span class="ava off">A</span><span class="ava off">B</span><span class="ava off">C</span><span class="ava off">D</span><span class="ava off">E</span><span class="by"></span></p>
+      </div></div>
+      <div class="card" id="ck2"><div class="sheet slip">
+        <header><i class="vt" style="background:var(--red)"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to Ada</small></div></header>
+        <p class="fp"><span>9f3a</span><span>c107</span><span id="diff">b82e</span><span>64d1</span></p>
+        <p class="sig"><span class="ava off">A</span><span class="ava off">B</span><span class="ava off">C</span><span class="ava off">D</span><span class="ava off">E</span><span class="by"></span></p>
+      </div></div>
+      <div id="wits"></div>
+      <p class="okp c" id="accept" style="left:1350px;top:622px"><svg class="ic"><use href="#i-check"/></svg>Majority signed. Your phone accepts it.</p>
+      <p class="okp c" id="inlog" style="left:1596px;top:300px"><svg class="ic"><use href="#i-check"/></svg>In the log</p>
+    </div>
+    <div class="col" style="top:0;height:1080px;display:flex;flex-direction:column;justify-content:center">
+      <div id="c7" style="position:absolute;left:0;top:318px">
+        <div class="big" id="h7" style="font-size:88px"><span class="wd">Every</span> <span class="wd">key</span> <span class="wd">goes</span><br><span class="wd">into</span> <span class="wd">a</span> <span class="wd">log</span> <span class="wd">that</span><br><span class="wd acc">only</span> <span class="wd acc">grows.</span></div>
+        <p class="sub" id="s7Sub" style="margin-top:36px">Your phone checks it. Every time.</p>
+      </div>
+      <p class="spec" id="s7Spec" style="left:0;top:920px">Append-only Merkle log · inclusion proofs</p>
+      <div id="c8" style="position:absolute;left:0;top:318px">
+        <div class="big" id="h8" style="font-size:88px"><span class="wd">Witnesses</span><br><span class="wd">check</span> <span class="wd">every</span> <span class="wd">version,</span><br><span class="wd acc">then</span> <span class="wd acc">sign</span> <span class="wd acc">it.</span></div>
+        <p class="sub" id="s8Sub" style="margin-top:36px">Your phone needs a majority.</p>
+      </div>
+      <p class="spec" id="s8Spec" style="left:0;top:920px">Ed25519 signatures on every checkpoint</p>
+      <div id="c9" style="position:absolute;left:0;top:300px">
+        <p class="soon" id="s9Soon"><i></i>Launching in stages</p>
+        <div class="big" id="h9" style="font-size:118px;margin-top:34px"><span class="wd">A</span> <span class="wd">lie</span><br><span class="wd acc">proves</span> <span class="wd acc">itself.</span></div>
+        <p class="verdict" id="s9V" style="margin-top:52px"><svg class="ic"><use href="#i-alert"/></svg>Witness C signed both. Bond slashed.</p>
+        <p class="sub" id="s9Tx" style="margin-top:22px;font-size:30px;color:#3B4A73">Proof checked on Solana</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10 · end card -->
+  <div class="layer center" id="s10">
+    <div id="s10C" class="center">
+      <p class="soon6" id="s10Soon"><i></i>In development</p>
+      <div class="lock" style="gap:50px"><div class="mk" id="s10Mk"><i class="d1"></i><i class="d2"></i></div><div class="wm" id="s10W" style="font-size:190px;color:#fff"><span>M</span><span>o</span><span>r</span><span>s</span><span>e</span></div></div>
+      <p class="tagl" id="s10Tag">Private messaging, kept honest.</p>
+      <div class="cta" id="s10Cta"><span class="btnw">Join the waitlist</span><span class="url">morseapp.io</span></div>
+    </div>
+  </div>
+
+  <i id="ring"></i>
+  <div class="layer" id="vign"></div>
+  <canvas id="grain" width="480" height="270"></canvas>
+</div>
+
+<script>
+// Every frame is a pure function of t: render(t) sets all animated state from scratch.
+const $ = s => document.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+// Kick grid of indie.mp3 as re-arranged by audio.mjs (98 BPM): verse, chorus, verse, chorus, half chorus, final hit.
+// G(0) is the track's first kick; the chorus drops on G(16), the verse returns on G(32), the final hit is G(72).
+const G = k => 0.703 + 0.6122 * k;
+const LOOP = 1488 / 30; // the track's fade tail wraps onto its opening silence
+
+// ---- Sealed strips are seeded random Morse noise, as on the landing page
+const M = {A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--.."};
+let seed = 11;
+const rand = () => (seed = seed * 16807 % 2147483647) / 2147483647, letters = Object.keys(M);
+const group = () => Array.from({length: 2 + rand() * 3 | 0}, () => [...M[letters[rand() * 26 | 0]]].map(s => s === "-" ? '<i class="D"></i>' : "<i></i>").join("")).join('<i class="g"></i>');
+const noise = n => Array.from({length: n}, () => `<span class="mc">${group()}</span>`).join("");
+const hex4 = () => (rand() * 65536 | 0).toString(16).padStart(4, "0");
+
+// ---- Easing
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, p) => a + (b - a) * p;
+function bez(x1, y1, x2, y2) {
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const X = s => ((ax * s + bx) * s + cx) * s, Y = s => ((ay * s + by) * s + cy) * s;
+  return t => { if (t <= 0) return 0; if (t >= 1) return 1; let lo = 0, hi = 1, s = t; for (let i = 0; i < 30; i++) { X(s) < t ? lo = s : hi = s; s = (lo + hi) / 2; } return Y(s); };
+}
+const BLOOM = bez(.45, 0, .2, 1);
+const EXPO = p => p >= 1 ? 1 : 1 - Math.pow(2, -10 * p);
+const IN = bez(.55, 0, .9, .45), INOUT = bez(.7, 0, .25, 1), SOFT = bez(.2, .7, .2, 1);
+const back = p => { const c = 1.7; p = clamp(p); return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
+const P = (t, a, d, e = SOFT) => e(clamp((t - a) / d));
+const smooth = (a, b, x) => { const p = clamp((x - a) / (b - a)); return p * p * (3 - 2 * p); };
+const on = (t, a, b, fa = .25, fb = .25) => smooth(a - fa, a, t) * (1 - smooth(b, b + fb, t));
+
+// ---- Moves
+function slam(el, t, a, d = .5) { // blur-in, a little bigger, settling fast: kinetic type on the beat
+  if (t < a) { el.style.opacity = 0; return; }
+  const p = clamp((t - a) / d), e = EXPO(p);
+  el.style.opacity = clamp(p * 2.4);
+  el.style.filter = e > .995 ? "none" : `blur(${(1 - e) * 20}px)`;
+  el.style.transform = `translateY(${(1 - e) * 36}px) scale(${lerp(1.28, 1, e)})`;
+}
+function blurOut(el, t, a, d = .35, dy = -40) {
+  if (t < a) return false;
+  const p = IN(clamp((t - a) / d));
+  el.style.opacity = 1 - p; el.style.filter = `blur(${p * 18}px)`; el.style.transform = `translateY(${p * dy}px) scale(${1 + p * .06})`;
+  return true;
+}
+function rise(el, t, a, d = .7, dy = 34) {
+  const p = P(t, a, d, EXPO);
+  el.style.opacity = t < a ? 0 : clamp((t - a) / d * 2.2); el.style.transform = `translateY(${(1 - p) * dy}px)`;
+  el.style.filter = p > .99 || t < a ? "none" : `blur(${(1 - p) * 10}px)`;
+}
+function pop(el, t, a, d = .45) { el.style.opacity = t < a ? 0 : clamp((t - a) / .12); el.style.scale = t < a ? .01 : back(clamp((t - a) / d)); }
+const words = (sel, t, a, step) => $$(sel + " .wd").forEach((w, n) => slam(w, t, a + n * step));
+const wordsOut = (sel, t, a, step = .03) => $$(sel + " .wd").forEach((w, n) => blurOut(w, t, a + n * step, .3));
+const show = (el, v) => { el.style.visibility = v ? "" : "hidden"; }; // "" inherits, so a hidden layer hides everything in it
+const tr3 = (el, {x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, s = 1}) => { el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})`; };
+const at = (el, x, y) => { el.style.left = x + "px"; el.style.top = y + "px"; };
+// a hard wipe with a glowing edge: `lead` covers [0, u] of the width, `rest` covers [u, 1]
+function wipe(lead, rest, u, edge) {
+  const e = clamp(u) * 100;
+  lead.style.clipPath = `inset(0 ${100 - e}% 0 0)`; rest.style.clipPath = `inset(0 0 0 ${e}%)`;
+  if (edge) { edge.style.left = e + "%"; edge.style.opacity = u > .01 && u < .99 ? 1 : 0; }
+}
+const seal = (el, u) => wipe(el.querySelector(".sl"), el.querySelector(".pl"), u, el.querySelector(".edge"));
+const unseal = (el, u) => wipe(el.querySelector(".pl"), el.querySelector(".sl"), u, el.querySelector(".edge"));
+const qbez = (a, c, b, p) => [(1 - p) ** 2 * a[0] + 2 * (1 - p) * p * c[0] + p * p * b[0], (1 - p) ** 2 * a[1] + 2 * (1 - p) * p * c[1] + p * p * b[1]];
+
+// ---- Particles: Morse dots and dashes flying through depth
+const fx = $("#fx"), cx = fx.getContext("2d");
+let ps = 5; const R = () => (ps = ps * 16807 % 2147483647) / 2147483647;
+const NP = 1200, parts = Array.from({length: NP}, () => {
+  const a = R() * Math.PI * 2, r = .22 + Math.pow(R(), .7) * 1.9;
+  return {x: Math.cos(a) * r * 1.35, y: Math.sin(a) * r * .8, z0: R(), dash: R() < .38, s: [.5, .75, 1, 1.25][R() * 4 | 0], w: R(), k: R(), jx: R(), jy: R()};
+});
+function vel(t) {
+  const burst = (a, amp, tau) => t >= a ? amp * Math.exp(-(t - a) / tau) : 0;
+  return burst(G(0), 1.5, .55) + burst(G(16), 1.2, .5) + burst(G(32), 1.0, .5) + burst(G(48), 1.2, .5) + burst(G(72) - .1, .8, .5)
+    + .1 * smooth(G(0), G(1.1), t) * (1 - smooth(G(4.1), G(5), t));
+}
+const DT = .001, DN = Math.ceil(LOOP / DT) + 10, Dtab = new Float32Array(DN + 1);
+for (let i = 1; i <= DN; i++) Dtab[i] = Dtab[i - 1] + vel(i * DT) * DT;
+{ const iL = Math.round(LOOP / DT), target = 4 * Math.ceil((Dtab[iL] + 1) / 4), drift = (target - Dtab[iL]) / LOOP; for (let i = 0; i <= DN; i++) Dtab[i] += drift * i * DT; } // whole depth cycles per pass, so the field loops
+const Dist = t => Dtab[Math.min(DN, Math.max(0, Math.round(t / DT)))];
+function inten(t) {
+  let I = .16;
+  I += .39 * (1 - smooth(G(4.6) - .1, G(4.6) + .4, t)); // the opening card's field
+  I += .45 * on(t, G(0), G(2.8), .08, .8);     // burst on the first kick
+  I += .45 * on(t, G(16), G(16) + .6, .1, 1);  // the drop, white on blue
+  I += .5 * on(t, G(32), G(34), .1, .9);       // "That was the easy part."
+  I += .5 * on(t, G(48), G(48) + .5, .1, 1);
+  I += .39 * smooth(LOOP - 1.0, LOOP - .2, t); // back to the opening card
+  return I;
+}
+let tg10 = null;
+function tgt(p, T) {
+  if (!p.dash) { const a = p.jx * Math.PI * 2, r = Math.sqrt(p.jy) * T.dot.r * .8; return [T.dot.x + Math.cos(a) * r, T.dot.y + Math.sin(a) * r]; }
+  return [T.dash.x + T.dash.r * .6 + p.jx * (T.dash.w - T.dash.r * 1.2), T.dash.y + (p.jy - .5) * T.dash.r * 1.2];
+}
+function floodR(t) { // the end card's blue: blooms out of the dot on the final hit, drains back into it before the loop
+  return (t < G(72) - .08 ? 0 : P(t, G(72) - .08, .8, BLOOM) * 2300) * (1 - IN(clamp((t - (LOOP - 1.37)) / .48)));
+}
+const shatters = []; // [time, x, y, w, h] tiles that break into dots
+function drawParticles(t) {
+  cx.clearRect(0, 0, 1920, 1080);
+  const I = inten(t), fr = floodR(t), D = Dist(t), F = 560;
+  const blueOn = t > G(16) + .15 && t < G(24) - .3;
+  const conv = t > G(71.1) && t < G(72) + .05, cst = G(71.1);
+  for (const p of parts) {
+    const z = ((p.z0 - D * p.s) % 1 + 1) % 1, zz = .07 + z;
+    let X = 960 + p.x * F / zz, Y = 540 + p.y * F / zz, h = 4.2 / zz;
+    let a = I * smooth(1.07, .78, zz) * smooth(.07, .16, zz) * (.45 + .55 * p.k);
+    if (conv) {
+      if (p.k < .55) {
+        const k = INOUT(clamp((t - cst - p.w * .08) / .5)), [tx, ty] = tgt(p, tg10);
+        X = lerp(X, tx, k); Y = lerp(Y, ty, k); h = lerp(h, 10, k);
+        a = lerp(a, .95, Math.min(1, k * 1.5)) * (1 - smooth(.88, 1, k));
+      } else a *= 1 - smooth(cst, cst + .3, t);
+    }
+    if (a < .01 || X < -80 || X > 2000 || Y < -80 || Y > 1160) continue;
+    const w = p.dash ? h * 3 : h;
+    const onBlue = blueOn || (fr > 0 && (X - tg10.dot.x) ** 2 + (Y - tg10.dot.y) ** 2 < fr * fr);
+    cx.globalAlpha = Math.min(1, a * (onBlue ? .5 : 1.25));
+    cx.fillStyle = onBlue ? "#FFFFFF" : (p.k > .82 ? "#0B0B0F" : p.k > .6 ? "#6AA6FF" : "#2F6BEA");
+    cx.beginPath(); cx.roundRect(X - w / 2, Y - h / 2, w, h, h / 2); cx.fill();
+  }
+  // key tiles breaking into Morse dots
+  cx.fillStyle = "#FFFFFF";
+  for (const [ts, x0, y0, w0, h0, sd] of shatters) {
+    const dt = t - ts; if (dt < 0 || dt > .9) continue;
+    let q = sd; const r = () => (q = q * 16807 % 2147483647) / 2147483647;
+    for (let n = 0; n < 46; n++) {
+      const px = x0 + (r() - .5) * w0, py = y0 + (r() - .5) * h0, ang = Math.atan2(py - y0, px - x0) + (r() - .5) * .8, sp = 260 + r() * 520, dash = r() < .4, sz = 6 + r() * 7;
+      const k = 1 - Math.exp(-dt * 3.2), X = px + Math.cos(ang) * sp * k / 3.2 * 3, Y = py + Math.sin(ang) * sp * k / 3.2 * 3 + 160 * dt * dt;
+      cx.globalAlpha = clamp(1 - dt / .9) * .95;
+      const w = dash ? sz * 3 : sz; cx.beginPath(); cx.roundRect(X - w / 2, Y - sz / 2, w, sz, sz / 2); cx.fill();
+    }
+  }
+  cx.globalAlpha = 1;
+}
+
+// ---- Film grain, one pattern per video frame
+const gr = $("#grain"), gx = gr.getContext("2d"), gimg = gx.createImageData(480, 270);
+function drawGrain(t) {
+  let s = (Math.round(t * 30) * 7919 + 13) % 2147483647 || 1;
+  for (let i = 0; i < gimg.data.length; i += 4) { s = s * 16807 % 2147483647; const v = s & 255; gimg.data[i] = gimg.data[i + 1] = gimg.data[i + 2] = v; gimg.data[i + 3] = 255; }
+  gx.putImageData(gimg, 0, 0);
+}
+
+function spell(root, t, a, step = .055) {
+  $$("span", root).forEach((s, n) => {
+    const p = P(t, a + n * step, .6, EXPO);
+    s.style.opacity = t < a + n * step ? 0 : clamp((t - a - n * step) / .25);
+    s.style.transform = `translateY(${(1 - p) * 60}px)`; s.style.filter = p > .99 ? "none" : `blur(${(1 - p) * 14}px)`;
+  });
+}
+function mark(mk, t, dotAt, dashAt, dashDur = .45) {
+  const d = mk.querySelector(".d1"), s = mk.querySelector(".d2");
+  const dp = clamp((t - dotAt) / .45);
+  d.style.opacity = t < dotAt ? 0 : 1; d.style.scale = t < dotAt ? .5 : lerp(.6, 1, back(dp));
+  d.style.boxShadow = `0 0 ${60 * (1 - dp)}px rgba(170,205,255,${.9 * (1 - dp)})`;
+  const sp = P(t, dashAt, dashDur, EXPO);
+  s.style.clipPath = `inset(0 ${(1 - sp) * 100}% 0 0 round 999px)`;
+  s.style.opacity = t < dashAt ? 0 : 1;
+}
+
+// =================================================================== build the generated parts
+for (const el of $$("[data-seal]")) el.innerHTML = noise(+el.dataset.seal);
+
+// 3 · the ratchet: key tiles on a chain, one message dropped onto each
+const MSGS = ["Did the scans arrive?", "All four.", "Dinner on Friday?", "Yes!", "By the river?", "Perfect.", "See you at 7."];
+const NT = 10, tiles = [], links = [], drops = [];
+for (let i = 0; i < NT; i++) {
+  const k = document.createElement("div"); k.className = "kt";
+  k.innerHTML = `<small><svg class="ic"><use href="#i-key"/></svg>Message key</small><b>${hex4()} ${hex4()}</b>`;
+  $("#chain").append(k); tiles.push(k);
+  const l = document.createElement("i"); l.className = "lnk"; $("#chain").append(l); links.push(l);
+}
+MSGS.forEach(m => {
+  const d = document.createElement("div"); d.className = "drop";
+  d.innerHTML = `<span class="pl">${m}</span><span class="sl"><span>${noise(2 + m.length / 8 | 0)}</span></span><i class="edge"></i>`;
+  $("#drops").append(d); drops.push(d);
+});
+const SLOT = 960, STEP = 300, CHY = 700;
+const A3 = MSGS.map((_, k) => G(17 + k) - .38); // each message lands on the beat
+function chainPos(t) {
+  let s = -1; for (const a of A3) s += EXPO(clamp((t - a) / .3));
+  return s - 6 * (1 - P(t, G(16) + .05, .75, EXPO));
+}
+{ // a ratchet wheel: sawtooth teeth, and a pawl resting in one
+  const N = 18, Ro = 330, Ri = 292; let d = `M${Ri} 0`;
+  for (let i = 0; i < N; i++) { const a1 = (i + 1) / N * 2 * Math.PI; d += `L${Ro * Math.cos(a1 - .02)} ${Ro * Math.sin(a1 - .02)}L${Ri * Math.cos(a1)} ${Ri * Math.sin(a1)}`; }
+  $("#gearP").setAttribute("d", d + "Z");
+}
+
+// 4 · three messages of very different lengths
+const ROWS = ["OK", "Running late, save me a seat!", "Here’s the plan for Friday: dinner at 7, then the late show if the rain holds off."];
+const rows = ROWS.map(m => {
+  const r = document.createElement("div"); r.className = "row";
+  r.innerHTML = `<span class="from"><img src="img/you.jpg" alt="">From @you</span><div class="bub"><span class="pl"><span>${m}</span></span><span class="sl"><svg class="ic"><use href="#i-lock"/></svg><span>${noise(5)}</span></span><i class="edge"></i></div>`;
+  $("#rows").append(r); return r;
+});
+const ROWY = [520, 668, 846], SLOTY = [604, 700, 796], STRIP = [490, 66], QX = 1475;
+
+// 7 · the tree: 8 leaves, 4, 2, a root
+const TX = 1350, LY = [790, 630, 470, 300];
+const tnodes = []; // {el, lvl, i, x, y}
+const mkNode = (cls, html, lvl, i, x, y) => { const e = document.createElement("div"); e.className = "tn c " + cls; e.innerHTML = html; $("#tree").append(e); const n = {el: e, lvl, i, x, y}; tnodes.push(n); at(e, x, y); return n; };
+const HX = Array.from({length: 64}, hex4);
+const leaves = Array.from({length: 8}, (_, i) => mkNode("lf", `<svg class="ic"><use href="#i-key"/></svg><span>${HX[i]}</span>`, 0, i, TX + (i - 3.5) * 104, LY[0]));
+const l1 = Array.from({length: 4}, (_, j) => mkNode("in", `<span>${HX[8 + j]}</span>`, 1, j, TX + (j - 1.5) * 208, LY[1]));
+const l2 = Array.from({length: 2}, (_, j) => mkNode("in", `<span>${HX[12 + j]}</span>`, 2, j, TX + (j - .5) * 416, LY[2]));
+const root = mkNode("rt", `<small>Root</small><span>9f3a c107</span>`, 3, 0, TX, LY[3]);
+const adaTag = document.createElement("span"); adaTag.className = "tag c"; adaTag.textContent = "@ada"; $("#tree").append(adaTag); at(adaTag, leaves[2].x, LY[0] + 62);
+const parentOf = n => n.lvl === 0 ? l1[n.i >> 1] : n.lvl === 1 ? l2[n.i >> 1] : root;
+const edgeEls = [];
+for (const n of [...leaves, ...l1, ...l2]) {
+  const p = parentOf(n), e = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const hA = n.lvl === 0 ? 35 : 23, hB = p.lvl === 3 ? 37 : 23;
+  const y1 = n.y - hA, y2 = p.y + hB;
+  e.setAttribute("d", `M${n.x} ${y1}C${n.x} ${lerp(y1, y2, .55)} ${p.x} ${lerp(y1, y2, .45)} ${p.x} ${y2}`);
+  e.setAttribute("fill", "none"); e.setAttribute("stroke", "#2F6BEA"); e.setAttribute("stroke-width", "3"); e.setAttribute("stroke-linecap", "round");
+  $("#edges").append(e); edgeEls.push({el: e, n, p, len: 0});
+}
+const proofEdges = [[leaves[2], l1[1]], [l1[1], l2[0]], [l2[0], root]].map(([n]) => {
+  const src = edgeEls.find(e => e.n === n), g = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  g.setAttribute("d", src.el.getAttribute("d")); g.setAttribute("fill", "none"); g.setAttribute("stroke", "#2F6BEA"); g.setAttribute("stroke-width", "9"); g.setAttribute("stroke-linecap", "round");
+  $("#proof").append(g); return {el: g, len: 0};
+});
+const APP = [G(50), G(51), G(52)]; // leaves 5, 6, 7 are appended on the beat
+
+// 8 · five witnesses
+const WG = ["t0", "t4", "t3", "t1", "t2"], WL = "ABCDE";
+const WARC = [0, 1, 2, 3, 4].map(n => [TX + (n - 2) * 172, [770, 812, 828, 812, 770][n]]);
+const WROW = [0, 1, 2, 3, 4].map(n => [TX + (n - 2) * 172, 530]);
+const wits = WL.split("").map((L, n) => {
+  const w = document.createElement("div"); w.className = `wt ${WG[n]}`;
+  w.innerHTML = `<svg viewBox="0 0 112 112"><circle cx="56" cy="56" r="52" fill="none" stroke="#2F6BEA" stroke-width="5" stroke-linecap="round" transform="rotate(-90 56 56)" stroke-dasharray="327" stroke-dashoffset="327"/></svg><b>${L}</b><i><svg class="ic"><use href="#i-check"/></svg></i>`;
+  $("#wits").append(w); return w;
+});
+const toks = [0, 1].map(() => WL.split("").map((L, n) => { const k = document.createElement("span"); k.className = `tok ${WG[n]}`; k.textContent = L; $("#wits").append(k); return k; }));
+const wline = [0, 1].map(() => [0, 1, 2, 3, 4].map(() => { const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("fill", "none"); p.setAttribute("stroke-width", "4"); p.setAttribute("stroke-linecap", "round"); $("#wlines").append(p); return p; }));
+const SIGN8 = [G(57.4), G(57.9), G(58.4), G(59.3), G(59.8)];
+const SIGN9 = [[G(65.6), G(65.8), G(66.0)], [G(66.2), G(66.4), G(66.6)]]; // upper: A, B, C  lower: C, D, E
+const who = n => ["A", "A and B", "A, B and C", "A, B, C and D", "All five"][n];
+
+let pk1Path = null, pk2Path = null, ckSlots = null, routes = {};
+const NS = "http://www.w3.org/2000/svg";
+function mkRoute(id, d) { // a visible dotted path revealed by a masked stroke
+  const svg = $("#routes"), m = document.createElementNS(NS, "mask"), mp = document.createElementNS(NS, "path"), v = document.createElementNS(NS, "path");
+  m.id = "m" + id; m.setAttribute("maskUnits", "userSpaceOnUse"); m.setAttribute("x", 0); m.setAttribute("y", 0); m.setAttribute("width", 1920); m.setAttribute("height", 1080);
+  for (const e of [mp, v]) e.setAttribute("d", d);
+  mp.setAttribute("fill", "none"); mp.setAttribute("stroke", "#fff"); mp.setAttribute("stroke-width", 24);
+  m.append(mp); svg.append(m); v.setAttribute("class", "rv"); v.setAttribute("mask", `url(#m${id})`); svg.append(v);
+  const len = mp.getTotalLength(); mp.style.strokeDasharray = len;
+  return routes[id] = {v, mp, len};
+}
+function route(id, t, p, alpha, color) {
+  const r = routes[id]; if (!r) return; // not built yet while ready() measures
+  r.mp.style.strokeDashoffset = r.len * (1 - clamp(p));
+  r.v.style.opacity = p > 0 ? alpha : 0; r.v.style.stroke = color; r.v.style.strokeDashoffset = -t * 40; // the dots flow along it
+}
+
+// =================================================================== render
+function render(t) {
+  const ph = 2 * Math.PI * t / LOOP;
+  $("#gA").style.transform = `translate(${-300 + Math.sin(ph) * 160}px,${-420 + Math.cos(ph) * 90}px)`;
+  $("#gB").style.transform = `translate(${900 + Math.cos(ph) * 180}px,${300 + Math.sin(ph * 2) * 90}px)`;
+  drawParticles(t); drawGrain(t);
+  const rings = [[G(0), 960, 540, 900], [G(32), 960, 540, 820]], rg = rings.filter(r => t >= r[0] && t < r[0] + .9).pop(), ringEl = $("#ring");
+  if (rg) { const p = (t - rg[0]) / .9, r = BLOOM(p) * rg[3]; Object.assign(ringEl.style, {left: rg[1] - r + "px", top: rg[2] - r + "px", width: 2 * r + "px", height: 2 * r + "px", opacity: (1 - p) * .8}); }
+  else ringEl.style.opacity = 0;
+
+  sc1(t); sc2(t); sc3(t); sc4(t); sc5t(t); scNet(t); sc10(t);
+  // red light while the server lies, and while the fork is caught
+  const gR = $("#gR"), r6 = on(t, G(41), G(47.3), .5, .4), r9 = on(t, G(67), G(71), .4, .4);
+  gR.style.opacity = .9 * Math.max(r6, r9);
+  gR.style.transform = r9 > r6 ? "translate(-150px,-100px)" : "translate(260px,-40px)";
+}
+
+// ===== 1 · "Encryption was the easy part." Settled at frame 0; rises again at the end of the loop.
+function sc1(t) {
+  const back = t > LOOP - 1.0;
+  show($("#s1"), t < G(4.6) + .5 || back);
+  $$("#s1T .wd").forEach((w, n) => {
+    if (back) {
+      const a = LOOP - .85 + n * .07, p = P(t, a, .5, EXPO);
+      w.style.opacity = t < a ? 0 : clamp((t - a) / .25); w.style.transform = `translateY(${(1 - p) * 60}px)`; w.style.filter = p > .99 ? "none" : `blur(${(1 - p) * 14}px)`;
+    } else { w.style.opacity = 1; w.style.transform = "none"; w.style.filter = "none"; }
+  });
+  const L = $("#s1L"); back ? rise(L, t, LOOP - .6, .5, 24) : Object.assign(L.style, {opacity: 1, transform: "none", filter: "none"});
+  const z = back ? 0 : P(t, G(4.6), .45, IN);
+  const T = $("#s1T");
+  T.style.transform = `scale(${(1 + .045 * smooth(G(0), G(4.6), t) * (back ? 0 : 1)) * (1 + z * 2.4)})`; T.style.opacity = 1 - z; T.style.filter = z > 0 ? `blur(${z * 24}px)` : "none";
+  if (!back) { L.style.opacity = 1 - clamp(z * 3); }
+  mark($("#s1Mk"), back ? t : 99, LOOP - .6, LOOP - .45, .4);
+}
+
+// ===== 2, 5, 6 · the phones
+function phonePose(t, side) { // side -1: you (left), +1: Ada (right)
+  const f = P(t, G(4.85) + (side > 0 ? .08 : 0), .95, EXPO);           // fly in for scene 2
+  const b = P(t, G(34.9) + (side > 0 ? .08 : 0), .9, EXPO);           // come back for scene 5
+  const inS5 = t > G(34);
+  const x = inS5 ? 0 : lerp(side * 620, 0, f), z = inS5 ? 0 : lerp(-1800, 0, f);
+  const y = (inS5 ? lerp(760, 0, b) : 0) + Math.sin(t * 1.3 + side) * 6;
+  const ry = -side * (inS5 ? 13 : lerp(62, 13, f)) + Math.sin(t * .8 + side) * 2;
+  const rx = inS5 ? lerp(-28, 3, b) : lerp(14, 3, f);
+  return {x, y, z, rx, ry};
+}
+function grow(el, t, a, d = .35) { // a new bubble opens its space in the thread
+  const h = +el.dataset.h, p = P(t, a, d, EXPO);
+  el.style.height = t < a ? "0px" : h * p + "px"; el.style.marginTop = t < a ? "-7px" : lerp(-7, 0, p) + "px";
+  el.style.opacity = t < a ? 0 : clamp((t - a) / .15);
+  el.firstElementChild.style.transform = `scale(${lerp(.7, 1, back(clamp((t - a) / d)))})`;
+  el.firstElementChild.style.transformOrigin = el.classList.contains("r") ? "100% 100%" : "0 100%";
+}
+function flyPkt(el, t, path, a, b, c0, c1) { // along a quadratic from path.a through path.c to path.b, between times c0 and c1
+  const p = INOUT(clamp((t - c0) / (c1 - c0)));
+  return qbez(path.a, path.c, path.b, p);
+}
+function sc2(t) {
+  const vis = (t > G(4.5) && t < G(16.4)) || (t > G(34.5) && t < G(48.3));
+  show($("#dia"), vis); if (!vis) return;
+  const dia = $("#dia");
+  const out2 = P(t, G(15.55), .45, IN), out6 = P(t, G(47.55), .45, IN), out = t < G(20) ? out2 : out6;
+  dia.style.transform = `scale(${1 + out * 1.6})`; dia.style.opacity = 1 - out; dia.style.filter = out > 0 ? `blur(${out * 20}px)` : "none";
+
+  const PY = phonePose(t, -1), PA = phonePose(t, 1);
+  tr3($("#pY"), PY); tr3($("#pA"), PA);
+  $("#glY").style.backgroundPosition = `${lerp(100, 0, (PY.ry + 20) / 40)}% 0`; $("#glA").style.backgroundPosition = `${lerp(100, 0, (PA.ry + 20) / 40)}% 0`;
+
+  // headlines
+  words("#h2 div:first-child", t, G(5.2), .12); words("#h2 .acc", t, G(11.3), .12);
+  words("#h5", t, G(35.3), .1); words("#h6a", t, G(40), .15); words("#h6b", t, G(43.4), .12);
+  wordsOut("#h5", t, G(39.8)); wordsOut("#h6a", t, G(43.1));
+  show($("#h2"), t < G(20)); show($("#h5"), t > G(34) && t < G(41)); show($("#h6a"), t > G(39) && t < G(44)); show($("#h6b"), t > G(43));
+  t < G(20) ? rise($("#spec2"), t, G(12.5)) : ($("#spec2").style.opacity = 0);
+
+  // typing, then send
+  const keys = Array.from({length: 13}, (_, k) => G(6.09) + k * .085), txt = "See you at 7.", n = keys.filter(k => t >= k).length;
+  const sent = t >= G(8), typing = n > 0 && !sent && t < G(20);
+  $("#yTyped").innerHTML = typing ? txt.slice(0, n) + "<u></u>" : "Message";
+  $("#yComp").classList.toggle("typing", typing);
+  const sp = clamp((t - G(8)) / .3), sendOn = typing || (sp > 0 && sp < 1);
+  $("#ySend").style.background = sendOn ? "#2F6BEA" : "#A9C1F3"; $("#ySend").style.scale = sp > 0 && sp < 1 ? 1 - .2 * Math.sin(sp * Math.PI) : 1;
+  grow($("#yN1"), t, G(8)); grow($("#aN1"), t, G(11)); grow($("#yN2"), t, G(41.5)); grow($("#aN2"), t, G(45.8));
+  unseal($("#aN1 .seal"), P(t, G(11.2), .6, bez(.5, 0, .3, 1)));
+  unseal($("#aN2 .seal"), P(t, G(46), .6, bez(.5, 0, .3, 1)));
+
+  // packet 1: lifts off the bubble, seals, arcs through the servers, lands in Ada's thread
+  const k1 = $("#pk1");
+  if (t > G(8.35) && t < G(11.4)) {
+    const lift = P(t, G(8.35), .35, EXPO);
+    let [x, y] = flyPkt(k1, t, pk1Path, 0, 0, G(9), G(11));
+    if (t < G(9)) { x = pk1Path.a[0]; y = pk1Path.a[1] - 46 * lift; }
+    const land = P(t, G(10.8), .25, IN);
+    at(k1, x, y); k1.style.opacity = clamp((t - G(8.35)) / .12) * (1 - land); k1.style.transform = `scale(${lerp(.62, 1, lift) * lerp(1, .55, land)})`;
+    seal(k1, P(t, G(8.55), .4, bez(.5, 0, .3, 1)));
+  } else k1.style.opacity = 0;
+  const srvHit = Math.exp(-Math.abs(t - G(10)) / .12) * (t > G(9.4) && t < G(10.6) ? 1 : 0);
+  $("#srv").style.transform = `scale(${1 + .08 * srvHit})`;
+  $("#srv").style.boxShadow = `0 0 0 ${10 * srvHit}px rgba(106,166,255,${.35 * srvHit}),0 26px 46px -22px rgba(11,11,15,.55)`;
+  t < G(20) ? (rise($("#srvNote"), t, G(10) - .05), blurOut($("#srvNote"), t, G(15.3))) : ($("#srvNote").style.opacity = 0);
+  // the servers pill: in with the phones in scene 2, back with them in scene 5, red while it lies
+  const srv = $("#srv"), sIn = t < G(20) ? P(t, G(5.6), .5, x => back(x)) : P(t, G(35.6), .5, x => back(x));
+  srv.style.opacity = t < (t < G(20) ? G(5.6) : G(35.6)) ? 0 : 1; srv.style.scale = lerp(.3, 1, sIn);
+  const red = t > G(20) ? P(t, G(42.9), .3) * (1 - P(t, G(47.2), .3)) : 0;
+  srv.style.background = `rgb(${lerp(11, 216, red)},${lerp(13, 50, red)},${lerp(20, 58, red)})`;
+  $("#srvI1").style.opacity = 1 - red; $("#srvI2").style.opacity = red;
+
+  // the routes things travel
+  const BL = "rgba(47,107,234,1)", RD = "rgba(216,50,58,1)";
+  if (t < G(20)) {
+    route("r1", t, INOUT(clamp((t - G(9)) / (G(11) - G(9)))), .45 * (1 - P(t, G(15.2), .3)), BL);
+    for (const id of ["rk", "r2a", "r2b"]) route(id, t, 0, 0, BL);
+  } else {
+    route("r1", t, 0, 0, BL);
+    const kp = P(t, G(37), .75, EXPO), fl = P(t, G(40.8), .5, INOUT);
+    route("rk", t, kp, .45 + .15 * fl, fl > .5 ? RD : BL);
+    route("r2a", t, INOUT(clamp((t - G(42.3)) / (G(43.3) - G(42.3)))), .5, RD);
+    route("r2b", t, INOUT(clamp((t - G(44.8)) / (G(45.8) - G(44.8)))), .5, RD);
+  }
+
+  // 5 · the directory hands your phone a key
+  const dir = $("#dir"), dIn = P(t, G(36), .5, x => back(x));
+  dir.style.opacity = t < G(36) ? 0 : 1; dir.style.scale = lerp(.3, 1, dIn);
+  const kc = $("#kc");
+  if (t > G(37)) {
+    const p = P(t, G(37), .75, EXPO), [x, y] = qbez([960, 486], [720, 560], [440, 404], p);
+    at(kc, x, y); kc.style.opacity = clamp((t - G(37)) / .12);
+    const flip = P(t, G(40.8), .5, INOUT);
+    kc.style.transform = `perspective(900px) rotateX(${180 * flip + (1 - p) * -30}deg) rotateZ(${(1 - p) * -14 + Math.sin(t * 1.4) * 1.2}deg) scale(${lerp(.4, 1, p) * (1 + .12 * Math.sin(flip * Math.PI))})`;
+  } else kc.style.opacity = 0;
+  rise($("#kcNote"), t, G(41.4));
+
+  // 6 · the lie: sealed to the server's key, opened and read there, sealed again for Ada
+  const k2 = $("#pk2");
+  if (t > G(41.8) && t < G(46.2)) {
+    const lift = P(t, G(41.8), .35, EXPO), mid = [960, 706];
+    let x, y;
+    if (t < G(42.3)) { x = pk2Path.a[0]; y = pk2Path.a[1] - 46 * lift; }
+    else if (t < G(44.8)) { const p = INOUT(clamp((t - G(42.3)) / (G(43.3) - G(42.3)))); [x, y] = qbez([pk2Path.a[0], pk2Path.a[1] - 46], [640, 560], mid, p); }
+    else { const p = INOUT(clamp((t - G(44.8)) / (G(45.8) - G(44.8)))); [x, y] = qbez(mid, [1280, 560], pk2Path.b, p); }
+    const land = P(t, G(45.6), .25, IN), atSrv = on(t, G(43.3), G(44.6), .2, .25);
+    at(k2, x, y - atSrv * 92); k2.style.opacity = clamp((t - G(41.8)) / .12) * (1 - land);
+    k2.style.transform = `scale(${lerp(.62, 1, lift) * lerp(1, .55, land) * (1 + .12 * atSrv)})`;
+    const u = P(t, G(41.95), .4, bez(.5, 0, .3, 1)) - P(t, G(43.4), .45, bez(.5, 0, .3, 1)) + P(t, G(44.3), .4, bez(.5, 0, .3, 1));
+    if (t < G(43.4)) seal(k2, u); else if (t < G(44.3)) unseal(k2, 1 - u); else seal(k2, u);
+    k2.querySelector(".pl").style.background = t > G(43) ? "var(--red)" : "var(--blue)";
+  } else k2.style.opacity = 0;
+}
+
+// ===== 3 · a new key for every message
+function sc3(t) {
+  const vis = t > G(16) - .1 && t < G(24.2);
+  const bl = $("#blue"); show(bl, vis); show($("#s3"), vis); if (!vis) return;
+  const burst = P(t, G(16) - .02, .7, EXPO), away = P(t, G(24) - .4, .42, IN);
+  bl.style.clipPath = `circle(${burst * 2300}px at 1410px 780px)`;
+  const flyAway = `perspective(1600px) translateY(${-away * 1180}px) rotateX(${away * 14}deg) scale(${1 - away * .08})`;
+  bl.style.transform = flyAway; $("#s3").style.transform = flyAway;
+  words("#h3", t, G(16) + .25, .12);
+  const s = chainPos(t);
+  // the wheel turns one tooth per key
+  const gA = s * 20 + 40 * (1 - burst);
+  $("#gearG").setAttribute("transform", `translate(${SLOT} ${CHY}) rotate(${gA})`);
+  $("#gearG").style.opacity = .16 * P(t, G(16) + .2, .6);
+  tiles.forEach((k, i) => {
+    const x = SLOT + (i - s) * STEP, used = i <= 6 && t > A3[i] + .5;
+    const brk = used ? clamp((t - A3[i] - .5) / .12) : 0, cur = on(t, (A3[i] ?? 99) - .05, (A3[i] ?? 99) + .5, .15, .1);
+    at(k, x - 118, CHY - 66);
+    k.style.opacity = brk >= 1 || x < -300 || x > 2300 ? 0 : 1 - brk;
+    k.style.transform = `scale(${(1 + .1 * cur) * (1 - .5 * brk)})`;
+    k.style.boxShadow = `0 0 0 ${6 * cur}px rgba(255,255,255,${.35 * cur}),0 30px 50px -26px rgba(6,14,50,.6)`;
+    const l = links[i], nxt = SLOT + (i + 1 - s) * STEP;
+    at(l, x + 118 + 8, CHY - 2); l.style.width = (nxt - x - 236 - 20) + "px";
+    l.style.opacity = (x > -300 && x < 2200 ? .9 : 0) * (1 - (used ? clamp((t - A3[i] - .5) / .1) : 0));
+  });
+  drops.forEach((d, k) => {
+    const a = A3[k], p = P(t, a + .1, .28, EXPO), fly = P(t, a + .5, .45, IN);
+    if (t < a + .1 || fly >= 1) { d.style.opacity = 0; return; }
+    const [x, y] = [lerp(SLOT, 1640, fly), lerp(lerp(430, CHY, p), 330, fly)];
+    at(d, x, y); d.style.translate = "-50% -50%";
+    d.style.opacity = clamp((t - a - .1) / .1) * (1 - fly);
+    d.style.transform = `scale(${lerp(1, .55, fly)}) rotate(${fly * -8}deg)`;
+    seal(d, P(t, a + .28, .22, x => x));
+  });
+  rise($("#s3Sub"), t, G(19.2)); rise($("#s3Spec"), t, G(20));
+}
+
+// ===== 4 · sealed and padded
+function sc4(t) {
+  const vis = t > G(23.4) && t < G(32);
+  show($("#s4"), vis); if (!vis) return;
+  const o = P(t, G(31.35), .35, IN), s4 = $("#s4");
+  s4.style.opacity = 1 - o; s4.style.filter = o > 0 ? `blur(${o * 18}px)` : "none"; s4.style.transform = `scale(${1 + o * .06})`;
+  words("#h4", t, G(24), .14);
+  rise($("#s4Sub"), t, G(24.9));
+  rise($("#gateNote"), t, G(25.2));
+  const gp = P(t, G(24.3), .6, EXPO);
+  $("#gate").style.transform = `scaleY(${gp})`; $("#gate").style.opacity = gp;
+  const q = $("#queue"), qp = P(t, G(24.4), .8, EXPO);
+  q.style.opacity = clamp(qp * 3); q.style.transform = `translateX(${(1 - qp) * 300}px) scale(${lerp(.9, 1, qp)})`;
+  const R0 = [G(25.3), G(26.2), G(27.1)];
+  let arrived = 0, glow = 0;
+  rows.forEach((r, n) => {
+    const a = R0[n], b = r.querySelector(".bub"), ch = r.querySelector(".from");
+    const w0 = +b.dataset.w, h0 = +b.dataset.h, ip = P(t, G(24.5) + n * .12, .5, x => back(x));
+    const pA = P(t, a, .45, INOUT), pB = P(t, a + .42, .36, x => x), pC = P(t, a + .8, .5, EXPO);
+    let cx0 = 150 + w0 / 2, x = lerp(cx0, 860, pA), y = ROWY[n];
+    x = lerp(x, 930, pB); x = lerp(x, QX, pC); y = lerp(y, SLOTY[n], pC);
+    const w = lerp(w0, STRIP[0], pB), h = lerp(h0, STRIP[1], pB);
+    Object.assign(b.style, {width: w + "px", height: h + "px", left: x - w / 2 + "px", top: y - h / 2 + "px"});
+    b.style.opacity = t < G(24.5) + n * .12 ? 0 : 1; b.style.transform = `scale(${lerp(.6, 1, ip)})`;
+    b.style.borderRadius = lerp(30, 33, pB) + "px"; b.style.borderBottomRightRadius = lerp(10, 33, pB) + "px";
+    seal(b, pB);
+    // the sender's name stays behind at the gate
+    const drop = P(t, a + .38, .6, IN);
+    at(ch, lerp(150, 860 - w0 / 2, pA) + drop * 20, ROWY[n] - h0 / 2 - 50 + drop * 150);
+    ch.style.opacity = (t < G(24.6) + n * .12 ? 0 : clamp((t - G(24.6) - n * .12) / .15)) * (1 - drop);
+    ch.style.transform = `rotate(${drop * 16}deg)`;
+    if (t > a + 1.1) arrived++;
+    glow = Math.max(glow, on(t, a + .42, a + .78, .08, .15));
+  });
+  $("#gateGlow").style.opacity = .5 + .9 * glow; $("#gateGlow").style.transform = `scaleX(${1 + glow * .5})`;
+  $("#qCount").textContent = arrived ? `${arrived} sealed envelope${arrived > 1 ? "s" : ""}` : "Waiting";
+  $$("#rows .bub .sl>span").forEach((s, n) => { s.style.transform = `translateX(${-((t * (14 + n * 3)) % 60)}px)`; });
+}
+
+// ===== 5 · "That was the easy part."
+function sc5t(t) {
+  const vis = t > G(31.8) && t < G(35.6);
+  show($("#s5t"), vis); if (!vis) return;
+  [0, 1, 2, 3, 4].forEach(n => { const w = $$("#s5T .wd")[n]; slam(w, t, G(32) + n * .3); });
+  const o = P(t, G(34.7), .4, IN), T = $("#s5T");
+  T.style.transform = `translateY(${-o * 60}px) scale(${(1 + .03 * smooth(G(32), G(34.7), t)) * (1 + o * .1)})`; T.style.opacity = 1 - o; T.style.filter = o > 0 ? `blur(${o * 20}px)` : "none";
+}
+
+// ===== 7, 8, 9 · the log, the witnesses, a fork
+function scNet(t) {
+  const vis = t > G(47.9) && t < G(71.9);
+  show($("#net"), vis); if (!vis) return;
+  const o = P(t, G(71.1), .4, IN), net = $("#net");
+  net.style.opacity = 1 - o; net.style.filter = o > 0 ? `blur(${o * 18}px)` : "none"; net.style.transform = `scale(${1 + o * .06})`;
+  const sk = P(t, G(48) - .02, .8, EXPO), sky = $("#sky");
+  sky.style.transform = `scale(${lerp(.55, 1, sk)})`; sky.style.opacity = clamp(sk * 3); sky.style.borderRadius = `${lerp(400, 64, sk)}px`;
+
+  // --- 7 · the tree
+  const treeOut = P(t, G(55.8), .45, IN), treeVis = t < G(56.8);
+  show($("#tree"), treeVis); show($("#edges"), treeVis); show($("#proof"), treeVis);
+  const nLeaf = 5 + APP.filter(a => t >= a).length;
+  const appearAt = n => n.lvl === 0 ? (n.i < 5 ? G(48) + .12 + n.i * .05 : APP[n.i - 5]) : n.lvl === 1 ? (n.i < 3 ? G(48) + .38 + n.i * .05 : APP[1]) : n.lvl === 2 ? G(48) + .52 + n.i * .05 : G(48) + .62;
+  const flashAt = n => { let best = -9; for (let k = 0; k < 3; k++) { const leaf = 5 + k; let m = leaves[leaf], d = 0; while (m) { if (m === n) best = Math.max(best, t >= APP[k] + d * .12 ? APP[k] + d * .12 : best); m = m.lvl < 3 ? parentOf(m) : null; d++; } } return best; };
+  for (const n of tnodes) {
+    const a = appearAt(n), p = P(t, a, .5, EXPO), e = n.el;
+    const fa = flashAt(n), fl = fa > 0 ? Math.exp(-(t - fa) / .18) : 0;
+    e.style.opacity = (t < a ? 0 : clamp((t - a) / .15)) * (1 - treeOut);
+    const fromRight = n.lvl === 0 && n.i >= 5 ? (1 - p) * 140 : 0;
+    e.style.transform = `translate(${fromRight}px,${treeOut * 50 + (n.lvl === 0 && n.i < 5 ? (1 - p) * 60 : 0)}px) scale(${lerp(n.i >= 5 && n.lvl === 0 ? .8 : .3, 1, p) * (1 + .12 * fl)})`;
+    e.style.filter = p > .99 && treeOut === 0 ? "none" : `blur(${(1 - p) * 10 + treeOut * 10}px)`;
+    if (n !== root) e.style.boxShadow = `0 0 0 ${5 * fl}px rgba(47,107,234,${.5 * fl}),0 14px 26px -16px rgba(20,40,110,.45)`;
+    // every append rewrites the hashes above it
+    const ver = APP.filter(ap => t >= ap + n.lvl * .12 && n.lvl > 0 && (n === root || n.lvl === 2 && n.i === 1 || n.lvl === 1 && n.i >= 2)).length;
+    const sp = e.querySelector("span");
+    if (n === root) sp.textContent = ["5b2e 11c9", "d7a0 3e58", "40fc 9a17", "9f3a c107"][ver];
+    else if (n.lvl > 0) sp.textContent = ver ? HX[16 + n.lvl * 4 + n.i + ver * 8 % 24] : HX[8 + (n.lvl === 1 ? n.i : 4 + n.i)];
+  }
+  root.el.style.boxShadow = `0 0 0 ${8 * Math.max(0, ...APP.map(a => t > a + .36 ? Math.exp(-(t - a - .36) / .18) : 0))}px rgba(47,107,234,.35),0 18px 34px -16px rgba(20,40,110,.6)`;
+  adaTag.style.opacity = P(t, G(48) + .5, .3) * (1 - treeOut) * (1 - .4 * (1 - on(t, G(52.8), G(56), .2, .2)));
+  for (const E of edgeEls) {
+    if (!E.len) E.len = E.el.getTotalLength();
+    const a = Math.max(appearAt(E.n), appearAt(E.p)) - .05, p = P(t, a, .45, EXPO);
+    E.el.style.strokeDasharray = E.len; E.el.style.strokeDashoffset = E.len * (1 - p);
+    E.el.style.opacity = (t < a ? 0 : .5) * (1 - treeOut);
+  }
+  proofEdges.forEach((E, k) => {
+    if (!E.len) E.len = E.el.getTotalLength();
+    const p = P(t, G(53) + k * .2, .3, x => x);
+    E.el.style.strokeDasharray = E.len; E.el.style.strokeDashoffset = E.len * (1 - p);
+    E.el.style.opacity = (t < G(53) ? 0 : 1) * (1 - treeOut);
+  });
+  [leaves[2], l1[1], l2[0]].forEach((n, k) => { const p = P(t, G(53) + k * .2, .25); if (t > G(53)) { n.el.style.boxShadow = `0 0 0 ${4 * p}px #2F6BEA,0 0 0 ${10 * p}px rgba(47,107,234,.2)`; } });
+  [leaves[3], l1[0], l2[1]].forEach((n, k) => { const p = P(t, G(53.1) + k * .2, .25); if (t > G(53.1)) n.el.style.boxShadow = `0 0 0 ${3 * p}px rgba(47,107,234,.45)`; });
+  const inl = $("#inlog"); pop(inl, t, G(54)); inl.style.opacity = t < G(54) ? 0 : clamp((t - G(54)) / .12) * (1 - treeOut);
+  // left column
+  words("#h7", t, G(48.2), .1); rise($("#s7Sub"), t, G(52.4)); rise($("#s7Spec"), t, G(54.2));
+  const out7 = t > G(55.6);
+  if (out7) { wordsOut("#h7", t, G(55.6)); blurOut($("#s7Sub"), t, G(55.7)); blurOut($("#s7Spec"), t, G(55.7)); }
+  show($("#c7"), t < G(56.6)); show($("#s7Spec"), t < G(56.6));
+
+  // --- 8 · the root becomes a checkpoint; witnesses check and sign it
+  const ck = $("#ck"), ck2 = $("#ck2");
+  const cIn = P(t, G(55.9), .7, EXPO), split = P(t, G(64), .75, EXPO);
+  const ckY = lerp(lerp(LY[3], 420, cIn), 250, split), ck2Y = lerp(420, 810, split);
+  at(ck, TX, ckY); ck.style.translate = "-50% -50%";
+  ck.style.opacity = t < G(55.9) ? 0 : clamp((t - G(55.9)) / .2);
+  ck.style.transform = `scale(${lerp(.5, 1.1, cIn) * lerp(1, 1 / 1.1, split)})`;
+  root.el.style.opacity = parseFloat(root.el.style.opacity || 1) * (1 - clamp((t - G(55.9)) / .25));
+  at(ck2, TX, ck2Y); ck2.style.translate = "-50% -50%"; ck2.style.opacity = t < G(64) ? 0 : clamp((t - G(64)) / .15); ck2.style.transform = `scale(${lerp(1.05, 1, split)})`;
+  $("#ckS").textContent = t < G(64) ? "2,981 keys" : "Shown to you";
+  rise($("#wsNote"), t, G(56.6)); if (t > G(63.6)) blurOut($("#wsNote"), t, G(63.6));
+  const d = $("#diff"), cl = P(t, G(65), .4, x => x);
+  d.textContent = t < G(65) ? "b82e" : "5d0e";
+  d.style.background = `rgba(251,213,215,${cl})`; d.style.color = `rgb(${lerp(10, 216, cl)},${lerp(10, 50, cl)},${lerp(12, 58, cl)})`;
+  d.style.boxShadow = `0 0 ${24 * cl * (1 - smooth(G(65.7), G(66.5), t) * .6)}px rgba(216,50,58,${.7 * cl})`;
+
+  // witnesses: an arc under the checkpoint, then a row between the two versions
+  const wIn = t > G(56.3), wOut = P(t, G(71.2), .3, IN);
+  wits.forEach((w, n) => {
+    const a = G(56.4) + n * .07, p = P(t, a, .5, x => back(x));
+    const [x0, y0] = WARC[n], [x1, y1] = WROW[n], x = lerp(x0, x1, split), y = lerp(y0, y1, split) + (1 - clamp((t - a) / .4)) * 120;
+    at(w, x - 44, y - 44);
+    w.style.opacity = wIn ? clamp((t - a) / .15) : 0; w.style.scale = t < a ? .01 : p;
+    // checking: a ring sweeps round, then a tick
+    const sa = SIGN8[n], rp = P(t, sa - .35, .35, x => x), tick = P(t, sa, .35, x => back(x)), reset = P(t, G(63.8), .3);
+    w.querySelector("circle").style.strokeDashoffset = 327 * (1 - rp * (1 - reset));
+    w.querySelector("i").style.opacity = t < sa ? 0 : 1 - reset; w.querySelector("i").style.scale = t < sa ? .01 : tick;
+    const isC = n === 2, c9 = isC ? P(t, G(67), .35) : 0;
+    w.querySelector("b").style.boxShadow = `0 16px 30px -14px rgba(20,40,110,.55),0 0 0 4px ${c9 > 0 ? `rgb(${lerp(255, 216, c9)},${lerp(255, 50, c9)},${lerp(255, 58, c9)})` : "#fff"},0 0 ${30 * c9}px ${8 * c9}px rgba(216,50,58,${.55 * c9})`;
+    const dim = t > G(67) && !isC ? .45 * P(t, G(67), .35) : 0;
+    w.style.filter = dim ? `saturate(${1 - dim}) opacity(${1 - dim * .6})` : "none";
+    const sh = isC && t > G(67.5) ? Math.exp(-(t - G(67.5)) / .14) * 10 : 0;
+    w.style.translate = `${Math.sin(t * 93) * sh}px ${Math.cos(t * 71) * sh}px`;
+  });
+  if (!ckSlots) ckSlots = [$$("#ck .sig .ava"), $$("#ck2 .sig .ava")];
+  // signatures: tokens fly to the checkpoint's row of signers
+  const signed = [[], []];
+  const fire = (tokEl, slot, w, a, d = .35) => {
+    const s = slot.getBoundingClientRect(), wr = w.getBoundingClientRect(), p = P(t, a, d, EXPO);
+    const x = lerp(wr.left + wr.width / 2, s.left + s.width / 2, p), y = lerp(wr.top + wr.height / 2, s.top + s.height / 2, p);
+    at(tokEl, x - 15, y - 15); tokEl.style.opacity = t < a ? 0 : p < 1 ? 1 : 0; tokEl.style.scale = lerp(1.4, .9, p);
+    return t >= a + d;
+  };
+  toks.flat().forEach(k => { k.style.opacity = 0; });
+  if (t < G(63.9)) {
+    SIGN8.forEach((a, n) => { if (fire(toks[0][n], ckSlots[0][n], wits[n], a)) signed[0].push(n); });
+  } else {
+    SIGN9[0].forEach((a, k) => { const n = k; if (fire(toks[0][n], ckSlots[0][n], wits[n], a + .3, .3)) signed[0].push(n); });
+    SIGN9[1].forEach((a, k) => { const n = k + 2; if (fire(toks[1][n], ckSlots[1][n], wits[n], a + .3, .3)) signed[1].push(n); });
+  }
+  ckSlots.forEach((slots, c) => slots.forEach((s, n) => {
+    const onS = signed[c].includes(n);
+    s.classList.toggle("off", !onS); s.classList.toggle(WG[n], onS);
+    const isC = n === 2 && t > G(67), c9 = P(t, G(67), .35);
+    s.style.boxShadow = isC ? `0 0 0 2px #fff,0 0 0 ${2 + 3 * c9}px rgba(216,50,58,${c9}),0 0 ${16 * c9}px rgba(216,50,58,${.8 * c9})` : "0 0 0 2px #fff";
+  }));
+  $("#ck .by").textContent = signed[0].length ? (t < G(63.9) ? who(signed[0].length - 1) : ["A", "A and B", "A, B and C"][signed[0].length - 1]) + " signed" : (t < G(63.9) && t > G(56.5) ? "Checking…" : "");
+  $("#ck2 .by").textContent = signed[1].length ? ["C", "C and D", "C, D and E"][signed[1].length - 1] + " signed" : "";
+  // lines from each witness to what it signed
+  wline.forEach((set, c) => set.forEach((pth, n) => {
+    let a, show8 = false;
+    if (c === 0 && t < G(63.9)) { a = G(57) + n * .05; show8 = true; }
+    else if (t >= G(63.9)) { const k = c === 0 ? n : n - 2; a = (c === 0 ? n <= 2 : n >= 2) ? SIGN9[c][k] - .05 : null; }
+    if (a == null || t < a) { pth.style.opacity = 0; return; }
+    const [wx, wy] = [+wits[n].style.left.slice(0, -2) + 44, +wits[n].style.top.slice(0, -2) + 44];
+    let x2, y2, y1;
+    if (show8) { x2 = TX + (n - 2) * 60; y2 = ckY + 110; y1 = wy - 50; }
+    else if (c === 0) { x2 = TX + (n - 2) * 70; y2 = ckY + 124; y1 = wy - 50; }
+    else { x2 = TX + (n - 2) * 70; y2 = ck2Y - 124; y1 = wy + 50; }
+    pth.setAttribute("d", `M${wx} ${y1}C${wx} ${lerp(y1, y2, .5)} ${x2} ${lerp(y1, y2, .5)} ${x2} ${y2}`);
+    const len = 400, p = P(t, a, .35, EXPO);
+    pth.style.strokeDasharray = len; pth.style.strokeDashoffset = len * (1 - p);
+    const redC = n === 2 && !show8 ? P(t, G(67), .35) : 0, fade8 = show8 ? 1 - P(t, G(63.6), .3) : 1, dim9 = !show8 && n !== 2 ? 1 - .55 * P(t, G(67), .35) : 1;
+    pth.setAttribute("stroke", redC > .5 ? "#D8323A" : "#2F6BEA");
+    pth.style.strokeWidth = 4 + 3 * redC;
+    pth.style.opacity = (show8 ? .45 : .8) * fade8 * dim9 * (1 - wOut);
+    pth.style.filter = redC > .5 ? "drop-shadow(0 0 6px rgba(216,50,58,.8))" : "none";
+  }));
+  const acc = $("#accept"); pop(acc, t, SIGN8[2] + .45); if (t > G(63.6)) acc.style.opacity = 1 - P(t, G(63.6), .3);
+  words("#h8", t, G(56.2), .1); rise($("#s8Sub"), t, G(58)); rise($("#s8Spec"), t, G(59));
+  if (t > G(63.6)) { wordsOut("#h8", t, G(63.6)); blurOut($("#s8Sub"), t, G(63.7)); blurOut($("#s8Spec"), t, G(63.7)); }
+  show($("#c8"), t > G(55.8) && t < G(64.6)); show($("#s8Spec"), t > G(55.8) && t < G(64.6));
+
+  // --- 9 · a lie proves itself
+  show($("#c9"), t > G(63.8));
+  rise($("#s9Soon"), t, G(64.1)); words("#h9", t, G(64.3), .13);
+  const VA = G(67.5), vp = clamp((t - VA) / .45), v = $("#s9V");
+  v.style.opacity = t < VA ? 0 : clamp(vp * 3); v.style.transform = `scale(${t < VA ? 1.4 : lerp(1.45, 1, EXPO(vp))})`; v.style.transformOrigin = "0 50%";
+  v.style.filter = vp > .99 || t < VA ? "none" : `blur(${(1 - EXPO(vp)) * 14}px)`;
+  const sh = t > VA ? Math.exp(-(t - VA) / .12) * 12 : 0;
+  $("#netG").style.translate = `${Math.sin(t * 91) * sh}px ${Math.cos(t * 77) * sh}px`;
+  rise($("#s9Tx"), t, G(68.6));
+}
+
+// ===== 10 · end card: blue floods out of the mark's dot, then drains back for the loop
+function sc10(t) {
+  const vis = t > G(71) && t < LOOP - .5;
+  show($("#s10"), vis);
+  const fr = floodR(t);
+  $("#flood").style.clipPath = fr <= 0 ? "circle(0px at 0 0)" : `circle(${fr}px at ${tg10.dot.x}px ${tg10.dot.y}px)`;
+  if (!vis) return;
+  mark($("#s10Mk"), t, G(72) - .08, G(72) + .12);
+  spell($("#s10W"), t, G(72) + .22);
+  rise($("#s10Tag"), t, G(73)); rise($("#s10Cta"), t, G(73.3)); rise($("#s10Soon"), t, G(73.15));
+  $("#s10C").style.transform = `scale(${1 + .025 * smooth(G(73), G(77), t)})`;
+  Object.assign($("#s10W").style, {opacity: 1, filter: "none", transform: "none"});
+  const E = LOOP - 1.55;
+  [["#s10Cta", 0], ["#s10Tag", .04], ["#s10Soon", .06], ["#s10W", .1]].forEach(([id, d]) => blurOut($(id), t, E + d, .3, -30));
+  const rt = P(t, E + .1, .4, INOUT), dz = P(t, E + .41, .32, IN);
+  if (t > E) { const m = $("#s10Mk"); m.querySelector(".d2").style.clipPath = `inset(0 ${rt * 100}% 0 0 round 999px)`; m.querySelector(".d1").style.scale = 1 - dz; }
+}
+
+window.ready = (async () => {
+  await document.fonts.ready;
+  await Promise.all([...document.fonts].map(f => f.load()));
+  await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
+  // natural sizes of the things that grow or morph
+  for (const el of $$(".nw")) { el.style.height = "auto"; el.dataset.h = el.firstElementChild.getBoundingClientRect().height / 1.06; }
+  for (const b of $$("#rows .bub")) { const r = b.querySelector(".pl span").getBoundingClientRect(); b.dataset.w = r.width + 48; b.dataset.h = r.height + 28; }
+  const mk = $("#s10Mk"), d = mk.querySelector(".d1").getBoundingClientRect(), s = mk.querySelector(".d2").getBoundingClientRect();
+  tg10 = {dot: {x: d.left + d.width / 2, y: d.top + d.height / 2, r: d.width / 2}, dash: {x: s.left, y: s.top + s.height / 2, w: s.width, r: s.height / 2}};
+  // where the packets start and land: measured on the settled phones
+  const centre = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  render(G(12.5)); const a1 = centre($("#yN1 .b")), b1 = centre($("#aN1 .b"));
+  pk1Path = {a: a1, b: b1, c: [960, (628 - .25 * a1[1] - .25 * b1[1]) / .5]}; // skims over the servers pill
+  render(G(47)); pk2Path = {a: centre($("#yN2 .b")), b: centre($("#aN2 .b"))};
+  const q = (a, c, b) => `M${a[0]} ${a[1]}Q${c[0]} ${c[1]} ${b[0]} ${b[1]}`, up = a => [a[0], a[1] - 46];
+  mkRoute("r1", q(up(pk1Path.a), pk1Path.c, pk1Path.b));
+  mkRoute("rk", q([960, 486], [720, 560], [440, 404]));
+  mkRoute("r2a", q(up(pk2Path.a), [640, 560], [960, 706]));
+  mkRoute("r2b", q([960, 706], [1280, 560], pk2Path.b));
+  A3.forEach((a, k) => shatters.push([a + .5, SLOT, CHY, 236, 132, 97 + k * 131]));
+  render(0);
+  return true;
+})();
+window.render = render;
+window.DURATION = LOOP;
+</script>
+</body>
+</html>

@@ -1,4 +1,11 @@
-from Api.Binary import EdgeResult, forward_submission, prepare_submission
+from Api.Binary import (
+  EdgeResult,
+  forward_quote,
+  forward_to_issuer,
+  relay_ohttp,
+  submit_envelope,
+  submit_paid
+)
 from Privacy.Edge import internal_delivery_token
 
 fn fatal(message :: String) do
@@ -23,25 +30,65 @@ fn handle_submit(request :: Request) -> Response do
     Err(_) -> HTTP.response(500, "")
     Ok(now) -> case U64.parse("300000") do
       Err(_) -> HTTP.response(500, "")
-      Ok(maximum_future) -> do
-        let difficulty = Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16)
-        let prepared = prepare_submission(Request.body_bytes(request),
-          now,
-          maximum_future,
-          difficulty)
-        if prepared.status != 200 do
-          respond(prepared)
-        else
-          case forward_submission(prepared.body,
-            Env.get("MESSENGER_DELIVERY_INTERNAL_URL", ""),
-            Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
-            Err(_) -> HTTP.response(503, "")
-            Ok(forwarded) -> respond(forwarded)
-          end
-        end
+      Ok(maximum_future) -> case submit_envelope(Request.body_bytes(request),
+        now,
+        maximum_future,
+        Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16),
+        Env.get("MESSENGER_DELIVERY_INTERNAL_URL", ""),
+        Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+        Err(_) -> HTTP.response(503, "")
+        Ok(result) -> respond(result)
       end
     end
   end
+end
+
+fn handle_mailbox_retention(request :: Request) -> Response do
+  case submit_paid(Request.body_bytes(request),
+    2,
+    "/internal/v1/mailbox/retention",
+    Env.get("MESSENGER_DELIVERY_INTERNAL_URL", ""),
+    Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+    Err(_) -> HTTP.response(503, "")
+    Ok(result) -> respond(result)
+  end
+end
+
+fn handle_credit_quote(request :: Request) -> Response do
+  case (current_time(), U64.parse("300000")) do
+    (Ok(now), Ok(maximum_future)) -> respond(forward_quote(Request.body_bytes(request),
+      now,
+      maximum_future,
+      Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16),
+      Env.get("MORSE_CREDIT_ISSUER_URL", "")))
+    _ -> HTTP.response(500, "")
+  end
+end
+
+# Encapsulated requests pass through to the gateway; its 200 is an
+# encapsulated response, any other status one the gateway couldn't open.
+
+fn handle_ohttp(request :: Request) -> Response do
+  case relay_ohttp(Request.body_bytes(request),
+    Env.get("MESSENGER_DELIVERY_INTERNAL_URL", ""),
+    Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+    Err(_) -> HTTP.response(503, "")
+    Ok(result) -> if result.status == 200 do
+      HTTP.response_bytes_with_headers(200,
+        result.body,
+        Map.put(Map.put(Map.new(), "Content-Type", "message/ohttp-res"),
+          "Cache-Control",
+          "no-store"))
+    else
+      HTTP.response_bytes(result.status, Bytes.empty())
+    end
+  end
+end
+
+fn handle_credit_issue(request :: Request) -> Response do
+  respond(forward_to_issuer(Env.get("MORSE_CREDIT_ISSUER_URL", ""),
+    "/v1/credits/issue",
+    Request.body_bytes(request)))
 end
 
 fn main() do
@@ -61,7 +108,11 @@ fn main() do
       println("privacy-edge listening on :#{port}")
       HTTP.serve(HTTP.router()
           |> HTTP.on_get("/health", handle_health)
-          |> HTTP.on_post("/v1/envelopes/batch", handle_submit),
+          |> HTTP.on_post("/v1/envelopes/batch", handle_submit)
+          |> HTTP.on_post("/v1/mailbox/retention", handle_mailbox_retention)
+          |> HTTP.on_post("/v1/ohttp", handle_ohttp)
+          |> HTTP.on_post("/v1/credits/quote", handle_credit_quote)
+          |> HTTP.on_post("/v1/credits/issue", handle_credit_issue),
         port)
       if !Process.shutdown_requested() do
         fatal("privacy-edge HTTP server failed")

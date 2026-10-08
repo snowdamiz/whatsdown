@@ -16,6 +16,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z'/%3E%3C/svg%3E">
 <script>document.documentElement.classList.add("js")</script>
+<script src="network.js" defer></script>
 <style>
 /* The same paper, type and phones as index.html (its comments explain them); this page adds the map.
    Every statement in it traces to protocol/ and ops/cloudflare/README.md. */
@@ -130,6 +131,19 @@ h2{font-size:clamp(2.1rem,4.2vw,3.6rem);line-height:1.02;letter-spacing:-.043em}
 .nt.mesh{background:var(--butter);color:#7A5600}
 .nt.store{background:var(--mint);color:var(--green)}
 .nt.out{background:var(--peach);color:#A34A1F}
+.nt.sol{background:var(--ink);color:#fff}
+/* What comes next (witness-network-v1.md "Steps"): outside the Cloudflare zone, wired to nothing, dashed and
+   marked "Next" until network.js reads that it is live. No journey runs through them yet. */
+.next{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:var(--ink);color:#fff;font-style:normal;font-weight:600;font-size:11px;line-height:1.4;letter-spacing:0;vertical-align:2px}
+.node .next{display:table;margin:5px auto 0}
+.next[hidden]{display:none}
+.node:has(.next:not([hidden])){background:rgba(255,255,255,.5);box-shadow:inset 0 0 0 1.5px rgba(78,91,128,.35)}
+.list h3 .next{font-size:12px;vertical-align:3px}
+.list .counter{display:flex;flex-wrap:wrap;gap:6px}
+.list .counter[hidden]{display:none}
+.list .counter span{padding:5px 12px;border-radius:999px;background:#F2F2F5;font-weight:500;font-size:.86rem;color:var(--ink-2)}
+.list .counter a{color:var(--ink);text-decoration:underline;text-decoration-color:rgba(11,11,15,.25);text-underline-offset:3px}
+.list .counter i{display:inline-block;width:7px;height:7px;margin-right:8px;vertical-align:1px;border-radius:50%;background:var(--green)}
 .lit .node:not(.on,.picked){opacity:.45}
 .node.on{box-shadow:0 0 0 2.5px var(--blue-2),0 18px 30px -18px rgba(36,89,208,.6)}
 .node.picked{box-shadow:0 0 0 2.5px var(--ink),0 18px 30px -18px rgba(11,11,15,.5)}
@@ -345,6 +359,7 @@ footer li a:hover{color:var(--blue-3)}
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol>
   <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/></symbol>
   <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 19h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.4 9.6 4.75 4.75 0 0 0 7 19Z"/></symbol>
+  <symbol id="i-chain" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
   <symbol id="i-badge" viewBox="0 0 24 24"><path d="m12 3 2.4 1.7 2.9-.1.9 2.8 2.3 1.8-.9 2.8.9 2.8-2.3 1.8-.9 2.8-2.9-.1L12 21l-2.4-1.7-2.9.1-.9-2.8-2.3-1.8.9-2.8-.9-2.8 2.3-1.8.9-2.8 2.9.1L12 3Z"/><path d="m8.8 12.2 2.2 2.2 4.2-4.4"/></symbol>
 </svg>
 
@@ -427,6 +442,8 @@ footer li a:hover{color:var(--blue-3)}
             <button class="node" type="button" data-id="r2" aria-haspopup="dialog"><i class="nt store"><svg class="ic"><use href="#i-archive"/></svg></i><span><b>Encrypted parts</b><small>Cloudflare R2</small></span></button>
             <button class="node" type="button" data-id="pg" aria-haspopup="dialog"><i class="nt store"><svg class="ic"><use href="#i-db"/></svg></i><span><b>PostgreSQL</b><small>Neon · one schema per service</small></span></button>
             <button class="node" type="button" data-id="expo" aria-haspopup="dialog"><i class="nt out"><svg class="ic"><use href="#i-cloud"/></svg></i><span><b>Expo, Apple, Google</b><small>Notification delivery</small></span></button>
+            <button class="node" type="button" data-id="sol" aria-haspopup="dialog"><i class="nt sol"><svg class="ic"><use href="#i-chain"/></svg></i><span><b>Solana</b><em class="next" data-next="anchor">Next</em></span></button>
+            <button class="node" type="button" data-id="ow" aria-haspopup="dialog"><i class="nt mesh"><svg class="ic"><use href="#i-badge"/></svg></i><span><b>Outside witnesses</b><em class="next" data-next="outside">Next</em></span></button>
           </div>
         </div>
         <div class="part" id="part" role="dialog" aria-labelledby="part-name" tabindex="-1" hidden>
@@ -538,9 +555,21 @@ footer li a:hover{color:var(--blue-3)}
         <dl><div class="sees"><dt>Sees</dt><dd><span>Usernames</span><span>Public keys</span><span>Names looked up</span><span>Mailbox addresses</span><span>Size bucket</span><span>Arrival and expiry</span><span>Public or contacts-only</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Who sent it</span><span>Which chat</span><span>Message type</span><span>The message</span></dd></div></dl>
       </article>
       <article class="reveal" data-for="wa wb">
-        <header><i class="nt mesh"><svg class="ic" aria-hidden="true"><use href="#i-badge"/></svg></i><div><h3>Witness A and Witness B</h3><small class="tags">2 × Cloudflare Worker · Mesh · own signing keys</small></div></header>
+        <header><i class="nt mesh"><svg class="ic" aria-hidden="true"><use href="#i-badge"/></svg></i><div><h3>Witness A and Witness B</h3><small class="tags">Run by Morse · 2 × Cloudflare Worker · Mesh · own signing keys</small></div></header>
         <p>Each keeps its own record of the last checkpoint it signed. Phones accept a lookup only when enough of the witnesses they trust signed that exact checkpoint.</p>
         <dl><div class="sees"><dt>Sees</dt><dd><span>Tree size</span><span>Root hash</span><span>Sequence number</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Usernames</span><span>Devices</span><span>Mailboxes</span><span>Messages</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="ow">
+        <header><i class="nt mesh"><svg class="ic" aria-hidden="true"><use href="#i-badge"/></svg></i><div><h3>Outside witnesses<em class="next" data-next="outside">Next</em></h3><small class="tags">Other operators · their own servers and keys</small></div></header>
+        <p>Organisations other than Morse run a witness on their own servers, with their own keys, and check every checkpoint exactly as Witness A and B do. Each app release pins them. Once the network is open, Morse runs only one of the witnesses phones count.</p>
+        <p data-net="profile">Both witnesses are run by Morse today. Independent witnesses join in stages.</p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Tree size</span><span>Root hash</span><span>Sequence number</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Usernames</span><span>Devices</span><span>Mailboxes</span><span>Messages</span></dd></div></dl>
+      </article>
+      <article class="reveal" data-for="sol">
+        <header><i class="nt sol"><svg class="ic" aria-hidden="true"><use href="#i-chain"/></svg></i><div><h3>Solana<em class="next" data-next="anchor">Next</em></h3><small class="tags">Public chain · read through public RPC providers</small></div></header>
+        <p>Each new checkpoint is stamped here with the witnesses’ signatures, where anyone can read it, and phones check their copy of the log against it. Bonds are held here too, and code here checks a proof that the log forked and slashes the bond behind it. Phones read it themselves through public RPC providers, which see the phone’s IP address about once a day.</p>
+        <p class="counter" data-net="counter" hidden></p>
+        <dl><div class="sees"><dt>Sees</dt><dd><span>Tree size</span><span>Root hash</span><span>Witness signatures</span><span>Bonds</span><span>Proofs of a fork</span></dd></div><div class="never"><dt>Never sees</dt><dd><span>Usernames</span><span>Devices</span><span>Who looked up whom</span><span>Messages</span></dd></div></dl>
       </article>
       <article class="reveal" data-for="obj">
         <header><i class="nt mesh"><svg class="ic" aria-hidden="true"><use href="#i-box"/></svg></i><div><h3>Object store</h3><small class="tags">Mesh service · Cloudflare Container</small></div></header>
@@ -639,19 +668,21 @@ footer li a:hover{color:var(--blue-3)}
   // ---- The map, laid out twice by hand. Parts are [x, y, width, height] on the stage; lines run straight
   // between parts that face each other, bend once between parts that don't, or follow the points given.
   const LAYOUTS = {
-    wide: {w: 1120, h: 560, zone: [192, 8, 736, 432], sm: [], nodes: {
+    wide: {w: 1120, h: 560, zone: [192, 8, 736, 432], sm: ["sol", "ow"], nodes: {
       you: [0, 96, 160, 382], them: [960, 96, 160, 382],
       edge: [216, 44, 220, 72], wa: [588, 44, 150, 72], wb: [754, 44, 150, 72],
       gw: [216, 150, 688, 60],
       dd: [216, 250, 260, 84], push: [492, 250, 196, 84], obj: [704, 250, 200, 84],
       r2: [704, 360, 200, 60], pg: [216, 476, 260, 72], expo: [492, 476, 260, 72],
-    }, via: {"you-edge": [[80, 96], [80, 66], [216, 66]]}},
-    tall: {w: 380, h: 664, zone: [8, 104, 348, 432], sm: ["wa", "wb"], nodes: {
+      sol: [0, 0, 176, 56], ow: [944, 0, 176, 56],
+    }, via: {"you-edge": [[80, 96], [80, 70], [216, 70]]}},
+    tall: {w: 380, h: 748, zone: [8, 104, 348, 432], sm: ["wa", "wb", "sol", "ow"], nodes: {
       you: [24, 16, 152, 64], them: [188, 16, 152, 64],
       edge: [24, 136, 120, 60], gw: [24, 236, 216, 60], wa: [256, 212, 84, 48], wb: [256, 268, 84, 48],
       dd: [24, 336, 148, 80], obj: [188, 336, 152, 80],
       push: [24, 448, 116, 64], r2: [188, 448, 152, 64],
       expo: [24, 576, 148, 60], pg: [188, 576, 152, 60],
+      sol: [24, 680, 148, 60], ow: [188, 680, 152, 60],
     }, via: {"you-gw": {x: 160}, "dd-pg": [[164, 416], [164, 548], [264, 548], [264, 576]], "expo-them": [[90, 636], [90, 652], [368, 652], [368, 48], [340, 48]]}},
   };
   const EDGES = ["you-edge", "you-gw", "them-gw", "edge-gw", "wa-gw", "wb-gw", "gw-dd", "gw-obj", "dd-push", "dd-pg", "obj-r2", "push-expo", "expo-them"];

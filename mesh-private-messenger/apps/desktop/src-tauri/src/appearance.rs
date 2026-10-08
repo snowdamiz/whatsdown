@@ -1,6 +1,7 @@
-//! The user's choice of light or dark. The shell keeps it, rather than the
+//! The user's choice of light or dark. The shell reads it, rather than the
 //! web view, because the window has to open in the right scheme before any
-//! script has run.
+//! script has run. It is sealed by the core in the app's journal
+//! (`settings/appearance`), like the phone's.
 
 use std::path::{Path, PathBuf};
 
@@ -53,18 +54,32 @@ pub fn canvas(theme: Theme) -> Color {
     }
 }
 
+/// Where an older build kept the choice in the clear.
 fn file(directory: &Path) -> PathBuf {
     directory.join("appearance")
 }
 
-pub fn load(directory: &Path) -> Appearance {
-    std::fs::read_to_string(file(directory))
-        .map(|saved| Appearance::parse(&saved))
+/// The sealed choice, from `sealed`. A clear copy left by an older build is
+/// sealed with `seal` the first time it is found, and removed once it is.
+pub fn load(
+    directory: &Path,
+    sealed: impl FnOnce() -> Option<String>,
+    seal: impl FnOnce(&str) -> Result<(), String>,
+) -> Appearance {
+    let legacy = file(directory);
+    let kept = sealed().filter(|value| !value.is_empty());
+    let clear = std::fs::read_to_string(&legacy).ok();
+    if let (None, Some(value)) = (&kept, &clear) {
+        if seal(Appearance::parse(value).as_str()).is_err() {
+            return Appearance::parse(value);
+        }
+    }
+    if clear.is_some() {
+        let _ = std::fs::remove_file(&legacy);
+    }
+    kept.or(clear)
+        .map(|value| Appearance::parse(&value))
         .unwrap_or(Appearance::System)
-}
-
-pub fn save(directory: &Path, appearance: Appearance) -> std::io::Result<()> {
-    std::fs::write(file(directory), appearance.as_str())
 }
 
 #[cfg(test)]
@@ -81,15 +96,33 @@ mod tests {
     }
 
     #[test]
-    fn round_trips_through_the_file_and_reads_absence_as_system() {
+    fn a_clear_copy_is_sealed_once_and_removed() {
+        use std::cell::RefCell;
         let directory =
             std::env::temp_dir().join(format!("morse-appearance-{}", std::process::id()));
         std::fs::create_dir_all(&directory).unwrap();
-        assert_eq!(load(&directory), Appearance::System);
-        save(&directory, Appearance::Light).unwrap();
-        assert_eq!(load(&directory), Appearance::Light);
-        save(&directory, Appearance::System).unwrap();
-        assert_eq!(load(&directory), Appearance::System);
+        let journal = RefCell::new(None::<String>);
+        let sealed = || journal.borrow().clone();
+        let seal = |value: &str| {
+            *journal.borrow_mut() = Some(value.to_owned());
+            Ok(())
+        };
+        assert_eq!(load(&directory, sealed, seal), Appearance::System);
+        // An older build's file moves into the journal, and goes.
+        std::fs::write(file(&directory), "light").unwrap();
+        assert_eq!(load(&directory, sealed, seal), Appearance::Light);
+        assert_eq!(journal.borrow().as_deref(), Some("light"));
+        assert!(!file(&directory).exists());
+        // The sealed choice wins over a clear copy found later, which goes too.
+        std::fs::write(file(&directory), "dark").unwrap();
+        assert_eq!(load(&directory, sealed, seal), Appearance::Light);
+        assert!(!file(&directory).exists());
+        // A copy that could not be sealed stays, and still applies.
+        *journal.borrow_mut() = None;
+        std::fs::write(file(&directory), "dark").unwrap();
+        let refused = |_: &str| Err("database_write_failed".to_owned());
+        assert_eq!(load(&directory, sealed, refused), Appearance::Dark);
+        assert!(file(&directory).exists());
         std::fs::remove_dir_all(&directory).unwrap();
     }
 

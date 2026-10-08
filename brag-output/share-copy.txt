@@ -1,0 +1,1 @@
+Morse is a messenger you join with just a username. Every message is sealed on your phone, our servers only ever see sealed envelopes, and witnesses check every key we hand out. Coming to iPhone, Android, Mac and Windows. Join the waitlist at morseapp.io.

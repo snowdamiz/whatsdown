@@ -79,8 +79,7 @@ else
 fi
 
 cd "$mesh_root"
+# The host runtime only checks the generated bindings; --release builds each
+# target's release runtime and links the core against it at -O2.
 cargo build --locked -p meshc -p mesh-rt
-for target in "${targets[@]}"; do
-  cargo build --locked -p mesh-rt --lib --target "$target"
-done
-MESHC="$CARGO_TARGET_DIR/debug/meshc" bash "$script_dir/build-mobile-native.sh" "$EAS_BUILD_PLATFORM"
+MESHC="$CARGO_TARGET_DIR/debug/meshc" bash "$script_dir/build-mobile-native.sh" --release "$EAS_BUILD_PLATFORM"

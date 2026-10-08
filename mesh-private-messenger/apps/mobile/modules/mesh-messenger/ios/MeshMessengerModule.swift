@@ -16,6 +16,9 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
     Events("onPushRegistrationChanged")
 
     OnCreate {
+      #if !DEBUG
+      mesh_rt_disable_core_dumps()
+      #endif
       NotificationCenterManager.shared.addDelegate(self)
       MeshMessengerDataProtection.excludeAppDataFromBackup()
       MeshMessengerDataProtection.startCoveringInactiveWindow()
@@ -61,6 +64,32 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.journal_load_export(request)
       case "mesh_messenger_journal_save":
         return try MeshLibrary.journal_save_export(request)
+      case "mesh_messenger_backup_begin":
+        return try MeshLibrary.backup_begin_export(request)
+      case "mesh_messenger_backup_confirm":
+        return try MeshLibrary.backup_confirm_export(request)
+      case "mesh_messenger_backup_status":
+        return try MeshLibrary.backup_status_export(request)
+      case "mesh_messenger_backup_prepare":
+        return try MeshLibrary.backup_prepare_export(request)
+      case "mesh_messenger_backup_part":
+        return try MeshLibrary.backup_part_export(request)
+      case "mesh_messenger_backup_finish":
+        return try MeshLibrary.backup_finish_export(request)
+      case "mesh_messenger_backup_disable":
+        return try MeshLibrary.backup_disable_export(request)
+      case "mesh_messenger_backup_restore_slots":
+        return try MeshLibrary.backup_restore_slots_export(request)
+      case "mesh_messenger_backup_restore_begin":
+        return try MeshLibrary.backup_restore_begin_export(request)
+      case "mesh_messenger_backup_restore_chunk":
+        return try MeshLibrary.backup_restore_chunk_export(request)
+      case "mesh_messenger_backup_restore_finish":
+        return try MeshLibrary.backup_restore_finish_export(request)
+      case "mesh_messenger_backup_restore_identity":
+        return try MeshLibrary.backup_restore_identity_export(request)
+      case "mesh_messenger_backup_restore_account":
+        return try MeshLibrary.backup_restore_account_export(request)
       case "mesh_messenger_presentation_load":
         return try MeshLibrary.presentation_load_export(request)
       case "mesh_messenger_presentation_save":
@@ -157,8 +186,52 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.renew_devices_export(request)
       case "mesh_messenger_resolve_request":
         return try MeshLibrary.resolve_request_export(request)
+      case "mesh_messenger_oblivious_encapsulate":
+        return try MeshLibrary.oblivious_encapsulate_export(request)
+      case "mesh_messenger_oblivious_decapsulate":
+        return try MeshLibrary.oblivious_decapsulate_export(request)
       case "mesh_messenger_verify_transparency":
         return try MeshLibrary.verify_transparency_export(request)
+      case "mesh_messenger_transparency_anchor_requests":
+        return try MeshLibrary.transparency_anchor_requests_export(request)
+      case "mesh_messenger_transparency_anchor_proof":
+        return try MeshLibrary.transparency_anchor_proof_export(request)
+      case "mesh_messenger_network_status":
+        return try MeshLibrary.network_status_export(request)
+      case "mesh_messenger_anchor_check":
+        return try MeshLibrary.anchor_check_export(request)
+      case "mesh_messenger_gossip_check":
+        return try MeshLibrary.gossip_check_export(request)
+      case "mesh_messenger_trust_alarm_details":
+        return try MeshLibrary.trust_alarm_details_export(request)
+      case "mesh_messenger_wallet_rpc_urls":
+        return try MeshLibrary.wallet_rpc_urls_export(request)
+      case "mesh_messenger_credits_status":
+        return try MeshLibrary.credits_status_export(request)
+      case "mesh_messenger_credits_refresh_keys":
+        return try MeshLibrary.credits_refresh_keys_export(request)
+      case "mesh_messenger_credits_quote":
+        return try MeshLibrary.credits_quote_export(request)
+      case "mesh_messenger_credits_issue":
+        return try MeshLibrary.credits_issue_export(request)
+      case "mesh_messenger_credits_postage":
+        return try MeshLibrary.credits_postage_export(request)
+      case "mesh_messenger_credits_postage_quote":
+        return try MeshLibrary.credits_postage_quote_export(request)
+      case "mesh_messenger_credits_retention":
+        return try MeshLibrary.credits_retention_export(request)
+      case "mesh_messenger_credits_signup":
+        return try MeshLibrary.credits_signup_export(request)
+      case "mesh_messenger_credits_register_at":
+        return try MeshLibrary.credits_register_at_export(request)
+      case "mesh_messenger_credits_spend":
+        return try MeshLibrary.credits_spend_export(request)
+      case "mesh_messenger_credits_settle":
+        return try MeshLibrary.credits_settle_export(request)
+      case "mesh_messenger_credits_inbox_policy":
+        return try MeshLibrary.credits_inbox_policy_export(request)
+      case "mesh_messenger_credits_group_handover":
+        return try MeshLibrary.credits_group_handover_export(request)
       case "mesh_messenger_privacy_submission":
         return try MeshLibrary.privacy_submission_export(request)
       case "mesh_messenger_mailbox_fetch":
@@ -179,6 +252,24 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
         return try MeshLibrary.attachment_seal_chunk_export(request)
       case "mesh_messenger_attachment_open_chunk":
         return try MeshLibrary.attachment_open_chunk_export(request)
+      case "mesh_messenger_expiry_purge":
+        return try MeshLibrary.expiry_purge_export(request)
+      case "mesh_messenger_group_timer":
+        return try MeshLibrary.group_timer_export(request)
+      case "mesh_messenger_group_timer_state":
+        return try MeshLibrary.group_timer_state_export(request)
+      case "mesh_messenger_send_view_once":
+        return try MeshLibrary.send_view_once_export(request)
+      case "mesh_messenger_group_send_view_once":
+        return try MeshLibrary.group_send_view_once_export(request)
+      case "mesh_messenger_open_view_once":
+        return try MeshLibrary.open_view_once_export(request)
+      case "mesh_messenger_group_open_view_once":
+        return try MeshLibrary.group_open_view_once_export(request)
+      case "mesh_messenger_safety_code":
+        return try MeshLibrary.safety_code_export(request)
+      case "mesh_messenger_safety_code_check":
+        return try MeshLibrary.safety_code_check_export(request)
       default:
         throw MeshLibraryFailure(
           status: MESH_LIBRARY_ERR_INVALID_ARGUMENT,

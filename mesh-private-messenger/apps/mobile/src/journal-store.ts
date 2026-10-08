@@ -6,7 +6,7 @@
 // one record per chat plus one naming the chats that have a record. Opening a chat
 // then rewrites that chat's few kilobytes and nothing else.
 
-export type JournalName = 'read-state' | 'notification-state' | 'receipt-marks' | 'community-requests';
+export type JournalName = 'read-state' | 'notification-state' | 'receipt-marks' | 'community-requests' | 'wallet';
 // Where a journal was kept before it was sealed: read once, removed once sealed.
 export type LegacyJournal = { read: () => string | null; remove: () => void };
 
@@ -75,5 +75,24 @@ export function createJournalStore(load: Load, save: Save) {
       return JSON.stringify(journal);
     },
     save: enqueue,
+  };
+}
+
+// The app's settings, one sealed record each (`settings/<name>`), like the app
+// lock's. They were kept in the clear beside the database before; that copy is
+// sealed the first time it is found and removed once it is.
+export type SettingName = 'read-receipts' | 'notification-preview' | 'appearance';
+
+export function createSettingStore(load: Load, save: Save) {
+  return {
+    // null if never set.
+    async load(name: SettingName, legacy?: LegacyJournal): Promise<string | null> {
+      const kept = await load(`settings/${name}`);
+      const clear = legacy?.read() ?? null;
+      if (!kept && clear !== null) await save(`settings/${name}`, clear);
+      if (clear !== null) legacy?.remove();
+      return kept || clear;
+    },
+    save: (name: SettingName, value: string): Promise<void> => save(`settings/${name}`, value),
   };
 }

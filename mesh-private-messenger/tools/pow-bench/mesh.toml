@@ -1,0 +1,7 @@
+[package]
+name = "pow-bench"
+version = "0.1.0"
+description = "Measures proof-of-work mining cost with the mint functions devices use"
+
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }

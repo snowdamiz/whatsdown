@@ -2,6 +2,7 @@ import File
 from MobileCore import initialize, persist_envelope, validate_outer
 from Protocol.EnvelopeWire import encode_outer_envelope
 from Protocol.V1 import OuterEnvelope
+from Storage.Blobs import load_blob
 from Tests.Support import append, database_path, repeated, vector
 
 fn outer(ciphertext :: Bytes, padding_bucket :: Int) -> Bytes!String do
@@ -30,6 +31,7 @@ fn store_request(database_path :: String, envelope :: Bytes) -> Bytes!String do
 end
 
 fn proof() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
   let path = database_path("api")?
   assert(Bytes.secure_equals(initialize(Bytes.from_utf8(path))?,
     Bytes.from_utf8("mesh-messenger-mobile-v1")))
@@ -61,7 +63,7 @@ fn proof() -> Bool!String do
   assert(List.length(rows) == 1)
   let row = List.head(rows)
   case Map.get(row, "ciphertext") do
-    Binary(value) -> assert(Bytes.secure_equals(value, repeated(165, 16)?))
+    Binary(value) -> assert(Bytes.length(value) == 32)
     Text(_) -> assert(false)
     Null -> assert(false)
   end
@@ -71,6 +73,8 @@ fn proof() -> Bool!String do
     Null -> assert(false)
   end
   Sqlite.close(database)
+  # Kept under the record key's keyed row, as a label would be.
+  assert(Bytes.secure_equals(load_blob(path, "record-key")?, repeated(165, 16)?))
   File.delete(path)?
   Ok(true)
 end

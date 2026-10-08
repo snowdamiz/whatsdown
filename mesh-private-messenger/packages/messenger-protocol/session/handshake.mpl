@@ -32,6 +32,9 @@ pub type SessionError do
   PrekeyFailure(error :: PrekeyError)
   ProtocolFailure(error :: ProtocolError)
   InvalidHandshake
+  # The suite both sides share is below the security config's minimum for new
+  # sessions: the peer has not moved to the hybrid suite yet.
+  SuiteBelowFloor
 end
 
 impl From<CryptoError> for SessionError do
@@ -77,6 +80,38 @@ pub resource struct RatchetState do
   receive_generation :: Int
   pending_send_ratchet :: Bool
   snapshot_version :: U64
+  # What the peer said it supports (`Session.Header` feature bits), learned
+  # from its authenticated messages; it only grows.
+  peer_features :: Int
+  # Sends are ratchet message version 4, with encrypted headers.
+  header_encrypted :: Bool
+  # The header keys by role (`Session.Ratchet`), and the header key of each
+  # earlier receiving chain that still has skipped keys, under that chain's
+  # ratchet key. `header_key_owners` lists those chains, 32 bytes each.
+  header_keys :: SecretMap
+  header_key_owners :: Bytes
+  # The sparse post-quantum ratchet (`Session.PqRatchet`): the epoch, this
+  # side's phase in it, where the next unit to send starts, the epoch the
+  # current sending chain mixed (0 for none), the key or ciphertext this side
+  # sends, and the one it is collecting with a byte a unit saying which arrived.
+  pq_epoch :: Int
+  pq_phase :: Int
+  pq_cursor :: Int
+  pq_send_mix :: Int
+  pq_own :: Bytes
+  pq_peer :: Bytes
+  pq_have :: Bytes
+  # The epoch owner's key seed until the ciphertext arrives, and the shared
+  # secret waiting to be mixed into the root.
+  pq_secrets :: SecretMap
+end
+
+fn header_key_store() -> SecretMap!SessionError do
+  Ok(SecretMap.new(16)?)
+end
+
+fn pq_secret_store() -> SecretMap!SessionError do
+  Ok(SecretMap.new(2)?)
 end
 
 fn initial_snapshot_version() -> U64!SessionError do
@@ -129,6 +164,21 @@ fn selected_suite(credential :: DeviceCredential,
     strongest_authenticated_suite) do
     Err(error) -> Err(ProtocolFailure(error))
     Ok(value)
+  end
+end
+
+# A new session never starts below the floor. Sessions that already exist are
+# not handshakes and keep working until renewal moves the device to suite 2.
+
+fn floored_suite(credential :: DeviceCredential,
+  bundle :: PrekeyBundle,
+  strongest_authenticated_suite :: Int,
+  minimum_suite :: Int) -> Int!SessionError do
+  let suite = selected_suite(credential, bundle, strongest_authenticated_suite)?
+  if suite < minimum_suite do
+    Err(SuiteBelowFloor)
+  else
+    Ok(suite)
   end
 end
 
@@ -221,7 +271,31 @@ pub fn initiate(initiator :: borrow DeviceKeys,
   responder_policy :: VerificationPolicy,
   strongest_authenticated_suite :: Int,
   plaintext :: Bytes) -> Result<(RatchetState, InitialMessage), SessionError> do
-  let suite = selected_suite(initiator_credential, responder_bundle, strongest_authenticated_suite)?
+  initiate_at_floor(initiator,
+    initiator_credential,
+    responder_account,
+    responder_bundle,
+    responder_policy,
+    strongest_authenticated_suite,
+    1,
+    plaintext)
+end
+
+## `initiate` refusing to start a session below `minimum_suite` (the security
+## config's floor): `SuiteBelowFloor` before any key agreement.
+
+pub fn initiate_at_floor(initiator :: borrow DeviceKeys,
+  initiator_credential :: DeviceCredential,
+  responder_account :: AccountIdentity,
+  responder_bundle :: PrekeyBundle,
+  responder_policy :: VerificationPolicy,
+  strongest_authenticated_suite :: Int,
+  minimum_suite :: Int,
+  plaintext :: Bytes) -> Result<(RatchetState, InitialMessage), SessionError> do
+  let suite = floored_suite(initiator_credential,
+    responder_bundle,
+    strongest_authenticated_suite,
+    minimum_suite)?
   let credential_length = Bytes.length(encoded_credential(initiator_credential)?)
   let post_quantum_length = if suite == 2 do
     1088
@@ -291,7 +365,19 @@ pub fn initiate(initiator :: borrow DeviceKeys,
           skipped_index: Bytes.empty(),
           receive_generation: 0,
           pending_send_ratchet: true,
-          snapshot_version: initial_snapshot_version()?
+          snapshot_version: initial_snapshot_version()?,
+          peer_features: 0,
+          header_encrypted: false,
+          header_keys: header_key_store()?,
+          header_key_owners: Bytes.empty(),
+          pq_epoch: 0,
+          pq_phase: 0,
+          pq_cursor: 0,
+          pq_send_mix: 0,
+          pq_own: Bytes.empty(),
+          pq_peer: Bytes.empty(),
+          pq_have: Bytes.empty(),
+          pq_secrets: pq_secret_store()?
         },
         InitialMessage {
           version: 1,
@@ -324,12 +410,43 @@ pub fn receive_initial(responder :: borrow DeviceKeys,
   initiator_policy :: VerificationPolicy,
   strongest_authenticated_suite :: Int,
   message_bytes :: Bytes) -> Result<(RatchetState, Bytes), SessionError> do
+  receive_initial_at_floor(responder,
+    responder_account,
+    responder_bundle,
+    signed_prekey,
+    one_time_prekey,
+    post_quantum_prekey,
+    initiator_account,
+    responder_policy,
+    initiator_policy,
+    strongest_authenticated_suite,
+    1,
+    message_bytes)
+end
+
+## `receive_initial` refusing a first message below `minimum_suite`.
+
+pub fn receive_initial_at_floor(responder :: borrow DeviceKeys,
+  responder_account :: AccountIdentity,
+  responder_bundle :: PrekeyBundle,
+  signed_prekey :: borrow SignedPrekeySecrets,
+  one_time_prekey :: consume OneTimePrekeySecrets,
+  post_quantum_prekey :: borrow PostQuantumPrekeySecrets,
+  initiator_account :: AccountIdentity,
+  responder_policy :: VerificationPolicy,
+  initiator_policy :: VerificationPolicy,
+  strongest_authenticated_suite :: Int,
+  minimum_suite :: Int,
+  message_bytes :: Bytes) -> Result<(RatchetState, Bytes), SessionError> do
   let message = case decode_initial_message(message_bytes) do
     Err(_) -> Err(InvalidHandshake)
     Ok(value)
   end?
   let credential = decoded_credential(message.initiator_credential)?
-  let suite = selected_suite(credential, responder_bundle, strongest_authenticated_suite)?
+  let suite = floored_suite(credential,
+    responder_bundle,
+    strongest_authenticated_suite,
+    minimum_suite)?
   let wrong_version = message.version != 1 || message.suite != suite
   let wrong_ids = U64.compare(message.signed_prekey_id, signed_prekey.id) != 0
     || U64.compare(message.one_time_prekey_id, one_time_prekey.id) != 0
@@ -421,7 +538,19 @@ pub fn receive_initial(responder :: borrow DeviceKeys,
       skipped_index: Bytes.empty(),
       receive_generation: 0,
       pending_send_ratchet: false,
-      snapshot_version: initial_snapshot_version()?
+      snapshot_version: initial_snapshot_version()?,
+      peer_features: 0,
+      header_encrypted: false,
+      header_keys: header_key_store()?,
+      header_key_owners: Bytes.empty(),
+      pq_epoch: 0,
+      pq_phase: 0,
+      pq_cursor: 0,
+      pq_send_mix: 0,
+      pq_own: Bytes.empty(),
+      pq_peer: Bytes.empty(),
+      pq_have: Bytes.empty(),
+      pq_secrets: pq_secret_store()?
     },
     plaintext))
 end

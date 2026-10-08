@@ -24,10 +24,15 @@ pub type GroupError do
   TreeFailure(error :: GroupTreeError)
 end
 
+# set_id names the pinned witness set the policy was made under and
+# witness_threshold is its k. An empty set_id is the version 1 policy: 2 of 2
+# under the set that version 1 security configs pin (witness-a, witness-b).
+
 pub struct GroupTransparencyPolicy do
   minimum_directory_sequence :: U64
   checkpoint_hash :: Bytes
   witness_threshold :: Int
+  set_id :: Bytes
 end
 
 pub type GroupProposal do
@@ -51,6 +56,9 @@ pub struct TreeKemUpdatePath do
   nodes :: List<TreeKemUpdateNode>
 end
 
+# witness_set is empty, or set_id32 || u8 k: the committer moves the group's
+# policy to the witness set its build pins.
+
 pub struct GroupCommit do
   version :: Int
   suite :: Int
@@ -64,6 +72,7 @@ pub struct GroupCommit do
   update_path :: TreeKemUpdatePath
   confirmation :: Bytes
   signature :: Signature
+  witness_set :: Bytes
 end
 
 pub struct GroupWelcome do
@@ -176,6 +185,11 @@ pub struct GroupReadInts do
   value :: List<Int>
 end
 
+pub struct GroupReadPolicy do
+  state :: BinaryReader
+  value :: GroupTransparencyPolicy
+end
+
 pub struct GroupReadProposal do
   state :: BinaryReader
   value :: GroupProposal
@@ -277,6 +291,7 @@ pub resource struct PreparedGroupRemove do
   key_material :: TreeKemKeyMaterial
   commit :: GroupCommit
   transcript_hash :: Bytes
+  policy :: GroupTransparencyPolicy
 end
 
 pub resource struct GeneratedTreeKemPath do
@@ -308,6 +323,7 @@ end
 pub struct PreparedAppliedCommit do
   tree :: GroupTree
   context :: Bytes
+  policy :: GroupTransparencyPolicy
 end
 
 pub resource struct PreparedJoin do

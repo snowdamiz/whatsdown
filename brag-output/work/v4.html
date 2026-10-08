@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Morse brag v4</title>
+<style>
+@font-face{font-family:"Geist";font-weight:400;src:url(fonts/Geist_400Regular.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:500;src:url(fonts/Geist_500Medium.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:600;src:url(fonts/Geist_600SemiBold.ttf) format("truetype")}
+:root{--paper:#F6F2EA;--ink:#0B0B0F;--ink-2:#4A4A55;--ink-3:#6B6B77;--blue:#2459D0;--blue-2:#2F6BEA;--blue-3:#6AA6FF;--sky:#D5E2FF;--butter:#FFE8AD;--red:#D8323A;--green:#178A4E;--lift:0 40px 70px -34px rgba(11,11,15,.38)}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#F6F2EA}
+body{font:400 17px/1.5 "Geist",system-ui,sans-serif;color:#0B0B0F;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,p{margin:0}
+svg{display:block}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:radial-gradient(120% 100% at 50% 40%,#FBF8F2 0%,#F6F2EA 60%,#EFE9DD 100%)}
+.layer{position:absolute;inset:0}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.glow{position:absolute;border-radius:50%;pointer-events:none}
+#gA{width:1500px;height:1500px;background:radial-gradient(closest-side,rgba(106,166,255,.30),rgba(106,166,255,0))}
+#gB{width:1300px;height:1300px;background:radial-gradient(closest-side,rgba(255,221,140,.45),rgba(255,221,140,0))}
+#gR{width:1400px;height:1400px;left:1000px;top:0;background:radial-gradient(closest-side,rgba(255,150,140,.35),rgba(255,150,140,0));opacity:0}
+#flood{background:radial-gradient(90% 90% at 50% 45%,#3474F0 0%,#2459D0 55%,#1A43A6 100%)}
+canvas{position:absolute;left:0;top:0}
+#grain{width:1920px;height:1080px;opacity:.05;mix-blend-mode:soft-light}
+#vign{background:radial-gradient(ellipse 80% 75% at 50% 50%,rgba(120,95,60,0) 60%,rgba(120,95,60,.10) 100%);pointer-events:none}
+#flash{opacity:0}
+#ring{position:absolute;border-radius:50%;box-shadow:inset 0 0 0 6px var(--blue-2);opacity:0}
+#blueCard{position:absolute;left:24px;top:24px;right:24px;bottom:24px;border-radius:48px;overflow:hidden;background:var(--blue);clip-path:circle(0px at 50% 50%)}
+.shape{position:absolute;border-radius:999px;background:var(--blue-2)}
+
+.big{font-weight:600;letter-spacing:-.05em;line-height:1}
+.wd{display:inline-block;opacity:0}
+.acc{color:var(--blue)}
+
+/* lockup: the mark in the logo's own proportions (gap = .36 of the dot, dash = 3 dots) */
+.lock{display:flex;align-items:center;gap:56px}
+.mk{position:relative;flex:none}
+.mk i{position:absolute;left:0;background:var(--blue-2);border-radius:999px}
+#s6Mk i{background:#fff}
+#s2Mk{width:216px;height:170px}#s2Mk .d1{top:0;width:72px;height:72px}#s2Mk .d2{top:98px;width:216px;height:72px}
+#s6Mk{width:190px;height:150px}#s6Mk .d1{top:0;width:64px;height:64px}#s6Mk .d2{top:86px;width:190px;height:64px}
+.wm{font-weight:600;letter-spacing:-.055em;line-height:1;white-space:nowrap}
+.wm span{display:inline-block;opacity:0}
+.tagl{margin-top:54px;font-weight:500;font-size:58px;letter-spacing:-.03em;color:var(--ink-2);opacity:0}
+#s6Tag{color:rgba(255,255,255,.94)}
+#s6W{color:#fff}
+
+/* scene 3 */
+.p3{position:absolute;inset:0;perspective:1600px}
+.to{position:absolute;left:460px;top:450px;width:1000px;height:156px;border-radius:48px;display:flex;align-items:center;gap:30px;padding:0 54px;
+  background:#fff;color:var(--ink);font-size:84px;font-weight:600;letter-spacing:-.04em}
+.to em{font-style:normal;font-weight:500;color:#9A9AA6}
+.to i{display:inline-block;width:6px;height:92px;border-radius:3px;background:var(--blue-2);margin-left:-18px}
+#butter{position:absolute;left:240px;top:370px;width:1440px;height:536px;border-radius:64px;background:var(--butter)}
+.pills{position:absolute;left:0;right:0;top:716px;display:flex;justify-content:center;gap:24px}
+.pill{position:relative;padding:20px 38px 22px;border-radius:999px;font-size:46px;font-weight:500;letter-spacing:-.02em;background:#fff;color:var(--ink);box-shadow:0 16px 30px -18px rgba(11,11,15,.35);opacity:0}
+.pill i{position:absolute;left:26px;right:26px;top:50%;height:5px;margin-top:-2px;border-radius:3px;background:var(--ink);transform-origin:0 50%;transform:scaleX(0)}
+
+/* scene 4: the phone, from apps/landing/index.html, in its dark theme */
+.lab{position:relative;height:130px;font-size:120px;color:#fff}
+#labB{color:#fff}
+.lab>div{position:absolute;left:0;top:0;white-space:nowrap}
+.cap{margin-top:60px;font-size:44px;line-height:1.35;letter-spacing:-.02em;color:rgba(255,255,255,.88);opacity:0;width:760px;text-wrap:balance}
+#rig{position:absolute;left:1206px;top:137px;width:388px;height:805px;transform-style:preserve-3d}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.face.back{transform:rotateY(180deg)}
+.face .phone{zoom:1.22}
+.phone{position:relative;width:318px;padding:8px;border:2px solid transparent;border-radius:54px;
+  background:linear-gradient(#0E0E12,#0E0E12) padding-box,linear-gradient(150deg,#B4B4C0,#3A3A44 14%,#18181D 40%,#18181D 62%,#3A3A44 86%,#9A9AA6) border-box;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 70px 110px -44px rgba(8,10,40,.7),0 24px 50px -24px rgba(8,10,40,.5)}
+.phone::before{content:"";position:absolute;z-index:3;top:19px;left:50%;width:88px;height:26px;margin-left:-44px;border-radius:999px;background:#0E0E12}
+.screen{position:relative;display:flex;flex-direction:column;height:640px;border-radius:44px;overflow:hidden;background:#fff;color:#0A0A0C;font-size:14.5px;line-height:1.36;letter-spacing:-.006em}
+.screen::after{content:"";position:absolute;left:50%;bottom:7px;width:112px;height:4px;margin-left:-56px;border-radius:9px;background:currentColor;opacity:.2}
+.glare{position:absolute;inset:0;z-index:4;pointer-events:none;background:linear-gradient(112deg,rgba(255,255,255,0) 38%,rgba(255,255,255,.14) 47%,rgba(255,255,255,.03) 52%,rgba(255,255,255,0) 60%) 0 0/320% 100% no-repeat}
+.face:first-child .glare{background-image:linear-gradient(112deg,rgba(120,150,220,0) 38%,rgba(120,150,220,.10) 47%,rgba(120,150,220,.02) 52%,rgba(120,150,220,0) 60%)}
+.back .screen{background:#0A0A0C;color:#F2F2F4}
+.status{display:flex;align-items:center;justify-content:space-between;flex:none;height:50px;padding:6px 30px 0;font-weight:600;font-size:13.5px}
+.status>span+span{display:flex;align-items:center;gap:5px}
+.status .ic{width:17px;height:12px;fill:currentColor;stroke:none}
+.bat{position:relative;width:24px;height:11.5px;border-radius:3.5px;box-shadow:inset 0 0 0 1.2px currentColor;opacity:.85}
+.bat::after{content:"";position:absolute;inset:2.4px 6px 2.4px 2.4px;border-radius:1.5px;background:currentColor}
+.chead{position:relative;display:flex;align-items:center;gap:10px;flex:none;padding:6px 14px 10px;min-height:50px}
+.chead>.ic{width:22px;height:22px}
+.chead b{font-weight:600;font-size:15.5px;letter-spacing:-.02em;line-height:1.2}
+.chead small{display:block;font-size:11.5px;color:#8E8E98}
+.chead .end{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;box-shadow:0 1px 5px rgba(10,10,12,.14)}
+.chead .end .ic{width:17px;height:17px}
+.srv{display:flex;align-items:center;gap:10px}
+.srv>i{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:11px;box-shadow:inset 0 0 0 1px #27272F;color:#9C9CA6}
+.srv>i .ic{width:18px;height:18px;stroke-width:1.7}
+.ava{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:12px}
+.t0{--a:#5B9DFF;--b:#3462FF}.t1{--a:#B57BFF;--b:#7B4DFF}.t2{--a:#FF7DBA;--b:#F0468C}.t3{--a:#FFB35C;--b:#FF7A3D}.t4{--a:#5EE39B;--b:#22AD6C}
+.thread{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:0;padding:8px 12px 12px}
+.day{align-self:center;margin-bottom:5px;padding:4px 11px;border-radius:999px;background:#F2F2F5;font-size:11px;color:#63636D}
+.b{position:relative;max-width:82%;padding:8px 13px 6px;border-radius:20px}
+.b.in{align-self:flex-start;background:#E9E9EE;border-bottom-left-radius:6px}
+.b.out{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:6px}
+.b small{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:1px;font-size:10.5px;opacity:.6}
+.b small .ic{width:13px;height:13px}
+.b.file .doc{display:flex;align-items:center;gap:10px;padding:2px 2px 3px 0}
+.b.file .doc i{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:rgba(0,0,0,.16)}
+.b.file .doc .ic{width:18px;height:18px}
+.b.file b{display:block;font-weight:500;font-size:13.5px}
+.doc>span>span{display:block;font-size:11.5px;opacity:.75}
+.composer{display:flex;align-items:center;gap:9px;flex:none;height:44px;margin:0 12px 22px;padding:0 6px 0 13px;border-radius:999px;font-size:13.5px;box-shadow:inset 0 0 0 1px #DFDFE6,0 2px 8px rgba(10,10,12,.05);color:#8E8E98}
+.composer .ic{width:18px;height:18px}
+.composer i{display:grid;place-items:center;width:32px;height:32px;margin-left:auto;border-radius:50%;background:#A9C1F3;color:#fff}
+.react{position:absolute;left:12px;bottom:-13px;display:flex;align-items:center;height:24px;padding:0 8px;border-radius:999px;background:#fff;box-shadow:0 1px 5px rgba(10,10,12,.18);font-size:12px}
+.b.reacted{margin-bottom:12px}
+.seal{position:relative;display:block}
+.seal>i{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;gap:14.7px 9px;padding-top:7.4px;overflow:hidden;color:rgba(10,10,12,.42)}
+.seal>span{mask:linear-gradient(90deg,#000 45%,transparent 55%) 100% 0/300% 100% no-repeat}
+.seal>i{mask:linear-gradient(90deg,transparent 45%,#000 55%) 100% 0/300% 100% no-repeat}
+.mc{--u:5px;display:inline-flex;align-items:center;gap:calc(var(--u)*.8);flex:none}
+.mc i{flex:none;width:var(--u);height:var(--u);border-radius:999px;background:currentColor}
+.mc i.D{width:calc(var(--u)*3)}
+.mc i.g{width:calc(var(--u)*1.2);background:none}
+.strip{position:relative;height:38px;border-radius:10px;background:#171A24;overflow:hidden}
+.strip.tall{height:66px}
+.strip>span{position:absolute;left:0;top:0;bottom:0;display:flex;align-items:center;gap:14px;padding:0 14px;color:rgba(160,190,255,.5);white-space:nowrap}
+.scan{position:absolute;z-index:3;left:0;right:0;top:-90px;height:90px;opacity:0;background:linear-gradient(rgba(106,166,255,0),rgba(106,166,255,.12) 70%,rgba(106,166,255,.95) 97%,rgba(106,166,255,0))}
+
+/* scene 5 */
+.soon{display:inline-flex;align-self:flex-start;align-items:center;gap:12px;padding:11px 24px 11px 18px;border-radius:999px;background:#fff;box-shadow:0 10px 24px -14px rgba(11,11,15,.3);font-weight:500;font-size:28px;color:var(--ink-2);opacity:0}
+.soon i{width:12px;height:12px;border-radius:50%;background:var(--blue-2)}
+#sky{position:absolute;left:1010px;top:110px;width:810px;height:860px;border-radius:64px;background:var(--sky)}
+#s5Col{position:absolute;left:1010px;top:110px;width:810px;height:860px;display:flex;flex-direction:column;align-items:center;justify-content:center;transform-style:preserve-3d}
+.slip3{position:relative;transform-style:preserve-3d}
+.sheet{border-radius:28px;background:#fff;color:#0A0A0C}
+.slip{zoom:1.45;width:380px;padding:20px 20px 22px;box-shadow:0 34px 56px -30px rgba(11,11,15,.4)}
+.slip header{display:flex;align-items:center;gap:12px}
+.slip header b{display:block;font-weight:600;font-size:16px;letter-spacing:-.02em;line-height:1.25}
+.slip header small{display:block;font-size:13px;color:#63636D}
+.vt{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:var(--blue-2);color:#fff}
+.vt .ic{width:19px;height:19px}
+.fp{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:16px;padding:12px 8px;border-radius:14px;background:#F2F2F5;text-align:center;font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.fp span{padding:3px 0;border-radius:7px}
+.sig{display:flex;align-items:center;margin-top:14px;font-size:13.5px;color:#63636D}
+.sig .ava{width:26px;height:26px;font-size:10px;box-shadow:0 0 0 2px #fff}
+.sig .ava+.ava{margin-left:5px}
+.sig .off{background:#E4E4EA;color:#9C9CA6}
+.sig .by{margin-left:10px}
+#cLine{position:absolute;inset:0;width:1920px;height:1080px;overflow:visible}
+.verdict{position:absolute;display:flex;align-items:center;gap:14px;padding:20px 36px 20px 26px;border-radius:999px;background:var(--red);color:#fff;font-weight:500;font-size:30px;white-space:nowrap;box-shadow:0 22px 40px -18px rgba(216,50,58,.7);opacity:0}
+.verdict .ic{width:32px;height:32px}
+.tx{position:absolute;font-size:24px;color:#3B4A73;opacity:0;white-space:nowrap}
+
+/* scene 6 */
+.cta{display:flex;align-items:center;gap:40px;margin-top:70px;opacity:0}
+.btnw{display:inline-flex;align-items:center;height:92px;padding:0 50px;border-radius:999px;background:#0B0B0F;color:#fff;font-weight:600;font-size:36px;letter-spacing:-.02em;box-shadow:0 24px 50px -20px rgba(6,12,40,.7)}
+.url{font-weight:500;font-size:40px;letter-spacing:-.02em;color:rgba(255,255,255,.92)}
+.soon6{display:inline-flex;align-items:center;gap:12px;margin-bottom:48px;padding:11px 24px 11px 18px;border-radius:999px;background:rgba(255,255,255,.14);font-weight:500;font-size:28px;color:rgba(255,255,255,.92);opacity:0}
+.soon6 i{width:12px;height:12px;border-radius:50%;background:var(--butter)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="248 304 528 416"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></symbol>
+  <symbol id="i-signal" viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="4.6" y="5.5" width="3" height="6.5" rx=".8"/><rect x="9.2" y="3" width="3" height="9" rx=".8"/><rect x="13.8" y="0" width="3" height="12" rx=".8"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 17 12"><path d="M8.5 2.6c2.3 0 4.4.9 6 2.4l1.1-1.2A10.3 10.3 0 0 0 8.5.9C5.7.9 3.2 2 1.4 3.8l1.1 1.2a8.6 8.6 0 0 1 6-2.4Zm0 3.5c1.4 0 2.7.5 3.7 1.4l1.1-1.2a7.1 7.1 0 0 0-9.6 0l1.1 1.2c1-.9 2.3-1.4 3.7-1.4Zm0 3.4c.6 0 1.2.2 1.6.6L8.5 11.8 6.9 10.1c.4-.4 1-.6 1.6-.6Z"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+  <symbol id="i-get" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8h.01"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m20 11.5-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></symbol>
+  <symbol id="i-checks" viewBox="0 0 24 24"><path d="m2 12.5 4.5 4.5 9-9.5M12 16l1 1 9-9.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5ZM14 3v5h5"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.3 1.4M9.5 3h5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.5 2.8v5.7c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.8L12 3Z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.6"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="7.5" r="3.5"/><path d="M20.5 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.2a3.5 3.5 0 0 1 0 6.6"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 15.5a2 2 0 0 1-2 2H9l-5 3.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9.5Z"/></symbol>
+  <symbol id="i-compose" viewBox="0 0 24 24"><path d="M12 5H6.5A2.5 2.5 0 0 0 4 7.5v10A2.5 2.5 0 0 0 6.5 20h10a2.5 2.5 0 0 0 2.5-2.5V12"/><path d="M17.6 3.9a2 2 0 0 1 2.8 2.8L12 15l-3.8 1 1-3.8 8.4-8.3Z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><path d="m12 3 2.4 1.7 2.9-.1.9 2.8 2.3 1.8-.9 2.8.9 2.8-2.3 1.8-.9 2.8-2.9-.1L12 21l-2.4-1.7-2.9.1-.9-2.8-2.3-1.8.9-2.8-.9-2.8 2.3-1.8.9-2.8 2.9.1L12 3Z"/><path d="m8.8 12.2 2.2 2.2 4.2-4.4"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M18 7V5.5A1.5 1.5 0 0 0 16.5 4h-11A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V9a2 2 0 0 0-2-2H5.5"/><path d="M16 13.5h.01"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9 12h6M12 9v6"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 21c3.9 0 6.5-2.6 6.5-6.3 0-3.9-3-6.6-4.6-9.7-.6 2.4-2 3.9-3.4 4.6-.7-1.6-1.1-3.2-.9-5.6-2.8 2.4-4.1 5.9-4.1 10.7C5.5 18.4 8.1 21 12 21Z"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></symbol>
+</svg>
+<div id="stage">
+  <div class="glow" id="gA"></div><div class="glow" id="gB"></div><div class="glow" id="gR"></div>
+  <div id="blueCard"><i class="shape" id="bDot"></i><i class="shape" id="bDash"></i></div>
+  <div class="layer" id="flood"></div>
+  <canvas id="fx" width="1920" height="1080"></canvas>
+
+  <!-- 1 · hook -->
+  <div class="layer center" id="s1">
+    <div id="s1T" class="big" style="font-size:176px;text-align:center">
+      <div><span class="wd">We</span> <span class="wd">can’t</span> <span class="wd">read</span></div>
+      <div class="acc" style="margin-top:6px"><span class="wd">a</span> <span class="wd">word</span> <span class="wd">of</span> <span class="wd">it.</span></div>
+    </div>
+  </div>
+
+  <!-- 2 · reveal -->
+  <div class="layer center" id="s2">
+    <div id="s2C" class="center">
+      <div class="lock"><div class="mk" id="s2Mk"><i class="d1"></i><i class="d2"></i></div><div class="wm" id="s2W" style="font-size:216px"><span>M</span><span>o</span><span>r</span><span>s</span><span>e</span></div></div>
+      <p class="tagl" id="s2Tag">Private messaging, kept honest.</p>
+    </div>
+  </div>
+
+  <!-- 3 · just a username -->
+  <div class="layer" id="s3">
+    <div id="s3C" class="layer">
+      <div id="butter"></div>
+      <h2 class="big" id="s3H" style="position:absolute;left:0;right:0;top:170px;text-align:center;font-size:150px"><span class="wd">Just</span> <span class="wd">a</span> <span class="wd acc">username.</span></h2>
+      <div class="p3"><div class="to" id="s3Card"><em>To</em><span id="s3Typed"></span><i id="s3Caret"></i></div></div>
+      <div class="pills" id="s3P"><span class="pill">Phone number<i></i></span><span class="pill">Email<i></i></span><span class="pill">Address book<i></i></span><span class="pill">Wallet<i></i></span></div>
+    </div>
+  </div>
+
+  <!-- 4 · your phone / our servers -->
+  <div class="layer" id="s4">
+    <div id="s4L" style="position:absolute;left:150px;top:0;height:1080px;width:960px;display:flex;flex-direction:column;justify-content:center">
+      <div class="lab big">
+        <div id="labA"><span class="wd">On</span> <span class="wd">your</span> <span class="wd">phone</span></div>
+        <div id="labB" class="acc"><span class="wd">On</span> <span class="wd">our</span> <span class="wd">servers</span></div>
+      </div>
+      <p class="cap" id="s4Cap">No names, no words, just sealed envelopes.</p>
+    </div>
+    <div class="p3" style="perspective:2400px">
+      <div id="rig">
+        <div class="face">
+          <div class="phone">
+            <div class="screen">
+              <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+              <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t0">AD</span><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+              <div class="thread" id="fThread">
+                <p class="day">Today</p>
+                <p class="b in"><span class="seal"><span>Did the scans arrive?</span><i data-seal="8"></i></span><small>9:24 AM</small></p>
+                <p class="b out">All four. Sending the signed copy now.<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+                <div class="b out file"><span class="doc"><i><svg class="ic"><use href="#i-file"/></svg></i><span><b>lease-signed.pdf</b><span>2.4 MB</span></span></span><small>9:25 AM<svg class="ic"><use href="#i-checks"/></svg></small></div>
+                <p class="b in"><span class="seal"><span>Perfect, thank you. Dinner on Friday?</span><i data-seal="12"></i></span><small>9:31 AM</small></p>
+                <p class="b out reacted">Yes! I’ll book the place by the river.<small>9:32 AM<svg class="ic"><use href="#i-checks"/></svg></small><span class="react" id="react">❤️</span></p>
+                <p class="b in"><span class="seal"><span>See you at 7.</span><i data-seal="6"></i></span><small>9:33 AM</small></p>
+              </div>
+              <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+              <i class="glare" id="glF"></i>
+            </div>
+          </div>
+        </div>
+        <div class="face back">
+          <div class="phone">
+            <div class="screen">
+              <i class="scan" id="scan"></i>
+              <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+              <div class="chead"><div class="srv"><i><svg class="ic"><use href="#i-server"/></svg></i><div><b>Our delivery queue</b><small>6 sealed envelopes</small></div></div></div>
+              <div class="thread" style="padding-bottom:78px">
+                <div class="strip"><span data-seal="9"></span></div>
+                <div class="strip"><span data-seal="9"></span></div>
+                <div class="strip tall"><span data-seal="9"></span></div>
+                <div class="strip"><span data-seal="9"></span></div>
+                <div class="strip"><span data-seal="9"></span></div>
+                <div class="strip"><span data-seal="9"></span></div>
+              </div>
+              <i class="glare" id="glB"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 · make lying expensive -->
+  <div class="layer" id="s5">
+    <div id="s5L" style="position:absolute;left:150px;top:0;height:1080px;width:880px;display:flex;flex-direction:column;justify-content:center">
+      <p class="soon" id="s5Soon"><i></i>Launching in stages</p>
+      <h2 class="big" id="s5H" style="font-size:118px;margin-top:40px;line-height:1.02"><span class="wd">Don’t</span> <span class="wd">trust</span> <span class="wd">us.</span><br><span class="acc"><span class="wd">Make</span> <span class="wd">lying</span><br><span class="wd">expensive.</span></span></h2>
+    </div>
+    <div id="s5G" class="layer">
+      <div id="sky"></div>
+      <div class="p3" style="perspective:1800px">
+        <div id="s5Col">
+        <div class="slip3" id="sl1" style="align-self:flex-start;margin-left:62px">
+          <div class="sheet slip">
+            <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to your phone</small></div></header>
+            <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+            <p class="sig"><span class="ava t0">A</span><span class="ava t4">B</span><span class="ava t3 c">C</span><span class="ava off">D</span><span class="ava off">E</span><span class="by">A, B and C signed</span></p>
+          </div>
+        </div>
+        <div class="slip3" id="sl2" style="align-self:flex-end;margin-right:70px;margin-top:-20px">
+          <div class="sheet slip">
+            <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to someone else</small></div></header>
+            <p class="fp"><span>9f3a</span><span>c107</span><span id="diff">5d0e</span><span>64d1</span></p>
+            <p class="sig"><span class="ava off">A</span><span class="ava off">B</span><span class="ava t3 c">C</span><span class="ava t1">D</span><span class="ava t2">E</span><span class="by">C, D and E signed</span></p>
+          </div>
+        </div>
+        <p class="verdict" id="s5V" style="position:relative;margin-top:46px"><svg class="ic"><use href="#i-alert"/></svg>Witness C signed both. Bond slashed.</p>
+        <p class="tx" id="s5Tx" style="position:relative;margin-top:20px">Proof checked on Solana</p>
+        </div>
+      </div>
+      <svg id="cLine"><defs><filter id="gl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs>
+        <path id="cPathG" fill="none" stroke="#FF5A62" stroke-width="10" stroke-linecap="round" filter="url(#gl)" opacity=".35"/>
+        <path id="cPath" fill="none" stroke="#D8323A" stroke-width="4" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+
+  <!-- 6 · end card -->
+  <div class="layer center" id="s6">
+    <div id="s6C" class="center">
+      <p class="soon6" id="s6Soon"><i></i>In development</p>
+      <div class="lock" style="gap:50px"><div class="mk" id="s6Mk"><i class="d1"></i><i class="d2"></i></div><div class="wm" id="s6W" style="font-size:190px"><span>M</span><span>o</span><span>r</span><span>s</span><span>e</span></div></div>
+      <p class="tagl" id="s6Tag" style="margin-top:46px">Private messaging, kept honest.</p>
+      <div class="cta" id="s6Cta"><span class="btnw">Join the waitlist</span><span class="url">morseapp.io</span></div>
+    </div>
+  </div>
+
+  <div class="layer" id="flash"></div><i id="ring"></i>
+  <div class="layer" id="vign"></div>
+  <canvas id="grain" width="480" height="270"></canvas>
+</div>
+
+<script>
+// Every frame is a pure function of t: render(t) sets all animated state from scratch.
+const $ = s => document.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+// Beat grid of indie.mp3: 98 BPM, first strong beat at 0.93s. Cuts and accents land on G(k).
+const G = k => 0.318 + 0.6122 * k;
+const LOOP = 698 / 30; // 38 beats: the beat grid carries straight across the seam
+
+// ---- Sealed strips are seeded random Morse noise, as on the landing page
+const M = {A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--.."};
+let seed = 11;
+const rand = () => (seed = seed * 16807 % 2147483647) / 2147483647, letters = Object.keys(M);
+const group = () => Array.from({length: 2 + rand() * 3 | 0}, () => [...M[letters[rand() * 26 | 0]]].map(s => s === "-" ? '<i class="D"></i>' : "<i></i>").join("")).join('<i class="g"></i>');
+for (const el of $$("[data-seal]")) el.innerHTML = Array.from({length: +el.dataset.seal}, () => `<span class="mc">${group()}</span>`).join("");
+
+// ---- Easing
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, p) => a + (b - a) * p;
+function bez(x1, y1, x2, y2) {
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const X = s => ((ax * s + bx) * s + cx) * s, Y = s => ((ay * s + by) * s + cy) * s;
+  return t => { if (t <= 0) return 0; if (t >= 1) return 1; let lo = 0, hi = 1, s = t; for (let i = 0; i < 30; i++) { X(s) < t ? lo = s : hi = s; s = (lo + hi) / 2; } return Y(s); };
+}
+const BLOOM = bez(.45, 0, .2, 1); // circles that grow: a gentle start, so the motion blur stays smooth
+const EXPO = p => p >= 1 ? 1 : 1 - Math.pow(2, -10 * p);
+const IN = bez(.55, 0, .9, .45), INOUT = bez(.7, 0, .25, 1), SOFT = bez(.2, .7, .2, 1);
+const back = p => { const c = 1.7; p = clamp(p); return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
+const P = (t, a, d, e = SOFT) => e(clamp((t - a) / d));
+const smooth = (a, b, x) => { const p = clamp((x - a) / (b - a)); return p * p * (3 - 2 * p); };
+
+// ---- Moves
+function slam(el, t, a, d = .5) { // blur-in, a little bigger, settling fast: kinetic type on the beat
+  if (t < a) { el.style.opacity = 0; return; }
+  const p = clamp((t - a) / d), e = EXPO(p);
+  el.style.opacity = clamp(p * 2.4);
+  el.style.filter = e > .995 ? "none" : `blur(${(1 - e) * 20}px)`;
+  el.style.transform = `translateY(${(1 - e) * 36}px) scale(${lerp(1.28, 1, e)})`;
+}
+function blurOut(el, t, a, d = .35, dy = -40) {
+  if (t < a) return false;
+  const p = IN(clamp((t - a) / d));
+  el.style.opacity = 1 - p; el.style.filter = `blur(${p * 18}px)`; el.style.transform = `translateY(${p * dy}px) scale(${1 + p * .06})`;
+  return true;
+}
+function rise(el, t, a, d = .7, dy = 34) {
+  const p = P(t, a, d, EXPO);
+  el.style.opacity = t < a ? 0 : clamp((t - a) / d * 2.2); el.style.transform = `translateY(${(1 - p) * dy}px)`;
+  el.style.filter = p > .99 || t < a ? "none" : `blur(${(1 - p) * 10}px)`;
+}
+const show = (el, on) => { el.style.visibility = on ? "visible" : "hidden"; };
+
+// ---- Particles: Morse dots and dashes flying through depth
+const fx = $("#fx"), cx = fx.getContext("2d");
+let ps = 5; const R = () => (ps = ps * 16807 % 2147483647) / 2147483647;
+const NP = 1300, parts = Array.from({length: NP}, () => {
+  const a = R() * Math.PI * 2, r = .22 + Math.pow(R(), .7) * 1.9;
+  return {x: Math.cos(a) * r * 1.35, y: Math.sin(a) * r * .8, z0: R(), dash: R() < .38, s: [.5, .75, 1, 1.25][R() * 4 | 0], w: R(), k: R(), jx: R(), jy: R()};
+});
+function vel(t) {
+  let v = 0;
+  if (t >= .93) v += 1.5 * Math.exp(-(t - .93) / .55) + .11 * smooth(.93, 1.6, t) * (1 - smooth(3.9, 4.4, t));
+  if (t >= 10.113) v += 1.25 * Math.exp(-(t - 10.113) / .5);
+  return v;
+}
+const DT = .001, DN = 26000, Dtab = new Float32Array(DN + 1);
+for (let i = 1; i <= DN; i++) Dtab[i] = Dtab[i - 1] + vel(i * DT) * DT;
+{ const iL = Math.round(LOOP / DT), drift = (4 - Dtab[iL]) / LOOP; for (let i = 0; i <= DN; i++) Dtab[i] += drift * i * DT; } // a steady drift makes up the rest
+const Dist = t => Dtab[Math.min(DN, Math.max(0, Math.round(t / DT)))];
+let tg2 = null, tg6 = null; // converge targets: dots into the dot, dashes into the dash
+function targets(mk) {
+  const d = mk.querySelector(".d1").getBoundingClientRect(), s = mk.querySelector(".d2").getBoundingClientRect();
+  return {dot: {x: d.left + d.width / 2, y: d.top + d.height / 2, r: d.width / 2}, dash: {x: s.left, y: s.top + s.height / 2, w: s.width, r: s.height / 2}};
+}
+function tgt(p, T) {
+  if (!p.dash) { const a = p.jx * Math.PI * 2, r = Math.sqrt(p.jy) * T.dot.r * .8; return [T.dot.x + Math.cos(a) * r, T.dot.y + Math.sin(a) * r]; }
+  return [T.dash.x + T.dash.r * .6 + p.jx * (T.dash.w - T.dash.r * 1.2), T.dash.y + (p.jy - .5) * T.dash.r * 1.2];
+}
+function floodR(t) { // the end card's blue: blooms out of the dot on the last big beat, drains back into it before the loop
+  return (t < G(32) - .08 ? 0 : P(t, G(32) - .08, .8, BLOOM) * 2300) * (1 - IN(clamp((t - 22.62) / .48)));
+}
+function drawParticles(t) {
+  cx.clearRect(0, 0, 1920, 1080);
+  // global intensity by scene
+  let I = .3 + .7 * smooth(.85, 1.0, t);              // the loop seam: a quiet drifting field
+  I *= 1 - .75 * smooth(4.3, 4.8, t);                // after the first logo, a dim field
+  I += .85 * smooth(10.0, 10.15, t) * (1 - smooth(10.2, 11.6, t)); // the drop
+  I *= 1 - .3 * smooth(15.4, 15.8, t);
+  I = lerp(I, .3, smooth(22.6, 23.2, t));             // back to the seam level
+  const fr = floodR(t), fx0 = tg6.dot.x, fy0 = tg6.dot.y;
+  const D = Dist(t), F = 560;
+  const conv2 = t > 3.95 && t < 4.75, conv6 = t > 19.45 && t < 20.1;
+  for (const p of parts) {
+    const z = ((p.z0 - D * p.s) % 1 + 1) % 1, zz = .07 + z;
+    let X = 960 + p.x * F / zz, Y = 540 + p.y * F / zz, h = 4.2 / zz;
+    let a = I * smooth(1.07, .78, zz) * smooth(.07, .16, zz) * (.45 + .55 * p.k);
+    if (conv2 || conv6) {
+      const T = conv2 ? tg2 : tg6, st = conv2 ? 3.95 : 19.45;
+      const take = p.k < .55;                          // about half the field forms the mark
+      if (take) {
+        const k = INOUT(clamp((t - st - p.w * (conv2 ? .12 : .08)) / (conv2 ? .55 : .42)));
+        const [tx, ty] = tgt(p, T);
+        X = lerp(X, tx, k); Y = lerp(Y, ty, k); h = lerp(h, 10, k);
+        a = lerp(a, .95, Math.min(1, k * 1.5)) * (1 - smooth(.88, 1, k));
+        if (conv6) a = Math.max(a, 0) * 1;
+      } else a *= 1 - smooth(st, st + .3, t);
+      if (conv6 && t > 19.95) a = 0;
+    }
+    if (a < .01 || X < -80 || X > 2000 || Y < -80 || Y > 1160) continue;
+    const w = p.dash ? h * 3 : h;
+    const onBlue = (fr > 0 && (X - fx0) ** 2 + (Y - fy0) ** 2 < fr * fr) || (t > G(16) + .1 && t < G(25) - .05);
+    cx.globalAlpha = Math.min(1, a * (onBlue ? .5 : 1.25));
+    cx.fillStyle = onBlue ? "#FFFFFF" : (p.k > .82 ? "#0B0B0F" : p.k > .6 ? "#6AA6FF" : "#2F6BEA");
+    cx.beginPath(); cx.roundRect(X - w / 2, Y - h / 2, w, h, h / 2); cx.fill();
+  }
+  cx.globalAlpha = 1;
+}
+
+// ---- Film grain, one pattern per video frame
+const gr = $("#grain"), gx = gr.getContext("2d"), gimg = gx.createImageData(480, 270);
+function drawGrain(t) {
+  let s = (Math.round(t * 30) * 7919 + 13) % 2147483647 || 1;
+  for (let i = 0; i < gimg.data.length; i += 4) { s = s * 16807 % 2147483647; const v = s & 255; gimg.data[i] = gimg.data[i + 1] = gimg.data[i + 2] = v; gimg.data[i + 3] = 255; }
+  gx.putImageData(gimg, 0, 0);
+}
+
+// ---- Scene helpers
+const W1 = $$("#s1T .wd"), W3 = $$("#s3H .wd"), WA = $$("#labA .wd"), WB = $$("#labB .wd"), W5 = $$("#s5H .wd");
+const pills = $$("#s3P .pill"), fB = $$("#fThread .b"), strips = $$(".strip>span");
+const sig1 = $$("#sl1 .sig .ava"), sig2 = $$("#sl2 .sig .ava");
+
+function spell(root, t, a, step = .055) {
+  $$("span", root).forEach((s, n) => {
+    const p = P(t, a + n * step, .6, EXPO);
+    s.style.opacity = t < a + n * step ? 0 : clamp((t - a - n * step) / .25);
+    s.style.transform = `translateY(${(1 - p) * 60}px)`; s.style.filter = p > .99 ? "none" : `blur(${(1 - p) * 14}px)`;
+  });
+}
+function mark(mk, t, dotAt, dashAt, dashDur = .45) {
+  const d = mk.querySelector(".d1"), s = mk.querySelector(".d2");
+  const dp = clamp((t - dotAt) / .45);
+  d.style.opacity = t < dotAt ? 0 : 1; d.style.scale = t < dotAt ? .5 : lerp(.6, 1, back(dp));
+  d.style.boxShadow = `0 0 ${60 * (1 - dp)}px rgba(170,205,255,${.9 * (1 - dp)})`;
+  const sp = P(t, dashAt, dashDur, EXPO);
+  s.style.clipPath = `inset(0 ${(1 - sp) * 100}% 0 0 round 999px)`;
+  s.style.opacity = t < dashAt ? 0 : 1;
+}
+function tilt3d(el, {x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, s = 1}) { el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})`; }
+
+function render(t) {
+  // ambient light drifts
+  const ph = 2 * Math.PI * t / LOOP;
+  $("#gA").style.transform = `translate(${-300 + Math.sin(ph) * 160}px,${-420 + Math.cos(ph) * 90}px)`;
+  $("#gB").style.transform = `translate(${900 + Math.cos(ph) * 180}px,${300 + Math.sin(ph * 2) * 90}px)`;
+  $("#gR").style.opacity = .9 * smooth(17.2, 17.9, t) * (1 - smooth(19.5, 19.9, t));
+  drawParticles(t); drawGrain(t);
+  // flash on the drop
+  const rings = [[.93, 960, 540, 900], [4.42, tg2.dot.x, tg2.dot.y, 520]], rg = rings.filter(r => t >= r[0] && t < r[0] + .9).pop(), ringEl = $("#ring");
+  if (rg) { const p = (t - rg[0]) / .9, r = BLOOM(p) * rg[3]; Object.assign(ringEl.style, {left: rg[1] - r + "px", top: rg[2] - r + "px", width: 2 * r + "px", height: 2 * r + "px", opacity: (1 - p) * .8}); }
+  else ringEl.style.opacity = 0;
+  // the blue card bursts out of a circle on the drop, with the mark keying in behind the phone, and flies away at the end
+  const bc = $("#blueCard"), burst = P(t, G(16) - .02, .65, EXPO), away = P(t, G(25) - .34, .4, IN);
+  bc.style.clipPath = `circle(${burst * 2300}px at 1376px 516px)`;
+  bc.style.visibility = t > G(16) - .05 && t < G(25) + .1 ? "visible" : "hidden";
+  const flyAway = `perspective(1600px) translateY(${-away * 1180}px) rotateX(${away * 14}deg) scale(${1 - away * .08})`;
+  bc.style.transform = flyAway; $("#s4").style.transform = flyAway;
+  const bd = P(t, G(16) + .25, .7, x => clamp(x));
+  $("#bDot").style.cssText = `left:1062px;top:113px;width:341px;height:341px;opacity:${clamp(bd * 2)};scale:${lerp(.4, 1, back(bd))};translate:${-(t - G(16)) * 9}px 0`;
+  $("#bDash").style.cssText = `left:1062px;top:576px;width:1100px;height:341px;clip-path:inset(0 ${(1 - P(t, G(16) + .5, 1.1, EXPO)) * 100}% 0 0 round 171px);translate:${-(t - G(16)) * 5}px 0`;
+
+  // ===== 1 · hook: "We can't read / a word of it." word by word on the beat
+  show($("#s1"), t < 4.5);
+  [.93, 1.236, 1.542, 2.155, 2.461, 2.767, 3.073].forEach((a, n) => slam(W1[n], t, a));
+  const z1 = P(t, G(6) - .05, .45, IN);
+  $("#s1T").style.transform = `scale(${1 + z1 * 2.4})`; $("#s1T").style.opacity = 1 - z1; $("#s1T").style.filter = z1 > 0 ? `blur(${z1 * 24}px)` : "none";
+  // slow push while it builds
+  $("#s1").style.transform = `scale(${1 + .04 * clamp(t / 4)})`;
+
+  // ===== 2 · reveal: the field collapses into the mark
+  show($("#s2"), t > 3.9 && t < 6.9);
+  mark($("#s2Mk"), t, 4.42, G(7));
+  spell($("#s2W"), t, 4.72);
+  rise($("#s2Tag"), t, G(8));
+  const w2 = P(t, G(10) - .16, .3, IN);
+  $("#s2C").style.transform = `translateX(${-w2 * 1100}px) scale(${1 + .035 * clamp((t - 4.4) / 2)})`;
+  $("#s2C").style.opacity = 1 - w2 * .9;
+
+  // ===== 3 · just a username
+  show($("#s3"), t > G(10) - .2 && t < G(16) + .1);
+  const w3 = P(t, G(10) - .06, .55, EXPO);
+  const out3 = P(t, G(16) - .22, .24, IN);
+  $("#s3C").style.transform = `translateX(${(1 - w3) * 1100}px) scale(${1 + out3 * .9})`;
+  $("#s3C").style.opacity = 1 - out3; $("#s3C").style.filter = out3 > 0 ? `blur(${out3 * 22}px)` : "none";
+  [G(10) + .05, G(10) + .2, G(10) + .38].forEach((a, n) => slam(W3[n], t, a));
+  const bf = P(t, G(10) + .25, .8, EXPO);
+  $("#butter").style.transform = `scale(${lerp(.25, 1, bf)}, ${lerp(.05, 1, bf)})`; $("#butter").style.opacity = clamp(bf * 3);
+  const cp = P(t, G(11), .8, EXPO), card = $("#s3Card");
+  tilt3d(card, {z: lerp(-700, 0, cp), rx: lerp(38, 0, cp) + Math.sin(t * 1.3) * 1.5, ry: Math.sin(t * .9) * 3, y: lerp(60, 0, cp)});
+  card.style.opacity = t < G(11) ? 0 : clamp((t - G(11)) / .3);
+  const focus = smooth(G(11) + .2, G(11) + .5, t);
+  card.style.boxShadow = `0 0 0 ${3 * focus}px rgba(47,107,234,${focus}),0 0 0 ${12 * focus}px rgba(47,107,234,${.12 * focus}),0 40px 70px -34px rgba(11,11,15,.4)`;
+  const keys = [7.36, 7.5, G(12), 7.82], typed = "@ada";
+  $("#s3Typed").textContent = typed.slice(0, keys.filter(k => t >= k).length);
+  $("#s3Caret").style.opacity = t < G(11) + .3 ? 0 : (t < 8.2 || Math.floor(t / .5) % 2 === 0 ? 1 : 0);
+  [G(13), G(13) + .306, G(14), G(14) + .306].forEach((a, n) => {
+    const el = pills[n], p = P(t, a, .5, EXPO);
+    el.style.opacity = t < a ? 0 : lerp(clamp((t - a) / .15), .38, smooth(a + .45, a + .7, t));
+    el.style.transform = `translateY(${(1 - p) * -50}px) scale(${lerp(.9, 1, p)})`;
+    el.querySelector("i").style.transform = `scaleX(${P(t, a + .28, .3, EXPO)})`;
+  });
+
+  // ===== 4 · on your phone -> on our servers
+  show($("#s4"), t > G(16) - .1 && t < G(25) + .1);
+  const fly = P(t, G(16), .95, EXPO), flip = P(t, G(20), .72, INOUT), leave = P(t, G(25) - .3, .3, IN);
+  let ry = lerp(80, -20, fly) + 9 * smooth(G(16) + .9, G(20), t) + 180 * flip + 5 * smooth(G(21), G(25), t);
+  const rig = $("#rig");
+  tilt3d(rig, {x: lerp(360, 0, fly), y: Math.sin(t * 1.4) * 7, z: lerp(-2800, 0, fly) - 380 * Math.sin(Math.PI * flip), rx: lerp(16, 4, fly) - 2 * flip, ry, rz: lerp(-8, 0, fly)});
+  rig.style.opacity = t < G(16) ? 0 : 1;
+  const gpos = ((ry % 360) + 360) % 360, gl = (gpos > 180 ? gpos - 180 : gpos);
+  $("#glF").style.backgroundPosition = $("#glB").style.backgroundPosition = `${lerp(110, -10, gl / 180)}% 0`;
+  fB.forEach((b, n) => {
+    const a = [10.42, 10.73, 11.03, 11.34, 11.64, 11.95][n], p = P(t, a, .5, EXPO);
+    b.style.opacity = clamp((t - a) / .2); b.style.transform = `translateY(${(1 - p) * 16}px) scale(${lerp(.9, 1, p)})`;
+    const q = P(t, a + .18, .6, bez(.5, 0, .3, 1));
+    b.querySelectorAll(".seal>*").forEach(el => { el.style.maskPosition = `${(1 - q) * 100}% 0`; });
+  });
+  const rp = clamp((t - 12.3) / .5); $("#react").style.opacity = clamp(rp * 2); $("#react").style.scale = t < 12.3 ? .01 : rp < .55 ? lerp(.3, 1.18, rp / .55) : lerp(1.18, 1, (rp - .55) / .45);
+  strips.forEach((s, n) => { s.style.transform = `translateX(${-((t - G(20)) * (14 + n * 3)) % 60}px)`; });
+  const sc = clamp((t - G(21) - .1) / .8);
+  $("#scan").style.top = `${lerp(-90, 640, sc)}px`; $("#scan").style.opacity = sc > 0 && sc < 1 ? 1 : 0;
+  [G(16) + .31, G(16) + .46, G(17)].forEach((a, n) => { slam(WA[n], t, a); blurOut(WA[n], t, G(20) + n * .05, .3); });
+  [G(21), G(21) + .15, G(21) + .31].forEach((a, n) => slam(WB[n], t, a));
+  rise($("#s4Cap"), t, G(21) + .45);
+
+
+  // ===== 5 · a lie proves itself
+  show($("#s5"), t > G(25) - .1 && t < G(32) + .1);
+  rise($("#s5Soon"), t, G(25));
+  const sk = P(t, G(25) + .3, .8, EXPO);
+  $("#sky").style.transform = `scale(${lerp(.55, 1, sk)})`; $("#sky").style.opacity = clamp(sk * 3); $("#sky").style.borderRadius = `${lerp(400, 64, sk)}px`;
+  [G(25) + .05, G(25) + .2, G(25) + .36, G(26), G(26) + .15, G(26) + .31].forEach((a, n) => slam(W5[n], t, a));
+  [["#sl1", G(26), -3, -22], ["#sl2", G(26) + .306, 3, -18]].forEach(([s, a, rz, ry0]) => {
+    const p = P(t, a, .8, EXPO), el = $(s);
+    el.style.opacity = t < a ? 0 : clamp((t - a) / .2);
+    tilt3d(el, {x: lerp(500, 0, p), y: Math.sin(t * 1.2 + a) * 6, z: lerp(-1800, 0, p), ry: lerp(70, ry0, p) + 6 * smooth(a + .8, G(32), t), rz: lerp(rz * 4, rz, p), rx: lerp(20, 4, p)});
+  });
+  [sig1.slice(0, 3), sig2.slice(2, 5)].forEach((set, k) => set.forEach((el, n) => {
+    const a = G(27) + k * .15 + n * .07, p = clamp((t - a) / .35);
+    el.style.scale = t < a ? .01 : back(p); el.style.opacity = t < a ? 0 : 1;
+  }));
+  const cl = P(t, G(27) + .3, .4, x => x);
+  $("#diff").style.background = `rgba(251,213,215,${cl})`; $("#diff").style.color = `rgb(${lerp(10, 216, cl)},${lerp(10, 50, cl)},${lerp(12, 58, cl)})`;
+  $("#diff").style.boxShadow = `0 0 ${24 * cl * (1 - smooth(G(27) + .7, G(27) + 1.5, t) * .6)}px rgba(216,50,58,${.7 * cl})`;
+  const ring = P(t, G(28), .4);
+  $$("#s5G .c").forEach(el => el.style.boxShadow = `0 0 0 2px #fff,0 0 0 ${2 + 3 * ring}px rgba(216,50,58,${ring}),0 0 ${18 * ring}px rgba(216,50,58,${.8 * ring})`);
+  // one line joins the two C's: the same witness signed both versions
+  if (t > G(28) && t < G(32) + .1) {
+    const [c1, c2] = $$("#s5G .c").map(el => el.getBoundingClientRect());
+    const x1 = c1.left - 2, y1 = c1.top + c1.height / 2, x2 = c2.left - 2, y2 = c2.top + c2.height / 2; // from ring edge to ring edge, the letters stay readable
+    const d = `M${x1} ${y1} C${x1 - 130} ${lerp(y1, y2, .25)} ${x2 - 130} ${lerp(y1, y2, .75)} ${x2} ${y2}`;
+    const lp = P(t, G(28) + .05, .45, EXPO);
+    for (const id of ["#cPath", "#cPathG"]) { const el = $(id); el.setAttribute("d", d); el.style.strokeDasharray = "2000"; el.style.strokeDashoffset = 2000 * (1 - lp); }
+    $("#cLine").style.opacity = 1;
+  } else $("#cLine").style.opacity = 0;
+  const VA = G(28) + .306, vp = clamp((t - VA) / .45), v = $("#s5V");
+  v.style.opacity = t < VA ? 0 : clamp(vp * 3); v.style.transform = `scale(${t < VA ? 1.4 : lerp(1.45, 1, EXPO(vp))})`;
+  v.style.filter = vp > .99 || t < VA ? "none" : `blur(${(1 - EXPO(vp)) * 14}px)`;
+  const sh = t > VA ? Math.exp(-(t - VA) / .12) * 14 : 0;
+  $("#s5G").style.translate = `${Math.sin(t * 91) * sh}px ${Math.cos(t * 77) * sh}px`;
+  rise($("#s5Tx"), t, G(29) + .05);
+  const o5 = P(t, G(32) - .36, .34, IN);
+  $("#s5").style.opacity = 1 - o5; $("#s5").style.filter = o5 > 0 ? `blur(${o5 * 18}px)` : "none"; $("#s5").style.transform = `scale(${1 + o5 * .08})`;
+
+  // ===== 6 · end card: blue floods out of the mark's dot
+  show($("#s6"), t > 19.2 && t < 23.25);
+  const fr6 = floodR(t);
+  $("#flood").style.clipPath = fr6 <= 0 ? "circle(0px at 0 0)" : `circle(${fr6}px at ${tg6.dot.x}px ${tg6.dot.y}px)`;
+  mark($("#s6Mk"), t, G(32) - .08, G(32) + .12);
+  spell($("#s6W"), t, G(32) + .22);
+  rise($("#s6Tag"), t, G(33));
+  rise($("#s6Cta"), t, G(33) + .3);
+  rise($("#s6Soon"), t, G(33) + .15);
+  $("#s6C").style.transform = `scale(${1 + .025 * smooth(G(33), G(36), t)})`;
+  // the words go first, then the dash retracts into the dot and the dot closes: back to the opening frame
+  Object.assign($("#s6W").style, {opacity: 1, filter: "none", transform: "none"});
+  [["#s6Cta", 0], ["#s6Tag", .04], ["#s6Soon", .06], ["#s6W", .1]].forEach(([id, d]) => blurOut($(id), t, 22.45 + d, .3, -30));
+  const rt = P(t, 22.55, .4, INOUT), dz = P(t, 22.86, .32, IN);
+  if (t > 22.5) { const s6 = $("#s6Mk"); s6.querySelector(".d2").style.clipPath = `inset(0 ${rt * 100}% 0 0 round 999px)`; s6.querySelector(".d1").style.scale = 1 - dz; }
+}
+
+window.ready = (async () => {
+  await document.fonts.ready;
+  await Promise.all([...document.fonts].map(f => f.load()));
+  tg2 = targets($("#s2Mk")); tg6 = targets($("#s6Mk"));
+  render(0);
+  return true;
+})();
+window.render = render;
+window.DURATION = LOOP;
+</script>
+</body>
+</html>

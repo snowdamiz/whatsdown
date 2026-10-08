@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Morse brag</title>
+<style>
+@font-face{font-family:"Geist";font-weight:400;src:url(fonts/Geist_400Regular.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:500;src:url(fonts/Geist_500Medium.ttf) format("truetype")}
+@font-face{font-family:"Geist";font-weight:600;src:url(fonts/Geist_600SemiBold.ttf) format("truetype")}
+:root{
+  --paper:#F6F2EA;--ink:#0B0B0F;--ink-2:#4A4A55;--ink-3:#6B6B77;
+  --blue:#2459D0;--blue-2:#2F6BEA;--blue-3:#6AA6FF;
+  --butter:#FFE8AD;--night:#0B0D14;--green:#178A4E;--red:#D8323A;
+  --sans:"Geist",ui-sans-serif,system-ui,sans-serif;
+  --lift:0 34px 56px -34px rgba(11,11,15,.38);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden}
+body{background:var(--paper);color:var(--ink);font:400 17px/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,p,ul,ol{margin:0}
+ul,ol{padding:0;list-style:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0}
+svg{display:block}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---- stage: a page that scrolls, plus an overlay for the outro */
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:var(--paper)}
+#page{position:absolute;left:0;top:0;width:1920px;height:3240px}
+.sec{position:absolute;left:0;width:1920px;height:1080px}
+#hero{top:0}#s3{top:1080px}#night{top:2160px;background:var(--night);color:#fff}
+#heroCard{position:absolute;inset:0;background:var(--blue);color:#fff;overflow:hidden}
+#cam{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+
+/* ---- type, at video scale */
+h1,h2{font-weight:600}
+.h1{font-size:132px;line-height:.97;letter-spacing:-.05em}
+.h2{font-size:104px;line-height:1.02;letter-spacing:-.043em}
+.w{display:inline-block;overflow:hidden;vertical-align:top;padding:.1em .04em .2em;margin:-.1em -.04em -.2em}
+.w>i{display:inline-block;font-style:normal}
+.lead{margin-top:34px;font-size:38px;line-height:1.4;color:var(--ink-2);letter-spacing:-.01em}
+.night-card .lead,#night .lead{color:rgba(255,255,255,.78)}
+.copy{position:absolute;left:160px;top:0;height:1080px;display:flex;flex-direction:column;justify-content:center}
+em{font-style:normal}
+#night h2 em{color:var(--blue-3)}
+
+.brand{display:flex;align-items:center;gap:18px;font-weight:600;font-size:52px;letter-spacing:-.035em}
+.brand svg{width:60px;height:47px;fill:#fff}
+.soon{display:inline-flex;align-self:flex-start;align-items:center;gap:12px;padding:10px 22px 10px 16px;border-radius:999px;background:rgba(255,255,255,.12);font-weight:500;font-size:26px;color:rgba(255,255,255,.9)}
+.soon i{width:11px;height:11px;border-radius:50%;background:var(--blue-3)}
+#hero .soon i{background:var(--butter)}
+.plats{margin-top:40px;font-size:30px;color:rgba(255,255,255,.86)}
+
+/* ---- the phone, copied from apps/landing/index.html */
+.phone{position:relative;flex:none;width:318px;padding:8px;border:2px solid transparent;border-radius:54px;
+  background:linear-gradient(#0E0E12,#0E0E12) padding-box,linear-gradient(150deg,#9A9AA6,#3A3A44 14%,#18181D 40%,#18181D 62%,#3A3A44 86%,#8A8A96) border-box;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 60px 90px -44px rgba(8,10,24,.6),0 22px 44px -24px rgba(8,10,24,.45)}
+.phone::before{content:"";position:absolute;z-index:3;top:19px;left:50%;width:88px;height:26px;margin-left:-44px;border-radius:999px;background:#0E0E12}
+.phone::after{content:"";position:absolute;top:0;bottom:0;left:-4.5px;right:-4.5px;pointer-events:none;
+  background:linear-gradient(90deg,#6E6E7A,#2C2C34) left 0 top 112px/2.5px 28px no-repeat,linear-gradient(90deg,#6E6E7A,#2C2C34) left 0 top 162px/2.5px 50px no-repeat,
+    linear-gradient(90deg,#6E6E7A,#2C2C34) left 0 top 224px/2.5px 50px no-repeat,linear-gradient(90deg,#2C2C34,#6E6E7A) right 0 top 186px/2.5px 82px no-repeat}
+.screen{position:relative;display:flex;flex-direction:column;height:640px;border-radius:44px;overflow:hidden;background:#fff;color:#0A0A0C;font-size:14.5px;line-height:1.36;letter-spacing:-.006em}
+.screen::after{content:"";position:absolute;left:50%;bottom:7px;width:112px;height:4px;margin-left:-56px;border-radius:9px;background:currentColor;opacity:.2}
+.status{display:flex;align-items:center;justify-content:space-between;flex:none;height:50px;padding:6px 30px 0;font-weight:600;font-size:13.5px}
+.status>span+span{display:flex;align-items:center;gap:5px}
+.status .ic{width:17px;height:12px;fill:currentColor;stroke:none}
+.bat{position:relative;width:24px;height:11.5px;border-radius:3.5px;box-shadow:inset 0 0 0 1.2px currentColor;opacity:.85}
+.bat::after{content:"";position:absolute;inset:2.4px 6px 2.4px 2.4px;border-radius:1.5px;background:currentColor}
+.chead{position:relative;display:flex;align-items:center;gap:10px;flex:none;padding:6px 14px 10px;min-height:50px}
+.chead>.ic,.view>.ic{width:22px;height:22px}
+.chead b{font-weight:600;font-size:15.5px;letter-spacing:-.02em;line-height:1.2}
+.chead small{display:block;font-size:11.5px;color:#63636D}
+.chead .end{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;box-shadow:0 1px 5px rgba(10,10,12,.14)}
+.chead .end .ic{width:17px;height:17px}
+.ava{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,var(--a),var(--b));color:#fff;font-weight:600;font-size:12px;letter-spacing:.01em}
+.t0{--a:#5B9DFF;--b:#3462FF}.t1{--a:#B57BFF;--b:#7B4DFF}.t2{--a:#FF7DBA;--b:#F0468C}.t3{--a:#FFB35C;--b:#FF7A3D}.t4{--a:#5EE39B;--b:#22AD6C}
+.thread{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:0;padding:8px 12px 12px}
+.day{align-self:center;margin-bottom:5px;padding:4px 11px;border-radius:999px;background:#F2F2F5;font-size:11px;color:#63636D}
+.b{position:relative;max-width:82%;padding:8px 13px 6px;border-radius:20px}
+.b.in{align-self:flex-start;background:#E9E9EE;border-bottom-left-radius:6px}
+.b.out{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:6px}
+.b small{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:1px;font-size:10.5px;opacity:.6}
+.b small .ic{width:13px;height:13px}
+.b.file .doc{display:flex;align-items:center;gap:10px;padding:2px 2px 3px 0}
+.b.file .doc i{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:rgba(0,0,0,.16)}
+.b.file .doc .ic{width:18px;height:18px}
+.b.file b{display:block;font-weight:500;font-size:13.5px}
+.doc>span>span{display:block;font-size:11.5px;opacity:.75}
+.composer{display:flex;align-items:center;gap:9px;flex:none;height:44px;margin:0 12px 22px;padding:0 6px 0 13px;border-radius:999px;font-size:13.5px;box-shadow:inset 0 0 0 1px #DFDFE6,0 2px 8px rgba(10,10,12,.05);color:#8E8E98}
+.composer .ic{width:18px;height:18px}
+.composer i{display:grid;place-items:center;width:32px;height:32px;margin-left:auto;border-radius:50%;background:#A9C1F3;color:#fff}
+.composer i .ic{width:16px;height:16px;stroke-width:2.4}
+.seal{position:relative;display:block}
+.seal>i{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;gap:14.7px 9px;padding-top:7.4px;overflow:hidden;color:rgba(10,10,12,.42)}
+.seal>span{mask:linear-gradient(90deg,#000 45%,transparent 55%) 100% 0/300% 100% no-repeat}
+.seal>i{mask:linear-gradient(90deg,transparent 45%,#000 55%) 100% 0/300% 100% no-repeat}
+.react{position:absolute;left:12px;bottom:-13px;display:flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:#fff;box-shadow:0 1px 5px rgba(10,10,12,.18);font-size:12px;font-weight:500;color:#3A3A44}
+.b.reacted{margin-bottom:12px}
+.mc{--u:5px;display:inline-flex;align-items:center;gap:calc(var(--u)*.8);flex:none}
+.mc i{flex:none;width:var(--u);height:var(--u);border-radius:999px;background:currentColor}
+.mc i.D{width:calc(var(--u)*3)}
+.mc i.g{width:calc(var(--u)*1.2);background:none}
+
+/* hero rig */
+.rig{position:absolute;left:1231px;top:210px;width:318px;transform:scale(1.4);transform-origin:50% 50%}
+.shape{position:absolute;left:-170px;border-radius:999px;background:var(--blue-2)}
+.shape.dot{top:0;width:280px;height:280px}
+.shape.dash{top:380px;width:1000px;height:280px}
+.float{position:absolute;z-index:2;display:flex;align-items:center;gap:9px;padding:11px 18px 11px 13px;border-radius:999px;background:#fff;color:var(--ink);font-weight:500;font-size:15px;white-space:nowrap;box-shadow:0 16px 36px -14px rgba(6,12,40,.55)}
+.float .ic{width:19px;height:19px}
+.f1{right:-120px;top:154px}.f1 .ic{color:var(--green)}
+.f2{left:-128px;top:300px}.f2 .ic{color:var(--blue-2)}
+
+/* ---- scene 3: just a username */
+.field{position:absolute;left:1000px;top:110px;width:760px;height:860px;border-radius:48px;background:var(--butter);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.art{width:470px;display:flex;flex-direction:column;align-items:center;transform:scale(1.5)}
+.sheet{border-radius:28px;background:#fff;color:#0A0A0C;box-shadow:var(--lift)}
+.newmsg{width:400px;margin-right:30px;padding:26px 26px 34px;text-align:center}
+.newmsg>p{text-align:left;font-weight:600;font-size:17px;letter-spacing:-.02em}
+.newmsg>.ic{width:30px;height:30px;margin:38px auto 12px;color:#63636D;stroke-width:1.7}
+.newmsg b{display:block;font-weight:600;font-size:19.5px;letter-spacing:-.03em}
+.newmsg>span{display:block;margin-top:4px;font-size:15px;color:#63636D}
+.to{display:flex;align-items:center;gap:12px;height:54px;margin-top:22px;padding:0 18px;border-radius:16px;background:#F2F2F5;box-shadow:inset 0 0 0 2px var(--blue-2);text-align:left;font-size:17.5px}
+.to em{color:#63636D}
+.to i{display:inline-block;width:2px;height:1.25em;margin-left:2px;vertical-align:-.22em;background:var(--blue-2)}
+.request{position:relative;align-self:flex-end;width:330px;margin:-22px 0 0 0;padding:22px 22px 20px;background:#E6EEFF}
+.request b{font-weight:600;font-size:17px;letter-spacing:-.02em}
+.request p{margin-top:5px;font-size:15px;line-height:1.45;color:#2B2B36}
+.request div{display:flex;gap:8px;margin-top:16px}
+.request div span{display:grid;place-items:center;height:40px;padding:0 17px;border-radius:12px;background:var(--blue);color:#fff;font-weight:500;font-size:14.5px;white-space:nowrap}
+.request div span+span{background:#fff;color:#0A0A0C}
+
+/* ---- scene 4: we can't read a word of it */
+.seg{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;padding:5px;border-radius:999px;background:rgba(255,255,255,.1);font-size:17px}
+.seg::before{content:"";position:absolute;top:5px;bottom:5px;left:5px;width:calc(50% - 5px);border-radius:999px;background:#fff;transform:translateX(calc(var(--k,0)*100%))}
+.seg button{position:relative;padding:14px 24px;border-radius:999px;font-weight:500}
+.segwrap{margin-top:48px;transform:scale(1.55);transform-origin:0 0;height:92px}
+.cap{margin-top:40px;font-size:36px;line-height:1.4;color:rgba(255,255,255,.78)}
+.stage4{position:absolute;left:1261px;top:210px;width:318px;transform:scale(1.4);transform-origin:50% 50%}
+.phone.dark{box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 60px 90px -44px #000}
+.dark .screen{background:#0A0A0C;color:#F2F2F4}
+.dark .chead small{color:#8E8E98}
+.dark .day{background:#15151A;color:#8E8E98}
+.dark .b.in{background:#1E1E25}
+.dark .b.out{background:var(--blue-2)}
+.dark .composer{box-shadow:inset 0 0 0 1px #27272F;background:#15151A;color:#63636D}
+.dark .composer i{background:#23427F;color:#9DB6EA}
+.view{display:flex;align-items:center;gap:10px}
+.view.srv{position:absolute;inset:6px 14px 10px;opacity:0}
+.srv>i{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:11px;box-shadow:inset 0 0 0 1px #27272F;color:#9C9CA6}
+.srv>i .ic{width:18px;height:18px;stroke-width:1.7}
+.msg{overflow:hidden}
+.msg .t{display:block;mask:linear-gradient(90deg,transparent 45%,#000 55%) 100% 0/300% 100% no-repeat}
+.msg .z{position:absolute;inset:0;display:flex;align-items:center;gap:14px;padding:0 14px;overflow:hidden;color:rgba(255,255,255,.34);mask:linear-gradient(90deg,#000 45%,transparent 55%) 100% 0/300% 100% no-repeat}
+.scan{position:absolute;z-index:2;left:0;right:0;top:-90px;height:90px;opacity:0;background:linear-gradient(rgba(106,166,255,0),rgba(106,166,255,.1) 70%,rgba(106,166,255,.9) 97%,rgba(106,166,255,0))}
+
+/* ---- scene 5: make lying expensive */
+.caught{position:absolute;left:1130px;top:0;height:1080px;width:480px;display:flex;flex-direction:column;align-items:center;justify-content:center;transform:scale(1.6);transform-origin:50% 50%}
+.slip{width:380px;padding:20px 20px 22px}
+.slip header{display:flex;align-items:center;gap:12px}
+.slip header b{display:block;font-weight:600;font-size:16px;letter-spacing:-.02em;line-height:1.25}
+.slip header small{display:block;font-size:13px;color:#63636D}
+.vt{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:var(--blue-2);color:#fff}
+.vt .ic{width:19px;height:19px}
+.lean-l{align-self:flex-start}
+.lean-r{align-self:flex-end;margin-top:-14px}
+.fp{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:16px;padding:12px 8px;border-radius:14px;background:#F2F2F5;text-align:center;font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.fp span{padding:3px 0;border-radius:7px}
+.sig{display:flex;align-items:center;margin-top:14px;font-size:13.5px;color:#63636D}
+.sig .ava{width:26px;height:26px;font-size:10px;box-shadow:0 0 0 2px #fff}
+.sig .ava+.ava{margin-left:5px}
+.sig .off{background:#E4E4EA;color:#9C9CA6}
+.sig .by{margin-left:10px}
+.verdict{display:flex;align-items:center;gap:9px;margin-top:28px;padding:13px 22px 13px 16px;border-radius:999px;background:var(--red);color:#fff;font-weight:500;font-size:16px;box-shadow:0 18px 32px -18px #000}
+.verdict .ic{width:20px;height:20px}
+.tx{margin-top:14px;font-size:14px;color:rgba(255,255,255,.6)}
+
+/* ---- scene 6: outro */
+#wipe{position:absolute;left:-600px;top:0;width:3120px;height:1080px;background:var(--blue);clip-path:inset(0 100% 0 0 round 540px)}
+#end{position:absolute;inset:0;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0}
+.lock{display:flex;align-items:center;gap:44px}
+.mk{position:relative;width:254px;height:200px}
+.mk i{position:absolute;left:0;background:#fff;border-radius:999px}
+.mk .d1{top:0;width:85px;height:85px}
+.mk .d2{top:115px;width:254px;height:85px}
+.word{font-weight:600;font-size:190px;line-height:1;letter-spacing:-.055em}
+.tag{margin-top:46px;font-weight:500;font-size:60px;letter-spacing:-.03em;color:rgba(255,255,255,.94)}
+.join{display:flex;align-items:center;gap:8px;width:468px;min-height:60px;padding:6px;border-radius:30px;background:#fff;color:var(--ink);box-shadow:0 18px 40px -22px rgba(6,12,40,.6);font-size:17px}
+.join span{flex:1;padding-left:18px;color:#8E8E98}
+.join b{display:inline-flex;align-items:center;height:48px;padding:0 22px;border-radius:999px;background:var(--ink);color:#fff;font-weight:500;white-space:nowrap}
+.joinwrap{margin-top:70px;transform:scale(1.4)}
+.url{margin-top:52px;font-weight:500;font-size:34px;letter-spacing:-.01em;color:rgba(255,255,255,.86)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="248 304 528 416"><path d="M 248 392 A 88 88 0 1 1 424 392 A 88 88 0 1 1 248 392 Z M 336 544 H 688 A 88 88 0 0 1 688 720 H 336 A 88 88 0 0 1 336 544 Z"/></symbol>
+  <symbol id="i-signal" viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="4.6" y="5.5" width="3" height="6.5" rx=".8"/><rect x="9.2" y="3" width="3" height="9" rx=".8"/><rect x="13.8" y="0" width="3" height="12" rx=".8"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 17 12"><path d="M8.5 2.6c2.3 0 4.4.9 6 2.4l1.1-1.2A10.3 10.3 0 0 0 8.5.9C5.7.9 3.2 2 1.4 3.8l1.1 1.2a8.6 8.6 0 0 1 6-2.4Zm0 3.5c1.4 0 2.7.5 3.7 1.4l1.1-1.2a7.1 7.1 0 0 0-9.6 0l1.1 1.2c1-.9 2.3-1.4 3.7-1.4Zm0 3.4c.6 0 1.2.2 1.6.6L8.5 11.8 6.9 10.1c.4-.4 1-.6 1.6-.6Z"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+  <symbol id="i-get" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8h.01"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m20 11.5-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></symbol>
+  <symbol id="i-checks" viewBox="0 0 24 24"><path d="m2 12.5 4.5 4.5 9-9.5M12 16l1 1 9-9.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5ZM14 3v5h5"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.3 1.4M9.5 3h5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.5 2.8v5.7c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.8L12 3Z"/><path d="m8.8 12.2 2.3 2.3 4.2-4.6"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="7.5" r="3.5"/><path d="M20.5 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.2a3.5 3.5 0 0 1 0 6.6"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 15.5a2 2 0 0 1-2 2H9l-5 3.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9.5Z"/></symbol>
+  <symbol id="i-compose" viewBox="0 0 24 24"><path d="M12 5H6.5A2.5 2.5 0 0 0 4 7.5v10A2.5 2.5 0 0 0 6.5 20h10a2.5 2.5 0 0 0 2.5-2.5V12"/><path d="M17.6 3.9a2 2 0 0 1 2.8 2.8L12 15l-3.8 1 1-3.8 8.4-8.3Z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><path d="m12 3 2.4 1.7 2.9-.1.9 2.8 2.3 1.8-.9 2.8.9 2.8-2.3 1.8-.9 2.8-2.9-.1L12 21l-2.4-1.7-2.9.1-.9-2.8-2.3-1.8.9-2.8-.9-2.8 2.3-1.8.9-2.8 2.9.1L12 3Z"/><path d="m8.8 12.2 2.2 2.2 4.2-4.4"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M18 7V5.5A1.5 1.5 0 0 0 16.5 4h-11A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V9a2 2 0 0 0-2-2H5.5"/><path d="M16 13.5h.01"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9 12h6M12 9v6"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 21c3.9 0 6.5-2.6 6.5-6.3 0-3.9-3-6.6-4.6-9.7-.6 2.4-2 3.9-3.4 4.6-.7-1.6-1.1-3.2-.9-5.6-2.8 2.4-4.1 5.9-4.1 10.7C5.5 18.4 8.1 21 12 21Z"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></symbol>
+</svg>
+<div id="stage">
+  <div id="page">
+
+    <section class="sec" id="hero">
+      <div id="heroCard">
+        <div id="cam">
+          <div class="copy" style="width:860px">
+            <div class="brand" id="hBrand"><svg><use href="#mark"/></svg>Morse</div>
+            <p class="soon" id="hSoon" style="margin-top:120px"><i></i>In development</p>
+            <h1 class="h1" id="hH1" style="margin-top:34px"><span class="w"><i>Private</i></span> <span class="w"><i>messaging,</i></span> <span class="w"><i>kept</i></span> <span class="w"><i>honest.</i></span></h1>
+            <p class="plats" id="hPlats">Coming to iPhone, Android, Mac and Windows.</p>
+          </div>
+          <div class="rig" id="rig">
+            <i class="shape dot" id="hDot"></i><i class="shape dash" id="hDash"></i>
+            <div class="phone">
+              <div class="screen">
+                <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+                <div class="chead"><svg class="ic"><use href="#i-back"/></svg><span class="ava t0">AD</span><b>@ada</b><span class="end"><svg class="ic"><use href="#i-info"/></svg></span></div>
+                <div class="thread" id="hThread">
+                  <p class="day">Today</p>
+                  <p class="b in"><span class="seal"><span>Did the scans arrive?</span><i data-seal="8"></i></span><small>9:24 AM</small></p>
+                  <p class="b out">All four. Sending the signed copy now.<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></p>
+                  <div class="b out file"><span class="doc"><i><svg class="ic"><use href="#i-file"/></svg></i><span><b>lease-signed.pdf</b><span>2.4 MB</span></span></span><small>9:25 AM<svg class="ic"><use href="#i-checks"/></svg></small></div>
+                  <p class="b in"><span class="seal"><span>Perfect, thank you. Dinner on Friday?</span><i data-seal="12"></i></span><small>9:31 AM</small></p>
+                  <p class="b out reacted">Yes! I’ll book the place by the river.<small>9:32 AM<svg class="ic"><use href="#i-checks"/></svg></small><span class="react" id="hReact">❤️</span></p>
+                  <p class="b in"><span class="seal"><span>See you at 7.</span><i data-seal="6"></i></span><small>9:33 AM</small></p>
+                </div>
+                <div class="composer"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+              </div>
+            </div>
+            <p class="float f1" id="hF1"><svg class="ic"><use href="#i-shield"/></svg>Safety number verified</p>
+            <p class="float f2" id="hF2"><svg class="ic"><use href="#i-timer"/></svg>Disappears in 1 day</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="s3">
+      <div class="copy" style="width:780px">
+        <h2 class="h2" id="s3H2"><span class="w"><i>Just</i></span> <span class="w"><i>a</i></span> <span class="w"><i>username.</i></span></h2>
+        <p class="lead" id="s3Lead">No phone number, no email, no address book, no wallet.</p>
+      </div>
+      <div class="field" id="s3Field">
+        <div class="art">
+          <div class="sheet newmsg">
+            <p>New message</p>
+            <svg class="ic"><use href="#i-compose"/></svg>
+            <b>Start a private conversation.</b>
+            <span>Only they can accept your first message.</span>
+            <div class="to"><em>To</em><span><span id="typed"></span><i id="caret"></i></span></div>
+          </div>
+          <div class="sheet request" id="s3Req">
+            <b>Message request</b>
+            <p>@sam_r wants to start a conversation. Accept to reply, or block to never hear from them.</p>
+            <div><span>Accept request</span><span>Block</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="night">
+      <div class="copy" id="s4Copy" style="width:880px">
+        <h2 class="h2" id="s4H2"><span class="w"><i>We</i></span> <span class="w"><i>can’t</i></span> <span class="w"><i>read</i></span><br><em><span class="w"><i>a</i></span> <span class="w"><i>word</i></span></em> <span class="w"><i>of</i></span> <span class="w"><i>it.</i></span></h2>
+        <div class="segwrap" id="s4Seg"><div class="seg" id="seg"><button id="bDev">On your phone</button><button id="bSrv">On our servers</button></div></div>
+        <p class="cap" id="s4Cap">No names, no words, just sealed envelopes.</p>
+      </div>
+      <div class="stage4" id="s4Phone">
+        <div class="phone dark">
+          <div class="screen">
+            <i class="scan" id="scan"></i>
+            <div class="status"><span>9:41</span><span><svg class="ic"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-wifi"/></svg><i class="bat"></i></span></div>
+            <div class="chead">
+              <div class="view dev" id="vDev"><svg class="ic"><use href="#i-back"/></svg><span class="ava t0">AD</span><b>@ada</b></div>
+              <div class="view srv" id="vSrv"><i><svg class="ic"><use href="#i-server"/></svg></i><div><b>Our delivery queue</b><small>6 sealed envelopes</small></div></div>
+            </div>
+            <div class="thread" id="dThread">
+              <p class="day" id="dDay">Today</p>
+              <p class="b in msg"><span class="t">Did the scans arrive?<small>9:24 AM</small></span><span class="z" data-seal="6"></span></p>
+              <p class="b out msg"><span class="t">All four. Sending the signed copy now.<small>9:24 AM<svg class="ic"><use href="#i-checks"/></svg></small></span><span class="z" data-seal="6"></span></p>
+              <div class="b out file msg"><span class="t"><span class="doc"><i><svg class="ic"><use href="#i-file"/></svg></i><span><b>lease-signed.pdf</b><span>2.4 MB</span></span></span><small>9:25 AM<svg class="ic"><use href="#i-checks"/></svg></small></span><span class="z" data-seal="6"></span></div>
+              <p class="b in msg"><span class="t">Perfect, thank you. Dinner on Friday?<small>9:31 AM</small></span><span class="z" data-seal="6"></span></p>
+              <p class="b out msg"><span class="t">Yes! I’ll book the place by the river.<small>9:32 AM<svg class="ic"><use href="#i-checks"/></svg></small></span><span class="z" data-seal="6"></span></p>
+              <p class="b in msg"><span class="t">See you at 7.<small>9:33 AM</small></span><span class="z" data-seal="6"></span></p>
+            </div>
+            <div class="composer" id="dComp"><svg class="ic"><use href="#i-clip"/></svg><span>Message</span><i><svg class="ic"><use href="#i-up"/></svg></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="copy" id="s5Copy" style="width:900px">
+        <p class="soon" id="s5Soon"><i></i>Launching in stages</p>
+        <h2 class="h2" id="s5H2" style="margin-top:36px"><span class="w"><i>Don’t</i></span> <span class="w"><i>trust</i></span> <span class="w"><i>us.</i></span><br><em><span class="w"><i>Make</i></span> <span class="w"><i>lying</i></span> <span class="w"><i>expensive.</i></span></em></h2>
+      </div>
+      <div class="caught" id="caught">
+        <div class="sheet slip lean-l" id="slipL">
+          <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to your phone</small></div></header>
+          <p class="fp"><span>9f3a</span><span>c107</span><span>b82e</span><span>64d1</span></p>
+          <p class="sig"><span class="ava t0">A</span><span class="ava t4">B</span><span class="ava t3 c">C</span><span class="ava off">D</span><span class="ava off">E</span><span class="by">A, B and C signed</span></p>
+        </div>
+        <div class="sheet slip lean-r" id="slipR">
+          <header><i class="vt"><svg class="ic"><use href="#i-shield"/></svg></i><div><b>Key log, version 3,412</b><small>Shown to someone else</small></div></header>
+          <p class="fp"><span>9f3a</span><span>c107</span><span id="diff">5d0e</span><span>64d1</span></p>
+          <p class="sig"><span class="ava off">A</span><span class="ava off">B</span><span class="ava t3 c">C</span><span class="ava t1">D</span><span class="ava t2">E</span><span class="by">C, D and E signed</span></p>
+        </div>
+        <p class="verdict" id="verdict"><svg class="ic"><use href="#i-alert"/></svg>Witness C signed both. Bond slashed.</p>
+        <p class="tx" id="tx">Proof checked on Solana</p>
+      </div>
+    </section>
+  </div>
+
+  <div id="wipe"></div>
+  <div id="end">
+    <div class="lock"><div class="mk"><i class="d1" id="eDot"></i><i class="d2" id="eDash"></i></div><div class="word" id="eWord"><span class="w"><i>Morse</i></span></div></div>
+    <p class="tag" id="eTag">Private messaging, kept honest.</p>
+    <div class="joinwrap" id="eJoin"><div class="join"><span>Your email</span><b>Join the waitlist</b></div></div>
+    <p class="url" id="eUrl">morseapp.io</p>
+  </div>
+</div>
+
+<script>
+// Every frame is a pure function of t (seconds): render(t) sets every animated style from scratch.
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+
+// ---- Sealed strips are random Morse noise, seeded, exactly as on the landing page.
+const M = {A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--.."};
+let seed = 11;
+const rand = () => (seed = seed * 16807 % 2147483647) / 2147483647, letters = Object.keys(M);
+const group = () => Array.from({length: 2 + rand() * 3 | 0}, () => [...M[letters[rand() * 26 | 0]]].map(s => s === "-" ? '<i class="D"></i>' : "<i></i>").join("")).join('<i class="g"></i>');
+for (const el of $$("[data-seal]")) el.innerHTML = Array.from({length: +el.dataset.seal}, () => `<span class="mc">${group()}</span>`).join("");
+
+// ---- Easing
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, p) => a + (b - a) * p;
+function bez(x1, y1, x2, y2) {
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const X = s => ((ax * s + bx) * s + cx) * s, Y = s => ((ay * s + by) * s + cy) * s, dX = s => (3 * ax * s + 2 * bx) * s + cx;
+  return t => {
+    if (t <= 0) return 0; if (t >= 1) return 1;
+    let s = t;
+    for (let i = 0; i < 8; i++) { const e = X(s) - t, d = dX(s); if (Math.abs(e) < 1e-7 || Math.abs(d) < 1e-7) break; s -= e / d; }
+    let lo = 0, hi = 1; if (Math.abs(X(s) - t) > 1e-5) { s = t; for (let i = 0; i < 40; i++) { X(s) < t ? lo = s : hi = s; s = (lo + hi) / 2; } }
+    return Y(s);
+  };
+}
+const EASE = bez(.2, .7, .2, 1), SEAL = bez(.5, 0, .3, 1), INOUT = bez(.7, 0, .25, 1), SCROLL = bez(.6, 0, .2, 1);
+const back = p => { const c = 1.9; p = clamp(p); return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
+const P = (t, a, d, e = EASE) => e(clamp((t - a) / d));
+
+// ---- Reusable moves, the landing page's keyframes as functions of progress
+const rise = (el, p, dy = 26) => { el.style.opacity = p; el.style.translate = `0 ${(1 - p) * dy}px`; };
+const pop = (el, p) => { el.style.opacity = clamp(p * 1.6); el.style.scale = lerp(.8, 1, back(p)); };
+const words = (sel, t, start, step = .06, dur = 1.1) => $$(sel + " .w>i").forEach((w, n) => { w.style.transform = `translateY(${(1 - P(t, start + n * step, dur)) * 135}%)`; });
+const mask = (el, p) => { el.style.maskPosition = `${(1 - p) * 100}% 0`; };
+
+// ---- Layout measured once, before anything moves
+const hB = $$("#hThread .b");
+const PS = 1.4;                        // phone scale
+const hLand = [-0.3, 1.3, 2.25, 2.65, 3.05, 3.45];
+const hOpen = {0: .45, 3: 3.0, 5: 3.8};
+let focus, dMsgs = [], fullW;
+function measure() {
+  const r1 = hB[0].getBoundingClientRect(), r2 = hB[1].getBoundingClientRect();
+  focus = {x: (Math.min(r1.left, r2.left) + Math.max(r1.right, r2.right)) / 2, y: (r1.top + r2.bottom) / 2 + 6};
+  const th = $("#dThread");
+  fullW = th.clientWidth - 24;
+  dMsgs = $$("#dThread .msg").map(el => {
+    const t = el.querySelector(".t");
+    return {el, t, w: el.getBoundingClientRect().width / PS, h: el.getBoundingClientRect().height / PS, tw: t.getBoundingClientRect().width / PS,
+      top: el.offsetTop, out: el.classList.contains("out"), file: el.classList.contains("file")};
+  });
+  for (const m of dMsgs) { m.el.style.maxWidth = "100%"; m.t.style.width = m.tw + "px"; }
+}
+
+// ---- Timeline
+const T = {scroll1: 6.55, scroll2: 10.95, flip: 12.5, scan: 12.6, swap: 15.55, wipe: 19.75, end: 23};
+
+function render(t) {
+  // Page scroll: hero -> username -> night
+  const s1 = P(t, T.scroll1, .95, SCROLL), s2 = P(t, T.scroll2, .95, SCROLL);
+  $("#page").style.transform = `translateY(${-(s1 + s2) * 1080}px)`;
+
+  // ===== Scene 1-2: hero. The camera starts inside the phone and pulls back out.
+  const pull = P(t, 1.95, 1.55, bez(.55, 0, .15, 1));
+  const k0 = 3.35 * (1 + .025 * clamp(t / 1.95));
+  const k = Math.exp(lerp(Math.log(k0), 0, pull));
+  const fx = lerp(focus.x, 960, pull), fy = lerp(focus.y, 540, pull);
+  const ty = 540 - k * fy;
+  $("#cam").style.transform = pull >= 1 ? "none" : `translate(${960 - k * fx}px,${ty}px) scale(${k})`;
+  const inset = P(t, T.scroll1 - .1, .5);
+  $("#heroCard").style.clipPath = `inset(${inset * 24}px round ${inset * 48}px)`;
+  hB.forEach((b, n) => {
+    const p = P(t, hLand[n], .55);
+    b.style.opacity = p; b.style.transform = `translateY(${(1 - p) * 12}px) scale(${lerp(.96, 1, p)})`;
+    if (n in hOpen) { const q = P(t, hOpen[n], .9, SEAL); b.querySelectorAll(".seal>*").forEach(el => mask(el, q)); }
+  });
+  const rp = P(t, 3.65, .6, x => x);
+  $("#hReact").style.opacity = clamp(rp * 1.8); $("#hReact").style.scale = rp < .55 ? lerp(.3, 1.18, rp / .55) : lerp(1.18, 1, (rp - .55) / .45);
+  const dp = P(t, 2.3, .9);
+  $("#hDot").style.opacity = dp; $("#hDot").style.scale = lerp(.4, 1, dp);
+  $("#hDash").style.clipPath = `inset(0 ${(1 - P(t, 2.55, 1.3)) * 100}% 0 0 round 140px)`;
+  // the mark sits deeper than the phone: it drifts a little against it
+  const drift = Math.sin(t * .55) * 6;
+  $("#hDot").style.translate = $("#hDash").style.translate = `${-drift * .6}px 0`;
+  rise($("#hBrand"), P(t, 3.0, .95)); rise($("#hSoon"), P(t, 3.1, .95));
+  words("#hH1", t, 3.2, .07);
+  rise($("#hPlats"), P(t, 3.7, .95));
+  [["#hF1", 4.2], ["#hF2", 4.55]].forEach(([s, a]) => { const el = $(s); pop(el, P(t, a, .6, x => x)); el.style.translate = `${drift * .8}px ${-9 * (.5 - .5 * Math.cos(Math.max(0, t - a) * Math.PI / 3))}px`; });
+
+  // ===== Scene 3: just a username
+  const fp = P(t, 6.95, .9);
+  $("#s3Field").style.opacity = fp; $("#s3Field").style.transform = `translateY(${(1 - fp) * 60}px)`;
+  words("#s3H2", t, 7.05, .06, 1.0);
+  rise($("#s3Lead"), P(t, 7.2, .95));
+  const typed = "@ada", n = clamp(Math.floor((t - 7.95) / .15) + 1, 0, 4);
+  $("#typed").textContent = typed.slice(0, n);
+  $("#caret").style.opacity = (t > 7.8 && t < 8.6) || Math.floor(t / .55) % 2 === 0 ? 1 : 0;
+  const rq = P(t, 8.75, .8);
+  $("#s3Req").style.opacity = rq; $("#s3Req").style.transform = `translateY(${(1 - rq) * 40}px) rotate(${lerp(4, 0, rq) - 3}deg)`;
+
+  // ===== Scene 4: night unfolds, then the switch seals the chat
+  const o = s2, pad = 128;
+  $("#night").style.clipPath = `inset(0 ${pad * (1 - o)}px round ${48 * (1 - o)}px)`;
+  words("#s4H2", t, 11.4, .055, 1.0);
+  rise($("#s4Seg"), P(t, 11.7, .95));
+  const php = P(t, 11.3, 1.15);
+  const out4 = P(t, T.swap, .45, bez(.5, 0, .9, .6));
+  $("#s4Phone").style.opacity = php * (1 - out4);
+  $("#s4Phone").style.transform = `translate(${out4 * 140}px,${(1 - php) * 90}px) scale(${PS})`;
+  const kk = P(t, T.flip, .5);
+  $("#seg").style.setProperty("--k", kk);
+  $("#bDev").style.color = `rgb(${lerp(11, 255, kk)},${lerp(11, 255, kk)},${lerp(15, 255, kk)},${lerp(1, .72, kk)})`;
+  $("#bSrv").style.color = `rgb(${lerp(255, 11, kk)},${lerp(255, 11, kk)},${lerp(255, 15, kk)},${lerp(.72, 1, kk)})`;
+  const sc = clamp((t - T.scan) / .9);
+  $("#scan").style.top = `${lerp(-90, 640, sc)}px`;
+  $("#scan").style.opacity = t > T.scan && t < T.scan + 1 ? 1 - P(t, T.scan + .85, .15, x => x) : 0;
+  $("#vDev").style.opacity = 1 - P(t, T.scan, .25); $("#vSrv").style.opacity = P(t, T.scan + .2, .25);
+  $("#dComp").style.opacity = $("#dDay").style.opacity = 1 - P(t, T.scan, .4);
+  for (const m of dMsgs) {
+    const d = T.scan + (m.top + 90) / 730 * .9;
+    const p = P(t, d, .45);
+    const r0 = m.out ? [20, 20, 6, 20] : [20, 20, 20, 6];
+    m.el.style.width = lerp(m.w, fullW, p) + "px";
+    m.el.style.height = lerp(m.h, m.file ? 66 : 38, p) + "px";
+    m.el.style.borderRadius = r0.map(r => lerp(r, 10, p) + "px").join(" ");
+    const c0 = m.out ? [47, 107, 234] : [30, 30, 37], c1 = [23, 26, 36];
+    m.el.style.backgroundColor = `rgb(${c0.map((c, i) => lerp(c, c1[i], p)).join(",")})`;
+    mask(m.t, p); mask(m.el.querySelector(".z"), p);
+  }
+  rise($("#s4Cap"), P(t, 13.25, .8));
+  const cOut = P(t, T.swap, .4, bez(.5, 0, .9, .6));
+  $("#s4Copy").style.opacity = 1 - cOut; $("#s4Copy").style.translate = `0 ${-cOut * 50}px`;
+
+  // ===== Scene 5: a lie proves itself
+  rise($("#s5Soon"), P(t, 15.85, .9));
+  words("#s5H2", t, 15.95, .055, 1.0);
+  $("#caught").style.opacity = t > 15.9 ? 1 : 0;
+  [["#slipL", 16.1, -2.5], ["#slipR", 16.5, 2.5]].forEach(([s, a, base]) => {
+    const p = P(t, a, .8), el = $(s);
+    el.style.opacity = p; el.style.transform = `translateY(${(1 - p) * 40}px) rotate(${base + (1 - p) * 4}deg)`;
+  });
+  const cl = P(t, 17.0, .7, x => x);
+  $("#diff").style.background = `rgba(251,213,215,${cl})`; $("#diff").style.color = `rgb(${lerp(10, 216, cl)},${lerp(10, 50, cl)},${lerp(12, 58, cl)})`;
+  const g = P(t, 17.3, .5);
+  $$("#caught .c").forEach(el => el.style.boxShadow = `0 0 0 2px #fff,0 0 0 ${2 + 2 * g}px rgba(216,50,58,${g})`);
+  pop($("#verdict"), P(t, 17.6, .6, x => x));
+  rise($("#tx"), P(t, 17.9, .7));
+
+  // ===== Scene 6: the dash sweeps in, the mark keys itself, the ask
+  const wp = P(t, T.wipe, .6, bez(.6, 0, .25, 1));
+  $("#wipe").style.clipPath = `inset(0 ${(1 - wp) * 3120}px 0 0 round 540px)`;
+  $("#end").style.opacity = t > T.wipe + .5 ? 1 : 0;
+  const ed = P(t, 20.25, .55, x => x);
+  $("#eDot").style.opacity = clamp(ed * 2); $("#eDot").style.scale = lerp(.3, 1, back(ed));
+  $("#eDash").style.clipPath = `inset(0 ${(1 - P(t, 20.5, .6)) * 100}% 0 0 round 60px)`;
+  words("#eWord", t, 20.45, 0, 1.0);
+  rise($("#eTag"), P(t, 20.75, .95), 30);
+  rise($("#eJoin"), P(t, 21.05, .95), 30);
+  rise($("#eUrl"), P(t, 21.25, .95), 30);
+}
+
+window.ready = (async () => {
+  await document.fonts.ready;
+  await Promise.all([...document.fonts].map(f => f.load()));
+  measure();
+  render(0);
+  window.cues = {seals: dMsgs.map(m => +(T.scan + (m.top + 90) / 730 * .9).toFixed(3))};
+  return true;
+})();
+window.render = render;
+window.DURATION = T.end;
+</script>
+</body>
+</html>

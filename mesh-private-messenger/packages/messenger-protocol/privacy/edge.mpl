@@ -342,6 +342,29 @@ fn sealed_delivery_label() -> String do
   "mesh-msg/v1/anonymous-abuse-token"
 end
 
+# Every endpoint's work is a fixed step down from the one pinned difficulty
+# (the base), so a phone and a server that agree on the base agree on every
+# endpoint, and the base stays the one value the signed build config pins.
+# Lookups and prekey claims come with new contacts and sessions, envelopes with
+# every message and receipt, and other limits bound both; registering keeps the
+# full base. No step is above the base, so a server that knows the steps accepts
+# everything an older build mints (sealed-delivery-v1.md, "Per-endpoint
+# difficulty"). Callers always pass the base.
+
+fn endpoint_offset(label :: String) -> Int do
+  if label == "mesh-msg/v1/work/resolve" || label == "mesh-msg/v1/work/prekey-claim" do
+    -2
+  else if label == sealed_delivery_label() do
+    -4
+  else
+    0
+  end
+end
+
+pub fn abuse_endpoint_difficulty(base :: Int, label :: String) -> Int do
+  Math.max(1, Math.min(24, base + endpoint_offset(label)))
+end
+
 fn power_of_two(exponent :: Int, value :: Int) -> Int do
   if exponent <= 0 do
     value
@@ -389,7 +412,7 @@ pub fn mint_submission(sealed :: SealedDelivery,
       token: mine(sealed_delivery_label(),
         Crypto.sha256(encode_sealed_delivery(sealed)?),
         expires_at,
-        difficulty,
+        abuse_endpoint_difficulty(difficulty, sealed_delivery_label()),
         0)?,
       sealed: sealed
     })
@@ -419,7 +442,7 @@ pub fn verify_submission(input :: Bytes,
           expires_at.value,
           nonce.value)?,
         0,
-        difficulty))
+        abuse_endpoint_difficulty(difficulty, sealed_delivery_label())))
   end
 end
 
@@ -466,7 +489,11 @@ pub fn mint_request_stamp(label :: String,
   if difficulty < 1 || difficulty > 24 do
     Err("invalid abuse difficulty")
   else
-    let token = mine(label, Crypto.sha256(payload), expires_at, difficulty, 0)?
+    let token = mine(label,
+      Crypto.sha256(payload),
+      expires_at,
+      abuse_endpoint_difficulty(difficulty, label),
+      0)?
     Ok(RequestStamp { expires_at: token.expires_at, nonce: token.nonce })
   end
 end
@@ -488,7 +515,7 @@ pub fn verify_request_stamp(label :: String,
       && U64.compare(stamp.expires_at, latest) <= 0
       && leading_zero_bits(work_hash(label, Crypto.sha256(payload), stamp.expires_at, stamp.nonce)?,
         0,
-        difficulty))
+        abuse_endpoint_difficulty(difficulty, label)))
   end
 end
 

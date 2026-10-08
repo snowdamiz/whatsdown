@@ -96,7 +96,7 @@ try {
           if (symbol === 'mesh_messenger_list_conversations') {
             state.reloads++;
             return list(...[[2, 'alex'], [3, 'maya'], [4, 'jordan']].map(([n, name]) =>
-              vectors(id(n, 16), text(name), id(n), id(n, 16), text('1234567890'.repeat(6)), [1], [0], [0], [0], u32(0))));
+              vectors(id(n, 16), text(name), id(n), id(n, 16), text('1234567890'.repeat(6)), [1], [0], [0], [0], u32(0), u64(0))));
           }
           if (symbol === 'mesh_messenger_load_history') {
             const peer = fields(Array.from(args))[1][0];

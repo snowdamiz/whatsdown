@@ -383,6 +383,15 @@ pub fn authorize_link(request :: MobilePayloadRequest) -> Bytes!String do
 end
 
 pub fn complete_link(request :: MobilePayloadRequest) -> Bytes!String do
+  complete_link_storing(request, List.new(), List.new())
+end
+
+## `complete_link`, storing `labels` and `blobs` in the same transaction: a
+## device restored from a backup keeps the account key it brought.
+
+pub fn complete_link_storing(request :: MobilePayloadRequest,
+  labels :: List<String>,
+  blobs :: List<Bytes>) -> Bytes!String do
   ensure_schema(request.database_path)?
   ensure_account_missing(request.database_path)?
   let authorization = parse_link_authorization(request.payload)?
@@ -474,7 +483,8 @@ pub fn complete_link(request :: MobilePayloadRequest) -> Bytes!String do
         "one-time-prekeys/v1",
         "one-time-prekey-active/v1",
         "one-time-prekey-next-id/v1"
-      ],
+      ]
+        ++ labels,
       [
         signing_blob,
         identity_blob,
@@ -485,7 +495,8 @@ pub fn complete_link(request :: MobilePayloadRequest) -> Bytes!String do
         prekey_index_blob,
         prekey_active_blob,
         prekey_next_id_blob
-      ])?
+      ]
+        ++ blobs)?
     Ok(profile)
   end
 end

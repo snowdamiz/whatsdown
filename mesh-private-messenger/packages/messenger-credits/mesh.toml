@@ -1,0 +1,8 @@
+[package]
+name = "messenger-credits"
+version = "0.1.0"
+description = "Morse credit token cryptography over Crypto.BlindRsa (needs a Mesh release with BR1)"
+license = "MIT"
+
+[dependencies]
+messenger-protocol = { path = "../messenger-protocol" }

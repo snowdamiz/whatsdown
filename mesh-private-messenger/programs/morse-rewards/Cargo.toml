@@ -1,0 +1,20 @@
+[package]
+name = "morse-rewards"
+version = "1.0.0"
+edition = "2021"
+publish = false
+description = "Morse witness-network rewards: weekly pool settlement by on-chain attendance, claims, token burns"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+pinocchio = { version = "0.11", features = ["cpi"] }
+pinocchio-system = "0.6"
+pinocchio-token = "0.7"
+
+[target.'cfg(not(target_os = "solana"))'.dependencies]
+solana-address = { version = "2", features = ["curve25519"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
