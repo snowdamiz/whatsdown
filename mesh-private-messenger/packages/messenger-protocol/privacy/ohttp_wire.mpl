@@ -159,7 +159,9 @@ fn keys_from(configs :: List<OhttpKeyConfig>, index :: Int, output :: Bytes) -> 
 end
 
 pub fn ohttp_header(key_id :: Int) -> Bytes!String do
-  join([u8(key_id)?, u16(ohttp_kem_id())?, u16(ohttp_kdf_id())?, u16(ohttp_aead_id())?], 0, Bytes.empty())
+  join([u8(key_id)?, u16(ohttp_kem_id())?, u16(ohttp_kdf_id())?, u16(ohttp_aead_id())?],
+    0,
+    Bytes.empty())
 end
 
 pub fn ohttp_request_info(key_id :: Int) -> Bytes!String do
