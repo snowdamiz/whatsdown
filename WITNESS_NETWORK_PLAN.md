@@ -125,7 +125,7 @@ revisited at each phase gate.
 ### Current continuation status — 2026-11-06
 
 This table is the current continuation reference, through source checkpoint
-`661a585` (source implementation unchanged since `4b2953a`). Detailed entries below retain the history of implementation and proof;
+`4eaed22`. Detailed entries below retain the history of implementation and proof;
 an older candidate or pending note does not override a later adoption record.
 Local source, local execution, native UI qualification and live production
 acceptance are separate states. No live deployment inventory was refreshed by
@@ -143,10 +143,10 @@ passing local fixture does not close a native-device or production gate.
 | Quorum source identity | Shared Mesh and writer host checks adopted through `f4c21c2`; seven Mesh and 28 native/writer checks pass, including mapped/nonmapped IPv6 controls | Independent-provider and live RPC qualification; different names alone do not establish different operators |
 | V2 rewards | Bounded scheduling plus directory/current-attendance grace assessment adopted (`cee839c`); 47 composed local Node/native/Kit/SBF checks pass | Deployment, funded operation, independent providers and live duration gates; finite requests stop at their configured bound |
 | Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; fresh 800 app, 121 native and 16 desktop-script checks pass. A certificate-signed actual-store probe still refuses with `-34018` | Matching macOS profile/entitlements and provisioned bundle, then unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
-| Plaintext propagation | Presentation ingress/storage/projection adopted with 69 reviewed sites; current macOS desktop Core build and native tests pass | Outgoing message-label checkpoint remains isolated. Its invitation control parser is now private; a separate exported triple-payload parser still accepts overlapping frames. Compose and verify the checkpoint, then close remaining semantic parser and decoded receive/history boundaries, mobile targets and release qualification |
+| Plaintext propagation | Presentation labels plus outgoing direct/fanout/group-send/self-sync body labels adopted through `4eaed22`. Fresh qualified-compiler proof refuses seven selected HTTP exits, passes label-removal/production controls and the 69-site disclosure gate; three send/invitation test files pass | A separate exported triple-payload parser still accepts overlapping frames; demonstrated production message exports select their labeled parsers. Close remaining semantic parser and decoded receive/history boundaries, mobile targets and release qualification |
 | Bootstrap acceptance | Native-ABI runner adopted through `4b2953a`; fresh combined-branch run passes lookup, forged-signature refusal and restart controls but exits 1 with `BLOCKED_NATIVE_RPC_TLS` | Scoped native RPC TLS implementation is active in an isolated worktree. The actual anchor call still returns `rpc_unavailable`; remaining local controls and all eight production checks stay open |
 | Witness outage qualification | No new outage result adopted | Isolated integration work is connecting three real witness processes to actual Core lookups, with a real 15-minute single-witness stop and retained-state recovery. Local execution will not close the scheduled production B1 drill |
-| View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unconnected | Read-only integration design is active for authenticated direct/group/self-sync admission before object retrieval. Implementation and real receive/native qualification remain open |
+| View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unconnected | Initial design is complete and isolated Core implementation has begun. Before freezing its contract, correct group-ID width, full-reference duplicate binding, restart key retention and legacy Consumed precedence. Real receive/native qualification remains open |
 | Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
 | Mixed-asset fork filing | MPR2 codecs and authenticated unsigned proof planning exist; legacy relay/phone filing works | Durable MPR2 relay execution is active in an isolated worktree; versioned authenticated receipts, phone filing and separate bounty-asset recovery remain unadopted |
 | Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
@@ -447,6 +447,26 @@ test setup and observations only. Per-file logs and hashes are indexed by
 Full message/request-field labeling, native app/device
 and release qualification remain open; this does not close Phase 6 or D4/D6.
 The existing 67 Mesh lint findings were also removed; full messenger lint passes.
+
+The outgoing-body checkpoint is adopted as `3852e78` and `4eaed22`. Actual
+direct, fanout, group-send and self-sync parsers now introduce body labels;
+native fanout separates message content from invitation control data. The raw
+invitation parser is private to its operation. On the combined branch, the
+qualified optimized Mesh `8256d5d3` family refuses seven actual-source HTTP
+exits and both forbidden parser imports. Removing the body labels admits the
+content probes, and the protected production build passes. All 707 captured
+inputs stayed unchanged during this proof. Three focused invitation/fanout test
+files, four report-verifier checks and empty full messenger lint pass.
+
+The 69-site disclosure inventory has no new or removed sites, kinds or reasons;
+all 14 moved expressions are byte-identical. Parent verification is retained at
+`.morse/continuation-20261106/content-ingress-adoption`. The owner's separate
+23-file/62-case receive run is retained evidence, not a repeated parent run.
+An exported generic triple-payload parser still accepts a synthetic frame also
+accepted by direct/group parsers and returns an unlabelled projection. No
+production message caller was observed choosing that alternate parser. Raw
+semantic parser scope, decrypted body types and restored history remain open;
+this checkpoint does not establish complete ingress protection.
 
 A separate compiler defect was isolated: implicit `From` error conversion lost
 privacy shape precision. The application uses the exact equivalent explicit
