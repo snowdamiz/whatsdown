@@ -57,3 +57,12 @@ test('legacy USDC migration is a permissionless journaled Mesh operation with no
   assert.deepEqual(Object.keys(tx.signatures),[payer]);
   assert.deepEqual(relayStepMessage(step,{blockhash:SYSTEM,lastValidBlockHeight:500n}).rentAllocations,[]);
 });
+
+test('prepared winner payout setup preserves the requested finder and pays the authenticated winner in both pinned assets',()=>{
+  const winner=addresses[19],locked=addresses[20],destinations=addresses.slice(7,11);
+  const setup=destinations.map((destination,index)=>({...ix([payer,destination,index%2?locked:winner,index<2?usdc:morse,SYSTEM,TOKEN],Buffer.from([1]),[payer],[payer,destination]),programId:'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'}));
+  const p=plan('payout_accounts',setup,destinations.map(address=>({address,space:165})));p.payout_finder=winner;
+  const prepared=admit(p);assert.equal(prepared.preparation[0].kind,'setup');assert.equal(p.finder,payer);assert.notEqual(p.finder,p.payout_finder);
+  const wrong=structuredClone(p);wrong.operation.instructions[2].accountKeys[2]=payer;assert.throws(()=>admit(wrong),/payout|account shape/);
+  const mint=structuredClone(p);mint.operation.instructions[2].accountKeys[3]=usdc;assert.throws(()=>admit(mint),/account shape/);
+});

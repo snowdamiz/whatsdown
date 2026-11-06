@@ -174,6 +174,7 @@ function prepareMixedRelayTransactions(plan,pins){
   if(pins?.usdcMint!==plan.usdc_mint||pins?.morseMint!==plan.morse_mint||
     (pins.mint!==undefined&&pins.mint!==pins.usdcMint)||plan.usdc_mint===plan.morse_mint)fail('Relay mixed-asset pin mismatch');
   key(plan.usdc_mint);key(plan.morse_mint);key(plan.finder);key(plan.receipt);wide(plan.context_slot);
+  const payoutFinder=plan.payout_finder===undefined?plan.finder:key(plan.payout_finder);
   if(plan.proof_hex!==pins.proofHex)fail('Relay proof changed after admission');
   const wire=hex(plan.proof_hex,264,8009),payer=plan.submitter,stage=key(plan.stage?.address);
   hex(plan.proof_hash,32);
@@ -196,7 +197,7 @@ function prepareMixedRelayTransactions(plan,pins){
         if(value.programAddress!==ATA||value.data.toString('hex')!=='01'||value.accounts.length!==6)fail('Invalid mixed relay payout setup');
         const mint=index<2?plan.usdc_mint:plan.morse_mint;
         exact(value,[payer,value.accounts[1].address,value.accounts[2].address,mint,SYSTEM,TOKEN],[S,W,R,R,R,R]);
-        if(index%2===0&&value.accounts[2].address!==plan.finder)fail('Invalid mixed relay finder payout');
+        if(index%2===0&&value.accounts[2].address!==payoutFinder)fail('Invalid mixed relay finder payout');
         if(index>=2&&value.accounts[2].address!==instructions[index-2].accounts[2].address)fail('Invalid mixed relay payout owner');
         allocations.push({address:value.accounts[1].address,space:165});
       }
