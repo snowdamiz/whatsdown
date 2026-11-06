@@ -243,6 +243,25 @@ def main():
                             raise RuntimeError("source label changed: " + signature)
                         text = text.replace(signature, signature.replace("Plaintext<Bytes>", "Bytes"))
                     path.write_text(text)
+            # Request and self-sync labels independently protect the receive
+            # wrappers; remove them only in this copied positive control too.
+            types_path = mobile / "mobile/types.mpl"
+            types_text = types_path.read_text()
+            originals[types_path] = types_text
+            for name in ("MobileStartRequest", "MobileFanoutRequest", "MobileSyncPayload", "MobileGroupSendRequest"):
+                start = types_text.index("pub struct " + name + " do")
+                end = types_text.index("\nend", start)
+                part = types_text[start:end]
+                if part.count("  body :: Plaintext<Bytes>") != 1:
+                    raise RuntimeError("missing body label in " + name)
+                types_text = types_text[:start] + part.replace("  body :: Plaintext<Bytes>", "  body :: Bytes") + types_text[end:]
+            types_path.write_text(types_text)
+            action_path = mobile / "mobile/fanout_network.mpl"
+            action_text = action_path.read_text()
+            originals[action_path] = action_text
+            if action_text.count("  body :: Plaintext<Bytes>") != 1:
+                raise RuntimeError("missing fanout action body label")
+            action_path.write_text(action_text.replace("  body :: Plaintext<Bytes>", "  body :: Bytes"))
             build("removed-labels-red", probe, True)
         finally:
             for path, text in originals.items():

@@ -24,6 +24,11 @@ from Tests.GroupConsistencySupport import signed_transparency_view
 from Transparency.Merkle import leaf_hash
 from Transport.Packet import decode_client_profile
 
+fn assert_owned_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic peer ratchet and self-sync fixture result; no application disclosure"))
+end
+
 fn assert_received_fixture(value :: Bool) do
   assert(declassify(value,
     "test-only Boolean assertion of controlled synthetic peer message delivery before ratchet source-guard checks; no application disclosure"))
@@ -130,11 +135,5 @@ fn proof() -> Bool!String do
 end
 
 test("self-sync acceptance preserves a genuinely advanced HE peer ratchet and fresh retry keeps its exact snapshot") do
-  case proof() do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert_owned_fixture(Result.unwrap_or(proof(), false))
 end

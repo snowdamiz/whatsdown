@@ -25,6 +25,11 @@ from Tests.Support import (
 from Transparency.Merkle import sign_checkpoint, leaf_hash, consistency_proof
 from Transparency.Wire import encode_checkpoint, encode_consistency_proof
 
+fn assert_owned_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic encrypted gossip transport fixture result; no application disclosure"))
+end
+
 fn assert_received_body(value :: Bool) do
   assert(declassify(value,
     "test-only Boolean assertion of controlled synthetic gossip message bodies; no application disclosure"))
@@ -173,11 +178,5 @@ fn proof() -> Bool!String do
 end
 
 test("encrypted gossip controls survive outbox retries and both phones pause only new sessions") do
-  case proof() do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert_owned_fixture(Result.unwrap_or(proof(), false))
 end

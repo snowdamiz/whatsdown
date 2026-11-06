@@ -208,6 +208,7 @@ pub fn parse_fanout_prekey_reservation_request(input :: Bytes) -> MobileFanoutPr
   end
 end
 
+
 pub fn parse_fanout_request(input :: Bytes) -> MobileFanoutRequest!String do
   let state = mobile_reader(input, 663020, "invalid_fanout_request")?
   let path = take_vector(state, 4096)?

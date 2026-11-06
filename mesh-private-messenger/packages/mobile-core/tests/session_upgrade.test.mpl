@@ -205,7 +205,7 @@ fn proof() -> Bool!String do
   ])?) do
     Ok(_) -> assert(false)
     # This retired credential is absent from the authenticated current set.
-    Err(error) -> assert(error == "header_recipient_changed")
+    Err(error) -> assert_received_fixture(error == "header_recipient_changed")
   end
   assert(Bytes.secure_equals(update_conversation_export(request([
       Bytes.from_utf8(alice_path),
@@ -242,13 +242,7 @@ fn proof() -> Bool!String do
 end
 
 test("mobile session upgrades enforce conversation blocks on delayed suite-1 traffic") do
-  case proof() do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert_received_fixture(Result.unwrap_or(proof(), false))
 end
 
 fn legacy_queued_positive() -> Bool!String do

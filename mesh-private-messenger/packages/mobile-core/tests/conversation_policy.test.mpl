@@ -33,6 +33,11 @@ from Protocol.IdentityWire import encode_account_identity
 from Protocol.V1 import AccountIdentity, DeviceSet, DirectoryEntry, OuterEnvelope
 from Transport.Packet import ClientProfile, decode_client_profile, encode_client_profile
 
+fn assert_owned_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic conversation-policy fixture result and expected refusal predicates; no application disclosure"))
+end
+
 fn assert_received_body(value :: Bool) do
   assert(declassify(value,
     "test-only Boolean assertion of controlled synthetic conversation message bodies; no application disclosure"))
@@ -169,7 +174,7 @@ fn proof() -> Bool!String do
   let reply_request = request([Bytes.from_utf8(bob_path), alice_profile, reply])?
   case send_message_export(reply_request) do
     Ok(_) -> assert(false)
-    Err(error) -> assert(error == "message_request_pending")
+    Err(error) -> assert_owned_fixture(error == "message_request_pending")
   end
   assert(Bytes.secure_equals(policy(bob_path, alice_profile, 1, 0)?, Bytes.from_utf8("ok")))
   assert(assert_summary(decode_conversation_summary(list_conversations_export(Bytes.from_utf8(bob_path))?)?,
@@ -287,7 +292,7 @@ fn proof() -> Bool!String do
     Bytes.from_utf8("must not send")
   ])?) do
     Ok(_) -> assert(false)
-    Err(error) -> assert(error == "peer_keys_changed")
+    Err(error) -> assert_owned_fixture(error == "peer_keys_changed")
   end
   File.delete(alice_path)?
   File.delete(bob_path)?
@@ -295,11 +300,5 @@ fn proof() -> Bool!String do
 end
 
 test("mobile conversation policy and disappearing history are proven in Mesh") do
-  case proof() do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert_owned_fixture(Result.unwrap_or(proof(), false))
 end

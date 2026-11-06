@@ -19,7 +19,7 @@ from Mobile.GroupInvites import invite_to_group_at_profile, accept_group_invitat
 from Mobile.NetworkPins import native_network_pins
 from Mobile.Platform import native_security_config
 from Mobile.TransparencySafety import require_log_changes_allowed
-from Mobile.Types import MobileFanoutRequest, MobileFanoutTargetsRequest, MobilePayloadRequest
+from Mobile.Types import MobileFanoutRequest, MobileFanoutControlRequest, MobileFanoutTargetsRequest, MobilePayloadRequest
 from Storage.Keys import platform_key
 from Transparency.Config import encode_security_config
 
@@ -29,6 +29,7 @@ pub struct FanoutAction do
   username :: String
   kind :: Int
   payload :: Bytes
+  body :: Plaintext<Bytes>
   expected_peer :: Bytes
   attachment :: Bytes
 end
@@ -76,7 +77,8 @@ pub fn parse_fanout_action(input :: Bytes) -> FanoutAction!String do
     expected_profile: profile.value,
     username: peer,
     kind: mode,
-    payload: payload.value,
+    payload: if mode == 1 do Bytes.empty() else payload.value end,
+    body: if mode == 1 do payload.value else Bytes.empty() end,
     expected_peer: expected_peer.value,
     attachment: attachment.value
   })
@@ -155,19 +157,27 @@ pub fn native_fanout_send(input :: Bytes) -> Bytes!String do
     },
     who.before.profile)?
   current(action, who, pins.core_origin, security)?
-  let request = MobileFanoutRequest {
-    database_path: action.path,
-    peer_device_set: peer_set,
-    local_device_set: local_set,
-    body: action.payload,
-    attachment: action.attachment
-  }
   if action.kind == 1 do
-    send_fanout_at_profile(request, who.before.profile)?
-  else if action.kind == 2 do
-    invite_to_group_at_profile(request, who.before.profile)?
+    send_fanout_at_profile(MobileFanoutRequest {
+        database_path: action.path,
+        peer_device_set: peer_set,
+        local_device_set: local_set,
+        body: action.body,
+        attachment: action.attachment
+      }, who.before.profile)?
   else
-    accept_group_invitation_at_profile(request, who.before.profile)?
+    let control = MobileFanoutControlRequest {
+      database_path: action.path,
+      peer_device_set: peer_set,
+      local_device_set: local_set,
+      body: action.payload,
+      attachment: action.attachment
+    }
+    if action.kind == 2 do
+      invite_to_group_at_profile(control, who.before.profile)?
+    else
+      accept_group_invitation_at_profile(control, who.before.profile)?
+    end
   end
   current(action, who, pins.core_origin, security)?
   case Bytes.concat(Bytes.from_utf8("\u{1}FNO"),

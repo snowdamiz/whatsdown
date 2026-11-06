@@ -57,13 +57,32 @@ python3 ops/plaintext/prove_display_sources.py \
 
 This runner snapshots the full declared Mesh path dependency closure and refuses
 14 actual content/getter/wrapper-to-HTTP flows plus three private policy-helper
-flows. Removing the relevant result/input/local labels and the two attachment
-manifest field labels admits the 14 content flows. The protected production core
+flows. Removing the relevant result/input/local labels the two attachment
+manifest field labels and five request/action body labels admits the 14 content flows. The protected production core
 must compile. Policy probes keep their private inputs and are excluded from the
 label-removal positive control. The runner never executes probes or changes live
 labels. `MESH_RT_LIB_PATH`, when supplied, is recorded by hash. This covers
 presentation ingress/internal reads and selected getters, not complete message
 body or request-field labeling.
+
+Check the actual direct, fanout and group-send request-body parsers, native
+fanout action and self-sync body parser, plus direct and self-sync encoding
+against HTTP with:
+
+```sh
+python3 ops/plaintext/prove_content_ingress.py \
+  --compiler /absolute/path/to/pinned/meshc \
+  --output /absolute/path/to/new/evidence-directory
+```
+
+The runner snapshots the Mesh dependency closure, requires E0093 at each of seven
+forbidden exits, verifies the former public control parser cannot be imported and
+its replacement is private, builds the same probes after removing the five body labels,
+and builds the production core. It does not cover decoded envelope/group bodies or decrypt-outcome projections.
+Other public parsers can accept the same raw request frame; the triple-payload
+parser in particular still exposes its second field as ordinary bytes. This is
+not an end-to-end ingress claim. No probe executes or makes a network request. Run the reviewed disclosure gate separately against
+the actual Main artifact.
 
 Check the labeled manifest fields, encrypted positive paths, private metadata
 refusals and exhaustive error policy with:
