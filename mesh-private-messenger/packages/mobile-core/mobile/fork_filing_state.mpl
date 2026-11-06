@@ -11,8 +11,6 @@ from Mobile.Codec import (
   random_bytes
 )
 from Storage.Blobs import load_blob
-from Mobile.Types import MobileReadBytes
-from Binary.Reader import BinaryReader
 from Storage.Keys import local_context, open_local, seal_local
 from Storage.Records import compare_and_swap_blobs
 
@@ -21,6 +19,8 @@ pub struct FilingObservation do
   context_slot :: U64
   finder :: Bytes
   units :: U64
+  morse_units :: U64
+  receipt_format :: Int
 end
 
 pub struct FilingState do
@@ -55,7 +55,7 @@ fn label() -> String do
 end
 
 fn statuses() -> List<String> do
-  ["pending", "rpc_unavailable", "rpc_disagree", "settled"]
+  ["pending", "rpc_unavailable", "rpc_disagree", "settled", "prepared"]
 end
 
 pub fn filing_pending(slot :: U64) -> FilingObservation!String do
@@ -63,7 +63,9 @@ pub fn filing_pending(slot :: U64) -> FilingObservation!String do
     status: "pending",
     context_slot: slot,
     finder: Bytes.empty(),
-    units: U64.parse("0")?
+    units: U64.parse("0")?,
+    morse_units: U64.parse("0")?,
+    receipt_format: 0
   })
 end
 
@@ -94,6 +96,7 @@ end
 
 fn valid(state :: FilingState) -> Result<(), String> do
   let observation = state.observation
+  let zero = U64.parse("0")?
   status_code(observation.status)?
   if Bytes.length(state.identity) != 32
     || Bytes.length(state.target_hash) != 32
@@ -107,12 +110,25 @@ fn valid(state :: FilingState) -> Result<(), String> do
     || U64.compare(state.next_attempt, state.started_at) <= 0 do
     return Err("invalid_filing_state")
   end
-  if observation.status == "settled" do
+  if observation.status == "settled" || observation.status == "prepared" do
     if Bytes.length(observation.finder) != 32
       || Bytes.to_hex(observation.finder) == String.repeat("00", 32) do
       return Err("invalid_filing_state")
     end
-  else if Bytes.length(observation.finder) != 0 || observation.units != U64.parse("0")? do
+    if observation.status == "prepared" do
+      if observation.receipt_format != 2
+        || observation.units != zero
+        || observation.morse_units != zero do
+        return Err("invalid_filing_state")
+      end
+    else if (observation.receipt_format != 1 && observation.receipt_format != 2)
+      || (observation.receipt_format == 1 && observation.morse_units != zero) do
+      return Err("invalid_filing_state")
+    end
+  else if Bytes.length(observation.finder) != 0
+    || observation.units != zero
+    || observation.morse_units != zero
+    || observation.receipt_format != 0 do
     return Err("invalid_filing_state")
   end
   Ok(nil)
@@ -121,7 +137,7 @@ end
 fn seal(state :: FilingState, key :: borrow StorageKey) -> Bytes!String do
   valid(state)?
   let bytes = mobile_join([
-      Bytes.from_utf8("FFS1"),
+      Bytes.from_utf8("FFS2"),
       state.identity,
       state.target_hash,
       mobile_write_u64(state.next_attempt)?,
@@ -133,6 +149,8 @@ fn seal(state :: FilingState, key :: borrow StorageKey) -> Bytes!String do
       mobile_byte(status_code(state.observation.status)?)?,
       mobile_write_u64(state.observation.context_slot)?,
       mobile_write_u64(state.observation.units)?,
+      mobile_write_u64(state.observation.morse_units)?,
+      mobile_byte(state.observation.receipt_format)?,
       mobile_vector(state.token)?,
       mobile_vector(state.observation.finder)?
     ],
@@ -153,22 +171,40 @@ fn load_record(path :: String, key :: borrow StorageKey) -> StoredFiling!String 
   let bytes = open_local(blob, key, local_context(label())?)?
   let input = mobile_reader(bytes, 192, "invalid_filing_state")?
   let magic = take_fixed(input, 4)?
+  let legacy = Bytes.secure_equals(magic.value, Bytes.from_utf8("FFS1"))
+  if !legacy && !Bytes.secure_equals(magic.value, Bytes.from_utf8("FFS2")) do
+    return Err("invalid_filing_state")
+  end
   let identity = take_fixed(magic.state, 32)?
   let targets = take_fixed(identity.state, 32)?
   let next = take_fixed(targets.state, 8)?
   let started = take_fixed(next.state, 8)?
   let checked = take_fixed(started.state, 8)?
   let flags = take_fixed(checked.state, 4)?
-  let slot = take_fixed(flags.state, 8)?
-  let units = take_fixed(slot.state, 8)?
-  let token = take_vector(units.state, 16)?
-  let finder = take_vector(token.state, 32)?
-  mobile_finish(finder.state, "invalid_filing_state")?
   let code = Bytes.get(flags.value, 3)?
-  if !Bytes.secure_equals(magic.value, Bytes.from_utf8("FFS1"))
-    || code >= List.length(statuses()) do
+  if code >= List.length(statuses()) || (legacy && code >= 4) do
     return Err("invalid_filing_state")
   end
+  let slot = take_fixed(flags.state, 8)?
+  let units = take_fixed(slot.state, 8)?
+  # FFS1 has no receipt format or MORSE field; its settled status means MPR1.
+  # The storage label/context stays at v1 so existing encrypted records reopen.
+  let (morse_units, receipt_format, remainder) = if legacy do
+    (U64.parse("0")?,
+      if code == 3 do
+        1
+      else
+        0
+      end,
+      units.state)
+  else
+    let morse = take_fixed(units.state, 8)?
+    let format = take_fixed(morse.state, 1)?
+    (mobile_read_u64(morse.value)?, Bytes.get(format.value, 0)?, format.state)
+  end
+  let token = take_vector(remainder, 16)?
+  let finder = take_vector(token.state, 32)?
+  mobile_finish(finder.state, "invalid_filing_state")?
   let state = FilingState {
     identity: identity.value,
     target_hash: targets.value,
@@ -183,6 +219,8 @@ fn load_record(path :: String, key :: borrow StorageKey) -> StoredFiling!String 
       status: List.get(statuses(), code),
       context_slot: mobile_read_u64(slot.value)?,
       units: mobile_read_u64(units.value)?,
+      morse_units: morse_units,
+      receipt_format: receipt_format,
       finder: finder.value
     }
   }
