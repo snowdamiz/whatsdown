@@ -1,4 +1,12 @@
 ##! Reconcile old operations without readmission through mutable collateral.
+from Transparency.RpcTransport import (
+  RpcTransport,
+  RpcEndpoint,
+  rpc_urls,
+  rpc_fatal_error,
+  require_rpc_current
+)
+from Transparency.AnchorRpc import read_anchor_rpc_response
 from Input import RelayConfig, text
 from Receipt import (
   RelayReceiptState,
@@ -12,8 +20,7 @@ from Solana.Read import (
   Pubkey,
   OptionalAccountSlicesAtSlot,
   get_multiple_accounts_slice_request,
-  optional_accounts_slice_from_response,
-  rpc_send
+  optional_accounts_slice_from_response
 )
 from Transparency.TokenCollateralWrite import token_collateral_addresses, collateral_derived
 from Transparency.TokenProofWrite import token_proof_stage_address
@@ -142,8 +149,8 @@ pub fn decode_recovery_snapshot(config :: RelayConfig,
   })
 end
 
-fn origin(client :: Int,
-  url :: String,
+fn origin(rpc :: RpcTransport,
+  endpoint :: RpcEndpoint,
   config :: RelayConfig,
   wire :: Bytes,
   finder :: Pubkey,
@@ -158,27 +165,39 @@ fn origin(client :: Int,
     wire,
     minimum,
     finder,
-    optional_accounts_slice_from_response(rpc_send(client, url, request, 5000, 262144)?)?)
+    optional_accounts_slice_from_response(read_anchor_rpc_response(rpc,
+      endpoint,
+      request,
+      262144)?)?)
 end
 
-pub fn read_recovery(client :: Int,
+pub fn read_recovery(rpc :: RpcTransport,
   config :: RelayConfig,
   wire :: Bytes,
   minimum :: U64) -> RecoveryState!String do
-  let sources = config.operator.sources
-  validate_collateral_operator_sources(sources)?
+  require_rpc_current(rpc.require_current)?
+  validate_collateral_operator_sources(rpc_urls(rpc))?
   let proof = validate_relay_submission(config.operator.pins.service_key,
     config.operator.pins.log_version,
     wire)?
-  let receipt = read_receipt(client, sources, config.operator.pins, fork_hash(proof)?, minimum)?
+  let receipt = read_receipt(rpc, config.operator.pins, fork_hash(proof)?, minimum)?
   let finder = payout_finder(config, wire, receipt)?
   let floor = receipt.context_slot
-  let first = origin(client, List.get(sources, 0), config, wire, finder, floor)
-  let second = origin(client, List.get(sources, 1), config, wire, finder, floor)
-  let third = origin(client, List.get(sources, 2), config, wire, finder, floor)
+  let results = for endpoint in List.take(rpc.sources, 3) do
+    let result = origin(rpc, endpoint, config, wire, finder, floor)
+    case result do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
+      _ -> result
+    end
+  end
+  require_rpc_current(rpc.require_current)?
+  let first = List.get(results, 0)
+  let second = List.get(results, 1)
+  let third = List.get(results, 2)
   for pair in [(first, second), (first, third), (second, third)] do
     case pair do
       (Ok(a), Ok(b)) -> if a.digest == b.digest do
+        require_rpc_current(rpc.require_current)?
         return Ok(a)
       end
       _ -> nil

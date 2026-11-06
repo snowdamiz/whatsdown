@@ -1,4 +1,5 @@
 ##! Existing schema-v1 jobs keep the original public protocol boundary.
+from Transparency.RpcTransport import RpcTransport
 from Input import RelayConfig
 from Recovery import read_recovery
 from Receipt import read_receipt, PermanentReceipt, permanent_receipt_report, receipt_report
@@ -17,14 +18,14 @@ from Solana.Read import Pubkey
 from Transparency.Relay import validate_relay_submission
 from Transparency.Fork import fork_hash
 
-pub fn legacy_execute(client :: Int,
+pub fn legacy_execute(rpc :: RpcTransport,
   config :: RelayConfig,
   method :: String,
   wire :: Bytes,
   minimum :: U64) -> String!String do
   let p = config.operator.pins
   if method == "legacy-destinations" do
-    let state = read_recovery(client, config, wire, minimum)?
+    let state = read_recovery(rpc, config, wire, minimum)?
     let proof = validate_relay_submission(p.service_key, p.log_version, wire)?
     let finder = Pubkey {
       bytes: if Bytes.to_hex(proof.finder) == String.repeat("00", 32) do
@@ -53,7 +54,7 @@ pub fn legacy_execute(client :: Int,
   end
   if method == "legacy-admit" || method == "legacy-receipt" do
     let proof = validate_relay_submission(p.service_key, p.log_version, wire)?
-    let state = read_receipt(client, config.operator.sources, p, fork_hash(proof)?, minimum)?
+    let state = read_receipt(rpc, p, fork_hash(proof)?, minimum)?
     if method == "legacy-receipt" do
       return Ok(receipt_report(state))
     end
@@ -73,7 +74,7 @@ pub fn legacy_execute(client :: Int,
     log_name: p.context.log_name,
     log_id: addresses.log_id,
     ring: addresses.ring,
-    endpoints: config.operator.sources
+    rpc: rpc
   }
   case method do
     "legacy-admit" -> Ok(relay_admission_report(admit_relay_fork(pins,

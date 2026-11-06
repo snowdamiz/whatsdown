@@ -7,7 +7,14 @@ from Tests.RelayMpr2Fixture import (
 from Input import RelayConfig
 from Request import CollateralOperatorConfig
 from ProofRead import CollateralProofIntent, collateral_proof_keys, decode_collateral_proof_snapshot
-from Migration import migration_operation, migration_keys, decode_migration_snapshot
+from Migration import (
+  migration_operation,
+  migration_keys,
+  decode_migration_snapshot,
+  migration_effect
+)
+from Recovery import read_recovery
+from Transparency.RpcTransport import webpki_rpc_transport
 from RelayMpr2Report import effect_descriptor
 from Transparency.Merkle import WitnessKey
 from Solana.Read import pubkey
@@ -56,6 +63,21 @@ fn legacy_migration() -> Bool!String do
         assert(List.length(plan.instruction_signers) == 0 && List.length(plan.rent_payers) == 0)
         assert(Bytes.get(List.head(plan.instructions).data, 0)? == 33)
         let descriptor = Json.parse(effect_descriptor(intent.wire, state, plan)?)?
+        let rpc = webpki_rpc_transport([
+          "http://127.0.0.1:1",
+          "http://127.0.0.1:2",
+          "http://127.0.0.1:3"
+        ])?
+        let stale = %{rpc | require_current: fn() do Err("lease_expired") end}
+        assert(read_recovery(stale,
+          config,
+          intent.wire,
+          snapshot.slot) == Err("rpc_context_changed:lease_expired"))
+        assert(migration_effect(stale,
+          config,
+          intent.wire,
+          descriptor,
+          snapshot.slot) == Err("rpc_context_changed:lease_expired"))
         let before = operator_fixture_snapshot_for_keys(row,
           migration_keys(config, intent.wire, descriptor)?)?
         assert(!decode_migration_snapshot(config, intent.wire, descriptor, before.slot, before)?)

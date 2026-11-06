@@ -1,3 +1,5 @@
+from Transparency.RpcTransport import webpki_rpc_transport
+
 ##! Old lookup recipes are interpreted in Mesh, never by the Node scheduler.
 from Input import RelayConfig, LookupRequest, text, wide
 from Lookup import retained_lookup
@@ -61,13 +63,13 @@ pub fn lookup_effect(config :: RelayConfig, descriptor :: Json, minimum :: U64) 
     return Err("relay_lookup_effect_instruction")
   end
   let view = if kind == "deactivate-table" || kind == "close-table" do
-    read_relay_lookup_cooldown(config.operator.sources,
+    read_relay_lookup_cooldown(webpki_rpc_transport(config.operator.sources)?,
       config.submitter,
       requested.creation_slot,
       requested.addresses,
       minimum)?.table
   else
-    read_relay_lookup(config.operator.sources,
+    read_relay_lookup(webpki_rpc_transport(config.operator.sources)?,
       config.submitter,
       requested.creation_slot,
       requested.addresses,

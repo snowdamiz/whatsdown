@@ -73,6 +73,17 @@ tables remain eligible through the ordinary coverage and retirement checks.
 Permanent reads depend on the pinned judge loader, immutable log identity, and
 derived proof PDA. They do not read current sources, bonds, or witness registries.
 
+The public permanent reader is
+`read_receipt(rpc :: RpcTransport, pins :: CollateralOperatorPins, hash :: Bytes, minimum :: U64) -> RelayReceiptState!String`.
+It uses the caller's explicit transport through
+`Transparency.AnchorRpc.read_anchor_rpc_response`; `decode_receipt_snapshot`
+remains a pure decoder. Receipt, recovery, and migration readers preserve fatal
+TLS configuration and authority errors from every queried origin and check the
+authority guard around each batch and quorum decision. A refused guard returns
+`rpc_context_changed:<reason>` rather than a missing receipt or absent effect.
+The CLI constructs ordinary WebPKI transports from its existing operator URLs.
+The Node scheduler retains its lease fences after asynchronous reads.
+
 Lookup contents are the ordered union of canonical preparation and settlement
 metas, excluding signers. A replan retains a compatible existing superset.
 Incompatible contents produce a fresh candidate; the journal retires its old

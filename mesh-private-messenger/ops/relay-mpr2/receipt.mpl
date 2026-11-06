@@ -1,4 +1,12 @@
 ##! Permanent receipt authentication has no oracle, registry or bond dependency.
+from Transparency.RpcTransport import (
+  RpcTransport,
+  RpcEndpoint,
+  rpc_urls,
+  rpc_fatal_error,
+  require_rpc_current
+)
+from Transparency.AnchorRpc import read_anchor_rpc_response
 from Read import (
   CollateralOperatorPins,
   validate_collateral_operator_pins,
@@ -11,7 +19,6 @@ from Solana.Read import (
   pubkey_string,
   get_multiple_accounts_slice_request,
   optional_accounts_slice_from_response,
-  rpc_send,
   pubkey
 )
 from Transparency.TokenCollateralWrite import token_collateral_addresses, collateral_derived
@@ -157,8 +164,8 @@ pub fn decode_receipt_snapshot(pins :: CollateralOperatorPins,
   Ok(%{initial | status: status, value: Some(receipt)})
 end
 
-pub fn receipt_origin(client :: Int,
-  url :: String,
+pub fn receipt_origin(rpc :: RpcTransport,
+  endpoint :: RpcEndpoint,
   pins :: CollateralOperatorPins,
   hash :: Bytes,
   minimum :: U64) -> RelayReceiptState!String do
@@ -171,12 +178,21 @@ pub fn receipt_origin(client :: Int,
   decode_receipt_snapshot(pins,
     hash,
     minimum,
-    optional_accounts_slice_from_response(rpc_send(client, url, request, 5000, 131072)?)?)
+    optional_accounts_slice_from_response(read_anchor_rpc_response(rpc,
+      endpoint,
+      request,
+      131072)?)?)
 end
 
 pub fn receipt_quorum(first :: RelayReceiptState!String,
   second :: RelayReceiptState!String,
   third :: RelayReceiptState!String) -> RelayReceiptState!String do
+  for result in [first, second, third] do
+    case result do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
+      _ -> nil
+    end
+  end
   for pair in [(first, second), (first, third), (second, third)] do
     case pair do
       (Ok(a), Ok(b)) -> if a.digest == b.digest do
@@ -188,15 +204,23 @@ pub fn receipt_quorum(first :: RelayReceiptState!String,
   Err("relay_receipt_quorum")
 end
 
-pub fn read_receipt(client :: Int,
-  sources :: List<String>,
+pub fn read_receipt(rpc :: RpcTransport,
   pins :: CollateralOperatorPins,
   hash :: Bytes,
   minimum :: U64) -> RelayReceiptState!String do
-  validate_collateral_operator_sources(sources)?
-  receipt_quorum(receipt_origin(client, List.get(sources, 0), pins, hash, minimum),
-    receipt_origin(client, List.get(sources, 1), pins, hash, minimum),
-    receipt_origin(client, List.get(sources, 2), pins, hash, minimum))
+  require_rpc_current(rpc.require_current)?
+  validate_collateral_operator_sources(rpc_urls(rpc))?
+  let results = for endpoint in List.take(rpc.sources, 3) do
+    let result = receipt_origin(rpc, endpoint, pins, hash, minimum)
+    case result do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
+      _ -> result
+    end
+  end
+  require_rpc_current(rpc.require_current)?
+  let state = receipt_quorum(List.get(results, 0), List.get(results, 1), List.get(results, 2))?
+  require_rpc_current(rpc.require_current)?
+  Ok(state)
 end
 
 fn key(value :: Bytes) -> String do

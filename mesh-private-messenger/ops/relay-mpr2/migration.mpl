@@ -1,4 +1,12 @@
 ##! Permissionless in-place bond migration and independent old-effect reads.
+from Transparency.RpcTransport import (
+  RpcTransport,
+  RpcEndpoint,
+  rpc_urls,
+  rpc_fatal_error,
+  require_rpc_current
+)
+from Transparency.AnchorRpc import read_anchor_rpc_response
 from Input import RelayConfig, text
 from ProofRead import CollateralProofIntent, CollateralProofState
 from Plan import CollateralOperationPlan
@@ -22,7 +30,6 @@ from Solana.Read import (
   OptionalAccountSlicesAtSlot,
   get_multiple_accounts_slice_request,
   optional_accounts_slice_from_response,
-  rpc_send,
   pubkey_string
 )
 
@@ -148,37 +155,45 @@ pub fn decode_migration_snapshot(config :: RelayConfig,
   Ok(true)
 end
 
-fn origin(client :: Int,
-  url :: String,
+fn origin(rpc :: RpcTransport,
+  endpoint :: RpcEndpoint,
   config :: RelayConfig,
   wire :: Bytes,
   descriptor :: Json,
   minimum :: U64) -> (Bool, U64, Bytes)!String do
   let keys = migration_keys(config, wire, descriptor)?
   let request = get_multiple_accounts_slice_request(1, keys, "finalized", 0, 9216, Some(minimum))?
-  let snapshot = optional_accounts_slice_from_response(rpc_send(client,
-    url,
+  let snapshot = optional_accounts_slice_from_response(read_anchor_rpc_response(rpc,
+    endpoint,
     request,
-    5000,
     131072)?)?
   Ok((decode_migration_snapshot(config, wire, descriptor, minimum, snapshot)?,
     snapshot.slot,
     operator_snapshot_digest(keys, snapshot)?))
 end
 
-pub fn migration_effect(client :: Int,
+pub fn migration_effect(rpc :: RpcTransport,
   config :: RelayConfig,
   wire :: Bytes,
   descriptor :: Json,
   minimum :: U64) -> String!String do
-  let sources = config.operator.sources
-  validate_collateral_operator_sources(sources)?
-  let first = origin(client, List.get(sources, 0), config, wire, descriptor, minimum)
-  let second = origin(client, List.get(sources, 1), config, wire, descriptor, minimum)
-  let third = origin(client, List.get(sources, 2), config, wire, descriptor, minimum)
+  require_rpc_current(rpc.require_current)?
+  validate_collateral_operator_sources(rpc_urls(rpc))?
+  let results = for endpoint in List.take(rpc.sources, 3) do
+    let result = origin(rpc, endpoint, config, wire, descriptor, minimum)
+    case result do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
+      _ -> result
+    end
+  end
+  require_rpc_current(rpc.require_current)?
+  let first = List.get(results, 0)
+  let second = List.get(results, 1)
+  let third = List.get(results, 2)
   for pair in [(first, second), (first, third), (second, third)] do
     case pair do
       (Ok((present, slot, digest)), Ok((_, _, other))) -> if digest == other do
+        require_rpc_current(rpc.require_current)?
         return Ok("""{"schema_version":2,"state":"#{if present do
           "present"
         else

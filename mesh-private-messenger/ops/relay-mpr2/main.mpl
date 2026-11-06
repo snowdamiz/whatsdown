@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Input import RelayConfig, RelayRequest, parse_config, parse_request
 from ProofRead import CollateralProofIntent, read_collateral_proof
 from ProofPlan import plan_collateral_proof
@@ -39,11 +40,12 @@ fn execute(client :: Int,
   wire :: Bytes,
   request :: RelayRequest) -> String!String do
   let pins = config.operator.pins
+  let rpc = webpki_rpc_transport(config.operator.sources)?
   let proof = validate_relay_submission(pins.service_key, pins.log_version, wire)?
   let hash = fork_hash(proof)?
   if List.contains(["legacy-admit", "legacy-stage", "legacy-destinations", "legacy-receipt"],
     request.method) do
-    return legacy_execute(client, config, request.method, wire, request.minimum)
+    return legacy_execute(rpc, config, request.method, wire, request.minimum)
   end
   if request.method == "lookup-plan" do
     case request.lookup do
@@ -74,13 +76,13 @@ fn execute(client :: Int,
       Some(value) -> value
     end
     if request.method == "lookup-close" do
-      return Ok(relay_lookup_cooldown_report(read_relay_lookup_cooldown(config.operator.sources,
+      return Ok(relay_lookup_cooldown_report(read_relay_lookup_cooldown(rpc,
         config.submitter,
         lookup.creation_slot,
         lookup.addresses,
         request.minimum)?))
     end
-    return Ok(relay_lookup_report(read_relay_lookup(config.operator.sources,
+    return Ok(relay_lookup_report(read_relay_lookup(rpc,
       config.submitter,
       lookup.creation_slot,
       lookup.addresses,
@@ -90,7 +92,7 @@ fn execute(client :: Int,
     case request.effect do
       Some(value) -> case Json.object_get(value, "reason") do
         Ok(reason) -> if Json.as_string(reason)? == "migrate_legacy_bond" do
-          return migration_effect(client, config, wire, value, request.minimum)
+          return migration_effect(rpc, config, wire, value, request.minimum)
         end
         Err(_) -> nil
       end
@@ -98,7 +100,7 @@ fn execute(client :: Int,
     end
   end
   if request.method == "stage" || request.method == "effect" do
-    let state = read_recovery(client, config, wire, request.minimum)?
+    let state = read_recovery(rpc, config, wire, request.minimum)?
     if request.method == "stage" do
       return stage_report(state)
     end
@@ -113,7 +115,7 @@ fn execute(client :: Int,
       "absent"
     end}","slot":"#{U64.to_string(state.context_slot)}"}""")
   end
-  let receipt = read_receipt(client, config.operator.sources, pins, hash, request.minimum)?
+  let receipt = read_receipt(rpc, pins, hash, request.minimum)?
   if request.method == "receipt" do
     return Ok(receipt_report(receipt))
   end
@@ -121,7 +123,7 @@ fn execute(client :: Int,
     if receipt.status != "settled" do
       return Err("relay_close_requires_settled_receipt")
     end
-    let state = read_recovery(client, config, wire, request.minimum)?
+    let state = read_recovery(rpc, config, wire, request.minimum)?
     if state.receipt.status != "settled" do
       return Err("relay_close_requires_settled_receipt")
     end
@@ -153,7 +155,7 @@ fn execute(client :: Int,
       Some(value) -> value.activated_at != U64.parse("0")?
     end
     if base.legacy_economics || !active do
-      return legacy_execute(client, config, "legacy-admit", wire, request.minimum)
+      return legacy_execute(rpc, config, "legacy-admit", wire, request.minimum)
     end
   end
   let intent = CollateralProofIntent {

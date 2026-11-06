@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Input import RelayConfig, LookupRequest
 from ProofRead import CollateralProofIntent, CollateralProofState
 from Transparency.RelayLookupRead import RelayLookupState, read_relay_lookup
@@ -88,7 +89,7 @@ pub fn plan_lookup(config :: RelayConfig,
   case requested do
     None -> Ok(candidate)
     Some(value) ->
-      let observed = read_relay_lookup(config.operator.sources,
+      let observed = read_relay_lookup(webpki_rpc_transport(config.operator.sources)?,
         config.submitter,
         value.creation_slot,
         value.addresses,
