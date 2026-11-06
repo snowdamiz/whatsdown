@@ -117,7 +117,9 @@ pub fn filing_receipt_observation(plan :: FilingPlan,
     status: "settled",
     context_slot: state.context_slot,
     finder: receipt.finder,
-    units: receipt.finder_amount
+    units: receipt.finder_amount,
+    morse_units: U64.parse("0")?,
+    receipt_format: 1
   })
 end
 
