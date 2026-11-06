@@ -50,6 +50,11 @@ from Transparency.Merkle import (
 from Transparency.Wire import TransparencyEvidence, encode_transparency_evidence
 from Transport.Packet import decode_client_profile
 
+fn assert_received_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic group welcome identities across witness-set rotation; no application disclosure"))
+end
+
 fn install(signer :: Bytes, keys :: List<Bytes>, threshold :: Int) -> Bytes!String do
   let delivery = case Crypto.x25519_generate() do
     Err(_) -> Err("test key failed")
@@ -222,7 +227,7 @@ fn proof(joined :: Bool) -> Bool!String do
     old_package
   ])?)?)?
   if joined do
-    assert(Bytes.secure_equals(group_receive_export(request([
+    assert_received_fixture(Bytes.secure_equals(group_receive_export(request([
         Bytes.from_utf8(bob.path),
         old_welcome
       ])?)?,
@@ -287,6 +292,7 @@ fn proof(joined :: Bool) -> Bool!String do
     let rfc_pins = List.take(config.witnesses, 3)
     let migration = %{config |
       version: 3,
+      wire_version: 3,
       log_version: 2,
       legacy_threshold: config.threshold,
       legacy_witnesses: config.witnesses,
@@ -300,7 +306,7 @@ fn proof(joined :: Bool) -> Bool!String do
   receive_message_export(request([Bytes.from_utf8(alice.path), List.head(renewed)])?)?
   let joined_welcome = output_list(group_invitation_complete_export(completion)?)?
   assert(List.length(joined_welcome) == 1)
-  assert(Bytes.secure_equals(group_receive_export(request([
+  assert_received_fixture(Bytes.secure_equals(group_receive_export(request([
       Bytes.from_utf8(bob.path),
       List.head(joined_welcome)
     ])?)?,
@@ -329,7 +335,10 @@ fn proof(joined :: Bool) -> Bool!String do
     bob.device_set,
     package
   ])?)?)?
-  assert(Bytes.secure_equals(group_receive_export(request([Bytes.from_utf8(bob.path), welcome])?)?,
+  assert_received_fixture(Bytes.secure_equals(group_receive_export(request([
+      Bytes.from_utf8(bob.path),
+      welcome
+    ])?)?,
     group))
   let key = platform_key()?
   let state = load_group(bob.path, decode_client_profile(load_profile(bob.path)?)?, key, group)?

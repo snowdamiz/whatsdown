@@ -8,6 +8,7 @@ from MobileCore import (
 )
 from Mobile.History import decode_conversation_summary
 from Tests.Support import append, database_path, vector, write_u32
+from Tests.WitnessedSessionFixture import install_witnessed_session_fixtures
 
 fn request(values :: List<Bytes>) -> Bytes!String do
   let pieces = for value in values do
@@ -35,6 +36,7 @@ fn proof() -> Unit!String do
   let bob = database_path("safety-qr-bob")?
   let a = create_account_export(request([Bytes.from_utf8(alice), Bytes.from_utf8("alice")])?)?
   let b = create_account_export(request([Bytes.from_utf8(bob), Bytes.from_utf8("bob")])?)?
+  install_witnessed_session_fixtures([alice, bob])?
   let initial = start_conversation_export(request([
     Bytes.from_utf8(alice),
     b,
@@ -100,6 +102,7 @@ fn guarded_proof() -> Unit!String do
   let bob = database_path("safety-qr-guard-bob")?
   let a = create_account_export(request([Bytes.from_utf8(alice), Bytes.from_utf8("alice")])?)?
   let b = create_account_export(request([Bytes.from_utf8(bob), Bytes.from_utf8("bob")])?)?
+  install_witnessed_session_fixtures([alice, bob])?
   start_conversation_export(request([Bytes.from_utf8(alice), b, Bytes.from_utf8("hello")])?)?
   let key = platform_key()?
   let peer = peer_account_id(b)?
