@@ -28,6 +28,10 @@ python3 mesh-private-messenger/ops/bootstrap/prove.py \
 
 The runner records source hashes, the exact compiler family, build commands,
 artifact hashes, and the local result. Source drift fails the run. The local
+source closure excludes package `tests` directories and `.test.mpl` files,
+which the library build does not import. The source closure includes the
+fixture. The receipt separately records all 176 production ABI exports and
+the extra fixture exports. The local
 result includes hashes for the public fixture, resource callback trace, and
 HTTP event trace. Disposable custody, databases, and private CA keys remain in
 the private work directory and are never committed as evidence.

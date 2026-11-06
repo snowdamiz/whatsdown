@@ -100,13 +100,17 @@ def certificates(root):
     root.mkdir(mode=0o700)
     def run(*args):
         subprocess.run(['openssl', *map(str, args)], check=True, capture_output=True, timeout=20)
+    (root / 'ca.cnf').write_text('[req]\ndistinguished_name=dn\n[dn]\n[v3_ca]\n'
+        'basicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\n'
+        'subjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid:always\n')
     run('req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', root / 'ca.key',
-        '-out', root / 'ca.pem', '-days', '1', '-subj', '/CN=Morse disposable local CA')
+        '-out', root / 'ca.pem', '-days', '1', '-subj', '/CN=Morse disposable local CA',
+        '-config', root / 'ca.cnf', '-extensions', 'v3_ca')
     run('req', '-newkey', 'rsa:2048', '-nodes', '-keyout', root / 'server.key',
         '-out', root / 'server.csr', '-subj', '/CN=127.0.0.1')
     (root / 'extensions.cnf').write_text('basicConstraints=critical,CA:FALSE\n'
         'keyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n'
-        'subjectAltName=IP:127.0.0.1\n')
+        'subjectAltName=IP:127.0.0.1\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n')
     run('x509', '-req', '-in', root / 'server.csr', '-CA', root / 'ca.pem',
         '-CAkey', root / 'ca.key', '-CAcreateserial', '-out', root / 'server.pem',
         '-days', '1', '-extfile', root / 'extensions.cnf')
@@ -412,6 +416,10 @@ def run(work, library):
                          ('truncated-frame', good[:-1], 'invalid'),
                          ('trailing-frame', good + b'\x00', 'invalid'),
                          ('bad-version', b'\x02' + good[1:], 'invalid'),
+                         ('zero-present-count', b'\x01\x00' + good[2:], 'invalid'),
+                         ('incomplete-count', b'\x01\x02' + good[2:], 'invalid'),
+                         ('excess-count', b'\x01\x09' + good[2:], 'invalid'),
+                         ('present-without-explicit-roots', companion(security, [(o, b'') for o in origins]), 'invalid'),
                          ('absent-with-tail', b'\x01\x00\x00', 'invalid'),
                          ('security-digest', good[:2] + b'\x00' * 32 + good[34:], 'invalid')]
             for name, replacement in [('wrong-origin', 'https://localhost:1'),
@@ -435,6 +443,10 @@ def run(work, library):
                     assert output == (b'rpc_tls_config_unavailable' if expected == 'unavailable'
                                       else b'rpc_tls_config_invalid'), (name, output)
                 assert not rpc_rows(start), (name, rpc_rows(start))
+                if name == 'absent-default':
+                    reads = [json.loads(line) for line in (negative_root / 'resource-reads.jsonl').read_text().splitlines()]
+                    assert any(row['selector'] == 'messenger/rpc-tls-roots/v1'
+                               and row['length'] == 2 and row['sha256'] == sha(b'\x01\x00') for row in reads)
                 assert all(not value for value in fields(negative.invoke('bootstrap_cache_snapshot', negative_path)))
                 passed(name + ' refuses without RPC HTTP or cache commit', code=code,
                        result=output.decode() if code else fields(output)[0].decode(),
@@ -451,6 +463,14 @@ def run(work, library):
             assert {row['peer'] for row in rpc_rows(start)} == {1, 2}
             passed('one wrong CA plus two agreeing peers preserves native quorum and deterministic batch fallback')
             tolerant.close()
+
+            mixed = companion(security, [(origin, roots[i] if i != 0 else b'')
+                                        for i, origin in enumerate(origins)])
+            mixed_client, mixed_path, _ = new_client('explicit-mixed-webpki', mixed)
+            assert lookup(mixed_client, mixed_path) == devices
+            assert fields(mixed_client.invoke('mesh_messenger_anchor_check', mixed_path))[0] == b'consistent'
+            passed('explicit mixed WebPki row preserves two-root native quorum without implicit fallback')
+            mixed_client.close()
 
             poisoned = companion(security, [(origin, b'broken PEM' if i == 0 else roots[i])
                                             for i, origin in enumerate(origins)])
@@ -500,15 +520,24 @@ def run(work, library):
                                 replacement.invoke('mesh_messenger_erase_account', blocked_path)
                                 replacement.invoke('mesh_messenger_create_account',
                                                    vector(blocked_path) + vector(b'new-account'))
+                                replacement_entry = replacement.invoke('mesh_messenger_directory_entry', blocked_path)
                                 replacement.close()
                             barrier['release'].set()
                             code, output = future.result(timeout=30)
-                        assert code == 9 and (output.startswith(b'rpc_context_changed:')
-                                             or output == b'account_state_changed'), (name, code, output)
+                        assert code == 9, (name, code, output)
+                        if changed == 'account':
+                            # The directory wrapper deliberately checks its
+                            # original identity after the inner anchor result.
+                            assert output == b'directory_identity_changed', (name, output)
+                            assert blocked.invoke('mesh_messenger_directory_entry', blocked_path) == replacement_entry
+                        else:
+                            assert output.startswith(b'rpc_context_changed:'), (name, output)
                         assert blocked.invoke('bootstrap_cache_snapshot', blocked_path) == cache
+                        snapshot = fields(blocked.invoke('bootstrap_schedule_snapshot', blocked_path))
                         if changed == 'resource':
-                            snapshot = fields(blocked.invoke('bootstrap_schedule_snapshot', blocked_path))
                             assert snapshot[4] and not snapshot[5], 'retired operation completed old claim'
+                        else:
+                            assert not snapshot[4] and not snapshot[5], 'old operation completed in replacement account'
                         passed('actual TLS barrier ' + changed + ' replacement refuses ' +
                                ('Http.send Err' if failure else 'successful response'),
                                error=output.decode(), cache_sha256=sha(cache))
@@ -545,7 +574,7 @@ def run(work, library):
             try:
                 error = mismatched.invoke('mesh_messenger_directory_resolve',
                     vector(mismatch_path) + vector(b'morse-canary-1'), rejected=True)
-                assert error == b'anchor_mismatch', error
+                assert error == b'transparency_fork_detected', error
                 value = fields(mismatched.invoke('mesh_messenger_anchor_check', mismatch_path))
                 assert value[0] == b'mismatch', value
             finally:
