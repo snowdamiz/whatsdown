@@ -24,8 +24,9 @@ are `schema_version: 2`, `program`, `judge`, `token`, `log_name`, `usdc_mint`,
 and exactly three `endpoints`. U64 fields are canonical decimal strings.
 `allow_loopback` defaults to false; true permits disposable loopback RPC banks.
 Production reader endpoints must have distinct hostnames; different ports or
-paths on one host cannot form a quorum. Distinct loopback ports are allowed
-only for the explicit local bank mode.
+paths on one host cannot form a quorum. ASCII case and one trailing dot are
+the same hostname. The writer uses that rule for `rpc.urls`. Distinct loopback
+ports are allowed only for the explicit local bank mode.
 Program slots, governance, source and service identities are operator pins,
 not values learned from an unauthenticated response.
 

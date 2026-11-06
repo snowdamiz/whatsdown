@@ -84,7 +84,12 @@ function transaction(value,signed,info,expected){
     if((url.protocol!=='https:'&&!(allowLoopback&&local&&url.protocol==='http:'))||url.username||url.password||url.hash)fail('Invalid relay RPC origin');
     return url;
   });
-  if(new Set(sources.map(url=>allowLoopback&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)?url.origin:url.hostname)).size!==3)fail('Relay RPC sources must be independent');
+  const hostKey=url=>{
+    if(allowLoopback&&['localhost','127.0.0.1','[::1]'].includes(url.hostname))return url.origin;
+    const host=url.hostname.toLowerCase();
+    return host.startsWith('[')||!host.endsWith('.')?host:host.slice(0,-1);
+  };
+  if(new Set(sources.map(hostKey)).size!==3)fail('Relay RPC sources must be independent');
   const clients=sources.map(url=>{
     const rpc=createRpc({api:createJsonRpcApi({responseTransformer:value=>value.result}),transport:async({payload,signal})=>{
       const deadline=AbortSignal.timeout(timeoutMs),cancel=signal?AbortSignal.any([signal,deadline]):deadline;

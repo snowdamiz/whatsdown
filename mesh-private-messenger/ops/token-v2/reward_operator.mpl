@@ -56,10 +56,16 @@ end
 
 fn source_host(origin :: String) -> String do
   let authority = List.get(String.split(origin, "://"), 1)
-  if String.starts_with(authority, "[") do
+  let host = if String.starts_with(authority, "[") do
     List.head(String.split(authority, "]")) <> "]"
   else
     List.head(String.split(authority, ":"))
+  end
+  let folded = String.to_lower(host)
+  if String.starts_with(folded, "[") || !String.ends_with(folded, ".") do
+    folded
+  else
+    String.slice(folded, 0, String.length(folded) - 1)
   end
 end
 
