@@ -113,10 +113,9 @@ export async function createRelayVerifier({binary,tempRoot,securityConfig,planne
       }
       return value;
     }
-    return Object.freeze({
-      async admit(wire,floor='0',options={}){
+    async function admission(method,wire,floor,options){
         if(!(wire instanceof Uint8Array)||wire.length<1||wire.length>8192)fail('Invalid relay evidence size');
-        const bytes=Buffer.from(wire),value=await request(options.schemaVersion===1?'legacy-admit':'admit',bytes,floor,options);
+        const bytes=Buffer.from(wire),value=await request(method,bytes,floor,options);
         if(value.status==='ready'){
           check(value,floor);prepareRelayTransactions(value,{...bound,proofHex:bytes.toString('hex')});
         }else if(value.status==='settled'){
@@ -125,9 +124,19 @@ export async function createRelayVerifier({binary,tempRoot,securityConfig,planne
           if(value.schema_version===2){check(value,floor);prepareRelayTransactions(value,{...bound,proofHex:bytes.toString('hex')});}
         }else fail('Invalid verifier admission status');
         return value;
+    }
+    return Object.freeze({
+      async admit(wire,floor='0',options={}){
+        return admission(options.schemaVersion===1?'legacy-admit':'admit',wire,floor,options);
+      },
+      async resume(plan,floor='0',options={}){
+        plan=validatePlan(plan);
+        return admission('resume',Buffer.from(plan.proof_hex,'hex'),floor,{...options,lookup:plan.lookup});
       },
       async receipt(plan,floor='0',options={}){
-        plan=validatePlan(plan);const value=receipt(await request(plan.schema_version===1?'legacy-receipt':'receipt',Buffer.from(plan.proof_hex,'hex'),floor,options),plan.proof_hash,floor);
+        // A pending legacy packet keeps its original recipe. Its proof PDA can
+        // hold either permanent receipt version after collateral conversion.
+        plan=validatePlan(plan);const value=receipt(await request('receipt',Buffer.from(plan.proof_hex,'hex'),floor,options),plan.proof_hash,floor);
         if(value.address!==plan.receipt)fail('Invalid verifier receipt address');return value;
       },
       async effect(plan,effect,floor='0',options={}){
