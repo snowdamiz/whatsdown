@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { MessageContent } from './codec.ts';
 
 import {
   attachmentFileName,
@@ -58,4 +59,18 @@ test('unnamed files take a name from their type and previews fall back to the at
   assert.equal(attachmentPreviewText({ body: '', attachments: [summary(1, 'image/png', '')] }), 'Photo');
   assert.equal(attachmentPreviewText({ body: '', attachments: [summary(1, 'text/plain', '')] }), 'Attachment');
   assert.equal(attachmentPreviewText({ body: '' }), '');
+});
+
+test('view-once previews identify the finite status and retain ordinary captions', () => {
+  const cases: [MessageContent, string][] = [
+    [{ kind: 'view-once', status: 'pending', body: '' }, 'View-once photo · Waiting'],
+    [{ kind: 'view-once', status: 'ready', body: '' }, 'View-once photo · Ready'],
+    [{ kind: 'view-once', status: 'opened', body: '' }, 'View-once photo · Opened'],
+    [{ kind: 'view-once', status: 'expired', body: '' }, 'View-once photo · Expired'],
+    [{ kind: 'view-once', status: 'unavailable', body: '' }, 'View-once photo · Unavailable'],
+  ];
+  for (const [message, label] of cases) {
+    assert.equal(attachmentPreviewText(message), label);
+    assert.equal(attachmentPreviewText({ ...message, body: 'a caption' }), `${label}\na caption`);
+  }
 });

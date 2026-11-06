@@ -66,10 +66,10 @@ function parseControl(body: string): CommunityControl | undefined {
 
 // How requests and answers read in the chat between the two. One that does not
 // parse is left as its text, as a malformed reply is.
-export function applyCommunityControls<T extends { body: string }>(history: T[]): (T & { community?: CommunityControl })[] {
+export function applyCommunityControls<T extends { body: string; kind?: string }>(history: T[]): (T & { community?: CommunityControl })[] {
   const names = new Map<string, string>();
   return history.map((message) => {
-    const control = parseControl(message.body);
+    const control = message.kind === 'view-once' ? undefined : parseControl(message.body);
     if (!control) return message;
     if (control.kind === 'request') {
       names.set(control.community, control.name);

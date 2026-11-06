@@ -1,4 +1,4 @@
-import { MAXIMUM_ATTACHMENTS, MAXIMUM_ATTACHMENT_SIZE, type AttachmentSummary } from './codec.ts';
+import { MAXIMUM_ATTACHMENTS, MAXIMUM_ATTACHMENT_SIZE, type AttachmentSummary, type MessageContent, type ViewOnceStatus } from './codec.ts';
 import { t } from './i18n.ts';
 
 // Pictures the thread can show inline on every platform; everything else is a file card.
@@ -26,7 +26,25 @@ export function attachmentFileName(name: string, mimeType: string): string {
   return extension && /^[a-z0-9]{1,8}$/i.test(extension) ? `attachment.${extension}` : 'attachment';
 }
 
-export function attachmentPreviewText(message: { body: string; attachments?: AttachmentSummary[] }): string {
+export function viewOncePlaceholder(status: ViewOnceStatus): string {
+  switch (status) {
+    case 'pending': return t('View-once photo · Waiting');
+    case 'ready': return t('View-once photo · Ready');
+    case 'opened': return t('View-once photo · Opened');
+    case 'expired': return t('View-once photo · Expired');
+    case 'unavailable': return t('View-once photo · Unavailable');
+    default: { const exhaustive: never = status; return exhaustive; }
+  }
+}
+
+export function messageBodyText(message: MessageContent): string {
+  if (message.kind !== 'view-once') return message.body;
+  const placeholder = viewOncePlaceholder(message.status);
+  return message.body ? `${placeholder}\n${message.body}` : placeholder;
+}
+
+export function attachmentPreviewText(message: MessageContent): string {
+  if (message.kind === 'view-once') return messageBodyText(message);
   if (message.body) return message.body;
   const files = message.attachments ?? [];
   if (!files.length) return '';

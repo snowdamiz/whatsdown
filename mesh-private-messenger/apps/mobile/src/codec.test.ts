@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { encodeReaction } from './reactions.ts';
+import { encodeReceipt } from './receipts.ts';
+import { encodeReply } from './replies.ts';
+import { encodeCommunityRequest } from './community-requests.ts';
 
 import {
   encodeAttachmentReferences,
@@ -173,6 +179,120 @@ const attachmentSummary = (size: number, chunkCount = Math.ceil(size / 65_536)):
   writeU32(65_536),
   u64(1_800_000_600_000n),
 );
+
+test('02HST mixes ordinary history with all five finite view-once placeholders', () => {
+  const record = (status: number) => vectors(
+    Uint8Array.of(2), new Uint8Array(16).fill(status + 1), u64(1_800_000_000_000n),
+    utf8('a caption'), writeU32(0), status === 0 ? attachmentSummary(10) : new Uint8Array(),
+    Uint8Array.of(0), Uint8Array.of(status),
+  );
+  const input = new Uint8Array([2, 72, 83, 84,
+    ...vectors(writeU32(6), ...[0, 1, 2, 3, 4, 5].map(record))]);
+  const [ordinary, ...placeholders] = parseHistory(input);
+  assert.equal(ordinary?.attachments?.[0]?.filename, 'photo.jpg');
+  assert.deepEqual(placeholders, ['pending', 'ready', 'opened', 'expired', 'unavailable'].map((status, index) => ({
+    kind: 'view-once', status, direction: 'received', messageId: new Uint8Array(16).fill(index + 2),
+    timestamp: 1_800_000_000_000, body: 'a caption', disappearingSeconds: 0,
+  })));
+});
+
+test('actual Core pending export parses without adopting the unqualified Core candidate', () => {
+  // The producer failed later collision assertions. This fixture qualifies only parser compatibility.
+  const input = new Uint8Array(readFileSync(new URL('./fixtures/history-core-pending/direct-pending-mixed.bin', import.meta.url)));
+  assert.equal(createHash('sha256').update(input).digest('hex'), '4c5b8f24a52749f67a9a868ca0584931698d6c4732d13763746d281fd646251a');
+  assert.equal(input.length, 160);
+  const [ordinary, pending] = parseHistory(input);
+  assert.deepEqual(ordinary, {
+    direction: 'received', messageId: Uint8Array.from(Buffer.from('7a464785d893762148f58b06b6a74bf2', 'hex')),
+    timestamp: 1_794_001_162_689, disappearingSeconds: 0, body: 'hello',
+  });
+  assert.deepEqual(pending, {
+    direction: 'received', messageId: new Uint8Array(16).fill(44), timestamp: 1_794_001_162_706,
+    disappearingSeconds: 0, kind: 'view-once', status: 'pending', body: 'one image',
+  });
+});
+
+const historyFields = () => [
+  Uint8Array.of(2), new Uint8Array(16).fill(7), u64(1n), utf8('caption'),
+  writeU32(0), new Uint8Array(), Uint8Array.of(0), Uint8Array.of(1),
+];
+const versionedHistory = (...records: Uint8Array[]) => new Uint8Array([
+  2, 72, 83, 84, ...vectors(writeU32(records.length), ...records),
+]);
+
+test('legacy history keeps its exact unframed bytes and ordinary result shape', () => {
+  const frame = Uint8Array.from(Buffer.from(
+    '000000040000000100000041000000010200000010070707070707070707070707070707070000000800000000000000010000000763617074696f6e0000000400000000000000000000000100', 'hex'));
+  const fields = historyFields().slice(0, 7);
+  assert.deepEqual(vectors(writeU32(1), vectors(...fields)), frame);
+  const expected = [{ direction: 'received', messageId: new Uint8Array(16).fill(7), timestamp: 1,
+    body: 'caption', disappearingSeconds: 0 }];
+  assert.deepEqual(parseHistory(frame), expected);
+  assert.deepEqual(parseHistory(versionedHistory(vectors(...fields, Uint8Array.of(0)))), expected);
+  assert.deepEqual(parseHistory(vectors(writeU32(0))), []);
+});
+
+test('history refuses malformed framing, counts, fields, status, IDs, and view-once summaries', () => {
+  const fields = historyFields();
+  const valid = versionedHistory(vectors(...fields));
+  const malformed = [
+    valid.slice(0, 3), valid.slice(4),
+    ...[0, 1, 2, 3].map(index => valid.map((value, offset) => offset === index ? value + 1 : value)),
+    new Uint8Array([2, 72, 83, 84, ...vectors(writeU32(257))]),
+    new Uint8Array([2, 72, 83, 84, ...vectors(Uint8Array.of(1))]),
+    new Uint8Array([2, 72, 83, 84, ...vectors(writeU32(2), vectors(...fields))]),
+    versionedHistory(vectors(...fields.slice(0, 7))),
+    versionedHistory(vectors(...fields, Uint8Array.of(0))),
+    new Uint8Array([...valid, 0]),
+    new Uint8Array(8 + 256 * (4 + 65_600) + 5),
+  ];
+  const invalidFields: [number, Uint8Array][] = [
+    [0, Uint8Array.of(0)], [0, new Uint8Array()],
+    [1, new Uint8Array(15)], [1, new Uint8Array(17)], [1, new Uint8Array(32)],
+    [2, new Uint8Array(7)], [2, u64(9_007_199_254_740_992n)],
+    [3, Uint8Array.of(0xff)], [3, new Uint8Array(32_769)],
+    [4, new Uint8Array(3)], [5, attachmentSummary(10)], [5, Uint8Array.of(1, 86, 79, 82)],
+    [5, vectors(writeU32(0))], [6, Uint8Array.of(3)], [6, new Uint8Array()],
+    [7, Uint8Array.of(6)], [7, Uint8Array.of(255)], [7, new Uint8Array()], [7, Uint8Array.of(1, 0)],
+  ];
+  for (const [field, value] of invalidFields) {
+    malformed.push(versionedHistory(vectors(...fields.map((old, index) => index === field ? value : old))));
+  }
+  for (const [index, frame] of malformed.entries()) assert.throws(() => parseHistory(frame), `malformed case ${index}`);
+  for (let length = 0; length < valid.length; length++) assert.throws(() => parseHistory(valid.slice(0, length)), `truncated at ${length}`);
+  // The old path has the same fixed-width ID requirement.
+  assert.throws(() => parseHistory(vectors(writeU32(1), vectors(...fields.slice(0, 7).map((value, index) =>
+    index === 1 ? new Uint8Array(15) : value)))));
+});
+
+test('view-once captions cannot become hidden controls or community actions', () => {
+  const target = '07'.repeat(16);
+  for (const body of [encodeReaction(target, '👍', 1), encodeReceipt(2, 1),
+    encodeReply(target, 'caption'), encodeCommunityRequest('ab'.repeat(32), 'Example')]) {
+    const fields = historyFields().map((value, index) => index === 3 ? utf8(body) : value);
+    const [message] = parseHistory(versionedHistory(vectors(...fields)));
+    assert.equal(message?.kind, 'view-once');
+    assert.equal(message?.body, body);
+    assert.equal(message?.reply, undefined);
+    assert.equal(message?.community, undefined);
+    assert.equal(message?.reactions, undefined);
+  }
+});
+
+test('ordinary replies can quote a view-once placeholder without erasing its status', () => {
+  const original = vectors(...historyFields());
+  const reply = vectors(...historyFields().map((value, index) => {
+    if (index === 1) return new Uint8Array(16).fill(8);
+    if (index === 3) return utf8(encodeReply('07'.repeat(16), 'ordinary reply'));
+    if (index === 7) return Uint8Array.of(0);
+    return value;
+  }));
+  const [placeholder, answer] = parseHistory(versionedHistory(original, reply));
+  assert.equal(answer?.body, 'ordinary reply');
+  assert.equal(answer?.reply?.target, '07'.repeat(16));
+  assert.deepEqual(answer?.reply?.message, placeholder);
+  assert.equal(answer?.reply?.message?.kind, 'view-once');
+});
 
 test('history entries expose opened attachment manifests next to their opaque reference', () => {
   const message = vectors(Uint8Array.of(1), new Uint8Array(16), u64(1_800_000_000_000n), new Uint8Array(), writeU32(0),

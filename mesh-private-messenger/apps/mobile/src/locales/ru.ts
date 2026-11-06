@@ -1117,4 +1117,9 @@ export const ru: Catalog = {
   'File could not be included in this backup.': 'Этот файл не удалось включить в копию.',
   'Couldn’t open Morse. Close the app and try again.': 'Не удалось открыть Morse. Закройте приложение и попробуйте ещё раз.',
   'Those files could not be read.': 'Не удалось прочитать эти файлы.',
+  'View-once photo · Waiting': 'Одноразовое фото · Ожидание',
+  'View-once photo · Ready': 'Одноразовое фото · Готово',
+  'View-once photo · Opened': 'Одноразовое фото · Открыто',
+  'View-once photo · Expired': 'Одноразовое фото · Срок истёк',
+  'View-once photo · Unavailable': 'Одноразовое фото · Недоступно',
 };

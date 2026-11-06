@@ -1,6 +1,6 @@
 import { hex, type GroupHistoryMessage, type HistoryMessage } from './codec.ts';
 import { receivedMessageKeys, type ReadState } from './read-state.ts';
-import { attachmentPreviewText } from './attachments.ts';
+import { attachmentPreviewText, viewOncePlaceholder } from './attachments.ts';
 import { t } from './i18n.ts';
 import { mentionSpans } from './mentions.ts';
 import { receiptDue } from './receipts.ts';
@@ -52,7 +52,8 @@ export function planNotifications(
       const group = 'senderAccountId' in message;
       const mention = group && mentionSpans(message.body, [own.username]).length > 0;
       const sender = group ? thread.senders?.[hex(message.senderAccountId)] ?? t('Someone') : '';
-      const preview = (message.disappearingSeconds ?? 0) > 0
+      const preview = 'kind' in message && message.kind === 'view-once' ? viewOncePlaceholder(message.status)
+        : (message.disappearingSeconds ?? 0) > 0
         ? t('Disappearing message') : attachmentPreviewText(message).replace(/\s+/g, ' ').trim();
       if (!preview) continue;
       notifications.push({ id: `${thread.scope}/${keys[index]}`, scope: thread.scope,
