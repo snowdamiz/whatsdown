@@ -1,0 +1,19 @@
+{
+  "README.md": "29be1c0de4f636706cd1000cad6c2045c332738108f3d9e28cdd52c9e2a8764f",
+  "build.log": "cf9d7e3c317916e2eeda598bcf4bf7ab50f5a73be4aa14e784d2f8a19a77491a",
+  "classification-red/local-result.json": "38f5ee7ed78fba12a17b1232b351964d40b4ed383258418c85f21111fdbbd1f6",
+  "classification-red/receipt.json": "fb4b843fc1cc0e2e8710107dbeeadc25dfdb161ea84eeb56e7f0c4c339779130",
+  "classification-red/sources.json": "a96380c7fa13bce2432fa445e8fa54fa76c4097707175d0ccc2c014628a81eca",
+  "classification-red/verification.json": "75654558928cddf8f8ee32e121b2c84a3d186e914794515c55cbd054698885c2",
+  "console.log": "6c1f76302ea1d568c4cd58b14856eb51bc8a4cef120e45e7c750ffd972839565",
+  "http-events.jsonl": "cd2a8d6971188db93daad4e6158dcaa9b4e94c2f52ad289cb30e0d4a5d5ab7a4",
+  "libbootstrap.abi.json": "46074f2506932be10a79342600c963a4ad74a469c3bf0eb409fbdb5099a81379",
+  "libbootstrap.h": "a97afd1f10af1d5b299c573b1a795dce2cdf6d7907ad13b8bf2b8f195fdf61e1",
+  "local-result.json": "0bc29c0963ad6c29a6c4989f817d48a7e2ce79a57b6591eea3d8545c33072c88",
+  "process.json": "a211af06dc4e6a34457332b4f7a2e3de9310f77aacbcc839caae7dbcd8b62829",
+  "receipt.json": "0db7b8007e3a713ece0f57e0bce35bcaef1d5942d8d01303a2bfd77d47a9baba",
+  "rpc-tls-local-20261106.json": "54ea6e451c81898b1441187e6368aa26c99964be52f770d8a151daa57d341b25",
+  "sources.json": "8934c6bd2a479c38179ff2c8430efca4d2559b142fd05a0e187f0dc5b1b4a0a4",
+  "verification.json": "e4fb7b69b83e6d1fbac36d368cbb891b7d13040023f16399b3da659ae70d0e57",
+  "verify-receipt.py": "40ed134a2edff684d4bfd7188f6a5a55cafafd52a5e345a6a0b855d2b2a0e0bb"
+}

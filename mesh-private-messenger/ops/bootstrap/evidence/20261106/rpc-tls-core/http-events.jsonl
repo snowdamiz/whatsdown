@@ -1,0 +1,213 @@
+{"scenario": "setup", "peer": "directory", "path": "/ready", "method": "GET"}
+{"scenario": "setup", "peer": 0, "tls": "accepted"}
+{"scenario": "setup", "peer": 0, "path": "/ready", "method": "GET"}
+{"scenario": "setup", "peer": 1, "tls": "accepted"}
+{"scenario": "setup", "peer": 1, "path": "/ready", "method": "GET"}
+{"scenario": "setup", "peer": 2, "tls": "accepted"}
+{"scenario": "setup", "peer": 2, "path": "/ready", "method": "GET"}
+{"scenario": "positive", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "bb829748c0b813e7e4fc532e6db4c833293d8da31db82f175db2974620059f01"}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": "directory", "path": "/v2/transparency/checkpoint", "method": "POST", "request_sha256": "cd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50", "proof_sequence": 1}
+{"scenario": "positive", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "cb05f8dbd4d69d9d301483f799a69f0bc233b857dc86d0acf53c351adc0c10f3"}
+{"scenario": "positive", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "0bc72c24667dff21e320d468ad8ac5b07e69be7ce716396de3be51a7e321d741"}
+{"scenario": "positive", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "9beaa4fdbf4bb35e67c9b8dd215b68c84a92736bff1f68ad6d01ec16a8b3b1ff"}
+{"scenario": "positive", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "0ebcaabada282ea0453792ee091d5c0e748c501219be0ba904b074babcb41adb"}
+{"scenario": "positive", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "6aa1e358ed12f34517e354edc983378be1fcbc8bf1e9bf885efaa26d88002ade"}
+{"scenario": "positive", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "68135f8864ad245e4e94286934cd8787e86b44b92c4a8698b93137c9b05c66f5"}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "43073a0ed4f2eee6a3a49480f61abf791e53813a2129cb4da9389f7d7c70d956", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getMultipleAccounts", "params": [["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", "CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n"], {"commitment": "finalized", "encoding": "base64", "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 1, "tls": "accepted"}
+{"scenario": "positive", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "43073a0ed4f2eee6a3a49480f61abf791e53813a2129cb4da9389f7d7c70d956", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getMultipleAccounts", "params": [["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", "CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n"], {"commitment": "finalized", "encoding": "base64", "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/ready", "method": "GET"}
+{"scenario": "positive", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "positive", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "positive", "peer": 1, "tls": "accepted"}
+{"scenario": "positive", "peer": 1, "path": "/ready", "method": "GET"}
+{"scenario": "positive", "peer": 1, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "positive", "peer": 1, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/ready", "method": "GET"}
+{"scenario": "positive", "peer": 2, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "positive", "peer": 2, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 2, "tls": "accepted"}
+{"scenario": "positive", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": 0, "tls": "accepted"}
+{"scenario": "positive", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "positive", "peer": "directory", "path": "/v2/transparency/checkpoint", "method": "POST", "request_sha256": "cd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50", "proof_sequence": 1}
+{"scenario": "absent-default", "peer": 2, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "absent-default", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "absent-default", "peer": 1, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "wrong-ca-all", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "wrong-ca-all", "peer": 2, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "wrong-ca-all", "peer": 1, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "one-bad-ca", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "03de5ceecec6c493b22c693cd54131f3f370b2062466278e33e2890adef6073c"}
+{"scenario": "one-bad-ca", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "one-bad-ca", "peer": 1, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "one-bad-ca", "peer": 2, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "one-bad-ca", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "one-bad-ca", "peer": 1, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "one-bad-ca", "peer": 2, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "one-bad-ca", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "one-bad-ca", "peer": 1, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "one-bad-ca", "peer": 2, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "one-bad-ca", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "one-bad-ca", "peer": 1, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "one-bad-ca", "peer": 2, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "one-bad-ca", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "one-bad-ca", "peer": 1, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "one-bad-ca", "peer": 2, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "one-bad-ca", "peer": "directory", "path": "/v2/transparency/checkpoint", "method": "POST", "request_sha256": "cd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50", "proof_sequence": 1}
+{"scenario": "one-bad-ca", "peer": 0, "tls": "refused", "error": "SSLEOFError"}
+{"scenario": "one-bad-ca", "peer": 1, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "43073a0ed4f2eee6a3a49480f61abf791e53813a2129cb4da9389f7d7c70d956", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getMultipleAccounts", "params": [["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", "CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n"], {"commitment": "finalized", "encoding": "base64", "minContextSlot": 501}]}}
+{"scenario": "one-bad-ca", "peer": 2, "tls": "accepted"}
+{"scenario": "one-bad-ca", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "43073a0ed4f2eee6a3a49480f61abf791e53813a2129cb4da9389f7d7c70d956", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getMultipleAccounts", "params": [["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", "CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n"], {"commitment": "finalized", "encoding": "base64", "minContextSlot": 501}]}}
+{"scenario": "explicit-mixed-webpki", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "a388d6a6fca446e073f77e6b963ea329e681078ddee3023670a5d44c887a67ee"}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "tls": "accepted"}
+{"scenario": "explicit-mixed-webpki", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "explicit-mixed-webpki", "peer": "directory", "path": "/v2/transparency/checkpoint", "method": "POST", "request_sha256": "cd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50", "proof_sequence": 1}
+{"scenario": "redirect-26", "peer": 1, "tls": "accepted"}
+{"scenario": "redirect-26", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "redirect-26", "peer": 2, "tls": "accepted"}
+{"scenario": "redirect-26", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "redirect-26", "peer": 0, "tls": "accepted"}
+{"scenario": "redirect-26", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "redirect-27", "peer": 0, "tls": "accepted"}
+{"scenario": "redirect-27", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "redirect-27", "peer": 1, "tls": "accepted"}
+{"scenario": "redirect-27", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "redirect-27", "peer": 2, "tls": "accepted"}
+{"scenario": "redirect-27", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "redirect-28", "peer": 2, "tls": "accepted"}
+{"scenario": "redirect-28", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "redirect-28", "peer": 1, "tls": "accepted"}
+{"scenario": "redirect-28", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "redirect-28", "peer": 0, "tls": "accepted"}
+{"scenario": "redirect-28", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "barrier-resource-success", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "c130343eae5f1272b7f75db7b8e256d7315cd06e6465cc112b937dfb294748d4"}
+{"scenario": "barrier-resource-success", "peer": 1, "tls": "accepted"}
+{"scenario": "barrier-resource-success", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "barrier-resource-http-error", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "ac3e886aaf604f84e8513c8186b68228a415889ea389d589e501f9df30f53559"}
+{"scenario": "barrier-resource-http-error", "peer": 0, "tls": "accepted"}
+{"scenario": "barrier-resource-http-error", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "barrier-account-success", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "0aa1bdd2bce4f0ce5109504319671546e974717642cfa8470b68ba73e14ee3d7"}
+{"scenario": "barrier-account-success", "peer": 0, "tls": "accepted"}
+{"scenario": "barrier-account-success", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "barrier-account-http-error", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "1b12b80773ba80376b02dfeec602a931dc31dc82ee6e145b3463bf37cf1b8be0"}
+{"scenario": "barrier-account-http-error", "peer": 2, "tls": "accepted"}
+{"scenario": "barrier-account-http-error", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "fresh-rotated-capture", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "cf81e0302bd4cb42ef3b704e4595730bdbce6adf66e56262c114a7e7c4ee145d"}
+{"scenario": "fresh-rotated-capture", "peer": 0, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "fresh-rotated-capture", "peer": 2, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "fresh-rotated-capture", "peer": 0, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "fresh-rotated-capture", "peer": 2, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "fresh-rotated-capture", "peer": 0, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "fresh-rotated-capture", "peer": 2, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "fresh-rotated-capture", "peer": 0, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "fresh-rotated-capture", "peer": 2, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "fresh-rotated-capture", "peer": 0, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "fresh-rotated-capture", "peer": 2, "tls": "accepted"}
+{"scenario": "fresh-rotated-capture", "peer": 2, "path": "/rpc/2?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "fresh-rotated-capture", "peer": "directory", "path": "/v2/transparency/checkpoint", "method": "POST", "request_sha256": "cd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50", "proof_sequence": 1}
+{"scenario": "stable-slash", "peer": 0, "tls": "accepted"}
+{"scenario": "stable-slash", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "stable-slash", "peer": 1, "tls": "accepted"}
+{"scenario": "stable-slash", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "stable-slash", "peer": 0, "tls": "accepted"}
+{"scenario": "stable-slash", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "stable-slash", "peer": 1, "tls": "accepted"}
+{"scenario": "stable-slash", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "stable-mismatch", "peer": "directory", "path": "/v2/devices/resolve", "method": "POST", "request_sha256": "1c4de3e362978997ce4cd8a1371b4484a2fc5db8eab053fec170127d93442cb8"}
+{"scenario": "stable-mismatch", "peer": 0, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "stable-mismatch", "peer": 1, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "280a38db2de70f318e80c40db9773f63867dc5bd3e600aa198a4a97dc0176c61", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 0}]}}
+{"scenario": "stable-mismatch", "peer": 0, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "stable-mismatch", "peer": 1, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "7a8122162c45bef1fee05fd3c5445f229f3a03486b6a016aa414e6f7bdaaa8bf", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["CtBJWfUf7KAWib8ZqeEk2ZFo2RhF1GqXGFxNmKNLaB2n", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 352}, "minContextSlot": 501}]}}
+{"scenario": "stable-mismatch", "peer": 0, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "stable-mismatch", "peer": 1, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "ef6fe2cc7555f4d901c2020ebb9027d030ce3e762296a057fc1fd12f38cb2ebe", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [500]}}
+{"scenario": "stable-mismatch", "peer": 0, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "stable-mismatch", "peer": 1, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "e5ee897b583f25f3cc1e7eb08ac1e684e2a6503b8a5d2b61d54f064609e5a345", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 64, "length": 104}, "minContextSlot": 501}]}}
+{"scenario": "stable-mismatch", "peer": 0, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 0, "path": "/rpc/0?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}
+{"scenario": "stable-mismatch", "peer": 1, "tls": "accepted"}
+{"scenario": "stable-mismatch", "peer": 1, "path": "/rpc/1?owned=1", "method": "POST", "request_sha256": "8527bf9aeffda0b026019f8da3ab6b9de220f9221fabe9f918326ce0586177cc", "rpc": {"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["A1QGkp3ACZU2siTTdPbC9Xe4nZsoMVMtkz9z4hyBGNts", {"commitment": "finalized", "encoding": "base64", "dataSlice": {"offset": 0, "length": 64}, "minContextSlot": 501}]}}

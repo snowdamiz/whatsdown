@@ -1,0 +1,1027 @@
+{
+  "status": "PASS_LOCAL_RPC_TLS",
+  "checks": [
+    {
+      "name": "three independently rooted owned TLS peers ready",
+      "status": "PASS",
+      "origins": [
+        "https://127.0.0.1:50506",
+        "https://127.0.0.1:50507",
+        "https://127.0.0.1:50508"
+      ],
+      "root_sha256": [
+        "c86365418a70b6ad6b1cc1db01adcc31889e424023006284f572e8301cb92ec0",
+        "a1bb6a8af2cb44f69e31e3c6a5137c7d0215667c8d3f189438e5e2b4444ac685",
+        "3a4b0a1b3a902626602954f6bff43e9021d8ef683f4cebcac42e2f72432a6c41"
+      ],
+      "frame_sha256": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27"
+    },
+    {
+      "name": "actual create/resolve/anchor C ABI commits cache and consistent finalized TLS proof",
+      "status": "PASS",
+      "anchor_result": [
+        "consistent",
+        "1793996683448",
+        "501",
+        "500",
+        "1793996683"
+      ],
+      "rpc_http": 10,
+      "cache_sha256": "ae3f2b5ecbacaaa4f1ff5b99f5766e155f98efa287f5acd693167d233f6dab01",
+      "resolved_sha256": "e53320aeeb5429863665c99a0afcc86b76e7cf057dcf2e9f057a5bc8945b4a46"
+    },
+    {
+      "name": "corrupted directory signature refused with unchanged verified cache",
+      "status": "PASS",
+      "error": "transparency_verification_failed",
+      "cache_sha256": "ae3f2b5ecbacaaa4f1ff5b99f5766e155f98efa287f5acd693167d233f6dab01"
+    },
+    {
+      "name": "real process restart retains previous_tree_size=1, cache, result and network reservation",
+      "status": "PASS",
+      "process_a": 99527,
+      "process_b": 490,
+      "schedule_sha256": "5c6fc180cf070cb46929e9f483910a84b562dbb9934081d4901245aa0a5d443c"
+    },
+    {
+      "name": "shared compiled batch and runtime pooled explicit/default/wrong root isolation",
+      "status": "PASS"
+    },
+    {
+      "name": "root-only rotation preserves public-log identity and hourly/daily budget",
+      "status": "PASS"
+    },
+    {
+      "name": "public Mesh checker next-due injected time retains slot floor and performs fresh TLS",
+      "status": "PASS",
+      "boundary": "supplementary explicit-time API; native wall clock not injected"
+    },
+    {
+      "name": "absent-default refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 0,
+      "result": "rpc_unavailable",
+      "tls_attempts": 3
+    },
+    {
+      "name": "wrong-ca-all refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 0,
+      "result": "rpc_unavailable",
+      "tls_attempts": 3
+    },
+    {
+      "name": "malformed-pem-all refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "truncated-frame refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "trailing-frame refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "bad-version refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "zero-present-count refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "incomplete-count refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "excess-count refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "present-without-explicit-roots refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "absent-with-tail refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "security-digest refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "wrong-origin refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "wrong-port refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "suffix-lookalike refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "resource-read-error refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_unavailable",
+      "tls_attempts": 0
+    },
+    {
+      "name": "one wrong CA plus two agreeing peers preserves native quorum and deterministic batch fallback",
+      "status": "PASS"
+    },
+    {
+      "name": "explicit mixed WebPki row preserves two-root native quorum without implicit fallback",
+      "status": "PASS"
+    },
+    {
+      "name": "attempted malformed PEM is fatal despite two valid peer roots",
+      "status": "PASS",
+      "boundary": "compiled shared batch reader; no eager unused-row claim"
+    },
+    {
+      "name": "RPC redirect never followed",
+      "status": "PASS",
+      "target": "https://127.0.0.1:50507/redirected"
+    },
+    {
+      "name": "RPC redirect never followed",
+      "status": "PASS",
+      "target": "https://127.0.0.1:50509/redirected"
+    },
+    {
+      "name": "RPC redirect never followed",
+      "status": "PASS",
+      "target": "http://127.0.0.1:50505/redirected"
+    },
+    {
+      "name": "actual TLS barrier resource replacement refuses successful response",
+      "status": "PASS",
+      "error": "rpc_context_changed:account_state_changed",
+      "cache_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52"
+    },
+    {
+      "name": "actual TLS barrier resource replacement refuses Http.send Err",
+      "status": "PASS",
+      "error": "rpc_context_changed:account_state_changed",
+      "cache_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52"
+    },
+    {
+      "name": "actual TLS barrier account replacement refuses successful response",
+      "status": "PASS",
+      "error": "directory_identity_changed",
+      "cache_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52"
+    },
+    {
+      "name": "actual TLS barrier account replacement refuses Http.send Err",
+      "status": "PASS",
+      "error": "directory_identity_changed",
+      "cache_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52"
+    },
+    {
+      "name": "fresh native capture accepts new immutable root resource",
+      "status": "PASS"
+    },
+    {
+      "name": "root rotation cannot clear authenticated slash refusal",
+      "status": "PASS"
+    },
+    {
+      "name": "stable slash refusal remains readable with malformed transport",
+      "status": "PASS"
+    },
+    {
+      "name": "root rotation preserves mismatch reservation and refusal even with malformed transport",
+      "status": "PASS"
+    }
+  ],
+  "scope": "LOCAL compiled MobileCore C ABI",
+  "not_run": [
+    "native platform packages and phone UI",
+    "production/funded/external RPC",
+    "production C ABI next-day clock boundary",
+    "bounded native context path (owned by production context tests)",
+    "pause exactly after receive/before dispatch inside Mesh",
+    "next-due retained-mismatch retry under production wall clock"
+  ],
+  "anchor_result": [
+    "consistent",
+    "1793996683448",
+    "501",
+    "500",
+    "1793996683"
+  ],
+  "acceptance_gate": {
+    "expected": "consistent",
+    "actual": "consistent",
+    "status": "PASS"
+  },
+  "rpc_http_requests": 81,
+  "directory_requests": 21,
+  "tls_handshakes": [
+    {
+      "scenario": "setup",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "setup",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "setup",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "positive",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 1,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "positive",
+      "peer": 1,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "positive",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "absent-default",
+      "peer": 2,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "absent-default",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "absent-default",
+      "peer": 1,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "wrong-ca-all",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "wrong-ca-all",
+      "peer": 2,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "wrong-ca-all",
+      "peer": 1,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 0,
+      "tls": "refused",
+      "error": "SSLEOFError"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "one-bad-ca",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "explicit-mixed-webpki",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "redirect-26",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "redirect-26",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "redirect-26",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "redirect-27",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "redirect-27",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "redirect-27",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "redirect-28",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "redirect-28",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "redirect-28",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "barrier-resource-success",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "barrier-resource-http-error",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "barrier-account-success",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "barrier-account-http-error",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "fresh-rotated-capture",
+      "peer": 2,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-slash",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-slash",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-slash",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-slash",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 1,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 0,
+      "tls": "accepted"
+    },
+    {
+      "scenario": "stable-mismatch",
+      "peer": 1,
+      "tls": "accepted"
+    }
+  ],
+  "server_errors": [],
+  "lookup_previous_sizes": [
+    "0",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0"
+  ],
+  "public_fixture_hashes": {
+    "devices.hex": "7ee81810e5bb7f897ae26c65c738d517127fc35e8282d90a2484f05b3cea6f43",
+    "security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "forged-1.hex": "c68ade13f37ed2628fdc482643e57c00d06ff319ba782d38791f35abee0f000b",
+    "forged-0.hex": "c9d3cf1c261b5e2ac03000156fb0f67be46088f7d210d457cb95a39715461828",
+    "network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "evidence-1.hex": "95b46fb1eeaf94764a371dc1f806d63b3b855080cc2b5f3cc1bc53c58055d16f",
+    "evidence-0.hex": "bb7dd70d14efdf37627e168a10a6593d4e5a5700e61ff61dacff82cbb30de540",
+    "checkpoint.hex": "5a96423e82eb93e722386a077cf49e46b2edc206ce342cb093b4417b93a8161d",
+    "ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "log.hex": "26e2acf9104ebccef8782b3479bc43e04e466ae5b9caf7d7261612e3eb558ec2",
+    "ring-entry.hex": "e03cc735e9755f0bf5acf1c1345df494306a48a76673189015472797ef0e77c9",
+    "header.hex": "b871f1c9175c46a3d1679b3cfb93ea55c6f8fe301cbf69fd15be85ebccf22a14",
+    "http-events.jsonl": "cd2a8d6971188db93daad4e6158dcaa9b4e94c2f52ad289cb30e0d4a5d5ab7a4",
+    "ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "entry.hex": "e8c4ea190a48a897ed9b2e94875ce7a721d29dd7fed9ba14ecccdcc107b201e1",
+    "rpc-tls": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27",
+    "security-digest/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "security-digest/resource-reads.jsonl": "bef322ae8194b208c3f250d93346c548c82e71865a81f80f368e4f8d5c0e94fa",
+    "security-digest/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "security-digest/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "security-digest/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "security-digest/rpc-tls": "d68d73e628e076ffd69aba87496eaaf4f2af8511647faf599c0a5132c1646d7f",
+    "absent-default/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "absent-default/resource-reads.jsonl": "35a86772c38fd93e8511fecfa2ec94a5bb902e0ac2468fa8f6a1cb3ccce7a199",
+    "absent-default/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "absent-default/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "absent-default/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "trailing-frame/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "trailing-frame/resource-reads.jsonl": "fbd24046471526efdef8f809841acd9b9ba48603801cb81fb12668bf08c446f8",
+    "trailing-frame/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "trailing-frame/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "trailing-frame/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "trailing-frame/rpc-tls": "bf66cf808b8a37c1ba56b93b8e989bfca459731500a5c4b0c513a9ef4b57d50f",
+    "positive/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "positive/resource-reads.jsonl": "14cb0d365ecc4687e94e1efeee8864707e9f365d2ca49a9e3bc91eb050475741",
+    "positive/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "positive/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "positive/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "positive/rpc-tls": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27",
+    "fresh-rotated-capture/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "fresh-rotated-capture/resource-reads.jsonl": "b003d2793859033b31674a894e4c46fb7ba537928fc05487cd721c6b5c8c4861",
+    "fresh-rotated-capture/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "fresh-rotated-capture/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "fresh-rotated-capture/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "fresh-rotated-capture/rpc-tls": "8affb8b28209363899902710f0bee0384898af84a0a52f5dc7eea10c5d39d6bc",
+    "one-bad-ca/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "one-bad-ca/resource-reads.jsonl": "c245a9045027b144895d5125944a765a8d495ae182f0b7c91c6841a538b717b6",
+    "one-bad-ca/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "one-bad-ca/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "one-bad-ca/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "one-bad-ca/rpc-tls": "9c2da262df717c24ddfd5adabcbac2490cc3c7a89202bd9d36328b6cda31ae05",
+    "stable-mismatch/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "stable-mismatch/resource-reads.jsonl": "1228237d7bb0ed5a4dfe41ab126bf823ab328a634642cb45ed051df7d79583f5",
+    "stable-mismatch/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "stable-mismatch/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "stable-mismatch/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "stable-mismatch/rpc-tls": "3e4b43111fb265305dd99697b2a770511ebab254d2a1ae866f55143f5a15adbc",
+    "pki-0/ca.pem": "c86365418a70b6ad6b1cc1db01adcc31889e424023006284f572e8301cb92ec0",
+    "one-malformed-attempted/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "one-malformed-attempted/resource-reads.jsonl": "87d7dc3a8dc6d5e85c625d04bc9fc5e4d525647217715b8ed314570d56ac243a",
+    "one-malformed-attempted/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "one-malformed-attempted/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "one-malformed-attempted/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "one-malformed-attempted/rpc-tls": "d4747c27541ef94c6fae8b50fde2b73ccd4ebccb78c2192978dfce2a4838f48d",
+    "truncated-frame/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "truncated-frame/resource-reads.jsonl": "4a2818d81a9811b1c97305e21eca869f9be202bf727faad7a49fbc47c42f3115",
+    "truncated-frame/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "truncated-frame/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "truncated-frame/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "truncated-frame/rpc-tls": "fc36df005f9855dedd63e1e06abaaab0a7b455bf9ca46f21d5fbd8e6b3ba53b8",
+    "barrier-account-http-error/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "barrier-account-http-error/resource-reads.jsonl": "96c697ea30fd6eb97bea77b122bde398c270215f6d4bd5aeada3d39b1d126025",
+    "barrier-account-http-error/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "barrier-account-http-error/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "barrier-account-http-error/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "barrier-account-http-error/rpc-tls": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27",
+    "pki-1/ca.pem": "a1bb6a8af2cb44f69e31e3c6a5137c7d0215667c8d3f189438e5e2b4444ac685",
+    "redirect-28/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "redirect-28/resource-reads.jsonl": "36f05df47117f3a9a8be0380011de1073890480903f62b52491bc4f09e60cefe",
+    "redirect-28/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "redirect-28/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "redirect-28/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "redirect-28/rpc-tls": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27",
+    "stable-slash/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "stable-slash/resource-reads.jsonl": "eaefa5f95084024bc4772158d4b8f8023d0d5af4bc5e62c56aa5f25bc9b2449d",
+    "stable-slash/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "stable-slash/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "stable-slash/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "stable-slash/rpc-tls": "3e4b43111fb265305dd99697b2a770511ebab254d2a1ae866f55143f5a15adbc",
+    "redirect-26/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "redirect-26/resource-reads.jsonl": "36f05df47117f3a9a8be0380011de1073890480903f62b52491bc4f09e60cefe",
+    "redirect-26/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "redirect-26/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "redirect-26/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "redirect-26/rpc-tls": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27",
+    "malformed-pem-all/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "malformed-pem-all/resource-reads.jsonl": "f2e9537e7234949e63055cbea999c600838ec13cdf6f3a90a335148b1bba182e",
+    "malformed-pem-all/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "malformed-pem-all/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "malformed-pem-all/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "malformed-pem-all/rpc-tls": "b8c4130e1c89b17c55ae8bea5f614a54feeae423041add1ab3731779244416e5",
+    "redirect-27/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "redirect-27/resource-reads.jsonl": "36f05df47117f3a9a8be0380011de1073890480903f62b52491bc4f09e60cefe",
+    "redirect-27/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "redirect-27/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "redirect-27/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "redirect-27/rpc-tls": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27",
+    "barrier-account-success/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "barrier-account-success/resource-reads.jsonl": "96c697ea30fd6eb97bea77b122bde398c270215f6d4bd5aeada3d39b1d126025",
+    "barrier-account-success/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "barrier-account-success/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "barrier-account-success/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "barrier-account-success/rpc-tls": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27",
+    "wrong-ca-all/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "wrong-ca-all/resource-reads.jsonl": "77bf701b90e34cd1e676e27be54906d767dcc9c0feb457ce67e855c1611b34da",
+    "wrong-ca-all/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "wrong-ca-all/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "wrong-ca-all/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "wrong-ca-all/rpc-tls": "6fcd350d8aca4c8a2eb916028fe182169c46c400a7e471e0680c130aeb051032",
+    "absent-with-tail/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "absent-with-tail/resource-reads.jsonl": "371fdad67400730bc95e80867544d71d61ae9cd925f8ac1ae5115caa6cd6dd83",
+    "absent-with-tail/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "absent-with-tail/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "absent-with-tail/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "absent-with-tail/rpc-tls": "fb50dc0717ff266cf9baf82b1ce7a1c2ef6d9247859680b11a19fb7077f5f222",
+    "barrier-resource-http-error/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "barrier-resource-http-error/resource-reads.jsonl": "c246ebdec762543acb0dc345f5745d653cbdf46817f605a1c4404b01b93e1675",
+    "barrier-resource-http-error/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "barrier-resource-http-error/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "barrier-resource-http-error/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "barrier-resource-http-error/rpc-tls": "8affb8b28209363899902710f0bee0384898af84a0a52f5dc7eea10c5d39d6bc",
+    "excess-count/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "excess-count/resource-reads.jsonl": "521fe7ed515cf1729f3f6f37849e26543b2c9769e9a94c8f9102a3cb1a44355e",
+    "excess-count/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "excess-count/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "excess-count/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "excess-count/rpc-tls": "171ed95a439bf2086d9f9f9fe82fa2777f550c85a02bf1c141fdb620c1b01e08",
+    "wrong-port/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "wrong-port/resource-reads.jsonl": "ac4fb6a0ca6338dc188243a41b3be138389580edcff518203eaadf15925e8b39",
+    "wrong-port/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "wrong-port/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "wrong-port/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "wrong-port/rpc-tls": "27143c714454c5487c7e06ee76626bf33d43bbbd859a0da8e08149246442f641",
+    "resource-read-error/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "resource-read-error/resource-reads.jsonl": "53905b0050e95f835b935091cc5f1a8ebc2ccdf4e2aeec1fb8c13d39b5e0786c",
+    "resource-read-error/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "resource-read-error/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "resource-read-error/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "resource-read-error/rpc-tls": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27",
+    "wrong-origin/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "wrong-origin/resource-reads.jsonl": "cedd0b4da281378d15e4d24625608ee57c95b4962264e76d620574334a0e5a93",
+    "wrong-origin/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "wrong-origin/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "wrong-origin/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "wrong-origin/rpc-tls": "a8be1b9bd5bf1655b044d229a7c6fe21bc0b0eae7ae82ae51f1bcd89036ac357",
+    "bad-version/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "bad-version/resource-reads.jsonl": "b5bde1fb34fef22a12f846802fc44152c5d73de15880e044bd0e835c6dacd73e",
+    "bad-version/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "bad-version/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "bad-version/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "bad-version/rpc-tls": "d0eebbe53c66eaee77db95028f825e5384a87056b9cdc7e4df58b63ee8ef3ca4",
+    "incomplete-count/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "incomplete-count/resource-reads.jsonl": "448834e51d00c69bb865e6ad9604bfd5c91461f369ad42ffb0d73b1aa316e59b",
+    "incomplete-count/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "incomplete-count/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "incomplete-count/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "incomplete-count/rpc-tls": "d339813a10b1e1658ef6b3b106bcedf4c2df1abc0e86fcd51bb4f46b312105e4",
+    "barrier-resource-success/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "barrier-resource-success/resource-reads.jsonl": "c246ebdec762543acb0dc345f5745d653cbdf46817f605a1c4404b01b93e1675",
+    "barrier-resource-success/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "barrier-resource-success/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "barrier-resource-success/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "barrier-resource-success/rpc-tls": "8affb8b28209363899902710f0bee0384898af84a0a52f5dc7eea10c5d39d6bc",
+    "pki-3/ca.pem": "82b5db1db9bdbad1881e673eaf4a303295852e0616c645705d796f3eef252221",
+    "pki-2/ca.pem": "3a4b0a1b3a902626602954f6bff43e9021d8ef683f4cebcac42e2f72432a6c41",
+    "zero-present-count/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "zero-present-count/resource-reads.jsonl": "61bdee599e935f4b629f4ddb17554d363c1e2b1684fbb88add60c1431776a7eb",
+    "zero-present-count/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "zero-present-count/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "zero-present-count/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "zero-present-count/rpc-tls": "c03ef1812529fddd8af5891a3a170dde3e58d1b4cc7ea701109195ba78d8e277",
+    "suffix-lookalike/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "suffix-lookalike/resource-reads.jsonl": "a7cb5a2da44d69ad2787fbb71ed23b4316d5e389a016b8df1acfaae274991d6f",
+    "suffix-lookalike/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "suffix-lookalike/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "suffix-lookalike/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "suffix-lookalike/rpc-tls": "99f4d482d2e7f43fd98c6e5a7e03a4fb0e6bd6abedc2a35275b6bfc027804b69",
+    "explicit-mixed-webpki/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "explicit-mixed-webpki/resource-reads.jsonl": "fc11a3893980d65265aaa853a40a50f98e25f2fcf4703f458048ff8e962c7131",
+    "explicit-mixed-webpki/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "explicit-mixed-webpki/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "explicit-mixed-webpki/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "explicit-mixed-webpki/rpc-tls": "c11c671c555f3d05aee1b5dcf9a6bd71cca9eaffc773f0d11b7bc799b2efa7b2",
+    "present-without-explicit-roots/security": "532f933a909fb9390c7c4fbbc62cae31345ffd5073da65290c24042dda587276",
+    "present-without-explicit-roots/resource-reads.jsonl": "112d86232abc3f59f7106d4e0baefbecaa233dbf4675b92d4d25fb20ad9d168b",
+    "present-without-explicit-roots/network": "5ae485df549154e6ae2e0e164d8872ddd74bdf17f3ea62f27a63d6444a476e28",
+    "present-without-explicit-roots/ca.pem": "e04e4985a28193709b1246cfeaae889d4ec68bdc307bad8112ffb9294f252eaf",
+    "present-without-explicit-roots/ohttp": "dfb81f653ed48baad0741584657978f2fc0e02cda5d05689cbd71e605f117623",
+    "present-without-explicit-roots/rpc-tls": "fcb5873248b8f685162e92a596c6ec3a7731bbdb56b69ccd628f248d54e18419"
+  }
+}
