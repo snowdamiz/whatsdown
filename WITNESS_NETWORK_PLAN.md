@@ -214,12 +214,18 @@ Focused runtime checks pass for presentation, community roles, multi-device
 fanout, group payload/encryption, session suites, bounded history helpers and
 braid journals. Synthetic test assertions now explicitly observe only their
 Boolean outcomes. The forgotten-group error assertion was stale on the unchanged
-base and now expects `group_not_found`. A further 11 receive-caller test files
-now pass all 32 cases. Three failures reproduced on the unchanged base: the
+base and now expects `group_not_found`. A further 23 receive-caller test files
+now pass all 62 cases. Three failures reproduced on the unchanged base: the
 joined-group migration copied a v2 wire version into a v3 configuration, and
 both safety-QR cases omitted authenticated native/witness setup. The fixtures
 now provide those prerequisites without weakening assertions or production
-admission. The remaining receive-caller cohort is still being qualified.
+admission. Additional stale fixtures now advertise the current capability mask,
+provide witnessed device sets for direct/contact traffic and maintain coherent
+views while exercising fork gossip. The OHTTP fixture now admits the directory
+lookups that precede prekey claims; its four native cases verify no direct
+fallback and preserve exact stored claim bytes on retry. These changes affect
+test setup and observations only. Per-file logs and hashes are indexed by
+`.morse/continuation-20261106/receive-cohorts-final.json`.
 Full message/request-field labeling, native app/device
 and release qualification remain open; this does not close Phase 6 or D4/D6.
 The existing 67 Mesh lint findings were also removed; full messenger lint passes.
@@ -228,10 +234,15 @@ A separate compiler defect was isolated: implicit `From` error conversion lost
 privacy shape precision. The application uses the exact equivalent explicit
 constructor match without adding a disclosure. The generic compiler correction
 is committed and pushed as Mesh `bb593b1b` on `fix/plaintext-try-from`. Its core
-and public compiler checks pass; a separate runtime test-harness marker race
-is being repaired. App qualification with the retained new compiler is still
-running. An attempted independent compiler review was unavailable because the
-provider flagged the request; no independent review pass is claimed.
+and public compiler checks pass. The separate FIFO test-harness marker race is
+fixed in pushed successor `8eba1691`; the previously failing runtime gate now
+passes (1,661 library cases and six integration cases, with 20 ignored probes).
+The retained new debug compiler also passes the actual-source 17 negative and
+14 label-removal controls, protected production build and 69-site disclosure
+gate. All 347 captured production inputs still match. These are local compiler
+and app proofs, not published-release or native-device qualification. A first
+independent review was unavailable because its provider flagged the request;
+the replacement Grok review is running.
 
 ### Progress summary — 2026-10-31
 

@@ -20,6 +20,7 @@ from Prekeys.Pool import (
 from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.V1 import DirectoryEntry, OuterEnvelope
 from Tests.Support import append, database_path, vector, write_u32
+from Tests.WitnessedSessionFixture import install_witnessed_session_fixtures
 from Transport.Packet import ClientProfile, decode_client_profile
 
 fn request(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
@@ -107,6 +108,7 @@ fn proof() -> Bool!String do
     0,
     Bytes.empty())?)?
   let alice_public = decode_client_profile(alice_profile)?.entry.mailbox_token
+  install_witnessed_session_fixtures([alice, bob, carol])?
   # Alice's publication names the hash of a contact address, the same one until
   # the directory has answered; only then is it handed to anyone.
   let named = published_hash(alice)?

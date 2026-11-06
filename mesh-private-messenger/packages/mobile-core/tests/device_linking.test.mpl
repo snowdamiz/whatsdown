@@ -44,6 +44,11 @@ from Tests.GroupConsistencySupport import signed_transparency_view
 from Tests.Support import append, database_path, vector, write_u32
 from Transparency.Merkle import leaf_hash
 
+fn assert_received_body(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic linked-device delivery; no application disclosure"))
+end
+
 fn encode_vectors(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
     Ok(output)
@@ -201,7 +206,7 @@ fn proof() -> Bool!String do
   assert(Bytes.length(pending.signing_public_key) == 32)
   assert(Bytes.length(pending.dh_public_key) == 32)
   assert(Bytes.length(pending.post_quantum_public_key) == 1184)
-  assert(U64.compare(pending.capabilities, wide("3")?) == 0)
+  assert(U64.compare(pending.capabilities, wide("31")?) == 0)
   assert(U64.compare(pending.expires_at, U64.add(pending.created_at, wide("600000")?)?) == 0)
   let expected_sas = Bytes.from_utf8(Bytes.to_hex(first_six(Crypto.sha256(request_wire))?))
   assert(Bytes.length(expected_sas) == 12)
@@ -281,6 +286,35 @@ fn proof() -> Bool!String do
     Bytes.from_utf8(sender_path),
     Bytes.from_utf8("bob")
   ])?)?
+  let linked_set = device_set_wire(DeviceSet {
+    version: 1,
+    username: root_entry.username,
+    account_identity: root_entry.account_identity,
+    sequence: wide("2")?,
+    devices: [root_entry, linked_entry],
+    revoked_device_ids: List.new()
+  })?
+  let sender_entry = entry(directory_entry_export(Bytes.from_utf8(sender_path))?)?
+  let sender_set = device_set_wire(DeviceSet {
+    version: 1,
+    username: sender_entry.username,
+    account_identity: sender_entry.account_identity,
+    sequence: wide("1")?,
+    devices: [sender_entry],
+    revoked_device_ids: List.new()
+  })?
+  let delivery_view = signed_transparency_view([leaf_hash(linked_set)?, leaf_hash(sender_set)?])?
+  for path in [linked_path, sender_path] do
+    for devices in [linked_set, sender_set] do
+      assert(install_group_transparency_for_test(path,
+        delivery_view.checkpoint,
+        delivery_view.consistency,
+        delivery_view.service_public_key,
+        delivery_view.witness_a_public_key,
+        delivery_view.witness_b_public_key,
+        devices)?)
+    end
+  end
   let linked_message = Bytes.from_utf8("hybrid linked device")
   let linked_initial = start_conversation_export(request([
     Bytes.from_utf8(sender_path),
@@ -289,11 +323,18 @@ fn proof() -> Bool!String do
   ])?)?
   assert(outer(linked_initial)?.suite == 4)
   assert(test_inner_suite(linked_path, linked_initial)? == 2)
-  assert(Bytes.secure_equals(receive_initial_export(request([
+  assert_received_body(Bytes.secure_equals(receive_initial_export(request([
       Bytes.from_utf8(linked_path),
       linked_initial
     ])?)?,
     linked_message))
+  assert(install_group_transparency_for_test(root_path,
+    root_view.checkpoint,
+    root_view.consistency,
+    root_view.service_public_key,
+    root_view.witness_a_public_key,
+    root_view.witness_b_public_key,
+    root_set)?)
   assert(Bytes.length(sender_profile) > 0)
   let publication = decode_prekey_publish(replenish_prekeys_export(request([
     Bytes.from_utf8(linked_path),
@@ -303,14 +344,6 @@ fn proof() -> Bool!String do
   assert(Bytes.secure_equals(publication.device_id, completed_credential.device_id))
   assert(List.length(publication.prekeys) == 1)
   assert(U64.compare(List.head(publication.prekeys).id, wide("3")?) == 0)
-  let linked_set = device_set_wire(DeviceSet {
-    version: 1,
-    username: root_entry.username,
-    account_identity: root_entry.account_identity,
-    sequence: wide("2")?,
-    devices: [root_entry, linked_entry],
-    revoked_device_ids: List.new()
-  })?
   let unverified_successor = device_set_wire(DeviceSet {
     version: 1,
     username: root_entry.username,
