@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "status": "PASS_LOCAL",
+  "base_commit": "67e1aa241202636bf2395cc330e4b2b9ef4d8e71",
+  "source_commit": "b59eaf1905f1a9bd1ed9397741a932b3dcf4794c",
+  "compiler_sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+  "runtime_sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+  "test_runtime_sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+  "red": "All three raw public parser projections compiled into HTTP body sinks; one executed synthetic-frame test confirmed the same body from direct/group and all three aliases. No HTTP executed.",
+  "green": {
+    "content_http_refusals": 7,
+    "named_import_refusals": 8,
+    "label_removal_control": true,
+    "production_build": true,
+    "captured_inputs": 712,
+    "facade_test_files": 6,
+    "facade_cases": 18,
+    "report_checker_cases": 4,
+    "diagnostic_matcher_cases": 2,
+    "disclosure_sites": 69,
+    "exports": 176,
+    "compiler_source_modules": 327
+  },
+  "disclosures": "Only 16 existing MobileCore display spans move: byte offsets -28, lines +4; kinds, reasons, expressions and columns unchanged. Other53sites identical.",
+  "review": "Source move reviewed with no production findings. Accepted diagnostic available-list false-positive finding fixed red/green; exact-subject validator replayed against all eight hash-verified retained import refusals. Final validator did not rerun compiler; production and fixtures unchanged. Narrow independent recheck pending.",
+  "binding_scope": "All176 ABI exports/metadata identical. Swift/TS exact; C header guard, JNI include and Kotlin library name differ only because proof artifact is libproof.a; normalized exact identities recorded.",
+  "artifact_sha256": "5cf5f6b282a3bfa1e66ca5fed8ec110bee6bd63ca57a1a5e8e04da165c001075",
+  "evidence": {
+    ".morse/continuation-20261106/raw-parser-closure/red/result.json": "f07485c4db6e2b3c9d509402881a524519f48d358f223281b414e9da09cc4324",
+    ".morse/continuation-20261106/raw-parser-closure/red/inputs.json": "b0d46a4dd40abe092532057aadc98c140e1fa9d895ac385de75572fb8925203c",
+    ".morse/continuation-20261106/raw-parser-closure/red/build.log": "23507195621fa959afbf2de171ba8ae02a9062a9f0304868533ccb86da6c3395",
+    ".morse/continuation-20261106/raw-parser-closure/red/overlap.log": "289d10bc8450e31d59e3a47e1b875c82fd3d43173b5a279c6358424785fabe70",
+    ".morse/continuation-20261106/raw-parser-closure/green/evidence.json": "503fbd12fdb8bb1257c263eabd2ceb81e275a071765c822bad6cd9f905b2f307",
+    ".morse/continuation-20261106/raw-parser-closure/compiled-proof-runner.py": "e655037110c3b7fd9e75edd1f029940b4da2f620932393891879fa89c2797756",
+    ".morse/continuation-20261106/raw-parser-closure/regressions/results.json": "140f5334724d7fdb4613950296273b10b1039bd0c2189be30068e07056150965",
+    ".morse/continuation-20261106/raw-parser-closure/product-main-evidence.json": "425669c849dae8dec0fd47aa96fcdba81b610ddfd8aa379ff45c01a59a71e5a2",
+    ".morse/continuation-20261106/raw-parser-closure/abi-source-check.json": "d4edd0d4b132b428b4a18440fb2f6e77d95f88977190134251c25928ea63a6d1",
+    ".morse/continuation-20261106/raw-parser-closure/disclosure-moves.json": "e22df4d4db7db7634bed5a32d889b3d46d3fda44316e9074959059d89b8f87d9",
+    ".morse/continuation-20261106/raw-parser-closure/proof-check-red.log": "ef92be829280a2a0af75eac0392fb72b75c9d0b2cc65e93774214b56e1de38dc",
+    ".morse/continuation-20261106/raw-parser-closure/proof-check-green.log": "a6707d4eff38012da33ddc34bc6dc076a3b17151cfc9aef223c8790cbe64c3da",
+    ".morse/continuation-20261106/raw-parser-closure/proof-check-replay.json": "bacdb6fb7e753bd5f958dfcb45f0671e18879033608ba4117275227710ffbcce",
+    ".morse/continuation-20261106/raw-parser-closure/review/verdict.md": "26f8556a4a1f08a0353f5e3cef720e16a4463afc16ca4e054e1e174e2730f69c",
+    ".morse/continuation-20261106/raw-parser-closure/cleanup.json": "912cf320d35c104151d5738560baad60e8813bfc5f22a8cc368a335ba4546c42",
+    ".morse/continuation-20261106/raw-parser-closure/lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".morse/continuation-20261106/raw-parser-closure/report-tests.log": "13d1d316c5d5008162bf0112f3417c3e16ac2ba3c7f8ca71c86b274fecfe2e4a"
+  },
+  "cleanup_logical_bytes": 158283592,
+  "limits": [
+    "Named raw parser API restriction only; remaining semantic decoders/general byte decoding and decrypted body/history labels remain open.",
+    "Local macOS compiler/native fixture checks, not native app UI or release qualification."
+  ]
+}

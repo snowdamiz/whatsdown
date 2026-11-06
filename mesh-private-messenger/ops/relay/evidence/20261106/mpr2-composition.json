@@ -84,5 +84,25 @@
     "Three loopback origins share each bank; no independent provider, validator-finality, funded deployment or live settlement claim.",
     "Full separate legacy SBF suite not rerun; legacy Node migration/recovery and permanent MPR1 no-sign replay are covered.",
     "Phone filing and both-asset movement remain unfinished."
-  ]
+  ],
+  "raw_phone_capture_followup": {
+    "adopted_commit": "0d59e0a865ede6300c45bbd1bf2f258b5e6d1c43",
+    "owner_commit": "6a061ec8e1ecd7b912ba2c36b600b245318afd7b",
+    "production_mesh_unchanged": true,
+    "owner_fresh_signed_sbf_packets": 80,
+    "parent_verified_watched_sources": 457,
+    "parent_validation": "Retained source/artifact rehash, ordered numeric-ID four-account snapshot checks, shell/Node syntax; parent did not repeat the follow-up SBF execution.",
+    "evidence": {
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-824a9ee0/.morse/mpr2-phone-snapshots/final-6a061ec/handoff.json": "bcb058fdb86d9da42ab95ed38de450f0a727256c1aa281d2fb8522d8b68596be",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-824a9ee0/.morse/mpr2-phone-snapshots/final-6a061ec/qualification.json": "ba1c1c04957ae98b6d8c4f9e7d325f82097a63e478f7a173bb0ce06eaf269ee8",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-824a9ee0/.morse/mpr2-phone-snapshots/final-6a061ec/phone-prepared.json": "a04e26e776aac37b84fd89f9b7ae8b8d11061beba329481893f176915f272205",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-824a9ee0/.morse/mpr2-phone-snapshots/final-6a061ec/phone-settled.json": "0a06a7a269eaf34aa778a352a3069c9b33bec9953ecb122f291150108ca30b83",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-824a9ee0/.morse/mpr2-phone-snapshots/final-6a061ec/phone-legacy.json": "f721f2a8a32186868f24a3bc5c11fa0fec90e758885cb8fc87936d5fb9b8d031",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-824a9ee0/.morse/mpr2-phone-snapshots/final-6a061ec/phone-prepared.raw.response.json": "c6f71eec63dc65cc5be098d4f0cec27eb6cd2c2cb4f63f9296ccd0d75e8ac15d",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-824a9ee0/.morse/mpr2-phone-snapshots/final-6a061ec/phone-settled.raw.response.json": "ca1a9b420148afa04bbf8c7ad40c12e782d9f6bc90b4bc84d92131a0f628805b",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-824a9ee0/.morse/mpr2-phone-snapshots/final-6a061ec/phone-legacy.raw.response.json": "9551f74c3a6e46ae830c099d0371d08f7abd5edb9860aac08911b11b7a609fb6"
+    },
+    "raw_scope": "Actual bank account envelopes and response bytes; prepared/settled are fresh signed executions. MPR1 is a retained actual receipt in fresh bank envelopes with zero new signing. Local finalized fixture label, not validator or provider independence.",
+    "cleanup": "All four owner Cargo target directories removed; final bridge/native/raw/source evidence preserved. No net disk reclaim claimed."
+  }
 }
