@@ -1,4 +1,5 @@
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins
+from Transparency.RpcTransport import webpki_rpc_transport, rpc_urls
 from Mobile.Platform import native_security_config
 from Transparency.Config import decode_security_config, encode_security_config
 from Solana.Read import pubkey_string
@@ -35,13 +36,13 @@ fn proof(version :: Int) -> Bool!String do
   assert(Test.set_push_token(Bytes.from_utf8("messenger/config/v1"),
     encode_security_config(initial)?))
   let config = native_security_config()?
-  let pins = case configured_anchor_pins(config)? do
+  let pins = case configured_anchor_pins(config, webpki_rpc_transport(config.rpc_urls)?)? do
     Some(value) -> value
     None -> return Err("missing native anchor pins")
   end
   assert(pins.log_name == "morse-main" && pubkey_string(pins.program) == String.repeat("1", 32))
   assert(Bytes.secure_equals(pins.log_id, Crypto.sha256(Bytes.from_utf8("morse-main"))))
-  assert(pubkey_string(pins.ring) == config.anchor_address && pins.endpoints == config.rpc_urls)
+  assert(pubkey_string(pins.ring) == config.anchor_address && rpc_urls(pins.rpc) == config.rpc_urls)
   for invalid in [
     %{config | anchor_log_name: "morse-canary"},
     %{config | anchor_program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},
@@ -55,10 +56,17 @@ fn proof(version :: Int) -> Bool!String do
     end
   end
   let disabled = %{config | anchor_address: "-", anchor_program: "-", anchor_log_name: "-"}
-  assert(configured_anchor_pins(disabled)? == None)
+  case configured_anchor_pins(disabled, webpki_rpc_transport(disabled.rpc_urls)?)? do
+    None -> nil
+    Some(_) -> assert(false)
+  end
   let old = %{disabled | version: 3, wire_version: 3, anchor_address: config.anchor_address}
   # A legacy ring-only frame never pretends it pins the judge or log identity.
-  assert(configured_anchor_pins(decode_security_config(encode_security_config(old)?)?)? == None)
+  let legacy = decode_security_config(encode_security_config(old)?)?
+  case configured_anchor_pins(legacy, webpki_rpc_transport(legacy.rpc_urls)?)? do
+    None -> nil
+    Some(_) -> assert(false)
+  end
   Ok(true)
 end
 

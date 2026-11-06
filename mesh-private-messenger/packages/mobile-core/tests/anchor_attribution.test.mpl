@@ -1,4 +1,5 @@
 from Transparency.AnchorChain import AnchorPins, AnchorAddresses, anchor_addresses
+from Transparency.RpcTransport import webpki_rpc_transport
 from Mobile.AnchorCheck import AnchorObservation, AnchorView, check_anchor_attested_at
 from Mobile.Codec import mobile_join, mobile_byte, mobile_append
 from Mobile.TransparencySafety import retained_fork, require_log_changes_allowed
@@ -206,7 +207,7 @@ fn proof() -> Bool!String do
     ring: addresses.ring,
     log_name: "morse-main",
     log_id: addresses.log_id,
-    endpoints: ["http://127.0.0.1:19091/", "http://127.0.0.1:19092/", "http://127.0.0.1:19093/"]
+    rpc: webpki_rpc_transport(["http://127.0.0.1:19091/", "http://127.0.0.1:19092/", "http://127.0.0.1:19093/"])?
   }
   let view = AnchorView {
     checkpoint: encode_checkpoint(private)?,

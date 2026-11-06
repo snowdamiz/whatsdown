@@ -119,7 +119,8 @@ fn proof() -> Bool!String do
       entry,
       4095,
       signer.public_key.bytes,
-      leaf)?
+      leaf,
+      fn() do Ok(nil) end)?
     assert(Bytes.secure_equals(result.response, encode_leaf_proof(public_leaf)?))
     let fork = decode_fork(result.fork)?
     assert(fork.kind == 2 && fork.second == AnchorReference(4095))
@@ -135,7 +136,8 @@ fn proof() -> Bool!String do
         entry,
         4095,
         signer.public_key.bytes,
-        leaf)?
+        leaf,
+        fn() do Ok(nil) end)?
       assert(Bytes.length(absent.fork) == 0)
       assert(absent.status == if setting == "down" || setting == "big" do
           "proof_unavailable"
@@ -170,7 +172,8 @@ fn proof() -> Bool!String do
         entry,
         4095,
         signer.public_key.bytes,
-        leaf)?.fork) == 0)
+        leaf,
+        fn() do Ok(nil) end)?.fork) == 0)
     end
     File.write(answer, Bytes.to_hex(encode_leaf_proof(public_leaf)?))?
     let same = sign_tree_checkpoint_for(version,
@@ -190,7 +193,8 @@ fn proof() -> Bool!String do
       entry,
       4095,
       signer.public_key.bytes,
-      same_leaf)?.fork) == 0)
+      same_leaf,
+      fn() do Ok(nil) end)?.fork) == 0)
     # Invalid local evidence is rejected before its index leaves the phone.
     let before = File.read(calls)?
     case discover_anchor_contradiction(origin,
@@ -198,7 +202,8 @@ fn proof() -> Bool!String do
       entry,
       4095,
       signer.public_key.bytes,
-      %{leaf | leaf_hash: repeated(0, 32)?}) do
+      %{leaf | leaf_hash: repeated(0, 32)?},
+      fn() do Ok(nil) end) do
       Err(_) -> nil
       Ok(_) -> assert(false)
     end
@@ -207,7 +212,8 @@ fn proof() -> Bool!String do
       entry,
       4095,
       signer.public_key.bytes,
-      leaf) do
+      leaf,
+      fn() do Ok(nil) end) do
       Err(_) -> nil
       Ok(_) -> assert(false)
     end
