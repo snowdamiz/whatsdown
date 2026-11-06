@@ -90,6 +90,28 @@ if [[ "${MORSE_MPR2_RUN_BASELINE:-0}" == 1 ]]; then
   rg -q 'invalid_anchor_custody|invalid_slash_receipt' "$work/current-relay-red.txt"
 fi
 
+if [[ -n "${MORSE_MPR2_PREPARED_BASELINE_BINARY:-}" ]]; then
+  mkdir -p "$work/red"
+  cp "$product/ops/relay/mpr2-sbf.test.mjs" "$work/red/mpr2-sbf.test.source.mjs"
+  if MORSE_MPR2_RELAY_BINARY="$MORSE_MPR2_PREPARED_BASELINE_BINARY" MORSE_MPR2_RELAY_PROOF_OUTPUT="$work/red" \
+      node --test --test-name-pattern='competing PREPARED' "$product/ops/relay/mpr2-sbf.test.mjs" > "$work/red/sbf-red.txt" 2>&1; then
+    echo 'Prepared-winner baseline unexpectedly passed; inspect retained red proof' >&2
+    exit 1
+  fi
+  python3 - "$work/red" "$MORSE_MPR2_PREPARED_BASELINE_BINARY" <<'PY'
+import hashlib,json,pathlib,sys
+work,binary=map(pathlib.Path,sys.argv[1:]);case=json.loads((work/'case-prepared-winner.json').read_text())
+assert case['verdict']=='FAIL' and case['prepared_receipt']['status']=='prepared'
+assert case['prepared_balances']==['0']*4 and case['competing_native']['code']!=0
+assert 'collateral_proof_quorum_unavailable_or_disagreed' in case['competing_native']['stdout']
+assert 'Relay verification refused' in case['failure']['message'],case['failure']
+paths=[binary,pathlib.Path(str(binary)+'.plaintext.json')]+[p for p in work.iterdir() if p.is_file() and p.name!='red-evidence.json']
+(work/'red-evidence.json').write_text(json.dumps({'schema_version':1,'verdict':'EXPECTED FAIL',
+'boundary':'B admitted before A prepares; A stops; compiled B scheduler refuses the authenticated competing PREPARED winner',
+'artifacts':{str(p.resolve()):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}},indent=2)+'\n')
+PY
+fi
+
 if [[ -z "${MORSE_MPR2_RELAY_BINARY:-}" ]]; then
   "$compiler" build "$product/ops/relay-mpr2" --opt-level 2 --output "$work/relay-mpr2" > "$work/mesh-build.txt" 2>&1
   export MORSE_MPR2_RELAY_BINARY="$work/relay-mpr2"
@@ -114,6 +136,7 @@ missing=[m for m in modules if m['source_sha256'] not in hashes]
 assert not missing,f'Native source receipt differs from pre-build sources: {missing}'
 paths.append(native)
 (work/'execution-before.json').write_text(json.dumps({'schema_version':1,'source_before_sha256':sha(work/'source-before.json'),
+'native_modules_verified':len(modules),'watched_sources':len(before['sources']),
 'artifacts':{str(p.resolve()):sha(p) for p in paths}},indent=2)+'\n')
 PY
 node --test "$product/ops/relay/mpr2-sbf.test.mjs" 2>&1 | tee "$work/sbf-green.txt"
@@ -136,8 +159,10 @@ artifact_drift += [p for p,h in json.loads((work/'inputs.json').read_text())['ar
 (work/'source-after.json').write_text(json.dumps({'schema_version':1,'head':head_end,'sources':current,'source_drift':drift,'artifact_drift':artifact_drift},indent=2)+'\n')
 assert not drift and not artifact_drift,f'Source or execution artifacts drifted; refusing PASS: {drift+artifact_drift}'
 paths+=list(work.glob('case-*.json'))+list(work.glob('journal-*.sqlite'))+[work/'inputs.json',work/'sbf-green.txt',work/'legacy-replay.json',work/'source-before.json',work/'source-after.json',work/'execution-before.json']
+paths+=[p for pattern in ['bank-input-*.json','pins-*.json','evidence-*.frk','request-*.json','red/*'] for p in work.glob(pattern) if p.is_file()]
 (work/'qualification.json').write_text(json.dumps({'schema_version':1,'verdict':'PASS',
 'head_start':before['head'],'head_end':head_end,'source_manifest_sha256':sha(work/'source-before.json'),
+'native_modules_verified':execution['native_modules_verified'],'watched_sources':execution['watched_sources'],
 'executed_artifacts':execution['artifacts'],'source_drift':[],'artifact_drift':[],
 'artifacts':{str(p):sha(p) for p in paths}},indent=2)+'\n')
 PY

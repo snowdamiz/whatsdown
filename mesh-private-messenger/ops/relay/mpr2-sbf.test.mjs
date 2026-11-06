@@ -203,12 +203,16 @@ async function oracle(bridge,f){
 
 async function harness(count=2,options={}){
   const f=await fixture(count,options),directory=await mkdtemp(join(tmpdir(),'mpr2-relay-sbf-')),bridge=new Bridge();let server;
+  const label=options.label??String(count);
+  // Disposable bank funding only; never a receipt, stage or token payout.
+  for(const address of options.fundedPayers??[])f.snapshot.accounts[`fixture-payer-${address}`]={
+    address,owner:'11111111111111111111111111111111',lamports:'20000000000',data_hex:'',executable:false};
   try{
     const initialized=await bridge.ask({method:'initialize',fixture:f.snapshot,payer:signer.address});
     assert.equal(initialized.signature_verification,true);server=await oracle(bridge,f);
     f.configuration.endpoints=server.endpoints;
-    await writeFile(join(output,`bank-input-${count}${options.settled?'-settled':''}.json`),JSON.stringify({fixture:f.snapshot,configuration:f.configuration,wire_hex:f.wire.toString('hex'),proof_hash:f.proofHash,receipt:f.receipt},null,2)+'\n');
-    const capturedPins=join(output,`pins-${count}.json`),capturedWire=join(output,`evidence-${count}.frk`),capturedRequest=join(output,`request-${count}.json`);
+    await writeFile(join(output,`bank-input-${label}${options.settled?'-settled':''}.json`),JSON.stringify({fixture:f.snapshot,configuration:f.configuration,wire_hex:f.wire.toString('hex'),proof_hash:f.proofHash,receipt:f.receipt},null,2)+'\n');
+    const capturedPins=join(output,`pins-${label}.json`),capturedWire=join(output,`evidence-${label}.frk`),capturedRequest=join(output,`request-${label}.json`);
     await writeFile(capturedPins,JSON.stringify(f.configuration));await writeFile(capturedWire,f.wire);
     await writeFile(capturedRequest,JSON.stringify({schema_version:2,method:'admit',min_context_slot:'0'}));
     const pins={version:2,program:f.snapshot.program,log:f.snapshot.accounts.log.address,mint:f.mints[0],submitter:signer.address,usdcMint:f.mints[0],morseMint:f.mints[1]};
@@ -220,10 +224,10 @@ async function harness(count=2,options={}){
         if(method==='effect')request.effect=second.meshEffect??second;
         if(value?.lookup)request.lookup={creation_slot:value.lookup.recent_slot,addresses:value.lookup.addresses};
         if(method==='lookup'&&third?.closing)request.method='lookup-close';
-        const path=join(output,`refused-${count}-${method}.json`);await writeFile(path,JSON.stringify(request));
+        const path=join(output,`refused-${label}-${method}.json`);await writeFile(path,JSON.stringify(request));
         let detail;try{detail=(await run(binary,['--pins',capturedPins,'--input',capturedWire,'--request',path],{timeout:30000,env:{PATH:'/usr/bin:/bin'}})).stdout;}
         catch(native){detail=String(native.stdout??'')+String(native.stderr??'');}
-        await writeFile(join(output,`refused-${count}-${method}.txt`),detail);
+        await writeFile(join(output,`refused-${label}-${method}.txt`),detail);
         throw new Error(`${method}: ${error.message}; native=${detail.slice(0,2000)}; RPC=${JSON.stringify(server.errors)}`,{cause:error});
       }
     }])):null;
@@ -238,17 +242,17 @@ async function harness(count=2,options={}){
       if(pending)assert.deepEqual(journal.pending().signed,pending.signed,'restart preserves exact signed packet');
       scheduler=createRelayScheduler({journal,verifier,rpc,signer,now:()=>clock++,owner:`worker-${++ordinal}`});
     }
-    return {f,bridge,server,initialized,verifier,directory,pins,plannerConfig,
+    return {f,bridge,server,initialized,verifier,directory,pins,plannerConfig,rpc,
       get journal(){return journal;},get scheduler(){return scheduler;},restart,
       async submit(wire=f.wire){
         const service=createRelayService({journal,verifier,scheduler,now:()=>clock++});
         try{const request=service.submit(wire);await service.cycle();return await request;}finally{await service.close();}
       },
-      async tick(){clock+=1001;const value=await scheduler.tick();await writeFile(join(output,`progress-${count}.json`),JSON.stringify({value,plan:journal.jobs()[0]?.plan,pending:journal.pending()},null,2));assert.deepEqual(server.errors,[]);return value;},
+      async tick(){clock+=1001;const value=await scheduler.tick();await writeFile(join(output,`progress-${label}.json`),JSON.stringify({value,plan:journal.jobs()[0]?.plan,pending:journal.pending()},null,2));assert.deepEqual(server.errors,[]);return value;},
       async balance(address){const value=await bridge.ask({method:'account',address});return value&&value.lamports!=='0'?raw(value).readBigUInt64LE(64):0n;},
       async retainJournal(){
         await run('python3',['-c','import sqlite3,sys; source=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True); target=sqlite3.connect(sys.argv[2]); source.backup(target); target.close(); source.close()',
-          journalOptions.path,join(output,`journal-${count}.sqlite`)]);
+          journalOptions.path,join(output,`journal-${label}.sqlite`)]);
       },
       async admit(wire=f.wire){
         try{const value=await verifier.admit(wire);assert.deepEqual(server.errors,[]);return value;}
@@ -377,6 +381,192 @@ for(const count of [2,16])test(`fresh ${count}-target relay prepares and settles
         'Source removal is an explicit fixture injection, not signed source rotation or unbond.']},null,2)+'\n');
     t.diagnostic(`${count} targets; ${h.server.packets.length} fresh signed SBF packets; USDC ${finderUsdc+lockedUsdc}; MORSE ${finderMorse+lockedMorse}; prepare/settle restarts ${restarts.length}`);
   }finally{await h.close();}
+});
+
+test('competing PREPARED winner is settled by a different relay wallet with original intent and cleanup ownership preserved', {skip:!binary,timeout:600000},async t=>{
+  const otherSigner=await createKeyPairSignerFromPrivateKeyBytes(new Uint8Array(32).fill(204));
+  const h=await harness(2,{label:'winner-a',fundedPayers:[otherSigner.address]});
+  const results={schema_version:1,verdict:'FAIL',states:[],fixture_funding:{address:otherSigner.address,lamports:'20000000000',
+    method:'Explicit disposable bank account injection through bridge initialize; no token balance or proof payment.'}};
+  let other,service,clock=1000,ordinal=0;
+  const journalPath=join(h.directory,'competing.sqlite'),transactionIds=new Set();
+  try{
+    assert.notEqual(otherSigner.address,signer.address);
+    const wire=Buffer.from(h.f.wire);Buffer.from(encoder.encode(otherSigner.address)).copy(wire,5);
+    const pins={...h.pins,submitter:otherSigner.address};
+    const configuration={...JSON.parse(h.plannerConfig),submitter:otherSigner.address,fee_payer:otherSigner.address};
+    const verifier=await createRelayVerifier({binary,tempRoot:join(h.directory,'native-b'),securityConfig:'owned competing relay bank',
+      plannerConfig:JSON.stringify(configuration),logVersion:configuration.log_version,pins});
+    const options={path:journalPath,identity:'local:mpr2-competing-winner',pins,
+      policy:{perJobLamports:'1000000000',windowLamports:'1000000000',maxJobs:1}};
+    other=new RelayJournal(options);
+    let scheduler=createRelayScheduler({journal:other,verifier,rpc:h.rpc,signer:otherSigner,now:()=>clock++,owner:`relay-b-${ordinal}`});
+    async function restart(){
+      const pending=other.pending();other.close();other=new RelayJournal(options);clock+=30001;
+      if(pending)assert.deepEqual(other.pending().signed,pending.signed,'B restart retains exact signed packet');
+      scheduler=createRelayScheduler({journal:other,verifier,rpc:h.rpc,signer:otherSigner,now:()=>clock++,owner:`relay-b-${++ordinal}`});
+    }
+    async function tick(){
+      clock+=1001;const state=await scheduler.tick();results.states.push({relay:'B',...state});
+      const pending=other.pending();if(pending)transactionIds.add(pending.id);
+      assert.deepEqual(h.server.errors,[]);
+      if(state.state==='waiting')await h.bridge.ask({method:state.reason==='cooldown'?'retire_lookup_history':'advance'});
+      return state;
+    }
+    // B durably accepts its own finder before A owns the proof PDA.
+    assert.equal(await h.bridge.ask({method:'account',address:h.f.receipt}),null);
+    const initial=await verifier.admit(wire);assert.equal(initial.status,'ready');
+    assert.equal(initial.proof_hash,h.f.proofHash);assert.equal(initial.finder,otherSigner.address);
+    assert.notEqual(initial.stage.address,h.f.stage);
+    other.accept(initial,clock++);const originalPlan=other.originalPlan(h.f.proofHash);
+    results.original_plan_b=originalPlan;
+    const requestedDestinations=await Promise.all(h.f.mints.map(mint=>associated(otherSigner.address,mint)));
+    const initialPayers=await Promise.all([signer.address,otherSigner.address].map(address=>h.bridge.ask({method:'account',address})));
+    assert.equal(initialPayers[1].lamports,results.fixture_funding.lamports);
+    for(const address of [h.f.stage,initial.stage.address,...h.f.destinations,...requestedDestinations])assert.equal(await h.bridge.ask({method:'account',address}),null);
+    await writeFile(join(output,'evidence-winner-b.frk'),wire);
+    await writeFile(join(output,'pins-winner-b.json'),JSON.stringify(configuration));
+    await writeFile(join(output,'request-winner-b.json'),JSON.stringify({schema_version:2,method:'admit',min_context_slot:'0'}));
+    h.server.control.phaseModes.prepare='normal';
+    assert.equal((await h.submit()).status,'queued');
+    let prepared=false;
+    for(let turn=0;turn<100;turn++){
+      const state=await h.tick();results.states.push({relay:'A',...state});
+      if(state.state==='waiting')await h.bridge.ask({method:state.reason==='cooldown'?'retire_lookup_history':'advance'});
+      const receipt=await h.bridge.ask({method:'account',address:h.f.receipt});
+      if(receipt&&raw(receipt)[7]===0){prepared=true;break;}
+    }
+    assert.equal(prepared,true,'A prepares a fresh real MPR2 receipt');
+    const preparedReceipt=await verifier.receipt(initial),preparedStage=await h.bridge.ask({method:'account',address:h.f.stage});
+    assert.equal(preparedReceipt.status,'prepared');assert.equal(preparedReceipt.receipt.finder,h.f.finder);
+    assert.equal(preparedReceipt.receipt.submitter,signer.address);assert.equal(preparedReceipt.receipt.stage,h.f.stage);
+    assert.notEqual(h.f.finder,initial.finder);assert.ok(BigInt(preparedStage.lamports)>0n);
+    results.prepared_receipt=preparedReceipt;results.prepared_stage_a=preparedStage;
+    results.prepared_balances=await Promise.all(h.f.destinations.map(address=>h.balance(address).then(String)));
+    assert.deepEqual(results.prepared_balances,['0','0','0','0']);
+    assert.equal(other.job(h.f.proofHash).receipt,null);
+    const boundary=h.server.packets.length;results.a_stopped_after_prepare_packet_count=boundary;
+    // Keep raw compiled diagnostics for the red run, independently of adapter errors.
+    try{results.competing_native={code:0,stdout:(await run(binary,['--pins',join(output,'pins-winner-b.json'),
+      '--input',join(output,'evidence-winner-b.frk'),'--request',join(output,'request-winner-b.json')],{timeout:30000,env:{PATH:'/usr/bin:/bin'}})).stdout};}
+    catch(error){results.competing_native={code:error.code,stdout:error.stdout,stderr:error.stderr};}
+    // No A scheduler ticks occur again until B has paid and completed.
+    await tick();
+    const revised=other.job(h.f.proofHash);
+    assert.deepEqual(other.originalPlan(h.f.proofHash),originalPlan);
+    assert.equal(revised.finder,initial.finder);assert.equal(revised.plan.finder,initial.finder);
+    assert.equal(revised.plan.proof_hex,wire.toString('hex'));assert.deepEqual(revised.plan.stage,initial.stage);
+    assert.equal(revised.plan.payout_finder,h.f.finder);assert.equal(revised.receipt,null);
+    results.prepared_plan_b=revised.plan;
+    service=createRelayService({journal:other,verifier,scheduler,now:()=>clock++});
+    const duplicate=service.submit(wire);await service.cycle();const response=await duplicate;
+    results.prepared_service_response=response;assert.equal(response.status,'queued','PREPARED is never an optimistic paid service response');
+    assert.equal(response.finder,initial.finder);await service.close();service=null;
+    if(other.pending())transactionIds.add(other.pending().id);
+    let lostAck=null,pruned=false,complete=false;
+    h.server.control.phaseModes.settle='lost-ack';
+    for(let turn=0;turn<100;turn++){
+      const state=await tick();
+      assert.deepEqual(other.originalPlan(h.f.proofHash),originalPlan);
+      const job=other.job(h.f.proofHash);
+      assert.equal(job.finder,initial.finder);assert.equal(job.plan.finder,initial.finder);
+      assert.equal(job.plan.proof_hex,initial.proof_hex);assert.deepEqual(job.plan.stage,initial.stage);
+      if((await verifier.receipt(job.plan)).status==='prepared')assert.equal(job.receipt,null,'B retains no paid receipt while the winner is only PREPARED');
+      if(lostAck&&!pruned){
+        assert.equal(state.state,'effect','B recovers pruned lost-ack settlement using authenticated winner effect');
+        assert.equal(h.server.packets.length,lostAck.packet_count);assert.equal(other.pending(),null);
+        const transaction=other.transaction(lostAck.pending.id);
+        assert.equal(transaction.phase,'observed');assert.equal(transaction.debitLamports,lostAck.pending.maxDebitLamports);
+        assert.equal(BigInt(other.budget(900000).chargedLamports),BigInt(lostAck.charged)+BigInt(lostAck.pending.maxDebitLamports));
+        results.pruned_settlement={signature:lostAck.pending.signed.signature,reservation:transaction.maxDebitLamports,charged:transaction.debitLamports};
+        h.server.control.hideHistory=false;h.server.control.blockHeight=0n;h.server.control.firstAvailableBlock=0n;pruned=true;
+      }
+      const pending=other.pending();
+      if(pending?.stepId==='settle'&&!lostAck){
+        assert.equal(state.state,'unacknowledged');
+        assert.equal((await verifier.receipt(job.plan)).status,'settled');
+        lostAck={pending,packet_count:h.server.packets.length,charged:other.budget(900000).chargedLamports};
+        await restart();h.server.control.hideHistory=true;
+        h.server.control.blockHeight=BigInt(pending.signed.lastValidBlockHeight)+1n;
+        h.server.control.firstAvailableBlock=BigInt(pending.signed.minContextSlot)+1n;
+      }
+      if(state.state==='complete'){complete=true;break;}
+    }
+    assert.equal(complete,true,JSON.stringify(results.states.slice(-10)));assert.equal(pruned,true);
+    assert.equal(other.job(h.f.proofHash).receipt.finder,h.f.finder);
+    assert.equal(other.pending(),null);assert.deepEqual(other.resources(h.f.proofHash),[]);
+    assert.equal(other.budget(900000).reservedLamports,'0');
+    assert.deepEqual(await h.bridge.ask({method:'account',address:h.f.stage}),preparedStage,'B leaves A-owned stage for A receipt-backed cleanup');
+    const bStage=await h.bridge.ask({method:'account',address:initial.stage.address});assert.ok(!bStage||bStage.lamports==='0');
+    for(const address of requestedDestinations)assert.equal(await h.balance(address),0n,'B requested finder never receives the winning payout');
+    const settled=await verifier.receipt(other.job(h.f.proofHash).plan);assert.equal(settled.status,'settled');
+    const balances=await Promise.all(h.f.destinations.map(address=>h.balance(address)));
+    const [finderUsdc,finderMorse,lockedUsdc,lockedMorse]=balances,r=settled.receipt;
+    assert.ok(finderUsdc>0n&&finderMorse>0n);assert.equal(finderUsdc,BigInt(r.usdc_finder_units));assert.equal(finderMorse,BigInt(r.morse_finder_units));
+    assert.equal(finderUsdc+lockedUsdc,BigInt(r.usdc_slashed_units));assert.equal(finderMorse+lockedMorse,BigInt(r.morse_slashed_units));
+    const bPackets=h.server.packets.slice(boundary),packetView=({wire,execution})=>{
+      const tx=getTransactionDecoder().decode(Buffer.from(wire,'base64')),message=getCompiledTransactionMessageDecoder().decode(tx.messageBytes);
+      const keys=[...message.staticAccounts,...execution.loaded_addresses.writable,...execution.loaded_addresses.readonly];
+      return {payer:message.staticAccounts[0],signers:Object.keys(tx.signatures),
+        instructions:message.instructions.map(ix=>({program:keys[ix.programAddressIndex],accounts:(ix.accountIndices??[]).map(index=>keys[index]),data_hex:Buffer.from(ix.data??[]).toString('hex')}))};
+    };
+    const bViews=bPackets.map(packetView),bRows=[...transactionIds].sort((a,b)=>a-b).map(id=>other.transaction(id));
+    assert.deepEqual(bRows.map(row=>row.signed.wire),bPackets.map(packet=>packet.wire),'every B packet retains its durable journal record');
+    for(const view of bViews){
+      assert.equal(view.payer,otherSigner.address);assert.deepEqual(view.signers,[otherSigner.address]);
+      for(const ix of view.instructions.filter(ix=>ix.program===h.f.snapshot.program)){
+        assert.ok(!['29','2a','2b'].includes(ix.data_hex.slice(0,2)),'B never prepares a second receipt');
+        if(ix.data_hex==='0e')assert.equal(ix.accounts[1],initial.stage.address,'B only closes its own stage');
+      }
+    }
+    const settles=bViews.flatMap(view=>view.instructions).filter(ix=>ix.program===h.f.snapshot.program&&ix.data_hex==='2c');
+    const setups=bViews.flatMap(view=>view.instructions).filter(ix=>ix.program===ATA);
+    assert.equal(settles.length,1,'B executes actual tag44 exactly once');assert.equal(setups.length,4,'B creates four actual payout ATAs');
+    for(const address of h.f.destinations){assert.ok(settles[0].accounts.includes(address));assert.ok(setups.some(ix=>ix.accounts.includes(address)));}
+    const bEnd=BigInt((await h.bridge.ask({method:'account',address:otherSigner.address})).lamports);
+    const ataRent=(await Promise.all(h.f.destinations.map(address=>h.bridge.ask({method:'account',address})))).reduce((total,account)=>total+BigInt(account.lamports),0n);
+    const bFees=bPackets.reduce((total,packet)=>total+BigInt(packet.execution.fee),0n);
+    assert.equal(BigInt(initialPayers[1].lamports)-bEnd,bFees+ataRent,'B bank debit is actual fees plus four retained ATA rents');
+    results.b_bank_ledger={initial:initialPayers[1].lamports,final:String(bEnd),actual_fees:String(bFees),retained_ata_rent:String(ataRent),budget:other.budget(900000)};
+    const afterB=h.server.packets.length;
+    await h.restart();let aComplete=false;
+    for(let turn=0;turn<100;turn++){
+      const state=await h.tick();results.states.push({relay:'A-resumed',...state});
+      if(state.state==='waiting')await h.bridge.ask({method:state.reason==='cooldown'?'retire_lookup_history':'advance'});
+      if(state.state==='complete'){aComplete=true;break;}
+    }
+    assert.equal(aComplete,true);assert.equal(h.journal.job(h.f.proofHash).receipt.finder,h.f.finder);
+    assert.equal(h.journal.pending(),null);assert.deepEqual(h.journal.resources(h.f.proofHash),[]);
+    const stageAfter=await h.bridge.ask({method:'account',address:h.f.stage});assert.ok(!stageAfter||stageAfter.lamports==='0');
+    assert.deepEqual(await Promise.all(h.f.destinations.map(address=>h.balance(address))),balances,'A resume pays no second reward');
+    const aCleanup=h.server.packets.slice(afterB).map(packetView);
+    assert.equal(aCleanup.filter(view=>view.instructions.some(ix=>ix.program===h.f.snapshot.program&&ix.data_hex==='0e'&&ix.accounts[1]===h.f.stage)).length,1);
+    assert.equal(aCleanup.flatMap(view=>view.instructions).filter(ix=>ix.program===h.f.snapshot.program&&ix.data_hex==='2c').length,0);
+    const aPackets=h.server.packets.filter((_,index)=>index<boundary||index>=afterB);
+    assert.deepEqual(aPackets.map(packet=>packet.wire),aPackets.map((_,index)=>h.journal.transaction(index+1).signed.wire),'A prepare and resumed cleanup remain journaled');
+    for(const view of aPackets.map(packetView)){assert.equal(view.payer,signer.address);assert.deepEqual(view.signers,[signer.address]);}
+    const aEnd=BigInt((await h.bridge.ask({method:'account',address:signer.address})).lamports);
+    const receiptRent=BigInt((await h.bridge.ask({method:'account',address:h.f.receipt})).lamports);
+    const aFees=aPackets.reduce((total,packet)=>total+BigInt(packet.execution.fee),0n);
+    assert.equal(BigInt(initialPayers[0].lamports)-aEnd,aFees+receiptRent,'A reclaims stage rent and retains only receipt rent plus actual fees');
+    results.a_bank_ledger={initial:initialPayers[0].lamports,final:String(aEnd),actual_fees:String(aFees),retained_receipt_rent:String(receiptRent),budget:h.journal.budget(900000)};
+    results.receipt=r;results.b_transactions=bRows;results.b_packet_views=bViews;results.a_cleanup_packet_views=aCleanup;
+    results.balances={finderUsdc:String(finderUsdc),finderMorse:String(finderMorse),lockedUsdc:String(lockedUsdc),lockedMorse:String(lockedMorse)};
+    results.programs=h.initialized.programs;
+    for(const {wire,execution} of h.server.packets){assert.ok(Buffer.from(wire,'base64').length<=1232);assert.ok(execution.units<=1400000);}
+    results.verdict='PASS';
+    t.diagnostic(`A stops after ${boundary} packets; B sends ${bPackets.length} packets, pays both assets, recovers pruned settlement; A reclaims stage without second payout`);
+  }catch(error){results.failure={message:error.message,stack:error.stack};throw error;}
+  finally{
+    if(other){results.final_job_b=other.job(h.f.proofHash);results.original_plan_b_after=other.originalPlan(h.f.proofHash);results.pending_b=other.pending();}
+    results.packets=h.server.packets.map(({wire,execution})=>({wire_base64:wire,sha256:hash(Buffer.from(wire,'base64')),bytes:Buffer.from(wire,'base64').length,...execution}));
+    results.limits=['Three loopback origins share one disposable SBF bank; no independent provider or validator finality claim.',
+      'Initialized public custody and SBF ELFs reused; checkpoints, attestations and every relay packet freshly signed.',
+      'B SOL funding and pruned RPC history are explicit local fixture injections; neither creates token payout or proof state.'];
+    await service?.close();
+    if(other){other.close();await run('python3',['-c','import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); t=sqlite3.connect(sys.argv[2]); s.backup(t); t.close(); s.close()',journalPath,join(output,'journal-winner-b.sqlite')]);}
+    await h.retainJournal();await writeFile(join(output,'case-prepared-winner.json'),JSON.stringify(results,null,2)+'\n');await h.close();
+  }
 });
 
 test('actual permanent MPR1 receipts replay through the mixed relay without signing', {skip:!binary,timeout:60000},async()=>{
