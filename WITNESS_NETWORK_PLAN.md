@@ -210,7 +210,10 @@ documented bank initialization; three loopback origins share one bank.
 Adoption verified all 460 recorded source hashes and 26 logs from
 `.morse/rewards-scheduler/receipt.json` in worktree `t3-81bd2113`; the composed
 source at adoption matches those inputs exactly. The parent rebuilt the executable and passed
-13 focused Node/native checks. Independent review is running. Permissionless
+13 focused Node/native checks. Independent review of that scheduler checkpoint
+found no verified defect. Its freshly rebuilt operator passed those 13 checks,
+seven additional journal/restart/lease probes and 13 executable range cases;
+the owner SBF runs were verified by hashes but not repeated. Permissionless
 grace assessment remains unconnected, and this does not establish independent
 providers, live finality, deployment, funding or continuous operation.
 
