@@ -128,7 +128,7 @@ fn checked_presentation(input :: Bytes,
   end
 end
 
-pub fn presentation_fields(input :: Bytes) -> PresentationFields!String do
+pub fn presentation_fields(input :: Plaintext<Bytes>) -> PresentationFields!String do
   Ok(checked_presentation(input, false, false)?.fields)
 end
 
@@ -161,7 +161,7 @@ pub fn personal_presentation_data(input :: Plaintext<Bytes>) -> Plaintext<Bytes>
   Ok(input)
 end
 
-pub fn presentation_data(input :: Bytes) -> Bytes!String do
+pub fn presentation_data(input :: Plaintext<Bytes>) -> Plaintext<Bytes>!String do
   presentation_fields(input)?
   Ok(input)
 end
@@ -235,34 +235,58 @@ pub fn community_change_allowed(database_path :: String,
   wrapping_key :: borrow StorageKey,
   group_id :: Bytes,
   committer :: Bytes,
-  target :: Bytes) -> Bool!String do
+  target :: Bytes) -> Plaintext<Bool>!String do
   let stored = load_presentation_record(database_path, wrapping_key, group_record_key(group_id))?
-  if Bytes.length(stored) == 0 do
-    return Ok(true)
-  end
-  let roles = presentation_fields(stored)?
-  if Bytes.length(roles.community) == 0 do
-    Ok(true)
+  let current = checked_presentation(stored, true, false)?
+  let roles = current.fields
+  let allowed = if current.empty || Bytes.length(roles.community) == 0 do
+    true
   else if !record_holds_role(roles, committer) do
-    Ok(false)
+    false
   else if Bytes.length(target) == 0 || Bytes.secure_equals(target, committer) do
-    Ok(true)
+    true
   else if Bytes.secure_equals(target, roles.owner) do
-    Ok(false)
+    false
   else
-    Ok(!record_holds_role(roles, target) || Bytes.secure_equals(committer, roles.owner))
+    !record_holds_role(roles, target) || Bytes.secure_equals(committer, roles.owner)
   end
+  Ok(allowed)
 end
 
 pub fn community_group(database_path :: String,
   wrapping_key :: borrow StorageKey,
   group_id :: Bytes) -> Bool!String do
   let stored = load_presentation_record(database_path, wrapping_key, group_record_key(group_id))?
-  if Bytes.length(stored) == 0 do
-    Ok(false)
+  let current = checked_presentation(stored, true, false)?
+  Ok(declassify(!current.empty && Bytes.length(current.fields.community) > 0,
+    "group membership enforcement releases only whether the authenticated stored record uses community owner rules instead of plain-group creator rules; record content and role identifiers remain private"))
+end
+
+pub type PresentationEditPermission do
+  EditAllowed
+  CommunityAdminRequired
+  GroupCreatorRequired
+end
+
+pub fn presentation_edit_permission(stored :: Bytes,
+  incoming :: Bytes,
+  sender :: Bytes,
+  creator :: Bytes) -> Plaintext<PresentationEditPermission>!String do
+  let next = checked_presentation(incoming, false, false)?
+  let current = checked_presentation(stored, true, false)?
+  let permission = if record_fields_change_allowed(current,
+    next.fields,
+    sender,
+    creator,
+    Bytes.empty()) do
+    EditAllowed
+  else if Bytes.length(next.fields.community) > 0
+    || !current.empty && Bytes.length(current.fields.community) > 0 do
+    CommunityAdminRequired
   else
-    Ok(Bytes.length(presentation_fields(stored)?.community) > 0)
+    GroupCreatorRequired
   end
+  Ok(permission)
 end
 
 # The member whose welcome added this device, the first voice it trusts for a community.
@@ -325,9 +349,9 @@ end
 
 pub fn load_presentation_record(database_path :: String,
   wrapping_key :: borrow StorageKey,
-  key :: Bytes) -> Bytes!String do
+  key :: Bytes) -> Plaintext<Bytes>!String do
   let label = presentation_label(key)?
-  case load_blob(database_path, label) do
+  let raw = case load_blob(database_path, label) do
     Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
@@ -335,32 +359,48 @@ pub fn load_presentation_record(database_path :: String,
     end
     Ok(blob) -> open_local(blob, wrapping_key, local_context(label)?)
   end
+  case raw do
+    Err(error)
+    Ok(value) -> do
+      let protected :: Plaintext<Bytes> = value
+      Ok(protected)
+    end
+  end
 end
 
 fn save_record(database_path :: String,
   wrapping_key :: borrow StorageKey,
   key :: Bytes,
-  data :: Bytes) -> Bytes!String do
+  data :: Plaintext<Bytes>) -> Plaintext<Bytes>!String do
   let label = presentation_label(key)?
+  let previous_raw = load_presentation_record(database_path, wrapping_key, key)
   # Nicknames are device-local overrides. A single zero byte clears the override;
   # only user/group records are ever included by present_message.
   let nickname = String.starts_with(label, "presentation/v1/nickname/")
-  let checked = if nickname && Bytes.secure_equals(data, Bytes.from_hex("00")?) do
+  let clearing = nickname && Bytes.secure_equals(data, Bytes.from_hex("00")?)
+  let checked = if clearing do
     Bytes.empty()
   else
-    presentation_data(data)?
+    data
   end
-  let previous = load_presentation_record(database_path, wrapping_key, key)?
-  if Bytes.secure_equals(previous, checked)
-    || (!nickname
-      && U64.compare(presentation_revision(previous)?, presentation_revision(checked)?) > 0) do
-    Ok(previous)
+  let next = checked_presentation(checked, clearing, false)?
+  let previous = previous_raw?
+  let current = checked_presentation(if nickname do
+      Bytes.empty()
+    else
+      previous
+    end,
+    true,
+    false)?
+  let chosen = if Bytes.secure_equals(previous, checked)
+    || (!nickname && U64.compare(current.fields.revision, next.fields.revision) > 0) do
+    previous
   else
-    store_updated_session(database_path,
-      label,
-      seal_local(checked, wrapping_key, local_context(label)?)?)?
-    Ok(checked)
+    checked
   end
+  let sealed = seal_local(chosen, wrapping_key, local_context(label)?)?
+  store_updated_session(database_path, label, sealed)?
+  Ok(chosen)
 end
 
 pub fn load_presentation(request :: MobilePayloadRequest) -> Plaintext<Bytes>!String do
@@ -377,22 +417,20 @@ pub fn save_presentation(request :: MobileTriplePayloadRequest) -> Plaintext<Byt
   save_record(request.database_path, wrapping_key, request.first, request.second)
 end
 
-pub fn encode_presented_message(body :: Bytes, profile :: Bytes, group :: Bytes) -> Bytes!String do
+pub fn encode_presented_message(body :: Plaintext<Bytes>,
+  profile :: Plaintext<Bytes>,
+  group :: Plaintext<Bytes>) -> Plaintext<Bytes>!String do
   encode_presented_message_with_attachment(body, profile, group, Bytes.empty())
 end
 
 # The trailing attachment vector is only written when present so older readers stay compatible.
 
-pub fn encode_presented_message_with_attachment(body :: Bytes,
-  profile :: Bytes,
-  group :: Bytes,
-  attachment :: Bytes) -> Bytes!String do
-  presentation_data(profile)?
-  if Bytes.length(group) > 0 do
-    presentation_data(group)?
-  else
-    Bytes.empty()
-  end
+pub fn encode_presented_message_with_attachment(body :: Plaintext<Bytes>,
+  profile :: Plaintext<Bytes>,
+  group :: Plaintext<Bytes>,
+  attachment :: Plaintext<Bytes>) -> Plaintext<Bytes>!String do
+  checked_presentation(profile, false, false)?
+  checked_presentation(group, true, false)?
   let head = mobile_join([
       Bytes.from_utf8("MORSE-PRESENTATION/1\n"),
       mobile_vector(body)?,
@@ -401,11 +439,12 @@ pub fn encode_presented_message_with_attachment(body :: Bytes,
     ],
     0,
     Bytes.empty())?
-  if Bytes.length(attachment) == 0 do
-    Ok(head)
+  let with_attachment = mobile_join([head, mobile_vector(attachment)?], 0, Bytes.empty())?
+  Ok(if Bytes.length(attachment) == 0 do
+    head
   else
-    mobile_join([head, mobile_vector(attachment)?], 0, Bytes.empty())
-  end
+    with_attachment
+  end)
 end
 
 fn decode_presented_message(input :: Bytes) -> Result<(Bytes, Bytes, Bytes, Bytes), String> do
@@ -455,7 +494,7 @@ pub fn presented_message_writes(database_path :: String,
   sender_id :: Bytes,
   group_id :: Bytes,
   creator_id :: Bytes,
-  input :: Bytes) -> Result<(Bytes, Bytes, List<String>, List<Bytes>), String> do
+  input :: Plaintext<Bytes>) -> Result<(Plaintext<Bytes>, Plaintext<Bytes>, List<String>, List<Bytes>), String> do
   let parsed = recognized_presentation(input)
   if !declassify(Option.is_some(parsed),
     "disclose only acceptance of bounded authenticated presentation framing before accessing public storage keys; parsed content remains private") do
@@ -553,13 +592,6 @@ pub fn present_message_with_attachment(database_path :: String,
   let saved = load_presentation_record(database_path,
     wrapping_key,
     Bytes.from_utf8("user/" <> Bytes.to_hex(local.account_id)))?
-  let profile = if Bytes.length(saved) > 0 do
-    saved
-  else
-    mobile_join([mobile_vector(Bytes.from_utf8(local.username))?, mobile_vector(Bytes.empty())?],
-      0,
-      Bytes.empty())?
-  end
   let group = if Bytes.length(group_id) == 32 do
     load_presentation_record(database_path,
       wrapping_key,
@@ -567,26 +599,38 @@ pub fn present_message_with_attachment(database_path :: String,
   else
     Bytes.empty()
   end
+  let fallback = mobile_join([
+      mobile_vector(Bytes.from_utf8(local.username))?,
+      mobile_vector(Bytes.empty())?
+    ],
+    0,
+    Bytes.empty())?
+  let profile = if Bytes.length(saved) > 0 do
+    saved
+  else
+    fallback
+  end
   let presented = encode_presented_message_with_attachment(body, profile, group, attachment)?
   let maximum = if Bytes.length(group_id) == 0 do
     32000
   else
     65342
   end
-  if Bytes.length(attachment) > 0 do
-    if Bytes.length(presented) > maximum || Bytes.length(body) > 40000 do
-      Err("message_too_large")
-    else
-      Ok(presented)
-    end
-  else if Bytes.length(presented) > maximum || Bytes.length(body) > 40000 do
-    Ok(body)
+  let oversized = Bytes.length(presented) > maximum || Bytes.length(body) > 40000
+  let refused = declassify(Bytes.length(attachment) > 0 && oversized,
+    "outbound presentation admission releases only whether a required attachment frame exceeds the direct or group message capacity; message profile group and attachment contents and exact sizes remain private")
+  if refused do
+    Err("message_too_large")
   else
-    Ok(presented)
+    Ok(if oversized do
+      body
+    else
+      presented
+    end)
   end
 end
 
-pub fn presented_body(input :: Bytes) -> Bytes do
+pub fn presented_body(input :: Plaintext<Bytes>) -> Plaintext<Bytes> do
   let prefix = Bytes.from_utf8("MORSE-PRESENTATION/1\n")
   if Bytes.length(input) < Bytes.length(prefix) do
     return input
@@ -608,8 +652,4 @@ pub fn presented_body(input :: Bytes) -> Bytes do
       end
     end
   end
-end
-
-fn presentation_revision(input :: Bytes) -> U64!String do
-  Ok(checked_presentation(input, true, false)?.fields.revision)
 end

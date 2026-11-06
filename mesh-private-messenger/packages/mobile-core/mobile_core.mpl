@@ -423,7 +423,8 @@ pub fn start_conversation_export(request :: Bytes) -> Bytes!String do
   start_conversation(parse_start_request(request)?)
 end
 
-@export("mesh_messenger_receive_initial") pub fn receive_initial_export(request :: Bytes) -> Bytes!String do
+@display("The legacy native initial-receive response returns the authenticated message body to the app-owned UI boundary; calls from Mesh retain private results and internal mailbox processing grants no display permission.")
+@export("mesh_messenger_receive_initial") pub fn receive_initial_export(request :: Bytes) -> Plaintext<Bytes>!String do
   receive_initial_message(parse_receive_request(request)?)
 end
 
@@ -497,7 +498,8 @@ end
   send_mobile_group_message(parse_group_send_request(request)?)
 end
 
-@export("mesh_messenger_group_receive") pub fn group_receive_export(request :: Bytes) -> Bytes!String do
+@display("The legacy native group-receive response returns the authenticated message body to the app-owned UI boundary; calls from Mesh retain private results and internal mailbox processing grants no display permission.")
+@export("mesh_messenger_group_receive") pub fn group_receive_export(request :: Bytes) -> Plaintext<Bytes>!String do
   receive_mobile_group(parse_receive_request(request)?)
 end
 
@@ -520,7 +522,8 @@ end
   forget_mobile_group(parse_group_reference_request(request)?)
 end
 
-@export("mesh_messenger_receive_message") pub fn receive_message_export(request :: Bytes) -> Bytes!String do
+@display("The legacy native direct-receive response returns the authenticated message body to the app-owned UI boundary; calls from Mesh retain private results and internal mailbox processing grants no display permission.")
+@export("mesh_messenger_receive_message") pub fn receive_message_export(request :: Bytes) -> Plaintext<Bytes>!String do
   receive_message(parse_receive_request(request)?)
 end
 

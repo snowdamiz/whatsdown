@@ -20,8 +20,11 @@ from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, Outer
 from Tests.GroupLifecycleSupport import GroupAccountFixture
 from Tests.GroupLifecycleWire import acknowledge, group_vectors, outer, output_list
 
+# Only the assertion outcome for controlled synthetic group fixtures is observed.
+# Keep the original failure result and subsequent storage/cleanup behavior.
 fn group_remove_ensure(value :: Bool, error :: String) -> Result<(), String> do
-  if value do
+  if declassify(value,
+    "test-only Boolean assertion of controlled synthetic group removal fixtures; no application disclosure") do
     Ok(nil)
   else
     Err(error)

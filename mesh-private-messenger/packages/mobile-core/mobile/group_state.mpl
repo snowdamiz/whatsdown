@@ -376,6 +376,28 @@ pub fn decode_group_history(input :: Bytes) -> List<MobileGroupHistoryEntry>!Str
 end
 
 pub fn encode_group_history(values :: List<MobileGroupHistoryEntry>) -> Bytes!String do
+  let encoded = encode_group_history_fields(values)
+  let code = case encoded do
+    Ok(_) -> 0
+    Err("invalid_group_history") -> 1
+    Err("byte_concatenation_failed") -> 2
+    Err("invalid_wide_integer") -> 3
+    Err("integer_encoding_failed") -> 4
+    Err(_) -> 5
+  end
+  let status = declassify(code,
+    "canonical group-history framing releases only success or closed validation concatenation and integer error classes before committing encrypted history; bodies attachments exact sizes and arbitrary error payloads remain private")
+  case status do
+    0 -> Ok(Result.unwrap_or(encoded, Bytes.empty()))
+    1 -> Err("invalid_group_history")
+    2 -> Err("byte_concatenation_failed")
+    3 -> Err("invalid_wide_integer")
+    4 -> Err("integer_encoding_failed")
+    _ -> Err("group_history_encoding_failed")
+  end
+end
+
+fn encode_group_history_fields(values :: List<MobileGroupHistoryEntry>) -> Bytes!String do
   let bounded = if List.length(values) > 256 do
     List.drop(values, List.length(values) - 256)
   else
@@ -446,10 +468,8 @@ fn prepared_group_history_attachment(database_path :: String,
     Ok(attachment)
   else
     let local = decode_client_profile(load_profile(database_path)?)?
-    case group_attachment_reference(envelope, local.account_id, local.device_id) do
-      Err(_) -> Ok(Bytes.empty())
-      Ok(value)
-    end
+    Ok(Result.unwrap_or(group_attachment_reference(envelope, local.account_id, local.device_id),
+      Bytes.empty()))
   end
 end
 

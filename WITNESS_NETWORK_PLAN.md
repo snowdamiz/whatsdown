@@ -169,10 +169,54 @@ SBF build or establish independent RPC providers or live finality. The local
 receipt remains `.morse/rewards-v2/receipt.json` in the implementation worktree;
 `ops/rewards/README-v2.md` and `scripts/prove-rewards-v2.sh` define reproduction.
 
+A subsequent independent review found that a trailing DNS dot let one hostname
+count twice. Both Mesh reader and Node writer now normalize the host identity
+before any request. Both regressions failed before the fix; 11 rewards checks
+and the writer alias/control test pass after it. The v1 proof entry point now
+selects its four original test files explicitly, so adding v2 tests does not
+silently require v2 fixtures in the legacy job. Both proof commands include the
+shared writer hostname regression. The separate legacy SBF job and hosted CI
+have not been rerun during this continuation.
+
 Multi-epoch scheduling, continuous permissionless grace assessment, governance
 activation, pool funding, deployment, public compiler release and live-duration
 gates remain open. This advances the execution boundary; it does not complete
 the operational v2 keeper.
+
+### Presentation privacy continuation — 2026-11-06
+
+Presentation validation, internal storage reads, message framing and body
+projection now introduce or retain `Plaintext` labels. The actual-source proof
+refuses 14 content/getter/native-wrapper HTTP flows and three policy-helper
+oracles; removing the corresponding content labels admits those 14 flows again.
+The protected production core compiles. Its reviewed development inventory is
+69 sites (41 finite values, 12 result tags, 16 native exports), and the disclosure
+gate passes against the exact artifact. Both service reports were rebuilt from
+current sources; their earlier tracked reports were stale.
+
+Independent review found that generic permission helpers could disclose a
+caller-supplied private identity. They now return private decisions; disclosures
+sit in local operations that load the account principal, or after received-commit
+signature/transcript/key validation. The recheck refuses all 17 permanent probes
+and eight additional probes. Its actual received-commit cases preserve identical
+stored ciphertext on rejection, accept the same commit after authorized ownership
+handover, and reject its replay. No new verified production findings remain in
+that scoped review. Native receive C signatures are unchanged; display permission
+is a host boundary and does not constrain subsequent host behavior.
+
+Focused runtime checks pass for presentation, community roles, multi-device
+fanout, group payload/encryption, session suites, bounded history helpers and
+braid journals. Synthetic test assertions now explicitly observe only their
+Boolean outcomes. The forgotten-group error assertion was stale on the unchanged
+base and now expects `group_not_found`. The broader receive-caller test cohort
+is still being qualified. Full message/request-field labeling, native app/device
+and release qualification remain open; this does not close Phase 6 or D4/D6.
+The existing 67 Mesh lint findings were also removed; full messenger lint passes.
+
+A separate compiler defect was isolated: implicit `From` error conversion lost
+privacy shape precision. The application uses the exact equivalent explicit
+constructor match without adding a disclosure. The generic compiler correction
+and its adversarial regressions are being qualified in the Mesh repository.
 
 ### Progress summary — 2026-10-31
 

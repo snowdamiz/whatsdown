@@ -408,11 +408,14 @@ fn initiate_profile(initiator :: borrow DeviceKeys,
       Secret.destroy(ikm)
       let message_key = Crypto.aead_key(message_material)?
       let nonce = Crypto.random_bytes(12)?
-      let ciphertext = declassify_discriminant(Crypto.aead_seal(message_key,
+      let ciphertext = case declassify_discriminant(Crypto.aead_seal(message_key,
           nonce,
           hash,
           plaintext),
-        "initial handshake encryption exposes only success or failure; message bytes, error payloads, and unrelated private control remain private")?
+        "initial handshake encryption exposes only success or failure; message bytes, error payloads, and unrelated private control remain private") do
+        Err(error) -> Err(CryptoFailure(error))
+        Ok(value)
+      end?
       let credential_bytes = encoded_credential(initiator_credential)?
       Ok((RatchetState {
           version: 1,

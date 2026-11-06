@@ -15,7 +15,8 @@ import tomllib
 PROBE = '''from Mobile.Attachments import attachment_summary
 from Identity.Device import DeviceKeys
 from Mobile.CreditAttachmentNative import native_credit_attachments, native_attachment_download_plan
-from MobileCore import credit_attachments_export, attachment_download_plan_export, presentation_load_export, presentation_save_export
+from MobileCore import credit_attachments_export, attachment_download_plan_export, presentation_load_export, presentation_save_export, receive_initial_export, receive_message_export, group_receive_export
+from Mobile.Presentation import load_presentation_record, presentation_data, encode_presented_message, presented_body, presentation_edit_permission, PresentationEditPermission, community_change_allowed
 fn refuse_summary(device :: borrow DeviceKeys, reference :: Bytes) -> Int do
   Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),attachment_summary(device,reference))
 end
@@ -43,7 +44,51 @@ fn refuse_presentation_save(input :: Bytes) -> Int!String do
   let value = presentation_save_export(input)?
   Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),value))
 end
+fn refuse_presentation_storage(path :: String, key :: Bytes, wrapping :: borrow StorageKey) -> Int!String do
+  let value = load_presentation_record(path,wrapping,key)?
+  Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),value))
+end
+fn refuse_presentation_ingress(input :: Bytes) -> Int!String do
+  let value = presentation_data(input)?
+  Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),value))
+end
+fn refuse_presentation_encoding(body :: Bytes, profile :: Bytes, group :: Bytes) -> Int!String do
+  let value = encode_presented_message(body,profile,group)?
+  Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),value))
+end
+fn refuse_presentation_body(input :: Bytes) -> Int do
+  Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),presented_body(input))
+end
+fn refuse_initial_receive(input :: Bytes) -> Int!String do
+  let value = receive_initial_export(input)?
+  Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),value))
+end
+fn refuse_direct_receive(input :: Bytes) -> Int!String do
+  let value = receive_message_export(input)?
+  Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),value))
+end
+fn refuse_group_receive(input :: Bytes) -> Int!String do
+  let value = group_receive_export(input)?
+  Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),value))
+end
 fn main() do nil end
+'''
+POLICY_PROBES = '''fn refuse_private_editor(stored :: Bytes, incoming :: Bytes, sender :: Plaintext<Bytes>, creator :: Bytes) -> Int!String do
+  let permission = presentation_edit_permission(stored,incoming,sender,creator)?
+  let result = case permission do EditAllowed -> Bytes.from_utf8("allowed") _ -> Bytes.from_utf8("refused") end
+  Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),result))
+end
+fn refuse_private_committer(path :: String, key :: borrow StorageKey, group :: Bytes, sender :: Plaintext<Bytes>, target :: Bytes) -> Int!String do
+  let allowed = community_change_allowed(path,key,group,sender,target)?
+  let result = if allowed do Bytes.from_utf8("allowed") else Bytes.from_utf8("refused") end
+  Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),result))
+end
+fn refuse_stored_roles(path :: String, key :: borrow StorageKey, record :: Bytes, incoming :: Bytes, claimed_sender :: Bytes, creator :: Bytes) -> Int!String do
+  let stored = load_presentation_record(path,key,record)?
+  let permission = presentation_edit_permission(stored,incoming,claimed_sender,creator)?
+  let result = case permission do EditAllowed -> Bytes.from_utf8("allowed") _ -> Bytes.from_utf8("refused") end
+  Ok(Http.body_bytes(Http.build(:post,"https://never-contact.invalid"),result))
+end
 '''
 LABELS = {
     "mobile/attachments.mpl": [
@@ -56,6 +101,26 @@ LABELS = {
     "mobile/presentation.mpl": [
         "pub fn load_presentation(request :: MobilePayloadRequest) -> Plaintext<Bytes>!String do",
         "pub fn save_presentation(request :: MobileTriplePayloadRequest) -> Plaintext<Bytes>!String do",
+        "pub fn presentation_fields(input :: Plaintext<Bytes>) -> PresentationFields!String do",
+        "pub fn presentation_data(input :: Plaintext<Bytes>) -> Plaintext<Bytes>!String do",
+        "pub fn load_presentation_record(database_path :: String,\n  wrapping_key :: borrow StorageKey,\n  key :: Bytes) -> Plaintext<Bytes>!String do",
+        "      let protected :: Plaintext<Bytes> = value",
+        "fn save_record(database_path :: String,\n  wrapping_key :: borrow StorageKey,\n  key :: Bytes,\n  data :: Plaintext<Bytes>) -> Plaintext<Bytes>!String do",
+        "pub fn encode_presented_message(body :: Plaintext<Bytes>,\n  profile :: Plaintext<Bytes>,\n  group :: Plaintext<Bytes>) -> Plaintext<Bytes>!String do",
+        "pub fn encode_presented_message_with_attachment(body :: Plaintext<Bytes>,\n  profile :: Plaintext<Bytes>,\n  group :: Plaintext<Bytes>,\n  attachment :: Plaintext<Bytes>) -> Plaintext<Bytes>!String do",
+        "  input :: Plaintext<Bytes>) -> Result<(Plaintext<Bytes>, Plaintext<Bytes>, List<String>, List<Bytes>), String> do",
+        "pub fn presented_body(input :: Plaintext<Bytes>) -> Plaintext<Bytes> do",
+    ],
+    "mobile_core.mpl": [
+        'pub fn receive_initial_export(request :: Bytes) -> Plaintext<Bytes>!String do',
+        'pub fn receive_message_export(request :: Bytes) -> Plaintext<Bytes>!String do',
+        'pub fn group_receive_export(request :: Bytes) -> Plaintext<Bytes>!String do',
+    ],
+}
+PROTOCOL_LABELS = {
+    "attachments/protocol.mpl": [
+        "  filename :: Plaintext<Bytes>",
+        "  mime_type :: Plaintext<Bytes>",
     ],
 }
 
@@ -75,8 +140,8 @@ def main():
     compiler = args.compiler.resolve()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    record = {"status": "running", "compiler_sha256": sha(compiler), "inputs": {}, "results": [],
-              "scope": "Actual attachment/presentation getter and display-export outputs; not complete ingress or field labeling."}
+    record = {"status": "running", "compiler_sha256": sha(compiler), "runner_sha256": sha(Path(__file__)), "inputs": {}, "results": [],
+              "scope": "Actual attachment/display getters and presentation ingress, storage, encoding and body projection; not complete message ingress or field labeling."}
     runtime = os.environ.get("MESH_RT_LIB_PATH")
     if runtime:
         record["runtime_sha256"] = sha(Path(runtime))
@@ -128,6 +193,7 @@ def main():
             if value.get("code"):
                 diagnostics.append(value)
         item = {"name": name, "exit_code": process.returncode, "artifact": artifact.exists(),
+                "log_sha256": hashlib.sha256(log.encode()).hexdigest(),
                 "seconds": round(time.monotonic() - start, 3), "command": command}
         record["results"].append(item)
         evidence.write_text(json.dumps(record, indent=2) + "\n")
@@ -145,12 +211,13 @@ def main():
         probe.mkdir()
         (probe / "mesh.toml").write_text('[package]\nname="display-source-proof"\nversion="0.1.0"\n'
                                         '[dependencies]\nmobile={path=' + json.dumps(str(mobile)) + '}\n')
-        (probe / "main.mpl").write_text(PROBE)
+        negative_source = PROBE.replace("fn main() do nil end", POLICY_PROBES + "fn main() do nil end")
+        (probe / "main.mpl").write_text(negative_source)
         diagnostics = build("protected-negative", probe, False)
         errors = [value for value in diagnostics if value["code"] != "C0001"]
         if not errors or any(value["code"] != "E0093" for value in errors):
             raise RuntimeError("negative must fail only plaintext policy")
-        data = PROBE.encode()
+        data = negative_source.encode()
         functions = list(re.finditer(rb"fn (refuse_[a-z_]+)\(", data))
         for index, function in enumerate(functions):
             stop = functions[index + 1].start() if index + 1 < len(functions) else data.index(b"fn main()")
@@ -159,21 +226,28 @@ def main():
                        and any(function.start() <= span["start"] < stop for span in value["spans"])
                        for value in errors):
                 raise RuntimeError("missing exact HTTP refusal for " + function[1].decode())
+        record["refused_probes"] = [function[1].decode() for function in functions]
         originals = {}
         try:
-            for relative, signatures in LABELS.items():
-                path = mobile / relative
-                text = path.read_text()
-                originals[path] = text
-                for signature in signatures:
-                    if text.count(signature) != 1:
-                        raise RuntimeError("getter signature changed: " + signature)
-                    text = text.replace(signature, signature.replace("Plaintext<Bytes>", "Bytes"))
-                path.write_text(text)
+            # These controls remove actual source labels. The policy probes have
+            # intentionally private caller inputs and must stay refused.
+            (probe / "main.mpl").write_text(PROBE)
+            protocol = copies[(args.product / "packages/messenger-protocol").resolve()]
+            for package, labels in ((mobile, LABELS), (protocol, PROTOCOL_LABELS)):
+                for relative, signatures in labels.items():
+                    path = package / relative
+                    text = path.read_text()
+                    originals[path] = text
+                    for signature in signatures:
+                        if text.count(signature) != 1:
+                            raise RuntimeError("source label changed: " + signature)
+                        text = text.replace(signature, signature.replace("Plaintext<Bytes>", "Bytes"))
+                    path.write_text(text)
             build("removed-labels-red", probe, True)
         finally:
             for path, text in originals.items():
                 path.write_text(text)
+            (probe / "main.mpl").write_text(negative_source)
         build("production-green", mobile, True)
         if sha(compiler) != record["compiler_sha256"]:
             raise RuntimeError("compiler changed during proof")

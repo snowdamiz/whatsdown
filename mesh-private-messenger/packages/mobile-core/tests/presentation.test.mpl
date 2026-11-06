@@ -32,6 +32,11 @@ fn consume_presented_message(path :: String,
   Ok(body)
 end
 
+fn assert_private_presentation(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic presentation records and role identities; no application disclosure"))
+end
+
 fn exercise() -> Bool!String do
   assert(Test.install_in_memory_secure_store())
   let path = database_path("presentation")?
@@ -55,14 +60,14 @@ fn exercise() -> Bool!String do
   let group_data = group_vectors([Bytes.from_utf8("Weekend walks"), Bytes.empty()])?
   let packet = encode_presented_message(Bytes.from_utf8("hello"), data, group_data)?
   let wrapping_key = platform_key()?
-  assert(Bytes.secure_equals(consume_presented_message(path,
+  assert_private_presentation(Bytes.secure_equals(consume_presented_message(path,
       wrapping_key,
       profile.account_id,
       group_id,
       profile.account_id,
       packet)?,
     Bytes.from_utf8("hello")))
-  assert(Bytes.secure_equals(consume_presented_message(path,
+  assert_private_presentation(Bytes.secure_equals(consume_presented_message(path,
       wrapping_key,
       profile.account_id,
       group_id,
@@ -161,7 +166,9 @@ fn exercise_nicknames() -> Bool!String do
     nickname))
   assert(!Bytes.secure_equals(load_blob(path, "presentation/v1/nickname/" <> Bytes.to_hex(peer))?,
     nickname))
-  assert(Bytes.secure_equals(present_message(path, Bytes.empty(), Bytes.from_utf8("hello"))?,
+  assert_private_presentation(Bytes.secure_equals(present_message(path,
+      Bytes.empty(),
+      Bytes.from_utf8("hello"))?,
     before))
   let shared = group_vectors([Bytes.from_utf8("Alex Chen"), Bytes.empty()])?
   let wrapping_key = platform_key()?
@@ -399,13 +406,25 @@ fn exercise_community_authority() -> Bool!String do
     inviter,
     community_record("Solana builders", 5, Bytes.from_utf8("[1]"), [inviter])?)?
   assert(Bytes.secure_equals(stored_record(path, group_key)?, handed))
-  assert(community_change_allowed(path, key, group_id, admin, stranger)?)
-  assert(community_change_allowed(path, key, group_id, inviter, Bytes.empty())?)
-  assert(!community_change_allowed(path, key, group_id, stranger, Bytes.empty())?)
-  assert(!community_change_allowed(path, key, group_id, inviter, admin)?)
-  assert(community_change_allowed(path, key, group_id, admin, inviter)?)
-  assert(community_change_allowed(path, key, group_id, inviter, inviter)?)
-  assert(community_change_allowed(path, key, repeated(10, 32)?, stranger, admin)?)
+  assert_private_presentation(community_change_allowed(path, key, group_id, admin, stranger)?)
+  assert_private_presentation(community_change_allowed(path,
+    key,
+    group_id,
+    inviter,
+    Bytes.empty())?)
+  assert_private_presentation(!community_change_allowed(path,
+    key,
+    group_id,
+    stranger,
+    Bytes.empty())?)
+  assert_private_presentation(!community_change_allowed(path, key, group_id, inviter, admin)?)
+  assert_private_presentation(community_change_allowed(path, key, group_id, admin, inviter)?)
+  assert_private_presentation(community_change_allowed(path, key, group_id, inviter, inviter)?)
+  assert_private_presentation(community_change_allowed(path,
+    key,
+    repeated(10, 32)?,
+    stranger,
+    admin)?)
   File.delete(path)?
   Ok(true)
 end

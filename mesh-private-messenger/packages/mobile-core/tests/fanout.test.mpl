@@ -46,6 +46,11 @@ from Tests.Support import (
 from Transparency.Merkle import TransparencyCheckpoint, consistency_proof, leaf_hash
 from Transparency.Wire import encode_checkpoint, encode_consistency_proof
 
+fn assert_received_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of authenticated synthetic fanout message delivery; no application disclosure"))
+end
+
 fn encode_vectors(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
     Ok(output)
@@ -374,7 +379,7 @@ fn proof() -> Bool!String do
     greeting
   ])?)?
   assert(acknowledge(alice_path, initial)?)
-  assert(Bytes.secure_equals(receive_initial_export(request([
+  assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
       Bytes.from_utf8(bob_path),
       initial
     ])?)?,
@@ -530,12 +535,12 @@ fn proof() -> Bool!String do
   end
   assert(Bytes.secure_equals(outer(bob_fanout)?.mailbox_token, bob_entry.mailbox_token))
   assert(Bytes.secure_equals(outer(self_fanout)?.mailbox_token, linked_entry.mailbox_token))
-  assert(Bytes.secure_equals(receive_message_export(request([
+  assert_received_fixture(Bytes.secure_equals(receive_message_export(request([
       Bytes.from_utf8(bob_path),
       bob_fanout
     ])?)?,
     synced))
-  assert(Bytes.secure_equals(receive_initial_export(request([
+  assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
       Bytes.from_utf8(linked_path),
       self_fanout
     ])?)?,
@@ -626,7 +631,7 @@ fn proof() -> Bool!String do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "message_rejected")
   end
-  assert(Bytes.secure_equals(receive_message_export(request([
+  assert_received_fixture(Bytes.secure_equals(receive_message_export(request([
       Bytes.from_utf8(alice_path),
       root_reply
     ])?)?,
@@ -635,7 +640,7 @@ fn proof() -> Bool!String do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "message_rejected")
   end
-  assert(Bytes.secure_equals(receive_initial_export(request([
+  assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
       Bytes.from_utf8(linked_path),
       linked_reply
     ])?)?,

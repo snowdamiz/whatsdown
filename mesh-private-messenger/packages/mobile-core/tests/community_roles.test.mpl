@@ -236,7 +236,7 @@ fn exercise() -> Bool!String do
   ensure(Bytes.length(stored(accounts.alice_path, group_id)?) == 0,
     "a forgotten group's record is gone")?
   refused(fixture_group_history(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id])?),
-    "local_state_not_found")?
+    "group_not_found")?
   File.delete(accounts.alice_path)?
   File.delete(accounts.linked_path)?
   File.delete(accounts.bob_path)?

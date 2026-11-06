@@ -79,7 +79,9 @@ pub fn invite_to_group_at_profile(request :: MobileFanoutRequest,
   let group = load_group(path, local, key, request.body)?
   let member = member_at(group.tree, group.local_leaf)
   consume_group_state(group)
-  if !community_change_allowed(path, key, request.body, local.account_id, Bytes.empty())? do
+  let allowed = community_change_allowed(path, key, request.body, local.account_id, Bytes.empty())?
+  if !declassify(allowed,
+    "local group invitation releases only whether the stored account principal may invite under stored community rules after opening its authenticated profile and group; record content and role identifiers remain private") do
     return Err("community_admin_required")
   end
   case member do

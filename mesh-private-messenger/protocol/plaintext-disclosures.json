@@ -73,6 +73,56 @@
       "column": 17
     },
     {
+      "module": "Groups.Expiry",
+      "file": "dependency/Groups.Expiry/expiry.mpl",
+      "kind": "declassify",
+      "reason": "timed group payload framing releases only bounded encoding success or refusal before encryption; body timestamp duration hints exact sizes and error payloads remain private",
+      "start": 2404,
+      "end": 2618,
+      "line": 84,
+      "column": 6
+    },
+    {
+      "module": "Groups.GroupMessages",
+      "file": "dependency/Groups.GroupMessages/group_messages.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "group body encryption releases only success or failure before signing ciphertext; plaintext error payloads and unrelated private control remain private",
+      "start": 5457,
+      "end": 5689,
+      "line": 192,
+      "column": 16
+    },
+    {
+      "module": "Groups.GroupMessages",
+      "file": "dependency/Groups.GroupMessages/group_messages.mpl",
+      "kind": "declassify",
+      "reason": "group encryption admission releases only whether plaintext exceeds the selected fixed transport capacity; content and exact sizes remain private",
+      "start": 6718,
+      "end": 6915,
+      "line": 229,
+      "column": 19
+    },
+    {
+      "module": "Groups.GroupMessages",
+      "file": "dependency/Groups.GroupMessages/group_messages.mpl",
+      "kind": "declassify",
+      "reason": "legacy group padding releases only bounded padding success or refusal; content padding bytes exact sizes and error payloads remain private",
+      "start": 7985,
+      "end": 8165,
+      "line": 265,
+      "column": 10
+    },
+    {
+      "module": "Groups.GroupPayload",
+      "file": "dependency/Groups.GroupPayload/group_payload.mpl",
+      "kind": "declassify",
+      "reason": "group payload framing releases only bounded encoding success or refusal before encryption; body hints recipient identifiers exact sizes and error payloads remain private",
+      "start": 2387,
+      "end": 2598,
+      "line": 92,
+      "column": 6
+    },
+    {
       "module": "Mobile.AttachmentMetadata",
       "file": "mobile/attachment_metadata.mpl",
       "kind": "declassify",
@@ -157,8 +207,8 @@
       "file": "mobile/credit_attachment_journal.mpl",
       "kind": "declassify",
       "reason": "attachment retry exposes only whether the caller supplied exactly the already saved filename MIME and public size; metadata bytes and binding digests remain private",
-      "start": 1413,
-      "end": 1633,
+      "start": 1400,
+      "end": 1620,
       "line": 35,
       "column": 3
     },
@@ -167,8 +217,8 @@
       "file": "mobile/credit_attachment_journal.mpl",
       "kind": "declassify_discriminant",
       "reason": "attachment intent framing exposes only primitive encoding success or failure for bounded filename MIME and public size; private bytes, exact lengths, binding digest and error payloads remain private",
-      "start": 2167,
-      "end": 2403,
+      "start": 2154,
+      "end": 2390,
       "line": 50,
       "column": 8
     },
@@ -177,10 +227,80 @@
       "file": "mobile/credit_attachment_journal.mpl",
       "kind": "declassify_discriminant",
       "reason": "attachment intent length framing exposes only four-byte writer success or failure; exact metadata lengths encoded in private bytes and error payloads remain private",
-      "start": 2681,
-      "end": 3012,
+      "start": 2655,
+      "end": 2986,
       "line": 62,
       "column": 8
+    },
+    {
+      "module": "Mobile.GroupInvites",
+      "file": "mobile/group_invites.mpl",
+      "kind": "declassify",
+      "reason": "local group invitation releases only whether the stored account principal may invite under stored community rules after opening its authenticated profile and group; record content and role identifiers remain private",
+      "start": 2940,
+      "end": 3182,
+      "line": 83,
+      "column": 7
+    },
+    {
+      "module": "Mobile.GroupState",
+      "file": "mobile/group_state.mpl",
+      "kind": "declassify",
+      "reason": "canonical group-history framing releases only success or closed validation concatenation and integer error classes before committing encrypted history; bodies attachments exact sizes and arbitrary error payloads remain private",
+      "start": 12760,
+      "end": 13010,
+      "line": 388,
+      "column": 16
+    },
+    {
+      "module": "Mobile.Groups",
+      "file": "mobile/groups.mpl",
+      "kind": "declassify",
+      "reason": "local group addition releases only whether the stored account principal may add members under the stored community rules; record content and role identifiers remain private",
+      "start": 7101,
+      "end": 7300,
+      "line": 218,
+      "column": 7
+    },
+    {
+      "module": "Mobile.Groups",
+      "file": "mobile/groups.mpl",
+      "kind": "declassify",
+      "reason": "local group removal releases only whether the stored account principal may remove the requested member under the stored community rules; record content and role identifiers remain private",
+      "start": 11038,
+      "end": 11252,
+      "line": 320,
+      "column": 7
+    },
+    {
+      "module": "Mobile.Groups",
+      "file": "mobile/groups.mpl",
+      "kind": "declassify",
+      "reason": "group send admission releases only whether the presented body exceeds the selected fixed transport capacity; message and presentation contents and exact sizes remain private",
+      "start": 19511,
+      "end": 19732,
+      "line": 546,
+      "column": 3
+    },
+    {
+      "module": "Mobile.Groups",
+      "file": "mobile/groups.mpl",
+      "kind": "declassify",
+      "reason": "signature-validated group commit application releases only whether its prior-tree committer may apply the proposed membership change under stored community rules; record content and role identifiers remain private",
+      "start": 34086,
+      "end": 34332,
+      "line": 905,
+      "column": 13
+    },
+    {
+      "module": "Mobile.Groups",
+      "file": "mobile/groups.mpl",
+      "kind": "declassify",
+      "reason": "local presentation editing releases only allowed community-admin-required or group-creator-required after loading the account principal and authenticated group creator; record content role identifiers and revision values remain private",
+      "start": 45659,
+      "end": 45928,
+      "line": 1209,
+      "column": 12
     },
     {
       "module": "Mobile.HistoryWire",
@@ -206,10 +326,20 @@
       "module": "Mobile.Presentation",
       "file": "mobile/presentation.mpl",
       "kind": "declassify",
+      "reason": "group membership enforcement releases only whether the authenticated stored record uses community owner rules instead of plain-group creator rules; record content and role identifiers remain private",
+      "start": 9046,
+      "end": 9324,
+      "line": 261,
+      "column": 6
+    },
+    {
+      "module": "Mobile.Presentation",
+      "file": "mobile/presentation.mpl",
+      "kind": "declassify",
       "reason": "disclose only acceptance of bounded authenticated presentation framing before accessing public storage keys; parsed content remains private",
-      "start": 15456,
-      "end": 15637,
-      "line": 460,
+      "start": 17010,
+      "end": 17191,
+      "line": 499,
       "column": 7
     },
     {
@@ -217,10 +347,20 @@
       "file": "mobile/presentation.mpl",
       "kind": "declassify",
       "reason": "disclose only presence of authenticated group presentation metadata to preserve conditional group storage access; content and authorization stay private",
-      "start": 16851,
-      "end": 17046,
-      "line": 494,
+      "start": 18405,
+      "end": 18600,
+      "line": 533,
       "column": 23
+    },
+    {
+      "module": "Mobile.Presentation",
+      "file": "mobile/presentation.mpl",
+      "kind": "declassify",
+      "reason": "outbound presentation admission releases only whether a required attachment frame exceeds the direct or group message capacity; message profile group and attachment contents and exact sizes remain private",
+      "start": 21761,
+      "end": 22026,
+      "line": 620,
+      "column": 17
     },
     {
       "module": "MobileCore",
@@ -246,10 +386,40 @@
       "module": "MobileCore",
       "file": "mobile_core.mpl",
       "kind": "display",
+      "reason": "The legacy native initial-receive response returns the authenticated message body to the app-owned UI boundary; calls from Mesh retain private results and internal mailbox processing grants no display permission.",
+      "start": 15493,
+      "end": 15717,
+      "line": 426,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "The legacy native group-receive response returns the authenticated message body to the app-owned UI boundary; calls from Mesh retain private results and internal mailbox processing grants no display permission.",
+      "start": 18793,
+      "end": 19015,
+      "line": 501,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
       "reason": "Group history bodies and attachment presentation are returned to the reviewed React Native chat and local notification adapters; notification redaction and receipt timestamps are computed there, and receipt transport is natively re-sealed.",
-      "start": 19070,
-      "end": 19321,
-      "line": 512,
+      "start": 19540,
+      "end": 19791,
+      "line": 514,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "The legacy native direct-receive response returns the authenticated message body to the app-owned UI boundary; calls from Mesh retain private results and internal mailbox processing grants no display permission.",
+      "start": 20243,
+      "end": 20466,
+      "line": 525,
       "column": 1
     },
     {
@@ -257,9 +427,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Direct history bodies and attachment presentation are returned to the reviewed React Native chat and local notification adapters; notification redaction and receipt timestamps are computed there, and receipt transport is natively re-sealed.",
-      "start": 20945,
-      "end": 21197,
-      "line": 551,
+      "start": 21650,
+      "end": 21902,
+      "line": 554,
       "column": 1
     },
     {
@@ -267,9 +437,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Profile, contact nickname, group and community name/avatar/text records are returned to the reviewed React Native presentation store for chat, contact/profile/community screens and local group notification presentation; raw content remains private elsewhere.",
-      "start": 29542,
-      "end": 29812,
-      "line": 747,
+      "start": 30247,
+      "end": 30517,
+      "line": 750,
       "column": 1
     },
     {
@@ -277,9 +447,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "The confirmed selected profile, local nickname, group or community presentation record is returned to the reviewed React Native edit and community-state adapters after an authenticated local update; raw content remains private elsewhere.",
-      "start": 29984,
-      "end": 30233,
-      "line": 752,
+      "start": 30689,
+      "end": 30938,
+      "line": 755,
       "column": 1
     },
     {
@@ -287,9 +457,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "User-requested attachment plaintext is returned to the native display/save boundary after authenticated chunk opening; HTTP transport remains in Mesh.",
-      "start": 37828,
-      "end": 37990,
-      "line": 975,
+      "start": 38533,
+      "end": 38695,
+      "line": 978,
       "column": 1
     },
     {
@@ -297,9 +467,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Authenticated portable backup overview metadata including finite schema attachment policy and separate file omission counts is returned only to the account-bound native import confirmation screen after complete restore canonical schema and current owner checks; message bodies attachment names MIME types file contents equality tokens authorization keys service realms recovery codes and raw errors remain private.",
-      "start": 41869,
-      "end": 42295,
-      "line": 1082,
+      "start": 42574,
+      "end": 43000,
+      "line": 1085,
       "column": 1
     },
     {
@@ -307,9 +477,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Authenticated local archive identifiers and creation timestamps are returned only to the account-bound native backup inventory for selecting a read-only archive or explicit removal; message bodies archive digests authorization keys service realms recovery codes and raw errors remain private.",
-      "start": 42661,
-      "end": 42965,
-      "line": 1093,
+      "start": 43366,
+      "end": 43670,
+      "line": 1096,
       "column": 1
     },
     {
@@ -317,9 +487,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Authenticated stored archive historical conversation identifiers labels creation time bounded message counts finite attachment policy and separate file omission counts are returned only to the account-bound native read-only archive overview after current owner and snapshot checks; message bodies attachment names MIME types file contents equality tokens authorization keys service realms recovery codes and raw errors remain private.",
-      "start": 43316,
-      "end": 43762,
-      "line": 1104,
+      "start": 44021,
+      "end": 44467,
+      "line": 1107,
       "column": 1
     },
     {
@@ -327,9 +497,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Authenticated bounded archive page text historical record metadata included-file display metadata explicit omission reasons revision-bound equality tokens and explicitly selected archive-file chunks are returned only to the current account-bound native read-only archive viewer after canonical owner selected-slot original snapshot and current authority checks; raw canonical archives archive and index digests revision tags authorization keys service realms recovery codes object capabilities keys and raw errors remain private.",
-      "start": 43947,
-      "end": 44488,
-      "line": 1110,
+      "start": 44652,
+      "end": 45193,
+      "line": 1113,
       "column": 1
     },
     {
@@ -337,9 +507,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Current custody checked pending backup export state is returned only to the account bound native continuation screen as empty repair required or an authenticated bounded draft identifier creation timestamp and ciphertext byte count; recovery codes plaintext history payloads descriptor digests authorization keys service realms raw errors and prior caller control remain private.",
-      "start": 44827,
-      "end": 45218,
-      "line": 1123,
+      "start": 45532,
+      "end": 45923,
+      "line": 1126,
       "column": 1
     },
     {
@@ -347,9 +517,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "User explicitly opens this selected per-device view-once image; authenticated image format and bytes are returned only after durable local consumption to the current native-only one-shot viewer. Generic JavaScript invoke, save, sharing, backup, network and detailed errors remain excluded.",
-      "start": 46085,
-      "end": 46386,
-      "line": 1146,
+      "start": 46790,
+      "end": 47091,
+      "line": 1149,
       "column": 1
     },
     {
@@ -387,10 +557,10 @@
       "file": "dependency/Session.Handshake/handshake.mpl",
       "kind": "declassify_discriminant",
       "reason": "initial handshake encryption exposes only success or failure; message bytes, error payloads, and unrelated private control remain private",
-      "start": 14126,
-      "end": 14383,
+      "start": 14131,
+      "end": 14388,
       "line": 411,
-      "column": 24
+      "column": 29
     },
     {
       "module": "Session.HeaderRatchet",
@@ -417,8 +587,8 @@
       "file": "dependency/Session.HeaderRatchet/header_ratchet.mpl",
       "kind": "declassify",
       "reason": "Hybrid HE ratchet admission exposes only whether plaintext exceeds the fixed recipient transport bound; content remains private",
-      "start": 28946,
-      "end": 29124,
+      "start": 28932,
+      "end": 29110,
       "line": 939,
       "column": 19
     },
@@ -427,9 +597,19 @@
       "file": "dependency/Session.HeaderRatchet/header_ratchet.mpl",
       "kind": "declassify_discriminant",
       "reason": "Hybrid HE body encryption discloses only success or failure; plaintext, error payloads and unrelated private control remain private",
-      "start": 32593,
-      "end": 32806,
+      "start": 32579,
+      "end": 32792,
       "line": 1045,
+      "column": 16
+    },
+    {
+      "module": "Session.Ratchet",
+      "file": "dependency/Session.Ratchet/ratchet.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "legacy ratchet body encryption releases only success or failure; plaintext error payloads and unrelated private control remain private",
+      "start": 15244,
+      "end": 15462,
+      "line": 486,
       "column": 16
     },
     {
@@ -437,9 +617,9 @@
       "file": "dependency/Session.Ratchet/ratchet.mpl",
       "kind": "declassify",
       "reason": "ratchet admission discloses only whether the plaintext exceeds this transport's documented message bound",
-      "start": 17062,
-      "end": 17219,
-      "line": 542,
+      "start": 17251,
+      "end": 17408,
+      "line": 544,
       "column": 19
     },
     {
@@ -447,9 +627,9 @@
       "file": "dependency/Session.Ratchet/ratchet.mpl",
       "kind": "declassify",
       "reason": "ratchet padding discloses only its one-bit InvalidMessage status; plaintext and padding bytes remain private",
-      "start": 31770,
-      "end": 31906,
-      "line": 972,
+      "start": 31959,
+      "end": 32095,
+      "line": 974,
       "column": 6
     },
     {

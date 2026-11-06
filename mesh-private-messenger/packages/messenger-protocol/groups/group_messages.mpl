@@ -189,7 +189,8 @@ fn seal_epoch_message(signing_key :: borrow SigningPrivateKey,
   material :: SecretBytes,
   version :: Int) -> GroupMessage!GroupError do
   let key = message_key(material)?
-  let sealed = Crypto.aead_seal(key, nonce, context, plaintext)
+  let sealed = declassify_discriminant(Crypto.aead_seal(key, nonce, context, plaintext),
+    "group body encryption releases only success or failure before signing ciphertext; plaintext error payloads and unrelated private control remain private")
   consume_message_key(key)
   let ciphertext = case sealed do
     Err(error) -> Err(CryptoFailure(error))
@@ -225,9 +226,11 @@ fn prepare_group_message(state :: borrow GroupState,
   else
     65342
   end
+  let oversized = declassify(Bytes.length(plaintext) > maximum,
+    "group encryption admission releases only whether plaintext exceeds the selected fixed transport capacity; content and exact sizes remain private")
   if (version != 3 && version != 4 && version != 5 && version != 6)
     || state.version != 2
-    || Bytes.length(plaintext) > maximum
+    || oversized
     || Bytes.length(caller_data) > 4096
     || state.next_generation < 0
     || state.next_generation >= 256 do
@@ -258,9 +261,12 @@ fn prepare_group_message(state :: borrow GroupState,
     let padded = if version == 4 || version == 5 || version == 6 do
       Ok(plaintext)
     else
-      case pad_message(plaintext, 190) do
-        Err(_) -> Err(InvalidGroup)
-        Ok(value)
+      let raw = pad_message(plaintext, 190)
+      if declassify(Result.is_err(raw),
+        "legacy group padding releases only bounded padding success or refusal; content padding bytes exact sizes and error payloads remain private") do
+        Err(InvalidGroup)
+      else
+        Ok(Result.unwrap_or(raw, Bytes.empty()))
       end
     end?
     let message = seal_epoch_message(signing_key,

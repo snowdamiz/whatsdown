@@ -19,8 +19,8 @@ from Mobile.Presentation import (
   present_message,
   present_message_with_attachment,
   presented_body,
-  presentation_fields,
-  record_change_allowed,
+  PresentationEditPermission,
+  presentation_edit_permission,
   save_presentation,
   store_group_anchor
 )
@@ -210,11 +210,13 @@ pub fn add_mobile_group_member_with_updates(request :: MobileGroupAddRequest,
   let profile = decode_client_profile(load_profile(request.database_path)?)?
   let wrapping_key = platform_key()?
   require_log_changes_allowed(request.database_path, wrapping_key)?
-  if !community_change_allowed(request.database_path,
+  let allowed = community_change_allowed(request.database_path,
     wrapping_key,
     request.group_id,
     profile.account_id,
-    Bytes.empty())? do
+    Bytes.empty())?
+  if !declassify(allowed,
+    "local group addition releases only whether the stored account principal may add members under the stored community rules; record content and role identifiers remain private") do
     return Err("community_admin_required")
   end
   let state = load_group(request.database_path, profile, wrapping_key, request.group_id)?
@@ -310,11 +312,13 @@ pub fn remove_mobile_group_member(request :: MobileGroupRemoveRequest) -> Bytes!
   ensure_schema(request.database_path)?
   let profile = decode_client_profile(load_profile(request.database_path)?)?
   let wrapping_key = platform_key()?
-  if !community_change_allowed(request.database_path,
+  let allowed = community_change_allowed(request.database_path,
     wrapping_key,
     request.group_id,
     profile.account_id,
-    request.account_id)? do
+    request.account_id)?
+  if !declassify(allowed,
+    "local group removal releases only whether the stored account principal may remove the requested member under the stored community rules; record content and role identifiers remain private") do
     return Err("community_admin_required")
   end
   let community = community_group(request.database_path, wrapping_key, request.group_id)?
@@ -538,13 +542,18 @@ fn capture_group_message_sources(path :: String,
   Ok(before)
 end
 
+fn group_transport_oversized(body :: Bytes, maximum :: Int) -> Bool do
+  declassify(Bytes.length(body) > maximum,
+    "group send admission releases only whether the presented body exceeds the selected fixed transport capacity; message and presentation contents and exact sizes remain private")
+end
+
 pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes!String do
   # Capture before presentation is read. Defer observing capture failure until
   # its original point so presentation validation keeps its existing priority.
   let captured = capture_group_attachment_send(input.database_path, input.group_id)
   let presented = present_message(input.database_path, input.group_id, input.body)?
   let text_only = %{input | body: presented}
-  if Bytes.length(input.attachment) == 0 && Bytes.length(text_only.body) > 65237 do
+  if Bytes.length(input.attachment) == 0 && group_transport_oversized(text_only.body, 65237) do
     Err("group_message_too_large")
   else
     ensure_schema(input.database_path)?
@@ -585,13 +594,13 @@ pub fn send_mobile_group_message(input :: MobileGroupSendRequest) -> Bytes!Strin
           input.group_id,
           input.body,
           envelope)?
-        if Bytes.length(framed) > 65237 do
+        if group_transport_oversized(framed, 65237) do
           Err("group_message_too_large")
         else
           Ok(%{input | body: framed})
         end
       end?
-      if seconds > 0 && Bytes.length(request.body) > 65225 do
+      if seconds > 0 && group_transport_oversized(request.body, 65225) do
         consume_group_state(state)
         return Err("group_message_too_large")
       end
@@ -870,10 +879,8 @@ fn apply_mobile_group_commit(database_path :: String,
   else if epoch_order < 0 do
     consume_group_state(state)
     Err("group_stale_epoch")
-  else if !community_commit_allowed(database_path, wrapping_key, state.tree, commit)? do
-    consume_group_state(state)
-    Err("group_commit_rejected")
   else
+    let allowed = community_commit_allowed(database_path, wrapping_key, state.tree, commit)?
     case commit.proposal do
       UpdateWitnessPolicy(policy) -> do
         let view = load_transparency_view(database_path, wrapping_key)?
@@ -895,6 +902,11 @@ fn apply_mobile_group_commit(database_path :: String,
         end
       end
       CommitApplied(next) -> do
+        if !declassify(allowed,
+          "signature-validated group commit application releases only whether its prior-tree committer may apply the proposed membership change under stored community rules; record content and role identifiers remain private") do
+          consume_group_state(next)
+          return Err("group_commit_rejected")
+        end
         let (label, blob) = group_snapshot_blob(next, profile, wrapping_key)?
         store_updated_session(database_path, label, blob)?
         Ok(group_id)
@@ -1190,13 +1202,15 @@ pub fn save_owned_presentation(request :: MobileTriplePayloadRequest) -> Bytes!S
       let creator = creator_account(state.tree)
       consume_group_state(state)
       let stored = load_presentation_record(request.database_path, wrapping_key, request.first)?
-      if record_change_allowed(stored, request.second, local.account_id, creator, Bytes.empty())? do
-        save_presentation(request)
-      else if Bytes.length(presentation_fields(request.second)?.community) > 0
-        || Bytes.length(stored) > 0 && Bytes.length(presentation_fields(stored)?.community) > 0 do
-        Err("community_admin_required")
-      else
-        Err("group_creator_required")
+      let permission = presentation_edit_permission(stored,
+        request.second,
+        local.account_id,
+        creator)?
+      case declassify(permission,
+        "local presentation editing releases only allowed community-admin-required or group-creator-required after loading the account principal and authenticated group creator; record content role identifiers and revision values remain private") do
+        EditAllowed -> save_presentation(request)
+        CommunityAdminRequired -> Err("community_admin_required")
+        GroupCreatorRequired -> Err("group_creator_required")
       end
     end
   else

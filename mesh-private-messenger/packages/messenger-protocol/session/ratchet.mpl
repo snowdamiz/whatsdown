@@ -483,7 +483,9 @@ fn encrypt_active(state :: consume RatchetState,
     nonce,
     associated_data)?
   let padded = message_plaintext(plaintext, version)?
-  let ciphertext = case Crypto.aead_seal(key, nonce, authenticated, padded) do
+  let sealed = declassify_discriminant(Crypto.aead_seal(key, nonce, authenticated, padded),
+    "legacy ratchet body encryption releases only success or failure; plaintext error payloads and unrelated private control remain private")
+  let ciphertext = case sealed do
     Err(_) -> Err(CryptoFailure)
     Ok(value)
   end?

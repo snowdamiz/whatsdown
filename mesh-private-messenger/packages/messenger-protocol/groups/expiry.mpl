@@ -80,9 +80,12 @@ fn decode(input :: Bytes) -> TimedGroupPayload!GroupError do
 end
 
 pub fn encode_timed_group_payload(value :: TimedGroupPayload) -> Bytes!String do
-  case encode(value) do
-    Err(_) -> Err("invalid_timed_group_payload")
-    Ok(value)
+  let encoded = encode(value)
+  if declassify(Result.is_err(encoded),
+    "timed group payload framing releases only bounded encoding success or refusal before encryption; body timestamp duration hints exact sizes and error payloads remain private") do
+    Err("invalid_timed_group_payload")
+  else
+    Ok(Result.unwrap_or(encoded, Bytes.empty()))
   end
 end
 

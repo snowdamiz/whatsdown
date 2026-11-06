@@ -1,8 +1,8 @@
 # Current disclosure inventory
 
 `plaintext-disclosures.json` is the reviewed development baseline for the
-current mobile-core build: twenty finite value declassifications, five
-result-tag reviews and seven native display exports. Native mobile
+current mobile-core build: 41 finite value declassifications, 12
+result-tag reviews and 16 native display exports. Native mobile
 and desktop build entry points compare every
 reported site with this file before replacing an installed library. Missing
 reports, additions, removals, moved sites and changed reasons fail the build.
@@ -34,8 +34,8 @@ Their reasons remain unchanged; the JSON inventory tracks current source spans:
 | `Mobile.Attachments.describe_attachment_error` | Exactly six existing constant error classes: manifest, chunk, index, size, authentication and crypto failure. | No arbitrary error text or nested crypto payload. A future error variant fails exhaustive matching until reviewed. |
 | `Session.Handshake.initiate` | Raw initial-message AEAD success/error tag before propagation. | Message bytes, error payloads, prior/caller control and authenticated metadata remain restricted. |
 
-The filename/MIME ingress migration adds five further boundaries, bringing the
-development inventory to 32 sites:
+The filename/MIME ingress migration added five further boundaries, bringing its
+development checkpoint to 32 sites:
 
 | Boundary | Released value | Restrictions retained |
 |---|---|---|
@@ -45,7 +45,7 @@ development inventory to 32 sites:
 | `Mobile.CreditAttachmentJournal` intent framing | Raw bounded encoding success/error tag. | Private bytes, exact lengths, binding digest and error payloads remain private. |
 | `Mobile.CreditAttachmentJournal` length framing | Raw four-byte writer success/error tag. | Exact metadata lengths encoded in private bytes and error payloads remain private. |
 
-The seven display boundaries give content to the native host/UI process:
+The original seven display boundaries give content to the native host/UI process:
 
 | Export | Observers and purpose |
 |---|---|
@@ -73,8 +73,10 @@ authenticated storage. These labels cover getter results and their error
 outcomes. The attachment manifest and native free/paid preparation inputs now
 label filename and MIME fields. Legacy private binding digests migrate into
 separate authenticated storage seals before the wallet returns to public code.
-Message-body ingress, presentation request aliases and internal presentation
-reads still need complete source coverage. New free/paid attachment writers
+Message-body ingress and complete request-field labeling remain open. Presentation
+validation, internal storage reads, framed encoding and body projection now
+introduce or retain labels; their actual-source proofs are described below.
+New free/paid attachment writers
 use ACH3, with authenticated recipient
 capability checks and opaque native authorization before upload. Legacy reads
 and exact recovery of already completed paid uploads remain supported; pending
@@ -90,12 +92,45 @@ reserved storage-counter gap is harmless. That earlier writer/capability change
 moved one reviewed site without adding a disclosure; the later metadata and
 ingress additions are listed above.
 
-The compile-only `ops/plaintext/prove_display_sources.py` regression checks the
-actual getters and exported wrappers against HTTP sinks. Calling a display
-export from Mesh retains the private result; its display permission applies
-only at the reviewed native boundary. Removing the five getter annotations in
-the isolated mutation permits the forbidden flows again, while the unchanged
-production app must compile. The probes never execute network requests.
+The intervening backup, header-ratchet, storage-seal and native view-once work
+extended the JSON baseline to 51 sites. Its six additional native observers cover
+backup metadata, archive inventory/detail/page views, pending export state and
+the dedicated view-once opening. Those existing boundaries are unchanged by
+the presentation migration; their presence does not establish complete native
+integration or release qualification.
+
+The presentation migration adds 18 reviewed boundaries:
+
+| Boundary | Released value | Restrictions retained |
+|---|---|---|
+| Local group add/remove/invite operations and signed commit application | One permission Boolean at each of four operation boundaries. Local operations load their account principal; received commits pass signature, transcript and key validation before the decision is observed. | The reusable policy helper returns a private Boolean. Arbitrary claimed identities and role-membership queries cannot use it as a public oracle. A refused received transition is destroyed without committing its state. |
+| Local presentation editing | One of allowed, community-admin-required or group-creator-required, after loading the local account and authenticated group creator. | The reusable helper returns a private closed enum; records, identities and revision values stay private. |
+| Stored community rule selection | One Boolean selecting community-owner versus plain-group-creator rules. | Stored record contents and role identities stay private; group storage addressing remains public. |
+| Presentation admission and group sending/encryption/padding | Four bounded capacity or padding-refusal Booleans. | Message/presentation bytes, exact lengths, padding bytes and error payloads remain private. The internal group-send capacity helper is called only with fixed transport limits. |
+| Group and timed-group payload framing | Two bounded encoding success/refusal Booleans. | The existing fixed failure strings remain; bodies, hints, recipient identities, timestamps and durations remain private. |
+| Group history framing | A closed success/framing/integer failure class. | Encoded history and arbitrary error payloads remain private before storage sealing. |
+| Legacy ratchet and group-body AEAD sealing | Two raw success/error tags. | Ciphertext follows the encryption exit; private error payloads and prior/caller control remain restricted. |
+| Legacy initial, direct and group native receive exports | Authenticated receive results at three existing native ABI entry points. | Calling them from Mesh retains private results. Internal mailbox processing uses internal functions and gains no display permission. |
+
+The native receive annotations describe a host-process boundary, not a guarantee
+that only rendering code can call it. Generic native dispatch also permits host
+access. Native ownership and host networking closure remain separate gates.
+
+Unchanged or older selected presentation records are resealed before the storage
+write, avoiding a content-dependent write/no-write branch. Public fallback
+framing is prepared before private profile selection. Initial handshake error
+conversion is explicit and exactly matches the existing `From<CryptoError>`
+wrapper; that correction adds no disclosure.
+
+The compile-only `ops/plaintext/prove_display_sources.py` regression checks 14
+actual source/getter/native-wrapper flows and three policy-helper flows against
+exact HTTP sinks. Calling a display export from Mesh retains the private result.
+The isolated positive control removes the relevant result/input/local labels and
+the two attachment manifest field labels, admitting the 14 content flows. The
+policy probes intentionally retain private caller inputs and are excluded from
+that mutation control. The protected production core must also compile. The
+runner freezes dependencies and records compiler/runtime, runner, source and log
+hashes; none of its forbidden network probes executes.
 
 `ops/plaintext/prove_attachment_metadata.py` separately freezes the actual
 protocol fields and mobile error classifier. It checks forbidden field/error

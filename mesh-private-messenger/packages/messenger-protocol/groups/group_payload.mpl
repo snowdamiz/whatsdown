@@ -88,9 +88,12 @@ fn decode(input :: Bytes) -> GroupPayload!GroupError do
 end
 
 pub fn encode_group_payload(value :: GroupPayload) -> Bytes!String do
-  case encode(value) do
-    Err(_) -> Err("invalid_group_payload")
-    Ok(value)
+  let encoded = encode(value)
+  if declassify(Result.is_err(encoded),
+    "group payload framing releases only bounded encoding success or refusal before encryption; body hints recipient identifiers exact sizes and error payloads remain private") do
+    Err("invalid_group_payload")
+  else
+    Ok(Result.unwrap_or(encoded, Bytes.empty()))
   end
 end
 

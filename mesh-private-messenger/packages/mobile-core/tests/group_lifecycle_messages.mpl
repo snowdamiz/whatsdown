@@ -22,8 +22,11 @@ from Tests.GroupLifecycleWire import (
 )
 from Tests.Support import append, repeated, vector, write_u32
 
+# Only the assertion outcome for controlled synthetic group fixtures is observed.
+# Keep the original failure result and subsequent storage/cleanup behavior.
 fn group_messages_ensure(value :: Bool, error :: String) -> Result<(), String> do
-  if value do
+  if declassify(value,
+    "test-only Boolean assertion of controlled synthetic group message fixtures; no application disclosure") do
     Ok(nil)
   else
     Err(error)

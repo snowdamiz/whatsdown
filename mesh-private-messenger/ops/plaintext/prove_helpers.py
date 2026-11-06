@@ -30,7 +30,8 @@ from Mobile.Presentation import presented_message_writes
 from Storage.HistoryBlobs import seal_history_blob
 from Identity.Device import DeviceKeys, VerificationPolicy
 from Protocol.V1 import DeviceCredential, AccountIdentity, PrekeyBundle, InitialMessage
-from Session.Handshake import RatchetState, SessionError, initiate
+from Session.Handshake import SessionError, initiate
+from Session.State import RatchetState
 fn refuse_history(values :: Plaintext<List<MobileHistoryEntry>>) -> Int!String do
   let encoded = encode_history(values)?
   Ok(Http.body_bytes(Http.build(:post,"https://example.invalid/never"),encoded))

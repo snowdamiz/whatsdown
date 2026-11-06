@@ -32,8 +32,8 @@ status before publishing evidence.
 
 The current development inventory is
 [`protocol/plaintext-disclosures.json`](../../protocol/plaintext-disclosures.json).
-Its [review notes](../../protocol/plaintext-disclosures.md) identify twenty
-finite value releases, five result-tag reviews and seven display
+Its [review notes](../../protocol/plaintext-disclosures.md) identify 41
+finite value releases, 12 result-tag reviews and 16 display
 observers. Both native build entry
 points enforce it before replacing installed libraries and retain the report
 and evidence. Missing or mismatched reports are fatal; there is no silent
@@ -55,11 +55,15 @@ python3 ops/plaintext/prove_display_sources.py \
   --output /absolute/path/to/new/evidence-directory
 ```
 
-This runner snapshots the full declared Mesh path dependency closure, refuses
-seven actual getter/wrapper-to-HTTP flows, proves that removing the five result
-labels admits those flows, and builds the protected production core. It never
-runs the probe or changes live labels. `MESH_RT_LIB_PATH`, when supplied, is
-recorded by hash. Getter coverage does not establish complete source labeling.
+This runner snapshots the full declared Mesh path dependency closure and refuses
+14 actual content/getter/wrapper-to-HTTP flows plus three private policy-helper
+flows. Removing the relevant result/input/local labels and the two attachment
+manifest field labels admits the 14 content flows. The protected production core
+must compile. Policy probes keep their private inputs and are excluded from the
+label-removal positive control. The runner never executes probes or changes live
+labels. `MESH_RT_LIB_PATH`, when supplied, is recorded by hash. This covers
+presentation ingress/internal reads and selected getters, not complete message
+body or request-field labeling.
 
 Check the labeled manifest fields, encrypted positive paths, private metadata
 refusals and exhaustive error policy with:

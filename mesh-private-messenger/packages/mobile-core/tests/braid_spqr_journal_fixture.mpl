@@ -134,8 +134,11 @@ fn fixture_encapsulation(value :: consume Result<(MlKemCiphertext, SecretBytes),
   end
 end
 
+# Only the assertion outcome for controlled synthetic messages crosses this boundary.
+# Observe it before branching so later fixture storage and cleanup stay public.
 fn check(value :: Bool, reason :: String) -> Result<(), String> do
-  if value do
+  if declassify(value,
+    "test-only Boolean assertion of controlled synthetic SPQR journal fixtures; no application disclosure") do
     Ok(nil)
   else
     Err(reason)
