@@ -142,9 +142,10 @@ passing local fixture does not close a native-device or production gate.
 | Mesh error conversions | Pushed `8256d5d3`; generic and builtin `From` handling qualified, with a retained optimized local compiler/runtime family | Reviewed public release and exact app dependency pin |
 | Quorum source identity | Shared Mesh and writer host checks adopted through `f4c21c2`; seven Mesh and 28 native/writer checks pass, including mapped/nonmapped IPv6 controls | Independent-provider and live RPC qualification; different names alone do not establish different operators |
 | V2 rewards | Bounded scheduling plus directory/current-attendance grace assessment adopted (`cee839c`); 47 composed local Node/native/Kit/SBF checks pass | Deployment, funded operation, independent providers and live duration gates; finite requests stop at their configured bound |
-| Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; fresh 800 app, 121 native and 16 desktop-script checks pass | Provisioned Keychain/signing and unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
+| Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; fresh 800 app, 121 native and 16 desktop-script checks pass. A certificate-signed actual-store probe still refuses with `-34018` | Matching macOS profile/entitlements and provisioned bundle, then unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
 | Plaintext propagation | Presentation ingress/storage/projection adopted with 69 reviewed sites; current macOS desktop Core build and native tests pass | Message/request ingress candidate remains isolated; review reproduced label loss through an alternate control parser. Close that boundary, decoded receive/history propagation, mobile targets and release qualification |
 | Bootstrap acceptance | Native-ABI runner adopted through `4b2953a`; fresh combined-branch run passes lookup, forged-signature refusal and restart controls but exits 1 with `BLOCKED_NATIVE_RPC_TLS` | Scoped native RPC TLS implementation is active in an isolated worktree. The actual anchor call still returns `rpc_unavailable`; remaining local controls and all eight production checks stay open |
+| Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
 | Mixed-asset fork filing | MPR2 codecs and authenticated unsigned proof planning exist; legacy relay/phone filing works | Durable MPR2 relay execution is active in an isolated worktree; versioned authenticated receipts, phone filing and separate bounty-asset recovery remain unadopted |
 | Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
 
@@ -330,6 +331,31 @@ is isolated and not yet adopted. Valid `consistent` anchors, missing-cache and
 invalid-anchor controls, provider disagreement, due-day progression and three
 canaries remain unqualified. All eight §4.3 production checks remain pending.
 
+### Monitor acceptance contract — 2026-11-06
+
+The earlier §4.3 phrase "every anchor pair" is clarified to mean every
+**consecutive** pair, as already specified by §6.8. The monitor authenticates
+each checkpoint and verifies each growing-tree consistency link in posting
+order; unchanged-size roots must match, and rollback/conflict paths remain
+subject to fork verification. Prefix consistency is transitive, so a verified
+ordered chain establishes consistency between its endpoints without requesting
+a separate proof for every non-adjacent combination. This does not excuse a
+missing link, an unverified checkpoint or a lost observation interval.
+
+Acceptance requires a current healthy report with no issues, complete catch-up,
+and retained coverage from the baseline established before the observation
+window. A new database's oldest visible ring entry is only its starting
+baseline; it cannot prove overwritten history or replace a lost monitor record.
+Pending comparisons, missing proofs, history gaps, stale status and retained
+forks do not pass. The existing monitor checks were rerun at `e83be03` with the
+qualified optimized Mesh `8256d5d3`: all five test files passed, covering policy/
+posting order, durable state, status age, ring-wrap batches and the signed
+F1/F2/F3 HTTP fixture for both log versions. The frozen fixture changed only
+loopback ports to avoid concurrent workers. Its copied sources were removed;
+hashes, exact adaptations and logs remain under
+`.morse/continuation-20261106/monitor-acceptance`. This rerun did not execute a
+separate-process restart, a live monitor or the production duration gate.
+
 ### Desktop native service connection — 2026-11-06
 
 The actual desktop root now mounts private React content only after native
@@ -357,6 +383,21 @@ removal tests execute actual Core erasure at the network-operation seam, not a
 fresh end-to-end HTTP removal proof. Evidence is retained under
 `.morse/continuation-20261106/desktop-adoption`; this supersedes the earlier
 unadopted desktop candidate notes without closing D4/D6 or release qualification.
+
+A subsequent signing qualification at `e83be03` linked the actual production
+`Storage.m`/`Policy.m` to macOS Security calls. The existing development runner
+produced a certificate-signed executable with the development identifier and a
+stable designated requirement, but no entitlements: a new synthetic service
+returned `-25300` on lookup and `-34018` on creation. The real
+`MDNativePolicyOpen` also refused and issued no current owner. Merely claiming
+an application-identifier entitlement passed on-disk signature verification but
+still failed the real Keychain call. No matching macOS profile was found in the
+standard local profile directories. The next qualification needs an authorized
+profile/entitlements and properly provisioned bundle; release signing is a
+separate gate. No storage fallback, certificate/profile installation or user
+record change was made. Parent verified the retained probe/source/log hashes
+in `.morse/continuation-20261106/desktop-adoption/keychain-provenance.json`; it
+did not rerun those Keychain probes. Unlocked UI remains unqualified.
 
 ### Presentation privacy continuation — 2026-11-06
 
@@ -4723,24 +4764,27 @@ witnesses. Any failure pages the on-call.
 4. **Phone check:** the canary device's daily check reports `consistent` against
    a matching quorum of two of three sampled pinned RPC sources and its verified
    local checkpoint. `observed` without a local comparison does not pass.
-5. **Monitor:** zero inconsistencies. The consistency proof for every anchor pair
-   verifies.
+5. **Monitor:** zero inconsistencies and a current healthy report with no issues.
+   Every consecutive anchor pair from the retained observation baseline verifies
+   (§6.8); the monitor is fully caught up with no lost history or pending
+   comparison. Establish and retain that baseline before the observation window.
 6. **Fork drill:** monthly on the canary log (§11.3). The proof is filed by a relay,
    slashing executes, and the finder is paid.
-7. **Rewards:** `settle_epoch` runs each week with zero payable witnesses. The pool
-   carries over and nothing is paid to excluded witnesses.
+7. **Rewards:** the durable v2 operator's `settle` action runs each week with zero
+   payable witnesses. Authenticated finalized state shows the epoch advancing,
+   funds carrying forward and no payout to excluded witnesses.
 8. **Credits (Phase 4+):** purchase the standard 100-credit pack for $5 and
    redeem each deployed extra, weekly.
 
 Current integration audit (2026-11-06): all eight production checks remain
 pending. Check 4 now names the actual structured `consistent` result and the
 three-source/two-view quorum; the earlier literal `ok` wording is superseded.
-The monitor verifies consecutive links while traversing the ordered anchor
-history; whether
-the acceptance requires additional non-adjacent pairs remains unresolved. The
-credit check now uses the standard $5 pack, consistent with §7's fixed pricing;
-the earlier $1 requirement is superseded. The remaining differences must be
-resolved explicitly before claiming this suite passes.
+Check 5 uses §6.8's consecutive-link contract and requires retained, gap-free
+coverage; it does not require quadratic non-adjacent proof requests. Check 7
+names the current v2 operation instead of the legacy `settle_epoch` label. The
+credit check uses the standard $5 pack, consistent with §7's fixed pricing;
+the earlier $1 requirement is superseded. These contract clarifications do not
+establish that any scheduled production check has run.
 The first local integration unit is adopted: it connects the actual Core
 directory resolver and anchor check with one synthetic canary and owned local
 services. Lookup/refusal/restart controls pass; combined acceptance exits 1 at
