@@ -1,5 +1,6 @@
 from Transparency.Config import SecurityConfig, decode_security_config
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins
+from Transparency.RpcTransport import webpki_rpc_transport
 from Binary.Reader import BinaryReader, finish, reader
 from Mobile.Codec import (
   current_time,
@@ -254,7 +255,7 @@ end
 pub fn decode_native_security_config(frame :: Bytes) -> SecurityConfig!String do
   let config = decode_security_config(frame)?
   security_delivery_key(config.delivery_public_key)?
-  case configured_anchor_pins(config) do
+  case configured_anchor_pins(config, webpki_rpc_transport(config.rpc_urls)?) do
     Err(_) -> return Err("invalid_messenger_configuration")
     Ok(_) -> nil
   end

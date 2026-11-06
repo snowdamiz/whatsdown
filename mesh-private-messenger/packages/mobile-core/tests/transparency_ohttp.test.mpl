@@ -185,6 +185,7 @@ fn native_proof(mode :: Int) -> Result<(), String> do
     else
       "required\n1\n0 18446744073709551615 " <> Bytes.to_base64(public)
     end)
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   assert(Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"), companion))
   let proof = encode_consistency_proof(compact_consistency_proof_for(1, old_leaves, leaves)?)?
   let core_calls = calls <> ".core"

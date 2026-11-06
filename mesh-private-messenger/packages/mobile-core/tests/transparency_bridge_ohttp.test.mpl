@@ -307,6 +307,7 @@ fn proof(config_version :: Int) -> Bool!String do
     key_id: 37,
     public_key: bridge_key()?.public_key
   })?
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   assert(Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"),
     Bytes.from_utf8("1\n"
       <> Bytes.to_hex(Crypto.sha256(network))

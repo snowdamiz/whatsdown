@@ -194,6 +194,7 @@ fn d4_core_fixture_with_membership(mode :: Int, log_version :: Int) -> D4CoreFix
   if !Test.set_push_token(Bytes.from_utf8("messenger/network/v1"), network) do
     return Err("d4_fixture_native_frame")
   end
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   if !Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"), companion) do
     return Err("d4_fixture_native_frame")
   end

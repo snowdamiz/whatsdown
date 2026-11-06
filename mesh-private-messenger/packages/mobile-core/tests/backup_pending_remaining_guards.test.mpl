@@ -71,6 +71,7 @@ fn remaining_pending_realm_rotation() -> Result<(), String> do
     ],
     "\n"))
   assert(Test.set_push_token(Bytes.from_utf8("messenger/network/v1"), network))
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   assert(Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"), companion))
   # Old authenticated origin must still refuse the new native service origin.
   assert(Result.is_err(capture_backup_authority(f.base.path, f.base.public_profile)))
