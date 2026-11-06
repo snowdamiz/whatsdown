@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import Pubkey, pubkey, pubkey_string
 from Solana.Address import ProgramDerivedAddress, find_program_address
 from Transparency.AnchorChain import AnchorPins, AnchorAddresses, anchor_addresses
@@ -70,7 +71,7 @@ fn fixture() -> Fixture!String do
     ring: derived.ring,
     log_name: "relay-test",
     log_id: derived.log_id,
-    endpoints: []
+    rpc: webpki_rpc_transport([])?
   }
   let signer = signing()?
   let first = sign_checkpoint(signer.private_key,
@@ -329,12 +330,12 @@ actor server(port :: Int, f :: Fixture) do
   HTTP.serve(router, port)
 end
 
-fn pins(f :: Fixture, modes :: List<String>) -> AnchorPins do
-  %{f.pins |
-    endpoints: for index in 0..3 do
+fn pins(f :: Fixture, modes :: List<String>) -> AnchorPins!String do
+  Ok(%{f.pins |
+    rpc: webpki_rpc_transport(for index in 0..3 do
       "http://127.0.0.1:#{19953 + index}/#{List.get(modes, index)}"
-    end
-  }
+    end)?
+  })
 end
 
 fn discovery() -> Bool!String do
@@ -344,7 +345,7 @@ fn discovery() -> Bool!String do
   let _three = spawn(server, 19955, f)
   Timer.sleep(100)
   for modes in [["valid", "reverse", "down"], ["down", "valid", "reverse"]] do
-    let found = read_collectible_witnesses(pins(f, modes), wide(100)?)?
+    let found = read_collectible_witnesses(pins(f, modes)?, wide(100)?)?
     assert(List.length(found.keys) == 3 && U64.to_string(found.context_slot) == "104")
   end
   for mode in [
@@ -362,7 +363,7 @@ fn discovery() -> Bool!String do
     "overbound",
     "changed"
   ] do
-    case read_collectible_witnesses(pins(f, [mode, mode, "down"]), wide(100)?) do
+    case read_collectible_witnesses(pins(f, [mode, mode, "down"])?, wide(100)?) do
       Ok(_) -> do
         println(mode)
         assert(false)
@@ -370,12 +371,12 @@ fn discovery() -> Bool!String do
       Err(_) -> nil
     end
   end
-  case read_collectible_witnesses(pins(f, ["valid", "missing", "down"]), wide(100)?) do
+  case read_collectible_witnesses(pins(f, ["valid", "missing", "down"])?, wide(100)?) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "anchor_rpc_disagree")
   end
   # Generation zero/current membership cannot suppress an older bonded key.
-  let verified = verify_relay_fork(pins(f, ["valid", "reverse", "valid"]),
+  let verified = verify_relay_fork(pins(f, ["valid", "reverse", "valid"])?,
     f.service_key,
     1,
     f.proof,
@@ -388,7 +389,7 @@ fn discovery() -> Bool!String do
     assert(key.witness_id == "rotated" && List.contains(f.accused, key.public_key))
   end
   assert(U64.compare(verified.context_slot, wide(104)?) > 0)
-  let without_ring = verify_relay_fork(pins(f, ["no-ring", "no-ring", "no-ring"]),
+  let without_ring = verify_relay_fork(pins(f, ["no-ring", "no-ring", "no-ring"])?,
     f.service_key,
     1,
     f.proof,

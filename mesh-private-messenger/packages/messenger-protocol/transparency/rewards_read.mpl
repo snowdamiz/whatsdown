@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import RpcEndpoint, RpcTransport, rpc_urls, rpc_fatal_error
 from Solana.Read import (
   Pubkey,
   AccountSlice,
@@ -478,7 +479,7 @@ pub fn decode_rewards_snapshot(pins :: AnchorPins,
   })
 end
 
-fn observe(endpoint :: String,
+fn observe(endpoint :: RpcEndpoint,
   pins :: AnchorPins,
   key :: Bytes,
   version :: Int,
@@ -493,7 +494,7 @@ fn observe(endpoint :: String,
     0,
     8416,
     Some(minimum))?
-  let response = read_anchor_rpc_response(endpoint, request, 65536)?
+  let response = read_anchor_rpc_response(pins.rpc, endpoint, request, 65536)?
   let snapshot = optional_accounts_slice_from_response(response)?
   if U64.compare(snapshot.slot, minimum) < 0 do
     return Err("rewards_stale_context")
@@ -523,7 +524,7 @@ fn same_snapshot(a :: OptionalAccountSlicesAtSlot, b :: OptionalAccountSlicesAtS
   true
 end
 
-fn read_slices_from(endpoint :: String,
+fn read_slices_from(rpc :: RpcTransport, endpoint :: RpcEndpoint,
   addresses :: List<Pubkey>,
   length :: Int,
   minimum :: U64) -> OptionalAccountSlicesAtSlot!String do
@@ -533,7 +534,7 @@ fn read_slices_from(endpoint :: String,
     0,
     length,
     Some(minimum))?
-  let response = read_anchor_rpc_response(endpoint, request, 65536)?
+  let response = read_anchor_rpc_response(rpc, endpoint, request, 65536)?
   let snapshot = optional_accounts_slice_from_response(response)?
   if List.length(snapshot.accounts) != List.length(addresses)
     || U64.compare(snapshot.slot, minimum) < 0 do
@@ -582,22 +583,34 @@ pub fn read_rewards_account_slices(pins :: AnchorPins,
     return Err("invalid_rewards_batch")
   end
   let sampled = sample_anchor_sources(pins)?
-  let first = read_slices_from(List.get(sampled.endpoints, 0),
+  let first = read_slices_from(sampled.rpc, List.get(sampled.rpc.sources, 0),
     addresses,
     slice_length,
     minimum_slot)
-  let second = read_slices_from(List.get(sampled.endpoints, 1),
+  case first do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
+  let second = read_slices_from(sampled.rpc, List.get(sampled.rpc.sources, 1),
     addresses,
     slice_length,
     minimum_slot)
+  case second do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree_slices(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = read_slices_from(List.get(sampled.endpoints, 2),
+  let third = read_slices_from(sampled.rpc, List.get(sampled.rpc.sources, 2),
     addresses,
     slice_length,
     minimum_slot)
+  case third do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree_slices(first, third) do
     Some(value) -> return Ok(value)
     None -> nil
@@ -733,7 +746,7 @@ pub fn read_rewards(pins :: AnchorPins,
     return Err("invalid_rewards_pins")
   end
   let pins = sample_anchor_sources(pins)?
-  let first = observe(List.get(pins.endpoints, 0),
+  let first = observe(List.get(pins.rpc.sources, 0),
     pins,
     service_key,
     version,
@@ -741,7 +754,11 @@ pub fn read_rewards(pins :: AnchorPins,
     asset,
     epoch,
     minimum_slot)
-  let second = observe(List.get(pins.endpoints, 1),
+  case first do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
+  let second = observe(List.get(pins.rpc.sources, 1),
     pins,
     service_key,
     version,
@@ -749,11 +766,15 @@ pub fn read_rewards(pins :: AnchorPins,
     asset,
     epoch,
     minimum_slot)
+  case second do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = observe(List.get(pins.endpoints, 2),
+  let third = observe(List.get(pins.rpc.sources, 2),
     pins,
     service_key,
     version,
@@ -761,6 +782,10 @@ pub fn read_rewards(pins :: AnchorPins,
     asset,
     epoch,
     minimum_slot)
+  case third do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, third) do
     Some(value) -> return Ok(value)
     None -> nil

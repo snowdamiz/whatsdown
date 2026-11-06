@@ -107,7 +107,8 @@ pub fn compare_anchor(origin :: String,
   local :: TransparencyCheckpoint,
   entry :: AnchorEntry,
   index :: Int,
-  service_key :: Bytes) -> AnchorConsistency!String do
+  service_key :: Bytes,
+  require_current :: Fun() -> Result<(), String>) -> AnchorConsistency!String do
   if local.version != entry.log_version
     || index < 0
     || index >= 4096
@@ -124,7 +125,7 @@ pub fn compare_anchor(origin :: String,
     Err(_) -> return Err("integer_encoding_failed")
     Ok(value) -> value
   end
-  let (status, checkpoint) = fetch_anchor_proof(origin, route <> "checkpoint", sequence_wire, 188)?
+  let (status, checkpoint) = fetch_anchor_proof(origin, route <> "checkpoint", sequence_wire, 188, require_current)?
   if status != "received" do
     return Ok(result(status, checkpoint, Bytes.empty(), Bytes.empty()))
   end
@@ -169,7 +170,8 @@ pub fn compare_anchor(origin :: String,
   let (status, consistency) = fetch_anchor_proof(origin,
     route <> "consistency",
     encode_consistency_range(old, new)?,
-    1070)?
+    1070,
+    require_current)?
   if status != "received" do
     return Ok(result(status, checkpoint, consistency, Bytes.empty()))
   end

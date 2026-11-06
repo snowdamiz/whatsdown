@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RelayLookupRead import (
   RelayLookupState,
   RelayLookupCooldown,
@@ -126,9 +127,9 @@ actor server(port :: Int, authority :: Pubkey, table :: Pubkey) do
 end
 
 fn read(authority :: Pubkey, modes :: List<String>) -> RelayLookupCooldown!String do
-  read_relay_lookup_cooldown(for index in 0..3 do
+  read_relay_lookup_cooldown(webpki_rpc_transport(for index in 0..3 do
       "http://127.0.0.1:#{19972 + index}/#{List.get(modes, index)}"
-    end,
+    end)?,
     authority,
     U64.parse("10")?,
     [Pubkey { bytes: Bytes.from_hex(String.repeat("22", 32))? }],

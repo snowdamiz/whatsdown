@@ -140,7 +140,7 @@ pub fn read_relay_destinations(pins :: AnchorPins,
   end
   let economics = find_program_address(pins.program,
     [Bytes.from_utf8("economics"), pins.log_id])?.address
-  let snapshot = read_anchor_accounts(pins.endpoints,
+  let snapshot = read_anchor_accounts(pins.rpc,
     [addresses.log, economics, expected_mint, finder_address, locked_address],
     minimum_slot)?
   let log = decode_anchor_log(owned(List.get(snapshot.accounts, 0), pins.program, 352)?.data)?

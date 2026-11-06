@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.SlashReceipt import (
   SlashReceipt,
   SlashWitness,
@@ -198,9 +199,9 @@ fn read(value :: Json, routes :: List<String>) -> ConfirmedSlashReceipt!String d
     ring: derived.ring,
     log_name: text(value, "log_name")?,
     log_id: derived.log_id,
-    endpoints: for index in 0..3 do
+    rpc: webpki_rpc_transport(for index in 0..3 do
       "http://127.0.0.1:#{19943 + index}/#{List.get(routes, index)}"
-    end
+    end)?
   }
   read_slash_receipt(pins,
     raw(value, "service_key")?,
@@ -263,9 +264,9 @@ fn authenticated() -> Bool!String do
       ring: derived.ring,
       log_id: derived.log_id,
       log_name: text(value, "log_name")?,
-      endpoints: for index in 0..3 do
+      rpc: webpki_rpc_transport(for index in 0..3 do
         "http://127.0.0.1:#{19943 + index}/#{mode}"
-      end
+      end)?
     }
     case find_slash_receipt(pins,
       raw(value, "service_key")?,

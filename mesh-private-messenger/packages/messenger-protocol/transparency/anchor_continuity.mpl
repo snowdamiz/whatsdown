@@ -9,7 +9,8 @@ from Transparency.Wire import encode_consistency_range, decode_consistency_proof
 # not a standalone cryptographic fork proof.
 pub fn anchor_extends(origin :: String,
   previous :: AnchorEntry,
-  current :: AnchorEntry) -> String!String do
+  current :: AnchorEntry,
+  require_current :: Fun() -> Result<(), String>) -> String!String do
   if previous.log_version != current.log_version do
     return Err("anchor_log_version_mismatch")
   end
@@ -35,7 +36,8 @@ pub fn anchor_extends(origin :: String,
   let (status, response) = fetch_anchor_proof(anchor_proof_origin(origin)?,
     "/v#{current.log_version}/transparency/consistency",
     encode_consistency_range(old, new)?,
-    1070)?
+    1070,
+    require_current)?
   if status != "received" do
     return Ok(status)
   end

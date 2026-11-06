@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import RpcEndpoint, RpcTransport, rpc_urls, rpc_fatal_error
 from Solana.Read import (
   Pubkey,
   AccountSlice,
@@ -157,7 +158,7 @@ pub fn decode_attendance_snapshot(pins :: AnchorPins,
   })
 end
 
-fn observe(endpoint :: String,
+fn observe(endpoint :: RpcEndpoint,
   pins :: AnchorPins,
   service_key :: Bytes,
   version :: Int,
@@ -171,7 +172,7 @@ fn observe(endpoint :: String,
     0,
     2640,
     Some(minimum_slot))?
-  let response = read_anchor_rpc_response(endpoint, request, 16384)?
+  let response = read_anchor_rpc_response(pins.rpc, endpoint, request, 16384)?
   let snapshot = optional_accounts_slice_from_response(response)?
   if U64.compare(snapshot.slot, minimum_slot) < 0 do
     return Err("attendance_stale_context")
@@ -231,13 +232,25 @@ pub fn read_attendance(pins :: AnchorPins,
     return Err("invalid_attendance_pins")
   end
   let pins = sample_anchor_sources(pins)?
-  let first = observe(List.get(pins.endpoints, 0), pins, service_key, version, epoch, minimum_slot)
-  let second = observe(List.get(pins.endpoints, 1), pins, service_key, version, epoch, minimum_slot)
+  let first = observe(List.get(pins.rpc.sources, 0), pins, service_key, version, epoch, minimum_slot)
+  case first do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
+  let second = observe(List.get(pins.rpc.sources, 1), pins, service_key, version, epoch, minimum_slot)
+  case second do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = observe(List.get(pins.endpoints, 2), pins, service_key, version, epoch, minimum_slot)
+  let third = observe(List.get(pins.rpc.sources, 2), pins, service_key, version, epoch, minimum_slot)
+  case third do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, third) do
     Some(value) -> return Ok(value)
     None -> nil

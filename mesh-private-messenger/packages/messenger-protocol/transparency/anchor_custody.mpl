@@ -268,7 +268,7 @@ pub fn read_anchor_custody(pins :: AnchorPins,
     end
   end
   let directory = directory_bond_addresses(pins.program, pins.log_id, expected_mint)?
-  let initial = read_anchor_accounts(pins.endpoints,
+  let initial = read_anchor_accounts(pins.rpc,
     [derived.log, directory.economics],
     minimum_slot)?
   let log = log_record(pins, service_key, version, List.get(initial.accounts, 0))?
@@ -287,7 +287,7 @@ pub fn read_anchor_custody(pins :: AnchorPins,
   policy_record(pins, expected_mint, List.get(initial.accounts, 1))?
   let base = [derived.log, directory.economics, expected_mint, directory.bond, directory.vault]
   let addresses = witness_addresses(pins, expected_mint, witnesses, base)?
-  let snapshot = read_anchor_accounts(pins.endpoints, addresses, initial.slot)?
+  let snapshot = read_anchor_accounts(pins.rpc, addresses, initial.slot)?
   for index in 0..2 do
     let before = owned(List.get(initial.accounts, index),
       pins.program,

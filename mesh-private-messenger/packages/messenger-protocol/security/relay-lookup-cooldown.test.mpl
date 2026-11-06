@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RelayLookupRead import (
   RelayLookupState,
   RelayLookupCooldown,
@@ -82,9 +83,9 @@ fn proof() -> Bool!String do
     assert(Json.array_length(snapshots)? >= 10)
     for sample in 0..Json.array_length(snapshots)? do
       let snapshot = Json.array_get(snapshots, sample)?
-      let value = read_relay_lookup_cooldown(for provider in 0..3 do
+      let value = read_relay_lookup_cooldown(webpki_rpc_transport(for provider in 0..3 do
           "http://127.0.0.1:#{19975 + provider}/#{index}/#{sample}"
-        end,
+        end)?,
         pubkey(text(fixture, "authority")?)?,
         U64.parse(text(fixture, "creation_slot")?)?,
         keys,
