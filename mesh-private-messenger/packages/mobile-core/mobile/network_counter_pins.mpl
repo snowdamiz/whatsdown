@@ -2,6 +2,7 @@
 ##! accepted from a native invocation. v1-v5 SecurityConfig semantics stay intact.
 from Transparency.Config import SecurityConfig, encode_security_config, pinned_witness_keys
 from Transparency.AnchorChain import configured_anchor_pins
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.NetworkCollateralPins import CollateralPins, CollateralSelection
 from Transparency.TokenChain import token_addresses
 from Solana.Read import Pubkey, pubkey
@@ -60,7 +61,7 @@ pub fn decode_network_counter_pins(frame :: Bytes,
   if List.get(fields, 1) != Bytes.to_hex(Crypto.sha256(security_frame)) do
     return Err("network_counter_security_binding")
   end
-  let anchor = case configured_anchor_pins(security)? do
+  let anchor = case configured_anchor_pins(security, webpki_rpc_transport(security.rpc_urls)?)? do
     None -> return Err("network_counter_anchor_required")
     Some(value) -> value
   end

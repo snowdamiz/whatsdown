@@ -10,8 +10,9 @@ from Transparency.Config import SecurityConfig
 from Transparency.Fork import ForkProof, ForkTarget, encode_fork
 from Transparency.Merkle import checkpoint_hash
 from Transparency.SlashReceipt import SlashReceipt, SlashWitness, slash_receipt_address
-from Transparency.SlashReceiptRead import SlashReceiptState
+from Transparency.SlashReceiptRead import SlashReceiptState, read_slash_receipt_state
 from Transparency.AnchorChain import AnchorPins
+from Transparency.RpcTransport import RpcTls, rpc_endpoint, rpc_transport, webpki_rpc_transport
 from Solana.Read import Pubkey
 
 fn await_file(path :: String, tries :: Int) -> Bool do
@@ -82,7 +83,7 @@ test("filing actor returns while receipt I/O waits and commits its result indepe
 end
 
 fn plan_for(proof :: ForkProof, config :: SecurityConfig) -> FilingPlan!String do
-  case prepare_filing(config, encode_fork(proof)?)? do
+  case prepare_filing(config, webpki_rpc_transport(config.rpc_urls)?, encode_fork(proof)?)? do
     Some(plan) -> Ok(plan)
     None -> Err("missing filing plan")
   end
@@ -191,16 +192,23 @@ fn proof() -> Bool!String do
     fn() -> true end)?
   assert(terminal.observation.status == "settled" && File.read(calls)? == "pp")
   # Native key rotation and malformed evidence fail before any filing attempt.
-  case prepare_filing(%{config | service_public_key: repeated(3, 32)?}, plan.wire) do
+  case prepare_filing(%{config | service_public_key: repeated(3, 32)?},
+    webpki_rpc_transport(config.rpc_urls)?,
+    plan.wire) do
     Err(_) -> nil
     Ok(_) -> assert(false)
   end
-  case prepare_filing(config, Bytes.from_utf8("unverified")) do
+  case prepare_filing(config,
+    webpki_rpc_transport(config.rpc_urls)?,
+    Bytes.from_utf8("unverified")) do
     Err(_) -> nil
     Ok(_) -> assert(false)
   end
   let disabled = %{config | relay_urls: [], slash_mint: "-"}
-  assert(prepare_filing(disabled, plan.wire)? == None)
+  assert(case prepare_filing(disabled, webpki_rpc_transport(disabled.rpc_urls)?, plan.wire)? do
+    None -> true
+    Some(_) -> false
+  end)
   File.delete(calls)?
   File.delete(path)?
   Ok(true)
@@ -273,6 +281,74 @@ end
 
 test("native pin changes fence pending submissions and mismatched receipt data never reports payment") do
   case fence_proof() do
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok(value) -> assert(value)
+  end
+end
+
+fn fatal_rpc_proof() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let key = platform_key()?
+  let (proof, original) = filing_fixture()?
+  let config = %{original |
+    rpc_urls: [
+      "https://127.0.0.1:19991/rpc",
+      "https://127.0.0.1:19992/rpc",
+      "https://127.0.0.1:19993/rpc"
+    ]
+  }
+  # This reaches the production reader and public Http PEM validation. Invalid
+  # roots fail before dispatch; every URL is also loopback-only.
+  let rpc = rpc_transport(for url in config.rpc_urls do
+      rpc_endpoint(url, OriginRoots(Http.url_origin(url)?, Bytes.from_utf8("bad PEM")))?
+    end,
+    fn() -> Ok(nil) end)?
+  let plan = case prepare_filing(config, rpc, encode_fork(proof)?)? do
+    None -> return Err("missing filing plan")
+    Some(value) -> value
+  end
+  for error in ["rpc_tls_config_invalid", "rpc_context_changed:account_state_changed"] do
+    let path = database_path("filing-fatal-rpc")?
+    let posted = path <> ".posted"
+    ensure_schema(path)?
+    case run_filing(path,
+      key,
+      plan,
+      wide(1000)?,
+      fn() do
+        File.write(posted, "bad")?
+        Ok(3)
+      end,
+      fn(slot :: U64) do
+        if error == "rpc_tls_config_invalid" do
+          read_slash_receipt_state(plan.pins,
+            config.service_public_key,
+            config.log_version,
+            plan.mint,
+            plan.proof_hash,
+            slot)
+        else
+          Err(error)
+        end
+      end,
+      fn() -> true end) do
+      Err(found) -> assert(found == error)
+      Ok(_) -> return Err("fatal_rpc_error_became_outage")
+    end
+    assert(!File.exists(posted))
+    let state = load_filing(path, key, plan.identity)?
+    assert(state.checked_at == wide(0)? && state.accepted == 0)
+    assert(Bytes.length(state.token) == 16)
+    File.delete(path)?
+  end
+  Ok(true)
+end
+
+test("filing refuses fatal RPC authority errors before relay fallback or completion") do
+  case fatal_rpc_proof() do
     Err(error) -> do
       println(error)
       assert(false)

@@ -1,5 +1,12 @@
 from Mobile.Codec import current_time, mobile_join, mobile_byte, encode_output_list
-from Mobile.Platform import native_security_config
+from Mobile.Platform import native_security_config, decode_native_security_config
+from Mobile.OhttpContext import capture_native_ohttp_context, rpc_transport_from_context
+from Transparency.RpcTransport import (
+  RpcTransport,
+  rpc_transport,
+  require_rpc_current,
+  rpc_fatal_error
+)
 from Mobile.Bounty import disclosable_fork
 from Mobile.ForkFilingState import (
   FilingState,
@@ -11,7 +18,7 @@ from Mobile.ForkFilingState import (
   filing_pending
 )
 from Mobile.ForkFilingTransport import submit_filing
-from Storage.Blobs import ensure_schema
+from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import platform_key
 from Transparency.Config import SecurityConfig, encode_security_config
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins, sample_anchor_sources
@@ -33,11 +40,13 @@ pub struct FilingPlan do
   target_hash :: Bytes
 end
 
-pub fn prepare_filing(config :: SecurityConfig, wire :: Bytes) -> Option<FilingPlan>!String do
+pub fn prepare_filing(config :: SecurityConfig,
+  rpc :: RpcTransport,
+  wire :: Bytes) -> Option<FilingPlan>!String do
   # Re-validate even callers constructing structs directly. Only native config
   # reaches the exported entry point; a directory/relay cannot supply targets.
   encode_security_config(config)?
-  let pins = case configured_anchor_pins(config)? do
+  let pins = case configured_anchor_pins(config, rpc)? do
     None -> return Ok(None)
     Some(value) -> value
   end
@@ -122,6 +131,7 @@ pub fn run_filing(path :: String,
   post :: Fun() -> Result<Int, String>,
   read :: Fun(U64) -> Result<SlashReceiptState, String>,
   current :: Fun() -> Bool) -> FilingState!String do
+  require_rpc_current(plan.pins.rpc.require_current)?
   if !current() do
     return Err("filing_config_changed")
   end
@@ -145,6 +155,7 @@ fn complete_filing(path :: String,
   post :: Fun() -> Result<Int, String>,
   read :: Fun(U64) -> Result<SlashReceiptState, String>,
   current :: Fun() -> Bool) -> FilingState!String do
+  require_rpc_current(plan.pins.rpc.require_current)?
   if !current() do
     return Err("filing_config_changed")
   end
@@ -154,6 +165,7 @@ fn complete_filing(path :: String,
   end
   let observation = case checked do
     Ok(value) -> value
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
     Err(error) -> %{filing_pending(claim.minimum_slot)? |
       status: if error == "anchor_rpc_disagree" do
         "rpc_disagree"
@@ -162,6 +174,7 @@ fn complete_filing(path :: String,
       end
     }
   end
+  require_rpc_current(plan.pins.rpc.require_current)?
   if !current() do
     return Err("filing_config_changed")
   end
@@ -169,10 +182,12 @@ fn complete_filing(path :: String,
     0
   else
     case post() do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
       Err(_) -> 0
       Ok(value) -> value
     end
   end
+  require_rpc_current(plan.pins.rpc.require_current)?
   if !current() do
     return Err("filing_config_changed")
   end
@@ -204,6 +219,7 @@ pub fn start_filing(path :: String,
   post :: Fun() -> Result<Int, String>,
   read :: Fun(U64) -> Result<SlashReceiptState, String>,
   current :: Fun() -> Bool) -> FilingState!String do
+  require_rpc_current(plan.pins.rpc.require_current)?
   if !current() do
     return Err("filing_config_changed")
   end
@@ -296,6 +312,28 @@ pub fn native_filing_current(path :: String, config_frame :: Bytes, wire :: Byte
   end
 end
 
+fn native_filing_context(path :: String, wire :: Bytes) -> (SecurityConfig, RpcTransport)!String do
+  let context = capture_native_ohttp_context(path, load_blob(path, "profile/v1")?)?
+  let config = decode_native_security_config(context.security_frame)?
+  let frame = encode_security_config(config)?
+  let captured = rpc_transport_from_context(path, context)?
+  let rpc = rpc_transport(captured.sources,
+    fn() do
+      captured.require_current()?
+      if !native_filing_current(path, frame, wire) do
+        return Err("filing_config_changed")
+      end
+      Ok(nil)
+    end)?
+  require_rpc_current(rpc.require_current)?
+  Ok((config, rpc))
+end
+
+pub fn prepare_native_filing(path :: String, wire :: Bytes) -> Option<FilingPlan>!String do
+  let (config, rpc) = native_filing_context(path, wire)?
+  prepare_filing(config, rpc, wire)
+end
+
 pub fn check_native_filing(path :: String) -> Bytes!String do
   if String.length(path) == 0 || String.length(path) > 4096 do
     return Err("invalid_database_path")
@@ -306,8 +344,9 @@ pub fn check_native_filing(path :: String) -> Bytes!String do
   if Bytes.length(wire) == 0 do
     return blank("none")
   end
-  let config = native_security_config()?
-  let plan = case prepare_filing(config, wire) do
+  let (config, rpc) = native_filing_context(path, wire)?
+  let plan = case prepare_filing(config, rpc, wire) do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
     Err(_) -> return blank("invalid_evidence")
     Ok(None) -> return blank("disabled")
     Ok(Some(value)) -> value
