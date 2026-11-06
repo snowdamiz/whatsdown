@@ -16,6 +16,13 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def has_parser_refusal(diagnostics, code, module, parser_name, source):
+    action = {"E0034": "not exported by", "E0035": "private in"}[code]
+    subject = f"`{parser_name}` is {action} module `{module}`;"
+    return any(item.get("code") == code and item.get("file") == str(source)
+               and item.get("message", "").startswith(subject) for item in diagnostics)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--product", type=Path, default=Path(__file__).resolve().parents[2])
@@ -27,8 +34,11 @@ def main():
     compiler = args.compiler.resolve()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    record = {"status": "running", "compiler_sha256": sha(compiler), "runner_sha256": sha(Path(__file__)), "fixture_sha256": sha(Path(__file__).parent / "fixtures/content-ingress.mpl"), "control_escape_sha256": sha(Path(__file__).parent / "fixtures/control-parser-escape.mpl"), "private_control_sha256": sha(Path(__file__).parent / "fixtures/control-parser-private.mpl"), "inputs": {}, "results": [],
-              "scope": "Actual parsed direct, fanout, group-send and self-sync bodies, native fanout action, and direct/self-sync encoding; decoded decrypted projections remain outside this proof."}
+    raw_parsers = ("parse_store_request", "parse_fanout_targets_request", "parse_triple_payload_request")
+    parser_fixtures = {name: sha(Path(__file__).parent / "fixtures" / name)
+                      for name in ("raw-request-parsers.mpl", "private-raw-request-parsers.mpl")}
+    record = {"status": "running", "compiler_sha256": sha(compiler), "runner_sha256": sha(Path(__file__)), "fixture_sha256": sha(Path(__file__).parent / "fixtures/content-ingress.mpl"), "control_escape_sha256": sha(Path(__file__).parent / "fixtures/control-parser-escape.mpl"), "private_control_sha256": sha(Path(__file__).parent / "fixtures/control-parser-private.mpl"), "raw_parser_fixtures": parser_fixtures, "inputs": {}, "results": [],
+              "scope": "Actual parsed direct, fanout, group-send and self-sync bodies, native fanout action, direct/self-sync encoding, and named control/raw-parser import restrictions; general byte decoding and decoded decrypted projections remain outside this proof."}
     runtime = os.environ.get("MESH_RT_LIB_PATH")
     if runtime:
         record["runtime_sha256"] = sha(Path(runtime))
@@ -127,9 +137,18 @@ def main():
                 ("control-parser-private", "control-parser-private.mpl", "E0035")):
             (probe / "main.mpl").write_text((fixture.parent / fixture_name).read_text())
             diagnostics = build(name, probe, False)
-            if not any(item.get("code") == code and item.get("file") == str(probe / "main.mpl")
-                       and "parse_fanout_control_request" in item.get("message", "") for item in diagnostics):
+            module = "Mobile.Requests" if code == "E0034" else "Mobile.GroupInvites"
+            if not has_parser_refusal(diagnostics, code, module, "parse_fanout_control_request", probe / "main.mpl"):
                 raise RuntimeError(name + " did not reject the exact control parser")
+        for name, fixture_name, code in (
+                ("raw-parsers-not-exported", "raw-request-parsers.mpl", "E0034"),
+                ("raw-parsers-private", "private-raw-request-parsers.mpl", "E0035")):
+            (probe / "main.mpl").write_text((fixture.parent / fixture_name).read_text())
+            diagnostics = build(name, probe, False)
+            for parser_name in raw_parsers:
+                module = "Mobile.Requests" if code == "E0034" else "MobileCore"
+                if not has_parser_refusal(diagnostics, code, module, parser_name, probe / "main.mpl"):
+                    raise RuntimeError(name + " did not reject " + parser_name)
         (probe / "main.mpl").write_text(source)
         path = mobile / "mobile/types.mpl"
         original = path.read_text()
@@ -161,6 +180,7 @@ def main():
         if (sha(compiler) != record["compiler_sha256"] or sha(fixture) != record["fixture_sha256"]
                 or sha(fixture.parent / "control-parser-escape.mpl") != record["control_escape_sha256"]
                 or sha(fixture.parent / "control-parser-private.mpl") != record["private_control_sha256"]
+                or any(sha(fixture.parent / name) != digest for name, digest in parser_fixtures.items())
                 or (runtime and sha(Path(runtime)) != record["runtime_sha256"])
                 or (test_runtime and sha(Path(test_runtime)) != record["test_runtime_sha256"])):
             raise RuntimeError("toolchain or fixture changed during proof")

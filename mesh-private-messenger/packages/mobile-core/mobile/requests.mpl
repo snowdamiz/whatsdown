@@ -20,7 +20,6 @@ from Mobile.Types import (
   MobileFanoutPrekeyReservationRequest,
   MobileFanoutPrepareRequest,
   MobileFanoutRequest,
-  MobileFanoutTargetsRequest,
   MobileGroupAddRequest,
   MobileGroupReferenceRequest,
   MobileGroupRemoveRequest,
@@ -35,37 +34,10 @@ from Mobile.Types import (
   MobileReadBytes,
   MobileReceiveRequest,
   MobileStartRequest,
-  MobileStoreRequest,
-  MobileTransparencyRequest,
-  MobileTriplePayloadRequest
+  MobileTransparencyRequest
 )
 
 ##! Mobile.Requests implementation.
-
-pub fn parse_store_request(input :: Bytes) -> MobileStoreRequest!String do
-  if Bytes.length(input) > 69854 do
-    Err("store_request_too_large")
-  else
-    let state = mobile_reader(input, 69854, "invalid_store_request")?
-    let path = take_vector(state, 4096)?
-    let record_key = take_vector(path.state, 128)?
-    let envelope = take_vector(record_key.state, 65606)?
-    mobile_finish(envelope.state, "invalid_store_request")?
-    case Bytes.to_utf8(path.value) do
-      Err(_) -> Err("invalid_database_path")
-      Ok(database_path) -> if String.length(database_path) == 0
-        || Bytes.length(record_key.value) == 0 do
-        Err("invalid_store_request")
-      else
-        Ok(MobileStoreRequest {
-          database_path: database_path,
-          record_key: record_key.value,
-          envelope: envelope.value
-        })
-      end
-    end
-  end
-end
 
 pub fn parse_account_request(input :: Bytes) -> MobileAccountRequest!String do
   if Bytes.length(input) > 4168 do
@@ -149,24 +121,6 @@ pub fn parse_start_request(input :: Bytes) -> MobileStartRequest!String do
   end
 end
 
-pub fn parse_fanout_targets_request(input :: Bytes) -> MobileFanoutTargetsRequest!String do
-  let state = mobile_reader(input, 614628, "invalid_fanout_request")?
-  let path = take_vector(state, 4096)?
-  let peer_device_set = take_vector(path.state, 305260)?
-  let local_device_set = take_vector(peer_device_set.state, 305260)?
-  mobile_finish(local_device_set.state, "invalid_fanout_request")?
-  let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  if String.length(database_path) == 0 do
-    Err("invalid_fanout_request")
-  else
-    Ok(MobileFanoutTargetsRequest {
-      database_path: database_path,
-      peer_device_set: peer_device_set.value,
-      local_device_set: local_device_set.value
-    })
-  end
-end
-
 pub fn parse_fanout_prepare_request(input :: Bytes) -> MobileFanoutPrepareRequest!String do
   let state = mobile_reader(input, 616680, "invalid_fanout_request")?
   let path = take_vector(state, 4096)?
@@ -207,7 +161,6 @@ pub fn parse_fanout_prekey_reservation_request(input :: Bytes) -> MobileFanoutPr
     })
   end
 end
-
 
 pub fn parse_fanout_request(input :: Bytes) -> MobileFanoutRequest!String do
   let state = mobile_reader(input, 663020, "invalid_fanout_request")?
@@ -361,26 +314,6 @@ pub fn parse_push_action_completion(input :: Bytes) -> MobilePushActionCompletio
       database_path: database_path,
       action: action.value,
       outcome: outcome_value
-    })
-  end
-end
-
-pub fn parse_triple_payload_request(input :: Bytes) -> MobileTriplePayloadRequest!String do
-  let state = mobile_reader(input, 614628, "invalid_payload_request")?
-  let path = take_vector(state, 4096)?
-  let first = take_vector(path.state, 305260)?
-  let second = take_vector(first.state, 305260)?
-  mobile_finish(second.state, "invalid_payload_request")?
-  let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  if String.length(database_path) == 0
-    || Bytes.length(first.value) == 0
-    || Bytes.length(second.value) == 0 do
-    Err("invalid_payload_request")
-  else
-    Ok(MobileTriplePayloadRequest {
-      database_path: database_path,
-      first: first.value,
-      second: second.value
     })
   end
 end

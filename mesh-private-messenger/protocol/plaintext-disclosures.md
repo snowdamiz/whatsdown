@@ -7,6 +7,12 @@ and desktop build entry points compare every
 reported site with this file before replacing an installed library. Missing
 reports, additions, removals, moved sites and changed reasons fail the build.
 
+The raw storage, fanout-target and triple-payload request parsers are now private
+to `MobileCore`. Moving their imports shifts the 16 existing display sites by
+four lines and minus 28 bytes; their exact expressions, reasons and kinds are
+unchanged. This move adds no disclosure and does not establish complete ingress
+labeling.
+
 This baseline records the exits present during the application migration. It
 does not establish complete private-source labeling, independent review or
 release approval. Those remain required by

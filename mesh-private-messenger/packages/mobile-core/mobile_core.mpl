@@ -112,7 +112,14 @@ from Mobile.Account import (
   mailbox_fetch
 )
 from Mobile.Attachments import open_attachment_chunk, prepare_attachment, seal_attachment_chunk
-from Mobile.Codec import canonical_outer, mobile_utf8, mobile_byte
+from Mobile.Codec import (
+  canonical_outer,
+  mobile_utf8,
+  mobile_byte,
+  mobile_reader,
+  mobile_finish,
+  take_vector
+)
 from Mobile.Fanout import send_fanout
 from Mobile.GroupInvites import (
   invite_to_group,
@@ -190,7 +197,6 @@ from Mobile.Requests import (
   parse_fanout_prekey_reservation_request,
   parse_fanout_prepare_request,
   parse_fanout_request,
-  parse_fanout_targets_request,
   parse_group_add_request,
   parse_group_reference_request,
   parse_group_remove_request,
@@ -204,9 +210,7 @@ from Mobile.Requests import (
   parse_push_intent_request,
   parse_receive_request,
   parse_start_request,
-  parse_store_request,
-  parse_transparency_request,
-  parse_triple_payload_request
+  parse_transparency_request
 )
 from Mobile.Transparency import transparency_lookup, verify_transparency_response
 from Mobile.Types import (
@@ -1150,4 +1154,67 @@ from Mobile.ViewOnceNative import native_view_once_consume
 @export("mesh_messenger_view_once_consume", max_input: 40271, max_output: 16777225, bindings: "native")
 pub fn view_once_consume_native_export(request :: Bytes) -> Plaintext<Bytes>!String do
   native_view_once_consume(request)
+end
+
+fn parse_store_request(input :: Bytes) -> MobileStoreRequest!String do
+  if Bytes.length(input) > 69854 do
+    Err("store_request_too_large")
+  else
+    let state = mobile_reader(input, 69854, "invalid_store_request")?
+    let path = take_vector(state, 4096)?
+    let record_key = take_vector(path.state, 128)?
+    let envelope = take_vector(record_key.state, 65606)?
+    mobile_finish(envelope.state, "invalid_store_request")?
+    case Bytes.to_utf8(path.value) do
+      Err(_) -> Err("invalid_database_path")
+      Ok(database_path) -> if String.length(database_path) == 0
+        || Bytes.length(record_key.value) == 0 do
+        Err("invalid_store_request")
+      else
+        Ok(MobileStoreRequest {
+          database_path: database_path,
+          record_key: record_key.value,
+          envelope: envelope.value
+        })
+      end
+    end
+  end
+end
+
+fn parse_fanout_targets_request(input :: Bytes) -> MobileFanoutTargetsRequest!String do
+  let state = mobile_reader(input, 614628, "invalid_fanout_request")?
+  let path = take_vector(state, 4096)?
+  let peer_device_set = take_vector(path.state, 305260)?
+  let local_device_set = take_vector(peer_device_set.state, 305260)?
+  mobile_finish(local_device_set.state, "invalid_fanout_request")?
+  let database_path = mobile_utf8(path.value, "invalid_database_path")?
+  if String.length(database_path) == 0 do
+    Err("invalid_fanout_request")
+  else
+    Ok(MobileFanoutTargetsRequest {
+      database_path: database_path,
+      peer_device_set: peer_device_set.value,
+      local_device_set: local_device_set.value
+    })
+  end
+end
+
+fn parse_triple_payload_request(input :: Bytes) -> MobileTriplePayloadRequest!String do
+  let state = mobile_reader(input, 614628, "invalid_payload_request")?
+  let path = take_vector(state, 4096)?
+  let first = take_vector(path.state, 305260)?
+  let second = take_vector(first.state, 305260)?
+  mobile_finish(second.state, "invalid_payload_request")?
+  let database_path = mobile_utf8(path.value, "invalid_database_path")?
+  if String.length(database_path) == 0
+    || Bytes.length(first.value) == 0
+    || Bytes.length(second.value) == 0 do
+    Err("invalid_payload_request")
+  else
+    Ok(MobileTriplePayloadRequest {
+      database_path: database_path,
+      first: first.value,
+      second: second.value
+    })
+  end
 end

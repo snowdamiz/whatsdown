@@ -367,9 +367,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Paid attachment names, MIME types and journal status are returned to the reviewed React Native paid-attachment inventory for display and explicit resume/cancel controls; content remains private elsewhere.",
-      "start": 12348,
-      "end": 12564,
-      "line": 360,
+      "start": 12320,
+      "end": 12536,
+      "line": 364,
       "column": 1
     },
     {
@@ -377,9 +377,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Authenticated attachment names, MIME types and bounded download metadata are returned to the reviewed React Native attachment display/save adapter; object fetching remains in Mesh.",
-      "start": 12722,
-      "end": 12914,
-      "line": 365,
+      "start": 12694,
+      "end": 12886,
+      "line": 369,
       "column": 1
     },
     {
@@ -387,9 +387,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "The legacy native initial-receive response returns the authenticated message body to the app-owned UI boundary; calls from Mesh retain private results and internal mailbox processing grants no display permission.",
-      "start": 15493,
-      "end": 15717,
-      "line": 426,
+      "start": 15465,
+      "end": 15689,
+      "line": 430,
       "column": 1
     },
     {
@@ -397,9 +397,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "The legacy native group-receive response returns the authenticated message body to the app-owned UI boundary; calls from Mesh retain private results and internal mailbox processing grants no display permission.",
-      "start": 18747,
-      "end": 18969,
-      "line": 501,
+      "start": 18719,
+      "end": 18941,
+      "line": 505,
       "column": 1
     },
     {
@@ -407,9 +407,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Group history bodies and attachment presentation are returned to the reviewed React Native chat and local notification adapters; notification redaction and receipt timestamps are computed there, and receipt transport is natively re-sealed.",
-      "start": 19494,
-      "end": 19745,
-      "line": 514,
+      "start": 19466,
+      "end": 19717,
+      "line": 518,
       "column": 1
     },
     {
@@ -417,9 +417,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "The legacy native direct-receive response returns the authenticated message body to the app-owned UI boundary; calls from Mesh retain private results and internal mailbox processing grants no display permission.",
-      "start": 20197,
-      "end": 20420,
-      "line": 525,
+      "start": 20169,
+      "end": 20392,
+      "line": 529,
       "column": 1
     },
     {
@@ -427,9 +427,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Direct history bodies and attachment presentation are returned to the reviewed React Native chat and local notification adapters; notification redaction and receipt timestamps are computed there, and receipt transport is natively re-sealed.",
-      "start": 21604,
-      "end": 21856,
-      "line": 554,
+      "start": 21576,
+      "end": 21828,
+      "line": 558,
       "column": 1
     },
     {
@@ -437,9 +437,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Profile, contact nickname, group and community name/avatar/text records are returned to the reviewed React Native presentation store for chat, contact/profile/community screens and local group notification presentation; raw content remains private elsewhere.",
-      "start": 30201,
-      "end": 30471,
-      "line": 750,
+      "start": 30173,
+      "end": 30443,
+      "line": 754,
       "column": 1
     },
     {
@@ -447,9 +447,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "The confirmed selected profile, local nickname, group or community presentation record is returned to the reviewed React Native edit and community-state adapters after an authenticated local update; raw content remains private elsewhere.",
-      "start": 30643,
-      "end": 30892,
-      "line": 755,
+      "start": 30615,
+      "end": 30864,
+      "line": 759,
       "column": 1
     },
     {
@@ -457,9 +457,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "User-requested attachment plaintext is returned to the native display/save boundary after authenticated chunk opening; HTTP transport remains in Mesh.",
-      "start": 38487,
-      "end": 38649,
-      "line": 978,
+      "start": 38459,
+      "end": 38621,
+      "line": 982,
       "column": 1
     },
     {
@@ -467,9 +467,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Authenticated portable backup overview metadata including finite schema attachment policy and separate file omission counts is returned only to the account-bound native import confirmation screen after complete restore canonical schema and current owner checks; message bodies attachment names MIME types file contents equality tokens authorization keys service realms recovery codes and raw errors remain private.",
-      "start": 42528,
-      "end": 42954,
-      "line": 1085,
+      "start": 42500,
+      "end": 42926,
+      "line": 1089,
       "column": 1
     },
     {
@@ -477,9 +477,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Authenticated local archive identifiers and creation timestamps are returned only to the account-bound native backup inventory for selecting a read-only archive or explicit removal; message bodies archive digests authorization keys service realms recovery codes and raw errors remain private.",
-      "start": 43320,
-      "end": 43624,
-      "line": 1096,
+      "start": 43292,
+      "end": 43596,
+      "line": 1100,
       "column": 1
     },
     {
@@ -487,9 +487,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Authenticated stored archive historical conversation identifiers labels creation time bounded message counts finite attachment policy and separate file omission counts are returned only to the account-bound native read-only archive overview after current owner and snapshot checks; message bodies attachment names MIME types file contents equality tokens authorization keys service realms recovery codes and raw errors remain private.",
-      "start": 43975,
-      "end": 44421,
-      "line": 1107,
+      "start": 43947,
+      "end": 44393,
+      "line": 1111,
       "column": 1
     },
     {
@@ -497,9 +497,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Authenticated bounded archive page text historical record metadata included-file display metadata explicit omission reasons revision-bound equality tokens and explicitly selected archive-file chunks are returned only to the current account-bound native read-only archive viewer after canonical owner selected-slot original snapshot and current authority checks; raw canonical archives archive and index digests revision tags authorization keys service realms recovery codes object capabilities keys and raw errors remain private.",
-      "start": 44606,
-      "end": 45147,
-      "line": 1113,
+      "start": 44578,
+      "end": 45119,
+      "line": 1117,
       "column": 1
     },
     {
@@ -507,9 +507,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "Current custody checked pending backup export state is returned only to the account bound native continuation screen as empty repair required or an authenticated bounded draft identifier creation timestamp and ciphertext byte count; recovery codes plaintext history payloads descriptor digests authorization keys service realms raw errors and prior caller control remain private.",
-      "start": 45486,
-      "end": 45877,
-      "line": 1126,
+      "start": 45458,
+      "end": 45849,
+      "line": 1130,
       "column": 1
     },
     {
@@ -517,9 +517,9 @@
       "file": "mobile_core.mpl",
       "kind": "display",
       "reason": "User explicitly opens this selected per-device view-once image; authenticated image format and bytes are returned only after durable local consumption to the current native-only one-shot viewer. Generic JavaScript invoke, save, sharing, backup, network and detailed errors remain excluded.",
-      "start": 46744,
-      "end": 47045,
-      "line": 1149,
+      "start": 46716,
+      "end": 47017,
+      "line": 1153,
       "column": 1
     },
     {
