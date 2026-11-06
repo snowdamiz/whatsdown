@@ -52,6 +52,7 @@ const fits=(instructions,payer,table)=>getTransactionSize(compileTransaction(mes
 // Only locally generated Mesh reports enter this function. HTTP callers submit
 // raw FRK, never these reports, account lists, transaction steps or RPC views.
 export function prepareRelayTransactions(plan,pins){
+  if(plan?.schema_version===2)return prepareMixedRelayTransactions(plan,pins);
   if(!plan||plan.schema_version!==1||plan.status!=='ready') fail('Expected a ready Mesh relay plan');
   for(const field of ['program','log','mint','submitter']){
     if(!pins||pins[field]!==plan[field]) fail('Relay operator pin mismatch'); key(plan[field]);
@@ -163,6 +164,137 @@ export function prepareRelayTransactions(plan,pins){
   return Object.freeze(prepared);
 }
 
+// MPR2 is a sequence of fresh Mesh decisions. Each decision admits only its
+// current packet; the journal keeps the previous recipe until reconciliation.
+function prepareMixedRelayTransactions(plan,pins){
+  if(!['ready','settled'].includes(plan.status))fail('Expected a ready Mesh relay plan');
+  for(const field of ['program','log','submitter']){
+    if(pins?.[field]!==plan[field])fail('Relay operator pin mismatch');key(plan[field]);
+  }
+  if(pins?.usdcMint!==plan.usdc_mint||pins?.morseMint!==plan.morse_mint||
+    (pins.mint!==undefined&&pins.mint!==pins.usdcMint)||plan.usdc_mint===plan.morse_mint)fail('Relay mixed-asset pin mismatch');
+  key(plan.usdc_mint);key(plan.morse_mint);key(plan.finder);key(plan.receipt);wide(plan.context_slot);
+  if(plan.proof_hex!==pins.proofHex)fail('Relay proof changed after admission');
+  const wire=hex(plan.proof_hex,264,8009),payer=plan.submitter,stage=key(plan.stage?.address);
+  hex(plan.proof_hash,32);
+  if(plan.stage.full_hash!==createHash('sha256').update(wire).digest('hex'))fail('Relay upload hash mismatch');
+  const operation=plan.operation,reason=operation?.reason;
+  if(plan.status==='settled'&&operation!==null&&!['explicit_stage_close','close_proof_stage'].includes(reason))fail('Settled relay plan may only close its stage');
+  if(operation!==null&&(!operation||!Array.isArray(operation.instructions)||operation.instructions.length<1||operation.instructions.length>4))fail('Invalid mixed relay operation');
+  const instructions=(operation?.instructions??[]).map(value=>report(value,value.programId,payer));
+  const planDigest=createHash('sha256').update(JSON.stringify(plan)).digest('hex');
+  const exact=(ix,keys,roles)=>{
+    if(!same(ix.accounts.map(a=>a.address),keys)||!same(ix.accounts.map(a=>a.role),roles))fail('Invalid mixed relay account shape');
+  };
+  const R=AccountRole.READONLY,W=AccountRole.WRITABLE,S=AccountRole.WRITABLE_SIGNER;
+  let kind,id,allocations=[];
+  const ix=instructions.at(-1),tag=ix?.data[0];
+  if(operation){
+    if(reason==='payout_accounts'){
+      if(instructions.length!==4)fail('Invalid mixed relay payout setup');
+      for(const [index,value] of instructions.entries()){
+        if(value.programAddress!==ATA||value.data.toString('hex')!=='01'||value.accounts.length!==6)fail('Invalid mixed relay payout setup');
+        const mint=index<2?plan.usdc_mint:plan.morse_mint;
+        exact(value,[payer,value.accounts[1].address,value.accounts[2].address,mint,SYSTEM,TOKEN],[S,W,R,R,R,R]);
+        if(index%2===0&&value.accounts[2].address!==plan.finder)fail('Invalid mixed relay finder payout');
+        if(index>=2&&value.accounts[2].address!==instructions[index-2].accounts[2].address)fail('Invalid mixed relay payout owner');
+        allocations.push({address:value.accounts[1].address,space:165});
+      }
+      kind='setup';id='setup';
+    }else{
+      if(ix.programAddress!==plan.program)fail('Unexpected mixed relay program');
+      if(reason!=='verify_one_signature'&&instructions.length!==1)fail('Invalid mixed relay instruction count');
+      if(reason==='initialize_proof_stage'){
+        exact(ix,[payer,plan.log,stage,SYSTEM],[S,R,W,R]);
+        if(tag!==10||ix.data.length!==35||ix.data.readUInt16LE(1)!==wire.length||ix.data.subarray(3).toString('hex')!==plan.stage.full_hash)fail('Invalid mixed relay initialization');
+        kind='initialize';id='initialize';allocations=[{address:stage}];
+      }else if(reason==='append_proof_stage'){
+        exact(ix,[payer,stage],[S,W]);
+        const offset=ix.data.length>=3?ix.data.readUInt16LE(1):-1;
+        if(tag!==11||ix.data.length<4||ix.data.length>903||!ix.data.subarray(3).equals(wire.subarray(offset,offset+ix.data.length-3)))fail('Invalid mixed relay upload');
+        kind='append';id=`append/${offset}`;
+      }else if(reason==='seal_proof_stage'){
+        exact(ix,[payer,plan.log,stage],[S,R,W]);
+        if(ix.data.toString('hex')!=='0c')fail('Invalid mixed relay seal');kind='seal';id='seal';
+      }else if(reason==='verify_one_signature'){
+        if(instructions.length!==2||instructions[0].programAddress!==ED||instructions[0].accounts.length||tag!==13||ix.data.length!==4||ix.data.readUInt16LE(2)!==0)fail('Invalid mixed relay precompile pair');
+        const ed=instructions[0].data,ordinal=ix.data[1];
+        if(ordinal>33||ed.length<113||ed.length>1024||ed[0]!==1||ed[1]!==0||ed.readUInt16LE(2)!==48||ed.readUInt16LE(4)!==65535||ed.readUInt16LE(6)!==16||ed.readUInt16LE(8)!==65535||ed.readUInt16LE(10)!==112||ed.readUInt16LE(12)!==ed.length-112||ed.readUInt16LE(14)!==65535)fail('Invalid mixed relay signature');
+        exact(ix,ordinal<2?[plan.log,stage,INSTRUCTIONS]:[plan.log,stage,INSTRUCTIONS,ix.accounts[3]?.address,payer],ordinal<2?[R,W,R]:[R,W,R,R,S]);
+        kind='verify';id=`verify/${ordinal}`;
+      }else if(reason==='prepare_permanent_receipt'){
+        const count=ix.accounts.length,space=operation.rent_allocations?.[0]?.space,rows=(space-400)/144;
+        if(![41,42,43].includes(tag)||ix.data.length!==33||!Number.isInteger(rows)||rows<0||rows>16||![8+2*rows,10+2*rows].includes(count))fail('Invalid mixed relay receipt preparation');
+        const keys=ix.accounts.map(a=>a.address);
+        exact(ix,[payer,plan.log,stage,keys[3],keys[4],plan.receipt,SYSTEM,...keys.slice(7)],[S,R,R,R,R,W,R,...keys.slice(7).map(()=>R)]);
+        kind='prepare';id='prepare';allocations=[{address:plan.receipt,space}];
+      }else if(reason==='settle_mixed_assets'){
+        const count=ix.accounts.length,keys=ix.accounts.map(a=>a.address);
+        if(tag!==44||ix.data.length!==1||count<13||count>61||(count-13)%3)fail('Invalid mixed relay settlement');
+        exact(ix,[plan.log,keys[1],keys[2],plan.receipt,keys[4],keys[5],plan.usdc_mint,keys[7],keys[8],plan.morse_mint,keys[10],keys[11],TOKEN,...keys.slice(13)],
+          [W,W,R,W,W,W,R,W,W,R,W,W,R,...keys.slice(13).map(()=>W)]);
+        kind='settle';id='settle';
+      }else if(reason==='explicit_stage_close'||reason==='close_proof_stage'){
+        exact(ix,[payer,stage],[S,W]);if(ix.data.toString('hex')!=='0e')fail('Invalid mixed relay close');kind='close-stage';id='close-stage';
+      }else fail('Unknown mixed relay operation');
+    }
+    const rent=operation.rent_allocations;
+    if(!Array.isArray(rent)||rent.length!==allocations.length)fail('Invalid mixed relay rent allocations');
+    for(const expected of allocations){
+      const found=rent.filter(a=>a?.address===expected.address);
+      if(found.length!==1||!Number.isSafeInteger(found[0].space)||found[0].space<1||found[0].space>32768||(expected.space!==undefined&&found[0].space!==expected.space))fail('Invalid mixed relay rent allocation');
+    }
+    allocations=structuredClone(rent);
+  }
+  function step(stepId,stepKind,packet,rent=[],requiresLookup=false,reports=packet.map(ix=>({schemaVersion:1,
+    programId:ix.programAddress,accountCount:ix.accounts.length,accountKeys:ix.accounts.map(a=>a.address),
+    signerKeys:ix.accounts.filter(a=>a.role===AccountRole.READONLY_SIGNER||a.role===S).map(a=>a.address),
+    writableKeys:ix.accounts.filter(a=>a.role===W||a.role===S).map(a=>a.address),
+    dataBase64:Buffer.from(ix.data).toString('base64'),dataBytes:ix.data.length}))){
+    const value=Object.freeze({id:stepId,kind:stepKind,requiresLookup});
+    RECIPES.set(value,{payer,contextSlot:plan.context_slot,planDigest,instructions:packet,requiresLookup,
+      lookup:plan.lookup?structuredClone(plan.lookup):undefined,kind:stepKind,reason,reports:structuredClone(reports),rent});return value;
+  }
+  const cleanup=[step('close-stage','close-stage',[{programAddress:plan.program,accounts:[meta(payer,true,true),meta(stage,false,true)],data:Buffer.from([14])}])];
+  const lookup=[];
+  let packet=instructions;
+  if(plan.compute_budget!==undefined){
+    const compute=report(plan.compute_budget,COMPUTE,payer);
+    if(compute.accounts.length||compute.data.length!==5||compute.data[0]!==2||compute.data.readUInt32LE(1)!==1400000)fail('Invalid mixed relay compute budget');
+    if(['prepare','settle'].includes(kind))packet=[compute,...instructions];
+  }
+  const widePacket=operation&&!fits(packet,payer);
+  if(widePacket&&!plan.lookup)fail('Mixed relay operation requires a Mesh lookup plan');
+  const needsLookup=Boolean(widePacket||plan.lookup&&(!operation||kind==='close-stage'));
+  if(plan.lookup){
+    const table=plan.lookup;key(table.address);wide(table.recent_slot);
+    if(!Array.isArray(table.addresses)||!table.addresses.length||table.addresses.length>64||new Set(table.addresses).size!==table.addresses.length)fail('Invalid mixed relay lookup contents');
+    table.addresses.forEach(key);
+    const expected=[...new Set(instructions.flatMap(value=>value.accounts.filter(a=>a.address!==payer).map(a=>a.address)))];
+    if(widePacket&&expected.some(address=>!table.addresses.includes(address)))fail('Invalid mixed relay lookup addresses');
+    const create=report(table.create,LOOKUP,payer),deactivate=report(table.deactivate,LOOKUP,payer),close=report(table.close,LOOKUP,payer);
+    exact(create,[table.address,payer,payer,SYSTEM],[W,S,S,R]);exact(deactivate,[table.address,payer],[W,AccountRole.READONLY_SIGNER]);exact(close,[table.address,payer,payer],[W,S,S]);
+    if(create.data.length!==13||create.data.readUInt32LE(0)!==0||create.data.readBigUInt64LE(4)!==wide(table.recent_slot)||deactivate.data.toString('hex')!=='03000000'||close.data.toString('hex')!=='04000000')fail('Invalid mixed relay lookup lifecycle');
+    if(!Array.isArray(table.extend)||table.extend.length<1||table.extend.length>4)fail('Invalid mixed relay lookup extensions');
+    lookup.push(step('create-table','create-table',[create],[{address:table.address,space:56}],false,[table.create]));
+    const extended=[];
+    for(const [index,value] of table.extend.entries()){
+      const extension=report(value,LOOKUP,payer);exact(extension,[table.address,payer,payer,SYSTEM],[W,S,S,R]);
+      const data=extension.data;
+      if(data.length<44||data.length>652||(data.length-12)%32||data.readUInt32LE(0)!==2||data.readBigUInt64LE(4)!==BigInt((data.length-12)/32))fail('Invalid mixed relay lookup extension');
+      for(let n=12;n<data.length;n+=32)extended.push(getAddressDecoder().decode(data.subarray(n,n+32)));
+      const item=step(`extend-table/${index}`,'extend-table',[extension],[{address:table.address,space:56+32*extended.length}],false,[value]);
+      RECIPES.get(item).extensionEnd=extended.length;lookup.push(item);
+    }
+    if(!same(extended,table.addresses))fail('Invalid mixed relay lookup contents');
+    cleanup.push(step('deactivate-table','deactivate-table',[deactivate],[],false,[table.deactivate]),step('close-table','close-table',[close],[],false,[table.close]));
+    if(widePacket&&!fits(packet,payer,table))fail('Mixed relay operation exceeds packet limit');
+  }
+  const current=operation?step(id,kind,packet,allocations,Boolean(widePacket)):null;
+  return Object.freeze({proofHash:plan.proof_hash,finder:plan.finder,needsLookup,preparation:Object.freeze(current&&kind!=='settle'&&kind!=='close-stage'?[current]:[]),
+    settlement:kind==='settle'?current:null,lookup:Object.freeze(lookup),cleanup:Object.freeze(cleanup)});
+}
+
 // Effects describe the exact local transaction recipe, including verification
 // batch ordinals after packet splitting. Mesh authenticates the state; this
 // descriptor only tells the chain writer which earned effects to look for.
@@ -170,6 +302,11 @@ export function relayStepEffect(step,plan){
   const recipe=RECIPES.get(step);if(!recipe)fail('Expected a locally prepared relay step');
   if(recipe.planDigest!==createHash('sha256').update(JSON.stringify(plan)).digest('hex'))fail('Relay step belongs to a different plan');
   const result={kind:recipe.kind,minContextSlot:recipe.contextSlot};
+  if(plan.schema_version===2)return {...result,reason:recipe.reason,stepId:step.id,
+    operationDigest:relayStepIntent(step),instructions:structuredClone(recipe.reports),
+    ...(step.kind==='close-stage'?{meshEffect:{schema_version:1,reason:'explicit_stage_close',full_hash:plan.stage.full_hash}}:
+      plan.operation?.effect&&['initialize','append','seal','verify','prepare','setup','settle'].includes(step.kind)?{meshEffect:structuredClone(plan.operation.effect)}:{}),
+    lookup:recipe.lookup?structuredClone(recipe.lookup):null};
   if(recipe.kind==='append'){
     const data=recipe.instructions[0].data;result.receivedBytes=data.readUInt16LE(1)+data.length-3;
   }
