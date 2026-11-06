@@ -76,6 +76,26 @@ enum MeshMessengerBountyBridge {
     }
     guard at==input.count else {throw Failure.invalid};return result
   }
+  static func validateObservation(_ symbol:String, _ input:Data, _ database:Data) throws {
+    guard ["mesh_messenger_bounty_transfer_status","mesh_messenger_bounty_transfer_recover","mesh_messenger_bounty_transfer_cancel"].contains(symbol),
+      (1...4096).contains(database.count),input.count<=8192 else {throw Failure.invalid}
+    let status=symbol.hasSuffix("_status")
+    if status && input==database {return}
+    guard input.count>=4 else {throw Failure.invalid}
+    let count=input.prefix(4).reduce(0){($0<<8)|Int($1)}
+    guard count==2 || (!status && count==4) else {throw Failure.invalid}
+    let f=try fields(input,count:count,maximum:8192),path:Data
+    if f[0]==Data([2,66,77,82]) {
+      guard count==(status ? 2:4) else {throw Failure.invalid}
+      if !status {guard f[2].count==1,f[2][0]<=2,f[3].count==32,f[3].contains(where:{$0 != 0}) else {throw Failure.invalid}}
+      path=f[1]
+    } else {
+      guard !status,count==2,!(f[0].count==4 && f[0].suffix(3)==Data([66,77,82])),
+        f[1].count==32,f[1].contains(where:{$0 != 0}) else {throw Failure.invalid}
+      path=f[0]
+    }
+    guard path==database else {throw Failure.invalid}
+  }
   private static func movementResult(_ input:Data, identity:Data, destination:Data) throws -> UInt8 {
     let f=try fields(input,count:12,maximum:2048)
     guard f[0]==Data([1,66,77,87]), f[1]==identity, f[2].count==1, f[2][0]<=5,
@@ -85,8 +105,89 @@ enum MeshMessengerBountyBridge {
       (f[2][0]<2 ? f[3].isEmpty : f[3].count==64) else {throw Failure.invalid}
     return f[2][0]
   }
+  private static func movementRow(_ input:Data) throws -> [Data] {
+    let f=try fields(input,count:12,maximum:2048)
+    guard f[0]==Data([1,66,77,87]),f[2].count==1,f[2][0]<=5,
+      f[7].count==8,f[8].count==1,f[8][0]<=18,f[9].count==8,f[10].count==8,
+      f[11].count<=256,String(data:f[11],encoding:.utf8) != nil else {throw Failure.invalid}
+    if f[1].isEmpty {
+      guard f[2][0]==0,[3,4,5,6].allSatisfy({f[$0].isEmpty}) else {throw Failure.invalid}
+    } else {
+      guard f[1].count==32,f[1].contains(where:{$0 != 0}),[4,5,6].allSatisfy({f[$0].count==32}),
+        (f[2][0]<2 ? f[3].isEmpty:f[3].count==64) else {throw Failure.invalid}
+    }
+    return f
+  }
+  private static func movementAggregate(_ input:Data,asset:UInt8) throws -> [Data]? {
+    let f=try fields(input,count:6,maximum:8192)
+    guard f[0]==Data([2,66,77,87]),f[1].count==1,f[1][0]<=2,
+      f[2].count<=256,String(data:f[2],encoding:.utf8) != nil else {throw Failure.invalid}
+    switch f[1][0] {
+    case 0:
+      guard f[3...5].allSatisfy({$0.isEmpty}) else {throw Failure.invalid};return nil
+    case 1:
+      guard !f[3].isEmpty,f[4].isEmpty,f[5].isEmpty else {throw Failure.invalid}
+      let row=try movementRow(f[3]);return asset==0 && !row[1].isEmpty ? row:nil
+    default:
+      guard f[3].isEmpty else {throw Failure.invalid}
+      var selected:[Data]?=nil
+      for selector:UInt8 in [1,2] {
+        let leg=try fields(f[Int(selector)+3],count:7,maximum:4096)
+        guard leg[0]==Data([2,66,77,76]),leg[1]==Data([selector]),leg[2].count==1,leg[2][0]<=3,
+          leg[3].count==32,leg[4].count==8,leg[5].count==1,
+          (leg[5][0]<=18 || (leg[5][0]==255 && leg[2][0] != 3)) else {throw Failure.invalid}
+        if leg[2][0]==3 {
+          let row=try movementRow(leg[6])
+          guard !row[1].isEmpty,row[6]==leg[3],row[7]==leg[4],row[8]==leg[5] else {throw Failure.invalid}
+          if selector==asset {selected=row}
+        } else {guard leg[6].isEmpty else {throw Failure.invalid}}
+      }
+      return selected
+    }
+  }
+  private static func movementMatches(_ row:[Data],identity:Data,intent:Data)->Bool {
+    row[1]==identity && row[4]==intent.subdata(in:12..<44) && row[5]==intent.subdata(in:44..<76) &&
+      row[6]==intent.subdata(in:76..<108) && row[7]==intent.subdata(in:108..<116) && row[8]==intent.subdata(in:165..<166)
+  }
+  private static func movementV2(_ request:[Data],database:Data,mesh:Mesh,sdk:SDK) throws -> Data {
+    guard request.count==4,request[1]==database,request[2].count==1,request[2][0]<=2,
+      request[3].count==32,request[3].contains(where:{$0 != 0}) else {throw Failure.invalid}
+    let asset=request[2][0],tag=Data([2,66,77,82])
+    let payer=try sdk(2,Data());guard payer.count==32,payer.contains(where:{$0 != 0}) else {throw Failure.invalid}
+    let raw=try mesh("mesh_messenger_bounty_transfer_prepare",packet([tag,database,request[2],request[3],payer]))
+    let p=try fields(raw,count:8,maximum:8192)
+    guard p[0]==Data([2,66,77,80]),p[1]==request[2],p[3].count==1,p[3][0]<=1,p[6].count==1,p[6][0]<=5 else {throw Failure.invalid}
+    let selected=try movementAggregate(p[7],asset:asset),status=p[6][0]
+    if status==0 {
+      guard p[2].isEmpty,p[3]==Data([0]),p[4].isEmpty,p[5].isEmpty,selected==nil else {throw Failure.invalid}
+      return p[7]
+    }
+    guard p[2].count==32,p[2].contains(where:{$0 != 0}),p[4].count==166,p[4].prefix(4)==Data([1,66,87,84]),
+      (status<2 ? p[5].isEmpty:p[5].count==64),let row=selected else {throw Failure.invalid}
+    let identity=row[1]
+    guard row[2]==p[6],row[3]==p[5],movementMatches(row,identity:identity,intent:p[4]) else {throw Failure.invalid}
+    let sameDestination=p[4].subdata(in:44..<76)==request[3]
+    guard p[3][0]==(status==1 && sameDestination ? 1:0) else {throw Failure.invalid}
+    if !sameDestination || status>=4 {return p[7]}
+    if p[3][0]==1 {
+      let wire=try sdk(5,p[4]);guard !wire.isEmpty,wire.count<=1232 else {throw Failure.invalid}
+      let committed=try mesh("mesh_messenger_bounty_transfer_commit",packet([tag,database,request[2],p[2],wire]))
+      guard let row=try movementAggregate(committed,asset:asset),row[2][0]>=2,
+        movementMatches(row,identity:identity,intent:p[4]) else {throw Failure.invalid}
+      if row[2][0]>=4 {return committed}
+    }
+    let output=try mesh("mesh_messenger_bounty_transfer_submit",packet([tag,database,request[2],identity]))
+    guard let row=try movementAggregate(output,asset:asset),row[2][0]>=2,
+      movementMatches(row,identity:identity,intent:p[4]) else {throw Failure.invalid}
+    return output
+  }
   static func movement(_ input:Data, database:Data, mesh:Mesh, sdk:SDK) throws -> Data {
-    let request=try fields(input,count:2,maximum:8192)
+    guard input.count>=4 else {throw Failure.invalid}
+    let count=input.prefix(4).reduce(0){($0<<8)|Int($1)}
+    guard count==2 || count==4 else {throw Failure.invalid}
+    let request=try fields(input,count:count,maximum:8192)
+    if request[0]==Data([2,66,77,82]) {return try movementV2(request,database:database,mesh:mesh,sdk:sdk)}
+    guard count==2,!(request[0].count==4 && request[0].suffix(3)==Data([66,77,82])) else {throw Failure.invalid}
     guard request[0]==database, request[1].count==32, request[1].contains(where:{$0 != 0}) else {throw Failure.invalid}
     let payer=try sdk(2,Data())
     guard payer.count==32, payer.contains(where:{$0 != 0}) else {throw Failure.invalid}

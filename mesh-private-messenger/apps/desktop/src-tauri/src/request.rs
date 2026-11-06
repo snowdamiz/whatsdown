@@ -291,6 +291,9 @@ pub fn validate(symbol: &str, request: &[u8], database: &[u8]) -> Result<(), Str
         return validate_backup(symbol, request, database);
     }
     let name = &symbol[15..];
+    if matches!(name, "bounty_transfer_status" | "bounty_transfer_recover" | "bounty_transfer_cancel") {
+        return validate_bounty_observation(name, request, database);
+    }
     // These exports consume wire payloads, without opening a database.
     if matches!(
         name,
@@ -982,6 +985,125 @@ mod desktop_backup_connection_tests {
         let db=b"/owned/morse.db";
         assert!(validate_public("mesh_messenger_backup_list", &frame(db), db).is_err());
         assert!(validate_public("mesh_messenger_view_once_consume", &frame(db), db).is_err());
+    }
+}
+
+fn validate_bounty_observation(name: &str, request: &[u8], database: &[u8]) -> Result<(), String> {
+    let invalid = || "invalid_bounty_transfer_request".to_owned();
+    if request.len() > 8192 || database.is_empty() || database.len() > 4096 {
+        return Err(invalid());
+    }
+    let status = name == "bounty_transfer_status";
+    if status && request == database { return Ok(()); }
+    let mut at = 0;
+    let read = |at: &mut usize| -> Result<usize, String> {
+        let bytes = request.get(*at..*at + 4).ok_or_else(invalid)?;
+        *at += 4;
+        Ok(u32::from_be_bytes(bytes.try_into().map_err(|_| invalid())?) as usize)
+    };
+    let count = read(&mut at)?;
+    if count != 2 && (status || count != 4) { return Err(invalid()); }
+    let mut fields = Vec::with_capacity(count);
+    for _ in 0..count {
+        let size = read(&mut at)?;
+        let value = request.get(at..at + size).ok_or_else(invalid)?;
+        fields.push(value); at += size;
+    }
+    if at != request.len() { return Err(invalid()); }
+    let path = if fields[0] == b"\x02BMR" {
+        if count != (if status { 2 } else { 4 }) { return Err(invalid()); }
+        if !status && (fields[2].len() != 1 || fields[2][0] > 2 || fields[3].len() != 32 || fields[3].iter().all(|b| *b == 0)) {
+            return Err(invalid());
+        }
+        fields[1]
+    } else {
+        if status || count != 2 || (fields[0].len() == 4 && &fields[0][1..] == b"BMR")
+            || fields[1].len() != 32 || fields[1].iter().all(|b| *b == 0) { return Err(invalid()); }
+        fields[0]
+    };
+    if path != database { return Err("invalid_database_path".into()); }
+    Ok(())
+}
+
+#[cfg(test)]
+mod bounty_observation_tests {
+    use super::*;
+
+    fn packet(fields: &[&[u8]]) -> Vec<u8> {
+        let mut output = (fields.len() as u32).to_be_bytes().to_vec();
+        for field in fields {
+            output.extend((field.len() as u32).to_be_bytes());
+            output.extend(*field);
+        }
+        output
+    }
+
+    #[test]
+    fn v2_status_reaches_the_scoped_boundary() {
+        let db = b"/native/morse.db";
+        assert_eq!(validate_scoped("mesh_messenger_bounty_transfer_status", &packet(&[b"\x02BMR", db]), db), Ok(()));
+    }
+
+    #[test]
+    fn v2_recover_reaches_the_scoped_boundary_for_each_closed_asset() {
+        for asset in 0..=2 {
+            let db = b"/native/morse.db";
+            assert_eq!(validate_scoped("mesh_messenger_bounty_transfer_recover", &packet(&[b"\x02BMR", db, &[asset], &[7; 32]]), db), Ok(()));
+        }
+    }
+
+    #[test]
+    fn v2_cancel_reaches_the_scoped_boundary_for_each_closed_asset() {
+        for asset in 0..=2 {
+            let db = b"/native/morse.db";
+            assert_eq!(validate_scoped("mesh_messenger_bounty_transfer_cancel", &packet(&[b"\x02BMR", db, &[asset], &[7; 32]]), db), Ok(()));
+        }
+    }
+
+    #[test]
+    fn observations_pin_database_and_reject_malformed_frames_without_fallback() {
+        let db = b"/native/morse.db";
+        for operation in ["status", "recover", "cancel"] {
+            let symbol = format!("mesh_messenger_bounty_transfer_{operation}");
+            let fields: Vec<&[u8]> = if operation == "status" { vec![b"\x02BMR", db] } else { vec![b"\x02BMR", db, &[1], &[7; 32]] };
+            let frame = packet(&fields);
+            let legacy = if operation == "status" { db.to_vec() } else { packet(&[db, &[7; 32]]) };
+            assert_eq!(validate_scoped(&symbol, &legacy, db), Ok(()));
+            for valid in [&frame, &legacy] {
+                assert!(validate_scoped(&symbol, valid, b"/other.db").is_err());
+                for end in 0..valid.len() {
+                    assert!(validate_scoped(&symbol, &valid[..end], db).is_err(), "accepted truncated {operation} at {end}");
+                }
+                assert!(validate_scoped(&symbol, &[valid.as_slice(), &[0]].concat(), db).is_err());
+            }
+            let mut malformed = vec![vec![0; 8193], packet(&[b"\x02BMR"]), packet(&[b"\x03BMR", &[7; 32]]), packet(&[db]), packet(&[db, &[7; 32], b""])];
+            for (index, value) in [(0, b"\x03BMR".as_slice()), (0, b"\x02BMW"), (0, b"\x02BMR\0"), (0, b""), (1, b"/other.db"), (1, b"")] {
+                let mut bad = fields.clone(); bad[index] = value; malformed.push(packet(&bad));
+            }
+            let mut extra = fields.clone(); extra.push(b""); malformed.push(packet(&extra));
+            for count in [0u32, 1, 3, 5, u32::MAX] {
+                let mut bad = frame.clone(); bad[..4].copy_from_slice(&count.to_be_bytes()); malformed.push(bad);
+            }
+            let mut bad = frame.clone(); bad[4..8].copy_from_slice(&u32::MAX.to_be_bytes()); malformed.push(bad);
+            if operation != "status" {
+                malformed.push(db.to_vec());
+                for selector in [b"".as_slice(), &[3], &[255], &[1, 2]] {
+                    malformed.push(packet(&[b"\x02BMR", db, selector, &[7; 32]]));
+                }
+                for identity in [b"".as_slice(), &[7; 31], &[7; 33], &[0; 32]] {
+                    malformed.push(packet(&[b"\x02BMR", db, &[1], identity]));
+                    malformed.push(packet(&[db, identity]));
+                }
+            } else {
+                malformed.push(packet(&[b"\x02BMR", db, &[1], &[7; 32]]));
+            }
+            for bad in malformed {
+                assert!(validate_scoped(&symbol, &bad, db).is_err(), "accepted malformed {operation}: {bad:?}");
+            }
+        }
+        for operation in ["prepare", "commit", "submit"] {
+            assert_eq!(validate_scoped(&format!("mesh_messenger_bounty_transfer_{operation}"), &packet(&[b"\x02BMR", db, &[1], &[7; 32]]), db), Err("private_native_export".into()));
+        }
     }
 }
 
