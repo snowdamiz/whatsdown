@@ -1,0 +1,7 @@
+[package]
+name = "morse-rewards-v2-operator"
+version = "0.1.0"
+description = "Authenticated explicit v2 settlement and earned-claim plans and effects"
+
+[dependencies]
+morse-token-v2-codecs = { path = "../../ops/token-v2" }

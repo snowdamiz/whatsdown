@@ -22,8 +22,8 @@ export function rewardsCoordinate(value){
   if(typeof value!=='string'||!/^(0|[1-9][0-9]{0,19})$/.test(value)||BigInt(value)>MAX)fail('Invalid rewards coordinate');
   return BigInt(value);
 }
-function report(value){
-  if(!value||value.schemaVersion!==1||!Array.isArray(value.accountKeys)||value.accountKeys.length>24||
+function report(value,limit){
+  if(!value||value.schemaVersion!==1||!Array.isArray(value.accountKeys)||value.accountKeys.length>limit||
     value.accountCount!==value.accountKeys.length||!Array.isArray(value.signerKeys)||!Array.isArray(value.writableKeys)||
     value.signerKeys.some(k=>!value.accountKeys.includes(k))||value.writableKeys.some(k=>!value.accountKeys.includes(k))||
     typeof value.dataBase64!=='string'||value.dataBase64.length>1024)fail('Invalid rewards instruction report');
@@ -47,14 +47,19 @@ function roles(ix,signers,writable){
 // reports; RPC and HTTP callers cannot submit reports, instructions or signers.
 // Mesh and the chain program own all eligibility, identity and reward policy.
 export function prepareRewardsTransaction(plan,pins){
-  if(!plan||plan.schema_version!==1||plan.status!=='ready')fail('Expected a ready Mesh rewards plan');
+  const version=pins?.version??1;
+  if(![1,2].includes(version)||!plan||plan.schema_version!==version||plan.status!=='ready')fail('Expected a ready Mesh rewards plan');
   for(const field of ['program','judge','log','mint','payer']){
     if(plan[field]!==pins?.[field])fail('Rewards operator pin mismatch');key(plan[field]);
+  }
+  if(version===2){
+    for(const field of ['token','morse']){if(plan[field]!==pins[field])fail('Rewards v2 pin mismatch');key(plan[field]);}
+    if(!/^[a-f0-9]{64}$/.test(plan.configuration_hash)||plan.configuration_hash!==pins.configuration_hash)fail('Rewards v2 configuration mismatch');
   }
   rewardsCoordinate(plan.epoch);rewardsCoordinate(plan.context_slot);
   if(typeof plan.intent_hash!=='string'||!/^[a-f0-9]{64}$/.test(plan.intent_hash))fail('Invalid rewards intent');
   if(!Array.isArray(plan.instructions)||plan.instructions.length<1||plan.instructions.length>3)fail('Invalid rewards instructions');
-  const instructions=plan.instructions.map(report),work=[...instructions];
+  const instructions=plan.instructions.map(value=>report(value,version===2?31:24)),work=[...instructions];
   if(work[0].programAddress===COMPUTE){
     const compute=work.shift();
     if(compute.accounts.length||compute.data.length!==5||compute.data[0]!==2||compute.data.readUInt32LE(1)!==1400000)fail('Invalid rewards compute budget');
@@ -63,9 +68,34 @@ export function prepareRewardsTransaction(plan,pins){
   if(work[0]?.programAddress===ATA)setup=work.shift();
   if(work.length!==1)fail('Expected one rewards operation');
   const ix=work[0],a=ix.accounts.map(value=>value.address),tag=ix.data[0];
-  const tags={open:1,fund:12,begin:5,append:6,finalize:7,claim:8,cancel:11,'attendance-open':28,seal:29};
+  const tags=version===2?{open:14,begin:15,append:16,finalize:17,'claim-usdc':8,'claim-morse':18,cancel:19,'attendance-open':28,seal:29}:
+    {open:1,fund:12,begin:5,append:6,finalize:7,claim:8,cancel:11,'attendance-open':28,seal:29};
   if(tag!==tags[plan.action]||ix.programAddress!==(['seal','attendance-open'].includes(plan.action)?plan.judge:plan.program))fail('Unexpected rewards program or operation');
   let rents=[],signers=[plan.payer];
+  if(version===2&&!['attendance-open','seal'].includes(plan.action)){
+    switch(plan.action){
+      case 'open':
+        if(a.length!==6||ix.data.length!==9||a[0]!==plan.payer||a[5]!==SYSTEM||ix.data.readBigUInt64LE(1)!==BigInt(plan.epoch))fail('Invalid v2 rewards open');
+        roles(ix,[0],[0,3,4]);rents=[{address:a[3],space:8416},{address:a[4],space:1280}];break;
+      case 'begin':case 'append':case 'cancel':case 'finalize':{
+        const final=plan.action==='finalize';
+        if(ix.data.length!==1||a[4]!==plan.log||a[9]!==plan.token||a[12]!==plan.morse||a[14]!==plan.program||a[16]!==plan.judge||
+          (plan.action==='append'?(a.length<23||a.length>31||(a.length-19)%4):a.length!==(final?26:19)))fail('Invalid v2 rewards settlement');
+        if(final){
+          if(a[23]!==plan.payer||a[24]!==TOKEN||a[25]!==SYSTEM)fail('Invalid v2 finalize payer or program');
+          roles(ix,[23],[0,1,2,3,19,20,21,22,23]);rents=[{address:a[22],space:256}];
+        }else roles(ix,[],[0,2,3]);
+        break;
+      }
+      case 'claim-usdc':
+        if(ix.data.length!==2||ix.data[1]>63||a.length!==6||a[4]!==plan.mint||a[5]!==TOKEN)fail('Invalid v2 USDC claim');
+        roles(ix,[],[0,1,2,3]);break;
+      case 'claim-morse':
+        if(ix.data.length!==2||ix.data[1]>63||a.length!==8||a[6]!==plan.morse||a[7]!==TOKEN)fail('Invalid v2 MORSE claim');
+        roles(ix,[],[1,3,4,5]);break;
+      default:fail('Invalid v2 rewards operation');
+    }
+  }else{
   switch(plan.action){
     case 'open':
       if(a.length!==4||ix.data.length!==9||a[0]!==plan.payer||a[3]!==SYSTEM||ix.data.readBigUInt64LE(1)!==BigInt(plan.epoch))fail('Invalid rewards open');
@@ -88,14 +118,18 @@ export function prepareRewardsTransaction(plan,pins){
     case 'seal':
       if(ix.data.length!==1||a.length!==2||a[0]!==plan.log)fail('Invalid attendance seal');roles(ix,[],[1]);break;
   }
+  }
   if(setup){
     const s=setup.accounts.map(value=>value.address);
-    if(plan.action!=='claim'||setup.data.toString('hex')!=='01'||s.length!==6||s[0]!==plan.payer||s[1]!==a[3]||s[3]!==plan.mint||s[4]!==SYSTEM||s[5]!==TOKEN)fail('Invalid rewards ATA setup');
+    const claim=version===2?['claim-usdc','claim-morse'].includes(plan.action):plan.action==='claim';
+    const morse=plan.action==='claim-morse';
+    if(!claim||setup.data.toString('hex')!=='01'||s.length!==6||s[0]!==plan.payer||s[1]!==a[morse?5:3]||s[3]!==(morse?plan.morse:plan.mint)||s[4]!==SYSTEM||s[5]!==TOKEN)fail('Invalid rewards ATA setup');
     roles(setup,[0],[0,1]);rents=[{address:s[1],space:165}];
   }
   if(!same(plan.rent_allocations,rents)||!Array.isArray(plan.signer_keys)||!same(unique(plan.signer_keys),unique(signers))||plan.signer_keys.length!==unique(signers).length)fail('Invalid rewards rent or signers');
   const recipe={instructions,payer:plan.payer,signers:unique(signers),contextSlot:plan.context_slot,rent:rents,
-    intent:hash(JSON.stringify({intent:plan.intent_hash,action:plan.action,payer:plan.payer,instructions}))};
+    intent:hash(JSON.stringify({intent:plan.intent_hash,action:plan.action,payer:plan.payer,instructions,
+      ...(version===2?{version,configuration:plan.configuration_hash}:{})}))};
   const step=Object.freeze({id:recipe.intent,kind:plan.action});RECIPES.set(step,recipe);
   rewardsMessage(step,{blockhash:SYSTEM,lastValidBlockHeight:1n});return step;
 }

@@ -1,5 +1,8 @@
 # Rewards operator
 
+This page describes v1. The [explicit v2 settlement and claim path](README-v2.md)
+uses a versioned Mesh executable with the same durable journal and writer.
+
 The local Mesh planner authenticates finalized rewards, attendance and funding
 receipt accounts with two matching independent providers. It prepares one
 operation at a time. The Node boundary signs with `@solana/kit`, persists the
@@ -79,7 +82,8 @@ to another epoch or deposit. A concurrent process is fenced by a renewable
 30-second lease. One journal is bound permanently to one request, pin set and
 spending cap. Preserve its SQLite database, WAL and SHM together. Unknown costs
 after pruned transaction history consume the full reservation; an absent
-effect cannot release that reservation without sufficient history. Unresolved
+effect is not proof of zero fees: even after expiry with history available,
+missing finalized debit metadata consumes the full reservation. Unresolved
 packets retain their exact bytes. Unexpected overspending halts the journal.
 
 This is local qualification. Independent operators, actual mint/program
