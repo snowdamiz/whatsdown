@@ -204,7 +204,7 @@ pub fn admit_relay_fork(pins :: AnchorPins,
       (entry.checkpoint_hash, entry.timestamp)
     end
   end
-  let clock = check_relay_clock(pins.endpoints,
+  let clock = check_relay_clock(pins.rpc,
     proof.first.timestamp,
     second_time,
     bonded_at,
@@ -239,7 +239,7 @@ pub fn admit_relay_fork(pins :: AnchorPins,
       return Err("relay_destination_alias")
     end
   end
-  let destinations = read_anchor_accounts(pins.endpoints,
+  let destinations = read_anchor_accounts(pins.rpc,
     [finder_ata, locked_ata],
     clock.context_slot)?
   check_relay_destination(List.get(destinations.accounts, 0), finder, mint, finder_amount, false)?

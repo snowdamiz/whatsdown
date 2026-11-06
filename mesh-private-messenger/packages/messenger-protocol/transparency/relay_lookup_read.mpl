@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import RpcEndpoint, RpcTransport, rpc_urls, rpc_fatal_error
 from Solana.Read import (
   Pubkey,
   AccountInfo,
@@ -134,13 +135,13 @@ fn decode(initial :: RelayLookupState,
   })
 end
 
-pub fn read_relay_lookup(endpoints :: List<String>,
+pub fn read_relay_lookup(rpc :: RpcTransport,
   authority :: Pubkey,
   creation_slot :: U64,
   expected :: List<Pubkey>,
   minimum_slot :: U64) -> RelayLookupState!String do
   let initial = initial_state(authority, creation_slot, expected, minimum_slot)?
-  let snapshot = read_anchor_accounts(endpoints, [initial.address], initial.context_slot)?
+  let snapshot = read_anchor_accounts(rpc, [initial.address], initial.context_slot)?
   decode(initial, expected, List.head(snapshot.accounts), snapshot.slot)
 end
 
@@ -161,10 +162,10 @@ fn required(account :: Option<AccountInfo>) -> AccountInfo!String do
   end
 end
 
-fn cooldown(endpoint :: String,
+fn cooldown(rpc :: RpcTransport, endpoint :: RpcEndpoint,
   initial :: RelayLookupState,
   expected :: List<Pubkey>) -> CooldownObservation!String do
-  let snapshot = read_anchor_accounts_from(endpoint,
+  let snapshot = read_anchor_accounts_from(rpc, endpoint,
     [initial.address, clock_sysvar_address()?, slot_hashes_sysvar_address()?],
     initial.context_slot,
     20488)?
@@ -229,20 +230,32 @@ end
 # Histories and Clocks evolve between finalized banks. Require two independently
 # valid decisions over the same authenticated table bytes, not identical sysvar
 # bytes. This remains a prerequisite for sending close, never proof of a refund.
-pub fn read_relay_lookup_cooldown(endpoints :: List<String>,
+pub fn read_relay_lookup_cooldown(rpc :: RpcTransport,
   authority :: Pubkey,
   creation_slot :: U64,
   expected :: List<Pubkey>,
   minimum_slot :: U64) -> RelayLookupCooldown!String do
-  validate_anchor_sources(endpoints)?
+  validate_anchor_sources(rpc_urls(rpc))?
   let initial = initial_state(authority, creation_slot, expected, minimum_slot)?
-  let first = cooldown(List.get(endpoints, 0), initial, expected)
-  let second = cooldown(List.get(endpoints, 1), initial, expected)
+  let first = cooldown(rpc, List.get(rpc.sources, 0), initial, expected)
+  case first do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
+  let second = cooldown(rpc, List.get(rpc.sources, 1), initial, expected)
+  case second do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree_cooldown(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = cooldown(List.get(endpoints, 2), initial, expected)
+  let third = cooldown(rpc, List.get(rpc.sources, 2), initial, expected)
+  case third do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree_cooldown(first, third) do
     Some(value) -> return Ok(value)
     None -> nil

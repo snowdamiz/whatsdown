@@ -1,0 +1,57 @@
+{
+  "status": "PASS_SCOPED_CHECKS_ONLY",
+  "production_status": "all eight pending",
+  "native_acceptance": "BLOCKED_NATIVE_RPC_TLS; runner exit 1",
+  "source_base": "0e00cf20c8350c0367325d1e7899bbcb3d5a56c9",
+  "test_runtime_sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+  "commands": [
+    {
+      "argv": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/toolchain/meshc",
+        "test",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/mobile-core/tests/anchor_schedule.test.mpl"
+      ],
+      "env": {
+        "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/toolchain/libmesh_test_rt.a"
+      },
+      "exit": 0,
+      "tests": 3,
+      "log": "anchor-schedule-qualified.log",
+      "sha256": "5e7c9e3d8b6f78a92ea0d88f57602f7c5d6482dbfb81382302c42c168c4c47ee"
+    },
+    {
+      "argv": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/toolchain/meshc",
+        "test",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/mobile-core/tests/anchor_config.test.mpl"
+      ],
+      "env": {
+        "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/toolchain/libmesh_test_rt.a"
+      },
+      "exit": 0,
+      "tests": 2,
+      "log": "anchor-config-qualified.log",
+      "sha256": "c8d25db79d9e85618c456f0b906e41e7738c0b1c1c328bcbe7c100e2dc8f3822"
+    }
+  ],
+  "lint": {
+    "argv": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "lint",
+      "mesh-private-messenger"
+    ],
+    "exit": 0,
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "initial_scoped_attempt": "COULD NOT RUN: copied compiler did not discover adjacent test runtime; corrected with explicit MESH_TEST_RT_LIB_PATH, same qualified runtime hash",
+  "retained": {
+    "anchor-config-qualified.log": "c8d25db79d9e85618c456f0b906e41e7738c0b1c1c328bcbe7c100e2dc8f3822",
+    "anchor-schedule-qualified.log": "5e7c9e3d8b6f78a92ea0d88f57602f7c5d6482dbfb81382302c42c168c4c47ee",
+    "build.log": "17fbf3ef3ff37e7fc6f62bebf81068cc681aa746feb834d72aa9e99a34c9d11e",
+    "lint-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "local-result.json": "7e6e13d4c37756de7cb5641ac44ce750cfebfe2a4ca973cc55297cfb807f8f20",
+    "receipt.json": "62c35ad1ed8de39db8a94fddac4d7fb42a448fe4d3969916badf490fb141e591",
+    "sources.json": "e2786eeee7fb5dc605916ce65ecd8106b453a1c3c0f74297fe02d7ea2388759c"
+  }
+}

@@ -458,11 +458,11 @@ end
 end
 
 @export("mesh_messenger_group_invite") pub fn group_invite_export(request :: Bytes) -> Bytes!String do
-  invite_to_group(parse_fanout_request(request)?)
+  invite_to_group(request)
 end
 
 @export("mesh_messenger_group_invitation_accept") pub fn group_invitation_accept_export(request :: Bytes) -> Bytes!String do
-  accept_group_invitation(parse_fanout_request(request)?)
+  accept_group_invitation(request)
 end
 
 @export("mesh_messenger_group_invitation_complete") pub fn group_invitation_complete_export(request :: Bytes) -> Bytes!String do

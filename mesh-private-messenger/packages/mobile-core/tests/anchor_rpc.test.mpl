@@ -1,4 +1,5 @@
 from Transparency.AnchorRpc import read_anchor_account
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import AccountAtSlot, AccountInfo, pubkey
 
 fn response_json(id :: Int) -> String do
@@ -34,15 +35,24 @@ fn proof() -> Bool!String do
   let _server = spawn(rpc_server)
   Timer.sleep(100)
   let address = pubkey("11111111111111111111111111111111")?
-  let read = read_anchor_account("http://127.0.0.1:19010/good",
+  let rpc = webpki_rpc_transport([
+    "http://127.0.0.1:19010/good",
+    "http://127.0.0.1:19010/wrong-id",
+    "http://127.0.0.1:19010/large",
+    "http://127.0.0.1:19010/redirect"
+  ])?
+  let good = List.head(rpc.sources)
+  let read = read_anchor_account(rpc,
+    good,
     address,
     address,
     64,
     3,
     U64.parse("40")?)?
   assert(Bytes.to_hex(read.account.data) == "010203" && U64.to_string(read.slot) == "42")
-  for route in ["wrong-id", "large", "redirect"] do
-    case read_anchor_account("http://127.0.0.1:19010/#{route}",
+  for endpoint in List.drop(rpc.sources, 1) do
+    case read_anchor_account(rpc,
+      endpoint,
       address,
       address,
       64,
@@ -53,7 +63,8 @@ fn proof() -> Bool!String do
     end
   end
   for (length, minimum) in [(2, "40"), (3, "43")] do
-    case read_anchor_account("http://127.0.0.1:19010/good",
+    case read_anchor_account(rpc,
+      good,
       address,
       address,
       64,
@@ -64,7 +75,8 @@ fn proof() -> Bool!String do
     end
   end
   let other = pubkey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")?
-  case read_anchor_account("http://127.0.0.1:19010/good",
+  case read_anchor_account(rpc,
+    good,
     address,
     other,
     64,

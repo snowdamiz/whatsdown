@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RelayLookupRead import RelayLookupState, read_relay_lookup, relay_lookup_report
 from Solana.LookupTable import LookupTableCreation, create_lookup_table_instruction
 from Solana.Read import Pubkey, pubkey
@@ -105,9 +106,9 @@ fn reply(request :: Request,
 end
 
 fn read(authority :: Pubkey, modes :: List<String>) -> RelayLookupState!String do
-  read_relay_lookup(for index in 0..3 do
+  read_relay_lookup(webpki_rpc_transport(for index in 0..3 do
       "http://127.0.0.1:#{19966 + index}/#{List.get(modes, index)}"
-    end,
+    end)?,
     authority,
     U64.parse("10")?,
     [Pubkey { bytes: Bytes.from_hex(String.repeat("22", 32))? }],

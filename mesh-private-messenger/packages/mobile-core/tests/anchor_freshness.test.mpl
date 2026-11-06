@@ -6,6 +6,7 @@ from Transparency.AnchorChain import (
   read_anchor_freshness
 )
 from Transparency.AnchorRing import decode_anchor_header
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import pubkey
 
 fn respond(request :: Request, result :: String) -> Response do
@@ -41,9 +42,9 @@ fn pins(routes :: List<String>) -> AnchorPins!String do
     program: program,
     log_name: "morse-main",
     log_id: addresses.log_id,
-    endpoints: for i in 0..3 do
+    rpc: webpki_rpc_transport(for i in 0..3 do
       "http://127.0.0.1:#{19041 + i}/#{List.get(routes, i)}"
-    end
+    end)?
   })
 end
 

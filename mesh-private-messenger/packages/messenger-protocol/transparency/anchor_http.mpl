@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import require_rpc_current
 # All proof requests use only a pinned/cached directory origin. They carry no
 # account identifiers, follow no redirects and have per-response byte limits.
 pub fn anchor_proof_origin(origin :: String) -> String!String do
@@ -14,14 +15,19 @@ end
 pub fn fetch_anchor_proof(origin :: String,
   route :: String,
   body :: Bytes,
-  maximum :: Int) -> Result<(String, Bytes), String> do
-  let response = case (Http.build(:post, origin <> route)
+  maximum :: Int,
+  require_current :: Fun() -> Result<(), String>) -> Result<(String, Bytes), String> do
+  let origin = anchor_proof_origin(origin)?
+  require_rpc_current(require_current)?
+  let sent = (Http.build(:post, origin <> route)
     |> Http.header("Content-Type", "application/octet-stream")
     |> Http.body_bytes(body)
     |> Http.timeout(3000)
     |> Http.max_response_bytes(maximum)
     |> Http.max_redirects(0)
-    |> Http.send()) do
+    |> Http.send())
+  require_rpc_current(require_current)?
+  let response = case sent do
     Err(_) -> return Ok(("proof_unavailable", Bytes.empty()))
     Ok(value) -> value
   end

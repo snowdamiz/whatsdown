@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import RpcTransport, RpcEndpoint, RpcTls
 from Transparency.AnchorRpc import (
   validate_anchor_sources,
   validate_anchor_provider_sources,
@@ -6,6 +7,15 @@ from Transparency.AnchorRpc import (
 )
 from Solana.Read import pubkey
 
+# Deliberately preserve invalid URL spellings to exercise the provider validator
+# at each quorum boundary, including records forged without constructors.
+fn source_transport(endpoints :: List<String>) -> RpcTransport do
+  RpcTransport {
+    sources: for url in endpoints do RpcEndpoint { url: url, tls: WebPki } end,
+    require_current: fn() do Ok(nil) end
+  }
+end
+
 fn refuses_host_aliases(endpoints :: List<String>) -> Result<(), String> do
   assert(validate_anchor_sources(endpoints) == Err("invalid_anchor_sources"))
   assert(validate_anchor_provider_sources(endpoints, true) == Err("invalid_anchor_sources"))
@@ -13,13 +23,13 @@ fn refuses_host_aliases(endpoints :: List<String>) -> Result<(), String> do
   let address = pubkey("11111111111111111111111111111111")?
   let zero = U64.parse("0")?
   # Stop at the validator assertion on regression, before any HTTP is possible.
-  assert(read_anchor_quorum(endpoints,
+  assert(read_anchor_quorum(source_transport(endpoints),
     address,
     address,
     0,
     64,
     zero) == Err("invalid_anchor_sources"))
-  assert(read_anchor_time_quorum(endpoints, zero) == Err("invalid_anchor_sources"))
+  assert(read_anchor_time_quorum(source_transport(endpoints), zero) == Err("invalid_anchor_sources"))
   Ok(nil)
 end
 
@@ -85,13 +95,13 @@ fn refuses_aliases() -> Result<(), String> do
     # Validate first: a regressed validator fails locally before these quorum
     # calls could attempt any of the deliberately non-routable public hosts.
     assert(validate_anchor_sources(endpoints) == Err("invalid_anchor_sources"))
-    assert(read_anchor_quorum(endpoints,
+    assert(read_anchor_quorum(source_transport(endpoints),
       address,
       address,
       0,
       64,
       zero) == Err("invalid_anchor_sources"))
-    assert(read_anchor_time_quorum(endpoints, zero) == Err("invalid_anchor_sources"))
+    assert(read_anchor_time_quorum(source_transport(endpoints), zero) == Err("invalid_anchor_sources"))
   end
   Ok(nil)
 end

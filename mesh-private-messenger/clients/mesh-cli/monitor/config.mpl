@@ -1,6 +1,7 @@
 from Monitor.Policy import MonitorPolicy
 from Transparency.Config import SecurityConfig, decode_security_config
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.AnchorHttp import anchor_proof_origin
 from Solana.Read import Pubkey
 
@@ -38,7 +39,7 @@ pub fn monitor_configuration_for(log_name :: String,
     return Err("invalid_monitor_configuration")
   end
   let primary = decode_security_config(List.head(frames))?
-  let pins = case configured_anchor_pins(primary)? do
+  let pins = case configured_anchor_pins(primary, webpki_rpc_transport(primary.rpc_urls)?)? do
     None -> return Err("monitor_requires_anchor_pins")
     Some(value) -> value
   end

@@ -9,6 +9,7 @@ from Transparency.AnchorChain import (
   read_anchor_witness_set
 )
 from Transparency.AnchorWitnessSet import AnchorWitnessSet, AnchorCosigner, anchor_cosigners
+from Transparency.RpcTransport import webpki_rpc_transport, rpc_urls
 from Transparency.AnchorLog import AnchorLog
 from Solana.Address import ProgramDerivedAddress, find_program_address
 from Solana.Read import pubkey, pubkey_string
@@ -120,9 +121,9 @@ fn pins(routes :: List<String>) -> AnchorPins!String do
     program: address,
     log_name: "morse-main",
     log_id: derived.log_id,
-    endpoints: for index in 0..List.length(routes) do
+    rpc: webpki_rpc_transport(for index in 0..List.length(routes) do
       "http://127.0.0.1:#{19011 + index}/#{List.get(routes, index)}"
-    end
+    end)?
   })
 end
 
@@ -219,20 +220,20 @@ fn proof() -> Bool!String do
   end
   let candidates = pins(["good", "good", "good", "good", "good", "good", "good", "good"])?
   let sampled = sample_anchor_sources(candidates)?
-  assert(List.length(sampled.endpoints) == 3)
+  assert(List.length(rpc_urls(sampled.rpc)) == 3)
   for index in 0..3 do
-    assert(List.any(candidates.endpoints,
-      fn(value :: String) -> value == List.get(sampled.endpoints, index) end))
+    assert(List.any(rpc_urls(candidates.rpc),
+      fn(value :: String) -> value == List.get(rpc_urls(sampled.rpc), index) end))
     for earlier in 0..index do
-      assert(List.get(sampled.endpoints, earlier) != List.get(sampled.endpoints, index))
+      assert(List.get(rpc_urls(sampled.rpc), earlier) != List.get(rpc_urls(sampled.rpc), index))
     end
   end
   for endpoints in [
-    [List.head(same.endpoints)],
-    [List.head(same.endpoints), List.head(same.endpoints), List.get(same.endpoints, 1)],
+    [List.head(rpc_urls(same.rpc))],
+    [List.head(rpc_urls(same.rpc)), List.head(rpc_urls(same.rpc)), List.get(rpc_urls(same.rpc), 1)],
     ["http://127.0.0.1:19011/good", "http://127.0.0.1:19011/later", "http://127.0.0.1:19012/good"]
   ] do
-    case read_anchor_header(%{same | endpoints: endpoints}, U64.parse("0")?) do
+    case read_anchor_header(%{same | rpc: webpki_rpc_transport(endpoints)?}, U64.parse("0")?) do
       Ok(_) -> assert(false)
       Err(error) -> assert(error == "invalid_anchor_sources")
     end

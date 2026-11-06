@@ -1,9 +1,15 @@
+from Mobile.Attachments import validate_attachment
 from Groups.Mls import GroupState, GroupTransparencyPolicy
 from Groups.Tree import GroupTree, GroupMember, member_at
 from Mobile.Codec import (
   current_time,
   encode_output_list,
   mobile_byte,
+  mobile_reader,
+  mobile_finish,
+  mobile_utf8,
+  take_vector,
+  take_optional_vector,
   mobile_wide,
   mobile_write_u64,
   random_bytes
@@ -37,6 +43,7 @@ from Mobile.Sessions import find_peer_session, load_session_ids
 from Mobile.Transparency import require_transparency_device_set, load_transparency_view
 from Mobile.Types import (
   MobileFanoutRequest,
+  MobileFanoutControlRequest,
   MobileGroupAddRequest,
   MobilePayloadRequest,
   MobileTriplePayloadRequest,
@@ -50,14 +57,40 @@ from Storage.Keys import platform_key, open_local, local_context
 from Storage.Records import store_updated_blobs
 from Transport.Packet import ClientProfile, decode_client_profile
 
-pub fn invite_to_group(request :: MobileFanoutRequest) -> Bytes!String do
+fn parse_fanout_control_request(input :: Bytes) -> MobileFanoutControlRequest!String do
+  let state = mobile_reader(input, 663020, "invalid_fanout_request")?
+  let path = take_vector(state, 4096)?
+  let peer_device_set = take_vector(path.state, 305260)?
+  let local_device_set = take_vector(peer_device_set.state, 305260)?
+  let body = take_vector(local_device_set.state, 32000)?
+  let attachment = take_optional_vector(body.state, 16384, "invalid_fanout_request")?
+  mobile_finish(attachment.state, "invalid_fanout_request")?
+  let database_path = mobile_utf8(path.value, "invalid_database_path")?
+  if String.length(database_path) == 0
+    || (Bytes.length(body.value) == 0 && Bytes.length(attachment.value) == 0) do
+    Err("invalid_fanout_request")
+  else
+    validate_attachment(attachment.value)?
+    Ok(MobileFanoutControlRequest {
+      database_path: database_path,
+      peer_device_set: peer_device_set.value,
+      local_device_set: local_device_set.value,
+      body: body.value,
+      attachment: attachment.value
+    })
+  end
+end
+
+
+pub fn invite_to_group(input :: Bytes) -> Bytes!String do
+  let request = parse_fanout_control_request(input)?
   if Bytes.length(request.body) != 32 do
     return Err("invalid_group_invitation")
   end
   invite_to_group_at_profile(request, load_blob(request.database_path, "profile/v1")?)
 end
 
-pub fn invite_to_group_at_profile(request :: MobileFanoutRequest,
+pub fn invite_to_group_at_profile(request :: MobileFanoutControlRequest,
   profile :: Bytes) -> Bytes!String do
   let path = request.database_path
   let key = platform_key()?
@@ -121,18 +154,25 @@ pub fn invite_to_group_at_profile(request :: MobileFanoutRequest,
   end
   let blob = invitation_blob(existing ++ pending, key)?
   let body = encode_output_list([id, request.body, mobile_write_u64(expires_at)?, baseline])?
-  send_fanout_control_after_snapshot(%{request | body: body},
+  send_fanout_control_after_snapshot(MobileFanoutRequest {
+      database_path: request.database_path,
+      peer_device_set: request.peer_device_set,
+      local_device_set: request.local_device_set,
+      body: body,
+      attachment: request.attachment
+    },
     3,
     ["group-invitations/v1"],
     [blob],
     before)
 end
 
-pub fn accept_group_invitation(request :: MobileFanoutRequest) -> Bytes!String do
+pub fn accept_group_invitation(input :: Bytes) -> Bytes!String do
+  let request = parse_fanout_control_request(input)?
   accept_group_invitation_at_profile(request, load_blob(request.database_path, "profile/v1")?)
 end
 
-pub fn accept_group_invitation_at_profile(request :: MobileFanoutRequest,
+pub fn accept_group_invitation_at_profile(request :: MobileFanoutControlRequest,
   profile :: Bytes) -> Bytes!String do
   let path = request.database_path
   let key = platform_key()?
@@ -199,7 +239,13 @@ pub fn accept_group_invitation_at_profile(request :: MobileFanoutRequest,
       expires_at: retain_until
     })
   let body = encode_output_list([invitation.id, invitation.group_id, package])?
-  send_fanout_control_after_snapshot(%{request | body: body},
+  send_fanout_control_after_snapshot(MobileFanoutRequest {
+      database_path: request.database_path,
+      peer_device_set: request.peer_device_set,
+      local_device_set: request.local_device_set,
+      body: body,
+      attachment: request.attachment
+    },
     4,
     ["group-invitations/v1"],
     [invitation_blob(updated, key)?],

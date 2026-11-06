@@ -280,6 +280,7 @@ end
 
 fn run_case(mode :: Int) -> Result<(), String> do
   assert(Test.install_in_memory_secure_store())
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   let signer = pair()?
   let a = pair()?
   let b = pair()?
@@ -565,7 +566,18 @@ fn framing_proof() -> Result<(), String> do
     Bytes.empty()
   ]
   let valid = group_vectors(fields)?
-  assert(parse_fanout_action(valid)?.username == "bob")
+  let message = parse_fanout_action(valid)?
+  assert(message.username == "bob")
+  assert(Bytes.length(message.payload) == 0)
+  assert(declassify(Bytes.secure_equals(message.body, Bytes.from_utf8("hello")),
+    "test-only Boolean assertion of the controlled synthetic fanout body projection; no application disclosure"))
+  let control = parse_fanout_action(group_vectors([
+    List.get(fields, 0), List.get(fields, 1), List.get(fields, 2),
+    repeated(2, 1)?, repeated(7, 32)?, Bytes.empty(), Bytes.empty()
+  ])?)?
+  assert(Bytes.secure_equals(control.payload, repeated(7, 32)?))
+  assert(declassify(Bytes.length(control.body) == 0,
+    "test-only Boolean assertion of an empty controlled synthetic fanout control body; no application disclosure"))
   assert(Result.is_err(parse_fanout_action(append(valid, repeated(0, 1)?)?)))
   assert(Result.is_err(parse_fanout_action(append(repeated(0, 4)?, valid)?)))
   for user in ["https://evil.invalid", "@bad", "a/b", "bob?x", "BOB"] do

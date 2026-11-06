@@ -26,6 +26,7 @@ static const uint8_t MeshMessengerNetworkConfigSelector[] = "messenger/network/v
 static const uint8_t MeshMessengerOhttpConfigSelector[] = "messenger/ohttp/v1";
 static const uint8_t MeshMessengerLightningSelector[] = "messenger/lightning/v1";
 static const uint8_t MeshMessengerIssuerTLSSelector[] = "messenger/issuer-tls-root/v1";
+static const uint8_t MeshMessengerRpcTLSSelector[] = "messenger/rpc-tls-roots/v1";
 static const uint8_t MeshMessengerWalletSelector[] = "messenger/wallet/v1";
 static const uint64_t MeshMessengerMaximumApplicationIDLength = 255;
 static const uint64_t MeshMessengerMaximumPushTokenLength = 4096;
@@ -233,8 +234,32 @@ static int32_t MeshMessengerPushGetToken(void *context, const uint8_t *input,
       memcmp(input, MeshMessengerOhttpConfigSelector, inputLength) == 0;
   bool issuerTLSSelector = inputLength == sizeof(MeshMessengerIssuerTLSSelector) - 1 &&
       memcmp(input, MeshMessengerIssuerTLSSelector, inputLength) == 0;
-  if (!ohttpConfigSelector && !counterConfigSelector && !issuerTLSSelector && !rawSelector && !configSelector && !securityConfigSelector && !creditPurposeSelector && !walletSelector && !networkConfigSelector && !lightningSelector) {
+  bool rpcTLSSelector = inputLength == sizeof(MeshMessengerRpcTLSSelector) - 1 &&
+      memcmp(input, MeshMessengerRpcTLSSelector, inputLength) == 0;
+  if (!ohttpConfigSelector && !counterConfigSelector && !issuerTLSSelector && !rpcTLSSelector && !rawSelector && !configSelector && !securityConfigSelector && !creditPurposeSelector && !walletSelector && !networkConfigSelector && !lightningSelector) {
     return MeshMessengerSecureStoreInvalidInput;
+  }
+  if (rpcTLSSelector) {
+    @try {
+      id value = [NSBundle.mainBundle objectForInfoDictionaryKey:@"MeshMessengerRpcTLSRoots"];
+      NSData *data;
+      if (value == nil) {
+        const uint8_t absent[] = {1, 0};
+        data = [NSData dataWithBytes:absent length:sizeof(absent)];
+      } else {
+        if (![value isKindOfClass:NSString.class] || [(NSString *)value length] > 109336) return MeshMessengerSecureStorePlatformFailure;
+        data = [[NSData alloc] initWithBase64EncodedString:value options:0];
+        if (data == nil || data.length < 2 || data.length > 82002 ||
+            ![[data base64EncodedStringWithOptions:0] isEqualToString:value]) return MeshMessengerSecureStorePlatformFailure;
+      }
+      if (data.length > outputCapacity) return MeshMessengerSecureStoreOutputTooLarge;
+      [data getBytes:output length:data.length];
+      *outputLength = data.length;
+      return MESH_LIBRARY_OK;
+    } @catch (NSException *exception) {
+      (void)exception;
+      return MeshMessengerSecureStorePlatformFailure;
+    }
   }
   if (issuerTLSSelector) {
     id value = [NSBundle.mainBundle objectForInfoDictionaryKey:@"MeshMessengerIssuerTLSRoot"];

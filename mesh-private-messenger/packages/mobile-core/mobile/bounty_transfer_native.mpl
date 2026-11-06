@@ -14,8 +14,7 @@ from Mobile.BountyTransferNetwork import (
 )
 from Mobile.Codec import current_time, mobile_byte, mobile_write_u64, mobile_utf8
 from Mobile.CreditState import pack_credit_parts, unpack_credit_parts
-from Mobile.ForkFiling import FilingPlan, prepare_filing, native_filing_current
-from Mobile.Platform import native_security_config
+from Mobile.ForkFiling import FilingPlan, prepare_native_filing, native_filing_current
 from Transparency.Config import encode_security_config
 from Storage.Blobs import ensure_schema
 from Storage.Keys import platform_key
@@ -69,14 +68,13 @@ fn context(path :: String) -> MovementContext!String do
   if Bytes.length(wire) == 0 do
     return Err("bounty_not_selected")
   end
-  let config = native_security_config()?
-  let filing = case prepare_filing(config, wire)? do
+  let filing = case prepare_native_filing(path, wire)? do
     None -> return Err("bounty_transfer_configuration_required")
     Some(value) -> value
   end
   Ok(MovementContext {
     path: path,
-    frame: encode_security_config(config)?,
+    frame: encode_security_config(filing.config)?,
     wire: wire,
     filing: filing,
     wallet: wallet_pins()?

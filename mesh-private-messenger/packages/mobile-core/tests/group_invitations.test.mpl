@@ -46,6 +46,11 @@ from Transparency.Merkle import leaf_hash
 from Transport.Recipient import open_recipient_packet
 from Transport.Packet import decode_client_profile
 
+fn assert_owned_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic group invitation fixture result and refusal predicate; no application disclosure"))
+end
+
 fn assert_received_body(value :: Bool) do
   assert(declassify(value,
     "test-only Boolean assertion of controlled synthetic group invitation delivery; no application disclosure"))
@@ -231,7 +236,7 @@ fn proof(malformed_first :: Bool) -> Bool!String do
     Bytes.from_utf8("unaccepted DM")
   ])?) do
     Ok(_) -> assert(false)
-    Err(error) -> assert(error == "message_request_pending")
+    Err(error) -> assert_owned_fixture(error == "message_request_pending")
   end
   let declined_group = group_create_export(alice_path)?
   let next = output_list(group_invite_export(group_vectors([
@@ -261,21 +266,9 @@ fn proof(malformed_first :: Bool) -> Bool!String do
 end
 
 test("username invitation joins only after acceptance and survives repeated completion") do
-  case proof(false) do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert_owned_fixture(Result.unwrap_or(proof(false), false))
 end
 
 test("malformed initial invitations do not block a later authenticated invitation") do
-  case proof(true) do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert_owned_fixture(Result.unwrap_or(proof(true), false))
 end

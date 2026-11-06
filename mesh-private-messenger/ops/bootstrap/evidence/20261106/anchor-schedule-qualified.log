@@ -1,0 +1,7 @@
+  ✓ durable anchor claims enforce daily cadence, hourly key-change limits and stale-completion fencing
+  ✓ simultaneous callers and crashed checks share one durable hourly reservation
+  ✓ storage errors and corrupt sealed schedules fail closed without partial writes
+
+3 passed in 0.04s
+
+1 test file passed in 32.19s

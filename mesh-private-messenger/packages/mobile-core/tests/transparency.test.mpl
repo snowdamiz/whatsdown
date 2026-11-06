@@ -1,5 +1,6 @@
 from Mobile.Codec import current_time, mobile_write_u64
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins
+from Transparency.RpcTransport import webpki_rpc_transport
 from Mobile.AnchorCheck import anchor_identity
 from Mobile.AnchorSchedule import AnchorClaim, claim_anchor_check, finish_anchor_check
 from Transparency.Config import SecurityConfig, decode_security_config, encode_security_config
@@ -449,13 +450,22 @@ fn proof() -> Bool!String do
   # sealed result here to exercise actual device-set ingestion after a slash.
   let v4 = %{decode_security_config(native_v3)? |
     version: 4,
+    wire_version: 4,
     anchor_address: "5yn5bTAXsACqkiwrJxVuSZVtCmam6uPVcNS4oYHt6Vtb",
     anchor_program: String.repeat("1", 32),
     anchor_log_name: "morse-main",
     rpc_urls: ["https://one.example", "https://two.example", "https://three.example"]
   }
   assert(Test.set_push_token(Bytes.from_utf8("messenger/config/v1"), encode_security_config(v4)?))
-  let pins = case configured_anchor_pins(v4)? do
+  # Native anchor entry points capture all release resources even when this
+  # fixture exercises a retained result without dispatching RPC requests.
+  let network = Bytes.from_utf8("2\n1\nhttps://core.example\nhttp://127.0.0.1:24467\nhttps://objects.example\nwss://stream.example/v1/mailbox/stream\n16")
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/network/v1"), network))
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"), Bytes.from_utf8("1\n"
+    <> Bytes.to_hex(Crypto.sha256(network)) <> "\n"
+    <> Bytes.to_hex(Crypto.sha256(encode_security_config(v4)?)) <> "\n1\noff\n0")))
+  let pins = case configured_anchor_pins(v4, webpki_rpc_transport(v4.rpc_urls)?)? do
     Some(value) -> value
     None -> return Err("missing anchor pins")
   end

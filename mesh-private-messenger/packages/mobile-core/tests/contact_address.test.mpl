@@ -23,6 +23,11 @@ from Tests.Support import append, database_path, vector, write_u32
 from Tests.WitnessedSessionFixture import install_witnessed_session_fixtures
 from Transport.Packet import ClientProfile, decode_client_profile
 
+fn assert_owned_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic contact-address exchange fixture result; no application disclosure"))
+end
+
 fn request(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
     Ok(output)
@@ -176,11 +181,5 @@ fn proof() -> Bool!String do
 end
 
 test("a contact is handed a private deposit address, and a bad one is forgotten") do
-  case proof() do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert_owned_fixture(Result.unwrap_or(proof(), false))
 end

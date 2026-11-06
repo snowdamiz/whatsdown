@@ -702,6 +702,7 @@ internal object MeshMessengerPushMaterial {
     private var networkCounterConfigFrame: ByteArray? = null
     private var lightningNetworkFrame: ByteArray? = null
     private var issuerTLSRootFrame: ByteArray? = null
+    private var rpcTLSRootsFrame: ByteArray? = null
     private var creditPurposeFrame: ByteArray? = null
     private var walletPinsFrame: ByteArray? = null
     private var buildConfigLoaded = false
@@ -745,6 +746,11 @@ internal object MeshMessengerPushMaterial {
                 context.assets.open(MeshMessengerIssuerTLS.ASSET)
             }
         } catch (_: Exception) { null } // Read failure stays unavailable; never substitute webPKI.
+        rpcTLSRootsFrame = try {
+            MeshMessengerRpcTLS.read(requireNotNull(context.assets.list(""))) {
+                context.assets.open(MeshMessengerRpcTLS.ASSET)
+            }
+        } catch (_: Exception) { null } // Only a successful listing can establish absence.
         buildConfigLoaded = true
     }
 
@@ -813,6 +819,10 @@ internal object MeshMessengerPushMaterial {
     @JvmStatic
     @Synchronized
     fun issuerTLSRoot(): ByteArray? = issuerTLSRootFrame?.clone()
+
+    @JvmStatic
+    @Synchronized
+    fun rpcTLSRoots(): ByteArray? = rpcTLSRootsFrame?.clone()
 
     @JvmStatic
     @Synchronized

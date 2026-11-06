@@ -3,6 +3,7 @@ from Monitor.Config import MonitorConfig, monitor_configuration_for
 from Monitor.State import MonitorState, load_monitor_state
 from Transparency.Config import decode_security_config, encode_security_config
 from Transparency.AnchorChain import AnchorPins, anchor_addresses
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.Merkle import (
   TransparencyCheckpoint,
   checkpoint_hash,
@@ -308,7 +309,7 @@ fn scenario(version :: Int) -> Result<(), String> do
     first.tree_root,
     checkpoint_hash(second)?,
     wide(1700000002000)?)?
-  let directory = "/tmp/morse-monitor-run-" <> Crypto.uuid4()
+  let directory = Env.get("TMPDIR", "/tmp") <> "/morse-monitor-run-" <> Crypto.uuid4()
   let mode_path = directory <> "-mode"
   File.write(mode_path, "single")?
   let port = 19120 + version * 10
@@ -321,9 +322,9 @@ fn scenario(version :: Int) -> Result<(), String> do
     version)?
   let config = %{config |
     pins: %{config.pins |
-      endpoints: for offset in 0..3 do
+      rpc: webpki_rpc_transport(for offset in 0..3 do
         "http://127.0.0.1:#{port + offset}"
-      end
+      end)?
     }
   }
   let name = Bytes.from_utf8("morse-main")
@@ -512,9 +513,9 @@ fn scenario(version :: Int) -> Result<(), String> do
     version)?
   let long_config = %{long_config |
     pins: %{long_config.pins |
-      endpoints: for offset in 100..103 do
+      rpc: webpki_rpc_transport(for offset in 100..103 do
         "http://127.0.0.1:#{port + offset}"
-      end
+      end)?
     }
   }
   File.write(mode_path, "late")?

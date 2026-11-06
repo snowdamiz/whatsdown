@@ -388,13 +388,7 @@ fn fanout_proof(classical_peer :: Bool, classical_linked :: Bool) -> Bool!String
 end
 
 test("native direct floor refuses a new classical session and preserves an installed classical HE snapshot") do
-  case direct_proof() do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert_received_fixture(Result.unwrap_or(direct_proof(), false))
 end
 
 test("native incoming floor refuses a valid classical INITIAL without prekey/session mutation") do

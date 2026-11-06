@@ -552,7 +552,7 @@ pub fn plan_reward_operation(pins :: AnchorPins,
       intent.epoch,
       minimum_slot)?
   end
-  let chain_time = read_anchor_time_quorum(pins.endpoints, state.context_slot)?
+  let chain_time = read_anchor_time_quorum(pins.rpc, state.context_slot)?
   let step = select_reward_step(intent, state, U64.parse(Int.to_string(chain_time))?)?
   if step == "complete" || String.starts_with(step, "waiting:") do
     return Ok(report(intent, state, step, [], []))

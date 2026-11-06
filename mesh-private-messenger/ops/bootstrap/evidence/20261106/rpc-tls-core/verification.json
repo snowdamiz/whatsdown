@@ -1,0 +1,68 @@
+{
+  "status": "PASS_LOCAL_RPC_TLS",
+  "process_exit_code": 0,
+  "compile": "fresh",
+  "acceptance": "fresh",
+  "current_source_closure": "verified",
+  "base": "3293d90dc3a21dbb72098b407c3fa1cbdfcaa233",
+  "mesh_source": "8256d5d30e79f3c1de9d8507f8607f8efbee756a",
+  "production_exports": 176,
+  "fixture_exports": 9,
+  "local_checks": 37,
+  "anchor_result": [
+    "consistent",
+    "1793996683448",
+    "501",
+    "500",
+    "1793996683"
+  ],
+  "rpc_http_requests": 81,
+  "barrier_rpc_counts": {
+    "barrier-resource-success": 1,
+    "barrier-resource-http-error": 1,
+    "barrier-account-success": 1,
+    "barrier-account-http-error": 1
+  },
+  "redirect_target_connections": 0,
+  "production_checks": [
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending"
+  ],
+  "not_run": [
+    "native platform packages and phone UI",
+    "production/funded/external RPC",
+    "production C ABI next-day clock boundary",
+    "bounded native context path (owned by production context tests)",
+    "pause exactly after receive/before dispatch inside Mesh",
+    "next-due retained-mismatch retry under production wall clock"
+  ],
+  "evidence_sha256": {
+    "receipt.json": "0db7b8007e3a713ece0f57e0bce35bcaef1d5942d8d01303a2bfd77d47a9baba",
+    "local-result.json": "0bc29c0963ad6c29a6c4989f817d48a7e2ce79a57b6591eea3d8545c33072c88",
+    "sources.json": "8934c6bd2a479c38179ff2c8430efca4d2559b142fd05a0e187f0dc5b1b4a0a4",
+    "build.log": "cf9d7e3c317916e2eeda598bcf4bf7ab50f5a73be4aa14e784d2f8a19a77491a",
+    "console.log": "6c1f76302ea1d568c4cd58b14856eb51bc8a4cef120e45e7c750ffd972839565",
+    "process.json": "a211af06dc4e6a34457332b4f7a2e3de9310f77aacbcc839caae7dbcd8b62829"
+  },
+  "artifacts": {
+    "libbootstrap_host.dylib": "eacc337dc1e3e2b76b641cb455a8a197f248a87774f6b914fd17b0b7bdc760e4",
+    "libbootstrap.jni.c": "62503ec7d1eb8b10401a805604fc2919bc89643ce5b199a956d0bc6ee8ca9890",
+    "libbootstrap.dylib.plaintext.json": "7da802c96de838500f7e4b73a8b27c8827da0294d383a83e22bf626ab520304f",
+    "libbootstrap.dylib": "3b2900425ed5e857f3e1943d27f4ea748ef66ca2f9e1a41b0887747d8f780555",
+    "libbootstrap.abi.json": "46074f2506932be10a79342600c963a4ad74a469c3bf0eb409fbdb5099a81379",
+    "libbootstrap.h": "a97afd1f10af1d5b299c573b1a795dce2cdf6d7907ad13b8bf2b8f195fdf61e1",
+    "libbootstrap.ts": "518a3c7d8b105f5b6b947c1c3eca72a01b2114a5518a613e0ba16576e831d238",
+    "libbootstrap.swift": "d78f03643491509af6b61a50c00ac50ebab2949dbc9ff1ffa9372b105a790844",
+    "libbootstrap.kt": "32c4943a9566feff444fe00c9858711a81dff6a8db7ff45ec17f1b550e15abe1",
+    "build.log": "cf9d7e3c317916e2eeda598bcf4bf7ab50f5a73be4aa14e784d2f8a19a77491a",
+    "local-result.json": "0bc29c0963ad6c29a6c4989f817d48a7e2ce79a57b6591eea3d8545c33072c88"
+  },
+  "public_fixture_files_verified": 199,
+  "retained_work": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-ecb699cb/.morse/rpc-tls/green/final-r4/bootstrap-native-bc_ocwa8"
+}

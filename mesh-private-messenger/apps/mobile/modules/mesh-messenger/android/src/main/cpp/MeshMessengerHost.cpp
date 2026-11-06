@@ -15,6 +15,7 @@ constexpr int32_t kPlatformFailure = 3;
 constexpr int32_t kOutputTooLarge = 4;
 constexpr int32_t kJavaFailure = 5;
 constexpr size_t kMaximumPushFrameLength = 4362;
+constexpr size_t kMaximumRpcTLSRootsLength = 82002;
 constexpr char kRawPushSelector[] = "expo/raw/v1";
 constexpr char kConfigPushSelector[] = "expo/config/v1";
 constexpr char kCounterConfigSelector[] = "messenger/network-counter/v1";
@@ -22,6 +23,7 @@ constexpr char kSecurityConfigSelector[] = "messenger/config/v1";
 constexpr char kNetworkConfigSelector[] = "messenger/network/v1";
 constexpr char kOhttpConfigSelector[] = "messenger/ohttp/v1";
 constexpr char kIssuerTLSSelector[] = "messenger/issuer-tls-root/v1";
+constexpr char kRpcTLSSelector[] = "messenger/rpc-tls-roots/v1";
 constexpr char kLightningSelector[] = "messenger/lightning/v1";
 constexpr char kCreditPurposeSelector[] = "messenger/credits/v1";
 constexpr char kWalletPinsSelector[] = "messenger/wallet/v1";
@@ -40,6 +42,7 @@ jmethodID g_build_ohttp_config = nullptr;
 jmethodID g_counter_config = nullptr;
 jmethodID g_lightning_network = nullptr;
 jmethodID g_issuer_tls_root = nullptr;
+jmethodID g_rpc_tls_roots = nullptr;
 jmethodID g_credit_purpose = nullptr;
 jmethodID g_wallet_pins = nullptr;
 std::mutex g_store_lock;
@@ -211,11 +214,13 @@ int32_t PushGetTokenOnJvmThread(void *, const uint8_t *input, uint64_t input_len
       std::memcmp(input, kOhttpConfigSelector, sizeof(kOhttpConfigSelector) - 1) == 0;
   bool read_issuer_tls = input_length == sizeof(kIssuerTLSSelector) - 1 &&
       std::memcmp(input, kIssuerTLSSelector, sizeof(kIssuerTLSSelector) - 1) == 0;
-  if (!read_ohttp_config && !read_counter_config && !read_issuer_tls && !consume && !read_config && !read_security_config && !read_credit_purpose && !read_wallet_pins && !read_network_config && !read_lightning) return kInvalidInput;
+  bool read_rpc_tls = input_length == sizeof(kRpcTLSSelector) - 1 &&
+      std::memcmp(input, kRpcTLSSelector, sizeof(kRpcTLSSelector) - 1) == 0;
+  if (!read_ohttp_config && !read_counter_config && !read_issuer_tls && !read_rpc_tls && !consume && !read_config && !read_security_config && !read_credit_purpose && !read_wallet_pins && !read_network_config && !read_lightning) return kInvalidInput;
   std::lock_guard<std::mutex> guard(g_store_lock);
   jmethodID method = consume ? g_consume_push_material
                              : read_config ? g_build_push_config
-                                           : read_ohttp_config ? g_build_ohttp_config : read_counter_config ? g_counter_config : read_issuer_tls ? g_issuer_tls_root : read_lightning ? g_lightning_network : read_credit_purpose ? g_credit_purpose : read_wallet_pins ? g_wallet_pins : read_network_config ? g_build_network_config : g_build_security_config;
+                                           : read_ohttp_config ? g_build_ohttp_config : read_counter_config ? g_counter_config : read_issuer_tls ? g_issuer_tls_root : read_rpc_tls ? g_rpc_tls_roots : read_lightning ? g_lightning_network : read_credit_purpose ? g_credit_purpose : read_wallet_pins ? g_wallet_pins : read_network_config ? g_build_network_config : g_build_security_config;
   if (g_push_class == nullptr || method == nullptr) {
     return kPlatformFailure;
   }
@@ -231,13 +236,13 @@ int32_t PushGetTokenOnJvmThread(void *, const uint8_t *input, uint64_t input_len
   }
   if (result == nullptr) {
     ReleaseEnvironment(attached);
-    return kNotFound;
+    return read_rpc_tls ? kPlatformFailure : kNotFound;
   }
 
   jsize result_length = environment->GetArrayLength(result);
   int32_t status = MESH_LIBRARY_OK;
-  if (result_length <= 0 ||
-      static_cast<size_t>(result_length) > (read_ohttp_config ? 600 : read_counter_config ? 24576 : read_issuer_tls ? 67591 : read_network_config ? 8240 : kMaximumPushFrameLength)) {
+  if (result_length < (read_rpc_tls ? 2 : 1) ||
+      static_cast<size_t>(result_length) > (read_ohttp_config ? 600 : read_counter_config ? 24576 : read_issuer_tls ? 67591 : read_rpc_tls ? kMaximumRpcTLSRootsLength : read_network_config ? 8240 : kMaximumPushFrameLength)) {
     status = kInvalidInput;
   } else if (static_cast<uint64_t>(result_length) > output_capacity) {
     status = kOutputTooLarge;
@@ -311,6 +316,7 @@ void ClearStore(JNIEnv *environment) {
   g_credit_purpose = nullptr;
   g_lightning_network = nullptr;
   g_issuer_tls_root = nullptr;
+  g_rpc_tls_roots = nullptr;
   g_wallet_pins = nullptr;
 }
 }  // namespace
@@ -366,11 +372,12 @@ Java_expo_modules_meshmessenger_MeshMessengerHost_registerHostCallbacks(
   g_build_ohttp_config = environment->GetStaticMethodID(g_push_class, "ohttpConfig", "()[B");
   g_counter_config = environment->GetStaticMethodID(g_push_class, "networkCounterConfig", "()[B");
   g_issuer_tls_root = environment->GetStaticMethodID(g_push_class, "issuerTLSRoot", "()[B");
+  g_rpc_tls_roots = environment->GetStaticMethodID(g_push_class, "rpcTLSRoots", "()[B");
   g_lightning_network = environment->GetStaticMethodID(g_push_class, "lightningNetwork", "()[B");
   g_credit_purpose = environment->GetStaticMethodID(g_push_class, "creditPurpose", "()[B");
   g_wallet_pins = environment->GetStaticMethodID(g_push_class, "walletPins", "()[B");
   if (g_consume_push_material == nullptr || g_build_push_config == nullptr ||
-      g_build_security_config == nullptr || g_counter_config == nullptr || g_build_network_config == nullptr || g_build_ohttp_config == nullptr || g_issuer_tls_root == nullptr || g_lightning_network == nullptr || g_credit_purpose == nullptr || g_wallet_pins == nullptr) {
+      g_build_security_config == nullptr || g_counter_config == nullptr || g_build_network_config == nullptr || g_build_ohttp_config == nullptr || g_issuer_tls_root == nullptr || g_rpc_tls_roots == nullptr || g_lightning_network == nullptr || g_credit_purpose == nullptr || g_wallet_pins == nullptr) {
     environment->ExceptionClear();
     ClearStore(environment);
     return kJavaFailure;

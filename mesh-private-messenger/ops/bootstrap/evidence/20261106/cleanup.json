@@ -1,0 +1,38 @@
+{
+  "implementation_commit": "0f1af78370283c381841744979bed189dc43fd89",
+  "owned_temporary_work": [
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/abi-probe/bootstrap-native-p7_7yrk6",
+      "removed": true,
+      "heavy_output_sha256": {
+        "libbootstrap.dylib": "bcb52a80c71a02cc3a4740852651ae5738ed437e2085ec89f79977bf28438ff4",
+        "toolchain/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+        "toolchain/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+        "toolchain/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8"
+      },
+      "receipt_sha256": "1dd34668c0d3c55036efaa5a9cd9760acdb515d495a505aaa47431cf7e4cfb70"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/boundary/bootstrap-native-luycwxlh",
+      "removed": true,
+      "heavy_output_sha256": {
+        "libbootstrap.dylib": "5b680ef37a1c4b97768224eaf80557ace8f49e37e0140e7fa1090148abf2a7c1",
+        "toolchain/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+        "toolchain/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+        "toolchain/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8"
+      },
+      "receipt_sha256": "d8f81d54e93270071b52bcaf335f7eee94e91e96a25518c3434e54dbe88a983f"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_",
+      "removed": true,
+      "heavy_output_sha256": {
+        "libbootstrap.dylib": "4729304574c5a5f673499caa19806a9cc58e2a36645477c209c933a9440e571d",
+        "toolchain/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+        "toolchain/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+        "toolchain/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8"
+      },
+      "receipt_sha256": "62c35ad1ed8de39db8a94fddac4d7fb42a448fe4d3969916badf490fb141e591"
+    }
+  ]
+}

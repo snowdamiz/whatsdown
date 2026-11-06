@@ -363,6 +363,7 @@ fn run_case(mode :: Int) -> Result<(), String> do
     <> "\n1\nrequired\n1\n0 18446744073709551615 "
     <> Bytes.to_base64(key))
   if mode == 22 do
+    assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
     assert(Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"), Bytes.empty()))
   else if mode == 23 do
     assert(Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"), Bytes.from_utf8("malformed")))

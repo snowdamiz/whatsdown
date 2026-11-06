@@ -1,0 +1,18 @@
+{
+  "command": [
+    "python3",
+    "mesh-private-messenger/ops/bootstrap/prove.py",
+    "--compiler",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+    "--mesh-source",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang",
+    "--evidence-dir",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-ecb699cb/.morse/rpc-tls/green/final-r4",
+    "--keep-work"
+  ],
+  "process_exit_code": 0,
+  "started_at": "2026-11-06T20:21:06.077337+00:00",
+  "finished_at": "2026-11-06T20:25:00.578838+00:00",
+  "compile": "fresh",
+  "acceptance": "fresh"
+}

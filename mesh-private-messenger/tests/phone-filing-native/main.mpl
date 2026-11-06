@@ -11,6 +11,7 @@ from Storage.Records import store_updated_session
 from Transparency.Config import SecurityConfig
 from Transparency.Fork import ForkProof, ForkTarget, decode_fork
 from Transparency.AnchorChain import AnchorPins
+from Transparency.RpcTransport import webpki_rpc_transport, rpc_transport
 from Transparency.SlashReceiptRead import read_slash_receipt_state
 from MobileCore import fork_filing_export, transparency_fork_export, initialize
 
@@ -37,7 +38,9 @@ pub fn start(request :: Bytes) -> Bytes!String do
   let path = mobile_utf8(request, "invalid_path")?
   let key = platform_key()?
   let config = native_security_config()?
-  let plan = case prepare_filing(config, retained_fork(path, key)?)? do
+  let plan = case prepare_filing(config,
+    webpki_rpc_transport(config.rpc_urls)?,
+    retained_fork(path, key)?)? do
     None -> return Err("disabled_fixture")
     Some(value) -> value
   end
@@ -45,7 +48,8 @@ pub fn start(request :: Bytes) -> Bytes!String do
   let origins = for port in ports do
     "http://127.0.0.1:" <> port
   end
-  let pins = %{plan.pins | endpoints: origins}
+  let local = webpki_rpc_transport(origins)?
+  let pins = %{plan.pins | rpc: rpc_transport(local.sources, plan.pins.rpc.require_current)?}
   let state = start_filing(path,
     key,
     plan,

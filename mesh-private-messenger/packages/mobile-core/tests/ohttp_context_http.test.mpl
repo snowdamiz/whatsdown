@@ -67,6 +67,7 @@ fn install(finish :: U64, overlap :: Bool) -> Result<(), String> do
     end))
   assert(Test.set_push_token(bytes("messenger/network/v1"), network()))
   assert(Test.set_push_token(bytes("messenger/config/v1"), security()))
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   assert(Test.set_push_token(bytes("messenger/ohttp/v1"), companion))
   Ok(nil)
 end
@@ -109,6 +110,8 @@ fn exchange(request :: Request, control :: String) -> Response!String do
     assert(Test.set_push_token(bytes("messenger/config/v1"), bytes("changed security")))
   else if marker == "companion" do
     assert(Test.set_push_token(bytes("messenger/ohttp/v1"), bytes("changed companion")))
+  else if marker == "rpc_tls" || marker == "failure_rpc_tls" do
+    assert(Test.set_push_token(bytes("messenger/rpc-tls-roots/v1"), bytes("changed RPC authority")))
   else if marker == "profile" || marker == "failure_profile" do
     store_updated_blobs(path,
       ["profile/v1"],
@@ -162,7 +165,7 @@ fn scenarios(control :: String) -> Bool!String do
   File.write(control <> ".replacement", Bytes.to_hex(replacement))?
   for marker in [
     "ok",
-    "transport_error",
+    "transport_error", "rpc_tls", "failure_rpc_tls",
     "network",
     "security",
     "companion",

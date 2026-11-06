@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RelayAdmission import RelayAdmission, RelaySettlementPlan, admit_relay_fork
 from Transparency.RelayReport import relay_admission_report
 from Transparency.RelayLookup import RelayLookupPlan, prepare_relay_lookup
@@ -143,9 +144,9 @@ fn read(value :: Json, index :: Int, mode :: String) -> RelayAdmission!String do
     ring: addresses.ring,
     log_id: addresses.log_id,
     log_name: text(value, "log_name")?,
-    endpoints: for node in 0..3 do
+    rpc: webpki_rpc_transport(for node in 0..3 do
       "http://127.0.0.1:#{19963 + node}/#{index}/#{mode}"
-    end
+    end)?
   }
   admit_relay_fork(pins,
     bytes(value, "service_key")?,

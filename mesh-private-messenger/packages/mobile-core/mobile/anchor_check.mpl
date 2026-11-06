@@ -34,6 +34,15 @@ from Transparency.AnchorChain import (
   read_anchor_freshness
 )
 from Transparency.AnchorRpc import validate_anchor_sources
+from Transparency.RpcTransport import RpcTransport, rpc_transport, rpc_urls, rpc_fatal_error
+from Mobile.NativeRpcTls import decode_native_rpc_tls
+from Mobile.OhttpContext import (
+  NativeOhttpContext,
+  capture_native_ohttp_context,
+  rpc_transport_from_context,
+  capture_native_ohttp_frames,
+  require_current_native_ohttp_frames
+)
 from Mobile.AnchorSchedule import (
   AnchorClaim,
   AnchorSchedule,
@@ -49,10 +58,10 @@ from Mobile.Codec import (
   mobile_read_u64,
   encode_output_list
 )
-from Mobile.Platform import native_security_config
+from Mobile.Platform import native_security_config, decode_native_security_config
 from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import platform_key, seal_local, local_context
-from Solana.Read import Pubkey
+from Solana.Read import Pubkey, pubkey
 from Transparency.Config import SecurityConfig, LogWitnessPolicy, witness_policy_for_log
 from Transparency.AnchorLog import AnchorLog
 from Transparency.AnchorRing import AnchorHeader, AnchorEntry, decode_anchor_entry
@@ -111,11 +120,19 @@ pub fn anchor_identity(pins :: AnchorPins, service_key :: Bytes, version :: Int)
     || !Bytes.secure_equals(addresses.ring.bytes, pins.ring.bytes) do
     return Err("invalid_anchor_pins")
   end
+  anchor_identity_bytes(pins.program.bytes, pins.ring.bytes, pins.log_id, service_key, version)
+end
+
+fn anchor_identity_bytes(program :: Bytes,
+  ring :: Bytes,
+  log_id :: Bytes,
+  service_key :: Bytes,
+  version :: Int) -> Bytes!String do
   Ok(Crypto.sha256(mobile_join([
       Bytes.from_utf8("morse-anchor-observation-v1"),
-      pins.program.bytes,
-      pins.ring.bytes,
-      pins.log_id,
+      program,
+      ring,
+      log_id,
       service_key,
       mobile_byte(version)?
     ],
@@ -219,7 +236,11 @@ fn with_attribution(pins :: AnchorPins,
   let witnesses = case read_anchor_witness_record(pins,
     record.entry.witness_generation,
     snapshot.context_slot) do
-    Err(_) -> return Ok((encoded, Bytes.empty()))
+    Err(error) -> if rpc_fatal_error(error) do
+      return Err(error)
+    else
+      return Ok((encoded, Bytes.empty()))
+    end
     Ok(value) -> value
   end
   case attribute_anchor_fork(retained,
@@ -246,7 +267,11 @@ fn observe(pins :: AnchorPins,
   let origin = view.origin
   let sampled = sample_anchor_sources(pins)?
   let snapshot = case read_anchor_header(sampled, previous.context_slot) do
-    Err(error) -> return Ok(attempt(failed_observation(previous, now, error)))
+    Err(error) -> if rpc_fatal_error(error) do
+      return Err(error)
+    else
+      return Ok(attempt(failed_observation(previous, now, error)))
+    end
     Ok(value) -> value
   end
   let value = AnchorObservation {
@@ -258,7 +283,11 @@ fn observe(pins :: AnchorPins,
   }
   let log = case read_anchor_log(sampled, service_key, version, snapshot.context_slot) do
     Ok(log) -> log
-    Err(error) -> return Ok(attempt(failed_observation(value, now, error)))
+    Err(error) -> if rpc_fatal_error(error) do
+      return Err(error)
+    else
+      return Ok(attempt(failed_observation(value, now, error)))
+    end
   end
   # Slash checks run even for empty or stale rings. An authenticated refusal is
   # retained; a future unslashed response or outage never restores this key.
@@ -272,7 +301,11 @@ fn observe(pins :: AnchorPins,
     snapshot,
     U64.to_int(U64.divide(now, U64.parse("1000")?)?)?) do
     Ok(freshness) -> freshness
-    Err(error) -> return Ok(attempt(failed_observation(value, now, error)))
+    Err(error) -> if rpc_fatal_error(error) do
+      return Err(error)
+    else
+      return Ok(attempt(failed_observation(value, now, error)))
+    end
   end
   let value = %{value | block_time: U64.parse(Int.to_string(freshness.block_time_seconds))?}
   if freshness.stale do
@@ -292,7 +325,11 @@ fn observe(pins :: AnchorPins,
     return Ok(attempt(%{value | status: "proof_unavailable"}))
   end
   let record = case read_anchor_record(sampled, snapshot, 0) do
-    Err(error) -> return Ok(attempt(failed_observation(value, now, error)))
+    Err(error) -> if rpc_fatal_error(error) do
+      return Err(error)
+    else
+      return Ok(attempt(failed_observation(value, now, error)))
+    end
     Ok(value) -> value
   end
   if record.entry.log_version != version do
@@ -300,7 +337,7 @@ fn observe(pins :: AnchorPins,
   end
   # Checking both directions also authenticates the public prefix when this
   # device is ahead of the anchor writer. It needs just the newest ring entry.
-  let compared = compare_anchor(origin, local, record.entry, snapshot.header.head, service_key)?
+  let compared = compare_anchor(origin, local, record.entry, snapshot.header.head, service_key, pins.rpc.require_current)?
   let leaf = if compared.status != "consistent"
     && Bytes.length(compared.fork) == 0
     && Bytes.length(view.leaf) > 0 do
@@ -309,7 +346,8 @@ fn observe(pins :: AnchorPins,
       record.entry,
       snapshot.header.head,
       service_key,
-      decode_leaf_proof(view.leaf)?)?
+      decode_leaf_proof(view.leaf)?,
+      pins.rpc.require_current)?
   else
     AnchorLeafEvidence { status: "not_checked", fork: Bytes.empty(), response: Bytes.empty() }
   end
@@ -325,7 +363,7 @@ fn observe(pins :: AnchorPins,
     case previous_anchor do
       None -> nil
       Some(previous) -> do
-        let continuity = anchor_extends(origin, previous, record.entry)?
+        let continuity = anchor_extends(origin, previous, record.entry, pins.rpc.require_current)?
         if continuity != "consistent" do
           return Ok(attempt(%{value | status: continuity}))
         end
@@ -447,11 +485,12 @@ pub fn check_anchor_attested_at(path :: String,
     compact_leaf_proof(decode_leaf_proof(view.leaf)?, decode_checkpoint(view.checkpoint)?)?
   end
   let identity = anchor_identity(pins, service_key, version)?
-  validate_anchor_sources(pins.endpoints)?
+  validate_anchor_sources(rpc_urls(pins.rpc))?
   let previous = load_anchor_observation(path, key, identity)?
   if previous.status == "service_slashed" do
     return Ok(previous)
   end
+  pins.rpc.require_current()?
   let claim = case claim_anchor_check(path, key, identity, now, key_changed)? do
     None -> return Ok(previous)
     Some(value) -> value
@@ -506,6 +545,7 @@ pub fn check_anchor_attested_at(path :: String,
   let retry = value.status != "observed"
     && value.status != "consistent"
     && value.status != "service_slashed"
+  pins.rpc.require_current()?
   finish_anchor_check_with_blobs(path,
     key,
     claim,
@@ -518,8 +558,8 @@ pub fn check_anchor_attested_at(path :: String,
 end
 
 pub fn check_native_anchor(path :: String, key_changed :: Bool) -> AnchorObservation!String do
-  let config = native_security_config()?
-  let pins = case configured_anchor_pins(config)? do
+  let (config, configured) = native_anchor_pins(path, None)?
+  let pins = case configured do
     None -> return blank("off")
     Some(value) -> value
   end
@@ -531,7 +571,7 @@ pub fn check_native_anchor(path :: String, key_changed :: Bool) -> AnchorObserva
   else
     decode_witnesses(bytes)?
   end
-  check_anchor_attested_at(path,
+  let result = check_anchor_attested_at(path,
     key,
     pins,
     config.service_public_key,
@@ -545,21 +585,24 @@ pub fn check_native_anchor(path :: String, key_changed :: Bool) -> AnchorObserva
       witnesses: witnesses,
       leaf: cached_transparency_bytes(path, key, "transparency-leaf/v1")?
     })
+  Secret.destroy(key)
+  result
 end
 
 pub fn check_native_anchor_view(path :: String,
+  context :: Option<NativeOhttpContext>,
   checkpoint :: Bytes,
   origin :: String,
   witnesses :: List<WitnessAttestation>,
   leaf :: Bytes) -> AnchorObservation!String do
-  let config = native_security_config()?
-  let pins = case configured_anchor_pins(config)? do
+  let (config, configured) = native_anchor_pins(path, context)?
+  let pins = case configured do
     None -> return blank("off")
     Some(value) -> value
   end
   ensure_schema(path)?
   let key = platform_key()?
-  check_anchor_attested_at(path,
+  let result = check_anchor_attested_at(path,
     key,
     pins,
     config.service_public_key,
@@ -568,6 +611,8 @@ pub fn check_native_anchor_view(path :: String,
     true,
     witness_policy_for_log(config, config.log_version)?.keys,
     AnchorView { checkpoint: checkpoint, origin: origin, witnesses: witnesses, leaf: leaf })
+  Secret.destroy(key)
+  result
 end
 
 pub fn anchor_service_refused(path :: String, key :: borrow StorageKey) -> Bool!String do
@@ -582,11 +627,18 @@ pub fn anchor_service_refused(path :: String, key :: borrow StorageKey) -> Bool!
     Ok(_) -> nil
   end
   let config = native_security_config()?
-  let pins = case configured_anchor_pins(config)? do
-    None -> return Ok(false)
-    Some(value) -> value
+  if (config.version != 4 && config.version != 5) || config.anchor_address == "-" do
+    return Ok(false)
   end
-  let identity = anchor_identity(pins, config.service_public_key, config.log_version)?
+  # Stable public identity is independent of RPC availability and root parsing.
+  # Native security decoding already validates the program/ring geometry.
+  let program = pubkey(config.anchor_program)?
+  let addresses = anchor_addresses(program, config.anchor_log_name)?
+  let identity = anchor_identity_bytes(program.bytes,
+    pubkey(config.anchor_address)?.bytes,
+    addresses.log_id,
+    config.service_public_key,
+    config.log_version)?
   if Bytes.length(load_anchor_schedule(path, key, identity)?.active_token) != 0 do
     # The claim precedes every RPC. Until its result commits, new trust cannot
     # race a slash response or bypass a failed durable completion. A crashed
@@ -611,4 +663,35 @@ pub fn anchor_observation_output(value :: AnchorObservation) -> Bytes!String do
   ] do
     Bytes.from_utf8(field)
   end)
+end
+
+fn native_anchor_pins(path :: String,
+  captured :: Option<NativeOhttpContext>) -> (SecurityConfig, Option<AnchorPins>)!String do
+  let config = case captured do
+    Some(context) -> decode_native_security_config(context.security_frame)?
+    None -> native_security_config()?
+  end
+  if (config.version != 4 && config.version != 5) || config.anchor_address == "-" do
+    return Ok((config, None))
+  end
+  ensure_schema(path)?
+  let (security, rpc) = case captured do
+    Some(context) -> (config, rpc_transport_from_context(path, context)?)
+    None -> case load_blob(path, "profile/v1") do
+      Ok(profile) -> do
+        let context = capture_native_ohttp_context(path, profile)?
+        (decode_native_security_config(context.security_frame)?, rpc_transport_from_context(path, context)?)
+      end
+      Err(error) -> if error == "local_state_not_found" do
+        let frames = capture_native_ohttp_frames()?
+        let security = decode_native_security_config(frames.security)?
+        let rpc = rpc_transport(decode_native_rpc_tls(frames.rpc_tls, security)?,
+          fn() do require_current_native_ohttp_frames(frames) end)?
+        (security, rpc)
+      else
+        return Err(error)
+      end
+    end
+  end
+  Ok((security, configured_anchor_pins(security, rpc)?))
 end

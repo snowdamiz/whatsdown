@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import RpcEndpoint, RpcTransport, rpc_urls, rpc_transport
 from Transparency.AnchorRpc import (
   AnchorAgreement,
   read_anchor_quorum,
@@ -25,7 +26,7 @@ pub struct AnchorPins do
   program :: Pubkey
   log_name :: String
   log_id :: Bytes
-  endpoints :: List<String>
+  rpc :: RpcTransport
 end
 
 pub struct AnchorAddresses do
@@ -34,7 +35,11 @@ pub struct AnchorAddresses do
   log_id :: Bytes
 end
 
-pub fn configured_anchor_pins(config :: SecurityConfig) -> Option<AnchorPins>!String do
+pub fn configured_anchor_pins(config :: SecurityConfig, rpc :: RpcTransport) -> Option<AnchorPins>!String do
+  if rpc_urls(rpc) != config.rpc_urls do
+    return Err("rpc_tls_config_invalid")
+  end
+  rpc_transport(rpc.sources, rpc.require_current)?
   if config.version >= 1 && config.version <= 3 do
     return Ok(None)
   end
@@ -51,10 +56,10 @@ pub fn configured_anchor_pins(config :: SecurityConfig) -> Option<AnchorPins>!St
     ring: pubkey(config.anchor_address)?,
     log_name: config.anchor_log_name,
     log_id: addresses.log_id,
-    endpoints: config.rpc_urls
+    rpc: rpc
   }
   validate_pins(pins)?
-  validate_anchor_sources(pins.endpoints)?
+  validate_anchor_sources(rpc_urls(pins.rpc))?
   Ok(Some(pins))
 end
 
@@ -118,7 +123,7 @@ pub fn read_anchor_freshness(pins :: AnchorPins,
   if snapshot.header.count == 0 do
     return Err("anchor_empty")
   end
-  let time = read_anchor_time_quorum(pins.endpoints, snapshot.header.last_slot)?
+  let time = read_anchor_time_quorum(pins.rpc, snapshot.header.last_slot)?
   if time > now_seconds do
     return Err("anchor_clock_skew")
   end
@@ -147,7 +152,7 @@ pub fn read_anchor_log_context(pins :: AnchorPins,
     return Err("invalid_anchor_pins")
   end
   let addresses = validate_pins(pins)?
-  let result = read_anchor_quorum(pins.endpoints,
+  let result = read_anchor_quorum(pins.rpc,
     addresses.log,
     pins.program,
     0,
@@ -186,7 +191,7 @@ pub fn read_anchor_witness_record(pins :: AnchorPins,
   end
   let address = find_program_address(pins.program,
     [Bytes.from_utf8("witness-set"), pins.log_id, encoded_generation])?.address
-  let result = read_anchor_quorum(pins.endpoints, address, pins.program, 0, 2752, minimum_slot)?
+  let result = read_anchor_quorum(pins.rpc, address, pins.program, 0, 2752, minimum_slot)?
   let set = decode_anchor_witness_set(result.data)?
   if set.generation != generation || !Bytes.secure_equals(set.log_id, pins.log_id) do
     Err("anchor_witness_set_mismatch")
@@ -199,11 +204,11 @@ end
 # across the header and entry reads of one check.
 pub fn sample_anchor_sources(pins :: AnchorPins) -> AnchorPins!String do
   validate_pins(pins)?
-  validate_anchor_sources(pins.endpoints)?
-  Ok(%{pins | endpoints: sample(pins.endpoints, List.new())?})
+  validate_anchor_sources(rpc_urls(pins.rpc))?
+  Ok(%{pins | rpc: rpc_transport(sample(pins.rpc.sources, List.new())?, pins.rpc.require_current)?})
 end
 
-fn sample(remaining :: List<String>, selected :: List<String>) -> List<String>!String do
+fn sample(remaining :: List<RpcEndpoint>, selected :: List<RpcEndpoint>) -> List<RpcEndpoint>!String do
   if List.length(selected) == 3 do
     return Ok(selected)
   end
@@ -226,7 +231,7 @@ pub fn read_anchor_header(pins :: AnchorPins, minimum_slot :: U64) -> AnchorSnap
   if Bytes.length(pins.log_id) != 32 do
     return Err("invalid_anchor_pins")
   end
-  let result = read_anchor_quorum(pins.endpoints, pins.ring, pins.program, 0, 64, minimum_slot)?
+  let result = read_anchor_quorum(pins.rpc, pins.ring, pins.program, 0, 64, minimum_slot)?
   let header = decode_anchor_header(result.data)?
   if !Bytes.secure_equals(header.log_id, pins.log_id)
     || U64.compare(header.last_slot, result.context_slot) > 0 do
@@ -249,7 +254,7 @@ pub fn read_anchor_record(pins :: AnchorPins,
     return Err("invalid_anchor_pins")
   end
   let offset = anchor_entry_offset(snapshot.header, distance)?
-  let result = read_anchor_quorum(pins.endpoints,
+  let result = read_anchor_quorum(pins.rpc,
     pins.ring,
     pins.program,
     offset,
@@ -291,14 +296,14 @@ pub fn read_anchor_batch(pins :: AnchorPins,
   else
     count
   end
-  let first = read_anchor_quorum(pins.endpoints,
+  let first = read_anchor_quorum(pins.rpc,
     pins.ring,
     pins.program,
     offset,
     first_count * 104,
     snapshot.context_slot)?
   let combined = if first_count < count do
-    let rest = read_anchor_quorum(pins.endpoints,
+    let rest = read_anchor_quorum(pins.rpc,
       pins.ring,
       pins.program,
       64,

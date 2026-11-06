@@ -1,0 +1,413 @@
+{
+  "scope": "LOCAL compiled MobileCore C ABI with disposable owned TLS peers; all production checks pending",
+  "final": {
+    "status": "PASS_LOCAL_RPC_TLS",
+    "process_exit_code": 0,
+    "compile": "fresh",
+    "acceptance": "fresh",
+    "current_source_closure": "verified",
+    "base": "3293d90dc3a21dbb72098b407c3fa1cbdfcaa233",
+    "mesh_source": "8256d5d30e79f3c1de9d8507f8607f8efbee756a",
+    "production_exports": 176,
+    "fixture_exports": 9,
+    "local_checks": 37,
+    "anchor_result": [
+      "consistent",
+      "1793996683448",
+      "501",
+      "500",
+      "1793996683"
+    ],
+    "rpc_http_requests": 81,
+    "barrier_rpc_counts": {
+      "barrier-resource-success": 1,
+      "barrier-resource-http-error": 1,
+      "barrier-account-success": 1,
+      "barrier-account-http-error": 1
+    },
+    "redirect_target_connections": 0,
+    "production_checks": [
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending"
+    ],
+    "not_run": [
+      "native platform packages and phone UI",
+      "production/funded/external RPC",
+      "production C ABI next-day clock boundary",
+      "bounded native context path (owned by production context tests)",
+      "pause exactly after receive/before dispatch inside Mesh",
+      "next-due retained-mismatch retry under production wall clock"
+    ],
+    "evidence_sha256": {
+      "receipt.json": "0db7b8007e3a713ece0f57e0bce35bcaef1d5942d8d01303a2bfd77d47a9baba",
+      "local-result.json": "0bc29c0963ad6c29a6c4989f817d48a7e2ce79a57b6591eea3d8545c33072c88",
+      "sources.json": "8934c6bd2a479c38179ff2c8430efca4d2559b142fd05a0e187f0dc5b1b4a0a4",
+      "build.log": "cf9d7e3c317916e2eeda598bcf4bf7ab50f5a73be4aa14e784d2f8a19a77491a",
+      "console.log": "6c1f76302ea1d568c4cd58b14856eb51bc8a4cef120e45e7c750ffd972839565",
+      "process.json": "a211af06dc4e6a34457332b4f7a2e3de9310f77aacbcc839caae7dbcd8b62829"
+    },
+    "artifacts": {
+      "libbootstrap_host.dylib": "eacc337dc1e3e2b76b641cb455a8a197f248a87774f6b914fd17b0b7bdc760e4",
+      "libbootstrap.jni.c": "62503ec7d1eb8b10401a805604fc2919bc89643ce5b199a956d0bc6ee8ca9890",
+      "libbootstrap.dylib.plaintext.json": "7da802c96de838500f7e4b73a8b27c8827da0294d383a83e22bf626ab520304f",
+      "libbootstrap.dylib": "3b2900425ed5e857f3e1943d27f4ea748ef66ca2f9e1a41b0887747d8f780555",
+      "libbootstrap.abi.json": "46074f2506932be10a79342600c963a4ad74a469c3bf0eb409fbdb5099a81379",
+      "libbootstrap.h": "a97afd1f10af1d5b299c573b1a795dce2cdf6d7907ad13b8bf2b8f195fdf61e1",
+      "libbootstrap.ts": "518a3c7d8b105f5b6b947c1c3eca72a01b2114a5518a613e0ba16576e831d238",
+      "libbootstrap.swift": "d78f03643491509af6b61a50c00ac50ebab2949dbc9ff1ffa9372b105a790844",
+      "libbootstrap.kt": "32c4943a9566feff444fe00c9858711a81dff6a8db7ff45ec17f1b550e15abe1",
+      "build.log": "cf9d7e3c317916e2eeda598bcf4bf7ab50f5a73be4aa14e784d2f8a19a77491a",
+      "local-result.json": "0bc29c0963ad6c29a6c4989f817d48a7e2ce79a57b6591eea3d8545c33072c88"
+    },
+    "public_fixture_files_verified": 199,
+    "retained_work": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-ecb699cb/.morse/rpc-tls/green/final-r4/bootstrap-native-bc_ocwa8"
+  },
+  "baseline": {
+    "base": "4b2953aa4ed740326d8a03fe93f0d499f8f9b44a",
+    "mesh_source": "8256d5d30e79f3c1de9d8507f8607f8efbee756a",
+    "status": "BLOCKED_NATIVE_RPC_TLS",
+    "anchor_result": [
+      "rpc_unavailable",
+      "1793995054479",
+      "0",
+      "0",
+      "0"
+    ],
+    "rpc_http_requests": 0,
+    "production_checks": [
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending"
+    ]
+  },
+  "baseline_receipt_sha256": "f93d65c3b8c2a2db0c6ddd99b1cdce5ade8e5e35ccc02fcf9aca6e39b9951862",
+  "reporting_regression": {
+    "actual_status": "FAIL",
+    "observed_process_exit_code": 1,
+    "exception": "AssertionError: runner drift",
+    "raw_receipt_status": "PASS_LOCAL_RPC_TLS",
+    "raw_receipt_misclassified": true,
+    "raw_receipt_unchanged": true,
+    "local_behavior_status": "PASS_LOCAL_RPC_TLS",
+    "passed_local_checks": 37,
+    "receipt_sha256": "fb4b843fc1cc0e2e8710107dbeeadc25dfdb161ea84eeb56e7f0c4c339779130",
+    "local_result_sha256": "38f5ee7ed78fba12a17b1232b351964d40b4ed383258418c85f21111fdbbd1f6",
+    "classification_fix_commit": "3293d90"
+  },
+  "final_verifier_sha256": "40ed134a2edff684d4bfd7188f6a5a55cafafd52a5e345a6a0b855d2b2a0e0bb",
+  "final_local_check_rows": [
+    {
+      "name": "three independently rooted owned TLS peers ready",
+      "status": "PASS",
+      "origins": [
+        "https://127.0.0.1:50506",
+        "https://127.0.0.1:50507",
+        "https://127.0.0.1:50508"
+      ],
+      "root_sha256": [
+        "c86365418a70b6ad6b1cc1db01adcc31889e424023006284f572e8301cb92ec0",
+        "a1bb6a8af2cb44f69e31e3c6a5137c7d0215667c8d3f189438e5e2b4444ac685",
+        "3a4b0a1b3a902626602954f6bff43e9021d8ef683f4cebcac42e2f72432a6c41"
+      ],
+      "frame_sha256": "756c41bf541a42874817d8f33707614ea8a4af7c6866e71911496703cff8ae27"
+    },
+    {
+      "name": "actual create/resolve/anchor C ABI commits cache and consistent finalized TLS proof",
+      "status": "PASS",
+      "anchor_result": [
+        "consistent",
+        "1793996683448",
+        "501",
+        "500",
+        "1793996683"
+      ],
+      "rpc_http": 10,
+      "cache_sha256": "ae3f2b5ecbacaaa4f1ff5b99f5766e155f98efa287f5acd693167d233f6dab01",
+      "resolved_sha256": "e53320aeeb5429863665c99a0afcc86b76e7cf057dcf2e9f057a5bc8945b4a46"
+    },
+    {
+      "name": "corrupted directory signature refused with unchanged verified cache",
+      "status": "PASS",
+      "error": "transparency_verification_failed",
+      "cache_sha256": "ae3f2b5ecbacaaa4f1ff5b99f5766e155f98efa287f5acd693167d233f6dab01"
+    },
+    {
+      "name": "real process restart retains previous_tree_size=1, cache, result and network reservation",
+      "status": "PASS",
+      "process_a": 99527,
+      "process_b": 490,
+      "schedule_sha256": "5c6fc180cf070cb46929e9f483910a84b562dbb9934081d4901245aa0a5d443c"
+    },
+    {
+      "name": "shared compiled batch and runtime pooled explicit/default/wrong root isolation",
+      "status": "PASS"
+    },
+    {
+      "name": "root-only rotation preserves public-log identity and hourly/daily budget",
+      "status": "PASS"
+    },
+    {
+      "name": "public Mesh checker next-due injected time retains slot floor and performs fresh TLS",
+      "status": "PASS",
+      "boundary": "supplementary explicit-time API; native wall clock not injected"
+    },
+    {
+      "name": "absent-default refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 0,
+      "result": "rpc_unavailable",
+      "tls_attempts": 3
+    },
+    {
+      "name": "wrong-ca-all refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 0,
+      "result": "rpc_unavailable",
+      "tls_attempts": 3
+    },
+    {
+      "name": "malformed-pem-all refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "truncated-frame refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "trailing-frame refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "bad-version refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "zero-present-count refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "incomplete-count refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "excess-count refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "present-without-explicit-roots refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "absent-with-tail refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "security-digest refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "wrong-origin refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "wrong-port refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "suffix-lookalike refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_invalid",
+      "tls_attempts": 0
+    },
+    {
+      "name": "resource-read-error refuses without RPC HTTP or cache commit",
+      "status": "PASS",
+      "code": 9,
+      "result": "rpc_tls_config_unavailable",
+      "tls_attempts": 0
+    },
+    {
+      "name": "one wrong CA plus two agreeing peers preserves native quorum and deterministic batch fallback",
+      "status": "PASS"
+    },
+    {
+      "name": "explicit mixed WebPki row preserves two-root native quorum without implicit fallback",
+      "status": "PASS"
+    },
+    {
+      "name": "attempted malformed PEM is fatal despite two valid peer roots",
+      "status": "PASS",
+      "boundary": "compiled shared batch reader; no eager unused-row claim"
+    },
+    {
+      "name": "RPC redirect never followed",
+      "status": "PASS",
+      "target": "https://127.0.0.1:50507/redirected"
+    },
+    {
+      "name": "RPC redirect never followed",
+      "status": "PASS",
+      "target": "https://127.0.0.1:50509/redirected"
+    },
+    {
+      "name": "RPC redirect never followed",
+      "status": "PASS",
+      "target": "http://127.0.0.1:50505/redirected"
+    },
+    {
+      "name": "actual TLS barrier resource replacement refuses successful response",
+      "status": "PASS",
+      "error": "rpc_context_changed:account_state_changed",
+      "cache_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52"
+    },
+    {
+      "name": "actual TLS barrier resource replacement refuses Http.send Err",
+      "status": "PASS",
+      "error": "rpc_context_changed:account_state_changed",
+      "cache_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52"
+    },
+    {
+      "name": "actual TLS barrier account replacement refuses successful response",
+      "status": "PASS",
+      "error": "directory_identity_changed",
+      "cache_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52"
+    },
+    {
+      "name": "actual TLS barrier account replacement refuses Http.send Err",
+      "status": "PASS",
+      "error": "directory_identity_changed",
+      "cache_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52"
+    },
+    {
+      "name": "fresh native capture accepts new immutable root resource",
+      "status": "PASS"
+    },
+    {
+      "name": "root rotation cannot clear authenticated slash refusal",
+      "status": "PASS"
+    },
+    {
+      "name": "stable slash refusal remains readable with malformed transport",
+      "status": "PASS"
+    },
+    {
+      "name": "root rotation preserves mismatch reservation and refusal even with malformed transport",
+      "status": "PASS"
+    }
+  ],
+  "owned_implementation_commits": [
+    "57becc796d87135bb2095c08503a95f2e2d0acd6",
+    "feaf005f8a9ed6a03c4f88916d821973899a8fed",
+    "3293d90dc3a21dbb72098b407c3fa1cbdfcaa233"
+  ],
+  "evidence_directory": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-ecb699cb/.morse/rpc-tls/green/final-r4",
+  "source_scope": "Production package modules/manifests plus fixture and runner; excludes package tests directories and .test.mpl",
+  "fresh_reused_matrix": [
+    {
+      "run": "red",
+      "compile": "fresh",
+      "acceptance": "fresh",
+      "actual_status": "BLOCKED_NATIVE_RPC_TLS",
+      "exit": 1
+    },
+    {
+      "run": "green/r1",
+      "compile": "fresh failed",
+      "acceptance": "not run",
+      "actual_status": "FAIL"
+    },
+    {
+      "run": "green/r2",
+      "compile": "fresh",
+      "acceptance": "fresh",
+      "actual_status": "FAIL owned PKI readiness"
+    },
+    {
+      "run": "green/diagnostic-r2-a",
+      "compile": "reused r2 exact artifact",
+      "acceptance": "fresh",
+      "actual_status": "FAIL narrow expected account error"
+    },
+    {
+      "run": "green/diagnostic-r2-b",
+      "compile": "reused r2 exact artifact",
+      "acceptance": "fresh",
+      "actual_status": "FAIL narrow expected fork error"
+    },
+    {
+      "run": "green/diagnostic-r2-b/mismatch-diagnostic.json",
+      "compile": "reused r2 exact artifact",
+      "acceptance": "retained mismatch state only",
+      "actual_status": "PASS diagnostic only"
+    },
+    {
+      "run": "green/final-r3",
+      "compile": "fresh",
+      "acceptance": "fresh",
+      "actual_status": "FAIL runner drift",
+      "exit": 1
+    },
+    {
+      "run": "green/final-r4",
+      "compile": "fresh",
+      "acceptance": "fresh",
+      "actual_status": "PASS_LOCAL_RPC_TLS",
+      "exit": 0
+    }
+  ],
+  "evidence_directory_committed": "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core",
+  "additional_validation": {
+    "command": "meshc lint mesh-private-messenger",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+}

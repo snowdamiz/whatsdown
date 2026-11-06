@@ -182,7 +182,7 @@ pub fn read_relay_stage(pins :: AnchorPins,
   let pins = sample_anchor_sources(pins)?
   let initial = decode_relay_stage(pins.program, pins.log_id, submitter, wire, None, minimum_slot)?
   let addresses = anchor_addresses(pins.program, pins.log_name)?
-  let snapshot = read_anchor_accounts_bounded(pins.endpoints,
+  let snapshot = read_anchor_accounts_bounded(pins.rpc,
     [addresses.log, initial.address],
     minimum_slot,
     9161)?

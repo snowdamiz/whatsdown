@@ -67,6 +67,16 @@ that exact posting is accepted. A missing retained cursor or hidden candidate
 keeps the monitor degraded. The first fork and its observation context remain
 immutable across restarts, policy changes and later healthy replies.
 
+For WITNESS §4.3 acceptance, require a fresh healthy status with no issues and
+complete catch-up from the retained observation baseline. The consistency
+requirement covers every consecutive pair in posting order, matching §6.8;
+verified prefix links establish consistency across the chain. It does not
+require a separate proof request for every non-adjacent pair. A newly created
+database starts at the oldest visible ring entry and cannot attest to earlier,
+overwritten history. Establish its baseline before the observation window and
+preserve it throughout that window. A replacement database cannot repair a
+history gap or erase a prior incident for acceptance purposes.
+
 F1 and F3 use authenticated anchor comparisons. For F2, a failed consistency
 check starts a rotating scan of at most sixteen common-prefix leaves per pass.
 The scan advances durably and requires two valid inclusion paths with different

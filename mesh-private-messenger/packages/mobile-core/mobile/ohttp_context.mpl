@@ -5,6 +5,8 @@ from Mobile.OhttpPrekeys import fetch_ohttp_prekey
 from Mobile.OhttpLookups import fetch_lookup
 from Ohttp.LookupPolicy import OhttpLookupOperation, OhttpLookupResult
 from Mobile.Platform import decode_native_security_config
+from Mobile.NativeRpcTls import native_rpc_tls_frame, decode_native_rpc_tls
+from Transparency.RpcTransport import RpcTransport, rpc_transport
 from Storage.AccountGuard import (
   AccountBasis,
   load_account_basis,
@@ -22,14 +24,16 @@ pub struct NativeOhttpContext do
   network_frame :: Bytes
   security_frame :: Bytes
   companion_frame :: Bytes
+  rpc_tls_frame :: Bytes
   started_at :: U64
   selected_key :: Option<MobileOhttpKey>
 end
 
-struct NativeOhttpFrames do
+pub struct NativeOhttpFrames do
   network :: Bytes
   security :: Bytes
   companion :: Bytes
+  rpc_tls :: Bytes
 end
 
 struct DerivedOhttpContext do
@@ -57,7 +61,8 @@ fn native_frames() -> NativeOhttpFrames!String do
   Ok(NativeOhttpFrames {
     network: native_frame("messenger/network/v1", 8244)?,
     security: native_frame("messenger/config/v1", 8192)?,
-    companion: native_frame("messenger/ohttp/v1", 600)?
+    companion: native_frame("messenger/ohttp/v1", 600)?,
+    rpc_tls: native_rpc_tls_frame()?
   })
 end
 
@@ -185,7 +190,8 @@ fn require_frames(frames :: NativeOhttpFrames) -> Result<(), String> do
   end
   if !Bytes.secure_equals(current.network, frames.network)
     || !Bytes.secure_equals(current.security, frames.security)
-    || !Bytes.secure_equals(current.companion, frames.companion) do
+    || !Bytes.secure_equals(current.companion, frames.companion)
+    || !Bytes.secure_equals(current.rpc_tls, frames.rpc_tls) do
     Err("account_state_changed")
   else
     Ok(nil)
@@ -246,6 +252,7 @@ fn derive_context_pins(context :: NativeOhttpContext) -> DerivedOhttpContext!Str
     Err(_) -> return Err("invalid_ohttp_context")
     Ok(value) -> value
   end
+  decode_native_rpc_tls(context.rpc_tls_frame, security)?
   let pins = case decode_ohttp_pins(context.companion_frame, context.network_frame, security) do
     Err(_) -> return Err("invalid_ohttp_context")
     Ok(value) -> value
@@ -278,7 +285,8 @@ fn validated_current(path :: String, context :: NativeOhttpContext) -> DerivedOh
   require_frames(NativeOhttpFrames {
     network: context.network_frame,
     security: context.security_frame,
-    companion: context.companion_frame
+    companion: context.companion_frame,
+    rpc_tls: context.rpc_tls_frame
   })?
   require_ohttp_completion_time(context.started_at, derived.selected, current_time()?)?
   # Writer-lock CAS checks exact original profile AND fence ciphertexts.
@@ -301,6 +309,7 @@ pub fn capture_native_ohttp_context(path :: String,
   end
   let frames = native_frames()?
   let security = decode_native_security_config(frames.security)?
+  decode_native_rpc_tls(frames.rpc_tls, security)?
   let pins = decode_ohttp_pins(frames.companion, frames.network, security)?
   let started = current_time()?
   let selected = selected_key(pins, started)?
@@ -325,6 +334,7 @@ pub fn capture_native_ohttp_context(path :: String,
     network_frame: frames.network,
     security_frame: frames.security,
     companion_frame: frames.companion,
+    rpc_tls_frame: frames.rpc_tls,
     started_at: started,
     selected_key: selected
   }
@@ -413,7 +423,8 @@ fn validated_current_bounded_with_key(path :: String,
   require_frames(NativeOhttpFrames {
     network: context.network_frame,
     security: context.security_frame,
-    companion: context.companion_frame
+    companion: context.companion_frame,
+    rpc_tls: context.rpc_tls_frame
   })?
   require_ohttp_completion_time(context.started_at, derived.selected, current_time()?)?
   bounded_context_change(path, key, context.basis, None)?
@@ -429,6 +440,7 @@ fn capture_bounded_with_key(path :: String,
   end
   let frames = native_frames()?
   let security = decode_native_security_config(frames.security)?
+  decode_native_rpc_tls(frames.rpc_tls, security)?
   let pins = decode_ohttp_pins(frames.companion, frames.network, security)?
   let started = current_time()?
   let selected = selected_key(pins, started)?
@@ -450,6 +462,7 @@ fn capture_bounded_with_key(path :: String,
     network_frame: frames.network,
     security_frame: frames.security,
     companion_frame: frames.companion,
+    rpc_tls_frame: frames.rpc_tls,
     started_at: started,
     selected_key: selected
   }
@@ -574,4 +587,36 @@ pub fn fetch_guarded_ohttp_lookup_at_origin(path :: String,
   commit_account_changes(path, context.basis, [], [], [])?
   require_ohttp_completion_time(started, derived.selected, current_time()?)?
   result
+end
+
+# Standalone anchor checks may precede account creation. Their authority is an
+# explicit native-frame capture, never a fabricated profile or skipped guard.
+pub fn capture_native_ohttp_frames() -> NativeOhttpFrames!String do
+  let frames = native_frames()?
+  let security = decode_native_security_config(frames.security)?
+  decode_native_rpc_tls(frames.rpc_tls, security)?
+  let pins = decode_ohttp_pins(frames.companion, frames.network, security)?
+  selected_key(pins, current_time()?)?
+  require_frames(frames)?
+  Ok(frames)
+end
+
+pub fn require_current_native_ohttp_frames(frames :: NativeOhttpFrames) -> Result<(), String> do
+  require_frames(frames)
+end
+
+pub fn rpc_transport_from_context(path :: String,
+  context :: NativeOhttpContext) -> RpcTransport!String do
+  require_current_ohttp_context(path, context)?
+  let config = decode_native_security_config(context.security_frame)?
+  rpc_transport(decode_native_rpc_tls(context.rpc_tls_frame, config)?,
+    fn() do require_current_ohttp_context(path, context) end)
+end
+
+pub fn rpc_transport_from_context_bounded(path :: String,
+  context :: NativeOhttpContext) -> RpcTransport!String do
+  require_current_ohttp_context_bounded(path, context)?
+  let config = decode_native_security_config(context.security_frame)?
+  rpc_transport(decode_native_rpc_tls(context.rpc_tls_frame, config)?,
+    fn() do require_current_ohttp_context_bounded(path, context) end)
 end

@@ -2,6 +2,7 @@
 # Production tools/rewards-operator accepts only native SecurityConfig pins.
 # All parsing, authenticated reads, policy and plans remain the public operator.
 from Solana.Read import pubkey
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.AnchorChain import AnchorPins, AnchorAddresses, anchor_addresses
 from Transparency.RewardsOperator import (
   RewardOperatorIntent,
@@ -33,9 +34,9 @@ fn run() -> String!String do
     log_name: name,
     log_id: derived.log_id,
     ring: derived.ring,
-    endpoints: for index in 0..Json.array_length(sources)? do
+    rpc: webpki_rpc_transport(for index in 0..Json.array_length(sources)? do
       Json.as_string(Json.array_get(sources, index)?)?
-    end
+    end)?
   }
   let intent = decode_reward_intent(input)?
   let floor = Env.get("MORSE_REWARDS_MIN_CONTEXT_SLOT", "0")

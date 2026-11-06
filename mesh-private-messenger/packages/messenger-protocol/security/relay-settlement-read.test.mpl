@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.AnchorChain import AnchorPins, AnchorAddresses, anchor_addresses
 from Transparency.Fork import ForkProof, decode_fork, fork_hash
 from Transparency.SlashReceipt import SlashReceipt
@@ -100,9 +101,9 @@ fn read(fixture :: Json,
     ring: derived.ring,
     log_name: text(fixture, "log_name")?,
     log_id: derived.log_id,
-    endpoints: for provider in 0..3 do
+    rpc: webpki_rpc_transport(for provider in 0..3 do
       "http://127.0.0.1:#{19978 + provider}/#{index}/#{sample}/#{List.get(modes, provider)}"
-    end
+    end)?
   }
   let snapshot = Json.array_get(Json.object_get(fixture, "snapshots")?, sample)?
   let floor = U64.parse(text(snapshot, "slot")?)?
