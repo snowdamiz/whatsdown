@@ -150,7 +150,16 @@ passing local fixture does not close a native-device or production gate.
 | View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unadopted | App candidate `13ed5d7` passes 818 tests, typecheck and local web rendering; follow-up `75fb777` uses the passing direct-receive producer's `02HST` fixture. Parent verified all 25 recorded app files and freshly passed 63 codec/control/preview tests with no verified source defect. The Core owner reports direct/mailbox and initial/sibling-sync tests passing, including changed-body duplicate refusal. Review now requires contact/gossip and sync-alias mutation controls plus canonical reference identity across local aliases. Group, native-fetch and shared native-effect admission remain open. Adopt Core and UI together; storage prerequisite `924d24f` alone is insufficient |
 | Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
 | Mixed-asset fork filing | Phone FFS2 persistence and 16-field display plus shared operator/phone permanent receipt authentication adopted through `1ab2a78`. The combined source matches the qualified 80-packet SBF proof and 20-group native replay, including 13 refusal vectors and three production relay admissions. Parent verified 619 source files and 80 artifacts; Main keeps 176 exports and 69 reviewed disclosure sites | Bounty movement/recovery is separately implementing real signer/bank proofs. Shared native effect admission, whole-app/device UI, optimized phone release, independent providers and live qualification remain unfinished |
+| Per-asset bounty movement | Unadopted implementation checkpoint `9badcf9` is pushed on `t3/mixed-bounty-recovery`: independent durable asset attempts, closed native selectors and per-asset UI. The owner reports actual SDK signing and disposable-bank execution in both asset orders, with genuine zero-amount variants under qualification | Final frozen proof, historical-journal migration, independent review and parent composition remain pending. This checkpoint does not close the separate native intra-export effect-admission gate |
 | Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
+
+The unadopted history UI checkpoint `75fb777` is also pushed on
+`t3/view-once-history-codec`; it remains paired with the pending direct Core
+admission work. Group view-once requires a separate versioned carrier and native
+selector that authenticate the full 32-byte group identity. VOR1's 16-byte
+conversation and ordinary ATG reconstruction cannot supply that binding. The
+existing direct `02HST` contract is unchanged; group design and execution are
+still open.
 
 All eight §4.3 production checks remain pending. B1 shadow/outage observation,
 anchor/quorum duration gates, external operators/reviews, funded deployments,
