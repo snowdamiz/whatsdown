@@ -21,6 +21,7 @@ pub struct FilingObservation do
   units :: U64
   morse_units :: U64
   receipt_format :: Int
+  receipt_binding :: Bytes
 end
 
 pub struct FilingState do
@@ -65,7 +66,8 @@ pub fn filing_pending(slot :: U64) -> FilingObservation!String do
     finder: Bytes.empty(),
     units: U64.parse("0")?,
     morse_units: U64.parse("0")?,
-    receipt_format: 0
+    receipt_format: 0,
+    receipt_binding: Bytes.empty()
   })
 end
 
@@ -96,6 +98,7 @@ end
 
 fn valid(state :: FilingState) -> Result<(), String> do
   let observation = state.observation
+  let binding_length = Bytes.length(observation.receipt_binding)
   let zero = U64.parse("0")?
   status_code(observation.status)?
   if Bytes.length(state.identity) != 32
@@ -106,13 +109,15 @@ fn valid(state :: FilingState) -> Result<(), String> do
     || state.targets > 8
     || state.accepted < 0
     || state.accepted > state.targets
+    || (binding_length != 0 && binding_length != 32)
     || (Bytes.length(state.token) != 0 && Bytes.length(state.token) != 16)
     || U64.compare(state.next_attempt, state.started_at) <= 0 do
     return Err("invalid_filing_state")
   end
   if observation.status == "settled" || observation.status == "prepared" do
     if Bytes.length(observation.finder) != 32
-      || Bytes.to_hex(observation.finder) == String.repeat("00", 32) do
+      || Bytes.to_hex(observation.finder) == String.repeat("00", 32)
+      || (observation.receipt_format == 2 && binding_length != 32) do
       return Err("invalid_filing_state")
     end
     if observation.status == "prepared" do
@@ -128,6 +133,7 @@ fn valid(state :: FilingState) -> Result<(), String> do
   else if Bytes.length(observation.finder) != 0
     || observation.units != zero
     || observation.morse_units != zero
+    || binding_length != 0
     || observation.receipt_format != 0 do
     return Err("invalid_filing_state")
   end
@@ -152,7 +158,8 @@ fn seal(state :: FilingState, key :: borrow StorageKey) -> Bytes!String do
       mobile_write_u64(state.observation.morse_units)?,
       mobile_byte(state.observation.receipt_format)?,
       mobile_vector(state.token)?,
-      mobile_vector(state.observation.finder)?
+      mobile_vector(state.observation.finder)?,
+      mobile_vector(state.observation.receipt_binding)?
     ],
     0,
     Bytes.empty())?
@@ -169,7 +176,7 @@ fn load_record(path :: String, key :: borrow StorageKey) -> StoredFiling!String 
     Ok(value) -> value
   end
   let bytes = open_local(blob, key, local_context(label())?)?
-  let input = mobile_reader(bytes, 192, "invalid_filing_state")?
+  let input = mobile_reader(bytes, 213, "invalid_filing_state")?
   let magic = take_fixed(input, 4)?
   let legacy = Bytes.secure_equals(magic.value, Bytes.from_utf8("FFS1"))
   if !legacy && !Bytes.secure_equals(magic.value, Bytes.from_utf8("FFS2")) do
@@ -187,7 +194,7 @@ fn load_record(path :: String, key :: borrow StorageKey) -> StoredFiling!String 
   end
   let slot = take_fixed(flags.state, 8)?
   let units = take_fixed(slot.state, 8)?
-  # FFS1 has no receipt format or MORSE field; its settled status means MPR1.
+  # FFS1 has no receipt format, MORSE or binding; its settled status means MPR1.
   # The storage label/context stays at v1 so existing encrypted records reopen.
   let (morse_units, receipt_format, remainder) = if legacy do
     (U64.parse("0")?,
@@ -204,7 +211,13 @@ fn load_record(path :: String, key :: borrow StorageKey) -> StoredFiling!String 
   end
   let token = take_vector(remainder, 16)?
   let finder = take_vector(token.state, 32)?
-  mobile_finish(finder.state, "invalid_filing_state")?
+  let (receipt_binding, tail) = if legacy do
+    (Bytes.empty(), finder.state)
+  else
+    let binding = take_vector(finder.state, 32)?
+    (binding.value, binding.state)
+  end
+  mobile_finish(tail, "invalid_filing_state")?
   let state = FilingState {
     identity: identity.value,
     target_hash: targets.value,
@@ -221,6 +234,7 @@ fn load_record(path :: String, key :: borrow StorageKey) -> StoredFiling!String 
       units: mobile_read_u64(units.value)?,
       morse_units: morse_units,
       receipt_format: receipt_format,
+      receipt_binding: receipt_binding,
       finder: finder.value
     }
   }
