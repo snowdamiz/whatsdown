@@ -125,7 +125,7 @@ revisited at each phase gate.
 ### Current continuation status — 2026-11-06
 
 This table is the current continuation reference, through source checkpoint
-`4eaed22`. Detailed entries below retain the history of implementation and proof;
+`c49561a`. Detailed entries below retain the history of implementation and proof;
 an older candidate or pending note does not override a later adoption record.
 Local source, local execution, native UI qualification and live production
 acceptance are separate states. No live deployment inventory was refreshed by
@@ -142,9 +142,9 @@ passing local fixture does not close a native-device or production gate.
 | Mesh error conversions | Pushed `8256d5d3`; generic and builtin `From` handling qualified, with a retained optimized local compiler/runtime family | Reviewed public release and exact app dependency pin |
 | Quorum source identity | Shared Mesh and writer host checks adopted through `f4c21c2`; seven Mesh and 28 native/writer checks pass, including mapped/nonmapped IPv6 controls | Independent-provider and live RPC qualification; different names alone do not establish different operators |
 | V2 rewards | Bounded scheduling plus directory/current-attendance grace assessment adopted (`cee839c`); 47 composed local Node/native/Kit/SBF checks pass | Deployment, funded operation, independent providers and live duration gates; finite requests stop at their configured bound |
-| Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; fresh 800 app, 121 native and 16 desktop-script checks pass. A certificate-signed actual-store probe still refuses with `-34018` | Matching macOS profile/entitlements and provisioned bundle, then unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
+| Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; prior 800 app checks remain recorded. Current TLS/body composition passes 126 native checks and the default Debug build. A certificate-signed actual-store probe still refuses with `-34018` | Matching macOS profile/entitlements and provisioned bundle, then unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
 | Plaintext propagation | Presentation labels plus outgoing direct/fanout/group-send/self-sync body labels adopted through `4eaed22`. Fresh qualified-compiler proof refuses seven selected HTTP exits, passes label-removal/production controls and the 69-site disclosure gate; three send/invitation test files pass | A separate exported triple-payload parser still accepts overlapping frames; demonstrated production message exports select their labeled parsers. Close remaining semantic parser and decoded receive/history boundaries, mobile targets and release qualification |
-| Bootstrap acceptance | Native-ABI runner adopted through `4b2953a`; fresh combined-branch run passes lookup, forged-signature refusal and restart controls but exits 1 with `BLOCKED_NATIVE_RPC_TLS` | Scoped native RPC TLS implementation is active in an isolated worktree. The actual anchor call still returns `rpc_unavailable`; remaining local controls and all eight production checks stay open |
+| Bootstrap acceptance | Scoped native RPC TLS adopted through `748270a`; retained fresh compiled-Core fixture exits zero with 37 checks and `consistent`. Parent verified its source/artifact hashes; the combined product Main build passes with 69 sites, 176 exports and exact generated bindings | Full phone/UI and platform packaging, real production-clock next-due controls, broader bootstrap acceptance and all eight scheduled production checks remain open |
 | Witness outage qualification | No new outage result adopted | Isolated integration work is connecting three real witness processes to actual Core lookups, with a real 15-minute single-witness stop and retained-state recovery. Local execution will not close the scheduled production B1 drill |
 | View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unconnected | Initial design is complete and isolated Core implementation has begun. Before freezing its contract, correct group-ID width, full-reference duplicate binding, restart key retention and legacy Consumed precedence. Real receive/native qualification remains open |
 | Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
@@ -328,10 +328,67 @@ its owned temporary library, databases, certificates and keys after hashing.
 The accepted next design uses explicit URL/root pairs and a refusal-only
 current-context guard, captured from an immutable native RPC resource and
 applied through public `Http.trust_root_pem`. Existing public Mesh APIs suffice;
-no global trust override or JavaScript-selected root is planned. Implementation
-is isolated and not yet adopted. Valid `consistent` anchors, missing-cache and
-invalid-anchor controls, provider disagreement, due-day progression and three
-canaries remain unqualified. All eight §4.3 production checks remain pending.
+no global trust override or JavaScript-selected root is used. This design is now
+adopted in the scoped TLS checkpoint below; the original unavailable result is
+retained as its red evidence. Broader bootstrap controls and all eight §4.3
+production checks remain pending.
+
+### Scoped native RPC TLS adoption — 2026-11-06
+
+The complete implementation and review corrections are adopted through
+`748270a`; `c49561a` migrates the remaining relay proof helper. Explicit
+`RpcTransport` values pair each RPC URL with its exact-origin root policy and
+a refusal-only current-context guard. The native resource is bound to the
+security frame and captured by ordinary and bounded operations. Only exact
+`0100` selects absent/default WebPKI. Native read errors and present-empty
+resources refuse. Directory proof traffic never receives RPC roots.
+
+The fresh owner run at `3293d90` exits zero with 37 checks and a `consistent`
+native anchor result, making 81 RPC HTTP requests. It exercises actual Core
+functions inside the fixture library: lookup/cache admission, corrupted
+signature refusal, process restart, exact-origin/frame/CA/PEM controls,
+two-of-three agreement, redirect and root-pool isolation, resource/account
+replacement across successful and failed HTTP completions, and retained
+budget/floor/slash/mismatch state. Its 185 exports include the unchanged 176
+production symbols plus nine fixture exports. Both independent reviews pass
+after correcting swallowed fatal filing errors and desktop present-empty
+resource handling. The retained r3 run is a failure despite its old raw pass
+label; the runner now marks provenance exceptions as failures.
+
+Parent adoption verified 346 input hashes, 11 artifacts and the 49-file shared
+migration closure. A fresh combined product Main build with optimized Mesh
+`8256d5d3` passes the reviewed 69-site gate, reports 327 modules, targets macOS
+12.0, and matches all five generated bindings plus scoped-binding metadata.
+The two services and relay proof helper also compile. Rebuilt service reports
+retain every disclosure site unchanged and add only a zero-site transport
+module. Evidence is under `.morse/continuation-20261106/rpc-tls-adoption`; the
+[tracked owner receipt](mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-implementation.json)
+distinguishes its fresh local executions from parent source/artifact checks.
+
+Parent native composition caught one old test-only `Mesh::load` call missing
+the TLS resource argument; supplying the explicit absent value restores the
+build. The full native boundary suite passes 126 cases with its required
+isolated fixture directory, and the default Debug application builds. An
+earlier runtime attempt omitted that fixture environment and failed; its log is
+retained separately. Fresh packaging checks pass 19 cases, actual Objective-C
+callback checks pass 24 cases, and Kotlin/JNI plumbing passes its local controls.
+No unlocked UI or platform Keychain success is claimed.
+
+The native network inventory was stale from before the desktop integration.
+Independent source review classifies all 11 newly listed desktop entries:
+WebKit references, local private-image replies and the existing guarded wallet
+handoff. It finds no new uncontrolled HTTP exit. The reviewed inventory now
+records 36 linked packages, 52 local mobile native sources and 83 desktop
+sources, with unchanged JS lockdown and `connect-src 'none'`. Fresh collection,
+the inventory gate and its 12 checks pass. This source inventory does not prove
+WebKit process behavior or an external wallet application's behavior.
+
+OHTTP is explicitly off in the Core TLS fixture. The next-due proof uses
+injected time through the public Mesh checker; production C ABI next-day and
+retained-mismatch retry under real wall time remain open. Phone/UI, full native
+platform packages, exact internal dispatch/receive pause points, three-canary
+bootstrap coverage and independent/funded/live qualification are not inferred.
+All eight production checks remain pending.
 
 A separate isolated worker is building the lookup/outage boundary using three
 actual standalone witness processes and a real 15-minute stop of one witness.
@@ -549,7 +606,7 @@ notes. Local checks and development adoption do not establish production rollout
 | 4A: public Mesh crypto | Blind RSA and supporting public runtime/compiler capabilities implemented and exercised in Morse | Published, reviewed release and exact dependency pin |
 | 4: credits and payments | Native credit journal/actions, spending, wallet integration, treasury and Lightning proofs; direct HTTPS purchase/recovery and production React Native wallet handoff to an owned OS receiver qualified on iOS Simulator and Android emulator | Third-party wallet and remaining native action coverage, live conversion/funding, outside review and live drills |
 | 5: token | Local token custody/rewards, burn carry and finalized reader/planner proofs archived; versioned issuer 20/30/50 accounting, actual CLI-to-SBF burn handoff and bounded durable burn scheduling/recovery qualified; default-off SOL and Kraken BTC conversion adapters adopted; both witness-output funding paths and combined BTC/SOL burn funding/expiry qualified in owned banks; public burn/collateral/slash readers, default-off minute snapshot publisher, bootstrap page, unsigned collateral/proof operator planning, durable bounded v2 settlement/claims and continuous directory/current-attendance grace assessment implemented | Mixed-asset relay/phone integration, public reporting activation/history qualification, deployment and live observation |
-| 6: plaintext types and native networking | Native networking, account-bound journals, fanout and sealed-preference UI integration qualified; private attachment metadata and presentation ingress/storage/projection labels are adopted. The current source report has 69 reviewed sites. Earlier four-target mobile qualification covers the 49-site source and 175-export ABI; the 69-site presentation closure now has a macOS desktop Core build with 176 exports and native boundary tests, plus local privacy proofs. Public Mesh GC and concatenation improvements retain their separately archived maximum-wallet, ACH3, funded-upload and app-regression proofs | Remaining message/request-field labels, native qualification of the new closure, complete reviewed leak report, mobile performance and release qualification |
+| 6: plaintext types and native networking | Native networking, account-bound journals, fanout and sealed-preference UI integration qualified; private attachment metadata, presentation and outgoing message-body labels are adopted. Scoped native RPC TLS is connected through shared Mesh readers. The combined Main build has 69 reviewed sites, 176 exports and exact generated bindings. Earlier four-target mobile qualification covers the historical 49-site/175-export source. Public Mesh GC and concatenation improvements retain their separately archived maximum-wallet, ACH3, funded-upload and app-regression proofs | Remaining raw semantic parser and decrypted receive/history labels, native/mobile qualification of the new closure, complete reviewed leak report, mobile performance and release qualification |
 | §22: security tracks S1–S3 | Nine of 27 items are closed locally: W1, C2, M5, M6, M7, M8, M10, D1 and D2. Padded attachments and keyed indexes have matching development libraries and dual-native execution/upgrade evidence. M6 cleanup stays off until old writers are drained. Header encryption, guarded direct/group expiry and protected secret memory now have adopted development source and matching native libraries; their remaining qualification, separate push deployment, other cryptographic upgrades and safety QR remain in progress; ingress certificate policy has local tests but no qualified deployment topology | S1 deployment isolation and supported mTLS topology; OHTTP, separate push deployment, prekey cleanup activation, cryptographic upgrades and remaining device features. This is substantial local implementation work, not only release gates |
 
 The 2026-10-22 closure audit includes §22 as part of this goal. Finishing the
@@ -6642,7 +6699,7 @@ shared witness operator are already Phases 0.1, 0.2 and 2.
 | D3 | **Development source/libraries adopted:** guarded direct/group sync deletion, concurrent writer fencing, timed group transport and preview cleanup are implemented. Host expiry, dual-native timers, partial expiry and complete history-row deletion before display pass | `protocol/disappearing-messages-v1.md`; `protocol/group-message-expiry-v1.md` | Finish full app and physical-device/release acceptance | P2 |
 | D4 | **Backup implementation adopted; whole-app acceptance remains open.** Text and attachment-content creation/import, archive browsing, guarded file reads and ciphertext-only pending export are integrated. Require-all and explicit-omission policies retain authenticated source/expiry checks and atomic publication. Desktop now constructs backups from captured native authority. The current Core has 69 reviewed sites and 176 exports, with a fresh macOS desktop library and native boundary tests; earlier four-target mobile evidence covers the historical 49-site/175-export closure. Genuine Android work reached a three-message backup selection and the stock picker's filename/Save step, but destination/recovery acceptance remains unresolved; a later emulator readiness failure provided no backup result. Larger-file streaming and historical local-owner proof for generic legacy group history remain open | `protocol/backup-text-archive-v1.md`; `protocol/backup-content-archive-v1.md`; `packages/mobile-core/mobile/backup_archive.mpl`; [mobile evidence](.morse/d4-backup-app-native-work-v1/CHECKPOINT-v90.json); [desktop adoption](.morse/continuation-20261106/desktop-adoption/provenance.json) | Qualify the current mobile artifacts and authenticated whole-app backup/provider flows, interrupted publication, OS-authentication interaction, larger-file streaming and physical-device/release acceptance | P2 |
 | D5 | **Implemented locally, device qualification pending:** QR display/scan and manual verification submit the exact safety number; Mesh compares and commits against guarded account/index/session snapshots. Host, actual React checks and matching candidate native builds pass | `apps/mobile/src/App.tsx:3966` | A QR code carrying the safety number; scanning a match verifies | P3 |
-| D6 | **Mobile and desktop lock source adopted; device qualification remains partial.** The owned Android emulator passes 31 checks for OS-PIN cancellation/enable/unlock/authenticated disable, immediate cover, stale-dialog retirement and locked restart. iOS Simulator qualifies signup, simulated-biometric refusal/cancel/success, background cover and locked restart; passcode fallback/lockout, authenticated disable and physical devices remain open. Desktop now connects the protected root, native page/session ownership and scoped services; 800 app and 121 native tests pass. Actual desktop startup refuses at Keychain provisioning (`-34018`), so unlocked WebKit and native provider behavior remain unqualified. Windows/Linux private IPC fails closed. View-once consumption and restart refusal have local Core/ABI evidence, but authenticated receive/Pending admission, sending and native opening integration remain unfinished | `.morse/reviews/d6-device-controls-contract-v2/README.md`; [iOS evidence](.morse/d6-app-lock-ios-notifications-work-v1/qualified-broker2/manifest.json); [desktop adoption](.morse/continuation-20261106/desktop-adoption/provenance.json) | Qualify provisioned desktop lock/UI and remaining mobile authentication paths; connect and qualify authenticated one-shot content; retain device-passcode fallback | P3 |
+| D6 | **Mobile and desktop lock source adopted; device qualification remains partial.** The owned Android emulator passes 31 checks for OS-PIN cancellation/enable/unlock/authenticated disable, immediate cover, stale-dialog retirement and locked restart. iOS Simulator qualifies signup, simulated-biometric refusal/cancel/success, background cover and locked restart; passcode fallback/lockout, authenticated disable and physical devices remain open. Desktop now connects the protected root, native page/session ownership and scoped services; the prior 800 app tests remain recorded, and current TLS/body composition passes 126 native tests plus the default Debug build. Actual desktop startup refuses at Keychain provisioning (`-34018`), so unlocked WebKit and native provider behavior remain unqualified. Windows/Linux private IPC fails closed. View-once consumption and restart refusal have local Core/ABI evidence, but authenticated receive/Pending admission, sending and native opening integration remain unfinished | `.morse/reviews/d6-device-controls-contract-v2/README.md`; [iOS evidence](.morse/d6-app-lock-ios-notifications-work-v1/qualified-broker2/manifest.json); [desktop adoption](.morse/continuation-20261106/desktop-adoption/provenance.json) | Qualify provisioned desktop lock/UI and remaining mobile authentication paths; connect and qualify authenticated one-shot content; retain device-passcode fallback | P3 |
 
 ### 22.5 Document corrections
 

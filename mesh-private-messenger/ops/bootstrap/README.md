@@ -4,13 +4,17 @@ This is a reproducible **local synthetic fixture**, bounded to one public canary
 `morse-canary-1`. It does not qualify a native phone, independent RPC providers,
 or production acceptance. All eight WITNESS §4.3 production checks remain pending.
 
-The current unit is **blocked**, and its acceptance command exits **1**. Current
-native release configuration requires HTTPS anchor RPCs, but the current
-`Transparency.AnchorRpc` request builder has no input for an owned local CA.
-The native anchor result is `rpc_unavailable`, never mapped to success.
-Production source, release pins, generated app bindings and WITNESS plans are
-unchanged. Coordinate a generic origin-bound trust-root input with the parent
-and the AnchorRpc owner before changing that production path.
+The scoped RPC TLS milestone now passes locally. The recorded fresh run exits
+**0** with `PASS_LOCAL_RPC_TLS`: 37 checks exercise actual Core functions inside
+the bootstrap fixture library. Native `messenger/rpc-tls-roots/v1` resources
+bind exact origins and roots to the security frame and captured operation;
+`Transparency.RpcTransport` carries that authority through the shared readers.
+The original `rpc_unavailable`/zero-HTTP failure remains in the older receipts.
+See the [current qualification](evidence/20261106/rpc-tls-core/README.md) and
+[implementation receipt](evidence/20261106/rpc-tls-implementation.json).
+
+The fixture ABI contains 176 production symbols and nine fixture symbols. It is
+not the exact product Main artifact or a signed/native-phone qualification.
 
 Run from the repository root on macOS with Python 3, OpenSSL and the C compiler:
 
@@ -53,15 +57,17 @@ The boundary checks run as follows:
    application error `transparency_verification_failed` and byte-identical
    prior cache. Restart the client process, repeat the real lookup and require
    the request's persisted `previous_tree_size=1` continuity basis.
-5. Call `mesh_messenger_anchor_check`, inspect its structured result and
+5. Call `mesh_messenger_anchor_check`, require `consistent`, inspect its structured result and
    encrypted schedule through Mesh, restart again and require the exact
    retained result, completed claim and no additional request during the
-   reserved interval. This currently persists an **unavailable result**, not a
-   successful daily check.
-6. Prove all three HTTPS peers are ready using Mesh's existing explicit
-   request-root primitive. Prove the native configuration refuses HTTP RPCs.
-   The actual anchor path reaches none of the peers' HTTP handlers; the
-   acceptance gate requiring `consistent` fails.
+   reserved interval. Root-only rotation must retain the public-log identity,
+   budget, slot floor and authenticated slash/mismatch refusal.
+6. Exercise exact-origin/frame/CA/PEM refusals, explicit WebPKI versus custom
+   roots, two-of-three agreement, redirect refusal and root-pool isolation.
+   Pause real TLS requests, replace the captured resource or account, then
+   release successful and failed HTTP completions. All four old operations
+   must refuse without replacing the verified cache. Fresh capture accepts
+   the new immutable resource.
 
 OHTTP is explicitly **off**, bound to the exact native network/security frames.
 This chooses the smallest current integrated direct-origin path; it still
@@ -69,12 +75,19 @@ executes native OHTTP policy capture, signed lookup admission, verification,
 cache commit and continuity. Required-mode transport is a separate qualification
 and is not inferred from this run.
 
-Pending local controls: a valid `consistent` anchor, missing-cache `observed`
-control, incorrect/stale/forged anchor, quorum disagreement/unavailability after
-successful transport, and advancement across a daily boundary. Three canaries
-are also deferred. Even if a future transport change yields `consistent`, this
-runner reports `INCOMPLETE_LOCAL` and exits 1 until those required controls are
-implemented. The three loopback origins never count as independent providers.
+This runner's pass covers the scoped TLS milestone, not the full bootstrap
+suite. Three canaries, broader missing-cache/invalid-anchor controls, phone/UI
+and production acceptance remain separate. The next-due check uses injected
+time through the public Mesh checker; the production C ABI next-day clock and
+retained-mismatch retry under real wall time remain unqualified. Bounded native
+capture has separate focused tests. Exact internal pre-dispatch/post-receive
+pause points are not claimed. The three loopback origins never count as
+independent providers.
+
+Source, fixture or runner drift fails the command and its receipt. The retained
+classification-red run exited 1 despite an old erroneous raw pass label; its
+supplement records the failure, and the runner now overwrites status on an
+exception. Always inspect the process exit status as well as the receipt.
 
 `receipt.json` records exact source/compiler/artifact/result hashes;
 `sources.json` contains the source manifest; `local-result.json` contains the

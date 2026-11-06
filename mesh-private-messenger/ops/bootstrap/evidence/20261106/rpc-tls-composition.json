@@ -1,0 +1,73 @@
+{
+  "source_head_before_parent_fixture_fix": "c49561af92b286745d644e6133a0b5b5c68da3c2",
+  "adopted_tls_owner_head": "abb2dc6c474d443ab06a21fa691b83b9b208ca87",
+  "adopted_owner_files_verified": 132,
+  "parent_fixture_fix": {
+    "path": "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/tests/account_transition_tests.rs",
+    "sha256": "1d53411a53660b7845293527868c21136a6d4eaf3523e61d9cdc3b8c8471c7f3",
+    "reason": "Pass explicit default RpcTlsRoots to updated Mesh::load; E0061 reproduced before correction."
+  },
+  "checks": {
+    "product_main": "PASS",
+    "reviewed_disclosure_sites": 69,
+    "report_modules": 327,
+    "production_exports": 176,
+    "generated_binding_files_match": 5,
+    "scoped_binding_metadata": "PASS",
+    "native_boundary_tests": 126,
+    "default_desktop_debug_build": "PASS",
+    "packaging_tests": 19,
+    "actual_apple_callbacks": 24,
+    "kotlin_jni": "PASS local reader/install/callback controls",
+    "inventory_tests": 12,
+    "native_inventory_gate": "Native connection inventory unchanged: 36 linked packages, 5902 native source files",
+    "full_mesh_lint_bytes": 0,
+    "services_and_relay_helper_builds": "PASS"
+  },
+  "compiler_sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+  "runtime_sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+  "product_artifact_sha256": "6ef1bbf313f7dc6d590426e74989d1baf352f6a30343d242fb71347d749afd1d",
+  "product_source_manifest_sha256": "244cb6a9ac05629ca923b2c5286d2e3c17974a4bd18a815b106f971d435a2b40",
+  "owner_execution_receipt_sha256": "0db7b8007e3a713ece0f57e0bce35bcaef1d5942d8d01303a2bfd77d47a9baba",
+  "owner_provenance_sha256": "bea9f2111d7ea355c5b5e45b28f95e7be450e12b0c4aad1cc6615d0154ecf971",
+  "service_review_sha256": "0b4a517e4c1e3f61ca029bbbe2e27ab1bf1d6fc5ac1769262c57acca4f89be3e",
+  "inventory_review_sha256": "efac561bf56f88368baf68269434eab9a78702238dcf6eedc14749341d33594f",
+  "native_inventory_sha256": "79d137d68a13eab0a6eb38cce9cbaf50d1a3d96669dc9ae7e85805228ee0ba16",
+  "logs": {
+    "product-main.log": "9325d04d779b51293655fed2270a6a45bf4bbbbab5cea820d126acf54bca9a3c",
+    "product-main-gate.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-host-tests.log": "56ef5a76854734b1cdb7a90627ae62090d01cecd2f2612096a13057e128f6661",
+    "packaging-tests.log": "2c7e4ca51527f4dba472ebc266a4a989037aebce78c8dfec47049ffd8798bb78",
+    "native-network-gate.log": "352c5bbce62d132d53929eaa6d1afd1e6e29613b7a24a543230e9df980df5b97",
+    "inventory-tests.log": "f8f59356a2ab93864273d955676d3dee7bf16b70efb9ecaba6a3d0369132d133",
+    "scoped-bindings.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "desktop-native-red.log": "6ffb1843f82629f89d62c21056eb15371cdb21348cee8f6dcb4b0ef574b54b44",
+    "desktop-native-missing-fixture-env.log": "235af1ce725598a15d7fd1fe2baf704d84a19b6c534ba7f0106e95bec1dbdcdd",
+    "desktop-native-tests.log": "4bcec3dbdb833bb90847aa1ff4bfad5ecb6aa9ac6f1678d0e05c23b6c856d3cc",
+    "desktop-debug-build.log": "302fec9cf07490bd459506a168022ec3c15f3da6c12422059ab2525ddf04c238",
+    "directory-delivery-build.log": "fc1d3636b256c36358226bb775c864d0b21826bfed68f76d10a4fd3a22c74e92",
+    "object-store-build.log": "0e49d2505cc55e5ae74df2b480904b51ce8186530b07da045c911b52ef90e4f1",
+    "relay-scheduler-proof-build.log": "25fc12275334417012162b560940b7c72e8156cca88fe4df13d2eeb4027995d7",
+    "lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "commands": {
+    "desktop_tests": "MORSE_POLICY_FIXTURE_ROOT=<new-owned-directory> CARGO_TARGET_DIR=<owned-target> cargo test --locked --manifest-path mesh-private-messenger/apps/desktop/src-tauri/Cargo.toml --features native-boundary-tests -- --test-threads=1",
+    "desktop_debug": "CARGO_TARGET_DIR=<same-owned-target> cargo build --locked --manifest-path mesh-private-messenger/apps/desktop/src-tauri/Cargo.toml",
+    "core": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/packages/mobile-core",
+      "--artifact",
+      "cdylib",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/rpc-tls-adoption/libmessenger_mobile.dylib"
+    ]
+  },
+  "cleanup_sha256": "8ee0c07e4a0a328b423d8ac3c7d4c93182961cec7cc4dbaa051e8b7188cf8bf1",
+  "limits": [
+    "Owner Core TLS execution reused after source/artifact verification; parent freshly built product Main and ran platform boundary suites.",
+    "Native test ports are controlled; macOS Keychain authorization, unlocked UI and physical phones remain unqualified.",
+    "First runtime attempt omitted required fixture root; its failure log is retained, no production correction was needed.",
+    "All eight production checks, independent providers, funded operations and duration gates remain pending."
+  ]
+}
