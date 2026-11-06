@@ -1,4 +1,5 @@
 import Foundation
+private func sdkWire() -> Data { Data([2])+Data(repeating:9,count:64)+Data(repeating:3,count:135) }
 @main enum Proof {
   static func view(_ status: UInt8, enabled: Bool = true) -> Data {
     MeshMessengerBountyBridge.packet([Data([1,66,70,80]),Data([enabled ? 1:0]),Data([status]), status==0 ? Data() : Data(repeating:7,count:32), status<2 ? Data() : Data(repeating:status==2 || status==4 ? 0:8,count:32), Data(repeating:0,count:8)])
@@ -49,9 +50,9 @@ import Foundation
     let moved=try MeshMessengerBountyBridge.movement(movementRequest,database:db,mesh:{name,input in
       movementCalls.append(name)
       if name.hasSuffix("_prepare") {precondition(input==MeshMessengerBountyBridge.packet([db,Data(repeating:6,count:32),Data(repeating:2,count:32)]));return prepared(1)}
-      if name.hasSuffix("_commit") {precondition(input==MeshMessengerBountyBridge.packet([db,Data(repeating:7,count:32),Data(repeating:8,count:200)]));return movementView(2)}
+      if name.hasSuffix("_commit") {precondition(input==MeshMessengerBountyBridge.packet([db,Data(repeating:7,count:32),sdkWire()]));return movementView(2)}
       precondition(name.hasSuffix("_submit"));return movementView(3)
-    },sdk:{op,input in movementCalls.append("sdk\(op)");if op==2 {return Data(repeating:2,count:32)};precondition(op==5 && input.count==166);return Data(repeating:8,count:200)})
+    },sdk:{op,input in movementCalls.append("sdk\(op)");if op==2 {return Data(repeating:2,count:32)};precondition(op==5 && input.count==166);return sdkWire()})
     precondition(moved==movementView(3) && movementCalls==["sdk2","mesh_messenger_bounty_transfer_prepare","sdk5","mesh_messenger_bounty_transfer_commit","mesh_messenger_bounty_transfer_submit"])
     for status:UInt8 in [2,3,4,5] {
       let output=try MeshMessengerBountyBridge.movement(movementRequest,database:db,mesh:{name,_ in
@@ -143,6 +144,83 @@ private func mixedMovementProof() throws {
     for _ in 0..<count {let n=input[at..<at+4].reduce(0){($0<<8)|Int($1)};at+=4;f.append(input.subdata(in:at..<at+n));at+=n};return f
   }
   func replace(_ input:Data,_ index:Int,_ value:Data)->Data {var f=split(input);f[index]=value;return pack(f)}
+
+  func correlationResult(_ asset:Int,_ status:UInt8,_ signature:UInt8,_ dest:UInt8=6)->Data {
+    let r=replace(row(status,dest),3,bytes(signature,64))
+    if asset<0 {return r}
+    let agg=aggregate(UInt8(asset),status,dest,3)
+    if asset==0 {return replace(agg,3,r)}
+    return replace(agg,asset+3,replace(split(agg)[asset+3],6,r))
+  }
+  func correlationPlan(_ asset:Int,_ status:UInt8,_ signature:UInt8)->Data {
+    let sig=status>=2 ? bytes(signature,64):Data()
+    if asset<0 {return pack([Data([1,66,77,80]),bytes(7,32),Data([status==1 ? 1:0]),intent(6),sig,Data([status])])}
+    let p=plan(UInt8(asset),status,6,3)
+    return status==1 ? p:replace(replace(p,5,sig),7,correlationResult(asset,status,signature))
+  }
+  func correlationRequest(_ asset:Int)->Data {asset<0 ? pack([db,bytes(6,32)]):request(UInt8(asset))}
+  func boundSubmit(_ asset:Int,_ signature:UInt8)->Data {
+    asset<0 ? pack([db,bytes(7,32),bytes(signature,64)]):pack([Data([2,66,77,82]),db,Data([UInt8(asset)]),bytes(7,32),bytes(signature,64)])
+  }
+  var failures:[String]=[];var cases=0
+  func expect(_ ok:Bool,_ label:String) {cases+=1;if !ok {failures.append(label)}}
+  for asset in [-1,0,1,2] {
+    for status:UInt8 in [1,2,3] {
+      let sig:UInt8=status==1 ? 9:11
+      var submitted=Data(),signs=0
+      let result=try? MeshMessengerBountyBridge.movement(correlationRequest(asset),database:db,mesh:{name,input in
+        if name.hasSuffix("_prepare") {return correlationPlan(asset,status,sig)}
+        if name.hasSuffix("_commit") {return correlationResult(asset,2,sig)}
+        submitted=input;return correlationResult(asset,3,sig)
+      },sdk:{op,_ in if op==2 {return bytes(2,32)};signs+=1;return sdkWire()})
+      expect(result==correlationResult(asset,3,sig) && submitted==boundSubmit(asset,sig) && signs==(status==1 ? 1:0),"unbound submit asset \(asset) status \(status)")
+      var storedSignature:UInt8=9,attempts=0,sends=0
+      let stale=try? MeshMessengerBountyBridge.movement(correlationRequest(asset),database:db,mesh:{name,input in
+        if name.hasSuffix("_prepare") {let response=correlationPlan(asset,status,9);if status>=2 {storedSignature=11};return response}
+        if name.hasSuffix("_commit") {
+          let response=correlationResult(asset,2,9)
+          // Simulate another explicit operation replacing A before its callback returns.
+          storedSignature=11;return response
+        }
+        attempts+=1
+        if input==boundSubmit(asset,9) && storedSignature != 9 {throw NSError(domain:"bounty_attempt_changed",code:1)}
+        sends+=1;return correlationResult(asset,3,storedSignature,10)
+      },sdk:{op,_ in op==2 ? bytes(2,32):sdkWire()})
+      expect(stale==nil && attempts==1 && sends==0,"stale continuation sent replacement asset \(asset) status \(status)")
+      for finalStatus:UInt8 in [2,3,4,5] {
+        var submits=0
+        let changed=try? MeshMessengerBountyBridge.movement(correlationRequest(asset),database:db,mesh:{name,_ in
+          if name.hasSuffix("_prepare") {return correlationPlan(asset,status,9)}
+          if name.hasSuffix("_commit") {return correlationResult(asset,2,9)}
+          submits+=1;return correlationResult(asset,finalStatus,11)
+        },sdk:{op,_ in op==2 ? bytes(2,32):sdkWire()})
+        expect(changed==nil && submits==1,"wrong final signature asset \(asset) status \(status) final \(finalStatus)")
+      }
+    }
+    for status:UInt8 in [2,3,4,5] {
+      var submits=0
+      let changed=try? MeshMessengerBountyBridge.movement(correlationRequest(asset),database:db,mesh:{name,_ in
+        if name.hasSuffix("_prepare") {return correlationPlan(asset,1,9)}
+        if name.hasSuffix("_commit") {return correlationResult(asset,status,11)}
+        submits+=1;return correlationResult(asset,3,11)
+      },sdk:{op,_ in op==2 ? bytes(2,32):sdkWire()})
+      expect(changed==nil && submits==0,"wrong commit signature asset \(asset) status \(status)")
+    }
+    var badWires=[0,1,64,65,128,129,1233].map{bytes(2,$0)}
+    for prefix:UInt8 in [0,1,3,130] {var wire=sdkWire();wire[0]=prefix;badWires.append(wire)}
+    for wire in badWires {
+      var commits=0
+      let result=try? MeshMessengerBountyBridge.movement(correlationRequest(asset),database:db,mesh:{name,_ in
+        if name.hasSuffix("_prepare") {return correlationPlan(asset,1,9)}
+        commits+=1;throw NSError(domain:"unexpected_commit",code:1)
+      },sdk:{op,_ in op==2 ? bytes(2,32):wire})
+      expect(result==nil && commits==0,"malformed SDK prefix reached commit asset \(asset) bytes \(wire.count)")
+    }
+  }
+  for failure in failures {print("FAIL: \(failure)")}
+  print("Swift signature correlation: \(cases) cases, \(failures.count) failures (host callbacks only)")
+  if !failures.isEmpty {throw NSError(domain:"SignatureCorrelation",code:failures.count)}
+
   func withCancelledUSDC(_ value:Data)->Data {replace(value,4,split(aggregate(1,0,6,3))[4])}
   var cancelledCalls:[String]=[]
   let afterCancellation=try MeshMessengerBountyBridge.movement(request(2),database:db,mesh:{name,_ in
@@ -153,7 +231,7 @@ private func mixedMovementProof() throws {
   },sdk:{op,input in
     cancelledCalls.append("sdk\(op)")
     if op==2 {return bytes(2,32)}
-    precondition(op==5 && input==intent(6));return bytes(3,200)
+    precondition(op==5 && input==intent(6));return sdkWire()
   })
   precondition(afterCancellation==withCancelledUSDC(aggregate(2,3,6,3)) && cancelledCalls==["sdk2","mesh_messenger_bounty_transfer_prepare","sdk5","mesh_messenger_bounty_transfer_commit","mesh_messenger_bounty_transfer_submit"])
   for (asset,noAttempt):(UInt8,Data) in [(1,plan(1,0,6,3)),(0,replace(plan(0,0,6,3),7,pack([Data([2,66,77,87]),Data([1]),Data(),row(0,6),Data(),Data()])))] {
@@ -165,9 +243,9 @@ private func mixedMovementProof() throws {
     let output=try MeshMessengerBountyBridge.movement(request(asset),database:db,mesh:{name,input in
       calls.append(name)
       if name.hasSuffix("_prepare") {precondition(input==pack([Data([2,66,77,82]),db,Data([asset]),bytes(6,32),bytes(2,32)]));return plan(asset,1,6,3)}
-      if name.hasSuffix("_commit") {precondition(input==pack([Data([2,66,77,82]),db,Data([asset]),bytes(8,32),bytes(3,200)]));return aggregate(asset,2,6,3)}
-      precondition(name.hasSuffix("_submit") && input==pack([Data([2,66,77,82]),db,Data([asset]),bytes(7,32)]));return aggregate(asset,3,6,3)
-    },sdk:{op,input in calls.append("sdk\(op)");if op==2 {precondition(input.isEmpty);return bytes(2,32)};precondition(op==5 && input==intent(6));return bytes(3,200)})
+      if name.hasSuffix("_commit") {precondition(input==pack([Data([2,66,77,82]),db,Data([asset]),bytes(8,32),sdkWire()]));return aggregate(asset,2,6,3)}
+      precondition(name.hasSuffix("_submit") && input==pack([Data([2,66,77,82]),db,Data([asset]),bytes(7,32),bytes(9,64)]));return aggregate(asset,3,6,3)
+    },sdk:{op,input in calls.append("sdk\(op)");if op==2 {precondition(input.isEmpty);return bytes(2,32)};precondition(op==5 && input==intent(6));return sdkWire()})
     precondition(output==aggregate(asset,3,6,3) && calls==["sdk2","mesh_messenger_bounty_transfer_prepare","sdk5","mesh_messenger_bounty_transfer_commit","mesh_messenger_bounty_transfer_submit"])
   }
   for asset:UInt8 in [1,2] {
@@ -183,7 +261,7 @@ private func mixedMovementProof() throws {
       var calls=0
       let output=try MeshMessengerBountyBridge.movement(request(asset),database:db,mesh:{name,input in
         calls+=1;if name.hasSuffix("_prepare") {return plan(asset,status,6,3)}
-        precondition(name.hasSuffix("_submit") && input==pack([Data([2,66,77,82]),db,Data([asset]),bytes(7,32)]));return aggregate(asset,3,6,3)
+        precondition(name.hasSuffix("_submit") && input==pack([Data([2,66,77,82]),db,Data([asset]),bytes(7,32),bytes(9,64)]));return aggregate(asset,3,6,3)
       },sdk:{op,_ in precondition(op==2);return bytes(2,32)})
       precondition(calls==2 && output==aggregate(asset,3,6,3))
     }
@@ -205,7 +283,7 @@ private func mixedMovementProof() throws {
     do {_=try MeshMessengerBountyBridge.movement(request(1),database:db,mesh:{name,_ in precondition(name.hasSuffix("_prepare"));return bad},sdk:{op,_ in precondition(op==2);return bytes(2,32)});fatalError("bad response reached signer")}catch{}
   }
   for bad in [replace(aggregate(1,2,6,3),4,replace(leg,6,row(2,10))),badAggregate,aggregate(1,1,6,3)] {
-    do {_=try MeshMessengerBountyBridge.movement(request(1),database:db,mesh:{name,_ in if name.hasSuffix("_prepare"){return prepared};precondition(name.hasSuffix("_commit"));return bad},sdk:{op,_ in op==2 ? bytes(2,32):bytes(3,200)});fatalError("bad commit reached submit")}catch{}
+    do {_=try MeshMessengerBountyBridge.movement(request(1),database:db,mesh:{name,_ in if name.hasSuffix("_prepare"){return prepared};precondition(name.hasSuffix("_commit"));return bad},sdk:{op,_ in op==2 ? bytes(2,32):sdkWire()});fatalError("bad commit reached submit")}catch{}
   }
   print("Swift mixed movement: selectors, exact signing order, pending destination, read-only states, terminal reuse and malformed ABI passed")
 }

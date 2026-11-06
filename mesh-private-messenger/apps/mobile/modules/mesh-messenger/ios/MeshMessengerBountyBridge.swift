@@ -96,9 +96,21 @@ enum MeshMessengerBountyBridge {
     }
     guard path==database else {throw Failure.invalid}
   }
-  private static func movementResult(_ input:Data, identity:Data, destination:Data) throws -> UInt8 {
+  private struct MovementSignature {
+    let bytes:Data
+    init(stored:Data) throws {
+      guard stored.count==64 else {throw Failure.invalid}
+      bytes=stored
+    }
+    init(signedWire:Data) throws {
+      // SDK5: one-byte count, two signatures, then a message. Core authenticates the packet.
+      guard (130...1232).contains(signedWire.count),signedWire[0]==2 else {throw Failure.invalid}
+      bytes=signedWire.subdata(in:1..<65)
+    }
+  }
+  private static func movementResult(_ input:Data, identity:Data, destination:Data, expected:MovementSignature) throws -> UInt8 {
     let f=try fields(input,count:12,maximum:2048)
-    guard f[0]==Data([1,66,77,87]), f[1]==identity, f[2].count==1, f[2][0]<=5,
+    guard f[0]==Data([1,66,77,87]), f[1]==identity, f[3]==expected.bytes, f[2].count==1, f[2][0]<=5,
       f[4].count==32, f[5]==destination, f[6].count==32, f[7].count==8,
       f[8].count==1, f[8][0]<=18, f[9].count==8, f[10].count==8, f[11].count<=256,
       String(data:f[11],encoding:.utf8) != nil,
@@ -169,15 +181,16 @@ enum MeshMessengerBountyBridge {
     let sameDestination=p[4].subdata(in:44..<76)==request[3]
     guard p[3][0]==(status==1 && sameDestination ? 1:0) else {throw Failure.invalid}
     if !sameDestination || status>=4 {return p[7]}
+    let expected:MovementSignature
     if p[3][0]==1 {
-      let wire=try sdk(5,p[4]);guard !wire.isEmpty,wire.count<=1232 else {throw Failure.invalid}
+      let wire=try sdk(5,p[4]);expected=try MovementSignature(signedWire:wire)
       let committed=try mesh("mesh_messenger_bounty_transfer_commit",packet([tag,database,request[2],p[2],wire]))
-      guard let row=try movementAggregate(committed,asset:asset),row[2][0]>=2,
+      guard let row=try movementAggregate(committed,asset:asset),row[2][0]>=2,row[3]==expected.bytes,
         movementMatches(row,identity:identity,intent:p[4]) else {throw Failure.invalid}
       if row[2][0]>=4 {return committed}
-    }
-    let output=try mesh("mesh_messenger_bounty_transfer_submit",packet([tag,database,request[2],identity]))
-    guard let row=try movementAggregate(output,asset:asset),row[2][0]>=2,
+    } else {expected=try MovementSignature(stored:p[5])}
+    let output=try mesh("mesh_messenger_bounty_transfer_submit",packet([tag,database,request[2],identity,expected.bytes]))
+    guard let row=try movementAggregate(output,asset:asset),row[2][0]>=2,row[3]==expected.bytes,
       movementMatches(row,identity:identity,intent:p[4]) else {throw Failure.invalid}
     return output
   }
@@ -198,17 +211,21 @@ enum MeshMessengerBountyBridge {
       p[5].count==1,(1...5).contains(p[5][0]),p[2][0]==(p[5][0]==1 ? 1:0),
       (p[5][0]<2 ? p[4].isEmpty : p[4].count==64) else {throw Failure.invalid}
     let identity=p[1]
+    let expected:MovementSignature
     if p[2][0]==1 {
-      let wire=try sdk(5,p[3]);guard !wire.isEmpty,wire.count<=1232 else {throw Failure.invalid}
+      let wire=try sdk(5,p[3]);expected=try MovementSignature(signedWire:wire)
       let committed=try mesh("mesh_messenger_bounty_transfer_commit",packet([database,identity,wire]))
-      let status=try movementResult(committed,identity:identity,destination:request[1])
+      let status=try movementResult(committed,identity:identity,destination:request[1],expected:expected)
       if status>=4 {return committed};guard status>=2 else {throw Failure.invalid}
-    } else if p[5][0]>=4 {
-      let output=try mesh("mesh_messenger_bounty_transfer_status",database)
-      _=try movementResult(output,identity:identity,destination:request[1]);return output
+    } else {
+      expected=try MovementSignature(stored:p[4])
+      if p[5][0]>=4 {
+        let output=try mesh("mesh_messenger_bounty_transfer_status",database)
+        _=try movementResult(output,identity:identity,destination:request[1],expected:expected);return output
+      }
     }
-    let output=try mesh("mesh_messenger_bounty_transfer_submit",packet([database,identity]))
-    guard try movementResult(output,identity:identity,destination:request[1])>=2 else {throw Failure.invalid}
+    let output=try mesh("mesh_messenger_bounty_transfer_submit",packet([database,identity,expected.bytes]))
+    guard try movementResult(output,identity:identity,destination:request[1],expected:expected)>=2 else {throw Failure.invalid}
     return output
   }
 

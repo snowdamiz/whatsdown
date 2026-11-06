@@ -580,15 +580,13 @@ fn checked_root(root :: BountyTransferAuthority) -> BountyTransferAuthority!Stri
       || root.morse_units != U64.parse("0")? do
       return Err("invalid_bounty_transfer_authority")
     end
-  else
-    if Bytes.length(root.proof_hash) != 32
-      || Bytes.length(root.receipt) != 32
-      || Bytes.length(root.terms_hash) != 32
-      || Bytes.length(root.admission_binding) != 32
-      || Bytes.length(root.morse_mint) != 32
-      || same(root.usdc_mint, root.morse_mint) do
-      return Err("invalid_bounty_transfer_authority")
-    end
+  else if Bytes.length(root.proof_hash) != 32
+    || Bytes.length(root.receipt) != 32
+    || Bytes.length(root.terms_hash) != 32
+    || Bytes.length(root.admission_binding) != 32
+    || Bytes.length(root.morse_mint) != 32
+    || same(root.usdc_mint, root.morse_mint) do
+    return Err("invalid_bounty_transfer_authority")
   end
   Ok(root)
 end
@@ -748,7 +746,7 @@ end
 
 fn raw_root(path :: String) -> Bytes!String do
   case load_blob(path, root_label()) do
-    Ok(value) -> Ok(value)
+    Ok(value)
     Err(error) -> if error == "local_state_not_found" do
       Ok(Bytes.empty())
     else
@@ -1013,7 +1011,7 @@ fn snapshot_from_rows(snapshot :: List<Bytes>,
     Some(_) -> List.get(snapshot, asset + 4)
   end
   let route = case root do
-    None -> None
+    None
     Some(value) -> do
       if ((asset == 0) != (Bytes.length(value.legacy_identity) != 0)) do
         return Err("bounty_transfer_asset_unavailable")
