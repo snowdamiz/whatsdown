@@ -487,12 +487,6 @@ export const fr: Catalog = {
   'Installing…': 'Installation…',
   'Check for updates': 'Rechercher des mises à jour',
   // Root.web.tsx
-  'Couldn’t update the window. Try again.': 'Impossible de mettre à jour la fenêtre. Réessayez.',
-  'Window controls': 'Commandes de fenêtre',
-  'Minimize window': 'Réduire la fenêtre',
-  'Restore window': 'Restaurer la fenêtre',
-  'Maximize window': 'Agrandir la fenêtre',
-  'Close window': 'Fermer la fenêtre',
   'Open Morse in the installed desktop app.': 'Ouvrez Morse dans l’application de bureau installée.',
   // StartupScreen.tsx
   'Opening Morse': 'Ouverture de Morse',
@@ -1121,4 +1115,6 @@ export const fr: Catalog = {
   'Unavailable, expired, unsupported or oversized files may be omitted. Damaged files or failed security checks stop the backup.': 'Les fichiers indisponibles, expirés, non pris en charge ou trop volumineux peuvent être omis. Les fichiers endommagés ou un échec des contrôles de sécurité arrêtent la sauvegarde.',
   'The 16 MiB backup limit covers messages and files together.': 'La limite de 16 MiB de la sauvegarde couvre les messages et les fichiers réunis.',
   'File could not be included in this backup.': 'Ce fichier n’a pas pu être inclus dans cette sauvegarde.',
+  'Couldn’t open Morse. Close the app and try again.': 'Impossible d’ouvrir Morse. Fermez l’application puis réessayez.',
+  'Those files could not be read.': 'Impossible de lire ces fichiers.',
 };

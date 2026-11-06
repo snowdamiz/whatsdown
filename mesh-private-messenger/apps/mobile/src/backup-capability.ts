@@ -3,7 +3,7 @@ import { createBackupServices, type BackupServices } from './backup-services';
 import { createBackupFileServices, type BackupFileServices } from './backup-file-io';
 
 export type AvailableBackups = Readonly<{
-  kind: 'available'; scope: AppLockSession; operations: BackupServices; files: BackupFileServices;
+  kind: 'available'; scope: Pick<AppLockSession, 'epoch' | 'assertActive' | 'onDispose' | 'copyProtectedText'>; operations: BackupServices; files: BackupFileServices;
 }>;
 export type BackupCapability = AvailableBackups | Readonly<{ kind: 'unavailable' }>;
 

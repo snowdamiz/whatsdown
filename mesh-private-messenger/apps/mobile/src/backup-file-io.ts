@@ -73,9 +73,9 @@ export function createBackupFileServices(deps: BackupFilePorts) {
   }
   function context(value: string, prefix: string): void {
     if (typeof value !== 'string') throw invalid();
-    const parts = value.split('/');
-    const counter = parts[2];
-    if (parts.length !== 3 || parts[0] !== prefix || parts[1] !== deps.epoch || counter === undefined || !/^[1-9][0-9]{0,15}$/.test(counter) || !Number.isSafeInteger(Number(counter))) throw invalid();
+    const owner = `${prefix}/${deps.epoch}/`;
+    const counter = value.startsWith(owner) ? value.slice(owner.length) : '';
+    if (!/^[1-9][0-9]{0,15}$/.test(counter) || !Number.isSafeInteger(Number(counter))) throw invalid();
   }
   async function prepareBackupDestination(): Promise<boolean> {
     deps.assertActive(); if (destination) throw invalid();

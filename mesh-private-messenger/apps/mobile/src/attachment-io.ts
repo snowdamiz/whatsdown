@@ -11,8 +11,14 @@ export type IncomingFileHandlers = {
   onSelections?: (files: AttachmentSelection[]) => void;
   onError: (message: string) => void;
 };
+export type IncomingAttachmentReader = (subscription: string) => Promise<AttachmentSelection[]>;
+type AttachmentFileOptions = {
+  previewTransport: 'native-file' | 'desktop';
+  incoming?: { listen(handlers: IncomingFileHandlers, read: IncomingAttachmentReader): () => void };
+};
 type SelectedSource = { selectionId: string; filename: string; mimeType: string; size: number };
-export function createAttachmentFileServices(deps: Pick<ScopedClient, 'assertCurrent' | 'runPrivate' | 'onDispose' | 'protectedFile' | 'cleanupProtectedFile'> & ReturnType<typeof createAttachmentRangeServices>) {
+export function createAttachmentFileServices(deps: Pick<ScopedClient, 'assertCurrent' | 'runPrivate' | 'onDispose' | 'protectedFile' | 'cleanupProtectedFile'> & ReturnType<typeof createAttachmentRangeServices>,
+  { previewTransport, incoming }: AttachmentFileOptions = { previewTransport: 'native-file' }) {
   const previews = new Map<string, string>();
   function closePreview(uri: string): void {
     const handle = previews.get(uri); if (!handle) return; previews.delete(uri);
@@ -28,7 +34,8 @@ export function createAttachmentFileServices(deps: Pick<ScopedClient, 'assertCur
     if (bytes.length < 1 || bytes.length > MAXIMUM_ATTACHMENT_SIZE || !key || key.length > 256) throw Error('invalid_preview');
     const row = protectedMetadata(await deps.protectedFile('writePreview', { version: 1, key, mimeType }, bytes), ['handle', 'uri']);
     const handle = protectedHandle(row.handle);
-    if (typeof row.uri !== 'string' || row.uri.length > 4096 || !row.uri.startsWith('file:///')) {
+    if (typeof row.uri !== 'string' || row.uri.length > 4096 ||
+        (previewTransport === 'desktop' ? row.uri !== `morse-private://preview/${handle}` : !row.uri.startsWith('file:///'))) {
       void deps.cleanupProtectedFile('releasePreview', { version: 1, handle }).catch(() => {}); throw Error('invalid_file_response');
     }
     previews.set(row.uri, handle); return row.uri;
@@ -58,6 +65,9 @@ export function createAttachmentFileServices(deps: Pick<ScopedClient, 'assertCur
       row = protectedMetadata(await deps.protectedFile('chooseSource', context), ['choiceId', 'files', 'cancelled']);
       if (row.cancelled === true) return [];
     }
+    return readSelectionChoice(row);
+  }
+  async function readSelectionChoice(row: ReturnType<typeof protectedMetadata>): Promise<AttachmentSelection[]> {
     const choiceId = protectedHandle(row.choiceId);
     if (!Array.isArray(row.files) || row.files.length < 1 || row.files.length > 10) throw Error('invalid_file_response');
     const ids = new Set<string>();
@@ -74,6 +84,15 @@ export function createAttachmentFileServices(deps: Pick<ScopedClient, 'assertCur
     const selected: AttachmentSelection[] = [];
     try { for (const file of files) selected.push(await fileToAttachmentSelection(choiceId, file)); return selected; }
     catch (error) { selected.forEach(file => file.dispose()); throw error; }
+  }
+  async function readIncomingSelections(subscription: string): Promise<AttachmentSelection[]> {
+    protectedHandle(subscription);
+    const row = protectedMetadata(await deps.protectedFile('pendingChoice', { version: 1, purpose: 'attachment', subscription }), ['choiceId', 'files']);
+    if (row.choiceId === undefined) {
+      if (row.files !== undefined) throw Error('invalid_file_response');
+      return [];
+    }
+    return readSelectionChoice(row);
   }
   async function pickAttachmentFiles(): Promise<OutgoingAttachment[]> {
     const selected = await pickAttachmentSelections();
@@ -102,8 +121,10 @@ export function createAttachmentFileServices(deps: Pick<ScopedClient, 'assertCur
       await sink.finish(); return true;
     } catch (error) { await sink.abort().catch(() => {}); throw error; }
   }
-  // Nothing is dragged or pasted into a phone's window; files come from the picker.
-  function listenForIncomingFiles(_handlers: IncomingFileHandlers): () => void { return () => {}; }
+  // Desktop supplies native intake; mobile keeps its explicit picker flow.
+  function listenForIncomingFiles(handlers: IncomingFileHandlers): () => void {
+    return incoming?.listen(handlers, subscription => runPrivateOwned({ scope: deps, operation: () => readIncomingSelections(subscription), discard: files => { for (const file of files) file.dispose(); } })) ?? (() => {});
+  }
   return Object.freeze({
     pickAttachmentFiles: () => runPrivateOwned({ scope: deps, operation: pickAttachmentFiles, discard: files => { for (const file of files) file.bytes.fill(0); } }),
     pickAttachmentSelections: () => runPrivateOwned({ scope: deps, operation: pickAttachmentSelections, discard: files => { for (const file of files) file.dispose(); } }),

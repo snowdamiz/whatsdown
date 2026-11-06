@@ -1,6 +1,20 @@
 pub const MAX_REQUEST: usize = 8 * 1024 * 1024;
 
+fn backup_limits(symbol: &str) -> Option<(usize, usize)> {
+    if !symbol.starts_with("mesh_messenger_backup_") { return None; }
+    let mut previous = "";
+    for line in HEADER.lines() {
+        if line.starts_with(&format!("int32_t {symbol}(")) {
+            let (input, output) = previous.strip_prefix("/* Request limit: ")?.split_once(" bytes. Response/error limit: ")?;
+            return Some((input.parse().ok()?, output.strip_suffix(" bytes. */")?.parse().ok()?));
+        }
+        previous = line;
+    }
+    None
+}
+
 pub fn maximum_response(symbol: &str) -> usize {
+    if let Some((_, maximum)) = backup_limits(symbol) { return maximum; }
     if symbol == "mesh_messenger_load_history" {
         16_794_632
     } else {
@@ -9,6 +23,7 @@ pub fn maximum_response(symbol: &str) -> usize {
 }
 
 pub fn maximum_request(symbol: &str) -> usize {
+    if let Some((maximum, _)) = backup_limits(symbol) { return maximum; }
     if symbol == "mesh_messenger_fanout_send" {
         88_740
     } else if symbol == "mesh_messenger_attachment_upload" {
@@ -250,6 +265,13 @@ pub fn public_export(symbol: &str) -> bool {
 }
 
 pub fn validate_public(symbol: &str, request: &[u8], database: &[u8]) -> Result<(), String> {
+    if symbol.starts_with("mesh_messenger_backup_") { return Err("scoped_client_required".into()); }
+    validate_scoped(symbol, request, database)
+}
+
+// Receiving native owners use the public ABI allowlist too. A captured epoch
+// does not authorize generic native-only protocol/control exports.
+pub fn validate_scoped(symbol: &str, request: &[u8], database: &[u8]) -> Result<(), String> {
     if !public_export(symbol) {
         return Err("private_native_export".into());
     }
@@ -264,6 +286,9 @@ pub fn validate(symbol: &str, request: &[u8], database: &[u8]) -> Result<(), Str
         || request.len() > maximum_request(symbol)
     {
         return Err("invalid_native_request".into());
+    }
+    if symbol.starts_with("mesh_messenger_backup_") {
+        return validate_backup(symbol, request, database);
     }
     let name = &symbol[15..];
     // These exports consume wire payloads, without opening a database.
@@ -934,4 +959,58 @@ mod network_counter_boundary {
 fn view_once_consume_is_native_only_independent_of_generated_header_discovery() {
     assert!(!public_export("mesh_messenger_view_once_consume"));
     assert!(public_export("mesh_messenger_load_profile"));
+}
+
+#[cfg(test)]
+mod desktop_backup_connection_tests {
+    use super::*;
+    fn frame(database: &[u8]) -> Vec<u8> {
+        let mut bytes=vec![1];
+        bytes.extend_from_slice(&(database.len() as u32).to_be_bytes()); bytes.extend_from_slice(database);
+        bytes.extend_from_slice(&1u32.to_be_bytes()); bytes.push(7); bytes
+    }
+    #[test]
+    fn backup_abi_uses_versioned_native_database_prefix_and_current_library_bounds() {
+        let db=b"/owned/morse.db";
+        assert!(validate("mesh_messenger_backup_list", &frame(db), db).is_ok());
+        assert!(validate("mesh_messenger_backup_list", &frame(b"/other/morse.db"), db).is_err());
+        assert_eq!(maximum_request("mesh_messenger_backup_import"), 16_841_239);
+        assert_eq!(maximum_response("mesh_messenger_backup_create"), 16_801_001);
+    }
+    #[test]
+    fn legacy_generic_dispatch_cannot_reach_backups_or_native_only_exports() {
+        let db=b"/owned/morse.db";
+        assert!(validate_public("mesh_messenger_backup_list", &frame(db), db).is_err());
+        assert!(validate_public("mesh_messenger_view_once_consume", &frame(db), db).is_err());
+    }
+}
+
+// ABI framing and native database confinement only. Mesh owns backup policy,
+// expected-profile comparison, recovery codes, selections and persistence.
+fn validate_backup(symbol: &str, request: &[u8], database: &[u8]) -> Result<(), String> {
+    let invalid = || "invalid_backup_request".to_owned();
+    backup_limits(symbol).ok_or_else(invalid)?;
+    let length = |offset: usize| -> Result<usize, String> {
+        Ok(u32::from_be_bytes(request.get(offset..offset + 4).ok_or_else(invalid)?.try_into().map_err(|_| invalid())?) as usize)
+    };
+    if request.first() != Some(&1) { return Err(invalid()); }
+    let count = length(1)?;
+    if !(1..=4096).contains(&count) || request.get(5..5 + count) != Some(database) { return Err(invalid()); }
+    if symbol.starts_with("mesh_messenger_backup_pending_") {
+        let size = length(5 + count)?;
+        if !(1..=36134).contains(&size) { return Err(invalid()); }
+        let end = 9 + count + size;
+        let expected = match symbol {
+            "mesh_messenger_backup_pending_state" | "mesh_messenger_backup_pending_repair" => end,
+            "mesh_messenger_backup_pending_discard" => end + 32,
+            "mesh_messenger_backup_pending_resume" => {
+                let code = length(end + 32)?;
+                if !(1..=4096).contains(&code) { return Err(invalid()); }
+                end + 36 + code
+            }
+            _ => return Err(invalid()),
+        };
+        if request.len() != expected { return Err(invalid()); }
+    }
+    Ok(())
 }

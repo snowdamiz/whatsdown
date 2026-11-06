@@ -1,7 +1,5 @@
-import { createDesktopAppServices } from './app-lock-services.web';
-const desktopServices = createDesktopAppServices();
-import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { DesktopAppGate } from './DesktopAppGate';
+import { createDesktopOwnerTransport } from './desktop-native-transport';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import App from './App';
@@ -11,13 +9,11 @@ import { palettes, type ColorScheme } from './appearance';
 import { loadAppearance, saveAppearance } from './appearance-store.web';
 import { SCROLLBAR_WIDTH } from './desktop-layout';
 import { installScrollbars } from './scrollbars';
-import { setDatabasePath } from './storage.web';
 import { AppearanceProvider, WindowsChromeContext, useTheme, type Appearance } from './theme';
-import { control, cubicBezier, duration, easing, radius, space } from './tokens';
+import { cubicBezier, duration, easing, radius } from './tokens';
 import { isDevelopmentBuild } from './transport.web';
 import { t } from './i18n';
-import { LanguageProvider, useI18n } from './language';
-import { chrome, IconButton } from './ui';
+import { LanguageProvider } from './language';
 
 const windowsHost = /Windows/.test(navigator.userAgent);
 
@@ -96,88 +92,39 @@ function DocumentTheme() {
   return null;
 }
 
-function WindowsWindowControls() {
-  const { colors } = useTheme();
-  const { t } = useI18n();
-  const [maximized, setMaximized] = useState(false);
-  const [error, setError] = useState('');
-  const reportError = () => setError(t('Couldn’t update the window. Try again.'));
-  useEffect(() => {
-    const update = () => { void getCurrentWindow().isMaximized().then(setMaximized).catch(reportError); };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
-  const act = async (action: 'minimize' | 'toggleMaximize' | 'close') => {
-    setError('');
-    try {
-      const appWindow = getCurrentWindow();
-      await appWindow[action]();
-      if (action === 'toggleMaximize') setMaximized(await appWindow.isMaximized());
-    } catch { reportError(); }
-  };
-  return <>
-    <div role="group" aria-label={t('Window controls')}
-      style={{ position: 'absolute', top: (chrome.header - control.xs) / 2, right: space[4], zIndex: 10, display: 'flex', gap: space[1] }}>
-      <IconButton name="minimize" label={t('Minimize window')} variant="tonal" size={control.xs} onPress={() => void act('minimize')} />
-      <IconButton name={maximized ? 'restore' : 'maximize'} label={maximized ? t('Restore window') : t('Maximize window')}
-        variant="tonal" size={control.xs} onPress={() => void act('toggleMaximize')} />
-      <IconButton name="close" label={t('Close window')} variant="tonal" size={control.xs} onPress={() => void act('close')} />
-    </div>
-    {error ? <div role="alert" style={{ position: 'absolute', top: chrome.header, right: 8, zIndex: 10,
-      color: colors.danger, background: colors.canvas, padding: 8 }}>{error}</div> : null}
-  </>;
-}
-
 type Boot = { appearance: Appearance } | { error: string } | null;
 
-export default function Root() {
+function ProtectedDesktopRoot() {
+  const [transport] = useState(createDesktopOwnerTransport);
   const [boot, setBoot] = useState<Boot>(null);
-  const [windowsPreview, setWindowsPreview] = useState(false);
-  // An erased account restarts the app, so nothing of it stays in memory.
   const [session, setSession] = useState<{ generation: number; notice?: string }>({ generation: 0 });
-  const preview = isDevelopmentBuild() && windowsPreview;
-  const windowsUI = windowsHost || preview;
-  const toggleWindowsPreview = async (enabled: boolean) => {
-    if (!isDevelopmentBuild()) return;
-    const appWindow = getCurrentWindow();
-    await appWindow.setDecorations(!(windowsHost || enabled));
-    // Restoring decorations clears macOS's full-size content-view style.
-    if (!enabled && /Mac/.test(navigator.userAgent)) await appWindow.setTitleBarStyle('overlay');
-    setWindowsPreview(enabled);
-  };
   useEffect(() => installScrollbars(document), []);
   useEffect(() => {
-    Promise.all([invoke<string>('database_path'), loadAppearance()])
-      .then(([path, appearance]) => {
-        setDatabasePath(path);
-        setBoot({ appearance });
-      })
-      .catch(() => setBoot({ error: t('Open Morse in the installed desktop app.') }));
+    let active = true;
+    void loadAppearance().then(appearance => { if (active) setBoot({ appearance }); },
+      () => { if (active) setBoot({ error: t('Open Morse in the installed desktop app.') }); });
+    return () => { active = false; };
   }, []);
-  if (boot && 'appearance' in boot) {
-    return (
-      <LanguageProvider>
-        <AppearanceProvider load={() => boot.appearance} save={saveAppearance}>
-          <DocumentTheme />
-          <WindowsChromeContext.Provider value={windowsUI}>
-            <View style={{ flex: 1 }}>
-              <App services={desktopServices} environment={{ kind: 'desktop' }} key={session.generation} notice={session.notice} windowsPreview={preview}
-                onWindowsPreviewChange={toggleWindowsPreview}
-                updates={isDevelopmentBuild() ? undefined : <DesktopUpdates />}
-                onAccountErased={(notice) => setSession(({ generation }) => ({ generation: generation + 1, notice }))} />
-              {windowsUI ? <WindowsWindowControls /> : null}
-            </View>
-          </WindowsChromeContext.Provider>
-        </AppearanceProvider>
-      </LanguageProvider>
-    );
-  }
-  // The startup screen speaks the chosen language too, before the app is ready.
-  return <LanguageProvider>
-    <View style={{ flex: 1 }}>
-      <StartupScreen error={boot?.error} />
-      {windowsUI ? <WindowsWindowControls /> : null}
-    </View>
+  if (!boot || 'error' in boot) return <LanguageProvider>
+    <View style={{ flex: 1 }}><StartupScreen error={boot?.error} /></View>
   </LanguageProvider>;
+  return <LanguageProvider>
+    <AppearanceProvider load={() => boot.appearance} save={saveAppearance}>
+      <DocumentTheme />
+      <WindowsChromeContext.Provider value={false}>
+        <View style={{ flex: 1 }}>
+          <DesktopAppGate key={session.generation} transport={transport}
+            pending={<StartupScreen />} failed={<StartupScreen error={t('Couldn’t open Morse. Close the app and try again.')} />}>
+            {services => <App services={services} environment={{ kind: 'desktop' }} notice={session.notice}
+              updates={isDevelopmentBuild() ? undefined : <DesktopUpdates />}
+              onAccountErased={notice => setSession(({ generation }) => ({ generation: generation + 1, notice }))} />}
+          </DesktopAppGate>
+        </View>
+      </WindowsChromeContext.Provider>
+    </AppearanceProvider>
+  </LanguageProvider>;
+}
+
+export default function Root() {
+  return <ProtectedDesktopRoot />;
 }

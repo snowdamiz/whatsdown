@@ -144,7 +144,7 @@ pub fn network_payment(
     checked_result(mesh("mesh_messenger_credit_wallet_submit", &request)?, id)
 }
 
-fn valid_payment_url(url: &str) -> bool {
+pub(crate) fn valid_payment_url(url: &str) -> bool {
     if url.chars().any(char::is_control) {
         return false;
     }

@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(target_os = "macos")]
+mod desktop_lock;
 mod appearance;
 mod attachment_files;
 mod bounty;
@@ -49,6 +51,7 @@ struct Desktop {
     attachment_saves: Arc<attachment_files::AttachmentSaves>,
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 fn database_path(state: tauri::State<Desktop>) -> String {
     state.database.clone()
@@ -99,8 +102,16 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
         .expect("the main window is configured")
         .clone();
     let builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?
+        .visible(false)
         .on_navigation(navigation::allowed)
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
+    #[cfg(target_os = "macos")]
+    let builder = {
+        let boot=app.state::<std::sync::Arc<desktop_lock::bootstrap::Bootstrap>>();
+        let configuration=desktop_lock::private_preview::configuration(boot.native.clone(),boot.files.clone())
+            .map_err(std::io::Error::other)?;
+        builder.with_webview_configuration(configuration)
+    };
     #[cfg(target_os = "macos")]
     let builder = match config.traffic_light_position {
         Some(lights) if tall_window_buttons() => {
@@ -142,6 +153,7 @@ fn header<'a>(request: &'a Request<'_>, name: &str) -> Option<&'a str> {
         .and_then(|value| value.to_str().ok())
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn mesh_invoke(
     state: tauri::State<'_, Desktop>,
@@ -201,6 +213,7 @@ async fn mesh_invoke(
 }
 
 // The response is the HTTP status as two big-endian bytes followed by the body.
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn wallet_invoke(
     app: tauri::AppHandle,
@@ -294,6 +307,7 @@ async fn wallet_invoke(
     Ok(Response::new(result))
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn credit_open_payment(
     state: tauri::State<'_, Desktop>,
@@ -322,6 +336,7 @@ fn attachment_body(body: &InvokeBody) -> Result<Vec<u8>, String> {
 
 // A decrypted attachment leaves the web view only through the system save
 // dialog, so the app never needs a filesystem scope of its own.
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn save_attachment(app: tauri::AppHandle, request: Request<'_>) -> Result<bool, String> {
     let body = attachment_body(request.body())?;
@@ -339,6 +354,7 @@ async fn save_attachment(app: tauri::AppHandle, request: Request<'_>) -> Result<
     .map_err(|_| "native_task_failed")?
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn begin_attachment_save(
     app: tauri::AppHandle,
@@ -368,6 +384,7 @@ async fn begin_attachment_save(
     .map_err(|_| "native_task_failed")?
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn write_attachment_range(
     state: tauri::State<'_, Desktop>,
@@ -389,6 +406,7 @@ async fn write_attachment_range(
         .map_err(|_| "native_task_failed")?
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn finish_attachment_save(state: tauri::State<'_, Desktop>, id: u64) -> Result<(), String> {
     let saves = state.attachment_saves.clone();
@@ -397,6 +415,7 @@ async fn finish_attachment_save(state: tauri::State<'_, Desktop>, id: u64) -> Re
         .map_err(|_| "native_task_failed")?
 }
 
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 async fn abort_attachment_save(state: tauri::State<'_, Desktop>, id: u64) -> Result<(), String> {
     let saves = state.attachment_saves.clone();
@@ -447,38 +466,103 @@ async fn install_update(
     app.restart()
 }
 
+fn load_desktop(app: &tauri::AppHandle, directory: PathBuf, library: PathBuf, config: Config)
+    -> Result<Desktop, Box<dyn std::error::Error>> {
+    let core = mesh::Mesh::load(&library, config.security_frame.clone(), config.network_counter_frame.clone(),
+        config.network_frame.clone(), config.ohttp_frame.clone(), config.credit_purpose.clone(),
+        config.credit_usdc_mint_hex.clone(), config.lightning_network.clone(), config.issuer_tls_root.clone(),
+        app.config().identifier.clone())?;
+    Ok(Desktop {
+        mesh: Arc::new(Mutex::new(core)),
+        database: directory.join("morse.db").to_string_lossy().into_owned(),
+        app_identifier: app.config().identifier.clone(), data: directory, config,
+        attachment_saves: Arc::new(attachment_files::AttachmentSaves::default()),
+    })
+}
+
 fn main() {
-    let result = tauri::Builder::default()
-        .invoke_system(include_str!("ipc-postmessage.js"))
-        .plugin(tauri_plugin_notification::init())
+    #[cfg(target_os = "macos")]
+    let invoke: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
+            desktop_lock::commands::app_lock_bind,
+            desktop_lock::commands::app_lock_state,
+            desktop_lock::commands::app_lock_check,
+            desktop_lock::commands::app_lock_activate,
+            desktop_lock::commands::app_lock_lock,
+            desktop_lock::commands::app_lock_set_enabled,
+            desktop_lock::commands::app_lock_cancel,
+            desktop_lock::commands::app_lock_release,
+            desktop_lock::commands::app_lock_window_action,
+            desktop_lock::commands::app_lock_copy_text,
+            desktop_lock::legacy_commands::app_lock_legacy_preference,
+            desktop_lock::private_commands::credit_open_payment,
+            desktop_lock::file_commands::app_lock_file,
+            desktop_lock::file_commands::app_lock_file_cleanup,
+            desktop_lock::notification_commands::app_lock_notification_binding,
+            desktop_lock::notification_commands::app_lock_publish_notice,
+            desktop_lock::notification_commands::app_lock_take_notice_intent,
+            desktop_lock::commands::app_lock_close_mailbox,
+            desktop_lock::private_commands::database_path,
+            appearance,
+            set_appearance,
+            desktop_lock::private_commands::mesh_invoke,
+            desktop_lock::private_commands::wallet_invoke,
+            check_update,
+            install_update
+        ];
+    #[cfg(not(target_os = "macos"))]
+    let invoke: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![appearance, set_appearance, check_update, install_update];
+    let builder = tauri::Builder::default().invoke_system(include_str!("ipc-postmessage.js"));
+    // Protected macOS has one native UN ownership/delegate path. Preserve
+    // the existing plugin on other desktop platforms only.
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.plugin(tauri_plugin_notification::init());
+    let result = builder
         // The HTML already contains the branded cover. Keep the native
         // window hidden until that document is ready to paint.
         .on_page_load(|webview, payload| {
+            if webview.label() != "main" { return; }
+            #[cfg(target_os = "macos")]
+            {
+                let app = webview.app_handle();
+                let Some(boot) = app.try_state::<Arc<desktop_lock::bootstrap::Bootstrap>>() else { return; };
+                let Some(window) = app.get_webview_window("main") else { return; };
+                match payload.event() {
+                    tauri::webview::PageLoadEvent::Started => boot.navigation_started(window),
+                    tauri::webview::PageLoadEvent::Finished => {
+                        let _ = window.set_title_bar_style(tauri::TitleBarStyle::Overlay);
+                        boot.page_finished(window);
+                    }
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
             if payload.event() == tauri::webview::PageLoadEvent::Finished {
-                // Windows draws its own caption buttons. Reloading also exits
-                // the development preview and restores the host's decorations.
-                if let Err(error) = webview.window().set_decorations(!cfg!(windows)) {
-                    eprintln!("Could not configure window decorations: {error}");
-                }
-                #[cfg(target_os = "macos")]
-                if let Err(error) = webview
-                    .window()
-                    .set_title_bar_style(tauri::TitleBarStyle::Overlay)
-                {
-                    eprintln!("Could not restore the overlay title bar: {error}");
-                }
+                let _ = webview.window().set_decorations(!cfg!(windows));
                 let _ = webview.window().show();
             }
         })
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                if let Some(boot) = app.try_state::<Arc<desktop_lock::bootstrap::Bootstrap>>() { boot.focus(window); }
+                #[cfg(not(target_os = "macos"))]
                 let _ = window.set_focus();
             }
         }))
+        .on_window_event(|window, event| {
+            #[cfg(target_os = "macos")]
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    // Keep the owned primary available to the ordinary Dock or
+                    // single-instance reopen path; native Hidden revokes it.
+                    api.prevent_close();
+                    let app=window.app_handle();
+                    if let (Some(boot),Some(primary))=(app.try_state::<Arc<desktop_lock::bootstrap::Bootstrap>>(),app.get_webview_window("main")) { boot.hide(primary); }
+                }
+            }
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            create_main_window(app)?;
             let config: Config = serde_json::from_str(include_str!("../native/config.json"))?;
             if !cfg!(debug_assertions) && (config.development || config.security_frame.is_empty()) {
                 return Err("Release binaries require production service configuration".into());
@@ -487,62 +571,54 @@ fn main() {
             std::fs::create_dir_all(&directory)?;
             let extension = if cfg!(windows) { "dll" } else { "dylib" };
             let library = app.path().resolve(
-                format!("native/libmessenger_mobile.{extension}"),
-                tauri::path::BaseDirectory::Resource,
-            )?;
-            // Match the database's app identifier so development never uses release keys.
-            let core = mesh::Mesh::load(
-                &library,
-                config.security_frame.clone(),
-                config.network_counter_frame.clone(),
-                config.network_frame.clone(),
-                config.ohttp_frame.clone(),
-                config.credit_purpose.clone(),
-                config.credit_usdc_mint_hex.clone(),
-                config.lightning_network.clone(),
-                config.issuer_tls_root.clone(),
-                app.config().identifier.clone(),
-            )?;
-            // The window already exists but has not painted: dress it in the
-            // saved scheme now so the first frame is the right one.
-            if let Some(window) = app.get_webview_window("main") {
+                format!("native/libmessenger_mobile.{extension}"), tauri::path::BaseDirectory::Resource)?;
+            #[cfg(target_os = "macos")]
+            {
+                let boot = desktop_lock::bootstrap::Bootstrap::new(app.handle().clone())
+                    .map_err(|_| "app_lock_unavailable")?;
+                app.manage(boot.notifications.clone());
+                app.manage(boot.clone());
+                create_main_window(app)?;
+                let window = app.get_webview_window("main").ok_or("app_lock_unavailable")?;
                 apply_appearance(&window, appearance::load(&directory));
+                let handle = app.handle().clone();
+                let worker = boot.clone();
+                boot.attach_primary(window, move || {
+                    tauri::async_runtime::spawn_blocking(move || {
+                        worker.initialize(&handle, &directory, || {
+                            let desktop = load_desktop(&handle, directory.clone(), library, config)
+                                .map_err(|_| "native_initialization_failed")?;
+                            handle.manage(desktop); Ok(())
+                        });
+                    });
+                })?;
             }
-            app.manage(Desktop {
-                mesh: Arc::new(Mutex::new(core)),
-                database: directory.join("morse.db").to_string_lossy().into_owned(),
-                app_identifier: app.config().identifier.clone(),
-                data: directory,
-                config,
-                attachment_saves: Arc::new(attachment_files::AttachmentSaves::default()),
-            });
-            #[cfg(debug_assertions)]
-            if std::env::var_os("MORSE_DEVTOOLS").is_some() {
+            #[cfg(not(target_os = "macos"))]
+            {
+                create_main_window(app)?;
                 if let Some(window) = app.get_webview_window("main") {
-                    window.open_devtools();
+                    apply_appearance(&window, appearance::load(&directory));
                 }
+                app.manage(load_desktop(app.handle(), directory, library, config)?);
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            credit_open_payment,
-            database_path,
-            appearance,
-            set_appearance,
-            mesh_invoke,
-            wallet_invoke,
-            save_attachment,
-            begin_attachment_save,
-            write_attachment_range,
-            finish_attachment_save,
-            abort_attachment_save,
-            check_update,
-            install_update
-        ])
-        .run(tauri::generate_context!());
-    if let Err(error) = result {
-        eprintln!("Morse could not start: {error}");
-        std::process::exit(1);
+        .invoke_handler(invoke)
+        .build(tauri::generate_context!());
+    match result {
+        Ok(app) => app.run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let Some(boot) = app.try_state::<Arc<desktop_lock::bootstrap::Bootstrap>>() {
+                match event {
+                    tauri::RunEvent::Reopen { .. } => {
+                        if let Some(window) = app.get_webview_window("main") { boot.focus(window); }
+                    }
+                    tauri::RunEvent::Exit => boot.close(),
+                    _ => {}
+                }
+            }
+        }),
+        Err(error) => { eprintln!("Morse could not start: {error}"); std::process::exit(1); }
     }
 }
 

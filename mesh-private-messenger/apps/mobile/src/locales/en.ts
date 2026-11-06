@@ -790,13 +790,8 @@ export const en = {
   'Save inbox setting': 'Save inbox setting',
   'Change this setting on the device that created your account.': 'Change this setting on the device that created your account.',
   // Root.web.tsx
-  'Couldn’t update the window. Try again.': 'Couldn’t update the window. Try again.',
-  'Window controls': 'Window controls',
-  'Minimize window': 'Minimize window',
-  'Restore window': 'Restore window',
-  'Maximize window': 'Maximize window',
-  'Close window': 'Close window',
   'Open Morse in the installed desktop app.': 'Open Morse in the installed desktop app.',
+  'Couldn’t open Morse. Close the app and try again.': 'Couldn’t open Morse. Close the app and try again.',
   // StartupScreen.tsx
   'Opening Morse': 'Opening Morse',
   // anchor.ts
@@ -958,6 +953,8 @@ export const en = {
   'Approved the request to join the community': 'Approved the request to join the community',
   'Declined the request to join {group}': 'Declined the request to join {group}',
   'Declined the request to join the community': 'Declined the request to join the community',
+  // desktop-incoming-files.ts
+  'Those files could not be read.': 'Those files could not be read.',
   // filing.ts
   'Filing status has not been checked yet.': 'Filing status has not been checked yet.',
   'No retained evidence is available to file.': 'No retained evidence is available to file.',

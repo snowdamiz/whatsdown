@@ -2,7 +2,7 @@ import { isLegacyDesktopBridge } from '../modules/mesh-messenger';
 import type { ScopedClient } from '../modules/mesh-messenger/scoped';
 import * as Notifications from 'expo-notifications';
 import type { MessageNotification } from './notification-policy';
-export function createNotificationServices(deps: Pick<ScopedClient, 'runPrivate' | 'publishMessageNotice'>) {
+export function createNotificationServices(deps: Pick<ScopedClient, 'runPrivate'> & { publishMessageNotice(notice: MessageNotification & { version: 1 }): Promise<void> }) {
   async function showMessageNotification(notification: MessageNotification): Promise<void> {
     // Native owns the final epoch/policy check and the actual OS publication.
     // Even while unlocked, an enabled policy must publish generic content only.
