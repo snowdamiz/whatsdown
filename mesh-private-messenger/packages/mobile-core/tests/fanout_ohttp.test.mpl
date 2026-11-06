@@ -6,6 +6,7 @@ from Transparency.Config import encode_security_config
 from Ohttp.Keys import OhttpKeyConfig, encode_key_config
 from Ohttp.BinaryHttp import decode_request, encode_response
 from Ohttp.Policy import admit_prekey_claim_request, prekey_claim_response
+from Ohttp.LookupPolicy import OhttpLookupOperation, admit_lookup_request, lookup_response
 from Ohttp.Types import BhttpFraming, default_bhttp_limits
 from Mobile.AttachmentRecipients import require_attachment_authorization
 from Mobile.FanoutNetwork import native_fanout_send, parse_fanout_action
@@ -163,46 +164,53 @@ fn resolve_reply(input :: Request,
   local_first :: Bytes,
   local_same :: Bytes,
   mode :: Int) -> Response do
+  case increment(path <> ".direct-lookup-count") do
+    Err(error) -> return HTTP.response(500, error)
+    Ok(_) -> nil
+  end
   let body = case stamp_valid(input, "mesh-msg/v1/work/resolve", 76) do
     Err(error) -> return HTTP.response(400, error)
     Ok(value) -> value
   end
-  let lookup = case decode_transparency_lookup(body) do
-    Err(error) -> return HTTP.response(400, error)
-    Ok(value) -> value
+  case resolve_body(body, path, peer_first, peer_same, local_first, local_same, mode) do
+    Err(error) -> HTTP.response(500, error)
+    Ok(value) -> HTTP.response_bytes(200, value)
   end
-  File.write(path <> ".resolve", "requested")
-  let peer_evidence = case decode_transparency_evidence(peer_first) do
-    Err(error) -> return HTTP.response(500, error)
-    Ok(value) -> value
-  end
+end
+
+fn resolve_body(body :: Bytes,
+  path :: String,
+  peer_first :: Bytes,
+  peer_same :: Bytes,
+  local_first :: Bytes,
+  local_same :: Bytes,
+  mode :: Int) -> Bytes!String do
+  let lookup = decode_transparency_lookup(body)?
+  File.write(path <> ".resolve", "requested")?
+  let peer_evidence = decode_transparency_evidence(peer_first)?
   let peer_devices = case decode_device_set(peer_evidence.entry_bytes) do
-    Err(_) -> return HTTP.response(500, "fixture peer devices")
+    Err(_) -> return Err("fixture peer devices")
     Ok(value) -> value
   end
   let peer_account = case decode_account_identity(peer_devices.account_identity) do
-    Err(_) -> return HTTP.response(500, "fixture peer identity")
+    Err(_) -> return Err("fixture peer identity")
     Ok(value) -> value
   end
   if mode == 7 do
-    case replace_account(path) do
-      Err(error) -> return HTTP.response(500, error)
-      Ok(_) -> nil
-    end
+    replace_account(path)?
   end
-  HTTP.response_bytes(200,
-    if lookup.username == "bob"
-      || lookup.username == "@" <> Bytes.to_hex(peer_account.account_id) do
-      if lookup.previous_tree_size == 0 do
-        peer_first
-      else
-        peer_same
-      end
-    else if lookup.previous_tree_size == 0 do
-      local_first
+  Ok(if lookup.username == "bob"
+    || lookup.username == "@" <> Bytes.to_hex(peer_account.account_id) do
+    if lookup.previous_tree_size == 0 do
+      peer_first
     else
-      local_same
-    end)
+      peer_same
+    end
+  else if lookup.previous_tree_size == 0 do
+    local_first
+  else
+    local_same
+  end)
 end
 
 fn claim_reply(input :: Request, path :: String, bundle :: Bytes, mode :: Int) -> Response do
@@ -269,13 +277,17 @@ actor peer(port :: Int,
   bundle :: Bytes,
   mode :: Int) do
   HTTP.router()
+    |> HTTP.on_get("/fanout-fixture-ready", fn(_) -> HTTP.response(200, path) end)
     |> HTTP.on_post("/v1/devices/resolve",
       fn(input) -> resolve_reply(input, path, first, same, local_first, local_same, mode) end)
     |> HTTP.on_post("/v1/prekeys/bundle", fn(input) -> claim_reply(input, path, bundle, mode) end)
     |> HTTP.on_post("/v1/ohttp",
       fn(input) do
-        case ohttp_reply(input, path, bundle, port, mode) do
-          Err(error) -> HTTP.response(500, error)
+        case ohttp_reply(input, path, first, same, local_first, local_same, bundle, port, mode) do
+          Err(error) -> do
+            File.write(path <> ".handler-error", error)
+            HTTP.response(500, error)
+          end
           Ok(value) -> value
         end
       end)
@@ -284,7 +296,25 @@ actor peer(port :: Int,
         File.write(path <> ".redirect", "followed")
         HTTP.response(500, "redirect followed")
       end)
-    |> HTTP.serve(port)
+    |> HTTP.serve_on("127.0.0.1", port)
+end
+
+fn await_peer(port :: Int, path :: String) -> Result<(), String> do
+  let started = Monotonic.now_nanos()
+  while Monotonic.elapsed(started, Monotonic.now_nanos())? < 5000000000 do
+    let response = Http.build(:get, "http://127.0.0.1:#{port}/fanout-fixture-ready")
+      |> Http.timeout(100)
+      |> Http.max_redirects(0)
+      |> Http.max_response_bytes(256)
+      |> Http.send()
+    case response do
+      Ok(value) -> if value.status == 200 && value.body == path do
+        return Ok(nil)
+      end
+      Err(_) -> nil
+    end
+  end
+  Err("fixture listener unavailable")
 end
 
 fn action(path :: String, profile :: Bytes, expected_peer :: Bytes) -> Bytes!String do
@@ -365,7 +395,7 @@ fn run_case(mode :: Int) -> Result<(), String> do
     b.private_key)?
   let port = 24270 + mode
   let server = spawn(peer, port, path, first, same, local_first, local, remote.bundle, mode)
-  Timer.sleep(50)
+  await_peer(port, path)?
   let network = Bytes.from_utf8("1\n1\nhttp://127.0.0.1:#{port}\nhttp://127.0.0.1:#{port}\nhttp://127.0.0.1:18089\nws://127.0.0.1:18090/v1/mailbox/stream")
   assert(Test.set_push_token(Bytes.from_utf8("messenger/network/v1"), network))
   if mode != 28 do
@@ -388,6 +418,8 @@ fn run_case(mode :: Int) -> Result<(), String> do
     })?
     assert(count(path <> ".direct-count") == 1)
     assert(count(path <> ".ohttp-count") == 0)
+    assert(count(path <> ".direct-lookup-count") == 0)
+    assert(count(path <> ".ohttp-lookup-count") == 2)
     let target = List.head(verified_device_set(peers)?.profiles)
     let before = load_blob(path, fanout_prekey_reservation_label(target))?
     println("m3-prekey-manual:direct-and-reserved")
@@ -448,7 +480,11 @@ fn run_case(mode :: Int) -> Result<(), String> do
     assert(List.length(output_list(outbox_list_export(Bytes.from_utf8(path))?)?) == 0)
     assert(count(path <> ".direct-count") == 1)
     assert(count(path <> ".ohttp-count") == 0)
-    for suffix in [".claim", ".resolve", ".direct-count"] do
+    assert(count(path <> ".direct-lookup-count") == 0)
+    assert(count(path <> ".ohttp-lookup-count") == 2)
+    assert(!File.exists(path <> ".handler-error"))
+    assert(!File.exists(path <> ".redirect"))
+    for suffix in [".claim", ".resolve", ".direct-count", ".ohttp-lookup-count"] do
       if File.exists(path <> suffix) do
         File.delete(path <> suffix)?
       end
@@ -602,6 +638,16 @@ fn run_case(mode :: Int) -> Result<(), String> do
         else
           1
         end))
+      assert(count(path <> ".direct-lookup-count") == (if mode == 21 do
+          2
+        else
+          0
+        end))
+      assert(count(path <> ".ohttp-lookup-count") == (if mode == 21 do
+          0
+        else
+          2
+        end))
     end
   else
     assert(Result.is_err(result))
@@ -611,8 +657,10 @@ fn run_case(mode :: Int) -> Result<(), String> do
       assert(load_blob(path,
         fanout_prekey_reservation_label(target)) == Err("local_state_not_found"))
       assert(count(path <> ".direct-count") == 0)
+      assert(count(path <> ".direct-lookup-count") == 0)
       if mode == 24 || mode == 25 || mode == 28 do
         assert(count(path <> ".ohttp-count") == 0)
+        assert(count(path <> ".ohttp-lookup-count") == 0)
         assert(load_blob(path, fanout_prekey_claim_label(target)) == Err("local_state_not_found"))
         assert(!File.exists(path <> ".claim"))
         assert(result == Err(if mode == 28 do
@@ -622,7 +670,9 @@ fn run_case(mode :: Int) -> Result<(), String> do
           end))
       else
         assert(count(path <> ".ohttp-count") == 1)
-        assert(Bytes.length(load_blob(path, fanout_prekey_claim_label(target))?) > 0)
+        assert(count(path <> ".ohttp-lookup-count") == 2)
+        let stored_claim = load_blob(path, fanout_prekey_claim_label(target))?
+        assert(Bytes.length(stored_claim) > 0)
         assert(File.exists(path <> ".claim"))
         assert(result == Err(if mode == 22 do
             "ohttp_prekey_response_authentication_failed"
@@ -633,12 +683,17 @@ fn run_case(mode :: Int) -> Result<(), String> do
           end))
         # A fresh explicit retry keeps the same original durable claim ID.
         let original = File.read(path <> ".claim")?
-        assert(Result.is_err(native_fanout_send(request)))
+        assert(native_fanout_send(request) == result)
         assert(File.read(path <> ".claim")? == original)
+        assert(Bytes.secure_equals(stored_claim,
+          load_blob(path, fanout_prekey_claim_label(target))?))
         assert(count(path <> ".ohttp-count") == 2)
+        assert(count(path <> ".ohttp-lookup-count") == 4)
         assert(count(path <> ".direct-count") == 0)
+        assert(count(path <> ".direct-lookup-count") == 0)
         assert(load_blob(path,
           fanout_prekey_reservation_label(target)) == Err("local_state_not_found"))
+        assert(List.length(output_list(outbox_list_export(Bytes.from_utf8(path))?)?) == 0)
       end
       println("m3-native-prekey-refusal:#{mode}")
     end
@@ -654,7 +709,16 @@ fn run_case(mode :: Int) -> Result<(), String> do
     end
   end
   assert(!File.exists(path <> ".redirect"))
-  for suffix in [".resolve", ".claim", ".redirect", ".direct-count", ".ohttp-count"] do
+  assert(!File.exists(path <> ".handler-error"))
+  for suffix in [
+    ".resolve",
+    ".claim",
+    ".redirect",
+    ".direct-count",
+    ".ohttp-count",
+    ".direct-lookup-count",
+    ".ohttp-lookup-count"
+  ] do
     if File.exists(path <> suffix) do
       File.delete(path <> suffix)?
     end
@@ -701,10 +765,13 @@ end
 
 fn ohttp_reply(input :: Request,
   path :: String,
+  peer_first :: Bytes,
+  peer_same :: Bytes,
+  local_first :: Bytes,
+  local_same :: Bytes,
   bundle :: Bytes,
   port :: Int,
   mode :: Int) -> Response!String do
-  increment(path <> ".ohttp-count")?
   if Request.header(input, "authorization") != None
     || Request.header(input, "cookie") != None
     || Request.header(input, "content-type") != Some("message/ohttp-req") do
@@ -720,7 +787,35 @@ fn ohttp_reply(input :: Request,
     Err(_) -> return Err("fixture Binary HTTP request")
     Ok(value) -> value
   end
+  if !Bytes.secure_equals(request.path, Bytes.from_utf8("/v1/prekeys/bundle")) do
+    let query = admit_lookup_request(request, "http://127.0.0.1:#{port}", true)?
+    assert(query.operation == OhttpDirectoryLookup(1))
+    increment(path <> ".ohttp-lookup-count")?
+    let (work, body) = decode_stamped_request(query.body, 76)?
+    assert(verify_request_stamp("mesh-msg/v1/work/resolve",
+      body,
+      work,
+      current_time()?,
+      U64.parse("300000")?,
+      1)?)
+    let evidence = resolve_body(body, path, peer_first, peer_same, local_first, local_same, mode)?
+    let response = lookup_response(query.operation, 200, evidence)?
+    let clear = case encode_response(response, BhttpKnownLength, limits) do
+      Err(_) -> return Err("fixture Binary HTTP lookup response")
+      Ok(value) -> value
+    end
+    let reply = case Ohttp.encapsulate_response(opened.response_context, clear) do
+      Err(_) -> return Err("fixture OHTTP lookup response")
+      Ok(value) -> value
+    end
+    return Ok(HTTP.response_bytes_with_headers(200,
+      reply,
+      Map.new()
+        |> Map.put("Content-Type", "message/ohttp-res")
+        |> Map.put("Cache-Control", "no-store")))
+  end
   let stamped = admit_prekey_claim_request(request, "http://127.0.0.1:#{port}", true)?
+  increment(path <> ".ohttp-count")?
   let (work, body) = decode_stamped_request(stamped, 100)?
   assert(verify_request_stamp("mesh-msg/v1/work/prekey-claim",
     body,
