@@ -6,6 +6,7 @@ from Transparency.AnchorChain import (
   read_anchor_batch
 )
 from Transparency.AnchorRing import decode_anchor_header
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import pubkey
 
 fn zeroes(count :: Int) -> Bytes!String do
@@ -93,9 +94,9 @@ fn proof() -> Bool!String do
     ring: addresses.ring,
     log_name: "morse-main",
     log_id: addresses.log_id,
-    endpoints: for port in [19111, 19112, 19113] do
+    rpc: webpki_rpc_transport(for port in [19111, 19112, 19113] do
       "http://127.0.0.1:#{port}/stable"
-    end
+    end)?
   }
   let bytes = header(false)?
   let snapshot = AnchorSnapshot {
@@ -109,9 +110,9 @@ fn proof() -> Bool!String do
     assert(U64.to_string(List.get(values, index).entry.sequence) == Int.to_string(index + 1))
   end
   let moving = %{pins |
-    endpoints: for port in [19111, 19112, 19113] do
+    rpc: webpki_rpc_transport(for port in [19111, 19112, 19113] do
       "http://127.0.0.1:#{port}/changed"
-    end
+    end)?
   }
   case read_anchor_batch(moving, snapshot, 3, 4) do
     Err(error) -> assert(error == "anchor_snapshot_changed")

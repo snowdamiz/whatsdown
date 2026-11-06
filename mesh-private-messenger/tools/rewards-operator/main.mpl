@@ -1,5 +1,6 @@
 from Transparency.Config import SecurityConfig, decode_security_config
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RewardsOperator import (
   RewardOperatorIntent,
   decode_reward_intent,
@@ -21,7 +22,7 @@ fn run() -> Result<(), String> do
   end
   let intent = decode_reward_intent(Bytes.to_utf8(File.read_bytes(path, 0, size)?)?)?
   let config = decode_security_config(Bytes.from_utf8(Env.get("MESSENGER_SECURITY_CONFIG", "")))?
-  let pins = case configured_anchor_pins(config)? do
+  let pins = case configured_anchor_pins(config, webpki_rpc_transport(config.rpc_urls)?)? do
     None -> return Err("rewards_requires_anchor_pins")
     Some(value) -> value
   end

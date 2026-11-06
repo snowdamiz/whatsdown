@@ -1,6 +1,7 @@
 from Solana.Read import Pubkey, pubkey, pubkey_string
 from Transparency.Config import SecurityConfig, decode_security_config, valid_witness_id
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RewardsRead import RewardsState, read_rewards, rewards_report
 
 pub struct RewardsQuery do
@@ -55,7 +56,7 @@ pub fn run_rewards_command(args :: List<String>) -> Int!String do
     return Err("MESSENGER_SECURITY_CONFIG is required for rewards")
   end
   let config = decode_security_config(Bytes.from_utf8(frame))?
-  let pins = case configured_anchor_pins(config)? do
+  let pins = case configured_anchor_pins(config, webpki_rpc_transport(config.rpc_urls)?)? do
     None -> return Err("rewards_requires_anchor_pins")
     Some(value) -> value
   end

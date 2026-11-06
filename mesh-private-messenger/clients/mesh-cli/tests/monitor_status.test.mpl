@@ -3,6 +3,7 @@ from Monitor.Status import monitor_status, monitor_evidence
 from Monitor.State import MonitorState, load_monitor_state, save_monitor_state
 from Transparency.Config import decode_security_config
 from Transparency.AnchorChain import AnchorPins, anchor_addresses
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import pubkey
 
 fn proof() -> Result<(), String> do
@@ -17,7 +18,7 @@ fn proof() -> Result<(), String> do
       "8"
     ],
     "\n")))?
-  let path = "/tmp/morse-monitor-status-" <> Crypto.uuid4() <> ".sqlite"
+  let path = Env.get("TMPDIR", "/tmp") <> "/morse-monitor-status-" <> Crypto.uuid4() <> ".sqlite"
   let config = MonitorConfig {
     primary: primary,
     log_version: 1,
@@ -30,7 +31,7 @@ fn proof() -> Result<(), String> do
       ring: addresses.ring,
       log_name: "morse-main",
       log_id: addresses.log_id,
-      endpoints: []
+      rpc: webpki_rpc_transport([])?
     }
   }
   let (missing, _) = monitor_status(config, 1000)

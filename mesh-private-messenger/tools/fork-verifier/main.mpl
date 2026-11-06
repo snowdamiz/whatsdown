@@ -1,5 +1,6 @@
 from Transparency.Config import SecurityConfig, decode_security_config
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins, sample_anchor_sources
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.Relay import RelayVerification, verify_relay_fork, validate_relay_submission
 from Transparency.RelayAdmission import admit_relay_fork
 from Transparency.RelayReport import relay_admission_report
@@ -54,7 +55,7 @@ fn run() -> Result<(), String> do
     return Err("MESSENGER_SECURITY_CONFIG is required for relay preflight")
   end
   let config = decode_security_config(Bytes.from_utf8(frame))?
-  let pins = case configured_anchor_pins(config)? do
+  let pins = case configured_anchor_pins(config, webpki_rpc_transport(config.rpc_urls)?)? do
     None -> return Err("relay_requires_anchor_pins")
     Some(value) -> value
   end
@@ -79,14 +80,14 @@ fn run() -> Result<(), String> do
       pubkey(key)?
     end
     if List.get(args, 1) == "--lookup-close-state" do
-      println(relay_lookup_cooldown_report(read_relay_lookup_cooldown(pins.endpoints,
+      println(relay_lookup_cooldown_report(read_relay_lookup_cooldown(pins.rpc,
         authority,
         slot,
         addresses,
         minimum_slot)?))
       return Ok(nil)
     end
-    println(relay_lookup_report(read_relay_lookup(pins.endpoints,
+    println(relay_lookup_report(read_relay_lookup(pins.rpc,
       authority,
       slot,
       addresses,

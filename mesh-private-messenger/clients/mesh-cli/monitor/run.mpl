@@ -70,7 +70,8 @@ fn first_checkpoint(config :: MonitorConfig,
   let (status, bytes) = fetch_anchor_proof(config.origin,
     "/v#{entry.log_version}/transparency/checkpoint",
     query,
-    188)?
+    188,
+    config.pins.rpc.require_current)?
   let empty = AnchorConsistency {
     status: "proof_unavailable",
     checkpoint: bytes,
@@ -97,7 +98,12 @@ fn first_checkpoint(config :: MonitorConfig,
     Ok(%{empty | status: "consistent"})
   else if checkpoint.version == entry.log_version do
     # A signed but wrong historical answer can itself prove equivocation.
-    compare_anchor(config.origin, checkpoint, entry, index, config.primary.service_public_key)
+    compare_anchor(config.origin,
+      checkpoint,
+      entry,
+      index,
+      config.primary.service_public_key,
+      config.pins.rpc.require_current)
   else
     Ok(%{empty | status: "mismatch"})
   end
@@ -147,7 +153,8 @@ fn probe_leaf(config :: MonitorConfig,
   let (status, private) = fetch_anchor_proof(config.origin,
     "/v#{local.version}/transparency/leaf",
     encode_leaf_query(LeafQuery { leaf_index: leaf, tree_size: U64.to_int(local.tree_size)? })?,
-    1074)?
+    1074,
+    config.pins.rpc.require_current)?
   if status != "received" do
     return Err("proof_unavailable")
   end
@@ -156,7 +163,8 @@ fn probe_leaf(config :: MonitorConfig,
     record.entry,
     index,
     config.primary.service_public_key,
-    decode_leaf_proof(private)?)?
+    decode_leaf_proof(private)?,
+    config.pins.rpc.require_current)?
   Ok((private, contradiction.response, contradiction.fork))
 end
 
@@ -260,7 +268,8 @@ fn advance(config :: MonitorConfig,
         decode_checkpoint(pending.checkpoint)?,
         record.entry,
         index,
-        config.primary.service_public_key)?
+        config.primary.service_public_key,
+        config.pins.rpc.require_current)?
     end
     if Bytes.length(comparison.fork) > 0 do
       retain(config,
