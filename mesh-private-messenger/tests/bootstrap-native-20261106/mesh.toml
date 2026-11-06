@@ -1,0 +1,6 @@
+[package]
+name = "bootstrap-native-20261106"
+version = "0.1.0"
+
+[dependencies]
+messenger-mobile-core = { path = "../../packages/mobile-core" }
