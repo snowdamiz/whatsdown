@@ -8,7 +8,8 @@ from Request import CollateralOperatorConfig
 from ProofRead import CollateralProofIntent, collateral_proof_keys, decode_collateral_proof_snapshot
 from ProofPlan import plan_collateral_proof
 from Prepared import prepared_intent
-from Receipt import PermanentReceipt, receipt_keys, decode_receipt_snapshot
+from Transparency.PermanentReceipt import PermanentReceipt
+from Receipt import receipt_keys, decode_receipt_snapshot
 from Recovery import recovery_keys, decode_recovery_snapshot, effect_present
 from Lookup import plan_lookup
 from RelayMpr2Report import ready_report

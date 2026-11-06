@@ -17,7 +17,7 @@ test("permanent MPR2 receipt authenticates without current source or bonds") do
   end
 end
 
-from Receipt import receipt_report, receipt_quorum, read_receipt
+from Receipt import receipt_report, read_receipt
 from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import OptionalAccountSlicesAtSlot, pubkey
 
@@ -72,13 +72,6 @@ fn negatives() -> Bool!String do
     %{snapshot |
       accounts: List.take(snapshot.accounts, 3) ++ [Some(prefunded)]
     })?.status == "missing")
-  assert(Result.is_err(receipt_quorum(Ok(state), Ok(missing), Err("offline"))))
-  assert(receipt_quorum(Ok(state), Err("offline"), Ok(state))?.status == "prepared")
-  for error in ["rpc_tls_config_invalid", "rpc_context_changed:lease_expired"] do
-    assert(receipt_quorum(Err(error), Ok(state), Ok(state)) == Err(error))
-    assert(receipt_quorum(Ok(state), Err(error), Ok(state)) == Err(error))
-    assert(receipt_quorum(Ok(state), Ok(state), Err(error)) == Err(error))
-  end
   let rpc = webpki_rpc_transport([
     "http://127.0.0.1:1",
     "http://127.0.0.1:2",

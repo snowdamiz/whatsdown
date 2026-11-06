@@ -1,7 +1,7 @@
 ##! Reuse the collateral verifier with the authenticated permanent winner.
 from ProofRead import CollateralProofIntent
 from Read import CollateralOperatorPins
-from Receipt import RelayReceiptState, PermanentReceipt
+from Transparency.PermanentReceipt import PermanentReceiptState, PermanentReceipt
 from Transparency.Relay import validate_relay_submission
 from Transparency.Fork import encode_fork, fork_hash
 from Transparency.TokenProofWrite import token_proof_stage_address
@@ -9,7 +9,7 @@ from Solana.Read import Pubkey
 
 pub fn prepared_intent(pins :: CollateralOperatorPins,
   original :: CollateralProofIntent,
-  receipt :: RelayReceiptState) -> CollateralProofIntent!String do
+  receipt :: PermanentReceiptState) -> CollateralProofIntent!String do
   if receipt.status != "prepared" do
     return Ok(original)
   end

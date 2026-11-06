@@ -5,11 +5,13 @@ import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 const required = name => { assert(process.env[name], `${name} required`); return process.env[name]; };
 const binary = resolve(required('MORSE_MPR2_BINARY'));
 const custodyPath = required('MORSE_TOKEN_CUSTODY_FIXTURES_PATH');
 const vectorsPath = required('MORSE_MPR2_VECTORS');
 const output = resolve(required('MORSE_MPR2_HTTP_OUTPUT'));
+const compiler = resolve(required('MESHC'));
 await mkdir(output, { recursive: true });
 const hash = value => createHash('sha256').update(value).digest('hex');
 const custodyBytes = await readFile(custodyPath);
@@ -37,6 +39,9 @@ try {
         const call = JSON.parse(body); assert.equal(call.method, 'getMultipleAccounts');
         const [keys, options] = call.params; assert.equal(options.commitment, 'finalized'); assert.deepEqual(options.dataSlice, { offset: 0, length: 9216 });
         assert([4, 9].includes(keys.length)); calls.push({ mode, origin, keys });
+        if ((mode === 'two-of-three' && origin === 1) || (mode === 'disagree' && origin === 2)) {
+          res.writeHead(503); res.end(); return;
+        }
         const snapshot = source(), accounts = new Map(Object.entries(snapshot.accounts).map(([name, row]) => [row.address ?? name, row]));
         // Only permanent and recovery roles may be fetched. A mutable source or
         // bond read would make the permanent-after-rotation test fail here.
@@ -46,13 +51,18 @@ try {
         }
         const values = keys.map(key => {
           const value = accounts.get(key); if (!value || value.missing) return 'null';
+          if ((mode === 'missing' || mode === 'disagree' && origin === 1) && key === snapshot.accounts.proof.address) return 'null';
           const owner = mode === 'wrong-owner' && origin > 0 && key === snapshot.accounts.proof.address ? '11111111111111111111111111111111' : value.owner;
           const data = Buffer.from(value.data_hex, 'hex');
+          if (mode === 'wrong-witness' && key === snapshot.accounts.proof.address) data.fill(200, 432, 464);
           // Negative: winner changes between permanent selection and effect batch.
           if (mode === 'winner-race' && keys.length === 9 && data.subarray(0, 4).toString('hex') === '4d505202') data.fill(200, 72, 104);
           return `{"owner":${JSON.stringify(owner)},"executable":${value.executable},"lamports":${value.lamports},"rentEpoch":0,"space":${value.space},"data":[${JSON.stringify(data.subarray(0, 9216).toString('base64'))},"base64"]}`;
         });
         res.writeHead(200, { 'content-type': 'application/json' });
+        if (mode === 'transport' && origin === 2 && await readFile(join(output, 'guard'), 'utf8') === 'armed') {
+          await writeFile(join(output, 'guard'), 'retired');
+        }
         res.end(`{"jsonrpc":"2.0","id":${call.id},"result":{"context":{"slot":100000},"value":[${values.join(',')}]}}`);
       } catch (error) { errors.push(String(error.stack)); res.writeHead(500); res.end(); }
     });
@@ -92,6 +102,10 @@ try {
   await writeFile(input, wire);
   mode = 'wrong-owner'; assert.equal((await run('receipt', {}, 1)).error, 'relay_receipt_quorum');
   mode = 'settled'; assert.equal((await run('receipt', { min_context_slot: '100001' }, 1)).error, 'relay_receipt_quorum');
+  mode = 'two-of-three'; assert.deepEqual(await run('receipt'), settled);
+  assert.deepEqual(calls.filter(row => row.mode === mode).map(row => row.origin), [0, 1, 2]);
+  mode = 'disagree'; assert.equal((await run('receipt', {}, 1)).error, 'relay_receipt_quorum');
+  mode = 'missing'; const missing = await run('receipt'); assert.equal(missing.status, 'missing'); assert.equal(missing.receipt, null);
   // Expired actual prepared snapshots still reconcile old payout operations
   // through the receipt winner, with another requested finder AND wallet.
   mode = 'winner-ready';
@@ -114,8 +128,22 @@ try {
   assert.equal((await run('effect', { effect: { ...payoutEffect, full_hash: hash(winnerWire) } }, 1)).error, 'relay_effect_binding');
   mode = 'winner-race';
   assert.equal((await run('effect', { effect: payoutEffect }, 1)).error, 'relay_recovery_quorum');
+  await writeFile(input, wire); await writeFile(pins, JSON.stringify(config));
+  mode = 'wrong-witness'; assert.equal((await run('receipt', {}, 1)).error, 'relay_receipt_quorum');
+  mode = 'transport';
+  const guard = join(output, 'guard'); await writeFile(guard, 'idle');
+  const transport = spawn(compiler, ['test', fileURLToPath(new URL('./receipt_transport.test.mpl', import.meta.url)), '--opt-level', '2'], {
+    env: { ...process.env, MORSE_MPR2_RPC_SOURCES: JSON.stringify(config.endpoints), MORSE_MPR2_RPC_GUARD: guard },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let transportOutput = ''; transport.stdout.on('data', value => transportOutput += value); transport.stderr.on('data', value => transportOutput += value);
+  const transportTimer = setTimeout(() => transport.kill('SIGKILL'), 120000);
+  const transportCode = await new Promise((resolve, reject) => { transport.once('error', reject); transport.once('close', resolve); }); clearTimeout(transportTimer);
+  await writeFile(join(output, 'transport.log'), transportOutput);
+  assert.equal(transportCode, 0, transportOutput);
+  assert.deepEqual(calls.filter(row => row.mode === mode).map(row => row.origin), [0, 1, 2, 0, 1, 0, 1, 2]);
   assert.deepEqual(errors, []);
   await writeFile(join(output, 'results.json'), JSON.stringify({ scope: 'compiled-production-CLI; retained-SBF-record-HTTP-replay; no fresh SBF execution',
-    cases: number, calls, binary_sha256: hash(await readFile(binary)), custody_sha256: hash(custodyBytes), vectors_sha256: hash(vectorsBytes), errors }, null, 2));
+    cases: number, transport_boundary: 'PASS', calls, binary_sha256: hash(await readFile(binary)), custody_sha256: hash(custodyBytes), vectors_sha256: hash(vectorsBytes), errors }, null, 2));
   console.log(`${number} compiled relay CLI checks passed (${calls.length} authenticated RPC requests)`);
 } finally { for (const server of servers) await new Promise(resolve => server.close(resolve)); }

@@ -74,10 +74,13 @@ Permanent reads depend on the pinned judge loader, immutable log identity, and
 derived proof PDA. They do not read current sources, bonds, or witness registries.
 
 The public permanent reader is
-`read_receipt(rpc :: RpcTransport, pins :: CollateralOperatorPins, hash :: Bytes, minimum :: U64) -> RelayReceiptState!String`.
-It uses the caller's explicit transport through
-`Transparency.AnchorRpc.read_anchor_rpc_response`; `decode_receipt_snapshot`
-remains a pure decoder. Receipt, recovery, and migration readers preserve fatal
+`read_receipt(rpc :: RpcTransport, pins :: CollateralOperatorPins, hash :: Bytes, minimum :: U64) -> PermanentReceiptState!String`.
+`Receipt` validates the full operator pins and exactly three canonical origins,
+then delegates authentication to `Transparency.PermanentReceipt`. Callers use
+that module's `PermanentReceiptState` and `PermanentReceipt` types directly.
+`decode_receipt_snapshot` remains a pure operator pin adapter. The adapter maps
+only `anchor_rpc_unavailable` and `anchor_rpc_disagree` to the existing CLI error
+`relay_receipt_quorum`. Receipt, recovery, and migration readers preserve fatal
 TLS configuration and authority errors from every queried origin and check the
 authority guard around each batch and quorum decision. A refused guard returns
 `rpc_context_changed:<reason>` rather than a missing receipt or absent effect.
@@ -117,9 +120,14 @@ economics or source dependencies. The shared proof planner is unchanged.
 `tests/fixture.py` selects the pinned actual MPR2 receipt records and the retained
 MPR1 receipt bytes. The MPR1 unit fixture constructs its account envelope around
 those bytes. It does not claim a fresh SBF bank or a cross-record bank capture.
-`meshc test tests --opt-level 2` covers permanent receipts and table revision.
+The `receipt`, `prepared`, `migration`, and `lookup` Mesh test files cover
+permanent receipts, recovery, and table revision.
 `tests/receipt_rpc.mjs` drives the actual executable over three loopback RPCs.
-Its required environment variables are listed at the top of that file. It covers
+It also runs `receipt_transport.test.mpl` with its owned HTTP servers; this test
+requires the launcher-provided origins and retirement marker. Required
+environment variables are listed at the top of the launcher. It covers
 expired permanent receipts, source changes, prepared status, competing finders,
-legacy recovery, owner rejection, and stale-slot rejection. The parent relay's
+legacy recovery, owner and witness-PDA rejection, stale slots, matching two-of-three,
+disagreement, missing receipts, fatal third-origin TLS, and authority retirement.
+The parent relay's
 separate SBF qualification executes fresh instruction packets and custody CPIs.
