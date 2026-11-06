@@ -7,6 +7,7 @@ from Transparency.AnchorChain import (
   anchor_addresses,
   sample_anchor_sources
 )
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RelayAdmission import admit_relay_fork
 from Transparency.RelayReport import relay_admission_report
 from Transparency.RelayStageRead import read_relay_stage, relay_stage_report
@@ -37,14 +38,15 @@ fn run() -> String!String do
   let log_name = text(config, "log_name")?
   let addresses = anchor_addresses(program, log_name)?
   let endpoints = Json.object_get(config, "endpoints")?
+  let rpc = webpki_rpc_transport(for index in 0..Json.array_length(endpoints)? do
+    Json.as_string(Json.array_get(endpoints, index)?)?
+  end)?
   let pins = AnchorPins {
     program: program,
     log_name: log_name,
     log_id: addresses.log_id,
     ring: addresses.ring,
-    endpoints: for index in 0..Json.array_length(endpoints)? do
-      Json.as_string(Json.array_get(endpoints, index)?)?
-    end
+    rpc: rpc
   }
   let key = Bytes.from_hex(text(config, "service_key")?)?
   let version = Json.as_int(Json.object_get(config, "version")?)?
@@ -85,17 +87,13 @@ fn run() -> String!String do
         pubkey(Json.as_string(Json.array_get(values, index)?)?)?
       end
       if Json.as_bool(Json.object_get(request, "closing")?)? do
-        Ok(relay_lookup_cooldown_report(read_relay_lookup_cooldown(pins.endpoints,
+        Ok(relay_lookup_cooldown_report(read_relay_lookup_cooldown(pins.rpc,
           submitter,
           slot,
           expected,
           floor)?))
       else
-        Ok(relay_lookup_report(read_relay_lookup(pins.endpoints,
-          submitter,
-          slot,
-          expected,
-          floor)?))
+        Ok(relay_lookup_report(read_relay_lookup(pins.rpc, submitter, slot, expected, floor)?))
       end
     end
     _ -> Err("unknown fixture reader")
