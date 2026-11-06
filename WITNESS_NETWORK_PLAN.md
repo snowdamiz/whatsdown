@@ -146,6 +146,34 @@ text from the application program; all nine generator fixture tests still pass.
 No native ABI, Mesh disclosure inventory or deployment changes are part of this
 unit. Native backup/provider and physical-device qualification remain open.
 
+### Explicit v2 rewards execution — 2026-11-06
+
+The v2 rewards planner now has an executable path through the existing operator
+CLI, Kit signer, SQLite journal and finalized RPC recovery. One journal binds
+one explicit epoch settlement or one fixed USDC/MORSE claim. Mesh authenticates
+the snapshot and chooses each operation; the Node adapter admits the versioned
+instruction shapes, bounded account roles and packet size. Exact signed bytes
+survive restart and lost acknowledgments. Missing transaction history retains a
+conservative fee/rent charge, including for v1: an append may have landed before
+its visible effect disappeared during cancellation.
+
+The adopted implementation was qualified through a disposable SBF bank with
+fresh signed transactions: 16 Node and two Rust checks passed, including restart
+between cycles, lost acknowledgments, expiry, pruned history, 22 append packets,
+finalization, both asset payouts and cancellation. The bank reuses a recorded
+custody fixture with documented initialization adaptations; three loopback
+origins share that bank. Adoption verified 53 relevant source hashes and all 22
+retained proof logs, rebuilt the Mesh executable with source `d1ce2537`, and
+independently passed 11 focused Node/native checks. This did not repeat the full
+SBF build or establish independent RPC providers or live finality. The local
+receipt remains `.morse/rewards-v2/receipt.json` in the implementation worktree;
+`ops/rewards/README-v2.md` and `scripts/prove-rewards-v2.sh` define reproduction.
+
+Multi-epoch scheduling, continuous permissionless grace assessment, governance
+activation, pool funding, deployment, public compiler release and live-duration
+gates remain open. This advances the execution boundary; it does not complete
+the operational v2 keeper.
+
 ### Progress summary — 2026-10-31
 
 The owned Android emulator run passes the full OS-PIN app-lock scenario, including cancellation, background dialog retirement, locked restart and authenticated disable. All 31 runtime/cleanup/guard checks pass; this advances D6 qualification without closing it. The current iOS Simulator app now passes a genuine UI signup, OS biometric refusal/cancel/success, enabled-policy background cover and a locked process restart followed by successful unlock. Its exact name and enabled setting survive restart, with source/product guards and owned cleanup passing. These are simulated Face ID checks; passcode fallback, authenticated disable and physical-device checks remain open. The initial caught-error Debug overlay still appears after signup and is ordinarily dismissed.
