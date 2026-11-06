@@ -15,6 +15,9 @@ export class RelayJournalError extends Error {}
 const fail = message => { throw new RelayJournalError(message); };
 const json = JSON.stringify;
 const clone = value => JSON.parse(json(value));
+const steps = prepared => [...prepared.preparation, ...(prepared.needsLookup ? prepared.lookup : []), prepared.settlement, ...prepared.cleanup].filter(Boolean);
+const resourceAddresses = (plan, prepared) => [plan.stage.address,
+  ...((plan.schema_version === 2 ? plan.lookup : prepared.needsLookup) ? [plan.lookup.address] : [])];
 function units(value, label = 'coordinate', positive = false) {
   if (typeof value !== 'string' || !/^(0|[1-9][0-9]{0,19})$/.test(value) ||
       BigInt(value) > U64_MAX || (positive && value === '0')) fail(`Invalid relay ${label}`);
@@ -40,6 +43,7 @@ export class RelayJournal {
   #db;
   #pins;
   #policy;
+  #version;
 
   constructor({ path, identity, pins, policy }) {
     label(identity);
@@ -47,6 +51,11 @@ export class RelayJournal {
       assertIsAddress(pins?.[field]);
       return [field, pins[field]];
     }));
+    if (pins.usdcMint !== undefined || pins.morseMint !== undefined) {
+      for (const field of ['usdcMint', 'morseMint']) { assertIsAddress(pins[field]); this.#pins[field] = pins[field]; }
+      if (pins.usdcMint !== pins.mint || pins.usdcMint === pins.morseMint) fail('Invalid relay asset pins');
+    }
+    this.#version = this.#pins.morseMint === undefined ? 2 : 3;
     units(policy?.perJobLamports, 'lamport budget', true);
     units(policy?.windowLamports, 'lamport budget', true);
     if (!Number.isSafeInteger(policy.maxJobs) || policy.maxJobs < 1 || policy.maxJobs > 4096) fail('Invalid relay capacity policy');
@@ -99,19 +108,21 @@ export class RelayJournal {
           INSERT OR IGNORE INTO relay_retention (singleton) VALUES (1);
           CREATE INDEX IF NOT EXISTS relay_transaction_age ON relay_transactions (phase, charged_at);
           CREATE INDEX IF NOT EXISTS relay_transaction_job ON relay_transactions (proof);`);
-        this.#run('INSERT OR IGNORE INTO relay_scope (singleton, version, identity, pins, policy) VALUES (1, 2, ?, ?, ?)',
-          identity, json(this.#pins), json(this.#policy));
+        this.#run('INSERT OR IGNORE INTO relay_scope (singleton, version, identity, pins, policy) VALUES (1, ?, ?, ?, ?)',
+          this.#version, identity, json(this.#pins), json(this.#policy));
         const stored = this.#scope();
-        if (![1, 2].includes(stored.version)) fail('Unsupported relay journal version');
-        if (stored.identity !== identity || stored.pins !== json(this.#pins)) fail('Relay journal identity changed');
+        if (![1, 2, 3].includes(stored.version) || stored.version > this.#version) fail('Unsupported relay journal version');
+        const legacyPins = Object.fromEntries(['program', 'log', 'mint', 'submitter'].map(field => [field, this.#pins[field]]));
+        if (stored.identity !== identity || (stored.pins !== json(this.#pins) &&
+            !(stored.version < 3 && stored.pins === json(legacyPins)))) fail('Relay journal identity changed');
         if (stored.policy !== json(this.#policy)) fail('Relay journal policy changed');
-        if (stored.version === 1) {
+        if (stored.version < this.#version) {
           // Upgrade only with the legacy service stopped. An active lease is
           // evidence that an older worker may still ignore compacted totals.
           const now = Date.now();
           if (stored.clock > now) fail('Relay clock moved backwards during migration');
           if (stored.owner !== null && stored.lease_until > now) fail('Stop the legacy relay worker before journal migration');
-          this.#run('UPDATE relay_scope SET version = 2 WHERE singleton = 1');
+          this.#run('UPDATE relay_scope SET version = ?, pins = ? WHERE singleton = 1', this.#version, json(this.#pins));
         }
       });
     } catch (error) { this.#db.close(); throw error; }
@@ -133,7 +144,7 @@ export class RelayJournal {
     time(now);
     return this.#atomic(() => {
       const scope = this.#scope();
-      if (scope.version !== 2) fail('Unsupported relay journal version');
+      if (scope.version !== this.#version) fail('Unsupported relay journal version');
       if (now < scope.clock) fail('Relay clock moved backwards');
       if (lease !== ADMISSION) this.#checkLease(lease, now, scope);
       this.#run('UPDATE relay_scope SET clock = ? WHERE singleton = 1', now);
@@ -153,13 +164,24 @@ export class RelayJournal {
     const plan = JSON.parse(job.plan);
     return prepareRelayTransactions(plan, { ...this.#pins, proofHex: plan.proof_hex });
   }
+  #validateReceipt(receipt, proof) {
+    if (receipt?.proof_hash !== proof) fail('Invalid relay settlement receipt');
+    if (receipt.schema_version === 1) {
+      if (receipt.mint !== this.#pins.mint) fail('Invalid relay settlement receipt');
+    } else if (receipt.schema_version === 2) {
+      if (receipt.status !== 'settled' || receipt.context_slot === undefined || receipt.settled === false || (receipt.state !== undefined && receipt.state !== 'settled') ||
+          !this.#pins.morseMint || receipt.usdc_mint !== this.#pins.usdcMint || receipt.morse_mint !== this.#pins.morseMint) fail('Invalid relay settlement receipt');
+    } else fail('Invalid relay settlement receipt');
+    assertIsAddress(receipt.finder);
+    if (receipt.context_slot !== undefined) units(receipt.context_slot, 'receipt context');
+  }
   #done(proof, step) { return this.#get('SELECT * FROM relay_done WHERE proof = ? AND step = ?', proof, step); }
   #markDone(proof, step, observation) {
     this.#run('INSERT OR IGNORE INTO relay_done (proof, step, observation) VALUES (?, ?, ?)', proof, step, json(observation));
   }
   #claimResources(job, prepared) {
     const plan = JSON.parse(job.plan), proof = job.proof;
-    const addresses = [plan.stage.address, ...(prepared.needsLookup ? [plan.lookup.address] : [])];
+    const addresses = resourceAddresses(plan, prepared);
     for (const address of addresses) {
       const owner = this.#get('SELECT proof FROM relay_resources WHERE address = ?', address);
       if (owner && owner.proof !== proof) return false;
@@ -231,7 +253,7 @@ export class RelayJournal {
         // Older local fixtures did not always retain the receipt read context.
         // Keep such jobs until an authenticated observation supplies it.
         if (receipt.context_slot === undefined) continue;
-        if (receipt.schema_version !== 1 || receipt.proof_hash !== job.proof || receipt.mint !== this.#pins.mint) fail('Invalid retained relay receipt');
+        this.#validateReceipt(receipt, job.proof);
         context = maximum(context, maximum(units(receipt.context_slot), units(this.progress(job.proof).minContextSlot)));
         for (const table of ['relay_transactions', 'relay_done', 'relay_current_plans', 'relay_schedule', 'relay_compacted', 'relay_completion']) {
           this.#run(`DELETE FROM ${table} WHERE proof = ?`, job.proof);
@@ -329,39 +351,44 @@ export class RelayJournal {
     return this.#write(now, lease, () => {
       if (this.pending()) fail('Relay transaction still pending');
       const row = this.#job(proof), old = JSON.parse(row.plan), previous = this.#prepared(row);
-      if (row.state === 'complete' || row.receipt !== null) fail('Relay proof already settled or completed');
-      for (const field of ['proof_hex', 'proof_hash', 'finder', 'receipt', 'program', 'log', 'mint', 'submitter']) {
+      if (row.state === 'complete' || (row.receipt !== null && old.schema_version !== 2)) fail('Relay proof already settled or completed');
+      if (old.schema_version === 2 && ((fresh.status === 'settled') !== (row.receipt !== null))) fail('Relay revision requires authenticated settled receipt');
+      for (const field of ['schema_version', 'proof_hex', 'proof_hash', 'finder', 'receipt', 'program', 'log', 'mint', 'usdc_mint', 'morse_mint', 'submitter']) {
         if (fresh[field] !== old[field]) fail('Relay revision identity changed');
       }
       if (fresh.stage.address !== old.stage.address || fresh.stage.full_hash !== old.stage.full_hash) fail('Relay revision Stage identity changed');
       if (units(fresh.context_slot) < units(this.progress(proof).minContextSlot)) fail('Relay revision context regressed');
-      const owned = this.resources(proof), ownsTable = previous.needsLookup && owned.includes(old.lookup.address);
+      const owned = this.resources(proof), hadTable = old.schema_version === 2 ? Boolean(old.lookup) : previous.needsLookup;
+      const ownsTable = hadTable && owned.includes(old.lookup.address);
       let tableMissing = false;
       if (ownsTable) {
         validateRelayLookupView(old, lookupView, fresh.context_slot);
         tableMissing = lookupView.status === 'missing';
         if (!tableMissing) {
-          if (!candidate.needsLookup || json(old.lookup.addresses) !== json(fresh.lookup.addresses) || ['cooling', 'closable'].includes(lookupView.status)) {
+          const compatible = fresh.schema_version === 2 ? fresh.lookup && json(old.lookup) === json(fresh.lookup) :
+            candidate.needsLookup && json(old.lookup.addresses) === json(fresh.lookup.addresses);
+          if (!compatible || (fresh.status !== 'settled' && ['cooling', 'closable'].includes(lookupView.status))) {
             return { state: 'retire-table' };
           }
           fresh.lookup = old.lookup;
-          if (!fresh.rent_allocations || !old.rent_allocations) fail('Relay revision requires rent allocations');
-          fresh.rent_allocations = [...fresh.rent_allocations.filter(entry => !entry.step.includes('table')),
-            ...old.rent_allocations.filter(entry => entry.step.includes('table'))];
+          if (fresh.schema_version === 1) {
+            if (!fresh.rent_allocations || !old.rent_allocations) fail('Relay revision requires rent allocations');
+            fresh.rent_allocations = [...fresh.rent_allocations.filter(entry => !entry.step.includes('table')),
+              ...old.rent_allocations.filter(entry => entry.step.includes('table'))];
+          }
         }
         fresh.context_slot = lookupView.contextSlot;
       }
       const next = prepareRelayTransactions(fresh, { ...this.#pins, proofHex: fresh.proof_hex });
-      const wanted = [fresh.stage.address, ...(next.needsLookup ? [fresh.lookup.address] : [])];
+      const wanted = resourceAddresses(fresh, next);
       for (const address of wanted) {
         const owner = this.#get('SELECT proof FROM relay_resources WHERE address = ?', address);
         if (owner && owner.proof !== proof) return { state: 'resource-busy' };
       }
       // Legacy journals with spending but no ownership cannot silently discard
       // an account. The worker must recover/claim their old resources first.
-      if (previous.needsLookup && !ownsTable && (this.#get('SELECT id FROM relay_transactions WHERE proof = ? LIMIT 1', proof) ||
+      if (hadTable && !ownsTable && (this.#get('SELECT id FROM relay_transactions WHERE proof = ? LIMIT 1', proof) ||
           this.#get('SELECT had_signed FROM relay_compacted WHERE proof = ?', proof)?.had_signed)) fail('Relay revision requires previous resource ownership');
-      const steps = plan => [...plan.preparation, ...(plan.needsLookup ? plan.lookup : []), plan.settlement, ...plan.cleanup];
       const oldSteps = new Map(steps(previous).map(step => [step.id, relayStepIntent(step)]));
       const newSteps = new Map(steps(next).map(step => [step.id, relayStepIntent(step)]));
       for (const done of this.#all('SELECT step FROM relay_done WHERE proof = ?', proof)) {
@@ -385,6 +412,9 @@ export class RelayJournal {
     for (const row of observations) {
       const value = units(JSON.parse(row.observation).slot);
       if (value > floor) floor = value;
+    }
+    for (const row of this.#all('SELECT min_context_slot FROM relay_transactions WHERE proof = ?', proof)) {
+      if (units(row.min_context_slot) > floor) floor = units(row.min_context_slot);
     }
     if (job.receipt?.context_slot !== undefined) {
       const value = units(job.receipt.context_slot);
@@ -410,8 +440,8 @@ export class RelayJournal {
       const job = this.#job(proof), prepared = this.#prepared(job);
       if (job.state === 'complete') fail('Relay job completed');
       if (this.pending()) fail('Relay transaction still pending');
-      const steps = [...prepared.preparation, ...(prepared.needsLookup ? prepared.lookup : []), prepared.settlement, ...prepared.cleanup];
-      if (!steps.some(step => step.id === stepId)) fail('Unknown relay step');
+      if (!steps(prepared).some(step => step.id === stepId)) fail('Unknown relay step');
+      if (JSON.parse(job.plan).schema_version === 2 && stepId === 'close-stage' && job.receipt === null) fail('Relay cleanup requires settled receipt');
       if (job.receipt !== null && stepId !== 'settle' && !prepared.cleanup.some(step => step.id === stepId)) fail('Relay proof already settled');
       if (units(observation.slot) < units(this.progress(proof).minContextSlot)) fail('Relay effect context regressed');
       this.#run('INSERT INTO relay_done (proof, step, observation) VALUES (?, ?, ?) ON CONFLICT (proof, step) DO UPDATE SET observation = excluded.observation',
@@ -467,10 +497,10 @@ export class RelayJournal {
     return this.#write(now, lease, scope => {
       if (scope.halted) fail('Relay spending halted after budget overrun');
       const job = this.#job(proof), prepared = this.#prepared(job);
-      const steps = [...prepared.preparation, ...(prepared.needsLookup ? prepared.lookup : []), prepared.settlement, ...prepared.cleanup];
-      const step = steps.find(step => step.id === stepId) ?? fail('Unknown relay step');
+      const step = steps(prepared).find(step => step.id === stepId) ?? fail('Unknown relay step');
       if (job.state === 'complete') fail('Relay job completed');
       if (job.receipt !== null && !prepared.cleanup.includes(step)) fail('Relay proof already settled');
+      if (JSON.parse(job.plan).schema_version === 2 && step.kind === 'close-stage' && job.receipt === null) fail('Relay cleanup requires settled receipt');
       if (this.#done(proof, stepId)) fail('Relay step already completed');
       if (this.pending()) fail('Relay transaction already pending');
       if (this.#get('SELECT count(*) AS count FROM relay_transactions').count >= RELAY_TRANSACTION_LIMIT) fail('Relay transaction capacity reached');
@@ -481,6 +511,7 @@ export class RelayJournal {
       const retained = this.retention();
       if (lastValidBlockHeight <= units(retained.lastValidBlockHeight)) fail('Relay quote precedes retained transaction lifetime');
       if (units(minContextSlot) < units(retained.minContextSlot)) fail('Relay quote precedes retained context');
+      if (JSON.parse(job.plan).schema_version === 2 && units(minContextSlot) < units(this.progress(proof).minContextSlot)) fail('Relay quote precedes job context');
       if ((quote.messageHash !== undefined && quote.messageHash !== messageHash) ||
           (quote.minContextSlot !== undefined && quote.minContextSlot !== minContextSlot)) fail('Relay quote does not bind this message and context');
       const jobBudget = this.#budget(now, proof), windowBudget = this.#budget(now);
@@ -571,12 +602,11 @@ export class RelayJournal {
   }
   recordReceipt(lease, proof, value, now) {
     const receipt = clone(value);
-    if (receipt.schema_version !== 1 || receipt.proof_hash !== proof || receipt.mint !== this.#pins.mint) fail('Invalid relay settlement receipt');
-    assertIsAddress(receipt.finder);
-    if (receipt.context_slot !== undefined) units(receipt.context_slot, 'receipt context');
+    this.#validateReceipt(receipt, proof);
     if (Buffer.byteLength(json(receipt)) > 16384) fail('Relay settlement receipt exceeds limit');
     return this.#write(now, lease, () => {
       const job = this.#job(proof);
+      if (receipt.schema_version === 2 && units(receipt.context_slot) < units(this.progress(proof).minContextSlot)) fail('Relay receipt context regressed');
       if (job.receipt !== null) {
         const previous = JSON.parse(job.receipt);
         const { context_slot: oldContext, ...oldBody } = previous;
@@ -596,7 +626,9 @@ export class RelayJournal {
     return this.#write(now, lease, () => {
       const job = this.#job(proof);
       if (!this.#prepared(job).cleanup.some(step => step.id === stepId)) fail('Invalid relay cleanup step');
+      if (JSON.parse(job.plan).schema_version === 2 && job.receipt === null && stepId === 'close-stage') fail('Relay cleanup requires settled receipt');
       if (this.pending()) fail('Relay transaction still pending');
+      if (JSON.parse(job.plan).schema_version === 2 && units(observation.slot) < units(this.progress(proof).minContextSlot)) fail('Relay cleanup context regressed');
       this.#markDone(proof, stepId, observation);
     });
   }

@@ -14,6 +14,11 @@ export function createRelayEffectReader(verifier){
   return async(job,step,{minContextSlot})=>{
     const effect=relayStepEffect(step,job.plan);
     const floor=(slot(minContextSlot)>slot(effect.minContextSlot)?minContextSlot:effect.minContextSlot);
+    if(job.plan.schema_version===2){
+      const result=await verifier.effect(job.plan,effect,floor);
+      if(!['present','absent'].includes(result?.state)||slot(result.slot)<slot(floor))throw new Error('Invalid relay effect context or state');
+      return {state:result.state,slot:result.slot};
+    }
     let view,present,context;
     switch(effect.kind){
       case 'initialize':case 'append':case 'seal':case 'verify':case 'close-stage':{
