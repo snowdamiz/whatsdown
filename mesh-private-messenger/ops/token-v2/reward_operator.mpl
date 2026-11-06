@@ -9,7 +9,7 @@ from RewardIdentities import read_token_reward_append_quorum
 from RewardKeeper import TokenRewardKeeperStep, plan_token_reward_step, plan_token_reward_claim
 from Transparency.TokenWrite import TokenRewardWriteContext, token_reward_write_addresses
 from Transparency.TokenRewards import TokenRewardEpochAccount
-from Transparency.AnchorRpc import validate_anchor_sources
+from Transparency.AnchorRpc import validate_anchor_provider_sources
 from Solana.Read import Pubkey, pubkey, pubkey_string
 from Solana.Tx import Instruction, instruction_report_json, compute_unit_limit_instruction
 
@@ -55,21 +55,6 @@ fn bytes(value :: Json, field :: String) -> Bytes!String do
   Ok(raw)
 end
 
-fn source_host(origin :: String) -> String do
-  let authority = List.get(String.split(origin, "://"), 1)
-  let host = if String.starts_with(authority, "[") do
-    List.head(String.split(authority, "]")) <> "]"
-  else
-    List.head(String.split(authority, ":"))
-  end
-  let folded = String.to_lower(host)
-  if String.starts_with(folded, "[") || !String.ends_with(folded, ".") do
-    folded
-  else
-    String.slice(folded, 0, String.length(folded) - 1)
-  end
-end
-
 pub fn decode_reward_v2_config(input :: String) -> RewardV2Config!String do
   if String.length(input) > 65536 do
     return Err("rewards_v2_config_bound")
@@ -111,19 +96,7 @@ pub fn decode_reward_v2_config(input :: String) -> RewardV2Config!String do
     Ok(flag) -> Json.as_bool(flag)?
   end
   token_reward_rpc_sources(sources, allow_loopback)?
-  validate_anchor_sources(sources)?
-  for index in 0..3 do
-    let origin = Http.url_origin(List.get(sources, index))?
-    for other in 0..index do
-      let previous = Http.url_origin(List.get(sources, other))?
-      let local = allow_loopback
-        && String.starts_with(origin, "http://127.0.0.1:")
-        && String.starts_with(previous, "http://127.0.0.1:")
-      if !local && source_host(origin) == source_host(previous) do
-        return Err("rewards_v2_source_hosts")
-      end
-    end
-  end
+  validate_anchor_provider_sources(sources, allow_loopback)?
   token_reward_read_keys(pins, U64.parse("0")?)?
   Ok(RewardV2Config {
     pins: pins,

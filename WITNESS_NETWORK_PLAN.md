@@ -209,10 +209,28 @@ documented bank initialization; three loopback origins share one bank.
 
 Adoption verified all 460 recorded source hashes and 26 logs from
 `.morse/rewards-scheduler/receipt.json` in worktree `t3-81bd2113`; the composed
-source matches those inputs exactly. The parent rebuilt the executable and passed
+source at adoption matches those inputs exactly. The parent rebuilt the executable and passed
 13 focused Node/native checks. Independent review is running. Permissionless
 grace assessment remains unconnected, and this does not establish independent
 providers, live finality, deployment, funding or continuous operation.
+
+### Shared anchor quorum source identity — 2026-11-06
+
+The shared anchor account and clock readers now reject public-host aliases
+before HTTP: changing a port, path or final DNS dot cannot add a quorum source.
+The monitor and phone anchor paths inherit that check. The v2 rewards executable
+uses the same validator, preserving its stricter loopback setting when local
+fixture mode is disabled. Separate exact loopback origins remain available for
+owned local banks; distinct hostnames alone do not prove independent operators.
+
+The new regression fails against the clean baseline and passes after the fix.
+Five focused Mesh cases pass, including the actual loopback account-quorum test
+and monitor configuration, as do 13 Node/native rewards and writer checks using
+a freshly rebuilt operator. Full messenger lint and scoped formatting pass.
+Exact source, compiler, binary and log hashes are retained under
+`.morse/continuation-20261106/anchor-hosts`. This is local source qualification;
+the current eight-check scheduled bootstrap acceptance runner and its live
+production windows remain open.
 
 ### Presentation privacy continuation — 2026-11-06
 
@@ -264,10 +282,16 @@ fixed in pushed successor `8eba1691`; the previously failing runtime gate now
 passes (1,661 library cases and six integration cases, with 20 ignored probes).
 The retained new debug compiler also passes the actual-source 17 negative and
 14 label-removal controls, protected production build and 69-site disclosure
-gate. All 347 captured production inputs still match. These are local compiler
+gate. All 347 captured production inputs matched at qualification. These are local compiler
 and app proofs, not published-release or native-device qualification. A first
-independent review was unavailable because its provider flagged the request;
-the replacement Grok review is running.
+independent review was unavailable because its provider flagged the request.
+The replacement Grok review completed 32 probes with no verified plaintext
+leak; all 102 retained source/report/log receipts match. It found a conservative
+builtin conversion mismatch: private `Int` → `String` through `?` is refused,
+while the equivalent explicit conversion works. The public implicit form also
+fails to link through a pre-existing builtin-lowering gap. A separate generic
+language correction is in progress; this finding does not invalidate the
+qualified user-defined `From` path or permit private payload disclosure.
 
 ### Progress summary — 2026-10-31
 

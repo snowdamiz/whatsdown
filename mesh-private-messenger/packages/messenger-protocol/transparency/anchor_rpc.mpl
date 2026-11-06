@@ -148,7 +148,34 @@ fn agree(first :: AccountAtSlot!String,
   end
 end
 
+# Origins are canonicalized by the URL parser before reaching this helper.
+# A public host does not become another quorum source by changing its port or
+# adding the DNS root dot. Separate exact loopback origins support local banks;
+# they never establish independent-provider qualification.
+fn source_identity(origin :: String, separate_loopback_origins :: Bool) -> String do
+  let authority = List.get(String.split(origin, "://"), 1)
+  let host = if String.starts_with(authority, "[") do
+    List.head(String.split(authority, "]")) <> "]"
+  else
+    List.head(String.split(authority, ":"))
+  end
+  if separate_loopback_origins && (host == "127.0.0.1" || host == "localhost" || host == "[::1]") do
+    return origin
+  end
+  let folded = String.to_lower(host)
+  if String.starts_with(folded, "[") || !String.ends_with(folded, ".") do
+    folded
+  else
+    String.slice(folded, 0, String.length(folded) - 1)
+  end
+end
+
 pub fn validate_anchor_sources(endpoints :: List<String>) -> Result<(), String> do
+  validate_anchor_provider_sources(endpoints, true)
+end
+
+pub fn validate_anchor_provider_sources(endpoints :: List<String>,
+  separate_loopback_origins :: Bool) -> Result<(), String> do
   if List.length(endpoints) < 3 || List.length(endpoints) > 8 do
     return Err("invalid_anchor_sources")
   end
@@ -172,7 +199,10 @@ pub fn validate_anchor_sources(endpoints :: List<String>) -> Result<(), String> 
       return Err("invalid_anchor_sources")
     end
     for previous in 0..index do
-      if origin == Http.url_origin(List.get(endpoints, previous))? do
+      if source_identity(origin,
+        separate_loopback_origins) == source_identity(Http.url_origin(List.get(endpoints,
+            previous))?,
+          separate_loopback_origins) do
         return Err("invalid_anchor_sources")
       end
     end

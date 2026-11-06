@@ -110,18 +110,18 @@ test('production v2 executable authenticates snapshots, plans explicit intent an
       endpoints:['https://same.example:444','https://same.example:445','https://same.example:446']});
     await assert.rejects(promisify(execFile)(binary,['--input',join(directory,'missing.json')],
       {env:{MORSE_REWARDS_V2_CONFIG:oneHost},timeout:5000}),
-      error=>/rewards_v2_source_hosts/.test(error.stderr),'hostname aliases must fail before request reads or network access');
+      error=>/invalid_anchor_sources/.test(error.stderr),'hostname aliases must fail before request reads or network access');
     const dotted=JSON.stringify({...JSON.parse(securityConfig),allow_loopback:false,
       endpoints:['https://rpc.example:444/rpc','https://rpc.example.:444/rpc','https://other.example:444/rpc']});
     await assert.rejects(promisify(execFile)(binary,['--input',join(directory,'missing.json')],
       {env:{MORSE_REWARDS_V2_CONFIG:dotted},timeout:5000}),
-      error=>/rewards_v2_source_hosts/.test(error.stderr)&&!/No such file/.test(error.stderr),
+      error=>/invalid_anchor_sources/.test(error.stderr)&&!/No such file/.test(error.stderr),
       'a trailing DNS dot is the same host and must fail before request reads or network access');
     const distinct=JSON.stringify({...JSON.parse(securityConfig),allow_loopback:false,
       endpoints:['https://a.example:444/rpc','https://b.example.:445/rpc','https://[2001:db8::1]:444/rpc']});
     await assert.rejects(promisify(execFile)(binary,['--input',join(directory,'missing.json')],
       {env:{MORSE_REWARDS_V2_CONFIG:distinct},timeout:5000}),
-      error=>!/rewards_v2_source_hosts/.test(error.stderr)&&/No such file or directory/.test(error.stderr),
+      error=>!/invalid_anchor_sources/.test(error.stderr)&&/No such file or directory/.test(error.stderr),
       'distinct hosts, including one trailing dot and an IPv6 literal, pass the host check before network access');
     const mixedCase=JSON.stringify({...JSON.parse(securityConfig),allow_loopback:false,
       endpoints:['https://RPC.Example:444/rpc','https://b.example:444/rpc','https://c.example:444/rpc']});
@@ -129,6 +129,12 @@ test('production v2 executable authenticates snapshots, plans explicit intent an
       {env:{MORSE_REWARDS_V2_CONFIG:mixedCase},timeout:5000}),
       error=>/invalid_anchor_sources/.test(error.stderr)&&!/No such file/.test(error.stderr),
       'noncanonical host spelling stays rejected before network access');
+    const strictLoopback=JSON.stringify({...JSON.parse(securityConfig),allow_loopback:false,
+      endpoints:['https://127.0.0.1:444/rpc','https://127.0.0.1:445/rpc','https://127.0.0.1:446/rpc']});
+    await assert.rejects(promisify(execFile)(binary,['--input',join(directory,'missing.json')],
+      {env:{MORSE_REWARDS_V2_CONFIG:strictLoopback},timeout:5000}),
+      error=>/invalid_anchor_sources/.test(error.stderr)&&!/No such file/.test(error.stderr),
+      'TLS loopback ports cannot count separately when the explicit fixture option is off');
     assert.ok(requests.some(r=>r.params[0].length===26));
     assert.ok(requests.some(r=>r.params[0].length===3));
     assert.deepEqual(errors,[]);
