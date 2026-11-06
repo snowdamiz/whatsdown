@@ -5373,8 +5373,9 @@ function AppContent({ services, windowsPreview = false, onWindowsPreviewChange, 
           <Text style={type.body}>{filingDescription.detail}</Text>
           {filingError ? <Text style={type.body}>{t("Filing status could not be loaded. The evidence is still retained; your device will retry.")}</Text> : null}
           {filingDescription.acknowledgments ? <Text style={type.footnote}>{filingDescription.acknowledgments}</Text> : null}
-          {filingDescription.payment && filingObservation ? (
-            <Text selectable style={type.caption}>Paid: {filingDescription.payment}{"\n"}Finder: {filingObservation.paidFinder}{"\n"}Mint: {filingObservation.mint}{"\n"}Finalized slot: {filingObservation.contextSlot}</Text>
+          {(filingDescription.payment || filingObservation?.status === "prepared") && filingObservation ? (
+            <Text selectable style={type.caption}>{filingObservation.status === "prepared" ? "Prepared; payment has not been confirmed." : `Paid: ${filingDescription.payment}`}{"\n"}{filingObservation.viewVersion === "2" ? "Actual finder: " : "Finder: "}{filingObservation.paidFinder}
+              {filingObservation.viewVersion === "2" ? <>{"\n"}Requested finder: {filingObservation.expectedFinder}{"\n"}USDC mint: {filingObservation.mint}{"\n"}MORSE mint: {filingObservation.morseMint}</> : <>{"\n"}Mint: {filingObservation.mint}</>}{"\n"}Finalized slot: {filingObservation.contextSlot}</Text>
           ) : null}
           {filingObservation?.proofHash ? <Text selectable style={type.caption}>Proof: {filingObservation.proofHash}</Text> : null}
           <Button label={t("Save evidence file")} onPress={() => {
