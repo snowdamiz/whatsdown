@@ -1,0 +1,563 @@
+{
+  "result": "PASS_LOCAL_IMPLEMENTATION",
+  "scope": "Actual Core functions compiled into bootstrap library, local owned TLS services, shared readers and shipping native resource code. Not a product artifact or phone/production qualification.",
+  "start_base": "4b2953aa4ed740326d8a03fe93f0d499f8f9b44a",
+  "implementation_head_before_receipt": "183bd33744a0ebae39e1ad1180fe465aec28fd31",
+  "ordered_commits": [
+    "57becc796d87135bb2095c08503a95f2e2d0acd6 test: drive compiled Core through owned RPC TLS peers",
+    "c5e3f2b26cdfb6118a4617421431318f0e1ad388 Package native RPC TLS roots on the existing Host ABI",
+    "57c622a9393aa0544ef4c0d29806310f9a999d77 Carry paired RPC TLS authority through shared readers",
+    "19d8955a109d78a14a7c2a7ad7e84df0f69895cb Use explicit WebPKI RPC transports in CLI and services",
+    "53351602181fa4cf2b99be10a344157bbd96b419 Reject present empty desktop RPC TLS resources",
+    "b9432f6ea9333dbda7becfdf59572465e06be51f Bind native RPC TLS authority to captured operation context",
+    "3c2a3fbe8605510f9f5262f1477cb0772e577647 Carry captured RPC authority through mobile payment and filing",
+    "feaf005f8a9ed6a03c4f88916d821973899a8fed test: qualify strict local TLS certificates and native refusal boundaries",
+    "5b9adefe7604acab7418ad4034e17be7b148327e test: migrate mobile anchor RPC fixtures",
+    "3293d90dc3a21dbb72098b407c3fa1cbdfcaa233 fix: fail bootstrap receipts when provenance checks fail",
+    "e07f73cd43ba0852f0c2bb868f9c45e885a60b6f test: retain compiled Core local RPC TLS qualification evidence",
+    "0d2052cdbe3938b96cff5b2cebf691b3c17a42a8 test: include public bootstrap qualification command logs",
+    "183bd33744a0ebae39e1ad1180fe465aec28fd31 Complete native authority setup in transparency regression fixture"
+  ],
+  "transport_contract": {
+    "module": "Transparency.RpcTransport",
+    "RpcTls": "WebPki | OriginRoots(String, Bytes)",
+    "RpcEndpoint": "{url :: String, tls :: RpcTls}",
+    "RpcTransport": "{sources :: List<RpcEndpoint>, require_current :: Fun() -> Result<(), String>}",
+    "constructors": [
+      "rpc_endpoint(url, tls) -> RpcEndpoint!String",
+      "rpc_transport(sources, guard) -> RpcTransport!String",
+      "webpki_rpc_transport(urls) -> RpcTransport!String"
+    ],
+    "anchor": "AnchorPins.rpc; configured_anchor_pins(config, rpc) validates ordered full URLs",
+    "proof_guard": "Directory proof functions append refusal-only current guard; RPC roots never enter proof HTTP",
+    "native_selector": "messenger/rpc-tls-roots/v1 on existing Host ABI",
+    "absence_hex": "0100",
+    "frame_max_bytes": 82002,
+    "aggregate_pem_max_bytes": 65536,
+    "manifest": "MORSE_RPC_TLS_ROOTS_FILE: {version:1,origins:[{origin,pemFile:relative_path_or_null}]}",
+    "pem_boundary": "Packaging validates all PEM certificates; public Http validates each attempted root at send. No eager validation claim for unused runtime DER."
+  },
+  "core": {
+    "status": "PASS_LOCAL_RPC_TLS",
+    "process_exit_code": 0,
+    "compile": "fresh",
+    "acceptance": "fresh",
+    "current_source_closure": "verified",
+    "base": "3293d90dc3a21dbb72098b407c3fa1cbdfcaa233",
+    "mesh_source": "8256d5d30e79f3c1de9d8507f8607f8efbee756a",
+    "production_exports": 176,
+    "fixture_exports": 9,
+    "local_checks": 37,
+    "anchor_result": [
+      "consistent",
+      "1793996683448",
+      "501",
+      "500",
+      "1793996683"
+    ],
+    "rpc_http_requests": 81,
+    "barrier_rpc_counts": {
+      "barrier-resource-success": 1,
+      "barrier-resource-http-error": 1,
+      "barrier-account-success": 1,
+      "barrier-account-http-error": 1
+    },
+    "redirect_target_connections": 0,
+    "production_checks": [
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+      "pending"
+    ],
+    "not_run": [
+      "native platform packages and phone UI",
+      "production/funded/external RPC",
+      "production C ABI next-day clock boundary",
+      "bounded native context path (owned by production context tests)",
+      "pause exactly after receive/before dispatch inside Mesh",
+      "next-due retained-mismatch retry under production wall clock"
+    ],
+    "evidence_sha256": {
+      "receipt.json": "0db7b8007e3a713ece0f57e0bce35bcaef1d5942d8d01303a2bfd77d47a9baba",
+      "local-result.json": "0bc29c0963ad6c29a6c4989f817d48a7e2ce79a57b6591eea3d8545c33072c88",
+      "sources.json": "8934c6bd2a479c38179ff2c8430efca4d2559b142fd05a0e187f0dc5b1b4a0a4",
+      "build.log": "cf9d7e3c317916e2eeda598bcf4bf7ab50f5a73be4aa14e784d2f8a19a77491a",
+      "console.log": "6c1f76302ea1d568c4cd58b14856eb51bc8a4cef120e45e7c750ffd972839565",
+      "process.json": "a211af06dc4e6a34457332b4f7a2e3de9310f77aacbcc839caae7dbcd8b62829"
+    },
+    "artifacts": {
+      "libbootstrap_host.dylib": "eacc337dc1e3e2b76b641cb455a8a197f248a87774f6b914fd17b0b7bdc760e4",
+      "libbootstrap.jni.c": "62503ec7d1eb8b10401a805604fc2919bc89643ce5b199a956d0bc6ee8ca9890",
+      "libbootstrap.dylib.plaintext.json": "7da802c96de838500f7e4b73a8b27c8827da0294d383a83e22bf626ab520304f",
+      "libbootstrap.dylib": "3b2900425ed5e857f3e1943d27f4ea748ef66ca2f9e1a41b0887747d8f780555",
+      "libbootstrap.abi.json": "46074f2506932be10a79342600c963a4ad74a469c3bf0eb409fbdb5099a81379",
+      "libbootstrap.h": "a97afd1f10af1d5b299c573b1a795dce2cdf6d7907ad13b8bf2b8f195fdf61e1",
+      "libbootstrap.ts": "518a3c7d8b105f5b6b947c1c3eca72a01b2114a5518a613e0ba16576e831d238",
+      "libbootstrap.swift": "d78f03643491509af6b61a50c00ac50ebab2949dbc9ff1ffa9372b105a790844",
+      "libbootstrap.kt": "32c4943a9566feff444fe00c9858711a81dff6a8db7ff45ec17f1b550e15abe1",
+      "build.log": "cf9d7e3c317916e2eeda598bcf4bf7ab50f5a73be4aa14e784d2f8a19a77491a",
+      "local-result.json": "0bc29c0963ad6c29a6c4989f817d48a7e2ce79a57b6591eea3d8545c33072c88"
+    },
+    "public_fixture_files_verified": 199,
+    "retained_work": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-ecb699cb/.morse/rpc-tls/green/final-r4/bootstrap-native-bc_ocwa8"
+  },
+  "fresh_reused": {
+    "red": "Fresh own baseline C ABI build/run at 4b2953a, BLOCKED_NATIVE_RPC_TLS, zero RPC HTTP; hashes retained after own build cleanup",
+    "final": "Fresh r4 compile and fresh acceptance at 3293d90, process exit0, independent receipt rerun passed at handoff",
+    "diagnostic": "r2 artifact reused explicitly for harness iteration only; not final acceptance",
+    "classification_red": "r3 passed behavior but failed runner drift; raw mislabeled receipt preserved with actual FAIL/exit1 supplement; fixed3293d90 before r4",
+    "native": "Initial36JS at c5e3f2b; affected19JS and7Rust rerun after5335160; independent24ObjC/Kotlinreader/13JNI rerun at same fixed source; 17 unchanged neighboring JS checks reused",
+    "shared": "25 focused cases/13 files plus4 builds at unchanged qualified shared source; fixed-source independent authority reran filing4/nativeparser1/sharedtransport2",
+    "mobile": "9 anchor test files plus ring geometry passed; parser1/capture4/realHTTP1 passed; transparency fixture corrected wire version and complete native frames, rerun passed"
+  },
+  "independent_reviews": {
+    "authority_r2": {
+      "disposition": "PASS_FIXED_SOURCE_REVIEW",
+      "p1": "RESOLVED: fatal RPC TLS/context refusal propagates before relay fallback or completion",
+      "remaining_findings": [],
+      "pinned_commit": "3c2a3fbe8605510f9f5262f1477cb0772e577647",
+      "head_at_snapshot": "feaf005f8a9ed6a03c4f88916d821973899a8fed",
+      "head_at_final": "3293d90dc3a21dbb72098b407c3fa1cbdfcaa233",
+      "git_status_at_final": " M mesh-private-messenger/packages/mobile-core/tests/transparency.test.mpl\n",
+      "production_closure_scope": "All tracked production .mpl and mesh.toml files under packages/mobile-core and packages/messenger-protocol at pinned commit; excludes tests directories and .test.mpl",
+      "production_closure_sha256": "65518739f5c6a85a0f039a69984e335d4fee9179d9c0d7b2f36c914db7bc2c1b",
+      "production_files": 321,
+      "dependency_closure": "d9147a281cd97ee164975bc85763948d46e04c669d3cafa751823c37a6f4ab2f",
+      "live_production_mismatches": [],
+      "snapshot_production_mismatches": [],
+      "toolchain_mismatches": [],
+      "independent_runs": [
+        {
+          "command": [
+            "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+            "test",
+            "tests/fork_filing.test.mpl"
+          ],
+          "cwd": "/var/folders/w6/vbftz74j4jzb2t9ry9r724g00000gn/T/rpc-tls-review-r2-z4_m7l6q/mesh-private-messenger/packages/mobile-core",
+          "environment": {
+            "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+            "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a"
+          },
+          "exit": 0,
+          "elapsed_s": 145.74,
+          "log": "/var/folders/w6/vbftz74j4jzb2t9ry9r724g00000gn/T/rpc-tls-review-r2-z4_m7l6q/fork-filing.log",
+          "log_sha256": "a0f16e6259de224881fbe0e033eaa8ddfe659c14f730872931471b9d3982958a"
+        },
+        {
+          "name": "native-rpc-tls",
+          "command": [
+            "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+            "test",
+            "tests/native_rpc_tls.test.mpl"
+          ],
+          "package": "mobile-core",
+          "exit": 0,
+          "elapsed_s": 176.93,
+          "log": "/var/folders/w6/vbftz74j4jzb2t9ry9r724g00000gn/T/rpc-tls-review-r2-z4_m7l6q/native-rpc-tls.log",
+          "log_sha256": "b79797fde1d3d47c29622d097f928b832b6c0b911bcf21faf778b51533ea9a46"
+        },
+        {
+          "name": "shared-fatal-boundaries",
+          "command": [
+            "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+            "test",
+            "tests/rpc_transport.test.mpl"
+          ],
+          "package": "messenger-protocol",
+          "exit": 0,
+          "elapsed_s": 67.77,
+          "log": "/var/folders/w6/vbftz74j4jzb2t9ry9r724g00000gn/T/rpc-tls-review-r2-z4_m7l6q/shared-fatal-boundaries.log",
+          "log_sha256": "e24c1bd9b4ae4794e8f34e3dda5f16aa9a80847add57deda8ca5b6c4bc491fa3"
+        }
+      ],
+      "historical_red_boundary": "Owner red log inspected; not independently rerun in this read-only round",
+      "qualification_limit": "No phone UI/platform artifact/production qualification. Preexisting issuer-admission None context lifecycle limitation is separate. Parent final Core rebuild and native host R2 are separate.",
+      "evidence_sha256": {
+        "receipt.json": "19ba6b036dad24cdc477596716eae9b29269b0eba89b2fcd168161d33c36bf93",
+        "source-manifest.sha256": "65518739f5c6a85a0f039a69984e335d4fee9179d9c0d7b2f36c914db7bc2c1b",
+        "dependency-manifest.sha256": "d9147a281cd97ee164975bc85763948d46e04c669d3cafa751823c37a6f4ab2f",
+        "test-inputs.json": "0b0b4a3fde1b847ce904a82b6796aa19a687ce08835509becaa11a75c47dc53b",
+        "review-notes.json": "f9d859b5ab4be530d53c11607a0f956beeaaf9de0ca9a08bbc420baf210eb56c",
+        "retained-red-green.json": "8f4d5a805db0f348a5aeeff36b6cb120a7931e02a7645008558facdb016975a2",
+        "supplementary-tests.json": "9bc28b810281995aedef5781f5369398cba8c73466e7f68158ed8337af7697ad"
+      }
+    },
+    "native_r2": {
+      "taskId": "node:delegated-task:command%3Amcp%3A0a1bd261-e669-4668-b3aa-bee85836941f%3Adelegate-task%3Arpc-tls-host-review-20261106-r2",
+      "childThreadId": "thread:delegated-task:command%3Amcp%3A0a1bd261-e669-4668-b3aa-bee85836941f%3Adelegate-task%3Arpc-tls-host-review-20261106-r2",
+      "status": "completed",
+      "summary": "**PASS \u2014 prior P2 fixed. No remaining decisive issue found within the packaging/native-reader scope.**\n\nOnly an omitted desktop field produces `01 00`. A present empty string now returns Host status `3`, writes `0` bytes, and leaves output untouched. Unset packaging omits the field.\n\nFresh independent reruns passed:\n\n- Rust `run-rust.sh`: **7/7**, importing production `mesh.rs` and `resources.rs`; 3 unrelated tests filtered.\n- Exact requested Node 24.21.0 command: **19/19**.\n- `test-rpc-tls-host.sh`: **24 Objective-C cases**, Kotlin reader checks, and **13 JNI installation/callback cases**.\n\nProvenance:\n\n- Requested head: `b9432f6ea9333dbda7becfdf59572465e06be51f`.\n- Fix: `53351602181fa4cf2b99be10a344157bbd96b419`.\n- HEAD advanced concurrently to `feaf005f8a9ed6a03c4f88916d821973899a8fed`. All **23 scoped files still equal the fix commit**, with clean scoped status.\n- Seventeen files retain their original `c5e3f2b` manifest hashes. All five generated-binding files remain unchanged; the header contains **176 unique operation exports**.\n\nThe six replacement SHA-256 hashes, relative to `mesh-private-messenger/`:\n\n```text\napps/desktop/scripts/config.mjs\n4c30953dcca5856f6aa88246754ead81e57aec30b03b10c1bee6bde682809c52\napps/desktop/scripts/config.test.mjs\n4b05f2ca6cbfe0e8ebf0343ba9d7b28c1e186f896639e31a4adda2d28a81eb28\napps/desktop/src-tauri/src/mesh.rs\ne96bef8106213a1eed5103507fad7b728520ca84584f2d80967c3a486ed7f7c3\napps/desktop/src-tauri/src/resources.rs\n9454c315a6912a7f8ab646f0133a2d3841ba51244ac8e6b31bbcbb26a225ff50\napps/mobile/scripts/rpc-tls-roots.test.mjs\n283b50b2899c9b3624112268832682749f34c38b3f3640b377028ecfdb06c602\npackages/mobile-core/RPC_TLS.md\ne10747115f538536a72d085421b4507d42fc9721331ab691803a670a34b954bf\n```\n\nFull Tauri qualification remains **COULD NOT RUN** because bundled native resources are absent. This review establishes local packaging and reader behavior; it does not establish phone, full-app, or production readiness. No source edits, push, PR, production requests, or system-root changes performed.\n\n"
+    },
+    "findings_disposition": {
+      "P1_filing_fatal_errors": "Fixed3c2a3fb; actual malformed-PEM reader refuses before post/completion",
+      "P2_present_empty_desktop_resource": "Fixed5335160; missing only selects sentinel, empty present returns HostErr"
+    }
+  },
+  "validation": {
+    "full_messenger_lint": "PASS, empty output",
+    "whitespace": "PASS",
+    "runtime_assert_resolution_warnings": "Nonfatal Mesh codegen warnings seen in mobile tests; no language/runtime changes made",
+    "native_function_exports": "176 production symbols unchanged; bootstrap artifact adds9 fixture symbols; exact product Main artifact left to parent"
+  },
+  "production_checks": [
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending"
+  ],
+  "limits": [
+    "native platform packages and phone UI",
+    "production/funded/external RPC",
+    "production C ABI next-day clock boundary",
+    "bounded native context path (owned by production context tests)",
+    "pause exactly after receive/before dispatch inside Mesh",
+    "next-due retained-mismatch retry under production wall clock",
+    "Full Tauri build could not run without generated native/* resources; phone/full Expo/Linux/Windows UI not qualified",
+    "Parent composes inventories and builds exact product Main artifact after adoption",
+    "Parent relay owner mechanically adapts tools/relay-scheduler-proof/main.mpl AnchorPins.endpoints/readers to rpc; excluded to preserve its ownership"
+  ],
+  "cleanup": {
+    "own_obsolete_outputs_removed": "baseline red family, prior diagnostic/core families, four qualified CLI binaries, test/Rust caches and exact filing-red artifacts; hashes/logs retained",
+    "retained_family": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-ecb699cb/.morse/rpc-tls/green/final-r4/bootstrap-native-bc_ocwa8",
+    "retention_reason": "Parent source/inventory composition and product Main qualification; do not remove until parent finishes",
+    "shared_toolchains_or_parent_artifacts_touched": false
+  },
+  "constraints": {
+    "plan_edited": false,
+    "body_owned_source_edited": false,
+    "push_pr_deploy_or_merge": false,
+    "external_rpc_or_system_roots": false,
+    "language_changed": false
+  },
+  "changed_file_sha256": {
+    "mesh-private-messenger/apps/desktop/scripts/config.mjs": "4c30953dcca5856f6aa88246754ead81e57aec30b03b10c1bee6bde682809c52",
+    "mesh-private-messenger/apps/desktop/scripts/config.test.mjs": "4b05f2ca6cbfe0e8ebf0343ba9d7b28c1e186f896639e31a4adda2d28a81eb28",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/main.rs": "3faf628ab04457c5eee5b5c3cbf8428208008378067c8c362ce26eb6db6594c4",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/mesh.rs": "e96bef8106213a1eed5103507fad7b728520ca84584f2d80967c3a486ed7f7c3",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/resources.rs": "9454c315a6912a7f8ab646f0133a2d3841ba51244ac8e6b31bbcbb26a225ff50",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/cpp/MeshMessengerHost.cpp": "31f8e858030e86a5fc484580a5b071641844707cf67fa7141baa4c33243aaaf8",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt": "3e02911482da72f93c622d7c59da48fce400a2b35e4f00f793bf27cc304e68df",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/java/expo/modules/meshmessenger/MeshMessengerRpcTLS.kt": "d6c067aa4ab99986a7f9f78d76f2d896c0f971b68f14b3f7917b735431796f43",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerSecureStore.m": "340689680206e2fafdfba6286e9c63220f48ed7424cf3d80a1a2f4c787d50974",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/tests/rpc-tls/AndroidAssets.kt": "23b4f6a42b57ecbd7f7fc79feae92f33707afe7e0147c4efc3867930a24dbc71",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/tests/rpc-tls/AndroidBundle.kt": "32741b9b0273406af875af8aaeea9a52b4cc576c97c1337bbf22a13cc001a0e4",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/tests/rpc-tls/AndroidContext.kt": "86dd69e5af1acb38ecd86a6a8b34730ab2e5001fb8f56de7da64286129cee30c",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/tests/rpc-tls/AndroidPackageManager.kt": "386780d1fca519c852a11f221290d1efb208e9acbfff16803959361d0b7330d9",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/tests/rpc-tls/HostProof.cpp": "5345b0c6efa6f25d82e40b3f247e1f9895e059a06b39219863f5085467dc0604",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/tests/rpc-tls/HostProof.kt": "3b4eb48fcf2cd7647775bb6c812ec928089634dcaba229280edc86e13731fc61",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/tests/rpc-tls/HostProof.m": "503568f03cf46fcc13b82343f8a1095fdb2660f5eb052bf205dd64f080c470c3",
+    "mesh-private-messenger/apps/mobile/plugins/issuer-tls-root.cjs": "ea5e035f9f47043dad2ba382c4e294f26c34a82a855f22f0a75d0ee6ab529e47",
+    "mesh-private-messenger/apps/mobile/plugins/rpc-tls-roots.cjs": "d4c17c64ee7bc923bcb74b5d0551485164b1aca1b2b0f51ce0e7fdbe16c3b682",
+    "mesh-private-messenger/apps/mobile/plugins/tls-root-files.cjs": "37de42209577c89064a028dc20219429f55b68d3c2bf7c5eb2bbe2cab9470d1c",
+    "mesh-private-messenger/apps/mobile/plugins/with-mesh-push-config.cjs": "e854e6004a1c36bd93f9a18ac95cd15d8ca00a23d0cec257728524b425ebb0f9",
+    "mesh-private-messenger/apps/mobile/scripts/rpc-tls-roots.test.mjs": "283b50b2899c9b3624112268832682749f34c38b3f3640b377028ecfdb06c602",
+    "mesh-private-messenger/clients/mesh-cli/client/attendance.mpl": "657eb70e7ce8adc130a6b617443ddf9c061467742212afe20d88fcf7938b7123",
+    "mesh-private-messenger/clients/mesh-cli/client/chain_read.mpl": "8e3ed8888e27c211dbe9eb46b9dd6f6819fa2f6af24318307c37658cef16c088",
+    "mesh-private-messenger/clients/mesh-cli/client/rewards.mpl": "0c25e1860b4cbd751e72ef1902e782c366fefa959db4dc2ddcf7c38ad5857cb5",
+    "mesh-private-messenger/clients/mesh-cli/monitor/config.mpl": "94619736fe3c39c7673778b58d9eb898d18043160e4c577a034384ef142f98b5",
+    "mesh-private-messenger/clients/mesh-cli/monitor/run.mpl": "6775f227899b0c5a9e84bca41c63ecf9119b6b23e95ef266a06e6c0d97d7c4d8",
+    "mesh-private-messenger/clients/mesh-cli/tests/monitor_batch.test.mpl": "d697f24dae676e8fbc0b14649c7cb1ed4f6836a7322a70c77dd120890f71fb01",
+    "mesh-private-messenger/clients/mesh-cli/tests/monitor_run.test.mpl": "d5a97cb2dcd5e580ee55997f6c5260d57cad73dcaa34e0ddc7c24527e91e1aeb",
+    "mesh-private-messenger/clients/mesh-cli/tests/monitor_status.test.mpl": "f2d5b86ebfa0d96dbe08d9ffa78f3f13370b504364b84cb96b8d00595a1a6efb",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/README.md": "29be1c0de4f636706cd1000cad6c2045c332738108f3d9e28cdd52c9e2a8764f",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/SHA256.json": "9add96a54e1e30ec1b7661bec7348aa8391c4bd15607230803ad7e572a617ae1",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/build.log": "cf9d7e3c317916e2eeda598bcf4bf7ab50f5a73be4aa14e784d2f8a19a77491a",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/classification-red/local-result.json": "38f5ee7ed78fba12a17b1232b351964d40b4ed383258418c85f21111fdbbd1f6",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/classification-red/receipt.json": "fb4b843fc1cc0e2e8710107dbeeadc25dfdb161ea84eeb56e7f0c4c339779130",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/classification-red/sources.json": "a96380c7fa13bce2432fa445e8fa54fa76c4097707175d0ccc2c014628a81eca",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/classification-red/verification.json": "75654558928cddf8f8ee32e121b2c84a3d186e914794515c55cbd054698885c2",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/console.log": "6c1f76302ea1d568c4cd58b14856eb51bc8a4cef120e45e7c750ffd972839565",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/http-events.jsonl": "cd2a8d6971188db93daad4e6158dcaa9b4e94c2f52ad289cb30e0d4a5d5ab7a4",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/libbootstrap.abi.json": "46074f2506932be10a79342600c963a4ad74a469c3bf0eb409fbdb5099a81379",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/libbootstrap.h": "a97afd1f10af1d5b299c573b1a795dce2cdf6d7907ad13b8bf2b8f195fdf61e1",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/local-result.json": "0bc29c0963ad6c29a6c4989f817d48a7e2ce79a57b6591eea3d8545c33072c88",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/process.json": "a211af06dc4e6a34457332b4f7a2e3de9310f77aacbcc839caae7dbcd8b62829",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/receipt.json": "0db7b8007e3a713ece0f57e0bce35bcaef1d5942d8d01303a2bfd77d47a9baba",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/rpc-tls-local-20261106.json": "54ea6e451c81898b1441187e6368aa26c99964be52f770d8a151daa57d341b25",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/sources.json": "8934c6bd2a479c38179ff2c8430efca4d2559b142fd05a0e187f0dc5b1b4a0a4",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/verification.json": "e4fb7b69b83e6d1fbac36d368cbb891b7d13040023f16399b3da659ae70d0e57",
+    "mesh-private-messenger/ops/bootstrap/evidence/20261106/rpc-tls-core/verify-receipt.py": "40ed134a2edff684d4bfd7188f6a5a55cafafd52a5e345a6a0b855d2b2a0e0bb",
+    "mesh-private-messenger/ops/bootstrap/prove.py": "5e90c9807e6484b55fe10654099fc5908a45a82e127e77cb7083e655008aa0ea",
+    "mesh-private-messenger/ops/rewards/fixtures/operator/main.mpl": "09a2277db190c67c752e574585b8a4174665b948f3ec39b4ec51b2942cf54d91",
+    "mesh-private-messenger/packages/messenger-protocol/security/anchor-custody.test.mpl": "5e6bc6674ad5f266ff2c7b2fd034bda9fad3f863e335e82e94f2d573960262d4",
+    "mesh-private-messenger/packages/messenger-protocol/security/prove-rpc-tls.py": "06d73fb4a3e7c1c97dd8f995ed5b028a666328e3ddad0ea832d6699ff31602ec",
+    "mesh-private-messenger/packages/messenger-protocol/security/relay-admission.test.mpl": "79976aa114a4b0a2c626b9d90e4b5fa8cac20a16533bfee73875edecf673c34b",
+    "mesh-private-messenger/packages/messenger-protocol/security/relay-anchored-admission.test.mpl": "0339f1e89cabf35041a56c5d2c8730f1bf4eb0545382eef85f5ed1dbc4ebf241",
+    "mesh-private-messenger/packages/messenger-protocol/security/relay-lookup-cooldown.test.mpl": "85681cec5d3ced873e86e5ec449991d5e546557031d9506ef43a994481dc5789",
+    "mesh-private-messenger/packages/messenger-protocol/security/relay-settlement-read.test.mpl": "3d76744936e16794affefcc45c9024506ac537dec3c5d3b88001e2dc9c6894d3",
+    "mesh-private-messenger/packages/messenger-protocol/security/relay-stage-read.test.mpl": "4f524d101430143593c7b3f8c2b2563d944cf8e8b3ccf7992c7b21ba1dc7c594",
+    "mesh-private-messenger/packages/messenger-protocol/security/rewards-read.test.mpl": "924a38c69dd7d11b4b370ad962e4d5e1fafe8bc39762a1162cbcfbc0d736b329",
+    "mesh-private-messenger/packages/messenger-protocol/security/rpc-tls.test.mpl": "eab72a80e004466610f5f032e528cee116d5ea9ba00ef475ecae20ca762cfec6",
+    "mesh-private-messenger/packages/messenger-protocol/security/slash-receipt.test.mpl": "8e1380a9ec5056b8a17206d56aaa2d14f2cbddac9e7da1420a5f43a360c8b0a4",
+    "mesh-private-messenger/packages/messenger-protocol/tests/anchor_sources.test.mpl": "cef34c908145875fb2f38acef0e74aa0d9c37079af6952731c0948aa42ccf69c",
+    "mesh-private-messenger/packages/messenger-protocol/tests/attendance_read.test.mpl": "48eafe449d987d55ba5d8f2a5d2878ea22790ff718c1fa5e2d9734c7ff5dc956",
+    "mesh-private-messenger/packages/messenger-protocol/tests/relay_clock.test.mpl": "f5e8d619af3c5f377de84eaaee6d286d75c30680cdc13acb61a84d9b023b9bbc",
+    "mesh-private-messenger/packages/messenger-protocol/tests/relay_lookup_cooldown.test.mpl": "38940a9648a7577d32b07d533e6524508260a935763a97dd693fa3bb48bf7e10",
+    "mesh-private-messenger/packages/messenger-protocol/tests/relay_lookup_read.test.mpl": "2416f35f435dc3a3949e01bdecfda90166ab622b26ad40d5824fa7d5dbc90dee",
+    "mesh-private-messenger/packages/messenger-protocol/tests/relay_registry.test.mpl": "3cc0f02d4b4c0677561042fb61ee841fdd1af9c74d6dfc80ae377ae9dd5d7f10",
+    "mesh-private-messenger/packages/messenger-protocol/tests/rewards_operator_state.test.mpl": "7e1773846113252dea158d0322cb4c0505e22e7fdac76591cd2474b5038cee46",
+    "mesh-private-messenger/packages/messenger-protocol/tests/rewards_read.test.mpl": "8d5ce0c252978bf5e8c2eac84b109281d10052495f59d29c267620214372170b",
+    "mesh-private-messenger/packages/messenger-protocol/tests/rpc_transport.test.mpl": "d23e07f1e66386d5c6bd4ef192938096343f48f8ffbe0ba5fb31ba5c806383a5",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/anchor_batch.mpl": "42c4c2c3da51ea5b337fdc2e9601dcc3d0e1a0237b38976ce76d96d3a17d74b1",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/anchor_chain.mpl": "ab8bca0426a178b761cf7b1a5e9068ca25d843b8745546222002bd1ffadea2d2",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/anchor_consistency.mpl": "ec228907e0184aea9f29f4c51ea1cbd92b6d8a24467f575dc3d7aedd5b2d5656",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/anchor_continuity.mpl": "30dbd9826469f6e871f73e1dcd55dd3a54ca4104203d6c9f76a66bdff2518f03",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/anchor_contradiction.mpl": "fa3f18052bd66a0c89beb091ea7ececedcf4173380c8f4d1e726fe4da3d2d83e",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/anchor_custody.mpl": "abba12ec440248e37f799a2de92ed457a27762238ae6cd5dfc5e4db01759ce5b",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/anchor_http.mpl": "4878b882ca5cea1a3692df787663fcaba5be75f3dec513d4459b1b9c557ddd5c",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/anchor_registry.mpl": "2dbf6d3860717ebb246be75a97549dc381eadce301b05be08998da83ca00f73f",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/anchor_rpc.mpl": "1e829ca5dbc6a22c2ed19803d5b7c6eaeb0f0b0b49ffb8db284d7b6c562796b5",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/attendance_read.mpl": "2a40b2dd02a00092cffee422556f68ac2d7fa3a8f37448c72aa77c865be871dc",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/relay_admission.mpl": "7d4a37b1038551cf4a0efd0b8835efa773130bc9f11fa801ab4f6e1ced180571",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/relay_clock.mpl": "4b7e05ef70668414239e65c80f0a13a346913d6063dd7525d946805a99cf8146",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/relay_destinations.mpl": "3cc2d5defc06b16e35f369dcf891925364d5f0356efc03c80cfcd0bc8c1fec6e",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/relay_lookup_read.mpl": "57f5aa0eecc9b40c5433db6f1464c0c916929adaa0fe545c9e816ec23f2a2e35",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/relay_stage_read.mpl": "d64f8f1967531de7d79f3e549a9eb903de74a8356052f0c146130367ac25247f",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/rewards_operator.mpl": "11f139cd54cc83b4572db9df29b0a763c7018143cf9e550c747be0d91e90803d",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/rewards_read.mpl": "ad4455bbd24e05847e0463593cafcaa1408a728828268d769ed922ebb2d46a4a",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/rpc_transport.mpl": "3c9bb5d5cf517fe2a03ecaf5776cb65945c702a070703ea5562e9df6a5310a23",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/slash_receipt_read.mpl": "6af1598f44e5160da99e875caa84d98563c70610e2b26ea953edd33fb834cc8d",
+    "mesh-private-messenger/packages/mobile-core/RPC_TLS.md": "e10747115f538536a72d085421b4507d42fc9721331ab691803a670a34b954bf",
+    "mesh-private-messenger/packages/mobile-core/mobile/anchor_check.mpl": "894f62697839b7f39492dcc048cc1c3748b8a2e064da9b165f91bb041b063e2e",
+    "mesh-private-messenger/packages/mobile-core/mobile/bounty_transfer_native.mpl": "69ed806f74ee34790341fa3d18d39fcc4a0db0ea05a4e1cce9e8f97ab0c5a5af",
+    "mesh-private-messenger/packages/mobile-core/mobile/bounty_transfer_network.mpl": "041f9b9f253eba66badf5d49ee3bfcc5845a0fef125bb23fe28fed2407741b06",
+    "mesh-private-messenger/packages/mobile-core/mobile/credit_admission.mpl": "6ca979fe7a94f7fe7f6e4fe43a5bb58dde167e2d249f28600d220bf6cdde2f11",
+    "mesh-private-messenger/packages/mobile-core/mobile/credit_payment_network.mpl": "38807920ed182580da931db34d51341763c3f10e4bc843663705969986fdd70e",
+    "mesh-private-messenger/packages/mobile-core/mobile/credits.mpl": "1645664e04917b48d45fc63a161ca8fbdc82d8fbb5ec3b354e085507c772ee63",
+    "mesh-private-messenger/packages/mobile-core/mobile/fork_filing.mpl": "adea6e098f50a62d4b10032603d72dafd31d29e4fabc2ca0b3ea9bcb47aae778",
+    "mesh-private-messenger/packages/mobile-core/mobile/native_rpc_tls.mpl": "d77210eda8ed2838c8a1ee0ca25b72f46dae9443051cf962c62ec867c03ddfb2",
+    "mesh-private-messenger/packages/mobile-core/mobile/network_counter_pins.mpl": "532ef8ba16c7203ed6c18777f982cfaf103aa7253633d7b1916adb826f19cccb",
+    "mesh-private-messenger/packages/mobile-core/mobile/ohttp_context.mpl": "9ddf1b200f82f0a2822693567d1ba6cf323fc7833772c6fdd7432fafa9c0791d",
+    "mesh-private-messenger/packages/mobile-core/mobile/platform.mpl": "99d7668f39ef0f548f43c9b42e73a44f340bd7eef3702d146745aebd6a031053",
+    "mesh-private-messenger/packages/mobile-core/mobile/transparency.mpl": "7b7f7e46c5e41c15997f6083c5bcab80f21f1edbc2319af3354780e8705677be",
+    "mesh-private-messenger/packages/mobile-core/tests/anchor_attribution.test.mpl": "ac1d7d2e5f5583c0b70fd391839eae9e5607dbe449f1438df69cfb80516ae1cb",
+    "mesh-private-messenger/packages/mobile-core/tests/anchor_check.test.mpl": "fd1b8ab7a9d585e445efcc1650621e20d6e58ff7517d1ceafc3fe3d7bc1d6e54",
+    "mesh-private-messenger/packages/mobile-core/tests/anchor_config.test.mpl": "3607d0f639329ab489124b37c2b1476c528ea7c16fd64664fe6ff67945af6bbe",
+    "mesh-private-messenger/packages/mobile-core/tests/anchor_consistency.test.mpl": "ffe815586b6367fc0cf612e9ee87e71f613c856dbca70cd5857050568c8b0153",
+    "mesh-private-messenger/packages/mobile-core/tests/anchor_contradiction.test.mpl": "0fb1f3c73114dcebd994e5b5ef3d1335900da718725989868c49183ce5423b02",
+    "mesh-private-messenger/packages/mobile-core/tests/anchor_freshness.test.mpl": "513bddb3f5535bf4c77c675781fb4df90d8c0d1c87a64f664a711a04242b5c8e",
+    "mesh-private-messenger/packages/mobile-core/tests/anchor_quorum.test.mpl": "c7de790f79634ea2a10a5f2779a494d3bded7bd2240ef957ee42482dd8526232",
+    "mesh-private-messenger/packages/mobile-core/tests/anchor_rpc.test.mpl": "01cf21720f36d3eb714e7884a1ab2bbfb3626ecb6969ea51f1d00faf0b0c3f54",
+    "mesh-private-messenger/packages/mobile-core/tests/backup_archive_fixture.mpl": "0a7ac8e1f383b4f09eb94aec71a0a352fdc9d351423510a6945edbadcbe9f9a4",
+    "mesh-private-messenger/packages/mobile-core/tests/backup_attachment_capture_fixture.mpl": "a7e5a0d6f4c2d90f3c511f71ac5dc44feacdce922566a08560c28baf1ca8f466",
+    "mesh-private-messenger/packages/mobile-core/tests/backup_attachment_network.test.mpl": "f53e4f2959c1eacb18fa6ab440ab8c0c28352eaca18b89b4918fb2293dfb53fc",
+    "mesh-private-messenger/packages/mobile-core/tests/backup_pending_remaining_guards.test.mpl": "0cbee72affbe7d18791bb690733d4def223a89efe1d94bd0f9fb3ca21e31bf52",
+    "mesh-private-messenger/packages/mobile-core/tests/directory_ohttp.test.mpl": "9d56fe7d6549524888836b4643d3fa573989d80c55409ce0f8699b30bb7d87af",
+    "mesh-private-messenger/packages/mobile-core/tests/directory_resolve.test.mpl": "7d946b6db753ffeb4eb2aebe900e1746c34e1d99d5ec10df66a95798aa54ad12",
+    "mesh-private-messenger/packages/mobile-core/tests/fork_filing.test.mpl": "465a5f96246a7633ffe3e12054adba5f9af12718b165c49bb967b98b454a73b0",
+    "mesh-private-messenger/packages/mobile-core/tests/native_rpc_tls.test.mpl": "020c61b7d0c21c5b241a6db832b816446e2d1c47071362445b60b989dd058ded",
+    "mesh-private-messenger/packages/mobile-core/tests/ohttp_context.test.mpl": "ee03b179b8cb668109aadd75af40d8ff33f6e9d9751f62404292a474457b6c13",
+    "mesh-private-messenger/packages/mobile-core/tests/ohttp_context_http.test.mpl": "3f6304dd75f59ac5012baf22c6384a900bf4fa155c51afcb3c4107f5314bb0fc",
+    "mesh-private-messenger/packages/mobile-core/tests/transparency.test.mpl": "e9a209cf5885eb9b1c23314fc9be611136e2668a541fe8a5baf7f6e9dbc3d19a",
+    "mesh-private-messenger/packages/mobile-core/tests/transparency_bridge_ohttp.test.mpl": "a3ade84606e5d8c95834603d7fabfaa503ee48810ec45fd2f04d9687978b77ad",
+    "mesh-private-messenger/packages/mobile-core/tests/transparency_ohttp.test.mpl": "c991c73661cd5290f4e1e51c259a58ea2c7c5e2cf00bf488b9d9fe83c4fa3ed9",
+    "mesh-private-messenger/scripts/test-rpc-tls-host.sh": "79901f4ddeb256e053993b4c94ceebdc6240ad0d4dfd3b41c8f130a8b5151bca",
+    "mesh-private-messenger/services/credit-issuer/runtime/treasury_operator.mpl": "2fe480dbb9212c5b6ef0866dbbd069751b53d3728306c5f4a3e47d4f88e7d30b",
+    "mesh-private-messenger/tests/bootstrap-native-20261106/README.md": "2acfe4accaab9d97aa13dae9f7c1feb3f7c7fa171b86f5d4279e0a7349218368",
+    "mesh-private-messenger/tests/bootstrap-native-20261106/abi_host.c": "ea23790496402e74eb8f9807c439023e3c6de0d7a5ed3dc53800d81bd3a02bac",
+    "mesh-private-messenger/tests/bootstrap-native-20261106/acceptance.py": "3bb8e3ebfa1dcd657dd76f1e9dc7af6d5684d5f00dadef1792afbcece2768e9b",
+    "mesh-private-messenger/tests/bootstrap-native-20261106/main.mpl": "f8095425e57003c661597ba4839bde0f7f023643f95653289ea3414a12b3324a",
+    "mesh-private-messenger/tests/bootstrap-native-20261106/native_host.py": "ee20347951744f3222063e577cb6c329f7466dba6594d780b9841a98841dabc2",
+    "mesh-private-messenger/tests/phone-filing-native/main.mpl": "133d7ae88a1e94fb0f8bb54d23b09dd232176b43a2d6351ffa85f940e4015340",
+    "mesh-private-messenger/tools/fork-verifier/main.mpl": "8a8b2d8443f6658c3bbb661a852d32fa2c86229332f64ff21450970dc9d2be93",
+    "mesh-private-messenger/tools/rewards-operator/main.mpl": "4eda7a735b36fbfd7d54821da731e4280e45f8136718c43c2a0d23fa79346c66"
+  },
+  "supplementary_evidence": {
+    ".morse/rpc-tls/context/filing-green.log": {
+      "sha256": "0d1cbf8a80b516c87199318a9a8a95f5d10f495c28cb08bdfddc9610aadc7775",
+      "bytes": 702
+    },
+    ".morse/rpc-tls/context/filing-red.log": {
+      "sha256": "584019e5d6fb10e7221fa709b9a0e5563b34a2ca281851c1810a343e69fd4f3e",
+      "bytes": 897
+    },
+    ".morse/rpc-tls/context/green.log": {
+      "sha256": "b4abedbe054f6e4823c89de4cb7cfc0d5b29ae3a4365695c60025e9fa2684201",
+      "bytes": 13277
+    },
+    ".morse/rpc-tls/context/lint-r2.log": {
+      "sha256": "4537cbe2ed79a5e73acadfdc22be305d623f81bcb3f3ffe7cd20cc980cba49c0",
+      "bytes": 125
+    },
+    ".morse/rpc-tls/context/lint.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".morse/rpc-tls/context/ohttp_context-r2.log": {
+      "sha256": "21b46826572f291004213a3f32997209a502bb317d43ade07e73228c66b825d2",
+      "bytes": 820
+    },
+    ".morse/rpc-tls/context/ohttp_context_http-r2.log": {
+      "sha256": "96c8f2eda18d26ca63257245bc55a3e4d6d05c41f499641fae721f21f949f8d0",
+      "bytes": 568
+    },
+    ".morse/rpc-tls/context/parser-r2.log": {
+      "sha256": "bedfd70d10f28ea9ccba64d30d844d2ce5aad3db3c6b74501c55708cf62ad54d",
+      "bytes": 421
+    },
+    ".morse/rpc-tls/context/parser.log": {
+      "sha256": "2c58e97c0ad26861c01606b36112e4ec2403da397f960708ddfd603e2195fe5b",
+      "bytes": 15532
+    },
+    ".morse/rpc-tls/context/red.log": {
+      "sha256": "d3457d95515296bc98389122842b97e2511f7e997c3cbb90fd3760f8601c4226",
+      "bytes": 832
+    },
+    ".morse/rpc-tls/context/transparency-green.log": {
+      "sha256": "fb2c6c5680e7988e9de038c5044acfb1c0ec7731941f9135650bb46aad2a958c",
+      "bytes": 607
+    },
+    ".morse/rpc-tls/context/transparency-r2-green.log": {
+      "sha256": "64e8e9baa14ef12fc4bcfe67aea2a3058accd202213a7253077b9332608fd011",
+      "bytes": 396
+    },
+    ".morse/rpc-tls/reviews/authority-r2.json": {
+      "sha256": "63c23c5f344fa176ba89444073fca04ff30ab8da3697a5a0bb6e7f6cff78bfa8",
+      "bytes": 3963
+    },
+    ".morse/rpc-tls/reviews/native-r2.json": {
+      "sha256": "1412bbed422c23b278f86ec38e4b3cd22ab74285902f4414f0916a32e2a6c4db",
+      "bytes": 2423
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_attribution.log": {
+      "sha256": "83de040248c49aa5d01bffa71f2ea4a027ddd56b7087f7597334c29102351f4e",
+      "bytes": 581
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_check.log": {
+      "sha256": "dd07b6bdb5113b66d8b1bf6eae23838cf7bb8cf83e14f3e0d304d92acd50071d",
+      "bytes": 560
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_config.log": {
+      "sha256": "a12750fab21b84fade0f9e27e66bb91762f4565dc687781f9dcbe5d8dbcbefc2",
+      "bytes": 477
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_consistency.log": {
+      "sha256": "beedd6c9dde1ea9d26523c6c07a50bbc9f31ab48af64d7e4e768b3803c25077e",
+      "bytes": 659
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_contradiction.log": {
+      "sha256": "7aef5616c3dfac496a8d6516774cadc2e2d72e8e168d8f041454022013e95a8e",
+      "bytes": 486
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_freshness.log": {
+      "sha256": "9c2cce68b0da78a54d96bc91933ba799ff9b8795af98b7a82a7f8692c0f1c0bb",
+      "bytes": 537
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_quorum.log": {
+      "sha256": "5525d387f25422278895fe829c45eeadcd36e4b1d128563b612167c84630215c",
+      "bytes": 554
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_ring.log": {
+      "sha256": "0614fe707695a1edf8e55ac7e2971a9792bc35b40a413acf3828cead0ea1bd03",
+      "bytes": 139
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_rpc.log": {
+      "sha256": "66e1e74b79bbe4dd961f580de730d142bacc3a4f4e96bd56212e092c8e6e0c19",
+      "bytes": 451
+    },
+    ".morse/rpc-tls/anchor-tests/anchor_schedule.log": {
+      "sha256": "868478291702e07f3c3bc57414321aca85df6e2ebc8258865dcc9cbc9c3ac999",
+      "bytes": 595
+    },
+    ".morse/rpc-tls/anchor-tests/before-anchor_rpc.log": {
+      "sha256": "5bb81dde5d18a15a0308144ec8d1ed28181ad52e514bac9c6c5930582f448a0b",
+      "bytes": 17344
+    },
+    ".morse/rpc-tls/anchor-tests/before.json": {
+      "sha256": "400b7b004fca01848c7d6e6e0f8b6b42333fde23bac1adcd4760d0576890aa39",
+      "bytes": 2059
+    },
+    ".morse/rpc-tls/anchor-tests/checked-tests.json": {
+      "sha256": "f7ba6737031778357222f88eb53dc7f21c912e2bde6192193baaa6e30919f1ae",
+      "bytes": 1250
+    },
+    ".morse/rpc-tls/anchor-tests/lint.log": {
+      "sha256": "6c72b1ece89abad794c32ea8e5264e53c0e56a087a12d591e6c6b4f1d5ef6b10",
+      "bytes": 827
+    },
+    ".morse/rpc-tls/anchor-tests/provenance.json": {
+      "sha256": "b51a23a99e6ce95cd1d85ad5f9b6c0b03e9670cdb6f14e3777aa12f7c49b8d9e",
+      "bytes": 1034
+    },
+    ".morse/rpc-tls/anchor-tests/results.json": {
+      "sha256": "ab3a47af405865211265615a37e20b58c7d50f5b5a9bbf1623e07b85d76e2542",
+      "bytes": 5062
+    },
+    ".morse/rpc-tls/anchor-tests/transparency.log": {
+      "sha256": "3115b1c9d29cdcf654f8c629bf83b14eb987e0144af0ff6828693201ce046dce",
+      "bytes": 583
+    },
+    ".morse/rpc-tls/anchor-tests/verification.md": {
+      "sha256": "1da5d497479ec790d04181d6c1869456c9b630488bdb4e02c3e2e201da03d066",
+      "bytes": 1837
+    },
+    ".morse/rpc-tls/red/receipt.json": {
+      "sha256": "f93d65c3b8c2a2db0c6ddd99b1cdce5ade8e5e35ccc02fcf9aca6e39b9951862",
+      "bytes": 6912
+    },
+    ".morse/rpc-tls/red/sources.json": {
+      "sha256": "4bbd9b36155fe9bcece5601c67ac477a799e834d1907828b0601249df8923197",
+      "bytes": 75297
+    },
+    ".morse/rpc-tls/red/local-result.json": {
+      "sha256": "c0b016ba88fab5d8b965c24f28d59b782a0b919b4d82d8cd6228101ed44119b2",
+      "bytes": 3074
+    },
+    ".morse/rpc-tls/red/cleanup.json": {
+      "sha256": "d1c04bb609d1bd02304c0b0ed37b344a35c72c3962cd1fbb408c121b03517c99",
+      "bytes": 368
+    },
+    ".morse/rpc-tls/cleanup-supplementary.json": {
+      "sha256": "8aadecefa60c9d33a818bd6ea54a749360b400925f74bbb6b2e1e19154d20fd3",
+      "bytes": 1862
+    },
+    ".morse/rpc-tls/cleanup-filing-red.json": {
+      "sha256": "0256e5e1c8a205a3a904545d71b1f9fdca68082088b7586768552f831cc43214",
+      "bytes": 595
+    },
+    ".morse/rpc-tls/green/diagnostic-cleanup.json": {
+      "sha256": "52714bd1f952f9770a4ef64c1522d77bf5bfe7bbdb555e621012026ce917ba30",
+      "bytes": 792
+    },
+    ".morse/rpc-tls/shared/verification.json": {
+      "sha256": "e67d1b6a7e4bf2245c195f1599acebe9e5d4b774f639441cc44c8a1a37b3da9d",
+      "bytes": 2880
+    },
+    ".morse/rpc-tls/shared/changed-file-closure.json": {
+      "sha256": "1d3374a390648252a88895cf8357f3a1c88317f134df504d1ff25af93823149e",
+      "bytes": 7795
+    },
+    ".morse/rpc-tls/native-resource-evidence.json": {
+      "sha256": "0f65fbb9dd00e57df5c82cf6ff3b823748995eaafcd025b0581b9ec52a4e0db2",
+      "bytes": 7330
+    },
+    ".morse/rpc-tls/desktop-empty-red-rust.log": {
+      "sha256": "c15291df6e1e0cc4bb683aea6a00625c36c0298237bf1a01d94942e446739a86",
+      "bytes": 1532
+    },
+    ".morse/rpc-tls/desktop-empty-green-rust.log": {
+      "sha256": "d975ae919055707d74a6a07f8e5808e5e547675d0b1cdc91cb1f21bd6a982908",
+      "bytes": 1020
+    },
+    ".morse/rpc-tls/desktop-empty-green-js.log": {
+      "sha256": "bf88ca6e3d6444ad6059efeaac810f3f12cf6bacd8c15f6fe811d707929db4d3",
+      "bytes": 1921
+    },
+    ".morse/rpc-tls/final-committed-receipt-check.json": {
+      "sha256": "e4fb7b69b83e6d1fbac36d368cbb891b7d13040023f16399b3da659ae70d0e57",
+      "bytes": 2970
+    },
+    ".morse/rpc-tls/lint-handoff.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  }
+}
