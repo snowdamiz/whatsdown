@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -25,7 +26,8 @@ def digest(path):
 
 def sources(root):
     return {str(p.relative_to(root)): digest(p) for p in sorted(root.rglob('*'))
-            if p.is_file() and p.suffix in ('.mpl', '.toml', '.py', '.c')}
+            if p.is_file() and p.suffix in ('.mpl', '.toml', '.py', '.c')
+            and 'tests' not in p.relative_to(root).parts and not p.name.endswith('.test.mpl')}
 
 
 def main():
@@ -43,6 +45,7 @@ def main():
               'production_checks': ['pending'] * 8, 'ohttp': 'explicit off',
               'base': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=PRODUCT, text=True).strip(),
               'mesh_source': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=args.mesh_source, text=True).strip(),
+              'source_scope': 'package source and manifests; excludes tests directories and .test.mpl; fixture source included',
               'toolchain': {}, 'source_hashes': {}, 'artifacts': {}, 'commands': [], 'status': 'FAIL'}
     log = evidence / 'build.log'
     try:
@@ -95,6 +98,15 @@ def main():
             record['artifacts'][path.name] = digest(path)
         abi = json.loads(library.with_suffix('.abi.json').read_text())
         exported = {row['symbol'] for row in abi['exports']}
+        production = {name for name in exported if name.startswith('mesh_messenger_')}
+        declared = set()
+        for path in (work / 'mobile-core').rglob('*.mpl'):
+            declared.update(re.findall(r'@export\(\s*"(mesh_messenger_[^"]+)"', path.read_text()))
+        assert production == declared and len(production) == 176, 'production ABI export drift'
+        record['abi_exports'] = {'production_count': len(production),
+                                 'production_symbols': sorted(production),
+                                 'fixture_count': len(exported - production),
+                                 'fixture_symbols': sorted(exported - production)}
         assert {'mesh_messenger_directory_resolve', 'mesh_messenger_anchor_check'} <= exported
         if args.build_only:
             record['status'] = 'BUILT_NOT_RUN'
