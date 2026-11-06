@@ -57,6 +57,19 @@ test('writer preserves ordinary IPv6 distinction and the explicit loopback port 
   }
 });
 
+for (const host of ['[::ffff:1]', '[::ffff:1:2:3]', '[::ffff:0]', '[::ffff:0:0:1]']) {
+  test(`writer accepts nonmapped canonical IPv6 ${host}`, async () => {
+    const endpoint = `https://${host}/rpc`;
+    assert.equal(new URL(endpoint).hostname, host);
+    for (const allowLoopback of [false, true]) {
+      const urls = [endpoint, 'https://one.example/rpc', 'https://other.example/rpc'];
+      const seen = observe();
+      await connectChainWriterRpc({ urls, genesisHash, allowLoopback }, adapter, platform, seen.fetcher);
+      assert.deepEqual(seen.calls, urls);
+    }
+  });
+}
+
 test('writer host identity folds ASCII case and one trailing dot before any request', async () => {
   const aliases = [
     ['https://rpc.example:444/rpc', 'https://rpc.example.:444/rpc', 'https://other.example:444/rpc'],

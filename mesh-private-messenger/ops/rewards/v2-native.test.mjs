@@ -63,6 +63,16 @@ test('v2 host config preserves ordinary IPv6 and the explicit loopback port cont
   }
 });
 
+for(const host of ['[::ffff:1]','[::ffff:1:2:3]','[::ffff:0]','[::ffff:0:0:1]']){
+  test(`v2 host config accepts nonmapped canonical IPv6 ${host} before HTTP`,async()=>{
+    for(const allowLoopback of [false,true]){
+      await assert.rejects(configurationGate([
+        `https://${host}/rpc`,'https://one.example/rpc','https://other.example/rpc',
+      ],allowLoopback),error=>!/invalid_anchor_sources/.test(error.stderr)&&/No such file or directory/.test(error.stderr));
+    }
+  });
+}
+
 test('production v2 executable authenticates snapshots, plans explicit intent and reconciles immutable claims', {timeout:120000},async()=>{
   let selected=root.snapshots.find(f=>f.name==='token-rewards-collecting');
   const initial=selected, errors=[], requests=[];

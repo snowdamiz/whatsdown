@@ -57,6 +57,18 @@ test("mapped IPv6 spellings are refused without excluding ordinary IPv6") do
   end
 end
 
+test("nonmapped IPv6 sharing the ffff prefix remains valid") do
+  for host in ["[::ffff:1]", "[::ffff:1:2:3]", "[::ffff:0]", "[::ffff:0:0:1]"] do
+    let endpoint = "https://" <> host <> "/rpc"
+    assert(Http.url_origin(endpoint) == Ok("https://" <> host))
+    let endpoints = [endpoint, "https://one.example/rpc", "https://other.example/rpc"]
+    assert(validate_anchor_sources(endpoints) == Ok(nil))
+    for separate in [false, true] do
+      assert(validate_anchor_provider_sources(endpoints, separate) == Ok(nil))
+    end
+  end
+end
+
 fn refuses_aliases() -> Result<(), String> do
   let address = pubkey("11111111111111111111111111111111")?
   let zero = U64.parse("0")?

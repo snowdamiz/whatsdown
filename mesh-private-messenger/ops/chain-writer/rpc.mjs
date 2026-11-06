@@ -87,9 +87,9 @@ function transaction(value,signed,info,expected){
   const hostKey=url=>{
     const folded=url.hostname.toLowerCase();
     const host=folded.startsWith('[')||!folded.endsWith('.')?folded:folded.slice(0,-1);
-    // Match the Mesh boundary: URL already canonicalizes every IPv4-mapped
-    // spelling to this prefix. Refuse it instead of adding an address parser.
-    if(host.startsWith('[::ffff:'))fail('Relay RPC sources must be independent');
+    // Match the Mesh boundary: canonical mapped IPv6 has exactly two hextets
+    // after ::ffff:. Other addresses sharing that prefix remain ordinary IPv6.
+    if(host.startsWith('[::ffff:')&&host.split(':').length===5)fail('Relay RPC sources must be independent');
     if(allowLoopback&&['localhost','127.0.0.1','[::1]'].includes(host))return url.origin.replace(url.hostname,host);
     return host;
   };

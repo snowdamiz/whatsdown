@@ -152,13 +152,17 @@ end
 # A public host does not become another quorum source by changing its port or
 # adding the DNS root dot. Separate exact loopback origins support local banks;
 # they never establish independent-provider qualification.
-fn source_identity(origin :: String, separate_loopback_origins :: Bool) -> String do
+fn source_host(origin :: String) -> String do
   let authority = List.get(String.split(origin, "://"), 1)
-  let host = if String.starts_with(authority, "[") do
+  if String.starts_with(authority, "[") do
     List.head(String.split(authority, "]")) <> "]"
   else
     List.head(String.split(authority, ":"))
   end
+end
+
+fn source_identity(origin :: String, separate_loopback_origins :: Bool) -> String do
+  let host = source_host(origin)
   let folded = String.to_lower(host)
   let identity = if String.starts_with(folded, "[") || !String.ends_with(folded, ".") do
     folded
@@ -187,12 +191,13 @@ pub fn validate_anchor_provider_sources(endpoints :: List<String>,
       Err(_) -> return Err("invalid_anchor_sources")
       Ok(value) -> value
     end
+    let host = source_host(origin)
     # HTTP is limited to loopback for local validators and tests. Native
     # release configuration additionally requires HTTPS for every provider.
-    # The URL parser canonicalizes IPv4-mapped IPv6 to [::ffff:...]. Refuse
-    # this alternate IPv4 route rather than maintain another address parser.
+    # Canonical mapped IPv6 has exactly two hextets after ::ffff:; the prefix
+    # alone also matches nonmapped addresses. Refuse only the mapped shape.
     if String.length(endpoint) > 2048
-      || String.contains(origin, "://[::ffff:")
+      || (String.starts_with(host, "[::ffff:") && List.length(String.split(host, ":")) == 5)
       || String.contains(endpoint, "@")
       || String.contains(endpoint, "#")
       || String.contains(endpoint, "\\")
