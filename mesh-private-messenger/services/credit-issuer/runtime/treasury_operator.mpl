@@ -26,6 +26,7 @@ from Storage.TreasuryQueue import treasury_queue_status
 from Payment.Treasury import treasury_config_hash
 from Transparency.RewardsWrite import RewardWriteContext
 from Transparency.AnchorChain import configured_anchor_pins
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import Pubkey
 
 pub fn treasury_funding_json(value :: TreasuryFundingIntent) -> String do
@@ -157,7 +158,8 @@ pub fn execute_treasury_command(pool :: PoolHandle,
       id)?))
     TreasuryFundingRequest(batch_id) -> do
       let worker = configured_treasury(config)?
-      let anchors = case configured_anchor_pins(config.trust)? do
+      let anchors = case configured_anchor_pins(config.trust,
+        webpki_rpc_transport(config.trust.rpc_urls)?)? do
         Some(value) -> value
         None -> return Err("treasury_funding_requires_anchor_pins")
       end

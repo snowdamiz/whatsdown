@@ -1,5 +1,6 @@
 from Transparency.Config import SecurityConfig, decode_security_config
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins, sample_anchor_sources
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import Pubkey, pubkey
 
 pub struct ChainReadOptions do
@@ -16,7 +17,7 @@ pub fn load_chain_read_options(name :: String, command :: String) -> ChainReadOp
     return Err("MESSENGER_SECURITY_CONFIG is required for #{command}")
   end
   let config = decode_security_config(Bytes.from_utf8(frame))?
-  let pins = case configured_anchor_pins(config)? do
+  let pins = case configured_anchor_pins(config, webpki_rpc_transport(config.rpc_urls)?)? do
     None -> return Err("#{command}_requires_anchor_pins")
     Some(value) -> value
   end
