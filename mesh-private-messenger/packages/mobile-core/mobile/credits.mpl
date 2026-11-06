@@ -262,12 +262,10 @@ pub fn native_credit_purchase_continue(input :: Bytes) -> Bytes!String do
     else
       "/v1/credits/lightning/issue"
     end
+  else if plan.stage == 0 do
+    "/v1/credits/quote"
   else
-    if plan.stage == 0 do
-      "/v1/credits/quote"
-    else
-      "/v1/credits/issue"
-    end
+    "/v1/credits/issue"
   end
   let response = post_credit(config,
     route,

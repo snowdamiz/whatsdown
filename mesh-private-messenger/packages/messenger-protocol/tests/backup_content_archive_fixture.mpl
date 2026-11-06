@@ -23,28 +23,28 @@ end
 fn ca_hex(value :: String) -> Bytes!ProtocolError do
   case Bytes.from_hex(value) do
     Err(_) -> Err(MalformedEncoding)
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
 fn ca_repeat(value :: Int, size :: Int) -> Bytes!ProtocolError do
   case Bytes.repeat(value, size) do
     Err(_) -> Err(OversizedInput)
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
 fn ca_join(parts :: List<Bytes>) -> Bytes!ProtocolError do
   case Bytes.concat_many(parts, 16777217) do
     Err(_) -> Err(OversizedInput)
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
 fn ca_slice(input :: Bytes, at :: Int, size :: Int) -> Bytes!ProtocolError do
   case Bytes.slice(input, at, size) do
     Err(_) -> Err(MalformedEncoding)
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 

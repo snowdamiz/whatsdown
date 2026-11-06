@@ -58,7 +58,7 @@ fn content_create_actual_frame(policy :: Int) -> Bytes!String do
   end
   case Bytes.from_hex(encoded) do
     Err(_) -> Err("content_create_fixture_hex")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 

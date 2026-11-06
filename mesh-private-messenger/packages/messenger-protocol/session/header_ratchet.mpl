@@ -365,7 +365,7 @@ pub fn he_header_matches(state :: borrow RatchetState,
     Ok(_) -> Ok(true)
     Err(AuthenticationRejected) -> Ok(false)
     Err(InvalidMessage) -> Ok(false)
-    Err(error) -> Err(error)
+    Err(error)
   end
 end
 

@@ -36,21 +36,21 @@ end
 fn v_join(parts :: List<Bytes>) -> Bytes!String do
   case Bytes.concat_many(parts, 33554432) do
     Err(_) -> Err("view_fixture_join")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
 fn v_repeat(value :: Int, size :: Int) -> Bytes!String do
   case Bytes.repeat(value, size) do
     Err(_) -> Err("view_fixture_repeat")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
 fn v_hex(text :: String) -> Bytes!String do
   case Bytes.from_hex(text) do
     Err(_) -> Err("view_fixture_hex")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
@@ -408,7 +408,7 @@ fn v_bundle(f :: D4CoreFixture) -> PortableBackupV2Created!String do
   }
   case create_portable_content_backup_v2(content, f.now) do
     Err(_) -> Err("view_fixture_bundle")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 

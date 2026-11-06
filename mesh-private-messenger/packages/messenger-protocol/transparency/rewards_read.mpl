@@ -450,7 +450,7 @@ pub fn decode_rewards_snapshot(pins :: AnchorPins,
     None
   end
   let matches = case economics do
-    None -> None
+    None
     Some(value) -> if record.status == 0 do
       None
     else
@@ -824,7 +824,7 @@ end
 pub fn rewards_report(value :: RewardsState) -> String do
   let a = value.addresses
   let revision = case value.economics do
-    None -> None
+    None
     Some(value) -> Some(value.eligibility_revision)
   end
   let awaiting = if value.awaiting == "" do

@@ -14,7 +14,7 @@ end
 fn id(value :: Int, size :: Int) -> Bytes!String do
   case Bytes.repeat(value, size) do
     Err(_) -> Err("fixture bytes")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 

@@ -56,7 +56,7 @@ pub fn pack_credit_parts(parts :: List<Bytes>) -> Bytes!String do
   # Preserve the generic encoder's address-space bound; wallet admission applies
   # its own smaller logical limit after framing. The limit reserves no storage.
   case Bytes.concat_many([prefix] ++ framed, 9223372036854775807) do
-    Ok(value) -> Ok(value)
+    Ok(value)
     Err(_) -> Err("byte length overflow")
   end
 end

@@ -90,14 +90,14 @@ end
 fn content_magic() -> Bytes!ProtocolError do
   case Bytes.from_hex("014d4341") do
     Err(_) -> Err(MalformedEncoding)
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
 fn content_join(parts :: List<Bytes>) -> Bytes!ProtocolError do
   case Bytes.concat_many(parts, 16777216) do
     Err(_) -> Err(OversizedInput)
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 

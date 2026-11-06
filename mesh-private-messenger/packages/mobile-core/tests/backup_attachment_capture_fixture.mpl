@@ -65,7 +65,7 @@ end
 fn capture_concat(parts :: List<Bytes>) -> Bytes!String do
   case Bytes.concat_many(parts, 16777216) do
     Err(_) -> Err("capture_fixture_extent")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 

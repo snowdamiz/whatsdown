@@ -25,14 +25,14 @@ end
 fn cv_repeat(value :: Int, count :: Int) -> Bytes!String do
   case Bytes.repeat(value, count) do
     Err(_) -> Err("cv_fixture_repeat")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
 fn cv_hex(value :: String) -> Bytes!String do
   case Bytes.from_hex(value) do
     Err(_) -> Err("cv_fixture_hex")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
@@ -69,7 +69,7 @@ end
 fn cv_encode(value :: BackupContentArchive) -> Result<Plaintext<Bytes>, String> do
   case encode_content_archive(value) do
     Err(_) -> Err("cv_fixture_encode")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 

@@ -39,7 +39,7 @@ fn cleanup_through_sync() -> Unit!String do
   ])?, key, local_context(label)?)?
   let batch = case encode_delivery_batch([]) do
     Err(_) -> Err("fixture batch encoding")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end?
   store_updated_blobs(path, [label], [original])?
   let ack = process_delivery_batch(MobileBatchRequest { database_path: path, batch: batch })?

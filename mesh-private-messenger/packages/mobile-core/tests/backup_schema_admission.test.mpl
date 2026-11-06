@@ -102,7 +102,7 @@ fn schema_bundle(f :: D4CoreFixture, mode :: Int) -> PortableBackupV2Created!Str
   }
   case create_portable_content_backup_v2(content, f.now) do
     Err(_) -> Err("schema_fixture_content_create")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 

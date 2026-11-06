@@ -21,7 +21,7 @@ end
 fn fixture_protocol(raw :: Result<Bytes, AttachmentError>) -> Bytes!String do
   case raw do
     Err(_) -> Err("reader_fixture_protocol")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
@@ -33,7 +33,7 @@ fn fixture_wrap(device :: borrow DeviceKeys,
     append(Bytes.from_utf8("mesh-msg/v1/attachment-reference"), object_id)?,
     secret) do
     Err(_) -> Err("reader_fixture_wrap")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 

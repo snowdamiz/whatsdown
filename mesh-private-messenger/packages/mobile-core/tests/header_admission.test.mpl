@@ -37,7 +37,7 @@ actor contender(path :: String, before :: AccountBasis, index :: Int) do
   if await_file(path <> ".go", 1000) do
     # Each writer independently passed count4095 +1 before another commit.
     let result = case require_new_header_capacity(4095, 1) do
-      Err(error) -> Err(error)
+      Err(error)
       Ok(_) -> commit_initial_admission(path,
         Some(before),
         "session/v1/candidate#{index}",

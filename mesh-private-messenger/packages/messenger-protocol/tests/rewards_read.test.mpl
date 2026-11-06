@@ -41,7 +41,7 @@ end
 
 fn byte(value :: Int) -> Bytes!String do
   case Bytes.from_list([value]) do
-    Ok(value) -> Ok(value)
+    Ok(value)
     Err(_) -> Err("invalid_test_byte")
   end
 end

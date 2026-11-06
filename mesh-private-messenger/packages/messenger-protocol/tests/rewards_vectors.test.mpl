@@ -8,7 +8,7 @@ fn discover_fixture(roots :: List<String>, name :: String) -> String!String do
     Err("reward math fixtures not found; set MORSE_REWARD_MATH_FIXTURES_PATH")
   else
     case File.read(List.head(roots) <> "/tests/fixtures/" <> name) do
-      Ok(contents) -> Ok(contents)
+      Ok(contents)
       Err(_) -> discover_fixture(List.tail(roots), name)
     end
   end
@@ -105,34 +105,35 @@ fn arithmetic64(a :: String,
   divisor :: String,
   expected :: String,
   index :: Int) -> Bool!String do
-  case U64.parse(a) do
+  let left = case U64.parse(a) do
     Err(_) -> return Ok(false)
-    Ok(left) -> case U64.parse(b) do
-      Err(_) -> return Ok(false)
-      Ok(right) -> case U64.parse(divisor) do
-        Err(_) -> return Ok(false)
-        Ok(denominator) -> do
-          let expected_error = if expected == "division_by_zero" do
-            "u64 multiply_divide division by zero"
-          else
-            "u64 multiply_divide quotient overflow"
-          end
-          case U64.multiply_divide(left, right, denominator) do
-            Ok(value) -> do
-              let actual = U64.to_string(value)
-              if actual != expected do
-                return Err("u64 vector #{index}: expected #{expected}, got #{actual}")
-              end
-            end
-            Err(error) -> do
-              case U64.parse(expected) do
-                Ok(_) -> return Err("u64 vector #{index}: unexpected #{error}")
-                Err(_) -> if error != expected_error do
-                  return Err("u64 vector #{index}: expected #{expected_error}, got #{error}")
-                end
-              end
-            end
-          end
+    Ok(value) -> value
+  end
+  let right = case U64.parse(b) do
+    Err(_) -> return Ok(false)
+    Ok(value) -> value
+  end
+  let denominator = case U64.parse(divisor) do
+    Err(_) -> return Ok(false)
+    Ok(value) -> value
+  end
+  let expected_error = if expected == "division_by_zero" do
+    "u64 multiply_divide division by zero"
+  else
+    "u64 multiply_divide quotient overflow"
+  end
+  case U64.multiply_divide(left, right, denominator) do
+    Ok(value) -> do
+      let actual = U64.to_string(value)
+      if actual != expected do
+        return Err("u64 vector #{index}: expected #{expected}, got #{actual}")
+      end
+    end
+    Err(error) -> do
+      case U64.parse(expected) do
+        Ok(_) -> return Err("u64 vector #{index}: unexpected #{error}")
+        Err(_) -> if error != expected_error do
+          return Err("u64 vector #{index}: expected #{expected_error}, got #{error}")
         end
       end
     end

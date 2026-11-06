@@ -94,7 +94,7 @@ end
 fn content_decoded(payload :: Plaintext<Bytes>) -> Result<Plaintext<BackupContentArchive>, String> do
   case decode_content_archive(payload) do
     Err(_) -> Err("invalid_backup_content_view")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
@@ -165,14 +165,14 @@ end
 fn content_join(parts :: List<Bytes>, maximum :: Int) -> Bytes!String do
   case Bytes.concat_many(parts, maximum) do
     Err(_) -> Err("invalid_backup_content_view")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
 fn content_byte(value :: Int) -> Bytes!String do
   case Bytes.from_list([value]) do
     Err(_) -> Err("invalid_backup_content_view")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
@@ -187,7 +187,7 @@ end
 fn content_ordinal(value :: Int) -> Bytes!String do
   case protocol_write_u16(value) do
     Err(_) -> Err("invalid_backup_content_view")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 

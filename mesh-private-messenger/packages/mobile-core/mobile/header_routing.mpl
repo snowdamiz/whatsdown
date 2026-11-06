@@ -165,7 +165,7 @@ fn route_header_for_profile(path :: String,
     return Err("header_selection_pending")
   end
   case scan(path, key, ids, message, selected.offset, end_offset) do
-    Err(error) -> Err(error)
+    Err(error)
     Ok(Some(loaded)) -> do
       let finished = advance_header_cursor(reserved, envelope, end_offset, true)?
       Ok(HeaderRoute { loaded: loaded, basis: before, cursor_blob: sealed_cursor(key, finished)? })

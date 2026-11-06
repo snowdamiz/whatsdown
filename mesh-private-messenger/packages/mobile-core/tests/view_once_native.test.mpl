@@ -11,7 +11,7 @@ from Tests.ViewOnceFixture import view_once_fixture, view_once_fixture_clear
 fn native_test_bytes(value :: Result<Bytes, String>) -> Bytes!String do
   case value do
     Err(_) -> Err("view_once_native_test_bytes")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 

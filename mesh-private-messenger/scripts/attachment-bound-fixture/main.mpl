@@ -14,14 +14,14 @@ from Transport.Packet import decode_client_profile
 fn protocol(value :: Result<Bytes, AttachmentError>) -> Bytes!String do
   case value do
     Err(_) -> Err("fixture attachment operation failed")
-    Ok(output) -> Ok(output)
+    Ok(output)
   end
 end
 
 fn bytes(value :: Int, length :: Int) -> Bytes!String do
   case Bytes.repeat(value, length) do
     Err(_) -> Err("fixture bytes failed")
-    Ok(output) -> Ok(output)
+    Ok(output)
   end
 end
 

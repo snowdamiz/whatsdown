@@ -112,7 +112,7 @@ pub fn verify_lightning_cancellation(value :: LightningCancellation,
   case Crypto.verify(SigningPublicKey { bytes: issuer.quote_public_key },
     signing_bytes(value)?,
     Signature { bytes: value.signature }) do
-    Ok(valid) -> Ok(valid)
+    Ok(valid)
     Err(_) -> Ok(false)
   end
 end

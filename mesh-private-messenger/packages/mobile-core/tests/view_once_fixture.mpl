@@ -47,7 +47,7 @@ end
 fn fixture_bytes(value :: Result<Bytes, BytesError>) -> Bytes!String do
   case value do
     Err(_) -> Err("view_once_fixture_bytes")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 
@@ -67,7 +67,7 @@ end
 fn fixture_protocol(value :: Result<Bytes, AttachmentError>) -> Bytes!String do
   case value do
     Err(_) -> Err("view_once_fixture_crypto")
-    Ok(bytes) -> Ok(bytes)
+    Ok(bytes)
   end
 end
 

@@ -13,7 +13,7 @@ pub fn seal_attachment_binding(binding :: Plaintext<Bytes>,
   case declassify_discriminant(StorageKey.seal_bytes(binding, wrapping, aad),
     "attachment intent storage exposes only seal success or failure; filename, MIME, binding digest, storage error payloads and unrelated private control remain private") do
     Err(_) -> Err("credit_attachment_intent_seal_failed")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
@@ -50,7 +50,7 @@ fn attachment_framing(value :: Bytes!String) -> Bytes!String do
   case declassify_discriminant(value,
     "attachment intent framing exposes only primitive encoding success or failure for bounded filename MIME and public size; private bytes, exact lengths, binding digest and error payloads remain private") do
     Err(_) -> Err("invalid_credit_attachment_metadata")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
@@ -67,7 +67,7 @@ fn binding_length(length :: Int) -> Bytes!String do
     ]),
     "attachment intent length framing exposes only four-byte writer success or failure; exact metadata lengths encoded in private bytes and error payloads remain private") do
     Err(_) -> Err("invalid_credit_attachment_metadata")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 

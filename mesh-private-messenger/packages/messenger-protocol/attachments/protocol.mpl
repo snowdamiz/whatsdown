@@ -639,7 +639,7 @@ pub fn open_bound_chunk(secret :: borrow SecretBytes,
     end
     case Bytes.slice(plaintext, 0, expected_size) do
       Err(_) -> Err(InvalidChunkSize)
-      Ok(value) -> Ok(value)
+      Ok(value)
     end
   else
     Ok(plaintext)

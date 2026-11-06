@@ -10,7 +10,7 @@ from Backups.ContentArchive import BackupAttachmentPolicy
 fn publication_prepare_case() -> Plaintext<Bool>!String do
   let fixture = publication_fixture()?
   let raw = case publication_authored_content(fixture, RequireArchiveAttachments) do
-    Err(error) -> Err(error)
+    Err(error)
     Ok(authored) -> d4_publication_prepare_proof(fixture.path,
       fixture.public_profile, authored, [fixture.source_label])
   end
@@ -44,7 +44,7 @@ end
 fn publication_commit_case() -> Plaintext<Bool>!String do
   let fixture = publication_fixture()?
   let raw = case publication_authored_content(fixture, RequireArchiveAttachments) do
-    Err(error) -> Err(error)
+    Err(error)
     Ok(authored) -> d4_publication_commit_proof(fixture.path,
       fixture.public_profile, authored, [fixture.source_label])
   end

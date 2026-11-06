@@ -356,7 +356,7 @@ fn reloaded(blob :: Bytes,
   version :: U64) -> RatchetState!String do
   case restore(blob, key, account, device, version) do
     Err(_) -> Err("restore refused")
-    Ok(state) -> Ok(state)
+    Ok(state)
   end
 end
 

@@ -107,6 +107,6 @@ pub fn commit_safety_verification(path :: String,
   prepared :: SafetyVerificationPlan) -> Result<(), String> do
   case commit_fanout_records(path, prepared.before, prepared.labels, prepared.blobs, []) do
     Err("account_state_changed") -> Err("safety_verification_changed")
-    other -> other
+    other
   end
 end

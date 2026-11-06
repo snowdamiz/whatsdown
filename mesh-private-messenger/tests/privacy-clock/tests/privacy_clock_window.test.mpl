@@ -25,7 +25,7 @@ end
 fn signing_pair() -> SigningKeyPair!String do
   case Crypto.signing_generate() do
     Err(_) -> Err("test signing key failed")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
@@ -39,7 +39,7 @@ end
 fn captured_mint() -> CapturedMint!String do
   let delivery = case Crypto.x25519_generate() do
     Err(_) -> Err("test delivery key failed")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end?
   let service_pair = signing_pair()?
   let witness_a = signing_pair()?
