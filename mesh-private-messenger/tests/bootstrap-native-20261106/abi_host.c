@@ -15,11 +15,16 @@ int32_t bootstrap_host_call(const char *symbol, const uint8_t *input,
   CALL(mesh_messenger_directory_entry);
   CALL(mesh_messenger_directory_resolve);
   CALL(mesh_messenger_anchor_check);
+  CALL(mesh_messenger_erase_account);
   CALL(bootstrap_generate);
   CALL(bootstrap_lookup_response);
   CALL(bootstrap_cache_snapshot);
   CALL(bootstrap_schedule_snapshot);
   CALL(bootstrap_tls_control);
+  CALL(bootstrap_tls_pool);
+  CALL(bootstrap_batch);
+  CALL(bootstrap_anchor_due);
+  CALL(bootstrap_service_refused);
 #undef CALL
   return MESH_LIBRARY_ERR_INVALID_ARGUMENT;
 }

@@ -77,7 +77,8 @@ def main():
         command = [str(compiler), 'build', str(work / 'driver'), '--artifact', 'cdylib',
                    '--opt-level', '2', '--output', str(library)]
         record['commands'].append(command)
-        environment = dict(os.environ, MESH_RT_LIB_PATH=str(work / 'toolchain/libmesh_rt.a'))
+        environment = dict(os.environ, MESH_RT_LIB_PATH=str(work / 'toolchain/libmesh_rt.a'),
+                           MESH_TEST_RT_LIB_PATH=str(work / 'toolchain/libmesh_test_rt.a'))
         with log.open('w') as output:
             subprocess.run(command, env=environment, stdout=output, stderr=subprocess.STDOUT,
                            check=True, timeout=600)
@@ -124,7 +125,10 @@ def main():
                           'work': record['work']}), flush=True)
         if not (args.keep_work or args.build_only):
             shutil.rmtree(work)
-    return 0 if record['status'] == 'BUILT_NOT_RUN' else 1
+    # A local transport PASS leaves every production check pending. Distinguish
+    # that outcome from an observed blocker, incomplete run and harness failure.
+    return {'BUILT_NOT_RUN': 0, 'PASS_LOCAL_RPC_TLS': 0,
+            'INCOMPLETE_LOCAL': 2, 'BLOCKED_NATIVE_RPC_TLS': 3}.get(record['status'], 1)
 
 
 if __name__ == '__main__':
