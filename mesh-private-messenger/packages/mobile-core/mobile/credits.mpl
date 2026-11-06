@@ -53,7 +53,14 @@ from Mobile.Codec import (
   mobile_write_u64,
   mobile_utf8
 )
-from Mobile.Platform import native_security_config
+from Mobile.Platform import native_security_config, decode_native_security_config
+from Mobile.OhttpContext import (
+  NativeOhttpContext,
+  capture_native_ohttp_context,
+  rpc_transport_from_context
+)
+from Transparency.RpcTransport import RpcTransport, rpc_transport
+from Storage.Blobs import load_blob
 from Mobile.CreditTransport import post_credit
 from Mobile.Profile import load_profile
 from Mobile.Account import directory_entry_for
@@ -233,7 +240,6 @@ pub fn native_credit_admit(input :: Bytes) -> Bytes!String do
     now()?)?
   pack_credit_parts([Bytes.from_hex("014d4341")?, id])
 end
-
 
 pub fn native_credit_discover_online(input :: Bytes) -> Bytes!String do
   let parsed = request(input, 1)?
@@ -924,10 +930,24 @@ fn wallet_mint(who :: CreditWalletIdentity) -> Bytes!String do
   Ok(Bytes.slice(pins, 2, 32)?)
 end
 
-fn wallet_endpoints(config :: SecurityConfig) -> List<String>!String do
-  case configured_anchor_pins(config)? do
+fn wallet_rpc(path :: String,
+  context :: NativeOhttpContext,
+  who :: CreditWalletIdentity,
+  mint :: Bytes) -> RpcTransport!String do
+  let config = decode_native_security_config(context.security_frame)?
+  let captured = rpc_transport_from_context(path, context)?
+  let rpc = rpc_transport(captured.sources,
+    fn() do
+      captured.require_current()?
+      if configured_purpose(config)? != who.purpose
+        || !Bytes.secure_equals(wallet_mint(who)?, mint) do
+        return Err("wallet_configuration_changed")
+      end
+      Ok(nil)
+    end)?
+  case configured_anchor_pins(config, rpc)? do
     None -> Err("wallet_rpc_configuration_required")
-    Some(pins) -> Ok(pins.endpoints)
+    Some(pins) -> Ok(pins.rpc)
   end
 end
 
@@ -948,15 +968,18 @@ end
 # exposes only the final safe status/signature to JavaScript.
 pub fn native_credit_wallet_prepare(input :: Bytes) -> Bytes!String do
   let parsed = request(input, 3)?
-  let config = native_security_config()?
+  let context = capture_native_ohttp_context(parsed.path, load_blob(parsed.path, "profile/v1")?)?
+  let config = decode_native_security_config(context.security_frame)?
   let who = identity(parsed.path, config)?
   let wrapping = platform_key()?
+  let mint = wallet_mint(who)?
+  let rpc = wallet_rpc(parsed.path, context, who, mint)?
   let value = prepare_credit_wallet_payment(parsed.path,
     wrapping,
     who,
     List.get(parsed.parts, 1),
-    wallet_mint(who)?,
-    wallet_endpoints(config)?,
+    mint,
+    rpc,
     List.get(parsed.parts, 2),
     now()?)?
   pack_credit_parts([
@@ -975,29 +998,35 @@ end
 
 pub fn native_credit_wallet_commit(input :: Bytes) -> Bytes!String do
   let parsed = request(input, 3)?
-  let config = native_security_config()?
+  let context = capture_native_ohttp_context(parsed.path, load_blob(parsed.path, "profile/v1")?)?
+  let config = decode_native_security_config(context.security_frame)?
   let who = identity(parsed.path, config)?
   let wrapping = platform_key()?
+  let mint = wallet_mint(who)?
+  let rpc = wallet_rpc(parsed.path, context, who, mint)?
   wallet_payment_output(commit_credit_wallet_payment(parsed.path,
     wrapping,
     who,
     List.get(parsed.parts, 1),
-    wallet_mint(who)?,
+    mint,
     List.get(parsed.parts, 2),
-    wallet_endpoints(config)?,
+    rpc,
     now()?)?)
 end
 
 pub fn native_credit_wallet_submit(input :: Bytes) -> Bytes!String do
   let parsed = request(input, 2)?
-  let config = native_security_config()?
+  let context = capture_native_ohttp_context(parsed.path, load_blob(parsed.path, "profile/v1")?)?
+  let config = decode_native_security_config(context.security_frame)?
   let who = identity(parsed.path, config)?
   let wrapping = platform_key()?
+  let mint = wallet_mint(who)?
+  let rpc = wallet_rpc(parsed.path, context, who, mint)?
   wallet_payment_output(submit_credit_wallet_payment(parsed.path,
     wrapping,
     who,
     List.get(parsed.parts, 1),
-    wallet_mint(who)?,
-    wallet_endpoints(config)?,
+    mint,
+    rpc,
     now()?)?)
 end

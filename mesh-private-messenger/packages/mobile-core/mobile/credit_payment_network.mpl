@@ -27,6 +27,7 @@ from Solana.Read import (
 )
 from Solana.TransactionSend import send_transaction_request, sent_signature_from_response
 from Transparency.AnchorRpc import validate_anchor_sources, read_anchor_rpc_response
+from Transparency.RpcTransport import RpcTransport, rpc_urls, rpc_fatal_error, require_rpc_current
 
 pub struct CreditWalletPaymentPlan do
   purchase_id :: Bytes
@@ -175,10 +176,11 @@ pub fn prepare_credit_wallet_payment(path :: String,
   who :: CreditWalletIdentity,
   id :: Bytes,
   mint :: Bytes,
-  endpoints :: List<String>,
+  rpc :: RpcTransport,
   payer :: Bytes,
   now :: U64) -> CreditWalletPaymentPlan!String do
-  validate_anchor_sources(endpoints)?
+  validate_anchor_sources(rpc_urls(rpc))?
+  require_rpc_current(rpc.require_current)?
   if Bytes.length(payer) != 32 || Bytes.to_hex(payer) == String.repeat("00", 32) do
     return Err("invalid_wallet_payment_payer")
   end
@@ -191,6 +193,7 @@ pub fn prepare_credit_wallet_payment(path :: String,
         return Err("credit_payment_not_pending")
       end
       solana_pay_url(decode_credit_quote(purchase.quote)?, mint, who.purpose, now)?
+      require_rpc_current(rpc.require_current)?
       save(path,
         wrapping,
         who,
@@ -212,6 +215,7 @@ pub fn prepare_credit_wallet_payment(path :: String,
     return Err("wallet_payment_quote_changed")
   end
   if current.status >= 2 do
+    require_rpc_current(rpc.require_current)?
     return Ok(current)
   end
   if !Bytes.secure_equals(current.payer, payer) do
@@ -224,11 +228,13 @@ pub fn prepare_credit_wallet_payment(path :: String,
   let observed_height = if current.status == 1 do
     # A cancelled prompt can leave an unsigned hash after its chain lifetime.
     # Refresh only unsigned plans; signed records returned above never query.
-    let raw = read_anchor_rpc_response(List.head(endpoints),
+    let raw = read_anchor_rpc_response(rpc,
+      List.head(rpc.sources),
       get_block_height_request(43, "confirmed")?,
       256)?
     let height = block_height_from_response(raw)?.value
     if U64.compare(height, current.last_valid_block_height) <= 0 do
+      require_rpc_current(rpc.require_current)?
       return Ok(current)
     end
     height
@@ -244,10 +250,12 @@ pub fn prepare_credit_wallet_payment(path :: String,
     3
   end
   for index in 0..attempts do
-    let response = read_anchor_rpc_response(List.get(endpoints, index),
+    let response = read_anchor_rpc_response(rpc,
+      List.get(rpc.sources, index),
       get_latest_blockhash_request(41, "confirmed")?,
       2048)
     case response do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
       Err(_) -> nil
       Ok(raw) -> case latest_blockhash_from_response(raw) do
         Err(_) -> nil
@@ -267,8 +275,10 @@ pub fn prepare_credit_wallet_payment(path :: String,
             || previous.status != current.status
             || (current.status == 1
               && !Bytes.secure_equals(previous.blockhash, current.blockhash)) do
+            require_rpc_current(rpc.require_current)?
             return Ok(previous)
           end
+          require_rpc_current(rpc.require_current)?
           return save(path,
             wrapping,
             who,
@@ -297,13 +307,15 @@ pub fn commit_credit_wallet_payment(path :: String,
   id :: Bytes,
   mint :: Bytes,
   wire :: Bytes,
-  endpoints :: List<String>,
+  rpc :: RpcTransport,
   now :: U64) -> CreditWalletPaymentPlan!String do
+  require_rpc_current(rpc.require_current)?
   let current = recover_credit_wallet_payment(path, wrapping, who, id, mint)?
   if current.status >= 2 do
     if !Bytes.secure_equals(current.wire, wire) do
       return Err("wallet_payment_packet_changed")
     end
+    require_rpc_current(rpc.require_current)?
     return Ok(current)
   end
   if current.status != 1 do
@@ -320,8 +332,10 @@ pub fn commit_credit_wallet_payment(path :: String,
   # A foreground prompt may outlive the hash while its quote remains valid.
   # This packet has never been broadcast; leave it unsigned/retryable rather
   # than making a known-dead hash an immutable uncertain payment.
-  validate_anchor_sources(endpoints)?
-  let height_raw = read_anchor_rpc_response(List.head(endpoints),
+  validate_anchor_sources(rpc_urls(rpc))?
+  require_rpc_current(rpc.require_current)?
+  let height_raw = read_anchor_rpc_response(rpc,
+    List.head(rpc.sources),
     get_block_height_request(43, "confirmed")?,
     256)?
   if U64.compare(block_height_from_response(height_raw)?.value,
@@ -342,6 +356,7 @@ pub fn commit_credit_wallet_payment(path :: String,
     return Err("credit_payment_not_pending")
   end
   solana_pay_url(quote, mint, who.purpose, payment_time(now)?)?
+  require_rpc_current(rpc.require_current)?
   save(path,
     wrapping,
     who,
@@ -364,9 +379,10 @@ pub fn submit_credit_wallet_payment(path :: String,
   who :: CreditWalletIdentity,
   id :: Bytes,
   mint :: Bytes,
-  endpoints :: List<String>,
+  rpc :: RpcTransport,
   now :: U64) -> CreditWalletPaymentPlan!String do
-  validate_anchor_sources(endpoints)?
+  validate_anchor_sources(rpc_urls(rpc))?
+  require_rpc_current(rpc.require_current)?
   let current = recover_credit_wallet_payment(path, wrapping, who, id, mint)?
   if current.status < 2 do
     return Err("wallet_payment_signature_required")
@@ -375,23 +391,29 @@ pub fn submit_credit_wallet_payment(path :: String,
   # first network call. A crash between the two durable records is repaired here.
   let purchase = recover_credit_purchase(path, wrapping, who, id)?
   if purchase.stage == 3 do
+    require_rpc_current(rpc.require_current)?
     return Ok(current)
   end
+  require_rpc_current(rpc.require_current)?
   record_credit_payment(path, wrapping, who, id, current.signature, now)?
   # A crash may have preceded the first actual send. Even identical bytes could
   # first execute after the quote window and become uncreditable. After expiry
   # only issuer finality/replay may recover this signature; never broadcast.
   if U64.compare(now, decode_credit_quote(current.quote)?.expires_at) >= 0 do
+    require_rpc_current(rpc.require_current)?
     return Ok(current)
   end
   for index in 0..3 do
     if U64.compare(payment_time(now)?, decode_credit_quote(current.quote)?.expires_at) >= 0 do
+      require_rpc_current(rpc.require_current)?
       return Ok(current)
     end
-    let response = read_anchor_rpc_response(List.get(endpoints, index),
+    let response = read_anchor_rpc_response(rpc,
+      List.get(rpc.sources, index),
       send_transaction_request(42, current.wire, current.signature, current.context_slot)?,
       2048)
     case response do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
       Err(_) -> nil
       Ok(raw) -> case sent_signature_from_response(raw, current.signature) do
         Err(_) -> nil
@@ -410,6 +432,7 @@ pub fn submit_credit_wallet_payment(path :: String,
           }
           # An unrelated concurrent wallet commit can win the CAS. The packet
           # remains immutable; report conservatively journaled and retry later.
+          require_rpc_current(rpc.require_current)?
           case save(path, wrapping, who, before, acknowledged) do
             Ok(value) -> return Ok(value)
             Err(_) -> return Ok(current)
@@ -420,5 +443,6 @@ pub fn submit_credit_wallet_payment(path :: String,
   end
   # Timeout, wrong ID/signature, RPC error or unavailable transport is an
   # uncertain submission. Keep the exact packet and return its durable signature.
+  require_rpc_current(rpc.require_current)?
   Ok(current)
 end

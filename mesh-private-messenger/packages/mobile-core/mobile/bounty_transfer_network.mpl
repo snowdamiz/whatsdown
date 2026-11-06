@@ -32,6 +32,14 @@ from Solana.TransactionRead import (
 )
 from Solana.TransactionSend import send_transaction_request, sent_signature_from_response
 from Transparency.AnchorRpc import validate_anchor_sources, read_anchor_rpc_response
+from Transparency.RpcTransport import (
+  RpcTransport,
+  RpcEndpoint,
+  rpc_transport,
+  rpc_urls,
+  rpc_fatal_error,
+  require_rpc_current
+)
 from Transparency.AnchorBatch import read_anchor_accounts
 from Transparency.SlashReceiptRead import read_slash_receipt_state
 
@@ -83,13 +91,15 @@ fn current_transfer(path :: String,
   Ok(value)
 end
 
-fn height(endpoints :: List<String>) -> U64!String do
-  validate_anchor_sources(endpoints)?
+fn height(rpc :: RpcTransport) -> U64!String do
+  validate_anchor_sources(rpc_urls(rpc))?
   for index in 0..3 do
-    let response = read_anchor_rpc_response(List.get(endpoints, index),
+    let response = read_anchor_rpc_response(rpc,
+      List.get(rpc.sources, index),
       get_block_height_request(61, "confirmed")?,
       1024)
     case response do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
       Err(_) -> nil
       Ok(raw) -> case block_height_from_response(raw) do
         Err(_) -> nil
@@ -111,6 +121,15 @@ fn account(value :: Option<AccountInfo>) -> AccountInfo!String do
   Ok(found)
 end
 
+fn guarded_plan(plan :: FilingPlan, current :: Fun() -> Bool) -> FilingPlan!String do
+  let rpc = rpc_transport(plan.pins.rpc.sources,
+    fn() do
+      plan.pins.rpc.require_current()?
+      fence(current)
+    end)?
+  Ok(%{plan | pins: %{plan.pins | rpc: rpc}})
+end
+
 pub fn prepare_bounty_movement(path :: String,
   key :: borrow StorageKey,
   plan :: FilingPlan,
@@ -119,8 +138,9 @@ pub fn prepare_bounty_movement(path :: String,
   payer :: Bytes,
   now :: U64,
   current :: Fun() -> Bool) -> BountyTransferJournal!String do
-  fence(current)?
-  validate_anchor_sources(plan.pins.endpoints)?
+  let plan = guarded_plan(plan, current)?
+  require_rpc_current(plan.pins.rpc.require_current)?
+  validate_anchor_sources(rpc_urls(plan.pins.rpc))?
   let previous = case load_bounty_transfer(path, key)? do
     None
     Some(value) -> Some(current_transfer(path, key, plan, pins, value.identity)?)
@@ -136,8 +156,8 @@ pub fn prepare_bounty_movement(path :: String,
     end
     None -> nil
   end
-  let observed_height = height(plan.pins.endpoints)?
-  fence(current)?
+  let observed_height = height(plan.pins.rpc)?
+  require_rpc_current(plan.pins.rpc.require_current)?
   case previous do
     Some(value) when value.status == 1 -> do
       let intent = decode_bounty_transfer(value.intent)?
@@ -176,9 +196,9 @@ pub fn prepare_bounty_movement(path :: String,
   if !Bytes.secure_equals(paid.finder, selection.finder) do
     return Err("bounty_paid_elsewhere")
   end
-  fence(current)?
+  require_rpc_current(plan.pins.rpc.require_current)?
   let source = bounty_token_account(selection.finder, plan.mint.bytes)?
-  let assets = read_anchor_accounts(plan.pins.endpoints, [plan.mint, source], paid.context_slot)?
+  let assets = read_anchor_accounts(plan.pins.rpc, [plan.mint, source], paid.context_slot)?
   let denomination = mint(account(List.get(assets.accounts, 0))?)?
   let holding = token_account(account(List.get(assets.accounts, 1))?)?
   if !denomination.initialized
@@ -194,11 +214,13 @@ pub fn prepare_bounty_movement(path :: String,
     return Err("bounty_transfer_asset_unavailable")
   end
   for index in 0..3 do
-    fence(current)?
-    let response = read_anchor_rpc_response(List.get(plan.pins.endpoints, index),
+    require_rpc_current(plan.pins.rpc.require_current)?
+    let response = read_anchor_rpc_response(plan.pins.rpc,
+      List.get(plan.pins.rpc.sources, index),
       get_latest_blockhash_request(62, "confirmed")?,
       2048)
     case response do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
       Err(_) -> nil
       Ok(raw) -> case latest_blockhash_from_response(raw) do
         Err(_) -> nil
@@ -207,8 +229,8 @@ pub fn prepare_bounty_movement(path :: String,
             || U64.compare(hash.last_valid_block_height, observed_height) <= 0 do
             continue
           end
-          fence(current)?
           let issued = time(now)?
+          require_rpc_current(plan.pins.rpc.require_current)?
           return prepare_bounty_transfer(path,
             key,
             plan.identity,
@@ -245,20 +267,23 @@ pub fn commit_bounty_movement(path :: String,
   wire :: Bytes,
   now :: U64,
   current :: Fun() -> Bool) -> BountyTransferJournal!String do
-  fence(current)?
+  let plan = guarded_plan(plan, current)?
+  require_rpc_current(plan.pins.rpc.require_current)?
   let value = current_transfer(path, key, plan, pins, identity)?
   let observed = if value.status < 2 do
-    height(plan.pins.endpoints)?
+    height(plan.pins.rpc)?
   else
     U64.parse("0")?
   end
-  fence(current)?
+  require_rpc_current(plan.pins.rpc.require_current)?
   commit_bounty_transfer(path, key, identity, wire, observed, time(now)?)
 end
 
-fn from_provider(endpoint :: String,
+fn from_provider(rpc :: RpcTransport,
+  endpoint :: RpcEndpoint,
   value :: BountyTransferJournal) -> Option<BountyTransferSettlement>!String do
-  let raw = read_anchor_rpc_response(endpoint,
+  let raw = read_anchor_rpc_response(rpc,
+    endpoint,
     get_finalized_transaction_request(63, value.signature)?,
     131072)?
   let outcome = case finalized_transaction_outcome_from_response(raw, value.signature, 63)? do
@@ -288,16 +313,25 @@ fn agreement(left :: Option<BountyTransferSettlement>!String,
   end
 end
 
-pub fn read_bounty_settlement(endpoints :: List<String>,
+pub fn read_bounty_settlement(rpc :: RpcTransport,
   value :: BountyTransferJournal) -> Option<BountyTransferSettlement>!String do
-  validate_anchor_sources(endpoints)?
-  let a = from_provider(List.get(endpoints, 0), value)
-  let b = from_provider(List.get(endpoints, 1), value)
+  validate_anchor_sources(rpc_urls(rpc))?
+  let a = case from_provider(rpc, List.get(rpc.sources, 0), value) do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    result
+  end
+  let b = case from_provider(rpc, List.get(rpc.sources, 1), value) do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    result
+  end
   case agreement(a, b) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let c = from_provider(List.get(endpoints, 2), value)
+  let c = case from_provider(rpc, List.get(rpc.sources, 2), value) do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    result
+  end
   case agreement(a, c) do
     Some(value) -> return Ok(value)
     None -> nil
@@ -314,13 +348,14 @@ pub fn recover_bounty_movement(path :: String,
   pins :: BountyWalletPins,
   identity :: Bytes,
   current :: Fun() -> Bool) -> BountyTransferJournal!String do
-  fence(current)?
+  let plan = guarded_plan(plan, current)?
+  require_rpc_current(plan.pins.rpc.require_current)?
   let value = current_transfer(path, key, plan, pins, identity)?
   if value.status < 2 || value.status >= 4 do
     return Ok(value)
   end
-  let outcome = read_bounty_settlement(plan.pins.endpoints, value)?
-  fence(current)?
+  let outcome = read_bounty_settlement(plan.pins.rpc, value)?
+  require_rpc_current(plan.pins.rpc.require_current)?
   case outcome do
     # A missing transaction is never proof of failure/nonexecution. Preserve
     # the signature indefinitely if the providers cannot supply its history.
@@ -336,7 +371,8 @@ pub fn submit_bounty_movement(path :: String,
   identity :: Bytes,
   now :: U64,
   current :: Fun() -> Bool) -> BountyTransferJournal!String do
-  fence(current)?
+  let plan = guarded_plan(plan, current)?
+  require_rpc_current(plan.pins.rpc.require_current)?
   let value = current_transfer(path, key, plan, pins, identity)?
   if value.status < 2 do
     return Err("bounty_transfer_signature_required")
@@ -346,7 +382,7 @@ pub fn submit_bounty_movement(path :: String,
   end
   let intent = decode_bounty_transfer(value.intent)?
   for index in 0..3 do
-    fence(current)?
+    require_rpc_current(plan.pins.rpc.require_current)?
     let fresh = current_transfer(path, key, plan, pins, identity)?
     if fresh.status >= 4 do
       return Ok(fresh)
@@ -357,15 +393,17 @@ pub fn submit_bounty_movement(path :: String,
     if U64.compare(time(now)?, intent.expires_at) >= 0 do
       return Ok(fresh)
     end
-    let response = read_anchor_rpc_response(List.get(plan.pins.endpoints, index),
+    let response = read_anchor_rpc_response(plan.pins.rpc,
+      List.get(plan.pins.rpc.sources, index),
       send_transaction_request(64, value.wire, value.signature, value.context_slot)?,
       2048)
     case response do
+      Err(error) when rpc_fatal_error(error) -> return Err(error)
       Err(_) -> nil
       Ok(raw) -> case sent_signature_from_response(raw, value.signature) do
         Err(_) -> nil
         Ok(_) -> do
-          fence(current)?
+          require_rpc_current(plan.pins.rpc.require_current)?
           return acknowledge_bounty_transfer(path, key, identity, value.signature)
         end
       end

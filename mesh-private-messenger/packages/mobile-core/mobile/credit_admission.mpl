@@ -119,7 +119,7 @@ pub fn admit_credit_issuer(path :: String,
     evidence.checkpoint)?)?
   # The existing anchor scheduler observes the same newly authenticated view.
   # It may retain a slash/fork, which is checked again before this transaction.
-  check_native_anchor_view(path, checkpoint, config.issuer_origin, evidence.witnesses, leaf)?
+  check_native_anchor_view(path, None, checkpoint, config.issuer_origin, evidence.witnesses, leaf)?
   let view = transparency_view_storage(MobileTransparencyView {
       checkpoint: checkpoint,
       consistency: encode_consistency_proof(evidence.consistency)?,
