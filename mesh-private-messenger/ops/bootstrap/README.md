@@ -16,6 +16,12 @@ See the [current qualification](evidence/20261106/rpc-tls-core/README.md) and
 The fixture ABI contains 176 production symbols and nine fixture symbols. It is
 not the exact product Main artifact or a signed/native-phone qualification.
 
+The separate [witness outage runner](witness-outage/README.md) drives three actual
+witness processes and the native resolver. Its [900-second local report](witness-outage/qualification-20261106.md)
+and [fresh composed-source control](evidence/20261106/witness-outage-composition.json)
+qualify local outage/recovery behavior. They do not close the hosted B1 or
+scheduled production outage gate.
+
 Run from the repository root on macOS with Python 3, OpenSSL and the C compiler:
 
 ```sh

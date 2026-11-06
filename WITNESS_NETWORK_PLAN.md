@@ -125,7 +125,7 @@ revisited at each phase gate.
 ### Current continuation status — 2026-11-06
 
 This table is the current continuation reference, through source checkpoint
-`c49561a`. Detailed entries below retain the history of implementation and proof;
+`fc0e701`. Detailed entries below retain the history of implementation and proof;
 an older candidate or pending note does not override a later adoption record.
 Local source, local execution, native UI qualification and live production
 acceptance are separate states. No live deployment inventory was refreshed by
@@ -145,10 +145,10 @@ passing local fixture does not close a native-device or production gate.
 | Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; prior 800 app checks remain recorded. Current TLS/body composition passes 126 native checks and the default Debug build. A certificate-signed actual-store probe still refuses with `-34018` | Matching macOS profile/entitlements and provisioned bundle, then unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
 | Plaintext propagation | Presentation labels plus outgoing direct/fanout/group-send/self-sync body labels adopted through `4eaed22`. Fresh qualified-compiler proof refuses seven selected HTTP exits, passes label-removal/production controls and the 69-site disclosure gate; three send/invitation test files pass | A separate exported triple-payload parser still accepts overlapping frames; demonstrated production message exports select their labeled parsers. Close remaining semantic parser and decoded receive/history boundaries, mobile targets and release qualification |
 | Bootstrap acceptance | Scoped native RPC TLS adopted through `748270a`; retained fresh compiled-Core fixture exits zero with 37 checks and `consistent`. Parent verified its source/artifact hashes; the combined product Main build passes with 69 sites, 176 exports and exact generated bindings | Full phone/UI and platform packaging, real production-clock next-due controls, broader bootstrap acceptance and all eight scheduled production checks remain open |
-| Witness outage qualification | No new outage result adopted | Isolated integration work is connecting three real witness processes to actual Core lookups, with a real 15-minute single-witness stop and retained-state recovery. Local execution will not close the scheduled production B1 drill |
-| View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unconnected | Initial design is complete and isolated Core implementation has begun. Before freezing its contract, correct group-ID width, full-reference duplicate binding, restart key retention and legacy Consumed precedence. Real receive/native qualification remains open |
+| Witness outage qualification | Tooling adopted through `fc0e701`. Exact owner source `a66889a` passed 900.056500333 seconds with 155 native lookups and C's retained 1→31 catch-up; parent verified retained provenance and freshly rebuilt the combined sources for a passing 60-second control | Hosted B1 deployment, seven-day observation and the scheduled production outage drill remain open. The 900-second artifact predates TLS/body composition; the composed artifact has the separately recorded short control |
+| View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unconnected | Isolated storage prerequisite `924d24f` passes its scoped tests but is unadopted. Actual direct receive reproduces missing Pending and reference retention in history; the integration draft still has rejected private control flows. Resolve and qualify the complete receive path, full-reference binding, restart key retention and legacy Consumed precedence before adopting it |
 | Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
-| Mixed-asset fork filing | MPR2 codecs and authenticated unsigned proof planning exist; legacy relay/phone filing works | Durable MPR2 relay execution is active in an isolated worktree; versioned authenticated receipts, phone filing and separate bounty-asset recovery remain unadopted |
+| Mixed-asset fork filing | MPR2 codecs and authenticated unsigned proof planning exist; legacy relay/phone filing works | Isolated relay `2f5fa66` has an 80-packet local SBF proof and independent prepared-winner review; parent adoption remains pending. Phone FFS2 state/view and actual native receipt work have begun with failing old-source controls. Shared receipt extraction must use native pins; mixed-asset bounty movement remains a separate unfinished unit |
 | Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
 
 All eight §4.3 production checks remain pending. B1 shadow/outage observation,
@@ -390,11 +390,41 @@ platform packages, exact internal dispatch/receive pause points, three-canary
 bootstrap coverage and independent/funded/live qualification are not inferred.
 All eight production checks remain pending.
 
-A separate isolated worker is building the lookup/outage boundary using three
-actual standalone witness processes and a real 15-minute stop of one witness.
-It must demonstrate continuing actual Core lookups across freshness windows and
-catch-up from the stopped witness's retained state. No result has been adopted;
-this local fixture will not establish hosted B1 operation or the weekly live drill.
+### Local witness outage prerequisite — 2026-11-06
+
+The runner and fixture are adopted through `fc0e701`. Three actual unchanged
+witness pull processes use distinct synthetic keys and durable state, while a
+separate native process calls the compiled Core resolver. The directory is a
+synthetic persisted Mesh log. Anchors/RPC are disabled and OHTTP is off.
+
+On exact owner source `a66889a` (base `661a585`), witness C was absent for
+900.056500333 monotonic seconds. The resolver completed 155 lookups over 30 new
+checkpoints, with a maximum gap of 20.091857333 seconds. C kept checkpoint 1
+unchanged, restarted with the same key and state, verified the exact 1→31
+consistency range and signed checkpoint 31. Zero/one-witness, forged-checkpoint
+and forged-witness responses were refused without changing verified cache.
+All five native/witness processes exited zero. Independent final review passed.
+Parent verified 725 source hashes against the recorded Git revisions, 11
+retained artifacts and 129 evidence files; it did not rerun this 900-second
+interval.
+
+The combined TLS/body sources were rebuilt and exercised separately. After
+normalizing fixture formatting and removing one pass-through lint arm, the final
+`fc0e701` run passed 60.228649834 seconds of C's absence, eight native lookups,
+two new checkpoints and retained 1→3 recovery. All four negative controls and
+clean process exits passed. Its 327 compiler-reported module hashes match the
+353 captured inputs; the fixture contains 176 production plus seven fixture
+exports. The deadline regression, scoped formatting and full messenger lint
+pass. The earlier composed run also passed, but its superseded binaries were
+removed after hashes were retained.
+
+The [owner report](mesh-private-messenger/ops/bootstrap/witness-outage/qualification-20261106.md)
+and [composition receipt](mesh-private-messenger/ops/bootstrap/evidence/20261106/witness-outage-composition.json)
+separate the two execution scopes. Native artifacts, frozen sources, public
+state and logs remain available; duplicate copied toolchains were removed.
+This closes the local integration prerequisite only. It does not establish a
+native phone, TLS in this fixture, independent operators/software, remote
+hosting, seven-day B1 observation or any scheduled production acceptance check.
 
 ### Monitor acceptance contract — 2026-11-06
 
@@ -5955,10 +5985,12 @@ Mesh release before the app code that uses it, and Morse pins that release.
 - `jobs.mjs` / `attestWitnesses`: iterate the registry's Morse-run push witnesses
   instead of A and B.
 - Witness: a pull loop (15 s) and file state written crash-safely: write a
-  temporary file, `File.sync`, then `File.rename` over the old one, with a
-  compare-and-swap check first. This needs the two Mesh additions in "Where the
-  work lands". Continuity bootstrap is unchanged, and evidence is captured when
-  `verify_history` fails.
+  temporary file, `File.sync`, then `File.rename` over the old one. The current
+  implementation holds a SQLite `BEGIN IMMEDIATE` lock on the shared state
+  sidecar across the predecessor comparison and replacement. All writers must
+  use that same lock; a read followed by rename alone is not an atomic
+  conditional update. Continuity bootstrap is unchanged, and evidence is
+  captured when `verify_history` fails.
 - Witness history checks (§22.1 W1): refuse a checkpoint whose timestamp is more
   than 60 s from the witness's clock or not later than its last signed one, and,
   when the sequence is the next one, whose previous-checkpoint hash isn't the
@@ -5967,6 +5999,9 @@ Mesh release before the app code that uses it, and Morse pins that release.
 - Package the witness: a reproducible OCI image, `SHA256SUMS`, operator runbook.
 - Deploy **witness-c** on a Hetzner VPS in Germany (D10), in pull mode. Ship a release pinning
   B1 (a, b, c; 2 must sign).
+- Local prerequisite: the exact `a66889a` fixture passed an actual 900-second C
+  outage, 155 native lookups and retained-state catch-up. The current composed
+  branch has a separate fresh 60-second control through `fc0e701`; see §2.
 - Exit: B1 in production for 7 days; a stale backup refuses to sign; weekly
   outage drill passes.
 

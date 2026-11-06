@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "verdict": "PASS_LOCAL_OUTAGE_PREREQUISITE",
+  "production_acceptance": false,
+  "adopted_code_commit": "e76bba143667196edf7391ee89f7cee524477d3a",
+  "qualified_formatted_commit": "fc0e701203d14150bd5b7a35441200b19628e3e3",
+  "mesh_source": "8256d5d30e79f3c1de9d8507f8607f8efbee756a",
+  "owner_900_second_execution": {
+    "status": "PASS_PARENT_RETAINED_PROVENANCE_AUDIT",
+    "source_commit": "a66889ae36a281de586a864e50544adb876763a2",
+    "mesh_commit": "8256d5d30e79f3c1de9d8507f8607f8efbee756a",
+    "source_files_verified_against_git": 725,
+    "retained_artifacts_verified": 11,
+    "evidence_files_verified": 129,
+    "receipt_sha256": "e94248c9e09c3461a5607d9a7b6d3f0c1afb06def74f3fed99786a02c9adb1b3",
+    "events_sha256": "8c8f4edc04c80b97416a81c087ac37c7a77892c76a61e4f23df4fa1545f4c65f",
+    "outage_seconds": 900.056500333,
+    "native_lookup_successes": 155,
+    "checkpoint_count": 30,
+    "max_lookup_gap_seconds": 20.091857333,
+    "limits": "Owner execution evidence verified, not a parent rerun of the 900-second interval. Copied toolchain deleted; original identical family verified. No new signature verifier or production acceptance claim."
+  },
+  "fresh_parent_composed_control": {
+    "receipt_sha256": "41e8e94ebbc5699fbdc5f105cf6b19cefa229cb70f51a8b7c3f6b3e80f3e1370",
+    "events_sha256": "da0dd4820eae562168531e0fa98d0d806dd023a8c22b11c13e6441553c1750b5",
+    "build_sha256": "300e5b87020d6e26d3e6a2c57694d0df85c083e0256c695df839cd0fef157f03",
+    "status": "PASS_SHORT_ONLY",
+    "outage_seconds": 60.228649834,
+    "successful_native_lookups": 8,
+    "checkpoint_sizes": [
+      2,
+      3
+    ],
+    "max_gap_seconds": 19.876087291,
+    "four_negative_controls": true,
+    "retained_state_recovery": "1->3",
+    "all_five_processes_exit_zero": true,
+    "compiler_report_modules": 327,
+    "all_module_hashes_match_captured_sources": true,
+    "captured_source_files": 353,
+    "abi": {
+      "production_symbols": 176,
+      "fixture_symbols": 7
+    },
+    "artifacts": {
+      "libbootstrap.jni.c": "56ab9de738fadb51209eb30b2c4018036da2d8cf88edb63a9ae447aeaa8cb795",
+      "libbootstrap.dylib.plaintext.json": "dce6d87ac7369a794a982a3e35d0624411c4fcb02f4eca5d9157916222768ac4",
+      "libbootstrap.dylib": "3bdfe82459ec09ebe747f09136d4634f5eb6b69f6bc07d42882a234f12cbf9b9",
+      "libbootstrap.abi.json": "e8e643a7f3abe714ef5e8166270cbbc1dcdaa67cae8934cb777148d9d3db7592",
+      "libbootstrap.h": "e78740d130751c53bfaba6df5401c4c7966f71d5a01630c4e2df49fcf6385d0b",
+      "libbootstrap.ts": "bfe6f8678b9b4c70edc69dfabce4195d2f9605e93a3094ef05ae0fa4351ba032",
+      "libbootstrap.swift": "434cd73c3408e5c52103fb1e60c59a93f5f2e82a47f4fc405b535e3d95688b6d",
+      "libbootstrap.kt": "c0b811f4b243b41a27ef719214ef22aa0f6943656cd307a7c013bb87dc61ef0a",
+      "libbootstrap_host.dylib": "cc44a670d8f4ae520604eb0804ee2228288327adb22e7a887c291f7fc36073dd",
+      "witness-service": "ba503302e82636f1a483754542c60a9cfc3db8b906be89d16e738d4f4bd5f649",
+      "build.log": "caf7b2b5fdc1b6a60cfd4d13fe7a68b78878093af402a2559e983f2a614eb7ce"
+    }
+  },
+  "parent_checks": {
+    "deadline_regression": "PASS",
+    "deadline_log_sha256": "9152bd257679336b40c628719f593ad31d6a57b4b0f6b839cb7ee8dbb189fcb2",
+    "messenger_lint": "empty",
+    "lint_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "format": "PASS",
+    "initial_lint": "one fixture pass-through arm; fixed without changing behavior; fresh final native proof rerun"
+  },
+  "cleanup": {
+    "manifest_sha256": "1add96a3d2ae192db98d0e94171c08e911bbe951b6edf3a1d7f6d7a67dc79f1e",
+    "removed_logical_bytes": 635670264,
+    "retained": "Final composed native library/bridge/witness, all manifests/reports/source copies/evidence; owner900 family and shared qualified Mesh untouched"
+  },
+  "evidence_root": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/outage-adoption",
+  "limits": [
+    "900-second execution reused from exact a66889a; current composed sources freshly exercised for60seconds only.",
+    "Synthetic loopback directory; actual unchanged witness pull service and actual Core functions inside183-export fixturelibrary.",
+    "Anchors/RPCdisabled and OHTTPoff; noTLS,phone,hostedB1,independentoperator,seven-day,productionacceptanceclaim."
+  ]
+}
