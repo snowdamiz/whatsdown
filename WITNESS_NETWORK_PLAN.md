@@ -292,9 +292,17 @@ The replacement Grok review completed 32 probes with no verified plaintext
 leak; all 102 retained source/report/log receipts match. It found a conservative
 builtin conversion mismatch: private `Int` → `String` through `?` is refused,
 while the equivalent explicit conversion works. The public implicit form also
-fails to link through a pre-existing builtin-lowering gap. A separate generic
-language correction is in progress; this finding does not invalidate the
-qualified user-defined `From` path or permit private payload disclosure.
+failed to link through a pre-existing builtin-lowering gap. Pushed Mesh
+`8256d5d3` corrects all four builtin pairs using shared primitive identities and
+ordinary runtime calls, retaining private payload/control dependencies and
+user-defined conversion effects. Its 17 local gates and 34 retained probes pass,
+including actual binaries at optimization levels 0 and 2. Twenty runtime tests
+and one PostgreSQL e2e remain ignored; fuzz targets were built, not fuzzed.
+Independent source review found no defect. Parent adoption verified all 150
+receipt files and 1,482 source hashes, then passed six fresh public/tag/private
+payload/effect and original implicit/explicit probes. This is local macOS ARM64
+compiler qualification; the new artifact is not a published release or a fresh
+native-app qualification. The 5.2 GB owned build target was removed after proof.
 
 ### Progress summary — 2026-10-31
 
