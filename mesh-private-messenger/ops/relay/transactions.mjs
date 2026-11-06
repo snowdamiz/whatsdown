@@ -216,6 +216,11 @@ function prepareMixedRelayTransactions(plan,pins){
       }else if(reason==='seal_proof_stage'){
         exact(ix,[payer,plan.log,stage],[S,R,W]);
         if(ix.data.toString('hex')!=='0c')fail('Invalid mixed relay seal');kind='seal';id='seal';
+      }else if(reason==='migrate_legacy_bond'){
+        const keys=ix.accounts.map(a=>a.address),witness=ix.data[1]===1;
+        if(tag!==33||ix.data.length!==2||ix.data[1]>1||keys.length!==(witness?5:4))fail('Invalid mixed relay bond migration');
+        exact(ix,[plan.log,keys[1],keys[2],keys[3],...(witness?[keys[4]]:[])],[R,W,R,W,...(witness?[R]:[])]);
+        kind='migrate';id=`migrate/${keys[3]}`;
       }else if(reason==='verify_one_signature'){
         if(instructions.length!==2||instructions[0].programAddress!==ED||instructions[0].accounts.length||tag!==13||ix.data.length!==4||ix.data.readUInt16LE(2)!==0)fail('Invalid mixed relay precompile pair');
         const ed=instructions[0].data,ordinal=ix.data[1];
@@ -305,7 +310,7 @@ export function relayStepEffect(step,plan){
   if(plan.schema_version===2)return {...result,reason:recipe.reason,stepId:step.id,
     operationDigest:relayStepIntent(step),instructions:structuredClone(recipe.reports),
     ...(step.kind==='close-stage'?{meshEffect:{schema_version:1,reason:'explicit_stage_close',full_hash:plan.stage.full_hash}}:
-      plan.operation?.effect&&['initialize','append','seal','verify','prepare','setup','settle'].includes(step.kind)?{meshEffect:structuredClone(plan.operation.effect)}:{}),
+      plan.operation?.effect&&['initialize','append','seal','verify','migrate','prepare','setup','settle'].includes(step.kind)?{meshEffect:structuredClone(plan.operation.effect)}:{}),
     lookup:recipe.lookup?structuredClone(recipe.lookup):null};
   if(recipe.kind==='append'){
     const data=recipe.instructions[0].data;result.receivedBytes=data.readUInt16LE(1)+data.length-3;

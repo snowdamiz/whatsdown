@@ -43,3 +43,17 @@ test('versioned admission refuses changed mints, proof bytes, payer roles and un
     const p=initial();mutate(p);assert.throws(()=>admit(p));
   }
 });
+
+test('legacy USDC migration is a permissionless journaled Mesh operation with no token transfer or rent',async()=>{
+  const keys=[log,addresses[7],addresses[8],addresses[9],addresses[10]];
+  const p=plan('migrate_legacy_bond',[ix(keys,Buffer.from([33,1]),[],[keys[1],keys[3]])]);
+  p.operation.effect={schema_version:1,full_hash:p.stage.full_hash,reason:'migrate_legacy_bond',bond:keys[3]};
+  const prepared=admit(p),step=prepared.preparation[0];
+  assert.equal(step.kind,'migrate');assert.equal(step.id,`migrate/${keys[3]}`);
+  assert.deepEqual(relayStepEffect(step,p).meshEffect,p.operation.effect);
+  const signer=await createKeyPairSignerFromPrivateKeyBytes(new Uint8Array(32).fill(1));
+  const signed=await signRelayStep(step,signer,{blockhash:SYSTEM,lastValidBlockHeight:500n});
+  const tx=getTransactionDecoder().decode(Buffer.from(signed.wire,'base64'));
+  assert.deepEqual(Object.keys(tx.signatures),[payer]);
+  assert.deepEqual(relayStepMessage(step,{blockhash:SYSTEM,lastValidBlockHeight:500n}).rentAllocations,[]);
+});
