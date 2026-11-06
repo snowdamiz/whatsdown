@@ -1,0 +1,6 @@
+  ✓ native anchor activation derives the release-pinned ring and rejects substituted identities
+  ✓ native v5 preserves derived anchor identity checks
+
+2 passed in 0.01s
+
+1 test file passed in 32.28s

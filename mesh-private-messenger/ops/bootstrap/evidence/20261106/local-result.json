@@ -1,0 +1,83 @@
+{
+  "status": "BLOCKED_NATIVE_RPC_TLS",
+  "checks": [
+    {
+      "name": "three owned HTTPS peers with explicit request root",
+      "status": "PASS"
+    },
+    {
+      "name": "native lookup commits verified cache",
+      "status": "PASS",
+      "before_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52",
+      "after_sha256": "e5f97d0f74d6a44ec153839e478677415f8c31b155dba7cd5f5d909732e04e61",
+      "resolved_sha256": "25f7aad86aed07897d0912774e19f23c709114c523af4baa3dd997a1eb749d61"
+    },
+    {
+      "name": "corrupted directory signature refused; prior cache unchanged",
+      "status": "PASS",
+      "error": "transparency_verification_failed",
+      "cache_sha256": "e5f97d0f74d6a44ec153839e478677415f8c31b155dba7cd5f5d909732e04e61"
+    },
+    {
+      "name": "process restart retains verified checkpoint and lookup continuity basis",
+      "status": "PASS"
+    },
+    {
+      "name": "anchor completed result and reservation survive process restart",
+      "status": "PASS",
+      "anchor_status": "rpc_unavailable",
+      "schedule_sha256": "840e0226875b00446c906ecbf82daca8ae7eda0b861ece5e3d1e7c63696d6988"
+    },
+    {
+      "name": "native release pins refuse HTTP loopback RPCs before I/O",
+      "status": "PASS",
+      "error": "invalid_messenger_configuration"
+    }
+  ],
+  "anchor_result": [
+    "rpc_unavailable",
+    "1793993862841",
+    "0",
+    "0",
+    "0"
+  ],
+  "rpc_http_requests": 0,
+  "directory_requests": 7,
+  "lookup_previous_sizes": [
+    "0",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1"
+  ],
+  "acceptance_gate": {
+    "expected": "consistent",
+    "actual": "rpc_unavailable",
+    "status": "FAIL"
+  },
+  "not_run": [
+    "RPC disagreement",
+    "stale/incorrect anchor",
+    "missing-cache anchor control",
+    "next daily boundary",
+    "three canaries"
+  ],
+  "public_fixture_hashes": {
+    "devices.hex": "fdf38cde1adc9bbf34b00e48c73a9fa614a11cd8ece1b3c27f95fb5484e3ea68",
+    "security": "243abed2c7b6ba40a4c4708db17bae32da43d0686bb50b6e6f23e55a9b36d3ab",
+    "forged-1.hex": "2b41830bc49083f867af7d617d5e69757eadf181b791f07e5a09fb1697f3fd85",
+    "forged-0.hex": "ca83e764ae305c529ff96a08785afa1c912d54e017bd18699d8e148cb49505f4",
+    "network": "4f24877dbe96a83e7d2df41c4b9273af2b177fb441368ef1267c593b4d9ba659",
+    "evidence-1.hex": "f71888b1f2704b823345908ff807994f08a0bc793eaaded7fe026fcbc2ccbf10",
+    "evidence-0.hex": "48fa344c26ed69cc7c50a1c200ce77a49d0b0e950a04ae5267c634286a980526",
+    "checkpoint.hex": "6802b83ba069d4ded5c47d194d1547b2b78acf69c6c33dcda5a1f1476bfe59ae",
+    "ca.pem": "69bc73a8b4928f5d3a950d2cf6b7b4d1ec2b55f1c0c41999cfc770960455c101",
+    "log.hex": "62465c572a9596b979351de74de733b76f8ab7109253c8d9524a2abfcc5a6de1",
+    "ring-entry.hex": "53f5c38fd826ee44bca29d3bd3d35d5407c20cdda7e32d7ff4b5e4ed3fcc3c02",
+    "header.hex": "b871f1c9175c46a3d1679b3cfb93ea55c6f8fe301cbf69fd15be85ebccf22a14",
+    "ohttp": "a34b78f6c6af46c0cfa9c674257805f7de1db6945866674869d243dbab70e241",
+    "entry.hex": "d1a53c7d6250fb2444bff22e882ed6b9892fec07f2750d4f858430a638482178"
+  }
+}

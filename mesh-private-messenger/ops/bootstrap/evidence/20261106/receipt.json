@@ -1,0 +1,155 @@
+{
+  "scope": "LOCAL synthetic fixture; NOT native phone or production acceptance",
+  "production_checks": [
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending",
+    "pending"
+  ],
+  "ohttp": "explicit off",
+  "base": "0e00cf20c8350c0367325d1e7899bbcb3d5a56c9",
+  "mesh_source": "8256d5d30e79f3c1de9d8507f8607f8efbee756a",
+  "toolchain": {
+    "meshc": {
+      "source": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85"
+    },
+    "libmesh_rt.a": {
+      "source": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8"
+    },
+    "libmesh_test_rt.a": {
+      "source": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33"
+    }
+  },
+  "artifacts": {
+    "libbootstrap_host.dylib": "0968df3c4a3d0022d65b9af73fe5eeabc7838fffce124e2ec4af13cd5727faf2",
+    "libbootstrap.jni.c": "aa39f785ba7d87b1841091580acf26752f556aca4879b1c6dab3ca7c8fa950d7",
+    "libbootstrap.dylib.plaintext.json": "4662e1037bd5a0c9f8b6c3dd048cdc9ab79841415add34c237c56c4a509edfef",
+    "libbootstrap.dylib": "4729304574c5a5f673499caa19806a9cc58e2a36645477c209c933a9440e571d",
+    "libbootstrap.abi.json": "4eee2123cdb47a3e4396407a5b90ca0070b41cf8d295e00f9ac2571d5b09e9e1",
+    "libbootstrap.h": "5ca63d6c4074fe412071e681b3691d5fc1f17e4c23d602790ec9114822624136",
+    "libbootstrap.ts": "b0e23445c23c92487b212eaf5bb49990a54e9ac0d63f58579f1fd474befb2732",
+    "libbootstrap.swift": "3b8e7e955eb28f92ffb2896b1ca77b6ea93434e52a4bccffa1d6b9b0ca759f0a",
+    "libbootstrap.kt": "e7329a444d10559360b389149e7b9e0bba06fb2c41c75be12db580c39d2906df",
+    "build.log": "17fbf3ef3ff37e7fc6f62bebf81068cc681aa746feb834d72aa9e99a34c9d11e",
+    "local-result.json": "7e6e13d4c37756de7cb5641ac44ce750cfebfe2a4ca973cc55297cfb807f8f20"
+  },
+  "commands": [
+    [
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/toolchain/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/driver",
+      "--artifact",
+      "cdylib",
+      "--opt-level",
+      "2",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/libbootstrap.dylib"
+    ],
+    [
+      "cc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-dynamiclib",
+      "-fPIC",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/driver/abi_host.c",
+      "-I",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/libbootstrap.dylib",
+      "-Wl,-rpath,/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_/libbootstrap_host.dylib"
+    ]
+  ],
+  "status": "BLOCKED_NATIVE_RPC_TLS",
+  "c_compiler": "Apple clang version 21.0.0 (clang-2100.4.1.1)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+  "checks": [
+    {
+      "name": "three owned HTTPS peers with explicit request root",
+      "status": "PASS"
+    },
+    {
+      "name": "native lookup commits verified cache",
+      "status": "PASS",
+      "before_sha256": "160265b39f5107dbd4a91306b052941f560b9162ac0cb5d3a0c49754253b3e52",
+      "after_sha256": "e5f97d0f74d6a44ec153839e478677415f8c31b155dba7cd5f5d909732e04e61",
+      "resolved_sha256": "25f7aad86aed07897d0912774e19f23c709114c523af4baa3dd997a1eb749d61"
+    },
+    {
+      "name": "corrupted directory signature refused; prior cache unchanged",
+      "status": "PASS",
+      "error": "transparency_verification_failed",
+      "cache_sha256": "e5f97d0f74d6a44ec153839e478677415f8c31b155dba7cd5f5d909732e04e61"
+    },
+    {
+      "name": "process restart retains verified checkpoint and lookup continuity basis",
+      "status": "PASS"
+    },
+    {
+      "name": "anchor completed result and reservation survive process restart",
+      "status": "PASS",
+      "anchor_status": "rpc_unavailable",
+      "schedule_sha256": "840e0226875b00446c906ecbf82daca8ae7eda0b861ece5e3d1e7c63696d6988"
+    },
+    {
+      "name": "native release pins refuse HTTP loopback RPCs before I/O",
+      "status": "PASS",
+      "error": "invalid_messenger_configuration"
+    }
+  ],
+  "anchor_result": [
+    "rpc_unavailable",
+    "1793993862841",
+    "0",
+    "0",
+    "0"
+  ],
+  "rpc_http_requests": 0,
+  "directory_requests": 7,
+  "lookup_previous_sizes": [
+    "0",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1"
+  ],
+  "acceptance_gate": {
+    "expected": "consistent",
+    "actual": "rpc_unavailable",
+    "status": "FAIL"
+  },
+  "not_run": [
+    "RPC disagreement",
+    "stale/incorrect anchor",
+    "missing-cache anchor control",
+    "next daily boundary",
+    "three canaries"
+  ],
+  "public_fixture_hashes": {
+    "devices.hex": "fdf38cde1adc9bbf34b00e48c73a9fa614a11cd8ece1b3c27f95fb5484e3ea68",
+    "security": "243abed2c7b6ba40a4c4708db17bae32da43d0686bb50b6e6f23e55a9b36d3ab",
+    "forged-1.hex": "2b41830bc49083f867af7d617d5e69757eadf181b791f07e5a09fb1697f3fd85",
+    "forged-0.hex": "ca83e764ae305c529ff96a08785afa1c912d54e017bd18699d8e148cb49505f4",
+    "network": "4f24877dbe96a83e7d2df41c4b9273af2b177fb441368ef1267c593b4d9ba659",
+    "evidence-1.hex": "f71888b1f2704b823345908ff807994f08a0bc793eaaded7fe026fcbc2ccbf10",
+    "evidence-0.hex": "48fa344c26ed69cc7c50a1c200ce77a49d0b0e950a04ae5267c634286a980526",
+    "checkpoint.hex": "6802b83ba069d4ded5c47d194d1547b2b78acf69c6c33dcda5a1f1476bfe59ae",
+    "ca.pem": "69bc73a8b4928f5d3a950d2cf6b7b4d1ec2b55f1c0c41999cfc770960455c101",
+    "log.hex": "62465c572a9596b979351de74de733b76f8ab7109253c8d9524a2abfcc5a6de1",
+    "ring-entry.hex": "53f5c38fd826ee44bca29d3bd3d35d5407c20cdda7e32d7ff4b5e4ed3fcc3c02",
+    "header.hex": "b871f1c9175c46a3d1679b3cfb93ea55c6f8fe301cbf69fd15be85ebccf22a14",
+    "ohttp": "a34b78f6c6af46c0cfa9c674257805f7de1db6945866674869d243dbab70e241",
+    "entry.hex": "d1a53c7d6250fb2444bff22e882ed6b9892fec07f2750d4f858430a638482178"
+  },
+  "sources_manifest_sha256": "e2786eeee7fb5dc605916ce65ecd8106b453a1c3c0f74297fe02d7ea2388759c",
+  "work": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-c9b99c83/.morse/bootstrap-native/qualified/bootstrap-native-o_q0d12_"
+}
