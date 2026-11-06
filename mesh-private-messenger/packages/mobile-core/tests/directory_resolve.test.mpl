@@ -343,6 +343,7 @@ fn run_case(mode :: Int) -> Result<(), String> do
     Ok(value) -> value
   end
   let security = encode_security_config(native_security_config()?)?
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   assert(Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"),
     Bytes.from_utf8("1\n"
       <> Bytes.to_hex(Crypto.sha256(network))

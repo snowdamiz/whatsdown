@@ -1,5 +1,7 @@
 from Mobile.OhttpContext import (
   capture_native_ohttp_context,
+  capture_native_ohttp_context_bounded,
+  require_current_ohttp_context_bounded,
   require_current_ohttp_context,
   require_ohttp_completion_time,
   fetch_guarded_ohttp_prekey
@@ -53,6 +55,7 @@ fn install(revision :: String) -> Result<(), String> do
   assert(Test.set_push_token(bytes("messenger/network/v1"), network()))
   assert(Test.set_push_token(bytes("messenger/config/v1"), security()))
   assert(Test.set_push_token(bytes("messenger/ohttp/v1"), frame(revision, network(), security())?))
+  assert(Test.set_push_token(bytes("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   Ok(nil)
 end
 
@@ -87,6 +90,13 @@ fn revisions() -> Bool!String do
   let first = fence(path)?
   let again = capture_native_ohttp_context(path, original)?
   assert(Bytes.secure_equals(first, fence(path)?))
+  require_current_ohttp_context(path, again)?
+  # Root authority belongs to the captured operation, including explicit-off
+  # mode. It must retire the old operation without changing the OHTTP fence.
+  assert(Test.set_push_token(bytes("messenger/rpc-tls-roots/v1"), bytes("changed RPC authority")))
+  assert(fails(require_current_ohttp_context(path, again), "account_state_changed"))
+  assert(Bytes.secure_equals(first, fence(path)?))
+  assert(Test.set_push_token(bytes("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   require_current_ohttp_context(path, again)?
   install("6")?
   assert(case capture_native_ohttp_context(path, original) do
@@ -142,10 +152,12 @@ fn native_sources() -> Bool!String do
   let path = created("ohttp-sources")?
   let original = profile(path)?
   let context = capture_native_ohttp_context(path, original)?
-  for selector in ["messenger/network/v1", "messenger/config/v1", "messenger/ohttp/v1"] do
+  let bounded = capture_native_ohttp_context_bounded(path, original)?
+  for selector in ["messenger/network/v1", "messenger/config/v1", "messenger/ohttp/v1", "messenger/rpc-tls-roots/v1"] do
     install("1")?
     assert(Test.set_push_token(bytes(selector), bytes("changed raw frame")))
     assert(fails(require_current_ohttp_context(path, context), "account_state_changed"))
+    assert(fails(require_current_ohttp_context_bounded(path, bounded), "account_state_changed"))
   end
   install("1")?
   assert(Result.is_err(fetch_guarded_ohttp_prekey(path, context, bytes("no direct request"), 100)))
@@ -201,7 +213,7 @@ test("account-scoped OHTTP highwater survives reopen and refuses rollback/rebind
   end
 end
 
-test("native OHTTP context compares all three raw resources and requires explicit validated off") do
+test("native OHTTP context compares all four raw resources and requires explicit validated off") do
   case native_sources() do
     Err(error) -> do
       println(error)

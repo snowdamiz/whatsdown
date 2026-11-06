@@ -55,6 +55,7 @@ pub fn capture_configure(f :: D4CoreFixture, port :: Int) -> Unit!String do
       "0"
     ],
     "\n"))
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   if !Test.set_push_token(Bytes.from_utf8("messenger/network/v1"), network)
     || !Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"), companion) do
     return Err("capture_fixture_network")

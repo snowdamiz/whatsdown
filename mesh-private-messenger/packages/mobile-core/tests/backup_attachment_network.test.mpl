@@ -37,6 +37,7 @@ fn configure_reader(f :: D4CoreFixture, port :: Int) -> Unit!String do
     Bytes.to_hex(Crypto.sha256(encode_security_config(f.config)?)),
     "2", "off", "0"
   ], "\n"))
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   if !Test.set_push_token(Bytes.from_utf8("messenger/network/v1"), network)
     || !Test.set_push_token(Bytes.from_utf8("messenger/ohttp/v1"), companion)
     || !Test.set_push_token(Bytes.from_utf8("messenger/issuer-tls-root/v1"), Bytes.from_hex("01000000000000")?) do

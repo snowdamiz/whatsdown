@@ -1221,6 +1221,10 @@ fn verify_transparency_with_profile(request :: MobileTransparencyRequest,
   end
   if changed do
     check_native_anchor_view(request.database_path,
+      case before do
+        None
+        Some(value) -> Some(value.context)
+      end,
       encode_checkpoint(evidence.checkpoint)?,
       request.directory_url,
       evidence.witnesses,
