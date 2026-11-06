@@ -1,4 +1,5 @@
 from Transparency.AnchorChain import AnchorPins, AnchorAddresses, anchor_addresses
+from Transparency.RpcTransport import webpki_rpc_transport
 from Mobile.AnchorCheck import (
   AnchorObservation,
   AnchorView,
@@ -192,7 +193,7 @@ fn scheduled(local :: TransparencyCheckpoint,
     ring: addresses.ring,
     log_name: "morse-main",
     log_id: addresses.log_id,
-    endpoints: ["http://127.0.0.1:19084/", "http://127.0.0.1:19085/", "http://127.0.0.1:19086/"]
+    rpc: webpki_rpc_transport(["http://127.0.0.1:19084/", "http://127.0.0.1:19085/", "http://127.0.0.1:19086/"])?
   }
   for port in 19084..19087 do
     let _rpc = spawn(rpc, port, anchored, mode)
@@ -508,7 +509,7 @@ fn proof() -> Bool!String do
     calls)
   Timer.sleep(100)
   let origin = "http://127.0.0.1:19081"
-  let good = compare_anchor(origin, local, public_entry, 7, signer.public_key.bytes)?
+  let good = compare_anchor(origin, local, public_entry, 7, signer.public_key.bytes, fn() do Ok(nil) end)?
   assert(good.status == "consistent" && Bytes.length(good.fork) == 0)
   assert(Bytes.secure_equals(good.checkpoint, encode_checkpoint(anchored)?))
   assert(File.read(calls)? == "cp")
@@ -541,10 +542,11 @@ fn proof() -> Bool!String do
     newer,
     entry(earlier)?,
     7,
-    signer.public_key.bytes)?.status == "consistent")
+    signer.public_key.bytes,
+    fn() do Ok(nil) end)?.status == "consistent")
   for setting in ["missing", "checkpoint", "proof", "down", "proof-down"] do
     File.write(mode, setting)?
-    let result = compare_anchor(origin, local, public_entry, 7, signer.public_key.bytes)?
+    let result = compare_anchor(origin, local, public_entry, 7, signer.public_key.bytes, fn() do Ok(nil) end)?
     let expected = if setting == "down" || setting == "proof-down" do
       "proof_unavailable"
     else
@@ -559,13 +561,15 @@ fn proof() -> Bool!String do
     local,
     %{public_entry | checkpoint_hash: repeated(5, 32)?},
     7,
-    signer.public_key.bytes)?.status == "mismatch")
+    signer.public_key.bytes,
+    fn() do Ok(nil) end)?.status == "mismatch")
   # Equal sizes still require the exact served checkpoint commitment.
   assert(compare_anchor(origin,
     anchored,
     public_entry,
     7,
-    signer.public_key.bytes)?.status == "consistent")
+    signer.public_key.bytes,
+    fn() do Ok(nil) end)?.status == "consistent")
   let contradictory = sign_tree_checkpoint_for(2,
     signer.private_key,
     signer.public_key.bytes,
@@ -576,7 +580,7 @@ fn proof() -> Bool!String do
     wide(3000)?)?
   File.write(mode <> ".checkpoint", Bytes.to_hex(encode_checkpoint(contradictory)?))?
   File.write(mode, "served-fork")?
-  let served_fork = compare_anchor(origin, local, public_entry, 7, signer.public_key.bytes)?
+  let served_fork = compare_anchor(origin, local, public_entry, 7, signer.public_key.bytes, fn() do Ok(nil) end)?
   assert(served_fork.status == "mismatch")
   assert(decode_fork(served_fork.fork)?.kind == 1)
   assert(decode_fork(served_fork.fork)?.second == AnchorReference(7))
@@ -593,15 +597,16 @@ fn proof() -> Bool!String do
     local,
     public_entry,
     7,
-    signer.public_key.bytes)?.fork)?
+    signer.public_key.bytes,
+    fn() do Ok(nil) end)?.fork)?
   assert(signed.kind == 1 && signed.second == SignedCheckpoint(earlier_fork))
   File.write(mode <> ".checkpoint",
     Bytes.to_hex(encode_checkpoint(%{contradictory | signature: repeated(0, 64)?})?))?
-  let forged = compare_anchor(origin, local, public_entry, 7, signer.public_key.bytes)?
+  let forged = compare_anchor(origin, local, public_entry, 7, signer.public_key.bytes, fn() do Ok(nil) end)?
   assert(forged.status == "mismatch" && Bytes.length(forged.fork) == 0)
   File.delete(mode <> ".checkpoint")?
   File.write(mode, "down")?
-  let conflict = compare_anchor(origin, contradictory, public_entry, 7, signer.public_key.bytes)?
+  let conflict = compare_anchor(origin, contradictory, public_entry, 7, signer.public_key.bytes, fn() do Ok(nil) end)?
   assert(conflict.status == "mismatch")
   let fork = decode_fork(conflict.fork)?
   assert(fork.kind == 1 && fork.second == AnchorReference(7))
@@ -614,11 +619,11 @@ fn proof() -> Bool!String do
     local.tree_root,
     checkpoint_hash(anchored)?,
     wide(3000)?)?
-  let smaller = compare_anchor(origin, rollback, public_entry, 7, signer.public_key.bytes)?
+  let smaller = compare_anchor(origin, rollback, public_entry, 7, signer.public_key.bytes, fn() do Ok(nil) end)?
   assert(smaller.status == "mismatch" && decode_fork(smaller.fork)?.kind == 3)
   # A cached checkpoint from another version/key is never treated as a fork.
   for invalid in [%{local | version: 1}, %{local | signature: repeated(0, 64)?}] do
-    case compare_anchor(origin, invalid, public_entry, 7, signer.public_key.bytes) do
+    case compare_anchor(origin, invalid, public_entry, 7, signer.public_key.bytes, fn() do Ok(nil) end) do
       Err(_) -> nil
       Ok(_) -> assert(false)
     end

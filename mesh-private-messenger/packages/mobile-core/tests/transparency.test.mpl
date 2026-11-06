@@ -1,5 +1,6 @@
 from Mobile.Codec import current_time, mobile_write_u64
 from Transparency.AnchorChain import AnchorPins, configured_anchor_pins
+from Transparency.RpcTransport import webpki_rpc_transport
 from Mobile.AnchorCheck import anchor_identity
 from Mobile.AnchorSchedule import AnchorClaim, claim_anchor_check, finish_anchor_check
 from Transparency.Config import SecurityConfig, decode_security_config, encode_security_config
@@ -455,7 +456,7 @@ fn proof() -> Bool!String do
     rpc_urls: ["https://one.example", "https://two.example", "https://three.example"]
   }
   assert(Test.set_push_token(Bytes.from_utf8("messenger/config/v1"), encode_security_config(v4)?))
-  let pins = case configured_anchor_pins(v4)? do
+  let pins = case configured_anchor_pins(v4, webpki_rpc_transport(v4.rpc_urls)?)? do
     Some(value) -> value
     None -> return Err("missing anchor pins")
   end

@@ -1,8 +1,10 @@
 from Transparency.AnchorChain import AnchorPins, AnchorAddresses, anchor_addresses
+from Transparency.RpcTransport import RpcTls, rpc_endpoint, rpc_transport, webpki_rpc_transport
 from Mobile.AnchorCheck import (
   AnchorObservation,
   check_anchor_at,
   anchor_identity,
+  anchor_service_refused,
   load_anchor_observation
 )
 from Mobile.Codec import mobile_join, mobile_append, mobile_byte
@@ -143,7 +145,7 @@ fn pins() -> AnchorPins!String do
     ring: addresses.ring,
     log_name: "morse-main",
     log_id: addresses.log_id,
-    endpoints: ["http://127.0.0.1:19061/", "http://127.0.0.1:19062/", "http://127.0.0.1:19063/"]
+    rpc: webpki_rpc_transport(["http://127.0.0.1:19061/", "http://127.0.0.1:19062/", "http://127.0.0.1:19063/"])?
   })
 end
 
@@ -253,10 +255,24 @@ fn proof() -> Bool!String do
   let refused = check_anchor_at(path, key, pinned, service_key, 2, wide("12600000")?, true)?
   assert(refused.status == "service_slashed")
   assert(load_anchor_observation(path, key, identity)?.status == "service_slashed")
+  assert(anchor_service_refused(path, key)?)
   case require_log_changes_allowed(path, key) do
     Err(error) -> assert(error == "anchor_service_slashed")
     Ok(_) -> assert(false)
   end
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"),
+    Bytes.from_utf8("malformed")))
+  assert(anchor_service_refused(path, key)?)
+  case require_log_changes_allowed(path, key) do
+    Err(error) -> assert(error == "anchor_service_slashed")
+    Ok(_) -> assert(false)
+  end
+  let other_rpc = rpc_transport([
+    rpc_endpoint("https://replacement.example/rpc",
+      OriginRoots("https://replacement.example", Bytes.from_utf8("changed roots")))?
+  ], fn() do Ok(nil) end)?
+  assert(Bytes.secure_equals(anchor_identity(%{pinned | rpc: other_rpc}, service_key, 2)?, identity))
+  assert(load_anchor_observation(path, key, identity)? == refused)
   # A later outage or an unslashed response cannot erase an authenticated slash.
   File.write(mode, "down")?
   let after_slash = for name in calls do
