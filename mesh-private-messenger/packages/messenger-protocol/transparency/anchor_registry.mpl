@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import RpcEndpoint, RpcTransport, rpc_urls, rpc_fatal_error
 from Solana.Read import (
   Pubkey,
   AccountInfo,
@@ -72,7 +73,7 @@ fn key(pins :: AnchorPins, entry :: KeyedAccountInfo, status :: Int) -> WitnessK
   Ok(value)
 end
 
-fn read(endpoint :: String,
+fn read(endpoint :: RpcEndpoint,
   pins :: AnchorPins,
   status :: Int,
   minimum :: U64) -> ProgramAccountsAtSlot!String do
@@ -86,7 +87,7 @@ fn read(endpoint :: String,
     ],
     "finalized",
     Some(minimum))?
-  let snapshot = program_accounts_from_response(read_anchor_rpc_response(endpoint, request, 65536)?,
+  let snapshot = program_accounts_from_response(read_anchor_rpc_response(pins.rpc, endpoint, request, 65536)?,
     64)?
   if U64.compare(snapshot.slot, minimum) < 0 do
     return Err("invalid_anchor_registry")
@@ -131,13 +132,25 @@ fn agree(first :: ProgramAccountsAtSlot!String,
 end
 
 fn quorum(pins :: AnchorPins, status :: Int, minimum :: U64) -> ProgramAccountsAtSlot!String do
-  let first = read(List.get(pins.endpoints, 0), pins, status, minimum)
-  let second = read(List.get(pins.endpoints, 1), pins, status, minimum)
+  let first = read(List.get(pins.rpc.sources, 0), pins, status, minimum)
+  case first do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
+  let second = read(List.get(pins.rpc.sources, 1), pins, status, minimum)
+  case second do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = read(List.get(pins.endpoints, 2), pins, status, minimum)
+  let third = read(List.get(pins.rpc.sources, 2), pins, status, minimum)
+  case third do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, third) do
     Some(value) -> return Ok(value)
     None -> nil
@@ -170,7 +183,7 @@ pub fn read_collectible_witnesses(pins :: AnchorPins,
   if !pubkey_equal(derived.ring, pins.ring) || !Bytes.secure_equals(derived.log_id, pins.log_id) do
     return Err("invalid_anchor_pins")
   end
-  validate_anchor_sources(pins.endpoints)?
+  validate_anchor_sources(rpc_urls(pins.rpc))?
   let active = quorum(pins, 1, minimum)?
   let unbonding = quorum(pins, 2, active.slot)?
   let active_again = quorum(pins, 1, unbonding.slot)?

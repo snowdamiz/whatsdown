@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RelayStageRead import (
   RelayStageState,
   RelayStageVerified,
@@ -102,9 +103,9 @@ fn read(fixture :: Json,
     ring: addresses.ring,
     log_id: addresses.log_id,
     log_name: text(fixture, "log_name")?,
-    endpoints: for provider in 0..3 do
+    rpc: webpki_rpc_transport(for provider in 0..3 do
       "http://127.0.0.1:#{19969 + provider}/#{index}/#{sample}/#{List.get(modes, provider)}"
-    end
+    end)?
   }
   read_relay_stage(pins,
     bytes(fixture, "service_key")?,

@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RelayAdmission import RelayAdmission, RelaySettlementPlan, admit_relay_fork
 from Transparency.RelayReport import relay_admission_report
 from Transparency.RelayStage import RelayStagePlan, RelayStageSignature, RelayStageWitness
@@ -275,9 +276,9 @@ fn read(value :: Json,
     ring: addresses.ring,
     log_id: addresses.log_id,
     log_name: text(value, "log_name")?,
-    endpoints: for node in 0..3 do
+    rpc: webpki_rpc_transport(for node in 0..3 do
       "http://127.0.0.1:#{19960 + node}/#{index}/#{List.get(modes, node)}"
-    end
+    end)?
   }
   admit_relay_fork(pins,
     bytes(value, "service_key")?,
@@ -308,9 +309,9 @@ fn destinations(value :: Json,
     ring: addresses.ring,
     log_id: addresses.log_id,
     log_name: text(value, "log_name")?,
-    endpoints: for node in 0..3 do
+    rpc: webpki_rpc_transport(for node in 0..3 do
       "http://127.0.0.1:#{19960 + node}/#{index}/#{List.get(modes, node)}"
-    end
+    end)?
   }
   read_relay_destinations(pins,
     bytes(value, "service_key")?,

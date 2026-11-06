@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import Pubkey, AccountInfo, AccountSlice, OptionalAccountSlicesAtSlot, pubkey
 from Solana.Address import ProgramDerivedAddress, find_program_address
 from Transparency.AnchorChain import AnchorPins, AnchorAddresses, anchor_addresses
@@ -57,7 +58,7 @@ fn pins(endpoints :: List<String>) -> AnchorPins!String do
     ring: addresses.ring,
     log_name: "morse-main",
     log_id: addresses.log_id,
-    endpoints: endpoints
+    rpc: webpki_rpc_transport(endpoints)?
   })
 end
 

@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import RpcEndpoint, RpcTransport, rpc_urls, rpc_fatal_error
 from Solana.Read import (
   Pubkey,
   AccountInfo,
@@ -11,41 +12,53 @@ from Transparency.AnchorRpc import validate_anchor_sources, read_anchor_rpc_resp
 # Whole-batch agreement prevents mixing individually authentic accounts across
 # deposits, withdrawals, witness rotation or slashes. Owners remain part of the
 # agreement and must also be checked against each account's expected program.
-pub fn read_anchor_accounts(endpoints :: List<String>,
+pub fn read_anchor_accounts(rpc :: RpcTransport,
   addresses :: List<Pubkey>,
   minimum_slot :: U64) -> OptionalAccountsAtSlot!String do
-  read_anchor_accounts_bounded(endpoints, addresses, minimum_slot, 4096)
+  read_anchor_accounts_bounded(rpc, addresses, minimum_slot, 4096)
 end
 
 # Larger fixed-layout readers opt in explicitly. The response cap still bounds
 # the whole batch; this does not permit fetching an unbounded ring or registry.
-pub fn read_anchor_accounts_bounded(endpoints :: List<String>,
+pub fn read_anchor_accounts_bounded(rpc :: RpcTransport,
   addresses :: List<Pubkey>,
   minimum_slot :: U64,
   maximum_account_bytes :: Int) -> OptionalAccountsAtSlot!String do
-  validate_anchor_sources(endpoints)?
+  validate_anchor_sources(rpc_urls(rpc))?
   if List.length(addresses) < 1
     || List.length(addresses) > 64
     || maximum_account_bytes < 1
     || maximum_account_bytes > 32768 do
     return Err("invalid_anchor_batch")
   end
-  let first = read_anchor_accounts_from(List.get(endpoints, 0),
+  let first = read_anchor_accounts_from(rpc, List.get(rpc.sources, 0),
     addresses,
     minimum_slot,
     maximum_account_bytes)
-  let second = read_anchor_accounts_from(List.get(endpoints, 1),
+  case first do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
+  let second = read_anchor_accounts_from(rpc, List.get(rpc.sources, 1),
     addresses,
     minimum_slot,
     maximum_account_bytes)
+  case second do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = read_anchor_accounts_from(List.get(endpoints, 2),
+  let third = read_anchor_accounts_from(rpc, List.get(rpc.sources, 2),
     addresses,
     minimum_slot,
     maximum_account_bytes)
+  case third do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, third) do
     Some(value) -> return Ok(value)
     None -> nil
@@ -70,7 +83,7 @@ end
 
 # A single response is untrusted. This supports decision quorums for changing
 # sysvars; callers validate independent sources and authenticate each account.
-pub fn read_anchor_accounts_from(endpoint :: String,
+pub fn read_anchor_accounts_from(rpc :: RpcTransport, endpoint :: RpcEndpoint,
   addresses :: List<Pubkey>,
   minimum_slot :: U64,
   maximum_account_bytes :: Int) -> OptionalAccountsAtSlot!String do
@@ -84,7 +97,7 @@ pub fn read_anchor_accounts_from(endpoint :: String,
     addresses,
     "finalized",
     Some(minimum_slot))?
-  let response = read_anchor_rpc_response(endpoint, request, 65536)?
+  let response = read_anchor_rpc_response(rpc, endpoint, request, 65536)?
   let value = optional_accounts_from_response(response)?
   if List.length(value.accounts) != List.length(addresses)
     || U64.compare(value.slot, minimum_slot) < 0 do

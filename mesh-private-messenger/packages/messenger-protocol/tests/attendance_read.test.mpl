@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import (
   Pubkey,
   AccountInfo,
@@ -124,7 +125,7 @@ fn proof() -> Bool!String do
     ring: derived.ring,
     log_id: derived.log_id,
     log_name: "morse-main",
-    endpoints: ["https://one.invalid", "https://two.invalid", "https://three.invalid"]
+    rpc: webpki_rpc_transport(["https://one.invalid", "https://two.invalid", "https://three.invalid"])?
   }
   let log = account(pins, log_wire(pins, true)?, "352")?
   let clock = account(pins, clock_wire(pins)?, "65616")?
@@ -266,7 +267,7 @@ fn test_pins(endpoints :: List<String>) -> AnchorPins!String do
     ring: derived.ring,
     log_id: derived.log_id,
     log_name: "morse-main",
-    endpoints: endpoints
+    rpc: webpki_rpc_transport(endpoints)?
   })
 end
 

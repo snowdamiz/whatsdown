@@ -112,7 +112,7 @@ pub fn read_slash_receipt_state(pins :: AnchorPins,
   let receipt_address = slash_receipt_address(pins.program, pins.log_id, proof_hash)?
   let economics_address = find_program_address(pins.program,
     [Bytes.from_utf8("economics"), pins.log_id])?.address
-  let result = read_anchor_accounts(pins.endpoints,
+  let result = read_anchor_accounts(pins.rpc,
     [addresses.log, economics_address, receipt_address],
     minimum_slot)?
   let log = decode_anchor_log(owned(List.get(result.accounts, 0), pins.program)?)?

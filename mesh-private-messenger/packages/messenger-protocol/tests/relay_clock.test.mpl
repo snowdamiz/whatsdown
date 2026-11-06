@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.RelayClock import RelayClock, check_relay_clock
 
 fn wide(value :: Int) -> U64!String do
@@ -84,9 +85,9 @@ actor server(port :: Int) do
 end
 
 fn read(routes :: List<String>, bonded :: Int) -> RelayClock!String do
-  check_relay_clock(for index in 0..3 do
+  check_relay_clock(webpki_rpc_transport(for index in 0..3 do
       "http://127.0.0.1:#{19956 + index}/#{List.get(routes, index)}"
-    end,
+    end)?,
     wide(1700000000000)?,
     wide(1700000001000)?,
     wide(bonded)?,

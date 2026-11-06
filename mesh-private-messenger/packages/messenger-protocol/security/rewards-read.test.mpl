@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Solana.Read import (
   Pubkey,
   AccountInfo,
@@ -41,7 +42,7 @@ fn fixture_pins(fixture :: Json, endpoints :: List<String>) -> AnchorPins!String
     ring: addresses.ring,
     log_name: text(fixture, "log_name")?,
     log_id: addresses.log_id,
-    endpoints: endpoints
+    rpc: webpki_rpc_transport(endpoints)?
   })
 end
 

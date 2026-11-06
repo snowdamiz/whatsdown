@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import RpcEndpoint, RpcTransport, rpc_urls, rpc_fatal_error
 from Solana.Read import (
   Pubkey,
   AccountInfo,
@@ -15,12 +16,12 @@ pub struct RelayClock do
   context_slot :: U64
 end
 
-fn read(endpoint :: String,
+fn read(rpc :: RpcTransport, endpoint :: RpcEndpoint,
   first_ms :: U64,
   second_ms :: U64,
   bonded_at :: U64,
   minimum_slot :: U64) -> RelayClock!String do
-  let account = read_anchor_account(endpoint,
+  let account = read_anchor_account(rpc, endpoint,
     clock_sysvar_address()?,
     pubkey("Sysvar1111111111111111111111111111111111111")?,
     0,
@@ -81,19 +82,31 @@ end
 # RPC context; exact Clock bytes need not match. With at most one dishonest
 # source, acceptance includes an honest bank's age and bonded-at checks. The
 # judge rechecks its current Clock at execution: this is not a deadline lease.
-pub fn check_relay_clock(endpoints :: List<String>,
+pub fn check_relay_clock(rpc :: RpcTransport,
   first_ms :: U64,
   second_ms :: U64,
   bonded_at :: U64,
   minimum_slot :: U64) -> RelayClock!String do
-  validate_anchor_sources(endpoints)?
-  let first = read(List.get(endpoints, 0), first_ms, second_ms, bonded_at, minimum_slot)
-  let second = read(List.get(endpoints, 1), first_ms, second_ms, bonded_at, minimum_slot)
+  validate_anchor_sources(rpc_urls(rpc))?
+  let first = read(rpc, List.get(rpc.sources, 0), first_ms, second_ms, bonded_at, minimum_slot)
+  case first do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
+  let second = read(rpc, List.get(rpc.sources, 1), first_ms, second_ms, bonded_at, minimum_slot)
+  case second do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = read(List.get(endpoints, 2), first_ms, second_ms, bonded_at, minimum_slot)
+  let third = read(rpc, List.get(rpc.sources, 2), first_ms, second_ms, bonded_at, minimum_slot)
+  case third do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, third) do
     Some(value) -> return Ok(value)
     None -> nil

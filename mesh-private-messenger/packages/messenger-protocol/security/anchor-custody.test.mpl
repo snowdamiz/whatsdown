@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import webpki_rpc_transport
 from Transparency.AnchorBond import (
   AnchorBond,
   AnchorEconomics,
@@ -231,9 +232,9 @@ fn pins(value :: Json, routes :: List<String>) -> AnchorPins!String do
     ring: derived.ring,
     log_id: derived.log_id,
     log_name: name,
-    endpoints: for index in 0..3 do
+    rpc: webpki_rpc_transport(for index in 0..3 do
       "http://127.0.0.1:#{19940 + index}/#{List.get(routes, index)}"
-    end
+    end)?
   })
 end
 

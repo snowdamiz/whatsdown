@@ -33,7 +33,8 @@ pub fn discover_anchor_contradiction(origin :: String,
   entry :: AnchorEntry,
   ring_index :: Int,
   service_key :: Bytes,
-  private :: LeafProof) -> AnchorLeafEvidence!String do
+  private :: LeafProof,
+  require_current :: Fun() -> Result<(), String>) -> AnchorLeafEvidence!String do
   let origin = anchor_proof_origin(origin)?
   let key = SigningPublicKey { bytes: service_key }
   encode_leaf_proof(private)?
@@ -57,7 +58,8 @@ pub fn discover_anchor_contradiction(origin :: String,
   let (status, response) = fetch_anchor_proof(origin,
     "/v#{entry.log_version}/transparency/leaf",
     encode_leaf_query(LeafQuery { leaf_index: index, tree_size: size })?,
-    1074)?
+    1074,
+    require_current)?
   if status != "received" do
     return Ok(absent(status, response))
   end

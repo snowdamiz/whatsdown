@@ -1,3 +1,4 @@
+from Transparency.RpcTransport import (RpcTls, RpcEndpoint, RpcTransport, rpc_urls, require_rpc_endpoint, require_rpc_current, rpc_fatal_error)
 from Solana.Read import (
   Pubkey,
   AccountInfo,
@@ -20,15 +21,27 @@ end
 
 # The slot comes from an already-finalized, quorum-authenticated ring header.
 # An unknown block time never becomes zero, nor a duration estimated from slots.
-pub fn read_anchor_time_quorum(endpoints :: List<String>, slot :: U64) -> Int!String do
-  validate_anchor_sources(endpoints)?
-  let first = read_block_time(List.get(endpoints, 0), slot)
-  let second = read_block_time(List.get(endpoints, 1), slot)
+pub fn read_anchor_time_quorum(rpc :: RpcTransport, slot :: U64) -> Int!String do
+  validate_anchor_sources(rpc_urls(rpc))?
+  let first = read_block_time(rpc, List.get(rpc.sources, 0), slot)
+  case first do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
+  let second = read_block_time(rpc, List.get(rpc.sources, 1), slot)
+  case second do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree_time(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = read_block_time(List.get(endpoints, 2), slot)
+  let third = read_block_time(rpc, List.get(rpc.sources, 2), slot)
+  case third do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree_time(first, third) do
     Some(value) -> return Ok(value)
     None -> nil
@@ -59,8 +72,8 @@ fn agree_time(first :: Int!String, second :: Int!String) -> Option<Int> do
   end
 end
 
-fn read_block_time(endpoint :: String, slot :: U64) -> Int!String do
-  let response = read_anchor_rpc_response(endpoint, get_block_time_request(1, slot)?, 1024)?
+fn read_block_time(rpc :: RpcTransport, endpoint :: RpcEndpoint, slot :: U64) -> Int!String do
+  let response = read_anchor_rpc_response(rpc, endpoint, get_block_time_request(1, slot)?, 1024)?
   case block_time_from_response(response) do
     Ok(Some(value)) when value >= 0 -> Ok(value)
     Ok(None) -> Err("anchor_rpc_unavailable")
@@ -71,35 +84,47 @@ end
 # Endpoints are ordered by the caller's random sample. Query the third only
 # when the first two fail to agree. A context slot is not account content: two
 # providers can observe identical bytes at different finalized slots.
-pub fn read_anchor_quorum(endpoints :: List<String>,
+pub fn read_anchor_quorum(rpc :: RpcTransport,
   address :: Pubkey,
   program :: Pubkey,
   offset :: Int,
   length :: Int,
   minimum_slot :: U64) -> AnchorAgreement!String do
-  validate_anchor_sources(endpoints)?
-  let first = read_anchor_account(List.get(endpoints, 0),
+  validate_anchor_sources(rpc_urls(rpc))?
+  let first = read_anchor_account(rpc, List.get(rpc.sources, 0),
     address,
     program,
     offset,
     length,
     minimum_slot)
-  let second = read_anchor_account(List.get(endpoints, 1),
+  case first do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
+  let second = read_anchor_account(rpc, List.get(rpc.sources, 1),
     address,
     program,
     offset,
     length,
     minimum_slot)
+  case second do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = read_anchor_account(List.get(endpoints, 2),
+  let third = read_anchor_account(rpc, List.get(rpc.sources, 2),
     address,
     program,
     offset,
     length,
     minimum_slot)
+  case third do
+    Err(error) when rpc_fatal_error(error) -> return Err(error)
+    _ -> nil
+  end
   case agree(first, third) do
     Some(value) -> return Ok(value)
     None -> nil
@@ -222,7 +247,7 @@ end
 
 # Callers select the endpoint, account and expected program from native pins.
 # One RPC response is transport data only; the quorum reader establishes trust.
-pub fn read_anchor_account(endpoint :: String,
+pub fn read_anchor_account(rpc :: RpcTransport, endpoint :: RpcEndpoint,
   address :: Pubkey,
   program :: Pubkey,
   offset :: Int,
@@ -237,7 +262,7 @@ pub fn read_anchor_account(endpoint :: String,
     offset,
     length,
     Some(minimum_slot))?
-  let decoded = read_anchor_rpc_response(endpoint, request, 8192)?
+  let decoded = read_anchor_rpc_response(rpc, endpoint, request, 8192)?
   let account = case account_from_response(decoded) do
     Err(_) -> return Err("invalid_anchor_response")
     Ok(value) -> value
@@ -252,17 +277,29 @@ pub fn read_anchor_account(endpoint :: String,
   Ok(account)
 end
 
-pub fn read_anchor_rpc_response(endpoint :: String,
+pub fn read_anchor_rpc_response(rpc :: RpcTransport, endpoint :: RpcEndpoint,
   request :: RpcRequest,
   maximum_bytes :: Int) -> RpcResponse!String do
-  let response = case (Http.build(:post, endpoint)
+  require_rpc_endpoint(rpc, endpoint)?
+  require_rpc_current(rpc.require_current)?
+  let builder = Http.build(:post, endpoint.url)
     |> Http.header("Content-Type", "application/json")
     |> Http.body(rpc_request_json(request))
     |> Http.timeout(3000)
     |> Http.max_response_bytes(maximum_bytes)
     |> Http.max_redirects(0)
-    |> Http.send()) do
-    Err(_) -> return Err("anchor_rpc_unavailable")
+  let builder = case endpoint.tls do
+    WebPki -> builder
+    OriginRoots(_, pem) -> Http.trust_root_pem(builder, pem)
+  end
+  let sent = Http.send(builder)
+  require_rpc_current(rpc.require_current)?
+  let response = case sent do
+    Err(error) -> if String.starts_with(error, "INVALID_TLS_ROOTS:") do
+      return Err("rpc_tls_config_invalid")
+    else
+      return Err("anchor_rpc_unavailable")
+    end
     Ok(value) -> value
   end
   if response.status != 200 do
