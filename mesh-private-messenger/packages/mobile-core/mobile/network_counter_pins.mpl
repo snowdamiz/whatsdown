@@ -49,6 +49,19 @@ end
 
 pub fn decode_network_counter_pins(frame :: Bytes,
   security :: SecurityConfig) -> NetworkCounterPins!String do
+  decode_counter_pins(frame, security, true)
+end
+
+# Filing authenticates the release's own log, including its permanent receipts.
+# The Settings counter retains its existing morse-main-only product boundary.
+pub fn decode_filing_counter_pins(frame :: Bytes,
+  security :: SecurityConfig) -> NetworkCounterPins!String do
+  decode_counter_pins(frame, security, false)
+end
+
+fn decode_counter_pins(frame :: Bytes,
+  security :: SecurityConfig,
+  main_only :: Bool) -> NetworkCounterPins!String do
   if Bytes.length(frame) < 1 || Bytes.length(frame) > 24576 do
     return Err("invalid_network_counter_configuration")
   end
@@ -65,7 +78,7 @@ pub fn decode_network_counter_pins(frame :: Bytes,
     None -> return Err("network_counter_anchor_required")
     Some(value) -> value
   end
-  if anchor.log_name != "morse-main" || List.length(security.rpc_urls) < 3 do
+  if (main_only && anchor.log_name != "morse-main") || List.length(security.rpc_urls) < 3 do
     return Err("network_counter_main_only")
   end
   let mode = List.get(fields, 2)
@@ -83,7 +96,7 @@ pub fn decode_network_counter_pins(frame :: Bytes,
       rewards: key(List.get(fields, 10))?,
       rewards_slot: counter_integer(List.get(fields, 11))?,
       rewards_governance: key(List.get(fields, 12))?,
-      log_name: "morse-main",
+      log_name: anchor.log_name,
       log_version: case List.get(fields, 16) do
         "1" -> 1
         "2" -> 2
