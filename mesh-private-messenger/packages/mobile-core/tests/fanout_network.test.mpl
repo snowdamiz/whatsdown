@@ -280,6 +280,7 @@ end
 
 fn run_case(mode :: Int) -> Result<(), String> do
   assert(Test.install_in_memory_secure_store())
+  assert(Test.set_push_token(Bytes.from_utf8("messenger/rpc-tls-roots/v1"), Bytes.from_hex("0100")?))
   let signer = pair()?
   let a = pair()?
   let b = pair()?
