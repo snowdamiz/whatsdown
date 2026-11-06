@@ -20,6 +20,11 @@ from Tests.Support import repeated
 from Transparency.Merkle import sign_checkpoint, consistency_proof, leaf_hash
 from Transparency.Wire import encode_checkpoint, encode_consistency_proof
 
+fn assert_received_body(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic group gossip delivery; no application disclosure"))
+end
+
 fn control(path :: String,
   target :: Bytes,
   spectator_path :: String,
@@ -34,7 +39,8 @@ fn control(path :: String,
   assert(List.length(queued) == expected)
   assert(Bytes.secure_equals(encoded, outbox_list_export(Bytes.from_utf8(path))?))
   if spectator_path != "" do
-    assert(Bytes.length(deliver(spectator_path, envelope_for(queued, spectator, 0)?)?) == 0)
+    assert_received_body(Bytes.length(deliver(spectator_path,
+      envelope_for(queued, spectator, 0)?)?) == 0)
     assert(List.length(output_list(outbox_list_export(Bytes.from_utf8(spectator_path))?)?) == 0)
     assert(Bytes.length(transparency_fork_export(Bytes.from_utf8(spectator_path))?) == 0)
   end
@@ -98,13 +104,13 @@ fn proof(include_linked :: Bool) -> Bool!String do
     Bytes.from_utf8("compare group views")
   ])?)?)?
   acknowledge(accounts.alice_path, deliveries, 0)?
-  assert(Bytes.to_utf8(deliver(accounts.bob_path,
-    envelope_for(deliveries, accounts.bob_entry.mailbox_token, 0)?)?)? == "compare group views")
+  assert_received_body(Bytes.secure_equals(deliver(accounts.bob_path,
+      envelope_for(deliveries, accounts.bob_entry.mailbox_token, 0)?)?,
+    Bytes.from_utf8("compare group views")))
   if include_linked do
-    assert(Bytes.to_utf8(deliver(accounts.linked_path,
-      envelope_for(deliveries,
-        accounts.linked_entry.mailbox_token,
-        0)?)?)? == "compare group views")
+    assert_received_body(Bytes.secure_equals(deliver(accounts.linked_path,
+        envelope_for(deliveries, accounts.linked_entry.mailbox_token, 0)?)?,
+      Bytes.from_utf8("compare group views")))
   end
   let spectator = if include_linked do
     accounts.linked_path
@@ -119,17 +125,17 @@ fn proof(include_linked :: Bool) -> Bool!String do
     fn(database) do delete_blob(database, recipient_label) end)?
   assert(List.length(output_list(outbox_list_export(Bytes.from_utf8(accounts.bob_path))?)?) == 0)
   store_updated_session(accounts.bob_path, recipient_label, cached_recipient)?
-  assert(Bytes.length(deliver(accounts.alice_path,
+  assert_received_body(Bytes.length(deliver(accounts.alice_path,
     control(accounts.bob_path,
       accounts.alice_entry.mailbox_token,
       spectator,
       accounts.linked_entry.mailbox_token)?)?) == 0)
-  assert(Bytes.length(deliver(accounts.bob_path,
+  assert_received_body(Bytes.length(deliver(accounts.bob_path,
     control(accounts.alice_path,
       accounts.bob_entry.mailbox_token,
       spectator,
       accounts.linked_entry.mailbox_token)?)?) == 0)
-  assert(Bytes.length(deliver(accounts.alice_path,
+  assert_received_body(Bytes.length(deliver(accounts.alice_path,
     control(accounts.bob_path,
       accounts.alice_entry.mailbox_token,
       spectator,
@@ -148,11 +154,13 @@ fn proof(include_linked :: Bool) -> Bool!String do
     group,
     Bytes.from_utf8("still here")
   ])?)?)?
-  assert(Bytes.to_utf8(deliver(accounts.bob_path,
-    envelope_for(continued, accounts.bob_entry.mailbox_token, 0)?)?)? == "still here")
+  assert_received_body(Bytes.secure_equals(deliver(accounts.bob_path,
+      envelope_for(continued, accounts.bob_entry.mailbox_token, 0)?)?,
+    Bytes.from_utf8("still here")))
   if include_linked do
-    assert(Bytes.to_utf8(deliver(accounts.linked_path,
-      envelope_for(continued, accounts.linked_entry.mailbox_token, 0)?)?)? == "still here")
+    assert_received_body(Bytes.secure_equals(deliver(accounts.linked_path,
+        envelope_for(continued, accounts.linked_entry.mailbox_token, 0)?)?,
+      Bytes.from_utf8("still here")))
     assert(List.length(output_list(fixture_group_history(group_vectors([
       Bytes.from_utf8(accounts.linked_path),
       group

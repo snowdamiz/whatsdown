@@ -18,6 +18,11 @@ from Tests.GroupConsistencySupport import (
 from Tests.Support import repeated
 from Transparency.Merkle import TransparencyCheckpoint, leaf_hash
 
+fn assert_received_body(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic group welcome delivery; no application disclosure"))
+end
+
 fn read_u32_at(input :: Bytes, offset :: Int) -> Int!String do
   case Bytes.read_u32_be(input, offset) do
     Err(_) -> Err("output decode failed")
@@ -256,7 +261,10 @@ fn proof() -> Bool!String do
     bob_package
   ])?)?
   let welcome = welcome_envelope(welcome_output)?
-  assert(Bytes.secure_equals(group_receive_export(request([Bytes.from_utf8(bob.path), welcome])?)?,
+  assert_received_body(Bytes.secure_equals(group_receive_export(request([
+      Bytes.from_utf8(bob.path),
+      welcome
+    ])?)?,
     group_id))
   File.delete(alice.path)?
   File.delete(bob.path)?

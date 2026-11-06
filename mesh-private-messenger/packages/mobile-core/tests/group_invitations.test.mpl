@@ -46,6 +46,11 @@ from Transparency.Merkle import leaf_hash
 from Transport.Recipient import open_recipient_packet
 from Transport.Packet import decode_client_profile
 
+fn assert_received_body(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic group invitation delivery; no application disclosure"))
+end
+
 fn device_set(path :: String, username :: String) -> Bytes!String do
   let entry = case decode_directory_entry(directory_entry_export(Bytes.from_utf8(path))?) do
     Ok(value)
@@ -211,7 +216,10 @@ fn proof(malformed_first :: Bool) -> Bool!String do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "group_welcome_rejected")
   end
-  assert(Bytes.secure_equals(group_receive_export(group_vectors([bob_path, List.head(welcome)])?)?,
+  assert_received_body(Bytes.secure_equals(group_receive_export(group_vectors([
+      bob_path,
+      List.head(welcome)
+    ])?)?,
     group))
   acknowledge(alice, welcome, 0)?
   assert(List.length(output_list(group_list_export(bob_path)?)?) == 1)

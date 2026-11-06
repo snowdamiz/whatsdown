@@ -33,6 +33,11 @@ from Protocol.IdentityWire import encode_account_identity
 from Protocol.V1 import AccountIdentity, DeviceSet, DirectoryEntry, OuterEnvelope
 from Transport.Packet import ClientProfile, decode_client_profile, encode_client_profile
 
+fn assert_received_body(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic conversation message bodies; no application disclosure"))
+end
+
 fn encode_vectors(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
     Ok(output)
@@ -135,7 +140,7 @@ fn proof() -> Bool!String do
     greeting
   ])?)?
   assert(acknowledge(alice_path, initial)?)
-  assert(Bytes.secure_equals(receive_initial_export(request([
+  assert_received_body(Bytes.secure_equals(receive_initial_export(request([
       Bytes.from_utf8(bob_path),
       initial
     ])?)?,
@@ -180,7 +185,7 @@ fn proof() -> Bool!String do
   end?
   assert(Bytes.length(padded.ciphertext) == padded.padding_bucket)
   assert(acknowledge(bob_path, reply_outer)?)
-  assert(Bytes.secure_equals(receive_message_export(request([
+  assert_received_body(Bytes.secure_equals(receive_message_export(request([
       Bytes.from_utf8(alice_path),
       reply_outer
     ])?)?,
@@ -220,7 +225,7 @@ fn proof() -> Bool!String do
     disappearing
   ])?)?
   assert(acknowledge(alice_path, disappearing_outer)?)
-  assert(Bytes.secure_equals(receive_message_export(request([
+  assert_received_body(Bytes.secure_equals(receive_message_export(request([
       Bytes.from_utf8(bob_path),
       disappearing_outer
     ])?)?,

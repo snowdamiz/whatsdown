@@ -186,7 +186,8 @@ fn expired_receive_advances() -> Bool!String do
     Bytes.from_utf8(accounts.bob_path),
     visible_envelope
   ])?)?
-  if !Bytes.secure_equals(opened, Bytes.from_utf8("visible successor")) do
+  if !declassify(Bytes.secure_equals(opened, Bytes.from_utf8("visible successor")),
+    "test-only Boolean assertion of controlled synthetic group expiry delivery; no application disclosure") do
     return Err("successor ratchet failed")
   end
   let following = output_list(fixture_group_history(group_vectors([
@@ -196,10 +197,11 @@ fn expired_receive_advances() -> Bool!String do
   if List.length(following) != 1 do
     return Err("unexpected group history")
   end
-  if Result.is_ok(group_receive_export(group_vectors([
-    Bytes.from_utf8(accounts.bob_path),
-    expired_envelope
-  ])?)) do
+  if declassify(Result.is_ok(group_receive_export(group_vectors([
+      Bytes.from_utf8(accounts.bob_path),
+      expired_envelope
+    ])?)),
+    "test-only Boolean observation of whether a controlled synthetic expired group replay is accepted; no application disclosure") do
     return Err("expired replay accepted")
   end
   Ok(true)
@@ -237,7 +239,8 @@ fn orphan_group_is_not_receivable() -> Bool!String do
   # The real encrypted ratchet remains valid, but it is no longer indexed.
   store_record_changes(accounts.bob_path, [], [], ["groups/v1"])?
   let request = group_vectors([Bytes.from_utf8(accounts.bob_path), envelope])?
-  if group_receive_export(request) != Err("group_message_rejected")
+  if !declassify(group_receive_export(request) == Err("group_message_rejected"),
+    "test-only Boolean assertion of controlled synthetic orphan-group refusal; no application disclosure")
     || !Bytes.secure_equals(load_blob(accounts.bob_path, label)?, state)
     || load_blob(accounts.bob_path, group_history_label(group)) != Err("local_state_not_found") do
     return Err("orphan group accepted or mutated stored state")
@@ -246,7 +249,9 @@ fn orphan_group_is_not_receivable() -> Bool!String do
   # GMS5 message receivable. The rejected attempt must not consume its ratchet.
   store_updated_blobs(accounts.bob_path, ["groups/v1"], [index])?
   let opened = group_receive_export(request)?
-  let valid = Bytes.secure_equals(opened, Bytes.from_utf8("indexed legacy-compatible body"))
+  let valid = declassify(Bytes.secure_equals(opened,
+      Bytes.from_utf8("indexed legacy-compatible body")),
+    "test-only Boolean assertion of controlled synthetic orphan-group delivery; no application disclosure")
     && !Bytes.secure_equals(load_blob(accounts.bob_path, label)?, state)
   File.delete(accounts.alice_path)?
   File.delete(accounts.bob_path)?

@@ -260,7 +260,8 @@ end
 fn opens(path :: String, outer :: Bytes, body :: String) -> Bool!String do
   case receive_initial_export(request([Bytes.from_utf8(path), outer])?) do
     Err(error) -> Err("#{body}: #{error}")
-    Ok(opened) -> Ok(Bytes.secure_equals(opened, Bytes.from_utf8(body)))
+    Ok(opened) -> Ok(declassify(Bytes.secure_equals(opened, Bytes.from_utf8(body)),
+      "test-only Boolean assertion of controlled synthetic renewal delivery; no application disclosure"))
   end
 end
 
