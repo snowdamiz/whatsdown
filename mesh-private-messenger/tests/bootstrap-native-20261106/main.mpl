@@ -3,7 +3,7 @@ from MobileCore import initialize
 from Mobile.Codec import current_time, mobile_join, mobile_byte, mobile_write_u64, mobile_zeroes, encode_output_list
 from Mobile.Platform import native_security_config
 from Mobile.TransparencyCache import cached_transparency_bytes
-from Mobile.AnchorCheck import anchor_identity, load_anchor_observation, anchor_observation_output
+from Mobile.AnchorCheck import anchor_identity, load_anchor_observation, anchor_observation_output, check_anchor_at, anchor_service_refused
 from Mobile.AnchorSchedule import load_anchor_schedule
 from Storage.Keys import platform_key
 from Storage.Blobs import load_blob
@@ -13,6 +13,9 @@ from Protocol.V1 import DeviceSet
 from Privacy.Edge import decode_stamped_request, verify_request_stamp
 from Transparency.Config import decode_security_config, encode_security_config
 from Transparency.AnchorChain import anchor_addresses, configured_anchor_pins
+from Transparency.RpcTransport import rpc_transport, webpki_rpc_transport
+from Transparency.AnchorBatch import read_anchor_accounts
+from Mobile.NativeRpcTls import native_rpc_tls_frame, decode_native_rpc_tls
 from Transparency.AnchorLog import decode_anchor_log
 from Transparency.AnchorRing import decode_anchor_header, decode_anchor_entry
 from Transparency.C2spText import checkpoint_note_text
@@ -185,7 +188,9 @@ end
 pub fn bootstrap_schedule_snapshot_impl(input :: Bytes) -> Bytes!String do
   let path = Bytes.to_utf8(input)?
   let config = native_security_config()?
-  let pins = case configured_anchor_pins(config)? do
+  # Identity observation must remain usable when the companion is malformed.
+  # This transport is never sent; the public identity deliberately excludes it.
+  let pins = case configured_anchor_pins(config, webpki_rpc_transport(config.rpc_urls)?)? do
     None -> return Err("fixture_anchor_disabled")
     Some(value) -> value
   end
@@ -197,6 +202,67 @@ pub fn bootstrap_schedule_snapshot_impl(input :: Bytes) -> Bytes!String do
     Bytes.from_utf8(U64.to_string(state.last_started)),
     Bytes.from_utf8(U64.to_string(state.last_completed)), state.active_token,
     state.last_result, anchor_observation_output(load_anchor_observation(path, key, identity)?)?])
+end
+
+# Supplementary shared-reader proof. Primary acceptance always calls the
+# unchanged production resolver and anchor C ABI above.
+@export("bootstrap_batch")
+pub fn bootstrap_batch_impl(input :: Bytes) -> Bytes!String do
+  let config = native_security_config()?
+  let frame = native_rpc_tls_frame()?
+  let rpc = rpc_transport(decode_native_rpc_tls(frame, config)?, fn() do Ok(nil) end)?
+  let pins = case configured_anchor_pins(config, rpc)? do
+    None -> return Err("fixture_anchor_disabled")
+    Some(value) -> value
+  end
+  let addresses = anchor_addresses(pins.program, pins.log_name)?
+  let batch = read_anchor_accounts(rpc, [addresses.ring, addresses.log], U64.parse("501")?)?
+  if List.length(batch.accounts) != 2 do
+    return Err("fixture_batch")
+  end
+  Ok(Bytes.from_utf8(U64.to_string(batch.slot)))
+end
+
+# Explicit injected time on the public Mesh checker; this is not a native
+# clock or a claim that the production C ABI's next-day boundary was executed.
+@export("bootstrap_anchor_due")
+pub fn bootstrap_anchor_due_impl(input :: Bytes) -> Bytes!String do
+  let config = native_security_config()?
+  let rpc = rpc_transport(decode_native_rpc_tls(native_rpc_tls_frame()?, config)?,
+    fn() do Ok(nil) end)?
+  let pins = case configured_anchor_pins(config, rpc)? do
+    None -> return Err("fixture_anchor_disabled")
+    Some(value) -> value
+  end
+  anchor_observation_output(check_anchor_at(Bytes.to_utf8(input)?, platform_key()?, pins,
+    config.service_public_key, config.log_version,
+    U64.add(current_time()?, U64.parse("86400001")?)?, false)?)
+end
+
+@export("bootstrap_service_refused")
+pub fn bootstrap_service_refused_impl(input :: Bytes) -> Bytes!String do
+  let refused = anchor_service_refused(Bytes.to_utf8(input)?, platform_key()?)?
+  Ok(Bytes.from_utf8(if refused do "refused" else "allowed" end))
+end
+
+@export("bootstrap_tls_pool")
+pub fn bootstrap_tls_pool_impl(input :: Bytes) -> Bytes!String do
+  let origin = Bytes.to_utf8(input)?
+  bootstrap_tls_control_impl(input)?
+  let default = (Http.build(:get, origin <> "/ready")
+    |> Http.timeout(2000) |> Http.max_redirects(0) |> Http.send())
+  case default do
+    Ok(_) -> return Err("fixture_default_root_polluted")
+    Err(_) -> nil
+  end
+  let wrong = Bytes.from_utf8(File.read(Env.get("BOOTSTRAP_FIXTURE", "") <> "/wrong-ca.pem")?)
+  let refused = (Http.build(:get, origin <> "/ready")
+    |> Http.trust_root_pem(wrong) |> Http.timeout(2000)
+    |> Http.max_redirects(0) |> Http.send())
+  case refused do
+    Ok(_) -> Err("fixture_wrong_root_polluted")
+    Err(_) -> Ok(Bytes.from_utf8("isolated"))
+  end
 end
 
 @export("bootstrap_tls_control")

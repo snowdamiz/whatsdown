@@ -60,10 +60,24 @@ def main():
                 elif operation == 4:
                     resource = {b'messenger/config/v1': 'security',
                                 b'messenger/network/v1': 'network',
-                                b'messenger/ohttp/v1': 'ohttp'}.get(data)
-                    if resource is None or not (root / resource).exists():
+                                b'messenger/ohttp/v1': 'ohttp',
+                                b'messenger/rpc-tls-roots/v1': 'rpc-tls'}.get(data)
+                    if resource is None:
                         return 2
-                    result = (root / resource).read_bytes()
+                    if resource == 'rpc-tls':
+                        if (root / 'rpc-tls-read-error').exists():
+                            return 5
+                        result = ((root / resource).read_bytes()
+                                  if (root / resource).exists() else b'\x01\x00')
+                        if len(result) > 82002:
+                            return 4
+                    elif (root / resource).exists():
+                        result = (root / resource).read_bytes()
+                    else:
+                        return 2
+                    with (root / 'resource-reads.jsonl').open('a') as trace:
+                        trace.write(json.dumps({'selector': data.decode(), 'length': len(result),
+                                                'sha256': hashlib.sha256(result).hexdigest()}) + '\n')
                 else:
                     return 2
                 if len(result) > capacity:
