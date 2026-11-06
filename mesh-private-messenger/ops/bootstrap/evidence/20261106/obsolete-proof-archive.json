@@ -1,0 +1,62 @@
+{
+  "verdict": "ARCHIVED_AND_VERIFIED",
+  "archive": "/Users/andreyyurlov/Documents/dev/whatsdown/.morse/recovery-archives/20261106-desktop-old-red/snapshots.tar.gz",
+  "archive_sha256": "005802a6488ca9b8f2b50bd332b90864a423f400f670ab7afb4d5f9cd0ae3280",
+  "archive_bytes": 256981592,
+  "manifest": "/Users/andreyyurlov/Documents/dev/whatsdown/.morse/recovery-archives/20261106-desktop-old-red/manifest.json",
+  "manifest_sha256": "078abf9f051a31580180ee9b55e8c4efcea1aa3906a50bf32c216f08f095d92f",
+  "source_root": "/Users/andreyyurlov/Documents/dev/whatsdown/.morse/d6-desktop-app-lock-work-v1",
+  "snapshots": 24,
+  "entries": 70341,
+  "logical_regular_file_bytes": 886388620,
+  "allocated_candidate_bytes": 1021972480,
+  "expanded_copies_removed": true,
+  "df_before": "Filesystem   1024-blocks      Used Available Capacity  iused    ifree %iused  Mounted on\n/dev/disk3s5   971298980 928571308   7633860   100% 32481463 76338600   30%   /System/Volumes/Data\n",
+  "df_after": "Filesystem   1024-blocks      Used Available Capacity  iused     ifree %iused  Mounted on\n/dev/disk3s5   971298980 918836336  17368832    99% 32100674 173688320   16%   /System/Volumes/Data\n",
+  "limits": [
+    "No net reclaimed-space attribution: concurrent builds continue.",
+    "Historical replay scripts need the archived source paths restored before rerun; preserved reports remain in place.",
+    "Current artifacts, source checkouts, toolchains, databases, logs, reports and other evidence trees were not removed."
+  ],
+  "receipt": {
+    "path": "/Users/andreyyurlov/Documents/dev/whatsdown/.morse/recovery-archives/20261106-desktop-old-red/receipt.json",
+    "sha256": "56f1e6ab5049732dee30e76e9991cdb9716d5281489de7614dbeefddefe35ce3"
+  },
+  "paths": [
+    "shared-mailbox-resource-v1/red1",
+    "shared-mailbox-resource-v1/red2",
+    "desktop-root-owner-v1/root-red1",
+    "desktop-root-owner-v1/root-red5",
+    "desktop-root-owner-v1/root-red2",
+    "desktop-root-owner-v1/root-red3",
+    "desktop-root-owner-v1/root-red4",
+    "desktop-root-owner-v1/red3",
+    "desktop-root-owner-v1/red1",
+    "desktop-root-owner-v1/red2",
+    "desktop-scoped-services-v1/red1",
+    "desktop-scoped-services-v1/red2",
+    "desktop-push-services-v1/red1",
+    "desktop-incoming-files-v1/red2",
+    "desktop-incoming-files-v1/red1",
+    "desktop-intake-choice-v1/red1",
+    "desktop-session-events-v1/red1",
+    "desktop-session-events-v1/red2",
+    "desktop-file-input-ownership-v1/red1",
+    "desktop-file-input-ownership-v1/red2",
+    "desktop-mailbox-ownership-v1/red4",
+    "desktop-mailbox-ownership-v1/red3",
+    "desktop-mailbox-ownership-v1/red1",
+    "desktop-mailbox-ownership-v1/red2"
+  ],
+  "no_open_handles_before_archive_and_removal": true,
+  "git_heads_unchanged": {
+    "/Users/andreyyurlov/Documents/dev/whatsdown": "646d30a7dd4af746710d6a353ef0bc6ad9feef43",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070": "eadcc1be19c51090c7781a90ba93d392784439e2",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang": "8256d5d30e79f3c1de9d8507f8607f8efbee756a"
+  },
+  "restore_instructions": "/Users/andreyyurlov/Documents/dev/whatsdown/.morse/recovery-archives/20261106-desktop-old-red/RESTORE.md",
+  "procedure_script": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/checkpoint-cleanup/archive-old-red.py",
+    "sha256": "a2a6c97c5dfa90220edb50b46890b63770d31eb44db3ea83b37698bf70a4eb8f"
+  }
+}

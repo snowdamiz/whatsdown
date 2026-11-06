@@ -192,6 +192,16 @@ and checked for open handles twice. Source fixtures, databases, reports and all
 compiler/runtime families remain; the language worktree stayed clean. The
 receipt is `.morse/continuation-20261106/checkpoint-cleanup/language-cleanup.json`.
 
+A later recovery-first pass archived 24 inactive desktop red-test source
+snapshots from October 31. It verified all 70,341 entries, including exact file
+bytes, modes and symlink targets, before removing the expanded copies. Their
+886,388,620 logical file bytes are retained in a 256,981,592-byte archive with
+per-file hashes and restore instructions. Logs, qualification reports and current
+artifacts remain in place; historical replay requires restoring those snapshot
+paths first. The [archive receipt](mesh-private-messenger/ops/bootstrap/evidence/20261106/obsolete-proof-archive.json)
+records the two open-handle checks and unchanged Git heads. Available space
+measured 17,368,832 KiB afterward; concurrent activity prevents a net-gain claim.
+
 ### Continuation checkpoint — 2026-11-06
 
 The outstanding local source is committed and pushed on
