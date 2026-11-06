@@ -5312,7 +5312,7 @@ function AppContent({ services, windowsPreview = false, onWindowsPreviewChange, 
       <Dialog visible={showBounty} label={t("Fork bounties")} onClose={() => setShowBounty(false)}>
         <ScrollView contentContainerStyle={layout.content}>
           <Text style={type.title2}>{t("Fork bounties")}</Text>
-          {showBounty ? <BountyPanel services={services} database={databasePath} /> : null}
+          {showBounty ? <BountyPanel services={services} database={services.databasePath} /> : null}
         </ScrollView>
       </Dialog>
       <Dialog visible={showPostage} label={t("Queued postage")} onClose={() => setShowPostage(false)}>
