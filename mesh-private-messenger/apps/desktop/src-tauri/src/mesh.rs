@@ -26,6 +26,7 @@ struct Host {
     credit_mint: String,
     lightning_network: String,
     issuer_tls_root: String,
+    rpc_tls_roots: super::resources::RpcTlsRoots,
     service: String,
 }
 
@@ -46,6 +47,7 @@ impl Mesh {
         credit_mint: String,
         lightning_network: String,
         issuer_tls_root: String,
+        rpc_tls_roots: super::resources::RpcTlsRoots,
         service: String,
     ) -> Result<Self, String> {
         // SAFETY: only the bundled library, built from our pinned Mesh toolchain, is loaded.
@@ -66,6 +68,7 @@ impl Mesh {
                 credit_mint,
                 lightning_network,
                 issuer_tls_root,
+                rpc_tls_roots,
                 service,
             });
             let callbacks = Callbacks {
@@ -206,7 +209,9 @@ unsafe extern "C" fn host<const OP: u8>(
         let input = unsafe { slice::from_raw_parts(input, len as usize) };
         let host = unsafe { &*context.cast::<Host>() };
         let result = if OP == 4 {
-            if input == b"messenger/issuer-tls-root/v1" {
+            if input == b"messenger/rpc-tls-roots/v1" {
+                host.rpc_tls_roots.bytes().map(<[u8]>::to_vec)
+            } else if input == b"messenger/issuer-tls-root/v1" {
                 match issuer_tls_resource(&host.issuer_tls_root) {
                     Ok(bytes) => Ok(bytes),
                     Err(_) => return 3,
@@ -321,6 +326,117 @@ fn secure_store(service: &str, operation: u8, input: &[u8]) -> Result<Vec<u8>, i
 
 #[cfg(test)]
 mod tests {
+    fn read_rpc_tls(
+        roots: super::super::resources::RpcTlsRoots,
+        selector: &[u8],
+        capacity: usize,
+        null_output: bool,
+    ) -> (i32, u64, Vec<u8>) {
+        let mut context = super::Host {
+            config: "security must not substitute".into(),
+            counter_config: String::new(),
+            network_config: String::new(),
+            ohttp_config: String::new(),
+            credit_purpose: String::new(),
+            credit_mint: String::new(),
+            lightning_network: String::new(),
+            issuer_tls_root: String::new(),
+            rpc_tls_roots: roots,
+            service: "unused-rpc-tls-callback-test".into(),
+        };
+        let mut output = vec![0xcc; 82_003];
+        let mut written = 99;
+        let status = unsafe {
+            super::host::<4>(
+                (&mut context as *mut super::Host).cast(),
+                selector.as_ptr(), selector.len() as u64,
+                if null_output { std::ptr::null_mut() } else { output.as_mut_ptr() },
+                capacity as u64, &mut written,
+            )
+        };
+        (status, written, output)
+    }
+
+    fn rpc_tls_config(value: Option<serde_json::Value>) -> super::super::resources::RpcTlsRoots {
+        let mut config = serde_json::json!({ "securityFrame": "native security", "development": true });
+        if let Some(value) = value { config["rpcTlsRoots"] = value; }
+        serde_json::from_value::<super::super::resources::Config>(config).unwrap().rpc_tls_roots
+    }
+
+    #[test]
+    fn rpc_tls_selector_returns_the_exact_absence_frame() {
+        for roots in [rpc_tls_config(None), rpc_tls_config(Some(serde_json::json!("")))] {
+            let (status, written, output) = read_rpc_tls(roots, b"messenger/rpc-tls-roots/v1", 2, false);
+            assert_eq!((status, written), (0, 2));
+            assert_eq!(&output[..2], &[1, 0]);
+            assert!(output[2..].iter().all(|byte| *byte == 0xcc));
+        }
+    }
+
+    #[test]
+    fn rpc_tls_selector_delivers_bounded_opaque_bytes() {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        // Only the byte envelope is checked here; frame semantics belong to Mesh.
+        for bytes in [vec![0xff, 0], vec![1, 0], vec![0xa5; 82_002]] {
+            let encoded = STANDARD.encode(&bytes);
+            let roots = rpc_tls_config(Some(serde_json::json!(encoded)));
+            let (status, written, output) = read_rpc_tls(roots, b"messenger/rpc-tls-roots/v1", bytes.len(), false);
+            assert_eq!((status, written), (0, bytes.len() as u64));
+            assert_eq!(&output[..bytes.len()], &bytes);
+            assert!(output[bytes.len()..].iter().all(|byte| *byte == 0xcc));
+        }
+    }
+
+    #[test]
+    fn rpc_tls_selector_refuses_wrong_json_types_and_encoding() {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        let mut invalid = vec![serde_json::Value::Null, serde_json::json!(false),
+            serde_json::json!(7), serde_json::json!([]), serde_json::json!({})];
+        invalid.extend(["!", "AQI", "AQ==", "AQJ=", "AA-_", "====", "AQI=\n", " AQI=", "é"].map(serde_json::Value::from));
+        invalid.extend(["A".repeat(109_337), STANDARD.encode(vec![1; 82_003])].map(serde_json::Value::from));
+        for value in invalid {
+            let roots = rpc_tls_config(Some(value.clone()));
+            let (status, written, output) = read_rpc_tls(roots, b"messenger/rpc-tls-roots/v1", 82_002, false);
+            assert_eq!((status, written), (3, 0), "{value}");
+            assert!(output.iter().all(|byte| *byte == 0xcc));
+        }
+    }
+
+    #[test]
+    fn rpc_tls_selector_refuses_empty_present_and_failed_reads() {
+        use std::io::Read;
+        struct FailedRead;
+        impl Read for FailedRead {
+            fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("resource unavailable"))
+            }
+        }
+        for roots in [
+            super::super::resources::RpcTlsRoots::read_present(std::io::empty()),
+            super::super::resources::RpcTlsRoots::read_present(FailedRead),
+            super::super::resources::RpcTlsRoots::read_present(std::io::Cursor::new(b"AQI=").chain(FailedRead)),
+        ] {
+            let (status, written, output) = read_rpc_tls(roots, b"messenger/rpc-tls-roots/v1", 82_002, false);
+            assert_eq!((status, written), (3, 0));
+            assert!(output.iter().all(|byte| *byte == 0xcc));
+        }
+    }
+
+    #[test]
+    fn rpc_tls_selector_enforces_output_capacity_and_exact_selector() {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        for (bytes, capacity, null_output) in [(vec![1, 0], 1, false),
+            (vec![2; 82_002], 82_001, false), (vec![1, 0], 2, true)] {
+            let roots = rpc_tls_config(Some(serde_json::json!(STANDARD.encode(bytes))));
+            let (status, written, output) = read_rpc_tls(roots, b"messenger/rpc-tls-roots/v1", capacity, null_output);
+            assert_eq!((status, written), (4, 0));
+            assert!(output.iter().all(|byte| *byte == 0xcc));
+        }
+        let (status, written, output) = read_rpc_tls(rpc_tls_config(None), b"messenger/rpc-tls-roots/v1/", 2, false);
+        assert_eq!((status, written), (2, 0));
+        assert!(output.iter().all(|byte| *byte == 0xcc));
+    }
+
     #[test]
     fn ohttp_selector_reads_only_the_bounded_release_resource() {
         fn read(frame: &str, selector: &[u8], capacity: usize) -> (i32, u64, Vec<u8>) {
@@ -333,6 +449,7 @@ mod tests {
                 credit_mint: String::new(),
                 lightning_network: String::new(),
                 issuer_tls_root: String::new(),
+                rpc_tls_roots: Default::default(),
                 service: "unused-ohttp-callback-test".into(),
             };
             let mut output = vec![0xcc; 601];
@@ -441,6 +558,7 @@ mod tests {
             String::new(),
             String::new(),
             String::new(),
+            Default::default(),
             service.clone(),
         )
         .unwrap();
@@ -523,6 +641,7 @@ mod tests {
             String::new(),
             String::new(),
             String::new(),
+            Default::default(),
             service,
         )
         .unwrap();

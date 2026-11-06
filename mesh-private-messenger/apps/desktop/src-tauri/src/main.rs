@@ -8,9 +8,10 @@ mod bounty;
 mod mesh;
 mod navigation;
 mod request;
+mod resources;
 mod wallet;
 
-use serde::Deserialize;
+use resources::Config;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -22,26 +23,6 @@ use tauri::{
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_updater::{Update, UpdaterExt};
 
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Config {
-    security_frame: String,
-    #[serde(default)]
-    network_counter_frame: String,
-    #[serde(default)]
-    network_frame: String,
-    #[serde(default)]
-    ohttp_frame: String,
-    #[serde(default)]
-    credit_purpose: String,
-    #[serde(default)]
-    credit_usdc_mint_hex: String,
-    #[serde(default)]
-    lightning_network: String,
-    #[serde(default)]
-    issuer_tls_root: String,
-    development: bool,
-}
 struct Desktop {
     mesh: Arc<Mutex<mesh::Mesh>>,
     database: String,
@@ -471,6 +452,7 @@ fn load_desktop(app: &tauri::AppHandle, directory: PathBuf, library: PathBuf, co
     let core = mesh::Mesh::load(&library, config.security_frame.clone(), config.network_counter_frame.clone(),
         config.network_frame.clone(), config.ohttp_frame.clone(), config.credit_purpose.clone(),
         config.credit_usdc_mint_hex.clone(), config.lightning_network.clone(), config.issuer_tls_root.clone(),
+        config.rpc_tls_roots.clone(),
         app.config().identifier.clone())?;
     Ok(Desktop {
         mesh: Arc::new(Mutex::new(core)),
