@@ -533,7 +533,7 @@ pub fn prepare_bounty_leg(path :: String,
   let before = read_bounty_transfer_movement(path, key)?
   let scope = bounty_transfer_namespace(plan, pins.purpose)?
   let previous = case before.root do
-    None -> None
+    None
     Some(root) -> do
       if Bytes.length(root.legacy_identity) != 0 do
         return Err("bounty_transfer_legacy_conflict")

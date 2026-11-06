@@ -1,4 +1,5 @@
 package expo.modules.meshmessenger
+private fun sdkWire()=byteArrayOf(2)+ByteArray(64){9}+ByteArray(135){3}
 private fun view(status:Int,enabled:Boolean=true)=MeshMessengerBountyBridge.packet(listOf(byteArrayOf(1,66,70,80),byteArrayOf(if(enabled)1 else 0),byteArrayOf(status.toByte()),if(status==0)byteArrayOf() else ByteArray(32){7},if(status<2)byteArrayOf() else ByteArray(32){if(status==2||status==4)0 else 8},ByteArray(8)))
 fun main() {
     val db="/db".toByteArray();var calls=0;val raw=ByteArray(8)+ByteArray(32){9}
@@ -30,9 +31,9 @@ fun main() {
     val moved=MeshMessengerBountyBridge.movement(movementRequest,db,{name,input->
         movementCalls.add(name)
         if(name.endsWith("_prepare")){check(input.contentEquals(MeshMessengerBountyBridge.packet(listOf(db,ByteArray(32){6},ByteArray(32){2}))));prepared(1)}
-        else if(name.endsWith("_commit")){check(input.contentEquals(MeshMessengerBountyBridge.packet(listOf(db,ByteArray(32){7},ByteArray(200){8}))));movementView(2)}
+        else if(name.endsWith("_commit")){check(input.contentEquals(MeshMessengerBountyBridge.packet(listOf(db,ByteArray(32){7},sdkWire()))));movementView(2)}
         else {check(name.endsWith("_submit"));movementView(3)}
-    },{op,input->movementCalls.add("sdk$op");if(op==2)ByteArray(32){2}else{check(op==5&&input.size==166);ByteArray(200){8}}})
+    },{op,input->movementCalls.add("sdk$op");if(op==2)ByteArray(32){2}else{check(op==5&&input.size==166);sdkWire()}})
     check(moved.contentEquals(movementView(3))&&movementCalls==listOf("sdk2","mesh_messenger_bounty_transfer_prepare","sdk5","mesh_messenger_bounty_transfer_commit","mesh_messenger_bounty_transfer_submit"))
     for(status in listOf(2,3,4,5)) {
         val output=MeshMessengerBountyBridge.movement(movementRequest,db,{name,_->
@@ -104,6 +105,80 @@ private fun mixedMovementProof() {
     fun request(asset:Int)=pack(byteArrayOf(2,66,77,82),db,byteArrayOf(asset.toByte()),bytes(6,32))
     fun split(input:ByteArray):List<ByteArray> {val b=java.nio.ByteBuffer.wrap(input);return (0 until b.int).map{ByteArray(b.int).also{b.get(it)}}}
     fun replace(input:ByteArray,index:Int,value:ByteArray):ByteArray {val f=split(input).toMutableList();f[index]=value;return MeshMessengerBountyBridge.packet(f)}
+
+    fun correlationResult(asset:Int,status:Int,signature:Int,dest:Int=6):ByteArray {
+        val r=replace(row(status,dest),3,bytes(signature,64))
+        if(asset<0)return r
+        val agg=aggregate(asset,status,dest,3)
+        return if(asset==0)replace(agg,3,r)else replace(agg,asset+3,replace(split(agg)[asset+3],6,r))
+    }
+    fun correlationPlan(asset:Int,status:Int,signature:Int):ByteArray {
+        val sig=if(status>=2)bytes(signature,64)else byteArrayOf()
+        if(asset<0)return pack(byteArrayOf(1,66,77,80),bytes(7,32),byteArrayOf(if(status==1)1 else 0),intent(6),sig,byteArrayOf(status.toByte()))
+        val p=plan(asset,status,6,3)
+        return if(status==1)p else replace(replace(p,5,sig),7,correlationResult(asset,status,signature))
+    }
+    fun correlationRequest(asset:Int)=if(asset<0)pack(db,bytes(6,32))else request(asset)
+    fun boundSubmit(asset:Int,signature:Int)=if(asset<0)pack(db,bytes(7,32),bytes(signature,64))else pack(byteArrayOf(2,66,77,82),db,byteArrayOf(asset.toByte()),bytes(7,32),bytes(signature,64))
+    val failures=mutableListOf<String>();var cases=0
+    fun expect(ok:Boolean,label:String) {cases++;if(!ok)failures.add(label)}
+    for(asset in listOf(-1,0,1,2)) {
+        for(status in listOf(1,2,3)) {
+            val sig=if(status==1)9 else 11
+            var submitted=byteArrayOf();var signs=0
+            val result=runCatching{MeshMessengerBountyBridge.movement(correlationRequest(asset),db,{name,input->
+                if(name.endsWith("_prepare"))correlationPlan(asset,status,sig)
+                else if(name.endsWith("_commit"))correlationResult(asset,2,sig)
+                else {submitted=input;correlationResult(asset,3,sig)}
+            },{op,_->if(op==2)bytes(2,32)else{signs++;sdkWire()}})}
+            expect(result.getOrNull()?.contentEquals(correlationResult(asset,3,sig))==true&&submitted.contentEquals(boundSubmit(asset,sig))&&signs==(if(status==1)1 else 0),"unbound submit asset $asset status $status")
+            var storedSignature=9;var attempts=0;var sends=0
+            val stale=runCatching{MeshMessengerBountyBridge.movement(correlationRequest(asset),db,{name,input->
+                if(name.endsWith("_prepare")){val response=correlationPlan(asset,status,9);if(status>=2)storedSignature=11;response}
+                else if(name.endsWith("_commit")){
+                    val response=correlationResult(asset,2,9)
+                    // Simulate another explicit operation replacing A before its callback returns.
+                    storedSignature=11;response
+                } else {
+                    attempts++
+                    if(input.contentEquals(boundSubmit(asset,9))&&storedSignature!=9)error("bounty_attempt_changed")
+                    sends++;correlationResult(asset,3,storedSignature,10)
+                }
+            },{op,_->if(op==2)bytes(2,32)else sdkWire()})}
+            expect(stale.isFailure&&attempts==1&&sends==0,"stale continuation sent replacement asset $asset status $status")
+            for(finalStatus in listOf(2,3,4,5)) {
+                var submits=0
+                val changed=runCatching{MeshMessengerBountyBridge.movement(correlationRequest(asset),db,{name,_->
+                    if(name.endsWith("_prepare"))correlationPlan(asset,status,9)
+                    else if(name.endsWith("_commit"))correlationResult(asset,2,9)
+                    else {submits++;correlationResult(asset,finalStatus,11)}
+                },{op,_->if(op==2)bytes(2,32)else sdkWire()})}
+                expect(changed.isFailure&&submits==1,"wrong final signature asset $asset status $status final $finalStatus")
+            }
+        }
+        for(status in listOf(2,3,4,5)) {
+            var submits=0
+            val changed=runCatching{MeshMessengerBountyBridge.movement(correlationRequest(asset),db,{name,_->
+                if(name.endsWith("_prepare"))correlationPlan(asset,1,9)
+                else if(name.endsWith("_commit"))correlationResult(asset,status,11)
+                else {submits++;correlationResult(asset,3,11)}
+            },{op,_->if(op==2)bytes(2,32)else sdkWire()})}
+            expect(changed.isFailure&&submits==0,"wrong commit signature asset $asset status $status")
+        }
+        val badWires=listOf(0,1,64,65,128,129,1233).map{bytes(2,it)}.toMutableList()
+        for(prefix in listOf(0,1,3,130))badWires.add(sdkWire().also{it[0]=prefix.toByte()})
+        for(wire in badWires) {
+            var commits=0
+            val result=runCatching{MeshMessengerBountyBridge.movement(correlationRequest(asset),db,{name,_->
+                if(name.endsWith("_prepare"))correlationPlan(asset,1,9)else {commits++;error("unexpected_commit")}
+            },{op,_->if(op==2)bytes(2,32)else wire})}
+            expect(result.isFailure&&commits==0,"malformed SDK prefix reached commit asset $asset bytes ${wire.size}")
+        }
+    }
+    failures.forEach{println("FAIL: $it")}
+    println("Kotlin signature correlation: $cases cases, ${failures.size} failures (host callbacks only)")
+    check(failures.isEmpty()){"signature correlation failed"}
+
     fun withCancelledUSDC(value:ByteArray)=replace(value,4,split(aggregate(1,0,6,3))[4])
     val cancelledCalls=mutableListOf<String>()
     val afterCancellation=MeshMessengerBountyBridge.movement(request(2),db,{name,_->
@@ -111,7 +186,7 @@ private fun mixedMovementProof() {
         if(name.endsWith("_prepare"))replace(plan(2,1,6,3),7,withCancelledUSDC(aggregate(2,1,6,3)))
         else if(name.endsWith("_commit"))withCancelledUSDC(aggregate(2,2,6,3))
         else {check(name.endsWith("_submit"));withCancelledUSDC(aggregate(2,3,6,3))}
-    },{op,input->cancelledCalls.add("sdk$op");if(op==2)bytes(2,32)else{check(op==5&&input.contentEquals(intent(6)));bytes(3,200)}})
+    },{op,input->cancelledCalls.add("sdk$op");if(op==2)bytes(2,32)else{check(op==5&&input.contentEquals(intent(6)));sdkWire()}})
     check(afterCancellation.contentEquals(withCancelledUSDC(aggregate(2,3,6,3)))&&cancelledCalls==listOf("sdk2","mesh_messenger_bounty_transfer_prepare","sdk5","mesh_messenger_bounty_transfer_commit","mesh_messenger_bounty_transfer_submit"))
     for((asset,noAttempt) in listOf(1 to plan(1,0,6,3),0 to replace(plan(0,0,6,3),7,pack(byteArrayOf(2,66,77,87),byteArrayOf(1),byteArrayOf(),row(0,6),byteArrayOf(),byteArrayOf())))) {
         check(runCatching{MeshMessengerBountyBridge.movement(request(asset),db,{name,_->check(name.endsWith("_prepare"));noAttempt},{op,_->check(op==2);bytes(2,32)})}.isFailure)
@@ -122,9 +197,9 @@ private fun mixedMovementProof() {
         val output=MeshMessengerBountyBridge.movement(request(asset),db,{name,input->
             calls.add(name)
             if(name.endsWith("_prepare")){check(input.contentEquals(pack(byteArrayOf(2,66,77,82),db,byteArrayOf(asset.toByte()),bytes(6,32),bytes(2,32))));plan(asset,1,6,3)}
-            else if(name.endsWith("_commit")){check(input.contentEquals(pack(byteArrayOf(2,66,77,82),db,byteArrayOf(asset.toByte()),bytes(8,32),bytes(3,200))));aggregate(asset,2,6,3)}
-            else {check(name.endsWith("_submit")&&input.contentEquals(pack(byteArrayOf(2,66,77,82),db,byteArrayOf(asset.toByte()),bytes(7,32))));aggregate(asset,3,6,3)}
-        },{op,input->calls.add("sdk$op");if(op==2){check(input.isEmpty());bytes(2,32)}else{check(op==5&&input.contentEquals(intent(6)));bytes(3,200)}})
+            else if(name.endsWith("_commit")){check(input.contentEquals(pack(byteArrayOf(2,66,77,82),db,byteArrayOf(asset.toByte()),bytes(8,32),sdkWire())));aggregate(asset,2,6,3)}
+            else {check(name.endsWith("_submit")&&input.contentEquals(pack(byteArrayOf(2,66,77,82),db,byteArrayOf(asset.toByte()),bytes(7,32),bytes(9,64))));aggregate(asset,3,6,3)}
+        },{op,input->calls.add("sdk$op");if(op==2){check(input.isEmpty());bytes(2,32)}else{check(op==5&&input.contentEquals(intent(6)));sdkWire()}})
         check(output.contentEquals(aggregate(asset,3,6,3))&&calls==listOf("sdk2","mesh_messenger_bounty_transfer_prepare","sdk5","mesh_messenger_bounty_transfer_commit","mesh_messenger_bounty_transfer_submit"))
     }
     for(asset in listOf(1,2)) {
@@ -139,7 +214,7 @@ private fun mixedMovementProof() {
         for(status in listOf(2,3)) {
             var calls=0
             val output=MeshMessengerBountyBridge.movement(request(asset),db,{name,input->calls++
-                if(name.endsWith("_prepare"))plan(asset,status,6,3)else{check(name.endsWith("_submit")&&input.contentEquals(pack(byteArrayOf(2,66,77,82),db,byteArrayOf(asset.toByte()),bytes(7,32))));aggregate(asset,3,6,3)}
+                if(name.endsWith("_prepare"))plan(asset,status,6,3)else{check(name.endsWith("_submit")&&input.contentEquals(pack(byteArrayOf(2,66,77,82),db,byteArrayOf(asset.toByte()),bytes(7,32),bytes(9,64))));aggregate(asset,3,6,3)}
             },{op,_->check(op==2);bytes(2,32)})
             check(calls==2&&output.contentEquals(aggregate(asset,3,6,3)))
         }
@@ -164,7 +239,7 @@ private fun mixedMovementProof() {
     }
     for(bad in listOf(replace(aggregate(1,2,6,3),4,replace(leg,6,row(2,10))),badAggregate,aggregate(1,1,6,3))) {
         var submitted=false
-        check(runCatching{MeshMessengerBountyBridge.movement(request(1),db,{name,_->if(name.endsWith("_prepare"))prepared else{if(!name.endsWith("_commit"))submitted=true;bad}},{op,_->if(op==2)bytes(2,32)else bytes(3,200)})}.isFailure)
+        check(runCatching{MeshMessengerBountyBridge.movement(request(1),db,{name,_->if(name.endsWith("_prepare"))prepared else{if(!name.endsWith("_commit"))submitted=true;bad}},{op,_->if(op==2)bytes(2,32)else sdkWire()})}.isFailure)
         check(!submitted)
     }
     println("Kotlin mixed movement: selectors, exact signing order, pending destination, read-only states, terminal reuse and malformed ABI passed")

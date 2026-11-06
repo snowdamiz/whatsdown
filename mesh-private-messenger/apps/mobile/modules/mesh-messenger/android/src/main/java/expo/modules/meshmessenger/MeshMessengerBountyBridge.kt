@@ -91,9 +91,22 @@ internal object MeshMessengerBountyBridge {
         }
         require(path.contentEquals(database)){"invalid_database_path"}
     }
-    private fun movementResult(input:ByteArray,identity:ByteArray,destination:ByteArray):Int {
+    private class MovementSignature private constructor(val bytes:ByteArray) {
+        companion object {
+            fun stored(bytes:ByteArray):MovementSignature {
+                require(bytes.size==64){"invalid_bounty_transfer_response"}
+                return MovementSignature(bytes.copyOf())
+            }
+            fun signedWire(wire:ByteArray):MovementSignature {
+                // SDK5: one-byte count, two signatures, then a message. Core authenticates the packet.
+                require(wire.size in 130..1232&&wire[0].toInt()==2){"invalid_bounty_wallet_response"}
+                return MovementSignature(wire.copyOfRange(1,65))
+            }
+        }
+    }
+    private fun movementResult(input:ByteArray,identity:ByteArray,destination:ByteArray,expected:MovementSignature):Int {
         val f=movementFields(input,12,2048)
-        require(f[0].contentEquals(byteArrayOf(1,66,77,87))&&f[1].contentEquals(identity)&&f[2].size==1&&f[2][0].toInt() in 0..5&&
+        require(f[0].contentEquals(byteArrayOf(1,66,77,87))&&f[1].contentEquals(identity)&&f[3].contentEquals(expected.bytes)&&f[2].size==1&&f[2][0].toInt() in 0..5&&
             f[4].size==32&&f[5].contentEquals(destination)&&f[6].size==32&&f[7].size==8&&f[8].size==1&&f[8][0].toInt() in 0..18&&
             f[9].size==8&&f[10].size==8&&f[11].size<=256&&
             (if(f[2][0]<2)f[3].isEmpty() else f[3].size==64)){"invalid_bounty_transfer_response"}
@@ -166,16 +179,17 @@ internal object MeshMessengerBountyBridge {
         val sameDestination=p[4].copyOfRange(44,76).contentEquals(request[3])
         require(p[3][0].toInt()==(if(status==1&&sameDestination)1 else 0)){"invalid_bounty_transfer_response"}
         if(!sameDestination||status>=4)return p[7]
-        if(p[3][0].toInt()==1) {
-            val wire=sdk(5,p[4]);require(wire.isNotEmpty()&&wire.size<=1232){"invalid_bounty_wallet_response"}
+        val expected=if(p[3][0].toInt()==1) {
+            val wire=sdk(5,p[4]);val signature=MovementSignature.signedWire(wire)
             val committed=mesh("mesh_messenger_bounty_transfer_commit",packet(listOf(tag,database,request[2],p[2],wire)))
             val committedRow=requireNotNull(movementAggregate(committed,asset)){"invalid_bounty_transfer_response"}
-            require(committedRow[2][0]>=2&&movementMatches(committedRow,identity,p[4])){"invalid_bounty_transfer_response"}
+            require(committedRow[2][0]>=2&&committedRow[3].contentEquals(signature.bytes)&&movementMatches(committedRow,identity,p[4])){"invalid_bounty_transfer_response"}
             if(committedRow[2][0]>=4)return committed
-        }
-        val output=mesh("mesh_messenger_bounty_transfer_submit",packet(listOf(tag,database,request[2],identity)))
+            signature
+        } else MovementSignature.stored(p[5])
+        val output=mesh("mesh_messenger_bounty_transfer_submit",packet(listOf(tag,database,request[2],identity,expected.bytes)))
         val submittedRow=requireNotNull(movementAggregate(output,asset)){"invalid_bounty_transfer_response"}
-        require(submittedRow[2][0]>=2&&movementMatches(submittedRow,identity,p[4])){"invalid_bounty_transfer_response"}
+        require(submittedRow[2][0]>=2&&submittedRow[3].contentEquals(expected.bytes)&&movementMatches(submittedRow,identity,p[4])){"invalid_bounty_transfer_response"}
         return output
     }
     fun movement(input:ByteArray,database:ByteArray,mesh:(String,ByteArray)->ByteArray,sdk:(Int,ByteArray)->ByteArray):ByteArray {
@@ -194,17 +208,22 @@ internal object MeshMessengerBountyBridge {
             p[5].size==1&&p[5][0].toInt() in 1..5&&p[2][0].toInt()==(if(p[5][0].toInt()==1)1 else 0)&&
             (if(p[5][0]<2)p[4].isEmpty() else p[4].size==64)){"invalid_bounty_transfer_response"}
         val identity=p[1]
-        if(p[2][0].toInt()==1) {
-            val wire=sdk(5,p[3]);require(wire.isNotEmpty()&&wire.size<=1232){"invalid_bounty_wallet_response"}
+        val expected=if(p[2][0].toInt()==1) {
+            val wire=sdk(5,p[3]);val signature=MovementSignature.signedWire(wire)
             val committed=mesh("mesh_messenger_bounty_transfer_commit",packet(listOf(database,identity,wire)))
-            val status=movementResult(committed,identity,request[1]);if(status>=4)return committed
+            val status=movementResult(committed,identity,request[1],signature);if(status>=4)return committed
             require(status>=2){"invalid_bounty_transfer_response"}
-        } else if(p[5][0]>=4) {
-            val output=mesh("mesh_messenger_bounty_transfer_status",database)
-            movementResult(output,identity,request[1]);return output
+            signature
+        } else {
+            val signature=MovementSignature.stored(p[4])
+            if(p[5][0]>=4) {
+                val output=mesh("mesh_messenger_bounty_transfer_status",database)
+                movementResult(output,identity,request[1],signature);return output
+            }
+            signature
         }
-        val output=mesh("mesh_messenger_bounty_transfer_submit",packet(listOf(database,identity)))
-        require(movementResult(output,identity,request[1])>=2){"invalid_bounty_transfer_response"};return output
+        val output=mesh("mesh_messenger_bounty_transfer_submit",packet(listOf(database,identity,expected.bytes)))
+        require(movementResult(output,identity,request[1],expected)>=2){"invalid_bounty_transfer_response"};return output
     }
 
 }

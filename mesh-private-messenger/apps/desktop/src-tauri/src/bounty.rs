@@ -189,10 +189,33 @@ fn movement_fields(input: &[u8], count: usize, maximum: usize) -> Result<Vec<&[u
     }
     Ok(fields)
 }
-fn movement_result(input: &[u8], identity: &[u8], destination: &[u8]) -> Result<u8, String> {
+struct MovementSignature([u8; 64]);
+impl MovementSignature {
+    fn stored(bytes: &[u8]) -> Result<Self, String> {
+        bytes
+            .try_into()
+            .map(Self)
+            .map_err(|_| "invalid_bounty_transfer_response".into())
+    }
+    fn signed_wire(wire: &[u8]) -> Result<Self, String> {
+        // SDK5 uses a canonical one-byte count followed by two signatures and a message.
+        // Core authenticates the full packet; the host retains only its first signature.
+        if !(130..=1232).contains(&wire.len()) || wire[0] != 2 {
+            return Err("invalid_bounty_wallet_response".into());
+        }
+        Self::stored(&wire[1..65])
+    }
+}
+fn movement_result(
+    input: &[u8],
+    identity: &[u8],
+    destination: &[u8],
+    expected: &MovementSignature,
+) -> Result<u8, String> {
     let fields = movement_fields(input, 12, 2048)?;
     if fields[0] != b"\x01BMW"
         || fields[1] != identity
+        || fields[3] != expected.0
         || fields[2].len() != 1
         || fields[2][0] > 5
         || fields[4].len() != 32
@@ -399,29 +422,30 @@ where
     if !same_destination || status >= 4 {
         return Ok(p[7].to_vec());
     }
-    if p[3][0] == 1 {
+    let expected = if p[3][0] == 1 {
         let wire = sdk(5, p[4])?;
-        if wire.is_empty() || wire.len() > 1232 {
-            return Err("invalid_bounty_wallet_response".into());
-        }
+        let expected = MovementSignature::signed_wire(&wire)?;
         let committed = mesh(
             "mesh_messenger_bounty_transfer_commit",
             &packet(&[b"\x02BMR", database, request[2], p[2], &wire]),
         )?;
         let row = movement_aggregate(&committed, asset)?.ok_or_else(invalid)?;
-        if row[2][0] < 2 || !movement_matches(&row, identity, p[4]) {
+        if row[2][0] < 2 || row[3] != expected.0 || !movement_matches(&row, identity, p[4]) {
             return Err(invalid());
         }
         if row[2][0] >= 4 {
             return Ok(committed);
         }
-    }
+        expected
+    } else {
+        MovementSignature::stored(p[5])?
+    };
     let output = mesh(
         "mesh_messenger_bounty_transfer_submit",
-        &packet(&[b"\x02BMR", database, request[2], identity]),
+        &packet(&[b"\x02BMR", database, request[2], identity, &expected.0]),
     )?;
     let row = movement_aggregate(&output, asset)?.ok_or_else(invalid)?;
-    if row[2][0] < 2 || !movement_matches(&row, identity, p[4]) {
+    if row[2][0] < 2 || row[3] != expected.0 || !movement_matches(&row, identity, p[4]) {
         return Err(invalid());
     }
     Ok(output)
@@ -485,36 +509,44 @@ where
         return Err("invalid_bounty_transfer_response".into());
     }
     let identity = plan[1];
-    if plan[2][0] == 1 {
+    let expected = if plan[2][0] == 1 {
         let wire = sdk(5, plan[3])?;
-        if wire.is_empty() || wire.len() > 1232 {
-            return Err("invalid_bounty_wallet_response".into());
-        }
+        let expected = MovementSignature::signed_wire(&wire)?;
         let committed = mesh(
             "mesh_messenger_bounty_transfer_commit",
             &packet(&[database, identity, &wire]),
         )?;
-        let status = movement_result(&committed, identity, request[1])?;
+        let status = movement_result(&committed, identity, request[1], &expected)?;
         if status >= 4 {
             return Ok(committed);
         }
         if status < 2 {
             return Err("invalid_bounty_transfer_response".into());
         }
-    } else if plan[5][0] >= 4 {
-        let output = mesh("mesh_messenger_bounty_transfer_status", database)?;
-        movement_result(&output, identity, request[1])?;
-        return Ok(output);
-    }
+        expected
+    } else {
+        let expected = MovementSignature::stored(plan[4])?;
+        if plan[5][0] >= 4 {
+            let output = mesh("mesh_messenger_bounty_transfer_status", database)?;
+            movement_result(&output, identity, request[1], &expected)?;
+            return Ok(output);
+        }
+        expected
+    };
     let output = mesh(
         "mesh_messenger_bounty_transfer_submit",
-        &packet(&[database, identity]),
+        &packet(&[database, identity, &expected.0]),
     )?;
-    let status = movement_result(&output, identity, request[1])?;
+    let status = movement_result(&output, identity, request[1], &expected)?;
     if status < 2 {
         return Err("invalid_bounty_transfer_response".into());
     }
     Ok(output)
+}
+
+#[cfg(test)]
+fn sdk_wire() -> Vec<u8> {
+    [vec![2], vec![9; 64], vec![3; 135]].concat()
 }
 
 #[cfg(test)]
@@ -562,7 +594,7 @@ mod movement_tests {
                     assert_eq!(input, packet(&[b"/db", &[6; 32], &[2; 32]]));
                     Ok(prepared(1))
                 } else if name.ends_with("_commit") {
-                    assert_eq!(input, packet(&[b"/db", &[7; 32], &[8; 200]]));
+                    assert_eq!(input, packet(&[b"/db", &[7; 32], &sdk_wire()]));
                     Ok(fixture(2))
                 } else {
                     assert!(name.ends_with("_submit"));
@@ -578,7 +610,7 @@ mod movement_tests {
                     assert_eq!(op, 5);
                     assert_eq!(input.len(), 166);
                     assert_eq!(&input[..4], b"\x01BWT");
-                    Ok(vec![8; 200])
+                    Ok(sdk_wire())
                 }
             },
         )
@@ -960,7 +992,7 @@ mod mixed_movement_tests {
             else { assert!(name.ends_with("_submit")); Ok(with_cancelled(aggregate(2, 3, 6, 3))) }
         }, |op, input| {
             calls.borrow_mut().push(format!("sdk{op}"));
-            if op == 2 { Ok(vec![2; 32]) } else { assert_eq!(op, 5); assert_eq!(input, intent(6)); Ok(vec![3; 200]) }
+            if op == 2 { Ok(vec![2; 32]) } else { assert_eq!(op, 5); assert_eq!(input, intent(6)); Ok(sdk_wire()) }
         }).unwrap();
         assert_eq!(output, with_cancelled(aggregate(2, 3, 6, 3)));
         assert_eq!(*calls.borrow(), ["sdk2", "mesh_messenger_bounty_transfer_prepare", "sdk5", "mesh_messenger_bounty_transfer_commit", "mesh_messenger_bounty_transfer_submit"]);
@@ -995,12 +1027,12 @@ mod mixed_movement_tests {
                     } else if name.ends_with("_commit") {
                         assert_eq!(
                             input,
-                            packet(&[b"\x02BMR", b"/db", &[asset], &[8; 32], &[3; 200]])
+                            packet(&[b"\x02BMR", b"/db", &[asset], &[8; 32], &sdk_wire()])
                         );
                         Ok(aggregate(asset, 2, 6, 3))
                     } else {
                         assert!(name.ends_with("_submit"));
-                        assert_eq!(input, packet(&[b"\x02BMR", b"/db", &[asset], &[7; 32]]));
+                        assert_eq!(input, packet(&[b"\x02BMR", b"/db", &[asset], &[7; 32], &[9; 64]]));
                         Ok(aggregate(asset, 3, 6, 3))
                     }
                 },
@@ -1013,7 +1045,7 @@ mod mixed_movement_tests {
                         }
                         5 => {
                             assert_eq!(input, intent(6));
-                            Ok(vec![3; 200])
+                            Ok(sdk_wire())
                         }
                         _ => panic!(),
                     }
@@ -1104,7 +1136,7 @@ mod mixed_movement_tests {
                             Ok(plan(asset, status, 6, 3))
                         } else {
                             assert!(name.ends_with("_submit"));
-                            assert_eq!(input, packet(&[b"\x02BMR", b"/db", &[asset], &[7; 32]]));
+                            assert_eq!(input, packet(&[b"\x02BMR", b"/db", &[asset], &[7; 32], &[9; 64]]));
                             Ok(aggregate(asset, 3, 6, 3))
                         }
                     },
@@ -1207,9 +1239,241 @@ mod mixed_movement_tests {
                         Ok(bad.clone())
                     }
                 },
-                |op, _| { Ok(if op == 2 { vec![2; 32] } else { vec![3; 200] }) }
+                |op, _| { Ok(if op == 2 { vec![2; 32] } else { sdk_wire() }) }
             )
             .is_err());
+        }
+    }
+    fn correlated_request(asset: Option<u8>) -> Vec<u8> {
+        asset
+            .map(request)
+            .unwrap_or_else(|| packet(&[b"/db", &[6; 32]]))
+    }
+    fn correlated_result(asset: Option<u8>, status: u8, signature: u8, dest: u8) -> Vec<u8> {
+        let row = replace(&row(status, dest), 12, 3, &[signature; 64]);
+        match asset {
+            None => row,
+            Some(0) => replace(&aggregate(0, status, dest, 3), 6, 3, &row),
+            Some(a) => {
+                let agg = aggregate(a, status, dest, 3);
+                let leg = movement_fields(&agg, 6, 8192).unwrap()[a as usize + 3];
+                replace(&agg, 6, a as usize + 3, &replace(leg, 7, 6, &row))
+            }
+        }
+    }
+    fn correlated_plan(asset: Option<u8>, status: u8, signature: u8) -> Vec<u8> {
+        let sig = if status >= 2 {
+            vec![signature; 64]
+        } else {
+            vec![]
+        };
+        match asset {
+            None => packet(&[
+                b"\x01BMP",
+                &[7; 32],
+                &[u8::from(status == 1)],
+                &intent(6),
+                &sig,
+                &[status],
+            ]),
+            Some(a) if status == 1 => plan(a, status, 6, 3),
+            Some(a) => replace(
+                &replace(&plan(a, status, 6, 3), 8, 5, &sig),
+                8,
+                7,
+                &correlated_result(asset, status, signature, 6),
+            ),
+        }
+    }
+    fn bound_submit(asset: Option<u8>, signature: u8) -> Vec<u8> {
+        match asset {
+            None => packet(&[b"/db", &[7; 32], &[signature; 64]]),
+            Some(a) => packet(&[b"\x02BMR", b"/db", &[a], &[7; 32], &[signature; 64]]),
+        }
+    }
+    #[test]
+    fn submit_binds_sdk_or_prepared_signature_for_every_route() {
+        for asset in [None, Some(0), Some(1), Some(2)] {
+            for status in [1, 2, 3] {
+                let sig = if status == 1 { 9 } else { 11 };
+                let mut sends = 0;
+                movement(
+                    &correlated_request(asset),
+                    b"/db",
+                    |name, input| {
+                        if name.ends_with("_prepare") {
+                            Ok(correlated_plan(asset, status, sig))
+                        } else if name.ends_with("_commit") {
+                            Ok(correlated_result(asset, 2, sig, 6))
+                        } else {
+                            assert!(name.ends_with("_submit"));
+                            assert_eq!(
+                                input,
+                                bound_submit(asset, sig),
+                                "unbound submit for {asset:?} status {status}"
+                            );
+                            sends += 1;
+                            Ok(correlated_result(asset, 3, sig, 6))
+                        }
+                    },
+                    |op, _| {
+                        if op == 2 {
+                            Ok(vec![2; 32])
+                        } else {
+                            assert_eq!(status, 1);
+                            assert_eq!(op, 5);
+                            Ok(sdk_wire())
+                        }
+                    },
+                )
+                .unwrap();
+                assert_eq!(sends, 1);
+            }
+        }
+    }
+    #[test]
+    fn wrong_commit_signature_refuses_before_submit_including_terminal_commit() {
+        for asset in [None, Some(0), Some(1), Some(2)] {
+            for status in [2, 3, 4, 5] {
+                let mut sends = 0;
+                let result = movement(
+                    &correlated_request(asset),
+                    b"/db",
+                    |name, _| {
+                        if name.ends_with("_prepare") {
+                            Ok(correlated_plan(asset, 1, 9))
+                        } else if name.ends_with("_commit") {
+                            Ok(correlated_result(asset, status, 11, 6))
+                        } else {
+                            sends += 1;
+                            Ok(correlated_result(asset, 3, 11, 6))
+                        }
+                    },
+                    |op, _| Ok(if op == 2 { vec![2; 32] } else { sdk_wire() }),
+                );
+                assert!(
+                    result.is_err() && sends == 0,
+                    "wrong commit signature accepted for {asset:?} status {status}; sends={sends}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn final_response_must_keep_expected_signature() {
+        for asset in [None, Some(0), Some(1), Some(2)] {
+            for prepared_status in [1, 2, 3] {
+                for final_status in [2, 3, 4, 5] {
+                    let mut sends = 0;
+                    let result = movement(
+                        &correlated_request(asset),
+                        b"/db",
+                        |name, _| {
+                            if name.ends_with("_prepare") {
+                                Ok(correlated_plan(asset, prepared_status, 9))
+                            } else if name.ends_with("_commit") {
+                                Ok(correlated_result(asset, 2, 9, 6))
+                            } else {
+                                sends += 1;
+                                Ok(correlated_result(asset, final_status, 11, 6))
+                            }
+                        },
+                        |op, _| {
+                            if op == 2 {
+                                Ok(vec![2; 32])
+                            } else {
+                                assert_eq!(prepared_status, 1);
+                                Ok(sdk_wire())
+                            }
+                        },
+                    );
+                    assert!(
+                        result.is_err() && sends == 1,
+                        "wrong final signature accepted for {asset:?}"
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn stale_continuation_cannot_send_replacement_attempt() {
+        for asset in [None, Some(0), Some(1), Some(2)] {
+            for status in [1, 2, 3] {
+                let mut stored_signature = 9;
+                let mut attempts = 0;
+                let mut sends = 0;
+                let result = movement(
+                    &correlated_request(asset),
+                    b"/db",
+                    |name, input| {
+                        if name.ends_with("_prepare") {
+                            let response = correlated_plan(asset, status, 9);
+                            if status >= 2 {
+                                stored_signature = 11;
+                            }
+                            Ok(response)
+                        } else if name.ends_with("_commit") {
+                            let response = correlated_result(asset, 2, 9, 6);
+                            // Simulate another explicit operation replacing A before its callback returns.
+                            stored_signature = 11;
+                            Ok(response)
+                        } else {
+                            attempts += 1;
+                            if input == bound_submit(asset, 9) && stored_signature != 9 {
+                                return Err("bounty_attempt_changed".into());
+                            }
+                            sends += 1;
+                            Ok(correlated_result(asset, 3, stored_signature, 10))
+                        }
+                    },
+                    |op, _| {
+                        if op == 2 {
+                            Ok(vec![2; 32])
+                        } else {
+                            assert_eq!(status, 1);
+                            Ok(sdk_wire())
+                        }
+                    },
+                );
+                assert!(result.is_err());
+                assert_eq!(
+                    (attempts, sends),
+                    (1, 0),
+                    "replacement sent before host rejection for {asset:?}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn malformed_sdk_signature_prefix_never_reaches_commit() {
+        let mut bad_wires: Vec<Vec<u8>> =
+            [0, 1, 64, 65, 128, 129, 1233].map(|n| vec![2; n]).to_vec();
+        for prefix in [0, 1, 3, 130] {
+            let mut wire = sdk_wire();
+            wire[0] = prefix;
+            bad_wires.push(wire);
+        }
+        for asset in [None, Some(0), Some(1), Some(2)] {
+            for wire in &bad_wires {
+                let mut commits = 0;
+                let result = movement(
+                    &correlated_request(asset),
+                    b"/db",
+                    |name, _| {
+                        if name.ends_with("_prepare") {
+                            Ok(correlated_plan(asset, 1, 9))
+                        } else {
+                            commits += 1;
+                            Err("unexpected_commit".into())
+                        }
+                    },
+                    |op, _| Ok(if op == 2 { vec![2; 32] } else { wire.clone() }),
+                );
+                assert!(
+                    result.is_err() && commits == 0,
+                    "malformed SDK packet reached commit for {asset:?}: {} bytes",
+                    wire.len()
+                );
+            }
         }
     }
 }
