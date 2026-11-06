@@ -22,7 +22,7 @@
     "compiler_source_modules": 327
   },
   "disclosures": "Only 16 existing MobileCore display spans move: byte offsets -28, lines +4; kinds, reasons, expressions and columns unchanged. Other53sites identical.",
-  "review": "Source move reviewed with no production findings. Accepted diagnostic available-list false-positive finding fixed red/green; exact-subject validator replayed against all eight hash-verified retained import refusals. Final validator did not rerun compiler; production and fixtures unchanged. Narrow independent recheck pending.",
+  "review": "Source move reviewed with no production findings. Accepted diagnostic available-list false-positive finding fixed red/green; exact-subject validator replayed against all eight hash-verified retained import refusals. Final validator did not rerun compiler; production and fixtures unchanged. Independent round2 re-ran the two tests and all eight retained subjects, rejected all available-list names and wrong-file/code/module controls, and resolved the prior finding with no new defect. Compiler not rerun by reviewer.",
   "binding_scope": "All176 ABI exports/metadata identical. Swift/TS exact; C header guard, JNI include and Kotlin library name differ only because proof artifact is libproof.a; normalized exact identities recorded.",
   "artifact_sha256": "5cf5f6b282a3bfa1e66ca5fed8ec110bee6bd63ca57a1a5e8e04da165c001075",
   "evidence": {
@@ -42,7 +42,8 @@
     ".morse/continuation-20261106/raw-parser-closure/review/verdict.md": "26f8556a4a1f08a0353f5e3cef720e16a4463afc16ca4e054e1e174e2730f69c",
     ".morse/continuation-20261106/raw-parser-closure/cleanup.json": "912cf320d35c104151d5738560baad60e8813bfc5f22a8cc368a335ba4546c42",
     ".morse/continuation-20261106/raw-parser-closure/lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    ".morse/continuation-20261106/raw-parser-closure/report-tests.log": "13d1d316c5d5008162bf0112f3417c3e16ac2ba3c7f8ca71c86b274fecfe2e4a"
+    ".morse/continuation-20261106/raw-parser-closure/report-tests.log": "13d1d316c5d5008162bf0112f3417c3e16ac2ba3c7f8ca71c86b274fecfe2e4a",
+    ".morse/continuation-20261106/raw-parser-closure/review2/verdict.md": "8bdd6012026c49f50a0187423326046367f0459d4aeb27e6fae7a5234da8be4d"
   },
   "cleanup_logical_bytes": 158283592,
   "limits": [
