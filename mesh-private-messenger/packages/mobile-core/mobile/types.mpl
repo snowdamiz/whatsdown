@@ -47,11 +47,19 @@ end
 pub struct MobileStartRequest do
   database_path :: String
   peer_profile :: Bytes
-  body :: Bytes
+  body :: Plaintext<Bytes>
   attachment :: Bytes
 end
 
 pub struct MobileFanoutRequest do
+  database_path :: String
+  peer_device_set :: Bytes
+  local_device_set :: Bytes
+  body :: Plaintext<Bytes>
+  attachment :: Bytes
+end
+
+pub struct MobileFanoutControlRequest do
   database_path :: String
   peer_device_set :: Bytes
   local_device_set :: Bytes
@@ -156,7 +164,7 @@ pub struct MobileSyncPayload do
   conversation_id :: Bytes
   client_message_id :: Bytes
   client_timestamp :: U64
-  body :: Bytes
+  body :: Plaintext<Bytes>
   disappearing_seconds :: Int
   safety_number :: Bytes
 end
@@ -331,7 +339,7 @@ end
 pub struct MobileGroupSendRequest do
   database_path :: String
   group_id :: Bytes
-  body :: Bytes
+  body :: Plaintext<Bytes>
   attachment :: Bytes
 end
 

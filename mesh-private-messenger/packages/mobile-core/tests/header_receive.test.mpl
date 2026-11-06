@@ -283,13 +283,7 @@ fn pending_and_cas() -> Bool!String do
 end
 
 test("actual HE receive progresses through full cursor queue without ACK/retry charge; selected-row CAS prevents stale commit") do
-  case pending_and_cas() do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert_received_fixture(Result.unwrap_or(pending_and_cas(), false))
 end
 
 test("full unauthenticated cursor queue preserves admitted progress across cold reopen and does not impose4096 read ceiling") do
