@@ -101,7 +101,7 @@ revisited at each phase gate.
 | Checkpoint | 188-byte `KTK` wire form. The service signs a 146-byte statement: `"mesh-key-transparency-v1"`, version u16, sequence u64, tree size u64, root, previous checkpoint hash, timestamp u64, service key. `checkpoint_hash = SHA-256("mesh-msg/v1/transparency-checkpoint" ‖ statement ‖ signature)` | `packages/messenger-protocol/transparency/merkle.mpl:182`, `wire.mpl:416` |
 | Witness signature | Ed25519 over `"mesh-msg/v1/transparency-witness" ‖ witness_id ‖ checkpoint_hash`; ID 1–64 bytes, pinned to one key | `merkle.mpl:276` |
 | Witness logic | Run-once or 15-second pull loop; verifies service signature, rollback, consistency, clock skew, time progression and adjacent hash links; atomically persists before signing; retains rejection evidence | `services/transparency-witness/main.mpl`, `witness/history.mpl`, `witness/state.mpl` |
-| Witness hosting | Two Cloudflare Workers, same operator. Delivery's scheduled job (`kind: witness`) calls each one's `/attest` with a bearer token Morse holds. State lives in a Durable Object with compare-and-swap writes; continuity is carried over with `WITNESS_INITIAL_CHECKPOINT_HEX` (376 hex characters) | `ops/cloudflare/witness.mjs`, `jobs.mjs:77` |
+| Witness hosting adapters | Cloudflare witness adapters and scheduled `/attest` calls exist; standalone pull-mode deployment is also supported. These source checks do not establish the current live host inventory or independent operators | `ops/cloudflare/witness.mjs`, `ops/witness/README.md` |
 | Directory's witness list | SQL registry with pinned/shadow/retired states and current-key admission. Empty registries bootstrap A/B; populated registries control membership | `migrations/017_witness_registry.sql`, `storage/witness_registry.mpl` |
 | Attestation storage | `witness_signatures(checkpoint_sequence, witness_id, checkpoint_hash, …)`, primary key (sequence, witness_id) | `migrations/004_transparency.sql:30` |
 | Phone threshold | Configured strict majority over 1–16 distinct native pins; v1 maps to legacy 2-of-2 | `packages/mobile-core/mobile/transparency.mpl`, `transparency/config.mpl` |
@@ -110,7 +110,7 @@ revisited at each phase gate.
 | Limits | `verify_witnesses` accepts at most 16 pinned keys and 16 attestations | `merkle.mpl:388` |
 | Proof size | v2 compact paths and incremental stored nodes implemented; v1 remains the default until native rollout. Compact mode verified at 1,000,001 leaves | `transparency/merkle.mpl`, `storage/transparency_tree.mpl`, `key-transparency-v1.md` |
 | Freshness | Phones reject evidence more than 5 minutes old; the directory re-signs an unchanged tree after 4 minutes | `transparency/client.mpl`, `directory-delivery/storage/transparency.mpl:211` |
-| Conflict detection | Only same sequence, same size, different root | `merkle.mpl:397` |
+| Fork evidence | F1 same-size conflicts, F2 authenticated inclusion contradictions and F3 rollback have codecs and verification; this does not imply every discovery path finds every kind | `transparency/fork.mpl` |
 | Abuse control | Proof of work at the privacy edge, `MESSENGER_ABUSE_DIFFICULTY` 1–24 (default 16) | `services/privacy-edge/main.mpl:27,50` |
 | Crypto available in Mesh | Ed25519, X25519, SHA-256, HPKE, ML-KEM, blind RSA, BOLT11 verification and opaque one-time payment preimages are implemented locally. The reviewed public release and exact app pin remain open | mesh-lang public runtime and compiler; Phase 4A evidence below |
 | Health | `/health` reads bounded cached job health, ages it and reports quorum, signature ages and anchor lag; it does not start signers | `ops/cloudflare/routing.mjs`, `storage/witness_registry.mpl` |
@@ -119,9 +119,33 @@ revisited at each phase gate.
 | Public anchors | Local judge anchor/cosign subset, native verification, scheduled writer and receipt APIs implemented; chain deployment pending | `programs/morse-judge`, `mobile-core/mobile/anchor_check.mpl`, `directory-delivery/storage/anchor_receipts.mpl` |
 | Monitor | Native Mesh polling, durable comparisons and cached status implemented locally; deployment pending | `clients/mesh-cli/monitor` |
 | Relay | Mesh admission, Kit signing, SQLite progress/ownership, finalized RPC recovery, durable scheduler, HTTP/manual entry points, bounded retention, witness-package integration and legacy phone filing implemented locally; mixed-asset execution/receipts, published distribution and funded qualification pending | `transparency/relay_admission.mpl`, `tools/fork-verifier`, `ops/relay`, `mobile-core/mobile/fork_filing.mpl` |
-| Rewards | Local Mesh policy, isolated custody program, authenticated reader, durable v1 funding/settlement/claims, v2 settlement/asset claims and bounded multi-epoch scheduling implemented; continuous grace assessment, deployment and live funding qualification pending | `transparency/rewards_operator.mpl`, `programs/morse-rewards`, `ops/rewards`, `ops/token-v2/reward_operator.mpl` |
+| Rewards | Local Mesh policy, isolated custody program, authenticated reader, durable v1 funding/settlement/claims, v2 settlement/asset claims, bounded multi-epoch scheduling and continuous directory/current-attendance grace assessment implemented; deployment and live funding qualification pending | `transparency/rewards_operator.mpl`, `programs/morse-rewards`, `ops/rewards`, `ops/token-v2/reward_operator.mpl` |
 | Credits, payments and token | Credits and USDC/SOL/Lightning paths have local implementation and execution evidence; token swaps/burns have local SBF proofs. Native dogfood, keeper/rewards integration, review, deployment and live exit gates remain open | Implementation progress below; Phases 4–6 |
 
+### Current continuation status — 2026-11-06
+
+This table is the current continuation reference, through source checkpoint
+`f4c21c2`. Detailed entries below retain the history of implementation and proof;
+an older candidate or pending note does not override a later adoption record.
+Local source, local execution, native UI qualification and live production
+acceptance are separate states. No live deployment inventory was refreshed by
+these local checks.
+
+| Workstream | Adopted or verified now | Next required work |
+|---|---|---|
+| Mesh error conversions | Pushed `8256d5d3`; generic and builtin `From` handling qualified, with a retained optimized local compiler/runtime family | Reviewed public release and exact app dependency pin |
+| Quorum source identity | Shared Mesh and writer host checks adopted through `f4c21c2`; seven Mesh and 28 native/writer checks pass, including mapped/nonmapped IPv6 controls | Independent-provider and live RPC qualification; different names alone do not establish different operators |
+| V2 rewards | Bounded scheduling plus directory/current-attendance grace assessment adopted (`cee839c`); 47 composed local Node/native/Kit/SBF checks pass | Deployment, funded operation, independent providers and live duration gates; finite requests stop at their configured bound |
+| Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; fresh 800 app, 121 native and 16 desktop-script checks pass | Provisioned Keychain/signing and unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
+| Plaintext propagation | Presentation ingress/storage/projection adopted with 69 reviewed sites; current macOS desktop Core build and native tests pass | Message/request ingress continuation is still in an isolated worktree; remaining content propagation, mobile targets and release qualification |
+| Bootstrap acceptance | Actual native-ABI canary lookup, forged-signature refusal and restart continuity reproduced; isolated runner commits await adoption | Explicit scoped native RPC TLS-root input is missing: owned HTTPS peers work with request-scoped roots, but the actual anchor call returns `rpc_unavailable`; combined acceptance remains red |
+| Mixed-asset fork filing | MPR2 codecs and authenticated unsigned proof planning exist; legacy relay/phone filing works | Durable MPR2 relay execution, versioned authenticated receipts, phone filing and separate bounty-asset recovery |
+| Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
+
+All eight §4.3 production checks remain pending. B1 shadow/outage observation,
+anchor/quorum duration gates, external operators/reviews, funded deployments,
+live slashing/finder payments and executed weekly burn/purchase drills are not
+established by the local proofs. The full §22 work remains part of this plan.
 
 ### Continuation checkpoint — 2026-11-06
 
@@ -184,9 +208,9 @@ compiler/runtime and log hashes are recorded in
 `.morse/continuation-20261106/rewards-final-evidence.json`; this reuses the
 recorded custody fixture and does not repeat SBF execution.
 
-This explicit-intent checkpoint is extended by the bounded scheduling unit below.
-Continuous permissionless grace assessment, governance activation, pool funding,
-deployment, public compiler release and live-duration gates remain open.
+This explicit-intent checkpoint is extended by the bounded scheduling and grace
+assessment units below. Governance activation, pool funding, deployment, public
+compiler release and live-duration gates remain open.
 
 ### Bounded v2 rewards scheduling — 2026-11-06
 
@@ -213,9 +237,34 @@ source at adoption matches those inputs exactly. The parent rebuilt the executab
 13 focused Node/native checks. Independent review of that scheduler checkpoint
 found no verified defect. Its freshly rebuilt operator passed those 13 checks,
 seven additional journal/restart/lease probes and 13 executable range cases;
-the owner SBF runs were verified by hashes but not repeated. Permissionless
-grace assessment remains unconnected, and this does not establish independent
-providers, live finality, deployment, funding or continuous operation.
+the owner SBF runs were verified by hashes but not repeated. The subsequent unit
+below connects permissionless assessment. These checks do not establish
+independent providers, live finality, deployment, funding or continuous operation.
+
+### Continuous rewards grace assessment — 2026-11-06
+
+The operational keeper now assesses the directory and current attendance set
+before and during collection, including week-end, cosign-window and reserve
+waits. Permissionless tag 45 updates grace without applying pending collateral
+or synthesizing tag 36 activation. A durable rotating cursor prevents repeated
+changes to one subject from starving later witnesses. No-op assessments do not
+continually change eligibility revisions; genuine changes trigger authenticated
+cancellation and replanning. Assessment shares the existing journal, exact
+signed-packet recovery, finalized context, leases and aggregate spending limits.
+Finite completed requests retain their configured stopping bound.
+
+The owner proved 29 Node/native/Kit/SBF checks, five bank tests, focused Mesh
+checks and v1 signed-SBF compatibility. Parent adoption verified 488 source
+hashes, 39 logs and nine retained artifacts, then rebuilt the composed Mesh
+operator and passed 47 Node/native/Kit/SBF checks. This execution reuses the
+owner's verified SBF programs, bridge and custody snapshot, with fresh signed
+transactions against disposable local banks. The five source differences from
+the owner's receipt are the separately qualified shared host validator and its
+operator/writer tests. Local source and execution receipts are retained under
+`.morse/continuation-20261106/grace-adoption`. This covers the directory and
+current attendance set, not all historical bonded identities or indefinite
+maintenance after a finite request completes. Deployment, independent providers,
+live finality, governance activation and funding remain unqualified.
 
 ### Shared anchor quorum source identity — 2026-11-06
 
@@ -234,6 +283,44 @@ Exact source, compiler, binary and log hashes are retained under
 `.morse/continuation-20261106/anchor-hosts`. This is local source qualification;
 the current eight-check scheduled bootstrap acceptance runner and its live
 production windows remain open.
+
+Independent review exposed two remaining aliases: `localhost.` could evade the
+local fixture comparison, and canonical IPv4-mapped IPv6 could duplicate an IPv4
+source. Both Mesh and the Node writer now fold the local final dot before the
+fixture exception and refuse mapped IPv6. A follow-up positive control caught
+over-rejection of nonmapped IPv6 sharing the prefix; refusal now requires the
+exact canonical mapped shape. Seven Mesh and 28 native executable/writer checks
+pass on the composed source, preserving ordinary IPv6, explicit local ports and
+strict production mode. Receipts are under
+`.morse/continuation-20261106/anchor-host-final`.
+
+### Desktop native service connection — 2026-11-06
+
+The actual desktop root now mounts private React content only after native
+page/session admission and constructs captured scoped services. Core calls,
+clipboard, file intake, previews, export, notifications and backups use that
+authority. Lock, page replacement and committed account changes retire old
+resources; late private replies refuse and unreturned bytes are erased. Native
+legacy-key cleanup retains its finite obligation across page replacement and
+checks account identity before removal. A waiting Core call rechecks private
+admission after cleanup, so lock/unlock cannot resume a mutation under its old
+epoch.
+
+The adopted source passes 800 app tests, 121 native tests, 16 desktop script
+tests, application typing and a development-configured web build. Parent
+adoption independently reran those checks after verifying all 127 changed
+source hashes and 68 owner logs. The owner also passed focused-test typing and
+the default native Debug build with 176 matching Core exports and no test ports
+in the product. The final independent source review found no verified defect
+and confirmed the cleanup/admission race is closed; the fresh composed Core
+report matches all 325 source modules and 69 reviewed sites. Actual native startup failed closed at Data Protection
+Keychain provisioning (`-34018`); unlocked WK/React and real picker/clipboard/
+backup UI remain unqualified. Windows/Linux private routes fail closed, and
+cleanup obligations currently survive only within the app lifetime. Remote
+removal tests execute actual Core erasure at the network-operation seam, not a
+fresh end-to-end HTTP removal proof. Evidence is retained under
+`.morse/continuation-20261106/desktop-adoption`; this supersedes the earlier
+unadopted desktop candidate notes without closing D4/D6 or release qualification.
 
 ### Presentation privacy continuation — 2026-11-06
 
@@ -356,8 +443,8 @@ notes. Local checks and development adoption do not establish production rollout
 | 0–3: witnesses, anchors, bonds and rewards | Substantial implementation and local integration proofs; direct native Settings bond/slash counter and checkpoint age adopted, with current development host checks | Native/production rollout, independent operators and review, funded/live qualification |
 | 4A: public Mesh crypto | Blind RSA and supporting public runtime/compiler capabilities implemented and exercised in Morse | Published, reviewed release and exact dependency pin |
 | 4: credits and payments | Native credit journal/actions, spending, wallet integration, treasury and Lightning proofs; direct HTTPS purchase/recovery and production React Native wallet handoff to an owned OS receiver qualified on iOS Simulator and Android emulator | Third-party wallet and remaining native action coverage, live conversion/funding, outside review and live drills |
-| 5: token | Local token custody/rewards, burn carry and finalized reader/planner proofs archived; versioned issuer 20/30/50 accounting, actual CLI-to-SBF burn handoff and bounded durable burn scheduling/recovery qualified; default-off SOL and Kraken BTC conversion adapters adopted; both witness-output funding paths and combined BTC/SOL burn funding/expiry qualified in owned banks; public burn/collateral/slash readers, default-off minute snapshot publisher, bootstrap page, unsigned collateral/proof operator planning and durable bounded v2 settlement/claims implemented | Continuous grace assessment, public reporting activation/history qualification, deployment and live observation |
-| 6: plaintext types and native networking | Native networking, account-bound journals, fanout and sealed-preference UI integration qualified; private attachment metadata and presentation ingress/storage/projection labels are adopted. The current source report has 69 reviewed sites. Earlier four-target native qualification covers the 49-site source and 175-export ABI; the new presentation closure has local compilation and privacy proofs. Public Mesh GC and concatenation improvements retain their separately archived maximum-wallet, ACH3, funded-upload and app-regression proofs | Remaining message/request-field labels, native qualification of the new closure, complete reviewed leak report, mobile performance and release qualification |
+| 5: token | Local token custody/rewards, burn carry and finalized reader/planner proofs archived; versioned issuer 20/30/50 accounting, actual CLI-to-SBF burn handoff and bounded durable burn scheduling/recovery qualified; default-off SOL and Kraken BTC conversion adapters adopted; both witness-output funding paths and combined BTC/SOL burn funding/expiry qualified in owned banks; public burn/collateral/slash readers, default-off minute snapshot publisher, bootstrap page, unsigned collateral/proof operator planning, durable bounded v2 settlement/claims and continuous directory/current-attendance grace assessment implemented | Mixed-asset relay/phone integration, public reporting activation/history qualification, deployment and live observation |
+| 6: plaintext types and native networking | Native networking, account-bound journals, fanout and sealed-preference UI integration qualified; private attachment metadata and presentation ingress/storage/projection labels are adopted. The current source report has 69 reviewed sites. Earlier four-target mobile qualification covers the 49-site source and 175-export ABI; the 69-site presentation closure now has a macOS desktop Core build with 176 exports and native boundary tests, plus local privacy proofs. Public Mesh GC and concatenation improvements retain their separately archived maximum-wallet, ACH3, funded-upload and app-regression proofs | Remaining message/request-field labels, native qualification of the new closure, complete reviewed leak report, mobile performance and release qualification |
 | §22: security tracks S1–S3 | Nine of 27 items are closed locally: W1, C2, M5, M6, M7, M8, M10, D1 and D2. Padded attachments and keyed indexes have matching development libraries and dual-native execution/upgrade evidence. M6 cleanup stays off until old writers are drained. Header encryption, guarded direct/group expiry and protected secret memory now have adopted development source and matching native libraries; their remaining qualification, separate push deployment, other cryptographic upgrades and safety QR remain in progress; ingress certificate policy has local tests but no qualified deployment topology | S1 deployment isolation and supported mTLS topology; OHTTP, separate push deployment, prekey cleanup activation, cryptographic upgrades and remaining device features. This is substantial local implementation work, not only release gates |
 
 The 2026-10-22 closure audit includes §22 as part of this goal. Finishing the
@@ -4605,8 +4692,8 @@ witnesses. Any failure pages the on-call.
    slashing executes, and the finder is paid.
 7. **Rewards:** `settle_epoch` runs each week with zero payable witnesses. The pool
    carries over and nothing is paid to excluded witnesses.
-8. **Credits (Phase 4+):** a $1 live purchase and one redemption of each extra,
-   weekly.
+8. **Credits (Phase 4+):** purchase the standard 100-credit pack for $5 and
+   redeem each deployed extra, weekly.
 
 Current integration audit (2026-11-06): all eight production checks remain
 pending. The phone returns structured statuses; the combined lookup/check must
@@ -4614,8 +4701,9 @@ require `consistent`, not accept `observed` without a verified local comparison.
 It samples three pinned RPC sources for a matching quorum of two. The monitor
 verifies consecutive links while traversing the ordered anchor history; whether
 the acceptance requires additional non-adjacent pairs remains unresolved. The
-current credit catalog starts at $5 and cannot satisfy the $1 purchase check.
-These differences must be resolved explicitly before claiming this suite passes.
+credit check now uses the standard $5 pack, consistent with §7's fixed pricing;
+the earlier $1 requirement is superseded. The remaining differences must be
+resolved explicitly before claiming this suite passes.
 The first local integration unit connects the actual Core directory resolver and
 anchor check with synthetic canaries and owned local services. It does not
 qualify native phone ownership, independent providers or production operation.
@@ -6440,9 +6528,9 @@ shared witness operator are already Phases 0.1, 0.2 and 2.
 | D1 | **Closed locally:** opaque platform-key HMAC indexes replace guessable SHA labels; atomic migration removes clear `updated_at` and row IDs. Host and physical-Android/iOS-Simulator upgrades preserve identity and ciphertext; matching mobile libraries are adopted. Legacy snapshots/WAL and ciphertext correlation remain limitations | `protocol/local-storage-index-v2.md`; `packages/mobile-core/storage/blobs.mpl`; public Mesh `StorageKey.index_tag` | Forward-only native rollout; physical-iOS/store upgrade and broad release qualification remain | P2 |
 | D2 | **Closed locally:** read/notification preferences use the sealed journal; conversation closure clears decrypted preview bytes/URIs and refuses late repopulation. Appearance remains a non-secret preference. Explicit exports and selected composer source files retain their stated semantics | `apps/mobile/src/read-state-store.ts:33-54`; `apps/mobile/src/attachment-io.ts:57-68` | Move the two settings into the sealed journal. Remove previews when the conversation closes | P2 |
 | D3 | **Development source/libraries adopted:** guarded direct/group sync deletion, concurrent writer fencing, timed group transport and preview cleanup are implemented. Host expiry, dual-native timers, partial expiry and complete history-row deletion before display pass | `protocol/disappearing-messages-v1.md`; `protocol/group-message-expiry-v1.md` | Finish full app and physical-device/release acceptance | P2 |
-| D4 | **Attachment-content development source, app and matching libraries adopted:** text and attachment-content creation, authenticated import/preview, archive browsing/file reads and ciphertext-only pending export continuation are integrated locally. Require-all and explicit-omission policies retain authenticated source/expiry checks and atomic pending publication. The public ABI retains its previous 175 exports; the adopted native-only view-once successor has matching iOS device/simulator and Android ARM64/x86_64 libraries. The actual final Main gate passes with 321 exact modules and 49 reviewed sites; final public-entry private-control attempts refuse. The adopted app cohort retains 626 passing normal tests and strict typing. Core evidence preserves legacy coverage, attachment codecs/capture/viewing, whole-operation/native routing, race/rollback and privacy checks. Earlier actual native text-backup fixtures and unauthenticated startup/lifecycle evidence remain scoped to their prior apps; both newly adopted successors now pass full app linking and scoped artifact inspection. The fresh full-history Android run stops at an unresolved message-32 observation failure before export. A separate run confirms all three selected texts in both genuine app histories, then stops before Continue in backup selection; the driver now leaves initially empty dates untouched and passes selection into the stock Android document picker. A corrected drawer selector now reaches filename entry and Save in the full app run. The early navigation during asynchronous preparation is corrected in the driver, with 27 affected host checks passing. The next genuine app run stops before APK installation because its fresh emulator does not finish booting; it provides no backup-behavior result. Whole-app destination/recovery acceptance remains unresolved. The attachment-bearing driver now includes these corrections and passes 39 affected host checks, with exact scope/count/provider/byte oracles preserved; its device run remains unstarted. A separate no-app readiness diagnostic also times out before boot completion; cleanup is completed additively after bounded SDK/process-list commands time out. Authenticated backup/provider/runtime checks remain open. The current plaintext payload profile is 16 MiB. Generic legacy group history still cannot prove its historical local owner | `protocol/backup-text-archive-v1.md`; `protocol/backup-content-archive-v1.md`; `packages/mobile-core/mobile/backup_archive.mpl`; [current integration evidence](.morse/d4-backup-app-native-work-v1/CHECKPOINT-v90.json); [content adoption](.morse/d4-backup-content-composition-work-v1/adoption-preparation-v1/bound1/result.json) | Qualify authenticated whole-app backup/provider flows, interrupted publication and OS-authentication interaction; larger-file streaming; physical-device/release acceptance | P2 |
+| D4 | **Backup implementation adopted; whole-app acceptance remains open.** Text and attachment-content creation/import, archive browsing, guarded file reads and ciphertext-only pending export are integrated. Require-all and explicit-omission policies retain authenticated source/expiry checks and atomic publication. Desktop now constructs backups from captured native authority. The current Core has 69 reviewed sites and 176 exports, with a fresh macOS desktop library and native boundary tests; earlier four-target mobile evidence covers the historical 49-site/175-export closure. Genuine Android work reached a three-message backup selection and the stock picker's filename/Save step, but destination/recovery acceptance remains unresolved; a later emulator readiness failure provided no backup result. Larger-file streaming and historical local-owner proof for generic legacy group history remain open | `protocol/backup-text-archive-v1.md`; `protocol/backup-content-archive-v1.md`; `packages/mobile-core/mobile/backup_archive.mpl`; [mobile evidence](.morse/d4-backup-app-native-work-v1/CHECKPOINT-v90.json); [desktop adoption](.morse/continuation-20261106/desktop-adoption/provenance.json) | Qualify the current mobile artifacts and authenticated whole-app backup/provider flows, interrupted publication, OS-authentication interaction, larger-file streaming and physical-device/release acceptance | P2 |
 | D5 | **Implemented locally, device qualification pending:** QR display/scan and manual verification submit the exact safety number; Mesh compares and commits against guarded account/index/session snapshots. Host, actual React checks and matching candidate native builds pass | `apps/mobile/src/App.tsx:3966` | A QR code carrying the safety number; scanning a match verifies | P3 |
-| D6 | **Mobile development source adopted; qualification in progress:** Earlier scoped evidence follows. OS biometrics or device passcode, immediate relock and native access checks. Scoped client/helper and React gate checks pass, including desktop preview compatibility. iOS installation-policy persistence passes 19 host checks and eight simulator checks, including actual Keychain refusal cases and a process restart. Its controller passes 31 host checks covering authentication, policy and lifecycle races; its notification publisher, drain and native tap broker pass 21 host checks, and the exact sources compile for iOS. Private iOS notification objects no longer forward through Expo in the candidate source; shared bridge, launch and native cache qualification remain open. The portable iOS file provider passes 19 host checks for encrypted staging, tamper rejection before export, stale handles, once-only security-scope cleanup and callback-contained coordinated IO, including preservation of freshly admitted work when an older revoke callback arrives late. Seven additional Foundation checks pass on the host, including real presenter coordination and cancellation of a waiting export before destination creation. The original 19 checks also pass with the Foundation default, and the exact controller/policy/provider sources compile for arm64 iOS 16.4. Five asynchronous picker/import checks now also pass, bringing the provider total to 31 host checks: selection does not load photo bytes, import consumes a choice once, stale/duplicate completions refuse, file IO leaves the UIKit callback thread, and delayed old revocation preserves genuinely fresh native work. The document/photo chooser and native square-photo editor now pass full UIKit-enabled API compilation against real pinned dependencies. Startup assembly also passes three host checks and five prebuild preservation checks: construction failure still installs protection, and regeneration retains the native root binding. The full UIKit module and generated AppDelegate pass API compilation using all 11 app-owned Swift sources and real pinned dependencies. Native linking and integrated picker/startup runtime remain open. The native iOS root/module binding core also passes 23 host controls, including retirement of superseded native module/view identities across authentication epochs, serialization of registration with disposal, and refusal of stale presenter, surface and owner observations. The five new mount-observation regressions failed before the fix while the original 18 passed. These Foundation tests use a native observation port. The actual data-protection wrapper now typechecks against the iOS SDK and real Expo APIs, and the current-mount adapter passes Objective-C++ checks against real React Native headers. The complete Swift Module and AppDelegate now pass API compilation against real pinned dependencies and generated bindings; AppDelegate retains an upstream React Native deprecation warning. Native linking and integrated runtime behavior remain open. Android native notification authority, the launch-intent adapter, message publisher, remote ingress and module-ownership candidate pass 61 host checks, including stale/duplicate taps, pre-Expo payload removal, bounded issuance, publication/revocation ordering and fresh disabled-mode background notifications, with a fixed generic fallback when no native activity exists. The tests exercise installed Expo lifecycle handlers and Firebase pre-callback auto-display, plus foreground/background serializers; private message routes use native opaque tap IDs and remote ingress emits only fixed wake data. The legacy Expo receiver also replaces incoming content with fixed wake data, bypasses its private response cache and prevents new private schedules; four actual delegate/storage/OS checks pass. Eight actual Module lifecycle regressions now pass: native instance/context ownership revokes replaced scopes, rejects stale scope and inbox calls, and makes old or repeated teardown harmless to the successor. Replayed create callbacks and modules without an actual Expo registration cannot reclaim or invalidate the active registration. Seven additional regressions now pass for delayed first-create callbacks, host replacement, retired runtime contexts and destruction during registration or authentication. Authority is checked against the application’s actual current React host and context, with exact Expo registration identity; disabled-mode headless publication remains covered. These are host tests using installed Expo classes and a test port for native React-host observation; full Hermes/JSI and device lifecycle behavior remain open. Six actual Expo config-plugin checks cover launch hooks and service selection. Shared native-intent navigation passes 37 helper checks. Host checks on Android 15 also verify existing-install notification-delegation cleanup before boot admission and refusal when OS readback fails; the native tap bridge compiles. Actual merged native hooks, delivery and remote-ingress integration remain open. Real OS authentication, modal coverage and integrated device qualification remain open. The corrected 79-file mobile app-lock cohort is adopted locally after exact-source review, 61 Android host checks, 37 shared client checks, 11 plugin checks and the actual release manifest merge; the current successor now links full iOS and Android apps and passes unauthenticated startup plus same-process background/foreground on both. Shared activation retry and deferred Android cover dismissal are adopted. A later real account-creation attempt exposed an uncaught stale React effect before replacement; the retirement fix is now adopted with 12 React, 40 session and 545 normal mobile tests passing. Earlier native qualification retains 68 Android host cases. The successor APK passes actual account creation and same-account reload after process restart, then stops at a closing display-name dialog before app-lock opt-in; the activity-overlay, canonical-profile and atomic-signup successor is now adopted with 559 combined mobile tests and all four matching Core libraries, and its inspected Android APK now passes chosen-name persistence and disabled-policy dialog opening after restart. The corrected driver now passes all 31 checks in a complete owned Android emulator run: actual OS-PIN opt-in cancellation, enable, unlock and authenticated disable; same-process cover with an unsaved dialog, stale-dialog retirement, locked process restart, selected-name persistence and complete cleanup. iOS native compile/link and exact archive checks pass. Actual current JS now passes chosen-name persistence across process restart, OS passcode-prompt cancellation with policy off, and disabled-policy background/foreground. The signup overlay is preserved and traced to native Debug reporting of a caught error; normal Dismiss reveals the recovered app. The current iOS Simulator successor now qualifies genuine signup, actual OS simulated-biometric refusal/cancel/success, enabled-policy background cover and locked process restart with exact name/ON persistence; all source/product and owned cleanup guards pass. Passcode fallback/lockout, authenticated disable, physical-device acceptance, comprehensive visual/notification coverage, desktop lock and view-once remain open | `.morse/reviews/d6-device-controls-contract-v2/README.md`; `.morse/reviews/d6-app-lock-source-root-v1/desktop-adapter-review.json`; `.morse/reviews/d6-app-lock-source-root-v1/ios-policy-review.json`; [iOS controller and notification evidence](.morse/d6-app-lock-ios-notifications-work-v1/qualified-broker2/manifest.json) | Integrate and qualify mobile/desktop lock and authenticated one-shot content; keep device-passcode fallback per the user decision | P3 |
+| D6 | **Mobile and desktop lock source adopted; device qualification remains partial.** The owned Android emulator passes 31 checks for OS-PIN cancellation/enable/unlock/authenticated disable, immediate cover, stale-dialog retirement and locked restart. iOS Simulator qualifies signup, simulated-biometric refusal/cancel/success, background cover and locked restart; passcode fallback/lockout, authenticated disable and physical devices remain open. Desktop now connects the protected root, native page/session ownership and scoped services; 800 app and 121 native tests pass. Actual desktop startup refuses at Keychain provisioning (`-34018`), so unlocked WebKit and native provider behavior remain unqualified. Windows/Linux private IPC fails closed. View-once consumption and restart refusal have local Core/ABI evidence, but authenticated receive/Pending admission, sending and native opening integration remain unfinished | `.morse/reviews/d6-device-controls-contract-v2/README.md`; [iOS evidence](.morse/d6-app-lock-ios-notifications-work-v1/qualified-broker2/manifest.json); [desktop adoption](.morse/continuation-20261106/desktop-adoption/provenance.json) | Qualify provisioned desktop lock/UI and remaining mobile authentication paths; connect and qualify authenticated one-shot content; retain device-passcode fallback | P3 |
 
 ### 22.5 Document corrections
 
