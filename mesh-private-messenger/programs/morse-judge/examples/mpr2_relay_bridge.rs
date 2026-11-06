@@ -179,7 +179,8 @@ fn main() {
                     None => Value::Null,
                     Some(value) => {
                         json!({"owner":value.owner.to_string(),"data_hex":hex::encode(value.data),
-                        "lamports":value.lamports.to_string(),"executable":value.executable})
+                        "lamports":value.lamports.to_string(),"executable":value.executable,
+                        "rent_epoch":value.rent_epoch.to_string()})
                     }
                 });
             }
