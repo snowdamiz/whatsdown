@@ -385,8 +385,8 @@ class MeshMessengerModule : Module(), FirebaseTokenListener {
             }
             if (symbol.startsWith("mesh_messenger_bounty_transfer_")) {
                 require(symbol in listOf("mesh_messenger_bounty_transfer_status", "mesh_messenger_bounty_transfer_recover", "mesh_messenger_bounty_transfer_cancel")) { "private_native_export" }
-                val path = if (symbol.endsWith("_status")) request else walletFields(request,2)[0]
-                require(path.contentEquals(java.io.File(appContext.persistentFilesDirectory,"morse.db").path.toByteArray(Charsets.UTF_8))) { "invalid_database_path" }
+                MeshMessengerBountyBridge.validateObservation(symbol, request,
+                    java.io.File(appContext.persistentFilesDirectory,"morse.db").path.toByteArray(Charsets.UTF_8))
             }
             if (symbol in listOf("mesh_messenger_transparency_fork", "mesh_messenger_fork_filing")) {
                 val database = java.io.File(appContext.persistentFilesDirectory, "morse.db").path.toByteArray(Charsets.UTF_8)

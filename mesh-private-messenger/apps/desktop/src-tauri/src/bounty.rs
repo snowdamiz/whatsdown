@@ -216,6 +216,217 @@ fn movement_result(input: &[u8], identity: &[u8], destination: &[u8]) -> Result<
     Ok(fields[2][0])
 }
 
+// These decoders check the native ABI, not bounty eligibility or economics.
+fn movement_row(input: &[u8]) -> Result<Vec<&[u8]>, String> {
+    let f = movement_fields(input, 12, 2048)?;
+    let invalid = || "invalid_bounty_transfer_response".to_owned();
+    if f[0] != b"\x01BMW"
+        || f[2].len() != 1
+        || f[2][0] > 5
+        || f[7].len() != 8
+        || f[8].len() != 1
+        || f[8][0] > 18
+        || f[9].len() != 8
+        || f[10].len() != 8
+        || f[11].len() > 256
+        || std::str::from_utf8(f[11]).is_err()
+    {
+        return Err(invalid());
+    }
+    let status = f[2][0];
+    if f[1].is_empty() {
+        if status != 0 || [3, 4, 5, 6].iter().any(|&i| !f[i].is_empty()) {
+            return Err(invalid());
+        }
+    } else if f[1].len() != 32
+        || f[1].iter().all(|n| *n == 0)
+        || [4, 5, 6].iter().any(|&i| f[i].len() != 32)
+        || (if status < 2 {
+            !f[3].is_empty()
+        } else {
+            f[3].len() != 64
+        })
+    {
+        return Err(invalid());
+    }
+    Ok(f)
+}
+fn movement_aggregate(input: &[u8], asset: u8) -> Result<Option<Vec<&[u8]>>, String> {
+    let f = movement_fields(input, 6, 8192)?;
+    let invalid = || "invalid_bounty_transfer_response".to_owned();
+    if f[0] != b"\x02BMW"
+        || f[1].len() != 1
+        || f[1][0] > 2
+        || f[2].len() > 256
+        || std::str::from_utf8(f[2]).is_err()
+    {
+        return Err(invalid());
+    }
+    match f[1][0] {
+        0 => {
+            if f[3..].iter().any(|v| !v.is_empty()) {
+                return Err(invalid());
+            }
+            Ok(None)
+        }
+        1 => {
+            if f[3].is_empty() || !f[4].is_empty() || !f[5].is_empty() {
+                return Err(invalid());
+            }
+            let row = movement_row(f[3])?;
+            Ok(if asset == 0 && !row[1].is_empty() {
+                Some(row)
+            } else {
+                None
+            })
+        }
+        2 => {
+            if !f[3].is_empty() {
+                return Err(invalid());
+            }
+            let mut selected = None;
+            for selector in [1u8, 2] {
+                let leg = movement_fields(f[selector as usize + 3], 7, 4096)?;
+                if leg[0] != b"\x02BML"
+                    || leg[1] != [selector]
+                    || leg[2].len() != 1
+                    || leg[2][0] > 3
+                    || leg[3].len() != 32
+                    || leg[4].len() != 8
+                    || leg[5].len() != 1
+                    || (leg[5][0] > 18 && !(leg[5][0] == 255 && leg[2][0] != 3))
+                {
+                    return Err(invalid());
+                }
+                if leg[2][0] == 3 {
+                    let row = movement_row(leg[6])?;
+                    if row[1].is_empty() || row[6] != leg[3] || row[7] != leg[4] || row[8] != leg[5] {
+                        return Err(invalid());
+                    }
+                    if selector == asset {
+                        selected = Some(row);
+                    }
+                } else if !leg[6].is_empty() {
+                    return Err(invalid());
+                }
+            }
+            Ok(selected)
+        }
+        _ => unreachable!(),
+    }
+}
+fn movement_matches(row: &[&[u8]], identity: &[u8], intent: &[u8]) -> bool {
+    row[1] == identity
+        && row[4] == &intent[12..44]
+        && row[5] == &intent[44..76]
+        && row[6] == &intent[76..108]
+        && row[7] == &intent[108..116]
+        && row[8] == &intent[165..166]
+}
+fn movement_v2<M, S>(
+    request: &[&[u8]],
+    database: &[u8],
+    mesh: &mut M,
+    sdk: &mut S,
+) -> Result<Vec<u8>, String>
+where
+    M: FnMut(&str, &[u8]) -> Result<Vec<u8>, String>,
+    S: FnMut(u32, &[u8]) -> Result<Vec<u8>, String>,
+{
+    let invalid = || "invalid_bounty_transfer_response".to_owned();
+    if request.len() != 4
+        || request[1] != database
+        || request[2].len() != 1
+        || request[2][0] > 2
+        || request[3].len() != 32
+        || request[3].iter().all(|n| *n == 0)
+    {
+        return Err("invalid_bounty_transfer_request".into());
+    }
+    let asset = request[2][0];
+    let payer = sdk(2, &[])?;
+    if payer.len() != 32 || payer.iter().all(|n| *n == 0) {
+        return Err("invalid_bounty_wallet_response".into());
+    }
+    let raw = mesh(
+        "mesh_messenger_bounty_transfer_prepare",
+        &packet(&[b"\x02BMR", database, request[2], request[3], &payer]),
+    )?;
+    let p = movement_fields(&raw, 8, 8192)?;
+    if p[0] != b"\x02BMP"
+        || p[1] != request[2]
+        || p[3].len() != 1
+        || p[3][0] > 1
+        || p[6].len() != 1
+        || p[6][0] > 5
+    {
+        return Err(invalid());
+    }
+    let selected = movement_aggregate(p[7], asset)?;
+    let status = p[6][0];
+    if status == 0 {
+        if !p[2].is_empty()
+            || p[3] != [0]
+            || !p[4].is_empty()
+            || !p[5].is_empty()
+            || selected.is_some()
+        {
+            return Err(invalid());
+        }
+        return Ok(p[7].to_vec());
+    }
+    if p[2].len() != 32
+        || p[2].iter().all(|n| *n == 0)
+        || p[4].len() != 166
+        || &p[4][..4] != b"\x01BWT"
+        || (if status < 2 {
+            !p[5].is_empty()
+        } else {
+            p[5].len() != 64
+        })
+    {
+        return Err(invalid());
+    }
+    let row = selected.ok_or_else(invalid)?;
+    let identity = row[1];
+    if row[2] != p[6] || row[3] != p[5] || !movement_matches(&row, identity, p[4]) {
+        return Err(invalid());
+    }
+    let same_destination = &p[4][44..76] == request[3];
+    if p[3][0] != u8::from(status == 1 && same_destination) {
+        return Err(invalid());
+    }
+    if !same_destination || status >= 4 {
+        return Ok(p[7].to_vec());
+    }
+    if p[3][0] == 1 {
+        let wire = sdk(5, p[4])?;
+        if wire.is_empty() || wire.len() > 1232 {
+            return Err("invalid_bounty_wallet_response".into());
+        }
+        let committed = mesh(
+            "mesh_messenger_bounty_transfer_commit",
+            &packet(&[b"\x02BMR", database, request[2], p[2], &wire]),
+        )?;
+        let row = movement_aggregate(&committed, asset)?.ok_or_else(invalid)?;
+        if row[2][0] < 2 || !movement_matches(&row, identity, p[4]) {
+            return Err(invalid());
+        }
+        if row[2][0] >= 4 {
+            return Ok(committed);
+        }
+    }
+    let output = mesh(
+        "mesh_messenger_bounty_transfer_submit",
+        &packet(&[b"\x02BMR", database, request[2], identity]),
+    )?;
+    let row = movement_aggregate(&output, asset)?.ok_or_else(invalid)?;
+    if row[2][0] < 2 || !movement_matches(&row, identity, p[4]) {
+        return Err(invalid());
+    }
+    Ok(output)
+}
+
 // Host wallet operation8. JS supplies only a destination owner. Native Mesh
 // authenticates receipt/amount/mint/index and the SDK confirms its exact BWT.
 pub fn movement<M, S>(
@@ -228,7 +439,21 @@ where
     M: FnMut(&str, &[u8]) -> Result<Vec<u8>, String>,
     S: FnMut(u32, &[u8]) -> Result<Vec<u8>, String>,
 {
-    let request = movement_fields(input, 2, 8192)?;
+    let count = input
+        .get(..4)
+        .and_then(|v| v.try_into().ok())
+        .map(u32::from_be_bytes)
+        .unwrap_or(0) as usize;
+    if count != 2 && count != 4 {
+        return Err("invalid_bounty_transfer_request".into());
+    }
+    let request = movement_fields(input, count, 8192)?;
+    if request[0] == b"\x02BMR" {
+        return movement_v2(&request, database, &mut mesh, &mut sdk);
+    }
+    if count != 2 || (request[0].len() == 4 && &request[0][1..] == b"BMR") {
+        return Err("invalid_bounty_transfer_request".into());
+    }
     if request[0] != database || request[1].len() != 32 || request[1].iter().all(|n| *n == 0) {
         return Err("invalid_bounty_transfer_request".into());
     }
@@ -630,5 +855,361 @@ mod tests {
             .unwrap(),
             view(true, 0)
         );
+    }
+}
+
+#[cfg(test)]
+mod mixed_movement_tests {
+    use super::*;
+    use std::cell::RefCell;
+    fn intent(destination: u8) -> Vec<u8> {
+        let mut v = vec![0; 166];
+        v[..4].copy_from_slice(b"\x01BWT");
+        v[12..44].fill(4);
+        v[44..76].fill(destination);
+        v[76..108].fill(5);
+        v[108..116].copy_from_slice(&100u64.to_be_bytes());
+        v[165] = 6;
+        v
+    }
+    fn row(status: u8, destination: u8) -> Vec<u8> {
+        packet(&[
+            b"\x01BMW",
+            &[7; 32],
+            &[status],
+            if status >= 2 { &[9; 64] } else { &[] },
+            &[4; 32],
+            &[destination; 32],
+            &[5; 32],
+            &100u64.to_be_bytes(),
+            &[6],
+            &0u64.to_be_bytes(),
+            &0u64.to_be_bytes(),
+            b"",
+        ])
+    }
+    fn aggregate(asset: u8, status: u8, destination: u8, availability: u8) -> Vec<u8> {
+        if asset == 0 {
+            return packet(&[
+                b"\x02BMW",
+                &[1],
+                b"",
+                &row(status.max(1), destination),
+                b"",
+                b"",
+            ]);
+        }
+        let leg = |selector| {
+            packet(&[
+                b"\x02BML",
+                &[selector],
+                &[if selector == asset { availability } else { 1 }],
+                &[5; 32],
+                &(if selector == asset && availability != 1 {
+                    100u64
+                } else {
+                    0
+                })
+                .to_be_bytes(),
+                &[if selector == asset && availability == 3 {
+                    6
+                } else {
+                    255
+                }],
+                &if selector == asset && availability == 3 {
+                    row(status, destination)
+                } else {
+                    vec![]
+                },
+            ])
+        };
+        packet(&[b"\x02BMW", &[2], b"", b"", &leg(1), &leg(2)])
+    }
+    fn plan(asset: u8, status: u8, destination: u8, availability: u8) -> Vec<u8> {
+        let active = status != 0;
+        packet(&[
+            b"\x02BMP",
+            &[asset],
+            if active { &[8; 32] } else { b"" },
+            &[u8::from(status == 1 && destination == 6)],
+            &if active { intent(destination) } else { vec![] },
+            if status >= 2 { &[9; 64] } else { b"" },
+            &[status],
+            &aggregate(asset, status, destination, availability),
+        ])
+    }
+    fn request(asset: u8) -> Vec<u8> {
+        packet(&[b"\x02BMR", b"/db", &[asset], &[6; 32]])
+    }
+    fn replace(input: &[u8], count: usize, index: usize, value: &[u8]) -> Vec<u8> {
+        let mut f = movement_fields(input, count, 8192).unwrap();
+        f[index] = value;
+        packet(&f)
+    }
+    #[test]
+    fn v2_morse_signs_with_a_cancelled_usdc_sibling() {
+        let cancelled = aggregate(1, 0, 6, 3);
+        let leg = movement_fields(&cancelled, 6, 8192).unwrap()[4];
+        let with_cancelled = |value: Vec<u8>| replace(&value, 6, 4, leg);
+        let calls = RefCell::new(Vec::new());
+        let output = movement(&request(2), b"/db", |name, _| {
+            calls.borrow_mut().push(name.to_owned());
+            if name.ends_with("_prepare") {
+                Ok(replace(&plan(2, 1, 6, 3), 8, 7, &with_cancelled(aggregate(2, 1, 6, 3))))
+            } else if name.ends_with("_commit") { Ok(with_cancelled(aggregate(2, 2, 6, 3))) }
+            else { assert!(name.ends_with("_submit")); Ok(with_cancelled(aggregate(2, 3, 6, 3))) }
+        }, |op, input| {
+            calls.borrow_mut().push(format!("sdk{op}"));
+            if op == 2 { Ok(vec![2; 32]) } else { assert_eq!(op, 5); assert_eq!(input, intent(6)); Ok(vec![3; 200]) }
+        }).unwrap();
+        assert_eq!(output, with_cancelled(aggregate(2, 3, 6, 3)));
+        assert_eq!(*calls.borrow(), ["sdk2", "mesh_messenger_bounty_transfer_prepare", "sdk5", "mesh_messenger_bounty_transfer_commit", "mesh_messenger_bounty_transfer_submit"]);
+    }
+
+    #[test]
+    fn cancelled_identity_is_preserved_and_cannot_masquerade_as_no_attempt() {
+        let cancelled = row(0, 6);
+        let legacy = packet(&[b"\x02BMW", &[1], b"", &cancelled, b"", b""]);
+        assert!(movement_aggregate(&legacy, 0).unwrap().is_some());
+        assert!(movement_aggregate(&legacy, 1).unwrap().is_none());
+        let no_attempt = replace(&plan(0, 0, 6, 3), 8, 7, &legacy);
+        let result = movement(&request(0), b"/db", |name, _| { assert!(name.ends_with("_prepare")); Ok(no_attempt.clone()) }, |op, _| { assert_eq!(op, 2); Ok(vec![2; 32]) });
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn v2_signs_each_asset_and_commits_handle_before_submitting_leg_identity() {
+        for asset in [0, 1, 2] {
+            let calls = RefCell::new(Vec::new());
+            let output = movement(
+                &request(asset),
+                b"/db",
+                |name, input| {
+                    calls.borrow_mut().push(name.to_owned());
+                    if name.ends_with("_prepare") {
+                        assert_eq!(
+                            input,
+                            packet(&[b"\x02BMR", b"/db", &[asset], &[6; 32], &[2; 32]])
+                        );
+                        Ok(plan(asset, 1, 6, 3))
+                    } else if name.ends_with("_commit") {
+                        assert_eq!(
+                            input,
+                            packet(&[b"\x02BMR", b"/db", &[asset], &[8; 32], &[3; 200]])
+                        );
+                        Ok(aggregate(asset, 2, 6, 3))
+                    } else {
+                        assert!(name.ends_with("_submit"));
+                        assert_eq!(input, packet(&[b"\x02BMR", b"/db", &[asset], &[7; 32]]));
+                        Ok(aggregate(asset, 3, 6, 3))
+                    }
+                },
+                |op, input| {
+                    calls.borrow_mut().push(format!("sdk{op}"));
+                    match op {
+                        2 => {
+                            assert!(input.is_empty());
+                            Ok(vec![2; 32])
+                        }
+                        5 => {
+                            assert_eq!(input, intent(6));
+                            Ok(vec![3; 200])
+                        }
+                        _ => panic!(),
+                    }
+                },
+            )
+            .unwrap();
+            assert_eq!(output, aggregate(asset, 3, 6, 3));
+            assert_eq!(
+                *calls.borrow(),
+                [
+                    "sdk2",
+                    "mesh_messenger_bounty_transfer_prepare",
+                    "sdk5",
+                    "mesh_messenger_bounty_transfer_commit",
+                    "mesh_messenger_bounty_transfer_submit"
+                ]
+            );
+        }
+    }
+    #[test]
+    fn v2_pending_other_destination_and_terminal_return_embedded_state_without_send() {
+        for asset in [1, 2] {
+            for (status, dest) in [(1, 10), (2, 10), (3, 10), (4, 6), (5, 6)] {
+                let output = movement(
+                    &request(asset),
+                    b"/db",
+                    |name, _| {
+                        assert!(name.ends_with("_prepare"));
+                        Ok(plan(asset, status, dest, 3))
+                    },
+                    |op, _| {
+                        assert_eq!(op, 2);
+                        Ok(vec![2; 32])
+                    },
+                )
+                .unwrap();
+                assert_eq!(output, aggregate(asset, status, dest, 3));
+            }
+        }
+    }
+    #[test]
+    fn v2_ready_zero_and_unavailable_are_read_only() {
+        for asset in [1, 2] {
+            for availability in [0, 1, 2] {
+                let output = movement(
+                    &request(asset),
+                    b"/db",
+                    |name, _| {
+                        assert!(name.ends_with("_prepare"));
+                        Ok(plan(asset, 0, 6, availability))
+                    },
+                    |op, _| {
+                        assert_eq!(op, 2);
+                        Ok(vec![2; 32])
+                    },
+                )
+                .unwrap();
+                assert_eq!(output, aggregate(asset, 0, 6, availability));
+            }
+        }
+        let unavailable = packet(&[b"\x02BMW", &[0], b"not configured", b"", b"", b""]);
+        let raw = packet(&[b"\x02BMP", &[1], b"", &[0], b"", b"", &[0], &unavailable]);
+        assert_eq!(
+            movement(
+                &request(1),
+                b"/db",
+                |_, _| Ok(raw.clone()),
+                |op, _| {
+                    assert_eq!(op, 2);
+                    Ok(vec![2; 32])
+                }
+            )
+            .unwrap(),
+            unavailable
+        );
+    }
+    #[test]
+    fn v2_signed_same_destination_submits_without_resigning() {
+        for asset in [1, 2] {
+            for status in [2, 3] {
+                let calls = RefCell::new(Vec::new());
+                movement(
+                    &request(asset),
+                    b"/db",
+                    |name, input| {
+                        calls.borrow_mut().push(name.to_owned());
+                        if name.ends_with("_prepare") {
+                            Ok(plan(asset, status, 6, 3))
+                        } else {
+                            assert!(name.ends_with("_submit"));
+                            assert_eq!(input, packet(&[b"\x02BMR", b"/db", &[asset], &[7; 32]]));
+                            Ok(aggregate(asset, 3, 6, 3))
+                        }
+                    },
+                    |op, _| {
+                        assert_eq!(op, 2);
+                        Ok(vec![2; 32])
+                    },
+                )
+                .unwrap();
+                assert_eq!(calls.borrow().len(), 2);
+            }
+        }
+    }
+    #[test]
+    fn malformed_v2_requests_are_closed_before_sdk_or_mesh() {
+        let base = request(1);
+        for bad in [
+            replace(&base, 4, 0, b"\x03BMR"),
+            replace(&base, 4, 2, &[3]),
+            replace(&base, 4, 2, &[1, 2]),
+            replace(&base, 4, 1, b"/other"),
+            replace(&base, 4, 3, &[0; 32]),
+            packet(&[b"\x02BMR", b"/db", &[1], &[6; 32], b"extra"]),
+            packet(&[b"\x03BMR", &[6; 32]]),
+            [base.clone(), vec![0]].concat(),
+            vec![0; 8193],
+        ] {
+            assert!(movement(
+                &bad,
+                b"/db",
+                |_, _| panic!("bad request reached Mesh"),
+                |_, _| panic!("bad request reached SDK")
+            )
+            .is_err());
+        }
+    }
+    #[test]
+    fn v2_wrong_selector_identity_status_and_intent_terms_never_reach_signer() {
+        let base = plan(1, 1, 6, 3);
+        let agg = aggregate(1, 1, 6, 3);
+        let leg = movement_fields(&agg, 6, 8192).unwrap()[4];
+        let wrong_identity = replace(&row(2, 6), 12, 1, &[11; 32]);
+        let bad_leg = replace(leg, 7, 6, &wrong_identity);
+        let bad_agg = replace(&agg, 6, 4, &bad_leg);
+        let mut bad_plans = vec![
+            replace(&base, 8, 0, b"\x01BMP"),
+            replace(&base, 8, 1, &[2]),
+            replace(&base, 8, 6, &[2]),
+            replace(&base, 8, 7, &replace(&agg, 6, 4, &replace(leg, 7, 1, &[2]))),
+            replace(
+                &base,
+                8,
+                7,
+                &replace(&agg, 6, 4, &replace(leg, 7, 5, &[255])),
+            ),
+            replace(&base, 8, 7, &replace(&agg, 6, 2, &[255])),
+            replace(&base, 8, 7, &[agg.clone(), vec![0]].concat()),
+            replace(&base, 8, 3, &[0]),
+            replace(&base, 8, 2, b""),
+            replace(&base, 8, 5, &[9; 64]),
+        ];
+        for offset in [0, 12, 44, 76, 108, 165] {
+            let mut bwt = intent(6);
+            bwt[offset] ^= 1;
+            bad_plans.push(replace(&base, 8, 4, &bwt));
+        }
+        for raw in bad_plans {
+            assert!(movement(
+                &request(1),
+                b"/db",
+                |name, _| {
+                    assert!(name.ends_with("_prepare"));
+                    Ok(raw.clone())
+                },
+                |op, _| {
+                    assert_eq!(op, 2);
+                    Ok(vec![2; 32])
+                }
+            )
+            .is_err());
+        }
+        for bad in [
+            replace(
+                &aggregate(1, 2, 6, 3),
+                6,
+                4,
+                &replace(leg, 7, 6, &row(2, 10)),
+            ),
+            bad_agg,
+            aggregate(1, 1, 6, 3),
+        ] {
+            assert!(movement(
+                &request(1),
+                b"/db",
+                |name, _| {
+                    if name.ends_with("_prepare") {
+                        Ok(base.clone())
+                    } else {
+                        assert!(name.ends_with("_commit"));
+                        Ok(bad.clone())
+                    }
+                },
+                |op, _| { Ok(if op == 2 { vec![2; 32] } else { vec![3; 200] }) }
+            )
+            .is_err());
+        }
     }
 }

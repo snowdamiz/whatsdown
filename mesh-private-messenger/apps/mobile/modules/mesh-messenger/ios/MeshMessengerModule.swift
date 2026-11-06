@@ -292,8 +292,7 @@ public final class MeshMessengerModule: Module, NotificationDelegate {
   if symbol.hasPrefix("mesh_messenger_bounty_transfer_") {
     guard ["mesh_messenger_bounty_transfer_status", "mesh_messenger_bounty_transfer_recover", "mesh_messenger_bounty_transfer_cancel"].contains(symbol),
       let database = self.appContext?.config.documentDirectory?.appendingPathComponent("morse.db").path else { throw NSError(domain:"MorseBounty",code:1) }
-    let path = symbol.hasSuffix("_status") ? request : try self.walletFields(request,2)[0]
-    guard path == Data(database.utf8) else { throw NSError(domain:"MorseBounty",code:1) }
+    try MeshMessengerBountyBridge.validateObservation(symbol, request, Data(database.utf8))
   }
   return try MeshMessengerDataProtection.accountMutation(symbol) { transition in
   self.lock.lock()

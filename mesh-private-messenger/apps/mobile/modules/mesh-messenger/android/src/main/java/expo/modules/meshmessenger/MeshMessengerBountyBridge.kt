@@ -73,6 +73,24 @@ internal object MeshMessengerBountyBridge {
         }
         require(!buffer.hasRemaining()){"invalid_bounty_transfer_response"};return fields
     }
+    fun validateObservation(symbol:String,input:ByteArray,database:ByteArray) {
+        require(symbol in listOf("mesh_messenger_bounty_transfer_status","mesh_messenger_bounty_transfer_recover","mesh_messenger_bounty_transfer_cancel")&&database.size in 1..4096&&input.size<=8192){"invalid_bounty_transfer_request"}
+        val status=symbol.endsWith("_status")
+        if(status&&input.contentEquals(database))return
+        require(input.size>=4){"invalid_bounty_transfer_request"}
+        val count=ByteBuffer.wrap(input).int
+        require(count==2||(!status&&count==4)){"invalid_bounty_transfer_request"}
+        val f=movementFields(input,count,8192)
+        val path=if(f[0].contentEquals(byteArrayOf(2,66,77,82))) {
+            require(count==(if(status)2 else 4)){"invalid_bounty_transfer_request"}
+            if(!status)require(f[2].size==1&&f[2][0].toInt() in 0..2&&f[3].size==32&&f[3].any{it.toInt()!=0}){"invalid_bounty_transfer_request"}
+            f[1]
+        } else {
+            require(!status&&count==2&&!(f[0].size==4&&f[0].copyOfRange(1,4).contentEquals(byteArrayOf(66,77,82)))&&f[1].size==32&&f[1].any{it.toInt()!=0}){"invalid_bounty_transfer_request"}
+            f[0]
+        }
+        require(path.contentEquals(database)){"invalid_database_path"}
+    }
     private fun movementResult(input:ByteArray,identity:ByteArray,destination:ByteArray):Int {
         val f=movementFields(input,12,2048)
         require(f[0].contentEquals(byteArrayOf(1,66,77,87))&&f[1].contentEquals(identity)&&f[2].size==1&&f[2][0].toInt() in 0..5&&
@@ -82,8 +100,91 @@ internal object MeshMessengerBountyBridge {
         java.nio.charset.StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(f[11]))
         return f[2][0].toInt()
     }
+    private fun movementRow(input:ByteArray):List<ByteArray> {
+        val f=movementFields(input,12,2048)
+        require(f[0].contentEquals(byteArrayOf(1,66,77,87))&&f[2].size==1&&f[2][0].toInt() in 0..5&&
+            f[7].size==8&&f[8].size==1&&f[8][0].toInt() in 0..18&&f[9].size==8&&f[10].size==8&&f[11].size<=256){"invalid_bounty_transfer_response"}
+        java.nio.charset.StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(f[11]))
+        if(f[1].isEmpty()) {
+            require(f[2][0].toInt()==0&&listOf(3,4,5,6).all{f[it].isEmpty()}){"invalid_bounty_transfer_response"}
+        } else {
+            require(f[1].size==32&&f[1].any{it.toInt()!=0}&&listOf(4,5,6).all{f[it].size==32}&&
+                (if(f[2][0]<2)f[3].isEmpty() else f[3].size==64)){"invalid_bounty_transfer_response"}
+        }
+        return f
+    }
+    private fun movementAggregate(input:ByteArray,asset:Int):List<ByteArray>? {
+        val f=movementFields(input,6,8192)
+        require(f[0].contentEquals(byteArrayOf(2,66,77,87))&&f[1].size==1&&f[1][0].toInt() in 0..2&&f[2].size<=256){"invalid_bounty_transfer_response"}
+        java.nio.charset.StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(f[2]))
+        return when(f[1][0].toInt()) {
+            0->{require(f.drop(3).all{it.isEmpty()}){"invalid_bounty_transfer_response"};null}
+            1->{
+                require(f[3].isNotEmpty()&&f[4].isEmpty()&&f[5].isEmpty()){"invalid_bounty_transfer_response"}
+                val row=movementRow(f[3]);if(asset==0&&row[1].isNotEmpty())row else null
+            }
+            else->{
+                require(f[3].isEmpty()){"invalid_bounty_transfer_response"}
+                var selected:List<ByteArray>?=null
+                for(selector in listOf(1,2)) {
+                    val leg=movementFields(f[selector+3],7,4096)
+                    require(leg[0].contentEquals(byteArrayOf(2,66,77,76))&&leg[1].contentEquals(byteArrayOf(selector.toByte()))&&
+                        leg[2].size==1&&leg[2][0].toInt() in 0..3&&leg[3].size==32&&leg[4].size==8&&leg[5].size==1&&
+                        ((leg[5][0].toInt() and 255)<=18||((leg[5][0].toInt() and 255)==255&&leg[2][0].toInt()!=3))){"invalid_bounty_transfer_response"}
+                    if(leg[2][0].toInt()==3) {
+                        val row=movementRow(leg[6])
+                        require(row[1].isNotEmpty()&&row[6].contentEquals(leg[3])&&row[7].contentEquals(leg[4])&&row[8].contentEquals(leg[5])){"invalid_bounty_transfer_response"}
+                        if(selector==asset)selected=row
+                    } else require(leg[6].isEmpty()){"invalid_bounty_transfer_response"}
+                }
+                selected
+            }
+        }
+    }
+    private fun movementMatches(row:List<ByteArray>,identity:ByteArray,intent:ByteArray):Boolean =
+        row[1].contentEquals(identity)&&row[4].contentEquals(intent.copyOfRange(12,44))&&row[5].contentEquals(intent.copyOfRange(44,76))&&
+            row[6].contentEquals(intent.copyOfRange(76,108))&&row[7].contentEquals(intent.copyOfRange(108,116))&&row[8].contentEquals(intent.copyOfRange(165,166))
+    private fun movementV2(request:List<ByteArray>,database:ByteArray,mesh:(String,ByteArray)->ByteArray,sdk:(Int,ByteArray)->ByteArray):ByteArray {
+        require(request.size==4&&request[1].contentEquals(database)&&request[2].size==1&&request[2][0].toInt() in 0..2&&
+            request[3].size==32&&request[3].any{it.toInt()!=0}){"invalid_bounty_transfer_request"}
+        val asset=request[2][0].toInt();val tag=byteArrayOf(2,66,77,82)
+        val payer=sdk(2,byteArrayOf())
+        require(payer.size==32&&payer.any{it.toInt()!=0}){"invalid_bounty_wallet_response"}
+        val raw=mesh("mesh_messenger_bounty_transfer_prepare",packet(listOf(tag,database,request[2],request[3],payer)))
+        val p=movementFields(raw,8,8192)
+        require(p[0].contentEquals(byteArrayOf(2,66,77,80))&&p[1].contentEquals(request[2])&&p[3].size==1&&p[3][0].toInt() in 0..1&&
+            p[6].size==1&&p[6][0].toInt() in 0..5){"invalid_bounty_transfer_response"}
+        val selected=movementAggregate(p[7],asset);val status=p[6][0].toInt()
+        if(status==0) {
+            require(p[2].isEmpty()&&p[3][0].toInt()==0&&p[4].isEmpty()&&p[5].isEmpty()&&selected==null){"invalid_bounty_transfer_response"}
+            return p[7]
+        }
+        require(p[2].size==32&&p[2].any{it.toInt()!=0}&&p[4].size==166&&p[4].copyOfRange(0,4).contentEquals(byteArrayOf(1,66,87,84))&&
+            (if(status<2)p[5].isEmpty()else p[5].size==64)){"invalid_bounty_transfer_response"}
+        val row=requireNotNull(selected){"invalid_bounty_transfer_response"};val identity=row[1]
+        require(row[2].contentEquals(p[6])&&row[3].contentEquals(p[5])&&movementMatches(row,identity,p[4])){"invalid_bounty_transfer_response"}
+        val sameDestination=p[4].copyOfRange(44,76).contentEquals(request[3])
+        require(p[3][0].toInt()==(if(status==1&&sameDestination)1 else 0)){"invalid_bounty_transfer_response"}
+        if(!sameDestination||status>=4)return p[7]
+        if(p[3][0].toInt()==1) {
+            val wire=sdk(5,p[4]);require(wire.isNotEmpty()&&wire.size<=1232){"invalid_bounty_wallet_response"}
+            val committed=mesh("mesh_messenger_bounty_transfer_commit",packet(listOf(tag,database,request[2],p[2],wire)))
+            val committedRow=requireNotNull(movementAggregate(committed,asset)){"invalid_bounty_transfer_response"}
+            require(committedRow[2][0]>=2&&movementMatches(committedRow,identity,p[4])){"invalid_bounty_transfer_response"}
+            if(committedRow[2][0]>=4)return committed
+        }
+        val output=mesh("mesh_messenger_bounty_transfer_submit",packet(listOf(tag,database,request[2],identity)))
+        val submittedRow=requireNotNull(movementAggregate(output,asset)){"invalid_bounty_transfer_response"}
+        require(submittedRow[2][0]>=2&&movementMatches(submittedRow,identity,p[4])){"invalid_bounty_transfer_response"}
+        return output
+    }
     fun movement(input:ByteArray,database:ByteArray,mesh:(String,ByteArray)->ByteArray,sdk:(Int,ByteArray)->ByteArray):ByteArray {
-        val request=movementFields(input,2,8192)
+        require(input.size>=4){"invalid_bounty_transfer_request"}
+        val count=ByteBuffer.wrap(input).int
+        require(count==2||count==4){"invalid_bounty_transfer_request"}
+        val request=movementFields(input,count,8192)
+        if(request[0].contentEquals(byteArrayOf(2,66,77,82)))return movementV2(request,database,mesh,sdk)
+        require(count==2&&!(request[0].size==4&&request[0].copyOfRange(1,4).contentEquals(byteArrayOf(66,77,82)))){"invalid_bounty_transfer_request"}
         require(request[0].contentEquals(database)&&request[1].size==32&&request[1].any{it.toInt()!=0}){"invalid_bounty_transfer_request"}
         val payer=sdk(2,byteArrayOf())
         require(payer.size==32&&payer.any{it.toInt()!=0}){"invalid_bounty_wallet_response"}
