@@ -20,7 +20,7 @@ pub(crate) struct Config {
     pub lightning_network: String,
     #[serde(default)]
     pub issuer_tls_root: String,
-    // Bundle schema: missing or "" maps to exactly [1, 0]. Other values must be
+    // Bundle schema: only a missing field maps to exactly [1, 0]. Present values must be
     // strings of canonical base64, at most 109,336 characters and 2..=82,002
     // decoded bytes. Invalid values remain Host errors, including JSON null.
     #[serde(default)]
@@ -43,7 +43,6 @@ impl Default for RpcTlsRoots {
 impl<'de> Deserialize<'de> for RpcTlsRoots {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         Ok(match serde_json::Value::deserialize(deserializer)? {
-            serde_json::Value::String(encoded) if encoded.is_empty() => Self::default(),
             serde_json::Value::String(encoded) => Self::read_present(encoded.as_bytes()),
             _ => Self(Err(())),
         })

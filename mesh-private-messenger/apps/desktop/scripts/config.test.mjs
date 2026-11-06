@@ -11,10 +11,10 @@ const ohttpSecurity = {
   MESSENGER_ABUSE_DIFFICULTY: '8',
 };
 
-test('desktop bundles an explicit empty RPC TLS resource when no roots are configured', () => {
+test('desktop omits the RPC TLS resource when no roots are configured', () => {
   const config = desktopConfig(ohttpSecurity, true);
-  assert.equal(config.rpcTlsRoots, '');
-  assert.equal(JSON.parse(JSON.stringify(config)).rpcTlsRoots, '');
+  assert.equal(Object.hasOwn(config, 'rpcTlsRoots'), false);
+  assert.equal(Object.hasOwn(JSON.parse(JSON.stringify(config)), 'rpcTlsRoots'), false);
 });
 
 test('desktop v4 security resources separate production and development log identities', () => {

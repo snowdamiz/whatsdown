@@ -365,7 +365,7 @@ mod tests {
 
     #[test]
     fn rpc_tls_selector_returns_the_exact_absence_frame() {
-        for roots in [rpc_tls_config(None), rpc_tls_config(Some(serde_json::json!("")))] {
+        for roots in [rpc_tls_config(None)] {
             let (status, written, output) = read_rpc_tls(roots, b"messenger/rpc-tls-roots/v1", 2, false);
             assert_eq!((status, written), (0, 2));
             assert_eq!(&output[..2], &[1, 0]);
@@ -392,7 +392,7 @@ mod tests {
         use base64::{engine::general_purpose::STANDARD, Engine};
         let mut invalid = vec![serde_json::Value::Null, serde_json::json!(false),
             serde_json::json!(7), serde_json::json!([]), serde_json::json!({})];
-        invalid.extend(["!", "AQI", "AQ==", "AQJ=", "AA-_", "====", "AQI=\n", " AQI=", "é"].map(serde_json::Value::from));
+        invalid.extend(["", "!", "AQI", "AQ==", "AQJ=", "AA-_", "====", "AQI=\n", " AQI=", "é"].map(serde_json::Value::from));
         invalid.extend(["A".repeat(109_337), STANDARD.encode(vec![1; 82_003])].map(serde_json::Value::from));
         for value in invalid {
             let roots = rpc_tls_config(Some(value.clone()));

@@ -70,9 +70,9 @@ error returns a Host error. Such an error never becomes the absence sentinel.
 | Android | `assets/morse-rpc-tls-roots-v1.bin`, raw bytes |
 | Desktop | `rpcTlsRoots` in the bundled native config, canonical base64 |
 
-An unset build setting removes a stale iOS key and Android asset. Desktop writes
-an empty string when roots are unset. Desktop accepts a missing field or an
-empty string as absence. A field with another JSON type is an error. iOS accepts
+An unset build setting removes a stale iOS key and Android asset, and omits the
+desktop field. Desktop accepts only a missing field as absence; a present empty
+string or another JSON type is an error. iOS accepts
 only a missing key as absence. Android distinguishes a missing asset from a
 failed asset listing or a failed read. Resource errors remain errors after
 installation. Android installs one copy and returns a clone to the Host bridge.
