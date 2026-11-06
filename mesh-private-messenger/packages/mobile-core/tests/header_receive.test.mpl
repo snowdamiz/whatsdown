@@ -46,6 +46,11 @@ from Transport.Packet import decode_client_profile
 from Session.Ratchet import decode_ratchet_message
 from Protocol.V1 import OuterEnvelope
 
+fn assert_received_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure"))
+end
+
 fn label(id :: Bytes) -> String do
   "session/v1/#{Bytes.to_hex(id)}"
 end
@@ -137,7 +142,7 @@ fn pending_and_cas() -> Bool!String do
     body: Bytes.from_utf8("first HE"),
     attachment: Bytes.empty()
   })?
-  assert(Bytes.secure_equals(receive_initial_message(MobileReceiveRequest {
+  assert_received_fixture(Bytes.secure_equals(receive_initial_message(MobileReceiveRequest {
       database_path: fixture.bob_path,
       outer: hello
     })?,

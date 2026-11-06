@@ -21,6 +21,11 @@ from Protocol.V1 import DirectoryEntry, PrekeyBundle
 from Tests.Support import append, database_path, vector, write_u32
 from Transport.Packet import ClientProfile, decode_client_profile, encode_client_profile
 
+fn assert_received_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic last-resort prekey message delivery; no application disclosure"))
+end
+
 fn request(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
   if index >= List.length(values) do
     Ok(output)
@@ -95,8 +100,8 @@ fn proof() -> Bool!String do
   let exhausted = exhausted_profile(bob_profile, reusable)?
   # Two strangers reach Bob through the same key: it is not consumed.
   let first = start(alice_path, exhausted, "hello from alice")?
-  assert(Bytes.secure_equals(deliver(bob_path, first)?, Bytes.from_utf8("hello from alice")))
-  assert(Bytes.secure_equals(deliver(bob_path, start(carol_path, exhausted, "hello from carol")?)?,
+  assert_received_fixture(Bytes.secure_equals(deliver(bob_path, first)?, Bytes.from_utf8("hello from alice")))
+  assert_received_fixture(Bytes.secure_equals(deliver(bob_path, start(carol_path, exhausted, "hello from carol")?)?,
     Bytes.from_utf8("hello from carol")))
   # One-time prekeys cannot be replayed because their secret is deleted. This
   # key stays, so delivery replaying a first message must be refused for good
@@ -179,19 +184,19 @@ fn rotation() -> Bool!String do
   # Someone who was handed the old key just before still gets through: until
   # the directory has answered, it may still be handing the old key out.
   let replaced = exhausted_profile(bob_profile, first)?
-  assert(Bytes.secure_equals(deliver(bob_path, start(alice_path, replaced, "in flight")?)?,
+  assert_received_fixture(Bytes.secure_equals(deliver(bob_path, start(alice_path, replaced, "in flight")?)?,
     Bytes.from_utf8("in flight")))
   # However long the device then stays offline, the old secret is kept, because
   # the directory has not said it stopped handing the old key out.
   age_last_resort_for_test(bob_path, 3456000000)?
   published_last_resort(bob_path)?
-  assert(Bytes.secure_equals(deliver(bob_path, start(carol_path, replaced, "still in flight")?)?,
+  assert_received_fixture(Bytes.secure_equals(deliver(bob_path, start(carol_path, replaced, "still in flight")?)?,
     Bytes.from_utf8("still in flight")))
   # Once it has, a message sealed to the old key can be at most 31 days from
   # arriving. Thirty-five days later the secret is destroyed.
   directory_answered(bob_path, bob_profile)?
   # The old key may have been handed out a moment before that answer.
-  assert(Bytes.secure_equals(deliver(bob_path, start(erin_path, replaced, "just before")?)?,
+  assert_received_fixture(Bytes.secure_equals(deliver(bob_path, start(erin_path, replaced, "just before")?)?,
     Bytes.from_utf8("just before")))
   age_last_resort_for_test(bob_path, 3024000000)?
   directory_answered(bob_path, bob_profile)?

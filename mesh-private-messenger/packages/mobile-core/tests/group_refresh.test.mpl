@@ -14,6 +14,11 @@ from Tests.GroupLifecycleCreate import create_group_with_bob
 from Tests.GroupLifecycleSupport import GroupAccountFixture, group_account_fixture
 from Tests.GroupLifecycleWire import acknowledge, delivery_batch, group_vectors, output_list
 
+fn assert_received_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic group refresh message delivery; no application disclosure"))
+end
+
 fn send_until_refresh(accounts :: GroupAccountFixture,
   group_id :: Bytes,
   remaining :: Int) -> Result<(), String> do
@@ -80,7 +85,7 @@ fn proof() -> Bool!String do
     Bytes.from_utf8(accounts.bob_path),
     List.get(entries, 1)
   ])?)?
-  assert(Bytes.secure_equals(opened, plaintext))
+  assert_received_fixture(Bytes.secure_equals(opened, plaintext))
   acknowledge(accounts.alice_path, entries, 0)?
   File.delete(accounts.alice_path)?
   File.delete(accounts.linked_path)?

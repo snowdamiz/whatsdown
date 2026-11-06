@@ -62,6 +62,11 @@ struct FloorFixture do
   security_frame :: Bytes
 end
 
+fn assert_received_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic native session suite-floor delivery and exact receive errors; no application disclosure"))
+end
+
 fn discard(state :: consume RatchetState) do
   nil
 end
@@ -236,7 +241,7 @@ fn direct_proof() -> Bool!String do
     value.bob_profile,
     Bytes.from_utf8("valid old classical hello")
   ])?)?
-  assert(Bytes.secure_equals(receive_initial_export(request([
+  assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
       Bytes.from_utf8(value.bob_path),
       hello
     ])?)?,
@@ -260,7 +265,7 @@ fn direct_proof() -> Bool!String do
     value.bob_profile,
     Bytes.from_utf8("existing classical still sends")
   ])?)?
-  assert(Bytes.secure_equals(receive_message_export(request([
+  assert_received_fixture(Bytes.secure_equals(receive_message_export(request([
       Bytes.from_utf8(value.bob_path),
       message
     ])?)?,
@@ -299,11 +304,11 @@ fn incoming_proof() -> Bool!String do
   case result do
     Err(_) -> nil
     Ok(clear) -> do
-      assert(Bytes.secure_equals(clear, Bytes.from_utf8("classical initial for hybrid reader")))
+      assert_received_fixture(Bytes.secure_equals(clear, Bytes.from_utf8("classical initial for hybrid reader")))
       println("c3-native-incoming-opened-baseline:passed")
     end
   end
-  assert(result == Err("initial_receive_failed"))
+  assert_received_fixture(result == Err("initial_receive_failed"))
   assert(account_basis_current(value.bob_path, before))
   cleanup(value)?
   println("c3-native-incoming-refusal:passed")
@@ -344,12 +349,12 @@ fn fanout_proof(classical_peer :: Bool, classical_linked :: Bool) -> Bool!String
       Ok(wire) -> do
         let packets = output_list(wire)?
         assert(List.length(packets) == 2)
-        assert(Bytes.secure_equals(receive_initial_export(request([
+        assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
             Bytes.from_utf8(value.bob_path),
             List.get(packets, 0)
           ])?)?,
           Bytes.from_utf8("floor-two fanout")))
-        assert(Bytes.secure_equals(receive_initial_export(request([
+        assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
             Bytes.from_utf8(value.linked_path),
             List.get(packets, 1)
           ])?)?,
@@ -365,12 +370,12 @@ fn fanout_proof(classical_peer :: Bool, classical_linked :: Bool) -> Bool!String
       Ok(value) -> output_list(value)?
     end
     assert(List.length(packets) == 2)
-    assert(Bytes.secure_equals(receive_initial_export(request([
+    assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
         Bytes.from_utf8(value.bob_path),
         List.get(packets, 0)
       ])?)?,
       Bytes.from_utf8("floor-two fanout")))
-    assert(Bytes.secure_equals(receive_initial_export(request([
+    assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
         Bytes.from_utf8(value.linked_path),
         List.get(packets, 1)
       ])?)?,
@@ -513,16 +518,16 @@ fn retained_proof(classical :: Bool) -> Bool!String do
     case result do
       Err(_) -> nil
       Ok(opened) -> do
-        assert(Bytes.secure_equals(opened, text))
+        assert_received_fixture(Bytes.secure_equals(opened, text))
         println("c3-native-retired-classical-opened-baseline:passed")
       end
     end
-    assert(result == Err("initial_receive_failed"))
+    assert_received_fixture(result == Err("initial_receive_failed"))
     assert(account_basis_current(value.bob_path, before))
     # The exact same packet must open at floor1: this proves it matched the
     # authenticated retained bundle and that floor2 did not consume its OTP.
     assert(Test.set_push_token(Bytes.from_utf8("messenger/config/v1"), current_frame))
-    assert(Bytes.secure_equals(receive_initial_export(request([
+    assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
         Bytes.from_utf8(value.bob_path),
         held
       ])?)?,
@@ -533,7 +538,7 @@ fn retained_proof(classical :: Bool) -> Bool!String do
       Err(error) -> return Err(error)
       Ok(value) -> value
     end
-    assert(Bytes.secure_equals(opened, text))
+    assert_received_fixture(Bytes.secure_equals(opened, text))
   end
   cleanup(value)?
   println("c3-native-retired-classical=#{classical}:passed")
@@ -581,7 +586,7 @@ fn linked_renewal_proof() -> Bool!String do
     value.bob_profile,
     Bytes.from_utf8("linked renewed hybrid")
   ])?)?
-  assert(Bytes.secure_equals(receive_initial_export(request([
+  assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
       Bytes.from_utf8(value.bob_path),
       packet
     ])?)?,
@@ -664,21 +669,21 @@ fn last_resort_floor_proof(classical :: Bool) -> Bool!String do
     ])?
   let result = receive_initial_export(request([Bytes.from_utf8(value.bob_path), held])?)
   if classical do
-    assert(result == Err("initial_receive_failed"))
+    assert_received_fixture(result == Err("initial_receive_failed"))
     assert(account_basis_current(value.bob_path, before))
     assert(Test.set_push_token(Bytes.from_utf8("messenger/config/v1"), value.security_frame))
-    assert(Bytes.secure_equals(receive_initial_export(request([
+    assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
         Bytes.from_utf8(value.bob_path),
         held
       ])?)?,
       Bytes.from_utf8("valid reusable initial")))
     assert_classical(value.bob_path)?
   else
-    assert(result == Ok(Bytes.from_utf8("valid reusable initial")))
+    assert_received_fixture(result == Ok(Bytes.from_utf8("valid reusable initial")))
   end
   # Successful reuse records replay protection, while the durable reusable key
   # remains available. A second delivery never rolls back the installed session.
-  assert(receive_initial_export(request([
+  assert_received_fixture(receive_initial_export(request([
     Bytes.from_utf8(value.bob_path),
     held
   ])?) == Err("replayed_initial_message"))
@@ -808,7 +813,7 @@ fn peer_sibling_proof(classical :: Bool) -> Bool!String do
     assert(List.length(packets) == 3)
     for index in 0..3 do
       let path = List.get([value.bob_path, sibling_path, value.linked_path], index)
-      assert(Bytes.secure_equals(receive_initial_export(request([
+      assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
           Bytes.from_utf8(path),
           List.get(packets, index)
         ])?)?,
@@ -869,7 +874,7 @@ fn existing_classical_fanout_proof() -> Bool!String do
   ])?)?)?
   for index in 0..2 do
     let path = List.get([value.bob_path, value.linked_path], index)
-    assert(Bytes.secure_equals(receive_initial_export(request([
+    assert_received_fixture(Bytes.secure_equals(receive_initial_export(request([
         Bytes.from_utf8(path),
         List.get(packets, index)
       ])?)?,
@@ -886,7 +891,7 @@ fn existing_classical_fanout_proof() -> Bool!String do
   ])?)?)?
   for index in 0..2 do
     let path = List.get([value.bob_path, value.linked_path], index)
-    assert(Bytes.secure_equals(receive_message_export(request([
+    assert_received_fixture(Bytes.secure_equals(receive_message_export(request([
         Bytes.from_utf8(path),
         List.get(later, index)
       ])?)?,

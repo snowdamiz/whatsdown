@@ -26,6 +26,11 @@ from Tests.GroupLifecycleWire import outer, output_list
 from Tests.Support import database_path, write_u32
 from Transparency.Merkle import leaf_hash
 
+fn assert_received_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic session-upgrade and delayed legacy message delivery; no application disclosure"))
+end
+
 fn entry(input :: Bytes) -> DirectoryEntry!String do
   case decode_directory_entry(input) do
     Err(_) -> Err("directory entry decode failed")
@@ -188,7 +193,7 @@ fn proof() -> Bool!String do
   assert(outer(preferred)?.suite == 4)
   assert(test_inner_suite(bob_path, preferred)? == 2)
   assert(acknowledge(alice_path, preferred)?)
-  assert(Bytes.secure_equals(receive_message_export(request([
+  assert_received_fixture(Bytes.secure_equals(receive_message_export(request([
       Bytes.from_utf8(bob_path),
       preferred
     ])?)?,
@@ -256,7 +261,7 @@ fn legacy_queued_positive() -> Bool!String do
   let queued = List.get(fixture, 0)
   let peer = List.get(fixture, 2)
   assert(outer(queued)?.suite == 1)
-  assert(Bytes.secure_equals(receive_message_export(request([Bytes.from_utf8(alice), queued])?)?,
+  assert_received_fixture(Bytes.secure_equals(receive_message_export(request([Bytes.from_utf8(alice), queued])?)?,
     Bytes.from_utf8("delayed suite-1")))
   let history_before_replay = fixture_direct_history(request([Bytes.from_utf8(alice), peer])?)?
   let history = output_list(history_before_replay)?

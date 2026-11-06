@@ -52,6 +52,11 @@ from Tests.GroupConsistencySupport import (
 from Tests.Support import database_path, install_security_config, write_u32, repeated
 from Transparency.Merkle import leaf_hash, sign_tree_checkpoint_for
 
+fn assert_received_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic linked-device message and control delivery; no application disclosure"))
+end
+
 fn clear_outbox(path :: String) -> Result<(), String> do
   let values = output_list(outbox_list_export(Bytes.from_utf8(path))?)?
   for value in values do
@@ -295,7 +300,7 @@ fn received(path :: String, envelope :: Bytes, initial :: Bool, body :: String) 
   else
     receive_message_export(request([Bytes.from_utf8(path), envelope])?)
   end?
-  assert(Bytes.secure_equals(opened, Bytes.from_utf8(body)))
+  assert_received_fixture(Bytes.secure_equals(opened, Bytes.from_utf8(body)))
   Ok(true)
 end
 

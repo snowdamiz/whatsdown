@@ -19,6 +19,11 @@ from Tests.GroupConsistencySupport import signed_transparency_view
 from Transparency.Merkle import leaf_hash
 from Transport.Packet import decode_client_profile
 
+fn assert_received_fixture(value :: Bool) do
+  assert(declassify(value,
+    "test-only Boolean assertion of controlled synthetic initial message delivery before source-guard checks; no application disclosure"))
+end
+
 fn proof() -> Bool!String do
   assert(Test.install_in_memory_secure_store())
   let fixture = group_account_fixture()?
@@ -39,7 +44,7 @@ fn proof() -> Bool!String do
     body: Bytes.from_utf8("initial policy source"),
     attachment: Bytes.empty()
   })?
-  assert(Bytes.secure_equals(receive_initial_message(MobileReceiveRequest {
+  assert_received_fixture(Bytes.secure_equals(receive_initial_message(MobileReceiveRequest {
       database_path: fixture.bob_path,
       outer: hello
     })?,
