@@ -91,6 +91,7 @@ pub struct CollateralProofState do
   deadline_ms :: U64
   directory :: TokenCollateralBond
   subjects :: List<TokenCollateralBond>
+  legacy_subjects :: List<TokenCollateralSubject>
   usdc_amount :: U64
   morse_amount :: U64
   payout_missing :: List<Int>
@@ -560,6 +561,27 @@ pub fn decode_collateral_proof_snapshot(pins :: CollateralOperatorPins,
           accounts: [v.header.account, v.entry.account, v.witnesses.account]
         })?
   end
+  let legacy_witnesses = List.flatten(for target in plan.witnesses do
+    let selected = for index in 0..List.length(intent.witnesses) when List.get(intent.witnesses,
+      index) == target.key do
+      index
+    end
+    if List.length(selected) != 1 do
+      return Err("collateral_proof_subject_selection")
+    end
+    let raw = operator_owned(snapshot, 27 + List.head(selected) * 4 + 1, c.judge, 208)?
+    if Bytes.to_hex(Bytes.slice(raw, 0, 4)?) == "4d424401" do
+      [CollateralWitness(target.key)]
+    else
+      []
+    end
+  end)
+  let legacy_subjects = (if base.legacy_bond do
+    [CollateralDirectory]
+  else
+    []
+  end)
+    ++ legacy_witnesses
   Ok(CollateralProofState {
     base: base,
     digest: Crypto.sha256(Bytes.concat(operator_snapshot_digest(keys, snapshot)?, aux_digest)?),
@@ -572,6 +594,7 @@ pub fn decode_collateral_proof_snapshot(pins :: CollateralOperatorPins,
     deadline_ms: deadline,
     directory: directory,
     subjects: subject_bonds,
+    legacy_subjects: legacy_subjects,
     usdc_amount: usd,
     morse_amount: morse,
     payout_missing: missing

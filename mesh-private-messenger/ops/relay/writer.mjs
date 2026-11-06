@@ -2,8 +2,9 @@ import { prepareRelayTransactions, signRelayStep } from './transactions.mjs';
 import { createRelayEffectReader } from './effects.mjs';
 
 function prepared(job,id){
-  const plan=job.plan,value=prepareRelayTransactions(plan,{...plan,proofHex:plan.proof_hex});
-  const steps=[...value.preparation,...(value.needsLookup?value.lookup:[]),value.settlement,...value.cleanup];
+  const plan=job.plan,value=prepareRelayTransactions(plan,{...plan,mint:plan.mint??plan.usdc_mint,
+    usdcMint:plan.usdc_mint,morseMint:plan.morse_mint,proofHex:plan.proof_hex});
+  const steps=[...value.preparation,...(value.needsLookup?value.lookup:[]),value.settlement,...value.cleanup].filter(Boolean);
   const step=steps.find(value=>value.id===id);
   if(!step)throw new Error('Unknown journaled relay step');
   return step;

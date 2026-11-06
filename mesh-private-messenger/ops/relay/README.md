@@ -11,6 +11,12 @@ pinned `@solana/kit` 8.4.0 to assemble and sign those instructions. It accepts
 locally generated Mesh reports and operator pins; public clients must only
 submit bounded raw FRK evidence.
 
+Schema 2 adds durable MPR2 execution through the current collateral proof
+planner. It uses this same CLI, scheduler, SQLite journal, and RPC recovery path.
+See [mixed-asset configuration and receipts](MPR2.md) for the pinned assets,
+upgrade procedure, and authenticated receipt API. The phone follow-on and the
+Phase 5 exit remain separate work.
+
 `prepareRelayTransactions` binds the proof and configured program/log/mint/payer,
 checks staging bytes and account reports, batches Ed25519 verification pairs to
 the packet limit and exposes opaque transaction steps. `signRelayStep` signs a

@@ -29,10 +29,13 @@ const units=value=>typeof value==='string'&&/^[1-9][0-9]{0,19}$/.test(value)&&Bi
 
 export async function loadRelayConfig(file) {
   const config=JSON.parse(text(await readBounded(file,65536)));
-  keys(config,['schema_version','securityConfigPath','verifierBinary','journalPath','tempRoot','logVersion','pins','rpc','policy'],['listen']);
-  if(config.schema_version!==1||![1,2].includes(config.logVersion))fail('Unsupported relay configuration version');
-  for(const key of ['securityConfigPath','verifierBinary','journalPath','tempRoot'])if(typeof config[key]!=='string'||!isAbsolute(config[key])||config[key].includes('\0'))fail('Relay configuration paths must be absolute');
-  keys(config.pins,['program','log','mint','submitter']);for(const value of Object.values(config.pins))assertIsAddress(value);
+  keys(config,['schema_version','securityConfigPath','verifierBinary','journalPath','tempRoot','logVersion','pins','rpc','policy'],['listen','plannerConfigPath']);
+  if(![1,2].includes(config.schema_version)||![1,2].includes(config.logVersion))fail('Unsupported relay configuration version');
+  const mixed=config.schema_version===2;
+  if(!mixed&&config.plannerConfigPath!==undefined)fail('Planner configuration requires relay version 2');
+  for(const key of ['securityConfigPath','verifierBinary','journalPath','tempRoot',...(mixed?['plannerConfigPath']:[])])if(typeof config[key]!=='string'||!isAbsolute(config[key])||config[key].includes('\0'))fail('Relay configuration paths must be absolute');
+  keys(config.pins,['program','log','mint','submitter',...(mixed?['usdcMint','morseMint']:[])]);for(const value of Object.values(config.pins))assertIsAddress(value);
+  if(mixed&&(config.pins.mint!==config.pins.usdcMint||config.pins.usdcMint===config.pins.morseMint))fail('Invalid relay asset pins');
   keys(config.rpc,['urls','genesisHash']);assertIsAddress(config.rpc.genesisHash);
   if(!Array.isArray(config.rpc.urls)||config.rpc.urls.length!==3)fail('Three relay RPC providers required');
   const urls=config.rpc.urls.map(value=>{
@@ -46,10 +49,17 @@ export async function loadRelayConfig(file) {
   if(typeof listen.host!=='string'||!['127.0.0.1','::1','0.0.0.0','::'].includes(listen.host)||!integer(listen.port,1,65535))fail('Invalid relay listen address');
   const securityConfig=text(await readBounded(config.securityConfigPath,65536));
   if(securityConfig.includes('\0'))fail('Invalid relay security configuration');
+  let plannerConfig;
+  if(mixed){
+    plannerConfig=text(await readBounded(config.plannerConfigPath,65536));
+    const planner=JSON.parse(plannerConfig),bindings={judge:'program',usdc_mint:'usdcMint',morse_mint:'morseMint',submitter:'submitter',fee_payer:'submitter'};
+    if(!planner||Array.isArray(planner)||Object.entries(bindings).some(([field,pin])=>planner[field]!==config.pins[pin])||
+      !Array.isArray(planner.endpoints)||JSON.stringify([...planner.endpoints].sort())!==JSON.stringify([...config.rpc.urls].sort()))fail('Relay planner pin mismatch');
+  }
   // This binds public cluster/configuration identity, not executable bytes. A
   // compiler rebuild must not strand the existing durable transaction ledger.
   const identity='relay-v1:'+createHash('sha256').update(JSON.stringify([securityConfig,config.logVersion,config.rpc.genesisHash,urls.map(url=>url.href).sort()])).digest('hex');
-  return Object.freeze({...config,listen,securityConfig,identity});
+  return Object.freeze({...config,listen,securityConfig,plannerConfig,identity});
 }
 
 export async function readRelayWallet(file,expectedSubmitter) {

@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "securityConfigPath": "/etc/morse/security-config.txt",
+  "plannerConfigPath": "/etc/morse/relay-planner.json",
+  "verifierBinary": "/usr/local/bin/morse-relay-mpr2",
+  "journalPath": "/var/lib/morse-relay/relay.sqlite",
+  "tempRoot": "/var/lib/morse-relay/verifier",
+  "logVersion": 2,
+  "pins": {
+    "program": "REPLACE_WITH_JUDGE_PROGRAM",
+    "log": "REPLACE_WITH_DERIVED_LOG_ADDRESS",
+    "mint": "REPLACE_WITH_USDC_MINT",
+    "usdcMint": "REPLACE_WITH_USDC_MINT",
+    "morseMint": "REPLACE_WITH_DERIVED_MORSE_MINT",
+    "submitter": "REPLACE_WITH_RELAY_WALLET_ADDRESS"
+  },
+  "rpc": {
+    "urls": ["https://provider-one.example", "https://provider-two.example", "https://provider-three.example"],
+    "genesisHash": "REPLACE_WITH_CLUSTER_GENESIS_HASH"
+  },
+  "policy": { "perJobLamports": "100000000", "windowLamports": "1000000000", "maxJobs": 128 },
+  "listen": { "host": "127.0.0.1", "port": 4344 }
+}

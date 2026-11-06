@@ -9,7 +9,7 @@ export async function openRelayApplication({config:configFile,wallet}) {
   const config=await loadRelayConfig(configFile);
   const signer=await readRelayWallet(wallet,config.pins.submitter);
   const verifier=await createRelayVerifier({binary:config.verifierBinary,tempRoot:config.tempRoot,
-    securityConfig:config.securityConfig,logVersion:config.logVersion,pins:config.pins});
+    securityConfig:config.securityConfig,plannerConfig:config.plannerConfig,logVersion:config.logVersion,pins:config.pins});
   const rpc=await connectRelayRpc(config.rpc);
   const journal=new RelayJournal({path:config.journalPath,identity:config.identity,pins:config.pins,policy:config.policy});
   const scheduler=createRelayScheduler({journal,verifier,rpc,signer});

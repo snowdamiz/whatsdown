@@ -38,7 +38,7 @@ export function createRelayService({journal,verifier,scheduler,now=Date.now,maxQ
           const admission=await verifier.admit(entry.bytes,journal.retention().minContextSlot,{signal:entry.controller.signal});
           if(closed||entry.controller.signal.aborted)throw new Error('cancelled');
           if(admission.status==='settled') {
-            const {proof_hash,finder}=admission.receipt;
+            const {proof_hash,finder}=admission.settled_receipt??admission.receipt;
             finish(entry,null,{schema_version:1,status:'settled',proof_hash,finder});
           }else if(admission.status==='ready') {
             const accepted=journal.accept(admission,now());

@@ -1,0 +1,8 @@
+[package]
+name = "morse-relay-mpr2"
+version = "0.1.0"
+description = "Authenticated durable mixed-asset relay planning"
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }
+collateral-v2 = { path = "../collateral-v2" }
+mesh-solana = { path = "../../../mesh-lang/packages/mesh-solana" }

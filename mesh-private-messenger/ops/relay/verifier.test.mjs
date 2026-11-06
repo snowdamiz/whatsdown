@@ -105,3 +105,18 @@ test('receipt and destination state reports preserve explicit absence, context a
     await assert.rejects(broken.receipt(plan,floor));
   }
 });
+
+test('migrated legacy jobs read version-aware permanent receipts after collateral conversion',async t=>{
+  const mixedPins={...pins,usdcMint:pins.mint,morseMint:plan.program};
+  const config=await fixture(t,`
+    const fs=require('node:fs'),args=process.argv.slice(2),p=JSON.parse(process.env.MESSENGER_SECURITY_CONFIG);
+    const request=JSON.parse(fs.readFileSync(args[5]));
+    if(request.method!=='receipt')process.exit(19);
+    console.log(JSON.stringify({schema_version:2,status:'settled',address:p.receipt,proof_hash:p.proof_hash,context_slot:request.min_context_slot,
+      receipt:{schema_version:2,status:'settled',proof_hash:p.proof_hash,finder:p.finder,usdc_mint:p.mint,morse_mint:p.program,context_slot:request.min_context_slot}}));`);
+  const plannerConfig=JSON.stringify({judge:pins.program,usdc_mint:pins.mint,morse_mint:plan.program,submitter:pins.submitter,fee_payer:pins.submitter});
+  const verifier=await createRelayVerifier({...config,pins:mixedPins,plannerConfig});
+  const receipt=await verifier.receipt(plan,plan.context_slot);
+  assert.equal(receipt.status,'settled');assert.equal(receipt.receipt.schema_version,2);
+  assert.equal(receipt.receipt.proof_hash,plan.proof_hash);
+});
