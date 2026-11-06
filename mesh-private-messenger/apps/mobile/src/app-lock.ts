@@ -269,13 +269,23 @@ export type AppLockSession = ReturnType<typeof createAppLockSession>;
 // Bind completion as well as entry: an existing helper can resolve entirely
 // from a cache/queue without invoking any private bridge method itself.
 export function bindAppLockFunctions<T extends object>(scope: Pick<AppLockSession, 'assertActive'>, functions: T): T {
+  const publish = (value: unknown) => {
+    try { scope.assertActive(); }
+    catch (error) {
+      if (value instanceof Uint8Array) value.fill(0);
+      throw error;
+    }
+    return value;
+  };
+  const refuse = (error: unknown): never => { scope.assertActive(); throw error; };
   const bound = Object.fromEntries(Object.entries(functions).map(([name, handler]) => [name,
     typeof handler !== 'function' ? handler : (...args: unknown[]) => {
       scope.assertActive();
-      const result = handler(...args);
-      if (result && typeof result.then === 'function') return Promise.resolve(result).then(value => { scope.assertActive(); return value; });
-      scope.assertActive();
-      return result;
+      let result: unknown;
+      try { result = handler(...args); } catch (error) { return refuse(error); }
+      if (((typeof result === 'object' && result !== null) || typeof result === 'function') &&
+          'then' in result && typeof result.then === 'function') return Promise.resolve(result).then(publish, refuse);
+      return publish(result);
     },
   ]));
   return Object.freeze(bound) as T;

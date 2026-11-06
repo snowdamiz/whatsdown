@@ -92,6 +92,53 @@ test('native error details refuse after the captured scope is disposed',async()=
   scope.dispose();pending.reject(new Error('private_account_detail'));
   await assert.rejects(response,/stale_epoch/);
 });
+
+test('bound helper refusal after disposal hides private error details', async () => {
+  const p = port(), scope = createAppLockSession(p.native, first);
+  const reply = Promise.withResolvers<Uint8Array>();
+  const helpers = bindAppLockFunctions(scope, { read: () => reply.promise });
+  const pending = helpers.read();
+  scope.dispose(); reply.reject(Error('private_backup_filename'));
+  await assert.rejects(pending, { message: 'stale_epoch' });
+});
+
+test('bound helper bytes refused after disposal are erased', async () => {
+  const p = port(), scope = createAppLockSession(p.native, first);
+  const reply = Promise.withResolvers<Uint8Array>();
+  const helpers = bindAppLockFunctions(scope, { read: () => reply.promise });
+  const pending = helpers.read(), bytes = Uint8Array.of(7, 8, 9);
+  scope.dispose(); reply.resolve(bytes);
+  await assert.rejects(pending, { message: 'stale_epoch' });
+  assert.deepEqual(bytes, new Uint8Array(3));
+});
+
+test('bound synchronous helper refuses private values and errors after reentrant disposal', () => {
+  for (const failure of [false, true]) {
+    const p = port(), scope = createAppLockSession(p.native, first);
+    const bytes = Uint8Array.of(7, 8, 9);
+    const helpers = bindAppLockFunctions(scope, { read() {
+      scope.dispose();
+      if (failure) throw Error('private_backup_filename');
+      return bytes;
+    } });
+    assert.throws(() => helpers.read(), { message: 'stale_epoch' });
+    if (!failure) assert.deepEqual(bytes, new Uint8Array(3));
+  }
+});
+
+test('bound helpers preserve active bytes and error identity', async () => {
+  const p = port(), scope = createAppLockSession(p.native, first);
+  const bytes = Uint8Array.of(7, 8, 9), error = Error('current_native_refusal');
+  const helpers = bindAppLockFunctions(scope, {
+    read: () => bytes, readAsync: async () => bytes,
+    fail() { throw error; }, async failAsync() { throw error; },
+  });
+  assert.equal(helpers.read(), bytes); assert.equal(await helpers.readAsync(), bytes);
+  assert.deepEqual(bytes, Uint8Array.of(7, 8, 9));
+  assert.throws(() => helpers.fail(), value => value === error);
+  await assert.rejects(helpers.failAsync(), value => value === error);
+  scope.dispose();
+});
 test('wallet, push and external payment retain the exact same epoch',async()=>{
   const p=port();const scope=createAppLockSession(p.native,first);p.change();
   await scope.invokeWallet(5,Uint8Array.of(1));await scope.primePushToken(Uint8Array.of(2));

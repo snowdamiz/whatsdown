@@ -1,6 +1,6 @@
 # Witness Network and Crypto Expansion: Complete Plan
 
-Status: implementation in progress (2026-10-31); plan revised 2026-09-25; §22 (security and privacy gaps found by the
+Status: implementation in progress (2026-11-06); plan revised 2026-09-25; §22 (security and privacy gaps found by the
 2026-09-26 review) added 2026-09-26; the bond counter, the phone bounty,
 checkpoint gossip and plaintext types (§6.16–6.18, Phases 0.6 and 6) added
 2026-09-27. Nothing in it is built unless §2 says so. The
@@ -122,6 +122,29 @@ revisited at each phase gate.
 | Rewards | Local Mesh policy, isolated custody program, authenticated reader and durable funding/settlement/claim operator; deployment and live funding qualification pending | `transparency/rewards_operator.mpl`, `programs/morse-rewards`, `ops/rewards` |
 | Credits, payments and token | Credits and USDC/SOL/Lightning paths have local implementation and execution evidence; token swaps/burns have local SBF proofs. Native dogfood, keeper/rewards integration, review, deployment and live exit gates remain open | Implementation progress below; Phases 4–6 |
 
+
+### Continuation checkpoint — 2026-11-06
+
+The outstanding local source is committed and pushed on
+`checkpoint/witness-network-2026-11-06` in both repositories: Morse
+`646d30a7dd4af746710d6a353ef0bc6ad9feef43` and Mesh
+`d1ce2537a1656c2de969f0af09a71991fe81c422`. Local build/proof scratch data remains
+outside Git; the two required Mesh vendor patches are included. These are source
+checkpoints, not release qualifications. Continuation uses the clean Morse branch
+`t3/witness-network-clean`; the earlier acceptance-runner correction on
+`t3/continue-witness-network-plan` belongs to the older implementation and is
+retained separately.
+
+The bound helper completion path used by backup file services now rejects
+private errors after session retirement and erases refused byte results. This
+also covers synchronous helpers that retire the session during their call.
+Three focused regressions failed before the fix; all four controls pass after
+it, preserving exact bytes and error identity for an active session. All 716
+normal mobile tests and 39 focused backup/resource checks pass locally. Full
+application typechecking passes after excluding the generator's raw fixture
+text from the application program; all nine generator fixture tests still pass.
+No native ABI, Mesh disclosure inventory or deployment changes are part of this
+unit. Native backup/provider and physical-device qualification remain open.
 
 ### Progress summary — 2026-10-31
 
