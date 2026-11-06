@@ -105,7 +105,7 @@ revisited at each phase gate.
 | Directory's witness list | SQL registry with pinned/shadow/retired states and current-key admission. Empty registries bootstrap A/B; populated registries control membership | `migrations/017_witness_registry.sql`, `storage/witness_registry.mpl` |
 | Attestation storage | `witness_signatures(checkpoint_sequence, witness_id, checkpoint_hash, …)`, primary key (sequence, witness_id) | `migrations/004_transparency.sql:30` |
 | Phone threshold | Configured strict majority over 1–16 distinct native pins; v1 maps to legacy 2-of-2 | `packages/mobile-core/mobile/transparency.mpl`, `transparency/config.mpl` |
-| Phone pinning | Canonical config v6 wraps an exact v1–v5 frame with a new-session suite minimum; existing bytes/defaults stay valid. Migration policies, judge identity and relay pins remain native resources. Legacy phone filing is connected; mixed-asset receipts remain pending | `mobile-core/mobile/platform.mpl`, `mobile-core/mobile/session_policy.mpl`, `mobile-core/mobile/fork_filing.mpl`, `apps/mobile/plugins/security-config.cjs` |
+| Phone pinning | Canonical config v6 wraps an exact v1–v5 frame with a new-session suite minimum; existing bytes/defaults stay valid. Migration policies, judge identity and relay pins remain native resources. Legacy and versioned MPR2 receipt filing are connected locally; asset movement and native UI qualification remain open | `mobile-core/mobile/platform.mpl`, `mobile-core/mobile/session_policy.mpl`, `mobile-core/mobile/fork_filing.mpl`, `apps/mobile/plugins/security-config.cjs` |
 | Groups | Native v2 binds set ID and threshold in welcomes, snapshots and key packages; signed policy updates migrate joined groups. Native v1 preserves legacy wires | `mobile-core/mobile/groups.mpl`, `groups/welcome_wire.mpl` |
 | Limits | `verify_witnesses` accepts at most 16 pinned keys and 16 attestations | `merkle.mpl:388` |
 | Proof size | v2 compact paths and incremental stored nodes implemented; v1 remains the default until native rollout. Compact mode verified at 1,000,001 leaves | `transparency/merkle.mpl`, `storage/transparency_tree.mpl`, `key-transparency-v1.md` |
@@ -118,14 +118,14 @@ revisited at each phase gate.
 | Checkpoint gossip | Direct and linked-device encrypted hints/control exchange; group message v5 carries the same hint and addressed controls. Signed conflicts retain FRK and pause new trust | `mobile-core/mobile/gossip.mpl`, `group_gossip.mpl` |
 | Public anchors | Local judge anchor/cosign subset, native verification, scheduled writer and receipt APIs implemented; chain deployment pending | `programs/morse-judge`, `mobile-core/mobile/anchor_check.mpl`, `directory-delivery/storage/anchor_receipts.mpl` |
 | Monitor | Native Mesh polling, durable comparisons and cached status implemented locally; deployment pending | `clients/mesh-cli/monitor` |
-| Relay | Mesh admission, Kit signing, SQLite progress/ownership, finalized RPC recovery, durable scheduler, HTTP/manual entry points, bounded retention, witness-package integration and legacy phone filing implemented locally. Durable mixed-asset execution and permanent MPR1/MPR2 receipts are adopted; mixed-asset phone filing, published distribution and funded qualification remain pending | `transparency/relay_admission.mpl`, `ops/relay-mpr2`, `ops/relay`, `mobile-core/mobile/fork_filing.mpl` |
+| Relay | Mesh admission, Kit signing, SQLite progress/ownership, finalized RPC recovery, durable scheduler, HTTP/manual entry points, bounded retention and witness-package integration implemented locally. Durable mixed-asset execution and phone filing now share permanent MPR1/MPR2 receipt authentication; published distribution, native UI and funded qualification remain pending | `transparency/relay_admission.mpl`, `transparency/permanent_receipt.mpl`, `ops/relay-mpr2`, `ops/relay`, `mobile-core/mobile/fork_filing.mpl` |
 | Rewards | Local Mesh policy, isolated custody program, authenticated reader, durable v1 funding/settlement/claims, v2 settlement/asset claims, bounded multi-epoch scheduling and continuous directory/current-attendance grace assessment implemented; deployment and live funding qualification pending | `transparency/rewards_operator.mpl`, `programs/morse-rewards`, `ops/rewards`, `ops/token-v2/reward_operator.mpl` |
 | Credits, payments and token | Credits and USDC/SOL/Lightning paths have local implementation and execution evidence; token swaps/burns have local SBF proofs. Native dogfood, keeper/rewards integration, review, deployment and live exit gates remain open | Implementation progress below; Phases 4–6 |
 
 ### Current continuation status — 2026-11-06
 
 This table is the current continuation reference, through source checkpoint
-`673563b`. Detailed entries below retain the history of implementation and proof;
+`1ab2a78`. Detailed entries below retain the history of implementation and proof;
 an older candidate or pending note does not override a later adoption record.
 Local source, local execution, native UI qualification and live production
 acceptance are separate states. No live deployment inventory was refreshed by
@@ -149,7 +149,7 @@ passing local fixture does not close a native-device or production gate.
 | Witness outage qualification | Tooling adopted through `fc0e701`. Exact owner source `a66889a` passed 900.056500333 seconds with 155 native lookups and C's retained 1→31 catch-up; parent verified retained provenance and freshly rebuilt the combined sources for a passing 60-second control | Hosted B1 deployment, seven-day observation and the scheduled production outage drill remain open. The 900-second artifact predates TLS/body composition; the composed artifact has the separately recorded short control |
 | View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unadopted | App candidate `13ed5d7` passes 818 tests, typecheck and local web rendering; follow-up `75fb777` uses the passing direct-receive producer's `02HST` fixture. Parent verified all 25 recorded app files and freshly passed 63 codec/control/preview tests with no verified source defect. The Core owner reports direct/mailbox and initial/sibling-sync tests passing, including changed-body duplicate refusal. Review now requires contact/gossip and sync-alias mutation controls plus canonical reference identity across local aliases. Group, native-fetch and shared native-effect admission remain open. Adopt Core and UI together; storage prerequisite `924d24f` alone is insufficient |
 | Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
-| Mixed-asset fork filing | Durable MPR2 relay and permanent receipt reader adopted at `27b4e2b`, including completion by another relay after the prepared winner stops. Fresh parent proof passes 80 signed SBF executions, 108 Node tests, six Mesh tests and 17 compiled CLI checks | Raw four-account capture tooling is adopted at `0d59e0a`; all 457 watched inputs match the retained 80-packet owner proof. Isolated phone `6f23709` reports 20 native groups, 13 negative vectors, actual relay admission and legacy recovery passing. Its composition with the shared operator receipt reader is actively qualifying in a separate checkout, not yet adopted. Bounty movement/recovery has a separate implementation owner and real signer/bank proof in progress; device UI and live qualification remain unfinished |
+| Mixed-asset fork filing | Phone FFS2 persistence and 16-field display plus shared operator/phone permanent receipt authentication adopted through `1ab2a78`. The combined source matches the qualified 80-packet SBF proof and 20-group native replay, including 13 refusal vectors and three production relay admissions. Parent verified 619 source files and 80 artifacts; Main keeps 176 exports and 69 reviewed disclosure sites | Bounty movement/recovery is separately implementing real signer/bank proofs. Shared native effect admission, whole-app/device UI, optimized phone release, independent providers and live qualification remain unfinished |
 | Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
 
 All eight §4.3 production checks remain pending. B1 shadow/outage observation,
@@ -487,8 +487,47 @@ The initialized custody fixture, programs and bank bridge are reused after
 source/artifact checks; the packets and Mesh execution are fresh. Three loopback
 origins share each bank. This does not qualify independent providers, validator
 finality, funded deployment, phone receipt presentation or mixed-asset bounty
-movement. The separate full legacy SBF suite was not rerun. Phone integration is
-active in its own worktree and remains unadopted.
+movement. The separate full legacy SBF suite was not rerun. The later phone and
+shared-reader adoption below supersedes this unit's phone-integration status.
+
+### Phone filing and shared permanent receipts — 2026-11-06
+
+The five phone commits and shared-reader migration are adopted through
+`1ab2a78` from qualified owner `94c541f`. Phone filing authenticates permanent
+MPR1/MPR2 receipts with native-pinned judge release, immutable log, proof address
+and both assets. Prepared receipts remain unpaid and retryable. Encrypted FFS2
+observations bind cached payouts to those pins; changing a token/mint cannot
+relabel a retained amount. FFS1 and the original 12-field view stay readable;
+the versioned 16-field view displays both assets and the actual finder.
+
+The relay now calls the same `Transparency.PermanentReceipt` reader and types.
+Its full operator-pin and exact-three-source checks remain at the adapter, as
+do byte-compatible reports and the existing quorum error class. Fatal TLS and
+retired-authority errors propagate. A real compiled-HTTP regression reproduced
+the former duplicate reader accepting a wrong witness PDA; the shared reader
+refuses it. Mutable bonds, governance and oracle state do not erase earned
+permanent receipts.
+
+The final combined owner source passed 80 fresh signed SBF packets, 21 compiled
+CLI cases, six operator tests, and common-reader tests at opt0 and opt2. Fresh
+phone/Core replay passed 20 groups, 13 negative vectors, three production Node
+service/verifier admissions and all six legacy scripts, with zero database-lock
+retries. Independent source and final-delta reviews passed. Parent adopted the
+exact bytes and verified 619 source files plus 80 artifacts against the retained
+proofs. Actual Main has 176 unchanged export records, 330 verified modules and
+the same 69 reviewed disclosure sites. Parent typechecking, full Mesh lint and
+12 focused filing/report checks pass; retained SBF/native executions are not
+represented as a second parent execution. Fresh parent HTTP replay passes all
+21 compiled CLI cases through 92 authenticated RPC requests using the qualified
+operator and retained bank accounts. The [composition receipt](mesh-private-messenger/ops/relay/evidence/20261106/phone-shared-composition.json)
+pins the source/artifact audit, actual Main gate, ABI comparison and parent logs.
+
+This is a bounded receipt/authentication unit. Phone/Core artifacts are opt0;
+optimized release, whole-app/device UI and the separately identified native
+intra-export owner/effect gate remain unqualified. Bounty production is unchanged:
+new MPR2 movement still refuses before signing, while historical signed MPR1
+recovery retains its exact packet under present v2 pins. Separate per-asset
+movement, funded operation and production acceptance remain open.
 
 ### Monitor acceptance contract — 2026-11-06
 
@@ -6273,10 +6312,11 @@ that first ships BR1.
 
 - Mint per §6.12, then the allocation transfers and vesting accounts.
 - Burn crank; token bonds with the TWAP oracle and top-up rule.
-- Local mixed-asset relay execution, prepared-winner recovery and permanent
-  MPR1/MPR2 receipts are adopted through `27b4e2b`, with a fresh 80-packet SBF
-  proof. Versioned phone filing and separate asset-transfer recovery remain
-  unfinished; local banks do not qualify funded operation.
+- Local mixed-asset relay execution, prepared-winner recovery, versioned phone
+  filing and shared permanent MPR1/MPR2 authentication are adopted through
+  `1ab2a78`. The composed source matches the qualified 80-packet SBF and 20-group
+  native receipt proofs. Separate asset-transfer recovery, native effect/UI
+  qualification and funded operation remain unfinished.
 - Public page of burns, bonds and slashes.
 - **Exit:** the first four weekly burns are executed and published.
 

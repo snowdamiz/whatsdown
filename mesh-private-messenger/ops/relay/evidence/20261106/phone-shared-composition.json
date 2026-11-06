@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "verdict": "PASS_LOCAL_PHONE_SHARED_RECEIPT_COMPOSITION",
+  "source_head": "1ab2a78a6783942b1d32f1ad45e305db240bbce7",
+  "qualified_owner": "94c541f627300cf877e5a880ae8788bb6837798d",
+  "production_acceptance": false,
+  "owner_handoff": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-7b0592c3/.morse/receipt-adoption/handoff.json",
+    "sha256": "a2d0fc69c1f1532a23d9fc04d0b5ddaf152c5a2000222d8c4a67118ef328d79d",
+    "qualification_sha256": "c6b788b95c0aad37ff242a5dc295931cafcd63cd94ebde58c8ce7228f23ca31f"
+  },
+  "parent_provenance": {
+    "source_files": 619,
+    "adopted_files": 26,
+    "artifacts": 80,
+    "source_drift": [],
+    "artifact_drift": [],
+    "rechecked_before_checkpoint": true
+  },
+  "fresh_parent_checks": {
+    "compiled_cli_http_cases": 21,
+    "authenticated_rpc_requests": 92,
+    "http_exit_code": 0,
+    "http_scope": "compiled-production-CLI; retained-SBF-record-HTTP-replay; no fresh SBF execution",
+    "filing_and_disclosure_gate_tests": 12,
+    "test_failures": 0,
+    "mobile_typecheck": "PASS",
+    "full_messenger_lint": "empty",
+    "abi_exports": 176,
+    "abi_comparison": "All ABI fields equal prior parent product except artifact filename",
+    "disclosure_sites": 69,
+    "main_source_modules": 330
+  },
+  "verified_owner_execution": {
+    "fresh_signed_sbf_packets": 80,
+    "compiled_cli_cases": 21,
+    "operator_mesh_tests": 6,
+    "common_reader_optimization_levels": [
+      0,
+      2
+    ],
+    "native_phone_groups": 20,
+    "negative_vectors": 13,
+    "production_node_service_admissions": 3,
+    "legacy_native_scripts": 6,
+    "database_lock_retries": 0,
+    "review": "Independent source and final-delta reviews passed; reviewers did not rerun runtime proofs"
+  },
+  "contract": {
+    "shared_reader": "Transparency.PermanentReceipt",
+    "shared_module_sha256": "31a9051db62c10655f86ed265e3417d6da435efac36033e12f7c72ee11045500",
+    "legacy": "FFS1 and original 12-field view remain readable",
+    "mixed": "Pin-bound FFS2 and versioned 16-field view; prepared remains unpaid",
+    "operator": "Full operator/source validation, report bytes and fatal TLS/authority errors preserved; incorrect witness PDA refused"
+  },
+  "product_main": {
+    "schema_version": 1,
+    "policy": "plaintext-v1",
+    "compiler_version": "0.1.8",
+    "report_sha256": "f76667fc3b1882992022318cbd1badaf007ca46a36f2e8cf948b277eca43eea3",
+    "review_sha256": "9c32604f14de5266646f6065f860e8d2b9f5bb4c05b9cf2873e489102a324dbf",
+    "compiler_sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+    "artifact_sha256": "6ebef0047cc741daa03fb55441f913cb7091991d6cc92a4d593bb166844c0927",
+    "disclosure_count": 69
+  },
+  "qualification_root": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/phone-shared-adoption",
+  "records": {
+    "source-audit.json": "97a31f6499a9121ddedd0b7f1769894536bf5f2af153b632196798eca8cc4cc4",
+    "artifact-audit.json": "ca5a2dd181e2014606b6a1a534ef0e997ab3c3b4f5d6d49dbcb2f45b9f754cfa",
+    "product-main-gate.json": "91e01df84b809d6b9257e1c5c7a03655877327176101580e67275a11ccd25c64",
+    "app-and-gate-tests.log": "619290d0a0b3bf011635965e879a23274a93b6910036b5905be2abc39a48fd42",
+    "lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "http-run.json": "77bb27b9f6cec3cb8fedd5a15007fba72893b8b3f74132dc194307035b60e6bd",
+    "http.log": "4370bf91e379f6b8e849fe04e208ef9df2f8b590cf99868ec32570b3821c1d2e",
+    "http/results.json": "89658037ea425d7aed181380b6aed86e9a90d8f1e14e95093150ae3bd25f5378",
+    "write-composition.py": "aa134195a9d80074e221cf93219928ffeaa482ece14049ff42f8268082fa7485"
+  },
+  "limits": [
+    "Parent reused exact source/artifact-matched owner SBF and native executions; no second parent SBF/native execution claimed. Parent HTTP replay executed the qualified operator against real loopback HTTP serving retained bank accounts.",
+    "Phone/Core native artifacts are opt0; optimized release and whole-app/device UI remain unqualified.",
+    "Native private-owner retirement within one Core export remains a separately identified, unqualified effect-admission boundary.",
+    "Bounty production remains unchanged: MPR2 new movement refuses before signing; historical signed MPR1 recovery preserves its packet. Per-asset movement is separate in-flight work.",
+    "Loopback fixtures do not qualify independent providers, validator finality, funded operation, deployment or any production-duration gate."
+  ]
+}
