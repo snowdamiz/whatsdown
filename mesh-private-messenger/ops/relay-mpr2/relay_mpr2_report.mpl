@@ -1,7 +1,8 @@
 from Input import RelayConfig
 from ProofRead import CollateralProofIntent, CollateralProofState
 from Plan import CollateralOperationPlan
-from Receipt import RelayReceiptState, permanent_receipt_report
+from Transparency.PermanentReceipt import PermanentReceiptState
+from Receipt import permanent_receipt_report
 from Lookup import lookup_report
 from Transparency.RelayLookup import RelayLookupPlan
 from Transparency.TokenCollateralWrite import (
@@ -103,7 +104,7 @@ end
 
 pub fn settled_report(config :: RelayConfig,
   wire :: Bytes,
-  state :: RelayReceiptState) -> String!String do
+  state :: PermanentReceiptState) -> String!String do
   let a = token_collateral_addresses(config.operator.pins.context)?
   let proof = validate_relay_submission(config.operator.pins.service_key,
     config.operator.pins.log_version,

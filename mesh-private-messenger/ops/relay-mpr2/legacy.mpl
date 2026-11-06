@@ -2,7 +2,8 @@
 from Transparency.RpcTransport import RpcTransport
 from Input import RelayConfig
 from Recovery import read_recovery
-from Receipt import read_receipt, PermanentReceipt, permanent_receipt_report, receipt_report
+from Transparency.PermanentReceipt import PermanentReceipt
+from Receipt import read_receipt, permanent_receipt_report, receipt_report
 from Transparency.AnchorChain import AnchorPins, anchor_addresses
 from Transparency.RelayAdmission import admit_relay_fork
 from Transparency.RelayReport import relay_admission_report

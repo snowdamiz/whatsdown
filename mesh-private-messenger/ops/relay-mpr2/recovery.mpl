@@ -8,9 +8,8 @@ from Transparency.RpcTransport import (
 )
 from Transparency.AnchorRpc import read_anchor_rpc_response
 from Input import RelayConfig, text
+from Transparency.PermanentReceipt import PermanentReceiptState, PermanentReceipt
 from Receipt import (
-  RelayReceiptState,
-  PermanentReceipt,
   read_receipt,
   receipt_keys,
   decode_receipt_snapshot
@@ -32,7 +31,7 @@ from Transparency.RelayStageRead import RelayStageState, decode_relay_stage, rel
 from Read import validate_collateral_operator_sources
 
 pub struct RecoveryState do
-  receipt :: RelayReceiptState
+  receipt :: PermanentReceiptState
   stage :: RelayStageState
   destination_present :: List<Bool>
   destinations_ready :: Bool
@@ -42,7 +41,7 @@ end
 
 fn payout_finder(config :: RelayConfig,
   wire :: Bytes,
-  receipt :: RelayReceiptState) -> Pubkey!String do
+  receipt :: PermanentReceiptState) -> Pubkey!String do
   case receipt.value do
     Some(MixedReceipt(value)) -> return Ok(Pubkey { bytes: value.finder })
     Some(LegacyReceipt(value)) -> return Ok(Pubkey { bytes: value.finder })

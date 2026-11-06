@@ -1,226 +1,56 @@
-##! Permanent receipt authentication has no oracle, registry or bond dependency.
-from Transparency.RpcTransport import (
-  RpcTransport,
-  RpcEndpoint,
-  rpc_urls,
-  rpc_fatal_error,
-  require_rpc_current
+##! Operator pin adapter and byte-compatible permanent receipt reports.
+from Transparency.RpcTransport import RpcTransport, rpc_urls, require_rpc_current
+from Transparency.PermanentReceipt import (
+  PermanentReceiptPins,
+  PermanentReceiptState,
+  PermanentReceipt,
+  permanent_receipt_keys,
+  decode_permanent_receipt_snapshot,
+  read_permanent_receipt
 )
-from Transparency.AnchorRpc import read_anchor_rpc_response
 from Read import (
   CollateralOperatorPins,
   validate_collateral_operator_pins,
   validate_collateral_operator_sources
 )
-from Accounts import operator_required, operator_owned, operator_absent, operator_snapshot_digest
-from Solana.Read import (
-  Pubkey,
-  OptionalAccountSlicesAtSlot,
-  pubkey_string,
-  get_multiple_accounts_slice_request,
-  optional_accounts_slice_from_response,
-  pubkey
-)
-from Transparency.TokenCollateralWrite import token_collateral_addresses, collateral_derived
-from Transparency.AnchorLog import decode_anchor_log
-from Transparency.TokenProofWrite import TokenPreparedProof, decode_token_prepared_proof
-from Transparency.SlashReceipt import SlashReceipt, decode_slash_receipt
+from Solana.Read import Pubkey, OptionalAccountSlicesAtSlot, pubkey_string
 from Transparency.SlashReceiptRead import ConfirmedSlashReceipt, slash_receipt_report
 
-pub type PermanentReceipt do
-  MixedReceipt(TokenPreparedProof)
-  LegacyReceipt(SlashReceipt)
-end
-
-pub struct RelayReceiptState do
-  status :: String
-  address :: Pubkey
-  proof_hash :: Bytes
-  context_slot :: U64
-  digest :: Bytes
-  value :: Option<PermanentReceipt>
+fn permanent_pins(pins :: CollateralOperatorPins) -> PermanentReceiptPins!String do
+  validate_collateral_operator_pins(pins)?
+  Ok(PermanentReceiptPins {
+    judge: pins.context.judge,
+    token: pins.context.token,
+    log_name: pins.context.log_name,
+    usdc: pins.context.usdc_mint,
+    judge_slot: pins.judge_slot,
+    service_key: pins.service_key,
+    log_version: pins.log_version
+  })
 end
 
 pub fn receipt_keys(pins :: CollateralOperatorPins, proof_hash :: Bytes) -> List<Pubkey>!String do
-  validate_collateral_operator_pins(pins)?
-  if Bytes.length(proof_hash) != 32 do
-    return Err("relay_receipt_hash")
-  end
-  let a = token_collateral_addresses(pins.context)?
-  Ok([
-    pins.context.judge,
-    a.judge_data,
-    a.log,
-    collateral_derived(pins.context.judge, [Bytes.from_utf8("proof"), a.log_id, proof_hash])?
-  ])
-end
-
-# Only the loader header is required; retained fixtures may carry shorter code
-# prefixes than a fresh RPC slice. Full allocation/owner remain authenticated.
-fn operator_owned_image(snapshot :: OptionalAccountSlicesAtSlot,
-  program :: Pubkey,
-  loader :: Pubkey,
-  data_address :: Pubkey) -> U64!String do
-  let image = operator_required(snapshot, 0, loader, U64.parse("36")?, 36, true)?.info.data
-  if Bytes.to_hex(Bytes.slice(image, 0, 4)?) != "02000000"
-    || Bytes.slice(image, 4, 32)? != data_address.bytes do
-    return Err("relay_receipt_program")
-  end
-  let account = case List.get(snapshot.accounts, 1) do
-    None -> return Err("relay_receipt_program_data")
-    Some(value) -> value
-  end
-  let raw = account.info.data
-  if account.info.owner != loader
-    || account.info.executable
-    || account.info.lamports == U64.parse("0")?
-    || U64.compare(account.space, U64.parse("45")?) < 0
-    || U64.compare(account.space, U64.parse("10485760")?) > 0
-    || Bytes.length(raw) < 45
-    || Bytes.length(raw) > 9216
-    || U64.compare(U64.parse(Int.to_string(Bytes.length(raw)))?, account.space) > 0
-    || Bytes.to_hex(Bytes.slice(raw, 0, 4)?) != "03000000"
-    || Bytes.get(raw, 12)? > 1 do
-    return Err("relay_receipt_program_data")
-  end
-  let slot = U64.parse(Bytes.read_uint_le(raw, 4, 8)?)?
-  if U64.compare(slot, snapshot.slot) > 0 do
-    return Err("relay_receipt_program_data")
-  end
-  Ok(slot)
+  permanent_receipt_keys(permanent_pins(pins)?, proof_hash)
 end
 
 pub fn decode_receipt_snapshot(pins :: CollateralOperatorPins,
   proof_hash :: Bytes,
   minimum :: U64,
-  snapshot :: OptionalAccountSlicesAtSlot) -> RelayReceiptState!String do
-  let keys = receipt_keys(pins, proof_hash)?
-  let a = token_collateral_addresses(pins.context)?
-  if List.length(snapshot.accounts) != 4 || U64.compare(snapshot.slot, minimum) < 0 do
-    return Err("relay_receipt_snapshot")
-  end
-  let loader = pubkey("BPFLoaderUpgradeab1e11111111111111111111111")?
-  let image = operator_owned_image(snapshot, pins.context.judge, loader, a.judge_data)?
-  if image != pins.judge_slot do
-    return Err("relay_receipt_program_revision")
-  end
-  let log = decode_anchor_log(operator_owned(snapshot, 2, pins.context.judge, 352)?)?
-  if log.name != pins.context.log_name
-    || log.log_id != a.log_id
-    || log.service_public_key != pins.service_key
-    || log.version != pins.log_version
-    || log.ring_address != a.ring.bytes do
-    return Err("relay_receipt_log_identity")
-  end
-  let initial = RelayReceiptState {
-    status: "missing",
-    address: List.get(keys, 3),
-    proof_hash: proof_hash,
-    context_slot: snapshot.slot,
-    digest: operator_snapshot_digest(keys, snapshot)?,
-    value: None
-  }
-  if operator_absent(List.get(snapshot.accounts, 3)) do
-    return Ok(initial)
-  end
-  let account = case List.get(snapshot.accounts, 3) do
-    None -> return Err("relay_receipt_missing")
-    Some(value) -> value
-  end
-  let raw = operator_owned(snapshot, 3, pins.context.judge, U64.to_int(account.space)?)?
-  let magic = Bytes.to_hex(Bytes.slice(raw, 0, 4)?)
-  let receipt = if magic == "4d505202" do
-    let r = decode_token_prepared_proof(raw)?
-    let bits = U64.to_int(r.verified_signature_mask)?
-    if r.log_id != a.log_id
-      || r.proof_hash != proof_hash
-      || r.usdc_mint != pins.context.usdc_mint.bytes
-      || r.morse_mint != a.morse_mint.bytes
-      || bits > 17179869183
-      || (r.anchored && bits % 4 != 1)
-      || (!r.anchored && bits % 4 != 3) do
-      return Err("relay_receipt_identity")
-    end
-    MixedReceipt(r)
-  else if magic == "4d505201" do
-    let r = decode_slash_receipt(raw)?
-    if r.log_id != a.log_id
-      || r.proof_hash != proof_hash
-      || r.mint != pins.context.usdc_mint.bytes do
-      return Err("relay_receipt_identity")
-    end
-    LegacyReceipt(r)
-  else
-    return Err("relay_receipt_version")
-  end
-  let status = case receipt do
-    MixedReceipt(r) -> if r.settled do
-      "settled"
-    else
-      "prepared"
-    end
-    LegacyReceipt(_) -> "settled"
-  end
-  Ok(%{initial | status: status, value: Some(receipt)})
-end
-
-pub fn receipt_origin(rpc :: RpcTransport,
-  endpoint :: RpcEndpoint,
-  pins :: CollateralOperatorPins,
-  hash :: Bytes,
-  minimum :: U64) -> RelayReceiptState!String do
-  let request = get_multiple_accounts_slice_request(1,
-    receipt_keys(pins, hash)?,
-    "finalized",
-    0,
-    9216,
-    Some(minimum))?
-  decode_receipt_snapshot(pins,
-    hash,
-    minimum,
-    optional_accounts_slice_from_response(read_anchor_rpc_response(rpc,
-      endpoint,
-      request,
-      131072)?)?)
-end
-
-pub fn receipt_quorum(first :: RelayReceiptState!String,
-  second :: RelayReceiptState!String,
-  third :: RelayReceiptState!String) -> RelayReceiptState!String do
-  for result in [first, second, third] do
-    case result do
-      Err(error) when rpc_fatal_error(error) -> return Err(error)
-      _ -> nil
-    end
-  end
-  for pair in [(first, second), (first, third), (second, third)] do
-    case pair do
-      (Ok(a), Ok(b)) -> if a.digest == b.digest do
-        return Ok(a)
-      end
-      _ -> nil
-    end
-  end
-  Err("relay_receipt_quorum")
+  snapshot :: OptionalAccountSlicesAtSlot) -> PermanentReceiptState!String do
+  decode_permanent_receipt_snapshot(permanent_pins(pins)?, proof_hash, minimum, snapshot)
 end
 
 pub fn read_receipt(rpc :: RpcTransport,
   pins :: CollateralOperatorPins,
   hash :: Bytes,
-  minimum :: U64) -> RelayReceiptState!String do
+  minimum :: U64) -> PermanentReceiptState!String do
   require_rpc_current(rpc.require_current)?
   validate_collateral_operator_sources(rpc_urls(rpc))?
-  let results = for endpoint in List.take(rpc.sources, 3) do
-    let result = receipt_origin(rpc, endpoint, pins, hash, minimum)
-    case result do
-      Err(error) when rpc_fatal_error(error) -> return Err(error)
-      _ -> result
-    end
+  case read_permanent_receipt(rpc, permanent_pins(pins)?, hash, minimum) do
+    Err("anchor_rpc_unavailable") -> Err("relay_receipt_quorum")
+    Err("anchor_rpc_disagree") -> Err("relay_receipt_quorum")
+    result
   end
-  require_rpc_current(rpc.require_current)?
-  let state = receipt_quorum(List.get(results, 0), List.get(results, 1), List.get(results, 2))?
-  require_rpc_current(rpc.require_current)?
-  Ok(state)
 end
 
 fn key(value :: Bytes) -> String do
@@ -235,7 +65,7 @@ fn units(value :: U64) -> String do
   Json.encode_string(U64.to_string(value))
 end
 
-pub fn permanent_receipt_report(state :: RelayReceiptState) -> String do
+pub fn permanent_receipt_report(state :: PermanentReceiptState) -> String do
   let r = case state.value do
     None -> return "null"
     Some(value) -> value
@@ -254,6 +84,6 @@ pub fn permanent_receipt_report(state :: RelayReceiptState) -> String do
   end
 end
 
-pub fn receipt_report(state :: RelayReceiptState) -> String do
+pub fn receipt_report(state :: PermanentReceiptState) -> String do
   """{"schema_version":2,"status":#{Json.encode_string(state.status)},"address":#{Json.encode_string(pubkey_string(state.address))},"proof_hash":#{hex(state.proof_hash)},"context_slot":#{units(state.context_slot)},"digest":#{hex(state.digest)},"receipt":#{permanent_receipt_report(state)}}"""
 end
