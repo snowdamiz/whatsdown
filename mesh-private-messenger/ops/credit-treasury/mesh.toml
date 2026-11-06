@@ -1,0 +1,5 @@
+[package]
+name = "morse-credit-treasury-policy"
+version = "0.1.0"
+description = "Isolated local qualification of pre-token credit revenue arithmetic"
+license = "MIT"

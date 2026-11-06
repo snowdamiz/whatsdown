@@ -1,0 +1,7 @@
+[package]
+name = "morse-rewards-operator"
+version = "0.1.0"
+description = "Authenticated Mesh plans for rewards funding, settlement and claims"
+
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }

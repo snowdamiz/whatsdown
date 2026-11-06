@@ -201,7 +201,7 @@ fn proof() -> Bool!String do
   assert(Bytes.length(pending.signing_public_key) == 32)
   assert(Bytes.length(pending.dh_public_key) == 32)
   assert(Bytes.length(pending.post_quantum_public_key) == 1184)
-  assert(U64.compare(pending.capabilities, wide("1")?) == 0)
+  assert(U64.compare(pending.capabilities, wide("3")?) == 0)
   assert(U64.compare(pending.expires_at, U64.add(pending.created_at, wide("600000")?)?) == 0)
   let expected_sas = Bytes.from_utf8(Bytes.to_hex(first_six(Crypto.sha256(request_wire))?))
   assert(Bytes.length(expected_sas) == 12)

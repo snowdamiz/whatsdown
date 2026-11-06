@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "origin": "https://api.mainnet-beta.solana.com",
+  "method": "getAccountInfo",
+  "commitment": "finalized",
+  "snapshots": [
+    {
+      "name": "jupiter",
+      "program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+      "program_data": "4Ec7ZxZS6Sbdg5UGSLHbAnM7GQHp2eFd4KYWRexAipQT",
+      "context_slot": "459731638",
+      "program_data_sha256": "21e28c59e3b0a5536e48d31a1ca7346514a2bc61d70dc1388c920d7e3be35c1b",
+      "elf_sha256": "0394bfa4311fac40dd3d32e431ab2f541227e6c32923715455cfac58e4004d30",
+      "elf_bytes": 2892224
+    },
+    {
+      "name": "raydium",
+      "program": "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C",
+      "program_data": "DMawCQzbgNTmbzaESc7o6pvL1KAeetY8zA7jNpzntHhU",
+      "context_slot": "459731639",
+      "program_data_sha256": "2d28cb1cffc569f1c45cdeef727e4a5feea101dc2a67bcc8da03674ffecdc530",
+      "elf_sha256": "b6dbea8cefc2e7d490775ce6115e34a2ba480c0853c359e0bb4043b9381ef09a",
+      "elf_bytes": 793824
+    }
+  ],
+  "config_account": "D4FPEruKEHrG5TenZ2mpDGEfu1iUvTiqBxvpU8HLBvC2",
+  "boundary": "Read-only official-chain program/account snapshots for isolated local bank tests; no live transfer. Source references and executing binary hashes are distinct; this is not an audit claim.",
+  "source_commit": "f4b9b26342afe9122d5ff67cd7a4f19ded4ac0a5",
+  "source_files": [
+    {
+      "url": "https://raw.githubusercontent.com/raydium-io/raydium-cp-swap/f4b9b26342afe9122d5ff67cd7a4f19ded4ac0a5/programs/cp-swap/src/lib.rs",
+      "sha256": "d4151c3959d5b066d459e02f8ffcb45c842944231d68aaff659909c232639f7b"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/raydium-io/raydium-cp-swap/f4b9b26342afe9122d5ff67cd7a4f19ded4ac0a5/programs/cp-swap/src/instructions/swap_base_input.rs",
+      "sha256": "5878ed09654745b5725030c5d84a8794a07088e836330890cbae2b0d7d7b1349"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/raydium-io/raydium-cp-swap/f4b9b26342afe9122d5ff67cd7a4f19ded4ac0a5/programs/cp-swap/src/instructions/initialize.rs",
+      "sha256": "d198b84c00331774218b43533979443b256089a160f76a4fa9a5e45a51cace20"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/raydium-io/raydium-cp-swap/f4b9b26342afe9122d5ff67cd7a4f19ded4ac0a5/programs/cp-swap/src/states/pool.rs",
+      "sha256": "e2a836869400bf3cbe3aa52e664235620f82a5c701edd4ced75789f6d7d124ad"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/raydium-io/raydium-cp-swap/f4b9b26342afe9122d5ff67cd7a4f19ded4ac0a5/programs/cp-swap/src/states/config.rs",
+      "sha256": "02384ef4d41b1dfc985ebf6a581c3227ef60892560300e7233e31dcfc0358890"
+    }
+  ],
+  "account_fixtures": [
+    {
+      "path": "ops/token/fixtures/dex/amm-config.json",
+      "sha256": "5557d16b206497f0f62746d4f613795eab25682b2d20ac1ed978a9d11bf323ea"
+    },
+    {
+      "path": "ops/token/fixtures/dex/create-pool-fee.json",
+      "sha256": "415abaa71ba494a7f16044d7409500ed305021d8bb4fded53ccd18f76c800a6f"
+    },
+    {
+      "path": "ops/token/fixtures/dex/native-mint.json",
+      "sha256": "15751300d88cf67b6be4b27dd684d4754beda56d33d3763fc6a990444fea1038"
+    }
+  ]
+}

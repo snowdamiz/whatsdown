@@ -6,6 +6,7 @@
 #include <mutex>
 
 #include "libmessenger_mobile.h"
+#include "MeshMessengerCallbackThread.h"
 
 namespace {
 constexpr int32_t kInvalidInput = 1;
@@ -16,7 +17,14 @@ constexpr int32_t kJavaFailure = 5;
 constexpr size_t kMaximumPushFrameLength = 4362;
 constexpr char kRawPushSelector[] = "expo/raw/v1";
 constexpr char kConfigPushSelector[] = "expo/config/v1";
+constexpr char kCounterConfigSelector[] = "messenger/network-counter/v1";
 constexpr char kSecurityConfigSelector[] = "messenger/config/v1";
+constexpr char kNetworkConfigSelector[] = "messenger/network/v1";
+constexpr char kOhttpConfigSelector[] = "messenger/ohttp/v1";
+constexpr char kIssuerTLSSelector[] = "messenger/issuer-tls-root/v1";
+constexpr char kLightningSelector[] = "messenger/lightning/v1";
+constexpr char kCreditPurposeSelector[] = "messenger/credits/v1";
+constexpr char kWalletPinsSelector[] = "messenger/wallet/v1";
 
 JavaVM *g_vm = nullptr;
 jclass g_store_class = nullptr;
@@ -27,6 +35,13 @@ jmethodID g_delete = nullptr;
 jmethodID g_consume_push_material = nullptr;
 jmethodID g_build_push_config = nullptr;
 jmethodID g_build_security_config = nullptr;
+jmethodID g_build_network_config = nullptr;
+jmethodID g_build_ohttp_config = nullptr;
+jmethodID g_counter_config = nullptr;
+jmethodID g_lightning_network = nullptr;
+jmethodID g_issuer_tls_root = nullptr;
+jmethodID g_credit_purpose = nullptr;
+jmethodID g_wallet_pins = nullptr;
 std::mutex g_store_lock;
 
 JNIEnv *CurrentEnvironment(bool *attached) {
@@ -78,7 +93,7 @@ int32_t ZeroByteArray(JNIEnv *environment, jbyteArray bytes, jsize length) {
   return JavaStatus(environment);
 }
 
-int32_t SecureStorePut(void *, const uint8_t *input, uint64_t input_length,
+int32_t SecureStorePutOnJvmThread(void *, const uint8_t *input, uint64_t input_length,
                        uint8_t *, uint64_t, uint64_t *output_length) {
   if (output_length == nullptr) return kInvalidInput;
   *output_length = 0;
@@ -99,7 +114,7 @@ int32_t SecureStorePut(void *, const uint8_t *input, uint64_t input_length,
   return java_status == MESH_LIBRARY_OK ? status : java_status;
 }
 
-int32_t SecureStoreGet(void *, const uint8_t *input, uint64_t input_length,
+int32_t SecureStoreGetOnJvmThread(void *, const uint8_t *input, uint64_t input_length,
                        uint8_t *output, uint64_t output_capacity,
                        uint64_t *output_length) {
   if (output == nullptr || output_length == nullptr) return kInvalidInput;
@@ -144,7 +159,7 @@ int32_t SecureStoreGet(void *, const uint8_t *input, uint64_t input_length,
   return MESH_LIBRARY_OK;
 }
 
-int32_t SecureStoreDelete(void *, const uint8_t *input, uint64_t input_length,
+int32_t SecureStoreDeleteOnJvmThread(void *, const uint8_t *input, uint64_t input_length,
                           uint8_t *, uint64_t, uint64_t *output_length) {
   if (output_length == nullptr) return kInvalidInput;
   *output_length = 0;
@@ -165,7 +180,7 @@ int32_t SecureStoreDelete(void *, const uint8_t *input, uint64_t input_length,
   return java_status == MESH_LIBRARY_OK ? status : java_status;
 }
 
-int32_t PushGetToken(void *, const uint8_t *input, uint64_t input_length,
+int32_t PushGetTokenOnJvmThread(void *, const uint8_t *input, uint64_t input_length,
                      uint8_t *output, uint64_t output_capacity,
                      uint64_t *output_length) {
   if (input == nullptr || output == nullptr || output_length == nullptr) {
@@ -178,15 +193,29 @@ int32_t PushGetToken(void *, const uint8_t *input, uint64_t input_length,
   bool read_config = input_length == sizeof(kConfigPushSelector) - 1 &&
                      std::memcmp(input, kConfigPushSelector,
                                  sizeof(kConfigPushSelector) - 1) == 0;
+  bool read_counter_config = input_length == sizeof(kCounterConfigSelector) - 1 &&
+      std::memcmp(input, kCounterConfigSelector, sizeof(kCounterConfigSelector) - 1) == 0;
   bool read_security_config =
       input_length == sizeof(kSecurityConfigSelector) - 1 &&
       std::memcmp(input, kSecurityConfigSelector,
                   sizeof(kSecurityConfigSelector) - 1) == 0;
-  if (!consume && !read_config && !read_security_config) return kInvalidInput;
+  bool read_lightning = input_length == sizeof(kLightningSelector) - 1 &&
+      std::memcmp(input, kLightningSelector, sizeof(kLightningSelector) - 1) == 0;
+  bool read_credit_purpose = input_length == sizeof(kCreditPurposeSelector) - 1 &&
+      std::memcmp(input, kCreditPurposeSelector, sizeof(kCreditPurposeSelector) - 1) == 0;
+  bool read_wallet_pins = input_length == sizeof(kWalletPinsSelector) - 1 &&
+      std::memcmp(input, kWalletPinsSelector, sizeof(kWalletPinsSelector) - 1) == 0;
+  bool read_network_config = input_length == sizeof(kNetworkConfigSelector) - 1 &&
+      std::memcmp(input, kNetworkConfigSelector, sizeof(kNetworkConfigSelector) - 1) == 0;
+  bool read_ohttp_config = input_length == sizeof(kOhttpConfigSelector) - 1 &&
+      std::memcmp(input, kOhttpConfigSelector, sizeof(kOhttpConfigSelector) - 1) == 0;
+  bool read_issuer_tls = input_length == sizeof(kIssuerTLSSelector) - 1 &&
+      std::memcmp(input, kIssuerTLSSelector, sizeof(kIssuerTLSSelector) - 1) == 0;
+  if (!read_ohttp_config && !read_counter_config && !read_issuer_tls && !consume && !read_config && !read_security_config && !read_credit_purpose && !read_wallet_pins && !read_network_config && !read_lightning) return kInvalidInput;
   std::lock_guard<std::mutex> guard(g_store_lock);
   jmethodID method = consume ? g_consume_push_material
                              : read_config ? g_build_push_config
-                                           : g_build_security_config;
+                                           : read_ohttp_config ? g_build_ohttp_config : read_counter_config ? g_counter_config : read_issuer_tls ? g_issuer_tls_root : read_lightning ? g_lightning_network : read_credit_purpose ? g_credit_purpose : read_wallet_pins ? g_wallet_pins : read_network_config ? g_build_network_config : g_build_security_config;
   if (g_push_class == nullptr || method == nullptr) {
     return kPlatformFailure;
   }
@@ -208,7 +237,7 @@ int32_t PushGetToken(void *, const uint8_t *input, uint64_t input_length,
   jsize result_length = environment->GetArrayLength(result);
   int32_t status = MESH_LIBRARY_OK;
   if (result_length <= 0 ||
-      static_cast<size_t>(result_length) > kMaximumPushFrameLength) {
+      static_cast<size_t>(result_length) > (read_ohttp_config ? 600 : read_counter_config ? 24576 : read_issuer_tls ? 67591 : read_network_config ? 8240 : kMaximumPushFrameLength)) {
     status = kInvalidInput;
   } else if (static_cast<uint64_t>(result_length) > output_capacity) {
     status = kOutputTooLarge;
@@ -233,6 +262,38 @@ int32_t PushGetToken(void *, const uint8_t *input, uint64_t input_length,
   return status;
 }
 
+using HostCallback = int32_t (*)(void *, const uint8_t *, uint64_t, uint8_t *, uint64_t, uint64_t *);
+
+int32_t CallOnJvmThread(HostCallback callback, void *context,
+                       const uint8_t *input, uint64_t input_length,
+                       uint8_t *output, uint64_t output_capacity,
+                       uint64_t *output_length) {
+  if (output_length != nullptr) *output_length = 0;
+  return MeshMessengerRunCallbackOnNativeStack([&] {
+    return callback(context, input, input_length, output, output_capacity, output_length);
+  });
+}
+
+int32_t SecureStorePut(void *context, const uint8_t *input, uint64_t input_length,
+                       uint8_t *output, uint64_t output_capacity, uint64_t *output_length) {
+  return CallOnJvmThread(SecureStorePutOnJvmThread, context, input, input_length, output, output_capacity, output_length);
+}
+
+int32_t SecureStoreGet(void *context, const uint8_t *input, uint64_t input_length,
+                       uint8_t *output, uint64_t output_capacity, uint64_t *output_length) {
+  return CallOnJvmThread(SecureStoreGetOnJvmThread, context, input, input_length, output, output_capacity, output_length);
+}
+
+int32_t SecureStoreDelete(void *context, const uint8_t *input, uint64_t input_length,
+                          uint8_t *output, uint64_t output_capacity, uint64_t *output_length) {
+  return CallOnJvmThread(SecureStoreDeleteOnJvmThread, context, input, input_length, output, output_capacity, output_length);
+}
+
+int32_t PushGetToken(void *context, const uint8_t *input, uint64_t input_length,
+                     uint8_t *output, uint64_t output_capacity, uint64_t *output_length) {
+  return CallOnJvmThread(PushGetTokenOnJvmThread, context, input, input_length, output, output_capacity, output_length);
+}
+
 void ClearStore(JNIEnv *environment) {
   if (g_store_class != nullptr) environment->DeleteGlobalRef(g_store_class);
   if (g_push_class != nullptr) environment->DeleteGlobalRef(g_push_class);
@@ -244,6 +305,13 @@ void ClearStore(JNIEnv *environment) {
   g_consume_push_material = nullptr;
   g_build_push_config = nullptr;
   g_build_security_config = nullptr;
+  g_build_network_config = nullptr;
+  g_build_ohttp_config = nullptr;
+  g_counter_config = nullptr;
+  g_credit_purpose = nullptr;
+  g_lightning_network = nullptr;
+  g_issuer_tls_root = nullptr;
+  g_wallet_pins = nullptr;
 }
 }  // namespace
 
@@ -293,8 +361,16 @@ Java_expo_modules_meshmessenger_MeshMessengerHost_registerHostCallbacks(
       environment->GetStaticMethodID(g_push_class, "buildConfig", "()[B");
   g_build_security_config =
       environment->GetStaticMethodID(g_push_class, "securityConfig", "()[B");
+  g_build_network_config =
+      environment->GetStaticMethodID(g_push_class, "networkConfig", "()[B");
+  g_build_ohttp_config = environment->GetStaticMethodID(g_push_class, "ohttpConfig", "()[B");
+  g_counter_config = environment->GetStaticMethodID(g_push_class, "networkCounterConfig", "()[B");
+  g_issuer_tls_root = environment->GetStaticMethodID(g_push_class, "issuerTLSRoot", "()[B");
+  g_lightning_network = environment->GetStaticMethodID(g_push_class, "lightningNetwork", "()[B");
+  g_credit_purpose = environment->GetStaticMethodID(g_push_class, "creditPurpose", "()[B");
+  g_wallet_pins = environment->GetStaticMethodID(g_push_class, "walletPins", "()[B");
   if (g_consume_push_material == nullptr || g_build_push_config == nullptr ||
-      g_build_security_config == nullptr) {
+      g_build_security_config == nullptr || g_counter_config == nullptr || g_build_network_config == nullptr || g_build_ohttp_config == nullptr || g_issuer_tls_root == nullptr || g_lightning_network == nullptr || g_credit_purpose == nullptr || g_wallet_pins == nullptr) {
     environment->ExceptionClear();
     ClearStore(environment);
     return kJavaFailure;

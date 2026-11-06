@@ -1,18 +1,23 @@
+import { msg, t } from './i18n.ts';
+
+// Each label is translated where it is shown.
 export const reactionEmojis = [
-  { emoji: '👍', label: 'Thumbs up' },
-  { emoji: '❤️', label: 'Heart' },
-  { emoji: '😂', label: 'Laugh' },
-  { emoji: '😮', label: 'Surprised' },
-  { emoji: '😢', label: 'Sad' },
-  { emoji: '🙏', label: 'Thanks' },
-  { emoji: '🎉', label: 'Celebrate' },
-  { emoji: '👎', label: 'Thumbs down' },
+  { emoji: '👍', label: msg('Thumbs up') },
+  { emoji: '❤️', label: msg('Heart') },
+  { emoji: '😂', label: msg('Laugh') },
+  { emoji: '😮', label: msg('Surprised') },
+  { emoji: '😢', label: msg('Sad') },
+  { emoji: '🙏', label: msg('Thanks') },
+  { emoji: '🎉', label: msg('Celebrate') },
+  { emoji: '👎', label: msg('Thumbs down') },
 ] as const;
 
 export type Reaction = { emoji: string; senders: string[] };
 
-export const reactionLabel = (emoji: string): string =>
-  reactionEmojis.find((item) => item.emoji === emoji)?.label ?? emoji;
+export function reactionLabel(emoji: string): string {
+  const item = reactionEmojis.find((choice) => choice.emoji === emoji);
+  return item ? t(item.label) : emoji;
+}
 
 // Reactions ordered as they are shown: the most-given emoji first, ties in the
 // order people first gave them, so the pill does not reshuffle as people react.
@@ -41,10 +46,10 @@ export function setReaction(reactions: Reaction[] = [], sender: string, emoji: s
 
 export function describeReactions(reactions: Reaction[]): string {
   const total = reactions.reduce((count, reaction) => count + reaction.senders.length, 0);
-  if (!total) return 'No reactions';
+  if (!total) return t('No reactions');
   const names = rankReactions(reactions).map(({ emoji, senders }) =>
     total === 1 ? reactionLabel(emoji) : `${reactionLabel(emoji)} ${senders.length}`);
-  return `${total} ${total === 1 ? 'reaction' : 'reactions'}: ${names.join(', ')}`;
+  return t.plural('{count} reaction: {names}', '{count} reactions: {names}', total, { names: names.join(', ') });
 }
 
 const prefix = 'MORSE-REACTION/1\n';

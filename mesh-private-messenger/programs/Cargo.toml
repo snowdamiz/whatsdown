@@ -1,0 +1,3 @@
+[workspace]
+members = ["morse-judge", "morse-judge-program", "morse-judge/tests/probe", "morse-rewards-math", "morse-rewards", "morse-rewards-program", "morse-token", "morse-token-program"]
+resolver = "2"

@@ -1,3 +1,5 @@
+from Tests.WitnessedSessionFixture import install_witnessed_session_fixtures
+from Storage.Blobs import blob_record_hash
 import File
 from MobileCore import (
   create_account_export,
@@ -65,8 +67,8 @@ fn fingerprint_rows(rows :: List<Map<String, DbValue>>,
   end
 end
 
-fn record_hash(label :: String) -> String do
-  Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
+fn record_hash(database :: SqliteConn, label :: String) -> String!String do
+  blob_record_hash(database, label)
 end
 
 # Everything the device keeps, except its note of which envelopes it has set
@@ -76,7 +78,10 @@ fn database_fingerprint(path :: String) -> String!String do
   let database = Sqlite.open(path)?
   case Sqlite.query_values(database,
     "SELECT record_hash, hex(ciphertext) AS ciphertext_hex FROM encrypted_blobs WHERE record_hash NOT IN (?, ?) ORDER BY record_hash",
-    [Text(record_hash("delivery-retries/v1")), Text(record_hash("inbox-cursor/v1"))]) do
+    [
+      Text(record_hash(database, "delivery-retries/v1")?),
+      Text(record_hash(database, "inbox-cursor/v1")?)
+    ]) do
     Err(error) -> do
       Sqlite.close(database)
       Err(error)
@@ -91,7 +96,8 @@ end
 fn set_receive_failure(path :: String, enabled :: Bool) -> Result<(), String> do
   let database = Sqlite.open(path)?
   let statement = if enabled do
-    "CREATE TRIGGER mesh_test_fail_receive BEFORE UPDATE ON encrypted_blobs WHEN NEW.record_hash = '1157310c10370fde0a5d9bd24a1963b3d14362f1d666addd33e692f9bc246a63' BEGIN SELECT RAISE(ABORT, 'forced late receive write failure'); END"
+    "CREATE TRIGGER mesh_test_fail_receive BEFORE UPDATE ON encrypted_blobs WHEN NEW.record_hash = '#{record_hash(database,
+      "one-time-prekeys/v1")?}' BEGIN SELECT RAISE(ABORT, 'forced late receive write failure'); END"
   else
     "DROP TRIGGER mesh_test_fail_receive"
   end
@@ -139,6 +145,7 @@ fn proof() -> Bool!String do
     Bytes.from_utf8(bob_path),
     Bytes.from_utf8("bob")
   ])?)?
+  install_witnessed_session_fixtures([alice_path, bob_path])?
   assert(Bytes.length(alice_profile) > 0)
   assert(Bytes.length(bob_profile_id2) > 0)
   let publication = decode_prekey_publish(replenish_prekeys_export(request([

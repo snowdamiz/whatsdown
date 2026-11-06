@@ -1,3 +1,4 @@
+from Storage.Blobs import blob_record_hash
 import File
 from MobileCore import (
   create_account_export,
@@ -133,8 +134,8 @@ fn database_state(path :: String) -> Bytes!String do
   end
 end
 
-fn record_hash(label :: String) -> String do
-  Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
+fn record_hash(database :: SqliteConn, label :: String) -> String!String do
+  blob_record_hash(database, label)
 end
 
 fn stable_database_state(path :: String) -> Bytes!String do
@@ -142,15 +143,15 @@ fn stable_database_state(path :: String) -> Bytes!String do
   case Sqlite.query_values(database,
     "SELECT record_hash, ciphertext FROM encrypted_blobs WHERE record_hash NOT IN (?, ?, ?, ?, ?, ?, ?, ?, ?) ORDER BY record_hash",
     [
-      Text(record_hash("one-time-prekey/v1")),
-      Text(record_hash("one-time-prekey/v1/2")),
-      Text(record_hash("one-time-prekeys/v1")),
-      Text(record_hash("one-time-prekey-active/v1")),
-      Text(record_hash("one-time-prekey-next-id/v1")),
-      Text(record_hash("last-resort-prekey/v1")),
-      Text(record_hash("one-time-prekey/v1/4611686018427387905")),
-      Text(record_hash("contact-address-pending/v1")),
-      Text(record_hash("contact-address/v1"))
+      Text(record_hash(database, "one-time-prekey/v1")?),
+      Text(record_hash(database, "one-time-prekey/v1/2")?),
+      Text(record_hash(database, "one-time-prekeys/v1")?),
+      Text(record_hash(database, "one-time-prekey-active/v1")?),
+      Text(record_hash(database, "one-time-prekey-next-id/v1")?),
+      Text(record_hash(database, "last-resort-prekey/v1")?),
+      Text(record_hash(database, "one-time-prekey/v1/4611686018427387905")?),
+      Text(record_hash(database, "contact-address-pending/v1")?),
+      Text(record_hash(database, "contact-address/v1")?)
     ]) do
     Err(error) -> do
       Sqlite.close(database)
@@ -194,7 +195,7 @@ fn database_has_record(path :: String, label :: String) -> Bool!String do
   let database = Sqlite.open(path)?
   case Sqlite.query_values(database,
     "SELECT record_hash FROM encrypted_blobs WHERE record_hash = ?",
-    [Text(record_hash(label))]) do
+    [Text(record_hash(database, label)?)]) do
     Err(error) -> do
       Sqlite.close(database)
       Err(error)
@@ -245,7 +246,8 @@ end
 fn set_reconcile_failure(path :: String, enabled :: Bool) -> Result<(), String> do
   let database = Sqlite.open(path)?
   let statement = if enabled do
-    "CREATE TRIGGER mesh_test_fail_prekey_reconcile BEFORE UPDATE ON encrypted_blobs WHEN NEW.record_hash = '1157310c10370fde0a5d9bd24a1963b3d14362f1d666addd33e692f9bc246a63' BEGIN SELECT RAISE(ABORT, 'forced reconciliation failure'); END"
+    "CREATE TRIGGER mesh_test_fail_prekey_reconcile BEFORE UPDATE ON encrypted_blobs WHEN NEW.record_hash = '#{record_hash(database,
+      "one-time-prekeys/v1")?}' BEGIN SELECT RAISE(ABORT, 'forced reconciliation failure'); END"
   else
     "DROP TRIGGER mesh_test_fail_prekey_reconcile"
   end

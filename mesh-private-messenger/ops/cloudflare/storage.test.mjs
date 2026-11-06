@@ -37,3 +37,26 @@ test('R2 preserves exact concurrent replays and rejects overwrites, invalid keys
     await mf.dispose();
   }
 });
+
+test('large opaque parts use a separate bounded namespace and preserve exact replay', async () => {
+  const mf = new Miniflare(convertV4MiniflareOptions({
+    compatibilityDate: '2026-09-18',
+    modules: [
+      { type: 'ESModule', path: 'entry.mjs', contents: 'export { objectStorage as default } from "./storage.mjs";' },
+      { type: 'ESModule', path: 'storage.mjs', contents: await readFile(new URL('./storage.mjs', import.meta.url), 'utf8') },
+    ], r2Buckets: ['OBJECTS'],
+  }));
+  try {
+    const id = 'c'.repeat(64);
+    const path = `http://objects.internal/large-${id}.8192`;
+    const put = body => mf.dispatchFetch(path, { method: 'PUT', body });
+    assert.deepEqual((await Promise.all([put('opaque large'), put('opaque large')])).map(r => r.status).sort(), [200, 201]);
+    assert.equal((await put('changed')).status, 409);
+    assert.equal(await (await mf.dispatchFetch(path)).text(), 'opaque large');
+    assert.equal((await put(new Uint8Array(65609))).status, 413);
+    for (const suffix of ['8193', '08192', '-1']) assert.equal((await mf.dispatchFetch(`http://objects.internal/large-${id}.${suffix}`)).status, 400);
+    assert.equal((await mf.dispatchFetch(`http://objects.internal/${id}.8192`)).status, 400, 'large indices do not extend the free namespace');
+    assert.equal((await mf.dispatchFetch(path, { method: 'DELETE' })).status, 204);
+    assert.equal((await mf.dispatchFetch(path)).status, 404);
+  } finally { await mf.dispose(); }
+});

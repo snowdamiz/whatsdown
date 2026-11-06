@@ -1,0 +1,19 @@
+[Unit]
+Description=Morse pull witness
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/morse-witness/image.env
+ExecStart=/usr/bin/docker run --rm --init --name morse-witness --read-only --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=64 --memory=256m --cpus=0.5 --tmpfs=/tmp:rw,noexec,nosuid,size=16m --mount=type=bind,src=/var/lib/morse-witness,dst=/state --env-file=/etc/morse-witness/config.env ${MORSE_WITNESS_IMAGE}
+ExecStop=/usr/bin/docker stop --time=10 morse-witness
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

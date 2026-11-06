@@ -1,4 +1,24 @@
 # syntax=docker/dockerfile:1
+FROM scratch AS relay-sources
+COPY mesh-private-messenger/ops/relay/application.mjs \
+    mesh-private-messenger/ops/relay/cli.mjs \
+    mesh-private-messenger/ops/relay/command.mjs \
+    mesh-private-messenger/ops/relay/config.mjs \
+    mesh-private-messenger/ops/relay/effects.mjs \
+    mesh-private-messenger/ops/relay/http.mjs \
+    mesh-private-messenger/ops/relay/journal.mjs \
+    mesh-private-messenger/ops/relay/rpc.mjs \
+    mesh-private-messenger/ops/relay/scheduler.mjs \
+    mesh-private-messenger/ops/relay/service.mjs \
+    mesh-private-messenger/ops/relay/transactions.mjs \
+    mesh-private-messenger/ops/relay/verifier.mjs \
+    mesh-private-messenger/ops/relay/writer.mjs \
+    mesh-private-messenger/ops/relay/package.json \
+    mesh-private-messenger/ops/relay/package-lock.json \
+    mesh-private-messenger/ops/relay/relay.example.json \
+    mesh-private-messenger/ops/relay/README.md \
+    mesh-private-messenger/ops/relay/RUNBOOK.md /morse-relay/
+
 FROM ubuntu:24.04 AS mesh-builder
 RUN apt-get update && apt-get install --no-install-recommends -y \
     build-essential ca-certificates curl git libssl-dev libsqlite3-dev libtinfo6 \
@@ -29,14 +49,31 @@ FROM mesh-builder AS services
 COPY mesh-private-messenger/packages/messenger-protocol /build/mesh-private-messenger/packages/messenger-protocol
 COPY mesh-private-messenger/packages/service-jobs /build/mesh-private-messenger/packages/service-jobs
 COPY mesh-private-messenger/services /build/mesh-private-messenger/services
-RUN mkdir /artifacts && for service in directory-delivery privacy-edge push-broker object-store transparency-witness; do \
+COPY mesh-private-messenger/tools/transparency-cutover /build/mesh-private-messenger/tools/transparency-cutover
+COPY mesh-private-messenger/clients/mesh-cli /build/mesh-private-messenger/clients/mesh-cli
+COPY mesh-private-messenger/tools/fork-verifier /build/mesh-private-messenger/tools/fork-verifier
+COPY mesh-private-messenger/ops/public-chain /build/mesh-private-messenger/ops/public-chain
+RUN mkdir /artifacts && for service in directory-delivery privacy-edge push-broker object-store transparency-witness credit-issuer; do \
     /opt/mesh/meshc build "/build/mesh-private-messenger/services/$service" --opt-level 2 --output "/artifacts/$service" || exit; \
     done
+RUN /opt/mesh/meshc build /build/mesh-private-messenger/tools/transparency-cutover --opt-level 2 --output /artifacts/transparency-cutover
+RUN /opt/mesh/meshc build /build/mesh-private-messenger/clients/mesh-cli --opt-level 2 --output /artifacts/mesh-cli
+RUN /opt/mesh/meshc build /build/mesh-private-messenger/tools/fork-verifier --opt-level 2 --output /artifacts/morse-fork-verifier
+
+RUN /opt/mesh/meshc build /build/mesh-private-messenger/ops/public-chain --opt-level 2 --output /artifacts/public-chain-report \
+    && sha256sum /artifacts/public-chain-report | cut -d ' ' -f1 > /artifacts/public-chain-report.sha256 \
+    && awk '{print $0 "  /artifacts/public-chain-report"}' /artifacts/public-chain-report.sha256 | sha256sum --strict --check -
 
 FROM ubuntu:24.04 AS runtime
+ARG MORSE_REVISION
+ARG MESH_LANG_REVISION
+LABEL org.opencontainers.image.revision="${MORSE_REVISION}" \
+      org.morse.mesh-revision="${MESH_LANG_REVISION}"
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && install -d -m 0700 -o 65532 -g 65532 /var/lib/morse-monitor /var/lib/morse-credit-issuer
 COPY --from=services /artifacts/ /app/
+COPY --from=relay-sources /morse-relay/ /app/morse-relay/
 USER 65532:65532
 WORKDIR /tmp
 ENTRYPOINT ["/app/directory-delivery"]

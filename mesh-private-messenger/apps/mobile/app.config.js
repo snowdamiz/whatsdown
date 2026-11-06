@@ -68,6 +68,7 @@ export default {
       'expo-font',
       './plugins/with-mesh-push-config.cjs',
       './plugins/with-data-protection.cjs',
+      './plugins/with-app-lock.cjs',
     ],
   },
 };

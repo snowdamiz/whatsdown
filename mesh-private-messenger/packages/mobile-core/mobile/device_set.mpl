@@ -236,7 +236,15 @@ pub fn cached_device_set_changed(database_path :: String,
       else if sequence == 0 do
         Ok(false)
       else
-        devices_changed(previous, next.value)
+        # The current set cannot explain unseen intermediate transitions. They
+        # may have been pruned while this device was away; identical device IDs
+        # at the two ends are not evidence that nothing changed in between.
+        let next_sequence = U64.add(previous.sequence, U64.parse("1")?)?
+        if U64.compare(next.value.sequence, next_sequence) > 0 do
+          Ok(true)
+        else
+          devices_changed(previous, next.value)
+        end
       end
     end
   end

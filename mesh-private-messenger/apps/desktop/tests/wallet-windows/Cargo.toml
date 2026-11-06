@@ -1,0 +1,11 @@
+[package]
+name = "morse-wallet-windows-host-check"
+version = "0.0.0"
+edition = "2021"
+publish = false
+[workspace]
+[dependencies]
+morse-wallet-core = { path = "../../../../packages/wallet-core" }
+keyring = { version = "3", features = ["windows-native"] }
+zeroize = "1"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_UI_Accessibility", "Win32_Security", "Win32_Security_Authorization"] }

@@ -1,0 +1,113 @@
+from Credits.Issuance import CreditQuote,encode_credit_quote
+from Payment.Verify import payment_token_address
+from Payment.Treasury import TreasuryChainConfig
+from Runtime.TreasuryBatch import prepare_treasury_batch,run_treasury_batch,reconcile_treasury_batch,retry_treasury_batch
+from Runtime.Treasury import TreasuryWorkerConfig,treasury_provider_hash,observe_treasury_deposit,run_treasury_movement
+from Solana.Read import Pubkey,Hash
+from Solana.Tx import AccountMeta,Instruction,compile_legacy_message,serialize_legacy_message,transfer_checked_instruction
+from Solana.TransactionWrite import serialize_signed_legacy_transaction
+
+fn field(value :: Json,name :: String) -> String!String do Json.as_string(Json.object_get(value,name)?) end
+fn key(value :: Json,name :: String) -> Bytes!String do Bytes.from_base58(field(value,name)?) end
+fn fixed(byte :: String,count :: Int) -> Bytes!String do Bytes.from_hex(String.repeat(byte,count)) end
+fn pair(name :: String) -> SigningKeyPair!String do
+  let secret = case Env.get_secret_hex(name) do Ok(value) -> value Err(_) -> return Err("test-only key import failed") end
+  case Crypto.signing_from_secret(secret) do Ok(value) -> Ok(value) Err(_) -> Err("test-only key import failed") end
+end
+fn quote(input :: Json) -> CreditQuote!String do
+  let now = U64.parse(field(input,"timestamp")?)?
+  let token = Json.get(input,"rail") == "usdc"
+  let mint = if token do fixed("44",32)? else fixed("00",32)? end
+  let owner = key(input,"source")?
+  Ok(CreditQuote {quote_id: fixed(if Json.get(input,"quote_index") == "1" do "89" else "88" end,32)?,deposit_owner: owner,destination: if token do payment_token_address(owner,mint)? else owner end,mint: mint,
+    asset: if token do 0 else 1 end,amount: U64.parse(if token do "5000000" else "200000000" end)?,purpose: 1,credits: 100,issued_at: U64.subtract(now,U64.parse("10")?)?,
+    expires_at: U64.add(now,U64.parse("890")?)?,issuer_key_id: fixed("99",32)?,batch_hash: fixed(if Json.get(input,"quote_index") == "1" do "ab" else "aa" end,32)?})
+end
+fn worker(input :: Json) -> TreasuryWorkerConfig!String do
+  let providers = [field(input,"provider_a")?,field(input,"provider_b")?]
+  Ok(TreasuryWorkerConfig {test_mode: true,providers: providers,chain: TreasuryChainConfig {
+    providers_hash: treasury_provider_hash(providers)?,cluster: key(input,"cluster")?,mint: fixed("44",32)?,
+    treasury_owner: key(input,"destination")?,fee_payer: key(input,"payer")?,nonce_authority: key(input,"authority")?,
+    nonce_address: key(input,"address")?,rewards_program: fixed("55",32)?,rewards_pool: fixed("66",32)?}})
+end
+fn purchase(input :: Json,buyer :: borrow SigningPrivateKey) -> String!String do
+  let value = quote(input)?
+  let payer = Pubkey {bytes: key(input,"buyer")?}
+  let instruction = if value.asset == 0 do
+    let transfer = transfer_checked_instruction(Pubkey {bytes: payment_token_address(payer.bytes,value.mint)?},Pubkey {bytes: value.mint},Pubkey {bytes: value.destination},payer,U64.parse("4999999")?,6)?
+    %{transfer | accounts: transfer.accounts ++ [AccountMeta {pubkey: Pubkey {bytes: value.quote_id},signer: false,writable: false}]}
+  else Instruction {program_id: Pubkey {bytes: fixed("00",32)?},
+    accounts: [AccountMeta {pubkey: payer,signer: true,writable: true},
+      AccountMeta {pubkey: Pubkey {bytes: value.deposit_owner},signer: false,writable: true},
+      AccountMeta {pubkey: Pubkey {bytes: value.quote_id},signer: false,writable: false}],
+    data: Bytes.from_hex("02000000" <> Bytes.to_hex(Bytes.write_uint_le("123456789",8)?))?} end
+  let message = compile_legacy_message(payer,Hash {bytes: key(input,"recent_blockhash")?},[instruction])?
+  let signature = case Crypto.sign(buyer,serialize_legacy_message(message)?) do Ok(value) -> value Err(_) -> return Err("fixture buyer signing failed") end
+  Ok(Bytes.to_hex(serialize_signed_legacy_transaction(message,[signature])?))
+end
+fn execute(input :: Json,pool :: PoolHandle) -> String!String do
+  let mode = field(input,"mode")?
+  let source = pair("TREASURY_SOURCE_SEED")?
+  let fee = pair("TREASURY_FEE_SEED")?
+  let authority = pair("TREASURY_AUTHORITY_SEED")?
+  let buyer = pair("TREASURY_BUYER_SEED")?
+  if mode == "purchase" do return purchase(input,buyer.private_key) end
+  if mode == "drain" do
+    let instruction = Instruction {program_id:Pubkey {bytes:fixed("00",32)?},accounts:[AccountMeta {pubkey:Pubkey {bytes:source.public_key.bytes},signer:true,writable:true},AccountMeta {pubkey:Pubkey {bytes:fee.public_key.bytes},signer:false,writable:true}],data:Bytes.from_hex("02000000" <> Bytes.to_hex(Bytes.write_uint_le("100000000",8)?))?}
+    let message = compile_legacy_message(Pubkey {bytes:source.public_key.bytes},Hash {bytes:key(input,"recent_blockhash")?},[instruction])?
+    let signature = case Crypto.sign(source.private_key,serialize_legacy_message(message)?) do Ok(value) -> value Err(_) -> return Err("drain signing failed") end
+    return Ok(Bytes.to_hex(serialize_signed_legacy_transaction(message,[signature])?))
+  end
+  let wrapping = case StorageKey.file(Env.get("TREASURY_KEY_DIR","")) do Ok(value) -> value Err(_) -> return Err("fixture file storage failed") end
+  if mode == "init" do
+    # Resources cannot be captured into a callback. Seal outside the transaction.
+    let value = quote(input)?
+    let context = Bytes.from_hex("01" <> Bytes.to_hex(fixed("77",32)?) <> String.repeat("00",48) <> Bytes.to_hex(value.quote_id) <> "00060000000000000001")?
+    let sealed = case SigningPrivateKey.seal_for_storage(source.private_key,wrapping,context) do Ok(value) -> value Err(_) -> return Err("fixture seal failed") end
+    return Repo.transaction(pool,fn(conn :: borrow PgConn) do
+      Pg.execute_values(conn,"INSERT INTO issuer_keys(key_id,epoch,purpose,spki,sealed_private_key) VALUES($1,0,1,$2,$3) ON CONFLICT DO NOTHING",[Binary(value.issuer_key_id),Binary(fixed("99",342)?),Binary(fixed("99",68)?)])?
+      Pg.execute_values(conn,"INSERT INTO issuer_quotes(quote_id,quote,key_id,batch_hash,deposit_owner,sealed_deposit_key,price_observed_at) VALUES($1,$2,$3,$4,$5,$6,$7::numeric) ON CONFLICT DO NOTHING",[Binary(value.quote_id),Binary(encode_credit_quote(value)?),Binary(value.issuer_key_id),Binary(value.batch_hash),Binary(value.deposit_owner),Binary(sealed),Text(U64.to_string(value.issued_at))])?
+      Ok("initialized")
+    end)
+  end
+  let config = worker(input)?
+  let now = U64.parse(field(input,"timestamp")?)?
+  if mode == "batch" || mode == "batch_prepare" do
+    let ids = Json.object_get(input,"movement_ids")?
+    let movements = for index in 0..Json.array_length(ids)? do Bytes.from_hex(Json.as_string(Json.array_get(ids,index)?)?)? end
+    let reserved = prepare_treasury_batch(pool,config,movements,now)?
+    let batch = if mode == "batch_prepare" do reserved else run_treasury_batch(pool,config,reserved.batch_id,wrapping,fixed("77",32)?,fee.private_key,authority.private_key,now)? end
+    return Ok("{\"id\":" <> Json.encode_string(Bytes.to_hex(batch.batch_id)) <> ",\"state\":" <> Int.to_string(batch.state) <> ",\"members\":" <> Int.to_string(List.length(batch.members)) <> ",\"signature\":" <> Json.encode_string(Bytes.to_hex(batch.transaction_signature)) <> "}")
+  end
+  if mode == "batch_run" || mode == "batch_reconcile" || mode == "batch_retry" do
+    let id = Bytes.from_hex(field(input,"batch_id")?)?
+    let batch = if mode == "batch_run" do run_treasury_batch(pool,config,id,wrapping,fixed("77",32)?,fee.private_key,authority.private_key,now)? else if mode == "batch_retry" do retry_treasury_batch(pool,config,id)? else reconcile_treasury_batch(pool,config,id)? end
+    return Ok("{\"id\":" <> Json.encode_string(Bytes.to_hex(batch.batch_id)) <> ",\"state\":" <> Int.to_string(batch.state) <> ",\"members\":" <> Int.to_string(List.length(batch.members)) <> ",\"signature\":" <> Json.encode_string(Bytes.to_hex(batch.transaction_signature)) <> "}")
+  end
+  let value = if mode == "observe" do
+    case observe_treasury_deposit(pool,config,quote(input)?.quote_id,Bytes.from_hex(field(input,"payment_signature")?)?,1,now)? do
+      None -> return Ok("pending")
+      Some(value) -> value
+    end
+  else
+    run_treasury_movement(pool,config,Bytes.from_hex(field(input,"movement_id")?)?,wrapping,fixed("77",32)?,fee.private_key,authority.private_key,now)?
+  end
+  Ok("{\"id\":" <> Json.encode_string(Bytes.to_hex(value.movement_id)) <> ",\"state\":" <> Int.to_string(value.state)
+    <> ",\"amount\":" <> Json.encode_string(U64.to_string(value.amount)) <> ",\"signature\":" <> Json.encode_string(Bytes.to_hex(value.transaction_signature)) <> "}")
+end
+fn proof() -> String!String do
+    let input = Json.parse(File.read(Env.get("TREASURY_INPUT",""))?)?
+    let pool = Pool.open(Env.get("MESSENGER_ISSUER_TEST_DATABASE_URL",""),1,2,5000)?
+    let result = execute(input,pool)
+    Pool.close(pool)
+    result
+end
+fn main() do
+  case proof() do
+    Ok(value) -> println(value)
+    Err(error) -> do
+      println("ERROR:" <> error)
+      Process.exit(1)
+    end
+  end
+end

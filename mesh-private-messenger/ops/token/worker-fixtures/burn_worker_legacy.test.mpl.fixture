@@ -1,0 +1,54 @@
+from Fixtures.WorkerBank import token_burn_bank_fixture
+from BurnJournal import reserve_token_burn_chunk, commit_token_burn_packet, load_token_burn_entry
+
+fn legacy() -> Bool!String do
+  let fixture = token_burn_bank_fixture(Env.get("MORSE_BURN_WORKER_BANK_FIXTURE", ""))?
+  let frame = case fixture.bank.custody.frame do
+    None -> return Err("fixture_week")
+    Some(value) -> value
+  end
+  let packet = Bytes.from_base64(File.read(Env.get("MORSE_BURN_WORKER_LEGACY_PACKET", ""))?)?
+  let wrapping = case StorageKey.file(Env.get("MORSE_BURN_WORKER_LEGACY_KEY", "")) do
+    Err(_) -> return Err("fixture_key")
+    Ok(value) -> value
+  end
+  let path = Env.get("MORSE_BURN_WORKER_LEGACY_DB", "")
+  reserve_token_burn_chunk(path,
+    wrapping,
+    fixture.pins.program,
+    fixture.payer,
+    fixture.bank.custody.profile,
+    frame.week,
+    fixture.index,
+    fixture.route,
+    U64.parse("2000000")?)?
+  # Exercise the pre-existing external-packet API exactly: its lifetime was supplied by
+  # the importing caller, not authenticated RPC metadata. The actual signed hash is live.
+  let entry = commit_token_burn_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    packet,
+    fixture.bank.custody.context_slot,
+    U64.parse("1")?)?
+  assert(entry.last_valid_block_height == U64.parse("1")? && entry.packet == packet)
+  assert(load_token_burn_entry(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index)? == entry)
+  Secret.destroy(wrapping)
+  Ok(true)
+end
+
+test("legacy imported packet may carry understated lifetime and requires independent old-hash invalidity before recovery") do
+  let result = legacy()
+  case result do
+    Err(reason) -> IO.eprintln(reason)
+    Ok(_) -> nil
+  end
+  assert(result == Ok(true))
+end

@@ -11,10 +11,18 @@ there is no unversioned production path.
 - Experimental hybrid suite: `0x0002` (`mesh-msg/profile-b/v1`)
 - Development group suite: `0x0003` (`mesh-mls/v1`), internally verified per candidate and
   not an RFC 9420 wire profile
-- Envelope, encrypted payload, credential, prekey bundle, transcript, and
-  extension encodings each carry version `1`. The ratchet snapshot is at
-  version `2`; version `1` is still read (`compatibility-matrix.md`), and the
-  direct-security ratchet proof covers that migration.
+- The original envelope, encrypted payload, credential, prekey bundle, transcript
+  and extension encodings carry version `1`. Legacy ratchet snapshots write
+  version `2` and still read version `1` (`compatibility-matrix.md`).
+
+The adopted development C4/D3 [HE profile](header-encryption-v1.md) adds HST/INI `2`,
+RAT `4` and HE snapshot RST `3`. It leaves the RCP transport at `1` / outer suite
+`4` and retains format-specific legacy readers. HE support is authenticated
+credential mask `8`, not a new encryption-suite identifier. The combined mobile
+reader mask is `31`; the text-only CLI mask is `9`. These describe the development profile;
+production activation remains separate. An unsupported or failed HE path does not authorize
+retrying a legacy version. RNWv2 upgrades preserve prior bits and require the
+device's exact signed claim before a capability-changing account answer.
 
 Hybrid credentials and bundles advertise `[0x0002, 0x0001]`; classical values
 advertise only `[0x0001]`. Negotiation selects `0x0002` when both peers support

@@ -1,21 +1,61 @@
+from Storage.Keys import platform_key
+from Storage.OutboxGuard import PreparedOutboxIndex, require_outbox_basis
 from Mobile.Codec import canonical_outer
 from Mobile.Types import MobilePreparedSend, MobileStoreRequest
 from Protocol.V1 import OuterEnvelope
-from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
+from Storage.Blobs import (
+  blob_record_key,
+  blob_record_hash,
+  blob_record_hash_with_key,
+  ensure_schema,
+  insert_blob,
+  insert_blob_with_key,
+  load_blob,
+  put_blob,
+  put_blob_with_key
+)
 
 ##! Storage.Records implementation.
+
+fn insert_blobs_with_key(database :: SqliteConn,
+  key :: borrow StorageKey,
+  labels :: List<String>,
+  blobs :: List<Bytes>,
+  index :: Int) -> Result<(), String> do
+  if index >= List.length(labels) do
+    Ok(nil)
+  else
+    insert_blob_with_key(database, key, List.get(labels, index), List.get(blobs, index))?
+    insert_blobs_with_key(database, key, labels, blobs, index + 1)
+  end
+end
 
 fn insert_blobs(database :: SqliteConn,
   labels :: List<String>,
   blobs :: List<Bytes>,
   index :: Int) -> Result<(), String> do
   if List.length(labels) != List.length(blobs) do
-    Err("invalid_local_state")
-  else if index >= List.length(labels) do
+    return Err("invalid_local_state")
+  end
+  if index >= List.length(labels) do
+    return Ok(nil)
+  end
+  let key = platform_key()?
+  let result = insert_blobs_with_key(database, key, labels, blobs, index)
+  Secret.destroy(key)
+  result
+end
+
+fn put_blobs_with_key(database :: SqliteConn,
+  key :: borrow StorageKey,
+  labels :: List<String>,
+  blobs :: List<Bytes>,
+  index :: Int) -> Result<(), String> do
+  if index >= List.length(labels) do
     Ok(nil)
   else
-    insert_blob(database, List.get(labels, index), List.get(blobs, index))?
-    insert_blobs(database, labels, blobs, index + 1)
+    put_blob_with_key(database, key, List.get(labels, index), List.get(blobs, index))?
+    put_blobs_with_key(database, key, labels, blobs, index + 1)
   end
 end
 
@@ -24,17 +64,19 @@ pub fn put_blobs(database :: SqliteConn,
   blobs :: List<Bytes>,
   index :: Int) -> Result<(), String> do
   if List.length(labels) != List.length(blobs) do
-    Err("invalid_local_state")
-  else if index >= List.length(labels) do
-    Ok(nil)
-  else
-    put_blob(database, List.get(labels, index), List.get(blobs, index))?
-    put_blobs(database, labels, blobs, index + 1)
+    return Err("invalid_local_state")
   end
+  if index >= List.length(labels) do
+    return Ok(nil)
+  end
+  let key = platform_key()?
+  let result = put_blobs_with_key(database, key, labels, blobs, index)
+  Secret.destroy(key)
+  result
 end
 
 pub fn delete_blob(database :: SqliteConn, label :: String) -> Result<(), String> do
-  let record_hash = Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label)))
+  let record_hash = blob_record_hash(database, label)?
   case Sqlite.execute(database,
     "DELETE FROM encrypted_blobs WHERE record_hash = ?",
     [record_hash]) do
@@ -43,15 +85,34 @@ pub fn delete_blob(database :: SqliteConn, label :: String) -> Result<(), String
   end
 end
 
-pub fn delete_blobs(database :: SqliteConn,
+fn delete_blobs_with_key(database :: SqliteConn,
+  key :: borrow StorageKey,
   labels :: List<String>,
   index :: Int) -> Result<(), String> do
   if index >= List.length(labels) do
     Ok(nil)
   else
-    delete_blob(database, List.get(labels, index))?
-    delete_blobs(database, labels, index + 1)
+    let record_hash = blob_record_hash_with_key(database, key, List.get(labels, index))?
+    case Sqlite.execute(database,
+      "DELETE FROM encrypted_blobs WHERE record_hash = ?",
+      [record_hash]) do
+      Err(_) -> return Err("database_write_failed")
+      Ok(_) -> nil
+    end
+    delete_blobs_with_key(database, key, labels, index + 1)
   end
+end
+
+pub fn delete_blobs(database :: SqliteConn,
+  labels :: List<String>,
+  index :: Int) -> Result<(), String> do
+  if index >= List.length(labels) do
+    return Ok(nil)
+  end
+  let key = platform_key()?
+  let result = delete_blobs_with_key(database, key, labels, index)
+  Secret.destroy(key)
+  result
 end
 
 pub fn store_linked_blobs(database_path :: String,
@@ -90,7 +151,7 @@ pub fn store_new_account(database_path :: String,
     fn(database) do
       let profiles = case Sqlite.query_values(database,
         "SELECT record_hash FROM encrypted_blobs WHERE record_hash = ?",
-        [Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("profile/v1"))))]) do
+        [Text(blob_record_hash(database, "profile/v1")?)]) do
         Err(_) -> Err("database_read_failed")
         Ok(rows)
       end?
@@ -131,6 +192,47 @@ pub fn store_updated_blobs(database_path :: String,
   labels :: List<String>,
   blobs :: List<Bytes>) -> Result<(), String> do
   with_record_transaction(database_path, fn(database) do put_blobs(database, labels, blobs, 0) end)
+end
+
+## Replace a bundle only if its first record still has the value that was read.
+## Key-package rotation uses this to keep the advertised keys and their sealed
+## private material together, without overwriting a concurrent rotation.
+## An empty previous value means the record must not exist; insert it atomically
+## or fail the comparison. Stored ciphertext is always nonempty.
+pub fn compare_and_swap_blobs(database_path :: String,
+  labels :: List<String>,
+  blobs :: List<Bytes>,
+  previous :: Bytes) -> Result<(), String> do
+  if List.length(labels) == 0 || List.length(labels) != List.length(blobs) do
+    return Err("invalid_local_state")
+  end
+  with_record_transaction(database_path,
+    fn(database) do # Concurrent reservations wait briefly for the winning writer, then
+      # compare its committed value. A longer lock remains a durable error.
+      case Sqlite.execute(database, "PRAGMA busy_timeout = 1000", []) do
+        Err(_) -> return Err("database_write_failed")
+        Ok(_) -> nil
+      end
+      let record_hash = blob_record_hash(database, List.head(labels))?
+      let changed = if Bytes.length(previous) == 0 do
+        Sqlite.execute_values(database,
+          "INSERT INTO encrypted_blobs (record_hash, ciphertext) VALUES (?, ?) ON CONFLICT(record_hash) DO NOTHING",
+          [Text(record_hash), Binary(List.head(blobs))])
+      else
+        Sqlite.execute_values(database,
+          "UPDATE encrypted_blobs SET ciphertext = ? WHERE record_hash = ? AND ciphertext = ?",
+          [Binary(List.head(blobs)), Text(record_hash), Binary(previous)])
+      end
+      let count = case changed do
+        Err(_) -> Err("database_write_failed")
+        Ok(value)
+      end?
+      if count != 1 do
+        Err("local_state_changed")
+      else
+        put_blobs(database, labels, blobs, 1)
+      end
+    end)
 end
 
 pub fn store_record_changes(database_path :: String,
@@ -226,14 +328,38 @@ pub fn store_outbound(database_path :: String,
   history_blobs :: List<Bytes>,
   outbox_labels :: List<String>,
   outbox_blobs :: List<Bytes>,
-  outbox_index_blob :: Bytes) -> Result<(), String> do
+  outbox_index_blob :: PreparedOutboxIndex) -> Result<(), String> do
+  store_outbound_after_guard(database_path,
+    prepared,
+    removed_labels,
+    session_index_blob,
+    history_keys,
+    history_blobs,
+    outbox_labels,
+    outbox_blobs,
+    outbox_index_blob,
+    fn(_database) -> Ok(nil) end)
+end
+
+pub fn store_outbound_after_guard(database_path :: String,
+  prepared :: List<MobilePreparedSend>,
+  removed_labels :: List<String>,
+  session_index_blob :: Bytes,
+  history_keys :: List<String>,
+  history_blobs :: List<Bytes>,
+  outbox_labels :: List<String>,
+  outbox_blobs :: List<Bytes>,
+  outbox_index_blob :: PreparedOutboxIndex,
+  guard :: Fun(SqliteConn) -> Result<(), String>) -> Result<(), String> do
   with_record_transaction(database_path,
     fn(database) do
+      guard(database)?
+      require_outbox_basis(database, outbox_index_blob.before)?
       store_prepared_sessions(database, prepared, 0)?
       put_blob(database, "sessions/v1", session_index_blob)?
       put_blobs(database, history_keys, history_blobs, 0)?
       put_blobs(database, outbox_labels, outbox_blobs, 0)?
-      put_blob(database, "outbox/v1", outbox_index_blob)?
+      put_blob(database, "outbox/v1", outbox_index_blob.value)?
       delete_blobs(database, removed_labels, 0)
     end)
 end
@@ -315,20 +441,20 @@ pub fn store_envelope(request :: MobileStoreRequest) -> Bytes!String do
     Err("ciphertext_too_short")
   else
     ensure_schema(request.database_path)?
-    let record_hash = Bytes.to_hex(Crypto.sha256(request.record_key))
     case Sqlite.open(request.database_path) do
       Err(_) -> Err("database_open_failed")
-      Ok(database) -> case Sqlite.execute_values(database,
-        "INSERT INTO encrypted_blobs (record_hash, ciphertext, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(record_hash) DO UPDATE SET ciphertext = excluded.ciphertext, updated_at = CURRENT_TIMESTAMP",
-        [Text(record_hash), Binary(envelope.ciphertext)]) do
-        Err(_) -> do
-          Sqlite.close(database)
-          Err("database_write_failed")
+      Ok(database) -> do
+        let result = case blob_record_key(database, request.record_key) do
+          Err(error)
+          Ok(record_hash) -> case Sqlite.execute_values(database,
+            "INSERT INTO encrypted_blobs (record_hash, ciphertext) VALUES (?, ?) ON CONFLICT(record_hash) DO UPDATE SET ciphertext = excluded.ciphertext",
+            [Text(record_hash), Binary(envelope.ciphertext)]) do
+            Err(_) -> Err("database_write_failed")
+            Ok(_) -> Ok(Bytes.from_utf8(record_hash))
+          end
         end
-        Ok(_) -> do
-          Sqlite.close(database)
-          Ok(Bytes.from_utf8(record_hash))
-        end
+        Sqlite.close(database)
+        result
       end
     end
   end
@@ -342,7 +468,13 @@ pub fn with_record_transaction(path :: String,
     Err(_) -> Err("database_open_failed")
     Ok(value)
   end?
-  let result = case Sqlite.begin(database) do
+  # Keyed address lookup reads catalog metadata. Acquire the writer lock first
+  # so concurrent deferred readers cannot fail while upgrading to a writer.
+  let started = case Sqlite.execute(database, "PRAGMA busy_timeout = 1000", []) do
+    Err(error)
+    Ok(_) -> Sqlite.execute(database, "BEGIN IMMEDIATE", [])
+  end
+  let result = case started do
     Err(_) -> Err("database_write_failed")
     Ok(_) -> case operation(database) do
       Err(error)

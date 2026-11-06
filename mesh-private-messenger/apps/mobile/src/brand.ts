@@ -7,10 +7,6 @@ import { blue } from "./tokens.ts";
 
 export const MARK_CANVAS = 1024;
 
-// "MORSE" in International Morse code, shown under the wordmark. En dashes and
-// middle dots share a baseline in Geist Mono, so the rhythm reads cleanly.
-export const MORSE_CODE_WORDMARK = "––  –––  ·–·  ···  ·";
-
 // The mark is lit from the top left: the accent blue, and a lighter step of
 // the same ramp.
 export const MARK_GRADIENT = { from: blue[300], to: blue[500] };

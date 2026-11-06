@@ -1,11 +1,12 @@
+from Mobile.AttachmentMetadata import attachment_input_admitted
 from Attachments.Protocol import (
   AttachmentError,
   AttachmentManifest,
   generate_attachment_id,
   generate_attachment_key,
-  open_chunk,
+  open_bound_chunk,
   open_manifest,
-  seal_chunk,
+  seal_bound_chunk,
   seal_manifest
 )
 from Binary.Reader import BinaryReader
@@ -40,6 +41,128 @@ from Storage.Keys import platform_key
 from Transport.Packet import ClientProfile, decode_client_profile
 
 ##! Mobile.Attachments implementation.
+
+# Pure positional syntax only. The whole backup operation separately proves
+# captured source custody and authenticates every addressed manifest before I/O.
+pub type BackupAttachmentReferenceSlot do
+  BackupAttachmentReference(reference :: Plaintext<Bytes>)
+  BackupAttachmentNoRecipient
+end
+
+pub fn backup_attachment_reference_slots(encoded :: Plaintext<Bytes>,
+  scope_kind :: Int,
+  account_id :: Bytes,
+  device_id :: Bytes) -> Result<Plaintext<List<BackupAttachmentReferenceSlot>>, String> do
+  if (scope_kind != 1 && scope_kind != 2)
+    || Bytes.length(account_id) != 32
+    || Bytes.length(device_id) != 16 do
+    return Err("invalid_backup_attachment_reference")
+  end
+  let parts = attachment_parts(encoded,
+    if scope_kind == 1 do
+      1024
+    else
+      65536
+    end)?
+  let slots = for part in parts do
+    backup_attachment_reference_slot(part, scope_kind, account_id, device_id)?
+  end
+  Ok(slots)
+end
+
+# Capture preserves every source position; ordinary group reads keep their
+# existing first-match/filter behavior below. These helpers perform syntax only.
+fn backup_attachment_group_key(state :: BinaryReader,
+  remaining :: Int,
+  account_id :: Bytes,
+  device_id :: Bytes,
+  found :: Bytes,
+  matches :: Int) -> Bytes!String do
+  if remaining == 0 do
+    mobile_finish(state, "invalid_backup_attachment_reference")?
+    Ok(found)
+  else
+    let entry_account = take_fixed(state, 32)?
+    let entry_device = take_fixed(entry_account.state, 16)?
+    let wrapped = take_vector_error(entry_device.state, 160, "invalid_backup_attachment_reference")?
+    if Bytes.length(wrapped.value) == 0 do
+      return Err("invalid_backup_attachment_reference")
+    end
+    let here = Bytes.secure_equals(entry_account.value, account_id)
+      && Bytes.secure_equals(entry_device.value, device_id)
+    let count = matches
+      + if here do
+        1
+      else
+        0
+      end
+    if count > 1 do
+      return Err("invalid_backup_attachment_reference")
+    end
+    backup_attachment_group_key(wrapped.state,
+      remaining - 1,
+      account_id,
+      device_id,
+      if here do
+        wrapped.value
+      else
+        found
+      end,
+      count)
+  end
+end
+
+fn backup_attachment_group_slot(input :: Bytes,
+  account_id :: Bytes,
+  device_id :: Bytes) -> BackupAttachmentReferenceSlot!String do
+  let state = mobile_reader(input, 65536, "invalid_backup_attachment_reference")?
+  let header = take_fixed(state, 4)?
+  let object_id = take_fixed(header.state, 32)?
+  let capability = take_fixed(object_id.state, 32)?
+  let encrypted_manifest = take_vector_error(capability.state,
+    640,
+    "invalid_backup_attachment_reference")?
+  let count = take_fixed(encrypted_manifest.state, 4)?
+  let length = mobile_read_u32(count.value)?
+  if !Bytes.secure_equals(header.value, group_header()?)
+    || Bytes.length(encrypted_manifest.value) == 0
+    || length < 1
+    || length > 256 do
+    return Err("invalid_backup_attachment_reference")
+  end
+  let wrapped = backup_attachment_group_key(count.state,
+    length,
+    account_id,
+    device_id,
+    Bytes.empty(),
+    0)?
+  if Bytes.length(wrapped) == 0 do
+    Ok(BackupAttachmentNoRecipient)
+  else
+    let reference = encode_reference(MobileAttachmentReference {
+      object_id: object_id.value,
+      download_capability: capability.value,
+      encrypted_manifest: encrypted_manifest.value,
+      wrapped_key: wrapped
+    })?
+    Ok(BackupAttachmentReference(reference))
+  end
+end
+
+fn backup_attachment_reference_slot(part :: Bytes,
+  scope_kind :: Int,
+  account_id :: Bytes,
+  device_id :: Bytes) -> BackupAttachmentReferenceSlot!String do
+  if scope_kind == 2
+    && Bytes.length(part) >= 4
+    && Bytes.secure_equals(Bytes.slice(part, 0, 4)?, group_header()?) do
+    backup_attachment_group_slot(part, account_id, device_id)
+  else
+    let _checked = decode_reference(part)?
+    Ok(BackupAttachmentReference(part))
+  end
+end
+
 ##!
 ##! An attachment reference (ATR) travels inside the authenticated, encrypted message and
 ##! names one opaque object plus the encrypted manifest. Its attachment key is HPKE-wrapped
@@ -131,14 +254,28 @@ fn wrap_aad(object_id :: Bytes) -> Bytes!String do
   mobile_join([Bytes.from_utf8("mesh-msg/v1/attachment-reference"), object_id], 0, Bytes.empty())
 end
 
-fn describe_attachment_error(error :: AttachmentError) -> String do
+fn attachment_error_class(error :: AttachmentError) -> Int do
   case error do
-    InvalidManifest -> "invalid_attachment_manifest"
-    InvalidChunk -> "invalid_attachment_chunk"
-    InvalidChunkIndex -> "invalid_attachment_chunk_index"
-    InvalidChunkSize -> "invalid_attachment_chunk_size"
-    AuthenticationRejected -> "attachment_authentication_failed"
-    CryptoFailure(_) -> "attachment_crypto_failed"
+    InvalidManifest -> 1
+    InvalidChunk -> 2
+    InvalidChunkIndex -> 3
+    InvalidChunkSize -> 4
+    AuthenticationRejected -> 5
+    CryptoFailure(_) -> 6
+  end
+end
+
+fn describe_attachment_error(error :: AttachmentError) -> String do
+  let status = declassify(attachment_error_class(error),
+    "attachment operations expose only six fixed failure classes; filename and MIME bytes, nested CryptoError payloads, and unrelated private control remain private")
+  case status do
+    1 -> "invalid_attachment_manifest"
+    2 -> "invalid_attachment_chunk"
+    3 -> "invalid_attachment_chunk_index"
+    4 -> "invalid_attachment_chunk_size"
+    5 -> "attachment_authentication_failed"
+    6 -> "attachment_crypto_failed"
+    _ -> "invalid_attachment_manifest"
   end
 end
 
@@ -240,6 +377,20 @@ fn opened_manifest(secret :: borrow SecretBytes,
     Err(error) -> Err(describe_attachment_error(error))
     Ok(value)
   end
+end
+
+# Authenticated metadata for transport planning. An outer ATR object substitution
+# must not redirect a valid manifest to a different download location.
+pub fn attachment_manifest(device :: borrow DeviceKeys,
+  reference :: Bytes) -> AttachmentManifest!String do
+  let value = decode_reference(reference)?
+  let secret = unwrap_key(device, value)?
+  let manifest = opened_manifest(secret, value.encrypted_manifest)?
+  if (manifest.version == 2 || manifest.version == 4)
+    && !Bytes.secure_equals(value.object_id, manifest.attachment_id) do
+    return Err("invalid_attachment_reference")
+  end
+  Ok(manifest)
 end
 
 ## Re-address a locally held reference to another device identity key.
@@ -446,7 +597,7 @@ end
 ## History export: the opened manifest metadata next to the opaque local reference.
 ## Unreadable references summarize as empty rather than hiding the whole conversation.
 
-pub fn attachment_summary(device :: borrow DeviceKeys, encoded :: Bytes) -> Bytes do
+pub fn attachment_summary(device :: borrow DeviceKeys, encoded :: Bytes) -> Plaintext<Bytes> do
   if Bytes.length(encoded) == 0 do
     Bytes.empty()
   else
@@ -467,9 +618,7 @@ end
 pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!String do
   if request.plaintext_size <= 0 || request.plaintext_size > maximum_attachment_size() do
     Err("attachment_too_large")
-  else if Bytes.length(request.mime_type) == 0
-    || Bytes.length(request.mime_type) > 127
-    || Bytes.length(request.filename) > 255 do
+  else if !attachment_input_admitted(request.filename, request.mime_type, false) do
     Err("invalid_attachment_metadata")
   else
     ensure_schema(request.database_path)?
@@ -495,7 +644,7 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!St
     end?
     let chunk_count = chunk_count_for(request.plaintext_size)
     let manifest = AttachmentManifest {
-      version: 1,
+      version: 4,
       attachment_id: attachment_id,
       chunk_size: attachment_chunk_size(),
       chunk_count: chunk_count,
@@ -508,7 +657,7 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!St
       Err(error) -> Err(describe_attachment_error(error))
       Ok(value)
     end?
-    let object_id = random_bytes(32)?
+    let object_id = attachment_id
     let upload_capability = random_bytes(32)?
     let download_capability = random_bytes(32)?
     let grant = encode_grant(mint_grant(object_id,
@@ -537,6 +686,77 @@ pub fn prepare_attachment(request :: MobileAttachmentPrepareRequest) -> Bytes!St
   end
 end
 
+# Large uploads use the same device-wrapped reference and bounded chunk path.
+# The caller must persist this material before constructing a credit request.
+pub struct LargeAttachmentMaterial do
+  reference :: Bytes
+  object_id :: Bytes
+  upload_capability :: Bytes
+  download_capability :: Bytes
+  encrypted_manifest :: Bytes
+end
+
+pub fn prepare_large_attachment_material(device :: borrow DeviceKeys,
+  filename :: Plaintext<Bytes>,
+  mime_type :: Plaintext<Bytes>,
+  plaintext_size :: Int,
+  expires_at_ms :: U64) -> LargeAttachmentMaterial!String do
+  if plaintext_size <= 16777216 || plaintext_size > 536870912 do
+    return Err("attachment_too_large")
+  end
+  let object_id = random_bytes(32)?
+  let secret = case generate_attachment_key() do
+    Err(error) -> return Err(describe_attachment_error(error))
+    Ok(value) -> value
+  end
+  let encrypted_manifest = case seal_manifest(secret,
+    AttachmentManifest {
+      version: 4,
+      attachment_id: object_id,
+      chunk_size: attachment_chunk_size(),
+      chunk_count: chunk_count_for(plaintext_size),
+      plaintext_size: plaintext_size,
+      filename: filename,
+      mime_type: mime_type,
+      expires_at: expires_at_ms
+    }) do
+    Err(error) -> return Err(describe_attachment_error(error))
+    Ok(value) -> value
+  end
+  let upload = random_bytes(32)?
+  let download = random_bytes(32)?
+  let reference = encode_reference(MobileAttachmentReference {
+    object_id: object_id,
+    download_capability: download,
+    encrypted_manifest: encrypted_manifest,
+    wrapped_key: wrap_key(secret, object_id, device.identity_public_key.bytes)?
+  })?
+  Ok(LargeAttachmentMaterial {
+    reference: reference,
+    object_id: object_id,
+    upload_capability: upload,
+    download_capability: download,
+    encrypted_manifest: encrypted_manifest
+  })
+end
+
+pub fn seal_large_attachment_chunk(device :: borrow DeviceKeys,
+  reference :: Bytes,
+  index :: Int,
+  plaintext :: Bytes) -> Bytes!String do
+  let value = decode_reference(reference)?
+  let secret = unwrap_key(device, value)?
+  # Prepare the public EAM-bound operation before observing private metadata
+  # admission. Its failure still wins, and no speculative wire is returned.
+  let manifest_result = opened_manifest(secret, value.encrypted_manifest)
+  let wire = seal_bound_chunk(secret, value.encrypted_manifest, index, plaintext)
+  let manifest = manifest_result?
+  if manifest.version != 2 && (manifest.version != 4 || manifest.plaintext_size <= 16777216) do
+    return Err("invalid_large_attachment_manifest")
+  end
+  chunk_result(wire)
+end
+
 fn chunk_result(value :: Result<Bytes, AttachmentError>) -> Bytes!String do
   case value do
     Err(error) -> Err(describe_attachment_error(error))
@@ -544,27 +764,70 @@ fn chunk_result(value :: Result<Bytes, AttachmentError>) -> Bytes!String do
   end
 end
 
-fn transform_chunk(request :: MobileAttachmentChunkRequest, sealing :: Bool) -> Bytes!String do
+fn attachment_key_material(database_path :: String,
+  reference :: Bytes) -> Result<(SecretBytes, Bytes), String> do
+  ensure_schema(database_path)?
+  let local = decode_client_profile(load_profile(database_path)?)?
+  let wrapping_key = platform_key()?
+  let device = open_device(local, wrapping_key, database_path)?
+  let value = decode_reference(reference)?
+  let secret = unwrap_key(device, value)?
+  Ok((secret, value.encrypted_manifest))
+end
+
+pub fn seal_attachment_chunk(request :: MobileAttachmentChunkRequest) -> Bytes!String do
+  let (secret, encrypted_manifest) = attachment_key_material(request.database_path,
+    request.reference)?
+  let manifest_result = opened_manifest(secret, encrypted_manifest)
+  let wire = seal_bound_chunk(secret, encrypted_manifest, request.index, request.payload)
+  let manifest = manifest_result?
+  if request.index < 0 || request.index >= manifest.chunk_count do
+    Err("invalid_attachment_chunk_index")
+  else
+    chunk_result(wire)
+  end
+end
+
+# Use the same held device for reference authentication and payload opening.
+# Modern manifests bind the outer route ID; v1 retains its legacy routing contract.
+pub fn open_attachment_chunk_with_device(device :: borrow DeviceKeys,
+  reference :: Bytes,
+  index :: Int,
+  ciphertext :: Bytes) -> Result<Plaintext<Bytes>, String> do
+  let value = decode_reference(reference)?
+  let secret = unwrap_key(device, value)?
+  let manifest = opened_manifest(secret, value.encrypted_manifest)?
+  if (manifest.version == 2 || manifest.version == 4)
+    && !Bytes.secure_equals(value.object_id, manifest.attachment_id) do
+    return Err("invalid_attachment_reference")
+  end
+  if index < 0 || index >= manifest.chunk_count do
+    Err("invalid_attachment_chunk_index")
+  else
+    chunk_result(open_bound_chunk(secret, value.encrypted_manifest, index, ciphertext))
+  end
+end
+
+pub fn open_attachment_chunk(request :: MobileAttachmentChunkRequest) -> Result<Plaintext<Bytes>, String> do
   ensure_schema(request.database_path)?
   let local = decode_client_profile(load_profile(request.database_path)?)?
   let wrapping_key = platform_key()?
   let device = open_device(local, wrapping_key, request.database_path)?
-  let value = decode_reference(request.reference)?
-  let secret = unwrap_key(device, value)?
-  let manifest = opened_manifest(secret, value.encrypted_manifest)?
-  if request.index < 0 || request.index >= manifest.chunk_count do
-    Err("invalid_attachment_chunk_index")
-  else if sealing do
-    chunk_result(seal_chunk(secret, manifest, request.index, request.payload))
-  else
-    chunk_result(open_chunk(secret, manifest, request.index, request.payload))
+  open_attachment_chunk_with_device(device, request.reference, request.index, request.payload)
+end
+
+# The required reader capability is chosen from the actual opaque reference,
+# never a host/UI flag. Public framing is conservative; key unwrap/manifest
+# authentication still happens before encrypted message admission or download.
+pub fn attachment_requires_buckets(input :: Bytes) -> Bool!String do
+  let parts = attachment_parts(input, 1024)?
+  let versions = for part in parts do
+    let reference = decode_reference(part)?
+    let version = Bytes.get(reference.encrypted_manifest, 0)?
+    if version != 1 && version != 2 && version != 4 do
+      return Err("invalid_attachment_reference")
+    end
+    version
   end
-end
-
-pub fn seal_attachment_chunk(request :: MobileAttachmentChunkRequest) -> Bytes!String do
-  transform_chunk(request, true)
-end
-
-pub fn open_attachment_chunk(request :: MobileAttachmentChunkRequest) -> Bytes!String do
-  transform_chunk(request, false)
+  Ok(List.contains(versions, 4))
 end

@@ -30,6 +30,7 @@ fn store_request(database_path :: String, envelope :: Bytes) -> Bytes!String do
 end
 
 fn proof() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
   let path = database_path("api")?
   assert(Bytes.secure_equals(initialize(Bytes.from_utf8(path))?,
     Bytes.from_utf8("mesh-messenger-mobile-v1")))

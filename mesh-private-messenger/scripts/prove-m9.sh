@@ -139,7 +139,17 @@ main() {
 
   compose down --volumes --remove-orphans >/dev/null 2>&1
   compose up --detach --wait postgres
-  (cd "$service_dir" && MESSENGER_TEST_DATABASE_URL="$database_url" "$meshc_bin" test tests)
+  # The suite includes positive cleanup cases. Activation is scoped to this
+  # test process; the service below retains its default-off rollout behavior.
+  # prove-prekey-rollout.py separately verifies absent/off configuration.
+  (cd "$service_dir" && MESSENGER_PREKEY_RETENTION=on \
+    MESSENGER_TEST_DATABASE_URL="$database_url" "$meshc_bin" test tests)
+  (cd "$service_dir" && MORSE_COMPACT_PROOFS=on MESSENGER_TEST_DATABASE_URL="$database_url" \
+    "$meshc_bin" test tests/transparency_capacity.test.mpl)
+  for retention_mode in dry-run on; do
+    (cd "$service_dir" && MORSE_TRANSPARENCY_RETENTION="$retention_mode" MESSENGER_TEST_DATABASE_URL="$database_url" \
+      "$meshc_bin" test tests/transparency_retention.test.mpl)
+  done
   (cd "$service_dir" && MESSENGER_TEST_DATABASE_URL="$database_url" "$meshc_bin" test tests/hardening.test.mpl)
   assert_database_state
 

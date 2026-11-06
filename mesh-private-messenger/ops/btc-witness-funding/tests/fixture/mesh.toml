@@ -1,0 +1,5 @@
+[package]
+name = "btc-witness-funding-fixture"
+version = "0.1.0"
+[dependencies]
+credit-issuer = { path = "../credit-issuer" }

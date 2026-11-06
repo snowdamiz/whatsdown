@@ -1,9 +1,9 @@
+from Session.State import RatchetState
+
 # The version 1 ratchet snapshot writer, frozen as it was before version 2, and
 # kept only so the migration proof can seal a genuine version 1 snapshot: the
 # storage key is never a fixture, so an old blob cannot be one either. Every
 # name carries a suffix so that nothing here can be taken for the live writer.
-
-from Session.Handshake import RatchetState
 
 pub type SnapshotErrorV1 do
   CryptoFailureV1(error :: CryptoError)

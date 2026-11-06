@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
 import securityConfig from '../../mobile/plugins/security-config.cjs';
+import networkCounterConfig from '../../mobile/plugins/network-counter-config.cjs';
+import creditPurpose from '../../mobile/plugins/credits-config.cjs';
+import networkConfig from '../../mobile/plugins/network-config.cjs';
+import issuerTLSRoot from '../../mobile/plugins/issuer-tls-root.cjs';
+import ohttpConfig from '../../mobile/plugins/ohttp-config.cjs';
 
 export function windowsSigningConfig(env) {
   assert.ok(env.WINDOWS_SIGN_COMMAND?.includes('%1'), 'Set WINDOWS_SIGN_COMMAND with the Tauri %1 file placeholder');
@@ -35,7 +40,17 @@ export function desktopConfig(env, development = false) {
   // development runs the object store as its own service.
   const objectUrl = endpoint(env.EXPO_PUBLIC_MESSENGER_OBJECT_URL ||
     (development && !env.EXPO_PUBLIC_MESSENGER_BASE_URL ? 'http://127.0.0.1:18089' : baseUrl));
-  const securityFrame = securityConfig(env) ?? '';
+  const securityFrame = securityConfig(env, { development }) ?? '';
   assert.ok(development || securityFrame, 'Set the MESSENGER security pins before building a release');
-  return { baseUrl, edgeUrl, streamUrl, objectUrl, securityFrame, development };
+  const purpose = creditPurpose(env) ?? '';
+  const networkFrame = networkConfig({ EXPO_PUBLIC_MESSENGER_BASE_URL: baseUrl,
+    EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL: edgeUrl, EXPO_PUBLIC_MESSENGER_OBJECT_URL: objectUrl,
+    EXPO_PUBLIC_MESSENGER_STREAM_URL: streamUrl,
+    EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY: env.EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY }, { development });
+  const ohttpFrame = ohttpConfig(env, networkFrame, securityFrame);
+  return { baseUrl, edgeUrl, streamUrl, objectUrl, securityFrame, ohttpFrame, networkCounterFrame: networkCounterConfig(env, securityFrame), creditPurpose: purpose,
+    issuerTlsRoot: issuerTLSRoot(env)?.toString('base64') ?? '',
+    creditIssuerOrigin: purpose && env.MESSENGER_CREDIT_ISSUER_ORIGIN !== '-' ? env.MESSENGER_CREDIT_ISSUER_ORIGIN ?? '' : '',
+    lightningNetwork: creditPurpose.lightningNetwork(env) ?? '',
+    creditUsdcMintHex: creditPurpose.walletMint(env) ?? '', networkFrame, development };
 }

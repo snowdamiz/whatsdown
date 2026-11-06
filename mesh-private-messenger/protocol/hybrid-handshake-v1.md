@@ -30,6 +30,18 @@ and fails initial AEAD authentication without producing a session.
   floor is at most `0x0001`.
 - A peer previously authenticated at suite `0x0002` rejects a later suite
   `0x0001` offer as `DowngradeDetected`.
+- The explicit minimum-taking handshake APIs separately enforce a release
+  policy of suite 1 or 2. A selected suite below it fails with
+  `MinimumSessionSuiteRequired`; it does not become authenticated peer history.
+  The compatibility APIs retain minimum 1. Config v6 carries this policy
+  without changing the embedded witness/anchor feature profile
+  (`key-transparency-v2.md`). Direct mobile sends, fanout including linked
+  devices, incoming INITIAL packets and both CLI roles enforce this minimum
+  for new sessions. Mobile final writers recheck the original configuration
+  and account/session sources before publishing crypto results. Scoped host
+  checks pass; matching native and release qualification remain pending.
+  Existing sessions and exact queued retries retain their behavior, and the
+  default has not changed.
 - Existing classical snapshots and mobile session records remain suite
   `0x0001`; there is no in-place key conversion.
 - New development accounts publish hybrid credentials. A classical device

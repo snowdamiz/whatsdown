@@ -1,0 +1,9 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="app.morse.mailbox.proof" android:versionCode="1" android:versionName="1">
+  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="36" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  <application android:label="Morse mailbox proof" android:allowBackup="false" android:debuggable="true" android:usesCleartextTraffic="true">
+    <uses-library android:name="android.test.runner" />
+    <meta-data android:name="app.morse.mesh.NETWORK_CONFIG" android:value="1&#10;1&#10;http://127.0.0.1:18086&#10;http://127.0.0.1:18087&#10;http://127.0.0.1:18089&#10;ws://127.0.0.1:19974/v1/mailbox/stream" />
+  </application>
+  <instrumentation android:name="android.test.InstrumentationTestRunner" android:targetPackage="app.morse.mailbox.proof" />
+</manifest>

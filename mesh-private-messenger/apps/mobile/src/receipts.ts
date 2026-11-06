@@ -1,3 +1,5 @@
+import { t } from './i18n.ts';
+
 // 1 is delivered to one of the recipient's devices; 2 is read.
 export type ReceiptState = 1 | 2;
 export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
@@ -109,4 +111,4 @@ export function messageStatus(
 }
 
 export const describeStatus = (status: MessageStatus): string =>
-  ({ pending: 'Sending', sent: 'Sent', delivered: 'Delivered', read: 'Read', failed: 'Not delivered' })[status];
+  ({ pending: t('Sending'), sent: t('Sent'), delivered: t('Delivered'), read: t('Read'), failed: t('Not delivered') })[status];

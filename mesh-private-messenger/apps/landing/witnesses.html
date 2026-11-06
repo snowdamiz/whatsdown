@@ -360,7 +360,8 @@ footer li a:hover{color:var(--blue-3)}
     <div class="copy">
       <p class="soon"><i></i>Launching in stages</p>
       <h1><span class="w"><i>Run</i></span> <span class="w"><i>a</i></span> <span class="w"><i>witness.</i></span> <span class="w em"><i>Keep</i></span> <span class="w em"><i>us</i></span> <span class="w em"><i>honest.</i></span></h1>
-      <p class="lead">Every key a Morse phone trusts comes from one log. Witnesses check each new version of it and sign only what extends the last. Run one on a small server, stake a bond, and get paid for every version you sign.</p>
+      <p class="lead">Every key a Morse phone trusts comes from one log. Witnesses check each new version of it and sign only what extends the last. We’re recruiting outside operators for the planned bonded, paid network.</p>
+      <p><a href="#current-witnesses">Current profile: Bootstrap</a> · No outside signature is required yet.</p>
       <div class="cta">
         <a class="btn light" href="#apply">Apply to run a witness</a>
         <a class="go down" href="#how">What a witness does<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></a>
@@ -380,6 +381,24 @@ footer li a:hover{color:var(--blue-3)}
         <p class="need"><span></span><b>3 of 5</b>signed</p>
       </div>
       <p class="ok"><svg class="ic"><use href="#i-check"/></svg>A majority signed. Phones accept it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row" id="current-witnesses" aria-labelledby="current-witnesses-title">
+  <div class="wrap two">
+    <div class="copy">
+      <h2 id="current-witnesses-title">Current witnesses.</h2>
+      <p class="lead">Bootstrap. Both bootstrap witnesses are run by Morse, under the same operator. No outside signature is required.</p>
+      <p>The bootstrap configuration requires both signatures. Morse controls enough keys to meet that threshold; these witnesses do not provide independent protection against Morse.</p>
+    </div>
+    <div class="copy">
+      <ul class="points">
+        <li><b>witness-a</b> Morse · bootstrap pin · Mesh witness software.</li>
+        <li><b>witness-b</b> Morse · bootstrap pin · Mesh witness software.</li>
+      </ul>
+      <p>No outside pinned or shadow operator is announced here. Each app release carries its exact trusted keys; this page cannot add a trusted witness.</p>
+      <p>The examples and bond/payment terms below describe the planned network. They are not live attendance, collateral or payout records. <a href="network.html">View published network records</a>.</p>
     </div>
   </div>
 </section>
@@ -447,6 +466,7 @@ footer li a:hover{color:var(--blue-3)}
     <div class="copy reveal">
       <h2>What you put down. What you get.</h2>
       <p class="lead">A witness is a small job with a real stake. Here is where the terms start.</p>
+      <p class="lead"><a class="go" href="network.html">See the public network record</a></p>
       <ul class="points">
         <li><b>The bond.</b> $10,000 in USDC, and the Morse token once it launches. It grows with your pay, so a lie always costs at least two years of it.</li>
         <li><b>The pay.</b> At least $300 a month in USDC through the network’s first year, then a share of 20% of every credit sold.</li>
@@ -536,11 +556,11 @@ footer li a:hover{color:var(--blue-3)}
       </details>
       <details>
         <summary>Do I have to run Morse’s software?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
-        <p>No. Every version is also published as a C2SP checkpoint, so existing transparency-log witness software can sign it unchanged, and at least one pinned witness runs software Morse didn’t write. Morse’s own witness is a reproducible build: rebuild it and compare.</p>
+        <p>No. The versioned RFC 6962 log has a C2SP interface for compatible witness software. Its rollout and outside operators are still pending; the bootstrap witnesses use Mesh. The Open profile will require a pinned witness using an independently developed implementation. Morse’s witness package includes reproducible-build instructions.</p>
       </details>
       <details>
         <summary>Could Morse outvote the witnesses?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary>
-        <p>No. Morse runs exactly one witness, bonded and slashable like any other, and the thresholds are set so it can never reach a majority, alone or with the directory.</p>
+        <p>In the current Bootstrap profile, Morse controls enough witness keys to meet the threshold. The planned Open profile limits Morse to one witness and requires a majority that Morse cannot reach alone. We will only claim that protection once the outside operators and release pins are in place.</p>
         <p>Each app release names the witnesses phones trust. What’s on-chain decides who can bond and whose bond is slashed, never which keys a phone accepts.</p>
       </details>
       <details>

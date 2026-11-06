@@ -6,3 +6,5 @@ license = "MIT"
 
 [dependencies]
 mesh-binary = { path = "../../../mesh-lang/packages/mesh-binary" }
+mesh-solana = { path = "../../../mesh-lang/packages/mesh-solana" }
+mesh-lightning = { path = "../../../mesh-lang/packages/mesh-lightning" }

@@ -1,3 +1,5 @@
+from Mobile.AttachmentMetadata import attachment_input_admitted
+from Mobile.SafetyVerification import canonical_safety_number
 from Binary.Reader import BinaryReader
 from Mobile.Attachments import validate_attachment
 from Mobile.Codec import mobile_reader, mobile_finish
@@ -74,6 +76,27 @@ pub fn parse_account_request(input :: Bytes) -> MobileAccountRequest!String do
     let username = take_vector(path.state, 64)?
     mobile_finish(username.state, "invalid_account_request")?
     Ok(MobileAccountRequest { database_path: path.value, username: username.value })
+  end
+end
+
+# Only free account creation accepts this optional personal record. The shared
+# account request remains the legacy two-field format for device/draft callers.
+pub fn parse_create_account_request(input :: Bytes) -> Result<(MobileAccountRequest, Option<Plaintext<Bytes>>), String> do
+  if Bytes.length(input) > 16576 do
+    Err("account_request_too_large")
+  else
+    let state = mobile_reader(input, 16576, "invalid_account_request")?
+    let path = take_vector_error(state, 4096, "invalid_account_request")?
+    let username = take_vector_error(path.state, 64, "invalid_account_request")?
+    let request = MobileAccountRequest { database_path: path.value, username: username.value }
+    if username.state.offset == Bytes.length(input) do
+      Ok((request, None))
+    else
+      let presentation = take_vector_error(username.state, 12404, "invalid_account_request")?
+      mobile_finish(presentation.state, "invalid_account_request")?
+      let private_presentation :: Plaintext<Bytes> = presentation.value
+      Ok((request, Some(private_presentation)))
+    end
   end
 end
 
@@ -223,17 +246,30 @@ pub fn parse_receive_request(input :: Bytes) -> MobileReceiveRequest!String do
 end
 
 pub fn parse_policy_request(input :: Bytes) -> MobilePolicyRequest!String do
-  let state = mobile_reader(input, 40251, "invalid_policy_request")?
+  let state = mobile_reader(input, 40319, "invalid_policy_request")?
   let path = take_vector(state, 4096)?
   let peer_profile = take_vector(path.state, 36134)?
   let action = take_vector(peer_profile.state, 1)?
   let value = take_vector(action.state, 4)?
-  mobile_finish(value.state, "invalid_policy_request")?
+  let action_number = mobile_read_byte(action.value)?
+  let policy_value = mobile_read_u32(value.value)?
+  let expected = if action_number == 6 do
+    let safety = take_vector(value.state, 64)?
+    mobile_finish(safety.state, "invalid_policy_request")?
+    if policy_value != 0 || !canonical_safety_number(safety.value) do
+      return Err("invalid_safety_code")
+    end
+    safety.value
+  else
+    mobile_finish(value.state, "invalid_policy_request")?
+    Bytes.empty()
+  end
   Ok(MobilePolicyRequest {
     database_path: mobile_utf8(path.value, "invalid_database_path")?,
     peer_profile: peer_profile.value,
-    action: mobile_read_byte(action.value)?,
-    value: mobile_read_u32(value.value)?
+    action: action_number,
+    value: policy_value,
+    expected_safety: expected
   })
 end
 
@@ -349,17 +385,17 @@ pub fn parse_triple_payload_request(input :: Bytes) -> MobileTriplePayloadReques
 end
 
 pub fn parse_group_add_request(input :: Bytes) -> MobileGroupAddRequest!String do
-  let state = mobile_reader(input, 309773, "invalid_group_request")?
+  let state = mobile_reader(input, 309805, "invalid_group_request")?
   let path = take_group_vector(state, 4096)?
   let group_id = take_group_vector(path.state, 32)?
   let device_set = take_group_vector(group_id.state, 305260)?
-  let key_package = take_group_vector(device_set.state, 369)?
+  let key_package = take_group_vector(device_set.state, 401)?
   mobile_finish(key_package.state, "invalid_group_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
   if String.length(database_path) == 0
     || Bytes.length(group_id.value) != 32
     || Bytes.length(device_set.value) == 0
-    || Bytes.length(key_package.value) != 369 do
+    || (Bytes.length(key_package.value) != 369 && Bytes.length(key_package.value) != 401) do
     Err("invalid_group_request")
   else
     Ok(MobileGroupAddRequest {
@@ -433,24 +469,24 @@ pub fn parse_attachment_prepare_request(input :: Bytes) -> MobileAttachmentPrepa
   let state = mobile_reader(input, 4506, "invalid_attachment_request")?
   let path = take_vector_error(state, 4096, "invalid_attachment_request")?
   let filename = take_vector_error(path.state, 255, "invalid_attachment_request")?
+  let private_filename :: Plaintext<Bytes> = filename.value
   let mime_type = take_vector_error(filename.state, 127, "invalid_attachment_request")?
+  let private_mime :: Plaintext<Bytes> = mime_type.value
   let plaintext_size = take_vector_error(mime_type.state, 4, "invalid_attachment_request")?
   let difficulty = take_vector_error(plaintext_size.state, 4, "invalid_attachment_request")?
   mobile_finish(difficulty.state, "invalid_attachment_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
-  mobile_utf8(filename.value, "invalid_attachment_request")?
-  mobile_utf8(mime_type.value, "invalid_attachment_request")?
   let difficulty_value = mobile_read_u32(difficulty.value)?
   if String.length(database_path) == 0
-    || Bytes.length(mime_type.value) == 0
+    || !attachment_input_admitted(private_filename, private_mime, true)
     || difficulty_value < 1
     || difficulty_value > 24 do
     Err("invalid_attachment_request")
   else
     Ok(MobileAttachmentPrepareRequest {
       database_path: database_path,
-      filename: filename.value,
-      mime_type: mime_type.value,
+      filename: private_filename,
+      mime_type: private_mime,
       plaintext_size: mobile_read_u32(plaintext_size.value)?,
       difficulty: difficulty_value
     })
@@ -480,11 +516,12 @@ pub fn parse_attachment_chunk_request(input :: Bytes) -> MobileAttachmentChunkRe
 end
 
 pub fn parse_transparency_request(input :: Bytes) -> MobileTransparencyRequest!String do
-  let state = mobile_reader(input, 574447, "invalid_transparency_request")?
+  let state = mobile_reader(input, 576499, "invalid_transparency_request")?
   let path = take_vector(state, 4096)?
   let username = take_vector(path.state, 65)?
   let evidence = take_vector(username.state, 570274)?
-  mobile_finish(evidence.state, "invalid_transparency_request")?
+  let origin = take_optional_vector(evidence.state, 2048, "invalid_transparency_request")?
+  mobile_finish(origin.state, "invalid_transparency_request")?
   let database_path = mobile_utf8(path.value, "invalid_database_path")?
   let expected_username = mobile_utf8(username.value, "invalid_username")?
   if String.length(database_path) == 0
@@ -495,7 +532,8 @@ pub fn parse_transparency_request(input :: Bytes) -> MobileTransparencyRequest!S
     Ok(MobileTransparencyRequest {
       database_path: database_path,
       username: expected_username,
-      evidence: evidence.value
+      evidence: evidence.value,
+      directory_url: mobile_utf8(origin.value, "invalid_transparency_origin")?
     })
   end
 end

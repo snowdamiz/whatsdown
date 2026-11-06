@@ -1,3 +1,4 @@
+from Session.State import RatchetState, DecryptOutcome
 from Identity.Device import (
   AccountKeys,
   DeviceKeys,
@@ -33,8 +34,18 @@ from Protocol.V1 import (
   ProtocolExtension,
   negotiate_suites
 )
-from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
-from Session.Ratchet import DecryptOutcome, decrypt, encrypt
+from Session.Handshake import SessionError, initiate, receive_initial
+from Session.Ratchet import decrypt, encrypt
+
+fn private_initiate(initiator :: borrow DeviceKeys,
+  credential :: DeviceCredential,
+  account :: AccountIdentity,
+  bundle :: PrekeyBundle,
+  policy :: VerificationPolicy,
+  suite :: Int,
+  plaintext :: Plaintext<Bytes>) -> Result<(RatchetState, InitialMessage), SessionError> do
+  initiate(initiator, credential, account, bundle, policy, suite, plaintext)
+end
 
 fn wide(value :: String) -> U64!String do
   case U64.parse(value) do
@@ -293,6 +304,28 @@ fn consume_start(value :: consume (RatchetState, InitialMessage)) do
   nil
 end
 
+fn oversized_handshake_rejected(value :: Result<(RatchetState, InitialMessage), SessionError>) -> Bool do
+  case value do
+    Err(InvalidHandshake) -> true
+    Err(_) -> false
+    Ok(started) -> do
+      consume_start(started)
+      false
+    end
+  end
+end
+
+fn downgrade_handshake_rejected(value :: Result<(RatchetState, InitialMessage), SessionError>) -> Bool do
+  case value do
+    Err(ProtocolFailure(DowngradeDetected)) -> true
+    Err(_) -> false
+    Ok(started) -> do
+      consume_start(started)
+      false
+    end
+  end
+end
+
 fn hybrid_ratchet(initiator :: consume RatchetState,
   responder :: consume RatchetState) -> Result<(RatchetState, RatchetState), String> do
   let plaintext = Bytes.from_utf8("hybrid ratchet")
@@ -353,8 +386,17 @@ fn hybrid_proof() -> Bool!String do
     responder_signed,
     responder_one_time,
     responder_post_quantum)?
+  let oversized_rejected = oversized_handshake_rejected(private_initiate(initiator_device,
+    initiator_credential,
+    responder_account,
+    responder_bundle,
+    verification_policy,
+    0,
+    zeroes(65536)?))
+  assert(declassify(oversized_rejected,
+    "test-only rejection of the known synthetic oversized handshake fixture"))
   let plaintext = Bytes.from_utf8("hybrid hello")
-  let (initiator_state, initial) = initiated(initiate(initiator_device,
+  let (initiator_state, initial) = initiated(private_initiate(initiator_device,
     initiator_credential,
     responder_account,
     responder_bundle,
@@ -383,7 +425,7 @@ fn hybrid_proof() -> Bool!String do
     tamper_signed,
     tamper_one_time,
     responder_post_quantum)?
-  let (tamper_state, tamper_initial) = initiated(initiate(initiator_device,
+  let (tamper_state, tamper_initial) = initiated(private_initiate(initiator_device,
     initiator_credential,
     responder_account,
     tamper_bundle,
@@ -433,21 +475,16 @@ fn hybrid_proof() -> Bool!String do
   let classical_bundle_value = classical_bundle(classical_credential_value,
     classical_signed,
     classical_one_time)?
-  case initiate(initiator_device,
+  let downgrade_rejected = downgrade_handshake_rejected(private_initiate(initiator_device,
     initiator_credential,
     responder_account,
     classical_bundle_value,
     verification_policy,
     2,
-    Bytes.from_utf8("downgrade")) do
-    Err(ProtocolFailure(DowngradeDetected)) -> assert(true)
-    Err(_) -> assert(false)
-    Ok(value) -> do
-      consume_start(value)
-      assert(false)
-    end
-  end
-  let (fallback_state, fallback_initial) = initiated(initiate(initiator_device,
+    Bytes.from_utf8("downgrade")))
+  assert(declassify(downgrade_rejected,
+    "test-only rejection of the known synthetic hybrid downgrade fixture"))
+  let (fallback_state, fallback_initial) = initiated(private_initiate(initiator_device,
     initiator_credential,
     responder_account,
     classical_bundle_value,
@@ -473,10 +510,7 @@ end
 
 test("hybrid establishment, explicit classical fallback, and downgrade rejection") do
   case hybrid_proof() do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
+    Err(_) -> assert(false)
     Ok(value) -> assert(value)
   end
 end

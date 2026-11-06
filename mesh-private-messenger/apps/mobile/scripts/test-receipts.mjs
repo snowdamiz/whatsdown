@@ -42,7 +42,7 @@ try {
     const envelope = (queuedAt) => [1, ...text('MSG'), ...id(0, 16), ...id(0), 0, 1, ...u64(queuedAt + 2_592_000_000), ...u32(512), ...u32(0)];
     // Message IDs stay unique across a restart, as real ones do; the edge is only down at first.
     const restarted = sessionStorage.getItem('receipt-serial') !== null;
-    const state = window.receiptTest = { now, focused: true, channel: null, stuck: !restarted, calls: [],
+    const state = window.receiptTest = { now, focused: true, channel: null, nativeWakeups: [], stuck: !restarted, calls: [], unexpected: [],
       serial: Number(sessionStorage.getItem('receipt-serial') ?? 20),
       outbox: [envelope(now - 20_000)],
       direct: [
@@ -61,7 +61,7 @@ try {
       const time = Date.now();
       state.direct.push({ id: ++state.serial, direction: 2, body, time });
       sessionStorage.setItem('receipt-serial', String(state.serial));
-      state.channel.onmessage('encrypted-wakeup');
+      state.nativeWakeups.push('encrypted-wakeup');
       return time;
     };
     window.isTauri = true;
@@ -77,45 +77,66 @@ try {
         if (command === 'mailbox_disconnect') return;
         if (command === 'binary_request') return [0, 200, 0, 0, 0, 0, 0];
         const symbol = options?.headers?.['X-Mesh-Symbol'];
+        if (symbol === 'mesh_messenger_account_capabilities') return [1,65,67,80,1];
+        if (['mesh_messenger_send_fanout','mesh_messenger_prepare_fanout_prekeys','mesh_messenger_group_invite','mesh_messenger_group_invitation_accept','mesh_messenger_journal_load','mesh_messenger_journal_save'].includes(symbol)) throw Error('Retired native authority');
+        if (symbol === 'mesh_messenger_directory_register') return [1,68,82,71,0,64,0];
+        if (symbol === 'mesh_messenger_prekeys_synchronize') return [1,68,80,75,0,64];
+        if (symbol === 'mesh_messenger_mailbox_stream_open') { state.channel = {}; state.nativeWakeups.push('ready'); return id(1); }
+        if (symbol === 'mesh_messenger_mailbox_stream_poll') return text(state.nativeWakeups.shift() || '');
+        if (symbol === 'mesh_messenger_mailbox_stream_close') return [];
         const request = args instanceof Uint8Array ? [...args] : [];
         if (symbol === 'mesh_messenger_load_profile') return vectors(text('alice'), id(1), id(1, 16), []);
+        if (symbol === 'mesh_messenger_signup_draft_state') return [0];
+        if (symbol === 'mesh_messenger_anchor_check') return list(...['off','0','0','0','0'].map(text));
+        if (symbol === 'mesh_messenger_transparency_fork') return [];
         if (symbol === 'mesh_messenger_list_conversations') return list(vectors(id(20, 16), text('bob'), id(2), id(2, 16), text('1234'.repeat(16)), [1], [0], [0], [0], u32(0)));
         if (symbol === 'mesh_messenger_load_history') return list(...state.direct.map((m) => vectors([m.direction], id(m.id, 16), u64(m.time), text(m.body), u32(0), [],
           // A message is waiting while the envelope queued with it has not left.
           [m.direction === 1 && state.outbox.length > 0 && m.time >= now - 20_000 ? 1 : 0])));
-        if (symbol === 'mesh_messenger_outbox_list' || symbol === 'mesh_messenger_outbox_page') return list(...state.outbox.slice(request.at(-1)));
-        if (symbol === 'mesh_messenger_privacy_submission') { if (state.stuck) throw Error('Could not connect'); return [1]; }
-        if (symbol === 'mesh_messenger_outbox_ack') { state.outbox.shift(); return []; }
+        if (symbol === 'mesh_messenger_outbox_drain') {
+          const queued=state.outbox.length;
+          if(!state.stuck)state.outbox=[];
+          const n=state.stuck?0:queued;
+          return [...u32(6),...vectors([1,79,66,88],[state.stuck?2:0],[n>>>8,n&255],[0,state.stuck?queued:0],u32(0),u32(0))];
+        }
+        if (['mesh_messenger_outbox_list','mesh_messenger_outbox_page','mesh_messenger_privacy_submission','mesh_messenger_outbox_ack'].includes(symbol)) throw Error('Legacy outbox authority is private');
         if (symbol === 'mesh_messenger_reconcile_prekeys') return u32(64);
+        if (symbol === 'mesh_messenger_devices_renew') return [1,68,78,82,0,0,0,0];
+        if (symbol === 'mesh_messenger_directory_resolve') return fields(request)[1];
         if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_resolve_request' || symbol === 'mesh_messenger_verify_transparency') return fields(request)[1];
         if (symbol === 'mesh_messenger_inspect_device_set') {
           const peer = decode(fields(request)[1]) === 'bob';
           return vectors(text(peer ? 'bob' : 'alice'), id(peer ? 2 : 1), u64(1), [0], [1], list());
         }
-        if (symbol === 'mesh_messenger_send_fanout') {
-          const body = decode(fields(request)[3]);
-          state.calls.push({ body, fields: fields(request).length });
+        if (symbol === 'mesh_messenger_fanout_send') {
+          const parts = fields(request);
+          const body = decode(parts[4]);
+          state.calls.push({ body, fields: parts.length, attachmentBytes: parts[6].length });
           state.direct.push({ id: ++state.serial, direction: 1, body, time: Date.now() });
           sessionStorage.setItem('receipt-serial', String(state.serial));
-          return list();
+          return [1,70,78,79,0];
         }
         if (['mesh_messenger_group_list', 'mesh_messenger_group_invitations'].includes(symbol)) return list();
+        if (symbol === 'mesh_messenger_credit_signup_policy_online') throw Error('credits_disabled');
+        if (symbol === 'mesh_messenger_mailbox_synchronize') return [1,77,83,89,0,1,0,0,0,0,0,0];
         if (['mesh_messenger_presentation_load', 'mesh_messenger_directory_entry', 'mesh_messenger_register_request', 'mesh_messenger_replenish_prekeys',
           'mesh_messenger_mailbox_fetch', 'mesh_messenger_process_delivery_batch', 'mesh_messenger_prepare_fanout_prekeys'].includes(symbol)) return [];
         // The sealed journals, kept where a reload leaves them alone, as the database would.
-        if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_save') {
+        if (['mesh_messenger_journal_load', 'mesh_messenger_journal_save', 'mesh_messenger_journal_load_bound', 'mesh_messenger_journal_save_bound'].includes(symbol)) {
           const bytes = Array.from(args), parts = [];
           for (let at = 0; at < bytes.length;) {
             const size = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
             parts.push(new Uint8Array(bytes.slice(at + 4, at + 4 + size)));
             at += 4 + size;
           }
-          const label = `sealed-journal/${new TextDecoder().decode(parts[1])}`;
-          if (symbol.endsWith('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
-          if (parts[2].length === 1 && parts[2][0] === 0) localStorage.removeItem(label);
-          else localStorage.setItem(label, new TextDecoder().decode(parts[2]));
+          const field = symbol.endsWith('_bound') ? 2 : 1;
+          const label = `sealed-journal/${new TextDecoder().decode(parts[field])}`;
+          if (symbol.includes('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
+          if (parts[field + 1].length === 1 && parts[field + 1][0] === 0) localStorage.removeItem(label);
+          else localStorage.setItem(label, new TextDecoder().decode(parts[field + 1]));
           return [];
         }
+        state.unexpected.push(symbol || command);
         throw Error(`Unexpected IPC: ${symbol || command}`);
       },
     };
@@ -169,7 +190,8 @@ try {
   await page.evaluate(() => window.receiptTest.focus(true));
   await sentReceipt(2, away);
   for (const call of await page.evaluate(() => window.receiptTest.calls)) {
-    assert.equal(call.fields, 4, 'Receipts must not send composer attachments');
+    assert.equal(call.fields, 7, 'Receipts use the profile-bound native request');
+    assert.equal(call.attachmentBytes, 0, 'Receipts must not send composer attachments');
   }
 
   // Turning read receipts off stops them, hides the other side's, and survives a restart.
@@ -177,6 +199,8 @@ try {
   const toggle = page.getByRole('switch', { name: 'Read receipts', exact: true });
   assert.equal(await toggle.getAttribute('aria-checked'), 'true');
   await toggle.click();
+  await page.waitForFunction(() => localStorage.getItem('sealed-journal/preferences/read-receipts') === 'off');
+  assert.equal(await page.evaluate(() => localStorage.getItem(`/test/receipts.db/read-receipts/v1/${'01'.repeat(32)}`)), null);
   await page.reload();
   await page.getByRole('progressbar', { name: 'Opening Morse', exact: true }).first().waitFor({ state: 'detached' });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -190,6 +214,7 @@ try {
   assert.ok((await receipts()).every(([state]) => state === 1), 'No read receipt leaves while they are off');
 
   assert.deepEqual(errors, []);
+  assert.deepEqual(await page.evaluate(() => window.receiptTest.unexpected), [], 'All rendered native calls use current typed fixtures');
   console.log('Receipts: sending/sent/delivered/read ticks, hidden control records, queue draining, one read receipt per view, delivery behind an unfocused window, and the read-receipt opt-out passed');
 } finally {
   await browser?.close();

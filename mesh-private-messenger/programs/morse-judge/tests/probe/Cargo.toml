@@ -1,0 +1,15 @@
+[package]
+name = "morse-judge-introspection-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+morse-judge = { path = "../..", default-features = false }
+pinocchio = { version = "=0.11.2", default-features = false }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

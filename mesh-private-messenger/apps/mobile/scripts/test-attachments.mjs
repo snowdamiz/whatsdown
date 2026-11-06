@@ -33,13 +33,21 @@ try {
       text(index === 8 ? 'application/pdf' : index === 9 ? 'application/octet-stream' : 'image/png'),
       u32(png.length), u32(1), u32(65536), u64(Date.now() + 86400000));
     const album = [1, 65, 84, 66, ...u32(10), ...vectors(...Array.from({ length: 10 }, (_, index) => summary(index)))];
-    const state = window.attachmentTest = { saves: [], png };
+    const state = window.attachmentTest = { saves: [], uploads: [], sends: [], authorizations: [], png };
     window.__TAURI_INTERNALS__ = { invoke: async (command, args, options) => {
       if (command === 'database_path') return '/test/attachments.db';
       if (command === 'appearance') return 'dark';
-      if (command === 'binary_request') return new Uint8Array([0, 200, 1]).buffer;
+      if (command === 'binary_request') {
+        if (/\/v1\/(objects|attachments)\//.test(options.headers['X-Service-Url'])) throw Error('JavaScript attachment HTTP is forbidden');
+        return new Uint8Array([0, 200, 1]).buffer;
+      }
       if (command === 'save_attachment') { state.saves.push({ bytes: [...args], name: decodeURIComponent(options.headers['X-File-Name']) }); return true; }
       const symbol = options?.headers?.['X-Mesh-Symbol'];
+      if (symbol === 'mesh_messenger_outbox_drain') return [0,0,0,6,0,0,0,4,1,79,66,88,0,0,0,1,0,0,0,0,2,0,0,0,0,0,2,0,0,0,0,0,4,0,0,0,0,0,0,0,4,0,0,0,0];
+      if (symbol === 'mesh_messenger_mailbox_stream_open') return Array(32).fill(1);
+      if (symbol === 'mesh_messenger_mailbox_stream_poll' || symbol === 'mesh_messenger_mailbox_stream_close') return [];
+      if (symbol === 'mesh_messenger_directory_resolve') return [1];
+      if (symbol === 'mesh_messenger_signup_draft_state') return [0];
       if (symbol === 'mesh_messenger_load_profile') return vectors(text('alice'), id(1), id(1, 16), []);
       if (['mesh_messenger_list_conversations', 'mesh_messenger_group_invitations', 'mesh_messenger_outbox_list', 'mesh_messenger_outbox_page'].includes(symbol)) return list();
       if (symbol === 'mesh_messenger_group_list') return list(list([1], id(80), u64(1), u32(2)));
@@ -47,19 +55,40 @@ try {
       if (symbol === 'mesh_messenger_group_inspect') return list([1], id(80), u64(1), u32(0), id(4), id(5),
         list(...[1, 2].map((n) => list([1], u32(n - 1), [n === 1 ? 1 : 0], id(n), id(n, 16), u64(1), [2]))));
       if (symbol === 'mesh_messenger_group_history') return list(list([1], [2], u64(1), id(2), id(2, 16), u64(1800000000000), text('Ten files together'), album));
-      if (symbol === 'mesh_messenger_attachment_open_chunk') return png;
+      if (symbol === 'mesh_messenger_fanout_send') { state.authorizations.push([...args]); return [71,72,73]; }
+      if (symbol === 'mesh_messenger_attachment_upload') {
+        const data = new Uint8Array(args), view = new DataView(data.buffer,data.byteOffset,data.byteLength);
+        if(view.getUint32(0)!==5) throw Error('invalid upload count');
+        const fields=[]; let at=4;
+        for(let index=0;index<5;index++){ const n=view.getUint32(at); at+=4; fields.push(data.slice(at,at+n)); at+=n; }
+        if(at!==data.length || new TextDecoder().decode(fields[0])!=='/test/attachments.db' || !fields[3].length || fields[4].join(',')!=='71,72,73') throw Error('invalid native upload');
+        state.uploads.push({name:new TextDecoder().decode(fields[1]),bytes:[...fields[3]]});
+        const number=state.uploads.length;
+        return list([number],id(number),text(`opaque-discard-${number}`));
+      }
+      if (symbol === 'mesh_messenger_attachment_discard') return [];
+      if (symbol === 'mesh_messenger_group_send') { state.sends.push([...args]); return []; }
+      if (symbol === 'mesh_messenger_attachment_fetch_chunk') {
+        const data = new Uint8Array(args); const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+        if (view.getUint32(0)!==3) throw Error('invalid native download framing');
+        const fields=[]; let at=4;
+        for(let index=0;index<3;index++) { const n=view.getUint32(at); at+=4; fields.push(data.slice(at,at+n)); at+=n; }
+        if(at!==data.length || new TextDecoder().decode(fields[0])!=='/test/attachments.db' || fields[1].length!==1 || fields[2].length!==4 || new DataView(fields[2].buffer).getUint32(0)!==0) throw Error('invalid native download');
+        return png;
+      }
       // The sealed journals, kept where a reload leaves them alone, as the database would.
-      if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_save') {
+      if (['mesh_messenger_journal_load', 'mesh_messenger_journal_save', 'mesh_messenger_journal_load_bound', 'mesh_messenger_journal_save_bound'].includes(symbol)) {
         const bytes = Array.from(args), parts = [];
         for (let at = 0; at < bytes.length;) {
           const size = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
           parts.push(new Uint8Array(bytes.slice(at + 4, at + 4 + size)));
           at += 4 + size;
         }
-        const label = `sealed-journal/${new TextDecoder().decode(parts[1])}`;
-        if (symbol.endsWith('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
-        if (parts[2].length === 1 && parts[2][0] === 0) localStorage.removeItem(label);
-        else localStorage.setItem(label, new TextDecoder().decode(parts[2]));
+        const field = symbol.endsWith('_bound') ? 2 : 1;
+          const label = `sealed-journal/${new TextDecoder().decode(parts[field])}`;
+        if (symbol.includes('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
+        if (parts[field + 1].length === 1 && parts[field + 1][0] === 0) localStorage.removeItem(label);
+        else localStorage.setItem(label, new TextDecoder().decode(parts[field + 1]));
         return [];
       }
       throw Error('Offline test boundary');
@@ -118,6 +147,13 @@ try {
     await page.setViewportSize({ width, height: 800 });
     await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
   }
+  const sendsBefore = await page.evaluate(() => window.attachmentTest.sends.length);
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await page.waitForFunction(before => window.attachmentTest.sends.length === before + 1, sendsBefore);
+  assert.equal(await page.evaluate(() => window.attachmentTest.authorizations.length), 1, 'One recipient authorization is shared by this album');
+  assert.deepEqual(await page.evaluate(() => window.attachmentTest.uploads),
+    files.slice(1).map((file,index) => ({name:file.name,bytes:[index+1]})));
+  await page.getByRole('button', { name: 'Attach files (0 of 10)', exact: true }).waitFor().catch(async error => { console.error(await page.locator('body').innerText()); throw error; });
   assert.deepEqual(errors, []);
-  console.log('Attachments: 10 arbitrary files, per-file removal, overflow rejection, image viewer, and exact-byte downloads passed');
+  console.log('Attachments: 10 arbitrary files, per-file removal, overflow rejection, image viewer, exact-byte downloads, and native upload of a nine-file album passed');
 } finally { await browser?.close(); server.close(); }

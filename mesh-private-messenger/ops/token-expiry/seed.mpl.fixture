@@ -1,0 +1,65 @@
+from Storage.TreasuryBurn import reserve_credit_burn_handoff
+from Payment.RevenuePolicy import split_credit_revenue
+from Transparency.TokenBurn import decode_token_burn_profile
+from Solana.Read import pubkey
+
+fn field(root :: Json, name :: String) -> String!String do
+  Json.as_string(Json.object_get(root, name)?)
+end
+
+fn seed() -> Result<(), String> do
+  let root = Json.parse(File.read(Env.get("BURN_EXPIRY_FIXTURE", ""))?)?
+  let scope = Bytes.from_hex(Env.get("BURN_EXPIRY_CONFIG_HASH", ""))?
+  let profile = Bytes.from_hex(field(Json.array_get(Json.object_get(root, "accounts")?, 2)?, "data_hex")?)?
+  let decoded = decode_token_burn_profile(profile)?
+  let pool = Pool.open(Env.get("MESSENGER_ISSUER_TEST_DATABASE_URL", ""), 1, 6, 5000)?
+  let result = Repo.transaction(pool, fn(conn :: borrow PgConn) do
+    for index in 0..2 do
+      let witness_carry = index * 8
+      let burn_carry = index * 2
+      let operations_carry = 0
+      let gross = U64.parse(if index == 0 do "233333334" else "166666666" end)?
+      let split = split_credit_revenue(2, gross, witness_carry, burn_carry, operations_carry)?
+      let rows = Pg.query_values(conn,
+        "INSERT INTO issuer_treasury_weekly(week,asset,cutoff,mint,config_hash,amount,witness,burn,operations,carry_before,carry_after,burn_carry_before,burn_carry_after,operations_carry_before,operations_carry_after,reserve_before,reserve_after,membership_hash,policy_version,policy_hash) VALUES($1::numeric,0,0,$2,$3,$4::numeric,$5::numeric,$6::numeric,$7::numeric,$8::int,$9::int,$10::int,$11::int,$12::int,$13::int,$14::int,$15::int,$3,2,$16) RETURNING batch_id::text",
+        [Text(Int.to_string(2700 + index)), Binary(decoded.usdc.bytes), Binary(scope),
+          Text(U64.to_string(gross)), Text(U64.to_string(split.witness)),
+          Text(U64.to_string(split.burn)), Text(U64.to_string(split.operations)),
+          Text(Int.to_string(witness_carry)), Text(Int.to_string(split.carry_witness)),
+          Text(Int.to_string(burn_carry)), Text(Int.to_string(split.carry_burn)),
+          Text(Int.to_string(operations_carry)), Text(Int.to_string(split.carry_operations)),
+          Text(Int.to_string(split.reserve_before)), Text(Int.to_string(split.reserve_after)),
+          Binary(split.policy_hash)])?
+      let id = case Map.get(List.head(rows), "batch_id") do
+        Text(value) -> value
+        _ -> return Err("invalid_seed_batch")
+      end
+      Pg.execute_values(conn,
+        "INSERT INTO issuer_treasury_burn_liabilities(batch_id,amount) VALUES($1::bigint,$2::numeric)",
+        [Text(id), Text(U64.to_string(split.burn))])?
+    end
+    # Deliberately seed an old local reservation, never a chain proof. The
+    # production operator must authenticate actual finalized records to free it.
+    case reserve_credit_burn_handoff(conn, scope, pubkey(field(root, "program")?)?,
+      decoded.treasury, profile, U64.parse(field(root, "epoch")?)?, U64.parse("0")?,
+      for _ in 0..24 do U64.parse("1")? end,
+      for index in 0..24 do U64.parse(Int.to_string(index * 999999))? end,
+      decoded.ready_at)? do
+      None -> Err("missing_seed_intent")
+      Some(value) -> Ok(Bytes.to_hex(value.intent.intent_id))
+    end
+  end)
+  Pool.close(pool)
+  println(result?)
+  Ok(nil)
+end
+
+fn main() do
+  case seed() do
+    Ok(_) -> nil
+    Err(error) -> do
+      IO.eprintln(error)
+      Process.exit(1)
+    end
+  end
+end

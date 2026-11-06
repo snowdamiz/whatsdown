@@ -1,3 +1,4 @@
+from Session.State import RatchetState, RatchetError, RatchetMessage
 from Binary.Reader import BinaryReader, finish, reader
 from Mobile.Codec import (
   mobile_append,
@@ -13,6 +14,7 @@ from Mobile.Codec import (
   mobile_write_u64,
   mobile_zeroes,
   take_vector,
+  take_optional_vector,
   take_vector_error
 )
 from Mobile.Types import (
@@ -32,8 +34,7 @@ from Protocol.V1 import (
   InnerEnvelope,
   PrekeyBundle
 )
-from Session.Handshake import RatchetState
-from Session.Ratchet import RatchetError, RatchetMessage, encode_ratchet_message
+from Session.Ratchet import encode_ratchet_message
 from Session.Snapshot import SnapshotOutcome, restore, snapshot
 from Storage.Blobs import load_blob
 from Storage.Keys import local_context, open_local, seal_local
@@ -188,7 +189,8 @@ fn encode_session_record(snapshot_blob :: Bytes,
       end)?)?,
       mobile_vector(mobile_write_u32(0)?)?,
       mobile_vector(mobile_byte(strongest_suite)?)?,
-      mobile_vector(safety_number(local, peer)?)?
+      mobile_vector(safety_number(local, peer)?)?,
+      mobile_vector(peer.credential.dh_public_key)?
     ],
     0,
     Bytes.empty())
@@ -207,11 +209,11 @@ fn optional_safety_number(state :: BinaryReader) -> MobileReadBytes!String do
   end
 end
 
-fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
+pub fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
   case reader(input, 70600) do
     Err(_) -> Err("invalid_session_record")
     Ok(state) -> do
-      let snapshot_blob = take_vector(state, 68900)?
+      let snapshot_blob = take_vector(state, 70100)?
       let local_account_id = take_vector(snapshot_blob.state, 32)?
       let local_device_id = take_vector(local_account_id.state, 16)?
       let peer_account_id = take_vector(local_device_id.state, 32)?
@@ -230,7 +232,8 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
         take_vector(disappearing_seconds.state, 1)?
       end
       let safety = optional_safety_number(strongest_suite.state)?
-      case finish(safety.state) do
+      let transport = take_optional_vector(safety.state, 32, "invalid_session_record")?
+      case finish(transport.state) do
         Err(_) -> Err("invalid_session_record")
         Ok(_) -> do
           let username = mobile_utf8(peer_username.value, "invalid_session_record")?
@@ -252,6 +255,7 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
             && verified_value <= 1
             && changed_value <= 1
             && (strongest_value == 1 || strongest_value == 2)
+            && (Bytes.length(transport.value) == 0 || Bytes.length(transport.value) == 32)
           if !valid do
             Err("invalid_session_record")
           else
@@ -270,7 +274,8 @@ fn parse_session_record(input :: Bytes) -> MobileSessionRecord!String do
               key_changed: changed_value == 1 || Bytes.length(safety.value) == 0,
               disappearing_seconds: disappearing_value,
               strongest_suite: strongest_value,
-              safety_number: safety.value
+              safety_number: safety.value,
+              peer_transport_key: transport.value
             })
           end
         end
@@ -290,7 +295,7 @@ fn read_session_ids(encoded :: Bytes, offset :: Int, values :: List<Bytes>) -> L
   end
 end
 
-fn decode_session_ids(encoded :: Bytes) -> List<Bytes>!String do
+pub fn decode_session_ids(encoded :: Bytes) -> List<Bytes>!String do
   if Bytes.length(encoded) % 32 != 0 do
     Err("invalid_session_index")
   else
@@ -381,7 +386,7 @@ end
 
 # ponytail: the MVP scans encrypted session IDs; add an encrypted peer index if measured conversation counts make this slow.
 
-fn preferred_session(first :: MobileLoadedSession,
+pub fn preferred_session(first :: MobileLoadedSession,
   second :: MobileLoadedSession) -> MobileLoadedSession do
   let first_active = Bytes.length(first.record.snapshot) > 0
   let second_active = Bytes.length(second.record.snapshot) > 0
@@ -391,6 +396,14 @@ fn preferred_session(first :: MobileLoadedSession,
     first
   else if second.record.strongest_suite > first.record.strongest_suite do
     second
+  else if second.record.strongest_suite == first.record.strongest_suite
+    && session_uses_headers(second.record.snapshot)
+    && !session_uses_headers(first.record.snapshot) do
+    second
+  else if second.record.strongest_suite == first.record.strongest_suite
+    && session_uses_headers(first.record.snapshot)
+    && !session_uses_headers(second.record.snapshot) do
+    first
   else if second.record.strongest_suite == first.record.strongest_suite
     && Bytes.length(second.record.safety_number) == 64
     && !Bytes.secure_equals(first.record.safety_number, second.record.safety_number) do
@@ -507,7 +520,9 @@ pub fn device_needs_prekey(database_path :: String,
     else
       Err(error)
     end
-    Ok(loaded) -> if loaded.record.strongest_suite > profile.bundle.suite do
+    Ok(loaded) -> if !session_uses_headers(loaded.record.snapshot) do
+      Ok(true)
+    else if loaded.record.strongest_suite > profile.bundle.suite do
       Err("peer_keys_changed")
     else
       Ok(loaded.record.strongest_suite < profile.bundle.suite
@@ -563,7 +578,8 @@ pub fn ensure_conversation_alias(database_path :: String,
         key_changed: false,
         disappearing_seconds: sync.disappearing_seconds,
         strongest_suite: 1,
-        safety_number: sync.safety_number
+        safety_number: sync.safety_number,
+        peer_transport_key: Bytes.empty()
       }
       let blob = seal_local(updated_session_record(record.snapshot, record)?,
         wrapping_key,
@@ -571,6 +587,45 @@ pub fn ensure_conversation_alias(database_path :: String,
       let index_blob = updated_session_index(database_path, wrapping_key, alias_id)?
       store_new_session(database_path, label, blob, index_blob)?
       Ok(sync.conversation_id)
+    end
+  end
+end
+
+pub fn prepared_conversation_alias(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  local :: ClientProfile,
+  sync :: MobileSyncPayload,
+  session_ids :: List<Bytes>) -> Result<(Bytes, List<String>, List<Bytes>), String> do
+  case find_peer_session(database_path, wrapping_key, sync.peer_account_id, session_ids, 0) do
+    Ok(existing) -> Ok((existing.record.conversation_id, [], []))
+    Err(error) -> if error != "session_not_found" do
+      Err(error)
+    else
+      let alias_id = conversation_alias_id(sync.peer_account_id)?
+      let label = session_label(alias_id)
+      let record = MobileSessionRecord {
+        snapshot: Bytes.empty(),
+        local_account_id: local.account_id,
+        local_device_id: local.device_id,
+        peer_account_id: sync.peer_account_id,
+        peer_device_id: mobile_zeroes(16)?,
+        peer_username: sync.peer_username,
+        peer_mailbox: mobile_zeroes(32)?,
+        conversation_id: sync.conversation_id,
+        request_state: 1,
+        blocked: false,
+        verified: false,
+        key_changed: false,
+        disappearing_seconds: sync.disappearing_seconds,
+        strongest_suite: 1,
+        safety_number: sync.safety_number,
+        peer_transport_key: Bytes.empty()
+      }
+      let blob = seal_local(updated_session_record(record.snapshot, record)?,
+        wrapping_key,
+        local_context(label)?)?
+      let index_blob = updated_session_index(database_path, wrapping_key, alias_id)?
+      Ok((sync.conversation_id, [label, "sessions/v1"], [blob, index_blob]))
     end
   end
 end
@@ -674,6 +729,7 @@ fn finish_upgraded_session_snapshot(state :: consume RatchetState,
     peer_mailbox: peer.entry.mailbox_token,
     strongest_suite: state.suite,
     safety_number: safety,
+    peer_transport_key: peer.credential.dh_public_key,
     verified: previous.record.verified && !changed,
     key_changed: previous.record.key_changed || changed
   }
@@ -774,7 +830,8 @@ pub fn updated_session_record(snapshot_blob :: Bytes,
       end)?)?,
       mobile_vector(mobile_write_u32(record.disappearing_seconds)?)?,
       mobile_vector(mobile_byte(record.strongest_suite)?)?,
-      mobile_vector(record.safety_number)?
+      mobile_vector(record.safety_number)?,
+      mobile_vector(record.peer_transport_key)?
     ],
     0,
     Bytes.empty())
@@ -814,5 +871,13 @@ pub fn seal_updated_session(state :: consume RatchetState,
       loaded.record,
       wrapping_key,
       loaded.label)
+  end
+end
+
+## Call only for a snapshot inside an authenticated local session record.
+pub fn session_uses_headers(snapshot :: Bytes) -> Bool do
+  case Bytes.get(snapshot, 0) do
+    Err(_) -> false
+    Ok(format) -> format == 3
   end
 end

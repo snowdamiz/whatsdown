@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "commit": "145e9b4a88ef0bf2795357fdce8c0c2fe57b77d2",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/pyth-network/pyth-crosschain/145e9b4a88ef0bf2795357fdce8c0c2fe57b77d2/target_chains/solana/pyth_solana_receiver_sdk/src/price_update.rs",
+      "sha256": "12d0ce8bc3907ae2949043397eaf3d5bd25deed98450c6969d957be402c807ae"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/pyth-network/pyth-crosschain/145e9b4a88ef0bf2795357fdce8c0c2fe57b77d2/target_chains/solana/pyth_solana_receiver_sdk/src/lib.rs",
+      "sha256": "738f6e4fa9f5807cf3b1baca3407a4caa110c913fcafa3e3952f88b3332f3ce2"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/pyth-network/pyth-crosschain/145e9b4a88ef0bf2795357fdce8c0c2fe57b77d2/pythnet/pythnet_sdk/src/messages.rs",
+      "sha256": "859f315c9474e694dc5ddb04d1900c5bae8b115a347c4e59746123245cbabc2a"
+    }
+  ],
+  "boundary": "Source-code codec reference; no live MORSE feed, guardian-verification execution or deployment is claimed."
+}

@@ -14,10 +14,19 @@ static NSString *const MeshMessengerPushBrokerPublicKeyHexKey =
     @"MeshMessengerPushBrokerPublicKeyHex";
 static NSString *const MeshMessengerSecurityConfigKey =
     @"MeshMessengerSecurityConfig";
+static NSString *const MeshMessengerNetworkConfigKey = @"MeshMessengerNetworkConfig";
+static NSString *const MeshMessengerCreditPurposeKey = @"MeshMessengerCreditPurpose";
 static const uint8_t MeshMessengerRawPushSelector[] = "expo/raw/v1";
 static const uint8_t MeshMessengerConfigPushSelector[] = "expo/config/v1";
+static const uint8_t MeshMessengerCounterConfigSelector[] = "messenger/network-counter/v1";
 static const uint8_t MeshMessengerSecurityConfigSelector[] =
     "messenger/config/v1";
+static const uint8_t MeshMessengerCreditPurposeSelector[] = "messenger/credits/v1";
+static const uint8_t MeshMessengerNetworkConfigSelector[] = "messenger/network/v1";
+static const uint8_t MeshMessengerOhttpConfigSelector[] = "messenger/ohttp/v1";
+static const uint8_t MeshMessengerLightningSelector[] = "messenger/lightning/v1";
+static const uint8_t MeshMessengerIssuerTLSSelector[] = "messenger/issuer-tls-root/v1";
+static const uint8_t MeshMessengerWalletSelector[] = "messenger/wallet/v1";
 static const uint64_t MeshMessengerMaximumApplicationIDLength = 255;
 static const uint64_t MeshMessengerMaximumPushTokenLength = 4096;
 static const uint64_t MeshMessengerMaximumPushFrameLength = 4362;
@@ -38,6 +47,27 @@ static void MeshMessengerZero(void *bytes, uint64_t length) {
   while (length-- > 0) {
     *cursor++ = 0;
   }
+}
+
+int32_t MeshMessengerWalletPins(uint8_t output[34]) {
+  id purpose = [NSBundle.mainBundle objectForInfoDictionaryKey:MeshMessengerCreditPurposeKey];
+  id mint = [NSBundle.mainBundle objectForInfoDictionaryKey:@"MeshMessengerCreditUSDCMintHex"];
+  if (![purpose isKindOfClass:NSString.class] || ![mint isKindOfClass:NSString.class] || [(NSString *)mint length] != 64 ||
+      (![(NSString *)purpose isEqualToString:@"live"] && ![(NSString *)purpose isEqualToString:@"test"])) return 3;
+  const char *hex = [(NSString *)mint UTF8String];
+  const char *alphabet = "0123456789abcdef";
+  uint8_t nonzero = 0;
+  for (NSUInteger index = 0; index < 32; ++index) {
+    const char *left = strchr(alphabet, hex[index * 2]);
+    const char *right = strchr(alphabet, hex[index * 2 + 1]);
+    if (left == NULL || right == NULL || hex[index * 2] == 0 || hex[index * 2 + 1] == 0) return 3;
+    output[index + 2] = (uint8_t)(((left - alphabet) << 4) | (right - alphabet));
+    nonzero |= output[index + 2];
+  }
+  if (nonzero == 0) return 3;
+  output[0] = 1;
+  output[1] = [(NSString *)purpose isEqualToString:@"live"] ? 0 : 1;
+  return 0;
 }
 
 static void MeshMessengerWriteU32(uint8_t *output, uint32_t value) {
@@ -186,11 +216,73 @@ static int32_t MeshMessengerPushGetToken(void *context, const uint8_t *input,
   bool configSelector =
       inputLength == sizeof(MeshMessengerConfigPushSelector) - 1 &&
       memcmp(input, MeshMessengerConfigPushSelector, inputLength) == 0;
+  bool counterConfigSelector = inputLength == sizeof(MeshMessengerCounterConfigSelector) - 1 &&
+      memcmp(input, MeshMessengerCounterConfigSelector, inputLength) == 0;
   bool securityConfigSelector =
       inputLength == sizeof(MeshMessengerSecurityConfigSelector) - 1 &&
       memcmp(input, MeshMessengerSecurityConfigSelector, inputLength) == 0;
-  if (!rawSelector && !configSelector && !securityConfigSelector) {
+  bool creditPurposeSelector = inputLength == sizeof(MeshMessengerCreditPurposeSelector) - 1 &&
+      memcmp(input, MeshMessengerCreditPurposeSelector, inputLength) == 0;
+  bool lightningSelector = inputLength == sizeof(MeshMessengerLightningSelector) - 1 &&
+      memcmp(input, MeshMessengerLightningSelector, inputLength) == 0;
+  bool walletSelector = inputLength == sizeof(MeshMessengerWalletSelector) - 1 &&
+      memcmp(input, MeshMessengerWalletSelector, inputLength) == 0;
+  bool networkConfigSelector = inputLength == sizeof(MeshMessengerNetworkConfigSelector) - 1 &&
+      memcmp(input, MeshMessengerNetworkConfigSelector, inputLength) == 0;
+  bool ohttpConfigSelector = inputLength == sizeof(MeshMessengerOhttpConfigSelector) - 1 &&
+      memcmp(input, MeshMessengerOhttpConfigSelector, inputLength) == 0;
+  bool issuerTLSSelector = inputLength == sizeof(MeshMessengerIssuerTLSSelector) - 1 &&
+      memcmp(input, MeshMessengerIssuerTLSSelector, inputLength) == 0;
+  if (!ohttpConfigSelector && !counterConfigSelector && !issuerTLSSelector && !rawSelector && !configSelector && !securityConfigSelector && !creditPurposeSelector && !walletSelector && !networkConfigSelector && !lightningSelector) {
     return MeshMessengerSecureStoreInvalidInput;
+  }
+  if (issuerTLSSelector) {
+    id value = [NSBundle.mainBundle objectForInfoDictionaryKey:@"MeshMessengerIssuerTLSRoot"];
+    NSData *data;
+    if (value == nil) {
+      const uint8_t absent[] = {1, 0, 0, 0, 0, 0, 0};
+      data = [NSData dataWithBytes:absent length:sizeof(absent)];
+    } else {
+      if (![value isKindOfClass:NSString.class] || [(NSString *)value length] > 90124) return MeshMessengerSecureStorePlatformFailure;
+      data = [[NSData alloc] initWithBase64EncodedString:value options:0];
+      if (data == nil || data.length < 7 || data.length > 67591 ||
+          ![[data base64EncodedStringWithOptions:0] isEqualToString:value]) return MeshMessengerSecureStorePlatformFailure;
+    }
+    if (data.length > outputCapacity) return MeshMessengerSecureStoreOutputTooLarge;
+    [data getBytes:output length:data.length];
+    *outputLength = data.length;
+    return MESH_LIBRARY_OK;
+  }
+  if (lightningSelector) {
+    id value = [NSBundle.mainBundle objectForInfoDictionaryKey:@"MeshMessengerLightningNetwork"];
+    if (value == nil) return MeshMessengerSecureStoreNotFound;
+    if (![value isKindOfClass:NSString.class]) return MeshMessengerSecureStorePlatformFailure;
+    NSUInteger index = [@[@"mainnet", @"testnet", @"regtest", @"signet", @"simnet"] indexOfObject:value];
+    if (index == NSNotFound) return MeshMessengerSecureStorePlatformFailure;
+    if (outputCapacity < 2) return MeshMessengerSecureStoreOutputTooLarge;
+    output[0] = 1;
+    output[1] = (uint8_t)index;
+    *outputLength = 2;
+    return MESH_LIBRARY_OK;
+  }
+  if (walletSelector) {
+    if (outputCapacity < 34) return MeshMessengerSecureStoreOutputTooLarge;
+    int32_t status = MeshMessengerWalletPins(output);
+    if (status == 0) *outputLength = 34;
+    return status;
+  }
+  if (creditPurposeSelector) {
+    id value = [NSBundle.mainBundle objectForInfoDictionaryKey:MeshMessengerCreditPurposeKey];
+    if (value == nil) return MeshMessengerSecureStoreNotFound;
+    if (![value isKindOfClass:NSString.class] ||
+        (![(NSString *)value isEqualToString:@"live"] && ![(NSString *)value isEqualToString:@"test"])) {
+      return MeshMessengerSecureStorePlatformFailure;
+    }
+    if (outputCapacity < 2) return MeshMessengerSecureStoreOutputTooLarge;
+    output[0] = 1;
+    output[1] = [(NSString *)value isEqualToString:@"live"] ? 0 : 1;
+    *outputLength = 2;
+    return MESH_LIBRARY_OK;
   }
   if (configSelector) {
     id projectValue =
@@ -217,19 +309,22 @@ static int32_t MeshMessengerPushGetToken(void *context, const uint8_t *input,
     *outputLength = data.length;
     return MESH_LIBRARY_OK;
   }
-  if (securityConfigSelector) {
+  if (ohttpConfigSelector || counterConfigSelector || securityConfigSelector || networkConfigSelector) {
     id value = [NSBundle.mainBundle
-        objectForInfoDictionaryKey:MeshMessengerSecurityConfigKey];
+        objectForInfoDictionaryKey:ohttpConfigSelector ? @"MeshMessengerOhttpConfig" : counterConfigSelector ? @"MeshMessengerNetworkCounterConfig" : networkConfigSelector ? MeshMessengerNetworkConfigKey : MeshMessengerSecurityConfigKey];
     if (value == nil) {
       return MeshMessengerSecureStoreNotFound;
     }
     if (![value isKindOfClass:NSString.class]) {
       return MeshMessengerSecureStorePlatformFailure;
     }
+    if (ohttpConfigSelector && [(NSString *)value length] > 600) return MeshMessengerSecureStorePlatformFailure;
     NSData *data = [(NSString *)value dataUsingEncoding:NSUTF8StringEncoding];
     if (data == nil) {
       return MeshMessengerSecureStorePlatformFailure;
     }
+    if (ohttpConfigSelector && (data.length == 0 || data.length > 600)) return MeshMessengerSecureStorePlatformFailure;
+    if (counterConfigSelector && data.length > 24576) return MeshMessengerSecureStorePlatformFailure;
     if (data.length > outputCapacity) {
       return MeshMessengerSecureStoreOutputTooLarge;
     }

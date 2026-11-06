@@ -27,6 +27,10 @@ from Protocol.V1 import (
   PrekeyBundle
 )
 from Storage.MailboxAuth import bundle_signing_public_key
+from Storage.PostagePolicyState import (
+  canonical_postage_entry_on_connection,
+  initialize_postage_mailbox_on_connection
+)
 from Storage.Prekeys import seed_registration_prekey_on_connection
 from Storage.Transparency import append_entry_on_connection, forget_account_entries_on_connection
 
@@ -342,7 +346,8 @@ fn register_on_connection(conn :: borrow PgConn,
   account :: AccountIdentity,
   credential :: DeviceCredential,
   initial_prekey :: Option<OneTimePrekeyPublic>,
-  lapsed :: Bool) -> DeviceWrite!String do
+  lapsed :: Bool,
+  fresh_only :: Bool) -> DeviceWrite!String do
   Pg.execute_values(conn,
     "INSERT INTO messenger_accounts (username, account_id, account_identity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
     [Text(entry.username), Binary(account.account_id), Binary(entry.account_identity)])?
@@ -366,6 +371,15 @@ fn register_on_connection(conn :: borrow PgConn,
   if !account_matches do
     return Err("messenger_devices_conflict")
   end
+  # A paid signup creates the initial account/device only. This check follows
+  # the same account row lock as free registration, so a racing free request
+  # cannot make an already registered account consume a second payment.
+  if fresh_only
+    && (wide(Map.get(row, "sequence"))? != U64.parse("0")?
+      || integer(Map.get(row, "active_count"))? != 0) do
+    return Err("credit_signup_already_registered")
+  end
+  let entry = canonical_postage_entry_on_connection(conn, account.account_id, entry)?
   let revoked = Pg.query_values(conn,
     "SELECT statement FROM messenger_revoked_devices WHERE account_id = $1 AND device_id = $2",
     [Binary(account.account_id), Binary(credential.device_id)])?
@@ -413,6 +427,7 @@ fn register_on_connection(conn :: borrow PgConn,
       Binary(entry.mailbox_token),
       Binary(token_hash)
     ])?
+  initialize_postage_mailbox_on_connection(conn, account.account_id, token_hash)?
   seed_registration_prekey_on_connection(conn,
     account.account_id,
     credential.device_id,
@@ -443,7 +458,8 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
           verified.account,
           verified.credential,
           verified.initial_prekey,
-          verified.lapsed) end) do
+          verified.lapsed,
+          false) end) do
         Err(error) -> if String.contains(error, "transparency_log_full") do
           Ok(DeviceLogFull)
         else if String.contains(error, "messenger_device_lapsed") do
@@ -464,6 +480,26 @@ pub fn register_device(pool :: PoolHandle, entry :: DirectoryEntry) -> DeviceWri
       end
     end
   end
+end
+
+# Used by the paid action adapter in its existing spend/effect transaction.
+# Returning any error rolls registration and token spending back together.
+pub fn register_fresh_device_on_connection(conn :: borrow PgConn,
+  entry :: DirectoryEntry) -> DeviceWrite!String do
+  let verified = case verified_registration(entry) do
+    Err(_) -> return Err("invalid_credit_signup_registration")
+    Ok(value) -> value
+  end
+  if verified.lapsed do
+    return Err("invalid_credit_signup_registration")
+  end
+  register_on_connection(conn,
+    verified.entry,
+    verified.account,
+    verified.credential,
+    verified.initial_prekey,
+    false,
+    true)
 end
 
 pub fn resolve_devices(pool :: PoolHandle, username :: String) -> Option<DeviceSet>!String do
@@ -688,5 +724,30 @@ pub fn leave_device(pool :: PoolHandle, value :: DeviceDeparture) -> DeviceWrite
       end
       Ok(result)
     end
+  end
+end
+
+# These helpers share the caller's transaction and account lock. Paid delivery
+# and account policy publication must not resolve through another pooled connection.
+pub fn resolve_account_devices_on_connection(conn :: borrow PgConn,
+  account_id :: Bytes) -> DeviceSet!String do
+  let rows = Pg.query_values(conn,
+    "SELECT username FROM messenger_accounts WHERE account_id = $1 FOR SHARE",
+    [Binary(account_id)])?
+  if List.length(rows) != 1 do
+    return Err("unknown_credit_account")
+  end
+  case resolve_on_connection(conn, text(Map.get(List.head(rows), "username"))?)? do
+    None -> Err("unknown_credit_account")
+    Some(value) -> Ok(value)
+  end
+end
+
+pub fn record_postage_device_set_on_connection(conn :: borrow PgConn,
+  account_id :: Bytes,
+  username :: String) -> Result<(), String> do
+  case record_device_set(conn, account_id, username, false)? do
+    DeviceAccepted -> Ok(nil)
+    _ -> Err("postage_policy_log_failed")
   end
 end

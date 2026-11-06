@@ -1,6 +1,7 @@
+from Tests.PresentationFixture import fixture_load_presentation, fixture_save_presentation
 import File
 from Mobile.Codec import mobile_wide, mobile_write_u64
-from MobileCore import create_account_export, presentation_load_export, presentation_save_export
+from MobileCore import create_account_export
 from Mobile.Presentation import (
   community_change_allowed,
   encode_presented_message,
@@ -8,8 +9,8 @@ from Mobile.Presentation import (
   present_message,
   store_group_anchor
 )
-from Storage.Blobs import load_blob
-from Storage.Keys import platform_key
+from Storage.Blobs import ensure_schema, load_blob
+from Storage.Keys import local_context, platform_key, seal_local
 from Storage.Records import store_updated_blobs
 from Transport.Packet import decode_client_profile
 from Tests.GroupLifecycleWire import group_vectors
@@ -43,8 +44,8 @@ fn exercise() -> Bool!String do
     Bytes.from_utf8("alice"),
     Bytes.from_utf8("data:image/jpeg;base64,/9j/2Q==")
   ])?
-  presentation_save_export(group_vectors([Bytes.from_utf8(path), key, data])?)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+  fixture_save_presentation(group_vectors([Bytes.from_utf8(path), key, data])?)?
+  assert(Bytes.secure_equals(fixture_load_presentation(group_vectors([
       Bytes.from_utf8(path),
       key
     ])?)?,
@@ -85,7 +86,7 @@ fn exercise() -> Bool!String do
     group_id,
     profile.account_id,
     packet)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+  assert(Bytes.secure_equals(fixture_load_presentation(group_vectors([
       Bytes.from_utf8(path),
       group_key
     ])?)?,
@@ -101,13 +102,13 @@ fn exercise() -> Bool!String do
     group_id,
     profile.account_id,
     encode_presented_message(Bytes.empty(), data, forged)?)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+  assert(Bytes.secure_equals(fixture_load_presentation(group_vectors([
       Bytes.from_utf8(path),
       group_key
     ])?)?,
     updated_group))
   let oversized = group_vectors([Bytes.from_utf8("alice"), repeated(97, 12289)?])?
-  case presentation_save_export(group_vectors([Bytes.from_utf8(path), key, oversized])?) do
+  case fixture_save_presentation(group_vectors([Bytes.from_utf8(path), key, oversized])?) do
     Ok(_) -> assert(false)
     Err(_) -> assert(true)
   end
@@ -115,13 +116,13 @@ fn exercise() -> Bool!String do
     Bytes.from_utf8("alice"),
     Bytes.from_utf8("data:image/jpeg;base64,not-an-image?")
   ])?
-  case presentation_save_export(group_vectors([Bytes.from_utf8(path), key, invalid_avatar])?) do
+  case fixture_save_presentation(group_vectors([Bytes.from_utf8(path), key, invalid_avatar])?) do
     Ok(_) -> assert(false)
     Err(_) -> assert(true)
   end
   let removed = group_vectors([Bytes.from_utf8("alice"), Bytes.empty()])?
-  presentation_save_export(group_vectors([Bytes.from_utf8(path), key, removed])?)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+  fixture_save_presentation(group_vectors([Bytes.from_utf8(path), key, removed])?)?
+  assert(Bytes.secure_equals(fixture_load_presentation(group_vectors([
       Bytes.from_utf8(path),
       key
     ])?)?,
@@ -152,8 +153,8 @@ fn exercise_nicknames() -> Bool!String do
     mobile_write_u64(mobile_wide("2")?)?
   ])?
   let before = present_message(path, Bytes.empty(), Bytes.from_utf8("hello"))?
-  presentation_save_export(group_vectors([Bytes.from_utf8(path), key, nickname])?)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+  fixture_save_presentation(group_vectors([Bytes.from_utf8(path), key, nickname])?)?
+  assert(Bytes.secure_equals(fixture_load_presentation(group_vectors([
       Bytes.from_utf8(path),
       key
     ])?)?,
@@ -170,14 +171,17 @@ fn exercise_nicknames() -> Bool!String do
     Bytes.empty(),
     Bytes.empty(),
     encode_presented_message(Bytes.from_utf8("hi"), shared, Bytes.empty())?)?
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+  assert(Bytes.secure_equals(fixture_load_presentation(group_vectors([
       Bytes.from_utf8(path),
       key
     ])?)?,
     nickname))
-  presentation_save_export(group_vectors([Bytes.from_utf8(path), key, Bytes.from_hex("00")?])?)?
-  assert(Bytes.length(presentation_load_export(group_vectors([Bytes.from_utf8(path), key])?)?) == 0)
-  assert(Bytes.secure_equals(presentation_load_export(group_vectors([
+  fixture_save_presentation(group_vectors([Bytes.from_utf8(path), key, Bytes.from_hex("00")?])?)?
+  assert(Bytes.length(fixture_load_presentation(group_vectors([
+    Bytes.from_utf8(path),
+    key
+  ])?)?) == 0)
+  assert(Bytes.secure_equals(fixture_load_presentation(group_vectors([
       Bytes.from_utf8(path),
       Bytes.from_utf8("user/" <> Bytes.to_hex(peer))
     ])?)?,
@@ -218,7 +222,7 @@ fn community_record(name :: String,
 end
 
 fn stored_record(path :: String, group_key :: Bytes) -> Bytes!String do
-  presentation_load_export(group_vectors([Bytes.from_utf8(path), group_key])?)
+  fixture_load_presentation(group_vectors([Bytes.from_utf8(path), group_key])?)
 end
 
 fn ascending_roles(joined :: Bytes, next :: Int, end_at :: Int) -> Bytes!String do
@@ -408,6 +412,352 @@ end
 
 test("community records come first from whoever added this device, then only from the owner or admins") do
   case exercise_community_authority() do
+    Ok(value) -> assert(value)
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+  end
+end
+
+fn reject_authenticated_presentation(path :: String,
+  wrapping_key :: borrow StorageKey,
+  label :: String,
+  request :: Bytes,
+  raw :: Bytes) -> Bool!String do
+  store_updated_blobs(path, [label], [seal_local(raw, wrapping_key, local_context(label)?)?])?
+  case fixture_load_presentation(request) do
+    Ok(_) -> do
+      assert(false)
+      Ok(false)
+    end
+    Err(error) -> do
+      assert(error == "invalid_presentation")
+      Ok(true)
+    end
+  end
+end
+
+fn exercise_authenticated_load_validation() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let path = database_path("presentation-authenticated-load")?
+  let profile = decode_client_profile(create_account_export(group_vectors([
+    Bytes.from_utf8(path),
+    Bytes.from_utf8("alice")
+  ])?)?)?
+  let key = Bytes.from_utf8("user/" <> Bytes.to_hex(profile.account_id))
+  let label = "presentation/v1/user/" <> Bytes.to_hex(profile.account_id)
+  let request = group_vectors([Bytes.from_utf8(path), key])?
+  let wrapping_key = platform_key()?
+  let value_context = local_context(label)?
+  assert(Bytes.length(fixture_load_presentation(request)?) == 0)
+  let valid = group_vectors([Bytes.from_utf8("Alice"), Bytes.empty()])?
+  store_updated_blobs(path, [label], [seal_local(valid, wrapping_key, value_context)?])?
+  assert(Bytes.secure_equals(fixture_load_presentation(request)?, valid))
+  # Authentication alone cannot make a truncated or invalid presentation canonical.
+  assert(reject_authenticated_presentation(path,
+    wrapping_key,
+    label,
+    request,
+    Bytes.from_hex("00000001")?)?)
+  assert(reject_authenticated_presentation(path,
+    wrapping_key,
+    label,
+    request,
+    group_vectors([Bytes.empty(), Bytes.empty()])?)?)
+  store_updated_blobs(path, [label], [seal_local(Bytes.empty(), wrapping_key, value_context)?])?
+  assert(Bytes.length(fixture_load_presentation(request)?) == 0)
+  store_updated_blobs(path, [label], [repeated(9, 64)?])?
+  case fixture_load_presentation(request) do
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "local_state_open_failed")
+  end
+  store_updated_blobs(path, [label], [seal_local(valid, wrapping_key, value_context)?])?
+  assert(Bytes.secure_equals(fixture_load_presentation(request)?, valid))
+  File.delete(path)?
+  Ok(true)
+end
+
+test("presentation loads reject authenticated malformed records while preserving empty, valid and authentication-error results") do
+  case exercise_authenticated_load_validation() do
+    Ok(value) -> assert(value)
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+  end
+end
+
+fn exercise_error_priority() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let wrapping = platform_key()?
+  let path = database_path("private_presentation_error_priority")?
+  ensure_schema(path)?
+  let owner = repeated(1, 32)?
+  let group = repeated(4, 32)?
+  let user_label = "presentation/v1/user/" <> Bytes.to_hex(owner)
+  let group_label = "presentation/v1/group/" <> Bytes.to_hex(group)
+  let anchor_label = "group-anchor/v1/" <> Bytes.to_hex(group)
+  let profile = group_vectors([Bytes.from_utf8("Sender"), Bytes.empty()])?
+  let established = community_record("Owner group", 1, Bytes.from_utf8("[1]"), [owner])?
+  let framed = encode_presented_message(Bytes.from_utf8("body"), profile, established)?
+  consume_presented_message(path, wrapping, owner, group, owner, framed)?
+  let user_before = load_blob(path, user_label)?
+  let group_before = load_blob(path, group_label)?
+  let malformed_user = seal_local(Bytes.from_hex("00000001")?,
+    wrapping,
+    local_context(user_label)?)?
+  store_updated_blobs(path,
+    [user_label, anchor_label],
+    [malformed_user, Bytes.from_utf8("corrupt")])?
+  case presented_message_writes(path, wrapping, owner, group, owner, framed) do
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "invalid_presentation")
+  end
+  assert(Bytes.secure_equals(load_blob(path, user_label)?, malformed_user))
+  assert(Bytes.secure_equals(load_blob(path, group_label)?, group_before))
+  store_updated_blobs(path, [user_label], [user_before])?
+  case presented_message_writes(path, wrapping, owner, group, owner, framed) do
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "local_state_open_failed")
+  end
+  # Preparing a new user ciphertext does not install it when the group fails.
+  assert(Bytes.secure_equals(load_blob(path, user_label)?, user_before))
+  assert(Bytes.secure_equals(load_blob(path, group_label)?, group_before))
+  store_group_anchor(path, wrapping, group, owner)?
+  let fresh = presented_message_writes(path, wrapping, owner, group, owner, framed)?
+  let (_, _, labels, blobs) = fresh
+  assert(List.length(labels) == 2 && List.length(blobs) == 2)
+  assert(Bytes.secure_equals(load_blob(path, user_label)?, user_before))
+  assert(Bytes.secure_equals(load_blob(path, group_label)?, group_before))
+  store_updated_blobs(path, labels, blobs)?
+  assert(Bytes.secure_equals(fixture_load_presentation(group_vectors([
+      Bytes.from_utf8(path),
+      Bytes.from_utf8("user/" <> Bytes.to_hex(owner))
+    ])?)?,
+    profile))
+  assert(Bytes.secure_equals(fixture_load_presentation(group_vectors([
+      Bytes.from_utf8(path),
+      Bytes.from_utf8("group/" <> Bytes.to_hex(group))
+    ])?)?,
+    established))
+  File.delete(path)?
+  Ok(true)
+end
+
+test("independent presentation preparation preserves first error and never commits partial plans") do
+  case exercise_error_priority() do
+    Ok(value) -> assert(value)
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+  end
+end
+
+fn creation_personal_record(name :: Bytes, avatar :: Bytes) -> Bytes!String do
+  group_vectors([name, avatar, mobile_write_u64(mobile_wide("123456789")?)?])
+end
+
+fn creation_load(path :: String, account_id :: Bytes) -> Bytes!String do
+  fixture_load_presentation(group_vectors([
+    Bytes.from_utf8(path),
+    Bytes.from_utf8("user/" <> Bytes.to_hex(account_id))
+  ])?)
+end
+
+fn creation_row_count(path :: String) -> String!String do
+  let database = Sqlite.open(path)?
+  let rows = Sqlite.query(database,
+    "SELECT CAST(count(*) AS TEXT) AS value FROM encrypted_blobs",
+    [])?
+  Sqlite.close(database)
+  Ok(Map.get(List.head(rows), "value"))
+end
+
+fn exercise_created_personal() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let path = database_path("account_creation_personal")?
+  let personal = creation_personal_record(Bytes.from_utf8("Owned name"),
+    Bytes.from_utf8("data:image/jpeg;base64,/9j/2Q=="))?
+  let profile = decode_client_profile(create_account_export(group_vectors([
+    Bytes.from_utf8(path),
+    Bytes.from_utf8("account-name"),
+    personal
+  ])?)?)?
+  assert(Bytes.secure_equals(creation_load(path, profile.account_id)?, personal))
+  let sealed = load_blob(path, "presentation/v1/user/" <> Bytes.to_hex(profile.account_id))?
+  assert(Bytes.length(sealed) > Bytes.length(personal))
+  assert(!Bytes.secure_equals(sealed, personal))
+  let old_personal = group_vectors([Bytes.from_utf8("No revision"), Bytes.empty()])?
+  let old_path = database_path("account_creation_personal_legacy_inner")?
+  let old_profile = decode_client_profile(create_account_export(group_vectors([
+    Bytes.from_utf8(old_path),
+    Bytes.from_utf8("old-inner"),
+    old_personal
+  ])?)?)?
+  assert(Bytes.secure_equals(creation_load(old_path, old_profile.account_id)?, old_personal))
+  File.delete(old_path)?
+  File.delete(path)?
+  Ok(true)
+end
+
+test("account creation atomically persists the supplied personal name avatar and revision") do
+  case exercise_created_personal() do
+    Ok(value) -> assert(value)
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+  end
+end
+
+fn exercise_created_personal_maximum() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let path = database_path("account_creation_personal_maximum")?
+  let avatar = Bytes.concat(Bytes.from_utf8("data:image/jpeg;base64,"), repeated(65, 12265)?)?
+  assert(Bytes.length(avatar) == 12288)
+  let personal = creation_personal_record(repeated(78, 96)?, avatar)?
+  assert(Bytes.length(personal) == 12404)
+  let profile = decode_client_profile(create_account_export(group_vectors([
+    Bytes.from_utf8(path),
+    Bytes.from_utf8("maximum"),
+    personal
+  ])?)?)?
+  assert(Bytes.secure_equals(creation_load(path, profile.account_id)?, personal))
+  File.delete(path)?
+  Ok(true)
+end
+
+test("account creation accepts the inclusive maximum personal record") do
+  case exercise_created_personal_maximum() do
+    Ok(value) -> assert(value)
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+  end
+end
+
+fn creation_rejected(path :: String, wire :: Bytes) -> Bool!String do
+  assert(Result.is_err(create_account_export(wire)))
+  assert(Result.is_err(load_blob(path, "profile/v1")))
+  assert(Result.is_err(load_blob(path, "account-signing-key/v1")))
+  File.delete(path)?
+  Ok(true)
+end
+
+fn exercise_creation_frame_refusal() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let path = database_path("account_creation_personal_invalid")?
+  let base = [Bytes.from_utf8(path), Bytes.from_utf8("invalid")]
+  creation_rejected(path, group_vectors(base ++ [Bytes.empty()])?)?
+  let personal = creation_personal_record(Bytes.from_utf8("valid"), Bytes.empty())?
+  let wire = group_vectors(base ++ [personal])?
+  creation_rejected(path, Bytes.slice(wire, 0, Bytes.length(wire) - 1)?)?
+  creation_rejected(path, group_vectors(base ++ [personal, Bytes.empty()])?)?
+  creation_rejected(path, group_vectors(base ++ [repeated(65, 12405)?])?)?
+  creation_rejected(path, repeated(0, 16577)?)?
+  # A present malformed record may not be mistaken for absent legacy data.
+  creation_rejected(path, group_vectors(base ++ [Bytes.from_hex("00000000")?])?)?
+  Ok(true)
+end
+
+test("account creation rejects empty truncated trailing and oversized optional presentation frames") do
+  case exercise_creation_frame_refusal() do
+    Ok(value) -> assert(value)
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+  end
+end
+
+fn exercise_creation_personal_only() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let ordinary = database_path("account_creation_personal_general_control")?
+  let profile = decode_client_profile(create_account_export(group_vectors([
+    Bytes.from_utf8(ordinary),
+    Bytes.from_utf8("general")
+  ])?)?)?
+  let key = Bytes.from_utf8("user/" <> Bytes.to_hex(profile.account_id))
+  let owner = repeated(1, 32)?
+  let admin = repeated(2, 32)?
+  let role62 = group_vectors([
+    Bytes.from_utf8("A"),
+    Bytes.empty(),
+    mobile_write_u64(mobile_wide("0")?)?,
+    Bytes.from_utf8("x"),
+    owner
+  ])?
+  let role94 = group_vectors([
+    Bytes.from_utf8("A"),
+    Bytes.empty(),
+    mobile_write_u64(mobile_wide("0")?)?,
+    Bytes.from_utf8("x"),
+    Bytes.concat(owner, admin)?
+  ])?
+  assert(Bytes.length(role62) == 62 && Bytes.length(role94) == 94)
+  # Existing generic presentation storage deliberately still accepts communities.
+  fixture_save_presentation(group_vectors([Bytes.from_utf8(ordinary), key, role62])?)?
+  assert(Bytes.secure_equals(creation_load(ordinary, profile.account_id)?, role62))
+  fixture_save_presentation(group_vectors([Bytes.from_utf8(ordinary), key, role94])?)?
+  assert(Bytes.secure_equals(creation_load(ordinary, profile.account_id)?, role94))
+  let path = database_path("account_creation_personal_roles")?
+  creation_rejected(path,
+    group_vectors([Bytes.from_utf8(path), Bytes.from_utf8("personal"), role62])?)?
+  creation_rejected(path,
+    group_vectors([Bytes.from_utf8(path), Bytes.from_utf8("personal"), role94])?)?
+  File.delete(ordinary)?
+  Ok(true)
+end
+
+test("personal signup refuses community roles while generic presentation records retain them") do
+  case exercise_creation_personal_only() do
+    Ok(value) -> assert(value)
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+  end
+end
+
+fn exercise_creation_personal_rollback() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let control = database_path("account_creation_personal_count")?
+  let legacy = decode_client_profile(create_account_export(group_vectors([
+    Bytes.from_utf8(control),
+    Bytes.from_utf8("legacy")
+  ])?)?)?
+  assert(Bytes.length(creation_load(control, legacy.account_id)?) == 0)
+  let count = creation_row_count(control)?
+  let path = database_path("account_creation_personal_rollback")?
+  ensure_schema(path)?
+  let database = Sqlite.open(path)?
+  Sqlite.execute(database,
+    "CREATE TRIGGER fail_extra_account_record BEFORE INSERT ON encrypted_blobs WHEN (SELECT count(*) FROM encrypted_blobs) >= "
+      <> count
+      <> " BEGIN SELECT RAISE(ABORT, 'synthetic additional account record failure'); END",
+    [])?
+  Sqlite.close(database)
+  let personal = creation_personal_record(Bytes.from_utf8("Atomic"), Bytes.empty())?
+  let request = group_vectors([Bytes.from_utf8(path), Bytes.from_utf8("atomic"), personal])?
+  assert(Result.is_err(create_account_export(request)))
+  assert(creation_row_count(path)? == "0")
+  assert(Result.is_err(load_blob(path, "profile/v1")))
+  assert(Result.is_err(load_blob(path, "account-signing-key/v1")))
+  let reopened = Sqlite.open(path)?
+  Sqlite.execute(reopened, "DROP TRIGGER fail_extra_account_record", [])?
+  Sqlite.close(reopened)
+  let profile = decode_client_profile(create_account_export(request)?)?
+  assert(Bytes.secure_equals(creation_load(path, profile.account_id)?, personal))
+  File.delete(path)?
+  File.delete(control)?
+  Ok(true)
+end
+
+test("optional personal record failure rolls back the whole account and permits a clean retry") do
+  case exercise_creation_personal_rollback() do
     Ok(value) -> assert(value)
     Err(error) -> do
       println(error)

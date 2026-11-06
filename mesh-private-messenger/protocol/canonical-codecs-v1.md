@@ -230,6 +230,13 @@ The total encoded inner envelope is at most 65,536 bytes, even when individual
 fields remain below their own ceilings. Larger content uses encrypted
 attachments.
 
+Optional inner-envelope extension `1` carries the contact deposit address.
+Optional extension `2` carries the newest verified key-log tree size (`u64`)
+and root (`32` bytes), exactly 40 bytes total. Unknown optional extensions
+remain ignorable by older clients. Direct message type `5` carries the bounded
+encrypted checkpoint controls in [checkpoint-gossip-v1.md](checkpoint-gossip-v1.md);
+it does not create a message-history entry and only uses an established session.
+
 A direct conversation is named after the two accounts in it: `conversation_id`
 is the first 16 bytes of SHA-256 over `mesh-msg/mobile/conversation/v2`
 followed by both account IDs in ascending byte order. Every device of either

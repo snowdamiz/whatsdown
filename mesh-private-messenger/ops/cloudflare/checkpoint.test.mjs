@@ -30,8 +30,12 @@ test('witness checkpoints survive restarts and reject stale writes', async () =>
     assert.equal((await put('second', 'none')).status, 409);
     assert.equal((await put('second', createHash('sha256').update('first').digest('hex'))).status, 204);
     assert.equal(await (await mf.dispatchFetch('http://checkpoint.internal/')).text(), 'second');
+    assert.equal((await mf.dispatchFetch('http://checkpoint.internal/evidence/history', { method: 'PUT', body: '{"first":true}' })).status, 204);
+    assert.equal((await mf.dispatchFetch('http://checkpoint.internal/evidence/history', { method: 'PUT', body: '{"replacement":true}' })).status, 204);
     await mf.dispose();
     mf = new Miniflare(options);
+    assert.deepEqual(await (await mf.dispatchFetch('http://checkpoint.internal/evidence/history')).json(), { first: true });
+    assert.equal((await mf.dispatchFetch('http://checkpoint.internal/evidence/history', { method: 'PUT', body: 'x'.repeat(2049) })).status, 400);
     assert.equal(await (await mf.dispatchFetch('http://checkpoint.internal/')).text(), 'second');
     assert.equal((await put('first', 'none')).status, 409);
   } finally {
@@ -50,7 +54,8 @@ test('native witness accepts an empty new log, persists signed HTTP checkpoints,
   const key = createPrivateKey({ key: Buffer.from(`302e020100300506032b657004220420${seed}`, 'hex'), format: 'der', type: 'pkcs8' });
   const publicKey = createPublicKey(key).export({ format: 'der', type: 'spki' }).subarray(-32);
   const one = Buffer.alloc(8); one.writeBigUInt64BE(1n);
-  const fields = Buffer.concat([one, one, Buffer.alloc(32, 5), Buffer.alloc(32), one, publicKey]);
+  const timestamp = Buffer.alloc(8); timestamp.writeBigUInt64BE(BigInt(Date.now()));
+  const fields = Buffer.concat([one, one, Buffer.alloc(32, 5), Buffer.alloc(32), timestamp, publicKey]);
   const signature = sign(null, Buffer.concat([Buffer.from('mesh-key-transparency-v1'), Buffer.from([0, 1]), fields]), key);
   const checkpoint = Buffer.concat([Buffer.from([1]), Buffer.from('KTK'), fields, signature]);
   const mf = new Miniflare(convertV4MiniflareOptions({

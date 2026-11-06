@@ -1,0 +1,6 @@
+[package]
+name="network-counter-proof"
+version="0.1.0"
+[dependencies]
+mobile-core={path="../../../packages/mobile-core"}
+messenger-protocol={path="../../../packages/messenger-protocol"}

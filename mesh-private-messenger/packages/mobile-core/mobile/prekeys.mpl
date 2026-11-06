@@ -864,3 +864,15 @@ pub fn reconcile_prekeys(request :: MobilePrekeyReconcileRequest) -> Bytes!Strin
     end
   end
 end
+
+## Captured canonical pools only. No migration or inferred-active fallback.
+pub fn open_captured_prekey_pools(pool :: Bytes,
+  active :: Bytes,
+  key :: borrow StorageKey) -> (List<MobileOneTimePrekey>, List<U64>)!String do
+  let entries = decode_prekey_pool(open_local(pool, key, local_context("one-time-prekeys/v1")?)?)?
+  let ids = decode_active_prekey_pool(open_local(active,
+      key,
+      local_context("one-time-prekey-active/v1")?)?,
+    mobile_prekey_ids(entries, 0, []))?
+  Ok((entries, ids))
+end

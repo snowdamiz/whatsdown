@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "scope": "Public actual complete SBF-owned accounts; local controlled banks only",
+  "sealed_sbf_manifests": [
+    {
+      "evidence": "public-history-index-sbf-fresh/manifest.json",
+      "sha256": "df59bbdb91cfea0bc2bcaf7adeee198b7ed835fd388eb93d5d7d44ea0646fe66"
+    },
+    {
+      "evidence": "public-history-index-legacy-sbf-fresh/manifest.json",
+      "sha256": "106d2cbcdfdb193895766cd74ee8164862b528fc339437d7c43420ca08f0db70"
+    },
+    {
+      "evidence": "public-history-index-later-sbf-qualified/manifest.json",
+      "sha256": "8cc3241f055c6aa5d66981e45ea32e645c2d23c1c580d1143c397852b78caad9"
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "history-judge-later.json",
+      "sha256": "82c2481d3505edcc3f104a068b5839a88cbf0190e2f46e9859a125dd1bd06ee6"
+    },
+    {
+      "file": "history-judge.json",
+      "sha256": "06bad56cef1c2544fb58e479d2ddd930505078676681c9b401e532015c132a1f"
+    },
+    {
+      "file": "history-legacy.json",
+      "sha256": "4f567f5e2a628ef8ac2f6a52d42f5d29595ed2d99fd3342a8b6cb0c327bf2f33"
+    },
+    {
+      "file": "history-token-later.json",
+      "sha256": "b9099fbe0a6e2e20f3e9af35fc3e1f1efefa442e8e574340ce222df46e95fde1"
+    },
+    {
+      "file": "history-token.json",
+      "sha256": "8a5d14d0bf1ed27dc75080bf70dd195ea739123b581801475961a5ea64e788e0"
+    }
+  ]
+}

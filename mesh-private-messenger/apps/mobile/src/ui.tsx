@@ -1,3 +1,4 @@
+import { ActivityModal, useActivityOverlayViewport, useActivityOverlayInteractive } from "./activity-overlays";
 import {
   Children,
   Fragment,
@@ -20,7 +21,6 @@ import {
   PanResponder,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -30,13 +30,17 @@ import {
   type AccessibilityRole,
   type AccessibilityState,
   type Insets,
+  type LayoutChangeEvent,
   type StyleProp,
+  type ReturnKeyTypeOptions,
+  type TextInputInstance,
   type TextStyle,
+  type ViewInstance,
   type ViewProps,
   type ViewStyle,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { initialWindowMetrics } from "react-native-safe-area-context";
+import { initialWindowMetrics, useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, {
   Circle,
   Defs,
@@ -53,7 +57,7 @@ import Svg, {
 import { MAXIMUM_ATTACHMENTS } from "./codec";
 import { mentionAt, completeMention, mentionSpans } from "./mentions";
 import { placeMenu, type Frame } from "./message-menu";
-import { tabBarClearance } from "./phone-chrome";
+import { tabBarFoot } from "./phone-chrome";
 import { scatterDoodles } from "./wallpaper";
 import { REPLY_SWIPE_TRIGGER, replySwipeOffset, startsReplySwipe } from "./reply-swipe";
 import { describeStatus, type MessageStatus } from "./receipts";
@@ -77,6 +81,11 @@ import {
   WINDOWS_CONTROLS_WIDTH,
 } from "./desktop-layout";
 import { formatClock, groupDigits, initials } from "./format";
+import type { Translate } from "./i18n";
+import { KeyboardAvoidingView } from "./keyboard";
+import { useI18n } from "./language";
+import { ScrollView } from "./scroll";
+import { Sheet } from "./sheet";
 import { Glass, glassBackdrop, useLiquidGlass, useMaterialized } from "./glass";
 import type { Direction } from "./navigation";
 import { qrFrames } from "./qr";
@@ -228,6 +237,8 @@ const paths = {
   reply: "M9.5 7 4.5 12l5 5M4.5 12H14a5.5 5.5 0 0 1 5.5 5.5V19",
   copy: "M9.5 8h8A1.5 1.5 0 0 1 19 9.5v9a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 8 18.5v-9A1.5 1.5 0 0 1 9.5 8ZM16 8V5.5A1.5 1.5 0 0 0 14.5 4h-8A1.5 1.5 0 0 0 5 5.5v9A1.5 1.5 0 0 0 6.5 16H8",
   megaphone: "M4.5 9.5h3L14 5v14l-6.5-4.5h-3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1ZM17.5 9a4 4 0 0 1 0 6M8 14.5 9.5 20",
+  globe:
+    "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17ZM3.8 9.5h16.4M3.8 14.5h16.4M12 3.5c-2.3 2.4-3.5 5.2-3.5 8.5s1.2 6.1 3.5 8.5M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5",
 };
 export type IconName = keyof typeof paths | "qr";
 
@@ -943,48 +954,58 @@ export function IconButton({
   );
 }
 
-// Controls float over content instead of sitting above it, so lists scroll
-// underneath the glass. These are the heights content must leave clear.
-const tabHeight = control["2xl"];
-const tabPillPadding = space[1.5];
-const tabGap = space[3];
-const tabBarPadding = tabBarClearance(Platform.OS, initialWindowMetrics?.insets.bottom ?? 0);
-const tabBarHeight = tabHeight + 2 * (tabPillPadding + 1);
+// Headers float over content instead of sitting above it, so lists scroll
+// underneath them. These are the heights content must leave clear.
+//
+// The phone's tab bar is docked below the pane rather than floating over it:
+// each tab is its glyph over its name, the chosen one in ink and the rest
+// in grey, with no colour or shape beyond that to mark it.
+const tabGlyphWidth = space[12];
+const tabGlyphHeight = space[7];
+const tabBarPadding = space[1.5];
+// A phone's content runs on under the status bar, so a floating header covers
+// that strip too and pushes its controls below it. A desktop window has none.
+const statusInset = isDesktop ? 0 : initialWindowMetrics?.insets.top ?? 0;
 const paneHeaderPadding = space[4];
 // Centre pane controls on the inset sidebar's toolbar.
 const paneHeaderHeight = TOOLBAR_HEIGHT + 2 * SIDEBAR_INSET;
 const paneContentTop = paneHeaderHeight + space[3];
 export const chrome = {
+  // The strip a phone's status bar takes at the top of every screen.
+  status: statusInset,
   // A phone header holds a hit-target-sized control with breathing room; the
-  // large-title and chat headers give theirs more.
-  header: isDesktop ? paneHeaderHeight : sizes.hit + 2 * space[1.5],
-  largeHeader: isDesktop ? paneHeaderHeight : sizes.hit + 2 * space[2.5],
-  chatHeader: isDesktop ? paneHeaderHeight : sizes.avatar.md + 2 * space[2],
+  // large-title and chat headers give theirs more. Each includes the status
+  // bar's strip, so content set below it starts clear of both.
+  header: isDesktop ? paneHeaderHeight : statusInset + sizes.hit + 2 * space[1.5],
+  largeHeader: isDesktop ? paneHeaderHeight : statusInset + sizes.hit + 2 * space[2.5],
+  chatHeader: isDesktop ? paneHeaderHeight : statusInset + sizes.avatar.md + 2 * space[2],
   // The desktop sidebar's strip, with the list switch and actions in it.
   sidebar: TOOLBAR_HEIGHT,
   sidebarControl: control.xs,
-  tabBar: tabBarHeight,
-  // Space a list leaves at its end so the last row clears the floating bar.
-  tabBarSpace: tabBarHeight + tabBarPadding + space[2.5],
+  // Space a list leaves at its end, above the docked tab bar.
+  tabBarSpace: space[6],
 };
 
-// How far the pane's colour reaches past a floating edge. A phone's larger
-// type needs a longer ramp than a dense desktop pane.
-const edgeFade = isDesktop ? TOOLBAR_FADE : space[8];
+// How far the pane's colour reaches past a floating edge. On a phone it ends
+// where content at rest begins, the closest a list sits to its header.
+const edgeFade = isDesktop ? TOOLBAR_FADE : space[1.5];
 
 // How the pane's colour fades out along a floating edge: [offset, opacity].
 const edgeRamp = [[0, 1], [0.45, 0.86], [0.75, 0.4], [1, 0]] as const;
 
 // The pane's own colour bleeding into content along a floating edge, so text
-// stays legible as rows pass beneath the controls.
+// stays legible as rows pass beneath the controls. `hold` is how much of it,
+// from the edge in, is the pane colour outright before the fade begins.
 function ScrollEdge({
   side,
   height,
   color,
+  hold = 0,
 }: {
   side: "top" | "bottom";
   height: number;
   color?: string;
+  hold?: number;
 }) {
   const { colors } = useTheme();
   const styles = useStyles();
@@ -1000,9 +1021,10 @@ function ScrollEdge({
   const doodles = tone === colors.canvas;
   const [doodleX, doodleY] = [-frame.x, -(towardsContent ? frame.y : frame.y + frame.height - height)];
   const doodleId = `${id}-doodles-${Math.round(doodleX)}-${Math.round(doodleY)}`;
+  const held = Math.min(hold / height, 1);
   const ramp = (stopColor: string) =>
     edgeRamp.map(([offset, stopOpacity]) => (
-      <Stop key={offset} offset={offset} stopColor={stopColor} stopOpacity={stopOpacity} />
+      <Stop key={offset} offset={held + offset * (1 - held)} stopColor={stopColor} stopOpacity={stopOpacity} />
     ));
   return (
     <View
@@ -1091,9 +1113,12 @@ function Toolbar({
   const glass = useLiquidGlass();
   const solid = isDesktop && !glass;
   return (
-    <View style={[styles.chrome, { height }]} pointerEvents={toolbarRow}>
+    <View style={[styles.chrome, { height, paddingTop: statusInset }]} pointerEvents={toolbarRow}>
       {isDesktop && glass ? <Frost height={height} tail={Math.min(TOOLBAR_BLUR_TAIL, fade)} /> : null}
-      {solid ? null : <ScrollEdge side="top" height={height + fade} color={pane} />}
+      {/* On a phone the status bar's strip is the pane colour outright, and
+          one ramp runs from it, across the controls, to where content at rest
+          begins. */}
+      {solid ? null : <ScrollEdge side="top" height={height + fade} hold={statusInset} color={pane} />}
       {isDesktop ? (
         <View {...dragRegion} style={[StyleSheet.absoluteFill, { right: scrollbarGutter }, solid && { backgroundColor: pane }]} />
       ) : null}
@@ -1155,21 +1180,37 @@ export function DragStrip() {
 
 // A screen with floating chrome. Content renders first so the bar paints on
 // top of it without relying on zIndex; content styles reserve the bar's height.
+// A screen with a composer (`keyboard`) makes room for the keyboard under its
+// content, so the composer rides on it. The room goes with the screen: an
+// avoiding view switched off mid-animation keeps the padding it last had,
+// which left the next screen cut off a keyboard's height above the tab bar.
 export function Page({
   header,
   children,
   style,
+  keyboard = false,
 }: {
   header?: ReactNode;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  keyboard?: boolean;
 }) {
   const frame = useContext(WallpaperFrame);
   const [height, setHeight] = useState(frame.height);
+  // The floating edges hug the part of the screen above the keyboard.
+  const measure = (event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height);
   return (
     <WallpaperFrame.Provider value={{ ...frame, height }}>
-      <View style={[layout.flex, style]} onLayout={(event) => setHeight(event.nativeEvent.layout.height)}>
-        {children}
+      <View style={[layout.flex, style]} onLayout={keyboard ? undefined : measure}>
+        {keyboard ? (
+          // The pane finds where it sits in the window itself, under the top
+          // inset and any banner, so the composer lands exactly on the keyboard.
+          <KeyboardAvoidingView behavior="padding" automaticOffset style={layout.flex}>
+            <View style={layout.flex} onLayout={measure}>
+              {children}
+            </View>
+          </KeyboardAvoidingView>
+        ) : children}
         {header}
       </View>
     </WallpaperFrame.Provider>
@@ -1177,13 +1218,13 @@ export function Page({
 }
 
 // The doodles behind every screen: the app's own glyphs, scattered over a
-// 360pt tile (see wallpaper.ts).
+// 480pt tile (see wallpaper.ts).
 const doodleGlyphs: (keyof typeof paths)[] = [
   "chat", "lock", "smile", "camera", "paperclip", "key", "bell", "image", "moon", "clock",
   "checks", "shield", "sun", "reply", "file", "link", "timer", "inbox", "person", "device",
 ];
-const doodleTile = 360;
-const doodles = scatterDoodles(doodleTile, doodleGlyphs.length, 5);
+const doodleTile = 480;
+const doodles = scatterDoodles(doodleTile, doodleGlyphs.length, 3);
 
 // Where the pane a floating edge hugs sits in the window, and how tall it is,
 // so the edge can line its doodles up with the wallpaper behind it. Taken
@@ -1234,7 +1275,7 @@ const toolbarButton = "tonal";
 export function Header({
   title,
   onBack,
-  backLabel = "Back",
+  backLabel,
   action,
   inset = 0,
 }: {
@@ -1245,11 +1286,12 @@ export function Header({
   // Space for the macOS window buttons when this header spans the window.
   inset?: number;
 }) {
+  const { t } = useI18n();
   const styles = useStyles();
   const back = onBack ? (
     <IconButton
       name="back"
-      label={backLabel}
+      label={backLabel ?? t("Back")}
       onPress={onBack}
       variant={toolbarButton}
       size={isDesktop ? sizes.avatar.xs : sizes.avatar.md}
@@ -1351,7 +1393,7 @@ export function ChatHeader({
   group = false,
   mark,
   onBack,
-  backLabel = "Back",
+  backLabel,
   onAvatarPress,
   avatarLabel,
   onInfo,
@@ -1371,6 +1413,7 @@ export function ChatHeader({
   infoLabel: string;
 }) {
   const { type } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const avatarSize = isDesktop ? sizes.avatar.xs : sizes.avatar.md;
   const picture = <Avatar name={name} uri={avatar} colorSeed={colorSeed} size={avatarSize} group={group} />;
@@ -1379,7 +1422,7 @@ export function ChatHeader({
       {onBack ? (
         <IconButton
           name="back"
-          label={backLabel}
+          label={backLabel ?? t("Back")}
           onPress={onBack}
           variant={toolbarButton}
           size={avatarSize}
@@ -1442,11 +1485,12 @@ export function Avatar({
   group?: boolean;
 }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const tone = avatarTone(colorSeed ?? name);
   const [failedUri, setFailedUri] = useState<string>();
   if (uri && uri !== failedUri) return (
-    <Image source={{ uri }} accessibilityLabel={name ? `${name} photo` : "Photo"} onError={() => setFailedUri(uri)}
+    <Image source={{ uri }} accessibilityLabel={name ? t("{name} photo", { name }) : t("Photo")} onError={() => setFailedUri(uri)}
       style={{ width: size, height: size, borderRadius: size / 2 }} resizeMode="cover" />
   );
   const gradientId = `avatar-${tone.index}`;
@@ -1512,6 +1556,7 @@ export function PhotoButton({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const badge = Math.round(size * 0.34);
   const picture = (
@@ -1531,7 +1576,7 @@ export function PhotoButton({
   if (!editable) return picture;
   return (
     <Tap
-      label={uri ? "Change photo" : "Add photo"}
+      label={uri ? t("Change photo") : t("Add photo")}
       onPress={onPress}
       disabled={disabled || busy}
       dimDisabled={false}
@@ -1666,6 +1711,11 @@ export function Badge({
   );
 }
 
+// Whether the sheet a field sits in has come to rest; null outside one.
+// Android shows no keyboard for a field focused while its sheet is still
+// coming up, so there an autofocused field waits and focuses itself then.
+const DialogShown = createContext<boolean | null>(null);
+
 export function Field({
   label,
   value,
@@ -1678,6 +1728,8 @@ export function Field({
   maxLength,
   error,
   onSubmitEditing,
+  returnKeyType,
+  inputRef,
 }: {
   label: string;
   value: string;
@@ -1691,11 +1743,22 @@ export function Field({
   // What is wrong with the value, said where the hint would be.
   error?: string;
   onSubmitEditing?: () => void;
+  // "next" keeps the keyboard up while submitting hands focus to the next field.
+  returnKeyType?: ReturnKeyTypeOptions;
+  inputRef?: RefObject<TextInputInstance | null>;
 }) {
   const { colors, type } = useTheme();
   const styles = useStyles();
   const [focused, setFocused] = useState(false);
   const focus = useFocusProgress(focused);
+  const ownInput = useRef<TextInputInstance | null>(null);
+  const input = inputRef ?? ownInput;
+  const shown = useContext(DialogShown);
+  const interactive = useActivityOverlayInteractive();
+  const focusOnShow = autoFocus && shown !== null && Platform.OS === "android";
+  useEffect(() => {
+    if (interactive && focusOnShow && shown && !input.current?.isFocused()) input.current?.focus();
+  }, [shown, interactive, focusOnShow, input]);
   return (
     <View style={styles.field}>
       <Text style={type.label}>{label}</Text>
@@ -1719,17 +1782,20 @@ export function Field({
         />
         {prefix ? <Text style={styles.inputPrefix}>{prefix}</Text> : null}
         <TextInput
+          ref={input}
           accessibilityLabel={label}
           testID={label}
           autoCapitalize="none"
           autoCorrect={false}
-          autoFocus={autoFocus}
+          autoFocus={interactive && autoFocus && !focusOnShow}
           maxLength={maxLength}
           multiline={multiline}
           onBlur={() => setFocused(false)}
           onChangeText={onChangeText}
-          onFocus={() => setFocused(true)}
+          onFocus={() => { if (!interactive) { input.current?.blur(); return; } setFocused(true); }}
           onSubmitEditing={onSubmitEditing}
+          returnKeyType={returnKeyType}
+          submitBehavior={returnKeyType === "next" ? "submit" : undefined}
           placeholder={placeholder}
           placeholderTextColor={colors.text3}
           selectionColor={colors.accent}
@@ -1763,16 +1829,17 @@ export function RecipientField({
   autoFocus?: boolean;
 }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const [focused, setFocused] = useState(false);
   const focus = useFocusProgress(focused);
   return (
     <View style={styles.recipient}>
       <FocusRing progress={focus} radius={isDesktop ? radius.md : radius.pill} />
-      <Text style={styles.recipientLabel}>To</Text>
+      <Text style={styles.recipientLabel}>{t("To")}</Text>
       <Text style={styles.recipientPrefix}>@</Text>
       <TextInput
-        accessibilityLabel="Username"
+        accessibilityLabel={t("Username")}
         testID="Username"
         value={value}
         onBlur={() => setFocused(false)}
@@ -1781,7 +1848,7 @@ export function RecipientField({
         onSubmitEditing={onSubmitEditing}
         submitBehavior="submit"
         returnKeyType="next"
-        placeholder="exact username"
+        placeholder={t("exact username")}
         placeholderTextColor={colors.text3}
         selectionColor={colors.accent}
         autoCapitalize="none"
@@ -1934,11 +2001,12 @@ export function Row({
         </View>
       ) : null)}
       <View style={layout.flex}>
-        <Text numberOfLines={1} style={[type.bodyStrong, { color: titleColor }]}>
+        {/* Room for a second line, which languages longer than English need. */}
+        <Text numberOfLines={2} style={[type.bodyStrong, { color: titleColor }]}>
           {title}
         </Text>
         {subtitle ? (
-          <Text numberOfLines={2} style={type.footnote}>
+          <Text numberOfLines={3} style={type.footnote}>
             {subtitle}
           </Text>
         ) : null}
@@ -2087,7 +2155,10 @@ export function Toggle({
         value={value}
         disabled={disabled}
         onValueChange={onValueChange}
-        trackColor={{ true: colors.accent }}
+        // Android tints an untold thumb with the system theme's own accent,
+        // a green on a blue track; it takes the white iOS draws instead.
+        trackColor={{ true: colors.accent, false: Platform.OS === "android" ? colors.elevated : undefined }}
+        thumbColor={Platform.OS === "android" ? colors.white : undefined}
       />
     );
   }
@@ -2131,22 +2202,32 @@ export function Dialog({
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!visible) setShown(false);
+  }, [visible]);
+  // A phone's panel is a sheet: the system's own on iPhone, one drawn to
+  // match it elsewhere (sheet.tsx). Its grabber, a swipe down, the scrim
+  // and the back gesture all close it, so it needs no close button.
+  if (!isDesktop) {
+    return (
+      <Sheet visible={visible} label={label} onClose={onClose} onShown={() => setShown(true)} style={style}>
+        <DialogShown.Provider value={shown}>{children}</DialogShown.Provider>
+      </Sheet>
+    );
+  }
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType={isDesktop ? "fade" : "slide"}
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.dialogScrim}>
         {/* The disc is the close control assistive technology reaches; the
-            scrim answers a tap outside without announcing itself. */}
+            scrim answers a click outside without announcing itself. */}
         <Pressable accessible={false} importantForAccessibility="no" onPress={onClose} style={StyleSheet.absoluteFill} />
         <View role="dialog" accessibilityViewIsModal accessibilityLabel={label} style={[styles.dialog, style]}>
           {children}
           <Tap
-            label="Close"
+            label={t("Close")}
             onPress={onClose}
             hitSlop={space[2]}
             scaleTo={0.94}
@@ -2176,6 +2257,7 @@ export function SafetyNumber({
   value: string;
   tone?: "success" | "warning" | "muted";
 }) {
+  const { t } = useI18n();
   const styles = useStyles();
   const groups = groupDigits(value, 4);
   const lines = Array.from({ length: Math.ceil(groups.length / 4) }, (_, line) =>
@@ -2183,7 +2265,7 @@ export function SafetyNumber({
   return (
     <View
       accessible
-      accessibilityLabel={`Safety number ${groups.join(" ")}`}
+      accessibilityLabel={t("Safety number {number}", { number: groups.join(" ") })}
       style={[
         styles.safetyWell,
         tone === "success" && styles.safetyWellVerified,
@@ -2213,6 +2295,7 @@ export function Notice({
   onDismiss?: () => void;
 }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const color =
     tone === "error" ? colors.danger : tone === "warning" ? colors.warning : colors.accent;
@@ -2228,7 +2311,7 @@ export function Notice({
       <Icon name={tone === "info" ? "shield" : "warning"} color={color} size={sizes.icon.lg} />
       <Text style={[styles.noticeText, tone !== "info" && { color }]}>{text}</Text>
       {onDismiss ? (
-        <Tap label="Dismiss" onPress={onDismiss} hitSlop={space[3]} pressedOpacity={0.55}>
+        <Tap label={t("Dismiss")} onPress={onDismiss} hitSlop={space[3]} pressedOpacity={0.55}>
           <Icon name="close" size={sizes.icon.md} color={color} />
         </Tap>
       ) : null}
@@ -2267,10 +2350,18 @@ export function EmptyState({
 }) {
   const { colors } = useTheme();
   const styles = useStyles();
+  // What the space will hold, drawn as the app draws it, then a title and
+  // its sentence, then what to do, set straight on the screen.
   return (
     <View style={styles.empty}>
-      <Reveal style={styles.emptyIconWrap}>
-        <Icon name={icon} size={sizes.icon["2xl"]} color={colors.text3} strokeWidth={1.75} />
+      <Reveal style={styles.emptyArt}>
+        {icon === "chat" || icon === "compose" ? (
+          <EmptyThread />
+        ) : icon === "groups" ? (
+          <EmptyMembers />
+        ) : (
+          <Icon name={icon} size={sizes.icon["2xl"]} color={colors.text3} strokeWidth={1.75} />
+        )}
       </Reveal>
       <Reveal delay={70}>
         <Text style={styles.emptyTitle}>{title}</Text>
@@ -2288,6 +2379,38 @@ export function EmptyState({
           {action}
         </Reveal>
       ) : null}
+    </View>
+  );
+}
+
+// A conversation still to come: one message and its answer, their words held
+// as quiet bars, in the shapes a thread gives them.
+function EmptyThread() {
+  const styles = useStyles();
+  return (
+    <View style={styles.emptyThread} accessible={false} importantForAccessibility="no-hide-descendants">
+      <View style={[styles.emptyBubble, styles.emptyBubbleReceived]}>
+        <View style={[styles.emptyLine, styles.emptyLineReceived, { width: space[12] + space[8] }]} />
+      </View>
+      <View style={[styles.emptyBubble, styles.emptyBubbleSent]}>
+        <View style={[styles.emptyLine, styles.emptyLineSent, { width: space[12] + space[2] }]} />
+      </View>
+    </View>
+  );
+}
+
+// A group still to form: the people it gathers, as their avatars stand
+// together in a member list.
+function EmptyMembers() {
+  const styles = useStyles();
+  return (
+    <View style={styles.emptyMembers} accessible={false} importantForAccessibility="no-hide-descendants">
+      {/* Seeds chosen for three different hues: violet, pink and green. */}
+      {[["A", "empty-A0"], ["M", "empty-M0"], ["S", "empty-S1"]].map(([letter, seed], index) => (
+        <View key={letter} style={[styles.emptyMember, index > 0 && styles.emptyMemberOverlap]}>
+          <Avatar name={letter!} colorSeed={seed} size={sizes.avatar.lg} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -2336,6 +2459,7 @@ function ComposerAttachmentChip({
   disabled: boolean;
 }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   return (
     <Reveal style={styles.composerAttachment}>
@@ -2360,7 +2484,7 @@ function ComposerAttachmentChip({
       </View>
       <IconButton
         name="close"
-        label={`Remove ${attachment.filename}`}
+        label={t("Remove {name}", { name: attachment.filename })}
         variant="plain"
         glass={false}
         size={isDesktop ? control.xs : sizes.tile.md}
@@ -2378,14 +2502,15 @@ export function Composer({
   group = false,
   disabled = false,
   sendDisabled = false,
-  placeholder = "Message",
+  placeholder,
   label,
-  sendLabel = "Send",
+  sendLabel,
   onHeightChange,
   inputRef,
   autoFocus = false,
   attachments = [],
   onAttach,
+  onSavedUploads,
   onRemoveAttachment,
   dropping = false,
   mentionMembers = [],
@@ -2405,13 +2530,14 @@ export function Composer({
   // message clear of it as the field grows.
   onHeightChange?: (height: number) => void;
   // For a screen that wants to move focus here from another field.
-  inputRef?: RefObject<TextInput | null>;
+  inputRef?: RefObject<TextInputInstance | null>;
   // For a screen that opens with nothing left to fill in but the message.
   autoFocus?: boolean;
   // Files staged to go with the message; they can be sent without text.
   attachments?: ComposerAttachment[];
   // Offers the file picker; without it the bar has no attach button.
   onAttach?: () => void;
+  onSavedUploads?: () => void;
   onRemoveAttachment?: (id: string) => void;
   // A file is being dragged over the window: the shell invites the drop.
   dropping?: boolean;
@@ -2422,8 +2548,9 @@ export function Composer({
   onCancelReply?: () => void;
 }) {
   const { colors, scheme, type } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
-  const name = label ?? (group ? "Group message" : "Message");
+  const name = label ?? (group ? t("Group message") : t("Message"));
   const [focused, setFocused] = useState(false);
   const [height, setHeight] = useState(0);
   const [width, setWidth] = useState(0);
@@ -2437,7 +2564,7 @@ export function Composer({
   // With glass the desktop bar is open like the phone's, the shell floating
   // over the thread; without it the bar is a solid strip below the thread.
   const floating = !isDesktop || glass;
-  const field = useRef<TextInput | null>(null);
+  const field = useRef<TextInputInstance | null>(null);
   const [cursor, setCursor] = useState(value.length);
   const [selection, setSelection] = useState<{ start: number; end: number }>();
   const [suggestionIndex, setSuggestionIndex] = useState(0);
@@ -2454,7 +2581,7 @@ export function Composer({
     setSuggestionIndex(0);
     field.current?.focus();
   };
-  const attachField = (node: TextInput | null) => {
+  const attachField = (node: TextInputInstance | null) => {
     field.current = node;
     if (inputRef) inputRef.current = node;
   };
@@ -2492,7 +2619,7 @@ export function Composer({
       <View style={styles.composerShellWrap}>
         <Glass style={styles.composerShell} fallback={styles.composerShellSurface}>
           {suggestions.length ? (
-            <ScrollView keyboardShouldPersistTaps="always" style={{ maxHeight: 200 }} accessibilityLabel="Mention a group member">
+            <ScrollView keyboardShouldPersistTaps="always" style={{ maxHeight: 200 }} accessibilityLabel={t("Mention a group member")}>
               {suggestions.map((member, index) => (
                 <Row key={member.username} title={`@${member.username}`} subtitle={member.name}
                   onPress={() => chooseMention(member.username)}
@@ -2503,12 +2630,12 @@ export function Composer({
           {reply && onCancelReply ? (
             <Reveal key={reply.id} distance={space[1.5]} style={styles.composerReply}>
               <View style={[styles.composerReplyBar, { backgroundColor: replyInk }]} />
-              <View accessible accessibilityLabel={`Replying to ${reply.name}: ${reply.text}`} style={styles.composerReplyText}>
+              <View accessible accessibilityLabel={t("Replying to {name}: {text}", { name: reply.name, text: reply.text })} style={styles.composerReplyText}>
                 <Text numberOfLines={1} style={[styles.bubbleQuoteName, { color: replyInk }]}>{reply.name}</Text>
                 <Text numberOfLines={1} style={[styles.bubbleQuoteBody, { color: colors.text2 }]}>{reply.text}</Text>
               </View>
               <Tap
-                label="Cancel reply"
+                label={t("Cancel reply")}
                 onPress={onCancelReply}
                 hitSlop={space[2.5]}
                 scaleTo={0.9}
@@ -2519,7 +2646,7 @@ export function Composer({
             </Reveal>
           ) : null}
           {attachments.length && onRemoveAttachment ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator accessibilityLabel="Attached files">
+            <ScrollView horizontal accessibilityLabel={t("Attached files")}>
               {attachments.map((attachment) => (
                 <View key={attachment.id} style={{ width: 240 }}>
                   <ComposerAttachmentChip attachment={attachment} onRemove={() => onRemoveAttachment(attachment.id)} disabled={disabled} />
@@ -2532,7 +2659,7 @@ export function Composer({
               <View style={styles.composerAttach}>
                 <IconButton
                   name="paperclip"
-                  label={`Attach files (${attachments.length} of ${MAXIMUM_ATTACHMENTS})`}
+                  label={t("Attach files ({count} of {maximum})", { count: attachments.length, maximum: MAXIMUM_ATTACHMENTS })}
                   variant="plain"
                   glass={false}
                   size={isDesktop ? control.xs : sizes.tile.md}
@@ -2541,6 +2668,8 @@ export function Composer({
                 />
               </View>
             ) : null}
+            {onSavedUploads ? <IconButton name="clock" label={t("Saved large uploads")} variant="plain" glass={false}
+              size={isDesktop ? control.xs : sizes.tile.md} disabled={disabled || attachments.length >= MAXIMUM_ATTACHMENTS} onPress={onSavedUploads} /> : null}
             <TextInput
               ref={attachField}
               {...(Platform.OS === "web" ? webTextareaRows : {})}
@@ -2579,7 +2708,7 @@ export function Composer({
                   if (canSend) onSend();
                 }
               } : undefined}
-              placeholder={dropping ? "Drop to attach" : placeholder}
+              placeholder={dropping ? t("Drop to attach") : placeholder ?? t("Message")}
               placeholderTextColor={dropping ? colors.accent : colors.text3}
               selectionColor={colors.accent}
               style={[
@@ -2604,7 +2733,7 @@ export function Composer({
             >
               <IconButton
                 name="arrowUp"
-                label={sendLabel}
+                label={sendLabel ?? t("Send")}
                 variant="filled"
                 size={isDesktop ? control.xs : sizes.tile.md}
                 glass={false}
@@ -2647,12 +2776,13 @@ export type BubbleAttachment = {
 // A downloaded picture, as wide as the bubble allows and shaped like itself
 // once its size is known; until then it holds a photo's proportions.
 function AttachmentPicture({ attachment, onLongPress }: { attachment: BubbleAttachment; onLongPress?: () => void }) {
+  const { t } = useI18n();
   const styles = useStyles();
   const [aspectRatio, setAspectRatio] = useState(4 / 3);
   const [viewing, setViewing] = useState(false);
   return (
     <>
-      <Tap label={`View ${attachment.filename}`} onPress={() => setViewing(true)} onLongPress={onLongPress} scaleTo={0.985} style={styles.bubblePictureWrap}>
+      <Tap label={t("View {name}", { name: attachment.filename })} onPress={() => setViewing(true)} onLongPress={onLongPress} scaleTo={0.985} style={styles.bubblePictureWrap}>
         <Image
           source={{ uri: attachment.previewUri }}
           accessibilityIgnoresInvertColors
@@ -2670,7 +2800,7 @@ function AttachmentPicture({ attachment, onLongPress }: { attachment: BubbleAtta
           accessibilityIgnoresInvertColors resizeMode="contain" style={styles.attachmentViewerImage} />
         <Text style={styles.bubbleFileMeta}>{attachment.status}</Text>
         <View style={styles.attachmentViewerDownload}>
-          <IconButton name="download" label="Download" variant="tonal" glass={false}
+          <IconButton name="download" label={t("Download")} variant="tonal" glass={false}
             size={isDesktop ? control.xs : control.sm} disabled={attachment.busy} onPress={attachment.onPress} />
         </View>
       </Dialog>
@@ -2749,8 +2879,12 @@ function MessageMenu({
   onClose: () => void;
 }) {
   const { colors, scheme } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
-  const viewport = useWindowDimensions();
+  const window = useWindowDimensions();
+  const activity = useActivityOverlayViewport();
+  const viewport = Platform.OS === "android" ? activity : window;
+  const localAnchor = Platform.OS === "android" ? { ...anchor, x: anchor.x - activity.x, y: anchor.y - activity.y } : anchor;
   const insets = initialWindowMetrics?.insets;
   // Eight emojis across, at a finger's width where the screen allows it.
   const cell = isDesktop
@@ -2763,15 +2897,15 @@ function MessageMenu({
   const place = placeMenu(
     {
       left: menuMargin,
-      top: (insets?.top ?? 0) + menuMargin,
+      top: Math.max(0, (insets?.top ?? 0) - (Platform.OS === "android" ? activity.y : 0)) + menuMargin,
       right: viewport.width - menuMargin,
-      bottom: viewport.height - (insets?.bottom ?? 0) - menuMargin,
+      bottom: viewport.height - Math.max(0, (insets?.bottom ?? 0) - (Platform.OS === "android" ? Math.max(0, window.height - activity.y - activity.height) : 0)) - menuMargin,
     },
-    anchor,
+    localAnchor,
     { width, height },
     sent,
   );
-  const above = place.top < anchor.y;
+  const above = place.top < localAnchor.y;
   const [progress] = useState(() => new Animated.Value(0));
   useEffect(() => {
     const animation = Animated.spring(progress, { toValue: 1, useNativeDriver: false, ...motion.springSnap });
@@ -2779,7 +2913,7 @@ function MessageMenu({
     return () => animation.stop();
   }, [progress]);
   return (
-    <Modal visible transparent statusBarTranslucent animationType={isDesktop ? "none" : "fade"} onRequestClose={onClose}>
+    <ActivityModal visible transparent statusBarTranslucent animationType={isDesktop ? "none" : "fade"} onRequestClose={onClose}>
       {/* A phone dims the thread behind the menu, lightly enough that the
           message it belongs to still reads; a desktop popover dims nothing. */}
       <Pressable
@@ -2791,7 +2925,7 @@ function MessageMenu({
       <Animated.View
         role="dialog"
         accessibilityViewIsModal
-        accessibilityLabel="Message actions"
+        accessibilityLabel={t("Message actions")}
         style={[
           styles.messageMenu,
           place,
@@ -2809,8 +2943,8 @@ function MessageMenu({
               <Pressable
                 key={emoji}
                 accessibilityRole="button"
-                accessibilityLabel={label}
-                accessibilityHint={mine === emoji ? "Removes your reaction" : undefined}
+                accessibilityLabel={t(label)}
+                accessibilityHint={mine === emoji ? t("Removes your reaction") : undefined}
                 accessibilityState={{ selected: mine === emoji, disabled: !canReact }}
                 {...(Platform.OS === "web" ? { "aria-pressed": mine === emoji } : {})}
                 disabled={!canReact}
@@ -2844,7 +2978,7 @@ function MessageMenu({
           </View>
         ) : null}
       </Animated.View>
-    </Modal>
+    </ActivityModal>
   );
 }
 
@@ -3024,18 +3158,19 @@ export function MessageBubble({
   action?: MessageAction;
 }) {
   const { colors, scheme, type } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const [choosingReaction, setChoosingReaction] = useState(false);
   // The menu opens beside the bubble, wherever the thread has scrolled it to.
-  const shell = useRef<View>(null);
+  const shell = useRef<ViewInstance>(null);
   const [menuAnchor, setMenuAnchor] = useState<Frame | null>(null);
   const openMenu = () =>
     shell.current?.measureInWindow((x, y, width, height) => setMenuAnchor({ x, y, width, height }));
   const actions: MessageAction[] = [
-    ...(onReply ? [{ icon: "reply" as const, label: "Reply", onPress: onReply }] : []),
+    ...(onReply ? [{ icon: "reply" as const, label: t("Reply"), onPress: onReply }] : []),
     // ponytail: core Clipboard is deprecated but ships on every platform; move
     // to expo-clipboard with the next native rebuild.
-    ...(body ? [{ icon: "copy" as const, label: "Copy", onPress: () => Clipboard.setString(body) }] : []),
+    ...(body ? [{ icon: "copy" as const, label: t("Copy"), onPress: () => Clipboard.setString(body) }] : []),
     ...(action ? [action] : []),
   ];
   const hasMenu = Boolean(onReact) || actions.length > 0;
@@ -3054,7 +3189,7 @@ export function MessageBubble({
     setChoosingReaction(false);
     onReact?.(mine === emoji ? "" : emoji);
   };
-  const reactorOf = (id: string) => reactor?.(id) ?? { name: id === reactionSender ? "You" : "Someone" };
+  const reactorOf = (id: string) => reactor?.(id) ?? { name: id === reactionSender ? t("You") : t("Someone") };
   const [landing] = useState(() => new Animated.Value(enter ? 0 : 1));
   const [entersOnMount] = useState(enter);
   useEffect(() => {
@@ -3073,14 +3208,14 @@ export function MessageBubble({
   const metaColor = sent ? colors.onAccentMuted : colors.text3;
   // The name is set in the hue of the sender's avatar, which follows their account.
   const senderInk = sender ? avatarTone(sender.accountId, scheme).ink : colors.text2;
-  const described = [body, ...attachments.map((attachment) => `Attachment ${attachment.filename}, ${attachment.status}`)].filter(Boolean).join(". ");
+  const described = [body, ...attachments.map((attachment) => t("Attachment {name}, {status}", { name: attachment.filename, status: attachment.status }))].filter(Boolean).join(". ");
   // A picture sits in a thin frame; the words around it keep the usual inset.
   const framed = attachments.some((attachment) => attachment.previewUri !== undefined);
   const reacted = summary.total > 0;
   const longPress = !isDesktop && hasMenu ? openMenu : undefined;
   // VoiceOver and TalkBack reach the menu as an action on the message's text.
   const menuAction = longPress
-    ? { accessibilityActions: [{ name: "longpress", label: "Message actions" }], onAccessibilityAction: openMenu }
+    ? { accessibilityActions: [{ name: "longpress", label: t("Message actions") }], onAccessibilityAction: openMenu }
     : {};
   const shellEvents = isDesktop
     ? {
@@ -3136,7 +3271,9 @@ export function MessageBubble({
   const bubble = (
     <BubbleShell
       ref={shell}
-      accessibilityLabel={`${sender ? sender.name : sent ? "Sent" : "Received"} message: ${described}`}
+      accessibilityLabel={sender
+        ? t("{name} message: {text}", { name: sender.name, text: described })
+        : sent ? t("Sent message: {text}", { text: described }) : t("Received message: {text}", { text: described })}
       {...(shellEvents as object)}
       style={[
         styles.bubble,
@@ -3166,8 +3303,8 @@ export function MessageBubble({
       {quote ? (
         <Pressable
           accessibilityRole={quote.onPress ? "button" : undefined}
-          accessibilityLabel={quote.name ? `Replying to ${quote.name}: ${quote.text}` : quote.text}
-          accessibilityHint={quote.onPress ? "Shows the original message" : undefined}
+          accessibilityLabel={quote.name ? t("Replying to {name}: {text}", { name: quote.name, text: quote.text }) : quote.text}
+          accessibilityHint={quote.onPress ? t("Shows the original message") : undefined}
           disabled={!quote.onPress}
           onPress={quote.onPress}
           onLongPress={longPress}
@@ -3218,13 +3355,12 @@ export function MessageBubble({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={describeReactions(reactions)}
-          accessibilityHint="Shows who reacted"
+          accessibilityHint={t("Shows who reacted")}
           onPress={() => setChoosingReaction(true)}
           hitSlop={space[1]}
           style={({ pressed }) => [
             styles.reactionPill,
             sent ? styles.reactionPillSent : styles.reactionPillReceived,
-            mine !== undefined && styles.reactionPillMine,
             pressed && { opacity: 0.6 },
           ]}
         >
@@ -3254,11 +3390,11 @@ export function MessageBubble({
           {/* React sits nearest the bubble on either side. */}
           <View style={[styles.reactAsideCapsule, sent && { flexDirection: "row-reverse" }]}>
             {onReact ? (
-              <AsideButton icon="smile" label="React" hint="Choose an emoji for this message"
+              <AsideButton icon="smile" label={t("React")} hint={t("Choose an emoji for this message")}
                 disabled={reactionsDisabled} onPress={openMenu} onFocusChange={setFocusedAside} />
             ) : null}
             {onReply ? (
-              <AsideButton icon="reply" label="Reply" hint="Quotes this message in your reply"
+              <AsideButton icon="reply" label={t("Reply")} hint={t("Quotes this message in your reply")}
                 onPress={onReply} onFocusChange={setFocusedAside} />
             ) : null}
           </View>
@@ -3276,17 +3412,17 @@ export function MessageBubble({
         />
       ) : null}
       {choosingReaction ? (
-        <Dialog visible label={reacted ? "Reactions" : "React to message"} onClose={() => setChoosingReaction(false)}>
+        <Dialog visible label={reacted ? t("Reactions") : t("React to message")} onClose={() => setChoosingReaction(false)}>
           <View style={styles.reactionSheet}>
-            <Text accessibilityRole="header" style={[type.title2, styles.reactionSheetTitle]}>{reacted ? "Reactions" : "React"}</Text>
-            <Text numberOfLines={2} style={type.subhead}>{body || "Attachment"}</Text>
+            <Text accessibilityRole="header" style={[type.title2, styles.reactionSheetTitle]}>{reacted ? t("Reactions") : t("React")}</Text>
+            <Text numberOfLines={2} style={type.subhead}>{body || t("Attachment")}</Text>
             <View style={styles.reactionBar}>
               {reactionEmojis.map(({ emoji, label }) => (
                 <Pressable
                   key={emoji}
                   accessibilityRole="button"
-                  accessibilityLabel={label}
-                  accessibilityHint={mine === emoji ? "Removes your reaction" : undefined}
+                  accessibilityLabel={t(label)}
+                  accessibilityHint={mine === emoji ? t("Removes your reaction") : undefined}
                   accessibilityState={{ selected: mine === emoji, disabled: !canReact }}
                   {...(Platform.OS === "web" ? { "aria-pressed": mine === emoji } : {})}
                   disabled={!canReact}
@@ -3318,10 +3454,10 @@ export function MessageBubble({
                         size={isDesktop ? sizes.avatar.sm : sizes.avatar.md}
                       />
                     )}
-                    title={own ? "You" : who.name}
-                    subtitle={own && canReact ? (isDesktop ? "Click to remove" : "Tap to remove") : undefined}
+                    title={own ? t("You") : who.name}
+                    subtitle={own && canReact ? (isDesktop ? t("Click to remove") : t("Tap to remove")) : undefined}
                     onPress={own && canReact ? () => chooseReaction(emoji) : undefined}
-                    accessibilityLabel={own ? `Your reaction, ${reactionLabel(emoji)}. Removes it` : undefined}
+                    accessibilityLabel={own ? t("Your reaction, {reaction}. Removes it", { reaction: reactionLabel(emoji) }) : undefined}
                     trailing={<Text style={styles.reactionRowEmoji}>{emoji}</Text>}
                   />
                 );
@@ -3400,7 +3536,7 @@ const conversationRow = {
   avatar: isDesktop ? sizes.avatar.md : sizes.avatar.xl,
 };
 
-const unreadLabel = (count: number) => `${count} unread ${count === 1 ? "message" : "messages"}`;
+const unreadLabel = (t: Translate, count: number) => t.plural("{count} unread message", "{count} unread messages", count);
 
 function UnreadBadge({ count }: { count: number }) {
   const styles = useStyles();
@@ -3439,24 +3575,17 @@ export function ConversationRow({
   onPress: () => void;
 }) {
   const { colors, type } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const badge = sizes.icon.sm;
   return (
     <Tap
-      accessible={false}
+      label={`${t("Conversation with {name}", { name })}${unread ? `, ${unreadLabel(t, unread)}` : ""}`}
+      state={{ selected }}
       onPress={onPress}
       style={[styles.conversation, selected && styles.conversationSelected]}
       feedback="highlight"
     >
-      {/* One row-sized element carries the stable label while the preview stays readable. */}
-      <View
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={`Conversation with ${name}${unread ? `, ${unreadLabel(unread)}` : ""}`}
-        accessibilityState={{ selected }}
-        pointerEvents="none"
-        style={StyleSheet.absoluteFill}
-      />
       <Avatar name={name} uri={avatar} colorSeed={colorSeed} size={conversationRow.avatar} />
       <View style={styles.conversationBody}>
         <View style={styles.conversationLine}>
@@ -3482,12 +3611,13 @@ export function ConversationRow({
 
 export function RequestGroup({ count, children }: { count: number; children: ReactNode }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   return (
     <View style={styles.requestGroup}>
       <View style={styles.requestHeader}>
         <Icon name="inbox" size={sizes.icon.md} color={colors.accent} strokeWidth={2.2} />
-        <Text style={styles.requestTitle}>Message requests</Text>
+        <Text style={styles.requestTitle}>{t("Message requests")}</Text>
         <View style={styles.requestCount}>
           <Text style={styles.requestCountText}>{count}</Text>
         </View>
@@ -3529,35 +3659,37 @@ export function RequestRow({
   onAccept: () => void;
 }) {
   const { type } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   return (
-    <Tap accessible={false} onPress={onPress} style={styles.requestRow} feedback="highlight">
-      <View
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={`Conversation with ${name}, message request pending${unread ? `, ${unreadLabel(unread)}` : ""}`}
-        pointerEvents="none"
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.requestAvatar}>
-        <Avatar name={name} uri={avatar} colorSeed={colorSeed} size={requestRowMetrics.avatar} />
-      </View>
-      <View style={styles.conversationBody}>
-        <Text numberOfLines={1} style={type.headline}>
-          {name}
-        </Text>
-        <Text numberOfLines={2} style={styles.requestPreview}>
-          {preview}
-        </Text>
-      </View>
-      <UnreadBadge count={unread} />
+    <View style={styles.requestRow}>
+      <Tap
+        label={`${t("Conversation with {name}, message request pending", { name })}${unread ? `, ${unreadLabel(t, unread)}` : ""}`}
+        onPress={onPress}
+        containerStyle={styles.requestOpen}
+        style={styles.requestOpenContent}
+        feedback="highlight"
+      >
+        <View style={styles.requestAvatar}>
+          <Avatar name={name} uri={avatar} colorSeed={colorSeed} size={requestRowMetrics.avatar} />
+        </View>
+        <View style={styles.conversationBody}>
+          <Text numberOfLines={1} style={type.headline}>
+            {name}
+          </Text>
+          <Text numberOfLines={2} style={styles.requestPreview}>
+            {preview}
+          </Text>
+        </View>
+        <UnreadBadge count={unread} />
+      </Tap>
       <Button
-        label="Accept"
-        accessibilityLabel={`Accept request from ${name}`}
+        label={t("Accept")}
+        accessibilityLabel={t("Accept request from {name}", { name })}
         size="sm"
         onPress={onAccept}
       />
-    </Tap>
+    </View>
   );
 }
 
@@ -3589,11 +3721,12 @@ export function GroupRow({
   onPress: () => void;
 }) {
   const { type } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   // Laid out as a conversation's row, so both lists read the same way.
   return (
     <Tap
-      label={`${label}${unread ? `, ${unreadLabel(unread)}` : ""}`}
+      label={`${label}${unread ? `, ${unreadLabel(t, unread)}` : ""}`}
       state={{ selected }}
       onPress={onPress}
       style={[styles.conversation, selected && styles.conversationSelected]}
@@ -3625,6 +3758,7 @@ const qrSize = 228;
 
 export function QrCard({ value, caption }: { value: string; caption?: string }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const [showText, setShowText] = useState(false);
   const frames = qrFrames(value);
@@ -3656,13 +3790,13 @@ export function QrCard({ value, caption }: { value: string; caption?: string }) 
             ))}
           </View>
           <Text style={styles.qrCaption}>
-            Code {current + 1} of {frames.length} · Keep scanning
+            {t("Code {current} of {total} · Keep scanning", { current: current + 1, total: frames.length })}
           </Text>
         </View>
       ) : caption ? (
         <Text style={styles.qrCaption}>{caption}</Text>
       ) : null}
-      <Button label={showText ? "Hide text code" : "Show text code"} variant="ghost" onPress={() => setShowText(!showText)} />
+      <Button label={showText ? t("Hide text code") : t("Show text code")} variant="ghost" onPress={() => setShowText(!showText)} />
       {showText ? <TextCode value={value} /> : null}
     </View>
   );
@@ -3673,9 +3807,10 @@ export function QrCard({ value, caption }: { value: string; caption?: string }) 
 // thousand characters; there the block scrolls so the card keeps its height,
 // and a triple-click still selects the whole code.
 function TextCode({ value }: { value: string }) {
+  const { t } = useI18n();
   const styles = useStyles();
   const text = (
-    <Text selectable accessibilityLabel="Text code" style={styles.qrTextValue}>
+    <Text selectable accessibilityLabel={t("Text code")} style={styles.qrTextValue}>
       {value}
     </Text>
   );
@@ -3787,6 +3922,7 @@ export function StatusPill({
   lift?: number;
 }) {
   const { colors, elevation } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   // Quick operations finish before anyone needs progress; only work that
   // outlasts a beat earns a pill. Errors always show immediately.
@@ -3833,7 +3969,7 @@ export function StatusPill({
         </Text>
       </View>
       {display.error && onDismiss ? (
-        <Tap label="Dismiss" onPress={onDismiss} hitSlop={space[3]} pressedOpacity={0.55}>
+        <Tap label={t("Dismiss")} onPress={onDismiss} hitSlop={space[3]} pressedOpacity={0.55}>
           <Icon name="close" size={sizes.icon.md} color={colors.text2} />
         </Tap>
       ) : null}
@@ -3882,51 +4018,61 @@ export function TabBar<T extends string>({
   current: T;
   onSelect: (key: T) => void;
 }) {
-  const { colors } = useTheme();
   const styles = useStyles();
-  const liquid = useLiquidGlass();
-  const index = Math.max(0, tabs.findIndex((tab) => tab.key === current));
-  const position = useSprung(index);
+  // The bar reaches the window's foot and lifts its tabs clear of the home
+  // indicator or Android's navigation, whichever the inset holds.
+  const { bottom } = useSafeAreaInsets();
   return (
-    <View style={[styles.tabBarWrap, { paddingBottom: tabBarPadding }]}>
-      <ScrollEdge side="bottom" height={chrome.tabBar + tabBarPadding + 40} />
-      <Glass style={styles.tabPill} fallback={styles.tabPillSurface}>
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.tabIndicator,
-            liquid && styles.tabIndicatorGlass,
-            { transform: [{ translateX: Animated.multiply(position, tabHeight + tabGap) }] },
-          ]}
-        />
-        {tabs.map((tab) => {
-          const active = tab.key === current;
-          return (
-            <Pressable
-              key={tab.key}
-              testID={`tab-${tab.key}`}
-              accessibilityRole="tab"
-              accessibilityLabel={`${tab.title}${tab.badge ? `, ${tab.badge} needing attention` : ""}`}
-              accessibilityState={{ selected: active }}
-              onPress={() => onSelect(tab.key)}
-              // The gaps and the pill's rim still belong to the nearest tab.
-              hitSlop={{ left: tabGap / 2, right: tabGap / 2, top: tabPillPadding, bottom: tabPillPadding }}
-              style={({ pressed }) => [styles.tabItem, pressed && !active && styles.tabItemPressed]}
-            >
-              <View>
-                <Icon
-                  name={tab.icon}
-                  size={sizes.icon.xl}
-                  color={active ? colors.accent : colors.text2}
-                  strokeWidth={active ? 2.3 : 1.9}
-                />
-                {tab.badge ? <View style={[styles.tabBadge, !liquid && styles.tabBadgeRing]}><UnreadBadge count={tab.badge} /></View> : null}
-              </View>
-            </Pressable>
-          );
-        })}
-      </Glass>
+    <View
+      accessibilityRole="tablist"
+      style={[styles.tabBar, { paddingBottom: tabBarFoot(Platform.OS, bottom) }]}
+    >
+      {tabs.map((tab) => (
+        <TabItem key={tab.key} tab={tab} active={tab.key === current} onPress={() => onSelect(tab.key)} />
+      ))}
     </View>
+  );
+}
+
+function TabItem<T extends string>({
+  tab,
+  active,
+  onPress,
+}: {
+  tab: { key: T; title: string; icon: IconName; badge?: number };
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  const styles = useStyles();
+  return (
+    <Pressable
+      testID={`tab-${tab.key}`}
+      accessibilityRole="tab"
+      accessibilityLabel={`${tab.title}${tab.badge ? `, ${t.plural("{count} needing attention", "{count} needing attention", tab.badge)}` : ""}`}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.tabItem, pressed && !active && styles.tabItemPressed]}
+    >
+      <View style={styles.tabGlyph}>
+        {/* A heavier line gives the chosen glyph the weight its name has. */}
+        <Icon
+          name={tab.icon}
+          size={sizes.icon.xl}
+          color={active ? colors.text : colors.text3}
+          strokeWidth={active ? 2.4 : 1.8}
+        />
+        {tab.badge ? (
+          <View style={styles.tabBadge}>
+            <UnreadBadge count={tab.badge} />
+          </View>
+        ) : null}
+      </View>
+      <Text numberOfLines={1} style={[styles.tabLabel, active && styles.tabLabelActive]}>
+        {tab.title}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -3947,6 +4093,7 @@ export function SegmentedControl<T extends string>({
   onSelect: (key: T) => void;
 }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const liquid = useLiquidGlass();
   const index = Math.max(0, segments.findIndex((segment) => segment.key === current));
@@ -3978,7 +4125,7 @@ export function SegmentedControl<T extends string>({
             key={segment.key}
             testID={`segment-${segment.key}`}
             accessibilityRole="tab"
-            accessibilityLabel={`${segment.title}${segment.badge ? `, ${segment.badge} needing attention` : ""}`}
+            accessibilityLabel={`${segment.title}${segment.badge ? `, ${t.plural("{count} needing attention", "{count} needing attention", segment.badge)}` : ""}`}
             accessibilityState={{ selected: active }}
             onPress={() => onSelect(segment.key)}
             hitSlop={{ top: space[1], bottom: space[1] }}
@@ -4020,6 +4167,7 @@ export function AccountBar({
   active: boolean;
   onSettings: () => void;
 }) {
+  const { t } = useI18n();
   const styles = useStyles();
   return (
     <View style={styles.accountBar}>
@@ -4029,7 +4177,7 @@ export function AccountBar({
       </Text>
       <IconButton
         name="sliders"
-        label="Settings"
+        label={t("Settings")}
         variant={active ? "tonal" : "plain"}
         glass={false}
         onPress={onSettings}
@@ -4052,9 +4200,10 @@ export function KeyValue({ label, value }: { label: string; value: string }) {
 }
 
 export function CodeDisplay({ value }: { value: string }) {
+  const { t } = useI18n();
   const styles = useStyles();
   return (
-    <Text selectable accessibilityLabel={`Code ${value}`} style={styles.code}>
+    <Text selectable accessibilityLabel={t("Code {code}", { code: value })} style={styles.code}>
       {value}
     </Text>
   );
@@ -4613,33 +4762,26 @@ const useStyles = themed(({ colors, type, elevation }) =>
   ),
   noticeText: { ...type.footnote, flex: 1 },
 
-  dialogScrim: desk(
-    { flex: 1, justifyContent: "flex-end", backgroundColor: colors.scrim },
-    { alignItems: "center", justifyContent: "center", padding: space[6] },
-  ),
-  // The sheet's top corners take the largest radius; it rests on the home
-  // indicator's inset. The desktop card is an alert's width and lifted.
-  dialog: desk(
-    {
-      maxHeight: "85%",
-      paddingTop: space[3],
-      paddingBottom: Math.max(initialWindowMetrics?.insets.bottom ?? 0, space[5]),
-      borderTopLeftRadius: radius["4xl"],
-      borderTopRightRadius: radius["4xl"],
-      backgroundColor: colors.raised,
-    },
-    {
-      width: "100%",
-      maxWidth: 420,
-      maxHeight: "85%",
-      paddingTop: space[5],
-      paddingBottom: space[4],
-      borderRadius: radius["2xl"],
-      borderWidth: 1,
-      borderColor: colors.lineStrong,
-      ...elevation.raised,
-    },
-  ),
+  // The desktop's panel: an alert-wide card, lifted off a dimmed window.
+  dialogScrim: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: space[6],
+    backgroundColor: colors.scrim,
+  },
+  dialog: {
+    width: "100%",
+    maxWidth: 420,
+    maxHeight: "85%",
+    paddingTop: space[5],
+    paddingBottom: space[4],
+    borderRadius: radius["2xl"],
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+    backgroundColor: colors.raised,
+    ...elevation.raised,
+  },
   // The close disc: a step lighter than the pane, in the corner the sheet's
   // and the card's padding leave free.
   dialogClose: { position: "absolute", top: space[3], right: space[3] },
@@ -4660,21 +4802,35 @@ const useStyles = themed(({ colors, type, elevation }) =>
     justifyContent: "center",
     paddingHorizontal: space[8],
     paddingVertical: space[10],
-    // The title and the sentence beneath it are the closest pair in the state
-    // and read as one block, so the gap is set for those two. Everything else
-    // stands further off and adds its own margin on top of this.
-    gap: space[1],
   },
+  // The title and the sentence beneath it are the closest pair in the state
+  // and read as one block; everything else stands further off.
+  emptyArt: { marginBottom: space[6] },
+  emptyThread: { width: 176, gap: space[1.5] },
+  emptyBubble: {
+    height: space[8],
+    paddingHorizontal: space[3.5],
+    justifyContent: "center",
+    borderRadius: radius["2xl"],
+  },
+  emptyBubbleReceived: { alignSelf: "flex-start", borderBottomLeftRadius: space[1.5], backgroundColor: colors.raised },
+  emptyBubbleSent: { alignSelf: "flex-end", borderBottomRightRadius: space[1.5], backgroundColor: colors.accent },
+  emptyLine: { height: space[2], borderRadius: radius.pill },
+  emptyLineReceived: { backgroundColor: colors.lineStrong },
+  emptyLineSent: { backgroundColor: withAlpha(colors.white, 0.45) },
+  emptyMembers: { flexDirection: "row" },
+  // Each avatar is ringed in the canvas, so the overlap reads as a cut.
+  emptyMember: { padding: space[0.5], borderRadius: radius.pill, backgroundColor: colors.canvas },
+  emptyMemberOverlap: { marginLeft: -space[3] },
   sidebarEmptyText: { ...type.footnote, color: colors.text2, textAlign: "center" },
   // Further from the title than the title is from its sentence, so the two
   // lines of copy group together under the glyph rather than beside it.
-  emptyIconWrap: { marginBottom: space[2.5] },
-  emptyTitle: { ...type.title2, textAlign: "center" },
+  emptyTitle: { ...type.title2, fontFamily: fonts.semibold, textAlign: "center" },
   // A comfortable measure for a sentence or two of centred copy.
-  emptyBody: { ...type.subhead, textAlign: "center", maxWidth: 280 },
+  emptyBody: { ...type.subhead, textAlign: "center", maxWidth: 280, marginTop: space[1.5] },
   // The control spans the state's width so it can take a measure of its own.
-  emptyControl: { alignSelf: "stretch", alignItems: "center", marginTop: space[4] },
-  emptyAction: { marginTop: space[4], alignItems: "center", gap: space[1.5] },
+  emptyControl: { alignSelf: "stretch", alignItems: "center", marginTop: space[5] },
+  emptyAction: { alignSelf: "stretch", marginTop: space[5], alignItems: "center", gap: space[1] },
 
   // On desktop the bar is docked, not floating: the pane colour behind it
   // and a hairline above, like a message field in a native window.
@@ -4865,7 +5021,7 @@ const useStyles = themed(({ colors, type, elevation }) =>
     fontSize: type.micro.fontSize,
     letterSpacing: type.micro.letterSpacing,
     fontVariant: ["tabular-nums"],
-    color: "transparent",
+    color: colors.hiddenInk,
     userSelect: "none",
   },
   bubbleRead: { backgroundColor: colors.onAccent, borderRadius: radius.pill, paddingHorizontal: space[0.5] },
@@ -4962,7 +5118,7 @@ const useStyles = themed(({ colors, type, elevation }) =>
   // The pill hangs from the bubble's bottom edge on the tail's side, as in
   // other chat apps. A reacted bubble keeps its time clear of the overlap and
   // leaves room below for the part that hangs. A ring in the canvas colour
-  // cuts the pill out of the bubble; the ring turns accent when you are in it.
+  // cuts the pill out of the bubble. Who reacted is in the sheet it opens.
   bubbleReacted: { paddingBottom: (isDesktop ? space[1] : space[1.5]) + space[1] },
   bubbleReactedSpace: { marginBottom: reactionHang + space[0.5] },
   reactionPill: {
@@ -4981,7 +5137,6 @@ const useStyles = themed(({ colors, type, elevation }) =>
   },
   reactionPillReceived: { left: space[2] },
   reactionPillSent: { right: space[2] },
-  reactionPillMine: { borderColor: colors.accent },
   reactionPillEmoji: { fontSize: isDesktop ? 13 : 14, lineHeight: isDesktop ? 16 : 18, includeFontPadding: false },
   reactionPillCount: {
     ...type.caption,
@@ -5133,16 +5288,6 @@ const useStyles = themed(({ colors, type, elevation }) =>
     justifyContent: "center",
   },
   unreadBadgeText: { ...type.micro, color: colors.onAccent, fontFamily: fonts.bold, fontVariant: ["tabular-nums"] },
-  tabBadge: { position: "absolute", top: -space[1.5], left: sizes.icon.lg - space[1] },
-  // On the opaque pill a ring in its own colour cuts the badge out of the
-  // glyph beneath, so neither blurs into the other.
-  tabBadgeRing: {
-    top: -space[1.5] - space[0.5],
-    left: sizes.icon.lg - space[1] - space[0.5],
-    padding: space[0.5],
-    borderRadius: radius.pill,
-    backgroundColor: colors.thumb,
-  },
   // The separator starts where a row's text does, past its avatar.
   listSeparator: {
     height: StyleSheet.hairlineWidth,
@@ -5202,6 +5347,13 @@ const useStyles = themed(({ colors, type, elevation }) =>
     },
     { gap: requestRowMetrics.gap, paddingHorizontal: requestRowMetrics.inset, paddingVertical: space[2] },
   ),
+  requestOpen: { flex: 1, minWidth: 0, alignSelf: "stretch" },
+  requestOpenContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: requestRowMetrics.gap,
+  },
   requestAvatar: {
     padding: requestRowMetrics.ring,
     borderRadius: radius.pill,
@@ -5392,48 +5544,36 @@ const useStyles = themed(({ colors, type, elevation }) =>
   },
   statusText: { ...type.subhead, flexShrink: 1, fontFamily: fonts.medium, color: colors.text },
 
-  tabBarWrap: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: screenInset,
-    paddingTop: space[2.5],
-  },
-  // Sized to its icon-only tabs, the end circles concentric with its ends.
-  tabPill: {
+  // Docked under the pane, a hairline apart from it, on the pane's own colour.
+  tabBar: {
     flexDirection: "row",
-    alignSelf: "center",
-    gap: tabGap,
-    padding: tabPillPadding,
-    borderRadius: radius.pill,
+    paddingTop: tabBarPadding,
+    paddingHorizontal: space[2],
+    backgroundColor: colors.canvas,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.lineStrong,
   },
-  // Where there is no glass, floating chrome is the lifted thumb pane: white
-  // over light content, as glass reads there, rather than a grey slab.
-  tabPillSurface: {
-    backgroundColor: colors.thumb,
-    borderWidth: 1,
-    borderColor: colors.line,
-    ...elevation.raised,
-  },
-  tabIndicatorGlass: { backgroundColor: colors.glassFill },
-  tabIndicator: {
-    position: "absolute",
-    top: tabPillPadding,
-    left: tabPillPadding,
-    width: tabHeight,
-    height: tabHeight,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accentSoft,
-  },
-  tabItem: {
-    width: tabHeight,
-    height: tabHeight,
-    borderRadius: radius.pill,
+  // The name sits snug under its glyph, as one label.
+  tabItem: { flex: 1, alignItems: "center", gap: space[0.5] },
+  tabItemPressed: { opacity: 0.55 },
+  tabGlyph: {
+    width: tabGlyphWidth,
+    height: tabGlyphHeight,
     alignItems: "center",
     justifyContent: "center",
   },
-  tabItemPressed: { backgroundColor: colors.highlight },
+  tabLabel: { ...type.caption, color: colors.text3 },
+  tabLabelActive: { color: colors.text, fontFamily: fonts.semibold },
+  // The count rides the glyph's top corner, ringed in the bar's colour so it
+  // reads as its own shape where it overlaps the glyph.
+  tabBadge: {
+    position: "absolute",
+    top: -space[0.5],
+    left: tabGlyphWidth / 2 + space[0.5],
+    padding: space[0.5],
+    borderRadius: radius.pill,
+    backgroundColor: colors.canvas,
+  },
 
   keyValue: { gap: space[1] },
   // On desktop the code sits in a recessed well so it reads as one object to

@@ -19,8 +19,8 @@ export async function boundedBody(request, limit) {
 export const objectStorage = {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const match = /^\/([a-f0-9]{64})\.(0|[1-9][0-9]{0,2})$/.exec(url.pathname);
-    if (!match || Number(match[2]) > 256 || url.search) return new Response(null, { status: 400 });
+    const match = /^\/(large-)?([a-f0-9]{64})\.(0|[1-9][0-9]{0,3})$/.exec(url.pathname);
+    if (!match || Number(match[3]) > (match[1] ? 8192 : 256) || url.search) return new Response(null, { status: 400 });
     const key = `opaque${url.pathname}`;
     switch (request.method) {
       case 'GET': {

@@ -1,0 +1,7 @@
+[package]
+name = "morse-collateral-v2-operator"
+version = "0.1.0"
+description = "Pure bounded finalized collateral/proof instruction planning"
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }
+mesh-solana = { path = "../../../mesh-lang/packages/mesh-solana" }

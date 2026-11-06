@@ -10,6 +10,14 @@ The service is development-only until every release gate in the implementation p
 4. Require `GET /health` to return success before routing traffic.
 5. Run `scripts/prove-m9.sh` against an isolated PostgreSQL instance before promotion.
 
+For directory and privacy-edge HTTP listeners, `MESSENGER_BIND_ADDRESS` selects
+an IPv4 or IPv6 literal and defaults to `::`. The directory mailbox stream uses
+`MESSENGER_STREAM_BIND_ADDRESS`, defaulting to `0.0.0.0`. Set both to `127.0.0.1`
+for a local fixture. Hostnames, bracketed addresses, address/port pairs and
+whitespace are rejected; ports remain separate settings. A rejected bind logs
+an error and creates no replacement listener. Verify each configured listener;
+a valid companion listener may already be running when another bind fails.
+
 Never place signing seeds, mailbox capabilities, envelope IDs, account IDs, device IDs, or message data in command lines, logs, metrics, or incident tickets.
 
 ## Foreground mailbox stream
@@ -104,6 +112,7 @@ or its account is already gone, `403` for a stale or foreign signature, and
 ## Anonymous request cost
 
 - `PUT /v1/devices/register`, `POST /v1/devices/resolve` and `POST /v1/prekeys/bundle` require proof of work (`PWR`, see `protocol/sealed-delivery-v1.md`). `MESSENGER_ABUSE_DIFFICULTY` (1 to 24, default 16) now governs `directory-delivery` as well as `privacy-edge`; the service refuses to start outside that range. It must equal the difficulty in the signed native configuration shipped to devices: a device configured lower is refused with `429`, one configured higher simply does more work than needed. Change both together.
+- Signup can raise work separately with `MESSENGER_SIGNUP_DIFFICULTY` (1 to 24; defaults to `MESSENGER_ABUSE_DIFFICULTY`). Registration admission, the signed signup policy and priority-signup pricing use this same value. Keep general abuse work at the released native value when raising signup work. Clients refresh the signed policy for registration and reconnect; lookup/prekey work retains the general setting.
 - `400` means a malformed frame (a client older than this change). A sustained `429` rate on these routes means clients and service disagree on the difficulty, or clocks have drifted more than the one-minute allowance.
 - `messenger_rate_limits` also records each spent stamp. The scheduled job purges rows older than a day, 128 per run. Before this change the table was never purged; the first runs after upgrade clear that backlog.
 

@@ -126,6 +126,14 @@ pub fn open_device(profile :: ClientProfile,
   database_path :: String) -> DeviceKeys!String do
   let signing_blob = load_blob(database_path, "device-signing-key/v1")?
   let identity_blob = load_blob(database_path, "device-identity-key/v1")?
+  open_device_from_blobs(profile, wrapping_key, signing_blob, identity_blob)
+end
+
+# Opening from original captured ciphertexts never reloads custody or a platform key.
+pub fn open_device_from_blobs(profile :: ClientProfile,
+  wrapping_key :: borrow StorageKey,
+  signing_blob :: Bytes,
+  identity_blob :: Bytes) -> DeviceKeys!String do
   let signing_context = context(profile.account_id, profile.device_id, "device-signing-key/v1", 7)?
   let identity_context = context(profile.account_id,
     profile.device_id,

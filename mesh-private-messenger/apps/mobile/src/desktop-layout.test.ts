@@ -51,7 +51,7 @@ test('every screen lights up exactly one sidebar section', () => {
     assert.equal(sidebarSection(screen, 'new-chat'), 'groups', screen);
   }
   for (const screen of [
-    'settings', 'account', 'devices', 'link-device', 'link-authorization',
+    'settings', 'credits', 'backups', 'backup-export', 'account', 'devices', 'link-device', 'link-authorization',
   ] as const) {
     assert.equal(sidebarSection(screen, 'new-chat'), 'you', screen);
   }

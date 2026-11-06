@@ -1,3 +1,6 @@
+from Session.State import RatchetState, RatchetError, RatchetMessage, DecryptOutcome
+from Session.HeaderRatchet import he_encrypt, he_decrypt
+from Session.HeaderWire import he_encode_message, he_decode_message
 from Transport.Padding import pad_message, unpad_message
 from Binary.Reader import (
   BinaryReader,
@@ -8,15 +11,6 @@ from Binary.Reader import (
   read_vector,
   reader
 )
-from Session.Handshake import RatchetState
-
-pub type RatchetError do
-  AuthenticationRejected
-  CryptoFailure
-  ExcessiveJump
-  InvalidMessage
-  Replay
-end
 
 # A message too far ahead is final, not something to try again. A mailbox hands
 # envelopes over in order and a sender never lets one overtake another, so the
@@ -45,17 +39,6 @@ pub fn ratchet_open_error(error :: CryptoError) -> RatchetError do
   end
 end
 
-pub struct RatchetMessage do
-  version :: Int
-  suite :: Int
-  session_id :: Bytes
-  ratchet_public_key :: X25519PublicKey
-  previous_chain_length :: Int
-  message_number :: Int
-  nonce :: Bytes
-  ciphertext :: Bytes
-end
-
 struct ReadInt do
   state :: BinaryReader
   value :: Int
@@ -64,11 +47,6 @@ end
 struct ReadBytes do
   state :: BinaryReader
   value :: Bytes
-end
-
-pub type DecryptOutcome do
-  Opened(state :: RatchetState, plaintext :: Bytes)
-  Rejected(state :: RatchetState, error :: RatchetError)
 end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes!RatchetError do
@@ -182,6 +160,9 @@ fn validate_message(value :: RatchetMessage) -> Result<(), RatchetError> do
 end
 
 pub fn encode_ratchet_message(value :: RatchetMessage) -> Bytes!RatchetError do
+  if value.version == 4 do
+    return he_encode_message(value)
+  end
   validate_message(value)?
   let output = append(byte(value.version)?, Bytes.from_utf8("RAT"))?
   let output = append(output, write_u16(value.suite)?)?
@@ -195,6 +176,9 @@ end
 
 pub fn decode_ratchet_message(input :: Bytes) -> RatchetMessage!RatchetError do
   let version = take_u8(open(input)?)?
+  if version.value == 4 do
+    return he_decode_message(input)
+  end
   let magic = take_fixed(version.state, 3)?
   let suite = take_u16(magic.state)?
   let session_id = take_fixed(suite.state, 32)?
@@ -212,7 +196,9 @@ pub fn decode_ratchet_message(input :: Bytes) -> RatchetMessage!RatchetError do
     previous_chain_length: previous_chain_length.value,
     message_number: message_number.value,
     nonce: nonce.value,
-    ciphertext: ciphertext.value
+    ciphertext: ciphertext.value,
+    header_nonce: Bytes.empty(),
+    encrypted_header: Bytes.empty()
   }
   if !Bytes.secure_equals(magic.value, Bytes.from_utf8("RAT")) do
     Err(InvalidMessage)
@@ -463,7 +449,7 @@ end
 # carried inside the recipient-sealed transport, which pads the whole packet,
 # so padding it twice would only double its size bucket.
 
-fn message_plaintext(plaintext :: Bytes, version :: Int) -> Bytes!RatchetError do
+fn padded_message_plaintext(plaintext :: Bytes, version :: Int) -> Bytes!RatchetError do
   if version == 3 do
     Ok(plaintext)
   else
@@ -509,7 +495,9 @@ fn encrypt_active(state :: consume RatchetState,
     previous_chain_length: state.previous_chain_length,
     message_number: message_number,
     nonce: nonce,
-    ciphertext: ciphertext
+    ciphertext: ciphertext,
+    header_nonce: Bytes.empty(),
+    encrypted_header: Bytes.empty()
   }
   let next = %{state | sending_chain_key: next_chain, sent_count: message_number + 1}
   Ok((next, message))
@@ -551,9 +539,11 @@ fn encrypt_version(state :: consume RatchetState,
   associated_data :: Bytes,
   version :: Int,
   maximum :: Int) -> Result<(RatchetState, RatchetMessage), RatchetError> do
+  let oversized = declassify(Bytes.length(plaintext) > maximum,
+    "ratchet admission discloses only whether the plaintext exceeds this transport's documented message bound")
   if state.version != 1
     || !(state.suite == 1 || state.suite == 2)
-    || Bytes.length(plaintext) > maximum
+    || oversized
     || state.sent_count < 0 do
     Err(InvalidMessage)
   else if state.pending_send_ratchet do
@@ -578,7 +568,11 @@ end
 pub fn encrypt_sealed(state :: consume RatchetState,
   plaintext :: Bytes,
   associated_data :: Bytes) -> Result<(RatchetState, RatchetMessage), RatchetError> do
-  encrypt_version(state, plaintext, associated_data, 3, 65357)
+  if state.version == 2 do
+    he_encrypt(state, plaintext, associated_data)
+  else
+    encrypt_version(state, plaintext, associated_data, 3, 65357)
+  end
 end
 
 ## The version is authenticated, so a sender cannot move a message between
@@ -587,7 +581,7 @@ end
 
 pub fn ratchet_transport_matches(message :: RatchetMessage, sealed :: Bool) -> Bool do
   if sealed do
-    message.version == 3
+    message.version == 3 || message.version == 4
   else
     message.version == 1 || message.version == 2
   end
@@ -934,6 +928,9 @@ end
 pub fn decrypt(state :: consume RatchetState,
   message :: RatchetMessage,
   associated_data :: Bytes) -> DecryptOutcome do
+  if state.version == 2 || message.version == 4 do
+    return he_decrypt(state, message, associated_data)
+  end
   let wrong_header = !(message.version == 1 || message.version == 2 || message.version == 3)
     || !(state.suite == 1 || state.suite == 2)
     || message.suite != state.suite
@@ -966,5 +963,16 @@ pub fn decrypt(state :: consume RatchetState,
         end
       end
     end
+  end
+end
+
+fn message_plaintext(plaintext :: Bytes, version :: Int) -> Bytes!RatchetError do
+  let padded = padded_message_plaintext(plaintext, version)
+  let rejected = Result.is_err(padded)
+  if declassify(rejected,
+    "ratchet padding discloses only its one-bit InvalidMessage status; plaintext and padding bytes remain private") do
+    Err(InvalidMessage)
+  else
+    Ok(Result.unwrap_or(padded, Bytes.empty()))
   end
 end

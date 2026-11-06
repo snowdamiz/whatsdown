@@ -1,4 +1,13 @@
+from Mobile.TransparencySafety import retained_fork
+from Mobile.CreditWallet import credit_retention_deadline
+from Storage.Credits import CreditWalletIdentity
 from Identity.Device import VerificationPolicy, issue_renewed_device_credential
+from Protocol.Capabilities import (
+  supports_ach3,
+  supports_group_expiry,
+  supports_attachment_buckets,
+  supports_header_encryption
+)
 from Mobile.Codec import (
   current_time,
   mobile_byte,
@@ -17,7 +26,7 @@ from Mobile.DeviceSet import (
   local_device_set,
   verified_device_set
 )
-from Mobile.Platform import stamped_request
+from Mobile.Platform import stamped_request, native_security_config
 from Mobile.Profile import (
   directory_bytes,
   load_profile,
@@ -42,6 +51,8 @@ from Prekeys.Renewal import (
   encode_renewal_request,
   generate_renewal_signed_prekey,
   issue_renewal_request,
+  issue_current_readers_renewal_request,
+  renewal_request_capabilities,
   renewed_prekey_bundle,
   verify_renewal_request
 )
@@ -64,7 +75,10 @@ from Storage.Keys import (
   seal_mlkem,
   seal_x25519
 )
-from Storage.Records import store_record_changes
+from Storage.AccountGuard import AccountBasis, load_account_basis, commit_account_changes
+from Storage.Credits import credit_wallet_label
+from Mobile.DeviceSet import device_set_label
+from Mobile.RenewalQueue import renewal_publication_labels
 from Transport.Packet import ClientProfile, decode_client_profile, encode_client_profile
 
 ##! Mobile.Renewal: renewing this device's credential, signed prekey and ML-KEM
@@ -572,11 +586,39 @@ fn contains_bundle(values :: List<KeptBundle>, bundle :: Bytes, index :: Int) ->
   end
 end
 
-fn past_grace(value :: KeptBundle, clock :: U64) -> Bool!String do
+fn retained_credit_deadline(path :: String,
+  wrapping_key :: borrow StorageKey,
+  local :: ClientProfile) -> U64!String do
+  let config = native_security_config()?
+  let deadlines = for purpose in 0..2 do
+    credit_retention_deadline(path,
+      wrapping_key,
+      CreditWalletIdentity {
+        account_id: local.account_id,
+        device_id: local.device_id,
+        service_key: config.service_public_key,
+        purpose: purpose
+      },
+      Crypto.sha256(local.entry.mailbox_token),
+      SigningPublicKey { bytes: local.credential.signing_public_key })?
+  end
+  Ok(List.reduce(deadlines,
+    U64.parse("0")?,
+    fn(maximum, value) do
+      if U64.compare(value, maximum) > 0 do
+        value
+      else
+        maximum
+      end
+    end))
+end
+
+fn past_grace(value :: KeptBundle, clock :: U64, protected_until :: U64) -> Bool!String do
   if value.pending do
     Ok(false)
   else
-    Ok(U64.compare(clock, U64.add(value.confirmed_at, retirement_grace()?)?) >= 0)
+    Ok(U64.compare(clock, U64.add(value.confirmed_at, retirement_grace()?)?) >= 0
+      && U64.compare(clock, protected_until) >= 0)
   end
 end
 
@@ -586,14 +628,18 @@ end
 fn settled(local :: ClientProfile,
   kept :: List<KeptBundle>,
   asked :: Option<RenewalRequest>,
-  clock :: U64) -> Result<(List<KeptBundle>, List<String>), String> do
+  clock :: U64,
+  protected_until :: U64) -> Result<(List<KeptBundle>, List<String>), String> do
   let remaining = List.filter(kept,
     fn(value) do
-      case past_grace(value, clock) do
+      case past_grace(value, clock, protected_until) do
         Err(_) -> false
         Ok(expired) -> !expired
       end
     end)
+  if List.length(remaining) > 16 && U64.compare(clock, protected_until) < 0 do
+    return Err("retained_prekey_bundle_capacity")
+  end
   let bounded = if List.length(remaining) > 16 do
     List.drop(remaining, List.length(remaining) - 16)
   else
@@ -605,17 +651,61 @@ fn settled(local :: ClientProfile,
   Ok((bounded, secret_labels(dropped_ids, in_use, 0, List.new())))
 end
 
+## Capture every mutable source for a renewal write, including both credit
+## wallet manifests whose authenticated retention receipts protect old keys.
+## Reads happen in one SQLite snapshot; crypto and network hold no SQL lock.
+pub fn renewal_basis(path :: String,
+  key :: borrow StorageKey,
+  local :: ClientProfile) -> AccountBasis!String do
+  let config = native_security_config()?
+  let wallets = for purpose in 0..2 do
+    credit_wallet_label(CreditWalletIdentity {
+      account_id: local.account_id,
+      device_id: local.device_id,
+      service_key: config.service_public_key,
+      purpose: purpose
+    })
+  end
+  let before = load_account_basis(path,
+    [
+      "prekey-bundles/v1",
+      "renewal-request/v1",
+      "signed-prekey/v1",
+      "post-quantum-prekey/v1",
+      "account-signing-key/v1",
+      "device-signing-key/v1",
+      "device-identity-key/v1",
+      "transparency-fork/v1",
+      "transparency-checkpoint/v1",
+      device_set_label(local.account_id)
+    ]
+      ++ wallets
+      ++ renewal_publication_labels())?
+  let wire = open_local(before.profile, key, local_context("profile/v1")?)?
+  let expected = encode_client_profile(local.entry, local.account_id, local.device_id)?
+  if !Bytes.secure_equals(wire, expected) do
+    return Err("account_state_changed")
+  end
+  Ok(before)
+end
+
 fn settle(path :: String,
+  before :: AccountBasis,
   wrapping_key :: borrow StorageKey,
   local :: ClientProfile,
   kept :: List<KeptBundle>,
   asked :: Option<RenewalRequest>,
   clock :: U64) -> Result<(), String> do
-  let (remaining, removed) = settled(local, kept, asked, clock)?
+  let (remaining, removed) = settled(local,
+    kept,
+    asked,
+    clock,
+    retained_credit_deadline(path, wrapping_key, local)?)?
   if List.length(remaining) == List.length(kept) do
     Ok(nil)
   else
-    store_record_changes(path,
+    commit_account_changes(path,
+      before,
       ["prekey-bundles/v1"],
       [kept_blob(remaining, wrapping_key)?],
       removed)
@@ -695,6 +785,7 @@ end
 # live, start their grace now.
 
 fn adopt(path :: String,
+  before :: AccountBasis,
   wrapping_key :: borrow StorageKey,
   local :: ClientProfile,
   logged :: ClientProfile,
@@ -720,7 +811,11 @@ fn adopt(path :: String,
   let profile_bytes = encode_client_profile(logged.entry, local.account_id, local.device_id)?
   let profile = decode_client_profile(profile_bytes)?
   let (moved_labels, moved_blobs, moved_removed) = legacy_secret_moves(local, wrapping_key, path)?
-  let (remaining, destroyed) = settled(profile, with_previous, outstanding, clock)?
+  let (remaining, destroyed) = settled(profile,
+    with_previous,
+    outstanding,
+    clock,
+    retained_credit_deadline(path, wrapping_key, profile)?)?
   let request_removed = case asked do
     None -> List.new()
     Some(_) -> case outstanding do
@@ -728,7 +823,8 @@ fn adopt(path :: String,
       Some(_) -> List.new()
     end
   end
-  store_record_changes(path,
+  commit_account_changes(path,
+    before,
     List.concat(moved_labels, ["profile/v1", "prekey-bundles/v1"]),
     List.concat(moved_blobs,
       [
@@ -745,10 +841,11 @@ fn reconcile(path :: String,
   logged :: ClientProfile,
   now :: U64,
   clock :: U64) -> ClientProfile!String do
+  let before = renewal_basis(path, wrapping_key, local)?
   let kept = load_kept(path, wrapping_key)?
   let asked = load_request(path, wrapping_key)?
   if Bytes.secure_equals(normalized_bytes(local.bundle)?, normalized_bytes(logged.bundle)?) do
-    settle(path, wrapping_key, local, kept, asked, clock)?
+    settle(path, before, wrapping_key, local, kept, asked, clock)?
     Ok(local)
   else
     let same_keys = Bytes.secure_equals(logged.credential.signing_public_key,
@@ -759,14 +856,15 @@ fn reconcile(path :: String,
     if !same_keys || !held || !newer_entry(local, logged) do
       Err("unrecognized_device_entry")
     else
-      adopt(path, wrapping_key, local, logged, kept, asked, now, clock)
+      adopt(path, before, wrapping_key, local, logged, kept, asked, now, clock)
     end
   end
 end
 
 fn renewal_due(local :: ClientProfile, clock :: U64) -> Bool!String do
-  Ok(U64.compare(bundle_lapses_at(local.bundle, local.credential),
-    U64.add(clock, renewal_margin()?)?) < 0)
+  Ok(!current_readers(local.credential.capabilities)
+    || U64.compare(bundle_lapses_at(local.bundle, local.credential),
+      U64.add(clock, renewal_margin()?)?) < 0)
 end
 
 fn next_signed_prekey_id(local :: ClientProfile,
@@ -817,6 +915,7 @@ fn own_request_from(bundle :: PrekeyBundle) -> RenewalRequest!String do
     expires_at: bundle.expires_at,
     signed_prekey_signature: bundle.signed_prekey_signature,
     post_quantum_prekey: bundle.post_quantum_prekey,
+    requested_capabilities: None,
     signature: mobile_zeroes(64)?
   })
 end
@@ -833,8 +932,12 @@ fn credential_answer(path :: String,
   now :: U64,
   sequence :: U64) -> PrekeyBundle!String do
   let account = open_account(local, wrapping_key, path)?
+  let capabilities = case renewal_request_capabilities(previous.credential, request) do
+    Err(_) -> return Err("invalid_renewal_request")
+    Ok(value) -> value
+  end
   let credential = case issue_renewed_device_credential(account,
-    previous.credential,
+    %{previous.credential | capabilities: capabilities},
     request.post_quantum_prekey,
     now,
     U64.add(now, credential_lifetime()?)?,
@@ -858,6 +961,7 @@ fn own_account_renewal(path :: String,
   now :: U64,
   clock :: U64,
   sequence :: U64) -> Option<Bytes>!String do
+  let before = renewal_basis(path, wrapping_key, local)?
   let kept = load_kept(path, wrapping_key)?
   case pending_bundle(kept, 0)? do
     Some(pending) -> do
@@ -871,11 +975,12 @@ fn own_account_renewal(path :: String,
         let rebased = credential_answer(path,
           wrapping_key,
           local,
-          local,
+          %{local | credential: pending_credential},
           own_request_from(pending)?,
           now,
           sequence)?
-        store_record_changes(path,
+        commit_account_changes(path,
+          before,
           ["prekey-bundles/v1"],
           [kept_blob(with_pending(kept, bundle_bytes(rebased)?)?, wrapping_key)?],
           List.new())?
@@ -905,7 +1010,8 @@ fn own_account_renewal(path :: String,
       let bundle = credential_answer(path, wrapping_key, local, local, request, now, sequence)?
       let signed_label = signed_prekey_label(id)
       let post_quantum_label = post_quantum_prekey_label(id)
-      store_record_changes(path,
+      commit_account_changes(path,
+        before,
         [signed_label, post_quantum_label, "prekey-bundles/v1"],
         [
           seal_x25519(signed.private_key,
@@ -932,15 +1038,16 @@ fn linked_renewal(path :: String,
   local :: ClientProfile,
   now :: U64,
   clock :: U64) -> Option<Bytes>!String do
+  let before = renewal_basis(path, wrapping_key, local)?
   let kept = load_kept(path, wrapping_key)?
   case load_request(path, wrapping_key)? do
     Some(asked) -> case request_signed_prekey_id(local.bundle) do
       Some(published) -> if U64.compare(published, asked.signed_prekey_id) == 0 do
         Ok(None)
       else
-        ask_again(path, wrapping_key, local, kept, asked)
+        ask_again(path, before, wrapping_key, local, kept, asked)
       end
-      None -> ask_again(path, wrapping_key, local, kept, asked)
+      None -> ask_again(path, before, wrapping_key, local, kept, asked)
     end
     None -> if !(renewal_due(local, clock)?) do
       Ok(None)
@@ -958,7 +1065,12 @@ fn linked_renewal(path :: String,
         Err(_) -> Err("post_quantum_prekey_generation_failed")
         Ok(value)
       end?
-      let request = case issue_renewal_request(device, local.credential, signed, post_quantum) do
+      let issued = if current_readers(local.credential.capabilities) do
+        issue_renewal_request(device, local.credential, signed, post_quantum)
+      else
+        issue_current_readers_renewal_request(device, local.credential, signed, post_quantum)
+      end
+      let request = case issued do
         Err(_) -> Err("renewal_request_failed")
         Ok(value)
       end?
@@ -972,7 +1084,8 @@ fn linked_renewal(path :: String,
       end?
       let signed_label = signed_prekey_label(id)
       let post_quantum_label = post_quantum_prekey_label(id)
-      store_record_changes(path,
+      commit_account_changes(path,
+        before,
         [signed_label, post_quantum_label, "renewal-request/v1", "prekey-bundles/v1"],
         [
           seal_x25519(signed.private_key,
@@ -991,13 +1104,14 @@ fn linked_renewal(path :: String,
 end
 
 fn ask_again(path :: String,
+  before :: AccountBasis,
   wrapping_key :: borrow StorageKey,
   local :: ClientProfile,
   kept :: List<KeptBundle>,
   asked :: RenewalRequest) -> Option<Bytes>!String do
   if U64.compare(asked.signed_prekey_id, local.bundle.signed_prekey_id) <= 0 do
     # Answered already; the record outlived its answer.
-    store_record_changes(path, List.new(), List.new(), ["renewal-request/v1"])?
+    commit_account_changes(path, before, List.new(), List.new(), ["renewal-request/v1"])?
     Ok(None)
   else
     let asking = case bundle_with_renewal_request(normalized(local.bundle)?, asked) do
@@ -1010,7 +1124,8 @@ fn ask_again(path :: String,
       None -> false
     end
     if !unchanged do
-      store_record_changes(path,
+      commit_account_changes(path,
+        before,
         ["prekey-bundles/v1"],
         [kept_blob(with_pending(kept, asking_bytes)?, wrapping_key)?],
         List.new())
@@ -1067,6 +1182,74 @@ fn answer_requests(path :: String,
   end
 end
 
+# Capability upgrades use the same prior device-signed request for primary and
+# linked devices. Merely holding the account key never asserts linked support.
+fn primary_renewal(path :: String,
+  wrapping_key :: borrow StorageKey,
+  local :: ClientProfile,
+  now :: U64,
+  clock :: U64,
+  sequence :: U64) -> Option<Bytes>!String do
+  let before = renewal_basis(path, wrapping_key, local)?
+  let kept = load_kept(path, wrapping_key)?
+  case pending_bundle(kept, 0)? do
+    Some(pending) -> do
+      let credential = case decode_device_credential(pending.device_credential) do
+        Err(_) -> return Err("invalid_prekey_bundle")
+        Ok(value) -> value
+      end
+      # Preserve an already prepared account answer, including an old v1
+      # renewal. Its immutable keys and mask survive retry/sequence rebasing.
+      if U64.compare(credential.directory_sequence, local.credential.directory_sequence) > 0 do
+        return own_account_renewal(path, wrapping_key, local, now, clock, sequence)
+      end
+    end
+    None -> nil
+  end
+  let published = case bundle_renewal_request(local.bundle) do
+    Err(_) -> return Err("invalid_renewal_request")
+    Ok(value) -> value
+  end
+  case published do
+    Some(request) -> do
+      if !verify_renewal_request(local.credential, request)
+        || U64.compare(request.signed_prekey_id, local.bundle.signed_prekey_id) <= 0 do
+        return Err("invalid_renewal_request")
+      end
+      # The witnessed request must also be this device's durable generation;
+      # a signed request alone cannot manufacture missing local private keys.
+      case load_request(path, wrapping_key)? do
+        None -> return Err("unrecognized_device_entry")
+        Some(saved) -> do
+          let saved_wire = case encode_renewal_request(saved) do
+            Err(_) -> return Err("invalid_renewal_request")
+            Ok(value) -> value
+          end
+          let published_wire = case encode_renewal_request(request) do
+            Err(_) -> return Err("invalid_renewal_request")
+            Ok(value) -> value
+          end
+          if !Bytes.secure_equals(saved_wire, published_wire) do
+            return Err("unrecognized_device_entry")
+          end
+        end
+      end
+      let bundle = credential_answer(path, wrapping_key, local, local, request, now, sequence)?
+      commit_account_changes(path,
+        before,
+        ["prekey-bundles/v1"],
+        [kept_blob(with_pending(kept, bundle_bytes(bundle)?)?, wrapping_key)?],
+        List.new())?
+      Ok(Some(renewed_entry(local, bundle)?))
+    end
+    None -> if !current_readers(local.credential.capabilities) do
+      linked_renewal(path, wrapping_key, local, now, clock)
+    else
+      own_account_renewal(path, wrapping_key, local, now, clock, sequence)
+    end
+  end
+end
+
 fn option_list(value :: Option<Bytes>) -> List<Bytes> do
   case value do
     None -> List.new()
@@ -1085,9 +1268,17 @@ end
 
 pub fn renew_devices_at(path :: String, device_set :: Bytes, age :: U64) -> List<Bytes>!String do
   ensure_schema(path)?
+  case load_blob(path, "device-publication/v1") do
+    Ok(_) -> return Err("renewal_publication_pending")
+    Err("local_state_not_found") -> nil
+    Err(error) -> return Err(error)
+  end
   let stored = decode_client_profile(load_profile(path)?)?
   let devices = verified_device_set(device_set)?
   let wrapping_key = platform_key()?
+  if Bytes.length(retained_fork(path, wrapping_key)?) > 0 do
+    return Ok(List.new())
+  end
   require_transparency_device_set(path, wrapping_key, devices)?
   if !local_device_set(stored, devices) do
     Err("renewal_device_set_mismatch")
@@ -1098,7 +1289,7 @@ pub fn renew_devices_at(path :: String, device_set :: Bytes, age :: U64) -> List
     let local = reconcile(path, wrapping_key, stored, logged, now, clock)?
     let sequence = U64.add(devices.value.sequence, mobile_wide("1")?)?
     if holds_account_key(path)? do
-      let own = own_account_renewal(path, wrapping_key, local, now, clock, sequence)?
+      let own = primary_renewal(path, wrapping_key, local, now, clock, sequence)?
       let first = option_list(own)
       answer_requests(path,
         wrapping_key,
@@ -1132,4 +1323,11 @@ end
 pub fn renew_devices(request :: MobilePayloadRequest) -> Bytes!String do
   let entries = renew_devices_at(request.database_path, request.payload, mobile_wide("0")?)?
   encode_output_list(stamped_registrations(entries, 0, List.new())?)
+end
+
+fn current_readers(capabilities :: U64) -> Bool do
+  supports_ach3(capabilities)
+    && supports_group_expiry(capabilities)
+    && supports_attachment_buckets(capabilities)
+    && supports_header_encryption(capabilities)
 end

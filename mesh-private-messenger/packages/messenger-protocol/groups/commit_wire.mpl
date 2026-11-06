@@ -9,6 +9,7 @@ from Groups.GroupCodec import (
   group_next_epoch,
   group_tree_path_error,
   group_valid_extensions,
+  group_validate_policy,
   group_vector,
   group_wire_end,
   group_wire_fixed,
@@ -31,6 +32,7 @@ from Groups.Mls import (
   GroupReadInt,
   GroupReadInts,
   GroupReadParents,
+  GroupReadPolicy,
   GroupReadProposal,
   GroupReadUpdateNodes,
   GroupReadWide,
@@ -68,13 +70,46 @@ pub fn group_extensions_bytes(values :: List<Int>) -> Bytes!GroupError do
 end
 
 pub fn group_policy_bytes(value :: GroupTransparencyPolicy) -> Bytes!GroupError do
+  group_validate_policy(value)?
   group_join([
       group_write_u64(value.minimum_directory_sequence)?,
       value.checkpoint_hash,
-      group_byte(value.witness_threshold)?
+      group_byte(value.witness_threshold)?,
+      value.set_id
     ],
     0,
     Bytes.empty())
+end
+
+pub fn group_policy_wire_version(value :: GroupTransparencyPolicy) -> Int do
+  if Bytes.length(value.set_id) == 0 do
+    1
+  else
+    2
+  end
+end
+
+pub fn group_read_policy(state :: BinaryReader, version :: Int) -> GroupReadPolicy!GroupError do
+  if version != 1 && version != 2 do
+    return Err(InvalidGroup)
+  end
+  let minimum = group_wire_u64(state)?
+  let checkpoint = group_wire_fixed(minimum.state, 32)?
+  let threshold = group_wire_u8(checkpoint.state)?
+  let set_id = group_wire_fixed(threshold.state,
+    if version == 2 do
+      32
+    else
+      0
+    end)?
+  let value = GroupTransparencyPolicy {
+    minimum_directory_sequence: minimum.value,
+    checkpoint_hash: checkpoint.value,
+    witness_threshold: threshold.value,
+    set_id: set_id.value
+  }
+  group_validate_policy(value)?
+  Ok(GroupReadPolicy { state: set_id.state, value: value })
 end
 
 fn proposal_bytes(value :: GroupProposal) -> Bytes!GroupError do
@@ -90,6 +125,13 @@ fn proposal_bytes(value :: GroupProposal) -> Bytes!GroupError do
       0,
       Bytes.empty())
     UpdateKeys -> group_join([group_byte(3)?, group_write_u16(0)?], 0, Bytes.empty())
+    UpdateWitnessPolicy(policy) -> group_join([
+        group_byte(4)?,
+        group_write_u16(0)?,
+        group_policy_bytes(policy)?
+      ],
+      0,
+      Bytes.empty())
     RemoveMember(leaf_index) -> group_join([group_byte(2)?, group_write_u16(leaf_index)?],
       0,
       Bytes.empty())
@@ -332,6 +374,9 @@ fn read_proposal(state :: BinaryReader) -> GroupReadProposal!GroupError do
     })
   else if kind.value == 3 && leaf.value == 0 do
     Ok(GroupReadProposal { state: leaf.state, value: UpdateKeys })
+  else if kind.value == 4 && leaf.value == 0 do
+    let policy = group_read_policy(leaf.state, 2)?
+    Ok(GroupReadProposal { state: policy.state, value: UpdateWitnessPolicy(policy.value) })
   else if kind.value == 2 do
     Ok(GroupReadProposal { state: leaf.state, value: RemoveMember(leaf.value) })
   else
@@ -433,6 +478,11 @@ end
 fn validate_proposal_shape(value :: GroupProposal) -> Result<(), GroupError> do
   case value do
     UpdateKeys -> Ok(nil)
+    UpdateWitnessPolicy(policy) -> if Bytes.length(policy.set_id) != 32 do
+      Err(InvalidPolicy)
+    else
+      group_validate_policy(policy)
+    end
     AddMember(leaf, member) -> if leaf < 0 || leaf >= 64 do
       Err(InvalidGroup)
     else
@@ -501,6 +551,7 @@ pub fn group_validate_commit_shape(value :: GroupCommit) -> Result<(), GroupErro
     && Bytes.length(value.signature.bytes) == 64
   let legacy_update = case value.proposal do
     UpdateKeys -> value.version == 1
+    UpdateWitnessPolicy(_) -> value.version == 1
     _ -> false
   end
   if !valid || legacy_update do

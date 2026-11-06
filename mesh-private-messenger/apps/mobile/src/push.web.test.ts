@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import { registerHooks } from 'node:module';
+import test from 'node:test';
+import { vectors, utf8 } from './codec.ts';
+const profile=(value:number)=>vectors(utf8('alice'),new Uint8Array(32).fill(value),new Uint8Array(16).fill(value),new Uint8Array());
+const host={ current:profile(1), granted:true, request:async()=>'granted', values:new Map<string,string>() };
+(globalThis as typeof globalThis & {__webPush:typeof host}).__webPush=host;
+Object.defineProperty(globalThis,'localStorage',{value:{getItem:(key:string)=>host.values.get(key)??null,setItem:(key:string,value:string)=>host.values.set(key,value),removeItem:(key:string)=>host.values.delete(key)},configurable:true});
+registerHooks({resolve(specifier,context,next){
+ if(!context.parentURL?.endsWith('/src/push.web.ts'))return next(specifier,context);
+ let source:string|undefined;
+ if(specifier==='@tauri-apps/api/core')source='export const isTauri=()=>true;';
+ else if(specifier==='@tauri-apps/plugin-notification')source='export const isPermissionGranted=async()=>globalThis.__webPush.granted;export const requestPermission=()=>globalThis.__webPush.request();';
+ else if(specifier==='../modules/mesh-messenger')source='export const load_profile_export=async()=>globalThis.__webPush.current.slice();';
+ else if(specifier==='./i18n')source='export const t=value=>value;';
+ else if(['./codec','./account-lifecycle'].includes(specifier))return next(specifier+'.ts',context);
+ if(source!==undefined)return {shortCircuit:true,url:'data:text/javascript,'+encodeURIComponent(source)};
+ return next(specifier,context);
+}});
+const push=await import('./push.web.ts');
+test('desktop notification permission belongs to account and device, not reused database path',async()=>{
+ host.values.clear();host.granted=true;host.current=profile(1);
+ assert.equal(await push.enablePushBinding('/app/morse.db',host.current),'enabled');
+ assert.equal(await push.getPushStatus('/app/morse.db'),'enabled');
+ host.current=profile(2);
+ assert.equal(await push.getPushStatus('/app/morse.db'),'disabled');
+ assert.equal(await push.recoverPushBinding('/app/morse.db',profile(1)),'disabled');
+ assert.equal(await push.enablePushBinding('/app/morse.db',host.current),'enabled');
+ await push.disablePushBinding('/app/morse.db',profile(1));
+ assert.equal(await push.getPushStatus('/app/morse.db'),'enabled');
+});
+test('permission dialog completion cannot enable a replacement account',async()=>{
+ host.values.clear();host.granted=false;host.current=profile(1);
+ let finish!:(value:string)=>void;
+ host.request=()=>new Promise(resolve=>{finish=resolve;});
+ const enabling=push.enablePushBinding('/app/morse.db',host.current);
+ await new Promise(resolve=>setImmediate(resolve));
+ host.current=profile(2);host.granted=true;finish('granted');
+ await assert.rejects(enabling,/account_state_changed/);
+ assert.equal(await push.getPushStatus('/app/morse.db'),'disabled');
+});

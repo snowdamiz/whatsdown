@@ -1,0 +1,24 @@
+# Set MORSE_ISSUER_HOST to the issuer's DNS hostname in Caddy's environment.
+# No access log: public payment signatures and blind batches stay out of logs.
+{$MORSE_ISSUER_HOST} {
+	@purchases {
+		method POST
+		path /internal/v1/credits/quote /internal/v1/credits/issue
+	}
+	handle @purchases {
+		request_body {
+			max_size 518102
+		}
+		reverse_proxy 127.0.0.1:18096 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up -Cookie
+			header_up -User-Agent
+			header_up -Referer
+		}
+	}
+	handle {
+		respond "" 404
+	}
+}

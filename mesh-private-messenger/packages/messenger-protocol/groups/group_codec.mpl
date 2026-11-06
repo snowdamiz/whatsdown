@@ -241,7 +241,10 @@ end
 pub fn group_validate_policy(value :: GroupTransparencyPolicy) -> Result<(), GroupError> do
   if Bytes.length(value.checkpoint_hash) != 32
     || value.witness_threshold < 0
-    || value.witness_threshold > 255 do
+    || value.witness_threshold > 255
+    || (Bytes.length(value.set_id) != 0 && Bytes.length(value.set_id) != 32)
+    || (Bytes.length(value.set_id) == 32
+      && (value.witness_threshold < 1 || value.witness_threshold > 9)) do
     Err(InvalidPolicy)
   else
     Ok(nil)

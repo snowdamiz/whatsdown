@@ -1,0 +1,7 @@
+[package]
+name = "morse-token-expiry"
+version = "0.1.0"
+license = "MIT"
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }
+credit-issuer = { path = "../../services/credit-issuer" }

@@ -1,0 +1,23 @@
+[package]
+name = "morse-solana-nonce-proof"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+base64 = "=0.22.1"
+hex = "=0.4.3"
+serde_json = "=1.0.151"
+wincode = "=0.6.2"
+solana-runtime = { version = "=4.3.2", features = ["agave-unstable-api", "dev-context-only-utils"] }
+solana-account = "=4.7.0"
+solana-address = "=2.7.0"
+solana-instruction = "=3.5.0"
+solana-keypair = "=3.1.2"
+solana-message = "=4.6.0"
+solana-nonce = { version = "=3.3.0", features = ["wincode"] }
+solana-signer = "=3.0.1"
+solana-system-interface = { version = "=3.3.0", features = ["wincode"] }
+solana-transaction = { version = "=4.3.0", features = ["wincode", "verify"] }

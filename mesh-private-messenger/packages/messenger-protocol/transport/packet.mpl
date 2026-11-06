@@ -72,13 +72,16 @@ fn vector(value :: Bytes) -> Bytes!String do
 end
 
 fn client_append(left :: Bytes, right :: Bytes) -> Bytes!String do
-  case Bytes.concat(left, right) do
-    Err(_) -> Err("byte_concatenation_failed")
-    Ok(value)
+  let joined = Bytes.concat(left, right)
+  if declassify(Result.is_err(joined),
+    "client transport framing discloses only its one-bit concatenation failure status; framed content stays private") do
+    Err("byte_concatenation_failed")
+  else
+    Ok(Result.unwrap_or(joined, Bytes.empty()))
   end
 end
 
-fn client_write_u32(value :: Int) -> Bytes!String do
+fn client_write_u32_raw(value :: Int) -> Bytes!String do
   let wide = case U64.parse(Int.to_string(value)) do
     Err(_) -> Err("invalid_wide_integer")
     Ok(parsed)
@@ -386,5 +389,23 @@ fn account_before(left :: Bytes, right :: Bytes, index :: Int) -> Bool!String do
     else
       Ok(left_byte < right_byte)
     end
+  end
+end
+
+fn client_write_u32(value :: Int) -> Bytes!String do
+  let encoded = client_write_u32_raw(value)
+  let status = case encoded do
+    Ok(_) -> 0
+    Err("invalid_wide_integer") -> 1
+    Err(_) -> 2
+  end
+  let published = declassify(status,
+    "client vector framing discloses only success, invalid length integer, or integer encoding failure; encoded length bytes stay private")
+  if published == 1 do
+    Err("invalid_wide_integer")
+  else if published == 2 do
+    Err("integer_encoding_failed")
+  else
+    Ok(Result.unwrap_or(encoded, Bytes.empty()))
   end
 end

@@ -88,3 +88,32 @@ test("the app's read, notification, receipt and community-request journals are s
     Ok(value) -> assert(value)
   end
 end
+
+fn size_boundary_proof() -> Result<(), String> do
+  assert(Test.install_in_memory_secure_store())
+  let path = database_path("journal-size-boundary")?
+  create_account_export(group_vectors([Bytes.from_utf8(path), Bytes.from_utf8("alice")])?)?
+  for size in [65536, 65537, 131073, 262144] do
+    let value = repeated(91, size)?
+    saved(path, "read-state/index", value)?
+    assert(Bytes.secure_equals(loaded(path, "read-state/index")?, value))
+  end
+  let before = loaded(path, "read-state/index")?
+  assert(case saved(path, "read-state/index", repeated(91, 262145)?) do
+    Err("journal_record_too_large") -> true
+    _ -> false
+  end)
+  assert(Bytes.secure_equals(loaded(path, "read-state/index")?, before))
+  File.delete(path)?
+  Ok(nil)
+end
+
+test("journal records round-trip through the promised256KiB limit and an oversized write preserves the prior value") do
+  case size_boundary_proof() do
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok(_) -> assert(true)
+  end
+end

@@ -245,6 +245,7 @@ fn transparency_proof() -> Bool!String do
   })?)?
   assert(lookup.username == "alice" && lookup.previous_tree_size == 2)
   assert(decode_transparency_tree_query(encode_transparency_tree_query(TransparencyTreeQuery {
+    new_tree_size: 0,
     previous_tree_size: 2
   })?)?.previous_tree_size == 2)
   let evidence = decode_transparency_evidence(encode_transparency_evidence(TransparencyEvidence {

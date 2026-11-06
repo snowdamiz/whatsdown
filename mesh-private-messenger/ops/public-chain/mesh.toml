@@ -1,0 +1,8 @@
+[package]
+name = "morse-public-chain-report"
+version = "0.1.0"
+description = "Read-only bounded finalized burn and v2 collateral reporting; no transaction authority"
+
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }
+mesh-solana = { path = "../../../mesh-lang/packages/mesh-solana" }

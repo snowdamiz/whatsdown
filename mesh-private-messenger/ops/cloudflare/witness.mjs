@@ -8,21 +8,66 @@ export function httpsOrigin(value) {
   return url.origin;
 }
 
+async function registryRequest(env, path) {
+  const response = await env.DIRECTORY.getByName('primary').fetch(`http://service/internal/v1/transparency/${path}`, {
+    headers: { Authorization: `Bearer ${env.MESSENGER_DELIVERY_INTERNAL_TOKEN}` },
+    redirect: 'manual', signal: AbortSignal.timeout(10_000),
+  });
+  if (response.status !== 200) { await response.body?.cancel(); throw new Error('Witness registry unavailable'); }
+  const bytes = await boundedBody(response, 65536);
+  if (!bytes) throw new Error('Witness registry response too large');
+  return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+}
+
 export async function attestWitnesses(env, fetcher = fetch) {
-  if (env.MORSE_ISOLATED_WITNESSES !== '1') {
-    return Promise.all([env.WITNESS_A.getByName('primary').attest(), env.WITNESS_B.getByName('primary').attest()]);
-  }
-  await Promise.all(['A', 'B'].map(async name => {
-    const origin = httpsOrigin(env[`WITNESS_${name}_URL`]);
-    const token = env[`WITNESS_${name}_INVOKE_TOKEN`];
-    if (!/^[a-f0-9]{64}$/.test(token ?? '')) throw new Error('Missing witness invocation token');
-    const response = await fetcher(`${origin}/attest`, {
+  const registry = await registryRequest(env, 'push-witnesses');
+  if (!Array.isArray(registry.witnesses) || registry.witnesses.length > 256) throw new Error('Invalid witness registry');
+  const ids = new Set();
+  const witnesses = registry.witnesses.map(value => {
+    if (!/^[a-z0-9-]{1,64}$/.test(value.witness_id ?? '') || ids.has(value.witness_id)) throw new Error('Invalid witness registry');
+    ids.add(value.witness_id);
+    const url = new URL(value.push_url);
+    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.href !== value.push_url) throw new Error('Expected a canonical HTTPS witness endpoint');
+    if (!['mesh', 'c2sp'].includes(value.software ?? 'mesh')) throw new Error('Unsupported witness software');
+    return value;
+  });
+  const tokens = JSON.parse(env.MESSENGER_WITNESS_PUSH_TOKENS ?? '{}');
+  if (!tokens || typeof tokens !== 'object' || Array.isArray(tokens)) throw new Error('Invalid witness invocation tokens');
+  const results = await Promise.allSettled(witnesses.map(async ({ witness_id: id, push_url: url, software }) => {
+    if (software === 'c2sp') {
+      if (env.MORSE_C2SP_PUSH !== 'on') return;
+      // Mesh constructs the signed note and consistency proof, handles the
+      // witness's size retry, and admits only its registered fresh cosignature.
+      const response = await env.DIRECTORY.getByName('primary').fetch('http://service/internal/v2/transparency/c2sp-push', {
+        method: 'POST', body: id, redirect: 'manual', signal: AbortSignal.timeout(30_000),
+        headers: { Authorization: `Bearer ${env.MESSENGER_DELIVERY_INTERNAL_TOKEN}` },
+      });
+      await response.body?.cancel();
+      if (response.status !== 204) throw new Error(`Witness ${id} C2SP push failed (${response.status})`);
+      return;
+    }
+    if (env.MORSE_ISOLATED_WITNESSES !== '1') {
+      const binding = env[id.toUpperCase().replaceAll('-', '_')];
+      if (!binding) throw new Error(`Missing local witness binding for ${id}`);
+      return binding.getByName('primary').attest();
+    }
+    // Existing A/B deployments can keep their named secrets during migration.
+    const legacy = id === 'witness-a' ? 'A' : id === 'witness-b' ? 'B' : undefined;
+    const token = Object.hasOwn(tokens, id) ? tokens[id] : legacy && env[`WITNESS_${legacy}_INVOKE_TOKEN`];
+    if (!/^[a-f0-9]{64}$/.test(token ?? '')) throw new Error(`Missing invocation token for ${id}`);
+    const response = await fetcher(url, {
       method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(60_000),
       headers: { Authorization: `Bearer ${token}` },
     });
     await response.body?.cancel();
-    if (response.status !== 204) throw new Error(`Witness ${name} attestation failed (${response.status})`);
+    if (response.status !== 204) throw new Error(`Witness ${id} attestation failed (${response.status})`);
   }));
+  // A failed minority must not disable a healthy majority. The directory checks
+  // registered keys against the current checkpoint, including pull witnesses.
+  const health = await registryRequest(env, 'witness-health');
+  if (typeof health.threshold_met !== 'boolean') throw new Error('Invalid witness health');
+  if (!health.threshold_met) throw new Error('Witness threshold not met for current checkpoint');
+  return { ...health, push_failures: results.filter(result => result.status === 'rejected').length };
 }
 
 export async function witnessRequest(request, env) {
@@ -50,7 +95,7 @@ export async function witnessRequest(request, env) {
 
 export function directoryRequest(request, env) {
   const url = new URL(request.url);
-  if (!url.pathname.startsWith('/v1/transparency/') || !['GET', 'POST'].includes(request.method) || url.search) return null;
+  if (!/^\/v[12]\/transparency\//.test(url.pathname) || !['GET', 'POST'].includes(request.method) || url.search) return null;
   return new Request(`${httpsOrigin(env.MORSE_DIRECTORY_URL)}${url.pathname}`, {
     method: request.method, body: request.body, duplex: 'half', redirect: 'manual',
     headers: { 'Content-Type': 'application/octet-stream' }, signal: AbortSignal.timeout(60_000),

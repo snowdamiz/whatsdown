@@ -34,8 +34,69 @@ defaults:
     working-directory: mesh-lang
 
 jobs:
+  judge:
+    name: Judge SBF and signature introspection
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout Morse
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: 1.97.0
+          components: rustfmt,clippy
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          key: ci-judge
+          workspaces: mesh-private-messenger/programs -> target
+      - name: Install pinned SBF builder
+        run: cargo install --locked --version 4.4.0 cargo-build-sbf
+      - name: Verify judge and real Ed25519 precompiles
+        env:
+          MORSE_CUSTODY_FIXTURES_PATH: ${{ github.workspace }}/mesh-private-messenger/programs/target/custody-accounts.json
+          MORSE_ADJUDICATION_FIXTURES_PATH: ${{ github.workspace }}/mesh-private-messenger/programs/target/adjudication-accounts.json
+        run: bash mesh-private-messenger/scripts/prove-judge.sh
+      - name: Verify isolated rewards custody and settlement
+        env:
+          MORSE_REWARDS_FIXTURES_PATH: ${{ github.workspace }}/mesh-private-messenger/programs/target/rewards-accounts.json
+        run: bash mesh-private-messenger/scripts/prove-rewards.sh
+      - name: Build writer execution harness
+        run: |
+          cargo build --manifest-path mesh-private-messenger/programs/Cargo.toml --locked \
+            -p morse-judge --features svm --example anchor_writer_bridge --example relay_writer_bridge
+          cargo build --manifest-path mesh-private-messenger/programs/Cargo.toml --locked \
+            -p morse-rewards --features svm --example rewards_writer_bridge
+          cargo test --manifest-path mesh-private-messenger/programs/Cargo.toml --locked \
+            -p morse-judge --features svm --test stage_svm --test adjudication_svm --no-run --message-format=json |
+            node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk); process.stdin.on("end", () => { const names = { stage_svm: "relay-stage-proof", adjudication_svm: "relay-admission-proof" }; const artifacts = input.trim().split("\n").map(line => JSON.parse(line)).filter(value => value.reason === "compiler-artifact" && names[value.target.name] && value.executable); if (artifacts.length !== 2 || new Set(artifacts.map(value => value.target.name)).size !== 2) throw new Error("expected two relay proof executables"); for (const value of artifacts) require("node:fs").copyFileSync(value.executable, "mesh-private-messenger/programs/target/debug/" + names[value.target.name]); });'
+          cd mesh-private-messenger/programs/target
+          sha256sum deploy/morse_judge.so deploy/morse_rewards.so debug/examples/anchor_writer_bridge debug/examples/relay_writer_bridge debug/examples/rewards_writer_bridge debug/relay-stage-proof debug/relay-admission-proof custody-accounts.json adjudication-accounts.json rewards-accounts.json > anchor-writer.sha256
+      - name: Preserve tested judge for the Mesh writer proof
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: anchor-writer-sbf
+          path: |
+            mesh-private-messenger/programs/target/deploy/morse_judge.so
+            mesh-private-messenger/programs/target/deploy/morse_rewards.so
+            mesh-private-messenger/programs/target/debug/examples/anchor_writer_bridge
+            mesh-private-messenger/programs/target/debug/examples/relay_writer_bridge
+            mesh-private-messenger/programs/target/debug/examples/rewards_writer_bridge
+            mesh-private-messenger/programs/target/debug/relay-stage-proof
+            mesh-private-messenger/programs/target/debug/relay-admission-proof
+            mesh-private-messenger/programs/target/anchor-writer.sha256
+            mesh-private-messenger/programs/target/custody-accounts.json
+            mesh-private-messenger/programs/target/adjudication-accounts.json
+            mesh-private-messenger/programs/target/rewards-accounts.json
+          if-no-files-found: error
+
   mesh:
     name: Pinned Mesh and messenger tests
+    needs: judge
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     outputs:
@@ -89,6 +150,17 @@ jobs:
           sh -n install.sh
           bash mesh-private-messenger/scripts/install.test.sh
           node --test mesh-private-messenger/scripts/release-changes.test.mjs
+          node --test mesh-private-messenger/scripts/build-mobile-native.test.mjs
+          node --test mesh-private-messenger/ops/plaintext/report.test.mjs
+          node --test mesh-private-messenger/ops/plaintext/release-evidence.test.mjs mesh-private-messenger/scripts/plaintext-release.test.mjs
+          python3 mesh-private-messenger/ops/plaintext/extract-release-evidence.test.py
+          python3 mesh-private-messenger/ops/attachment-ach3-native/build.test.py
+          python3 mesh-private-messenger/ops/attachment-ach3-native/prepare.test.py
+          python3 mesh-private-messenger/ops/attachment-ach3-native/profile.test.py
+          python3 mesh-private-messenger/ops/attachment-ach3-native/seal.test.py
+          python3 mesh-private-messenger/ops/attachment-paid-native/build.test.py
+          python3 mesh-private-messenger/ops/attachment-paid-native/qualification.test.py
+          python3 mesh-private-messenger/ops/attachment-paid-native/callback.test.py
 
       - name: Cache LLVM
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -135,7 +207,7 @@ jobs:
           # PostgreSQL's own apt repository has the client for the 17 service.
           sudo apt-get install --no-install-recommends -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install --no-install-recommends -y libsqlite3-dev sqlite3 postgresql-client-17
+          sudo apt-get install --no-install-recommends -y libsqlite3-dev sqlite3 postgresql-client-17 postgresql-17
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
 
       - name: Verify formatting and core workspace
@@ -151,6 +223,26 @@ jobs:
         timeout-minutes: 5
         run: ./target/debug/meshc lint ../mesh-private-messenger
 
+      - name: Verify public Solana account reads
+        timeout-minutes: 5
+        run: ./target/debug/meshc test packages/mesh-solana/tests
+
+      - name: Verify private display-source boundaries
+        timeout-minutes: 10
+        run: |
+          python3 ../mesh-private-messenger/ops/plaintext/prove_display_sources.py \
+            --compiler ./target/debug/meshc \
+            --product ../mesh-private-messenger \
+            --output "$RUNNER_TEMP/plaintext-display-sources"
+
+      - name: Verify private attachment metadata boundaries
+        timeout-minutes: 10
+        run: |
+          python3 ../mesh-private-messenger/ops/plaintext/prove_attachment_metadata.py \
+            --compiler ./target/debug/meshc \
+            --product ../mesh-private-messenger \
+            --output "$RUNNER_TEMP/plaintext-attachment-metadata"
+
       - name: Verify Mesh messenger packages
         timeout-minutes: 30
         # Formatting is the Mesh formatting workflow's: it reformats what a
@@ -159,11 +251,36 @@ jobs:
           ../mesh-private-messenger/scripts/prove-m14.sh
           ../mesh-private-messenger/scripts/prove-m15.sh
 
+      - name: Verify privacy submission clock window
+        timeout-minutes: 10
+        env:
+          CARGO_BUILD_JOBS: "1"
+        run: ./target/debug/meshc test ../mesh-private-messenger/tests/privacy-clock/tests/privacy_clock_window.test.mpl --opt-level 0
+
       - name: Verify M13 transparency witness
         timeout-minutes: 15
         run: |
           bash -n ../mesh-private-messenger/scripts/prove-m13.sh
           ../mesh-private-messenger/scripts/prove-m13.sh
+
+      - name: Verify prekey cleanup and default-off rollout
+        timeout-minutes: 15
+        env:
+          PG_BIN: /usr/lib/postgresql/17/bin
+        run: |
+          python3 ../mesh-private-messenger/scripts/prove-prekey-retention.py \
+            --compiler "$PWD/target/debug/meshc" \
+            --runtime "$PWD/target/debug/libmesh_rt.a" \
+            --test-runtime "$PWD/target/debug/libmesh_test_rt.a" \
+            --test prekey_retention.test.mpl \
+            --test prekey_pool.test.mpl \
+            --test transparency_retention.test.mpl \
+            --output "$RUNNER_TEMP/prekey-retention"
+          python3 ../mesh-private-messenger/scripts/prove-prekey-rollout.py \
+            --compiler "$PWD/target/debug/meshc" \
+            --runtime "$PWD/target/debug/libmesh_rt.a" \
+            --test-runtime "$PWD/target/debug/libmesh_test_rt.a" \
+            --output "$RUNNER_TEMP/prekey-rollout"
 
       - name: Verify service startup failures
         timeout-minutes: 5
@@ -180,11 +297,89 @@ jobs:
       - name: Verify Cloudflare storage and routing
         timeout-minutes: 10
         run: |
+          PG_BIN=/usr/lib/postgresql/17/bin python3 ../mesh-private-messenger/scripts/prove-receipt-time-migration.py
           ./target/debug/meshc test ../mesh-private-messenger/services/push-broker/tests
           ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/postgres.test.mpl
+          npm ci --ignore-scripts --prefix ../mesh-private-messenger/ops/relay
           node --test ../mesh-private-messenger/scripts/*.test.mjs
+          node --test ../mesh-private-messenger/ops/witness/package.test.mjs
           npm ci --prefix ../mesh-private-messenger/ops/cloudflare
           MESHC="$PWD/target/debug/meshc" npm test --prefix ../mesh-private-messenger/ops/cloudflare
+
+      - name: Verify anonymous credits, wallet payments and shared redemption
+        timeout-minutes: 25
+        env:
+          PG_BIN: /usr/lib/postgresql/17/bin
+          CREDIT_TEST_PG_BIN: /usr/lib/postgresql/17/bin
+        run: |
+          npm ci --ignore-scripts --prefix ../mesh-private-messenger/ops/rewards
+          MESHC="$PWD/target/debug/meshc" MESH_LANG_ROOT="$PWD" \
+            bash ../mesh-private-messenger/scripts/prove-credits.sh
+
+      - name: Verify relay operator archive
+        timeout-minutes: 5
+        env:
+          MORSE_ARCHIVE_TEST_IMAGE: ubuntu@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+        run: node --test ../mesh-private-messenger/ops/witness/package-docker.test.mjs
+
+      - name: Verify Mesh monitor and CLI
+        timeout-minutes: 5
+        run: ./target/debug/meshc test ../mesh-private-messenger/clients/mesh-cli/tests
+
+      - name: Retrieve the tested judge and writer harness
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: anchor-writer-sbf
+          path: mesh-private-messenger/programs/target
+      - name: Execute Mesh and Kit writer transactions in the judge
+        timeout-minutes: 10
+        run: |
+          product="$GITHUB_WORKSPACE/mesh-private-messenger"
+          (cd "$product/programs/target" && sha256sum --check anchor-writer.sha256)
+          chmod +x "$product/programs/target/debug/examples/anchor_writer_bridge"
+          chmod +x "$product/programs/target/debug/examples/relay_writer_bridge"
+          chmod +x "$product/programs/target/debug/examples/rewards_writer_bridge"
+          chmod +x "$product/programs/target/debug/relay-stage-proof"
+          chmod +x "$product/programs/target/debug/relay-admission-proof"
+          export MORSE_ANCHOR_CHECKPOINTS_PATH="$product/tests/fixtures/fork-v1/anchor-checkpoints.json"
+          export MORSE_ANCHOR_WORK_PATH="$RUNNER_TEMP/anchor-work-fixtures.json"
+          export MORSE_ANCHOR_SBF_BRIDGE="$product/programs/target/debug/examples/anchor_writer_bridge"
+          export MORSE_JUDGE_SBF_PATH="$product/programs/target/deploy/morse_judge.so"
+          export MORSE_CUSTODY_FIXTURES_PATH="$product/programs/target/custody-accounts.json"
+          export MORSE_ADJUDICATION_FIXTURES_PATH="$product/programs/target/adjudication-accounts.json"
+          export MORSE_REWARDS_FIXTURES_PATH="$product/programs/target/rewards-accounts.json"
+          export MORSE_REWARDS_SBF_PATH="$product/programs/target/deploy/morse_rewards.so"
+          export MORSE_REWARDS_SBF_BRIDGE="$product/programs/target/debug/examples/rewards_writer_bridge"
+          export MORSE_RELAY_STAGE_PROOF_BINARY="$product/programs/target/debug/relay-stage-proof"
+          export MORSE_RELAY_ADMISSION_PROOF_BINARY="$product/programs/target/debug/relay-admission-proof"
+          export MORSE_RELAY_SBF_BRIDGE="$product/programs/target/debug/examples/relay_writer_bridge"
+          MESHC="$PWD/target/debug/meshc" bash "$product/scripts/prove-relay-stage.sh"
+          MORSE_ADJUDICATION_FIXTURES_PATH="$RUNNER_TEMP/relay-admission-fixtures.json" \
+            MORSE_RELAY_ANCHORED_FIXTURES_PATH="$RUNNER_TEMP/relay-anchored-fixtures.json" \
+            MESHC="$PWD/target/debug/meshc" bash "$product/scripts/prove-relay-writer.sh"
+          ./target/debug/meshc test "$product/packages/messenger-protocol/security/anchor-custody.test.mpl"
+          ./target/debug/meshc test "$product/packages/messenger-protocol/security/slash-receipt.test.mpl"
+          MESHC="$PWD/target/debug/meshc" bash "$product/scripts/prove-rewards-operator.sh"
+          node --test "$product/scripts/prove-judge.test.mjs"
+          MESHC="$PWD/target/debug/meshc" node --test "$product/scripts/bonds-command.test.mjs"
+          MESHC="$PWD/target/debug/meshc" node --test "$product/scripts/attendance-command.test.mjs"
+          ./target/debug/meshc test "$product/packages/messenger-protocol/security/anchor-checkpoints.test.mpl"
+          node --test "$product/ops/cloudflare/anchor-transactions.test.mjs" "$product/ops/cloudflare/anchor-sbf.test.mjs" "$product/ops/cloudflare/anchor-job-sbf.test.mjs"
+
+      - name: Prove native phone filing with authenticated SBF receipts
+        timeout-minutes: 5
+        run: |
+          product="$GITHUB_WORKSPACE/mesh-private-messenger"
+          ./target/debug/meshc build "$product/tests/phone-filing-native" --artifact cdylib --opt-level 2 \
+            --output "$RUNNER_TEMP/libphone_fixture.so"
+          for kind in 1 2 3; do
+            python3 "$product/scripts/prove-phone-filing.py" "$RUNNER_TEMP/libphone_fixture.so" \
+              "$product/programs/target/adjudication-accounts.json" "$kind"
+            python3 "$product/scripts/prove-phone-filing.py" "$RUNNER_TEMP/libphone_fixture.so" \
+              "$RUNNER_TEMP/relay-anchored-fixtures.json" "$kind"
+            python3 "$product/scripts/prove-phone-filing.py" "$RUNNER_TEMP/libphone_fixture.so" \
+              "$RUNNER_TEMP/relay-anchored-fixtures.json" "$kind" c2sp
+          done
 
       - name: Build Android mobile archives
         timeout-minutes: 35
@@ -221,6 +416,12 @@ jobs:
             "$preserved_meshc" build ../mesh-private-messenger/packages/mobile-core \
               --artifact staticlib --target "$target" --output "$output"
             test -s "$output"
+            node ../mesh-private-messenger/ops/plaintext/report.mjs \
+              --report "$output.plaintext.json" \
+              --review ../mesh-private-messenger/protocol/plaintext-disclosures.json \
+              --compiler "$preserved_meshc" \
+              --artifact "$output" \
+              --output "$output.plaintext-evidence.json"
             cargo clean --target "$target"
           done
 
@@ -229,6 +430,7 @@ jobs:
         working-directory: mesh-private-messenger/apps/mobile
         run: |
           npm ci --ignore-scripts=false
+          npm run check:native-network
           # Expo 57's xcode build tool still pins uuid 7; block high and critical advisories until upstream updates it.
           npm audit --audit-level=high
           npm test

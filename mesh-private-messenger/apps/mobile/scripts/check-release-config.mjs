@@ -5,6 +5,7 @@ import { X509Certificate } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 const { getConfig } = require('expo/config');
+const securityConfig = require('../plugins/security-config.cjs');
 const env = process.env;
 
 assert.match(env.EXPO_PROJECT_ID ?? '', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Set EXPO_PROJECT_ID');
@@ -28,13 +29,15 @@ if (env.EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY) {
 }
 for (const name of [
   'MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX',
-  'MESSENGER_WITNESS_A_PUBLIC_KEY_HEX',
-  'MESSENGER_WITNESS_B_PUBLIC_KEY_HEX',
+  ...(env.MESSENGER_WITNESS_SET_JSON !== undefined
+    ? ['MESSENGER_WITNESS_SET_JSON', 'MESSENGER_WITNESS_THRESHOLD']
+    : ['MESSENGER_WITNESS_A_PUBLIC_KEY_HEX', 'MESSENGER_WITNESS_B_PUBLIC_KEY_HEX']),
   'MESSENGER_DELIVERY_PUBLIC_KEY_HEX',
   'MESSENGER_ABUSE_DIFFICULTY',
 ]) {
   assert.ok(env[name], `Set ${name} in the EAS production environment`);
 }
 // Reuse the native plugin's key, difficulty, and paired push-pin validation.
+securityConfig(env); // Production never selects a canary log, regardless of build-profile environment.
 getConfig(process.cwd());
 console.log('Release environment is configured.');

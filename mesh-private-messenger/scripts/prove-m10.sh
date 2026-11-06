@@ -172,11 +172,20 @@ main() {
   # lifecycle proof. Messenger behavior stays in the Mesh tests below.
   "$meshc_bin" build "$core_dir" --artifact cdylib --output "$library"
 
-  MESSENGER_DELIVERY_SEALING_SEED_HEX="$delivery_sealing_seed_hex" \
+  # Backup fixtures require a private owned root; ordinary sibling support is unchanged.
+  local backup_fixture_root="$temp_dir/backup-fixtures"
+  mkdir -m 0700 "$backup_fixture_root"
+  MORSE_C1_FIXTURE_ROOT="$backup_fixture_root" \
+    MESSENGER_DELIVERY_SEALING_SEED_HEX="$delivery_sealing_seed_hex" \
     MESSENGER_M10_CAPACITY_PATH="$capacity_database" \
     MESSENGER_M10_LEGACY_ACTIVE_PATH="$legacy_active_database" \
     MESSENGER_M10_LEGACY_CONSUMED_PATH="$legacy_consumed_database" \
     "$meshc_bin" test "$core_dir/tests"
+  local backup_fixture_entries
+  backup_fixture_entries="$(find "$backup_fixture_root" -mindepth 1 -print -quit)" || \
+    fail "could not inspect backup fixture directory"
+  [[ -z "$backup_fixture_entries" ]] || \
+    fail "backup fixtures did not clean their owned directory"
 
   # Beside its one-time prekeys (64, 1, and 2 below), each database holds 12
   # records: 9 key, profile, and pool records, the last-resort prekey secret

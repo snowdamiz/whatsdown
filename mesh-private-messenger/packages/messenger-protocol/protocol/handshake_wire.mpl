@@ -28,7 +28,7 @@ from Protocol.IdentityWire import decode_device_credential
 from Protocol.V1 import HandshakeTranscript, InitialMessage, ProtocolError, protocol_supported_suite
 
 fn validate_handshake_transcript(value :: HandshakeTranscript) -> Result<(), ProtocolError> do
-  if value.version != 1 do
+  if value.version != 1 && value.version != 2 do
     Err(UnsupportedVersion)
   else if !protocol_supported_suite(value.suite) do
     Err(UnsupportedSuite)
@@ -80,7 +80,7 @@ end
 
 pub fn decode_handshake_transcript(input :: Bytes) -> HandshakeTranscript!ProtocolError do
   let version = protocol_take_u8(protocol_open(input, 17868)?)?
-  if version.value != 1 do
+  if version.value != 1 && version.value != 2 do
     Err(UnsupportedVersion)
   else
     let magic = protocol_take_fixed(version.state, 3)?
@@ -122,11 +122,16 @@ end
 
 pub fn hash_handshake_transcript(value :: HandshakeTranscript) -> Bytes!ProtocolError do
   let encoded = encode_handshake_transcript(value)?
-  Ok(Crypto.sha256(protocol_append(Bytes.from_utf8("mesh-msg/v1/handshake"), encoded)?))
+  let domain = if value.version == 2 do
+    "mesh-msg/v2/handshake-header-encryption"
+  else
+    "mesh-msg/v1/handshake"
+  end
+  Ok(Crypto.sha256(protocol_append(Bytes.from_utf8(domain), encoded)?))
 end
 
 fn validate_initial_message(value :: InitialMessage) -> Result<(), ProtocolError> do
-  if value.version != 1 do
+  if value.version != 1 && value.version != 2 do
     Err(UnsupportedVersion)
   else if !protocol_supported_suite(value.suite) do
     Err(UnsupportedSuite)
@@ -138,18 +143,32 @@ fn validate_initial_message(value :: InitialMessage) -> Result<(), ProtocolError
     end
     let credential_length = Bytes.length(value.initiator_credential)
     let invalid_credential_length = !(credential_length == 211 || credential_length == 1395)
+    let reserved_nonce = if value.version == 2 do
+      case Bytes.repeat(0, 12) do
+        Err(_) -> false
+        Ok(zero) -> Bytes.secure_equals(value.nonce, zero)
+      end
+    else
+      true
+    end
     let invalid_lengths = invalid_credential_length
       || Bytes.length(value.initiator_identity_public_key.bytes) != 32
       || Bytes.length(value.initiator_ephemeral_public_key.bytes) != 32
       || Bytes.length(value.post_quantum_ciphertext) != post_quantum_length
       || Bytes.length(value.transcript_hash) != 32
       || Bytes.length(value.nonce) != 12
+      || !reserved_nonce
     let maximum_ciphertext = 65398 - credential_length - post_quantum_length
+    let minimum_ciphertext = if value.version == 2 do
+      150
+    else
+      16
+    end
     if invalid_lengths
       || protocol_is_zero(value.signed_prekey_id)
       || protocol_is_zero(value.one_time_prekey_id) do
       Err(InvalidFieldLength)
-    else if Bytes.length(value.ciphertext) < 16 do
+    else if Bytes.length(value.ciphertext) < minimum_ciphertext do
       Err(InvalidFieldLength)
     else if Bytes.length(value.ciphertext) > maximum_ciphertext do
       Err(OversizedInput)
@@ -195,7 +214,7 @@ end
 
 pub fn decode_initial_message(input :: Bytes) -> InitialMessage!ProtocolError do
   let version = protocol_take_u8(protocol_open(input, 65536)?)?
-  if version.value != 1 do
+  if version.value != 1 && version.value != 2 do
     Err(UnsupportedVersion)
   else
     let magic = protocol_take_fixed(version.state, 3)?

@@ -7,6 +7,7 @@ from Groups.Membership import (
   commit_add,
   commit_remove,
   commit_update,
+  commit_witness_policy,
   create_group,
   join_from_welcome
 )
@@ -15,7 +16,7 @@ from Groups.KeySchedule import (
   group_derive_verified_patch,
   group_prepare_patch
 )
-from Groups.CommitWire import group_update_path_context, encode_group_commit
+from Groups.CommitWire import group_update_path_context, encode_group_commit, decode_group_commit
 from Groups.SenderKeys import sender_message_key
 from Groups.Mls import (
   CommitApplyOutcome,
@@ -24,10 +25,11 @@ from Groups.Mls import (
   GroupEncryptOutcome,
   GroupError,
   GroupRemoveOutcome,
+  GroupProposal,
   GroupState,
   GroupTransparencyPolicy
 )
-from Groups.Tree import GroupMember, member_count
+from Groups.Tree import GroupMember, member_count, indexed_members
 from Groups.GroupCodec import (
   group_byte,
   group_join,
@@ -284,7 +286,8 @@ fn proof() -> Bool!GroupError do
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: Bytes.empty()
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?
@@ -447,7 +450,8 @@ fn removal_proof() -> Bool!GroupError do
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: Bytes.empty()
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?
@@ -660,7 +664,8 @@ fn seeded_group(seed :: Int) -> Bool!GroupError do
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: Bytes.empty()
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?
@@ -711,4 +716,71 @@ test("C2 C3 C4 seeded groups preserve reordering, erasure, replay and restore ac
     end
   end
   println("group campaign seeds=#{count} operations_per_seed=198")
+end
+
+fn policy_rotation_proof() -> Bool!GroupError do
+  let checkpoint = repeated(74, 32)
+  let policy = GroupTransparencyPolicy {
+    minimum_directory_sequence: wide(4)?,
+    checkpoint_hash: checkpoint,
+    witness_threshold: 2,
+    set_id: Bytes.empty()
+  }
+  let alice_signing = signing_pair()?
+  let alice_init = init_pair()?
+  let alice_leaf = init_pair()?
+  let bob_signing = signing_pair()?
+  let bob_init = init_pair()?
+  let bob_leaf = init_pair()?
+  let alice = member(1,
+    1,
+    alice_signing.public_key,
+    alice_init.public_key,
+    alice_leaf.public_key,
+    checkpoint)?
+  let bob = member(2,
+    2,
+    bob_signing.public_key,
+    bob_init.public_key,
+    bob_leaf.public_key,
+    checkpoint)?
+  let alice_state = create_group(alice, alice_leaf.private_key, [1], policy)?
+  let (alice_state, _, welcome) = added(commit_add(alice_state, alice_signing.private_key, bob))?
+  let bob_state = join_from_welcome(welcome, bob_init.private_key, bob_leaf.private_key)?
+  let next_policy = %{policy | set_id: repeated(91, 32), witness_threshold: 3}
+  let alice_state = rejected_remove(commit_witness_policy(alice_state,
+    alice_signing.private_key,
+    %{next_policy | checkpoint_hash: repeated(99, 32)}))?
+  let (alice_state, change) = removed(commit_witness_policy(alice_state,
+    alice_signing.private_key,
+    next_policy))?
+  let decoded = decode_group_commit(encode_group_commit(change)?)?
+  let forged = %{decoded | proposal: UpdateWitnessPolicy(%{next_policy | witness_threshold: 2})}
+  let bob_state = rejected_commit(apply_commit(bob_state, forged), AuthenticationRejected)?
+  let bob_state = applied(apply_commit(bob_state, decoded))?
+  assert(Bytes.secure_equals(bob_state.policy.set_id, next_policy.set_id))
+  assert(bob_state.policy.witness_threshold == 3)
+  assert(List.all(indexed_members(bob_state.tree),
+    fn(value) do value.member.witness_count == 3 end))
+  assert(Bytes.secure_equals(alice_state.tree_hash_cache, bob_state.tree_hash_cache))
+  let plaintext = Bytes.from_utf8("same group after native pins rotate")
+  let aad = Bytes.from_utf8("policy rotation proof")
+  let (alice_state, message) = encrypted(encrypt_group_message(alice_state,
+    alice_signing.private_key,
+    plaintext,
+    aad))?
+  let bob_state = opened(decrypt_group_message(bob_state, message, aad), plaintext)?
+  consume_state(alice_state)
+  consume_state(bob_state)
+  Ok(true)
+end
+
+test("a signed epoch transition migrates witness policy and rejects substitution of its baseline or threshold") do
+  case policy_rotation_proof() do
+    Err(error) -> do
+      println(group_error_name(error))
+      assert(false)
+    end
+    Ok(value) -> assert(value)
+  end
 end

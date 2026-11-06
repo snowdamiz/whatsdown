@@ -1,5 +1,6 @@
 import File
 from Storage.Blobs import ensure_schema, insert_blob, load_blob, put_blob
+from Storage.Keys import platform_key, local_context, seal_local
 
 fn text(row :: Map<String, DbValue>, key :: String) -> String!String do
   case Map.get(row, key) do
@@ -32,6 +33,23 @@ fn create_legacy(path :: String) -> Result<(), String> do
           Ok(_) -> Ok(nil)
         end
       end
+      let result = case result do
+        Err(error)
+        Ok(_) -> do
+          let key = platform_key()?
+          let anchor = seal_local(Bytes.from_utf8("synthetic legacy profile"),
+            key,
+            local_context("profile/v1")?)?
+          Secret.destroy(key)
+          Sqlite.execute_values(database,
+            "INSERT INTO encrypted_blobs (record_hash, ciphertext) VALUES (?, ?)",
+            [
+              Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("profile/v1")))),
+              Text(Bytes.to_base64(anchor))
+            ])?
+          Ok(nil)
+        end
+      end
       Sqlite.close(database)
       result
     end
@@ -39,6 +57,7 @@ fn create_legacy(path :: String) -> Result<(), String> do
 end
 
 fn proof() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
   let random = case Crypto.random_bytes(8) do
     Err(_) -> Err("test path generation failed")
     Ok(value)
@@ -69,12 +88,14 @@ fn proof() -> Bool!String do
   ensure_schema(valid_path)?
   let database = Sqlite.open(valid_path)?
   let rows = Sqlite.query_values(database,
-    "SELECT ciphertext, updated_at, typeof(ciphertext) AS storage_type FROM encrypted_blobs WHERE record_hash = ?",
-    [Text("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")])?
+    "SELECT ciphertext, typeof(ciphertext) AS storage_type FROM encrypted_blobs WHERE ciphertext = ?",
+    [Binary(Bytes.from_hex("00ff80")?)])?
   assert(List.length(rows) == 1)
   let row = List.head(rows)
   assert(Bytes.secure_equals(binary(row, "ciphertext")?, Bytes.from_hex("00ff80")?))
-  assert(text(row, "updated_at")? == "2026-01-02 03:04:05")
+  assert(List.length(Sqlite.query_values(database,
+    "SELECT name FROM pragma_table_info('encrypted_blobs') WHERE name = 'updated_at'",
+    [])?) == 0)
   assert(text(row, "storage_type")? == "blob")
   let columns = Sqlite.query_values(database,
     "SELECT type FROM pragma_table_info('encrypted_blobs') WHERE name = 'ciphertext'",
@@ -92,8 +113,11 @@ fn proof() -> Bool!String do
   end
   let invalid_database = Sqlite.open(invalid_path)?
   let invalid_rows = Sqlite.query_values(invalid_database,
-    "SELECT ciphertext, typeof(ciphertext) AS storage_type FROM encrypted_blobs ORDER BY record_hash",
-    [])?
+    "SELECT ciphertext, typeof(ciphertext) AS storage_type FROM encrypted_blobs WHERE record_hash IN (?, ?) ORDER BY record_hash",
+    [
+      Text("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+      Text("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+    ])?
   assert(List.length(invalid_rows) == 2)
   assert(text(List.get(invalid_rows, 0), "ciphertext")? == "AP+A")
   assert(text(List.get(invalid_rows, 1), "ciphertext")? == "not-base64")

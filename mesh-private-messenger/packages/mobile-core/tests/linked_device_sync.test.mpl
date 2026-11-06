@@ -1,5 +1,13 @@
+from Tests.HistoryFixture import fixture_direct_history
 import File
 from Mobile.History import decode_conversation_summary
+from Mobile.Gossip import observe_gossip
+from Mobile.TransparencySafety import retained_fork
+from Mobile.Codec import current_time
+from Storage.Keys import platform_key
+from Transport.Packet import ClientProfile, decode_client_profile
+from Transparency.Gossip import CheckpointHint, encode_hint
+from Transparency.Wire import encode_checkpoint
 from Mobile.Types import ConversationSummary
 from MobileCore import (
   authorize_device_link_export,
@@ -8,8 +16,11 @@ from MobileCore import (
   create_link_request_export,
   directory_entry_export,
   install_group_transparency_for_test,
+  install_group_checkpoint_for_test,
+  outbox_ack_export,
+  outbox_list_export,
   list_conversations_export,
-  load_history_export,
+  load_profile_export,
   receive_initial_export,
   receive_message_export,
   replenish_prekeys_export,
@@ -23,7 +34,14 @@ from Prekeys.Pool import decode_prekey_publish
 from Protocol.DirectoryWire import decode_directory_entry, encode_device_set
 from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
-from Protocol.V1 import DeviceSet, DirectoryEntry, OuterEnvelope, PrekeyBundle
+from Protocol.V1 import (
+  DeviceSet,
+  DirectoryEntry,
+  OuterEnvelope,
+  PrekeyBundle,
+  InnerEnvelope,
+  ProtocolExtension
+)
 from Tests.GroupConsistencySupport import (
   SignedTransparencyViewFixture,
   request,
@@ -31,8 +49,27 @@ from Tests.GroupConsistencySupport import (
   signing_pair,
   wide
 )
-from Tests.Support import database_path, install_security_config, write_u32
-from Transparency.Merkle import leaf_hash
+from Tests.Support import database_path, install_security_config, write_u32, repeated
+from Transparency.Merkle import leaf_hash, sign_tree_checkpoint_for
+
+fn clear_outbox(path :: String) -> Result<(), String> do
+  let values = output_list(outbox_list_export(Bytes.from_utf8(path))?)?
+  for value in values do
+    outbox_ack_export(request([Bytes.from_utf8(path), value])?)?
+  end
+  if List.length(values) == 8 do
+    clear_outbox(path)
+  else
+    Ok(nil)
+  end
+end
+
+fn control(path :: String) -> Bytes!String do
+  let values = output_list(outbox_list_export(Bytes.from_utf8(path))?)?
+  assert(List.length(values) == 1)
+  outbox_ack_export(request([Bytes.from_utf8(path), List.head(values)])?)?
+  Ok(List.head(values))
+end
 
 fn byte(value :: Int) -> Bytes!String do
   case Bytes.from_list([value]) do
@@ -165,7 +202,7 @@ end
 # What one device shows for its conversation with a peer, oldest first.
 
 fn history_bodies(path :: String, peer_profile :: Bytes) -> List<Bytes>!String do
-  bodies(output_list(load_history_export(request([Bytes.from_utf8(path), peer_profile])?)?)?,
+  bodies(output_list(fixture_direct_history(request([Bytes.from_utf8(path), peer_profile])?)?)?,
     0,
     List.new())
 end
@@ -355,10 +392,10 @@ fn proof() -> Bool!String do
   assert(install(linked_path, alice_view, alice_set)?)
   assert(install(linked_path, alice_view, bob_set)?)
   assert(install(linked_path, alice_view, carol_set)?)
-  let bob_view = signed_transparency_view([leaf_hash(alice_set)?, leaf_hash(bob_set)?])?
+  let bob_view = alice_view
   assert(install(bob_path, bob_view, alice_set)?)
   assert(install(bob_path, bob_view, bob_set)?)
-  let carol_view = signed_transparency_view([leaf_hash(alice_set)?, leaf_hash(carol_set)?])?
+  let carol_view = alice_view
   assert(install(carol_path, carol_view, alice_set)?)
   assert(install(carol_path, carol_view, carol_set)?)
   # Bob writes first, to both of alice's devices: a request on each.
@@ -454,6 +491,60 @@ fn proof() -> Bool!String do
     [hello_carol, to_carol, from_carol],
     0))
   assert(same_bodies(history_bodies(linked_path, carol_profile)?, [to_carol, from_carol], 0))
+  # Siblings share an account, but their established ratchets must still accept
+  # checkpoint controls. Inject the already-authenticated hint at the gossip
+  # boundary, then carry all three controls through the actual encrypted ABI.
+  clear_outbox(root_path)?
+  clear_outbox(linked_path)?
+  assert(install_security_config(service_pair.public_key.bytes,
+    witness_a.public_key.bytes,
+    witness_b.public_key.bytes,
+    delivery_pair.public_key.bytes,
+    8))
+  let now = current_time()?
+  for (path, root) in [(root_path, repeated(4, 32)?), (linked_path, repeated(5, 32)?)] do
+    let checkpoint = sign_tree_checkpoint_for(1,
+      service_pair.private_key,
+      service_pair.public_key.bytes,
+      wide(4)?,
+      wide(8)?,
+      root,
+      repeated(0, 32)?,
+      now)?
+    install_group_checkpoint_for_test(path, encode_checkpoint(checkpoint)?)?
+  end
+  let root_identity = decode_client_profile(root_profile)?
+  let key = platform_key()?
+  observe_gossip(linked_path,
+    key,
+    InnerEnvelope {
+      version: 1,
+      sender_account_id: root_identity.account_id,
+      sender_device_id: root_identity.device_id,
+      recipient_device_id: decode_client_profile(load_profile_export(Bytes.from_utf8(linked_path))?)?.device_id,
+      conversation_id: repeated(8, 16)?,
+      client_message_id: repeated(9, 16)?,
+      client_timestamp: now,
+      message_type: 2,
+      body: Bytes.empty(),
+      reply_reference: Bytes.empty(),
+      attachment_manifest: Bytes.empty(),
+      receipt_policy: 0,
+      disappearing_seconds: 0,
+      extensions: [
+        ProtocolExtension {
+          id: 2,
+          mandatory: false,
+          value: encode_hint(CheckpointHint { tree_size: wide(8)?, tree_root: repeated(4, 32)? })?
+        }
+      ]
+    },
+    now)?
+  assert(received(root_path, control(linked_path)?, false, "")?)
+  assert(received(linked_path, control(root_path)?, false, "")?)
+  assert(received(root_path, control(linked_path)?, false, "")?)
+  assert(Bytes.length(retained_fork(root_path, key)?) > 0)
+  assert(Bytes.length(retained_fork(linked_path, key)?) > 0)
   File.delete(root_path)?
   File.delete(linked_path)?
   File.delete(bob_path)?

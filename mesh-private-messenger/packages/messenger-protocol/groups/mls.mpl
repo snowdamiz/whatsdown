@@ -28,12 +28,20 @@ pub struct GroupTransparencyPolicy do
   minimum_directory_sequence :: U64
   checkpoint_hash :: Bytes
   witness_threshold :: Int
+  # Empty only for a pre-v2 welcome or snapshot. New policies pin a set hash.
+  set_id :: Bytes
+end
+
+pub struct GroupReadPolicy do
+  state :: BinaryReader
+  value :: GroupTransparencyPolicy
 end
 
 pub type GroupProposal do
   AddMember(leaf_index :: Int, member :: GroupMember)
   RemoveMember(leaf_index :: Int)
   UpdateKeys
+  UpdateWitnessPolicy(policy :: GroupTransparencyPolicy)
 end
 
 pub struct TreeKemCiphertext do

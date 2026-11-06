@@ -1,0 +1,889 @@
+{
+  "schema_version": 1,
+  "policy": "plaintext-v1",
+  "compiler_version": "0.1.8",
+  "modules": [
+    {
+      "module": "Attachments.Layout",
+      "file": "dependency/Attachments.Layout/layout.mpl",
+      "source_sha256": "39b5a2f582ddedc61bd91d9fce0053cc8b7531bc9695430ffcce235950e26082",
+      "sites": []
+    },
+    {
+      "module": "Attachments.Protocol",
+      "file": "dependency/Attachments.Protocol/protocol.mpl",
+      "source_sha256": "fff7292714c7c5c77d3f34c1d38f9162c22b9693724ff7ef66e6b3fae6f3d43a",
+      "sites": []
+    },
+    {
+      "module": "Backups.Protocol",
+      "file": "dependency/Backups.Protocol/protocol.mpl",
+      "source_sha256": "f3c999e62ce1c7c3d90744c696a5bb9e0f4b98411919f9dcf348aefedf157dbf",
+      "sites": []
+    },
+    {
+      "module": "Binary.Reader",
+      "file": "dependency/Binary.Reader/reader.mpl",
+      "source_sha256": "42bbc8a9431aa1da5e8fd27b3d2db04f0fd2cf40929c16c8003ab62557be1776",
+      "sites": []
+    },
+    {
+      "module": "Bounty.Settlement",
+      "file": "dependency/Bounty.Settlement/settlement.mpl",
+      "source_sha256": "ee8f7cad59385e5052174886c019a716bcf617fcfd1fb3eb3962bc802d1277a5",
+      "sites": []
+    },
+    {
+      "module": "Bounty.Transfer",
+      "file": "dependency/Bounty.Transfer/transfer.mpl",
+      "source_sha256": "222c52c68ecda5c2c35c5d670ba67feaf787fd7ad685a01318099446da8578fe",
+      "sites": []
+    },
+    {
+      "module": "Credits.Action",
+      "file": "dependency/Credits.Action/action.mpl",
+      "source_sha256": "2b286c32b18ad691f8867590d5b9566a064008a98d590bd0dff1f246d04c7879",
+      "sites": []
+    },
+    {
+      "module": "Credits.ActionWire",
+      "file": "dependency/Credits.ActionWire/action_wire.mpl",
+      "source_sha256": "d0bea6e25aeb08b4ac6e8ffb64ade1dc06f9ec37d0cf4321eac73e3bc9f5fd20",
+      "sites": []
+    },
+    {
+      "module": "Credits.Attachment",
+      "file": "dependency/Credits.Attachment/attachment.mpl",
+      "source_sha256": "c4aa5ccd97ca6737b822e0de9253406478f748494e086b166dacb8ad34617b5e",
+      "sites": []
+    },
+    {
+      "module": "Credits.Cancellation",
+      "file": "dependency/Credits.Cancellation/cancellation.mpl",
+      "source_sha256": "99979565a22b218cfaf08c61072d0d564dcc3bd910f007778b018983ffa5e607",
+      "sites": []
+    },
+    {
+      "module": "Credits.Discovery",
+      "file": "dependency/Credits.Discovery/discovery.mpl",
+      "source_sha256": "5fe16152d662b976303012df6dc9e0d18d0fcc8d9cdb8398e878e02114619cbd",
+      "sites": []
+    },
+    {
+      "module": "Credits.Issuance",
+      "file": "dependency/Credits.Issuance/issuance.mpl",
+      "source_sha256": "038349595cda452fe7607b722308a73771f5105b48cae562cf913149cec4accb",
+      "sites": []
+    },
+    {
+      "module": "Credits.Issuer",
+      "file": "dependency/Credits.Issuer/issuer.mpl",
+      "source_sha256": "1172cdb2a2a9b9126fec829ae021a6ccd54cdcb6e4614cfad8cac0995e1512d6",
+      "sites": []
+    },
+    {
+      "module": "Credits.Lightning",
+      "file": "dependency/Credits.Lightning/lightning.mpl",
+      "source_sha256": "39e6e0200087ab27c2398290325d4ba5fd81aaaaefe09ea8422b27b96282b722",
+      "sites": []
+    },
+    {
+      "module": "Credits.LightningCancellation",
+      "file": "dependency/Credits.LightningCancellation/lightning_cancellation.mpl",
+      "source_sha256": "5e62d22cbbcf7f45d79feb333edca7bb904c16ef253737adb532448cf13e73dc",
+      "sites": []
+    },
+    {
+      "module": "Credits.Payment",
+      "file": "dependency/Credits.Payment/payment.mpl",
+      "source_sha256": "931e6f134ca1f8b72d6744ce7bc79fdea58c9a1b3ee93652012e033eeeffc448",
+      "sites": []
+    },
+    {
+      "module": "Credits.Policy",
+      "file": "dependency/Credits.Policy/policy.mpl",
+      "source_sha256": "b650983e59842605a2384482488c308cdd8051ba5d0d5350a22388a5c67313d4",
+      "sites": []
+    },
+    {
+      "module": "Credits.Postage",
+      "file": "dependency/Credits.Postage/postage.mpl",
+      "source_sha256": "1c1a31e14d61bec69aab625fa5221fc88bffa0da3279bc8027f6765d5175b6f3",
+      "sites": []
+    },
+    {
+      "module": "Credits.PostageBox",
+      "file": "dependency/Credits.PostageBox/postage_box.mpl",
+      "source_sha256": "750995e90443ad7ecc6d495c72aca8397ca832b00f4608a5d5bcf790f55cdac4",
+      "sites": []
+    },
+    {
+      "module": "Credits.PostagePolicy",
+      "file": "dependency/Credits.PostagePolicy/postage_policy.mpl",
+      "source_sha256": "4aed74f52589e4eab762dcded62ca7b8a1cc083af40fed6ac6776ab5b9d506c1",
+      "sites": []
+    },
+    {
+      "module": "Credits.PostageReply",
+      "file": "dependency/Credits.PostageReply/postage_reply.mpl",
+      "source_sha256": "c4d70e3230f7627f80edb9b1ceb9aee5bbe52fbe5ea8b52c7c408790017fbb99",
+      "sites": []
+    },
+    {
+      "module": "Credits.QuoteAuth",
+      "file": "dependency/Credits.QuoteAuth/quote_auth.mpl",
+      "source_sha256": "ab4ef26052629aef424830fb0c2630097d54faf724b03e80455b925de2bb8b17",
+      "sites": []
+    },
+    {
+      "module": "Credits.Retention",
+      "file": "dependency/Credits.Retention/retention.mpl",
+      "source_sha256": "fed617a366d8880bbe960edb2f22a0dc28dd1969ef045a4c7fe332141503786f",
+      "sites": []
+    },
+    {
+      "module": "Credits.Signup",
+      "file": "dependency/Credits.Signup/signup.mpl",
+      "source_sha256": "9643d3fa9ab9ae084622c4c9732b2b844b226be4654e967606fe0aba9f8c1500",
+      "sites": []
+    },
+    {
+      "module": "Credits.SignupPolicy",
+      "file": "dependency/Credits.SignupPolicy/signup_policy.mpl",
+      "source_sha256": "af6edb6e5aa8021062b8bbb9c4309ff9cd90320708e0b35a8def5077952bee8a",
+      "sites": []
+    },
+    {
+      "module": "Credits.Storage",
+      "file": "dependency/Credits.Storage/storage.mpl",
+      "source_sha256": "3110b089ec0eb7938ec482d42519554add1ef804e3263ec69b5141168aef2a4e",
+      "sites": []
+    },
+    {
+      "module": "Credits.Token",
+      "file": "dependency/Credits.Token/token.mpl",
+      "source_sha256": "90284c800fee312b4039d5c9482242da6d2688ebb3e3f9591bded0be0901a652",
+      "sites": []
+    },
+    {
+      "module": "Credits.WalletPayment",
+      "file": "dependency/Credits.WalletPayment/wallet_payment.mpl",
+      "source_sha256": "2f14cc0580942eb664a71d935299911cefda975dfa58f0c6552a8ceba004480a",
+      "sites": []
+    },
+    {
+      "module": "Credits.Wire",
+      "file": "dependency/Credits.Wire/wire.mpl",
+      "source_sha256": "7987736b0105dae5cd9a28b8276cc96bef9ee95dc706d7e5f958666b6d0f0cfb",
+      "sites": []
+    },
+    {
+      "module": "Groups.CommitWire",
+      "file": "dependency/Groups.CommitWire/commit_wire.mpl",
+      "source_sha256": "80f28ef1ac0929653d2c8650b7321c0829ab8537c62b1cd855dae34e459af85f",
+      "sites": []
+    },
+    {
+      "module": "Groups.GroupCodec",
+      "file": "dependency/Groups.GroupCodec/group_codec.mpl",
+      "source_sha256": "914ce65a94adfd5c184cbca0528d6edde0fdf72615b9b7da17969528b81d8d01",
+      "sites": []
+    },
+    {
+      "module": "Groups.GroupMessages",
+      "file": "dependency/Groups.GroupMessages/group_messages.mpl",
+      "source_sha256": "a34c5606fb48028d9b432a551bb2accb6fea4f59a81ea470ad6535528b1d910b",
+      "sites": []
+    },
+    {
+      "module": "Groups.GroupPayload",
+      "file": "dependency/Groups.GroupPayload/group_payload.mpl",
+      "source_sha256": "563b2fbd9f7c5123a4cfa24bb05f8d08a3bf649678ec8c91538fafdf780c97ce",
+      "sites": []
+    },
+    {
+      "module": "Groups.GroupSnapshot",
+      "file": "dependency/Groups.GroupSnapshot/group_snapshot.mpl",
+      "source_sha256": "69292b149889aca08b294757fba0b1d5863d8fbe6624dd7a880b9b9a0ab54b0d",
+      "sites": []
+    },
+    {
+      "module": "Groups.KeySchedule",
+      "file": "dependency/Groups.KeySchedule/key_schedule.mpl",
+      "source_sha256": "70621384ad4b6af619c6272755ff7176702e3aef85da15c9604373c8b222e645",
+      "sites": []
+    },
+    {
+      "module": "Groups.Membership",
+      "file": "dependency/Groups.Membership/membership.mpl",
+      "source_sha256": "e2af67ba76aae24dae80e00997c02efe32ab7d6ea0ac778c53c9ca33be115b3f",
+      "sites": []
+    },
+    {
+      "module": "Groups.Mls",
+      "file": "dependency/Groups.Mls/mls.mpl",
+      "source_sha256": "53d32d7d0d1057664e1f4a02a42c6ddf9b21bde1cc70a77e5dcce7bf9f454c4e",
+      "sites": []
+    },
+    {
+      "module": "Groups.SenderKeys",
+      "file": "dependency/Groups.SenderKeys/sender_keys.mpl",
+      "source_sha256": "3cb70db3b4eb16808ce58fceb3e026386f0800b726f4b5cf6ccbf81ea1221fef",
+      "sites": []
+    },
+    {
+      "module": "Groups.Tree",
+      "file": "dependency/Groups.Tree/tree.mpl",
+      "source_sha256": "64ea65a800ff53fc1dc46550605e46ec4a4d11e4f47a9a12d37eadf0fba1bb6e",
+      "sites": []
+    },
+    {
+      "module": "Groups.WelcomeWire",
+      "file": "dependency/Groups.WelcomeWire/welcome_wire.mpl",
+      "source_sha256": "cd65e56744209c3d73c2348d54ac0a0b5906dce75e9d747d22f4e4ffb92330d6",
+      "sites": []
+    },
+    {
+      "module": "Identity.Device",
+      "file": "dependency/Identity.Device/device.mpl",
+      "source_sha256": "4a85d0e55b449b32dc17b38e4f8f3c034738072cf5b9a8d8847d49397e9315dc",
+      "sites": []
+    },
+    {
+      "module": "Lightning.Invoice",
+      "file": "dependency/Lightning.Invoice/invoice.mpl",
+      "source_sha256": "9cc5ffa251d474921ec1db9b0c046d9e998a850e95094fabfcfe59fcf93e422f",
+      "sites": []
+    },
+    {
+      "module": "Main",
+      "file": "main.mpl",
+      "source_sha256": "ee374a7fa490a9bdeb2cac8c44b389e8f2752302eaeffae60dd8d1b8ed7dc975",
+      "sites": []
+    },
+    {
+      "module": "Objects.Grant",
+      "file": "dependency/Objects.Grant/grant.mpl",
+      "source_sha256": "15da510b636763678cae8ed4b815cd98092621e7cc8a2b1838e35c4477367f7a",
+      "sites": []
+    },
+    {
+      "module": "Prekeys.Bundle",
+      "file": "dependency/Prekeys.Bundle/bundle.mpl",
+      "source_sha256": "ad12f24f399968879a2939bf0aa3aef59dd030df496e6655d2d7be201775c338",
+      "sites": []
+    },
+    {
+      "module": "Prekeys.Pool",
+      "file": "dependency/Prekeys.Pool/pool.mpl",
+      "source_sha256": "e9c38f02f7dc65dc863d9ca4fa39af07fce39fc51a72844ad0b9118228ee897c",
+      "sites": []
+    },
+    {
+      "module": "Prekeys.Renewal",
+      "file": "dependency/Prekeys.Renewal/renewal.mpl",
+      "source_sha256": "3402d1195cd51670c9ce1c6626dad7f75f93e6aeaf04978029af0462fbc9844c",
+      "sites": []
+    },
+    {
+      "module": "Privacy.Edge",
+      "file": "dependency/Privacy.Edge/edge.mpl",
+      "source_sha256": "55a23c7306c09dca17dfc1a9ff828fd2bcd525b4d62d6aae06e4ded6c9579a61",
+      "sites": []
+    },
+    {
+      "module": "Protocol.DirectoryWire",
+      "file": "dependency/Protocol.DirectoryWire/directory_wire.mpl",
+      "source_sha256": "a7dcb40bacde5524f22c42541f3d5c2eda935b923e8351806e1a6700c18d09c2",
+      "sites": []
+    },
+    {
+      "module": "Protocol.EnvelopeWire",
+      "file": "dependency/Protocol.EnvelopeWire/envelope_wire.mpl",
+      "source_sha256": "5a04606e730ef1bf29cbb1bed4d0613d8527225c2d8257fbbedcb35e9044a7bc",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "inner envelope admission discloses only its reviewed fixed0..17 status classifier, including bounds and policy failures; no ProtocolError payload is released",
+          "start": 8926,
+          "end": 9109,
+          "line": 265,
+          "column": 19
+        },
+        {
+          "kind": "declassify",
+          "reason": "inner envelope encoding discloses only its reviewed fixed0..17 status classifier; encoded bytes and ProtocolError payloads remain private",
+          "start": 9457,
+          "end": 9620,
+          "line": 280,
+          "column": 19
+        }
+      ]
+    },
+    {
+      "module": "Protocol.ExtensionWire",
+      "file": "dependency/Protocol.ExtensionWire/extension_wire.mpl",
+      "source_sha256": "68a66205fdf0ade24c1a89e384aee3f00f792d6edf482d009545afcb688ec198",
+      "sites": []
+    },
+    {
+      "module": "Protocol.HandshakeWire",
+      "file": "dependency/Protocol.HandshakeWire/handshake_wire.mpl",
+      "source_sha256": "204f838792d6ce0e67dcf3ecaa5d3100b31b57a2e0727a25bcb431405c51a5dc",
+      "sites": []
+    },
+    {
+      "module": "Protocol.IdentityWire",
+      "file": "dependency/Protocol.IdentityWire/identity_wire.mpl",
+      "source_sha256": "6720da89e669b46cc9643e6636442a2c023d47e47e5d410a976abcce26081366",
+      "sites": []
+    },
+    {
+      "module": "Protocol.MailboxWire",
+      "file": "dependency/Protocol.MailboxWire/mailbox_wire.mpl",
+      "source_sha256": "414db5bb762d245aeec91868c202c79b5f11edbcc070ed8e28c52d820f50e645",
+      "sites": []
+    },
+    {
+      "module": "Protocol.PrekeyWire",
+      "file": "dependency/Protocol.PrekeyWire/prekey_wire.mpl",
+      "source_sha256": "e3d0bca0c3f483d69675839ac15420979e54c30e1e6c1449dc1170422be3eef6",
+      "sites": []
+    },
+    {
+      "module": "Protocol.V1",
+      "file": "dependency/Protocol.V1/v1.mpl",
+      "source_sha256": "9124c583575c1f19538999d172d3151134ce64dba1d35f669323d83bb36ec489",
+      "sites": []
+    },
+    {
+      "module": "Protocol.WirePrimitives",
+      "file": "dependency/Protocol.WirePrimitives/wire_primitives.mpl",
+      "source_sha256": "10b7e4e8b353a0572a79a9c6895c76c7929b393ade53cbd8ed5c352e5ffb4444",
+      "sites": []
+    },
+    {
+      "module": "Push.Binding",
+      "file": "dependency/Push.Binding/binding.mpl",
+      "source_sha256": "fb687ea29f489ed8d7b1ee7bdfac365776064ca46df1999e9149104d73fec50c",
+      "sites": []
+    },
+    {
+      "module": "Push.Token",
+      "file": "dependency/Push.Token/token.mpl",
+      "source_sha256": "70c7d8a887a7ffa049141484e9c14a3731afc53e0da8ac353f17d67da4807cef",
+      "sites": []
+    },
+    {
+      "module": "RuntimeJobs",
+      "file": "dependency/RuntimeJobs/runtime_jobs.mpl",
+      "source_sha256": "171bffad582d665bacb53ba794bdadfe277632b671bd7926e2dc14b6910313c2",
+      "sites": []
+    },
+    {
+      "module": "Session.Handshake",
+      "file": "dependency/Session.Handshake/handshake.mpl",
+      "source_sha256": "201371527c0502e95659854f8aa1373f08f531d1f4fd929d7d144f8cf69cb339",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "initial handshake admission discloses only whether plaintext exceeds the public credential and suite dependent transport bound; plaintext content remains private",
+          "start": 7026,
+          "end": 7250,
+          "line": 232,
+          "column": 19
+        }
+      ]
+    },
+    {
+      "module": "Session.Ratchet",
+      "file": "dependency/Session.Ratchet/ratchet.mpl",
+      "source_sha256": "88f6414e33804dc6a91955bf0891f19f948d535ba2fc9403a250b0a5c9ab0496",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "ratchet admission discloses only whether the plaintext exceeds this transport's documented message bound",
+          "start": 17093,
+          "end": 17250,
+          "line": 554,
+          "column": 19
+        },
+        {
+          "kind": "declassify",
+          "reason": "ratchet padding discloses only its one-bit InvalidMessage status; plaintext and padding bytes remain private",
+          "start": 31573,
+          "end": 31709,
+          "line": 977,
+          "column": 6
+        }
+      ]
+    },
+    {
+      "module": "Session.Snapshot",
+      "file": "dependency/Session.Snapshot/snapshot.mpl",
+      "source_sha256": "b10c38c4841e6d14d5d8039b62dcf787a25d4424f54272807c3bcb79ad734b6b",
+      "sites": []
+    },
+    {
+      "module": "Solana.Address",
+      "file": "dependency/Solana.Address/address.mpl",
+      "source_sha256": "a9258d6743a25f16d3df8e621943c6061af909c24d0311d77297697833f55cfc",
+      "sites": []
+    },
+    {
+      "module": "Solana.LookupTable",
+      "file": "dependency/Solana.LookupTable/lookup_table.mpl",
+      "source_sha256": "cb5fdf3302e4c1c31bd082f885924d6979eb34588fd524074eafa36f002752a8",
+      "sites": []
+    },
+    {
+      "module": "Solana.Nonce",
+      "file": "dependency/Solana.Nonce/nonce.mpl",
+      "source_sha256": "00bdcbe4e3dfbf29104c76484d9d84b29d297b17916d10837dd914d1ed28198b",
+      "sites": []
+    },
+    {
+      "module": "Solana.Read",
+      "file": "dependency/Solana.Read/read.mpl",
+      "source_sha256": "f3c171e85196f1d881cf8be5257f6d29e51219a45dbfbf038a532d1eedb9cdcd",
+      "sites": []
+    },
+    {
+      "module": "Solana.SlotHashes",
+      "file": "dependency/Solana.SlotHashes/slot_hashes.mpl",
+      "source_sha256": "56ffd988002f881e32d833855fccf083c3be1b05eaed9e830deac512f94dcee8",
+      "sites": []
+    },
+    {
+      "module": "Solana.TransactionRead",
+      "file": "dependency/Solana.TransactionRead/transaction_read.mpl",
+      "source_sha256": "85c55be3ac70c0c80d6ff184c4c7f38a1b3bb7e99fd4627280fce47b934afabf",
+      "sites": []
+    },
+    {
+      "module": "Solana.TransactionSend",
+      "file": "dependency/Solana.TransactionSend/transaction_send.mpl",
+      "source_sha256": "2ea1414e1b2bb83ebabe6e6b4880323ce2553823162475998da9149663b7afbc",
+      "sites": []
+    },
+    {
+      "module": "Solana.TransactionWrite",
+      "file": "dependency/Solana.TransactionWrite/transaction_write.mpl",
+      "source_sha256": "e6904f5d392632fae24d7535ea42d511eb478ded4a2ff7cb2d9ce8a1b27e666d",
+      "sites": []
+    },
+    {
+      "module": "Solana.Tx",
+      "file": "dependency/Solana.Tx/tx.mpl",
+      "source_sha256": "9d6ae5a7c8defc904ad7e30d80c79f56ba6775400cebc52869efc08ce7c35d44",
+      "sites": []
+    },
+    {
+      "module": "Store.Database",
+      "file": "store/database.mpl",
+      "source_sha256": "e3eaadcc92fa831cd6af170de4a657dc32003d93add49f2bca15cf8fc53d2154",
+      "sites": []
+    },
+    {
+      "module": "Store.Files",
+      "file": "store/files.mpl",
+      "source_sha256": "28576c7332ec9bd2db0b1c3e78d647d4c7779ef32ec75adfb8a9739f462f6f6f",
+      "sites": []
+    },
+    {
+      "module": "Store.Large",
+      "file": "store/large.mpl",
+      "source_sha256": "218524efc5f97a564af12b5c64f88963a290bb78d990c6653c229a4d78d0d8e2",
+      "sites": []
+    },
+    {
+      "module": "Store.Service",
+      "file": "store/service.mpl",
+      "source_sha256": "e5334b5769165c312dc6111d1c4d03b1b0baaa5f101919e4bb39f9e88c8d63ed",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorBatch",
+      "file": "dependency/Transparency.AnchorBatch/anchor_batch.mpl",
+      "source_sha256": "75d8e69a44bc6bffcae6e3f2559ae70df3bc504383c3cb84f7d26b8a8206a92a",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorBond",
+      "file": "dependency/Transparency.AnchorBond/anchor_bond.mpl",
+      "source_sha256": "e69e036e5d1a8f5943ae1c785b1cb8be484fb3a174f692566dc28828ab141404",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorChain",
+      "file": "dependency/Transparency.AnchorChain/anchor_chain.mpl",
+      "source_sha256": "6a35b6a93c6f66d3c540399307592ec08756c59539ee5f691082744c1a8283f7",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorConsistency",
+      "file": "dependency/Transparency.AnchorConsistency/anchor_consistency.mpl",
+      "source_sha256": "616c74487b6ecafb5772149969578a96c67bc25f59ba34c645ae08caabf9df3a",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorContext",
+      "file": "dependency/Transparency.AnchorContext/anchor_context.mpl",
+      "source_sha256": "e3b11453defabe9a29a1bbbaac317e7d3af585c576a2dc852ff82b3aea518da2",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorContinuity",
+      "file": "dependency/Transparency.AnchorContinuity/anchor_continuity.mpl",
+      "source_sha256": "34c16e368208599d8cf738dda3604de8c44c8028518555ce6abfdd463d62e772",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorContradiction",
+      "file": "dependency/Transparency.AnchorContradiction/anchor_contradiction.mpl",
+      "source_sha256": "022eda836ad2e85ecff50d6d82568c4aaf3d497978c47edbc22420b53113c258",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorCustody",
+      "file": "dependency/Transparency.AnchorCustody/anchor_custody.mpl",
+      "source_sha256": "0a8e7061a9406f56aeb058eea81dcfbf8c7eadd2b4067e10c2ca61844b5376db",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorCustodyReport",
+      "file": "dependency/Transparency.AnchorCustodyReport/anchor_custody_report.mpl",
+      "source_sha256": "65631d88ba0564da20fd4fcf6d78284f1f03b89bf8d8dad7d0e788f620c4e493",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorEvidence",
+      "file": "dependency/Transparency.AnchorEvidence/anchor_evidence.mpl",
+      "source_sha256": "e0c47db912fa2d26d5a4420c41fba15ad69cbc1c64c6faa98f4c14fe0526202c",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorHttp",
+      "file": "dependency/Transparency.AnchorHttp/anchor_http.mpl",
+      "source_sha256": "7adead191319cb00fef0efa3f921eeac6f12d5437d2509170d3bc6bd424cc53a",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorLog",
+      "file": "dependency/Transparency.AnchorLog/anchor_log.mpl",
+      "source_sha256": "53efe528c1933bf22d5a3b2845a004b7d69e6a8ee590525c0ae63ba478fd5271",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorReceipt",
+      "file": "dependency/Transparency.AnchorReceipt/anchor_receipt.mpl",
+      "source_sha256": "fde4cb85dee8988a2fda41722af6f9851e3f86b3f4ba0a780842a68765ba9a4b",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorRegistry",
+      "file": "dependency/Transparency.AnchorRegistry/anchor_registry.mpl",
+      "source_sha256": "83093e902adc09c2c15c1d6f6debc89cadee15e82091d2727be688baa360cadf",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorRing",
+      "file": "dependency/Transparency.AnchorRing/anchor_ring.mpl",
+      "source_sha256": "26d22ea140ab536ed04fac8422571ffadaa7b8f0f8a75fab2ed761a87531f67b",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorRpc",
+      "file": "dependency/Transparency.AnchorRpc/anchor_rpc.mpl",
+      "source_sha256": "101d5c50ba01ed192b617c072036b6acda4963a2eb0f219f58edbb5e630d1901",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorWitnessSet",
+      "file": "dependency/Transparency.AnchorWitnessSet/anchor_witness_set.mpl",
+      "source_sha256": "2d4bcd1996fe6e0044814513ff6350ab3eb0825e208ed14925e89ef93d0bafb6",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorWrite",
+      "file": "dependency/Transparency.AnchorWrite/anchor_write.mpl",
+      "source_sha256": "791fc68e0c962e4da8cf39a1ab9e424bca103ce0c66003ab98fa20b4d066bab0",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Attendance",
+      "file": "dependency/Transparency.Attendance/attendance.mpl",
+      "source_sha256": "79653fad0da49191eb0184212cec8867c12bb81418e4b3bdb968c91c8bb5076d",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AttendanceRead",
+      "file": "dependency/Transparency.AttendanceRead/attendance_read.mpl",
+      "source_sha256": "d5410faff4bab1d289b1ca3f24cb133feaf2085bc8a02311f00cb3cc5720e77d",
+      "sites": []
+    },
+    {
+      "module": "Transparency.C2sp",
+      "file": "dependency/Transparency.C2sp/c2sp.mpl",
+      "source_sha256": "2b655f4940c0b9877a4e9e4b4b60767930934ef97388598a2d802b35c996067f",
+      "sites": []
+    },
+    {
+      "module": "Transparency.C2spText",
+      "file": "dependency/Transparency.C2spText/c2sp_text.mpl",
+      "source_sha256": "6ea935d8fd19fcdc6158b0a72bfb924afd352ce438b018a43d99c0901232d53b",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Client",
+      "file": "dependency/Transparency.Client/client.mpl",
+      "source_sha256": "0920793e1c8eca50bc3ed2cc24a7f8343ee97801eb5ade5da824fe288d985ff2",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Config",
+      "file": "dependency/Transparency.Config/config.mpl",
+      "source_sha256": "8e9469e7f357665d1a6cf25685037ecae36f37ff8a08feac036a30345a93c8fc",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Fork",
+      "file": "dependency/Transparency.Fork/fork.mpl",
+      "source_sha256": "8ebb797ce8c100575734ca5e3a46cd193a5426db1eb4d9aa41f5ae438b06bba0",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Gossip",
+      "file": "dependency/Transparency.Gossip/gossip.mpl",
+      "source_sha256": "75632ebd0d4a482993198acf456c94d0a70ad9470df4142ad96aa41db90271df",
+      "sites": []
+    },
+    {
+      "module": "Transparency.LeafProof",
+      "file": "dependency/Transparency.LeafProof/leaf_proof.mpl",
+      "source_sha256": "58a7013f66d48c3b2168850cb25ad78feaa95b911c0a134ccabc191232c31e0f",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Merkle",
+      "file": "dependency/Transparency.Merkle/merkle.mpl",
+      "source_sha256": "0d3fef58a3283e422997e01b39e00f327c63d96f78f7d9b51eb26cc1af574a3a",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Migration",
+      "file": "dependency/Transparency.Migration/migration.mpl",
+      "source_sha256": "c6ce7e6685d019b05169a52ab57807b53b105b5673df5862b4168126d9a076b9",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Relay",
+      "file": "dependency/Transparency.Relay/relay.mpl",
+      "source_sha256": "db77da146f9496e9ec8e355ff2b6534d642958ec6ac59f6331b31ed9d933caf8",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayAdmission",
+      "file": "dependency/Transparency.RelayAdmission/relay_admission.mpl",
+      "source_sha256": "58efb96f4f05d3755155ef7074b49c9ea270fe1633cbab03a9e0e8b9fc15564a",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayClock",
+      "file": "dependency/Transparency.RelayClock/relay_clock.mpl",
+      "source_sha256": "2d668b1bec4fac013bc7c54b1ef61bb82c94568a599d34993fb259013ae5516d",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayDestinations",
+      "file": "dependency/Transparency.RelayDestinations/relay_destinations.mpl",
+      "source_sha256": "02c246e32fddba5bbd30b7a1271bd9b02a1530f7073fdd20b07cb94e72a7e769",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayLookup",
+      "file": "dependency/Transparency.RelayLookup/relay_lookup.mpl",
+      "source_sha256": "10263a292442e097775256206cdac75933455ad353cd5cfc2a5c16f16f2d255c",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayLookupRead",
+      "file": "dependency/Transparency.RelayLookupRead/relay_lookup_read.mpl",
+      "source_sha256": "18523a25ab78bd4f41a47253b22c845ec59cd6431c5adf5038653645f51e4824",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayReport",
+      "file": "dependency/Transparency.RelayReport/relay_report.mpl",
+      "source_sha256": "27713823ce30dd67396cab7bcec2756c3e6f3060ee3a75389cf3b9466b626040",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayStage",
+      "file": "dependency/Transparency.RelayStage/relay_stage.mpl",
+      "source_sha256": "dced3f18ea5d081a0b005335dd2486ed15b377307e26a339e7c27327b82fe64e",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayStageRead",
+      "file": "dependency/Transparency.RelayStageRead/relay_stage_read.mpl",
+      "source_sha256": "213040b0fcc1d00416544759b84f65f7eec612f3d5ad64219db25aff11d30090",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Rewards",
+      "file": "dependency/Transparency.Rewards/rewards.mpl",
+      "source_sha256": "707020a9a7dcb31ae7807ee4b78ec2f85ca94a204da296ed47d59f7ad3369396",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RewardsChain",
+      "file": "dependency/Transparency.RewardsChain/rewards_chain.mpl",
+      "source_sha256": "15a2fe4ccfc0fa94ac8fb8dc6ff659d9553b226e89d1cb2b35f57dc10030ced8",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RewardsOperator",
+      "file": "dependency/Transparency.RewardsOperator/rewards_operator.mpl",
+      "source_sha256": "ce6b958e1e373331abe8e66589349f83624a78ff280d21ea382c0f22829fcc8d",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RewardsRead",
+      "file": "dependency/Transparency.RewardsRead/rewards_read.mpl",
+      "source_sha256": "a9d1c10ff45af1b8f13cb07574a5a554368d4e74abd988d0ab157737c687d4ba",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RewardsWrite",
+      "file": "dependency/Transparency.RewardsWrite/rewards_write.mpl",
+      "source_sha256": "f9db9c40e72c4881c1ed70bced955f7845e97d8e38ee4ad8a3a201fc62da4425",
+      "sites": []
+    },
+    {
+      "module": "Transparency.SlashReceipt",
+      "file": "dependency/Transparency.SlashReceipt/slash_receipt.mpl",
+      "source_sha256": "ebcdbc7ae5f5eb65255f18d07f8babf90fb7317a0c7fc11fa600d930bb4653d2",
+      "sites": []
+    },
+    {
+      "module": "Transparency.SlashReceiptRead",
+      "file": "dependency/Transparency.SlashReceiptRead/slash_receipt_read.mpl",
+      "source_sha256": "4af0b3fb090ab41e9aecd7db10e216d499c44451898b0e09b2a641c7a5c73a92",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurn",
+      "file": "dependency/Transparency.TokenBurn/token_burn.mpl",
+      "source_sha256": "acede7e4e991b389bb57405f14521dbcd15841311ba3432feb3752347ef9a129",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnCarry",
+      "file": "dependency/Transparency.TokenBurnCarry/token_burn_carry.mpl",
+      "source_sha256": "e70fe237ef698ff69e93cccabba70aaabe0e1f868341518f7583be2d8f63c128",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnCarryRead",
+      "file": "dependency/Transparency.TokenBurnCarryRead/token_burn_carry_read.mpl",
+      "source_sha256": "cc8abf2962babb089edeab21280397b7220695754d0fe6bb624517352b0138b0",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnCarryWrite",
+      "file": "dependency/Transparency.TokenBurnCarryWrite/token_burn_carry_write.mpl",
+      "source_sha256": "27079aa4dda5783d2e8d953a24d7e13b9152e61e7f9f5b43fa13d7b2cfee7461",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnRead",
+      "file": "dependency/Transparency.TokenBurnRead/token_burn_read.mpl",
+      "source_sha256": "b576ab1afe9e291ebff7e144d46170aa6140080a74a4fef14026bd68f9f74578",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnWrite",
+      "file": "dependency/Transparency.TokenBurnWrite/token_burn_write.mpl",
+      "source_sha256": "15f66c0f6a6cf5a60033f686bd99f46db027b91a18fda60e66114ed2abb91643",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenChain",
+      "file": "dependency/Transparency.TokenChain/token_chain.mpl",
+      "source_sha256": "02ab93e90f01d10327a96cc131d0851261ee50a80ff333c56faaec4abdbe801d",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenCustody",
+      "file": "dependency/Transparency.TokenCustody/token_custody.mpl",
+      "source_sha256": "809e5a19d1afe3d5811c90306ca3c0f1182d804d0c2156d206e1448d5e0536bb",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenPolicy",
+      "file": "dependency/Transparency.TokenPolicy/token_policy.mpl",
+      "source_sha256": "7b679b8c3f5ea1e66567223dda0f9734d1d1b5895fccdaeac153f2c9602250de",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenRewards",
+      "file": "dependency/Transparency.TokenRewards/token_rewards.mpl",
+      "source_sha256": "6ba0ac0b5c411117a01bc31e4f66981b72294e222b934dd74fb3c82f9b50aecd",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenWrite",
+      "file": "dependency/Transparency.TokenWrite/token_write.mpl",
+      "source_sha256": "799820acf3b3e6fe58954c454ebfc9a96df131bab2536bd70c68e6685d44f0d4",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Wire",
+      "file": "dependency/Transparency.Wire/wire.mpl",
+      "source_sha256": "8bf85479c3af923a8ed5455e30cac029c0a777387cde3954959d7443285b9b44",
+      "sites": []
+    },
+    {
+      "module": "Transport.GroupRecipient",
+      "file": "dependency/Transport.GroupRecipient/group_recipient.mpl",
+      "source_sha256": "b2db8bef5033572dc76da526c231184869ca20a287db8c4839a1e6c52b833e79",
+      "sites": []
+    },
+    {
+      "module": "Transport.Packet",
+      "file": "dependency/Transport.Packet/packet.mpl",
+      "source_sha256": "5e03f9fbc7883b0cecc77c40c35a8605c382608b722ad66e98a9d4641c5ca641",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "client transport framing discloses only its one-bit concatenation failure status; framed content stays private",
+          "start": 2091,
+          "end": 2242,
+          "line": 76,
+          "column": 6
+        },
+        {
+          "kind": "declassify",
+          "reason": "client vector framing discloses only success, invalid length integer, or integer encoding failure; encoded length bytes stay private",
+          "start": 12763,
+          "end": 12921,
+          "line": 402,
+          "column": 19
+        }
+      ]
+    },
+    {
+      "module": "Transport.Padding",
+      "file": "dependency/Transport.Padding/padding.mpl",
+      "source_sha256": "19007c1ae3c3dfbb45ae2b658a1586388222e3761ffd54e170deff303b9d1f03",
+      "sites": []
+    },
+    {
+      "module": "Transport.Recipient",
+      "file": "dependency/Transport.Recipient/recipient.mpl",
+      "source_sha256": "11e442ed6dd640d6b0b62599a818f67cdd3a7dca31cad680fa9e06d0f91c7a17",
+      "sites": []
+    }
+  ]
+}

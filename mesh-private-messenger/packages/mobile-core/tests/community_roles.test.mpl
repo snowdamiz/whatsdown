@@ -1,3 +1,5 @@
+from Tests.PresentationFixture import fixture_load_presentation, fixture_save_presentation
+from Tests.HistoryFixture import fixture_group_history
 import File
 from Groups.CommitWire import encode_group_commit
 from Groups.Membership import commit_remove
@@ -11,14 +13,11 @@ from Mobile.Profile import load_profile, open_device
 from MobileCore import (
   group_add_export,
   group_forget_export,
-  group_history_export,
   group_key_package_export,
   group_list_export,
   group_receive_export,
   group_remove_export,
-  group_send_export,
-  presentation_load_export,
-  presentation_save_export
+  group_send_export
 )
 from Storage.Keys import platform_key
 from Tests.GroupLifecycleCreate import create_group_with_bob
@@ -52,7 +51,7 @@ fn record(revision :: Int, details :: String, roles :: List<Bytes>) -> Bytes!Str
 end
 
 fn save(path :: String, group_id :: Bytes, value :: Bytes) -> Bytes!String do
-  presentation_save_export(group_vectors([
+  fixture_save_presentation(group_vectors([
     Bytes.from_utf8(path),
     Bytes.from_utf8("group/" <> Bytes.to_hex(group_id)),
     value
@@ -60,7 +59,7 @@ fn save(path :: String, group_id :: Bytes, value :: Bytes) -> Bytes!String do
 end
 
 fn stored(path :: String, group_id :: Bytes) -> Bytes!String do
-  presentation_load_export(group_vectors([
+  fixture_load_presentation(group_vectors([
     Bytes.from_utf8(path),
     Bytes.from_utf8("group/" <> Bytes.to_hex(group_id))
   ])?)
@@ -236,7 +235,7 @@ fn exercise() -> Bool!String do
     "a forgotten group leaves the list")?
   ensure(Bytes.length(stored(accounts.alice_path, group_id)?) == 0,
     "a forgotten group's record is gone")?
-  refused(group_history_export(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id])?),
+  refused(fixture_group_history(group_vectors([Bytes.from_utf8(accounts.alice_path), group_id])?),
     "local_state_not_found")?
   File.delete(accounts.alice_path)?
   File.delete(accounts.linked_path)?

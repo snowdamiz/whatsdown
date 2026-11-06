@@ -109,3 +109,14 @@ for (const [scheme, colors] of Object.entries(palettes) as [string, Palette][]) 
     assert.ok(contrast(colors.inkFaint, colors.paper) >= 4.5, 'card fine print');
   });
 }
+
+// Android draws a nested span whose colour is all zero bits ("transparent")
+// in its parent's colour, which showed the room a bubble keeps for its time
+// as a second copy of the time. Hidden ink is clear but keeps its channels.
+test('hidden ink is invisible without being the colour Android ignores', () => {
+  for (const colors of Object.values(palettes)) {
+    const [red, green, blue, alpha] = colors.hiddenInk.match(/[\d.]+/g)!.map(Number);
+    assert.equal(alpha, 0);
+    assert.ok(red! + green! + blue! > 0, colors.hiddenInk);
+  }
+});

@@ -1,4 +1,6 @@
 from Groups.SenderKeys import advance_sender, fork_keys, receive_key, sender_message_key
+from Groups.GroupPayload import GroupPayload, encode_group_payload
+from Groups.Expiry import TimedGroupPayload, encode_timed_group_payload
 
 ##! Groups.GroupMessages for the bounded messenger group protocol.
 
@@ -38,7 +40,7 @@ from Groups.Tree import GroupTree, member_at, tree_hash
 from Transport.Padding import pad_message, unpad_message
 
 fn validate_message_shape(value :: GroupMessage) -> Result<(), GroupError> do
-  let valid = (value.version == 1 || value.version == 2 || value.version == 3 || value.version == 4)
+  let valid = (value.version >= 1 && value.version <= 6)
     && value.suite == 3
     && Bytes.length(value.group_id) == 32
     && Bytes.length(value.tree_hash) == 32
@@ -218,12 +220,12 @@ fn prepare_group_message(state :: borrow GroupState,
   plaintext :: Bytes,
   caller_data :: Bytes,
   version :: Int) -> GroupMessage!GroupError do
-  let maximum = if version == 4 do
+  let maximum = if version == 4 || version == 5 || version == 6 do
     65290
   else
     65342
   end
-  if (version != 3 && version != 4)
+  if (version != 3 && version != 4 && version != 5 && version != 6)
     || state.version != 2
     || Bytes.length(plaintext) > maximum
     || Bytes.length(caller_data) > 4096
@@ -253,7 +255,7 @@ fn prepare_group_message(state :: borrow GroupState,
       metadata.generation,
       nonce,
       caller_data)?
-    let padded = if version == 4 do
+    let padded = if version == 4 || version == 5 || version == 6 do
       Ok(plaintext)
     else
       case pad_message(plaintext, 190) do
@@ -299,6 +301,28 @@ pub fn encrypt_group_message_for_transport(state :: consume GroupState,
   plaintext :: Bytes,
   caller_data :: Bytes) -> GroupEncryptOutcome do
   encrypt_group_message_version(state, signing_key, plaintext, caller_data, 4)
+end
+
+pub fn encrypt_group_payload_for_transport(state :: consume GroupState,
+  signing_key :: borrow SigningPrivateKey,
+  payload :: GroupPayload,
+  caller_data :: Bytes) -> GroupEncryptOutcome do
+  case encode_group_payload(payload) do
+    Err(_) -> GroupEncryptRejected(state, InvalidGroup)
+    Ok(plaintext) -> encrypt_group_message_version(state, signing_key, plaintext, caller_data, 5)
+  end
+end
+
+## Timed framing cannot silently fall back to GMS5: version6 is included in
+## both the AEAD associated data and the sender's signature.
+pub fn encrypt_timed_group_payload_for_transport(state :: consume GroupState,
+  signing_key :: borrow SigningPrivateKey,
+  payload :: TimedGroupPayload,
+  caller_data :: Bytes) -> GroupEncryptOutcome do
+  case encode_timed_group_payload(payload) do
+    Err(_) -> GroupEncryptRejected(state, InvalidGroup)
+    Ok(plaintext) -> encrypt_group_message_version(state, signing_key, plaintext, caller_data, 6)
+  end
 end
 
 fn encrypt_group_message_version(state :: consume GroupState,
@@ -379,7 +403,7 @@ fn open_group_plaintext(key :: borrow AeadKey,
     Err(error) -> Err(CryptoFailure(error))
     Ok(value)
   end?
-  if message.version == 1 || message.version == 4 do
+  if message.version == 1 || message.version == 4 || message.version == 5 || message.version == 6 do
     Ok(plaintext)
   else
     case unpad_message(plaintext, 190) do
@@ -394,7 +418,11 @@ fn open_epoch_message(state :: borrow GroupState,
   caller_data :: Bytes) -> Result<(Bytes, SecretMap, SecretMap), GroupError> do
   let public = open_message_context(state, message)?
   let wrong_header = !((state.version == 1 && (message.version == 1 || message.version == 2))
-    || (state.version == 2 && (message.version == 3 || message.version == 4)))
+    || (state.version == 2
+      && (message.version == 3
+        || message.version == 4
+        || message.version == 5
+        || message.version == 6)))
     || (state.version == 2 && message.sender_leaf == state.local_leaf)
     || message.suite != public.suite
     || !Bytes.secure_equals(message.group_id, public.group_id)

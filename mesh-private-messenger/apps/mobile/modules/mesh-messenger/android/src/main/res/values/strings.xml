@@ -1,0 +1,13 @@
+<resources>
+  <string name="morse_al1_app_name">Morse</string>
+  <string name="morse_al1_locked">Morse is locked</string>
+  <string name="morse_al1_unlock_title">Unlock Morse</string>
+  <string name="morse_al1_unlock_description">Use device biometrics or passcode to open Morse</string>
+  <string name="morse_al1_unlock">Unlock with device authentication</string>
+  <string name="morse_al1_cancel">Cancel authentication</string>
+  <string name="morse_al1_finish_enable">Finish enabling app lock</string>
+  <string name="morse_al1_disable">Turn off app lock</string>
+  <string name="morse_al1_activity_channel">Encrypted activity</string>
+  <string name="morse_al1_generic_activity">New encrypted activity</string>
+  <string name="morse_al1_messages_channel">Messages and mentions</string>
+</resources>

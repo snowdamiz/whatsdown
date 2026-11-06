@@ -1,3 +1,4 @@
+from Mobile.TransparencySafety import require_log_changes_allowed
 from Identity.Device import (
   AccountKeys,
   DeviceKeys,
@@ -32,6 +33,7 @@ from Mobile.DeviceSet import (
   verified_device_set
 )
 from Mobile.Prekeys import seal_active_prekey_pool, seal_prekey_pool, seal_prekey_wide
+from Mobile.Presentation import personal_presentation_data
 from Mobile.Profile import (
   account_keys,
   device_keys,
@@ -113,15 +115,40 @@ from Storage.Records import (
   store_updated_session
 )
 from Transport.Packet import ClientProfile, decode_client_profile, encode_client_profile
+from Storage.SignupDraft import seal_signup_draft
+from Storage.AccountGuard import (
+  erase_account_if_current,
+  load_account_basis,
+  commit_account_changes
+)
 
 ##! Mobile.Account implementation.
 
 pub fn create_account(request :: MobileAccountRequest) -> Bytes!String do
+  create_account_with_draft(request, false, None)
+end
+
+pub fn create_signup_draft_account(request :: MobileAccountRequest) -> Bytes!String do
+  create_account_with_draft(request, true, None)
+end
+
+pub fn create_account_with_presentation(request :: MobileAccountRequest,
+  presentation :: Option<Plaintext<Bytes>>) -> Bytes!String do
+  create_account_with_draft(request, false, presentation)
+end
+
+fn create_account_with_draft(request :: MobileAccountRequest,
+  paid_draft :: Bool,
+  presentation :: Option<Plaintext<Bytes>>) -> Bytes!String do
   let database_path = mobile_utf8(request.database_path, "invalid_database_path")?
   let username = mobile_utf8(request.username, "invalid_username")?
   if String.length(database_path) == 0 || String.length(database_path) > 4096 do
     Err("invalid_account_request")
   else
+    let checked_personal = case presentation do
+      None
+      Some(value) -> Some(personal_presentation_data(value)?)
+    end
     let created_at = mobile_wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))?
     let expires_at = U64.add(created_at, mobile_wide("31536000000")?)?
     ensure_schema(database_path)?
@@ -135,7 +162,7 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes!String do
     let credential = case issue_hybrid_device_credential(account,
       device,
       post_quantum.public_key,
-      mobile_wide("1")?,
+      mobile_wide("31")?,
       created_at,
       expires_at,
       mobile_wide("1")?) do
@@ -221,6 +248,23 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes!String do
     let prekey_next_id_blob = seal_prekey_wide("one-time-prekey-next-id/v1",
       U64.add(one_time.id, mobile_wide("1")?)?,
       wrapping_key)?
+    let (personal_labels, personal_blobs) = case checked_personal do
+      None -> ([], [])
+      Some(value) -> do
+        let label = "presentation/v1/user/" <> Bytes.to_hex(identity.account_id)
+        ([label], [seal_local(value, wrapping_key, local_context(label)?)?])
+      end
+    end
+    let draft_labels = if paid_draft do
+      ["signup-draft/v1"]
+    else
+      []
+    end
+    let draft_blobs = if paid_draft do
+      [seal_signup_draft(profile, 1, wrapping_key)?]
+    else
+      []
+    end
     store_new_account(database_path,
       [
         "account-signing-key/v1",
@@ -233,7 +277,9 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes!String do
         "one-time-prekeys/v1",
         "one-time-prekey-active/v1",
         "one-time-prekey-next-id/v1"
-      ],
+      ]
+        ++ draft_labels
+        ++ personal_labels,
       [
         account_blob,
         device_signing_blob,
@@ -245,7 +291,9 @@ pub fn create_account(request :: MobileAccountRequest) -> Bytes!String do
         prekey_index_blob,
         prekey_active_blob,
         prekey_next_id_blob
-      ])?
+      ]
+        ++ draft_blobs
+        ++ personal_blobs)?
     Ok(profile)
   end
 end
@@ -327,7 +375,7 @@ pub fn create_device_link_request(database_path :: String) -> Bytes!String do
           signing_public_key: device.signing_public_key.bytes,
           dh_public_key: device.identity_public_key.bytes,
           post_quantum_public_key: post_quantum.public_key.bytes,
-          capabilities: mobile_wide("1")?,
+          capabilities: mobile_wide("31")?,
           created_at: now,
           expires_at: U64.add(now, mobile_wide("600000")?)?
         }
@@ -368,6 +416,7 @@ pub fn authorize_link(request :: MobilePayloadRequest) -> Bytes!String do
     Err("link_request_expired")
   else
     let wrapping_key = platform_key()?
+    require_log_changes_allowed(request.database_path, wrapping_key)?
     let account = open_account(local, wrapping_key, request.database_path)?
     let authorization = case authorize_device_link(account,
       local.account,
@@ -543,16 +592,29 @@ fn revoked_device_rows(values :: List<Bytes>,
   end
 end
 
-pub fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes!String do
+pub struct InspectedDeviceSet do
+  summary :: Bytes
+  changed :: Bool
+end
+
+pub fn inspect_device_set_result_at_profile(request :: MobilePayloadRequest,
+  expected_profile :: Bytes) -> InspectedDeviceSet!String do
   ensure_schema(request.database_path)?
-  let local = decode_client_profile(load_profile(request.database_path)?)?
   let verified = verified_device_set(request.payload)?
-  let wrapping_key = platform_key()?
-  require_transparency_device_set(request.database_path, wrapping_key, verified)?
   let label = device_set_label(verified.account.account_id)
+  let before = load_account_basis(request.database_path,
+    [label, "transparency-checkpoint/v1", "account-signing-key/v1"])?
+  if !Bytes.secure_equals(before.profile, expected_profile) do
+    return Err("account_state_changed")
+  end
+  let wrapping_key = platform_key()?
+  let local = decode_client_profile(open_local(before.profile,
+    wrapping_key,
+    local_context("profile/v1")?)?)?
+  require_transparency_device_set(request.database_path, wrapping_key, verified)?
   let changed = cached_device_set_changed(request.database_path, wrapping_key, verified, label)?
   let sealed = seal_local(verified.wire, wrapping_key, local_context(label)?)?
-  store_updated_session(request.database_path, label, sealed)?
+  commit_account_changes(request.database_path, before, [label], [sealed], [])?
   let can_manage = case load_blob(request.database_path, "account-signing-key/v1") do
     Err(error) -> if error == "local_state_not_found" do
       Ok(false)
@@ -564,7 +626,7 @@ pub fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes!String do
   let reachable = active_device_rows(verified.profiles, local.device_id, 1, 0, List.new())?
   let active = active_device_rows(verified.expired, local.device_id, 2, 0, reachable)?
   let rows = revoked_device_rows(verified.value.revoked_device_ids, 0, active)?
-  mobile_join([
+  let summary = mobile_join([
       mobile_vector(Bytes.from_utf8(verified.value.username))?,
       mobile_vector(verified.account.account_id)?,
       mobile_vector(mobile_write_u64(verified.value.sequence)?)?,
@@ -581,7 +643,17 @@ pub fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes!String do
       mobile_vector(encode_output_list(rows)?)?
     ],
     0,
-    Bytes.empty())
+    Bytes.empty())?
+  Ok(InspectedDeviceSet { summary: summary, changed: changed })
+end
+
+pub fn inspect_device_set_at_profile(request :: MobilePayloadRequest,
+  expected_profile :: Bytes) -> Bytes!String do
+  Ok(inspect_device_set_result_at_profile(request, expected_profile)?.summary)
+end
+
+pub fn inspect_device_set(request :: MobilePayloadRequest) -> Bytes!String do
+  inspect_device_set_at_profile(request, load_blob(request.database_path, "profile/v1")?)
 end
 
 pub fn authorize_link_for_set(request :: MobileTriplePayloadRequest) -> Bytes!String do
@@ -589,6 +661,7 @@ pub fn authorize_link_for_set(request :: MobileTriplePayloadRequest) -> Bytes!St
   let local = decode_client_profile(load_profile(request.database_path)?)?
   let devices = verified_device_set(request.first)?
   let wrapping_key = platform_key()?
+  require_log_changes_allowed(request.database_path, wrapping_key)?
   require_transparency_device_set(request.database_path, wrapping_key, devices)?
   let requested_device = parse_link_request(request.second)?
   let now = current_time()?
@@ -747,12 +820,26 @@ end
 ## claim that does not verify against the keys this device knows changes nothing.
 
 pub fn forget_on_proof(request :: MobilePayloadRequest) -> Bytes!String do
-  let profile = decode_client_profile(load_profile(request.database_path)?)?
-  let kind = removal_kind(profile, request.payload)
+  forget_on_proof_at_profile(request.database_path,
+    load_blob(request.database_path, "profile/v1")?,
+    request.payload)
+end
+
+## A network operation supplies the exact encrypted profile captured before
+## sending. Verification and erasure are bound to it, including the final SQL
+## comparison; a delayed valid proof cannot erase replacement custody.
+pub fn forget_on_proof_at_profile(path :: String,
+  sealed_profile :: Bytes,
+  statement :: Bytes) -> Bytes!String do
+  let key = platform_key()?
+  let profile = decode_client_profile(open_local(sealed_profile,
+    key,
+    local_context("profile/v1")?)?)?
+  let kind = removal_kind(profile, statement)
   if kind == 0 do
     Err("unproven_removal")
   else
-    erase_local_state(request.database_path)?
+    erase_account_if_current(path, sealed_profile)?
     mobile_byte(kind)
   end
 end

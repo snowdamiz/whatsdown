@@ -1,3 +1,4 @@
+from Session.State import RatchetState
 from Identity.Device import (
   AccountKeys,
   DeviceKeys,
@@ -26,7 +27,7 @@ from Protocol.V1 import (
   ProtocolError
 )
 from Protocol.HandshakeWire import decode_initial_message, encode_initial_message
-from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
+from Session.Handshake import SessionError, initiate, receive_initial
 
 type ProofError do
   IdentityProblem(error :: IdentityError)

@@ -1,0 +1,16 @@
+export const labels={
+ filesTitle:'Attachment files',totalFiles:'Considered files',includedFiles:'Included files',unavailableFiles:'Unavailable files omitted',expiredFiles:'Expired files omitted',unsupportedFiles:'Unsupported files omitted',aboveProfileFiles:'Files above the backup size limit omitted',
+ requiredFiles:'All attachment files were required.',allowedFileOmissions:'File omissions were allowed for this backup.',contentExclusions:'Omitted messages and files are not restored. Included files can be saved separately.',
+ saveFile:'Save file',cancelFile:'Cancel file save',savingFile:'Saving file…',savedFile:'File saved.',failedFile:'Could not save this archived file. Try again.',
+ fileNumber:number=>`Attachment ${number}`,fileSize:size=>`${size} bytes`,fileProgress:(loaded,total)=>`Reading archived file… ${loaded} of ${total}`,fileUnavailable:'File unavailable in this backup.',fileExpired:'File expired before backup.',fileUnsupported:'File type is not supported in this backup.',fileAboveProfile:'File exceeded this backup’s size limit.',
+ title:'Backups',importTitle:'Import a backup',chooseFile:'Choose encrypted backup',choosing:'Choosing backup…',selectedFile:'Encrypted backup selected.',
+ recoveryCode:'Backup recovery code',codeHint:'Enter the recovery code saved with this backup.',preview:'Preview backup',previewing:'Authenticating backup…',confirmImport:'Import this archive',importing:'Importing archive…',
+ imported:'Read-only archive imported.',alreadyPresent:'This archive is already saved on this device.',cancelImport:'Clear import',
+ readOnlyNote:'Backups open as separate read-only archives. They do not restore chats, sessions, keys, or funds.',exclusions:'Omitted messages and attachment files are not restored.',
+ archivesTitle:'Saved archives',loadingArchives:'Loading archives…',refresh:'Refresh archives',emptyArchives:'No archives saved on this device.',open:'Open archive',remove:'Remove archive',
+ confirmRemove:'Confirm removal',cancelRemove:'Keep archive',removalNotice:'Remove this local archive? Your active chats and the original backup file will stay unchanged.',removing:'Removing archive…',
+ reading:'Opening archive…',conversations:'Archived conversations',unnamedConversation:'Unnamed archived conversation',backToArchives:'Back to archives',backToConversations:'Back to conversations',previous:'Previous page',next:'Next page',attachmentOmitted:'Attachment not included',sent:'Sent',received:'Received',
+ expired:'This backup view expired. Open it again from the current account.',error:'Could not complete this action. Try again.',previewError:'Could not open this backup. Check the file and recovery code.',close:'Close',
+ includedCount:'Included messages',candidateCount:'Considered messages',omittedTimed:'Disappearing messages omitted',omittedUnknown:'Messages with unknown policy or kind omitted',omittedNontext:'Unsupported content omitted',omittedEmpty:'Empty messages omitted',attachmentMessages:'Messages with attachments',
+ createdAt:value=>`Created ${value}`,messages:count=>`${count} messages`,page:(offset,count)=>`Messages ${offset+1}–${offset+count}`,rawTime:value=>`${value} ms`,
+};

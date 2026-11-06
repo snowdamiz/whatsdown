@@ -1,0 +1,8 @@
+[package]
+name = "morse-credit-treasury-policy"
+version = "0.1.0"
+description = "Isolated exact credit revenue allocation policy qualification"
+license = "MIT"
+
+[dependencies]
+credit-issuer = { path = "../../services/credit-issuer" }

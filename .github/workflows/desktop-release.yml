@@ -60,12 +60,15 @@ jobs:
           # can be verified; with dmg alone Tauri deletes it after packaging.
           - os: macos-15
             platform: macos-arm64
+            native-target: aarch64-apple-darwin
             bundles: app,dmg
           - os: macos-15-intel
             platform: macos-x64
+            native-target: x86_64-apple-darwin
             bundles: app,dmg
           - os: windows-2022
             platform: windows-x64
+            native-target: x86_64-pc-windows-msvc
             bundles: nsis
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
@@ -219,6 +222,10 @@ jobs:
             for name in $(compgen -e | awk '/^(EXPO_PUBLIC_MESSENGER_|MESSENGER_)/'); do unset "$name"; done
             npm run native -- --development
           fi
+      - name: Retain compiler-produced disclosure inputs before platform signing
+        run: |
+          node ../../scripts/plaintext-release.mjs desktop-capture \
+            --target '${{ matrix.native-target }}' --output "$RUNNER_TEMP/plaintext-build-inputs"
       - name: Verify native bridge and networking boundaries
         run: |
           # generate_context! embeds the web bundle, so it must exist to compile.
@@ -309,6 +316,17 @@ jobs:
           arch=$([[ "$(uname -m)" == arm64 ]] && echo aarch64 || echo x64)
           mv Morse.app.tar.gz "Morse_${MORSE_VERSION}_${arch}.app.tar.gz"
           mv Morse.app.tar.gz.sig "Morse_${MORSE_VERSION}_${arch}.app.tar.gz.sig"
+      - name: Bind reviewed disclosures to the final installer and update packages
+        run: |
+          bundle_mode=debug
+          if [[ "$RELEASE_BUILD" == true ]]; then bundle_mode=release; fi
+          mkdir -p "$RUNNER_TEMP/plaintext-release"
+          node ../../scripts/plaintext-release.mjs desktop-finalize \
+            --input "$RUNNER_TEMP/plaintext-build-inputs" \
+            --packages "src-tauri/target/$bundle_mode/bundle" \
+            --output "$RUNNER_TEMP/plaintext-release/bundle"
+          COPYFILE_DISABLE=1 tar -C "$RUNNER_TEMP/plaintext-release" \
+            -czf "$RUNNER_TEMP/morse-plaintext-${{ matrix.platform }}.tar.gz" bundle
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: morse-${{ matrix.platform }}
@@ -318,6 +336,7 @@ jobs:
             mesh-private-messenger/apps/desktop/src-tauri/target/*/bundle/macos/*.app.tar.gz*
             mesh-private-messenger/apps/desktop/src-tauri/target/*/bundle/nsis/*.exe
             mesh-private-messenger/apps/desktop/src-tauri/target/*/bundle/nsis/*.exe.sig
+            ${{ runner.temp }}/morse-plaintext-${{ matrix.platform }}.tar.gz
       - name: Remove temporary signing keychain
         if: always() && runner.os == 'macOS' && env.RELEASE_BUILD == 'true'
         run: |
@@ -365,10 +384,20 @@ jobs:
           # Installed apps read latest.json from the newest release to find an update.
           node ../mesh-private-messenger/apps/desktop/scripts/updater-manifest.mjs . "$version"
           echo "MORSE_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Verify all target disclosure bundles against these release packages
+        env:
+          MESH_LANG_REVISION: ${{ needs.verification.outputs.mesh-revision }}
+        run: |
+          node mesh-private-messenger/scripts/plaintext-release.mjs verify-desktop-set \
+            --packages installers --scratch "$RUNNER_TEMP/plaintext-release-verify" \
+            --output installers/PLAINTEXT-DISCLOSURES.md
+          cd installers
+          sha256sum morse-plaintext-*.tar.gz PLAINTEXT-DISCLOSURES.md >> SHA256SUMS
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           tag_name: desktop-v${{ env.MORSE_VERSION }}
           target_commitish: ${{ github.sha }}
           files: installers/**/*
           fail_on_unmatched_files: true
+          body_path: installers/PLAINTEXT-DISCLOSURES.md
           generate_release_notes: true

@@ -75,8 +75,9 @@ end
 
 fn reset(pool :: PoolHandle) -> Result<(), String> do
   Pool.execute(pool,
-    "TRUNCATE messenger_deleted_accounts, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_deleted_accounts, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
     [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
   Ok(nil)
 end
 

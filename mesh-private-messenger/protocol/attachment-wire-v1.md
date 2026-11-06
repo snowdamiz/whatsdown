@@ -4,6 +4,17 @@ Attachment wire version `1` is a development profile. It has not received an
 independent cryptographic review and must not be represented as production
 ready.
 
+Version 1 remains a legacy free profile. Current development writers use
+[padded profile 4](attachment-buckets-v4.md) for free and paid attachments.
+The separate
+[paid large attachment profile](paid-attachment-v1.md) defines version 2 with
+bounded chunks through 512 MiB and distinct authentication labels; it does not
+increase version 1 or chat/crypto frame limits.
+
+[Attachment chunks v3](attachment-chunks-v3.md) adds a receiver path bound to
+the exact encrypted manifest. It preserves these legacy reads; deployment of
+new padded writers requires the authenticated compatibility rollout.
+
 The client creates a random 32-byte `SecretBytes` attachment key and a random
 32-byte object identifier. The key never leaves an encrypted inner message.
 Filename, MIME type, and exact plaintext size are present only in the encrypted

@@ -1,0 +1,89 @@
+from Credits.Issuance import CreditQuote
+from Payment.Verify import PaymentReceipt, verify_credit_payment
+
+fn require(value :: Bool, label :: String) -> Result<(), String> do
+  if value do
+    Ok(nil)
+  else
+    Err(label)
+  end
+end
+
+fn bytes(item :: Json, key :: String) -> Bytes!String do
+  Bytes.from_hex(Json.as_string(Json.object_get(item, key)?)?)
+end
+
+fn quote(item :: Json, override_reference :: String) -> CreditQuote!String do
+  let asset = Json.as_int(Json.object_get(item, "asset")?)?
+  Ok(CreditQuote {
+    quote_id: if override_reference == "" do
+      bytes(item, "reference_hex")?
+    else
+      Bytes.from_hex(override_reference)?
+    end,
+    deposit_owner: bytes(item, "deposit_hex")?,
+    destination: bytes(item, "destination_hex")?,
+    mint: if asset == 0 do
+      bytes(item, "mint_hex")?
+    else
+      Bytes.from_hex(String.repeat("00", 32))?
+    end,
+    asset: asset,
+    amount: U64.parse(Json.as_string(Json.object_get(item, "quote_amount")?)?)?,
+    purpose: 0,
+    credits: 100,
+    issued_at: U64.parse("1000")?,
+    expires_at: U64.parse("1900")?,
+    issuer_key_id: Bytes.from_hex(String.repeat("05", 32))?,
+    batch_hash: Bytes.from_hex(String.repeat("06", 32))?
+  })
+end
+
+fn proof() -> Int!String do
+  let root = Json.parse(File.read(Env.get("PAYMENT_CASES", ""))?)?
+  let cases = Json.object_get(root, "cases")?
+  let client = Http.client()
+  for index in 0..Json.array_length(cases)? do
+    let item = Json.array_get(cases, index)?
+    let fixture = Json.object_get(item, "fixture")?
+    let expected = Json.as_int(Json.object_get(item, "expected")?)?
+    let signature = bytes(fixture, "signature_hex")?
+    let checked = verify_credit_payment(client,
+      Env.get("RPC_URL", ""),
+      signature,
+      41,
+      quote(fixture, Json.get(item, "reference_override"))?,
+      bytes(fixture, "mint_hex")?,
+      U64.parse(Json.as_string(Json.object_get(item, "price_at")?)?)?,
+      U64.parse(Json.as_string(Json.object_get(item, "now")?)?)?)
+    case checked do
+      Err(error) -> if expected != 2 do
+        return Err("case #{index} unexpectedly failed: #{error}")
+      end
+      Ok(None) -> if expected != 1 do
+        return Err("case #{index} unexpectedly missing")
+      end
+      Ok(Some(receipt)) -> do
+        require(expected == 0, "case #{index} unexpectedly accepted")?
+        require(Bytes.secure_equals(receipt.transaction_signature, signature), "receipt signature")?
+        require(Bytes.to_hex(receipt.payer) == Json.as_string(Json.object_get(fixture,
+              "payer_hex")?)?,
+          "payer")?
+        require(U64.to_string(receipt.received_amount) == Json.as_string(Json.object_get(fixture,
+              "amount")?)?,
+          "amount precision")?
+        require(U64.to_string(receipt.slot) == Json.as_string(Json.object_get(fixture,
+              "slot_text")?)?,
+          "slot precision")?
+      end
+    end
+  end
+  Ok(Json.array_length(cases)?)
+end
+
+fn main() do
+  case proof() do
+    Err(error) -> println(error)
+    Ok(count) -> println("payment-transport:#{count}:ok")
+  end
+end

@@ -1,8 +1,10 @@
 # Witness Network v1
 
-Status: proposed. Nothing in this document is implemented. The landing page
-presents it as what comes next, in the order below. Each step stands on its own
-without the ones after it.
+Status: proposed network design; foundations are being implemented locally.
+See [the implementation plan](../../WITNESS_NETWORK_PLAN.md#2-where-things-stand-today-verified-in-code)
+for verified code and open rollout gates. No production deployment, independent
+operator, public anchor, bond, credit or token launch is claimed. Each step
+stands on its own without the ones after it.
 
 ## Why
 
@@ -73,8 +75,14 @@ size with different roots; the same leaf index reading differently in two
 checkpoints, shown by compact inclusion proofs (this catches forks that never
 share a size); and sequence and size moving in opposite directions. Each is
 checked on-chain with Ed25519 verifications and SHA-256 path recomputation.
-Whoever submits it receives 10% of what it slashes; the rest is locked or
-burned, never paid to Morse.
+The finder named by the proof receives 10% of what it slashes; a zero finder
+uses the submitter instead. The rest is locked or burned, never paid to Morse.
+
+Phones now file retained evidence concurrently to every release-pinned relay,
+retain their retry state, and verify finalized public receipts independently of
+relay acknowledgments. Details shows the actual payout recipient and exports
+the original proof. See [phone filing](phone-filing-v1.md) for the local contract
+and qualification limits. Fresh finder wallet addresses remain Phase 4 work.
 
 Phones require a strict majority of the pinned witnesses, so two conflicting
 checkpoints that both reach the threshold always share at least one witness

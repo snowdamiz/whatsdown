@@ -167,7 +167,7 @@ end
 fn kept(pool :: PoolHandle, account_id :: Bytes, mailboxes :: List<Bytes>) -> String!String do
   let hashes = List.map(mailboxes, fn(token) -> Bytes.to_hex(Crypto.sha256(token)) end)
   let rows = Pool.query_values(pool,
-    "WITH mailbox AS (SELECT decode(value, 'hex') AS hash FROM unnest(string_to_array($2, ',')) AS value) SELECT concat((SELECT count(*) FROM messenger_accounts WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_devices WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_one_time_prekeys WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_mailboxes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_envelopes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_outbox_events WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_push_bindings WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_mailbox_aliases WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM transparency_entries WHERE entry_bytes IS NOT NULL AND account_commitment = sha256('mesh-msg/v1/transparency-account'::bytea || $1)), ':', (SELECT count(*) FROM messenger_deleted_accounts WHERE account_id = $1)) AS value",
+    "WITH mailbox AS (SELECT decode(value, 'hex') AS hash FROM unnest(string_to_array($2, ',')) AS value) SELECT concat((SELECT count(*) FROM messenger_accounts WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_devices WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_one_time_prekeys WHERE account_id = $1), ':', (SELECT count(*) FROM messenger_mailboxes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_envelopes WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_outbox_events WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_push_bindings WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM messenger_mailbox_aliases WHERE mailbox_token_hash IN (SELECT hash FROM mailbox)), ':', (SELECT count(*) FROM transparency_entries WHERE (entry_bytes IS NOT NULL OR entry_header IS NOT NULL) AND account_commitment = sha256('mesh-msg/v1/transparency-account'::bytea || $1)), ':', (SELECT count(*) FROM messenger_deleted_accounts WHERE account_id = $1)) AS value",
     [Binary(account_id), Text(String.join(hashes, ","))])?
   case Map.get(List.head(rows), "value") do
     Text(value) -> Ok(value)
@@ -190,8 +190,9 @@ fn proof() -> Bool!String do
     "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000)?
   Pool.execute(pool,
-    "TRUNCATE messenger_deleted_accounts, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_deleted_accounts, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
     [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
   let created_at = now()?
   let (alice, alice_identity) = account(created_at)?
   let (bob, bob_identity) = account(created_at)?
@@ -302,8 +303,9 @@ fn departure_proof() -> Bool!String do
     "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000)?
   Pool.execute(pool,
-    "TRUNCATE messenger_deleted_accounts, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_deleted_accounts, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
     [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
   let (alice, alice_identity) = account(now()?)?
   let alice_id = alice_identity.account_id
   let phone = fresh_device()?

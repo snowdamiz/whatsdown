@@ -1,0 +1,564 @@
+from Privacy.Edge import mint_request_stamp, encode_stamped_request
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  generate_account,
+  generate_device,
+  issue_hybrid_device_credential
+)
+from Prekeys.Bundle import (
+  PostQuantumPrekeySecrets,
+  SignedPrekeySecrets,
+  build_hybrid_prekey_bundle,
+  generate_one_time_prekey,
+  generate_post_quantum_prekey,
+  generate_signed_prekey,
+  normalize_prekey_bundle
+)
+from Prekeys.Renewal import (
+  RenewalRequest,
+  bundle_with_renewal_request,
+  generate_renewal_signed_prekey,
+  issue_renewal_request,
+  issue_ach3_renewal_request,
+  encode_renewal_request,
+  bundle_renewal_request,
+  renewed_prekey_bundle
+)
+from Protocol.DirectoryWire import encode_directory_entry
+from Protocol.IdentityWire import encode_account_identity, decode_device_credential
+from Protocol.PrekeyWire import encode_prekey_bundle, decode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DeviceCredential, DirectoryEntry, PrekeyBundle
+from Storage.Devices import resolve_devices
+
+fn wide(value :: String) -> U64!String do
+  U64.parse(value)
+end
+
+fn now() -> U64!String do
+  wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
+end
+
+fn filled(value :: Int, length :: Int) -> Bytes do
+  case Bytes.repeat(value, length) do
+    Err(_) -> Bytes.empty()
+    Ok(output) -> output
+  end
+end
+
+fn text(value :: DbValue) -> String!String do
+  case value do
+    Text(output) -> Ok(output)
+    _ -> Err("invalid test row")
+  end
+end
+
+fn scalar(pool :: PoolHandle, sql :: String) -> String!String do
+  let rows = Pool.query_values(pool, sql, [])?
+  if List.length(rows) == 1 do
+    text(Map.get(List.head(rows), "value"))
+  else
+    Err("expected one row")
+  end
+end
+
+# The account's sequence and the number of logged transitions.
+fn logged(pool :: PoolHandle) -> String!String do
+  scalar(pool,
+    "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM transparency_entries)) AS value")
+end
+
+fn prekeys(pool :: PoolHandle) -> String!String do
+  scalar(pool, "SELECT count(*)::text AS value FROM messenger_one_time_prekeys")
+end
+
+fn account(created_at :: U64) -> Result<(AccountKeys, AccountIdentity), String> do
+  case generate_account(created_at, wide("1")?) do
+    Err(_) -> Err("account generation failed")
+    Ok(value)
+  end
+end
+
+fn device() -> DeviceKeys!String do
+  case generate_device() do
+    Err(_) -> Err("device generation failed")
+    Ok(value)
+  end
+end
+
+fn post_quantum() -> PostQuantumPrekeySecrets!String do
+  case generate_post_quantum_prekey() do
+    Err(_) -> Err("post-quantum prekey generation failed")
+    Ok(value)
+  end
+end
+
+fn credential(account_keys :: borrow AccountKeys,
+  device_keys :: borrow DeviceKeys,
+  keys :: borrow PostQuantumPrekeySecrets,
+  created_at :: U64,
+  expires_at :: U64,
+  sequence :: U64) -> DeviceCredential!String do
+  case issue_hybrid_device_credential(account_keys,
+    device_keys,
+    keys.public_key,
+    wide("1")?,
+    created_at,
+    expires_at,
+    sequence) do
+    Err(_) -> Err("credential generation failed")
+    Ok(value)
+  end
+end
+
+# A device's first bundle, with the one-time prekey a registration carries.
+fn first_bundle(device_keys :: borrow DeviceKeys,
+  value :: DeviceCredential,
+  keys :: borrow PostQuantumPrekeySecrets,
+  expires_at :: U64) -> PrekeyBundle!String do
+  let signed = case generate_signed_prekey(device_keys, value, wide("1")?, expires_at) do
+    Err(_) -> Err("signed prekey generation failed")
+    Ok(output)
+  end?
+  let one_time = case generate_one_time_prekey(wide("2")?) do
+    Err(_) -> Err("one-time prekey generation failed")
+    Ok(output)
+  end?
+  case build_hybrid_prekey_bundle(value, signed, one_time, keys) do
+    Err(_) -> Err("bundle generation failed")
+    Ok(output)
+  end
+end
+
+fn base(bundle :: PrekeyBundle) -> PrekeyBundle!String do
+  case normalize_prekey_bundle(bundle) do
+    Err(_) -> Err("bundle normalization failed")
+    Ok(output)
+  end
+end
+
+fn next_signed(device_keys :: borrow DeviceKeys,
+  value :: DeviceCredential,
+  id :: String,
+  expires_at :: U64) -> SignedPrekeySecrets!String do
+  case generate_renewal_signed_prekey(device_keys, value, wide(id)?, expires_at) do
+    Err(_) -> Err("renewal signed prekey generation failed")
+    Ok(output)
+  end
+end
+
+fn ask(device_keys :: borrow DeviceKeys,
+  value :: DeviceCredential,
+  signed :: borrow SignedPrekeySecrets,
+  keys :: borrow PostQuantumPrekeySecrets) -> RenewalRequest!String do
+  case issue_renewal_request(device_keys, value, signed, keys) do
+    Err(_) -> Err("renewal request failed")
+    Ok(output)
+  end
+end
+
+fn asking(bundle :: PrekeyBundle, request :: RenewalRequest) -> PrekeyBundle!String do
+  case bundle_with_renewal_request(bundle, request) do
+    Err(_) -> Err("request bundle failed")
+    Ok(output)
+  end
+end
+
+fn answered(value :: DeviceCredential, request :: RenewalRequest) -> PrekeyBundle!String do
+  case renewed_prekey_bundle(value, request) do
+    Err(_) -> Err("renewed bundle failed")
+    Ok(output)
+  end
+end
+
+fn bundle_wire(bundle :: PrekeyBundle) -> Bytes!String do
+  case encode_prekey_bundle(bundle) do
+    Err(_) -> Err("bundle encoding failed")
+    Ok(output)
+  end
+end
+
+fn entry(identity :: AccountIdentity,
+  bundle :: PrekeyBundle,
+  mailbox_token :: Bytes) -> Bytes!String do
+  let account_wire = case encode_account_identity(identity) do
+    Err(_) -> Err("account encoding failed")
+    Ok(output)
+  end?
+  case encode_directory_entry(DirectoryEntry {
+    version: 1,
+    username: "alice",
+    account_identity: account_wire,
+    prekey_bundle: bundle_wire(bundle)?,
+    mailbox_token: mailbox_token
+  }) do
+    Err(_) -> Err("entry encoding failed")
+    Ok(output)
+  end
+end
+
+fn send_entry(label :: String, payload :: Bytes) -> Int!String do
+  let expiry = U64.add(now()?, wide("60000")?)?
+  let stamp = mint_request_stamp("mesh-msg/v1/work/register", payload, expiry, 1)?
+  let body = encode_stamped_request(stamp, payload)?
+  let response = Http.build(:put,
+    Env.get("MORSE_RENEWAL_HTTP_ORIGIN", "") <> "/v1/devices/register")
+    |> Http.header("Content-Type", "application/octet-stream")
+    |> Http.header("Cache-Control", "no-store")
+    |> Http.header("X-Morse-Proof-Case", label)
+    |> Http.body_bytes(body)
+    |> Http.timeout(8000)
+    |> Http.max_redirects(0)
+    |> Http.max_response_bytes(4096)
+    |> Http.send()?
+  Ok(response.status)
+end
+
+fn masked_credential(account_keys :: borrow AccountKeys,
+  device_keys :: borrow DeviceKeys,
+  keys :: borrow PostQuantumPrekeySecrets,
+  mask :: String,
+  created_at :: U64,
+  expires_at :: U64,
+  sequence :: String) -> DeviceCredential!String do
+  case issue_hybrid_device_credential(account_keys,
+    device_keys,
+    keys.public_key,
+    wide(mask)?,
+    created_at,
+    expires_at,
+    wide(sequence)?) do
+    Err(_) -> Err("masked credential failed")
+    Ok(value)
+  end
+end
+
+fn ask_v2(device_keys :: borrow DeviceKeys,
+  value :: DeviceCredential,
+  signed :: borrow SignedPrekeySecrets,
+  keys :: borrow PostQuantumPrekeySecrets) -> RenewalRequest!String do
+  case issue_ach3_renewal_request(device_keys, value, signed, keys) do
+    Err(_) -> Err("ACH3 renewal request failed")
+    Ok(value)
+  end
+end
+
+fn request_wire(value :: RenewalRequest) -> Bytes!String do
+  case encode_renewal_request(value) do
+    Err(_) -> Err("renewal request encoding failed")
+    Ok(value)
+  end
+end
+
+fn decoded_stored(pool :: PoolHandle, token :: Bytes) -> PrekeyBundle!String do
+  case decode_prekey_bundle(stored_bundle(pool, token)?) do
+    Err(_) -> Err("stored bundle decode failed")
+    Ok(value)
+  end
+end
+
+fn stored_mask(pool :: PoolHandle, token :: Bytes) -> String!String do
+  let bundle = decoded_stored(pool, token)?
+  case decode_device_credential(bundle.device_credential) do
+    Err(_) -> Err("stored credential decode failed")
+    Ok(value) -> Ok(U64.to_string(value.capabilities))
+  end
+end
+
+fn check_state(pool :: PoolHandle, expected :: String) -> Result<(), String> do
+  let value = logged(pool)?
+  if value != expected do
+    Err("unexpected directory state: " <> value <> ", expected " <> expected)
+  else
+    Ok(nil)
+  end
+end
+
+fn current_request(pool :: PoolHandle, token :: Bytes) -> RenewalRequest!String do
+  case bundle_renewal_request(decoded_stored(pool, token)?) do
+    Err(_) -> Err("stored request decode failed")
+    Ok(None) -> Err("stored request missing")
+    Ok(Some(value)) -> Ok(value)
+  end
+end
+
+fn expect(_pool :: PoolHandle,
+  label :: String,
+  identity :: AccountIdentity,
+  bundle :: PrekeyBundle,
+  token :: Bytes,
+  expected :: Int) -> Result<(), String> do
+  let result = send_entry(label, entry(identity, bundle, token)?)?
+  if result != expected do
+    Err(label
+      <> ": unexpected HTTP "
+      <> Int.to_string(result)
+      <> ", expected "
+      <> Int.to_string(expected))
+  else
+    Ok(nil)
+  end
+end
+
+fn require_true(value :: Bool, message :: String) -> Result<(), String> do
+  if value do
+    Ok(nil)
+  else
+    Err(message)
+  end
+end
+
+fn interop() -> Bool!String do
+  let pool = Pool.open(Env.get("MESSENGER_TEST_DATABASE_URL", ""), 1, 2, 5000)?
+  let t = now()?
+  let later = U64.add(t, wide("86400000")?)?
+  let renewal_expiry = U64.add(later, wide("86400000")?)?
+  let (account_keys, identity) = account(t)?
+  let primary = device()?
+  let linked = device()?
+  let primary_token = filled(81, 32)
+  let linked_token = filled(82, 32)
+  let primary_keys = post_quantum()?
+  let primary_credential = credential(account_keys, primary, primary_keys, t, later, wide("1")?)?
+  let primary_first = first_bundle(primary, primary_credential, primary_keys, later)?
+  expect(pool, "primary-cap1", identity, primary_first, primary_token, 201)?
+  let linked_keys = post_quantum()?
+  let linked_credential = credential(account_keys, linked, linked_keys, t, later, wide("2")?)?
+  let linked_first = first_bundle(linked, linked_credential, linked_keys, later)?
+  expect(pool, "linked-cap1", identity, linked_first, linked_token, 201)?
+  check_state(pool, "2:2")?
+  require_true(stored_mask(pool, linked_token)? == "1", "fixture check 308")?
+  let next_keys = post_quantum()?
+  let legacy_signed = next_signed(linked, linked_credential, "2", renewal_expiry)?
+  let legacy = ask(linked, linked_credential, legacy_signed, next_keys)?
+  let v2 = ask_v2(linked, linked_credential, legacy_signed, next_keys)?
+  require_true(Bytes.length(request_wire(legacy)?) == 1412, "fixture check 314")?
+  require_true(Bytes.length(request_wire(v2)?) == 1416, "fixture check 315")?
+  let unsolicited = answered(masked_credential(account_keys,
+      linked,
+      next_keys,
+      "3",
+      t,
+      renewal_expiry,
+      "3")?,
+    v2)?
+  expect(pool, "account-only-cap3", identity, unsolicited, linked_token, 409)?
+  check_state(pool, "2:2")?
+  let requesting_v1 = asking(base(linked_first)?, legacy)?
+  expect(pool, "publish-v1", identity, requesting_v1, linked_token, 201)?
+  expect(pool, "retry-v1", identity, requesting_v1, linked_token, 200)?
+  require_true(Bytes.secure_equals(request_wire(current_request(pool, linked_token)?)?,
+      request_wire(legacy)?),
+    "fixture check 324")?
+  let false_legacy_upgrade = answered(masked_credential(account_keys,
+      linked,
+      next_keys,
+      "3",
+      t,
+      renewal_expiry,
+      "4")?,
+    legacy)?
+  expect(pool, "v1-cannot-raise-mask", identity, false_legacy_upgrade, linked_token, 409)?
+  let legacy_answer_credential = masked_credential(account_keys,
+    linked,
+    next_keys,
+    "1",
+    t,
+    renewal_expiry,
+    "4")?
+  let legacy_answer = answered(legacy_answer_credential, legacy)?
+  expect(pool, "answer-v1-cap1", identity, legacy_answer, linked_token, 201)?
+  require_true(stored_mask(pool, linked_token)? == "1", "fixture check 332")?
+  check_state(pool, "4:4")?
+  println("PASS queued RNWv1 preserves capability 1 and exact saved bytes")
+  let upgrade_keys = post_quantum()?
+  let upgrade_signed = next_signed(linked, legacy_answer_credential, "3", renewal_expiry)?
+  let upgrade = ask_v2(linked, legacy_answer_credential, upgrade_signed, upgrade_keys)?
+  let upgraded_request = asking(legacy_answer, upgrade)?
+  let request_bytes = entry(identity, upgraded_request, linked_token)?
+  case send_entry("v2-publication-lost", request_bytes) do
+    Ok(_) -> return Err("publication reply was not dropped")
+    Err(_) -> nil
+  end
+  check_state(pool, "5:5")?
+  expect(pool, "v2-publication-retry", identity, upgraded_request, linked_token, 200)?
+  require_true(stored_mask(pool, linked_token)? == "1", "fixture check 347")?
+  require_true(Bytes.secure_equals(request_wire(current_request(pool, linked_token)?)?,
+      request_wire(upgrade)?),
+    "fixture check 348")?
+  let other_signer = ask_v2(primary, legacy_answer_credential, upgrade_signed, upgrade_keys)?
+  expect(pool,
+    "wrong-device-signature",
+    identity,
+    asking(legacy_answer, other_signer)?,
+    linked_token,
+    409)?
+  let ignored = ask(linked, legacy_answer_credential, upgrade_signed, upgrade_keys)?
+  let unchanged = answered(masked_credential(account_keys,
+      linked,
+      upgrade_keys,
+      "1",
+      t,
+      renewal_expiry,
+      "6")?,
+    ignored)?
+  expect(pool, "v2-must-not-be-ignored", identity, unchanged, linked_token, 409)?
+  let wrong_keys = post_quantum()?
+  let wrong_signed = next_signed(linked, legacy_answer_credential, "4", renewal_expiry)?
+  let wrong_request = ask_v2(linked, legacy_answer_credential, wrong_signed, wrong_keys)?
+  let wrong_answer = answered(masked_credential(account_keys,
+      linked,
+      wrong_keys,
+      "3",
+      t,
+      renewal_expiry,
+      "6")?,
+    wrong_request)?
+  expect(pool, "unrequested-keys", identity, wrong_answer, linked_token, 409)?
+  let wrong_pq_request = ask_v2(linked, legacy_answer_credential, upgrade_signed, wrong_keys)?
+  let wrong_pq = answered(masked_credential(account_keys,
+      linked,
+      wrong_keys,
+      "3",
+      t,
+      renewal_expiry,
+      "6")?,
+    wrong_pq_request)?
+  expect(pool, "unrequested-post-quantum-key", identity, wrong_pq, linked_token, 409)?
+  let wrong_same_id = next_signed(linked, legacy_answer_credential, "3", renewal_expiry)?
+  let wrong_same_id_request = ask_v2(linked, legacy_answer_credential, wrong_same_id, upgrade_keys)?
+  let wrong_same_id_answer = answered(masked_credential(account_keys,
+      linked,
+      upgrade_keys,
+      "3",
+      t,
+      renewal_expiry,
+      "6")?,
+    wrong_same_id_request)?
+  expect(pool, "unrequested-signed-key-same-id", identity, wrong_same_id_answer, linked_token, 409)?
+  check_state(pool, "5:5")?
+  println("PASS stored RNWv2 authorizes only the signed requested mask and keys")
+  let stale_credential = masked_credential(account_keys,
+    linked,
+    upgrade_keys,
+    "3",
+    t,
+    renewal_expiry,
+    "6")?
+  let stale_answer = answered(stale_credential, upgrade)?
+  let newcomer = device()?
+  let newcomer_keys = post_quantum()?
+  let newcomer_credential = masked_credential(account_keys,
+    newcomer,
+    newcomer_keys,
+    "1",
+    t,
+    later,
+    "6")?
+  let newcomer_first = first_bundle(newcomer, newcomer_credential, newcomer_keys, later)?
+  expect(pool, "intervening-device", identity, newcomer_first, filled(83, 32), 201)?
+  expect(pool, "stale-answer", identity, stale_answer, linked_token, 409)?
+  let rebased_credential = masked_credential(account_keys,
+    linked,
+    upgrade_keys,
+    "3",
+    t,
+    renewal_expiry,
+    "7")?
+  let rebased = answered(rebased_credential, upgrade)?
+  require_true(Bytes.secure_equals(stale_answer.signed_prekey, rebased.signed_prekey),
+    "fixture check 377")?
+  require_true(Bytes.secure_equals(stale_answer.signed_prekey_signature,
+      rebased.signed_prekey_signature),
+    "fixture check 378")?
+  require_true(Bytes.secure_equals(stale_answer.post_quantum_prekey, rebased.post_quantum_prekey),
+    "fixture check 379")?
+  require_true(U64.compare(stale_answer.signed_prekey_id, rebased.signed_prekey_id) == 0,
+    "fixture check 380")?
+  require_true(U64.compare(stale_answer.expires_at, rebased.expires_at) == 0, "fixture check 381")?
+  case send_entry("v2-answer-lost", entry(identity, rebased, linked_token)?) do
+    Ok(_) -> return Err("answer reply was not dropped")
+    Err(_) -> nil
+  end
+  check_state(pool, "7:7")?
+  expect(pool, "v2-answer-retry", identity, rebased, linked_token, 200)?
+  expect(pool, "old-v2-publication", identity, upgraded_request, linked_token, 200)?
+  expect(pool, "old-v1-publication", identity, requesting_v1, linked_token, 200)?
+  require_true(stored_mask(pool, linked_token)? == "3", "fixture check 390")?
+  require_true(Bytes.secure_equals(stored_bundle(pool, linked_token)?, bundle_wire(rebased)?),
+    "fixture check 391")?
+  check_state(pool, "7:7")?
+  println("PASS rebasing changes sequence only; lost answer replay is idempotent")
+  let own_keys = post_quantum()?
+  let own_signed = next_signed(primary, primary_credential, "2", renewal_expiry)?
+  let own_request = ask_v2(primary, primary_credential, own_signed, own_keys)?
+  let own_early = answered(masked_credential(account_keys,
+      primary,
+      own_keys,
+      "3",
+      t,
+      renewal_expiry,
+      "8")?,
+    own_request)?
+  expect(pool, "primary-cannot-skip-request", identity, own_early, primary_token, 409)?
+  expect(pool,
+    "primary-publish-v2",
+    identity,
+    asking(base(primary_first)?, own_request)?,
+    primary_token,
+    201)?
+  let own_answer = answered(masked_credential(account_keys,
+      primary,
+      own_keys,
+      "3",
+      t,
+      renewal_expiry,
+      "9")?,
+    own_request)?
+  expect(pool, "primary-answer-v2", identity, own_answer, primary_token, 201)?
+  expect(pool, "primary-answer-retry", identity, own_answer, primary_token, 200)?
+  require_true(stored_mask(pool, primary_token)? == "3", "fixture check 406")?
+  check_state(pool, "9:9")?
+  require_true(prekeys(pool)? == "3", "fixture check 408")?
+  println("PASS primary capability upgrade also requires stored device-signed request")
+  Pool.close(pool)
+  Ok(true)
+end
+
+fn main() do
+  case interop() do
+    Err(error) -> do
+      io_eprintln(error)
+      Process.exit(1)
+    end
+    Ok(value) -> do
+      if !value do
+        Process.exit(1)
+      else
+        println("RNWv2 HTTP interoperability passed")
+      end
+    end
+  end
+end
+
+fn stored_bundle(pool :: PoolHandle, mailbox_token :: Bytes) -> Bytes!String do
+  case resolve_devices(pool, "alice")? do
+    None -> Err("device set missing")
+    Some(set) -> stored_in(set.devices, mailbox_token, 0)
+  end
+end
+
+fn stored_in(devices :: List<DirectoryEntry>,
+  mailbox_token :: Bytes,
+  index :: Int) -> Bytes!String do
+  if index >= List.length(devices) do
+    Err("device missing")
+  else
+    let candidate = List.get(devices, index)
+    if Bytes.secure_equals(candidate.mailbox_token, mailbox_token) do
+      Ok(candidate.prekey_bundle)
+    else
+      stored_in(devices, mailbox_token, index + 1)
+    end
+  end
+end

@@ -17,7 +17,10 @@ older clients reject the new message types.
 Inner-envelope type 3 carries a canonical vector list containing the random
 16-byte invitation ID, 32-byte group ID, eight-byte expiry in milliseconds, and
 188-byte group baseline checkpoint. Type 4 carries the invitation ID, group ID,
-and the accepting device's existing 369-byte signed group key package.
+and the accepting device's signed group key package (369-byte v1 or 401-byte v2).
+The v2 signature binds the 32-byte witness-set ID after the witness count.
+Clients create v2 packages and check their set and threshold against the native
+configuration. A legacy unbound package is accepted only under native config v1.
 Envelope sender account/device identity is authenticated by the direct session.
 
 The inviter records every target device under the invitation ID. A response is
@@ -34,6 +37,19 @@ accepted group, baseline checkpoint, inviter account/device and its signing key
 verified at acceptance as committer, and
 the accepting device's package. An ordinary message containing an invitation
 or key-package string has no invitation semantics.
+
+A native witness-set change invalidates pending packages for that set. After
+fresh evidence verifies under the new pins, creating a package replaces its
+public bytes and sealed private keys atomically, using a compare-and-swap on
+the prior package. A late welcome for the old package cannot join the device.
+Retrying an accepted invitation after fresh verification renews its scoped
+package and sends a new authenticated acceptance. It preserves the original
+inviter signing key, group, baseline and expiration. The inviter can replace a
+pending acceptance only with the current native set; delayed old responses
+cannot roll it back. Completion authenticates the existing group's policy
+transition before admission. Already completed invitations are not reopened:
+if their old welcome is stranded across a native upgrade, a member must remove
+the unjoined device and send a new invitation.
 
 ## Persistence and limits
 

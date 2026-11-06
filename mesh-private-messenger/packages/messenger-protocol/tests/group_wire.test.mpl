@@ -3,8 +3,12 @@ from Groups.GroupMessages import (
   decode_group_message,
   decrypt_group_message,
   encode_group_message,
-  encrypt_group_message
+  encrypt_group_message,
+  encrypt_group_payload_for_transport,
+  encrypt_timed_group_payload_for_transport
 )
+from Groups.GroupPayload import GroupPayload, encode_group_payload
+from Groups.Expiry import TimedGroupPayload, encode_timed_group_payload, decode_timed_group_payload
 from Groups.Membership import commit_add, create_group, join_from_welcome
 from Groups.Mls import (
   GroupAddOutcome,
@@ -134,12 +138,13 @@ fn rejects_welcome(value :: GroupWelcome) -> Bool do
   end
 end
 
-fn proof() -> Bool!GroupError do
+fn proof(set_id :: Bytes, tamper :: Bool) -> Bool!GroupError do
   let checkpoint = repeated(72, 32)
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: set_id
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?
@@ -182,6 +187,28 @@ fn proof() -> Bool!GroupError do
   assert(rejects_commit_value(invalid_path))
   assert(rejects_commit(append(commit_wire, Bytes.from_utf8("x"))?))
   let welcome_wire = encode_group_welcome(welcome)?
+  let expected_version = if Bytes.length(set_id) == 0 do
+    1
+  else
+    2
+  end
+  assert(Bytes.secure_equals(repeated(expected_version, 1),
+    case Bytes.slice(welcome_wire, 0, 1) do
+      Err(_) -> Err(InvalidGroup)
+      Ok(value)
+    end?))
+  assert(Bytes.secure_equals(decode_group_welcome(welcome_wire)?.policy.set_id, set_id))
+  if tamper do
+    let changed = %{welcome | policy: %{welcome.policy | set_id: repeated(99, 32)}}
+    consume_state(alice_state)
+    return case join_from_welcome(changed, bob_init.private_key, bob_leaf.private_key) do
+      Err(_) -> Ok(true)
+      Ok(state) -> do
+        consume_state(state)
+        Ok(false)
+      end
+    end
+  end
   let inconsistent = %{welcome |
     commit: %{welcome.commit | proposal: AddMember(welcome.recipient_leaf, alice)}
   }
@@ -203,13 +230,93 @@ fn proof() -> Bool!GroupError do
   assert(Bytes.length(encode_group_welcome(decode_group_welcome(welcome_wire)?)?) == Bytes.length(welcome_wire))
   assert(Bytes.length(encode_group_message(decode_group_message(message_wire)?)?) == Bytes.length(message_wire))
   assert(rejects_commit(repeated(0, 70000)))
+  let payload = GroupPayload {
+    kind: 1,
+    body: plaintext,
+    hint: repeated(7, 40),
+    recipient_account: Bytes.empty(),
+    recipient_device: Bytes.empty()
+  }
+  let payload_bytes = case encode_group_payload(payload) do
+    Err(_) -> return Err(InvalidGroup)
+    Ok(value) -> value
+  end
+  let (alice_state, gossip_message) = encrypted(encrypt_group_payload_for_transport(alice_state,
+    alice_signing.private_key,
+    payload,
+    caller_data))?
+  assert(gossip_message.version == 5)
+  let bob_state = case decrypt_group_message(bob_state,
+    %{gossip_message | version: 4},
+    caller_data) do
+    MessageRejected(state, _) -> state
+    MessageOpened(state, _) -> do
+      consume_state(state)
+      return Err(InvalidGroup)
+    end
+  end
+  let bob_state = opened(decrypt_group_message(bob_state,
+      decode_group_message(encode_group_message(gossip_message)?)?,
+      caller_data),
+    payload_bytes)?
+  let timed_payload = TimedGroupPayload {
+    timestamp: wide(1000)?,
+    disappearing_seconds: 60,
+    payload: payload
+  }
+  let timed_bytes = case encode_timed_group_payload(timed_payload) do
+    Err(_) -> return Err(InvalidGroup)
+    Ok(value) -> value
+  end
+  let (alice_state, timed_message) = encrypted(encrypt_timed_group_payload_for_transport(alice_state,
+    alice_signing.private_key,
+    timed_payload,
+    caller_data))?
+  assert(timed_message.version == 6)
+  let bob_state = case decrypt_group_message(bob_state,
+    %{timed_message | version: 5},
+    caller_data) do
+    MessageRejected(state, _) -> state
+    MessageOpened(state, _) -> do
+      consume_state(state)
+      return Err(InvalidGroup)
+    end
+  end
+  let bob_state = opened(decrypt_group_message(bob_state,
+      decode_group_message(encode_group_message(timed_message)?)?,
+      caller_data),
+    timed_bytes)?
+  let restored_payload = case decode_timed_group_payload(timed_bytes) do
+    Err(_) -> return Err(InvalidGroup)
+    Ok(value) -> value
+  end
+  assert(restored_payload.disappearing_seconds == 60)
+  assert(U64.compare(restored_payload.timestamp, wide(1000)?) == 0)
+  let bob_state = case decrypt_group_message(bob_state, timed_message, caller_data) do
+    MessageRejected(state, _) -> state
+    MessageOpened(state, _) -> do
+      consume_state(state)
+      return Err(InvalidGroup)
+    end
+  end
   consume_state(alice_state)
   consume_state(bob_state)
   Ok(true)
 end
 
 test("group commit, welcome, and message codecs are canonical and bounded") do
-  case proof() do
+  case proof(Bytes.empty(), false) do
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
+  end
+end
+
+test("group welcome v2 authenticates the pinned witness set") do
+  case proof(repeated(91, 32), false) do
+    Err(_) -> assert(false)
+    Ok(value) -> assert(value)
+  end
+  case proof(repeated(91, 32), true) do
     Err(_) -> assert(false)
     Ok(value) -> assert(value)
   end

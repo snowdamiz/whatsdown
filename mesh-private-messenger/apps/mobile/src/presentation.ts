@@ -1,5 +1,6 @@
 import { Reader, decodeUtf8, utf8, vectors } from './codec.ts';
 import { encodeCommunity, encodeRoles, parseCommunity, parseRoles, type Community } from './communities.ts';
+import { t } from './i18n.ts';
 
 export type Presentation = { name: string; avatar?: string; revision?: number; community?: Community };
 export const MAX_AVATAR_LENGTH = 12_288;
@@ -10,7 +11,7 @@ export function identityName(username: string | null, profile?: Presentation, ni
 
 export function validateAvatar(avatar: string): string {
   if (avatar.length > MAX_AVATAR_LENGTH || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(avatar)) {
-    throw new Error('Choose a smaller JPEG photo.');
+    throw new Error(t('Choose a smaller JPEG photo.'));
   }
   return avatar;
 }
@@ -18,7 +19,7 @@ export function validateAvatar(avatar: string): string {
 export function encodePresentation(value: Presentation): Uint8Array {
   const name = value.name.trim();
   if (!name || utf8(name).length > 96 || /[\u0000-\u001f\u007f]/.test(name)) {
-    throw new Error('Enter a name, or shorten it if it is too long.');
+    throw new Error(t('Enter a name, or shorten it if it is too long.'));
   }
   const revision = new Uint8Array(8);
   if (!Number.isSafeInteger(value.revision ?? 0) || (value.revision ?? 0) < 0) throw new Error('Invalid photo revision.');

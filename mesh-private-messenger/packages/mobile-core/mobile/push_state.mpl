@@ -1,3 +1,4 @@
+from Storage.PushGuard import PushBasis, reserve_push_install, require_current_push
 from Binary.Reader import BinaryReader, finish, reader
 from Identity.Device import DeviceKeys
 from Mobile.Codec import (
@@ -584,4 +585,132 @@ pub fn commit_push_update(request :: MobilePayloadRequest) -> Bytes!String do
       Ok(Bytes.empty())
     end
   end
+end
+
+pub fn build_new_push_bind(request :: MobilePayloadRequest,
+  profile :: ClientProfile,
+  wrapping_key :: borrow StorageKey,
+  state :: MobilePushState,
+  project_id :: String,
+  broker_public_key :: X25519PublicKey,
+  endpoint :: String,
+  raw_material :: Bytes,
+  install_id :: Bytes) -> MobilePushState!String do
+  let material = parse_expo_raw_token(raw_material)?
+  let token = register_expo_token(material, install_id, project_id, endpoint)?
+  let sealed = case seal_provider_token(token, broker_public_key) do
+    Err(error) -> if error == "invalid provider token" do
+      Err("push_provider_response_invalid")
+    else
+      Err("push_binding_failed")
+    end
+    Ok(value)
+  end?
+  let token_hash = Crypto.sha256(token)
+  if state.mode == 1 && Bytes.secure_equals(state.provider_token_hash, token_hash) do
+    Ok(%{state | action_kind: 0, target_mode: 1})
+  else
+    let revision = next_push_revision(state.revision)?
+    let wake_hash = if state.mode == 1 do
+      state.wake_token_hash
+    else
+      case Crypto.random_bytes(32) do
+        Err(_) -> Err("push_wake_generation_failed")
+        Ok(random) -> do
+          let generated = Crypto.sha256(random)
+          if Bytes.secure_equals(generated, Crypto.sha256(profile.entry.mailbox_token)) do
+            Err("push_wake_generation_failed")
+          else
+            Ok(generated)
+          end
+        end
+      end?
+    end
+    let wire = signed_push_bind(request.database_path,
+      profile,
+      wrapping_key,
+      wake_hash,
+      revision,
+      sealed)?
+    let updated = %{state |
+      revision: revision,
+      mode: 1,
+      wake_token_hash: wake_hash,
+      provider_token_hash: token_hash,
+      pending_kind: 1,
+      pending_wire: wire
+    }
+    Ok(updated)
+  end
+end
+
+pub fn build_push_unbind(database_path :: String,
+  profile :: ClientProfile,
+  wrapping_key :: borrow StorageKey,
+  state :: MobilePushState) -> MobilePushState!String do
+  if state.pending_kind == 2 do
+    Ok(state)
+  else if state.mode == 0 do
+    Ok(state)
+  else
+    let revision = next_push_revision(state.revision)?
+    let wire = signed_push_unbind(database_path, profile, wrapping_key, revision)?
+    let updated = %{state |
+      revision: revision,
+      mode: 0,
+      wake_token_hash: mobile_zeroes(32)?,
+      provider_token_hash: mobile_zeroes(32)?,
+      pending_kind: 2,
+      pending_wire: wire
+    }
+    Ok(updated)
+  end
+end
+
+pub fn push_state_from_basis(before :: PushBasis,
+  profile :: ClientProfile,
+  wrapping :: borrow StorageKey) -> MobilePushState!String do
+  if Bytes.length(before.push) == 0 do
+    pristine_push_state()
+  else
+    decode_push_state(open_local(before.push, wrapping, push_state_context(profile)?)?, profile)
+  end
+end
+
+pub fn seal_push_state(profile :: ClientProfile,
+  wrapping :: borrow StorageKey,
+  state :: MobilePushState) -> Bytes!String do
+  seal_local(push_state_bytes(state, profile)?, wrapping, push_state_context(profile)?)
+end
+
+pub fn guarded_push_install_id(path :: String,
+  before :: PushBasis,
+  wrapping :: borrow StorageKey) -> Bytes!String do
+  let label = "push-install-id/v1"
+  require_current_push(path, before)?
+  let existing = case load_blob(path, label) do
+    Err("local_state_not_found") -> Bytes.empty()
+    Err(error) -> return Err(error)
+    Ok(value) -> value
+  end
+  let sealed = if Bytes.length(existing) == 0 do
+    reserve_push_install(path,
+      before,
+      seal_local(random_bytes(16)?, wrapping, local_context(label)?)?)?
+    load_blob(path, label)?
+  else
+    existing
+  end
+  require_current_push(path, before)?
+  let value = open_local(sealed, wrapping, local_context(label)?)?
+  if Bytes.length(value) != 16 do
+    Err("push_state_corrupt")
+  else
+    Ok(value)
+  end
+end
+
+pub fn profile_from_push_basis(before :: PushBasis,
+  wrapping :: borrow StorageKey) -> ClientProfile!String do
+  decode_client_profile(open_local(before.profile, wrapping, local_context("profile/v1")?)?)
 end

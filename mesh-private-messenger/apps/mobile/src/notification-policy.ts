@@ -1,6 +1,7 @@
 import { hex, type GroupHistoryMessage, type HistoryMessage } from './codec.ts';
 import { receivedMessageKeys, type ReadState } from './read-state.ts';
 import { attachmentPreviewText } from './attachments.ts';
+import { t } from './i18n.ts';
 import { mentionSpans } from './mentions.ts';
 import { receiptDue } from './receipts.ts';
 
@@ -13,7 +14,7 @@ export const parseNotificationPreview = (saved: unknown): NotificationPreview =>
 export function redactNotification(notification: MessageNotification, preview: NotificationPreview): MessageNotification {
   if (preview === 'full') return notification;
   // The body names the sender inside a group and says when it is a mention, so it goes whole.
-  return { ...notification, body: 'New message', title: preview === 'none' ? 'Morse' : notification.title };
+  return { ...notification, body: t('New message'), title: preview === 'none' ? 'Morse' : notification.title };
 }
 export type ReceiptPeer = { username: string; accountId: Uint8Array };
 export type NotificationThread = {
@@ -50,13 +51,13 @@ export function planNotifications(
       if (seen.has(keys[index]!) || thread.scope === activeScope || thread.blocked) continue;
       const group = 'senderAccountId' in message;
       const mention = group && mentionSpans(message.body, [own.username]).length > 0;
-      const sender = group ? thread.senders?.[hex(message.senderAccountId)] ?? 'Someone' : '';
-      const preview = 'disappearingSeconds' in message && message.disappearingSeconds > 0
-        ? 'Disappearing message' : attachmentPreviewText(message).replace(/\s+/g, ' ').trim();
+      const sender = group ? thread.senders?.[hex(message.senderAccountId)] ?? t('Someone') : '';
+      const preview = (message.disappearingSeconds ?? 0) > 0
+        ? t('Disappearing message') : attachmentPreviewText(message).replace(/\s+/g, ' ').trim();
       if (!preview) continue;
       notifications.push({ id: `${thread.scope}/${keys[index]}`, scope: thread.scope,
         title: thread.title.slice(0, 100), mention,
-        body: `${mention ? `${sender} mentioned you: ` : group ? `${sender}: ` : ''}${preview}`.slice(0, 240) });
+        body: (mention ? t('{sender} mentioned you: {preview}', { sender, preview }) : group ? `${sender}: ${preview}` : preview).slice(0, 240) });
     }
   }
   return { state, notifications, deliveries };

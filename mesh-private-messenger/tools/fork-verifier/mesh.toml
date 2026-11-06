@@ -1,0 +1,7 @@
+[package]
+name = "morse-fork-verifier"
+version = "0.1.0"
+description = "Authenticated Mesh fork preflight for the standalone relay"
+
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }

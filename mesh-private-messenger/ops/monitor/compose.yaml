@@ -1,0 +1,29 @@
+services:
+  monitor:
+    image: morse-services:${MORSE_REVISION:?Set the verified Morse revision}
+    build:
+      context: ../../..
+      dockerfile: mesh-private-messenger/ops/cloudflare/Dockerfile
+      args:
+        MORSE_REVISION: ${MORSE_REVISION:?Set the verified Morse revision}
+        MESH_LANG_REVISION: ${MESH_LANG_REVISION:?Set the verified Mesh revision}
+    entrypoint: ["/app/mesh-cli"]
+    command: ["monitor", "--log", "${MORSE_MONITOR_LOG_NAME:-morse-main}", "--port", "18100"]
+    environment:
+      MESSENGER_SECURITY_CONFIG: ${MESSENGER_SECURITY_CONFIG:?Set the public v4 release frame}
+      MESSENGER_BASE_URL: ${MESSENGER_BASE_URL:?Set the directory origin}
+      MORSE_MONITOR_LOG_VERSION: ${MORSE_MONITOR_LOG_VERSION:-2}
+      MORSE_MONITOR_STATE_PATH: /var/lib/morse-monitor/state.sqlite
+      MORSE_MONITOR_POLICY_FILES: ${MORSE_MONITOR_POLICY_FILES:-}
+    ports: ["127.0.0.1:18100:18100"]
+    volumes:
+      - monitor-state:/var/lib/morse-monitor
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+volumes:
+  monitor-state:

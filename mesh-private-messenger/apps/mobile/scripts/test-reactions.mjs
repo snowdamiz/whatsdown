@@ -53,6 +53,19 @@ try {
       if (command === 'appearance') return 'dark';
       if (command === 'binary_request') return new Uint8Array([0, 200, ...args]).buffer;
       const symbol = options?.headers?.['X-Mesh-Symbol'];
+      if (symbol === 'mesh_messenger_signup_draft_state') return [0];
+      if (symbol === 'mesh_messenger_transparency_fork') return [];
+      if (symbol === 'mesh_messenger_directory_register') return [1,68,82,71,0,64,0];
+      if (symbol === 'mesh_messenger_prekeys_synchronize') return [1,68,80,75,0,64];
+      if (symbol === 'mesh_messenger_mailbox_synchronize') return [1,77,83,89,0,1,0,0,0,0,0,0];
+      if (symbol === 'mesh_messenger_devices_renew') return [1,68,78,82,0,0,0,0];
+      if (symbol === 'mesh_messenger_credit_signup_policy_online') throw Error('credits_disabled');
+      if (symbol === 'mesh_messenger_anchor_check') return list(...['off','0','0','0','0'].map(text));
+        if (symbol === 'mesh_messenger_account_capabilities') return [1,65,67,80,1];
+        if (['mesh_messenger_send_fanout','mesh_messenger_prepare_fanout_prekeys','mesh_messenger_group_invite','mesh_messenger_group_invitation_accept','mesh_messenger_journal_load','mesh_messenger_journal_save'].includes(symbol)) throw Error('Retired native authority');
+      if (symbol === 'mesh_messenger_outbox_drain') return [0,0,0,6,0,0,0,4,1,79,66,88,0,0,0,1,0,0,0,0,2,0,0,0,0,0,2,0,0,0,0,0,4,0,0,0,0,0,0,0,4,0,0,0,0];
+      if (symbol === 'mesh_messenger_mailbox_stream_open') return Array(32).fill(1);
+      if (symbol === 'mesh_messenger_mailbox_stream_poll' || symbol === 'mesh_messenger_mailbox_stream_close') return [];
       const request = args instanceof Uint8Array ? [...args] : [];
       if (symbol === 'mesh_messenger_load_profile') return vectors(text('alice'), id(1), id(1, 16), []);
       if (symbol === 'mesh_messenger_list_conversations') return list(vectors(id(20, 16), text('bob'), id(2), id(2, 16), text('1234'.repeat(16)), [state.pending ? 0 : 1], [state.blocked ? 1 : 0], [0], [0], u32(0)));
@@ -66,45 +79,47 @@ try {
       }
       if (['mesh_messenger_group_invitations', 'mesh_messenger_outbox_list', 'mesh_messenger_outbox_page'].includes(symbol)) return list();
       if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_resolve_request') return fields(request)[1];
+      if (symbol === 'mesh_messenger_directory_resolve') return fields(request)[1];
       if (symbol === 'mesh_messenger_verify_transparency') return fields(request)[1];
       if (symbol === 'mesh_messenger_inspect_device_set') {
         const peer = decode(fields(request)[1]) === 'bob';
         return vectors(text(peer ? 'bob' : 'alice'), id(peer ? 2 : 1), u64(1), [0], [1], list());
       }
       if (symbol === 'mesh_messenger_prepare_fanout_prekeys') return [];
-      if (['mesh_messenger_send_fanout', 'mesh_messenger_group_send'].includes(symbol)) {
+      if (['mesh_messenger_fanout_send', 'mesh_messenger_group_send'].includes(symbol)) {
         const isGroup = symbol === 'mesh_messenger_group_send';
-        const body = decode(fields(request)[isGroup ? 2 : 3]);
+        const body = decode(fields(request)[isGroup ? 2 : 4]);
         if (!body) return list(); // group presentation announcement
         if (state.failed) throw Error('Reaction send failed');
-        state.calls.push({ isGroup, body, fields: fields(request).length });
+        state.calls.push({ isGroup, body, fields: fields(request).length, attachmentBytes: isGroup ? 0 : fields(request)[6].length });
         const messages = isGroup ? state.group : state.direct;
         messages.push(isGroup ? group(body, messages.length + 30) : direct(body, messages.length + 30));
         sessionStorage.setItem('reactions-test', JSON.stringify({ direct: state.direct, group: state.group }));
-        return list();
+        return isGroup ? list() : [1,70,78,79,0];
       }
       // The sealed journals, kept where a reload leaves them alone, as the database would.
-      if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_save') {
+      if (['mesh_messenger_journal_load', 'mesh_messenger_journal_save', 'mesh_messenger_journal_load_bound', 'mesh_messenger_journal_save_bound'].includes(symbol)) {
         const bytes = Array.from(args), parts = [];
         for (let at = 0; at < bytes.length;) {
           const size = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
           parts.push(new Uint8Array(bytes.slice(at + 4, at + 4 + size)));
           at += 4 + size;
         }
-        const label = `sealed-journal/${new TextDecoder().decode(parts[1])}`;
-        if (symbol.endsWith('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
-        if (parts[2].length === 1 && parts[2][0] === 0) localStorage.removeItem(label);
-        else localStorage.setItem(label, new TextDecoder().decode(parts[2]));
+        const field = symbol.endsWith('_bound') ? 2 : 1;
+          const label = `sealed-journal/${new TextDecoder().decode(parts[field])}`;
+        if (symbol.includes('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
+        if (parts[field + 1].length === 1 && parts[field + 1][0] === 0) localStorage.removeItem(label);
+        else localStorage.setItem(label, new TextDecoder().decode(parts[field + 1]));
         return [];
       }
-      throw Error('Offline test boundary');
+      throw Error(`Unexpected fixture IPC: ${symbol || command}`);
     } };
   });
   const url = `http://127.0.0.1:${server.address().port}`;
   await page.goto(url);
   const openChat = async () => {
     await page.getByRole('progressbar', { name: 'Opening Morse', exact: true }).first().waitFor({ state: 'detached' });
-    await page.getByRole('button', { name: /^Conversation with @bob(?:,|$)/ }).press('Enter');
+    await page.getByRole('button', { name: /^Conversation with @?bob(?:,|$)/ }).press('Enter').catch(async (error) => { console.error(await page.locator('body').innerText(), errors); throw error; });
     await page.getByText('Hello chat', { exact: true }).last().waitFor();
   };
   const menu = page.getByRole('dialog', { name: 'Message actions', exact: true });
@@ -138,7 +153,7 @@ try {
   await pill('1 reaction: Laugh').waitFor({ state: 'hidden' });
   await page.evaluate(() => { window.reactionTest.failed = true; });
   await choose('Hello chat', 'Heart');
-  await page.getByText('Reaction send failed', { exact: true }).waitFor();
+  await page.getByText('Reaction send failed', { exact: true }).waitFor().catch(async (error) => { console.error(await page.locator('body').innerText(), errors); throw error; });
   assert.equal(await pill('1 reaction: Heart').count(), 0);
   await page.evaluate(() => { window.reactionTest.failed = false; });
   // Escape closes the menu without choosing.
@@ -180,7 +195,10 @@ try {
   const calls = await page.evaluate(() => window.reactionTest.calls);
   const reactions = calls.filter((call) => call.body.startsWith('MORSE-REACTION/1\n'));
   assert.ok(reactions.some((call) => call.isGroup) && reactions.some((call) => !call.isGroup));
-  for (const call of calls) assert.equal(call.fields, call.isGroup ? 3 : 4, 'Reactions and replies must not send composer attachments');
+  for (const call of calls) {
+    assert.equal(call.fields, call.isGroup ? 3 : 7);
+    assert.equal(call.attachmentBytes, 0, 'Reactions and replies must not send composer attachments');
+  }
   // The reply names its target by ID and carries none of the quoted words.
   assert.deepEqual(calls.filter((call) => !call.body.startsWith('MORSE-REACTION/1\n')).map((call) => call.body),
     [`MORSE-REPLY/1\n${'0a'.repeat(16)}\nDirect answer`, `MORSE-REPLY/1\n${'0b'.repeat(32)}\nGroup answer`]);

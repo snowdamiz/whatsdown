@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { changed } from './release-changes.mjs';
 
+test('the packaged cutover tool is a backend release input', () => {
+  assert.equal(changed(['mesh-private-messenger/tools/transparency-cutover/operations.mpl']).backend, true);
+});
+
+test('the packaged Mesh monitor is rebuilt when its implementation changes', () => {
+  assert.equal(changed(['mesh-private-messenger/clients/mesh-cli/monitor/run.mpl']).backend, true);
+  assert.equal(changed(['mesh-private-messenger/tools/fork-verifier/main.mpl']).backend, true);
+});
+
 const only = (...names) => ({
   backend: names.includes('backend'),
   landing: names.includes('landing'),
@@ -54,4 +63,11 @@ test('a release workflow change alone deploys nothing; run it by hand to redeplo
 
 test('a prefix match is a whole directory, not a name that starts the same', () => {
   assert.deepEqual(changed(['mesh-private-messenger/apps/landing-old/index.html']), only());
+});
+
+test('disclosure verification, release association and reviewed inventory rebuild both app packages', () => {
+  for (const path of ['ops/plaintext/report.mjs', 'scripts/plaintext-release.mjs', 'protocol/plaintext-disclosures.json']) {
+    assert.deepEqual(changed([`mesh-private-messenger/${path}`]), only('mobile', 'desktop'));
+  }
+  assert.deepEqual(changed(['mesh-private-messenger/ops/unrelated/tool.mjs']), only());
 });

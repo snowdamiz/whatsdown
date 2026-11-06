@@ -1,0 +1,109 @@
+from Fixtures.WorkerBank import token_burn_bank_fixture
+from BurnJournal import (
+  load_token_burn_entry,
+  load_token_burn_retired_packet,
+  load_token_burn_missed_window
+)
+
+fn text(root :: Json, name :: String) -> String!String do
+  Json.as_string(Json.object_get(root, name)?)
+end
+
+fn restart_evidence() -> Bool!String do
+  let evidence = Env.get("MORSE_BURN_WORKER_EVIDENCE", "")
+  if evidence == "" do
+    return Err("owned_worker_restart_evidence_required")
+  end
+  let report = Json.parse(File.read(evidence <> "/result.json")?)?
+  let directory = text(report, "private_test_workspace")?
+  let fixture = token_burn_bank_fixture(evidence <> "/initial.json")?
+  let submitted = Json.parse(File.read(evidence <> "/submissions.json")?)?
+  let first = Json.array_get(submitted, 0)?
+  let old_signature = Bytes.from_base58(text(first, "signature")?)?
+  let old_packet = Bytes.from_base64(text(first, "wire_base64")?)?
+  let wrapping = case StorageKey.file(directory <> "/key") do
+    Err(_) -> return Err("fixture_key")
+    Ok(value) -> value
+  end
+  let current = load_token_burn_entry(directory <> "/worker.db",
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index)?
+  let late = load_token_burn_entry(directory <> "/late.db",
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index)?
+  assert(current.status == 3 && late == current && current.signature != old_signature)
+  let archive = load_token_burn_retired_packet(directory <> "/worker.db",
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    old_signature)?
+  assert(archive.entry.signature == old_signature
+    && archive.entry.packet == old_packet
+    && archive.replacement_signature == current.signature
+    && archive.entry.id == current.id
+    && archive.entry.instruction == current.instruction
+    && archive.observed_height == U64.parse("1101")?)
+  assert(load_token_burn_retired_packet(directory <> "/late.db",
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    old_signature)? == archive)
+  let missed_key = case StorageKey.file(directory <> "/missed-key") do
+    Err(_) -> return Err("fixture_key")
+    Ok(value) -> value
+  end
+  let close = load_token_burn_entry(directory <> "/missed.db",
+    missed_key,
+    fixture.pins.program,
+    13,
+    fixture.epoch,
+    0)?
+  assert(close.status == 3 && close.kind == 13)
+  for index in 0..24 do
+    let missed = case load_token_burn_missed_window(directory <> "/missed.db",
+      missed_key,
+      fixture.pins.program,
+      fixture.epoch,
+      index)? do
+      None -> return Err("missing_missed_marker")
+      Some(value) -> value
+    end
+    assert(missed.epoch == fixture.epoch
+      && missed.index == index
+      && U64.compare(missed.observed_time, missed.deadline) >= 0)
+    assert(load_token_burn_entry(directory <> "/missed.db",
+      missed_key,
+      fixture.pins.program,
+      10,
+      fixture.epoch,
+      index) == Err("token_burn_operation_missing"))
+  end
+  let closed = token_burn_bank_fixture(evidence <> "/closed.json")?
+  let receipt = case closed.bank.custody.receipt do
+    None -> return Err("missing_close_receipt")
+    Some(value) -> value
+  end
+  assert(receipt.carried == U64.parse("240000000")? && receipt.spent == U64.parse("0")?)
+  Secret.destroy(wrapping)
+  Secret.destroy(missed_key)
+  Ok(true)
+end
+
+test("fresh process authenticates retired exact packet, late finalized status and all missed markers plus canonical carry receipt") do
+  let result = restart_evidence()
+  case result do
+    Err(reason) -> IO.eprintln(reason)
+    Ok(_) -> nil
+  end
+  assert(result == Ok(true))
+end

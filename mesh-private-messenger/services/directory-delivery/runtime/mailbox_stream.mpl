@@ -64,7 +64,7 @@ fn on_close(_conn :: Int, _code :: Int, _reason :: String) do
 end
 
 pub fn start_mailbox_stream(port :: Int) do
-  Ws.serve(on_connect, on_message, on_close, port)
+  Ws.serve_on(on_connect, on_message, on_close, Env.get("MESSENGER_STREAM_BIND_ADDRESS", "0.0.0.0"), port)
 end
 
 pub fn wake_mailbox(token_hash :: Bytes) do

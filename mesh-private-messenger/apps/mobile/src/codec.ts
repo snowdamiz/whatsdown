@@ -2,6 +2,7 @@ import { applyReactions, type Reaction } from './reactions.ts';
 import { applyReceipts, type ReceiptState } from './receipts.ts';
 import { applyReplies, type Reply } from './replies.ts';
 import { applyCommunityControls, type CommunityControl } from './community-requests.ts';
+import { msg, t, type MessageKey } from './i18n.ts';
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
@@ -99,6 +100,7 @@ export type GroupInvitation = {
 };
 
 export type GroupHistoryMessage = {
+  disappearingSeconds?: number;
   delivery?: Delivery;
   messageId?: Uint8Array;
   reactions?: Reaction[];
@@ -255,6 +257,9 @@ function exactByteList(input: Uint8Array, count: number, maximumItemLength: numb
 
 export const ATTACHMENT_CHUNK_SIZE = 65_536;
 export const MAXIMUM_ATTACHMENT_SIZE = 256 * ATTACHMENT_CHUNK_SIZE;
+// Opened summaries come from native authenticated manifests. Free creation
+// remains capped above; paid v2 manifests can describe 8192 bounded chunks.
+export const MAXIMUM_INCOMING_ATTACHMENT_SIZE = 8192 * ATTACHMENT_CHUNK_SIZE;
 // A summary with its opened manifest fields; the reference alone is under 1 KiB.
 const MAXIMUM_ATTACHMENT_SUMMARY = 2_048;
 export const MAXIMUM_ATTACHMENTS = 10;
@@ -284,7 +289,7 @@ export function parseAttachmentSummary(input: Uint8Array): AttachmentSummary | u
     downloadCapability.length !== 32 ||
     summary.mimeType.length === 0 ||
     summary.size === 0 ||
-    summary.size > MAXIMUM_ATTACHMENT_SIZE ||
+    summary.size > MAXIMUM_INCOMING_ATTACHMENT_SIZE ||
     summary.chunkSize !== ATTACHMENT_CHUNK_SIZE ||
     summary.chunkCount !== Math.ceil(summary.size / ATTACHMENT_CHUNK_SIZE)
   ) {
@@ -295,7 +300,7 @@ export function parseAttachmentSummary(input: Uint8Array): AttachmentSummary | u
 
 // ATB framing is only used for multiple files; old single-file histories still decode.
 export function encodeAttachmentReferences(references: Uint8Array[]): Uint8Array {
-  if (references.length > MAXIMUM_ATTACHMENTS) throw new Error('You can attach up to 10 files per message.');
+  if (references.length > MAXIMUM_ATTACHMENTS) throw new Error(t('You can attach up to 10 files per message.'));
   if (references.some((reference) => reference.length === 0 || reference.length > 1_024)) throw new Error('Invalid attachment');
   if (references.length <= 1) return references[0] ?? new Uint8Array();
   return new Uint8Array([1, 65, 84, 66, ...writeU32(references.length), ...vectors(...references)]);
@@ -344,13 +349,25 @@ export function parseGroupInvitations(input: Uint8Array): GroupInvitation[] {
   });
 }
 
+export function parseGroupPolicy(input: Uint8Array, expectedGroup: Uint8Array): number {
+  const fields = parseByteList(input, 3, 32);
+  const [version, group, expiry] = fields;
+  if (fields.length !== 3 || !version || !group || !expiry || readByte(version) !== 1 ||
+    group.length !== 32 || expectedGroup.length !== 32 || hex(group) !== hex(expectedGroup)) {
+    throw Error('invalid_group_policy');
+  }
+  const seconds = readU32(expiry);
+  if (seconds > 2_592_000) throw Error('invalid_group_policy');
+  return seconds;
+}
+
 export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
   // The stored history is bounded to 64 KiB; opened attachment manifests add to the export.
   if (input.length > 65_536 + 256 * MAXIMUM_ATTACHMENT_SUMMARIES) throw new Error('Group history is too large');
   const messages: GroupHistoryMessage[] = parseByteList(input, 256, 65_484 + MAXIMUM_ATTACHMENT_SUMMARIES).map((record) => {
-    const fields = parseByteList(record, 10, 65_346);
+    const fields = parseByteList(record, 11, 65_346);
     if (fields.length < 8) throw new Error('Invalid group history');
-    const [version, direction, epoch, senderAccountId, senderDeviceId, timestamp, body, attachment, messageId, delivery] = fields;
+    const [version, direction, epoch, senderAccountId, senderDeviceId, timestamp, body, attachment, messageId, delivery, expiry] = fields;
     if (messageId?.length && messageId.length !== 32) throw new Error('Invalid group message ID');
     if (
       !version ||
@@ -365,8 +382,12 @@ export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
       throw new Error('Invalid group history');
     }
     const directionValue = readByte(direction);
+    const versionValue = readByte(version);
+    const disappearingSeconds = versionValue === 2 && expiry ? readU32(expiry) : 0;
     if (
-      readByte(version) !== 1 ||
+      (versionValue !== 1 && versionValue !== 2) ||
+      (versionValue === 1 && fields.length > 10) ||
+      (versionValue === 2 && (fields.length !== 11 || disappearingSeconds < 1 || disappearingSeconds > 2_592_000)) ||
       (directionValue !== 1 && directionValue !== 2) ||
       senderAccountId.length !== 32 ||
       senderDeviceId.length !== 16
@@ -376,6 +397,7 @@ export function parseGroupHistory(input: Uint8Array): GroupHistoryMessage[] {
     const attachments = parseAttachmentSummaries(attachment);
     return {
       ...(delivery ? parseDelivery(readByte(delivery)) : {}),
+      ...(disappearingSeconds ? { disappearingSeconds } : {}),
       ...(messageId?.length ? { messageId } : {}),
       direction: directionValue === 1 ? 'sent' : 'received',
       epoch: readU64Number(epoch),
@@ -591,13 +613,22 @@ function binaryString(value: Uint8Array): string {
 export const payloadQrValue = (kind: string, payload: Uint8Array): string =>
   `mesh://${kind}/${btoa(binaryString(payload)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')}`;
 
+// What a scanned code was expected to be, said when it is something else.
+const wrongCode: Record<string, MessageKey> = {
+  contact: msg('That isn’t a Morse contact code.'),
+  'link-request': msg('That isn’t a Morse device link code.'),
+  'link-authorization': msg('That isn’t a Morse approval code.'),
+  'group-key-package': msg('That isn’t a Morse group code.'),
+  community: msg('That isn’t a Morse community link.'),
+};
+
 export function payloadFromQr(value: string, kind: string, maximum = 305_260): Uint8Array {
   const prefix = `mesh://${kind}/`;
-  if (!value.startsWith(prefix)) throw new Error(`Not a Morse ${kind} code`);
+  if (!value.startsWith(prefix)) throw new Error(t(wrongCode[kind] ?? msg('That isn’t a Morse code.')));
   const encoded = value.slice(prefix.length).replaceAll('-', '+').replaceAll('_', '/');
   const decoded = atob(encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '='));
   const payload = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
-  if (payload.length === 0 || payload.length > maximum) throw new Error(`Invalid ${kind} code`);
+  if (payload.length === 0 || payload.length > maximum) throw new Error(t('That code is damaged or incomplete. Scan it again.'));
   return payload;
 }
 

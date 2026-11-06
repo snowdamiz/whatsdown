@@ -1,0 +1,91 @@
+from Transparency.TokenBurn import decode_token_burn_week
+from Transparency.TokenBurnCarry import decode_token_burn_carry_frame
+from Transparency.TokenBurnRead import decode_token_burn_active_week
+from BurnNetwork import token_burn_rpc_integer, token_burn_worker_tip
+from Solana.Read import RpcResponse
+
+fn field(root :: Json, name :: String) -> String!String do
+  Json.as_string(Json.object_get(root, name)?)
+end
+
+fn change(data :: Bytes, at :: Int, value :: Bytes) -> Bytes!String do
+  Bytes.concat(Bytes.concat(Bytes.slice(data, 0, at)?, value)?,
+    Bytes.slice(data, at + Bytes.length(value), Bytes.length(data) - at - Bytes.length(value))?)
+end
+
+fn active_corpus() -> Bool!String do
+  let root = Json.parse(File.read(Env.get("MORSE_TOKEN_CARRY_FIXTURES_PATH", ""))?)?
+  let snapshots = Json.object_get(root, "snapshots")?
+  let flags = for index in 0..Json.array_length(snapshots)? do
+    let item = Json.array_get(snapshots, index)?
+    let account = Json.array_get(Json.object_get(item, "accounts")?, 5)?
+    let raw = Bytes.from_hex(field(account, "data_hex")?)?
+    let frame = decode_token_burn_carry_frame(raw)?
+    if frame.closed do
+      assert(decode_token_burn_active_week(raw) == Err("token_burn_week_closed"))
+    else
+      let actual = decode_token_burn_active_week(raw)?
+      assert(actual == frame.week)
+      if frame.version == 1 do
+        assert(decode_token_burn_week(raw) == Ok(actual))
+      else
+        assert(Result.is_err(decode_token_burn_week(raw)))
+        assert(Result.is_err(decode_token_burn_active_week(change(raw,
+          304,
+          Bytes.from_hex("01")?)?)))
+        assert(Result.is_err(decode_token_burn_active_week(change(raw,
+          256,
+          Bytes.from_hex(String.repeat("ff", 8))?)?)))
+      end
+    end
+    assert(Result.is_err(decode_token_burn_active_week(Bytes.concat(raw, Bytes.from_hex("00")?)?)))
+    assert(Result.is_err(decode_token_burn_active_week(Bytes.slice(raw,
+      0,
+      Bytes.length(raw) - 1)?)))
+    assert(Result.is_err(decode_token_burn_active_week(change(raw, 52, Bytes.from_hex("03")?)?)))
+    [
+      if frame.version == 2 && !frame.closed do
+        1
+      else
+        0
+      end,
+      if frame.closed do
+        1
+      else
+        0
+      end
+    ]
+  end
+  assert(List.reduce(flags, 0, fn(total, value) do total + List.get(value, 0) end) == 3)
+  assert(List.reduce(flags, 0, fn(total, value) do total + List.get(value, 1) end) == 3)
+  Ok(true)
+end
+
+test("active reader accepts actual funded v2 corpus, preserves v1 and refuses closed malformed/trailing frames") do
+  let result = active_corpus()
+  case result do
+    Err(reason) -> IO.eprintln(reason)
+    Ok(_) -> nil
+  end
+  assert(result == Ok(true))
+end
+
+fn lifetime_metadata() -> Bool!String do
+  assert(token_burn_rpc_integer(Json.parse("18446744073709551615")?) == Ok(U64.parse("18446744073709551615")?))
+  for raw in ["\"1001\"", "1001.0", "1e3", "-1", "null", "true", "18446744073709551616"] do
+    assert(Result.is_err(token_burn_rpc_integer(Json.parse(raw)?)))
+  end
+  let valid = "{\"context\":{\"slot\":200},\"value\":{\"blockhash\":\"11111111111111111111111111111111\",\"lastValidBlockHeight\":1200}}"
+  let response = RpcResponse { id: 30, ok: true, result_json: valid, error_json: "" }
+  assert(Result.is_ok(token_burn_worker_tip(response, U64.parse("200")?)))
+  assert(Result.is_err(token_burn_worker_tip(response, U64.parse("201")?)))
+  assert(Result.is_err(token_burn_worker_tip(%{response |
+      result_json: String.replace(valid, "{\"slot\":200}", "\"{\\\"slot\\\":200}\"")
+    },
+    U64.parse("1")?)))
+  Ok(true)
+end
+
+test("worker lifetime metadata rejects quoted fractional negative null and overflowing integers") do
+  assert(lifetime_metadata() == Ok(true))
+end

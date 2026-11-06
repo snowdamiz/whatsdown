@@ -13,7 +13,7 @@ test('every container uses the resolved compiler commit and a new commit changes
   const original = JSON.parse(readFileSync(new URL('./wrangler.jsonc', import.meta.url), 'utf8'));
   for (const revision of ['1'.repeat(40), '2'.repeat(40)]) {
     const config = compilerConfig(original, revision);
-    assert.equal(config.containers.length, 6);
+    assert.deepEqual(config.containers.map(row => row.class_name), ['Directory', 'PrivacyEdge', 'ObjectStore', 'PushBroker', 'WitnessA', 'WitnessB', 'PublicReportReader']);
     for (const container of config.containers) assert.equal(container.image_vars.MESH_LANG_REVISION, revision);
     assert.deepEqual(config.durable_objects, original.durable_objects);
   }

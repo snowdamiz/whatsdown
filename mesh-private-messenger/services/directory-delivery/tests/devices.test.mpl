@@ -1,3 +1,4 @@
+from Storage.WitnessRegistry import bootstrap_witness_registry
 from Api.Binary import (
   checkpoint_request,
   consistency_request,
@@ -78,11 +79,13 @@ from Transparency.Wire import (
   TransparencyLookup,
   TransparencyTreeQuery,
   decode_checkpoint,
+  encode_checkpoint,
   decode_consistency_proof,
   decode_inclusion_proof,
   decode_transparency_evidence,
   decode_witnesses,
   encode_transparency_evidence,
+  encode_consistency_range,
   encode_transparency_lookup,
   encode_transparency_tree_query,
   encode_witnesses
@@ -279,6 +282,8 @@ fn bundled_entry(identity :: AccountIdentity,
   })
 end
 
+# Suite rotation preserves the authenticated capability mask; adding ACH3
+# requires the separate device-signed RNWv2 transition.
 fn rotation_entries(identity :: AccountIdentity,
   account_keys :: borrow AccountKeys,
   primary :: borrow DeviceKeys,
@@ -305,7 +310,7 @@ fn rotation_entries(identity :: AccountIdentity,
   let replay_credential = case issue_hybrid_device_credential(account_keys,
     primary,
     replay_post_quantum.public_key,
-    wide("3")?,
+    wide("1")?,
     created_at,
     expires_at,
     wide("1")?) do
@@ -330,7 +335,7 @@ fn rotation_entries(identity :: AccountIdentity,
   let first_credential = case issue_hybrid_device_credential(account_keys,
     primary,
     first_post_quantum.public_key,
-    wide("3")?,
+    wide("1")?,
     created_at,
     expires_at,
     wide("2")?) do
@@ -355,7 +360,7 @@ fn rotation_entries(identity :: AccountIdentity,
   let second_credential = case issue_hybrid_device_credential(account_keys,
     primary,
     second_post_quantum.public_key,
-    wide("3")?,
+    wide("1")?,
     created_at,
     expires_at,
     wide("2")?) do
@@ -467,9 +472,11 @@ fn proof() -> Bool!String do
     "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000)?
   validate_transparency_config()?
+  bootstrap_witness_registry(pool)?
   Pool.execute(pool,
-    "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
     [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
   let transparency_seed = repeated(91, 32)
   let created_at = now()?
   let expires_at = U64.add(created_at, wide("31536000000")?)?
@@ -511,6 +518,16 @@ fn proof() -> Bool!String do
     SigningPublicKey { bytes: first_checkpoint.service_public_key })?)
   assert(register_device_request(pool, protocol(encode_directory_entry(first))?).status == 200)
   assert(entry_count(pool)? == 1)
+  # A sealed log is a temporary maintenance refusal. Its failed registration
+  # must not consume the account sequence or create an unlogged mailbox.
+  Pool.execute_values(pool,
+    "INSERT INTO transparency_log_cutover (phase, legacy_checkpoint) VALUES ('sealing', $1)",
+    [Binary(encode_checkpoint(first_checkpoint)?)])?
+  let during_cutover = register_device_request(pool, protocol(encode_directory_entry(second))?)
+  Pool.execute(pool, "DELETE FROM transparency_log_cutover", [])?
+  assert(during_cutover.status == 503)
+  assert(scalar(pool,
+    "SELECT concat((SELECT sequence FROM messenger_accounts WHERE username = 'alice'), ':', (SELECT count(*) FROM messenger_devices), ':', (SELECT count(*) FROM messenger_mailboxes), ':', (SELECT count(*) FROM transparency_entries)) AS value")? == "1:1:1:1")
   assert(register_device_request(pool, protocol(encode_directory_entry(second))?).status == 201)
   let second_checkpoint = create_checkpoint(pool, transparency_seed)?
   assert(verify_checkpoint(second_checkpoint,
@@ -567,6 +584,7 @@ fn proof() -> Bool!String do
   assert(decode_inclusion_proof(inclusion_request(pool, lookup).body)?.tree_size == 2)
   assert(decode_consistency_proof(consistency_request(pool,
     encode_transparency_tree_query(TransparencyTreeQuery {
+      new_tree_size: 0,
       previous_tree_size: 1
     })?).body)?.old_tree_size == 1)
   assert(List.length(decode_witnesses(witnesses_request(pool).body)?) == 2)
@@ -624,6 +642,16 @@ fn proof() -> Bool!String do
   assert(U64.compare(updated_set.sequence, wide("3")?) == 0)
   let third_checkpoint = create_checkpoint(pool, transparency_seed)?
   assert(entry_count(pool)? == 3)
+  assert(scalar(pool,
+    "SELECT string_agg(leaf_index::text, ',' ORDER BY sequence) AS value FROM transparency_entries")? == "0,1,2")
+  let historical = consistency_request(pool, encode_consistency_range(1, 2)?)
+  assert(historical.status == 200)
+  let historical_proof = decode_consistency_proof(historical.body)?
+  assert(historical_proof.version == 2 && historical_proof.new_tree_size == 2)
+  assert(verify_consistency(first_checkpoint.tree_root,
+    second_checkpoint.tree_root,
+    historical_proof)?)
+  assert(consistency_request(pool, encode_consistency_range(1, 4)?).status == 400)
   assert(verify_consistency(second_checkpoint.tree_root,
     third_checkpoint.tree_root,
     consistency_from(pool, U64.to_int(second_checkpoint.tree_size)?)?)?)
@@ -748,8 +776,9 @@ end
 
 fn reset_rotation_state(pool :: PoolHandle) -> Result<(), String> do
   Pool.execute(pool,
-    "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
     [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
   Ok(nil)
 end
 

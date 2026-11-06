@@ -1,0 +1,59 @@
+   Compiling morse-token v0.1.0 (/Users/andreyyurlov/Documents/dev/whatsdown/mesh-private-messenger/programs/morse-token)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.17s
+     Running tests/token_svm.rs (programs/target/debug/deps/token_svm-d918e1e2f90be25f)
+
+running 13 tests
+InstructionError(1, MissingRequiredSignature)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111Q7zKqw7vEw6U5Mf3qDU1UrV3MRubjPcCrT1QftA invoke [1]", "Program 111Q7zKqw7vEw6U5Mf3qDU1UrV3MRubjPcCrT1QftA consumed 1947 of 399850 compute units", "Program 111Q7zKqw7vEw6U5Mf3qDU1UrV3MRubjPcCrT1QftA failed: missing required signature for instruction"]
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr invoke [1]", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr consumed 13657 of 399850 compute units", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr failed: invalid account data for instruction"]
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr invoke [1]", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr consumed 13188 of 399850 compute units", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr failed: invalid account data for instruction"]
+test fixed_supply_all_allocations_and_permanent_authority_revocation_execute_atomically ... ok
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr invoke [1]", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr consumed 13395 of 399850 compute units", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr failed: invalid account data for instruction"]
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr invoke [1]", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr consumed 13398 of 399850 compute units", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr failed: invalid account data for instruction"]
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF invoke [1]", "Program 1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF consumed 14252 of 399850 compute units", "Program 1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF failed: invalid account data for instruction"]
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr invoke [1]", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr consumed 13481 of 399850 compute units", "Program 111FJo4zLAGU9nzTWa6EnbV4VAmtG4FR8kcokrtZYr failed: invalid account data for instruction"]
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111S1d9dJA6NS2j95MQ7A2eDjAgdAKXDjvxQg5d8pa invoke [1]", "Program 111S1d9dJA6NS2j95MQ7A2eDjAgdAKXDjvxQg5d8pa consumed 24879 of 399850 compute units", "Program 111S1d9dJA6NS2j95MQ7A2eDjAgdAKXDjvxQg5d8pa failed: invalid account data for instruction"]
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF invoke [1]", "Program 1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF consumed 14845 of 399850 compute units", "Program 1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF failed: invalid account data for instruction"]
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF invoke [1]", "Program 1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF consumed 15161 of 399850 compute units", "Program 1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF failed: invalid account data for instruction"]
+test oracle_source_rotation_is_timelocked_and_discards_old_coverage ... ok
+test authenticated_oracle_pins_reject_wrong_owner_feed_verification_and_gaps ... ok
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111Q7zKqw7vEw6U5Mf3qDU1UrV3MRubjPcCrT1QftA invoke [1]", "Program 111Q7zKqw7vEw6U5Mf3qDU1UrV3MRubjPcCrT1QftA consumed 1769 of 399850 compute units", "Program 111Q7zKqw7vEw6U5Mf3qDU1UrV3MRubjPcCrT1QftA failed: invalid account data for instruction"]
+InstructionError(1, InvalidArgument)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111Q7zKqw7vEw6U5Mf3qDU1UrV3MRubjPcCrT1QftA invoke [1]", "Program 111Q7zKqw7vEw6U5Mf3qDU1UrV3MRubjPcCrT1QftA consumed 41055 of 399850 compute units", "Program 111Q7zKqw7vEw6U5Mf3qDU1UrV3MRubjPcCrT1QftA failed: invalid program argument"]
+test prefunded_metadata_preparation_never_exposes_a_mint_or_claims_bootstrap_authority ... ok
+InstructionError(1, InvalidInstructionData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 111S1d9dJA6NS2j95MQ7A2eDjAgdAKXDjvxQg5d8pa invoke [1]", "Program 111S1d9dJA6NS2j95MQ7A2eDjAgdAKXDjvxQg5d8pa consumed 164 of 399850 compute units", "Program 111S1d9dJA6NS2j95MQ7A2eDjAgdAKXDjvxQg5d8pa failed: invalid instruction data"]
+InstructionError(1, Custom(5))
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]", "Program log: Error: the total supply of this token is fixed", "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 265 of 399850 compute units", "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA failed: custom program error: 0x5"]
+test original_calendar_vesting_cliff_fixed_payout_and_retry_execute_real_spl_transfers ... ok
+test dex::pinned_jupiter_v2_and_raydium_cp_execute_real_single_hop_with_classic_spl ... ok
+MORSE_BURN_UNFUNDED_EXPIRY_GUARDS wrong_roles_owners_initialized_state_both_rent_failures_atomic_all_funded_versions_rejected
+test dex::carry_tests::unfunded_expiry_rejects_initialized_roles_and_rolls_back_both_creations ... ok
+MORSE_BURN_UNFUNDED_EXPIRY canonical_prefunding_boundary_permanent_both_funding_tags_clock_rollback_no_token_movement_later_carry_external_code_change
+test dex::carry_tests::expired_unfunded_week_is_permanent_and_cannot_capture_later_funding ... ok
+test dex::weekly_funding_waits_for_qualified_profile_and_receipt_replays_without_double_transfer ... ok
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs invoke [1]", "Program 11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs consumed 14830 of 399850 compute units", "Program 11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs failed: invalid account data for instruction"]
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs invoke [1]", "Program 11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs consumed 15155 of 399850 compute units", "Program 11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs failed: invalid account data for instruction"]
+test actual_sbf_accumulates_all_10080_publications_before_accepting_seven_day_twap ... ok
+MORSE_BURN_CARRY actual_partial_all_missed_v1_v2_cash_carry_donations_closed_replay_late_two_cpi_rollback
+test dex::carry_tests::missed_input_is_closed_once_and_donations_never_become_accounted_carry ... ok
+InstructionError(1, InvalidAccountData)
+["Program ComputeBudget111111111111111111111111111111 invoke [1]", "Program ComputeBudget111111111111111111111111111111 success", "Program 1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG invoke [1]", "Program 1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG consumed 22649 of 399850 compute units", "Program 1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG failed: invalid account data for instruction"]
+test dex::burn_guards_and_real_cpi_failure_preserve_escrow_while_spot_remains_distinct_from_twap ... ok
+MORSE_BURN_ZERO_REMAINING permanent_four_zero_receipts_no_redistribution
+test dex::four_local_weeks_execute_all_96_chunks_with_actual_router_dex_and_program_owned_burns ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 40.02s
+

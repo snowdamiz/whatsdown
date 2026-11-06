@@ -1,14 +1,47 @@
+from Mobile.SessionPolicy import capture_native_session_policy, native_session_minimum
+from Mobile.ReceiveSources import (
+  ReceiveSources,
+  capture_receive_sources,
+  capture_receive_sessions,
+  capture_receive_alias,
+  receive_captured_peer,
+  receive_captured_strongest
+)
+from Storage.AccountGuard import AccountBasis
+from Mobile.HeaderAdmission import (
+  capture_header_initial,
+  capture_legacy_receive,
+  commit_legacy_receive_with_sources,
+  capture_header_history,
+  commit_initial_admission_at_policy,
+  prepared_header_initial_alias
+)
+from Mobile.HeaderRouting import (
+  HeaderRoute,
+  route_header_guarded,
+  commit_header_receive_with_sources
+)
+from Mobile.HeaderCapabilities import require_direct_headers, require_new_header_capacity
+from Session.State import RatchetState, DecryptOutcome, RatchetError, RatchetMessage
+from Mobile.AttachmentCapabilities import require_direct_attachment
+from Mobile.AttachmentSendState import (
+  capture_direct_attachment,
+  commit_direct_attachment,
+  commit_direct_attachment_at_policy
+)
 from Mobile.Attachments import rewrap_reference
 from Mobile.Presentation import presented_body
 from Identity.Device import DeviceKeys, VerificationPolicy
 from Mobile.Codec import canonical_outer, current_time, random_bytes
 from Mobile.ContactAddress import (
   deposit_address,
-  learned_contact_address_writes,
-  outgoing_extensions
+  learned_contact_address_writes
 )
+from Mobile.Outgoing import direct_extensions
+from Mobile.Gossip import observe_gossip
+from Mobile.TransparencySafety import require_log_changes_allowed
 from Mobile.FanoutPrekeys import matching_fanout_prekey_state_labels
-from Mobile.History import accepted_request_writes, updated_history
+from Mobile.History import accepted_request_writes_from_sources, updated_history
 from Mobile.GroupInvitesState import received_invitation_writes
 from Mobile.Outbox import load_outbox_ids, outbox_capacity, prepare_outbox_writes
 from Mobile.Prekeys import (
@@ -27,7 +60,7 @@ from Mobile.Profile import load_profile, open_device, policy
 from Mobile.Renewal import open_bundle_prekeys, own_bundle_policy, responder_prekey_bundle
 from Mobile.Transport import MobileOpenedPacket, open_outer_packet, sealed_outer_bytes
 from Mobile.Sessions import (
-  ensure_conversation_alias,
+  prepared_conversation_alias,
   find_peer_session,
   initial_bytes,
   inner_bytes,
@@ -40,6 +73,7 @@ from Mobile.Sessions import (
   prepared_session_ids,
   ratchet_bytes,
   restore_session,
+  session_uses_headers,
   safety_number,
   seal_session,
   seal_session_ids,
@@ -78,16 +112,12 @@ from Protocol.V1 import (
   PrekeyBundle
 )
 from Session.Handshake import (
-  RatchetState,
   SessionError,
-  initiate,
+  initiate_at_minimum_suite,
   is_retryable_session_error,
-  receive_initial
+  receive_initial_at_minimum_suite
 )
 from Session.Ratchet import (
-  DecryptOutcome,
-  RatchetError,
-  RatchetMessage,
   decode_ratchet_message,
   decrypt,
   encrypt_sealed,
@@ -97,11 +127,8 @@ from Session.Ratchet import (
 from Storage.Blobs import ensure_schema
 from Storage.Keys import one_time_prekey_label, platform_key
 from Storage.Records import (
-  store_outbound,
-  store_received_session,
   store_record_changes,
   store_updated_session,
-  store_updated_blobs,
   store_updated_session_and_history
 )
 from Transport.Packet import (
@@ -122,7 +149,17 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes!String do
   let local_encode_client_profile = load_profile(request.database_path)?
   let local = decode_client_profile(local_encode_client_profile)?
   let peer = decode_client_profile(request.peer_profile)?
+  let session_policy = capture_native_session_policy()?
   let wrapping_key = platform_key()?
+  require_direct_headers(request.database_path, wrapping_key, local, peer)?
+  require_log_changes_allowed(request.database_path, wrapping_key)?
+  let attachment_before = Some(capture_direct_attachment(request.database_path,
+    wrapping_key,
+    local_encode_client_profile,
+    peer)?)
+  if Bytes.length(request.attachment) > 0 do
+    require_direct_attachment(request.database_path, wrapping_key, local, peer, request.attachment)?
+  end
   let pending_ids = load_outbox_ids(request.database_path, wrapping_key)?
   if List.length(pending_ids) >= outbox_capacity() do
     Err("outbox_full")
@@ -130,6 +167,7 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes!String do
     Ok(nil)
   end?
   let session_ids = load_session_ids(request.database_path, wrapping_key)?
+  require_new_header_capacity(List.length(session_ids), 1)?
   let local_device = open_device(local, wrapping_key, request.database_path)?
   let now = current_time()?
   let conversation_id = direct_conversation_id(local.account_id, peer.account_id)?
@@ -153,7 +191,7 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes!String do
   # What goes to the peer differs from what history keeps: the attachment key is
   # re-addressed, and the message hands over this device's contact address.
   let rewrapped = rewrap_reference(local_device, request.attachment, peer.credential.dh_public_key)?
-  let handed_over = outgoing_extensions(request.database_path, wrapping_key)?
+  let handed_over = direct_extensions(request.database_path, wrapping_key)?
   let inner = %{history_inner | attachment_manifest: rewrapped, extensions: handed_over}
   let plaintext = case encode_initial_plaintext(local_encode_client_profile, inner_bytes(inner)?) do
     Err(_) -> Err("invalid_initial_plaintext")
@@ -166,13 +204,15 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes!String do
     session_ids,
     0,
     0)?
-  let (state, initial) = case initiate(local_device,
+  let (state, initial) = case initiate_at_minimum_suite(local_device,
     local.credential,
     peer.account,
     peer.bundle,
     policy(peer, now),
     strongest_suite,
+    native_session_minimum(session_policy)?,
     plaintext) do
+    Err(MinimumSessionSuiteRequired) -> Err("session_suite_below_minimum")
     Err(_) -> Err("session_start_failed")
     Ok(value)
   end?
@@ -210,8 +250,11 @@ pub fn start_conversation(request :: MobileStartRequest) -> Bytes!String do
     request.database_path,
     history_inner.client_message_id,
     0,
-    1)?
-  store_outbound(request.database_path,
+    1,
+    local)?
+  commit_direct_attachment_at_policy(request.database_path,
+    attachment_before,
+    session_policy,
     prepared,
     List.new(),
     index_blob,
@@ -262,6 +305,7 @@ fn keep_contact_address(database_path :: String,
   if blocked do
     Ok(nil)
   else
+    observe_gossip(database_path, wrapping_key, inner, current_time()?)?
     let (labels, blobs, removed) = learned_contact_address_writes(database_path,
       wrapping_key,
       public_address,
@@ -292,6 +336,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
     Err("wrong_mailbox")
   else
     let wrapping_key = platform_key()?
+    require_log_changes_allowed(request.database_path, wrapping_key)?
     let local_device = open_device(local, wrapping_key, request.database_path)?
     let opened = open_outer_packet(outer, local_device.identity_private_key)?
     let (packet_account_identity, packet_message) = if opened.sealed do
@@ -313,7 +358,22 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         Err(_) -> Err("invalid_initiator_account")
         Ok(value)
       end?
+      let admission_before = Some(capture_header_initial(request.database_path,
+        wrapping_key,
+        local_encode_client_profile,
+        initial.one_time_prekey_id)?)
       let session_ids = load_session_ids(request.database_path, wrapping_key)?
+      let initial_sources = case admission_before do
+        None -> Err("invalid_receive_basis")
+        Some(before) -> capture_receive_sessions(request.database_path,
+          wrapping_key,
+          before,
+          session_ids)
+      end?
+      let session_policy = capture_native_session_policy()?
+      if initial.version == 2 do
+        require_new_header_capacity(List.length(session_ids), 1)?
+      end
       let prekeys = load_prekey_pool(local, wrapping_key, request.database_path)?
       let active_prekeys = load_active_prekey_pool(request.database_path, prekeys, wrapping_key)?
       let last_resort = find_last_resort_prekey(request.database_path,
@@ -337,13 +397,10 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         Err(_) -> Err("invalid_initiator_credential")
         Ok(value)
       end?
-      let strongest_suite = strongest_device_suite(request.database_path,
+      let strongest_suite = receive_captured_strongest(initial_sources,
         wrapping_key,
         initiator_account.account_id,
-        initiator_credential.device_id,
-        session_ids,
-        0,
-        0)?
+        initiator_credential.device_id)?
       # The bundle this message was sealed to: the current one, or one renewed
       # away from recently enough that its mail may still arrive.
       let responder_bundle = responder_prekey_bundle(request.database_path,
@@ -358,7 +415,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         responder_bundle,
         selected_prekey)?
       let now = current_time()?
-      let (state, plaintext) = case receive_initial(local_device,
+      let (state, plaintext) = case receive_initial_at_minimum_suite(local_device,
         local.account,
         responder_bundle,
         signed,
@@ -371,6 +428,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
           minimum_directory_sequence: initiator_account.directory_sequence
         },
         strongest_suite,
+        native_session_minimum(session_policy)?,
         packet_message) do
         Err(error) -> if is_retryable_session_error(error) do
           Err("initial_crypto_failed")
@@ -391,11 +449,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         Err(_) -> Err("invalid_inner_envelope")
         Ok(value)
       end?
-      let previous = case find_peer_session(request.database_path,
-        wrapping_key,
-        peer.account_id,
-        session_ids,
-        0) do
+      let previous = case receive_captured_peer(initial_sources, wrapping_key, peer.account_id) do
         Ok(loaded) -> Ok(Some(loaded))
         Err(error) -> if error == "session_not_found" do
           Ok(None)
@@ -462,7 +516,10 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             initial.suite)?)?
         if blocked do
           let index_blob = updated_session_index(request.database_path, wrapping_key, session_id)?
-          store_received_session(request.database_path,
+          commit_initial_admission_at_policy(request.database_path,
+            admission_before,
+            Some(initial_sources),
+            session_policy,
             label,
             session_blob,
             index_blob,
@@ -474,29 +531,39 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
           Err("blocked_message")
         else if self_sync do
           let sync = peer_sync_payload(inner.body, local.account_id)?
-          let synced_key = ensure_conversation_alias(request.database_path,
+          let acceptance_sources = capture_receive_alias(request.database_path,
+            wrapping_key,
+            initial_sources,
+            sync.peer_account_id)?
+          let (synced_key, index_blob, alias_labels, alias_blobs) = prepared_header_initial_alias(request.database_path,
             wrapping_key,
             local,
             sync,
-            session_ids)?
+            session_ids,
+            session_id,
+            initial.version == 2)?
           let synced = sync_history_inner(local, sync, inner.attachment_manifest)?
           let history_inner = %{synced | conversation_id: synced_key}
-          let index_blob = updated_session_index(request.database_path, wrapping_key, session_id)?
+          let admission_before = capture_header_history(request.database_path,
+            admission_before,
+            synced_key)?
           let (history_keys, history_blobs) = updated_history(request.database_path,
             wrapping_key,
             history_inner,
             1)?
           # A sibling device could only send this once the request was accepted there.
-          let (accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
-            wrapping_key,
+          let (accepted_labels, accepted_blobs) = accepted_request_writes_from_sources(wrapping_key,
             sync.peer_account_id,
-            session_ids)?
-          store_received_session(request.database_path,
+            acceptance_sources)?
+          commit_initial_admission_at_policy(request.database_path,
+            admission_before,
+            Some(acceptance_sources),
+            session_policy,
             label,
             session_blob,
             index_blob,
-            List.concat(history_keys, accepted_labels),
-            List.concat(history_blobs, accepted_blobs),
+            history_keys ++ accepted_labels ++ alias_labels,
+            history_blobs ++ accepted_blobs ++ alias_blobs,
             removed_labels,
             prekey_labels,
             prekey_blobs)?
@@ -507,7 +574,10 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             local,
             peer.username,
             inner)?
-          store_received_session(request.database_path,
+          commit_initial_admission_at_policy(request.database_path,
+            admission_before,
+            Some(initial_sources),
+            session_policy,
             label,
             session_blob,
             updated_session_index(request.database_path, wrapping_key, session_id)?,
@@ -519,11 +589,17 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
           Ok(Bytes.empty())
         else
           let index_blob = updated_session_index(request.database_path, wrapping_key, session_id)?
+          let admission_before = capture_header_history(request.database_path,
+            admission_before,
+            conversation_key)?
           let (history_keys, history_blobs) = updated_history(request.database_path,
             wrapping_key,
             %{inner | conversation_id: conversation_key},
             2)?
-          store_received_session(request.database_path,
+          commit_initial_admission_at_policy(request.database_path,
+            admission_before,
+            Some(initial_sources),
+            session_policy,
             label,
             session_blob,
             index_blob,
@@ -541,9 +617,22 @@ end
 
 pub fn send_message(request :: MobileStartRequest) -> Bytes!String do
   ensure_schema(request.database_path)?
-  let local = decode_client_profile(load_profile(request.database_path)?)?
+  let local_wire = load_profile(request.database_path)?
+  let local = decode_client_profile(local_wire)?
   let requested_peer = decode_client_profile(request.peer_profile)?
   let wrapping_key = platform_key()?
+  require_direct_headers(request.database_path, wrapping_key, local, requested_peer)?
+  let attachment_before = Some(capture_direct_attachment(request.database_path,
+    wrapping_key,
+    local_wire,
+    requested_peer)?)
+  if Bytes.length(request.attachment) > 0 do
+    require_direct_attachment(request.database_path,
+      wrapping_key,
+      local,
+      requested_peer,
+      request.attachment)?
+  end
   let pending_ids = load_outbox_ids(request.database_path, wrapping_key)?
   if List.length(pending_ids) >= outbox_capacity() do
     Err("outbox_full")
@@ -564,7 +653,8 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes!String do
     Err("peer_keys_changed")
   else if loaded.record.strongest_suite > requested_peer.bundle.suite do
     Err("peer_keys_changed")
-  else if loaded.record.strongest_suite < requested_peer.bundle.suite
+  else if !session_uses_headers(loaded.record.snapshot)
+    || loaded.record.strongest_suite < requested_peer.bundle.suite
     || Bytes.length(loaded.record.safety_number) == 0 do
     Err("session_upgrade_required")
   else if loaded.record.blocked do
@@ -601,7 +691,7 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes!String do
       })
     end?
     # The sent copy hands over this device's contact address; history does not keep it.
-    let handed_over = outgoing_extensions(request.database_path, wrapping_key)?
+    let handed_over = direct_extensions(request.database_path, wrapping_key)?
     let wire_conversation_id = direct_conversation_id(local.account_id, requested_peer.account_id)?
     let (next_state, message) = case encrypt_sealed(state,
       inner_bytes(%{inner | conversation_id: wire_conversation_id, extensions: handed_over})?,
@@ -616,7 +706,11 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes!String do
       packet,
       requested_peer.credential.dh_public_key,
       now)?
-    let session_blob = seal_updated_session(next_state, loaded, wrapping_key)?
+    let session_blob = seal_updated_session(next_state,
+      %{loaded |
+        record: %{loaded.record | peer_transport_key: requested_peer.credential.dh_public_key}
+      },
+      wrapping_key)?
     let (history_keys, history_blobs) = updated_history(request.database_path,
       wrapping_key,
       history_inner,
@@ -636,8 +730,10 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes!String do
       request.database_path,
       history_inner.client_message_id,
       0,
-      1)?
-    store_outbound(request.database_path,
+      1,
+      local)?
+    commit_direct_attachment(request.database_path,
+      attachment_before,
       prepared,
       List.new(),
       seal_session_ids(session_ids, wrapping_key)?,
@@ -654,9 +750,65 @@ fn reject_message(state :: consume RatchetState, error :: String) -> Bytes!Strin
   Err(error)
 end
 
+fn capture_received_history(path :: String,
+  selected :: Option<HeaderRoute>,
+  legacy_before :: Option<AccountBasis>,
+  conversation :: Bytes) -> Result<(Option<HeaderRoute>, Option<AccountBasis>), String> do
+  case selected do
+    None -> case legacy_before do
+      None -> Err("invalid_receive_basis")
+      Some(before) -> Ok((None, capture_header_history(path, Some(before), conversation)?))
+    end
+    Some(route) -> case capture_header_history(path, Some(route.basis), conversation)? do
+      None -> Err("invalid_header_receive_basis")
+      Some(basis) -> Ok((Some(%{route | basis: basis}), None))
+    end
+  end
+end
+
+fn capture_received_acceptance(path :: String,
+  key :: borrow StorageKey,
+  selected :: Option<HeaderRoute>,
+  legacy_before :: Option<AccountBasis>,
+  ids :: List<Bytes>,
+  peer :: Bytes) -> ReceiveSources!String do
+  let before = case selected do
+    Some(route) -> Ok(route.basis)
+    None -> case legacy_before do
+      Some(value) -> Ok(value)
+      None -> Err("invalid_receive_basis")
+    end
+  end?
+  capture_receive_sources(path, key, before, ids, peer)
+end
+
+fn commit_received(path :: String,
+  selected :: Option<HeaderRoute>,
+  legacy_before :: Option<AccountBasis>,
+  labels :: List<String>,
+  blobs :: List<Bytes>) -> Result<(), String> do
+  commit_received_with_sources(path, selected, legacy_before, None, labels, blobs)
+end
+
+fn commit_received_with_sources(path :: String,
+  selected :: Option<HeaderRoute>,
+  legacy_before :: Option<AccountBasis>,
+  sources :: Option<ReceiveSources>,
+  labels :: List<String>,
+  blobs :: List<Bytes>) -> Result<(), String> do
+  case selected do
+    None -> case legacy_before do
+      None -> Err("invalid_receive_basis")
+      Some(before) -> commit_legacy_receive_with_sources(path, before, sources, labels, blobs)
+    end
+    Some(route) -> commit_header_receive_with_sources(path, route, sources, labels, blobs)
+  end
+end
+
 pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
   ensure_schema(request.database_path)?
-  let local = decode_client_profile(load_profile(request.database_path)?)?
+  let local_wire = load_profile(request.database_path)?
+  let local = decode_client_profile(local_wire)?
   let outer = canonical_outer(request.outer)?
   if !Bytes.secure_equals(outer.mailbox_token, local.entry.mailbox_token) do
     Err("wrong_mailbox")
@@ -676,7 +828,27 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
     else
       Ok(nil)
     end?
-    let loaded = load_session_record(request.database_path, wrapping_key, message.session_id)?
+    let selected = if message.version == 4 do
+      Some(route_header_guarded(request.database_path,
+        wrapping_key,
+        outer.envelope_id,
+        packet_message,
+        message,
+        local_wire)?)
+    else
+      None
+    end
+    let legacy_before = case selected do
+      Some(_) -> None
+      None -> Some(capture_legacy_receive(request.database_path,
+        wrapping_key,
+        local_wire,
+        message.session_id)?)
+    end
+    let loaded = case selected do
+      Some(route) -> route.loaded
+      None -> load_session_record(request.database_path, wrapping_key, message.session_id)?
+    end
     let session_ids = load_session_ids(request.database_path, wrapping_key)?
     let peer_policy = find_peer_session(request.database_path,
       wrapping_key,
@@ -698,9 +870,11 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
         let self_sync = inner.message_type == 2
           && Bytes.secure_equals(loaded.record.peer_account_id, local.account_id)
         let valid_kind = self_sync
+          || inner.message_type == 5
           || ((inner.message_type == 1 || inner.message_type == 3 || inner.message_type == 4)
             && !Bytes.secure_equals(loaded.record.peer_account_id, local.account_id))
-        let expected_conversation = if self_sync do
+        let expected_conversation = if Bytes.secure_equals(loaded.record.peer_account_id,
+          local.account_id) do
           self_sync_conversation_id(local.account_id)?
         else
           direct_conversation_id(local.account_id, loaded.record.peer_account_id)?
@@ -721,52 +895,79 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
             loaded.record.peer_mailbox,
             inner)?
           if peer_policy.record.blocked do
-            store_updated_session(request.database_path, loaded.label, session_blob)?
+            commit_received(request.database_path,
+              selected,
+              legacy_before,
+              [loaded.label],
+              [session_blob])?
             Err("blocked_message")
+          else if inner.message_type == 5 do
+            commit_received(request.database_path,
+              selected,
+              legacy_before,
+              [loaded.label],
+              [session_blob])?
+            Ok(Bytes.empty())
           else if inner.message_type == 3 || inner.message_type == 4 do
             let (labels, blobs) = received_invitation_writes(request.database_path,
               wrapping_key,
               local,
               loaded.record.peer_username,
               inner)?
-            store_updated_blobs(request.database_path,
+            commit_received(request.database_path,
+              selected,
+              legacy_before,
               List.append(labels, loaded.label),
               List.append(blobs, session_blob))?
             Ok(Bytes.empty())
           else if self_sync do
             let sync = peer_sync_payload(inner.body, local.account_id)?
-            let synced_key = ensure_conversation_alias(request.database_path,
+            let acceptance_sources = capture_received_acceptance(request.database_path,
+              wrapping_key,
+              selected,
+              legacy_before,
+              session_ids,
+              sync.peer_account_id)?
+            let (synced_key, alias_labels, alias_blobs) = prepared_conversation_alias(request.database_path,
               wrapping_key,
               local,
               sync,
               session_ids)?
             let synced = sync_history_inner(local, sync, inner.attachment_manifest)?
             let history_inner = %{synced | conversation_id: synced_key}
+            let (selected, legacy_before) = capture_received_history(request.database_path,
+              selected,
+              legacy_before,
+              synced_key)?
             let (history_keys, history_blobs) = updated_history(request.database_path,
               wrapping_key,
               history_inner,
               1)?
             # A sibling device could only send this once the request was accepted there.
-            let (accepted_labels, accepted_blobs) = accepted_request_writes(request.database_path,
-              wrapping_key,
+            let (accepted_labels, accepted_blobs) = accepted_request_writes_from_sources(wrapping_key,
               sync.peer_account_id,
-              session_ids)?
-            store_updated_session_and_history(request.database_path,
-              loaded.label,
-              session_blob,
-              List.concat(history_keys, accepted_labels),
-              List.concat(history_blobs, accepted_blobs))?
+              acceptance_sources)?
+            commit_received_with_sources(request.database_path,
+              selected,
+              legacy_before,
+              Some(acceptance_sources),
+              [loaded.label] ++ history_keys ++ accepted_labels ++ alias_labels,
+              [session_blob] ++ history_blobs ++ accepted_blobs ++ alias_blobs)?
             Ok(presented_body(history_inner.body))
           else
+            let (selected, legacy_before) = capture_received_history(request.database_path,
+              selected,
+              legacy_before,
+              loaded.record.conversation_id)?
             let (history_keys, history_blobs) = updated_history(request.database_path,
               wrapping_key,
               %{inner | conversation_id: loaded.record.conversation_id},
               2)?
-            store_updated_session_and_history(request.database_path,
-              loaded.label,
-              session_blob,
-              history_keys,
-              history_blobs)?
+            commit_received(request.database_path,
+              selected,
+              legacy_before,
+              [loaded.label] ++ history_keys,
+              [session_blob] ++ history_blobs)?
             Ok(presented_body(inner.body))
           end
         end

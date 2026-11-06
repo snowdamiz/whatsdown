@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "scope": "Committed public local-SBF unit/owned-peer corpus; not fresh execution evidence or production state.",
+  "token-burn.json": {
+    "sha256": "e78d08389f9176ddfc1258e874a9149fd3c8a1eaaa1410fa5d343764064050b3",
+    "origin": "token-burn-fixtures.json, previous four-week96-execution local qualification"
+  },
+  "token-carry.json": {
+    "sha256": "3844fc5e83092b3f934b4a819324efe6efd38d96a3e66835aa32ce86a2a20472",
+    "origin": "token-carry-fixtures.json, previous active/closed v1/v2 local qualification"
+  },
+  "bank.json": {
+    "sha256": "b76f499eee7e24b0bd673351b084cacab9de2345fa435164a406d563b2545ad3",
+    "origin": "token-burn-worker-sbf-expiry-context/initial.json",
+    "root_manifest_sha256": "60895ed0cbae8a1f76384bbc39bd953f351641aca1a8b3e114ef3316606a036f",
+    "limits": [
+      "Clock/slot/height are controlled LiteSVM observations, not ledger finality.",
+      "Account data is genuine5728-byte prefix/fullspace from retained SBF bank.",
+      "Only public accounts, identities and packet metadata are included; no fixture signing key."
+    ]
+  }
+}

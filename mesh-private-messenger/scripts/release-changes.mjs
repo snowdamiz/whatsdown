@@ -10,10 +10,11 @@ import { fileURLToPath } from 'node:url';
 const m = 'mesh-private-messenger/';
 // Every build compiles with the Mesh release mesh-release.mjs resolves.
 const protocol = [`${m}packages/messenger-protocol/`, `${m}scripts/mesh-release.mjs`];
-const app = [...protocol, `${m}packages/mobile-core/`, `${m}apps/mobile/`];
+const app = [...protocol, `${m}packages/mobile-core/`, `${m}apps/mobile/`,
+  `${m}ops/plaintext/`, `${m}scripts/plaintext-release.mjs`, `${m}protocol/plaintext-disclosures.json`];
 
 export const INPUTS = {
-  backend: [...protocol, `${m}packages/service-jobs/`, `${m}services/`, `${m}ops/cloudflare/`],
+  backend: [...protocol, `${m}packages/service-jobs/`, `${m}services/`, `${m}ops/cloudflare/`, `${m}tools/transparency-cutover/`, `${m}tools/fork-verifier/`, `${m}clients/mesh-cli/`],
   // check.mjs verifies the page's links to the issue forms.
   landing: ['.github/ISSUE_TEMPLATE/', `${m}apps/landing/`],
   // The native inputs match apps/mobile/fingerprint.config.cjs.

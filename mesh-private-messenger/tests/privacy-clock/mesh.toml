@@ -1,0 +1,7 @@
+[package]
+name = "messenger-privacy-clock-test"
+version = "0.1.0"
+
+[dependencies]
+messenger-mobile-core = { path = "../../packages/mobile-core" }
+privacy-edge = { path = "../../services/privacy-edge" }

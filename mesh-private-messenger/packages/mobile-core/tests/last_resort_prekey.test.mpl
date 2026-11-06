@@ -1,3 +1,4 @@
+from Tests.WitnessedSessionFixture import install_witnessed_session_fixtures
 import File
 from MobileCore import (
   age_last_resort_for_test,
@@ -85,6 +86,7 @@ fn proof() -> Bool!String do
     ],
     0,
     Bytes.empty())?)?
+  install_witnessed_session_fixtures([alice_path, carol_path, bob_path])?
   # Every publication carries the same reusable key until it is rotated.
   let reusable = published_last_resort(bob_path)?
   let again = published_last_resort(bob_path)?
@@ -161,6 +163,7 @@ fn rotation() -> Bool!String do
     ],
     0,
     Bytes.empty())?)?
+  install_witnessed_session_fixtures([alice_path, carol_path, dave_path, erin_path, bob_path])?
   let first = published_last_resort(bob_path)?
   # Six days on it is still the same key; a week on the next publication names
   # a new one, and goes on naming it.

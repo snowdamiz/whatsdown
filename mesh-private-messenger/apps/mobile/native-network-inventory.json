@@ -1,0 +1,717 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "name": "@expo/dom-webview",
+      "version": "58.0.2",
+      "integrity": "sha512-bLkREoP7qL3rEuzxP60xG+TjdPoGjbnZfxkvYo5imJxGWfKMOf7x962W06Pu+WWAr4gcDRk16iA+Clg8D0zjCg==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "7a440d665b4cdb992133f0f78e3467b62fc656db70115274a946d7c43dbb464d",
+      "sha256": "8df03a2fdd04d9fa74ad31ce3d030236107c84e6acfc68dfed48441a64b7804d",
+      "sources": 19,
+      "connectionSites": [
+        "android/src/main/java/expo/modules/webview/DomWebView.kt",
+        "android/src/main/java/expo/modules/webview/DomWebViewBrowserScripts.kt",
+        "ios/DomWebView.swift",
+        "ios/DomWebViewBrowserScripts.swift",
+        "ios/DomWebViewModule.swift"
+      ]
+    },
+    {
+      "name": "@expo/log-box",
+      "version": "58.0.12",
+      "integrity": "sha512-IzDYoFY2iUsmSDvl1V7YUM7UkCPDyMVS4e4a38c2LnFc1A3WGMUiQh+vsHLYTPKjIelu4r7/u4V7Gxtfa0oJgA==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "0c7bc48da9d79411992e3353058895f5e7257a07d4c862e6ca9488089d333168",
+      "sha256": "3a19b47adf2748394e52b63f63110e1530a77405a49d1631ccf611f7f6d6734b",
+      "sources": 12,
+      "connectionSites": [
+        "android/src/main/expo/modules/logbox/ExpoLogBoxSurfaceDelegate.kt",
+        "android/src/main/expo/modules/logbox/ExpoLogBoxWebViewWrapper.kt",
+        "ExpoLogBox.podspec",
+        "ios/ExpoLogBox/ExpoLogBoxController.swift",
+        "ios/ExpoLogBox/ExpoLogBoxWebViewWrapper.swift"
+      ]
+    },
+    {
+      "name": "@expo/ui",
+      "version": "58.0.21",
+      "integrity": "sha512-O+8DoGcGKq0/QVkKAndrG26dr4Js5oVgfqhuVP4JpwJVQo/KyEQOBWhXbvmQ+1eG9rxYzRjGPNurYyf4BIbwcA==",
+      "registrations": [
+        "resolve:apple"
+      ],
+      "moduleConfig": "a23e4ebb67a8cf31d8062e5134e0e7a0e47408eebb49e2161911411fff52de23",
+      "sha256": "d6e0650d05078aeb6fc38079b6e7e53de184b48f9688664ca5c07232266ec707",
+      "sources": 241,
+      "connectionSites": [
+        "android/src/main/java/expo/modules/ui/ExpoUIModule.kt",
+        "android/src/main/java/expo/modules/ui/graphics/ImageLoader.kt"
+      ]
+    },
+    {
+      "name": "expo",
+      "version": "58.0.16",
+      "integrity": "sha512-LnWYyk8tYuXkNh4BSEnRhXXDtfPPJBWXOeyVtlnmRskWEyC641eqH3pDvXuX8NF2a6eg0E+rjRbZ94yO3DeM0g==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android",
+        "react-native-config:ios",
+        "react-native-config:android"
+      ],
+      "moduleConfig": "d7fb50f7b76db7d8c28a305db5a115256d6e6103aa68131e3dd6dfdc1e7ccbd2",
+      "sha256": "d34b9311207fce08065e3140b93b3c9969f0508e7423edc9163359ac12703efd",
+      "sources": 59,
+      "connectionSites": [
+        "android/src/main/java/expo/modules/fetch/ExpoFetchModule.kt",
+        "android/src/main/java/expo/modules/fetch/NativeRequest.kt",
+        "android/src/main/java/expo/modules/fetch/OkHttpFileUrlInterceptor.kt",
+        "android/src/main/java/expo/modules/fetch/TransparentCompressionInterceptor.kt",
+        "ios/Expo/ExpoAppDelegate.swift",
+        "ios/Expo/ExpoAppSceneDelegate.swift",
+        "ios/Expo/Fetch/ExpoFetchCustomExtension.swift",
+        "ios/Expo/Fetch/ExpoFetchModule.swift",
+        "ios/Expo/Fetch/ExpoURLSessionTask.swift",
+        "ios/Expo/Fetch/NativeRequest.swift",
+        "ios/Expo/Fetch/NativeResponse.swift",
+        "ios/ExpoObjC/AppDelegates/EXLegacyAppDelegateWrapper.m"
+      ]
+    },
+    {
+      "name": "expo-application",
+      "version": "58.1.2",
+      "integrity": "sha512-WYFdNHGaxe/j69oYREhK0cKsKYszuIuz399WXYCP+M1grfO+FCWB/RbuMgaXJsLWlzqhNjA/zLgfJ+33FwrQvw==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "62233ab9e4a45c8def6533b72813b507b4f771dfe296c09316b5af6def78cde3",
+      "sha256": "2a631e003c6cb66db840ad4e5bcd428d058764a6851e72bfedff580e0e0812d7",
+      "sources": 8,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-asset",
+      "version": "58.0.17",
+      "integrity": "sha512-CDYXjwNoTQh4s00pR99mkbwh6A5/eUDMqKXPoLnuTW6kYKzuQEVxLpOPTj5zg0uYpCA6KAHI294li0roYGMqHQ==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "58c11112e257db494f137e470e4a944d92c861b649bb95e6afafb2a22b5981ed",
+      "sha256": "56f88f23d79689e2dc7070241e7082c1b69570001f87c8f9eacde1e1c55e87c7",
+      "sources": 7,
+      "connectionSites": [
+        "android/src/main/java/expo/modules/asset/OkHttpExtensions.kt",
+        "android/src/main/java/expo/modules/asset/ResourceAsset.kt",
+        "ios/AssetModule.swift"
+      ]
+    },
+    {
+      "name": "expo-camera",
+      "version": "58.0.11",
+      "integrity": "sha512-luFg1Z32EcwMCSes5NdqAKiUmpTjF5lKimRbI38LLOh5ogqFBGhFE8Uokbpd4gsrWs1UABYg+9C9w6tSGqXlCg==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "e45336b79f952065be2bdac75d3ebc7697800a8fb424fa3a50dd3fd4da4cfd66",
+      "sha256": "8d53f4c7e773d41f6158a2c44300396987e03b4024daba0b881e1cb6215b4f07",
+      "sources": 54,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-constants",
+      "version": "58.0.12",
+      "integrity": "sha512-d3/dsps32nU4m6YJQbXQ1dIfn58GxfmJjTnZ0WtnhdSHTdG/oVsOakLqYRlX/FaLUKkQOSHXMf7hyCx+2a/HSQ==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "bee8606b56751fee13ba522b1c6ceb201c2a417b70af3f3b2ff23b56ff6ee84e",
+      "sha256": "dde547c3390f39248bb1379e00785e0a5b708650a7910e6eff37dd3525218093",
+      "sources": 11,
+      "connectionSites": [
+        "ios/EXConstants/ConstantsModule.swift"
+      ]
+    },
+    {
+      "name": "expo-eas-client",
+      "version": "58.0.2",
+      "integrity": "sha512-mhRYnE35MzGxR1Xnl9FAg7/yHaocy4xoVzgsDmS9cbK+1wM6l74/I/73/E4Kr6wChdVZfeS6S+Tv4I1qYbGY2g==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "9cea615c088d38d6bf18e96ed1e3bafa5beae01ba907b1d68d34ca1e58a83252",
+      "sha256": "793a3f4ecf9cb75e62ec1142412646b3225a26bb0021243d36bd490df87c6f3c",
+      "sources": 6,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-file-system",
+      "version": "58.0.10",
+      "integrity": "sha512-n0M7amp/Bv9TAqVfTWq1zGykmQJWiPzDePZIKp8YYKkVvY7N65bo96sMBQlHkhAyW4I1B6MZABnybliy5DXQig==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "5c14bf95cb8ac9ce280f45a4951e1b0b2b49dd81aa6365056483379f7c3b2f8d",
+      "sha256": "846d15ef0ce9b5e4f228a3dea1fd23302ef4410e7b079e2cea95ee6ae5f81633",
+      "sources": 78,
+      "connectionSites": [
+        "android/src/main/java/expo/modules/filesystem/FileSystemDownload.kt",
+        "android/src/main/java/expo/modules/filesystem/FileSystemDownloadTask.kt",
+        "android/src/main/java/expo/modules/filesystem/FileSystemUploadTask.kt",
+        "android/src/main/java/expo/modules/filesystem/legacy/FileSystemExceptions.kt",
+        "android/src/main/java/expo/modules/filesystem/legacy/FileSystemLegacyModule.kt",
+        "ios/FileSystemDownload.swift",
+        "ios/FileSystemDownloadTask.swift",
+        "ios/FileSystemUploadTask.swift",
+        "ios/Legacy/EXSessionTasks/EXSessionCancelableUploadTaskDelegate.h",
+        "ios/Legacy/EXSessionTasks/EXSessionCancelableUploadTaskDelegate.m",
+        "ios/Legacy/EXSessionTasks/EXSessionDownloadTaskDelegate.m",
+        "ios/Legacy/EXSessionTasks/EXSessionHandler.m",
+        "ios/Legacy/EXSessionTasks/EXSessionResumableDownloadTaskDelegate.h",
+        "ios/Legacy/EXSessionTasks/EXSessionResumableDownloadTaskDelegate.m",
+        "ios/Legacy/EXSessionTasks/EXSessionTaskDelegate.h",
+        "ios/Legacy/EXSessionTasks/EXSessionTaskDelegate.m",
+        "ios/Legacy/EXSessionTasks/EXSessionTaskDispatcher.h",
+        "ios/Legacy/EXSessionTasks/EXSessionTaskDispatcher.m",
+        "ios/Legacy/EXSessionTasks/EXSessionUploadTaskDelegate.m",
+        "ios/Legacy/EXSessionTasks/EXTaskHandlersManager.h",
+        "ios/Legacy/EXSessionTasks/EXTaskHandlersManager.m",
+        "ios/Legacy/FileSystemBackgroundSessionHandler.swift",
+        "ios/Legacy/FileSystemLegacyModule.swift",
+        "ios/Legacy/NetworkingHelpers.swift"
+      ]
+    },
+    {
+      "name": "expo-font",
+      "version": "58.0.9",
+      "integrity": "sha512-C8sIeVA2NBb76xqqnQ6eVzfXezAfKJC4qVGU9ukKM4KXdLtkhH5bRCvRSc6qUFUmrcNoM3RjI78SEH3lhigRSg==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "8b03a287350bc7c10c8ed8a35d8a23bed0404414463c12dc1d5c75d83d9a5a13",
+      "sha256": "b4f9b38b7d8187a656632a392b8d26122ca342156e351cc6267eb436fc3243e7",
+      "sources": 20,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-glass-effect",
+      "version": "58.0.4",
+      "integrity": "sha512-PrxU1FINOpqpnjtZMXHAC/APLq3T3fDforMqQ+JRqRtIrlQ8wntrX8IztLxJBKD9s8cJJ8V9MAoI89aYRK8j9Q==",
+      "registrations": [
+        "resolve:apple"
+      ],
+      "moduleConfig": "45deb8681c9b7151a2034069d34241d20932ee3be39d3a4a1e02906dfe333c6b",
+      "sha256": "68409160a67b1f68a1a52bb80724e724ecb544b378742f2495443bc7de88f8fc",
+      "sources": 5,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-image-loader",
+      "version": "58.0.3",
+      "integrity": "sha512-zlHudxC8OObyqCHmvdxJqURI7886KJ0cUJyn7R/a8FOD9fP837xKDN+u4SIt7XsSSVPNXzMd4Y7mN0pmup8NGA==",
+      "registrations": [
+        "resolve:android"
+      ],
+      "moduleConfig": "bb7d0dd266ba884172f3148bb6d04f9ba5498dbb9b992a97ed1e7a98db1d1cba",
+      "sha256": "a5d214c3c68f8efd1d3dbc5749d72fe4c18db5f269d45ce5d243970fa81e95b5",
+      "sources": 3,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-image-manipulator",
+      "version": "58.0.15",
+      "integrity": "sha512-+DGAK+T3Q1W4AJnStC/tM+NufU4wK36Yw7XPyUUCrBkXpdlno7+t2mw+8apBH/WDkrkWSR0v0bwEWFaSAYQy0Q==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "9646c6d46e2a4c4f91d90979f4d61faab2da2bf6f22aea7c55f4c5d700f9919a",
+      "sha256": "86a6b1132a863e0db1c84a2d37c4cfa3325b106fe6e445793322fb21339b1348",
+      "sources": 27,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-image-picker",
+      "version": "58.0.10",
+      "integrity": "sha512-yqQC9UYMWSUxk6U0jaS1vE1w+b9Ru0FJmQ3KjUf9Q9oVg5xBxmg8+Ts+usazMAuPoskNIXJ++VZ+uK6br9yUGQ==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "7ea4c6ead8528e98ae9d1f914b02162dad91512be44f42b265aff3258723d3b9",
+      "sha256": "9120eef47fec29c3f15d4979a3f5761240424710c5d126d6b58675284a41b316",
+      "sources": 34,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-json-utils",
+      "version": "58.0.1",
+      "integrity": "sha512-jNHNElOUPz2/vW3CbDKRn6tTF6eE9wwVbh/Isnqp5c/CdTcONzFVR3YHN3WQ05PnkmieyEqVfeOusOd1X9FDtQ==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "e84c69cb57ae38b59183b454c06b6e7a5f12c56afd177e65332e66b0bf0b1314",
+      "sha256": "55682acff70f04fbc9e39460bb48a011c9e40ef57b9e8e76fefe0a407679b3f4",
+      "sources": 7,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-keep-awake",
+      "version": "58.0.3",
+      "integrity": "sha512-wLRF+XeVsD/Rt/ZyX+A0mk1brdf8vefWizNAPzqV5eOCgkj23LCRZdN8gUi5X8UwyR8UJ7Y7Dzdz4YDGB/4c9Q==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "05a72f56905591cd90988b56aa7f4f0058e78034ad4b870537cc7b29ef8c7e8b",
+      "sha256": "7e5c6c6917feecb33b13921c96c2cef3f4dbd3e862fb59bb73a112c2ac4e44ca",
+      "sources": 6,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-localization",
+      "version": "58.0.5",
+      "integrity": "sha512-2wyZl/5wn95l38AAtdaUAq2VMJWbGbgQQDEuIEkkemmsA/BZ8gS21Nq+7I2X9hDfL5Z+4hlyLVdPtDIH0vvt1A==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "be9d454349186a7486397c098de9068b034ad1516a4bbd9c64dc6b3d61bc6f9f",
+      "sha256": "89319e98632ffe29f8e40a926103153cb1cc4ba5ca369d03941a2595ce553e18",
+      "sources": 6,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-manifests",
+      "version": "58.0.1",
+      "integrity": "sha512-fVeJJ71Fj8FJgcAUggn6QIsm7CTxsXFgekLl4pEPHgON6fmcxog63FGO0sisQ3F6yUWFR4nn8iJmgBp1Exs7ew==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "e84c69cb57ae38b59183b454c06b6e7a5f12c56afd177e65332e66b0bf0b1314",
+      "sha256": "b06dc6eeb0f54e144ff7eb97ae93c08e637a92485db038352bc80614c0c3a790",
+      "sources": 10,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-modules-core",
+      "version": "58.0.23",
+      "integrity": "sha512-jsINDwUJ1ddCGMTQAROPnBHIvCyLFZNJcGT/3iFP5LcP+01edie2ZBx44NEYIPmQLb3Vnz8sC3rKouwo7vj2gQ==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "fa99ce8dedc33adfc84c192bda0f483373d499604a805c403f768306af1291c8",
+      "sha256": "160aec6e3fe59602045a4334f44f29648c6792758c3bb96ba08b3bb060545f8e",
+      "sources": 744,
+      "connectionSites": [
+        "android/src/main/java/expo/modules/kotlin/AppContext.kt",
+        "android/src/main/java/expo/modules/kotlin/devtools/cdp/CdpNetworkTypes.kt",
+        "android/src/main/java/expo/modules/kotlin/devtools/ExpoNetworkInspectOkHttpInterceptors.kt",
+        "android/src/main/java/expo/modules/kotlin/devtools/ExpoRequestCdpInterceptor.kt",
+        "android/src/main/java/expo/modules/kotlin/devtools/OkHttpExtensions.kt",
+        "android/src/main/java/expo/modules/kotlin/okhttp/OkHttpCoroutinesExtensions.kt",
+        "ios/AppDelegates/ExpoAppDelegateSubscriberManager.swift",
+        "ios/DevTools/CdpNetworkTypes.swift",
+        "ios/DevTools/ExpoRequestCdpInterceptor.swift",
+        "ios/DevTools/ExpoRequestInterceptorProtocol.swift",
+        "ios/DevTools/URLAuthenticationChallengeForwardSender.swift",
+        "ios/DevTools/URLRequest+httpBodyData.swift",
+        "ios/DevTools/URLSessionSessionDelegateProxy.swift",
+        "ios/Utilities/EXImageLoader.m"
+      ]
+    },
+    {
+      "name": "expo-modules-jsi",
+      "version": "58.0.16",
+      "integrity": "sha512-+UwXQVGBJDmwCe2MgkeVLdMIXmUjCcmMakRrtlAmA5I7WwAt5QYcbVi3u7Cae9X12xKet9IpXzzJRPz5zM32LA==",
+      "registrations": [
+        "resolve:apple"
+      ],
+      "moduleConfig": "6c4ddaebb61821345b25b1ce1306c972b159d0df3c380a07c9f4a5486a306e9b",
+      "sha256": "cbdaf898e06d51d9f47158c8e97daf92a9d62f8d9f44f91cca997d24381f64cb",
+      "sources": 122,
+      "connectionSites": [
+        "apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift"
+      ]
+    },
+    {
+      "name": "expo-notifications",
+      "version": "58.1.5",
+      "integrity": "sha512-5bf3l+nP/yIadq6v1f3pyOmEk0WRsEaSEcfJdpCXzOyaMwg5YtqR48sMPU0Wg7KESwOtLVtetSH6y3XkGzSiVw==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "e9678ab3bf437ddeddc101181d5af3c8c66673dbfc72d5d91a9257421da20f79",
+      "sha256": "a7dc61b692d00d9787ab21f8167b9f68dcf4f8905d3c368a489294681184e026",
+      "sources": 108,
+      "connectionSites": [
+        "android/src/main/java/expo/modules/notifications/notifications/presentation/builders/DownloadImage.kt"
+      ]
+    },
+    {
+      "name": "expo-splash-screen",
+      "version": "58.0.10",
+      "integrity": "sha512-rjzCLKo7SHSOkaFnVnh+bYWK/pO/vC05qvJe++AjaQidTSGLxD2buj7zWFLlbEEpkqP+wZYQHRyx2mvHyZrUQw==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "39c018768c6b378d9225a51050bb9c2c5d3a86cdddcd6cb7630bf13af9474d58",
+      "sha256": "5731c7fe6e2f81d6df1d0f7336168b03d7774bb11118d91eae491ad7cbe70feb",
+      "sources": 8,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-status-bar",
+      "version": "58.0.3",
+      "integrity": "sha512-+GMLHLA81LB+/m2DteQAN7kvH8unVj3zYGSj8D6Csf+mCrc4P6jJwaSbrz17qTizzEIJ5lv6SuU9Zfyy2vSNoQ==",
+      "registrations": [
+        "resolve:android"
+      ],
+      "moduleConfig": "18b528e32063c86d2d0d570f2ea3b65123a75536dc01f861cdff8817be62c60f",
+      "sha256": "c612cd456630caa38afbe6c04d09afd1a3f6683de3b64c2d9d3d84afa2351480",
+      "sources": 3,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-structured-headers",
+      "version": "58.0.1",
+      "integrity": "sha512-wIduvAIUdGQk82osLjFiYYq3TFHUdG4RgmN+C//EySxn/2PTu0RsJsdgBtXrp/OT3YGeesNgfzb1mFxq5Zhp0g==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "e84c69cb57ae38b59183b454c06b6e7a5f12c56afd177e65332e66b0bf0b1314",
+      "sha256": "5864f33cac0b9357ff9b8e930107b5a4dc90fb59ed662f929ccbb211616cf884",
+      "sources": 23,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-task-manager",
+      "version": "58.0.12",
+      "integrity": "sha512-SLvNkkFJhkHwVzI1xfNiBxS3tNH2zxTUQXVFxpyMXtbc5GRIwRvgv/KYpheV3SjlIqiEh1yy6qG5kMmqKXcsMw==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "c2143e5bb88f4b4d50ba08b5a526d519eaaac4287fd016da5209013ba7d02191",
+      "sha256": "dea7ff989af57972c3b3bae5e4813526913d058ef0d8bd825f09ea74f5f0cb41",
+      "sources": 27,
+      "connectionSites": []
+    },
+    {
+      "name": "expo-updates",
+      "version": "58.0.17",
+      "integrity": "sha512-W8P8JqtMtcPzgGHCRX907+FPgzsLZxd5fNit+Sr58p+wx+zkUw6vCYnwANSQZzvBwhPHXF7V2KCepEIA2xum7w==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "e00a21dcbf4f3a77fe63fb4c7967c401ff2fcc974d174a346fcc5cfa5623e907",
+      "sha256": "63c2d000c0fea0376d17bb6b3bb5b850d692e5e6860f4492392ca84443dfb496",
+      "sources": 216,
+      "connectionSites": [
+        "android/src/main/java/expo/modules/updates/loader/FileDownloader.kt",
+        "android/src/main/java/expo/modules/updates/reloadscreen/ReloadScreenView.kt",
+        "ios/EXUpdates/AppLoader/FileDownloader.swift",
+        "ios/EXUpdates/ReloadScreen/ReloadScreenView.swift",
+        "ios/EXUpdates/ReloadScreen/ReloadScreenViewMacOS.swift"
+      ]
+    },
+    {
+      "name": "expo-updates-interface",
+      "version": "58.0.1",
+      "integrity": "sha512-OF+3BtMXtUsXWDfpHVNus9yHpx7WjMwjxDfeeN9LQBYSq/UtYmNNHBSfzChYTuqljWFSOAHRfsDykV9EB73Wlg==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "e84c69cb57ae38b59183b454c06b6e7a5f12c56afd177e65332e66b0bf0b1314",
+      "sha256": "fdecf602f855e50217f9157f02a91c8574fa6f56c417f0ad957cc74a9c63e887",
+      "sources": 7,
+      "connectionSites": []
+    },
+    {
+      "name": "mesh-messenger",
+      "version": "local",
+      "integrity": null,
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "03cf494e0ad3d85613cfc49c2a70b64e8ef50bbb5b10673bd7368b14c850ebf7",
+      "sha256": "26a4fec1de33eff5118e85d881d1885e2256ea0ee60579b030950e7bb068a264",
+      "sources": 51,
+      "connectionSites": []
+    },
+    {
+      "name": "react-native",
+      "version": "0.88.0",
+      "integrity": "sha512-v/wee0nYWcammMYBnSat/e3WY/5iaf9YQOMcBrfKT/wPApPPlHp94hgZovBtwhMuthR01yc/8cGn0FpFTE/C4A==",
+      "registrations": [
+        "react-native-core"
+      ],
+      "moduleConfig": null,
+      "sha256": "9b780e0221e94f7d23ff49bd6539ae13c9a8736e2b1c47b058312e558545c407",
+      "sources": 2768,
+      "connectionSites": [
+        "Libraries/AppDelegate/RCTAppSetupUtils.mm",
+        "Libraries/AppDelegate/RCTDependencyProvider.h",
+        "Libraries/Blob/RCTBlobManager.h",
+        "Libraries/Blob/RCTBlobManager.mm",
+        "Libraries/Blob/React-RCTBlob.podspec",
+        "Libraries/Image/RCTImageCache.mm",
+        "Libraries/Image/RCTImageDataDecoder.h",
+        "Libraries/Image/RCTImageEditingManager.mm",
+        "Libraries/Image/RCTImageLoader.h",
+        "Libraries/Image/RCTImageLoader.mm",
+        "Libraries/Image/RCTImageLoaderProtocol.h",
+        "Libraries/Image/RCTImageLoaderWithAttributionProtocol.h",
+        "Libraries/Image/RCTImageStoreManager.h",
+        "Libraries/Image/RCTImageStoreManager.mm",
+        "Libraries/LinkingIOS/RCTLinkingManager.h",
+        "Libraries/LinkingIOS/RCTLinkingManager.mm",
+        "Libraries/Network/RCTDataRequestHandler.h",
+        "Libraries/Network/RCTDataRequestHandler.mm",
+        "Libraries/Network/RCTFileRequestHandler.h",
+        "Libraries/Network/RCTFileRequestHandler.mm",
+        "Libraries/Network/RCTHTTPRequestHandler.h",
+        "Libraries/Network/RCTHTTPRequestHandler.mm",
+        "Libraries/Network/RCTInspectorNetworkReporter.h",
+        "Libraries/Network/RCTInspectorNetworkReporter.mm",
+        "Libraries/Network/RCTNetworking.h",
+        "Libraries/Network/RCTNetworking.mm",
+        "Libraries/Network/RCTNetworking+Internal.h",
+        "Libraries/Network/RCTNetworkPlugins.h",
+        "Libraries/Network/RCTNetworkPlugins.mm",
+        "Libraries/Network/RCTNetworkTask.h",
+        "Libraries/Network/RCTNetworkTask.mm",
+        "Libraries/WebSocket/RCTReconnectingWebSocket.h",
+        "Libraries/WebSocket/RCTReconnectingWebSocket.m",
+        "React/Base/RCTBridge.mm",
+        "React/Base/RCTBundleURLProvider.mm",
+        "React/Base/RCTConvert.h",
+        "React/Base/RCTConvert.mm",
+        "React/Base/RCTDevSupportHttpHeaders.h",
+        "React/Base/RCTDevSupportHttpHeaders.m",
+        "React/Base/RCTImageSource.h",
+        "React/Base/RCTImageSource.m",
+        "React/Base/RCTMultipartDataTask.h",
+        "React/Base/RCTMultipartDataTask.m",
+        "React/Base/RCTURLRequestDelegate.h",
+        "React/Base/RCTURLRequestHandler.h",
+        "React/CoreModules/CoreModulesPlugins.h",
+        "React/CoreModules/CoreModulesPlugins.mm",
+        "React/CoreModules/RCTInspectorWebSocketReporter.h",
+        "React/CoreModules/RCTInspectorWebSocketReporter.mm",
+        "React/CoreModules/RCTRedBox.mm",
+        "React/CoreModules/RCTRedBoxHMRClient.mm",
+        "React/CoreModules/RCTRedBoxHMRClient+Internal.h",
+        "React/CoreModules/RCTWebSocketModule.h",
+        "React/CoreModules/RCTWebSocketModule.mm",
+        "React/DevSupport/RCTInspectorDevServerHelper.mm",
+        "React/DevSupport/RCTInspectorNetworkHelper.h",
+        "React/DevSupport/RCTInspectorNetworkHelper.mm",
+        "React/DevSupport/RCTPackagerClient.h",
+        "React/DevSupport/RCTPackagerClient.m",
+        "React/DevSupport/RCTPackagerConnection.mm",
+        "React/FBReactNativeSpec/FBReactNativeSpec/FBReactNativeSpec-generated.mm",
+        "React/FBReactNativeSpec/FBReactNativeSpec/FBReactNativeSpec.h",
+        "React/FBReactNativeSpec/FBReactNativeSpecJSI.h",
+        "React/Inspector/RCTCxxInspectorPackagerConnection.mm",
+        "React/Inspector/RCTCxxInspectorPackagerConnectionDelegate.h",
+        "React/Inspector/RCTCxxInspectorPackagerConnectionDelegate.mm",
+        "React/Inspector/RCTCxxInspectorWebSocketAdapter.h",
+        "React/Inspector/RCTCxxInspectorWebSocketAdapter.mm",
+        "React/Profiler/RCTProfile.m",
+        "React-Core.podspec",
+        "React.podspec",
+        "ReactAndroid/src/main/java/com/facebook/react/common/network/OkHttpCallUtil.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/devsupport/BundleDownloader.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/devsupport/CxxInspectorPackagerConnection.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/devsupport/DevServerHelper.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/devsupport/inspector/DevSupportHttpClient.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/devsupport/PackagerStatusCheck.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/fabric/mounting/mountitems/FabricNameComponentMapping.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/internal/featureflags/ReactNativeFeatureFlags.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/internal/featureflags/ReactNativeFeatureFlagsCxxAccessor.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/internal/featureflags/ReactNativeFeatureFlagsCxxInterop.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/internal/featureflags/ReactNativeFeatureFlagsDefaults.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/internal/featureflags/ReactNativeFeatureFlagsLocalAccessor.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/internal/featureflags/ReactNativeFeatureFlagsOverrides_RNOSS_Canary_Android.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/internal/featureflags/ReactNativeFeatureFlagsProvider.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/blob/BlobModule.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/fresco/FrescoModule.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/fresco/ImageCacheControl.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/fresco/ReactOkHttpNetworkFetcher.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/intent/IntentModule.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/network/CustomClientBuilder.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/network/ForwardingCookieHandler.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/network/HeaderUtil.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/network/InspectorNetworkReporter.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/network/NetworkingModule.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/network/OkHttpClientFactory.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/network/OkHttpClientProvider.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/modules/websocket/WebSocketModule.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/packagerconnection/JSPackagerClient.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/packagerconnection/ReconnectingWebSocket.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/shell/MainReactPackage.kt",
+        "ReactAndroid/src/main/java/com/facebook/react/uimanager/ReactAccessibilityDelegate.kt",
+        "ReactAndroid/src/main/jni/react/devsupport/JCxxInspectorPackagerConnectionDelegateImpl.cpp",
+        "ReactAndroid/src/main/jni/react/devsupport/JCxxInspectorPackagerConnectionDelegateImpl.h",
+        "ReactAndroid/src/main/jni/react/devsupport/JCxxInspectorPackagerConnectionWebSocket.cpp",
+        "ReactAndroid/src/main/jni/react/devsupport/JCxxInspectorPackagerConnectionWebSocket.h",
+        "ReactAndroid/src/main/jni/react/devsupport/JCxxInspectorPackagerConnectionWebSocketDelegate.cpp",
+        "ReactAndroid/src/main/jni/react/devsupport/JCxxInspectorPackagerConnectionWebSocketDelegate.h",
+        "ReactAndroid/src/main/jni/react/devsupport/JInspectorNetworkReporter.cpp",
+        "ReactAndroid/src/main/jni/react/devsupport/JInspectorNetworkReporter.h",
+        "ReactAndroid/src/main/jni/react/devsupport/OnLoad.cpp",
+        "ReactAndroid/src/main/jni/react/featureflags/JReactNativeFeatureFlagsCxxInterop.cpp",
+        "ReactAndroid/src/main/jni/react/featureflags/JReactNativeFeatureFlagsCxxInterop.h",
+        "ReactCommon/jsinspector-modern/InspectorPackagerConnection.cpp",
+        "ReactCommon/jsinspector-modern/InspectorPackagerConnection.h",
+        "ReactCommon/jsinspector-modern/InspectorPackagerConnectionImpl.h",
+        "ReactCommon/jsinspector-modern/network/CdpNetwork.cpp",
+        "ReactCommon/jsinspector-modern/network/CdpNetwork.h",
+        "ReactCommon/jsinspector-modern/network/NetworkHandler.cpp",
+        "ReactCommon/jsinspector-modern/network/NetworkHandler.h",
+        "ReactCommon/jsinspector-modern/WebSocketInterfaces.h",
+        "ReactCommon/react/featureflags/ReactNativeFeatureFlags.cpp",
+        "ReactCommon/react/featureflags/ReactNativeFeatureFlags.h",
+        "ReactCommon/react/featureflags/ReactNativeFeatureFlagsAccessor.cpp",
+        "ReactCommon/react/featureflags/ReactNativeFeatureFlagsAccessor.h",
+        "ReactCommon/react/featureflags/ReactNativeFeatureFlagsDefaults.h",
+        "ReactCommon/react/featureflags/ReactNativeFeatureFlagsDynamicProvider.h",
+        "ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSCanary.h",
+        "ReactCommon/react/featureflags/ReactNativeFeatureFlagsProvider.h",
+        "ReactCommon/react/nativemodule/featureflags/NativeReactNativeFeatureFlags.cpp",
+        "ReactCommon/react/nativemodule/featureflags/NativeReactNativeFeatureFlags.h",
+        "ReactCommon/react/networking/NetworkReporter.cpp",
+        "ReactCommon/react/networking/NetworkReporter.h",
+        "ReactCommon/react/renderer/imagemanager/platform/ios/react/renderer/imagemanager/RCTImageManager.mm",
+        "ReactCommon/react/renderer/imagemanager/platform/ios/react/renderer/imagemanager/RCTImagePrimitivesConversions.h",
+        "ReactCommon/react/renderer/imagemanager/platform/ios/react/renderer/imagemanager/RCTSyncImageManager.mm"
+      ]
+    },
+    {
+      "name": "react-native-keyboard-controller",
+      "version": "1.22.7",
+      "integrity": "sha512-IBR9z6Nl/iDLRfiv1zN9QQroOXAwYMugeAjVDb+CFbRBNC8fayXlHTBbshVcWc4j95Itsv+1/FgwfxKnIn1Vmg==",
+      "registrations": [
+        "react-native-config:ios",
+        "react-native-config:android"
+      ],
+      "moduleConfig": null,
+      "sha256": "4e332f6178c460c52b5e8bdf009bfd09f786a5e82c2a10ccb1fc0bc2071013cf",
+      "sources": 170,
+      "connectionSites": []
+    },
+    {
+      "name": "react-native-reanimated",
+      "version": "4.7.1",
+      "integrity": "sha512-HviDFSZ6V4KTRsrLS6hRbBJ4j63l/L8a5az0EoWdJwaMLYnBNyYISTDxwXpEYkMbAbLzCMCviIdiOxXHYQWcNA==",
+      "registrations": [
+        "react-native-config:ios",
+        "react-native-config:android"
+      ],
+      "moduleConfig": null,
+      "sha256": "bfa71a30f3a7f4551264c2c7e82caf00a656b37cd5464600bf335a84a0855161",
+      "sources": 346,
+      "connectionSites": []
+    },
+    {
+      "name": "react-native-safe-area-context",
+      "version": "5.10.1",
+      "integrity": "sha512-ax0T3cAHQIhuAjDQpJ9C1Le96aRiM9PF+Kmgg7Y8+mD7QJMEIx04cG0eG3EGUTdvymgOkCrkakgZFwuOIuNQGw==",
+      "registrations": [
+        "react-native-config:ios",
+        "react-native-config:android"
+      ],
+      "moduleConfig": null,
+      "sha256": "06857ff4f905fd55339f2b046b03a0d39b94f7872f512ce60d2ebc9d61146f9e",
+      "sources": 61,
+      "connectionSites": []
+    },
+    {
+      "name": "react-native-svg",
+      "version": "15.16.0",
+      "integrity": "sha512-uh8yktufYeRU3W9Omi8+SPyLF9BVN4JmLflSgc9oOcKkSKk/S5JUmmTjKZq/L8GHfQUtCvcu/W6X4xhEfBBAjQ==",
+      "registrations": [
+        "react-native-config:ios",
+        "react-native-config:android"
+      ],
+      "moduleConfig": null,
+      "sha256": "6d2de9d0e84ee922c0719b309a095f759a3bad068683ba8ee7b88736dedfde02",
+      "sources": 463,
+      "connectionSites": [
+        "apple/Elements/RNSVGImage.mm"
+      ]
+    },
+    {
+      "name": "react-native-worklets",
+      "version": "0.13.0",
+      "integrity": "sha512-1OrhAeAKaZF4XrBa4YbPQbKzNOpjh52HDlId8e6ete1OCHNdAlrQHzG4gznJ225EAj3dgQXHViJvK51M9B52jQ==",
+      "registrations": [
+        "react-native-config:ios",
+        "react-native-config:android"
+      ],
+      "moduleConfig": null,
+      "sha256": "ebdc1483da7270b867369a297f189f47512594eb1b8f7fbb108a5a9d0c16724b",
+      "sources": 164,
+      "connectionSites": [
+        "android/src/main/java/com/swmansion/worklets/networking/Networking.kt",
+        "android/src/main/java/com/swmansion/worklets/ScriptBufferWrapper.kt",
+        "apple/worklets/apple/Networking/AppleNetworkingBackend.h",
+        "apple/worklets/apple/Networking/AppleNetworkingBackend.mm",
+        "apple/worklets/apple/Networking/WorkletsURLSessionDelegate.h",
+        "apple/worklets/apple/Networking/WorkletsURLSessionDelegate.mm",
+        "apple/worklets/apple/ScriptLoader.mm"
+      ]
+    },
+    {
+      "name": "unimodules-app-loader",
+      "version": "58.0.2",
+      "integrity": "sha512-d7vZN9/awIwPCqzfw1qR/geJEzv3ElW0VdwXFnPw29QZYoAZI0jqXGKPZVG1vQCfhEiWJtBX/nVm1XI8wshrDg==",
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "a3cd511ba42951b7973acec3fc910cfedec3c9c807a0160ac72dadf699b02371",
+      "sha256": "d34a615cddcc8e3ec18d8afe3d1f781bc89992418aaad5dacf0b19082182c5bf",
+      "sources": 7,
+      "connectionSites": []
+    }
+  ],
+  "desktopHost": {
+    "sha256": "ee22dfae695d211c168b2a78f7df631d92c614e8d54658196d72e4c8e6378097",
+    "sources": 9,
+    "connectionSites": []
+  },
+  "controls": {
+    "apps/mobile/package-lock.json": "f28ece85921491203e2276bdaec3059d015d88d526e4cd00c7e1bc0cc9e3dd7d",
+    "apps/desktop/src-tauri/Cargo.lock": "9dfd3cfca7f72e0d4e662770bbc76a8ddb9e655a1b516129205d8e814090208c",
+    "apps/desktop/src-tauri/Cargo.toml": "b57e32417e26d50f88de21cc853eabf2a966c99f4dd9a0a80df5470f8de1a5f0",
+    "apps/desktop/src-tauri/tauri.conf.json": "4d395191806a36e09535ea2265077ab0819c0d65efe4057410dbef7c3ab197ec",
+    "apps/desktop/src-tauri/src/ipc-postmessage.js": "7a6e5f2e2967d1877d456c0dec15b29b34e2accfa6416fcdb7389f908103bca0",
+    "apps/mobile/index.ts": "03773dee2995870476e2d2a8563dd6d5e691626172bca4f6aae6d0c8538250df",
+    "apps/mobile/src/network-lockdown.ts": "15e03eeabe1227a8b56eda405997640b45372e6642e4802943a0982e4837dc68",
+    "apps/mobile/src/network-lockdown-bootstrap.ts": "6da5f5860e34acfb01d0c4edf3d01ba3d82099ac3e5cf94fd63626bc9d9f06ac",
+    "apps/mobile/modules/mesh-messenger/index.ts": "077c3a7c7a0186780c05b7ea90e21a181c76fd216575ecb0a2f79c4d8e62ff03",
+    "apps/mobile/modules/mesh-messenger/index.web.ts": "a4d299090b079755389ed6dfca75650a254abd03236450486f0cdccb6eacac96"
+  }
+}

@@ -4,19 +4,17 @@ export type PushActionOperations = {
   poll: () => Promise<Uint8Array>;
   complete: (action: Uint8Array, outcome: 0 | 1) => Promise<Uint8Array>;
   requestPermission: () => Promise<void>;
-  prime: () => Promise<void>;
-  clear: () => Promise<void>;
-  sendBind: (wire: Uint8Array) => Promise<void>;
-  sendUnbind: (wire: Uint8Array) => Promise<void>;
+  prime: (action: Uint8Array) => Promise<void>;
+  clear: (action: Uint8Array) => Promise<void>;
+  send: (action: Uint8Array) => Promise<Uint8Array>;
 };
 
 type PushAction =
   | { kind: 0; status: PushStatus; surfaceError: boolean }
-  | { kind: 1 | 2 | 5 }
-  | { kind: 3 | 4; wire: Uint8Array };
+  | { kind: 1 | 2 | 3 | 4 | 5 };
 
 const HEADER_LENGTH = 18;
-const MAX_WIRE_LENGTH = 725;
+const TICKET_LENGTH = 32;
 const MAX_STEPS = 16;
 const STATUS: readonly PushStatus[] = [
   'disabled',
@@ -32,8 +30,8 @@ function invalidPushAction(): never {
 function parsePushAction(frame: Uint8Array): PushAction {
   if (
     frame.length < HEADER_LENGTH ||
-    frame.length > HEADER_LENGTH + MAX_WIRE_LENGTH ||
-    frame[0] !== 1 ||
+    frame.length > HEADER_LENGTH + TICKET_LENGTH ||
+    frame[0] !== 2 ||
     frame[1] !== 0x50 ||
     frame[2] !== 0x46 ||
     frame[3] !== 0x41
@@ -57,26 +55,23 @@ function parsePushAction(frame: Uint8Array): PushAction {
     return { kind, status, surfaceError: flags === 1 };
   }
   if (flags !== 0) return invalidPushAction();
-  if (kind === 1 || kind === 2 || kind === 5) {
-    if (payload.length !== 0) return invalidPushAction();
-    return { kind };
-  }
-  if (kind === 3 || kind === 4) {
-    if (payload.length === 0) return invalidPushAction();
-    return { kind, wire: payload };
+  if (kind >= 1 && kind <= 5) {
+    if (payload.length !== TICKET_LENGTH || !frame.subarray(6, 14).some(byte => byte !== 0)) {
+      return invalidPushAction();
+    }
+    return { kind: kind as 1 | 2 | 3 | 4 | 5 };
   }
   return invalidPushAction();
 }
 
 async function performPushAction(
-  action: Exclude<PushAction, { kind: 0 }>,
+  action: { kind: 1 | 2 | 5 },
   operations: PushActionOperations,
+  frame: Uint8Array,
 ): Promise<void> {
   if (action.kind === 1) return operations.requestPermission();
-  if (action.kind === 2) return operations.prime();
-  if (action.kind === 3) return operations.sendBind(action.wire);
-  if (action.kind === 4) return operations.sendUnbind(action.wire);
-  return operations.clear();
+  if (action.kind === 2) return operations.prime(frame);
+  return operations.clear(frame);
 }
 
 export async function executePushActions(operations: PushActionOperations): Promise<PushStatus> {
@@ -92,9 +87,13 @@ export async function executePushActions(operations: PushActionOperations): Prom
       return action.status;
     }
     latestError = undefined;
+    if (action.kind === 3 || action.kind === 4) {
+      frame = await operations.send(frame);
+      continue;
+    }
     let outcome: 0 | 1 = 0;
     try {
-      await performPushAction(action, operations);
+      await performPushAction({ kind: action.kind }, operations, frame);
     } catch (error) {
       latestError = error;
       outcome = 1;

@@ -8,6 +8,12 @@
 ##! credential for exactly those keys.
 
 from Identity.Device import DeviceKeys
+from Protocol.Capabilities import (
+  supports_ach3,
+  supports_attachment_buckets,
+  supports_header_encryption,
+  supports_group_expiry
+)
 from Prekeys.Bundle import (
   PostQuantumPrekeySecrets,
   PrekeyError,
@@ -26,9 +32,11 @@ from Protocol.WirePrimitives import (
   protocol_require_end,
   protocol_take_fixed,
   protocol_take_u64,
+  protocol_take_u32,
   protocol_take_u8,
   protocol_valid_magic,
-  protocol_write_u64
+  protocol_write_u64,
+  protocol_write_u32
 )
 
 pub struct RenewalRequest do
@@ -40,6 +48,7 @@ pub struct RenewalRequest do
   expires_at :: U64
   signed_prekey_signature :: Bytes
   post_quantum_prekey :: Bytes
+  requested_capabilities :: Option<U64>
   signature :: Bytes
 end
 
@@ -61,7 +70,7 @@ fn renewal_zeroes(length :: Int) -> Bytes!ProtocolError do
 end
 
 pub fn encode_renewal_request(value :: RenewalRequest) -> Bytes!ProtocolError do
-  if value.version != 1 do
+  if value.version != 1 && value.version != 2 do
     Err(UnsupportedVersion)
   else if Bytes.length(value.account_id) != 32
     || Bytes.length(value.device_id) != 16
@@ -73,6 +82,18 @@ pub fn encode_renewal_request(value :: RenewalRequest) -> Bytes!ProtocolError do
   else if protocol_is_zero(value.signed_prekey_id) do
     Err(InvalidFieldLength)
   else
+    let capabilities = case value.requested_capabilities do
+      None -> if value.version == 1 do
+        Ok(Bytes.empty())
+      else
+        Err(InvalidFieldLength)
+      end
+      Some(mask) -> if value.version == 2 do
+        protocol_write_u32(mask)
+      else
+        Err(InvalidFieldLength)
+      end
+    end?
     protocol_join([
         protocol_byte(value.version)?,
         Bytes.from_utf8("RNW"),
@@ -83,6 +104,7 @@ pub fn encode_renewal_request(value :: RenewalRequest) -> Bytes!ProtocolError do
         protocol_write_u64(value.expires_at)?,
         value.signed_prekey_signature,
         value.post_quantum_prekey,
+        capabilities,
         value.signature
       ],
       0,
@@ -91,8 +113,8 @@ pub fn encode_renewal_request(value :: RenewalRequest) -> Bytes!ProtocolError do
 end
 
 pub fn decode_renewal_request(input :: Bytes) -> RenewalRequest!ProtocolError do
-  let version = protocol_take_u8(protocol_open(input, 1412)?)?
-  if version.value != 1 do
+  let version = protocol_take_u8(protocol_open(input, 1416)?)?
+  if version.value != 1 && version.value != 2 do
     Err(UnsupportedVersion)
   else
     let magic = protocol_take_fixed(version.state, 3)?
@@ -104,7 +126,13 @@ pub fn decode_renewal_request(input :: Bytes) -> RenewalRequest!ProtocolError do
     let expires_at = protocol_take_u64(signed_prekey.state)?
     let signed_prekey_signature = protocol_take_fixed(expires_at.state, 64)?
     let post_quantum_prekey = protocol_take_fixed(signed_prekey_signature.state, 1184)?
-    let signature = protocol_take_fixed(post_quantum_prekey.state, 64)?
+    let (requested_capabilities, signature_state) = if version.value == 1 do
+      (None, post_quantum_prekey.state)
+    else
+      let mask = protocol_take_u32(post_quantum_prekey.state)?
+      (Some(mask.value), mask.state)
+    end
+    let signature = protocol_take_fixed(signature_state, 64)?
     protocol_require_end(signature.state)?
     let value = RenewalRequest {
       version: version.value,
@@ -115,6 +143,7 @@ pub fn decode_renewal_request(input :: Bytes) -> RenewalRequest!ProtocolError do
       expires_at: expires_at.value,
       signed_prekey_signature: signed_prekey_signature.value,
       post_quantum_prekey: post_quantum_prekey.value,
+      requested_capabilities: requested_capabilities,
       signature: signature.value
     }
     encode_renewal_request(value)?
@@ -146,8 +175,103 @@ pub fn issue_renewal_request(device :: borrow DeviceKeys,
   credential :: DeviceCredential,
   next_signed :: borrow SignedPrekeySecrets,
   next_post_quantum :: borrow PostQuantumPrekeySecrets) -> RenewalRequest!PrekeyError do
+  issue_request(device, credential, next_signed, next_post_quantum, None)
+end
+
+# The device explicitly signs the ACH3 claim. Other existing bits are retained.
+pub fn issue_ach3_renewal_request(device :: borrow DeviceKeys,
+  credential :: DeviceCredential,
+  next_signed :: borrow SignedPrekeySecrets,
+  next_post_quantum :: borrow PostQuantumPrekeySecrets) -> RenewalRequest!PrekeyError do
+  issue_request(device,
+    credential,
+    next_signed,
+    next_post_quantum,
+    Some(ach3_mask(credential.capabilities)?))
+end
+
+# The device signs the precise next reader capability; account renewal may not
+# infer support from keys, version strings or an unsigned caller claim.
+pub fn issue_attachment_buckets_renewal_request(device :: borrow DeviceKeys,
+  credential :: DeviceCredential,
+  next_signed :: borrow SignedPrekeySecrets,
+  next_post_quantum :: borrow PostQuantumPrekeySecrets) -> RenewalRequest!PrekeyError do
+  issue_request(device,
+    credential,
+    next_signed,
+    next_post_quantum,
+    Some(attachment_buckets_mask(credential.capabilities)?))
+end
+
+pub fn issue_group_expiry_renewal_request(device :: borrow DeviceKeys,
+  credential :: DeviceCredential,
+  next_signed :: borrow SignedPrekeySecrets,
+  next_post_quantum :: borrow PostQuantumPrekeySecrets) -> RenewalRequest!PrekeyError do
+  issue_request(device,
+    credential,
+    next_signed,
+    next_post_quantum,
+    Some(group_expiry_mask(credential.capabilities)?))
+end
+
+fn group_expiry_mask(previous :: U64) -> U64!PrekeyError do
+  let mask = attachment_buckets_mask(previous)?
+  if supports_group_expiry(mask) do
+    Ok(mask)
+  else
+    let sixteen = case U64.parse("16") do
+      Err(_) -> return Err(InvalidBundle)
+      Ok(value) -> value
+    end
+    case U64.add(mask, sixteen) do
+      Err(_) -> Err(InvalidBundle)
+      Ok(value)
+    end
+  end
+end
+
+fn attachment_buckets_mask(previous :: U64) -> U64!PrekeyError do
+  let mask = ach3_mask(previous)?
+  if supports_attachment_buckets(mask) do
+    Ok(mask)
+  else
+    let four = case U64.parse("4") do
+      Err(_) -> return Err(InvalidBundle)
+      Ok(value) -> value
+    end
+    case U64.add(mask, four) do
+      Err(_) -> Err(InvalidBundle)
+      Ok(value)
+    end
+  end
+end
+
+fn ach3_mask(previous :: U64) -> U64!PrekeyError do
+  if supports_ach3(previous) do
+    Ok(previous)
+  else
+    let two = case U64.parse("2") do
+      Err(_) -> return Err(InvalidBundle)
+      Ok(value) -> value
+    end
+    case U64.add(previous, two) do
+      Err(_) -> Err(InvalidBundle)
+      Ok(value)
+    end
+  end
+end
+
+fn issue_request(device :: borrow DeviceKeys,
+  credential :: DeviceCredential,
+  next_signed :: borrow SignedPrekeySecrets,
+  next_post_quantum :: borrow PostQuantumPrekeySecrets,
+  capabilities :: Option<U64>) -> RenewalRequest!PrekeyError do
   let unsigned = RenewalRequest {
-    version: 1,
+    version: if Option.is_some(capabilities) do
+      2
+    else
+      1
+    end,
     account_id: credential.account_id,
     device_id: credential.device_id,
     signed_prekey_id: next_signed.id,
@@ -155,6 +279,7 @@ pub fn issue_renewal_request(device :: borrow DeviceKeys,
     expires_at: next_signed.expires_at,
     signed_prekey_signature: next_signed.signature.bytes,
     post_quantum_prekey: next_post_quantum.public_key.bytes,
+    requested_capabilities: capabilities,
     signature: case renewal_zeroes(64) do
       Err(error) -> Err(ProtocolFailure(error))
       Ok(value)
@@ -170,11 +295,56 @@ pub fn issue_renewal_request(device :: borrow DeviceKeys,
   end
 end
 
+fn capability_request_valid(credential :: DeviceCredential, request :: RenewalRequest) -> Bool do
+  case request.requested_capabilities do
+    None -> request.version == 1
+    Some(mask) -> request.version == 2
+      && (case ach3_mask(credential.capabilities) do
+        Err(_) -> false
+        Ok(expected) -> U64.compare(mask, expected) == 0
+      end
+        || case attachment_buckets_mask(credential.capabilities) do
+          Err(_) -> false
+          Ok(expected) -> U64.compare(mask, expected) == 0
+        end
+        || case header_encryption_mask(credential.capabilities) do
+          Err(_) -> false
+          Ok(expected) -> U64.compare(mask, expected) == 0
+        end
+        || case group_expiry_mask(credential.capabilities) do
+          Err(_) -> false
+          Ok(expected) -> U64.compare(mask, expected) == 0
+        end
+        || case current_readers_mask(credential.capabilities) do
+          Err(_) -> false
+          Ok(expected) -> U64.compare(mask, expected) == 0
+        end)
+  end
+end
+
+# Legacy requests never change the capability mask. A v2 claim is accepted only
+# after authenticating the exact device-signed request against its old credential.
+pub fn renewal_request_capabilities(credential :: DeviceCredential,
+  request :: RenewalRequest) -> U64!PrekeyError do
+  case request.requested_capabilities do
+    None -> if request.version == 1 do
+      Ok(credential.capabilities)
+    else
+      Err(InvalidBundle)
+    end
+    Some(mask) -> if verify_renewal_request(credential, request) do
+      Ok(mask)
+    else
+      Err(InvalidBundle)
+    end
+  end
+end
+
 ## A request made by the device this credential names, with its device key,
 ## for a signed prekey that device signed for the hybrid suite.
 
 pub fn verify_renewal_request(credential :: DeviceCredential, request :: RenewalRequest) -> Bool do
-  let names_device = request.version == 1
+  let names_device = capability_request_valid(credential, request)
     && Bytes.secure_equals(request.account_id, credential.account_id)
     && Bytes.secure_equals(request.device_id, credential.device_id)
   if !names_device || Bytes.length(credential.signing_public_key) != 32 do
@@ -201,7 +371,8 @@ pub fn verify_renewal_request(credential :: DeviceCredential, request :: Renewal
 end
 
 # The request travels as bundle extensions 1 and 2: one extension holds at
-# most 1,024 bytes and a request is 1,412. No other extension uses them.
+# most 1,024 bytes; v1 requests are 1,412 bytes and v2 requests 1,416.
+# No other extension uses them.
 
 fn renewal_extension_id(id :: Int) -> Bool do
   id == 1 || id == 2
@@ -298,7 +469,12 @@ end
 
 pub fn renewed_prekey_bundle(credential :: DeviceCredential,
   request :: RenewalRequest) -> PrekeyBundle!PrekeyError do
-  let answers = credential.suite == 2
+  let capabilities_match = case request.requested_capabilities do
+    None -> request.version == 1
+    Some(mask) -> request.version == 2 && U64.compare(credential.capabilities, mask) == 0
+  end
+  let answers = capabilities_match
+    && credential.suite == 2
     && Bytes.secure_equals(credential.account_id, request.account_id)
     && Bytes.secure_equals(credential.device_id, request.device_id)
     && Bytes.secure_equals(credential.post_quantum_public_key, request.post_quantum_prekey)
@@ -360,6 +536,29 @@ end
 # original upgrade), or brings a newer signed prekey. One older than the
 # credential held is a replay of an entry already superseded.
 
+fn capability_answer_allowed(stored :: PrekeyBundle,
+  stored_credential :: DeviceCredential,
+  proposed :: PrekeyBundle,
+  proposed_credential :: DeviceCredential) -> Bool do
+  case bundle_renewal_request(stored) do
+    Ok(Some(request)) -> if request.version == 2 do
+      verify_renewal_request(stored_credential, request)
+        && case request.requested_capabilities do
+          None -> false
+          Some(mask) -> U64.compare(mask, proposed_credential.capabilities) == 0
+        end
+        && U64.compare(request.signed_prekey_id, proposed.signed_prekey_id) == 0
+        && Bytes.secure_equals(request.signed_prekey, proposed.signed_prekey)
+        && U64.compare(request.expires_at, proposed.expires_at) == 0
+        && Bytes.secure_equals(request.signed_prekey_signature, proposed.signed_prekey_signature)
+        && Bytes.secure_equals(request.post_quantum_prekey, proposed.post_quantum_prekey)
+    else
+      U64.compare(stored_credential.capabilities, proposed_credential.capabilities) == 0
+    end
+    _ -> U64.compare(stored_credential.capabilities, proposed_credential.capabilities) == 0
+  end
+end
+
 fn credential_transition(stored :: PrekeyBundle,
   stored_credential :: DeviceCredential,
   proposed :: PrekeyBundle,
@@ -370,7 +569,8 @@ fn credential_transition(stored :: PrekeyBundle,
     TransitionReplayed
   else if U64.compare(proposed_credential.directory_sequence, next_sequence) != 0
     || proposed_credential.suite < stored_credential.suite
-    || carries_request(proposed) do
+    || carries_request(proposed)
+    || !capability_answer_allowed(stored, stored_credential, proposed, proposed_credential) do
     TransitionRefused
   else
     let same_signed_prekey = U64.compare(stored.signed_prekey_id, proposed.signed_prekey_id) == 0
@@ -472,4 +672,48 @@ pub fn classify_bundle_transition(stored :: PrekeyBundle,
         next_sequence)
     end
   end
+end
+
+pub fn issue_header_encryption_renewal_request(device :: borrow DeviceKeys,
+  credential :: DeviceCredential,
+  next_signed :: borrow SignedPrekeySecrets,
+  next_post_quantum :: borrow PostQuantumPrekeySecrets) -> RenewalRequest!PrekeyError do
+  issue_request(device,
+    credential,
+    next_signed,
+    next_post_quantum,
+    Some(header_encryption_mask(credential.capabilities)?))
+end
+
+fn header_encryption_mask(previous :: U64) -> U64!PrekeyError do
+  let previous = attachment_buckets_mask(previous)?
+  if supports_header_encryption(previous) do
+    Ok(previous)
+  else
+    let eight = case U64.parse("8") do
+      Err(_) -> Err(InvalidBundle)
+      Ok(value)
+    end?
+    case U64.add(previous, eight) do
+      Err(_) -> Err(InvalidBundle)
+      Ok(value)
+    end
+  end
+end
+
+# Request all readers implemented by current Morse, retaining existing bits.
+# Historical header-only and group-only request methods remain available.
+pub fn issue_current_readers_renewal_request(device :: borrow DeviceKeys,
+  credential :: DeviceCredential,
+  next_signed :: borrow SignedPrekeySecrets,
+  next_post_quantum :: borrow PostQuantumPrekeySecrets) -> RenewalRequest!PrekeyError do
+  issue_request(device,
+    credential,
+    next_signed,
+    next_post_quantum,
+    Some(current_readers_mask(credential.capabilities)?))
+end
+
+fn current_readers_mask(previous :: U64) -> U64!PrekeyError do
+  group_expiry_mask(header_encryption_mask(previous)?)
 end

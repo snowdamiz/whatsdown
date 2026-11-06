@@ -1,0 +1,28 @@
+{
+  "abiVersion": 1,
+  "artifact": "libaudience.a",
+  "exports": [
+    {
+      "maxInputBytes": 8,
+      "maxOutputBytes": 8,
+      "meshFunction": "public_echo",
+      "request": "bytes",
+      "response": "result<bytes,string>",
+      "symbol": "audience_public"
+    },
+    {
+      "bindingAudience": "native",
+      "maxInputBytes": 8,
+      "maxOutputBytes": 8,
+      "meshFunction": "native_echo",
+      "request": "bytes",
+      "response": "result<bytes,string>",
+      "symbol": "audience_native"
+    }
+  ],
+  "ownership": {
+    "request": "borrowed-for-call",
+    "response": "caller-owned; release with mesh_library_free_returned_bytes"
+  },
+  "target": "aarch64-apple-darwin"
+}

@@ -1,0 +1,174 @@
+from Api.Binary import claim_prekey_request, publish_prekeys_request
+from Identity.Device import generate_account, generate_device, issue_device_credential
+from Prekeys.Bundle import build_prekey_bundle, generate_one_time_prekey, generate_signed_prekey
+from Prekeys.Pool import (
+  OneTimePrekeyPublic,
+  PrekeyClaimRequest,
+  PrekeyPublishRequest,
+  encode_prekey_claim,
+  encode_prekey_publish,
+  prekey_publish_signing_bytes
+)
+from Protocol.IdentityWire import encode_account_identity
+from Protocol.PrekeyWire import encode_prekey_bundle, decode_prekey_bundle
+from Protocol.V1 import DirectoryEntry
+from Storage.Devices import DeviceWrite, register_device, resolve_devices
+from Storage.Prekeys import prune_consumed_prekeys
+from Runtime.Workers import next_work_at, run_scheduled
+
+fn check(condition :: Bool) do
+  if !condition do
+    println("prekey job fixture check failed")
+    Process.exit(1)
+  end
+end
+
+fn filled(byte :: Int, size :: Int) -> Bytes!String do
+  case Bytes.repeat(byte, size) do
+    Err(_) -> Err("fixture allocation failed")
+    Ok(value)
+  end
+end
+
+fn exercise() -> Result<(), String> do
+  let pool = Pool.open(Env.get("MESSENGER_TEST_DATABASE_URL", ""), 1, 4, 5000)?
+  let created = U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))?
+  let expiry = U64.add(created, U64.parse("600000")?)?
+  let (account, identity) = case generate_account(created, U64.parse("1")?) do
+    Err(_) -> Err("account fixture failed")
+    Ok(value)
+  end?
+  let device = case generate_device() do
+    Err(_) -> Err("device fixture failed")
+    Ok(value)
+  end?
+  let credential = case issue_device_credential(account,
+    device,
+    U64.parse("1")?,
+    created,
+    expiry,
+    U64.parse("1")?) do
+    Err(_) -> Err("credential fixture failed")
+    Ok(value)
+  end?
+  let signed = case generate_signed_prekey(device, credential, U64.parse("1")?, expiry) do
+    Err(_) -> Err("signed prekey fixture failed")
+    Ok(value)
+  end?
+  let once = case generate_one_time_prekey(U64.parse("2")?) do
+    Err(_) -> Err("one-time fixture failed")
+    Ok(value)
+  end?
+  let bundle = case build_prekey_bundle(credential, signed, once) do
+    Err(_) -> Err("bundle fixture failed")
+    Ok(value)
+  end?
+  let identity_wire = case encode_account_identity(identity) do
+    Err(_) -> Err("account codec failed")
+    Ok(value)
+  end?
+  let bundle_wire = case encode_prekey_bundle(bundle) do
+    Err(_) -> Err("bundle codec failed")
+    Ok(value)
+  end?
+  let entry = DirectoryEntry {
+    version: 1,
+    username: "prekey-job-test",
+    account_identity: identity_wire,
+    prekey_bundle: bundle_wire,
+    mailbox_token: filled(23, 32)?
+  }
+  check(case register_device(pool, entry)? do
+    DeviceAccepted -> true
+    _ -> false
+  end)
+  check(next_work_at(pool)? == 0)
+  let base = case resolve_devices(pool, "prekey-job-test")? do
+    None -> Err("registered fixture missing")
+    Some(value) -> Ok(List.head(value.devices).prekey_bundle)
+  end?
+  let claim = encode_prekey_claim(PrekeyClaimRequest {
+    account_id: identity.account_id,
+    device_id: device.device_id,
+    base_bundle_hash: Crypto.sha256(base),
+    reservation_id: filled(24, 16)?
+  })?
+  # The owned scheduler refuses the first directory registration; the database
+  # claim must roll back completely, then exact retry succeeds once.
+  println("checking rejected scheduler rolls claim back before exact retry")
+  check(claim_prekey_request(pool, claim).status == 500)
+  let rows = Pool.query(pool,
+    "SELECT count(*)::text AS n FROM messenger_one_time_prekeys WHERE consumed_at IS NOT NULL",
+    [])?
+  check(Map.get(List.head(rows), "n") == "0")
+  let claimed = claim_prekey_request(pool, claim)
+  check(claimed.status == 200)
+  check(Bytes.secure_equals(claim_prekey_request(pool, claim).body, claimed.body))
+  for id in [9, 12] do
+    let request = PrekeyPublishRequest {
+      account_id: identity.account_id,
+      device_id: device.device_id,
+      prekeys: [],
+      last_resort: Some(OneTimePrekeyPublic {
+        id: U64.parse(Int.to_string(id))?,
+        public_key: filled(id, 32)?
+      }),
+      contact_address_hash: None,
+      signature: filled(0, 64)?
+    }
+    let signature = case Crypto.sign(device.signing_private_key,
+      prekey_publish_signing_bytes(request)?) do
+      Err(_) -> Err("publication signature failed")
+      Ok(value) -> Ok(value.bytes)
+    end?
+    check(publish_prekeys_request(pool,
+      encode_prekey_publish(%{request | signature: signature})?).status == 201)
+  end
+  # The superseded reusable key has an immediate persisted cleanup deadline.
+  check(next_work_at(pool)? <= DateTime.to_unix_ms(DateTime.utc_now()))
+  run_scheduled(pool)?
+  let retired = Pool.query(pool, "SELECT count(*)::text AS n FROM messenger_retired_prekeys", [])?
+  check(Map.get(List.head(retired), "n") == "1")
+  println("CLAIM_HEX=" <> Bytes.to_hex(claim))
+  println("RESPONSE_SHA256=" <> Bytes.to_hex(Crypto.sha256(claimed.body)))
+  let before = DateTime.to_unix_ms(DateTime.utc_now())
+  let due = next_work_at(pool)?
+  check(due > before && due <= U64.to_int(expiry)? + 1)
+  # A restart re-evaluates the persisted deadline; no in-memory timer is needed.
+  Pool.close(pool)
+  let reopened = Pool.open(Env.get("MESSENGER_TEST_DATABASE_URL", ""), 1, 4, 5000)?
+  check(next_work_at(reopened)? == due)
+  check(run_scheduled(reopened)? == due)
+  check(prune_consumed_prekeys(reopened, 128)? == 0)
+  Pool.close(reopened)
+  Ok(nil)
+end
+
+fn cold_replay() -> Result<(), String> do
+  let pool = Pool.open(Env.get("MESSENGER_TEST_DATABASE_URL", ""), 1, 2, 5000)?
+  let claim = case Bytes.from_hex(Env.get("M6_COLD_CLAIM_HEX", "")) do
+    Err(_) -> Err("cold fixture claim decode failed")
+    Ok(value)
+  end?
+  let response = claim_prekey_request(pool, claim)
+  check(response.status == 200)
+  check(Bytes.to_hex(Crypto.sha256(response.body)) == Env.get("M6_COLD_RESPONSE_SHA256", ""))
+  check(next_work_at(pool)? > DateTime.to_unix_ms(DateTime.utc_now()))
+  Pool.close(pool)
+  Ok(nil)
+end
+
+fn main() do
+  let result = if Env.get("M6_COLD_CLAIM_HEX", "") == "" do
+    exercise()
+  else
+    cold_replay()
+  end
+  case result do
+    Err(error) -> do
+      println(error)
+      Process.exit(1)
+    end
+    Ok(_) -> println("prekey durable wakeup rollback and restart passed")
+  end
+end

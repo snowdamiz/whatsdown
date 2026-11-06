@@ -1,0 +1,1227 @@
+{
+  "schema_version": 1,
+  "scope": "local-fixture",
+  "generated_at_unix": "1710982868",
+  "max_age_seconds": "900",
+  "provider_independence": "not-established",
+  "history_completeness": "bounded-filtered-index-with-separate-value-pages",
+  "phase5_complete": false,
+  "burns": [],
+  "bonds": {
+    "schema_version": 2,
+    "availability": "available",
+    "selection_scope": "explicit-indexed-records-only",
+    "bank_scope": "this-section-only",
+    "context_slot": "100007",
+    "source_time_unix": "1710982868",
+    "snapshot_digest": "7f1e7a29bb5ad44e7712fc5b4c7b90ac3606b4814a0512e20d2909cc4d73bd52",
+    "code_current": true,
+    "judge": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+    "token": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+    "rewards": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+    "log_name": "custody-test",
+    "log_id": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+    "service_public_key": "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+    "usdc_mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+    "morse_mint": "6PEm2vyPPU8UaveRS1g8No4Sfsxa3mHuAuQZUtY2NFy",
+    "decimals": 6,
+    "valuation": {
+      "availability": "unavailable",
+      "reason": "no-oracle-authentication-or-USD-valuation"
+    },
+    "rows": [
+      {
+        "kind": "directory",
+        "witness_id": "",
+        "public_key": "0000000000000000000000000000000000000000000000000000000000000000",
+        "address": "6nsVP8yyhodyJHYq1wo1h4f6VmmU2rLmLKc1c559AHHt",
+        "owner": "DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx",
+        "asset": "USDC",
+        "mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+        "vault": "9ycFyB1PkGepcRRgsSgztaAAj8cLioHa3uWzUHL7Uiy5",
+        "status": "active",
+        "principal_units": "500000000",
+        "pending_recorded_units": "1",
+        "pending_liability_units": "1",
+        "vault_balance_units": "500000001",
+        "donation_surplus_units": "0",
+        "opposite_asset_vault": {
+          "availability": "absent",
+          "balance_units": null
+        },
+        "bonded_at_unix": "1210600",
+        "unbond_at_unix": "0",
+        "slashed_at_unix": "0",
+        "underwater_since_unix": "0",
+        "pending_target_usd_micros": "0"
+      }
+    ]
+  },
+  "slashes": {
+    "schema_version": 2,
+    "availability": "available",
+    "selection_scope": "explicit-indexed-records-only",
+    "bank_scope": "this-section-only",
+    "context_slot": "100007",
+    "source_time_unix": "1710982868",
+    "snapshot_digest": "ccefdadf4252c301e5a5fcc2a21a119d1615bf3381f8e13c68dba1c9b5e02c8d",
+    "code_current": true,
+    "judge": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+    "token": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+    "rewards": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+    "log_name": "custody-test",
+    "log_id": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+    "service_public_key": "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+    "usdc_mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+    "morse_mint": "6PEm2vyPPU8UaveRS1g8No4Sfsxa3mHuAuQZUtY2NFy",
+    "decimals": 6,
+    "proof_scope": "onchain-recorded-receipts-not-independent-fork-reverification",
+    "receipts": []
+  },
+  "history": {
+    "schema_version": 1,
+    "scope": "bounded-filtered-family-discovery",
+    "global_totals": null,
+    "provider_independence": "not-established",
+    "bank_scope": "per-discovery-section-and-value-page",
+    "burns": {
+      "availability": "available",
+      "discovery_scope": "complete-returned-filtered-family-at-index-bank",
+      "index_slot": "100000",
+      "source_time_unix": "1710982861",
+      "snapshot_digest": "97f528133a7ae2445d36821bc93da72ff4bfd89184ffccfc55cb37dfc69a5e58",
+      "program": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+      "binding": "adf13c9180ba2512f3d94a5038dfcea7b24f57939a7336e0617195c95f33013a",
+      "code_current": true,
+      "release_pins": [
+        {
+          "program": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+          "deployment_slot": "0"
+        },
+        {
+          "program": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+          "deployment_slot": "0"
+        },
+        {
+          "program": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+          "deployment_slot": "0"
+        }
+      ],
+      "upper_bound": 128,
+      "record_count": 0,
+      "supported_layouts_complete": true,
+      "value_completeness": "complete-for-applicable-supported-records",
+      "value_bank_scope": "separate-from-discovery-and-other-pages",
+      "legacy_rendering": "proof-v1-identifiers-only",
+      "records": [],
+      "pages": []
+    },
+    "witnesses": {
+      "availability": "available",
+      "discovery_scope": "complete-returned-filtered-family-at-index-bank",
+      "index_slot": "100000",
+      "source_time_unix": "1710982861",
+      "snapshot_digest": "7dfe13114f4feafdd8217f3a172281ff201b22bb669e724672bd01716d1a6a5b",
+      "program": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+      "binding": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+      "code_current": true,
+      "release_pins": [
+        {
+          "program": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+          "deployment_slot": "0"
+        },
+        {
+          "program": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+          "deployment_slot": "0"
+        },
+        {
+          "program": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+          "deployment_slot": "0"
+        }
+      ],
+      "upper_bound": 128,
+      "record_count": 65,
+      "supported_layouts_complete": true,
+      "value_completeness": "complete-for-applicable-supported-records",
+      "value_bank_scope": "separate-from-discovery-and-other-pages",
+      "legacy_rendering": "proof-v1-identifiers-only",
+      "records": [
+        {
+          "address": "aEk4pQBggVN7WheNXanUrgmNpf3xXsNcXVEmr7r2u1X",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0000",
+          "public_key": "db995fe25169d141cab9bbba92baa01f9f2e1ece7df4cb2ac05190f37fcc1f9d",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "c4LoW8h34uVbBiRotJYH8xnvvtiax6D1KW5R9ehHpsb",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0035",
+          "public_key": "2bc2800b3316e009209ffd757dab19ccf0ae84bc7ae90654e1e81712d270f653",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "cjcfwTPvCveqeMrWFdep7Vz2npoC4JQGo7pptcHShnf",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0004",
+          "public_key": "6355691c178a8ff91007a7478afb955ef7352c63e7b25703984cf78b26e21a56",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "f9dqgRdULqh2vcsKpJikQbAjJf9Q5KJGMq6GrhYdZa3",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0022",
+          "public_key": "c84069fa2216c6edc1d52ca83aa11c267dd5440afa526090ca43ebd0ca86a9cf",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "2B8qkCUEAnoGBdMiQhsDwFVA4ENKJQyc4JUp2JGp6e8f",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0056",
+          "public_key": "4745d19c66ec9179fa25097056409ef16967b6a1a74bfd8f7afd528f59630615",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "2CMrtG7uv81eDaEuA9wbjJWr9HFDGeDZHaSkNGK4AKXZ",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0003",
+          "public_key": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "2K1nDawNyHgDQaVPq4jtcsXkYqxMBx5nXCbv2oXX4AzY",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0055",
+          "public_key": "ee31f83c88a71219a6fcf9bee0da9bc22620588f5a15a6145553504df9649e5c",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "2QLb7VtpGtCGjMQxTfac5Vg9rMx8pZ2vX22jP6x1FQLR",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0045",
+          "public_key": "014e4d922c596a380adfc9eed722e835822f1236761693e4babb61e1afbb04f1",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "2pVkREpY2oTj7Wmb7aknX6PAv6growdPdoJ4mpAwwbmG",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0032",
+          "public_key": "af06a3e3291714e4f356c19c9b15cd1951ec6e6662aa77be07547f289383341d",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "2pWa3Bm7Zn5nmxZHsrTCUkkGhjYc1wETsinBMPbf9Fe5",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0065",
+          "public_key": "fa01347a991e04ae0f1a6d81db29a5ea4eeb5965f577ac9efb44e7b1f2fbb028",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "34SvKDVoVMdeANwYjTRHyUfWikH3geJXXW642KyBqQxn",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0051",
+          "public_key": "555f469c22188e90015bdd85b889678d459f86bdf8f7bd34971b10b9b3858609",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "37xtxcKq2AgwH3biNQEVnbybYe2McRPLREfU8rztEUS4",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0037",
+          "public_key": "34b4d9043156cb6dcf0beb0a2949b7559c940d2bcb6dbe8c53a9b30278e3a746",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "38JppWxjqSTGqMriE6cspBBPJy9wehfBnNYYc93s18LX",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0002",
+          "public_key": "22fc297792f0b6ffc0bfcfdb7edb0c0aa14e025a365ec0e342e86e3829cb74b6",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "3sYdC1F863TbR9wqJA7fDWibXUgzHYsvB3zB5FZiFvCm",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0064",
+          "public_key": "93db9f2ee0f7e39e942fb59441190bf20b9c43cfcc8a051a152499cf392b7a37",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "3sq5rUAhDeb8EiWnb8cWvXu5XsihcpQxVjE6EEcn6sGJ",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0010",
+          "public_key": "7ea0e3bd52e207c9d3b0eba65c0704e66fca2d8e165a175218b174fc4160e413",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "4LWrNvj9tyRvLiDhhK4GuCSfHnrAQCgFx2g7hAACvCJM",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0047",
+          "public_key": "19204c8c3ba85ba059cd18ac9017bd02a18da5d10c68fb779a34be43ef067791",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "4VHpN4w6ADdBMJHYx5xG2RGew8VUgHZpfiiEhb1gRqFW",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0028",
+          "public_key": "5e449ad6fa4b2d65746e8cd4f968e38c5a9679f8495db114ee06317f72f717db",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "4x5PDcDEJWZFpDGDqoKrf3aRPn7uLqqrBnjs2sndSNkM",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "outside",
+          "public_key": "0b513ad9b4924015ca0902ed079044d3ac5dbec2306f06948c10da8eb6e39f2d",
+          "proof_hash": null,
+          "registry_status": 2,
+          "value_status": "requested"
+        },
+        {
+          "address": "536yX2Ca557YuhGuY6EEimTZJLZjD7R4U3dzfXbF5Em7",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0023",
+          "public_key": "dac31ebca159d283f8341fd90d7fa1cd95bf5eccab657f7952662e67e56afbe3",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "5AedEj8mcAJbLyt9xwSycaa3r6Y9EPtraX8bbUPNTdYr",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0041",
+          "public_key": "750826c281a4f691a41ffb03ef1b4287568ebfc52ec5cca89d953e5a0093abd5",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "5HCe52eEEjkKaPKqqsUBkPGnNjr3D2EPBHKZJJ6gQsmy",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0006",
+          "public_key": "e28a8970753332bd72fef413e6b0b2ef1b4aadda7aa2c141f233712a6876b351",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "5R1ZEJHeD6tojc15yZZtrgKrEZv6ogTxAsPrVSxzuGPa",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0021",
+          "public_key": "88df556413538b002015e9619b01bdb5cc48c7215645792563f5460f7307a763",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "5cKR2VCsyTV8g4fpQUm9SKZBDUgHciRjNxgmB1hPidPp",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0034",
+          "public_key": "a7f6dfaf8f38b89ba8ce649b594f91e4d01fdc57f9c9493df43b5e50a9987367",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "5kLTPweeky32BDS6U4FenfEAV1jVURT2JtxwyJnAqsNk",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0061",
+          "public_key": "51bfae7fa92c515512cd3ad442760e41612e59dfec3913f670b721c04255b068",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "5vojSvtmKUypGhmq3KeHk6JrAPjEAHKEZXW5uYEuUGuA",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0039",
+          "public_key": "54b0d81d0fa7d00e4a7d600dfaba6f2b22035b22fe335e17edf5f9aa5bb05074",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "65xEU97bA6w9Dn9qbDchng1HqYp6VV5syDar868Lxepx",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0044",
+          "public_key": "8b237d788e8eaaef550c6d125823fa45f1fd5fc29b2c88bdf871119471fc1312",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "6JRNERLYTRCH3oVzKeSfm5M5pDmWV8MRRBGmVDzZXyeE",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0063",
+          "public_key": "e5687b6d11ccfb632abbafe844f8f1693d160aa582156ed66eea38ab5e7d1e12",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "6eih8njqQBgHQNMhZcoNokn26wTTm2sD9riq2reksaAW",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0043",
+          "public_key": "6d44f939f829d43598bcdedda90de01db69faa50caa33e8c6c328a4b900d4dac",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "6pgLykx3RwnJzMxHWwFbRCAYTMrFQwsgZPdasm3ZH1uP",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0017",
+          "public_key": "2012cb90ca60e8e5d8daf66e2272d2233e0486d557e8c66141ed8920177d7eb7",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "6zo1C5nFTSPyYeNG9KXXwZzfnZjHkneiyKyA2k7coz9u",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0026",
+          "public_key": "6b734a8eff246fe734b38d4046c148eee5f04fe87b3a0a423955a77956de066b",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "71FymSZaNNGWYyoetq5gVKs81N95KqBj3A2d1NCvtzwT",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0049",
+          "public_key": "5b6489c9c7fd0dcf50545e7c164886ef40491ec06c7f1b123041797e8117535e",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "74zdE8chwr8D9maX8EqDpeM3PgmY5zya5hm9bzL2X9Cd",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0015",
+          "public_key": "3ef08959033028c8fc6fc6d491a12548e78df6aefb2d7c2c190c3f78cef3f50b",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "77geeBCPVLsuuLfRGYwWPTZeRh9YYQRaYosa9XVbqjFF",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0040",
+          "public_key": "e34d3a01b6112e1429ead61668405f4ef4be4f8853abee5079d28ac6c13ffdd0",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "798gyhf8tHJvQ9zeVsofkf7tF6Rwka1BNT6Ez7rt4rU6",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0030",
+          "public_key": "ef747fff9b4726c7a4e53504644181d4a700efd6f229444038f47e143fb8c59a",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "7AHEYGBJTp8pWJbcLmKSbYM5pWSU4t9EDeUkH9K5zNrY",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0038",
+          "public_key": "12a41592c8b7c17d4059e7b29b61e8ff96c7415f2f803348f2f017e05b9ea1da",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "7KrdjwPCggPDCUrCUmqjhY2Mrft2paWsUiPdMTMnNRpb",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0029",
+          "public_key": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "7X3kQE562TS7aMquiwdqRWwVyhayquPqWy3MMEjPYQRJ",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0057",
+          "public_key": "ba42458e83ba7926ba8b8f3e9ab9caaf0f1c4918dda8c551084f7aeb1065b74b",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "7rdDdRHBtTizjNzq6VBnMXJExUPWrQcQAKHr2C9LVxJt",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0009",
+          "public_key": "353c8a7feeca38b2c4536e0bd2586fdb18d070e50e059f1d43f8bfefb97a7ce1",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "7rs2YWoWdKnh9Wa41YssgY62jKS5q5SjPACDuYeeGA7N",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0059",
+          "public_key": "f78b1da9b3dfb3fa3a3e54c43e79389d2f04d6bccb62984f28bd6f91798a750d",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "7xhTDaXtdkyyFQ7QeduGsQvbmuZhMqWs6MGrviJ5Biqt",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "morse-owned",
+          "public_key": "0beef5a9e679e6a3e134fe27837bff32c7cb5f5d44ea09bcb0e542bad6a4c0cc",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "8N9zYj3FENmr64qh4oM5MrbnaXVxbGT1bAugJc8mQxWe",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0046",
+          "public_key": "c86d01ad8b2fb694b22ff60e3c9d9e7ed90db5604772b74450d40913b9a9cbaf",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "8YVi17AR9iTjoSPDyomKziWsAc5KyXtj7Payxq18hPvM",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0033",
+          "public_key": "2df04125f0015afb47ce853aef8772094ff9498c14cb1b9e12973c2927da0fa6",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "9L4Nt5LdAuH8xaKin96kj8LMHwbdr6mUXxuHvfuZWMeg",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0050",
+          "public_key": "fec1428673f6afe89264b3807344ae8b269d125a503855202687db5a7128579f",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "9pvYgkSkVX2WEFAqkks2W4TN4UvC2ZkgbbSXnKiHmtiw",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0067",
+          "public_key": "3e6ea7acba59568c5f36acb41816fb16ab2b27ab13abd38b0924ca2691ad6599",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "AiYZRzzPQgKborXZVbZm7zshkpy1NVpgWDzsjiSfKq72",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0020",
+          "public_key": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "Aj3vYNA7c193LcsNecHdzy9B9nZDy9MCWez9Cemrw67f",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0066",
+          "public_key": "d76dfc6e3d5e78f46c54e9421c979dcdc0d9d03981b61a865ab202b1808dce90",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "B7sAkq9Mg1H4s1LQiicr5rUAvB5nJYP3mahjhZBBV3pb",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0014",
+          "public_key": "00e3c56b91ab0a017174b96645eaf928366cdbae1e87fd21bf86661d86f3e7ef",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "BDKKY6fQK6sdvxawbRRrfrwEe2ukWurdiWZEcrNQ719Z",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0048",
+          "public_key": "e2fe2a39b7326642827d6d82d497622cd6c297fe78270eaa436b01f086b6f3cb",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "BKrwySxp8WQvhdcrwrnkzKV8RRmDb7YGc7ox1D9p9xjE",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0012",
+          "public_key": "62a611b472d89b0e5fc93c069b9f700b4c552d55bc0e87b56008ef17b6b2bebe",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "BRqrDrEF4bqXXtVYztSK1xWDh4y2fZbwxUMSZ5W3v7Tk",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0019",
+          "public_key": "9f49439e9db095bc4111ed25d35795d831bc55a047f4b1d7f6aee3777bb41220",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "BsMQkkraahsR2GV4KQRcVhNC1hiuaUfz3sJFepTRi7Zb",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0052",
+          "public_key": "2c9b9a42d57adffd50e6eb1da543de93ad97d36d976d2a2b9735e7142f3fb859",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "BwY3rXy9jeFPMswnXmYVYGFmyCgR8NmkP2vLC3nHEY6L",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0016",
+          "public_key": "c050c5637a44fa8629fff3cccce2300cb362a63d99d95fc54145266f4332445a",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "CKKTCa1aCkLUrQmceTXt4PVH8bLmrA9XyvZz4FZP8pdA",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0042",
+          "public_key": "8320a51977d8c38ca8a4927c670df5821e449761945e15e9efb26a1509d230ea",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "ChoFcopw1wS9UuoQhGKmzGfYXttXSJ9zEj2R7XXMKz2g",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0060",
+          "public_key": "a386c3e9c8eb3f00ac670d6a5bbe5ef0d074dcc7ef0e0c8eb102a95dce43bd6a",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "D1NcM1v6useYPLUKTP1sMFDNgk7acvJCU3bAMsFmYTHg",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0007",
+          "public_key": "d4eec1869fb1b8a4e817516ad5a931557cb56805c3eb16e8f3a803d647df7869",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "D3Qx1uX3uLdC4cwcD8XaTJBxmPYVwsjjbCdAhXJW5XJc",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0058",
+          "public_key": "7f747b67bd3fe63c2a736739dfe40156d622347346e70f68f51c178a75ce5537",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "DnQ8hr4bjKdoYr7mDv5tDvLdsik41y44ibTHmYBDmEDQ",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0008",
+          "public_key": "772c8a442b7db06e166cfbc1ccbcbcde6f3eba76a4e98ef3ffc519502237d6ef",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "DvBx1JZ2rmxXZhVdGDrWdzVFvg81hSwjMRgYqnTSFjxb",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0018",
+          "public_key": "f80cccdce4ae1c07ae208a2adf99a310ae4207e0306fa0236110b06827bbb8d0",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "ENfYG99paCD8Z1mADAMYFp6BZS8NQqoQs7pM1fxmD2e4",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0013",
+          "public_key": "8e486e8fb79499dba2a789c6b1639d409495233c79e0eaf52e2ea1fc9dbbb73f",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "EQSnXV9vU6nz62iEjx5CgwL3jwQ8YG3bFGX4hUazGH1m",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0053",
+          "public_key": "b5f90095318f3f044cd8e40b584253d86777be62bf07221334e5fd2199cfa7f7",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "EnpvCix92mbrL6TqQyHoQirGNWA69gLGYg7A5pGAWsJt",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0025",
+          "public_key": "0d7550754e0800a5d237eef5826035766b9b3e5a15868a940ab289958788e3b0",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "F6AtZQZALKRgtjJyvL1xCzBZ7gqjCCHeft2MVsCJ3SDH",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0036",
+          "public_key": "d62f016a1efd1e4fdf793eb42cd84471e1ba9f0cf04d1287b5cc71f616287cb8",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "FLwBGdL6rKx55MTzSYQfHAALQY7UnxmdaStBK8f91dbQ",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0062",
+          "public_key": "b2a942ff4c98718bed76e255987f6d59b1a72d3b2cd2510003e6170ac63a9ffb",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "FtQxN62t83DayNHE4pKNLiDnvE59wC1hapnMFPk4XZKm",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "capacity-0027",
+          "public_key": "ed6a47a39da869b5446155e40b2d93f1e3f0167be26732bae7a3ef9d8e3a3fd3",
+          "proof_hash": null,
+          "registry_status": 0,
+          "value_status": "registry-only"
+        },
+        {
+          "address": "FujC3ih8pPsurF7FmP2quT9scPVCKRWrRgW3NjqtaJ9o",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "token-outside",
+          "public_key": "d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c",
+          "proof_hash": null,
+          "registry_status": 1,
+          "value_status": "requested"
+        }
+      ],
+      "pages": [
+        {
+          "page": 0,
+          "requested_addresses": [
+            "4x5PDcDEJWZFpDGDqoKrf3aRPn7uLqqrBnjs2sndSNkM"
+          ],
+          "bank_scope": "this-value-page-only",
+          "complete": true,
+          "values": {
+            "schema_version": 2,
+            "availability": "available",
+            "selection_scope": "explicit-indexed-records-only",
+            "bank_scope": "this-section-only",
+            "context_slot": "100007",
+            "source_time_unix": "1710982868",
+            "snapshot_digest": "d5d2d5d5d5456a18c85c21d3a351bf2b3fc74d2d2b9166fa39c97944da087b92",
+            "code_current": true,
+            "judge": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+            "token": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+            "rewards": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+            "log_name": "custody-test",
+            "log_id": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+            "service_public_key": "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+            "usdc_mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+            "morse_mint": "6PEm2vyPPU8UaveRS1g8No4Sfsxa3mHuAuQZUtY2NFy",
+            "decimals": 6,
+            "valuation": {
+              "availability": "unavailable",
+              "reason": "no-oracle-authentication-or-USD-valuation"
+            },
+            "rows": [
+              {
+                "kind": "directory",
+                "witness_id": "",
+                "public_key": "0000000000000000000000000000000000000000000000000000000000000000",
+                "address": "6nsVP8yyhodyJHYq1wo1h4f6VmmU2rLmLKc1c559AHHt",
+                "owner": "DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx",
+                "asset": "USDC",
+                "mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+                "vault": "9ycFyB1PkGepcRRgsSgztaAAj8cLioHa3uWzUHL7Uiy5",
+                "status": "active",
+                "principal_units": "500000000",
+                "pending_recorded_units": "1",
+                "pending_liability_units": "1",
+                "vault_balance_units": "500000001",
+                "donation_surplus_units": "0",
+                "opposite_asset_vault": {
+                  "availability": "absent",
+                  "balance_units": null
+                },
+                "bonded_at_unix": "1210600",
+                "unbond_at_unix": "0",
+                "slashed_at_unix": "0",
+                "underwater_since_unix": "0",
+                "pending_target_usd_micros": "0"
+              },
+              {
+                "kind": "witness",
+                "witness_id": "outside",
+                "public_key": "0b513ad9b4924015ca0902ed079044d3ac5dbec2306f06948c10da8eb6e39f2d",
+                "address": "5SSA78JUa4aeDDKvGcqR4zvkgFt6DrzskpnRoDpwzrYM",
+                "owner": "5jotNjSnm9ZJRefVfqHato9FC4d9t6CHb2xS1726MTyY",
+                "asset": "USDC",
+                "mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+                "vault": "C12YyRZZ4kciBa9Xa4ckX3vVFmp2uAnRhL5LuX8teXFd",
+                "status": "unbonding",
+                "principal_units": "100000000",
+                "pending_recorded_units": "8",
+                "pending_liability_units": "8",
+                "vault_balance_units": "100000008",
+                "donation_surplus_units": "0",
+                "opposite_asset_vault": {
+                  "availability": "absent",
+                  "balance_units": null
+                },
+                "bonded_at_unix": "1210600",
+                "unbond_at_unix": "1710982861",
+                "slashed_at_unix": "0",
+                "underwater_since_unix": "0",
+                "pending_target_usd_micros": "0"
+              }
+            ]
+          }
+        },
+        {
+          "page": 1,
+          "requested_addresses": [
+            "FujC3ih8pPsurF7FmP2quT9scPVCKRWrRgW3NjqtaJ9o"
+          ],
+          "bank_scope": "this-value-page-only",
+          "complete": true,
+          "values": {
+            "schema_version": 2,
+            "availability": "available",
+            "selection_scope": "explicit-indexed-records-only",
+            "bank_scope": "this-section-only",
+            "context_slot": "100007",
+            "source_time_unix": "1710982868",
+            "snapshot_digest": "d9f855970dc82f58477ed1ba522b3e83f6cc6da26527328b57d0ecf770796818",
+            "code_current": true,
+            "judge": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+            "token": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+            "rewards": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+            "log_name": "custody-test",
+            "log_id": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+            "service_public_key": "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+            "usdc_mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+            "morse_mint": "6PEm2vyPPU8UaveRS1g8No4Sfsxa3mHuAuQZUtY2NFy",
+            "decimals": 6,
+            "valuation": {
+              "availability": "unavailable",
+              "reason": "no-oracle-authentication-or-USD-valuation"
+            },
+            "rows": [
+              {
+                "kind": "directory",
+                "witness_id": "",
+                "public_key": "0000000000000000000000000000000000000000000000000000000000000000",
+                "address": "6nsVP8yyhodyJHYq1wo1h4f6VmmU2rLmLKc1c559AHHt",
+                "owner": "DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx",
+                "asset": "USDC",
+                "mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+                "vault": "9ycFyB1PkGepcRRgsSgztaAAj8cLioHa3uWzUHL7Uiy5",
+                "status": "active",
+                "principal_units": "500000000",
+                "pending_recorded_units": "1",
+                "pending_liability_units": "1",
+                "vault_balance_units": "500000001",
+                "donation_surplus_units": "0",
+                "opposite_asset_vault": {
+                  "availability": "absent",
+                  "balance_units": null
+                },
+                "bonded_at_unix": "1210600",
+                "unbond_at_unix": "0",
+                "slashed_at_unix": "0",
+                "underwater_since_unix": "0",
+                "pending_target_usd_micros": "0"
+              },
+              {
+                "kind": "witness",
+                "witness_id": "token-outside",
+                "public_key": "d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c",
+                "address": "GNiCK46hgAUYnmkUXVb72jGKP3Y2ShnULgM5TeUghCoJ",
+                "owner": "5jotNjSnm9ZJRefVfqHato9FC4d9t6CHb2xS1726MTyY",
+                "asset": "MORSE",
+                "mint": "6PEm2vyPPU8UaveRS1g8No4Sfsxa3mHuAuQZUtY2NFy",
+                "vault": "FcjVhMbDDfgmcSk1XPQDGXXU6jXe1USSu33wKSgU4XFj",
+                "status": "active",
+                "principal_units": "133333334",
+                "pending_recorded_units": "5",
+                "pending_liability_units": "5",
+                "vault_balance_units": "133333358",
+                "donation_surplus_units": "19",
+                "opposite_asset_vault": {
+                  "availability": "absent",
+                  "balance_units": null
+                },
+                "bonded_at_unix": "1708650000",
+                "unbond_at_unix": "0",
+                "slashed_at_unix": "0",
+                "underwater_since_unix": "1710982800",
+                "pending_target_usd_micros": "200000000"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "proofs": {
+      "availability": "available",
+      "discovery_scope": "complete-returned-filtered-family-at-index-bank",
+      "index_slot": "100000",
+      "source_time_unix": "1710982861",
+      "snapshot_digest": "c560f8e63cb8a41d8cb0f55593429e462664bde3bc51a6c3115aea44504d7330",
+      "program": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+      "binding": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+      "code_current": true,
+      "release_pins": [
+        {
+          "program": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+          "deployment_slot": "0"
+        },
+        {
+          "program": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+          "deployment_slot": "0"
+        },
+        {
+          "program": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+          "deployment_slot": "0"
+        }
+      ],
+      "upper_bound": 128,
+      "record_count": 1,
+      "supported_layouts_complete": true,
+      "value_completeness": "complete-for-applicable-supported-records",
+      "value_bank_scope": "separate-from-discovery-and-other-pages",
+      "legacy_rendering": "proof-v1-identifiers-only",
+      "records": [
+        {
+          "address": "FTzWwPDyhCTUTRaFgom7qPizHpGog2xxPWe2i5Tyc8Xv",
+          "version": 2,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "",
+          "public_key": null,
+          "proof_hash": "f680934a5f363e7554b70cfe72409e96ef44e96bf6c3a206d74e82af44f0d501",
+          "registry_status": -1,
+          "value_status": "requested"
+        }
+      ],
+      "pages": [
+        {
+          "page": 0,
+          "requested_addresses": [
+            "FTzWwPDyhCTUTRaFgom7qPizHpGog2xxPWe2i5Tyc8Xv"
+          ],
+          "bank_scope": "this-value-page-only",
+          "complete": true,
+          "values": {
+            "schema_version": 2,
+            "availability": "available",
+            "selection_scope": "explicit-indexed-records-only",
+            "bank_scope": "this-section-only",
+            "context_slot": "100007",
+            "source_time_unix": "1710982868",
+            "snapshot_digest": "81308a8a9cb00d2dd1f80099f29fa7229cb9023c5f7368b90c9f28a3fff3a383",
+            "code_current": true,
+            "judge": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+            "token": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+            "rewards": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+            "log_name": "custody-test",
+            "log_id": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+            "service_public_key": "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+            "usdc_mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+            "morse_mint": "6PEm2vyPPU8UaveRS1g8No4Sfsxa3mHuAuQZUtY2NFy",
+            "decimals": 6,
+            "proof_scope": "onchain-recorded-receipts-not-independent-fork-reverification",
+            "receipts": [
+              {
+                "address": "FTzWwPDyhCTUTRaFgom7qPizHpGog2xxPWe2i5Tyc8Xv",
+                "proof_hash": "f680934a5f363e7554b70cfe72409e96ef44e96bf6c3a206d74e82af44f0d501",
+                "kind": 1,
+                "anchored": false,
+                "status": "prepared",
+                "prepared_at_unix": "1708650000",
+                "settled_at_unix": "0",
+                "deadline_ms": "1711069199000",
+                "verified_signature_mask": "63",
+                "verified_signatures": "6",
+                "finder": "DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx",
+                "submitter": "DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx",
+                "stage": "G4TwriBaNpEkPatrEBruNDT2vuVgZv6qvhNCwyWUw61v",
+                "assets": [
+                  {
+                    "asset": "USDC",
+                    "slashed_units": null,
+                    "finder_units": null,
+                    "directory_slashed_units": null
+                  },
+                  {
+                    "asset": "MORSE",
+                    "slashed_units": null,
+                    "finder_units": null,
+                    "directory_slashed_units": null
+                  }
+                ],
+                "rows": [
+                  {
+                    "identity": "bc368bcc963e6616bd0bee40346a2b8797c30a6bdc7caafacd568fd04dbcc2c6",
+                    "witness": "4x5PDcDEJWZFpDGDqoKrf3aRPn7uLqqrBnjs2sndSNkM",
+                    "public_key": "0b513ad9b4924015ca0902ed079044d3ac5dbec2306f06948c10da8eb6e39f2d",
+                    "asset": "USDC",
+                    "bonded_at_unix": "1210600",
+                    "principal_units": null,
+                    "slashed_units": null,
+                    "finder_units": null
+                  },
+                  {
+                    "identity": "e3c991610c1accbedae7230f7580d517b8708f3ee52ccfa011c37e6f1159c486",
+                    "witness": "FujC3ih8pPsurF7FmP2quT9scPVCKRWrRgW3NjqtaJ9o",
+                    "public_key": "d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c",
+                    "asset": "MORSE",
+                    "bonded_at_unix": "1708650000",
+                    "principal_units": null,
+                    "slashed_units": null,
+                    "finder_units": null
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

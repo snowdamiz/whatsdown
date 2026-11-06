@@ -30,8 +30,13 @@ end
 # record adds its details, which the app encodes, and its roles: the owner's
 # account, then each admin's in ascending order.
 
-pub fn presentation_fields(input :: Bytes) -> PresentationFields!String do
-  let state = mobile_reader(input, 29340, "invalid_presentation")?
+fn raw_presentation_fields(input :: Bytes, personal_only :: Bool) -> PresentationFields!String do
+  let maximum = if personal_only do
+    12404
+  else
+    29340
+  end
+  let state = mobile_reader(input, maximum, "invalid_presentation")?
   let name = take_vector(state, 96)?
   let avatar = take_vector(name.state, 12288)?
   let name_text = mobile_utf8(name.value, "invalid_presentation")?
@@ -61,6 +66,11 @@ pub fn presentation_fields(input :: Bytes) -> PresentationFields!String do
     Ok(_) -> return Ok(%{plain | revision: value})
     Err(_) -> nil
   end
+  # Personal account creation cannot install community roles. This refusal is
+  # inside raw validation, before the existing structural-validity observation.
+  if personal_only do
+    return Err("invalid_presentation")
+  end
   let community = take_vector(revision.state, 16384)?
   let roles = take_vector(community.state, 544)?
   mobile_finish(roles.state, "invalid_presentation")?
@@ -78,6 +88,48 @@ pub fn presentation_fields(input :: Bytes) -> PresentationFields!String do
     owner: List.head(ids),
     admins: List.drop(ids, 1)
   })
+end
+
+struct CheckedPresentation do
+  empty :: Bool
+  fields :: PresentationFields
+end
+
+fn empty_presentation_fields() -> PresentationFields!String do
+  Ok(PresentationFields {
+    revision: mobile_wide("0")?,
+    community: Bytes.empty(),
+    owner: Bytes.empty(),
+    admins: []
+  })
+end
+
+fn raw_checked_presentation(input :: Bytes,
+  allow_empty :: Bool,
+  personal_only :: Bool) -> CheckedPresentation!String do
+  if allow_empty && Bytes.length(input) == 0 do
+    Ok(CheckedPresentation { empty: true, fields: empty_presentation_fields()? })
+  else
+    let fields = raw_presentation_fields(input, personal_only)?
+    Ok(CheckedPresentation { empty: false, fields: fields })
+  end
+end
+
+fn checked_presentation(input :: Bytes,
+  allow_empty :: Bool,
+  personal_only :: Bool) -> CheckedPresentation!String do
+  let parsed = raw_checked_presentation(input, allow_empty, personal_only)
+  if declassify(Result.is_err(parsed),
+    "disclose only whether bounded authenticated presentation metadata is structurally valid; record content remains private") do
+    Err("invalid_presentation")
+  else
+    Ok(Result.unwrap_or(parsed,
+      CheckedPresentation { empty: true, fields: empty_presentation_fields()? }))
+  end
+end
+
+pub fn presentation_fields(input :: Bytes) -> PresentationFields!String do
+  Ok(checked_presentation(input, false, false)?.fields)
 end
 
 fn role_ids(value :: Bytes, index :: Int, output :: List<Bytes>) -> List<Bytes>!String do
@@ -102,6 +154,11 @@ fn ascending_admins(ids :: List<Bytes>, index :: Int) -> Bool do
   else
     ascending_admins(ids, index + 1)
   end
+end
+
+pub fn personal_presentation_data(input :: Plaintext<Bytes>) -> Plaintext<Bytes>!String do
+  checked_presentation(input, false, true)?
+  Ok(input)
 end
 
 pub fn presentation_data(input :: Bytes) -> Bytes!String do
@@ -134,29 +191,35 @@ pub fn record_change_allowed(stored :: Bytes,
   sender :: Bytes,
   creator :: Bytes,
   anchor :: Bytes) -> Bool!String do
-  let next = presentation_fields(incoming)?
-  if Bytes.length(stored) == 0 do
+  let next = checked_presentation(incoming, false, false)?
+  let current = checked_presentation(stored, true, false)?
+  Ok(record_fields_change_allowed(current, next.fields, sender, creator, anchor))
+end
+
+fn record_fields_change_allowed(current :: CheckedPresentation,
+  next :: PresentationFields,
+  sender :: Bytes,
+  creator :: Bytes,
+  anchor :: Bytes) -> Bool do
+  if current.empty do
     if Bytes.length(next.community) == 0 do
-      Ok(Bytes.secure_equals(sender, creator))
+      Bytes.secure_equals(sender, creator)
     else
       let introduced = if Bytes.length(anchor) == 0 do
         Bytes.secure_equals(sender, creator)
       else
         Bytes.secure_equals(sender, anchor)
       end
-      Ok(introduced && record_holds_role(next, sender))
+      introduced && record_holds_role(next, sender)
     end
+  else if Bytes.length(current.fields.community) == 0 do
+    Bytes.secure_equals(sender, creator)
+  else if Bytes.length(next.community) == 0 do
+    false
+  else if Bytes.secure_equals(sender, current.fields.owner) do
+    true
   else
-    let current = presentation_fields(stored)?
-    if Bytes.length(current.community) == 0 do
-      Ok(Bytes.secure_equals(sender, creator))
-    else if Bytes.length(next.community) == 0 do
-      Ok(false)
-    else if Bytes.secure_equals(sender, current.owner) do
-      Ok(true)
-    else
-      Ok(record_holds_role(current, sender) && same_roles(current, next))
-    end
+    record_holds_role(current.fields, sender) && same_roles(current.fields, next)
   end
 end
 
@@ -239,21 +302,6 @@ fn load_group_anchor(database_path :: String,
   end
 end
 
-fn group_record_allowed(database_path :: String,
-  wrapping_key :: borrow StorageKey,
-  group_id :: Bytes,
-  sender :: Bytes,
-  creator :: Bytes,
-  incoming :: Bytes) -> Bool!String do
-  record_change_allowed(load_presentation_record(database_path,
-      wrapping_key,
-      group_record_key(group_id))?,
-    incoming,
-    sender,
-    creator,
-    load_group_anchor(database_path, wrapping_key, group_id)?)
-end
-
 fn presentation_label(key :: Bytes) -> String!String do
   let text = mobile_utf8(key, "invalid_presentation_key")?
   let parts = String.split(text, "/")
@@ -315,12 +363,16 @@ fn save_record(database_path :: String,
   end
 end
 
-pub fn load_presentation(request :: MobilePayloadRequest) -> Bytes!String do
+pub fn load_presentation(request :: MobilePayloadRequest) -> Plaintext<Bytes>!String do
   let wrapping_key = platform_key()?
-  load_presentation_record(request.database_path, wrapping_key, request.payload)
+  let value = load_presentation_record(request.database_path, wrapping_key, request.payload)?
+  # Expose only the existing valid legacy/current record formats, including an
+  # empty cleared record. Authenticated malformed storage is not display data.
+  let _ = checked_presentation(value, true, false)?
+  Ok(value)
 end
 
-pub fn save_presentation(request :: MobileTriplePayloadRequest) -> Bytes!String do
+pub fn save_presentation(request :: MobileTriplePayloadRequest) -> Plaintext<Bytes>!String do
   let wrapping_key = platform_key()?
   save_record(request.database_path, wrapping_key, request.first, request.second)
 end
@@ -374,68 +426,114 @@ end
 
 # Return the body, the attachment envelope, and encrypted writes for the caller's transaction.
 
+fn recognized_presentation(input :: Bytes) -> Option<(Bytes, Bytes, Bytes, Bytes)> do
+  let prefix = Bytes.from_utf8("MORSE-PRESENTATION/1\n")
+  if Bytes.length(input) < Bytes.length(prefix) do
+    return None
+  end
+  let head = case Bytes.slice(input, 0, Bytes.length(prefix)) do
+    Err(_) -> return None
+    Ok(value) -> value
+  end
+  if !Bytes.secure_equals(head, prefix) do
+    return None
+  end
+  let encoded = case Bytes.slice(input,
+    Bytes.length(prefix),
+    Bytes.length(input) - Bytes.length(prefix)) do
+    Err(_) -> return None
+    Ok(value) -> value
+  end
+  case decode_presented_message(encoded) do
+    Err(_) -> None
+    Ok(value) -> Some(value)
+  end
+end
+
 pub fn presented_message_writes(database_path :: String,
   wrapping_key :: borrow StorageKey,
   sender_id :: Bytes,
   group_id :: Bytes,
   creator_id :: Bytes,
   input :: Bytes) -> Result<(Bytes, Bytes, List<String>, List<Bytes>), String> do
-  let prefix = Bytes.from_utf8("MORSE-PRESENTATION/1\n")
-  if Bytes.length(input) < Bytes.length(prefix) do
+  let parsed = recognized_presentation(input)
+  if !declassify(Option.is_some(parsed),
+    "disclose only acceptance of bounded authenticated presentation framing before accessing public storage keys; parsed content remains private") do
     Ok((input, Bytes.empty(), [], []))
   else
-    let head = Bytes.slice(input, 0, Bytes.length(prefix))?
-    if !Bytes.secure_equals(head, prefix) do
-      Ok((input, Bytes.empty(), [], []))
-    else
-      let encoded = Bytes.slice(input,
-        Bytes.length(prefix),
-        Bytes.length(input) - Bytes.length(prefix))?
-      case decode_presented_message(encoded) do
-        Err(_) -> Ok((input, Bytes.empty(), [], []))
-        Ok(value) -> do
-          let (body, profile, group, attachment) = value
-          let (user_labels, user_blobs) = presentation_update(database_path,
-            wrapping_key,
-            Bytes.from_utf8("user/" <> Bytes.to_hex(sender_id)),
-            profile)?
-          if Bytes.length(group_id) == 32
-            && Bytes.length(group) > 0
-            && group_record_allowed(database_path,
-              wrapping_key,
-              group_id,
-              sender_id,
-              creator_id,
-              group)? do
-            let (group_labels, group_blobs) = presentation_update(database_path,
-              wrapping_key,
-              Bytes.from_utf8("group/" <> Bytes.to_hex(group_id)),
-              group)?
-            Ok((body,
-              attachment,
-              List.concat(user_labels, group_labels),
-              List.concat(user_blobs, group_blobs)))
-          else
-            Ok((body, attachment, user_labels, user_blobs))
-          end
-        end
-      end
-    end
+    let (body, profile, group, attachment) = Option.unwrap_or(parsed,
+      (Bytes.empty(), Bytes.empty(), Bytes.empty(), Bytes.empty()))
+    # Prepare both independent encrypted updates before observing their results.
+    # A private user-seal error must not decide whether public group keys are read.
+    let user_update = presentation_update(database_path,
+      wrapping_key,
+      Bytes.from_utf8("user/" <> Bytes.to_hex(sender_id)),
+      profile)
+    let group_update = group_presentation_update(database_path,
+      wrapping_key,
+      sender_id,
+      group_id,
+      creator_id,
+      group)
+    # Preserve the original first-error order; failed plans are never returned.
+    let (user_labels, user_blobs) = user_update?
+    let (group_labels, group_blobs) = group_update?
+    Ok((body,
+      attachment,
+      List.concat(user_labels, group_labels),
+      List.concat(user_blobs, group_blobs)))
   end
+end
+
+fn group_presentation_update(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  sender_id :: Bytes,
+  group_id :: Bytes,
+  creator_id :: Bytes,
+  group :: Bytes) -> Result<(List<String>, List<Bytes>), String> do
+  let group_present = declassify(Bytes.length(group) > 0,
+    "disclose only presence of authenticated group presentation metadata to preserve conditional group storage access; content and authorization stay private")
+  if Bytes.length(group_id) == 32 && group_present do
+    let key = group_record_key(group_id)
+    let previous = load_presentation_record(database_path, wrapping_key, key)?
+    let anchor = load_group_anchor(database_path, wrapping_key, group_id)?
+    let allowed = record_change_allowed(previous, group, sender_id, creator_id, anchor)?
+    let candidate = if allowed do
+      group
+    else
+      previous
+    end
+    presentation_write(wrapping_key, key, previous, candidate)
+  else
+    Ok(([], []))
+  end
+end
+
+# Always return an encrypted write after admitted framing. Equal, older, and unauthorized
+# values select the prior plaintext before sealing, so plan length does not disclose
+# content equality, revision ordering, or the result of role authorization.
+fn presentation_write(wrapping_key :: borrow StorageKey,
+  key :: Bytes,
+  previous :: Bytes,
+  data :: Bytes) -> Result<(List<String>, List<Bytes>), String> do
+  let label = presentation_label(key)?
+  let previous_fields = checked_presentation(previous, true, false)?
+  let next_fields = checked_presentation(data, true, false)?
+  let chosen = if Bytes.secure_equals(previous, data)
+    || U64.compare(previous_fields.fields.revision, next_fields.fields.revision) > 0 do
+    previous
+  else
+    data
+  end
+  Ok(([label], [seal_local(chosen, wrapping_key, local_context(label)?)?]))
 end
 
 fn presentation_update(database_path :: String,
   wrapping_key :: borrow StorageKey,
   key :: Bytes,
   data :: Bytes) -> Result<(List<String>, List<Bytes>), String> do
-  let label = presentation_label(key)?
   let previous = load_presentation_record(database_path, wrapping_key, key)?
-  if Bytes.secure_equals(previous, data)
-    || U64.compare(presentation_revision(previous)?, presentation_revision(data)?) > 0 do
-    Ok(([], []))
-  else
-    Ok(([label], [seal_local(data, wrapping_key, local_context(label)?)?]))
-  end
+  presentation_write(wrapping_key, key, previous, data)
 end
 
 # ponytail: omit metadata on maximum-size text; use separate profile announcements if those messages must sync photos.
@@ -513,9 +611,5 @@ pub fn presented_body(input :: Bytes) -> Bytes do
 end
 
 fn presentation_revision(input :: Bytes) -> U64!String do
-  if Bytes.length(input) == 0 do
-    mobile_wide("0")
-  else
-    Ok(presentation_fields(input)?.revision)
-  end
+  Ok(checked_presentation(input, true, false)?.fields.revision)
 end

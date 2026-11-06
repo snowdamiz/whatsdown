@@ -1,0 +1,10 @@
+[package]
+name = "morse-token-policy"
+entrypoint = "worker_main.mpl"
+version = "0.1.0"
+description = "Isolated local qualification of fixed-supply token economics"
+license = "MIT"
+
+[dependencies]
+mesh-solana = { path = "../../../mesh-lang/packages/mesh-solana" }
+messenger-protocol = { path = "../../packages/messenger-protocol" }

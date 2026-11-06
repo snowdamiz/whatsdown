@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
-const EXPECTED_VERSION = '57.0.15';
+const EXPECTED_VERSION = '58.1.5';
 const APPLE_TOKEN_MODULE = 'PushTokenModule';
 const ANDROID_TOKEN_MODULE = 'expo.modules.notifications.tokens.PushTokenModule';
 const UPSTREAM_CONFIG = {
@@ -45,7 +45,6 @@ const UPSTREAM_CONFIG = {
     publication: {
       groupId: 'host.exp.exponent',
       artifactId: 'expo.modules.notifications',
-      version: EXPECTED_VERSION,
       repository: 'local-maven-repo',
     },
   },

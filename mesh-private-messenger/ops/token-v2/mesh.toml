@@ -1,0 +1,10 @@
+[package]
+name = "morse-token-v2-codecs"
+version = "0.1.0"
+description = "Local v2 collateral/rewards account, writer and finalized reader proof"
+license = "MIT"
+
+[dependencies]
+mesh-solana = { path = "../../../mesh-lang/packages/mesh-solana" }
+messenger-protocol = { path = "../../packages/messenger-protocol" }
+morse-token-ops = { path = "../token" }

@@ -1,7 +1,7 @@
 # Custom group schedule, version 2
 
 This is a custom protocol, not RFC 9420 interoperability. Commits and state
-use version 2, recipient-wrapped application messages use version 4, and the suite remains 3. Version 3 retains its original padded application format.
+use version 2, recipient-wrapped application messages use version 5, and the suite remains 3. Versions 3 and 4 retain their original application formats.
 All versions are authenticated. Legacy snapshots and messages retain their
 original decoders; a legacy group cannot send new application messages until
 an authenticated version-2 epoch transition succeeds. A version-2 state
@@ -33,7 +33,7 @@ next = HKDF(chain, group_id, "mesh-mls/v2/chain-next" || u16(leaf) || u32(g), 32
 ```
 
 Messages retain the signed header, random 96-bit nonce, padding and AEAD
-context of the earlier format. Version 4 moves padding to the recipient transport; version 3 retains inner padding. State
+context of the earlier format. Versions 4 and 5 put padding in the recipient transport; version 3 retains inner padding. Version 5 adds encrypted application/control framing for [checkpoint gossip](checkpoint-gossip-v1.md#groups). State
 advances only after signature and AEAD verification. Speculative maps are
 independent resources; errors discard them. There are 64 sender slots and at
 most 64 skipped keys across the group. A sender may jump over at most 32
@@ -78,7 +78,7 @@ Their contexts bind the account, device, group, complete public header and
 monotonic snapshot version. Purpose 16 now holds only next-init material;
 purpose 17 still holds the live TreeKEM private keys. Legacy version-1 snapshots
 retain their epoch-root semantics. The total snapshot ceiling remains 65,535
-bytes. Delivery ciphertext is at most 65,536 bytes. Recipient-wrapped application plaintext is at most 65,290 bytes, including encrypted presentation fields.
+bytes. Delivery ciphertext is at most 65,536 bytes. The version-5 encrypted payload is at most 65,290 bytes; its application body is at most 65,237 bytes, including presentation fields and attachment references.
 
 `groups.test.mpl` reproduces the old retained-root attack and exercises current
 state plus captured TreeKEM traffic, two senders, reordering, replay, removal
@@ -108,10 +108,11 @@ transcripts, and account membership checks remain inside the wrapper.
 
 The 52-byte transport overhead and four-byte encrypted length leave at most
 65,480 bytes for the inner group packet. Power-of-two buckets run from 256 to
-65,536 bytes. Application version 4 omits redundant inner padding: its group and
-packet framing consume another 190 bytes, leaving 65,290 bytes. Legacy unwrapped
+65,536 bytes. Application versions 4 and 5 omit redundant inner padding: their group and
+packet framing consume another 190 bytes, leaving 65,290 bytes. Version 5 reserves
+53 of those bytes for its payload framing and checkpoint hint. Legacy unwrapped
 `GRP` packets remain decodable for queued deliveries; their exposed metadata is
-not retroactively hidden. Versions 1–3 retain their existing decoding semantics.
+not retroactively hidden. Versions 1–4 retain their existing decoding semantics.
 
 This transport hides group IDs, rosters, and names from delivery. It does not hide
 destination mailboxes, timing, or size buckets. Later compromise of a recipient's

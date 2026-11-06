@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "rpc_origin": "https://api.mainnet-beta.solana.com",
+  "method": "getAccountInfo",
+  "commitment": "finalized",
+  "context_slot": "459724530",
+  "program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+  "idl_account": "C88XWfp26heEmDkmfSzeXP7Fd7GQJ2j9dDTUsyiZbUTa",
+  "account_sha256": "c468169462ca9330e499b597ce8d540308dcb66616002aaefa168551e3870558",
+  "idl_sha256": "1c70d6c96e01648411ff1579a35853d966407a4dff5020a5d33e92e6923c9e67",
+  "boundary": "Read-only chain IDL observation; program code/DEX binary not yet qualified. No transaction submitted."
+}

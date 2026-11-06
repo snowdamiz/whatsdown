@@ -1,3 +1,8 @@
+from Tests.LegacyAttachmentFixture import (
+  LegacyAttachmentManifest,
+  copy_legacy_fixture_manifest,
+  legacy_fixture_chunk
+)
 from Attachments.Protocol import (
   AttachmentError,
   AttachmentManifest,
@@ -5,9 +10,13 @@ from Attachments.Protocol import (
   generate_attachment_key,
   open_chunk,
   open_manifest,
-  seal_chunk,
   seal_manifest
 )
+
+fn public_legacy_metadata(value :: AttachmentManifest) -> LegacyAttachmentManifest do
+  declassify(copy_legacy_fixture_manifest(value),
+    "synthetic public legacy attachment fixture metadata only; no application disclosure")
+end
 
 fn repeated(value :: Int, count :: Int) -> Bytes!AttachmentError do
   case Bytes.repeat(value, count) do
@@ -44,6 +53,28 @@ fn tamper_last_byte(input :: Bytes) -> Bytes!AttachmentError do
   end
 end
 
+fn fixture_only(value :: Plaintext<Bool>) -> Bool do
+  declassify(value, "synthetic public attachment fixture equality only; no application disclosure")
+end
+
+fn opened_equals(result :: Result<Plaintext<Bytes>, AttachmentError>,
+  expected :: Bytes) -> Plaintext<Bool> do
+  case result do
+    Ok(value) -> Bytes.secure_equals(value, expected)
+    Err(_) -> false
+  end
+end
+
+fn rejected_as(result :: Result<Plaintext<Bytes>, AttachmentError>,
+  expected :: Int) -> Plaintext<Bool> do
+  case result do
+    Err(AuthenticationRejected) -> expected == 1
+    Err(InvalidChunkIndex) -> expected == 2
+    Err(InvalidChunkSize) -> expected == 3
+    _ -> false
+  end
+end
+
 fn attachment_proof() -> Bool!AttachmentError do
   let key = generate_attachment_key()?
   let attachment_id = generate_attachment_id()?
@@ -66,26 +97,25 @@ fn attachment_proof() -> Bool!AttachmentError do
     && opened_manifest.chunk_count == 2
     && opened_manifest.plaintext_size == 21)
   assert(U64.compare(opened_manifest.expires_at, manifest.expires_at) == 0)
-  assert(Bytes.secure_equals(opened_manifest.filename, manifest.filename))
-  assert(Bytes.secure_equals(opened_manifest.mime_type, manifest.mime_type))
+  assert(fixture_only(Bytes.secure_equals(opened_manifest.filename, manifest.filename)))
+  assert(fixture_only(Bytes.secure_equals(opened_manifest.mime_type, manifest.mime_type)))
   let first = Bytes.from_utf8("0123456789abcdef")
   let second = Bytes.from_utf8("final")
-  let first_wire = seal_chunk(key, opened_manifest, 0, first)?
-  let second_wire = seal_chunk(key, opened_manifest, 1, second)?
-  assert(Bytes.secure_equals(open_chunk(key, opened_manifest, 0, first_wire)?, first))
-  assert(Bytes.secure_equals(open_chunk(key, opened_manifest, 1, second_wire)?, second))
-  case open_chunk(key, opened_manifest, 0, tamper_last_byte(first_wire)?) do
-    Err(AuthenticationRejected) -> assert(true)
-    _ -> assert(false)
-  end
-  case open_chunk(key, opened_manifest, 1, first_wire) do
-    Err(InvalidChunkIndex) -> assert(true)
-    _ -> assert(false)
-  end
-  case seal_chunk(key, opened_manifest, 1, Bytes.from_utf8("not-final")) do
-    Err(InvalidChunkSize) -> assert(true)
-    _ -> assert(false)
-  end
+  let first_wire = legacy_fixture_chunk(key, public_legacy_metadata(opened_manifest), 0, first)?
+  let second_wire = legacy_fixture_chunk(key, public_legacy_metadata(opened_manifest), 1, second)?
+  assert(fixture_only(opened_equals(open_chunk(key, opened_manifest, 0, first_wire), first)))
+  assert(fixture_only(opened_equals(open_chunk(key, opened_manifest, 1, second_wire), second)))
+  assert(fixture_only(rejected_as(open_chunk(key,
+      opened_manifest,
+      0,
+      tamper_last_byte(first_wire)?),
+    1)))
+  assert(fixture_only(rejected_as(open_chunk(key, opened_manifest, 1, first_wire), 2)))
+  assert(fixture_only(rejected_as(legacy_fixture_chunk(key,
+      public_legacy_metadata(opened_manifest),
+      1,
+      Bytes.from_utf8("not-final")),
+    3)))
   Secret.destroy(key)
   Ok(true)
 end

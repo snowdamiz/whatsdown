@@ -1,6 +1,13 @@
+from Runtime.PrekeyRetention import prekey_retention_enabled
+from Storage.Prekeys import prune_consumed_prekeys
 from Storage.Outbox import finish_outbox, lease_outbox
 from Storage.RateLimit import purge_rate_limits
 from Storage.Retention import purge_envelopes
+from Storage.Credits import prune_credit_ledger
+from Storage.TransparencyRetention import (
+  run_transparency_maintenance,
+  transparency_maintenance_enabled
+)
 from Runtime.Registry import get_pool
 from Runtime.PushDispatch import dispatch_configured_push
 from Runtime.MailboxStream import wake_mailbox
@@ -11,9 +18,26 @@ pub fn transaction_in_progress(pool :: PoolHandle, id :: String) -> Bool!String 
 end
 
 pub fn next_work_at(pool :: PoolHandle) -> Int!String do
-  RuntimeJobs.due_time(Pool.query(pool,
-    "SELECT COALESCE(min(due), 0)::text AS due FROM (SELECT floor(extract(epoch FROM CASE WHEN status = 'leased' THEN lease_expires_at ELSE available_at END) * 1000)::bigint AS due FROM messenger_outbox_events WHERE completed_at IS NULL UNION ALL SELECT LEAST(expiration_ms, COALESCE(floor(extract(epoch FROM acknowledged_at) * 1000)::bigint + 3600000, expiration_ms)) AS due FROM messenger_envelopes) AS deadlines",
-    [])?)
+  let retention_enabled = prekey_retention_enabled()?
+  let delivery_due = RuntimeJobs.due_time(Pool.query(pool,
+    "SELECT COALESCE(min(due), 0)::text AS due FROM (SELECT floor(extract(epoch FROM CASE WHEN status = 'leased' THEN lease_expires_at ELSE available_at END) * 1000)::bigint AS due FROM messenger_outbox_events WHERE completed_at IS NULL UNION ALL SELECT LEAST(GREATEST(expiration_ms, storage_until_ms), COALESCE(floor(extract(epoch FROM acknowledged_at) * 1000)::bigint + 3600000, GREATEST(expiration_ms, storage_until_ms))) AS due FROM messenger_envelopes UNION ALL SELECT (min(retain_until) + 1) * 1000 FROM credit_spent UNION ALL SELECT (min(retain_until) + 1) * 1000 FROM credit_holds UNION ALL SELECT (min(retain_until) + 1) * 1000 FROM credit_cancellations UNION ALL SELECT min(CASE WHEN claim_retry_until_ms < (SELECT expired_before_ms FROM messenger_prekey_retention_clock WHERE singleton) THEN floor(extract(epoch FROM clock_timestamp()) * 1000) ELSE LEAST(claim_retry_until_ms + 1, floor(extract(epoch FROM clock_timestamp()) * 1000) + 3600000) END) FROM messenger_one_time_prekeys WHERE $1::boolean AND consumed_at IS NOT NULL AND claim_retry_until_ms IS NOT NULL UNION ALL SELECT floor(extract(epoch FROM clock_timestamp()) * 1000) WHERE $1::boolean AND EXISTS (SELECT 1 FROM messenger_one_time_prekeys WHERE consumed_at IS NOT NULL AND NOT claim_retention_checked)) AS deadlines",
+    [
+      if retention_enabled do
+        "true"
+      else
+        "false"
+      end
+    ])?)?
+  if transparency_maintenance_enabled() do
+    let maintenance_due = DateTime.to_unix_ms(DateTime.utc_now()) + 3600000
+    Ok(if delivery_due == 0 || maintenance_due < delivery_due do
+      maintenance_due
+    else
+      delivery_due
+    end)
+  else
+    Ok(delivery_due)
+  end
 end
 
 fn drain_outbox(pool :: PoolHandle, owner :: String, remaining :: Int) -> Result<(), String> do
@@ -34,6 +58,9 @@ pub fn run_scheduled(pool :: PoolHandle) -> Int!String do
   drain_outbox(pool, "scheduled-" <> Bytes.to_hex(random), 4)?
   purge_envelopes(pool, 3600, 128)?
   purge_rate_limits(pool, 128)?
+  prune_credit_ledger(pool, 128)?
+  prune_consumed_prekeys(pool, 128)?
+  run_transparency_maintenance(pool)?
   next_work_at(pool)
 end
 
@@ -67,6 +94,18 @@ actor outbox_worker(owner :: String, polling_ms :: Int) do
 end
 
 fn run_retention() do
+  case prune_consumed_prekeys(get_pool(), 128) do
+    Err(_) -> println("prekey retention failed")
+    Ok(_) -> nil
+  end
+  case prune_credit_ledger(get_pool(), 128) do
+    Err(_) -> println("credit retention failed")
+    Ok(_) -> nil
+  end
+  case run_transparency_maintenance(get_pool()) do
+    Err(_) -> println("transparency maintenance failed")
+    Ok(_) -> nil
+  end
   case purge_envelopes(get_pool(), 3600, 128) do
     Err(_) -> println("retention worker failed")
     Ok(_) -> nil
@@ -108,7 +147,12 @@ fn start_outbox_workers(count :: Int, polling_ms :: Int, index :: Int) -> Int!St
 end
 
 pub fn start_workers(outbox_count :: Int, polling_ms :: Int) -> Int!String do
+  prekey_retention_enabled()?
   if RuntimeJobs.enabled() do
+    # Restore pending delivery/credit deadlines after a restart even when
+    # transparency maintenance is disabled. An empty queue returns no deadline.
+    Repo.transaction(get_pool(),
+      fn(conn :: borrow PgConn) -> RuntimeJobs.notify(conn, "directory") end)?
     Ok(0)
   else if outbox_count <= 0 || outbox_count > 16 || polling_ms < 10 || polling_ms > 60000 do
     Err("invalid worker configuration")

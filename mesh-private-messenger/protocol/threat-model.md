@@ -60,3 +60,35 @@ secret material must be destroyed. Unknown mandatory protocol elements and
 resource-limit violations must fail explicitly. PostgreSQL commit is the
 durability boundary; a lost actor wakeup may delay retrieval but must not lose a
 committed envelope.
+
+Checkpoint gossip compares service-signed views received inside authenticated
+direct and group messages. Invented size/root hints and unavailable consistency
+proofs cannot establish a fork or pause trust. Only a conflict verified against
+the native service key can retain evidence and pause new sessions and key
+admission. Per-account budgets survive restarts and cover direct conversations,
+linked devices and groups together. Group controls are readable to existing
+members, addressed to one device, and never displayed in chat history.
+Gossip cannot compare users who never exchange messages, and suppression of
+delivery can delay detection. Public anchors and relay filing remain separate
+unfinished controls; safety-number verification remains available.
+
+The implemented anchor reader requires two matching responses from three
+sampled, pinned RPC origins and checks the expected program owner and log
+identity. It detects disagreement and ring overwrites without treating either
+as fork evidence. Origin separation alone does not prove operator independence;
+release review must select independently operated providers. Two colluding
+providers can forge a matching view. The Log reader additionally binds the
+service key, log version and ring address to native pins and retains the slash
+flag. The witness-set decoder and quorum reader bind a historical generation to
+the expected log, preserving key identity across rotations and distinguishing
+native from C2SP signatures. The judge now records both signature kinds within
+1,500 slots and requires a 14-day delay before activating a new immutable set.
+Chain registration does not itself make a witness a release pin or prove operator
+independence. The phone derives the log/ring/generation PDAs locally using the
+public Mesh Solana package; caller-supplied alternative addresses are rejected.
+Freshness requires two providers to agree on the finalized posting slot's chain
+time. Missing, conflicting or future time cannot manufacture a fresh result;
+these and the two-hour stale threshold are notices, not fork evidence. Service
+timestamps do not influence anchor age. Native program/log pin activation,
+durable scheduling and the phone's full anchor verdict remain
+unfinished; see [the account and reader contract](anchor-ring-v1.md).

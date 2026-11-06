@@ -1,10 +1,18 @@
+from Tests.HistoryFixture import fixture_direct_history
 import File
 from Mobile.History import decode_conversation_summary
+from Mobile.HistoryWire import decode_history, encode_history
+from Mobile.Inbox import process_delivery_batch
+from Mobile.Types import MobileBatchRequest
+from Protocol.MailboxWire import encode_delivery_batch, decode_mailbox_ack
+from Protocol.V1 import DeliveredEnvelope
+from Storage.Blobs import load_blob
+from Storage.HistoryBlobs import open_history_blob
+from Storage.Keys import platform_key
 from Mobile.Types import ConversationSummary
 from MobileCore import (
   create_account_export,
   list_conversations_export,
-  load_history_export,
   outbox_ack_export,
   receive_initial_export,
   receive_message_export,
@@ -14,10 +22,15 @@ from MobileCore import (
   start_conversation_export,
   update_conversation_export
 )
+from Prekeys.Bundle import normalize_prekey_bundle
+from Protocol.PrekeyWire import encode_prekey_bundle
+from Tests.GroupConsistencySupport import encode_set, signed_transparency_view
+from Tests.GroupLifecycleSupport import install_signed_transparency
 from Tests.Support import append, database_path, vector, write_u32
+from Transparency.Merkle import leaf_hash
 from Protocol.EnvelopeWire import decode_outer_envelope
 from Protocol.IdentityWire import encode_account_identity
-from Protocol.V1 import AccountIdentity, DirectoryEntry, OuterEnvelope
+from Protocol.V1 import AccountIdentity, DeviceSet, DirectoryEntry, OuterEnvelope
 from Transport.Packet import ClientProfile, decode_client_profile, encode_client_profile
 
 fn encode_vectors(values :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
@@ -30,6 +43,28 @@ end
 
 fn request(values :: List<Bytes>) -> Bytes!String do
   encode_vectors(values, 0, Bytes.empty())
+end
+
+# The witnessed directory logs the current signed bundle without its claimed
+# one-time prekey. Both HE senders need the exact own and peer sets in one view.
+fn logged_set(profile :: ClientProfile) -> Bytes!String do
+  let bundle = case normalize_prekey_bundle(profile.bundle) do
+    Err(_) -> return Err("fixture bundle normalization failed")
+    Ok(value) -> value
+  end
+  let wire = case encode_prekey_bundle(bundle) do
+    Err(_) -> return Err("fixture bundle encoding failed")
+    Ok(value) -> value
+  end
+  let entry = %{profile.entry | prekey_bundle: wire}
+  encode_set(DeviceSet {
+    version: 1,
+    username: entry.username,
+    account_identity: entry.account_identity,
+    sequence: profile.account.directory_sequence,
+    devices: [entry],
+    revoked_device_ids: []
+  })
 end
 
 fn byte(value :: Int) -> Bytes!String do
@@ -85,6 +120,14 @@ fn proof() -> Bool!String do
     Bytes.from_utf8(bob_path),
     Bytes.from_utf8("bob")
   ])?)?
+  let alice_set = logged_set(decode_client_profile(alice_profile)?)?
+  let bob_set = logged_set(decode_client_profile(bob_profile)?)?
+  let view = signed_transparency_view([leaf_hash(alice_set)?, leaf_hash(bob_set)?])?
+  for path in [alice_path, bob_path] do
+    for device_set in [alice_set, bob_set] do
+      assert(install_signed_transparency(path, view, device_set)?)
+    end
+  end
   let greeting = Bytes.from_utf8("hello bob")
   let initial = start_conversation_export(request([
     Bytes.from_utf8(alice_path),
@@ -161,7 +204,14 @@ fn proof() -> Bool!String do
   end
   assert(Bytes.secure_equals(policy(bob_path, alice_profile, 3, 0)?, Bytes.from_utf8("ok")))
   let history_request = request([Bytes.from_utf8(bob_path), alice_profile])?
-  let history_before = load_history_export(history_request)?
+  let history_before = fixture_direct_history(history_request)?
+  let conversation = decode_conversation_summary(list_conversations_export(Bytes.from_utf8(bob_path))?)?
+  let history_label = "history/v1/#{Bytes.to_hex(conversation.conversation_id)}"
+  let storage_key = platform_key()?
+  let stored_before = encode_history(decode_history(open_history_blob(load_blob(bob_path,
+      history_label)?,
+    storage_key,
+    history_label)?)?)?
   assert(Bytes.secure_equals(policy(alice_path, bob_profile, 5, 1)?, Bytes.from_utf8("ok")))
   let disappearing = Bytes.from_utf8("gone soon")
   let disappearing_outer = send_message_export(request([
@@ -175,9 +225,36 @@ fn proof() -> Bool!String do
       disappearing_outer
     ])?)?,
     disappearing))
-  assert(!Bytes.secure_equals(load_history_export(history_request)?, history_before))
+  assert(!Bytes.secure_equals(fixture_direct_history(history_request)?, history_before))
+  let late_outer = send_message_export(request([
+    Bytes.from_utf8(alice_path),
+    bob_profile,
+    Bytes.from_utf8("expired before delivery")
+  ])?)?
+  assert(acknowledge(alice_path, late_outer)?)
   Timer.sleep(2000)
-  assert(Bytes.secure_equals(load_history_export(history_request)?, history_before))
+  let late_batch = case encode_delivery_batch([
+    DeliveredEnvelope { sequence: U64.parse("1")?, envelope: late_outer }
+  ]) do
+    Err(_) -> Err("fixture batch encoding failed")
+    Ok(value)
+  end?
+  let ack = process_delivery_batch(MobileBatchRequest {
+    database_path: bob_path,
+    batch: late_batch
+  })?
+  let accepted = case decode_mailbox_ack(ack) do
+    Err(_) -> Err("fixture ack decoding failed")
+    Ok(value)
+  end?
+  assert(List.length(accepted.envelope_ids) == 1)
+  # No display/history export may hide this newly received expired message.
+  assert(Bytes.secure_equals(encode_history(decode_history(open_history_blob(load_blob(bob_path,
+        history_label)?,
+      storage_key,
+      history_label)?)?)?,
+    stored_before))
+  assert(Bytes.secure_equals(fixture_direct_history(history_request)?, history_before))
   case decode_conversation_summary(Bytes.empty()) do
     Ok(_) -> assert(false)
     Err(_) -> assert(true)

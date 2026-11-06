@@ -1,3 +1,10 @@
+from Protocol.DirectoryWire import encode_device_set
+from Protocol.V1 import DeviceSet
+from Transport.Packet import decode_client_profile
+from Tests.GroupConsistencySupport import signed_transparency_view
+from Tests.GroupLifecycleSupport import install_signed_transparency
+from Transparency.Merkle import leaf_hash
+from Tests.HistoryFixture import fixture_direct_history, fixture_group_history
 import File
 from Mobile.Codec import current_time, mobile_join, mobile_byte
 from Mobile.Attachments import validate_attachment
@@ -6,10 +13,8 @@ from MobileCore import (
   attachment_prepare_export,
   attachment_seal_chunk_export,
   create_account_export,
-  group_history_export,
   group_receive_export,
   group_send_export,
-  load_history_export,
   receive_initial_export,
   start_conversation_export
 )
@@ -36,11 +41,28 @@ struct PreparedAttachment do
   encrypted_manifest :: Bytes
 end
 
-fn ensure(value :: Bool, error :: String) -> Result<(), String> do
-  if value do
+fn ensure(value :: Plaintext<Bool>, error :: String) -> Result<(), String> do
+  if declassify(value,
+    "synthetic public attachment fixture assertion only; no application disclosure") do
     Ok(nil)
   else
     Err(error)
+  end
+end
+
+# Observe only a comparison with a known fixture. Matching the private result
+# inside this helper keeps its control dependency out of later fixture effects.
+fn opened_equals(value :: Bytes!String, expected :: Bytes) -> Plaintext<Bool> do
+  case value do
+    Ok(bytes) -> Bytes.secure_equals(bytes, expected)
+    Err(_) -> false
+  end
+end
+
+fn rejected_as(value :: Bytes!String, expected :: String) -> Plaintext<Bool> do
+  case value do
+    Ok(_) -> false
+    Err(error) -> error == expected
   end
 end
 
@@ -169,7 +191,7 @@ fn exercise_preparation(path :: String) -> PreparedAttachment!String do
     "grant proof of work did not verify")?
   ensure(Bytes.length(prepared.complete) == 68 && Bytes.length(prepared.delete) == 68,
     "object control length mismatch")?
-  ensure(Bytes.length(prepared.encrypted_manifest) > 48, "encrypted manifest too small")?
+  ensure(Bytes.length(prepared.encrypted_manifest) == 514, "encrypted manifest length mismatch")?
   Ok(prepared)
 end
 
@@ -179,10 +201,10 @@ fn exercise_chunks(path :: String, prepared :: PreparedAttachment) -> Bool!Strin
   let sealed_first = seal(path, prepared.reference, 0, first)?
   let sealed_last = seal(path, prepared.reference, 1, last)?
   ensure(Bytes.length(sealed_first) == 65576, "sealed chunk length mismatch")?
-  ensure(Bytes.length(sealed_last) == 4504, "sealed final chunk length mismatch")?
-  ensure(Bytes.secure_equals(open(path, prepared.reference, 0, sealed_first)?, first),
+  ensure(Bytes.length(sealed_last) == 65576, "sealed final chunk length mismatch")?
+  ensure(opened_equals(open(path, prepared.reference, 0, sealed_first), first),
     "first chunk round trip mismatch")?
-  ensure(Bytes.secure_equals(open(path, prepared.reference, 1, sealed_last)?, last),
+  ensure(opened_equals(open(path, prepared.reference, 1, sealed_last), last),
     "last chunk round trip mismatch")?
   case seal(path, prepared.reference, 2, last) do
     Ok(_) -> Err("out of range chunk was sealed")?
@@ -194,11 +216,9 @@ fn exercise_chunks(path :: String, prepared :: PreparedAttachment) -> Bool!Strin
     Err(error) -> ensure(error == "invalid_attachment_chunk_size",
       "wrong chunk size error" <> ": " <> error)?
   end
-  case open(path, prepared.reference, 1, sealed_first) do
-    Ok(_) -> Err("chunk opened under the wrong index")?
-    Err(error) -> ensure(error == "invalid_attachment_chunk_index",
-      "wrong reordered chunk error" <> ": " <> error)?
-  end
+  ensure(rejected_as(open(path, prepared.reference, 1, sealed_first),
+      "invalid_attachment_chunk_index"),
+    "wrong reordered chunk error")?
   Ok(true)
 end
 
@@ -211,6 +231,27 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool!St
     Bytes.from_utf8(dave_path),
     Bytes.from_utf8("dave")
   ])?)?
+  let accounts = for wire in [carol_profile, dave_profile] do
+    let profile = decode_client_profile(wire)?
+    case encode_device_set(DeviceSet {
+      version: 1,
+      username: profile.username,
+      account_identity: profile.entry.account_identity,
+      sequence: profile.account.directory_sequence,
+      devices: [profile.entry],
+      revoked_device_ids: []
+    }) do
+      Err(_) -> Err("fixture attachment recipient set")
+      Ok(value)
+    end?
+  end
+  let view = signed_transparency_view(for devices in accounts do
+    leaf_hash(devices)?
+  end)?
+  for devices in accounts do
+    ensure(install_signed_transparency(carol_path, view, devices)?,
+      "fixture recipient transparency")?
+  end
   let prepared = exercise_preparation(carol_path)?
   ensure(exercise_chunks(carol_path, prepared)?, "chunk checks failed")?
   case start_conversation_export(group_vectors([
@@ -282,7 +323,7 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool!St
       initial
     ])?)?) == 0,
     "attachment-only message body mismatch")?
-  let dave_history = output_list(load_history_export(group_vectors([
+  let dave_history = output_list(fixture_direct_history(group_vectors([
     Bytes.from_utf8(dave_path),
     carol_profile
   ])?)?)?
@@ -295,7 +336,7 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool!St
   ensure(Bytes.length(List.get(dave_entry, 3)) == 0, "dave history body mismatch")?
   let dave_summaries = vector_items(List.get(dave_entry, 5), 8, [])?
   ensure(List.length(dave_summaries) == 10, "receiver lost album photos")?
-  let carol_history = output_list(load_history_export(group_vectors([
+  let carol_history = output_list(fixture_direct_history(group_vectors([
     Bytes.from_utf8(carol_path),
     dave_profile
   ])?)?)?
@@ -310,15 +351,12 @@ fn exercise_direct_message(carol_path :: String, dave_path :: String) -> Bool!St
       1000,
       1)?
     let chunk = seal(carol_path, photo.reference, 0, repeated(index, 1000)?)?
-    ensure(Bytes.secure_equals(open(dave_path, reference, 0, chunk)?, repeated(index, 1000)?),
+    ensure(opened_equals(open(dave_path, reference, 0, chunk), repeated(index, 1000)?),
       "album chunk did not decrypt")?
     let own = assert_summary(List.get(carol_summaries, index), photo, "photo#{index}.jpg", 1000, 1)?
     ensure(Bytes.secure_equals(own, photo.reference), "sender lost album reference")?
-    case open(dave_path, photo.reference, 0, chunk) do
-      Ok(_) -> Err("peer opened sender reference")?
-      Err(error) -> ensure(error == "attachment_key_unwrap_failed",
-        "wrong foreign reference error")?
-    end
+    ensure(rejected_as(open(dave_path, photo.reference, 0, chunk), "attachment_key_unwrap_failed"),
+      "wrong foreign reference error")?
   end
   Ok(true)
 end
@@ -343,7 +381,7 @@ fn exercise_group_message(accounts :: GroupAccountFixture, group_id :: Bytes) ->
       body),
     "group attachment body mismatch")?
   acknowledge(accounts.alice_path, deliveries, 0)?
-  let bob_history = output_list(group_history_export(group_vectors([
+  let bob_history = output_list(fixture_group_history(group_vectors([
     Bytes.from_utf8(accounts.bob_path),
     group_id
   ])?)?)?
@@ -357,9 +395,9 @@ fn exercise_group_message(accounts :: GroupAccountFixture, group_id :: Bytes) ->
   let bob_reference = assert_summary(List.get(bob_record, 7), prepared, "trail.jpg", 1000, 1)?
   ensure(!Bytes.secure_equals(bob_reference, prepared.reference),
     "group attachment key was not rewrapped for bob")?
-  ensure(Bytes.secure_equals(open(accounts.bob_path, bob_reference, 0, sealed)?, payload),
+  ensure(opened_equals(open(accounts.bob_path, bob_reference, 0, sealed), payload),
     "bob could not open the group attachment")?
-  let alice_history = output_list(group_history_export(group_vectors([
+  let alice_history = output_list(fixture_group_history(group_vectors([
     Bytes.from_utf8(accounts.alice_path),
     group_id
   ])?)?)?
@@ -381,7 +419,7 @@ fn exercise_group_message(accounts :: GroupAccountFixture, group_id :: Bytes) ->
   ])?)?
   ensure(Bytes.length(silent_body) == 0, "attachment-only group body mismatch")?
   acknowledge(accounts.alice_path, silent, 0)?
-  let bob_after = output_list(group_history_export(group_vectors([
+  let bob_after = output_list(fixture_group_history(group_vectors([
     Bytes.from_utf8(accounts.bob_path),
     group_id
   ])?)?)?
@@ -412,7 +450,7 @@ fn exercise_group_message(accounts :: GroupAccountFixture, group_id :: Bytes) ->
   let album_envelope = envelope_for(album_deliveries, accounts.bob_entry.mailbox_token, 0)?
   group_receive_export(group_vectors([Bytes.from_utf8(accounts.bob_path), album_envelope])?)?
   acknowledge(accounts.alice_path, album_deliveries, 0)?
-  let album_history = output_list(group_history_export(group_vectors([
+  let album_history = output_list(fixture_group_history(group_vectors([
     Bytes.from_utf8(accounts.bob_path),
     group_id
   ])?)?)?
@@ -424,8 +462,7 @@ fn exercise_group_message(accounts :: GroupAccountFixture, group_id :: Bytes) ->
     let photo = List.get(photos, index)
     let reference = assert_summary(List.get(summaries, index), photo, "trail#{index}.jpg", 1000, 1)?
     let chunk = seal(accounts.alice_path, photo.reference, 0, repeated(index, 1000)?)?
-    ensure(Bytes.secure_equals(open(accounts.bob_path, reference, 0, chunk)?,
-        repeated(index, 1000)?),
+    ensure(opened_equals(open(accounts.bob_path, reference, 0, chunk), repeated(index, 1000)?),
       "group album chunk did not decrypt")?
   end
   Ok(true)

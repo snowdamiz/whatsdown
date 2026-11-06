@@ -3,6 +3,9 @@
 // direct messages between those two, reading as what they say, so the admin
 // sees who is asking and the community's members learn nothing until they are
 // let in. An approval names the part the invitation that follows it is for.
+
+import { t } from './i18n.ts';
+
 export type CommunityLink = { community: string; admin: string; name: string };
 export type CommunityControl =
   | { kind: 'request'; community: string; name: string }
@@ -70,10 +73,13 @@ export function applyCommunityControls<T extends { body: string }>(history: T[])
     if (!control) return message;
     if (control.kind === 'request') {
       names.set(control.community, control.name);
-      return { ...message, body: `Asked to join ${control.name}`, community: control };
+      return { ...message, body: t('Asked to join {group}', { group: control.name }), community: control };
     }
-    const name = names.get(control.community) ?? 'the community';
-    return { ...message, body: `${control.part ? 'Approved' : 'Declined'} the request to join ${name}`, community: control };
+    const name = names.get(control.community);
+    const body = control.part
+      ? name ? t('Approved the request to join {group}', { group: name }) : t('Approved the request to join the community')
+      : name ? t('Declined the request to join {group}', { group: name }) : t('Declined the request to join the community');
+    return { ...message, body, community: control };
   });
 }
 

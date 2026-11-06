@@ -40,16 +40,16 @@ function main() {
   const manifest = { schema: 1, startedAt: new Date().toISOString(), morse: describeTree(root), mesh: describeTree(mesh),
     host: { platform: platform(), os: release(), arch: arch(), node: process.version },
     campaign: { extended, groupSeeds: extended ? 1000 : 4, groupOperationsPerSeed: 198 },
-    enabledSuites: [1, 2, 3], versions: { direct: 1, groupCommit: 2, groupMessage: 4, groupSnapshot: 2, groupTransport: 1 },
+    enabledSuites: [1, 2, 3], versions: { direct: 1, groupCommit: 2, groupMessage: 5, groupSnapshot: 2, groupTransport: 1 },
     locks: {}, artifacts: {}, tools: {}, results: [], releaseReady: false };
   for (const tool of ['rustc', 'cargo', 'clang', 'python3']) manifest.tools[tool] = spawnSync(tool, ['--version'], { encoding: 'utf8' }).stdout?.trim() ?? 'unavailable';
-  for (const name of ['mesh-lang/target/debug/meshc', 'mesh-lang/target/debug/libmesh_rt.a', 'mesh-private-messenger/apps/desktop/src-tauri/native/libmessenger_mobile.dylib']) {
+  for (const name of ['mesh-lang/target/debug/meshc', 'mesh-lang/target/debug/libmesh_rt.a', 'mesh-private-messenger/apps/desktop/src-tauri/native/libmessenger_mobile.dylib', 'mesh-private-messenger/programs/target/deploy/morse_judge.so']) {
     const path = join(root, name);
     if (existsSync(path)) manifest.artifacts[name] = { sha256: hash(readFileSync(path)), note: 'Local artifact; signing and release provenance require separate evidence' };
   }
   for (const name of ['mesh-lang/Cargo.lock', 'mesh-private-messenger/apps/mobile/package-lock.json',
     'mesh-private-messenger/apps/desktop/package-lock.json', 'mesh-private-messenger/apps/desktop/src-tauri/Cargo.lock',
-    'mesh-private-messenger/ops/cloudflare/package-lock.json']) manifest.locks[name] = hash(readFileSync(join(root, name)));
+    'mesh-private-messenger/ops/cloudflare/package-lock.json', 'mesh-private-messenger/programs/Cargo.lock']) manifest.locks[name] = hash(readFileSync(join(root, name)));
   const save = () => writeFileSync(join(directory, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   const compiler = process.env.MESHC ?? join(mesh, 'target/debug/meshc');
   const env = { ...process.env, MESHC: compiler, MESSENGER_CAMPAIGN_SEEDS: extended ? '1000' : '4',
@@ -59,6 +59,7 @@ function main() {
     ['protocol', ['C1', 'C2', 'C3', 'C4', 'C7'], compiler, ['test', join(product, 'packages/messenger-protocol/tests')]],
     ['mobile-core', ['C2', 'C4', 'C5', 'C7'], compiler, ['test', join(product, 'packages/mobile-core/tests')]],
     ['cli-interop', ['C1', 'C2'], compiler, ['test', join(product, 'tests/interoperability')]],
+    ['judge-checkpoint-oracle', ['C1', 'C2'], process.execPath, ['--test', join(product, 'scripts/judge-checkpoint.test.mjs')]],
     ['model', ['C3', 'C4'], 'python3', [join(product, 'protocol/group-schedule-model.py')]],
     ['release-regressions', ['C3', 'C8'], process.execPath, ['--test', join(product, 'scripts/group-oracle.test.mjs'), join(product, 'scripts/privacy-leaks.test.mjs'), join(product, 'scripts/group-mutation.test.mjs'), join(product, 'scripts/direct-security.test.mjs'), join(product, 'scripts/release-verification.test.mjs'), join(product, 'scripts/verify-security.test.mjs')]],
     ['mobile', ['C1', 'C5', 'C7', 'C8'], 'npm', ['test', '--prefix', join(product, 'apps/mobile')]],

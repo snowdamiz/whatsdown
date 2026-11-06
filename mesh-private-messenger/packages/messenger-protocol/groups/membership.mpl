@@ -90,9 +90,47 @@ from Groups.WelcomeWire import (
   group_validate_welcome_shape
 )
 
+# A policy rotation reauthorizes the existing roster under a new pinned set.
+# The app must verify that set and each member before calling or applying it.
+fn policy_after(current :: GroupTransparencyPolicy,
+  proposal :: GroupProposal) -> GroupTransparencyPolicy do
+  case proposal do
+    UpdateWitnessPolicy(policy) -> policy
+    _ -> current
+  end
+end
+
+fn validate_policy_transition(current :: GroupTransparencyPolicy,
+  proposal :: GroupProposal) -> Result<(), GroupError> do
+  case proposal do
+    UpdateWitnessPolicy(policy) -> do
+      group_validate_policy(policy)?
+      if Bytes.length(policy.set_id) != 32
+        || !Bytes.secure_equals(policy.checkpoint_hash, current.checkpoint_hash)
+        || U64.compare(policy.minimum_directory_sequence, current.minimum_directory_sequence) != 0
+        || (Bytes.secure_equals(policy.set_id, current.set_id)
+          && policy.witness_threshold != current.witness_threshold) do
+        Err(InvalidPolicy)
+      else
+        Ok(nil)
+      end
+    end
+    _ -> Ok(nil)
+  end
+end
+
+fn rotate_tree_policy(tree :: GroupTree,
+  policy :: GroupTransparencyPolicy) -> GroupTree!GroupError do
+  let members = for indexed in indexed_members(tree) do
+    %{indexed | member: %{indexed.member | witness_count: policy.witness_threshold}}
+  end
+  group_tree_error(tree_from_public(members, public_parent_nodes(tree)))
+end
+
 fn apply_proposal(tree :: GroupTree, proposal :: GroupProposal) -> GroupTree!GroupError do
   case proposal do
     UpdateKeys -> Ok(tree)
+    UpdateWitnessPolicy(policy) -> rotate_tree_policy(tree, policy)
     AddMember(leaf_index, member) -> case insert_member(tree, member) do
       Err(error) -> Err(TreeFailure(error))
       Ok(value) -> do
@@ -344,26 +382,19 @@ pub fn commit_add(state :: consume GroupState,
   end
 end
 
-fn prepare_remove(state :: borrow GroupState,
+fn prepare_change(state :: borrow GroupState,
   signing_key :: borrow SigningPrivateKey,
-  leaf_index :: Int) -> PreparedGroupRemove!GroupError do
-  if leaf_index == state.local_leaf do
+  proposal :: GroupProposal) -> PreparedGroupRemove!GroupError do
+  let removes_self = case proposal do
+    RemoveMember(leaf) -> leaf == state.local_leaf
+    _ -> false
+  end
+  if removes_self do
     Err(invalid_group_member_error())
   else
-    let proposal_tree = if leaf_index == -1 do
-      Ok(state.tree)
-    else
-      case remove_member(state.tree, leaf_index) do
-        Err(error) -> Err(TreeFailure(error))
-        Ok(value)
-      end
-    end?
+    validate_policy_transition(state.policy, proposal)?
+    let proposal_tree = apply_proposal(state.tree, proposal)?
     let epoch = group_next_epoch(state.epoch)?
-    let proposal = if leaf_index == -1 do
-      UpdateKeys
-    else
-      RemoveMember(leaf_index)
-    end
     let generated = group_generate_treekem_path(state.local_leaf)?
     let public_path = TreeKemUpdatePath {
       leaf_public_key: generated.leaf_public_key,
@@ -430,16 +461,18 @@ fn prepare_remove(state :: borrow GroupState,
   end
 end
 
-pub fn commit_remove(state :: consume GroupState,
+fn commit_change(state :: consume GroupState,
   signing_key :: borrow SigningPrivateKey,
-  leaf_index :: Int) -> GroupRemoveOutcome do
-  case prepare_remove(state, signing_key, leaf_index) do
+  proposal :: GroupProposal) -> GroupRemoveOutcome do
+  case prepare_change(state, signing_key, proposal) do
     Err(error) -> GroupRemoveRejected(state, error)
     Ok(prepared) -> do
       let tree = prepared.tree
       let commit = prepared.commit
       let transcript_hash = prepared.transcript_hash
+      let policy = policy_after(state.policy, commit.proposal)
       let next = %{state |
+        policy: policy,
         version: 2,
         epoch: commit.epoch,
         tree: tree,
@@ -460,6 +493,7 @@ fn transition_tree(prior_tree :: GroupTree, commit :: GroupCommit) -> GroupTree!
     AddMember(leaf, _) -> leaf
     RemoveMember(_) -> -1
     UpdateKeys -> -1
+    UpdateWitnessPolicy(_) -> -1
   end
   group_validate_update_recipients(proposal_tree,
     commit.committer_leaf,
@@ -619,7 +653,11 @@ fn apply_verified_commit(state :: borrow GroupState,
     verify_commit(commit, state.tree)?
     let next_tree = transition_tree(state.tree, commit)?
     let next_members = indexed_members(next_tree)
-    group_validate_members(next_members, state.extensions, state.policy, 0)?
+    validate_policy_transition(state.policy, commit.proposal)?
+    group_validate_members(next_members,
+      state.extensions,
+      policy_after(state.policy, commit.proposal),
+      0)?
     case member_at(next_tree, state.local_leaf) do
       Err(_) -> Err(RemovedMember)
       Ok(_) -> do
@@ -698,7 +736,7 @@ fn finish_applied(state :: consume GroupState,
   let group_id = state.group_id
   let local_leaf = state.local_leaf
   let extensions = state.extensions
-  let policy = state.policy
+  let policy = policy_after(state.policy, commit.proposal)
   let snapshot_version = state.snapshot_version
   let material = group_merge_key_material(state.key_material, patch)
   let material = case keys do
@@ -725,5 +763,17 @@ end
 
 pub fn commit_update(state :: consume GroupState,
   signing_key :: borrow SigningPrivateKey) -> GroupRemoveOutcome do
-  commit_remove(state, signing_key, -1)
+  commit_change(state, signing_key, UpdateKeys)
+end
+
+pub fn commit_remove(state :: consume GroupState,
+  signing_key :: borrow SigningPrivateKey,
+  leaf_index :: Int) -> GroupRemoveOutcome do
+  commit_change(state, signing_key, RemoveMember(leaf_index))
+end
+
+pub fn commit_witness_policy(state :: consume GroupState,
+  signing_key :: borrow SigningPrivateKey,
+  policy :: GroupTransparencyPolicy) -> GroupRemoveOutcome do
+  commit_change(state, signing_key, UpdateWitnessPolicy(policy))
 end

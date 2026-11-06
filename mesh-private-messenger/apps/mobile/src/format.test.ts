@@ -108,6 +108,10 @@ test('friendlyError maps known protocol and network failures to plain language',
 });
 
 test('friendlyError strips native noise from unknown failures and keeps app copy intact', () => {
+  assert.equal(friendlyError(new Error('paid_attachment_staging_incomplete')),
+    'This upload was not fully encrypted before the app closed. Recover its reservation; choose the file again only as a new upload.');
+  assert.equal(friendlyError(new Error('paid_attachment_http_503')),
+    'Upload outcome unknown. Keep this saved upload and retry; do not start a replacement.');
   assert.equal(
     friendlyError(
       new Error(
@@ -135,4 +139,17 @@ test('friendlyError strips native noise from unknown failures and keeps app copy
 
 test('stale authorization explains how to refresh before sending', () => {
   assert.equal(friendlyError('transparency_stale'), 'Security information is out of date. Reconnect and refresh before sending.');
+});
+
+test('native account errors keep unavailable, refused and replacement outcomes readable',()=>{
+  assert.equal(friendlyError(new Error('account_http_500')),'The server hit a problem. Try again in a moment.');
+  assert.equal(friendlyError(new Error('account_transport_unavailable')),'Can’t reach the server. Check your connection and try again.');
+  assert.equal(friendlyError(new Error('account_state_changed')),'The account on this device changed. Review it before trying again.');
+});
+
+test('native fanout identity refusals retain the existing localized review guidance', () => {
+  assert.equal(friendlyError(new Error('Mesh 9: fanout_contact_identity_changed')),
+    'The contact identity changed. Verify the contact before sending.');
+  assert.equal(friendlyError(new Error('directory_identity_changed')),
+    'The account on this device changed. Review it before trying again.');
 });

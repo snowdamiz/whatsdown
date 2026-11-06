@@ -1,0 +1,128 @@
+from Fixture import filing_fixture
+from Mobile.Bounty import bounty_state, set_bounty_enabled, retain_bounty_fork, commit_bounty_address, disclosable_fork
+from Mobile.BountyTransferState import BountyTransferJournal, load_bounty_transfer
+from Mobile.BountyTransferNetwork import BountyWalletPins, prepare_bounty_movement, commit_bounty_movement, submit_bounty_movement, recover_bounty_movement
+from Mobile.ForkFiling import FilingPlan, prepare_filing
+from Storage.Blobs import ensure_schema
+from Storage.Records import erase_local_state
+from Transparency.Config import encode_security_config, decode_security_config
+from Transparency.Fork import encode_fork
+from Transparency.Merkle import checkpoint_hash
+from Transparency.SlashReceipt import slash_receipt_address
+from Transparency.AnchorChain import anchor_addresses
+from Solana.Address import find_program_address
+from Bounty.Transfer import decode_bounty_transfer, bounty_token_account
+
+fn repeated(byte :: Int) -> Bytes!String do
+  case Bytes.repeat(byte, 32) do Err(_) -> Err("test bytes") Ok(value) -> Ok(value) end
+end
+fn key() -> StorageKey!String do
+  case StorageKey.file(Env.get("BOUNTY_STORAGE", "")) do
+    Err(_) -> Err("fixture_key_failed")
+    Ok(value) -> Ok(value)
+  end
+end
+fn field(label :: String, value :: String) -> String do
+  Json.encode_string(label) <> ":" <> Json.encode_string(value)
+end
+fn output(value :: BountyTransferJournal) -> String do
+  "{" <> String.join([
+    "\"status\":" <> Int.to_string(value.status),
+    field("identity_hex", Bytes.to_hex(value.identity)),
+    field("intent_hex", Bytes.to_hex(value.intent)),
+    field("signature_hex", Bytes.to_hex(value.signature)),
+    field("wire_hex", Bytes.to_hex(value.wire)),
+    field("fee", U64.to_string(value.fee)),
+    field("finalized_slot", U64.to_string(value.finalized_slot))
+  ], ",") <> "}"
+end
+fn plan(path :: String, frame :: Bytes, wrapping :: borrow StorageKey) -> FilingPlan!String do
+  case prepare_filing(decode_security_config(frame)?, disclosable_fork(path, wrapping)?)? do
+    None -> Err("fixture_plan_missing")
+    Some(value) -> Ok(%{value | pins: %{value.pins |
+      endpoints: String.split(Env.get("BOUNTY_ENDPOINTS", ""), ",")
+    }})
+  end
+end
+fn current(path :: String, frame :: Bytes, wire :: Bytes) -> Bool do
+  if Env.get("BOUNTY_FENCE", "0") != "0" do return false end
+  let wrapping = case key() do Err(_) -> return false Ok(value) -> value end
+  let saved = case File.read(Env.get("BOUNTY_CONFIG", "")) do Err(_) -> return false Ok(value) -> value end
+  let proof = case disclosable_fork(path, wrapping) do Err(_) -> return false Ok(value) -> value end
+  Bytes.secure_equals(frame, Bytes.from_utf8(saved)) && Bytes.secure_equals(proof, wire)
+end
+fn run() -> String!String do
+  let path = Env.get("BOUNTY_DATABASE", "")
+  let wrapping = key()?
+  let action = Env.get("BOUNTY_ACTION", "")
+  let endpoints = String.split(Env.get("BOUNTY_ENDPOINTS", ""), ",")
+  let payer = Bytes.from_hex(Env.get("BOUNTY_PAYER", ""))?
+  let finder = Bytes.from_hex(Env.get("BOUNTY_FINDER", ""))?
+  let destination = Bytes.from_hex(Env.get("BOUNTY_DESTINATION", ""))?
+  let mint = repeated(7)?
+  if action == "bootstrap" do
+    ensure_schema(path)?
+    let (proof, fixture) = filing_fixture()?
+    # Release config remains strict HTTPS; this fixture replaces only the
+    # already-validated plan's transport pins with owned loopback listeners.
+    let config = %{fixture | slash_mint: Bytes.to_base58(mint)}
+    let frame = encode_security_config(config)?
+    File.write(Env.get("BOUNTY_CONFIG", ""), Bytes.to_utf8(frame)?)?
+    set_bounty_enabled(path, wrapping, true)?
+    retain_bounty_fork(path, wrapping, encode_fork(proof)?)?
+    commit_bounty_address(path, wrapping, bounty_state(path, wrapping)?.proof_identity,
+      Bytes.concat(Bytes.from_hex("0000000000000000")?, finder)?)?
+    let value = plan(path, frame, wrapping)?
+    let addresses = anchor_addresses(value.pins.program, value.pins.log_name)?
+    let second = case value.proof.second do
+      SignedCheckpoint(checkpoint) -> checkpoint_hash(checkpoint)?
+      _ -> return Err("fixture_proof_type")
+    end
+    return Ok("{" <> String.join([
+      field("program", Bytes.to_base58(value.pins.program.bytes)),
+      field("log", Bytes.to_base58(addresses.log.bytes)),
+      field("ring_hex", Bytes.to_hex(value.pins.ring.bytes)),
+      field("log_id_hex", Bytes.to_hex(value.pins.log_id)),
+      field("log_name", value.pins.log_name),
+      field("service_hex", Bytes.to_hex(value.config.service_public_key)),
+      field("proof_hex", Bytes.to_hex(value.proof_hash)),
+      field("first_hex", Bytes.to_hex(checkpoint_hash(value.proof.first)?)),
+      field("second_hex", Bytes.to_hex(second)),
+      field("receipt", Bytes.to_base58(slash_receipt_address(value.pins.program, value.pins.log_id, value.proof_hash)?.bytes)),
+      field("economics", Bytes.to_base58(find_program_address(value.pins.program, [Bytes.from_utf8("economics"), value.pins.log_id])?.address.bytes)),
+      field("source", Bytes.to_base58(bounty_token_account(finder, mint)?.bytes)),
+      field("destination", Bytes.to_base58(bounty_token_account(destination, mint)?.bytes))
+    ], ",") <> "}")
+  end
+  if action == "erase" do
+    erase_local_state(path)?
+    return Ok("{}")
+  end
+  if action == "local" do
+    return Ok(case load_bounty_transfer(path, wrapping)? do
+      None -> "{\"status\":0}"
+      Some(value) -> output(value)
+    end)
+  end
+  let frame = Bytes.from_utf8(File.read(Env.get("BOUNTY_CONFIG", ""))?)
+  let value = plan(path, frame, wrapping)?
+  let pins = BountyWalletPins { purpose: 1, usdc: mint }
+  let now = U64.parse(Env.get("BOUNTY_NOW", "0"))?
+  let same = fn() do current(path, frame, value.wire) end
+  if action == "prepare" do
+    Ok(output(prepare_bounty_movement(path, wrapping, value, pins, destination, payer, now, same)?))
+  else if action == "commit" do
+    Ok(output(commit_bounty_movement(path, wrapping, value, pins, value.identity,
+      Bytes.from_hex(Env.get("BOUNTY_WIRE", ""))?, now, same)?))
+  else if action == "submit" do
+    Ok(output(submit_bounty_movement(path, wrapping, value, pins, value.identity, now, same)?))
+  else if action == "recover" do
+    Ok(output(recover_bounty_movement(path, wrapping, value, pins, value.identity, same)?))
+  else Err("fixture_unknown_action") end
+end
+fn main() do
+  case run() do
+    Err(error) -> println("{\"error\":" <> Json.encode_string(error) <> "}")
+    Ok(value) -> println(value)
+  end
+end

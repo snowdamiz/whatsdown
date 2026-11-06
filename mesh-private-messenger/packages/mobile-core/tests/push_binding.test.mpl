@@ -1,3 +1,4 @@
+from Storage.Blobs import blob_record_hash
 import File
 from MobileCore import (
   create_account_export,
@@ -850,10 +851,7 @@ fn proof() -> Bool!String do
   let database = Sqlite.open(path)?
   Sqlite.execute_values(database,
     "UPDATE encrypted_blobs SET ciphertext = ? WHERE record_hash = ?",
-    [
-      Binary(Bytes.from_utf8("corrupt")),
-      Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("push-binding/v1"))))
-    ])?
+    [Binary(Bytes.from_utf8("corrupt")), Text(blob_record_hash(database, "push-binding/v1")?)])?
   Sqlite.close(database)
   case push_unbind_prepare_export(Bytes.from_utf8(path)) do
     Ok(_) -> assert(false)

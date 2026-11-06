@@ -1,5 +1,17 @@
+from Mobile.HistoryExpiry import prepare_direct_history_expiry, commit_history_expiry, unexpired_history
+from Mobile.ConversationPolicy import prepare_conversation_policy, commit_conversation_policy
+from Mobile.ReceiveSources import ReceiveSources
+from Session.State import RatchetState
+from Mobile.SafetyVerification import prepare_safety_verification, commit_safety_verification
+from Mobile.HistoryWire import (
+  encode_history,
+  decode_history
+)
+from Storage.HistoryBlobs import (
+  seal_history_blob,
+  open_history_blob
+)
 from Mobile.Attachments import attachment_summary
-from Mobile.ContactAddress import rotated_contact_address_writes
 from Mobile.Delivery import DeliveryRecord, delivery_state, load_delivery
 from Mobile.Presentation import presented_message_writes
 from Binary.Reader import BinaryReader, finish, reader
@@ -14,7 +26,6 @@ from Mobile.Codec import (
   mobile_read_u32,
   mobile_utf8,
   mobile_vector,
-  mobile_wide,
   mobile_write_u32,
   mobile_write_u64,
   take_vector
@@ -26,6 +37,7 @@ from Mobile.Sessions import (
   inner_bytes,
   load_session_ids,
   load_session_record,
+  parse_session_record,
   updated_session_record
 )
 from Mobile.Types import (
@@ -45,104 +57,15 @@ from Protocol.V1 import (
   InnerEnvelope,
   PrekeyBundle
 )
-from Session.Handshake import RatchetState
 from Session.Snapshot import SnapshotOutcome, snapshot
 from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import local_context, open_local, platform_key, seal_local
-from Storage.Records import store_updated_blobs, store_updated_session
 from Transport.Packet import ClientProfile, decode_client_profile
 
 ##! Mobile.History implementation.
 
 fn history_label(conversation_id :: Bytes) -> String do
   "history/v1/#{Bytes.to_hex(conversation_id)}"
-end
-
-fn encode_history_entry(value :: MobileHistoryEntry) -> Bytes!String do
-  mobile_join([
-      mobile_vector(mobile_byte(value.direction)?)?,
-      mobile_vector(inner_bytes(value.inner)?)?
-    ],
-    0,
-    Bytes.empty())
-end
-
-fn encode_history_parts(values :: List<MobileHistoryEntry>,
-  index :: Int,
-  output :: Bytes) -> Bytes!String do
-  if index >= List.length(values) do
-    Ok(output)
-  else
-    encode_history_parts(values,
-      index + 1,
-      mobile_append(output, mobile_vector(encode_history_entry(List.get(values, index))?)?)?)
-  end
-end
-
-fn encode_history(values :: List<MobileHistoryEntry>) -> Bytes!String do
-  let bounded = if List.length(values) > 256 do
-    List.drop(values, List.length(values) - 256)
-  else
-    values
-  end
-  encode_history_parts(bounded, 0, mobile_vector(mobile_write_u32(List.length(bounded))?)?)
-end
-
-fn parse_history_entry(input :: Bytes) -> MobileHistoryEntry!String do
-  case reader(input, 65600) do
-    Err(_) -> Err("invalid_history")
-    Ok(state) -> do
-      let direction = take_vector(state, 1)?
-      let inner = take_vector(direction.state, 65536)?
-      case finish(inner.state) do
-        Err(_) -> Err("invalid_history")
-        Ok(_) -> do
-          let direction_value = mobile_read_byte(direction.value)?
-          if direction_value != 1 && direction_value != 2 do
-            Err("invalid_history")
-          else
-            case decode_inner_envelope(inner.value) do
-              Err(_) -> Err("invalid_history")
-              Ok(value) -> Ok(MobileHistoryEntry { direction: direction_value, inner: value })
-            end
-          end
-        end
-      end
-    end
-  end
-end
-
-fn parse_history_parts(state :: BinaryReader,
-  count :: Int,
-  index :: Int,
-  values :: List<MobileHistoryEntry>) -> List<MobileHistoryEntry>!String do
-  if index >= count do
-    case finish(state) do
-      Err(_) -> Err("invalid_history")
-      Ok(_) -> Ok(values)
-    end
-  else
-    let entry = take_vector(state, 65600)?
-    parse_history_parts(entry.state,
-      count,
-      index + 1,
-      List.append(values, parse_history_entry(entry.value)?))
-  end
-end
-
-fn decode_history(input :: Bytes) -> List<MobileHistoryEntry>!String do
-  case reader(input, 8388608) do
-    Err(_) -> Err("invalid_history")
-    Ok(state) -> do
-      let count = take_vector(state, 4)?
-      let count_value = mobile_read_u32(count.value)?
-      if count_value > 256 do
-        Err("invalid_history")
-      else
-        parse_history_parts(count.state, count_value, 0, List.new())
-      end
-    end
-  end
 end
 
 fn load_history(database_path :: String,
@@ -155,7 +78,7 @@ fn load_history(database_path :: String,
     else
       Err(error)
     end
-    Ok(blob) -> decode_history(open_local(blob, wrapping_key, local_context(label)?)?)
+    Ok(blob) -> decode_history(open_history_blob(blob, wrapping_key, label)?)
   end
 end
 
@@ -165,20 +88,27 @@ pub fn updated_history(database_path :: String,
   direction :: Int) -> Result<(List<String>, List<Bytes>), String> do
   let label = history_label(inner.conversation_id)
   let entries = load_history(database_path, wrapping_key, inner.conversation_id)?
-  let (body, framed_attachment, presentation_labels, presentation_blobs) = presented_message_writes(database_path,
+  let presentation = presented_message_writes(database_path,
     wrapping_key,
     inner.sender_account_id,
     Bytes.empty(),
     Bytes.empty(),
-    inner.body)?
+    inner.body)
+  let (body, framed_attachment, presentation_labels, presentation_blobs) = Result.unwrap_or(presentation,
+    (inner.body, Bytes.empty(), [], []))
   let updated = if Bytes.length(body) == 0 && Bytes.length(inner.attachment_manifest) == 0 do
     entries
   else
     List.append(entries, MobileHistoryEntry { direction: direction, inner: %{inner | body: body} })
   end
-  Ok((List.append(presentation_labels, label),
-    List.append(presentation_blobs,
-      seal_local(encode_history(updated)?, wrapping_key, local_context(label)?)?)))
+  let encoded = encode_history(updated)
+  let encrypted = seal_history_blob(Result.unwrap_or(encoded, Bytes.empty()), wrapping_key, label)
+  # Prepare encryption before observing private outcomes. Preserve the original
+  # error priority; a fallback or failed preparation never becomes a write plan.
+  let _ = presentation?
+  let _ = encoded?
+  let blob = encrypted?
+  Ok((List.append(presentation_labels, label), List.append(presentation_blobs, blob)))
 end
 
 fn conversation_summary(loaded :: MobileLoadedSession) -> Bytes!String do
@@ -337,33 +267,6 @@ pub fn list_conversations(database_path :: String) -> Bytes!String do
     List.new())?)
 end
 
-fn message_visible(value :: MobileHistoryEntry, now :: U64) -> Bool!String do
-  if value.inner.disappearing_seconds == 0 do
-    Ok(true)
-  else
-    let lifetime = mobile_wide(Int.to_string(value.inner.disappearing_seconds * 1000))?
-    let expires_at = U64.add(value.inner.client_timestamp, lifetime)?
-    Ok(U64.compare(now, expires_at) < 0)
-  end
-end
-
-fn visible_history(values :: List<MobileHistoryEntry>,
-  now :: U64,
-  index :: Int,
-  visible :: List<MobileHistoryEntry>) -> List<MobileHistoryEntry>!String do
-  if index >= List.length(values) do
-    Ok(visible)
-  else
-    let value = List.get(values, index)
-    let next = if message_visible(value, now)? do
-      List.append(visible, value)
-    else
-      visible
-    end
-    visible_history(values, now, index + 1, next)
-  end
-end
-
 # The last field says what became of a sent message: 0 sent, 1 still waiting
 # to leave, 2 refused for good by every device it was addressed to.
 
@@ -404,7 +307,7 @@ fn history_summaries(device :: borrow DeviceKeys,
   end
 end
 
-pub fn load_visible_history(request :: MobilePeerRequest) -> Bytes!String do
+pub fn load_visible_history(request :: MobilePeerRequest) -> Result<Plaintext<Bytes>, String> do
   ensure_schema(request.database_path)?
   let peer_id = peer_account_id(request.peer_profile)?
   let wrapping_key = platform_key()?
@@ -414,15 +317,11 @@ pub fn load_visible_history(request :: MobilePeerRequest) -> Bytes!String do
     peer_id,
     load_session_ids(request.database_path, wrapping_key)?,
     0)?
+  let now = current_time()?
+  commit_history_expiry(request.database_path,
+    prepare_direct_history_expiry(request.database_path, wrapping_key, loaded.session_id, now)?)?
   let entries = load_history(request.database_path, wrapping_key, loaded.record.conversation_id)?
-  let visible = visible_history(entries, current_time()?, 0, List.new())?
-  if List.length(visible) != List.length(entries) do
-    let label = history_label(loaded.record.conversation_id)
-    let blob = seal_local(encode_history(visible)?, wrapping_key, local_context(label)?)?
-    store_updated_session(request.database_path, label, blob)?
-  else
-    nil
-  end
+  let visible = unexpired_history(entries, now)?
   let device = open_device(local, wrapping_key, request.database_path)?
   encode_output_list(history_summaries(device,
     visible,
@@ -441,72 +340,6 @@ pub fn conversation_safety(request :: MobilePeerRequest) -> Bytes!String do
     load_session_ids(request.database_path, wrapping_key)?,
     0)?
   Ok(loaded.record.safety_number)
-end
-
-fn updated_policy(record :: MobileSessionRecord,
-  action :: Int,
-  value :: Int) -> MobileSessionRecord!String do
-  if action == 1 do
-    Ok(%{record | request_state: 1})
-  else if action == 2 do
-    Ok(%{record | blocked: true})
-  else if action == 3 do
-    Ok(%{record | blocked: false})
-  else if action == 4 && Bytes.length(record.safety_number) == 64 do
-    Ok(%{record | verified: true, key_changed: false})
-  else if action == 5 && value >= 0 && value <= 2592000 do
-    Ok(%{record | disappearing_seconds: value})
-  else
-    Err("invalid_conversation_policy")
-  end
-end
-
-fn updated_peer_policy_blobs(database_path :: String,
-  wrapping_key :: borrow StorageKey,
-  peer_account_id :: Bytes,
-  session_ids :: List<Bytes>,
-  action :: Int,
-  value :: Int,
-  safety :: Bytes,
-  index :: Int,
-  labels :: List<String>,
-  blobs :: List<Bytes>) -> Result<(List<String>, List<Bytes>), String> do
-  if index >= List.length(session_ids) do
-    Ok((labels, blobs))
-  else
-    let loaded = load_session_record(database_path, wrapping_key, List.get(session_ids, index))?
-    if Bytes.secure_equals(loaded.record.peer_account_id, peer_account_id) do
-      let record = if action == 4 && !Bytes.secure_equals(loaded.record.safety_number, safety) do
-        Ok(%{loaded.record | verified: false, key_changed: true})
-      else
-        updated_policy(loaded.record, action, value)
-      end?
-      let blob = seal_local(updated_session_record(record.snapshot, record)?,
-        wrapping_key,
-        local_context(loaded.label)?)?
-      updated_peer_policy_blobs(database_path,
-        wrapping_key,
-        peer_account_id,
-        session_ids,
-        action,
-        value,
-        safety,
-        index + 1,
-        List.append(labels, loaded.label),
-        List.append(blobs, blob))
-    else
-      updated_peer_policy_blobs(database_path,
-        wrapping_key,
-        peer_account_id,
-        session_ids,
-        action,
-        value,
-        safety,
-        index + 1,
-        labels,
-        blobs)
-    end
-  end
 end
 
 fn accepted_request_blobs(database_path :: String,
@@ -545,10 +378,9 @@ fn accepted_request_blobs(database_path :: String,
   end
 end
 
-# A message this account sent, seen through a sibling device, means that
-# device had accepted the peer's request; this device's records catch up.
-# Only records still waiting are rewritten, and nothing can be sending to
-# such a peer from this device meanwhile.
+# Historical fixture serializer. Production self-sync receive uses captured
+# ciphertexts below: policy and ratchet writers can advance these peer rows
+# concurrently, so every rewritten source must survive the final atomic guard.
 
 pub fn accepted_request_writes(database_path :: String,
   wrapping_key :: borrow StorageKey,
@@ -563,37 +395,142 @@ pub fn accepted_request_writes(database_path :: String,
     List.new())
 end
 
+fn accepted_captured_blobs(wrapping_key :: borrow StorageKey,
+  peer_account_id :: Bytes,
+  sources :: ReceiveSources,
+  batch_index :: Int,
+  row_index :: Int,
+  labels :: List<String>,
+  blobs :: List<Bytes>) -> Result<(List<String>, List<Bytes>), String> do
+  if batch_index >= List.length(sources.batches) do
+    return Ok((labels, blobs))
+  end
+  let batch = List.get(sources.batches, batch_index)
+  if row_index >= List.length(batch.labels) do
+    return accepted_captured_blobs(wrapping_key,
+      peer_account_id,
+      sources,
+      batch_index + 1,
+      1,
+      labels,
+      blobs)
+  end
+  let label = List.get(batch.labels, row_index)
+  if label == sources.alias_label do
+    return accepted_captured_blobs(wrapping_key,
+      peer_account_id,
+      sources,
+      batch_index,
+      row_index + 1,
+      labels,
+      blobs)
+  end
+  let record = parse_session_record(open_local(List.get(batch.records, row_index),
+    wrapping_key,
+    local_context(label)?)?)?
+  if Bytes.secure_equals(record.peer_account_id, peer_account_id) && record.request_state != 1 do
+    let blob = seal_local(updated_session_record(record.snapshot, %{record | request_state: 1})?,
+      wrapping_key,
+      local_context(label)?)?
+    accepted_captured_blobs(wrapping_key,
+      peer_account_id,
+      sources,
+      batch_index,
+      row_index + 1,
+      List.append(labels, label),
+      List.append(blobs, blob))
+  else
+    accepted_captured_blobs(wrapping_key,
+      peer_account_id,
+      sources,
+      batch_index,
+      row_index + 1,
+      labels,
+      blobs)
+  end
+end
+
+## Production receive serializes the exact captured peer rows. The older
+## path-based wrapper above remains only for historical test callers; guarded
+## receive commits refuse any session write not covered by their source basis.
+pub fn accepted_request_writes_from_sources(wrapping_key :: borrow StorageKey,
+  peer_account_id :: Bytes,
+  sources :: ReceiveSources) -> Result<(List<String>, List<Bytes>), String> do
+  if !Bytes.secure_equals(peer_account_id, sources.peer_account_id) do
+    return Err("invalid_receive_sources")
+  end
+  accepted_captured_blobs(wrapping_key, peer_account_id, sources, 0, 1, [], [])
+end
+
 pub fn update_conversation(request :: MobilePolicyRequest) -> Bytes!String do
   ensure_schema(request.database_path)?
   let peer_id = peer_account_id(request.peer_profile)?
   let wrapping_key = platform_key()?
-  let session_ids = load_session_ids(request.database_path, wrapping_key)?
-  let preferred = find_peer_session(request.database_path, wrapping_key, peer_id, session_ids, 0)?
-  if request.action == 4 && Bytes.length(preferred.record.safety_number) != 64 do
-    Err("safety_number_unavailable")
-  else
-    Ok(nil)
-  end?
-  let (labels, blobs) = updated_peer_policy_blobs(request.database_path,
+  if request.action == 6 do
+    let prepared = prepare_safety_verification(request.database_path,
+      wrapping_key,
+      peer_id,
+      request.expected_safety)?
+    commit_safety_verification(request.database_path, prepared)?
+    return Ok(Bytes.from_utf8("ok"))
+  end
+  let prepared = prepare_conversation_policy(request.database_path,
     wrapping_key,
     peer_id,
-    session_ids,
     request.action,
-    request.value,
-    preferred.record.safety_number,
-    0,
-    List.new(),
-    List.new())?
-  # Blocking someone also takes back what they were handed: this device gets a
-  # new contact address, the directory retires the old one on the next
-  # publication, and everyone else is handed the new one with the next message.
-  let (rotation_labels, rotation_blobs) = if request.action == 2 do
-    rotated_contact_address_writes(wrapping_key)
-  else
-    Ok((List.new(), List.new()))
-  end?
-  store_updated_blobs(request.database_path,
-    List.concat(labels, rotation_labels),
-    List.concat(blobs, rotation_blobs))?
+    request.value)?
+  commit_conversation_policy(request.database_path, prepared)?
   Ok(Bytes.from_utf8("ok"))
+end
+
+pub struct PostageMessageRecipient do
+  account_id :: Bytes
+  username :: String
+  conversation_id :: Bytes
+end
+
+# Read-only local context for a queued message request. Duplicate message IDs
+# across different conversations are ambiguous and never select a recipient.
+pub fn postage_message_recipient(path :: String,
+  wrapping :: borrow StorageKey,
+  message_id :: Bytes) -> PostageMessageRecipient!String do
+  let ids = load_session_ids(path, wrapping)?
+  if Bytes.length(message_id) != 16 || List.length(ids) > 256 do
+    return Err("unsupported_postage_message")
+  end
+  let sessions = for id in ids do
+    load_session_record(path, wrapping, id)?.record
+  end
+  let matches = for index in 0..List.length(sessions) do
+    let record = List.get(sessions, index)
+    let seen = List.any(List.take(sessions, index),
+      fn(prior) -> Bytes.secure_equals(prior.conversation_id, record.conversation_id) end)
+    if seen do
+      None
+    else
+      let entries = load_history(path, wrapping, record.conversation_id)?
+      if List.any(entries,
+        fn(entry) -> Bytes.secure_equals(entry.inner.client_message_id, message_id)
+          && Bytes.secure_equals(entry.inner.sender_account_id, record.local_account_id) end) do
+        Some(PostageMessageRecipient {
+          account_id: record.peer_account_id,
+          username: record.peer_username,
+          conversation_id: record.conversation_id
+        })
+      else
+        None
+      end
+    end
+  end
+  let found = List.flat_map(matches,
+    fn(value) do
+      case value do
+        None -> []
+        Some(value) -> [value]
+      end
+    end)
+  if List.length(found) != 1 do
+    return Err("ambiguous_postage_message")
+  end
+  Ok(List.head(found))
 end

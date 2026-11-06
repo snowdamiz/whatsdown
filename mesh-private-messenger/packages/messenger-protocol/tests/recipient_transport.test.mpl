@@ -1,3 +1,4 @@
+from Session.State import RatchetState, DecryptOutcome, RatchetError, RatchetMessage
 from Identity.Device import (
   AccountKeys,
   DeviceKeys,
@@ -18,11 +19,8 @@ from Prekeys.Bundle import (
 from Protocol.HandshakeWire import encode_initial_message
 from Protocol.IdentityWire import encode_account_identity
 from Protocol.V1 import AccountIdentity, DeviceCredential, InitialMessage, PrekeyBundle
-from Session.Handshake import RatchetState, SessionError, initiate, receive_initial
+from Session.Handshake import SessionError, initiate, receive_initial
 from Session.Ratchet import (
-  DecryptOutcome,
-  RatchetError,
-  RatchetMessage,
   decode_ratchet_message,
   decrypt,
   encode_ratchet_message,

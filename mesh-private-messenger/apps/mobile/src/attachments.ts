@@ -1,4 +1,5 @@
 import { MAXIMUM_ATTACHMENTS, MAXIMUM_ATTACHMENT_SIZE, type AttachmentSummary } from './codec.ts';
+import { t } from './i18n.ts';
 
 // Pictures the thread can show inline on every platform; everything else is a file card.
 export const isImageAttachment = (mimeType: string): boolean =>
@@ -11,10 +12,10 @@ export const shouldAutoDownload = (attachment: AttachmentSummary): boolean =>
   isImageAttachment(attachment.mimeType) && attachment.size <= AUTO_DOWNLOAD_LIMIT;
 
 export function formatBytes(size: number): string {
-  if (size < 1_000) return `${size} B`;
-  if (size < 1_000_000) return `${Math.round(size / 1_000)} KB`;
+  if (size < 1_000) return t('{size} B', { size });
+  if (size < 1_000_000) return t('{size} KB', { size: Math.round(size / 1_000) });
   const megabytes = size / 1_000_000;
-  return `${megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)} MB`;
+  return t('{size} MB', { size: megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes) });
 }
 
 // A dropped or pasted file may arrive unnamed; give it a name that keeps its kind.
@@ -29,8 +30,12 @@ export function attachmentPreviewText(message: { body: string; attachments?: Att
   if (message.body) return message.body;
   const files = message.attachments ?? [];
   if (!files.length) return '';
-  if (files.length > 1) return `${files.length} ${files.every((file) => isImageAttachment(file.mimeType)) ? 'photos' : 'attachments'}`;
-  return files[0]!.filename || (isImageAttachment(files[0]!.mimeType) ? 'Photo' : 'Attachment');
+  if (files.length > 1) {
+    return files.every((file) => isImageAttachment(file.mimeType))
+      ? t.plural('{count} photo', '{count} photos', files.length)
+      : t.plural('{count} attachment', '{count} attachments', files.length);
+  }
+  return files[0]!.filename || (isImageAttachment(files[0]!.mimeType) ? t('Photo') : t('Attachment'));
 }
 
 // A staged file belongs to the thread whose composer took it, so switching
@@ -55,22 +60,22 @@ export type AttachmentState =
 
 export function describeAttachmentState(attachment: AttachmentSummary, state: AttachmentState | undefined): string {
   const size = formatBytes(attachment.size);
-  if (!state) return `${size} · Download`;
+  if (!state) return t('{size} · Download', { size });
   switch (state.status) {
     case 'downloading':
-      return `Downloading… ${Math.round((state.completed / Math.max(state.total, 1)) * 100)}%`;
+      return t('Downloading… {percent}%', { percent: Math.round((state.completed / Math.max(state.total, 1)) * 100) });
     case 'ready':
-      return `${size} · Save`;
+      return t('{size} · Save', { size });
     case 'saved':
-      return `${size} · Saved`;
+      return t('{size} · Saved', { size });
     case 'error':
       return state.message;
   }
 }
 
 export function attachmentSelectionError(sizes: number[], existingCount = 0): string | undefined {
-  if (existingCount + sizes.length > MAXIMUM_ATTACHMENTS) return 'You can attach up to 10 files per message.';
-  if (sizes.some((size) => size === 0)) return 'This file is empty.';
-  if (sizes.some((size) => size > MAXIMUM_ATTACHMENT_SIZE)) return `Attachments can be up to ${MAXIMUM_ATTACHMENT_SIZE / 1_048_576} MB.`;
+  if (existingCount + sizes.length > MAXIMUM_ATTACHMENTS) return t('You can attach up to 10 files per message.');
+  if (sizes.some((size) => size === 0)) return t('This file is empty.');
+  if (sizes.some((size) => size > MAXIMUM_ATTACHMENT_SIZE)) return t('Attachments can be up to {size} MB.', { size: MAXIMUM_ATTACHMENT_SIZE / 1_048_576 });
   return undefined;
 }

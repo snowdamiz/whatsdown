@@ -1,0 +1,99 @@
+from BurnNetwork import TokenBurnBank, token_burn_worker_bank, token_burn_worker_keys
+from Transparency.TokenBurnRead import TokenBurnReadPins
+from Solana.Read import (
+  Pubkey,
+  Hash,
+  LatestBlockhash,
+  AccountInfo,
+  AccountSlice,
+  OptionalAccountSlicesAtSlot,
+  RpcResponse,
+  pubkey
+)
+
+pub struct TokenBurnFixture do
+  pins :: TokenBurnReadPins
+  payer :: Pubkey
+  epoch :: U64
+  index :: Int
+  route :: Bytes
+  bank :: TokenBurnBank
+end
+
+fn text(root :: Json, name :: String) -> String!String do
+  Json.as_string(Json.object_get(root, name)?)
+end
+
+pub fn token_burn_bank_fixture(path :: String) -> TokenBurnFixture!String do
+  let root = Json.parse(File.read(path)?)?
+  let pins = Json.object_get(root, "pins")?
+  let policy = TokenBurnReadPins {
+    program: pubkey(text(pins, "program")?)?,
+    governance: pubkey(text(pins, "governance")?)?,
+    program_slot: U64.parse(text(pins, "program_slot")?)?,
+    usdc: pubkey(text(pins, "usdc")?)?,
+    treasury: pubkey(text(pins, "treasury")?)?,
+    factory: pubkey(text(pins, "factory")?)?
+  }
+  let epoch = U64.parse(text(root, "epoch")?)?
+  let source = Json.object_get(root, "bank")?
+  let slot = U64.parse(text(source, "slot")?)?
+  let tip = Json.object_get(source, "latest_blockhash")?
+  let latest = LatestBlockhash {
+    context_slot: U64.parse(text(tip, "context_slot")?)?,
+    blockhash: Hash { bytes: Bytes.from_base58(text(tip, "blockhash")?)? },
+    last_valid_block_height: U64.parse(text(tip, "last_valid_block_height")?)?
+  }
+  let accounts = Json.object_get(source, "accounts")?
+  let keys = token_burn_worker_keys(policy, epoch)?
+  if Json.array_length(accounts)? != 31 do
+    return Err("invalid_worker_fixture_accounts")
+  end
+  let slices = for index in 0..31 do
+    let account = Json.array_get(accounts, index)?
+    if pubkey(text(account, "address")?)? != List.get(keys, index) do
+      return Err("invalid_worker_fixture_order")
+    end
+    case Json.object_get(account, "missing") do
+      Ok(_) -> None
+      Err(_) -> Some(AccountSlice {
+        space: U64.parse(text(account, "space")?)?,
+        info: AccountInfo {
+          data: Bytes.from_hex(text(account, "data_hex")?)?,
+          owner: pubkey(text(account, "owner")?)?,
+          lamports: U64.parse(text(account, "lamports")?)?,
+          executable: Json.as_bool(Json.object_get(account, "executable")?)?,
+          rent_epoch: U64.parse("0")?
+        }
+      })
+    end
+  end
+  let raw = "{\"blockHeight\":"
+    <> text(source, "block_height")?
+    <> ",\"blockhash\":"
+    <> Json.encode_string(text(source, "blockhash")?)
+    <> ",\"parentSlot\":"
+    <> text(source, "parent_slot")?
+    <> ",\"previousBlockhash\":"
+    <> Json.encode_string(text(source, "previous_blockhash")?)
+    <> ",\"blockTime\":"
+    <> text(source, "timestamp")?
+    <> "}"
+  let block = RpcResponse { id: 32, ok: true, result_json: raw, error_json: "" }
+  Ok(TokenBurnFixture {
+    pins: policy,
+    payer: pubkey(text(pins, "payer")?)?,
+    epoch: epoch,
+    index: case String.to_int(Json.encode(Json.object_get(root, "index")?)) do
+      None -> return Err("invalid_fixture_index")
+      Some(value) -> value
+    end,
+    route: Bytes.from_hex(text(root, "route_hex")?)?,
+    bank: token_burn_worker_bank(policy,
+      epoch,
+      slot,
+      latest,
+      OptionalAccountSlicesAtSlot { slot: slot, accounts: slices },
+      block)?
+  })
+end

@@ -4,10 +4,52 @@ import { readFileSync } from 'node:fs';
 import { containerRequest, edgeContainerEnv, edgeRoute, sealedDeliveryRequest, sealedIngressRequest } from './edge.mjs';
 import { edgeConfig, isolatedConfig } from './prepare-build.mjs';
 import { publicRoute } from './routing.mjs';
+import { creditIssuerRequest, creditDiscoveryRequest } from './edge.mjs';
+import { postageDeliveryRequest, postageIngressRequest } from './edge.mjs';
 
 const original = JSON.parse(readFileSync(new URL('./wrangler.jsonc', import.meta.url), 'utf8'));
-const isolation = { WITNESS_A_URL: 'https://a.test', WITNESS_B_URL: 'https://b.test' };
+const isolation = { WITNESS_A_URL: 'https://a.test', WITNESS_B_URL: 'https://b.test', MORSE_PUSH_BROKER_URL: 'https://broker.test' };
 const token = 'c'.repeat(64);
+
+test('postage preserves only opaque batches and the private hop credential across isolated deployments', async () => {
+  for (const suffix of ['', '/reconcile']) {
+    const publicPath = `/v1/credits/postage${suffix}`;
+    const incoming = new Request(`https://edge.test${publicPath}`, { method: 'POST', body: 'opaque',
+      headers: { Authorization: 'account-must-drop', Cookie: 'tracking', 'X-Forwarded-For': '198.51.100.1' } });
+    assert.equal(edgeRoute(incoming), true);
+    assert.equal(containerRequest(incoming).headers.has('authorization'), false);
+    assert.equal(publicRoute(incoming), 'PRIVACY_EDGE');
+    assert.equal(publicRoute(incoming, { MORSE_ISOLATED_EDGE: '1' }), null);
+    const outbound = new Request(`http://delivery.internal/internal/credits/postage${suffix}`, { method: 'POST', body: 'opaque',
+      headers: { Authorization: `Bearer ${token}`, Cookie: 'drop', 'CF-Connecting-IP': '198.51.100.1' } });
+    const forwarded = postageDeliveryRequest(outbound, { MORSE_DELIVERY_URL: 'https://core.test' });
+    assert.equal(forwarded.url, `https://core.test/v1/ingress/postage${suffix}`);
+    assert.deepEqual([...forwarded.headers.keys()].sort(), ['authorization', 'content-type']);
+    assert.equal(forwarded.redirect, 'manual');
+    assert.equal(publicRoute(forwarded, { MORSE_ISOLATED_EDGE: '1' }), 'POSTAGE_INGRESS');
+    assert.equal(publicRoute(forwarded), null);
+    const mapped = postageIngressRequest(forwarded);
+    assert.equal(new URL(mapped.url).pathname, `/internal/credits/postage${suffix}`);
+    assert.equal(await mapped.text(), 'opaque');
+    for (const path of [publicPath + '?identity=x', publicPath + '/', publicPath.replace('postage', '%70ostage')]) {
+      assert.equal(edgeRoute(new Request('https://edge.test' + path, { method: 'POST' })), false);
+      assert.equal(publicRoute(new Request('https://edge.test' + path, { method: 'POST' })), null);
+    }
+  }
+  for (const path of ['/internal/credits/redeem', '/internal/credits/postage?x=1', '/internal/credits/postage/', '/v1/credits/postage']) {
+    assert.equal(postageDeliveryRequest(new Request('http://delivery.internal' + path, { method: 'POST' }), {}), null);
+  }
+  assert.equal(postageDeliveryRequest(new Request('http://attacker.test/internal/credits/postage', { method: 'POST' }), {}), null);
+  assert.equal(postageIngressRequest(new Request('https://core.test/v1/ingress/postage?x=1', { method: 'POST' })), null);
+  assert.equal(postageIngressRequest(new Request('https://core.test/v1/ingress/postage', { method: 'GET' })), null);
+  const policy = new Request('https://edge.test/v1/credits/postage-policy', { method: 'POST', body: 'signed-policy', headers: { Authorization: 'drop' } });
+  assert.equal(edgeRoute(policy), true);
+  assert.equal(publicRoute(policy, { MORSE_ISOLATED_EDGE: '1' }), 'DIRECTORY');
+  assert.equal(containerRequest(policy).headers.has('authorization'), false);
+  const policyForward = creditDiscoveryRequest(new Request('http://delivery.internal/v1/credits/postage-policy', { method: 'POST', body: 'signed-policy', headers: { Authorization: 'drop' } }), { MORSE_DELIVERY_URL: 'https://core.test' });
+  assert.deepEqual([...policyForward.headers.keys()], ['content-type']);
+  assert.equal(await policyForward.text(), 'signed-policy');
+});
 
 // Everything the backend Worker holds. The edge must end up with none of it
 // except the bearer credential it presents to the delivery core.
@@ -115,4 +157,74 @@ test('C6 containers never receive client address, location, agent, or cookie hea
   }));
   assert.deepEqual([...upgrade.headers.keys()].sort(),
     ['authorization', 'connection', 'sec-websocket-key', 'sec-websocket-version', 'upgrade']);
+});
+
+test('credit purchase routes isolate public bodies and separate issuer authority', async () => {
+  const env = { ...backendSecrets, MORSE_CREDIT_ISSUER_URL: 'https://issuer.test',
+    MESSENGER_CREDIT_PURCHASE_INTERNAL_TOKEN: 'p'.repeat(64),
+    MESSENGER_CREDIT_ISSUER_INTERNAL_TOKEN: 'admin-must-not-reach-edge' };
+  const configured = edgeContainerEnv(env);
+  assert.equal(configured.MESSENGER_CREDIT_ISSUER_INTERNAL_URL, 'http://issuer.internal');
+  assert.equal(configured.MESSENGER_CREDIT_PURCHASE_INTERNAL_TOKEN, env.MESSENGER_CREDIT_PURCHASE_INTERNAL_TOKEN);
+  assert.equal(configured.MESSENGER_CREDIT_ISSUER_INTERNAL_TOKEN, undefined);
+  const deployed = edgeConfig(original, { MORSE_DELIVERY_URL: 'https://delivery.test', MORSE_CREDIT_ISSUER_URL: 'https://issuer.test' });
+  assert.equal(deployed.vars.MORSE_CREDIT_ISSUER_URL, 'https://issuer.test');
+  assert.throws(() => edgeConfig(original, { MORSE_DELIVERY_URL: 'https://delivery.test', MORSE_CREDIT_ISSUER_URL: 'http://issuer.test' }), /HTTPS origin/);
+  for (const operation of ['quote', 'issue', 'issuer', 'retention']) {
+    const request = new Request(`https://edge.test/v1/credits/${operation}`, { method: 'POST', body: 'body',
+      headers: { Authorization: 'account-secret', Cookie: 'tracking=1' } });
+    assert.equal(edgeRoute(request), true);
+    assert.equal(containerRequest(request).headers.has('authorization'), false);
+    assert.equal(publicRoute(request), 'PRIVACY_EDGE');
+    assert.equal(publicRoute(request, { MORSE_ISOLATED_EDGE: '1' }), ['issuer', 'retention'].includes(operation) ? 'DIRECTORY' : null);
+  }
+  const outbound = new Request('http://issuer.internal/internal/v1/credits/quote', { method: 'POST', body: new Uint8Array([1, 2]),
+    headers: { Authorization: 'Bearer purchase', 'CF-Connecting-IP': '198.51.100.1', Cookie: 'tracking=1' } });
+  const forwarded = creditIssuerRequest(outbound, env);
+  assert.equal(forwarded.url, 'https://issuer.test/internal/v1/credits/quote');
+  assert.deepEqual([...forwarded.headers.keys()].sort(), ['authorization', 'content-type']);
+  assert.equal(forwarded.redirect, 'manual');
+  assert.deepEqual(new Uint8Array(await forwarded.arrayBuffer()), new Uint8Array([1, 2]));
+  assert.equal(creditIssuerRequest(new Request('http://issuer.internal/internal/credits/issuers/announce', { method: 'POST' }), env), null);
+  assert.equal(creditIssuerRequest(new Request('http://issuer.internal/internal/v1/credits/issue?trace=x', { method: 'POST' }), env), null);
+  assert.equal(edgeRoute(new Request('https://edge.test/v1/credits/quote?trace=x', { method: 'POST' })), false);
+  const discovery = creditDiscoveryRequest(new Request('http://delivery.internal/v1/credits/issuer', { method: 'POST', body: 'query',
+    headers: { Authorization: 'must-drop' } }), { MORSE_DELIVERY_URL: 'https://delivery.test' });
+  assert.equal(discovery.url, 'https://delivery.test/v1/credits/issuer');
+  assert.deepEqual([...discovery.headers.keys()], ['content-type']);
+});
+
+
+for (const action of ['retention', 'signup', 'signup-policy', 'reconcile']) test(`paid ${action} crosses the edge without any issuer or account credential`, async () => {
+  const incoming = new Request(`http://delivery.internal/v1/credits/${action}`, {
+    method: 'POST', body: new Uint8Array([1, 67, 65, 80]),
+    headers: { Authorization: 'must-drop', Cookie: 'must-drop', 'X-Forwarded-For': '198.51.100.1' },
+  });
+  const forwarded = creditDiscoveryRequest(incoming, { MORSE_DELIVERY_URL: 'https://delivery.test' });
+  assert.ok(forwarded);
+  assert.equal(forwarded.url, `https://delivery.test/v1/credits/${action}`);
+  assert.deepEqual([...forwarded.headers.keys()], ['content-type']);
+  assert.deepEqual(new Uint8Array(await forwarded.arrayBuffer()), new Uint8Array([1, 67, 65, 80]));
+  assert.equal(creditIssuerRequest(new Request(`http://issuer.internal/v1/credits/${action}`, { method: 'POST' }), {}), null);
+});
+
+test('Lightning purchase routes use the isolated issuer credential channel', () => {
+  const env = { MORSE_CREDIT_ISSUER_URL: 'https://issuer.test' };
+  for (const operation of ['quote', 'issue']) {
+    const path = `/internal/v1/credits/lightning/${operation}`;
+    const request = new Request(`http://issuer.internal${path}`, {
+      method: 'POST', body: new Uint8Array([1, 2]),
+      headers: { Authorization: 'Bearer fixture', Cookie: 'identity=private', 'X-Forwarded-For': '192.0.2.1', 'X-Account-Id': 'account' },
+    });
+    const forwarded = creditIssuerRequest(request, env);
+    assert.equal(forwarded?.url, `https://issuer.test${path}`);
+    assert.equal(forwarded.headers.get('Authorization'), 'Bearer fixture');
+    assert.equal(forwarded.headers.has('Cookie'), false);
+    assert.equal(forwarded.headers.has('X-Forwarded-For'), false);
+    assert.equal(forwarded.headers.has('X-Account-Id'), false);
+    assert.equal(forwarded.redirect, 'manual');
+    assert.equal(edgeRoute(new Request(`https://edge.test/v1/credits/lightning/${operation}`, { method: 'POST' })), true);
+    assert.equal(creditIssuerRequest(new Request(`http://issuer.internal${path}?account=x`, { method: 'POST' }), env), null);
+  }
+  assert.equal(creditIssuerRequest(new Request('http://issuer.internal/internal/v1/credits/lightning/settle', { method: 'POST' }), env), null);
 });

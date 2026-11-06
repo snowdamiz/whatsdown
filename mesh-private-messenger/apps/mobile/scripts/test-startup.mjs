@@ -68,7 +68,7 @@ try {
     const cover = page.getByRole('progressbar', { name: 'Opening Morse', exact: true });
     await page.waitForFunction(() => window.startupTest.calls.includes('database_path'));
     assert.equal(await cover.isVisible(), true, 'Loading covers the native-storage handshake');
-    const mark = cover.locator('svg').first();
+    const mark = cover.locator('svg:has(#startup-mark)');
     const before = await mark.screenshot({ path: screenshots ? `${screenshots}/gradient-${scheme}-start.png` : undefined });
     // Sample the painted mark at another point in its loading cycle.
     await page.waitForTimeout(1200);

@@ -1,6 +1,9 @@
 export type Screen =
   | 'home'
   | 'settings'
+  | 'credits'
+  | 'backups'
+  | 'backup-export'
   | 'new-group'
   | 'new-chat'
   | 'chat-info'
@@ -30,6 +33,9 @@ const depth: Record<ScreenKey, number> = {
   home: 0,
   groups: 0,
   settings: 0,
+  credits: 1,
+  backups: 1,
+  'backup-export': 1,
   'new-group': 1,
   'new-chat': 1,
   chat: 1,
@@ -57,6 +63,7 @@ export type ScanMode =
   | 'link-request'
   | 'link-authorization'
   | 'group-key-package'
+  | 'safety'
   | 'community';
 
 // The scanner is pushed from four places; cancelling returns to whichever one
@@ -69,6 +76,7 @@ const scannerOrigins: Record<ScanMode, ScannerOrigin> = {
   'link-authorization': 'link-device',
   'group-key-package': 'group-info',
   community: 'groups',
+  safety: 'chat-info',
 };
 
 export function scannerOrigin(mode: ScanMode): ScannerOrigin {
@@ -81,6 +89,9 @@ const parents: Record<Screen, Screen | null> = {
   home: null,
   groups: null,
   settings: null,
+  credits: 'settings',
+  backups: 'settings',
+  'backup-export': 'settings',
   scanner: null,
   chat: 'home',
   'chat-info': 'chat',

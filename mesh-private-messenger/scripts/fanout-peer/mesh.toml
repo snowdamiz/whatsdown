@@ -1,0 +1,5 @@
+[package]
+name = "morse-owned-fanout-peer"
+version = "0.1.0"
+[dependencies]
+messenger-mobile-core = { path = "../../packages/mobile-core" }

@@ -5,6 +5,8 @@ from Binary.Reader import BinaryReader
 from Groups.CommitWire import (
   group_extensions_bytes,
   group_policy_bytes,
+  group_policy_wire_version,
+  group_read_policy,
   group_read_extensions,
   group_read_levels
 )
@@ -21,7 +23,8 @@ from Groups.GroupCodec import (
   group_vector,
   group_wire_end,
   group_wire_fixed,
-  group_wire_start,
+  group_wire_magic,
+  group_wire_reader,
   group_wire_u16,
   group_wire_u32,
   group_wire_u64,
@@ -210,7 +213,7 @@ fn group_snapshot_header(state :: borrow GroupState,
   let members = indexed_members(state.tree)
   let parents = public_parent_nodes(state.tree)
   group_join([
-      group_byte(1)?,
+      group_byte(group_policy_wire_version(state.policy))?,
       Bytes.from_utf8("GST"),
       group_byte(state.version)?,
       group_write_u16(state.suite)?,
@@ -398,7 +401,11 @@ pub fn group_snapshot(state :: consume GroupState,
 end
 
 fn parse_group_snapshot(input :: Bytes) -> ParsedGroupSnapshot!GroupError do
-  let state_version = group_wire_u8(group_wire_start(input, 65535, "GST")?)?
+  let version = group_wire_u8(group_wire_reader(input, 65535)?)?
+  if version.value != 1 && version.value != 2 do
+    return Err(InvalidGroup)
+  end
+  let state_version = group_wire_u8(group_wire_magic(version.state, "GST")?)?
   let suite = group_wire_u16(state_version.state)?
   let group_id = group_wire_fixed(suite.state, 32)?
   let epoch = group_wire_u64(group_id.state)?
@@ -421,10 +428,8 @@ fn parse_group_snapshot(input :: Bytes) -> ParsedGroupSnapshot!GroupError do
     List.new())?
   let level_count = group_wire_u8(extensions.state)?
   let levels = group_read_levels(level_count.state, level_count.value, 0, -1, List.new())?
-  let minimum_sequence = group_wire_u64(levels.state)?
-  let checkpoint = group_wire_fixed(minimum_sequence.state, 32)?
-  let witness = group_wire_u8(checkpoint.state)?
-  let sealed = group_wire_vector(witness.state, 99)?
+  let policy = group_read_policy(levels.state, version.value)?
+  let sealed = group_wire_vector(policy.state, 99)?
   let leaf_private = group_wire_vector(sealed.state, 99)?
   let level0 = group_wire_vector(leaf_private.state, 99)?
   let level1 = group_wire_vector(level0.state, 99)?
@@ -460,11 +465,7 @@ fn parse_group_snapshot(input :: Bytes) -> ParsedGroupSnapshot!GroupError do
       received_generations: generations.value,
       extensions: extensions.value,
       available_levels: levels.value,
-      policy: GroupTransparencyPolicy {
-        minimum_directory_sequence: minimum_sequence.value,
-        checkpoint_hash: checkpoint.value,
-        witness_threshold: witness.value
-      },
+      policy: policy.value,
       sealed_sender_chains: chains.value,
       sealed_skipped_keys: skipped.value,
       sealed_epoch_secret: sealed.value,
@@ -481,7 +482,7 @@ end
 
 fn parsed_group_header(value :: ParsedGroupSnapshot) -> Bytes!GroupError do
   group_join([
-      group_byte(1)?,
+      group_byte(group_policy_wire_version(value.policy))?,
       Bytes.from_utf8("GST"),
       group_byte(value.version)?,
       group_write_u16(value.suite)?,
@@ -592,6 +593,42 @@ fn validate_parent_private(value :: borrow X25519PrivateKey,
     validate_private_key(value, parent_public_key(parents, List.get(path, level), 0)?)
   else
     Ok(nil)
+  end
+end
+
+## Authenticate only captured snapshot custody. No GroupState, ratchet keys or
+## private maps are restored or returned; callers retain the original bytes.
+pub fn require_group_snapshot_custody(blob :: Bytes,
+  wrapping_key :: borrow StorageKey,
+  account_id :: Bytes,
+  device_id :: Bytes,
+  expected_group_id :: Bytes,
+  minimum_version :: U64) -> Result<(), GroupError> do
+  if Bytes.length(expected_group_id) != 32 do
+    return Err(InvalidGroup)
+  end
+  let value = parse_group_snapshot(blob)?
+  if !Bytes.secure_equals(value.group_id, expected_group_id) do
+    return Err(InvalidGroup)
+  end
+  if U64.compare(value.snapshot_version, minimum_version) < 0 do
+    return Err(RollbackRejected)
+  end
+  let _tree = validate_parsed_snapshot(value, account_id, device_id)?
+  let header = parsed_group_header(value)?
+  let context = group_storage_context(account_id,
+    device_id,
+    value.group_id,
+    header,
+    16,
+    0,
+    value.snapshot_version)?
+  case Secret.unseal_from_storage(value.sealed_epoch_secret, wrapping_key, context) do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(secret) -> do
+      Secret.destroy(secret)
+      Ok(nil)
+    end
   end
 end
 

@@ -1,10 +1,18 @@
+import { ActivityModal as Modal, ActivityOverlayHost, useActivityOverlay } from "./activity-overlays";
+import { BackupExportScreen } from './BackupExportScreen';
+import { BackupArchiveScreen } from './BackupArchiveScreen';
+import { backupArchiveLabels, pendingBackupExportLabels } from './backup-labels';
+import type { AppServices } from './app-lock-services';
+import { HistoryCacheEpoch, replaceHistoryCache } from "./history-cache-epoch";
+import { NetworkCounter } from './NetworkCounter';
+import { authorizeAttachmentRecipients, type AttachmentRecipients } from './network';
 import {
   BarcodeScanningResult,
   CameraView,
   useCameraPermissions,
 } from "expo-camera";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { encodeReaction, setReaction } from "./reactions";
 import {
   LEAVE_REQUEST,
@@ -30,26 +38,23 @@ import {
   type JoinRequest,
 } from "./communities";
 import { encodeReply } from "./replies";
+import { isDirectoryRegistrationRefused } from "./native-directory";
 import { encodeReceipt, messageStatus, receiptDue, type ReceiptMarks } from "./receipts";
 import {
   ActivityIndicator,
   Alert,
-  Clipboard,
   AppState,
   BackHandler,
-  FlatList,
-  KeyboardAvoidingView,
   Keyboard,
-  Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
-  type TextInput,
+  type FlatListInstance,
+  type TextInputInstance,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import {
   group_send_export,
@@ -61,18 +66,23 @@ import {
   load_history_export,
   load_profile_export,
   update_conversation_export,
+  transparency_fork_export,
+  anchor_check_export,
+  fork_filing_export,
 } from "../modules/mesh-messenger";
+import { parseAnchorObservation, describeAnchorObservation, type AnchorObservation } from "./anchor";
+import { AnchorCheckpointTime } from "./AnchorCheckpointTime";
+import { parseFilingObservation, describeFilingObservation, type FilingObservation } from "./filing";
 import {
   attachmentPreviewUri,
   discardPreviews,
   listenForIncomingFiles,
-  pickAttachmentFiles,
+  pickAttachmentSelections,
   releasePreviewUri,
   saveAttachmentFile,
 } from "./attachment-io";
 import {
   attachmentPreviewText,
-  attachmentSelectionError,
   composerScope,
   describeAttachmentState,
   formatBytes,
@@ -80,6 +90,7 @@ import {
   shouldAutoDownload,
   type AttachmentState,
 } from "./attachments";
+import { AttachmentPreviewSession } from "./attachment-preview-session";
 import { pickAvatar } from "./avatar-picker";
 import { encodePresentation, identityName, type Presentation } from "./presentation";
 import { loadPresentation, savePresentation, saveNickname } from "./presentation-store";
@@ -94,7 +105,6 @@ import {
   type SidebarList,
 } from "./desktop-layout";
 import {
-  accountRequest,
   AttachmentSummary,
   Conversation,
   decodeUtf8,
@@ -118,11 +128,13 @@ import {
   utf8,
   vectors,
 } from "./codec";
-import { formatInboxTime, friendlyError } from "./format";
+import { formatInboxTime, friendlyError, sameDay } from "./format";
 import { Glass } from "./glass";
 import { describeMember, describeMembers, summarizeMembers, type Person } from "./group-members";
-import { historyRefreshDelay } from "./expiry";
+import { historyRefreshDelay, unexpiredHistory } from "./expiry";
 import { createMailboxSync } from "./mailbox-sync";
+import { accountProfileIdentity, captureErasureNotifications, finishAccountErasure, isMissingAccountProfile } from "./account-lifecycle";
+import { presentedAccountNotifications, dismissAccountNotification } from "./account-notifications";
 import { setActiveNotificationScope, synchronizeWithNotifications } from "./message-notifications";
 import { createKeyedSerialQueue } from "./single-flight";
 import {
@@ -135,7 +147,9 @@ import {
   type ScreenKey,
 } from "./navigation";
 import {
-  RemovedFromAccount,
+  VerifiedDirectoryRemoval,
+  PostageRequired,
+  onPostageRequired,
   addGroupMember,
   forgetGroup,
   acceptGroupInvitation,
@@ -148,8 +162,7 @@ import {
   connectMailboxStream,
   deleteAccount,
   downloadAttachment,
-  eraseAccount,
-  forgetOnProof,
+  discardAccount,
   getGroupKeyPackage,
   GROUP_KEY_PACKAGE_LENGTH,
   holdsAccountKey,
@@ -157,20 +170,19 @@ import {
   listGroups,
   loadAccountDevices,
   loadGroupHistory,
+  groupMessageTimer,
   onUndeliverable,
   registerDirectory,
+  resolveDeviceSet,
   type Removal,
   removeGroupMember,
   revokeDevice,
   sendFanout,
   sendGroupMessage,
-  sendWithAttachments,
-  type OutgoingAttachment,
 } from "./network";
 import {
   disablePushBinding,
   enablePushBinding,
-  forgetPush,
   getPushStatus,
   listenForGenericWakeups,
   listenForNotificationOpens,
@@ -194,14 +206,37 @@ import {
 } from "./community-requests";
 import type { NotificationPreview } from "./notification-policy";
 import { describeSafety } from "./safety";
+import { safetyQrValue, safetyFromQr, safetyVerificationRequest } from "./safety-qr";
 import { Fact, IdentityPreview, SealedChat, Steps, Strong } from "./onboarding";
 import { usernameProblem } from "./username";
+import { KeyboardAwareScrollView } from "./keyboard";
+import { richText, useI18n } from "./language";
+import { languages, msg, type Language, type LanguageChoice, type MessageKey } from "./i18n";
+import { FlatList, ScrollView } from "./scroll";
 import { StartupScreen } from "./StartupScreen";
+import { CreditsScreen } from "./CreditsScreen";
+import { PostagePanel } from "./PostagePanel";
+import { PostagePolicy } from "./PostagePolicy";
+import { BountyPanel } from "./BountyPanel";
+import { PaidUploadList } from "./PaidUploadList";
+import { previewAttachmentSelections, savedAttachmentUpload, sendAttachmentUploads, type AttachmentUpload } from "./attachment-compose";
+import { attachmentSelectionLimit, smallAttachmentSelection, MAXIMUM_ATTACHMENT_SIZE, type AttachmentSelection } from "./attachment-selections";
+import { readAttachmentDownloadPlan, downloadPaidAttachment } from "./paid-attachments";
+import { createAttachmentRangeSink } from "./attachment-range-io";
+import { CreditSignupScreen } from "./CreditSignupScreen";
+import {
+  createCreditSignupDraft, loadCreditSignupPolicy, readCreditSignupDraftState, selectFreeCreditSignup, completeFreeCreditSignup,
+  type CreditSignupDraftState, type CreditSignupPolicy,
+} from "./credits";
 import { ResizableSidebar } from "./ResizableSidebar";
 import { isDevelopmentBuild } from "./transport";
 import {
+  control as controls,
+  fonts,
   isDesktop,
+  space as spaces,
   themed,
+  withAlpha,
   useAppFonts,
   useAppearance,
   useTheme,
@@ -231,6 +266,7 @@ import {
   Hero,
   Icon,
   IconButton,
+  Tap,
   LargeHeader,
   ListSeparator,
   MessageBubble,
@@ -272,64 +308,82 @@ type HomeItem =
   | { kind: "chat"; key: string; item: Conversation };
 
 // A file waiting in a composer, with the thread it was staged for.
-type StagedAttachment = { id: string; scope: string; file: OutgoingAttachment; previewUri?: string };
+type StagedAttachment = { id: string; scope: string; upload: AttachmentUpload; previewUri?: string };
 
 // How much decrypted attachment data the session keeps at hand.
-const ATTACHMENT_CACHE_LIMIT = 64 * 1_048_576;
 
 type Route = { screen: Screen; direction: Direction };
 // A destructive action, held until it is confirmed.
-type Confirmation = { title: string; body: string; action: string; run: () => void };
+type Confirmation = { title: string; body: string; action: string; run: () => void; cancel?: () => void; primary?: boolean };
 // Why a device erased itself, said on the screen it starts over on.
-const removalNotices: Record<Removal, string> = {
-  "account-deleted": "Your account was deleted on another device, so its messages and keys were erased from this one too.",
-  "device-removed": "This device was removed from your account on another device, so its messages and keys were erased from it.",
-  "device-left": "This device left your account, so its messages and keys were erased from it.",
+const removalNotices: Record<Removal, MessageKey> = {
+  "account-deleted": msg("Your account was deleted on another device, so its messages and keys were erased from this one too."),
+  "device-removed": msg("This device was removed from your account on another device, so its messages and keys were erased from it."),
+  "device-left": msg("This device left your account, so its messages and keys were erased from it."),
 };
 
 // Keyboard shortcuts continue to follow the host during a UI preview.
 const userAgent = Platform.OS === "web" ? navigator.userAgent : "";
 const macDesktop = isDesktop && /Mac/.test(userAgent);
 
+// The words in these lists are English keys, translated where they show.
 // `short` is what a segment has room for beside a phone row's title.
-const disappearingOptions = [
-  { label: "Off", value: 0 },
-  { label: "1 minute", short: "1m", value: 60 },
-  { label: "1 hour", short: "1h", value: 3_600 },
-  { label: "1 day", short: "1d", value: 86_400 },
+type Option<T> = { value: T; label: MessageKey; short?: MessageKey; icon?: IconName };
+
+const disappearingOptions: Option<number>[] = [
+  { label: msg("Off"), value: 0 },
+  { label: msg("1 minute"), short: msg("1m"), value: 60 },
+  { label: msg("1 hour"), short: msg("1h"), value: 3_600 },
+  { label: msg("1 day"), short: msg("1d"), value: 86_400 },
 ];
 
-const notificationPreviewOptions: { value: NotificationPreview; label: string; short: string }[] = [
-  { value: "full", label: "Name and message", short: "All" },
-  { value: "sender", label: "Name only", short: "Name" },
-  { value: "none", label: "No name or message", short: "None" },
+const notificationPreviewOptions: Option<NotificationPreview>[] = [
+  { value: "full", label: msg("Name and message"), short: msg("All") },
+  { value: "sender", label: msg("Name only"), short: msg("Name") },
+  { value: "none", label: msg("No name or message"), short: msg("None") },
 ];
 
-const appearanceOptions: { value: Appearance; label: string; icon: IconName }[] = [
-  { value: "system", label: "Match system", icon: "contrast" },
-  { value: "light", label: "Light", icon: "sun" },
-  { value: "dark", label: "Dark", icon: "moon" },
+const appearanceOptions: Option<Appearance>[] = [
+  { value: "system", label: msg("Match system"), icon: "contrast" },
+  { value: "light", label: msg("Light"), icon: "sun" },
+  { value: "dark", label: msg("Dark"), icon: "moon" },
 ];
 
 const tabs = [
-  { key: "home", title: "Chats", icon: "chat" },
-  { key: "groups", title: "Groups", icon: "groups" },
-  { key: "settings", title: "You", icon: "person" },
+  { key: "home", title: msg("Chats"), icon: "chat" },
+  { key: "groups", title: msg("Groups"), icon: "groups" },
+  { key: "settings", title: msg("You"), icon: "person" },
 ] as const;
 
 
 const reloadByDatabase = createKeyedSerialQueue<string>();
 
-const pushSummary = (pushStatus: PushStatus): string =>
-  pushStatus === "enabled"
-    ? "Messages and mentions enabled"
-    : pushStatus === "disabled"
-      ? "Notifications off"
-      : pushStatus === "pending-bind"
-        ? "Turning on once the notification service is reachable"
-        : "Turning off; cleanup retries until registration is removed";
+// Each language is listed in itself and, beneath, in the language in effect.
+const languageNames: Record<Language, MessageKey> = {
+  en: msg("English"),
+  es: msg("Spanish"),
+  pt: msg("Portuguese (Brazil)"),
+  fr: msg("French"),
+  de: msg("German"),
+  ru: msg("Russian"),
+};
+const nativeName = (code: Language) => languages.find((language) => language.code === code)!.name;
 
-export default function App({ windowsPreview = false, onWindowsPreviewChange, onAccountErased, notice, updates }: {
+// How much of a form stays in view below the line being typed on: the rest
+// of the field, its hint, and the button that follows, clear of the keyboard.
+const formKeyboardOffset = 2 * controls["3xl"] + spaces[6];
+
+const pushSummary = (pushStatus: PushStatus): MessageKey =>
+  pushStatus === "enabled"
+    ? msg("Messages and mentions enabled")
+    : pushStatus === "disabled"
+      ? msg("Notifications off")
+      : pushStatus === "pending-bind"
+        ? msg("Turning on once the notification service is reachable")
+        : msg("Turning off; cleanup retries until registration is removed");
+
+type AppProps = { services: AppServices;
+  environment: { kind: 'mobile'; scope: ComponentProps<typeof ActivityOverlayHost>['scope'] } | { kind: 'desktop' };
   windowsPreview?: boolean;
   onWindowsPreviewChange?: (enabled: boolean) => Promise<void>;
   // The desktop shell's own settings section; phones update through their store.
@@ -338,12 +392,37 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // storage, not state. The notice says why, on the screen it starts over on.
   onAccountErased: (notice?: string) => void;
   notice?: string;
-}) {
+};
+
+export default function App(props: AppProps) {
+  const styles = useStyles();
+  return <SafeAreaProvider style={styles.screen}>
+    {props.environment.kind === 'mobile'
+      ? <ActivityOverlayHost scope={props.environment.scope}><AppContent {...props} /></ActivityOverlayHost>
+      : <AppContent {...props} />}
+  </SafeAreaProvider>;
+}
+
+function AppContent({ services, windowsPreview = false, onWindowsPreviewChange, onAccountErased, notice, updates }: AppProps) {
+  const activityOverlay = useActivityOverlay();
+  const { listenForGenericWakeups, listenForNotificationOpens } = services;
+  const { authorizeAttachmentRecipients, group_send_export, complete_device_link_export, create_account_export, create_link_request_export, device_link_sas_export, list_conversations_export, load_history_export, load_profile_export, update_conversation_export, transparency_fork_export, anchor_check_export, fork_filing_export, attachmentPreviewUri, discardPreviews, listenForIncomingFiles, pickAttachmentSelections, releasePreviewUri, saveAttachmentFile, pickAvatar, loadPresentation, savePresentation, saveNickname, setActiveNotificationScope, synchronizeWithNotifications, onPostageRequired, addGroupMember, forgetGroup, acceptGroupInvitation, declineGroupInvitation, inviteToGroup, listGroupInvitations, authorizeDeviceLink, drainOutbox, createGroup, connectMailboxStream, deleteAccount, downloadAttachment, discardAccount, getGroupKeyPackage, holdsAccountKey, inspectGroup, listGroups, loadAccountDevices, loadGroupHistory, groupMessageTimer, onUndeliverable, registerDirectory, resolveDeviceSet, removeGroupMember, revokeDevice, sendFanout, sendGroupMessage, disablePushBinding, enablePushBinding, getPushStatus, listenForPushRegistrationChanges, recoverPushBinding, forgetPreferences, loadDeclinedRequests, loadNotificationPreview, loadReadReceipts, loadReadState, loadReceiptMarks, saveDeclinedRequests, saveNotificationPreview, saveReadReceipts, saveReadState, previewAttachmentSelections, savedAttachmentUpload, readAttachmentDownloadPlan, downloadPaidAttachment, createAttachmentRangeSink, createCreditSignupDraft, loadCreditSignupPolicy, readCreditSignupDraftState, selectFreeCreditSignup, completeFreeCreditSignup } = services;
+
   const previewWindows = isDesktop && isDevelopmentBuild() && windowsPreview;
   const lightsInset = isDesktop && !previewWindows ? trafficLightInset(userAgent) : 0;
   const [changingWindowsUI, setChangingWindowsUI] = useState(false);
   const { width } = useWindowDimensions();
   const { colors, type, scheme, size, control } = useTheme();
+  const { t, locale, choice: languageChoice, systemLanguage, setChoice: setLanguageChoice } = useI18n();
+  const [choosingLanguage, setChoosingLanguage] = useState(false);
+  const languageLabel = nativeName(languageChoice === "system" ? systemLanguage : languageChoice);
+  const chooseLanguage = (next: LanguageChoice) => {
+    setLanguageChoice(next);
+    setChoosingLanguage(false);
+  };
+  // An option list in the language in effect.
+  const translated = <T,>(options: Option<T>[]) =>
+    options.map((option) => ({ ...option, label: t(option.label), ...(option.short ? { short: t(option.short) } : {}) }));
   const styles = useStyles();
   const { appearance, setAppearance } = useAppearance();
   // The status bar's glyphs are the opposite of the canvas behind them.
@@ -358,15 +437,28 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const [leaving, setLeaving] = useState(false);
   const fontsReady = useAppFonts();
   const [initialLoading, setInitialLoading] = useState(true);
+  const [profileLoadProblem, setProfileLoadProblem] = useState(false);
+  const [profileLoadAttempt, setProfileLoadAttempt] = useState(0);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [qrCollector] = useState(createQrCollector);
   const [profile, setProfile] = useState<Uint8Array | null>(null);
+  const [signupDraft, setSignupDraft] = useState<CreditSignupDraftState>(0);
+  const draftPending = signupDraft === 1 || signupDraft === 2;
+  const [signupPolicy, setSignupPolicy] = useState<CreditSignupPolicy>();
+  const [priorityUnavailable, setPriorityUnavailable] = useState(false);
   const [route, setRoute] = useState<Route>({ screen: "home", direction: "lateral" });
   const screen = route.screen;
   // The desktop sidebar keeps showing whichever list the open screen came
   // from, and stays put while the pane shows account screens.
   const [sidebarList, setSidebarList] = useState<SidebarList>("chats");
   const setScreen = (next: Screen) => {
+    if (screen !== next && services.backups.kind === 'available') {
+      const files = services.backups.files;
+      try {
+        if (screen === 'backups') void files.discardBackupSource().catch(() => {});
+        if (screen === 'backup-export') void files.discardBackupDestination().catch(() => {});
+      } catch { /* Scope revocation retains only native continuation metadata. */ }
+    }
     setRoute((current) => ({
       screen: next,
       direction: transitionDirection(current.screen, next),
@@ -378,11 +470,21 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   };
   // Every desktop window is wide enough for the sidebar-plus-pane layout;
   // onboarding still uses the whole window.
-  const split = usesSplitLayout(Platform.OS, width) && profile !== null;
+  // A development build can show onboarding again over a signed-in account,
+  // to look at it; nothing it collects is used (see replayOnboarding).
+  const [replayingOnboarding, setReplayingOnboarding] = useState(false);
+  const split = usesSplitLayout(Platform.OS, width) && profile !== null && !replayingOnboarding && !draftPending;
   // Until there is an account the pane belongs to onboarding, except while
   // it has pushed the scanner or the device-linking screen over it.
-  const onboardingActive = !profile && screen !== "scanner" && screen !== "link-device";
+  const onboardingActive = (!profile || replayingOnboarding || draftPending) && screen !== "scanner" && screen !== "link-device" && screen !== "credits";
   const [storedConversations, setConversations] = useState<Conversation[]>([]);
+  const [forkEvidence, setForkEvidence] = useState("");
+  const [showNetworkCounter, setShowNetworkCounter] = useState(false);
+  const [anchorObservation, setAnchorObservation] = useState<AnchorObservation | null>(null);
+  const [filingObservation, setFilingObservation] = useState<FilingObservation | null>(null);
+  const [filingError, setFilingError] = useState(false);
+  const [showAnchorDetails, setShowAnchorDetails] = useState(false);
+  const [showForkDetails, setShowForkDetails] = useState(false);
   const [previews, setPreviews] = useState<Record<string, HistoryMessage[]>>({});
   const [groupPreviews, setGroupPreviews] = useState<Record<string, GroupHistoryMessage[]>>({});
   const [readState, setReadState] = useState<ReadState>({});
@@ -406,6 +508,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     null,
   );
   const [storedGroupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
+  const [groupTimer, setGroupTimer] = useState<{ groupId: string; seconds: number; epoch: object } | null>(null);
   const [storedGroupHistory, setGroupHistory] = useState<GroupHistoryMessage[]>([]);
   const [storedGroupHistoryFor, setGroupHistoryFor] = useState<string | null>(null);
   const [syncError, setSyncError] = useState("");
@@ -444,7 +547,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const [nameEditor, setNameEditor] = useState<{ key: string; value: string } | null>(null);
   const [nameError, setNameError] = useState("");
   const editingNickname = nameEditor?.key.startsWith("nickname/") ?? false;
-  const nameEditorTitle = editingNickname ? "Private nickname" : "Display name";
+  const nameEditorTitle = editingNickname ? t("Private nickname") : t("Display name");
   const [pickingPhoto, setPickingPhoto] = useState(false);
   const [accountAvatar, setAccountAvatar] = useState<string>();
   // Every other avatar hashes its colour from an account or group ID; before
@@ -485,13 +588,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const [contactUsername, setContactUsername] = useState("");
   const [firstMessage, setFirstMessage] = useState("");
   // Submitting the recipient moves on to the message without a tap.
-  const firstMessageInput = useRef<TextInput>(null);
+  const firstMessageInput = useRef<TextInputInstance>(null);
+  const displayNameInput = useRef<TextInputInstance>(null);
   const [composer, setComposer] = useState("");
   // The message being answered stays with the thread whose composer took it,
   // so a reply can never follow you into another thread. A quote that is
   // pressed scrolls the thread to its original, which flashes once.
   const [replying, setReplying] = useState<{ scope: string; target: string } | null>(null);
-  const thread = useRef<Pick<FlatList, "scrollToIndex" | "scrollToOffset"> | null>(null);
+  const thread = useRef<Pick<FlatListInstance, "scrollToIndex" | "scrollToOffset"> | null>(null);
   const [flashKey, setFlashKey] = useState<string | null>(null);
   // The file staged in a composer, and whether one is being dragged over the
   // window. Downloads are remembered by object so a picture is fetched once
@@ -499,10 +603,27 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const [staged, setStaged] = useState<StagedAttachment[]>([]);
   const stagedRef = useRef(staged);
   const stagedSerial = useRef(0);
+  const choosingAttachments = useRef(false);
+  const pendingAttachments = useRef<AttachmentUpload[]>([]);
+  const [savedUploadsScope, setSavedUploadsScope] = useState<string | null>(null);
+  const [postageTriggers, setPostageTriggers] = useState<Uint8Array[]>([]);
+  const [showPostage, setShowPostage] = useState(false);
+  const [showPostagePolicy, setShowPostagePolicy] = useState(false);
+  const [showBounty, setShowBounty] = useState(false);
+  useEffect(() => onPostageRequired(({ triggerId }) => setPostageTriggers(current =>
+    current.some(id => hex(id) === hex(triggerId)) ? current : [...current.slice(-127), triggerId])), []);
+  useEffect(() => { if (!profile) setPostageTriggers([]); }, [profile]);
+  function postageSettled(ids: Uint8Array[]) {
+    const settled = new Set(ids.map(hex));
+    setPostageTriggers(current => current.filter(id => !settled.has(hex(id))));
+  }
+  useEffect(() => () => {
+    for (const entry of stagedRef.current) entry.upload.dispose();
+    for (const upload of pendingAttachments.current) upload.dispose();
+  }, []);
   const [dropping, setDropping] = useState(false);
-  const [attachmentStates, setAttachmentStates] = useState<Record<string, AttachmentState>>({});
-  const attachmentBytes = useRef(new Map<string, Uint8Array>());
-  const downloading = useRef(new Set<string>());
+  const attachmentSession = useRef<AttachmentPreviewSession | null>(null);
+  const [, refreshAttachments] = useState(0);
   const [scannedProfile, setScannedProfile] = useState<Uint8Array | null>(null);
   const [scanMode, setScanMode] = useState<ScanMode>("contact");
   const [scannedLinkRequest, setScannedLinkRequest] =
@@ -515,7 +636,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const [deviceSet, setDeviceSet] = useState<Uint8Array | null>(null);
   const [devices, setDevices] = useState<DeviceSetSummary | null>(null);
   const [busy, setBusy] = useState(true);
-  const [status, setStatus] = useState("Opening encrypted storage…");
+  const [status, setStatus] = useState(() => t("Opening encrypted storage…"));
   const [error, setError] = useState("");
   const [pushStatus, setPushStatus] = useState<PushStatus>("disabled");
   const [pushBusy, setPushBusy] = useState(false);
@@ -539,6 +660,48 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const groupHistory = preview ? (preview.groupHistories[groupHistoryFor ?? ""] ?? []) : storedGroupHistory;
   const groupDetails = preview ? (preview.groupDetails[groupHistoryFor ?? ""] ?? null) : storedGroupDetails;
   const accountId = profile ? hex(parseProfileSummary(profile).accountId) : null;
+  const visibleAccountIdentity = useRef<string | null>(null);
+  visibleAccountIdentity.current = profile ? accountProfileIdentity(profile) : null;
+  const historyCacheEpoch = useRef(new HistoryCacheEpoch());
+  const cacheEpoch = historyCacheEpoch.current.capture(profile, databasePath, preview);
+  const erasureNotifications = useRef<{ identity: string; ids: string[] } | null>(null);
+  const filingDescription = describeFilingObservation(filingObservation);
+
+  useEffect(() => {
+    setFilingObservation(null);
+    setFilingError(false);
+    if (!forkEvidence || !accountId || preview || !foreground) return;
+    let cancelled = false;
+    let running = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempt = "";
+    let pollUntil = 0;
+    const check = async () => {
+      if (running) return;
+      running = true;
+      let delay = 60_000;
+      try {
+        const observation = parseFilingObservation(await fork_filing_export(utf8(databasePath)));
+        if (!cancelled) { setFilingObservation(observation); setFilingError(false); }
+        if (observation.nextAttempt !== attempt) {
+          attempt = observation.nextAttempt;
+          pollUntil = Date.now() + 45_000;
+        }
+        // A killed actor leaves a reservation until its next retry. Never
+        // turn that durable marker into an unbounded fast polling loop.
+        if (observation.working && Date.now() < pollUntil) delay = 2_000;
+      } catch {
+        if (!cancelled) setFilingError(true);
+      } finally {
+        running = false;
+        if (!cancelled) timer = setTimeout(() => { void check(); }, delay);
+      }
+    };
+    // Mesh persists the retry budget before networking and shares it with all
+    // background wakes. Filing must not hold up local navigation or message sync.
+    void check();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [forkEvidence, accountId, preview, foreground, databasePath]);
 
   useEffect(() => {
     setActiveNotificationScope(foreground && !preview && !membersOpen
@@ -548,7 +711,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     return () => setActiveNotificationScope(null);
   }, [foreground, preview, membersOpen, screen, selected, selectedGroupId, presentations, readReceipts]);
 
-  useEffect(() => listenForNotificationOpens(setNotificationTarget), []);
+  useEffect(() => listenForNotificationOpens(setNotificationTarget, () => { setNotificationTarget(null); go("home"); }), []);
   useEffect(() => {
     if (!notificationTarget || preview) return;
     const chat = conversations.find((item) => notificationTarget === `chat/${hex(item.conversationId)}`);
@@ -560,28 +723,29 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }, [notificationTarget, conversations, groups, preview]);
 
   useEffect(() => {
-    if (!accountId) return;
+    if (!accountId || !profile) return;
+    const expected = profile.slice();
     let current = true;
-    // The journals are sealed in the database, so they come back a moment later
-    // than the choices kept beside it. Unread counts wait for them.
+    // Read markers and privacy choices share the account-bound sealed database.
+    // Unread counts wait until those choices have loaded.
     void (async () => {
       try {
-        const [read, marks] = await Promise.all([loadReadState(accountId), loadReceiptMarks(accountId)]);
+        const [read, marks, receipts, notifications] = await Promise.all([loadReadState(expected), loadReceiptMarks(expected), loadReadReceipts(expected), loadNotificationPreview(expected)]);
         if (!current) return;
         setReadState(read);
         setReceiptMarks(marks);
-        setReadReceipts(loadReadReceipts(accountId));
-        setNotificationPreview(loadNotificationPreview(accountId));
+        setReadReceipts(receipts);
+        setNotificationPreview(notifications);
       } catch {
         if (!current) return;
         setReadState({});
         setReadReceipts(false);
-        setError("Couldn’t load read status on this device.");
+        setError(t("Couldn’t load read status on this device."));
       }
       if (current) setReadAccount(accountId);
     })();
     return () => { current = false; };
-  }, [accountId]);
+  }, [accountId, profile]);
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -602,13 +766,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // The outbox drops an envelope the service will never accept so it cannot hold
   // up everything queued behind it. Say so: the message would otherwise read as sent.
   useEffect(() => onUndeliverable(({ status }) => setError(status === 410
-    ? "A message couldn’t reach one of the recipient’s devices because it is no longer registered."
-    : "A message waited more than 30 days to send and has expired.")), []);
+    ? t("A message couldn’t reach one of the recipient’s devices because it is no longer registered.")
+    : t("A message waited more than 30 days to send and has expired."))), []);
 
   // Only a loaded, visible conversation counts as opened. A selected chat in
   // settings, its details screen, or an unfocused window stays unread.
   useEffect(() => {
-    if (!foreground || !accountId || readAccount !== accountId || membersOpen) return;
+    if (!foreground || !accountId || !profile || readAccount !== accountId || membersOpen) return;
     const scope = screen === "chat" && selected && historyFor === hex(selected.conversationId)
       ? `chat/${historyFor}`
       : screen === "group" && selectedGroupId && groupHistoryFor === hex(selectedGroupId)
@@ -622,17 +786,18 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (preview) setPreviewReadState(next);
     else {
       setReadState(next);
-      saveReadState(accountId, next)
-        .catch(() => setError("Read status couldn’t be saved. Unread badges may return after restarting."));
+      const expected = profile.slice();
+      saveReadState(expected, next)
+        .catch(() => { if (visibleAccountIdentity.current === accountProfileIdentity(expected)) setError(t("Read status couldn’t be saved. Unread badges may return after restarting.")); });
       // One cumulative receipt for what was just read. Best effort: the next covers a lost one.
       const through = screen === "chat" && selected && readReceipts && !selected.blocked && !selected.requestPending
         ? receiptDue(history, 2) : undefined;
       if (through) {
-        void sendFanout(databasePath, selected!.username, encodeReceipt(2, through), selected!.peerAccountId)
+        void sendFanout(databasePath, profile!, selected!.username, encodeReceipt(2, through), selected!.peerAccountId)
           .catch(() => undefined);
       }
     }
-  }, [foreground, accountId, readAccount, membersOpen, screen, selected, selectedGroupId,
+  }, [foreground, accountId, profile, readAccount, membersOpen, screen, selected, selectedGroupId,
     historyFor, groupHistoryFor, history, groupHistory, communityParts, preview, previewReadState, readState, readReceipts]);
 
   const read = preview ? previewReadState : readState;
@@ -688,7 +853,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const linkedName = (id: string) => Object.values(preview?.presentations ?? presentations)
     .flatMap((item) => item?.community?.groups ?? []).find((group) => group.id === id)?.name;
   const groupName = (id: Uint8Array) => presentationOf(`group/${hex(id)}`)?.name ?? linkedName(hex(id)) ??
-    communityAsks.find((ask) => ask.state === "approved" && ask.part === hex(id))?.name ?? `Group ${hex(id).slice(0, 6)}`;
+    communityAsks.find((ask) => ask.state === "approved" && ask.part === hex(id))?.name ?? t("Group {id}", { id: hex(id).slice(0, 6) });
   const groupAvatar = (id: Uint8Array) => presentationOf(`group/${hex(id)}`)?.avatar;
   // Communities are shown once, by their first part this device is in.
   const communityIndex = indexCommunities(groups.map((group) => hex(group.groupId)), (id) => presentationOf(`group/${id}`));
@@ -702,8 +867,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   };
   const listedGroups = groups.filter((group) => (communityOfGroup(hex(group.groupId))?.parts[0] ?? hex(group.groupId)) === hex(group.groupId));
   // A community's size is for those who run it, in its details.
-  const groupSubtitle = (group: GroupSummary) => communityOfGroup(hex(group.groupId)) ? "Community"
-    : `${group.memberCount} ${group.memberCount === 1 ? "member" : "members"}`;
+  const groupSubtitle = (group: GroupSummary) => communityOfGroup(hex(group.groupId)) ? t("Community")
+    : t.plural("{count} member", "{count} members", group.memberCount);
   // A community's latest is its latest announcement, never a request hidden in a part.
   const groupLast = (group: GroupSummary) => threadHistory(group).at(-1);
   // A group's row shows its latest words as a conversation's does: yours
@@ -713,11 +878,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const last = groupLast(group);
     if (!last || communityOfGroup(hex(group.groupId))) return groupSubtitle(group);
     const text = attachmentPreviewText(last);
-    if (last.direction === "sent") return `You: ${text}`;
+    if (last.direction === "sent") return t("You: {text}", { text });
     const id = hex(last.senderAccountId);
     const contact = conversations.find((item) => hex(item.peerAccountId) === id);
     const name = identityName(contact?.username ?? null, presentationOf(`user/${id}`), presentationOf(`nickname/${id}`));
-    return name ? `${name}: ${text}` : text;
+    return name ? t("{name}: {text}", { name, text }) : text;
   }
   const selectedCommunity = selectedEntry?.community;
   const communityAuthority = selectedCommunity ? authorities(selectedCommunity) : new Set<string>();
@@ -729,6 +894,85 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const communityHeard = selectedEntry ? selectedEntry.parts.flatMap((part) => communityData[part]?.messages ?? []) : [];
   const communityPosts = selectedEntry ? mergeParts(selectedEntry.parts.flatMap((part) =>
     communityData[part] ? [{ id: part, messages: communityData[part]!.messages }] : []), communityAuthority) : [];
+  // Expiry also removes never-opened sidebar previews. These are local native
+  // getter reads only: refreshGroups would additionally send/network, so it is
+  // deliberately not called here. Active contexts schedule local reads below.
+  useEffect(() => {
+    if (preview || !profile) return;
+    const direct = conversations.flatMap((conversation) => {
+      const key = hex(conversation.conversationId), original = previews[key];
+      return original && key !== (selected ? hex(selected.conversationId) : null)
+        ? [{ key, original, peer: conversation.peerAccountId, empty: [] as HistoryMessage[] }] : [];
+    });
+    const group = listedGroups.flatMap((value) => {
+      const id = hex(value.groupId), entry = communityOfGroup(id);
+      const parts = entry?.parts ?? [id], key = entry ? communityId(entry.community) : id;
+      const original = groupPreviews[key];
+      if (!original || parts.some(part => part === (selectedGroupId ? hex(selectedGroupId) : null) || selectedEntry?.parts.includes(part))) return [];
+      return [{ key, original, parts, entry, empty: [] as GroupHistoryMessage[],
+        held: parts.map(part => ({ part, original: communityParts[part]?.messages, empty: [] as GroupHistoryMessage[] })) }];
+    });
+    const delays = [...direct, ...group].flatMap(job => {
+      const delay = historyRefreshDelay(job.original, Date.now());
+      return delay === undefined ? [] : [delay];
+    });
+    if (!delays.length) return;
+    const timer = setTimeout(() => {
+      if (!historyCacheEpoch.current.current(cacheEpoch)) return;
+      const dueDirect = direct.filter(job => historyRefreshDelay(job.original, Date.now()) === 0);
+      const dueGroups = group.filter(job => historyRefreshDelay(job.original, Date.now()) === 0);
+      // Hide the expired cache before awaiting I/O. A failure leaves an empty
+      // optional preview; a normal sync can subsequently restore public display.
+      setPreviews(previous => dueDirect.reduce((next, job) => replaceHistoryCache(next, job.key, job.original, job.empty), previous));
+      setGroupPreviews(previous => dueGroups.reduce((next, job) => replaceHistoryCache(next, job.key, job.original, job.empty), previous));
+      setCommunityParts(previous => {
+        const next = { ...previous };
+        for (const job of dueGroups) for (const held of job.held) {
+          const current = next[held.part];
+          if (current && current.messages === held.original) next[held.part] = { ...current, messages: held.empty };
+        }
+        return next;
+      });
+      void (async () => {
+        for (const job of dueDirect) {
+          try {
+            const messages = await historyCacheEpoch.current.read(cacheEpoch, async () =>
+              parseHistory(await load_history_export(peerRequest(databasePath, job.peer))));
+            if (!messages) return;
+            const visible = unexpiredHistory(messages, Date.now());
+            setPreviews(previous => replaceHistoryCache(previous, job.key, job.empty, visible));
+          } catch { /* Expired optional cache stays hidden if the local getter fails. */ }
+        }
+        for (const job of dueGroups) {
+          try {
+            const parts = await historyCacheEpoch.current.read(cacheEpoch, async () => {
+              const loaded: { id: string; messages: GroupHistoryMessage[] }[] = [];
+              for (const id of job.parts) {
+                if (!historyCacheEpoch.current.current(cacheEpoch)) throw Error("account_state_changed");
+                loaded.push({ id, messages: await loadGroupHistory(databasePath, fromHex(id)) });
+              }
+              return loaded;
+            });
+            if (!parts) return;
+            const now = Date.now();
+            const visibleParts = parts.map(part => ({ ...part, messages: unexpiredHistory(part.messages, now) }));
+            const messages = job.entry ? mergeParts(visibleParts, authorities(job.entry.community)) : visibleParts[0]!.messages;
+            setGroupPreviews(previous => replaceHistoryCache(previous, job.key, job.empty, messages));
+            setCommunityParts(previous => {
+              const next = { ...previous };
+              for (const held of job.held) {
+                const current = next[held.part], loaded = visibleParts.find(part => part.id === held.part);
+                if (current && loaded && current.messages === held.empty) next[held.part] = { ...current, messages: loaded.messages };
+              }
+              return next;
+            });
+          } catch { /* No unavailable/old-account cache is presented as a fresh read. */ }
+        }
+      })();
+    }, Math.min(...delays));
+    return () => clearTimeout(timer);
+  }, [preview, profile, databasePath, cacheEpoch, conversations, listedGroups, previews, groupPreviews, communityParts, selected, selectedGroupId, selectedEntry]);
+
   // Asking to join from outside travels in direct chats: what this account asked
   // to join and has not joined yet, with who it asked.
   const chatHistories = preview?.histories ?? previews;
@@ -755,7 +999,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           const encoded = await load_history_export(
             peerRequest(databasePath, conversation.peerAccountId),
           );
-          rememberPreview(conversation, parseHistory(encoded));
+          rememberPreview(conversation, unexpiredHistory(parseHistory(encoded), Date.now()));
         } catch {
           // A conversation without readable history simply shows no preview.
         }
@@ -764,12 +1008,76 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
 
   async function refreshConversations(): Promise<Conversation[]> {
+    const evidence = await transparency_fork_export(utf8(databasePath));
+    setForkEvidence(hex(evidence));
     const encoded = await list_conversations_export(utf8(databasePath));
     const next = parseConversations(encoded);
     setConversations(next);
     await Promise.all([refreshPreviews(next), refreshPresentations([...next.map((item) => `user/${hex(item.peerAccountId)}`), ...(profile ? [`user/${hex(parseProfileSummary(profile).accountId)}`] : [])])]);
     return next;
   }
+
+  // Display deadlines must not wait for a local getter or unrelated metadata
+  // read. This timer only removes due cached rows; the existing native reads
+  // below remain responsible for persistent cleanup and fresh history.
+  useEffect(() => {
+    if (preview || !profile) return;
+    const direct = selected && historyFor === hex(selected.conversationId)
+      ? { key: hex(selected.conversationId), original: history } : undefined;
+    const group = selectedGroup && !selectedEntry && groupHistoryFor === hex(selectedGroup.groupId)
+      ? { key: hex(selectedGroup.groupId), original: groupHistory } : undefined;
+    const directPreview = selected && previews[hex(selected.conversationId)]
+      ? { key: hex(selected.conversationId), original: previews[hex(selected.conversationId)]! } : undefined;
+    const groupPreview = selectedGroup && !selectedEntry && groupPreviews[hex(selectedGroup.groupId)]
+      ? { key: hex(selectedGroup.groupId), original: groupPreviews[hex(selectedGroup.groupId)]! } : undefined;
+    const parts = selectedEntry ? selectedEntry.parts.flatMap(part => {
+      const original = communityParts[part]?.messages;
+      return original ? [{ part, original }] : [];
+    }) : [];
+    const communityPreview = selectedEntry && groupPreviews[communityId(selectedEntry.community)]
+      ? { key: communityId(selectedEntry.community), original: groupPreviews[communityId(selectedEntry.community)]! } : undefined;
+    const messages = [...(direct?.original ?? []), ...(group?.original ?? []),
+      ...(directPreview?.original ?? []), ...(groupPreview?.original ?? []),
+      ...parts.flatMap(part => part.original), ...(communityPreview?.original ?? [])];
+    const delay = historyRefreshDelay(messages, Date.now());
+    if (delay === undefined) return;
+    const timer = setTimeout(() => {
+      if (!historyCacheEpoch.current.current(cacheEpoch)) return;
+      const now = Date.now();
+      if (direct) {
+        const visible = unexpiredHistory(direct.original, now);
+        setHistory(previous => previous === direct.original ? visible : previous);
+      }
+      if (directPreview) {
+        const visible = unexpiredHistory(directPreview.original, now);
+        setPreviews(previous => replaceHistoryCache(previous, directPreview.key, directPreview.original, visible));
+      }
+      if (group) {
+        const visible = unexpiredHistory(group.original, now);
+        setGroupHistory(previous => previous === group.original ? visible : previous);
+      }
+      if (groupPreview) {
+        const visible = unexpiredHistory(groupPreview.original, now);
+        setGroupPreviews(previous => replaceHistoryCache(previous, groupPreview.key, groupPreview.original, visible));
+      }
+      if (parts.length) setCommunityParts(previous => {
+        let next = previous;
+        for (const part of parts) {
+          const current = previous[part.part];
+          if (!current || current.messages !== part.original) continue;
+          const visible = unexpiredHistory(part.original, now);
+          if (visible !== part.original) next = { ...next, [part.part]: { ...current, messages: visible } };
+        }
+        return next;
+      });
+      if (communityPreview) {
+        const visible = unexpiredHistory(communityPreview.original, now);
+        setGroupPreviews(previous => replaceHistoryCache(previous, communityPreview.key, communityPreview.original, visible));
+      }
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [preview, profile, databasePath, cacheEpoch, selected, historyFor, history, previews,
+    selectedGroup, selectedEntry, groupHistoryFor, groupHistory, communityParts, groupPreviews]);
 
   useEffect(() => {
     if (preview || !selected) return;
@@ -779,8 +1087,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     async function load() {
       try {
         const encoded = await load_history_export(peerRequest(databasePath, conversation.peerAccountId));
-        if (cancelled) return;
-        const messages = parseHistory(encoded);
+        if (cancelled || !historyCacheEpoch.current.current(cacheEpoch)) return;
+        const messages = unexpiredHistory(parseHistory(encoded), Date.now());
         setHistory(messages);
         setHistoryFor(hex(conversation.conversationId));
         rememberPreview(conversation, messages);
@@ -795,7 +1103,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [selected, preview]);
+  }, [selected, preview, profile, databasePath, cacheEpoch]);
 
   async function refreshGroups(): Promise<GroupSummary[]> {
     const [next, invitations] = await Promise.all([
@@ -820,9 +1128,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       const held = entry.parts.filter((part) => histories[part]);
       if (held.length) previews[communityId(entry.community)] = mergeParts(held.map((part) => ({ id: part, messages: histories[part]! })), authorities(entry.community));
     }
-    setGroupPreviews((previous) => ({ ...previous, ...previews }));
+    const now = Date.now();
+    const visiblePreviews = Object.fromEntries(Object.entries(previews).map(([id, messages]) => [id, unexpiredHistory(messages, now)]));
+    setGroupPreviews((previous) => ({ ...previous, ...visiblePreviews }));
     // The list names whoever spoke last in each group.
-    void refreshPresentations(Object.values(previews).flatMap((messages) => {
+    void refreshPresentations(Object.values(visiblePreviews).flatMap((messages) => {
       const last = messages.at(-1);
       return last?.direction === "received" ? [`user/${hex(last.senderAccountId)}`] : [];
     })).catch(() => undefined);
@@ -917,81 +1227,159 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
 
   function refreshLocalData(): Promise<void> {
+    const expected = profile?.slice();
     return reloadByDatabase(databasePath, async () => {
-      try { if (accountId) setReceiptMarks(await loadReceiptMarks(accountId)); }
-      catch { /* Keep the last known marks. */ }
-      try { setDeclinedRequests(await loadDeclinedRequests()); }
-      catch { /* Keep the last known answers. */ }
+      if (expected) {
+        const identity = accountProfileIdentity(expected);
+        try {
+          const marks = await loadReceiptMarks(expected);
+          if (visibleAccountIdentity.current === identity) setReceiptMarks(marks);
+        } catch { /* Keep the last known marks. */ }
+        try {
+          const declined = await loadDeclinedRequests(expected);
+          if (visibleAccountIdentity.current === identity) setDeclinedRequests(declined);
+        } catch { /* Keep the last known answers. */ }
+      }
       const results = await Promise.allSettled([refreshConversations(), refreshGroups()]);
       const failure = results.find((result) => result.status === "rejected");
       if (failure?.status === "rejected") throw failure.reason;
+      // Refresh local conversations first. A daily RPC observation must not
+      // hold the app's startup or navigation while providers are unavailable.
+      // Mesh separately awaits a due check before accepting changed keys.
+      void anchor_check_export(utf8(databasePath)).then(async (wire) => {
+        setAnchorObservation(parseAnchorObservation(wire));
+        // The check may have just retained a fork after the local refresh.
+        // Make its evidence available immediately without another network call.
+        setForkEvidence(hex(await transparency_fork_export(utf8(databasePath))));
+      }).catch((caught) => setError(friendlyError(caught)));
     });
   }
 
   useEffect(() => {
     if (preview || !selectedGroup) return;
     let cancelled = false;
-    void Promise.all([
-      inspectGroup(databasePath, selectedGroup.groupId),
-      loadGroupHistory(databasePath, selectedGroup.groupId),
-    ]).then(async ([details, messages]) => {
-      if (cancelled) return;
-      setGroupDetails(details);
-      setGroupHistory(messages);
-      setGroupHistoryFor(hex(selectedGroup.groupId));
-      if (!presentationOf(`group/${hex(selectedGroup.groupId)}`)?.community) {
-        setGroupPreviews((previous) => ({ ...previous, [hex(selectedGroup.groupId)]: messages }));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const group = selectedGroup;
+    async function load() {
+      try {
+        const [details, loadedMessages, seconds] = await Promise.all([
+          inspectGroup(databasePath, group.groupId), loadGroupHistory(databasePath, group.groupId),
+          groupMessageTimer(databasePath, group.groupId),
+        ]);
+        if (cancelled || !historyCacheEpoch.current.current(cacheEpoch)) return;
+        const messages = unexpiredHistory(loadedMessages, Date.now());
+        setGroupDetails(details);
+        setGroupHistory(messages);
+        setGroupHistoryFor(hex(group.groupId));
+        setGroupTimer({ groupId: hex(group.groupId), seconds, epoch: cacheEpoch });
+        if (!presentationOf(`group/${hex(group.groupId)}`)?.community) {
+          setGroupPreviews((previous) => ({ ...previous, [hex(group.groupId)]: messages }));
+        }
+        const delay = historyRefreshDelay(messages, Date.now());
+        if (delay !== undefined) timer = setTimeout(() => void load(), delay);
+        await refreshPresentations([...details.members.map((member) => `user/${hex(member.accountId)}`), ...messages.map((message) => `user/${hex(message.senderAccountId)}`)]);
+      } catch (caught) {
+        if (!cancelled) setError(friendlyError(caught));
       }
-      await refreshPresentations([...details.members.map((member) => `user/${hex(member.accountId)}`), ...messages.map((message) => `user/${hex(message.senderAccountId)}`)]);
-    }).catch((caught) => {
-      if (!cancelled) setError(friendlyError(caught));
-    });
-    return () => { cancelled = true; };
-  }, [selectedGroup, preview]);
+    }
+    void load();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [selectedGroup, preview, databasePath, profile, cacheEpoch]);
+
+  // Community parts share the same encrypted group format. This timer reads
+  // local history only; it never starts a network sync or changes send policy.
+  useEffect(() => {
+    if (preview || !selectedEntry) return;
+    const messages = selectedEntry.parts.flatMap((part) => communityParts[part]?.messages ?? []);
+    const delay = historyRefreshDelay(messages, Date.now());
+    if (delay === undefined) return;
+    let cancelled = false;
+    const parts = selectedEntry.parts;
+    const timer = setTimeout(() => {
+      void Promise.all(parts.map(async (part) => ({ part, messages: await loadGroupHistory(databasePath, fromHex(part)) }))).then((updates) => {
+        if (cancelled || !historyCacheEpoch.current.current(cacheEpoch)) return;
+        const now = Date.now();
+        setCommunityParts((previous) => {
+          const next = { ...previous };
+          for (const update of updates) {
+            const existing = next[update.part];
+            if (existing) next[update.part] = { ...existing, messages: unexpiredHistory(update.messages, now) };
+          }
+          return next;
+        });
+      }).catch((caught) => { if (!cancelled) setError(friendlyError(caught)); });
+    }, delay);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [selectedEntry, communityParts, preview, databasePath, profile, cacheEpoch]);
 
   async function refreshDevices(
     currentProfile: Uint8Array,
   ): Promise<DeviceSetSummary> {
+    await rememberErasureNotifications(currentProfile);
     const loaded = await loadAccountDevices(databasePath, currentProfile);
+    if (visibleAccountIdentity.current !== accountProfileIdentity(currentProfile)) throw new Error("account_state_changed");
     setDeviceSet(loaded.wire);
     setDevices(loaded.summary);
     return loaded.summary;
   }
 
   async function updatePush(work: () => Promise<PushStatus>): Promise<void> {
-    if (preview) return;
+    if (preview || !profile) return;
+    const identity = accountProfileIdentity(profile);
     setPushBusy(true);
     setPushError("");
     try {
-      setPushStatus(await work());
+      const next = await work();
+      if (visibleAccountIdentity.current === identity) setPushStatus(next);
     } catch (caught) {
+      if (visibleAccountIdentity.current !== identity) return;
       setPushError(friendlyError(caught));
       try {
-        setPushStatus(await getPushStatus(databasePath));
+        const next = await getPushStatus(databasePath, profile.slice());
+        if (visibleAccountIdentity.current === identity) setPushStatus(next);
       } catch {
         // Keep the last Mesh-derived status when encrypted storage is unavailable.
       }
     } finally {
-      setPushBusy(false);
+      if (visibleAccountIdentity.current === identity) setPushBusy(false);
     }
   }
 
   function recoverPush(): void {
-    void updatePush(() => recoverPushBinding(databasePath));
+    if (!profile) return;
+    const expected = profile.slice();
+    void updatePush(() => recoverPushBinding(databasePath, expected));
   }
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      let foundProfile = false;
+      let guardRead = false;
       try {
         const loaded = await load_profile_export(utf8(databasePath));
+        foundProfile = true;
+        // A local profile may be a paid draft. Read its native guard before
+        // making it visible to any registration or mailbox effect.
+        const draft = await readCreditSignupDraftState(databasePath);
+        guardRead = true;
         if (cancelled) return;
+        setSignupDraft(draft);
         setProfile(loaded);
+        if (draft === 1 || draft === 2) {
+          setOnboardingStep("profile");
+          setUsername(parseProfileSummary(loaded).username);
+          return;
+        }
         await refreshPresentations([`user/${hex(parseProfileSummary(loaded).accountId)}`]);
         await refreshLocalData();
-        setStatus("Welcome back");
-      } catch {
-        if (!cancelled) setStatus("Choose a username to get started");
+        setStatus(t("Welcome back"));
+      } catch (caught) {
+        if (!cancelled) {
+          if (guardRead) setError(friendlyError(caught));
+          else if (foundProfile || !/local_state_not_found|profile_not_found/.test(String(caught))) setProfileLoadProblem(true);
+          else setStatus(t("Choose a username to get started"));
+        }
       } finally {
         if (!cancelled) {
           setBusy(false);
@@ -1002,18 +1390,23 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [profileLoadAttempt]);
 
   useEffect(() => {
-    if (!profile || leaving) return undefined;
+    if (!profile || leaving || draftPending) return undefined;
     const sync = createMailboxSync(
-      () => connectMailboxStream(databasePath),
+      async () => {
+        await rememberErasureNotifications(profile);
+        return connectMailboxStream(databasePath);
+      },
       async () => {
         try {
+          await rememberErasureNotifications(profile);
           await synchronizeWithNotifications(databasePath);
           const currentDevices = await refreshDevices(profile);
           if (currentDevices.changed) {
-            setError("The devices on your account changed. Check your linked devices.");
+            setError(t("Your account changed while this device was away. Review your linked devices."));
+            go("devices");
           }
         } finally {
           // Native writes may have committed even if delivery or acknowledgement failed.
@@ -1021,8 +1414,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         }
       },
       (caught) => {
-        if (caught instanceof RemovedFromAccount) {
-          forgetOnProofOfRemoval(caught.statement);
+        if (caught instanceof VerifiedDirectoryRemoval) {
+          if (visibleAccountIdentity.current !== accountProfileIdentity(profile)) return;
+          setLeaving(true);
+          void finishErasing(profile, t(removalNotices[caught.removal]));
           return;
         }
         setSyncError(caught ? friendlyError(caught) : "");
@@ -1042,10 +1437,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       removePushListeners();
       appState.remove();
     };
-  }, [profile, leaving]);
+  }, [profile, leaving, draftPending]);
 
   useEffect(() => {
-    if (!profile || leaving) return undefined;
+    if (!profile || leaving || draftPending) return undefined;
     const removeRegistrationListener =
       listenForPushRegistrationChanges(recoverPush);
     const appState = AppState.addEventListener("change", (state) => {
@@ -1056,14 +1451,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       removeRegistrationListener();
       appState.remove();
     };
-  }, [profile, leaving]);
+  }, [profile, leaving, draftPending]);
 
   async function perform(
     label: string,
     work: () => Promise<void>,
   ): Promise<void> {
     if (preview) {
-      setError("Sample preview is read-only. Turn it off in You → Development to make changes.");
+      setError(t("Sample preview is read-only. Turn it off in You → Development to make changes."));
       return;
     }
     setBusy(true);
@@ -1073,11 +1468,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       await work();
     } catch (caught) {
       qrCollector.reset();
-      setError(friendlyError(caught));
+      if (caught instanceof VerifiedDirectoryRemoval && profile) {
+        await finishErasing(profile, t(removalNotices[caught.removal]));
+      } else setError(friendlyError(caught));
     } finally {
-      if (profile) mailboxSync.current?.invalidate();
+      if (profile && !draftPending) mailboxSync.current?.invalidate();
       try {
-        if (profile) await refreshLocalData();
+        if (profile && !draftPending) await refreshLocalData();
       } catch (caught) {
         setError(friendlyError(caught));
       }
@@ -1099,19 +1496,104 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // whatever screen the onboarding flow happened to be on.
   const enterApp = () => setRoute({ screen: "home", direction: "forward" });
 
-  function createAccount(): void {
+  // Onboarding again, from its first screen and with its fields empty, over
+  // the account this device already has. Its last steps end the replay
+  // instead of creating an account or linking a device (endReplay).
+  function replayOnboarding(): void {
+    if (!isDevelopmentBuild() || busy) return;
+    setUsername("");
+    setDisplayName("");
+    setAccountAvatar(undefined);
+    setTakenUsername("");
+    setOnboardingStep("welcome");
+    setReplayingOnboarding(true);
+    setRoute((current) => ({ ...current, direction: "forward" }));
+  }
+
+  // Leaves a replay where finishing it would have: in the app, on Chats, or
+  // back where it was started when it is backed out of.
+  function endReplay(finished: boolean): void {
+    setReplayingOnboarding(false);
+    setOnboardingStep("welcome");
+    setUsername("");
+    setDisplayName("");
+    setAccountAvatar(undefined);
+    if (finished) enterApp();
+    else setRoute({ screen: "settings", direction: "backward" });
+  }
+
+  async function finishPaidSignup(): Promise<void> {
+    if (await readCreditSignupDraftState(databasePath) !== 3) throw new Error("paid_signup_draft_pending");
+    setSignupDraft(3);
+    enterApp();
+  }
+
+  function checkSignupOptions(): void {
+    void perform(t("Checking signup options…"), async () => {
+      try {
+        setSignupPolicy(await loadCreditSignupPolicy(databasePath));
+        setPriorityUnavailable(false);
+      } catch {
+        setPriorityUnavailable(true);
+        setSignupPolicy(undefined);
+      }
+    });
+  }
+
+  function createPaidSignupDraft(): void {
     const normalized = username.trim().toLowerCase();
-    if (usernameProblem(normalized)) {
-      setError("Use 3–32 lowercase letters, numbers, or underscores.");
-      return;
-    }
+    if (usernameProblem(normalized) || !signupPolicy?.enabled || signupPolicy.currentDifficulty <= signupPolicy.baseDifficulty) return;
     const presentation = { name: displayName.trim() || normalized, avatar: accountAvatar };
     try { encodePresentation(presentation); }
     catch (caught) { setError(friendlyError(caught)); return; }
-    void perform("Creating your account…", async () => {
-      const created = await create_account_export(
-        accountRequest(databasePath, normalized),
-      );
+    void perform(t("Saving your signup profile…"), async () => {
+      const created = await createCreditSignupDraft(databasePath, normalized);
+      setSignupDraft(await readCreditSignupDraftState(databasePath));
+      setProfile(created);
+      setScreen("home");
+      const key = `user/${hex(parseProfileSummary(created).accountId)}`;
+      await savePresentation(databasePath, key, presentation);
+    });
+  }
+
+  async function finishFreeDraft(policy: Uint8Array): Promise<void> {
+    const local = await selectFreeCreditSignup(databasePath);
+    setSignupDraft(2);
+    setProfile(local);
+    // No erase on a name conflict: the same local identity may already own
+    // purchased credits. Native guards retain pending paid reservations.
+    try {
+      await registerDirectory(databasePath, policy);
+      // Resolve our entry through the normal pinned witness checks, then let
+      // native code compare the authenticated cache with this exact draft.
+      await resolveDeviceSet(databasePath, parseProfileSummary(local).username);
+      const completed = await completeFreeCreditSignup(databasePath);
+      if (await readCreditSignupDraftState(databasePath) !== 3) throw new Error("signup_completion_pending");
+      setProfile(completed);
+    } catch (caught) {
+      if (/registration_refused/.test(String(caught))) throw new Error("free_signup_name_taken");
+      throw new Error("free_signup_pending");
+    }
+    setSignupDraft(3);
+    enterApp();
+  }
+
+  function createAccount(): void {
+    const normalized = username.trim().toLowerCase();
+    if (usernameProblem(normalized)) {
+      setError(t("Use 3–32 lowercase letters, numbers, or underscores."));
+      return;
+    }
+    if (replayingOnboarding) {
+      endReplay(true);
+      return;
+    }
+    const presentation = { name: displayName.trim() || normalized, avatar: accountAvatar, revision: Date.now() };
+    let request: Uint8Array;
+    try { request = vectors(utf8(databasePath), utf8(normalized), encodePresentation(presentation)); }
+    catch (caught) { setError(friendlyError(caught)); return; }
+    void perform(t("Creating your account…"), async () => {
+      const created = await create_account_export(request);
       // A name the directory refuses would leave an account no server takes,
       // and no way back to choosing another, so it is undone before anyone sees
       // it. An outage keeps the account: connecting registers it later.
@@ -1119,8 +1601,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       try {
         await registerDirectory(databasePath);
       } catch (caught) {
-        if (caught instanceof Error && caught.message === "registration_refused") {
-          await eraseAccount(databasePath);
+        if (isDirectoryRegistrationRefused(caught)) {
+          await discardAccount(databasePath, created);
           // Said at the field, which stays as typed for another try.
           setTakenUsername(normalized);
           return;
@@ -1130,47 +1612,46 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       setProfile(created);
       enterApp();
       const key = `user/${hex(parseProfileSummary(created).accountId)}`;
-      const saved = await savePresentation(databasePath, key, presentation);
-      setPresentations((previous) => ({ ...previous, [key]: saved }));
+      setPresentations((previous) => ({ ...previous, [key]: presentation }));
       if (unregistered) throw unregistered;
       // The mailbox sync loads the device set once the witnesses countersign
       // it, seconds from now; the account is usable before then.
       setUsername("");
       setDisplayName("");
-      setStatus("Account created");
+      setStatus(t("Account created"));
     });
   }
 
   function startWithProfile(contact: Uint8Array, body: string): void {
     if (!body.trim() && !stagedFor("new-chat").length) {
-      setError("Write a first message.");
+      setError(t("Write a first message."));
       return;
     }
-    void perform("Sending…", async () => {
+    void perform(t("Sending…"), async () => {
       const peer = parseProfileSummary(contact);
       let changed = false;
-      await sendWithAttachment("new-chat", async (attachment) => {
-        changed = await sendFanout(databasePath, peer.username, body.trim(), peer.accountId, attachment);
+      const queued = await sendWithAttachment("new-chat", { username: peer.username, expectedPeer: peer.accountId }, async (attachment) => {
+        changed = await sendFanout(databasePath, profile!, peer.username, body.trim(), peer.accountId, attachment);
       });
       setFirstMessage("");
       setScannedProfile(null);
-      noteSent(peer.username, changed);
+      noteSent(peer.username, changed, queued);
       setScreen("home");
     });
   }
 
   function startByUsername(): void {
     const target = contactUsername.trim().toLowerCase();
-    void perform("Sending…", async () => {
+    void perform(t("Sending…"), async () => {
       let changed = false;
-      await sendWithAttachment("new-chat", async (attachment) => {
-        changed = await sendFanout(databasePath, target, firstMessage.trim(), undefined, attachment);
+      const queued = await sendWithAttachment("new-chat", { username: target }, async (attachment) => {
+        changed = await sendFanout(databasePath, profile!, target, firstMessage.trim(), undefined, attachment);
       });
       Keyboard.dismiss();
       setContactUsername("");
       setFirstMessage("");
       setScreen("home");
-      noteSent(target, changed);
+      noteSent(target, changed, queued);
     });
   }
 
@@ -1178,14 +1659,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (!selected) return;
     const scope = `chat/${selected.conversationId.join(".")}`;
     if (!composer.trim() && !stagedFor(scope).length) return;
-    void perform("Sending…", async () => {
+    void perform(t("Sending…"), async () => {
       let changed = false;
-      await sendWithAttachment(scope, async (attachment) => {
-        changed = await sendFanout(databasePath, selected.username, outgoingBody(composer.trim()), selected.peerAccountId, attachment);
+      const queued = await sendWithAttachment(scope, { username: selected.username, expectedPeer: selected.peerAccountId }, async (attachment) => {
+        changed = await sendFanout(databasePath, profile!, selected.username, outgoingBody(composer.trim()), selected.peerAccountId, attachment);
       });
       setComposer("");
       setReplying(null);
-      noteSent(selected.username, changed);
+      noteSent(selected.username, changed, queued);
     });
   }
 
@@ -1204,7 +1685,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         : { ...preview, histories: { ...preview.histories, [hex(selected!.conversationId)]: react(preview.histories[hex(selected!.conversationId)]) } });
       return;
     }
-    void perform("Sending reaction…", async () => {
+    void perform(t("Sending reaction…"), async () => {
       const body = encodeReaction(hex(message.messageId!), emoji);
       // A community post is one message per part; the reaction goes to each.
       const copies = "copies" in message ? (message as { copies: Copy[] }).copies : undefined;
@@ -1214,23 +1695,61 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         }
       } else if (group) await sendGroupMessage(databasePath, selectedGroupId!, body);
       else {
-        const changed = await sendFanout(databasePath, selected!.username, body, selected!.peerAccountId);
+        const changed = await sendFanout(databasePath, profile!, selected!.username, body, selected!.peerAccountId);
         noteSent(selected!.username, changed);
       }
-      setStatus("Reaction sent");
+      setStatus(t("Reaction sent"));
     });
   }
 
   // A message is on its way; if the other side's devices changed since the
   // last one, that is worth a warning in words a person can act on.
-  function noteSent(username: string, devicesChanged: boolean): void {
-    setStatus("Sent");
+  function noteSent(username: string, devicesChanged: boolean, queued = false): void {
+    setStatus(queued ? t("Message queued. Review postage before delivery.") : t("Sent"));
     if (devicesChanged)
-      setError(`@${username}’s devices changed. Compare safety numbers again before you trust this conversation.`);
+      setError(t("@{username}’s devices changed. Compare safety numbers again before you trust this conversation.", { username }));
   }
 
   // Staged files stay with the composer that accepted them.
   const openScope = composerScope(screen, selectedId, selectedGroupId ? hex(selectedGroupId) : null);
+  // A thread's preview cache ends when its composer leaves the screen. Layout
+  // cleanup runs before the next thread's bubbles start their passive downloads.
+  useLayoutEffect(() => {
+    const session = openScope ? new AttachmentPreviewSession(openScope, releasePreviewUri,
+      () => refreshAttachments(value => value + 1)) : null;
+    attachmentSession.current = session;
+    for (const entry of stagedRef.current) {
+      if (entry.scope === openScope && !entry.previewUri && entry.upload.smallBytes && isImageAttachment(entry.upload.mimeType)) {
+        void Promise.resolve(attachmentPreviewUri(entry.id, entry.upload.mimeType, entry.upload.smallBytes)).then(uri => {
+          if (!session?.active || !stagedRef.current.includes(entry)) { releasePreviewUri(uri); return; }
+          if (entry.previewUri) releasePreviewUri(entry.previewUri);
+          entry.previewUri = uri; refreshAttachments(value => value + 1);
+        }, () => { /* Native revoke removes unpublished previews; no stale UI result. */ });
+      }
+    }
+    refreshAttachments(value => value + 1);
+    return () => {
+      session?.close();
+      // Unsent selections still belong to their composer; only their generated
+      // preview is discarded. Reopening creates a fresh one from that selection.
+      for (const entry of stagedRef.current) if (entry.scope === openScope && entry.previewUri) {
+        releasePreviewUri(entry.previewUri); entry.previewUri = undefined;
+      }
+      if (attachmentSession.current === session) attachmentSession.current = null;
+    };
+  }, [openScope, accountId]);
+  useLayoutEffect(() => {
+    const session = attachmentSession.current;
+    if (!session || session.scope !== openScope) return;
+    const messages = screen === "chat" && selected && historyFor === hex(selected.conversationId) ? history
+      : screen === "group" ? selectedEntry ? communityPosts
+        : selectedGroupId && groupHistoryFor === hex(selectedGroupId) ? groupHistory : [] : [];
+    session.restrictTo(messages.flatMap((message) => message.attachments?.map((attachment) => hex(attachment.objectId)) ?? []));
+  }, [openScope, screen, selected, historyFor, history, selectedEntry, communityParts, selectedGroupId, groupHistoryFor, groupHistory, accountId]);
+  const sessionFor = (scope: string | null) => {
+    const session = attachmentSession.current;
+    return session?.active && session.scope === scope ? session : null;
+  };
   // What the open composer answers, while that message is still in the thread:
   // once it expires, the reply bar goes and the words are sent on their own.
   const replyTarget = replying && replying.scope === openScope
@@ -1259,155 +1778,202 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     stagedRef.current.filter((entry) => entry.scope === scope);
 
   function updateStaged(entries: StagedAttachment[]): void {
+    for (const previous of stagedRef.current) if (!entries.includes(previous)) previous.upload.dispose();
     stagedRef.current = entries;
     setStaged(entries);
   }
 
-  function stageAttachments(scope: string | null, files: OutgoingAttachment[]): void {
-    if (scope === null || !files.length || busy) return;
+  async function stageAttachments(scope: string | null, files: AttachmentSelection[]): Promise<void> {
+    const dispose = () => files.forEach(file => file.dispose());
+    if (scope === null || !files.length || busy || choosingAttachments.current) { dispose(); return; }
     if (preview) {
-      setError("Sample preview is read-only. Turn it off in You → Development to make changes.");
-      return;
+      dispose(); setError(t("Sample preview is read-only. Turn it off in You → Development to make changes.")); return;
     }
-    const limit = attachmentSelectionError(files.map((file) => file.bytes.length), stagedFor(scope).length);
-    if (limit) { setError(limit); return; }
-    const entries: StagedAttachment[] = [];
+    const limit = attachmentSelectionLimit(files.map(file => file.size), stagedFor(scope).length);
+    if (limit) { dispose(); setError(limit); return; }
+    const session = sessionFor(scope);
+    if (!session) { dispose(); return; }
+    choosingAttachments.current = true;
     try {
-      for (const file of files) {
-        const id = `staged-${stagedSerial.current++}`;
-        const previewUri = isImageAttachment(file.mimeType) ? attachmentPreviewUri(id, file.mimeType, file.bytes) : undefined;
-        entries.push({ id, scope, file, previewUri });
-      }
+      const uploads = await previewAttachmentSelections(databasePath, files);
+      if (!session.active) { uploads.forEach(upload => upload.dispose()); choosingAttachments.current = false; return; }
+      pendingAttachments.current = uploads;
+      const finish = () => { pendingAttachments.current = []; choosingAttachments.current = false; };
+      const cancel = () => { uploads.forEach(upload => upload.dispose()); finish(); };
+      const add = async () => {
+        if (!session.active) { cancel(); return; }
+        const currentLimit = attachmentSelectionLimit(uploads.map(file => file.size), stagedFor(scope).length);
+        if (currentLimit) { cancel(); setError(currentLimit); return; }
+        const entries: StagedAttachment[] = [];
+        try {
+          for (const upload of uploads) {
+            const id = `staged-${stagedSerial.current++}`;
+            const previewUri = upload.smallBytes && isImageAttachment(upload.mimeType) ? await attachmentPreviewUri(id, upload.mimeType, upload.smallBytes) : undefined;
+            if (!session.active) { if (previewUri) releasePreviewUri(previewUri); throw Error("stale_epoch"); }
+            entries.push({ id, scope, upload, previewUri });
+          }
+          updateStaged([...stagedRef.current, ...entries]); setError(""); finish();
+        } catch (caught) {
+          for (const entry of entries) if (entry.previewUri) releasePreviewUri(entry.previewUri);
+          cancel(); setError(friendlyError(caught));
+        }
+      };
+      const paid = uploads.filter(upload => upload.nonce);
+      const price = paid.reduce((total, upload) => total + upload.price, 0);
+      if (!price) { await add(); return; }
+      const available = Math.min(...paid.map(upload => upload.available ?? 0));
+      if (price > available) { cancel(); setError(t("This selection needs {count} available credits. New credits wait 10 minutes before use.", { count: price })); return; }
+      confirm({ title: paid[0]?.purpose === "test" ? t("Use test credits for these files?") : t("Use credits for these files?"),
+        body: t.plural("{count} credit will be used when you send. Each file is encrypted and saved on this device before upload. Removing it after sending does not refund credits.", "{count} credits will be used when you send. Each file is encrypted and saved on this device before upload. Removing it after sending does not refund credits.", price),
+        action: t.plural("Add files for {count} credit", "Add files for {count} credits", price), primary: true, run: () => { void add(); }, cancel });
     } catch (caught) {
-      for (const entry of entries) if (entry.previewUri) releasePreviewUri(entry.previewUri);
-      setError(friendlyError(caught));
-      return;
+      dispose(); choosingAttachments.current = false; pendingAttachments.current = [];
+      if (session.active) setError(/credits_disabled/.test(String(caught)) ? t("Large attachments aren’t enabled in this app release. Files up to 16 MB are still free.") : friendlyError(caught));
     }
-    setError("");
-    updateStaged([...stagedRef.current, ...entries]);
   }
 
   function unstageAttachment(id: string): void {
-    const entry = stagedRef.current.find((entry) => entry.id === id);
+    const entry = stagedRef.current.find(entry => entry.id === id);
     if (entry?.previewUri) releasePreviewUri(entry.previewUri);
-    updateStaged(stagedRef.current.filter((entry) => entry.id !== id));
+    entry?.upload.dispose();
+    updateStaged(stagedRef.current.filter(entry => entry.id !== id));
   }
 
+  function pickFiles(scope: string): void {
+    const session = sessionFor(scope);
+    if (!session) return;
+    pickAttachmentSelections().then(files => {
+      if (session.active) void stageAttachments(scope, files);
+      else files.forEach(file => file.dispose());
+    }, caught => { if (session.active) setError(friendlyError(caught)); });
+  }
   function attachFile(scope: string | null): void {
-    if (scope === null || busy) return;
-    pickAttachmentFiles().then(
-      (files) => stageAttachments(scope, files),
-      (caught) => setError(friendlyError(caught)),
-    );
+    if (scope === null || busy || choosingAttachments.current) return;
+    // The ordinary picker stays one tap; saved files are available beside it.
+    pickFiles(scope);
   }
 
   const composerAttachments = (scope: string | null): ComposerAttachment[] =>
-    staged.filter((entry) => entry.scope === scope).map((entry) => ({
-      id: entry.id,
-      filename: entry.file.filename,
-      size: formatBytes(entry.file.bytes.length),
+    staged.filter(entry => entry.scope === scope).map(entry => ({
+      id: entry.id, filename: entry.upload.filename,
+      size: entry.upload.price ? t.plural("{size} · {count} credit", "{size} · {count} credits", entry.upload.price, { size: formatBytes(entry.upload.size) }) : formatBytes(entry.upload.size),
       previewUri: entry.previewUri,
     }));
 
-  useEffect(() => listenForIncomingFiles({
-    onDragging: setDropping,
-    onFiles: (files) => stageAttachments(openScope, files),
-    onError: setError,
-  }));
-
-  async function sendWithAttachment(scope: string, send: (attachment?: Uint8Array) => Promise<void>): Promise<void> {
-    const entries = stagedFor(scope);
-    const uploaded = await sendWithAttachments(databasePath, entries.map((entry) => entry.file), async (reference) => {
-      setStatus("Sending…");
-      await send(reference);
-    }, (completed, total) => setStatus(`Uploading… ${Math.round(completed / total * 100)}%`));
-    uploaded.forEach((file, index) => {
-      const entry = entries[index]!;
-      const key = hex(file.objectId);
-      rememberBytes(key, entry.file.bytes);
-      setAttachmentState(key, { status: "ready", previewUri: entry.previewUri });
+  useEffect(() => {
+    const session = sessionFor(openScope);
+    const accept = (files: AttachmentSelection[]) => {
+      if (session?.active) void stageAttachments(openScope, files);
+      else files.forEach(file => file.dispose());
+    };
+    return listenForIncomingFiles({
+      onDragging: setDropping,
+      onFiles: files => accept(files.map(smallAttachmentSelection)),
+      onSelections: accept,
+      onError: message => { if (session?.active) setError(message); },
     });
-    updateStaged(stagedRef.current.filter((entry) => !entries.includes(entry)));
+  });
+
+  async function sendWithAttachment(scope: string, recipients: AttachmentRecipients, send: (attachment?: Uint8Array) => Promise<void>): Promise<boolean> {
+    const entries = stagedFor(scope);
+    const session = sessionFor(scope);
+    let queued = false;
+    const uploaded = await sendAttachmentUploads(databasePath, entries.map(entry => entry.upload), () => authorizeAttachmentRecipients(databasePath, profile!, recipients), async reference => {
+      setStatus(t("Sending…"));
+      try { await send(reference); }
+      catch (caught) {
+        if (!(caught instanceof PostageRequired)) throw caught;
+        // Mesh has durably queued this exact message before its first network
+        // submission. Clearing the composer prevents a replacement message.
+        queued = true;
+      }
+    }, (completed, total, staging) => setStatus(staging ? t("Encrypting and saving… {percent}%", { percent: Math.round(completed / total * 100) }) : t("Uploading… {percent}%", { percent: Math.round(completed / total * 100) })));
+    uploaded.forEach((file, index) => {
+      const entry = entries[index]!; const key = hex(file.objectId);
+      if (session?.active) {
+        if (entry.upload.smallBytes) session.remember(key, entry.upload.smallBytes.slice());
+        session.setState(key, { status: "ready", previewUri: entry.previewUri });
+      }
+      entry.upload.dispose();
+    });
+    updateStaged(stagedRef.current.filter(entry => !entries.includes(entry)));
+    return queued;
   }
 
-  function setAttachmentState(key: string, state: AttachmentState): void {
-    setAttachmentStates((previous) => ({ ...previous, [key]: state }));
-  }
+  const attachmentState = (scope: string, attachment: AttachmentSummary): AttachmentState | undefined =>
+    sessionFor(scope)?.state(hex(attachment.objectId)) ??
+    (attachment.expiresAt < Date.now() ? { status: "error", message: t("Expired") } : undefined);
 
-  // Decrypted files stay in memory for the session, oldest out first once
-  // they add up; a picture already written to its preview keeps showing.
-  function rememberBytes(key: string, bytes: Uint8Array): void {
-    const cache = attachmentBytes.current;
-    cache.delete(key);
-    cache.set(key, bytes);
-    let total = 0;
-    for (const value of cache.values()) total += value.length;
-    for (const [oldest, value] of cache) {
-      if (total <= ATTACHMENT_CACHE_LIMIT || oldest === key) break;
-      cache.delete(oldest);
-      total -= value.length;
-    }
-  }
-
-  const attachmentState = (attachment: AttachmentSummary): AttachmentState | undefined =>
-    attachmentStates[hex(attachment.objectId)] ??
-    (attachment.expiresAt < Date.now() ? { status: "error", message: "Expired" } : undefined);
-
-  // Fetches and decrypts a file once; a tap on it then writes it where the
-  // person chooses. A second tap while it is on its way does nothing.
-  function openAttachment(attachment: AttachmentSummary, save: boolean): void {
+  // One request per object in this opening of this thread. Closing invalidates
+  // progress, results and errors, including work which cannot be recalled natively.
+  function openAttachment(scope: string, attachment: AttachmentSummary, save: boolean): void {
     const key = hex(attachment.objectId);
-    if (downloading.current.has(key)) return;
-    // A picture whose bytes have since left the cache keeps its preview.
-    const current = attachmentStates[key];
-    let previewUri = current?.previewUri;
+    const session = sessionFor(scope);
+    if (!session?.begin(key)) return;
+    const signal = session.requestSignal(key);
+    let previewUri = session.state(key)?.previewUri;
     void (async () => {
       try {
-        let bytes = attachmentBytes.current.get(key);
+        if (attachment.size > MAXIMUM_ATTACHMENT_SIZE) {
+          if (!save) return;
+          const plan = await readAttachmentDownloadPlan(databasePath, attachment.reference);
+          if (!session.accepts(key, signal)) return;
+          if ((plan.version !== 2 && plan.version !== 4) || plan.size !== attachment.size) throw Error("invalid_paid_attachment");
+          const sink = await createAttachmentRangeSink(plan.filename, plan.mimeType, plan.size, `attachment/${key}/${attachment.expiresAt}`);
+          if (!sink) return;
+          // A destination explicitly selected by the person is an export, not
+          // a preview cache. Its transfer may finish after leaving the thread.
+          session.setState(key, { status: "downloading", completed: 0, total: plan.chunkCount }, signal);
+          await downloadPaidAttachment(databasePath, plan, sink, (completed, total) => session.setState(key, { status: "downloading", completed, total }, signal));
+          session.setState(key, { status: "saved" }, signal);
+          return;
+        }
+        let bytes = session.bytes(key);
         if (!bytes) {
-          downloading.current.add(key);
-          setAttachmentState(key, { status: "downloading", completed: 0, total: attachment.chunkCount, previewUri });
-          try {
-            bytes = await downloadAttachment(databasePath, attachment, (completed, total) =>
-              setAttachmentState(key, { status: "downloading", completed, total, previewUri }),
-            );
-          } finally {
-            downloading.current.delete(key);
-          }
-          rememberBytes(key, bytes);
+          session.setState(key, { status: "downloading", completed: 0, total: attachment.chunkCount, previewUri }, signal);
+          bytes = await downloadAttachment(databasePath, attachment, (completed, total) =>
+            session.setState(key, { status: "downloading", completed, total, previewUri }, signal), signal);
+          session.remember(key, bytes, signal);
+          if (!session.accepts(key, signal)) return;
           if (previewUri === undefined && isImageAttachment(attachment.mimeType)) {
-            previewUri = attachmentPreviewUri(key, attachment.mimeType, bytes);
+            previewUri = await attachmentPreviewUri(key, attachment.mimeType, bytes);
+            if (!session.accepts(key, signal)) { releasePreviewUri(previewUri); return; }
           }
-          setAttachmentState(key, { status: "ready", previewUri });
+          session.setState(key, { status: "ready", previewUri }, signal);
         }
-        if (!save) return;
-        if (await saveAttachmentFile(attachment.filename, attachment.mimeType, bytes)) {
-          setAttachmentState(key, { status: "saved", previewUri });
-        }
+        if (!save || !session.accepts(key, signal)) return;
+        const held = session.retain(key);
+        if (!held) return;
+        try {
+          if (await saveAttachmentFile(attachment.filename, attachment.mimeType, held.bytes, signal, `attachment/${key}/${attachment.expiresAt}`)) {
+            session.setState(key, { status: "saved", previewUri }, signal);
+          }
+        } finally { held.release(); }
       } catch (caught) {
+        if (!session.accepts(key, signal)) return;
         const message = friendlyError(caught);
-        setAttachmentState(key, { status: "error", message, previewUri });
+        session.setState(key, { status: "error", message, previewUri }, signal);
         // A fetch nobody asked for fails quietly, on its own card.
         if (save) setError(message);
-      }
+      } finally { session.finish(key, signal); }
     })();
   }
 
   // What a bubble shows for its file. Pictures from people we already talk
   // with are fetched on sight; a stranger's request waits for a tap.
-  function bubbleAttachment(attachment: AttachmentSummary, trusted: boolean): BubbleAttachment {
-    const state = attachmentState(attachment);
-    const image = isImageAttachment(attachment.mimeType);
+  function bubbleAttachment(scope: string, attachment: AttachmentSummary, trusted: boolean): BubbleAttachment {
+    const state = attachmentState(scope, attachment);
+    const image = attachment.size <= MAXIMUM_ATTACHMENT_SIZE && isImageAttachment(attachment.mimeType);
     return {
       id: hex(attachment.objectId),
-      filename: attachment.filename || (image ? "Photo" : "Attachment"),
+      filename: attachment.filename || (image ? t("Photo") : t("Attachment")),
       image,
       status: describeAttachmentState(attachment, state),
       busy: state?.status === "downloading",
       previewUri: state?.previewUri,
-      onPress: () => openAttachment(attachment, true),
+      onPress: () => openAttachment(scope, attachment, true),
       onAppear: trusted && state === undefined && shouldAutoDownload(attachment)
-        ? () => openAttachment(attachment, false)
+        ? () => openAttachment(scope, attachment, false)
         : undefined,
     };
   }
@@ -1418,7 +1984,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     value: number,
     status: string,
   ): void {
-    void perform("Saving…", async () => {
+    void perform(t("Saving…"), async () => {
       await update_conversation_export(
         policyRequest(databasePath, conversation.peerAccountId, action, value),
       );
@@ -1428,14 +1994,29 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
 
   function updatePolicy(action: number, value = 0): void {
     if (!selected) return;
-    applyPolicy(selected, action, value, "Saved");
+    applyPolicy(selected, action, value, t("Saved"));
+  }
+
+  function verifySafetyNumber(conversation: Conversation, number: string, scanned: boolean): void {
+    const scannedRoute = route;
+    void perform(t("Checking the safety number…"), async () => {
+      await update_conversation_export(safetyVerificationRequest(databasePath, conversation.peerAccountId, number));
+      setStatus(t("Safety number verified"));
+      if (scanned) setRoute((current) => current === scannedRoute && current.screen === "scanner"
+        ? { screen: "chat-info", direction: transitionDirection("scanner", "chat-info") }
+        : current);
+    });
   }
 
   function acceptRequest(conversation: Conversation): void {
-    applyPolicy(conversation, 1, 0, `You can now reply to @${conversation.username}`);
+    applyPolicy(conversation, 1, 0, t("You can now reply to @{username}", { username: conversation.username }));
   }
 
   function openScanner(mode: ScanMode): void {
+    if (mode === "safety" && (!selected || !/^[0-9a-f]{64}$/.test(selected.safetyNumber))) {
+      setError(t("A safety number appears once you’ve exchanged a message."));
+      return;
+    }
     qrCollector.reset();
     setScanMode(mode);
     setScannedProfile(null);
@@ -1447,22 +2028,26 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
 
   function beginDeviceLink(): void {
-    void perform("Getting ready to link…", async () => {
+    if (replayingOnboarding) {
+      endReplay(false);
+      return;
+    }
+    void perform(t("Getting ready to link…"), async () => {
       const request = await create_link_request_export(utf8(databasePath));
       const sas = decodeUtf8(await device_link_sas_export(request));
       setLinkRequest(request);
       setLinkSas(sas);
       setScreen("link-device");
-      setStatus("This code expires in ten minutes");
+      setStatus(t("This code expires in ten minutes"));
     });
   }
 
   function openDevices(): void {
     if (!profile) return;
-    void perform("Checking your devices…", async () => {
+    void perform(t("Checking your devices…"), async () => {
       await refreshDevices(profile);
       setScreen("devices");
-      setStatus("Devices up to date");
+      setStatus(t("Devices up to date"));
     });
   }
 
@@ -1481,7 +2066,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
 
   function createNewGroup(): void {
-    if (preview) { setError("Turn off sample preview to create a group."); return; }
+    if (preview) { setError(t("Turn off sample preview to create a group.")); return; }
     setGroupDraftName("");
     setGroupDraftAvatar(undefined);
     setDraftCommunity(false);
@@ -1496,7 +2081,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       ...(draftCommunity && accountId ? { community: { about: groupDraftAbout, groups: [], parts: [part], owner: accountId, admins: [] } } : {}) });
     try { encodePresentation({ ...draft("0".repeat(64)), revision: 0 }); }
     catch (caught) { setError(friendlyError(caught)); return; }
-    void perform(draftCommunity ? "Creating your community…" : "Creating your group…", async () => {
+    void perform(draftCommunity ? t("Creating your community…") : t("Creating your group…"), async () => {
       const groupId = pendingCreatedGroup.current ?? await createGroup(databasePath);
       pendingCreatedGroup.current = groupId;
       const key = `group/${hex(groupId)}`;
@@ -1508,23 +2093,23 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       setGroupHistoryFor(null);
       pendingCreatedGroup.current = null;
       setScreen("group-info");
-      setStatus(draftCommunity ? "Community created. Invite members, then link groups." : "Group created. Invite someone to get started.");
+      setStatus(draftCommunity ? t("Community created. Invite members, then link groups.") : t("Group created. Invite someone to get started."));
     });
   }
 
   function updateAvatar(key: string, name: string, avatar?: string): void {
     const entry = key.startsWith("group/") ? communityOfGroup(key.slice(6)) : undefined;
-    void perform("Saving photo…", async () => {
+    void perform(t("Saving photo…"), async () => {
       if (entry) {
         await writeCommunity(entry, { name, avatar });
-        setStatus("Photo saved");
+        setStatus(t("Photo saved"));
         return;
       }
       const saved = await savePresentation(databasePath, key, { ...presentationOf(key), name, avatar });
       setPresentations((previous) => ({ ...previous, [key]: saved }));
       if (key.startsWith("user/")) advertisedGroups.current.clear();
       else advertisedGroups.current.delete(key.slice(6));
-      setStatus("Photo saved");
+      setStatus(t("Photo saved"));
     });
   }
 
@@ -1540,7 +2125,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const presentation = { ...presentationOf(key), name: value.trim() || ownUsername };
     try { if (!nickname || value.trim()) encodePresentation(presentation); }
     catch (caught) { setNameError(friendlyError(caught)); return; }
-    void perform("Saving name…", async () => {
+    void perform(t("Saving name…"), async () => {
       try {
         const saved = nickname
           ? await saveNickname(databasePath, key, value)
@@ -1548,7 +2133,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         setPresentations((previous) => ({ ...previous, [key]: saved }));
         if (!nickname) advertisedGroups.current.clear();
         setNameEditor(null);
-        setStatus("Name saved");
+        setStatus(t("Name saved"));
       } catch (caught) {
         setNameError(friendlyError(caught));
       }
@@ -1573,7 +2158,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   ) {
     return (
       <PhotoButton
-        name={name || (group ? "New group" : "")}
+        name={name || (group ? t("New group") : "")}
         uri={avatar}
         colorSeed={seed}
         group={group}
@@ -1589,7 +2174,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   function renderRemovePhoto(onRemove: () => void) {
     return (
       <Button
-        label="Remove photo"
+        label={t("Remove photo")}
         variant="ghost"
         size="sm"
         disabled={busy || pickingPhoto || preview !== null}
@@ -1613,8 +2198,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // sits as a narrow sheet in the pane.
   function renderNewGroup() {
     return (
-      <Page header={<Header title={draftCommunity ? "New community" : "New group"} onBack={() => go("groups")} backLabel="Cancel" />}>
-        <ScrollView
+      <Page header={<Header title={draftCommunity ? t("New community") : t("New group")} onBack={() => go("groups")} backLabel={t("Cancel")} />}>
+        <KeyboardAwareScrollView
+          bottomOffset={formKeyboardOffset}
           contentContainerStyle={[layout.content, styles.newGroup]}
           keyboardShouldPersistTaps="handled"
         >
@@ -1623,51 +2209,51 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             {groupDraftAvatar ? renderRemovePhoto(() => setGroupDraftAvatar(undefined)) : null}
           </View>
           <Field
-            label={draftCommunity ? "Community name" : "Group name"}
+            label={draftCommunity ? t("Community name") : t("Group name")}
             value={groupDraftName}
             onChangeText={setGroupDraftName}
-            placeholder={draftCommunity ? "Solana builders" : "Weekend walks"}
+            placeholder={draftCommunity ? t("Solana builders") : t("Weekend walks")}
             maxLength={96}
             autoFocus
-            hint="Shown to everyone you invite. You can change both later in group details."
+            hint={t("Shown to everyone you invite. You can change both later in group details.")}
           />
           <RowGroup>
             <Row
               icon="megaphone"
-              title="Community"
-              subtitle="Announcements only you post, and groups members can ask to join."
-              trailing={<Toggle label="Community" value={draftCommunity} onValueChange={setDraftCommunity} />}
+              title={t("Community")}
+              subtitle={t("Announcements only you post, and groups members can ask to join.")}
+              trailing={<Toggle label={t("Community")} value={draftCommunity} onValueChange={setDraftCommunity} />}
             />
           </RowGroup>
           {draftCommunity ? (
             <Field
-              label="Description"
+              label={t("Description")}
               value={groupDraftAbout}
               onChangeText={setGroupDraftAbout}
-              placeholder="What this community is for"
+              placeholder={t("What this community is for")}
               multiline
               maxLength={500}
             />
           ) : null}
           <Actions>
             <Button
-              label={draftCommunity ? "Create community" : "Create group"}
+              label={draftCommunity ? t("Create community") : t("Create group")}
               onPress={finishGroupCreation}
               disabled={busy || pickingPhoto || !groupDraftName.trim()}
             />
           </Actions>
-          <Text style={[type.footnote, styles.newGroupNote]}>You’ll invite people next.</Text>
-        </ScrollView>
+          <Text style={[type.footnote, styles.newGroupNote]}>{t("You’ll invite people next.")}</Text>
+        </KeyboardAwareScrollView>
       </Page>
     );
   }
 
   function showGroupKeyPackage(): void {
-    void perform("Preparing your code…", async () => {
+    void perform(t("Preparing your code…"), async () => {
       setGroupKeyPackage(await getGroupKeyPackage(databasePath));
       if (isDesktop && screen !== "group-package") setGroupPackageOrigin(screen);
       setScreen("group-package");
-      setStatus("Show this code to a group member");
+      setStatus(t("Show this code to a group member"));
     });
   }
 
@@ -1675,33 +2261,33 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (!selectedGroupId) return;
     const target = groupUsername.trim().toLowerCase().replace(/^@/, "");
     if (!/^[a-z0-9._-]{1,64}$/.test(target)) {
-      setError("Enter their exact username.");
+      setError(t("Enter their exact username."));
       return;
     }
     const entry = selectedEntry;
     if (entry && Object.values(communityData).some((part) => part.details.members.some((member) => member.username === target))) {
-      setError(`@${target} is already in the community.`);
+      setError(t("@{target} is already in the community.", { target }));
       return;
     }
-    void perform("Sending invitation…", async () => {
-      await inviteToGroup(databasePath, entry ? await communityPartFor(entry) : selectedGroupId, target);
+    void perform(t("Sending invitation…"), async () => {
+      await inviteToGroup(databasePath, profile!, entry ? await communityPartFor(entry) : selectedGroupId, target);
       setGroupUsername("");
-      setStatus(`Invitation sent to @${target}`);
+      setStatus(t("Invitation sent to @{target}", { target }));
     });
   }
 
   function answerGroupInvitation(invitation: GroupInvitation, accept: boolean): void {
-    void perform(accept ? "Accepting invitation…" : "Declining invitation…", async () => {
-      if (accept) await acceptGroupInvitation(databasePath, invitation);
+    void perform(accept ? t("Accepting invitation…") : t("Declining invitation…"), async () => {
+      if (accept) await acceptGroupInvitation(databasePath, profile!, invitation);
       else await declineGroupInvitation(databasePath, invitation.reference);
-      setStatus(accept ? "Accepted. You’ll join when the inviter is next online." : "Invitation declined");
+      setStatus(accept ? t("Accepted. You’ll join when the inviter is next online.") : t("Invitation declined"));
     });
   }
 
   function scanGroupKeyPackage(): void {
     const target = groupUsername.trim().toLowerCase();
     if (!/^[a-z0-9._-]{1,64}$/.test(target)) {
-      setError("Enter their exact username before scanning their code.");
+      setError(t("Enter their exact username before scanning their code."));
       return;
     }
     openScanner("group-key-package");
@@ -1713,29 +2299,32 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (!groupComposer.trim() && !stagedFor(scope).length) return;
     const text = groupComposer.trim();
     const answered = replyTarget && communityPosts.find((post) => post.messageId && hex(post.messageId) === replying!.target);
-    void perform("Sending…", async () => {
-      await sendWithAttachment(scope, async (attachment) => {
+    void perform(t("Sending…"), async () => {
+      const queued = await sendWithAttachment(scope, { groupIds: selectedEntry ? selectedEntry.parts.map(fromHex) : [selectedGroupId] }, async (attachment) => {
         if (!selectedEntry) return sendGroupMessage(databasePath, selectedGroupId, outgoingBody(text), attachment);
         // An announcement goes to every part; a reply quotes each part's own copy.
+        const pending: Uint8Array[] = [];
         for (const part of selectedEntry.parts) {
           const copy = answered?.copies.find((item) => item.part === part && item.messageId);
-          await sendGroupMessage(databasePath, fromHex(part), copy ? encodeReply(hex(copy.messageId!), text) : text, attachment);
+          try { await sendGroupMessage(databasePath, fromHex(part), copy ? encodeReply(hex(copy.messageId!), text) : text, attachment); }
+          catch (caught) { if (!(caught instanceof PostageRequired)) throw caught; pending.push(...caught.triggerIds); }
         }
+        if (pending.length) throw new PostageRequired(pending);
       });
       setGroupComposer("");
       setReplying(null);
-      setStatus("Sent");
+      setStatus(queued ? t("Message queued. Review postage before delivery.") : t("Sent"));
     });
   }
 
   // Removing a person removes every device they are in the group with.
   function removeFromGroup(person: Person, name: string): void {
     if (!selectedGroupId) return;
-    void perform(`Removing ${name} from the group…`, async () => {
+    void perform(t("Removing {name} from the group…", { name }), async () => {
       for (const deviceId of person.deviceIds) {
         await removeGroupMember(databasePath, selectedGroupId, person.accountId, deviceId);
       }
-      setStatus(`${name} removed from the group`);
+      setStatus(t("{name} removed from the group", { name }));
     });
   }
 
@@ -1746,7 +2335,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // which the refresh sends, and the other parts from devices that are there.
   async function writeCommunity(entry: CommunityEntry, change: Partial<Presentation>): Promise<void> {
     const base = presentationOf(`group/${entry.parts[0]}`);
-    if (!base) throw new Error("The community is still loading.");
+    if (!base) throw new Error(t("The community is still loading."));
     for (const part of entry.parts) {
       const key = `group/${part}`;
       const saved = await savePresentation(databasePath, key, { ...base, ...change });
@@ -1761,7 +2350,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (!entry || !base) return;
     try { encodePresentation({ ...base, revision: 0, community }); }
     catch (caught) { setError(friendlyError(caught)); return; }
-    void perform("Saving the community…", async () => {
+    void perform(t("Saving the community…"), async () => {
       await writeCommunity(entry, { community });
       setAboutDraft(null);
       setStatus(done);
@@ -1789,7 +2378,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // Someone leaves the community from every part they are in, device by device.
   function removeFromCommunity(accountId: string, name: string): void {
     const community = selectedCommunity;
-    void perform(`Removing ${name} from the community…`, async () => {
+    void perform(t("Removing {name} from the community…", { name }), async () => {
       if (community?.admins.includes(accountId)) {
         await writeCommunity(selectedEntry!, { community: withRoles(community, { admins: community.admins.filter((admin) => admin !== accountId) }) });
       }
@@ -1798,20 +2387,20 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           await removeGroupMember(databasePath, fromHex(part), member.accountId, member.deviceId);
         }
       }
-      setStatus(`${name} removed from the community`);
+      setStatus(t("{name} removed from the community", { name }));
     });
   }
 
   // Asking to join from outside is a message to whoever shared the link.
   function askToJoinCommunity(link: CommunityLink): void {
-    if (link.admin === ownUsername) { setError("That’s your own community’s link."); return; }
-    if (communityIndex.has(link.community)) { setError(`You’re already in ${link.name}.`); return; }
-    void perform(`Asking @${link.admin}…`, async () => {
-      const changed = await sendFanout(databasePath, link.admin, encodeCommunityRequest(link.community, link.name));
+    if (link.admin === ownUsername) { setError(t("That’s your own community’s link.")); return; }
+    if (communityIndex.has(link.community)) { setError(t("You’re already in {name}.", { name: link.name })); return; }
+    void perform(t("Asking @{admin}…", { admin: link.admin }), async () => {
+      const changed = await sendFanout(databasePath, profile!, link.admin, encodeCommunityRequest(link.community, link.name));
       setScannedCommunity(null);
       setScreen("groups");
       noteSent(link.admin, changed);
-      setStatus(`Asked @${link.admin} to let you into ${link.name}`);
+      setStatus(t("Asked @{admin} to let you into {name}", { admin: link.admin, name: link.name }));
     });
   }
 
@@ -1821,25 +2410,27 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const entry = selectedEntry;
     if (!entry) return;
     setReviewing(null);
-    void perform(`Letting @${conversation.username} in…`, async () => {
+    void perform(t("Letting @{username} in…", { username: conversation.username }), async () => {
       if (conversation.requestPending) {
         await update_conversation_export(policyRequest(databasePath, conversation.peerAccountId, 1, 0));
       }
       const part = await communityPartFor(entry);
-      await inviteToGroup(databasePath, part, conversation.username);
-      await sendFanout(databasePath, conversation.username, encodeCommunityAnswer(request.community, hex(part)), conversation.peerAccountId);
-      setStatus(`@${conversation.username} is invited`);
+      await inviteToGroup(databasePath, profile!, part, conversation.username);
+      await sendFanout(databasePath, profile!, conversation.username, encodeCommunityAnswer(request.community, hex(part)), conversation.peerAccountId);
+      setStatus(t("@{username} is invited", { username: conversation.username }));
     });
   }
 
   // Declining stays on this device: a request that was never accepted can't be answered.
   function declineAsk(conversation: Conversation, request: UnansweredRequest): void {
+    if (!profile) return;
+    const expected = profile.slice();
     setReviewing(null);
     const scope = `chat/${hex(conversation.conversationId)}`;
     const next = { ...declinedRequests, [scope]: [...(declinedRequests[scope] ?? []), request.key].slice(-256) };
     setDeclinedRequests(next);
-    saveDeclinedRequests(next).catch(() => setError("That couldn’t be saved. The request may come back after restarting."));
-    setStatus(`Declined @${conversation.username}`);
+    saveDeclinedRequests(expected, next).catch(() => { if (visibleAccountIdentity.current === accountProfileIdentity(expected)) setError(t("That couldn’t be saved. The request may come back after restarting.")); });
+    setStatus(t("Declined @{username}", { username: conversation.username }));
   }
 
   // A community link shared in a message can be answered from that message.
@@ -1848,27 +2439,26 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const read = link ? readCommunityLink(link) : undefined;
     return read ? {
       icon: "link" as const,
-      label: `Ask to join ${read.name}`,
+      label: t("Ask to join {name}", { name: read.name }),
       onPress: () => { openScanner("community"); setScannedCommunity(read); },
     } : undefined;
   }
 
   function copyCommunityLink(value: string): void {
-    Clipboard.setString(value);
-    setStatus("Link copied");
+    void services.copyProtectedText(value).then(() => setStatus(t("Link copied")), caught => setError(friendlyError(caught)));
   }
 
   function confirmLeave(entry: CommunityEntry): void {
     confirm({
-      title: "Leave this community?",
-      body: "It’s removed from all your devices, and its admins remove you from it. Groups you joined through it stay.",
-      action: "Leave community",
-      run: () => void perform("Leaving the community…", async () => {
+      title: t("Leave this community?"),
+      body: t("It’s removed from all your devices, and its admins remove you from it. Groups you joined through it stay."),
+      action: t("Leave community"),
+      run: () => void perform(t("Leaving the community…"), async () => {
         for (const part of entry.parts) await sendGroupMessage(databasePath, fromHex(part), LEAVE_REQUEST);
         for (const part of entry.parts) await forgetGroup(databasePath, fromHex(part));
         setSelectedGroupId(null);
         setScreen("groups");
-        setStatus("You left the community");
+        setStatus(t("You left the community"));
       }),
     });
   }
@@ -1880,34 +2470,34 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
 
   function confirmHandover(accountId: string, name: string): void {
     confirm({
-      title: `Make ${name} the owner?`,
-      body: "They take over the community’s roles, and you stay on as an admin. Only they can make you owner again.",
-      action: "Make owner",
-      run: () => changeRoles({ owner: accountId }, `${name} owns the community now`),
+      title: t("Make {name} the owner?", { name }),
+      body: t("They take over the community’s roles, and you stay on as an admin. Only they can make you owner again."),
+      action: t("Make owner"),
+      run: () => changeRoles({ owner: accountId }, t("{name} owns the community now", { name })),
     });
   }
 
   function askToJoin(groupId: string): void {
     if (!selectedGroupId) return;
     const communityId = selectedGroupId;
-    void perform("Asking to join…", async () => {
+    void perform(t("Asking to join…"), async () => {
       await sendGroupMessage(databasePath, communityId, encodeJoinRequest(groupId));
-      setStatus("Asked. The invitation appears here when an admin adds you.");
+      setStatus(t("Asked. The invitation appears here when an admin adds you."));
     });
   }
 
   function approveRequest(request: JoinRequest, username: string): void {
     const group = groups.find((item) => hex(item.groupId) === request.groupId);
     if (!group) return;
-    void perform(`Inviting @${username}…`, async () => {
-      await inviteToGroup(databasePath, group.groupId, username);
-      setStatus(`Invitation sent to @${username}`);
+    void perform(t("Inviting @{username}…", { username }), async () => {
+      await inviteToGroup(databasePath, profile!, group.groupId, username);
+      setStatus(t("Invitation sent to @{username}", { username }));
     });
   }
 
   function authorizeScannedDevice(): void {
     if (!profile || !scannedLinkRequest) return;
-    void perform("Approving the new device…", async () => {
+    void perform(t("Approving the new device…"), async () => {
       const loaded = await loadAccountDevices(databasePath, profile);
       const authorization = await authorizeDeviceLink(
         databasePath,
@@ -1916,24 +2506,26 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       );
       setLinkAuthorization(authorization);
       setScreen("link-authorization");
-      setStatus("Device approved");
+      setStatus(t("Device approved"));
     });
   }
 
   // The system alert asks on a phone; the desktop has its own dialog.
   function confirm(confirmation: Confirmation): void {
     if (Platform.OS === "web") { setPendingConfirm(confirmation); return; }
+    let settled = false;
+    const settle = (approved: boolean) => { if (settled) return; settled = true; if (approved) confirmation.run(); else confirmation.cancel?.(); };
     Alert.alert(confirmation.title, confirmation.body, [
-      { text: "Cancel", style: "cancel" },
-      { text: confirmation.action, style: "destructive", onPress: confirmation.run },
-    ]);
+      { text: t("Cancel"), style: "cancel", onPress: () => settle(false) },
+      { text: confirmation.action, style: confirmation.primary ? "default" : "destructive", onPress: () => settle(true) },
+    ], { cancelable: true, onDismiss: () => settle(false) });
   }
 
   function confirmRevoke(deviceId: Uint8Array): void {
     confirm({
-      title: "Remove this device?",
-      body: "It permanently loses access to your account and future messages, and erases its own messages and keys the next time it’s online.",
-      action: "Remove device",
+      title: t("Remove this device?"),
+      body: t("It permanently loses access to your account and future messages, and erases its own messages and keys the next time it’s online."),
+      action: t("Remove device"),
       run: () => revokeLinkedDevice(deviceId),
     });
   }
@@ -1941,74 +2533,110 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // The device that created the account deletes it everywhere. A linked device
   // holds no account key, so it leaves the account and erases only itself.
   function confirmDeleteAccount(): void {
-    void holdsAccountKey(databasePath).then(
-      (everywhere) => confirm(everywhere ? {
-        title: "Delete your account?",
-        body: "Your username, messages and keys are erased from the server, from this device, and from your linked devices as soon as they’re online. No one can reach this account again. This can’t be undone.",
-        action: "Delete account",
-        run: deleteAccountNow,
-      } : {
-        title: "Erase this device?",
-        body: "This device leaves your account, and its messages and keys are erased from it. The account stays on your other devices.",
-        action: "Erase device",
-        run: deleteAccountNow,
-      }),
+    if (!profile) return;
+    const expected = profile.slice();
+    void holdsAccountKey(databasePath, expected).then(
+      (everywhere) => {
+        if (visibleAccountIdentity.current !== accountProfileIdentity(expected)) return;
+        confirm(everywhere ? {
+          title: t("Delete your account?"),
+          body: t("Your username, messages and keys are erased from the server, from this device, and from your linked devices as soon as they’re online. No one can reach this account again. This can’t be undone."),
+          action: t("Delete account"),
+          run: () => deleteAccountNow(expected),
+        } : {
+          title: t("Erase this device?"),
+          body: t("This device leaves your account, and its messages and keys are erased from it. The account stays on your other devices."),
+          action: t("Erase device"),
+          run: () => deleteAccountNow(expected),
+        });
+      },
       (caught) => setError(friendlyError(caught)),
     );
   }
 
-  function deleteAccountNow(): void {
-    const erased = accountId;
+  function deleteAccountNow(expected: Uint8Array): void {
+    if (visibleAccountIdentity.current !== accountProfileIdentity(expected)) return;
     setLeaving(true);
     setBusy(true);
     setError("");
-    setStatus("Deleting your account…");
-    void deleteAccount(databasePath).then(
-      () => finishErasing(erased),
-      (caught) => {
-        // Nothing was erased, so the account is whole and this can be tried again.
-        setError(friendlyError(caught));
+    setStatus(t("Deleting your account…"));
+    void (async () => {
+      try {
+        await rememberErasureNotifications(expected);
+        await deleteAccount(databasePath, expected);
+        await finishErasing(expected);
+      } catch (caught) {
+        if (visibleAccountIdentity.current === accountProfileIdentity(expected)) setError(friendlyError(caught));
+      } finally {
+        if (visibleAccountIdentity.current === accountProfileIdentity(expected)) {
+          setLeaving(false);
+          setBusy(false);
+        }
+      }
+    })();
+  }
+
+  async function readCurrentAccount(): Promise<Uint8Array | null> {
+    try { return await load_profile_export(utf8(databasePath)); }
+    catch (caught) {
+      if (isMissingAccountProfile(caught)) return null;
+      throw caught;
+    }
+  }
+
+  async function rememberErasureNotifications(expected: Uint8Array): Promise<void> {
+    const identity = accountProfileIdentity(expected);
+    if (visibleAccountIdentity.current !== identity) throw new Error("account_state_changed");
+    const ids = await captureErasureNotifications(expected, {
+      readProfile: readCurrentAccount,
+      presented: presentedAccountNotifications,
+    });
+    if (visibleAccountIdentity.current !== identity) throw new Error("account_state_changed");
+    const previous = erasureNotifications.current;
+    erasureNotifications.current = {
+      identity,
+      ids: [...new Set([...(previous?.identity === identity ? previous.ids : []), ...ids])].slice(0, 1024),
+    };
+  }
+
+  async function finishErasing(expected: Uint8Array, reason?: string): Promise<void> {
+    const identity = accountProfileIdentity(expected);
+    const captured = erasureNotifications.current;
+    try {
+      const finished = await finishAccountErasure(expected, captured?.identity === identity ? captured.ids : [], {
+        readProfile: readCurrentAccount,
+        visibleIdentity: () => visibleAccountIdentity.current,
+        dismiss: dismissAccountNotification,
+        cleanup: () => forgetPreferences(hex(parseProfileSummary(expected).accountId)),
+        finish: () => {
+          attachmentSession.current?.close();
+          discardPreviews();
+          onAccountErased(reason);
+        },
+      });
+      if (!finished && visibleAccountIdentity.current === identity) {
+        const replacement = await readCurrentAccount();
+        if (replacement && visibleAccountIdentity.current === identity) setProfile(replacement);
+      }
+    } catch (caught) {
+      if (visibleAccountIdentity.current === identity) setSyncError(friendlyError(caught));
+    } finally {
+      if (visibleAccountIdentity.current === identity) {
         setLeaving(false);
         setBusy(false);
-      },
-    );
-  }
-
-  // This device is out of its account: the account was deleted, or the device
-  // removed, on the device that created it. The directory hands over the signed
-  // statement that did it, and only that erases this copy: a server that merely
-  // claims so changes nothing.
-  function forgetOnProofOfRemoval(statement: Uint8Array): void {
-    const erased = accountId;
-    void forgetOnProof(databasePath, statement).then(
-      (removal) => {
-        setLeaving(true);
-        return finishErasing(erased, removalNotices[removal]);
-      },
-      (caught) => setSyncError(friendlyError(caught)),
-    );
-  }
-
-  // The account is gone; what follows only tidies what it left on the device,
-  // and nothing it does may keep the app from starting over.
-  async function finishErasing(erased: string | null, reason?: string): Promise<void> {
-    try {
-      discardPreviews();
-      if (erased) forgetPreferences(erased);
-      await forgetPush(databasePath);
-    } catch {
-      // Tidying only: the account itself is already gone.
-    } finally {
-      onAccountErased(reason);
+      }
     }
   }
 
   function revokeLinkedDevice(deviceId: Uint8Array): void {
     if (!profile || !deviceSet) return;
-    void perform("Removing the device…", async () => {
+    void perform(t("Removing the device…"), async () => {
       await revokeDevice(databasePath, deviceSet, deviceId);
-      await refreshDevices(profile);
-      setStatus("Device removed");
+      const current = await refreshDevices(profile);
+      const removed = current.devices.find(device => hex(device.deviceId) === hex(deviceId));
+      setStatus(removed && !removed.active && !removed.expired
+        ? t("Device removed")
+        : t("Device removal requested. Waiting for witnesses."));
     });
   }
 
@@ -2024,14 +2652,22 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       setError(friendlyError(caught));
       return;
     }
-    if (scanMode === "community") {
+    if (scanMode === "safety") {
+      try {
+        if (!selected) throw new Error("safety_number_unavailable");
+        verifySafetyNumber(selected, safetyFromQr(data), true);
+      } catch (caught) {
+        qrCollector.reset();
+        setError(friendlyError(caught));
+      }
+    } else if (scanMode === "community") {
       const link = readCommunityLink(data);
       if (link) {
         setScannedCommunity(link);
         setError("");
       } else {
         qrCollector.reset();
-        setError("That isn’t a community link. Ask for the link again.");
+        setError(t("That isn’t a community link. Ask for the link again."));
       }
     } else if (scanMode === "contact") {
       try {
@@ -2044,16 +2680,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         setError(friendlyError(caught));
       }
     } else if (scanMode === "link-request") {
-      void perform("Checking the code…", async () => {
+      void perform(t("Checking the code…"), async () => {
         const request = linkRequestFromQr(data);
         const sas = decodeUtf8(await device_link_sas_export(request));
         setScannedLinkRequest(request);
         setLinkSas(sas);
-        setStatus("Compare this code on both devices");
+        setStatus(t("Compare this code on both devices"));
       });
     } else if (scanMode === "link-authorization") {
       setScreen("link-device");
-      void perform("Finishing the link…", async () => {
+      void perform(t("Finishing the link…"), async () => {
         const authorization = payloadFromQr(data, "link-authorization", 20_864);
         const linkedProfile = await complete_device_link_export(
           vectors(utf8(databasePath), authorization),
@@ -2064,19 +2700,17 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         setLinkRequest(null);
         setLinkSas("");
         enterApp();
-        setStatus("This device is linked");
+        setStatus(t("This device is linked"));
       });
     } else {
       const groupId = selectedGroupId;
       const target = groupUsername.trim().toLowerCase();
       if (!groupId || !target) {
-        setError(
-          "Choose a group and enter the exact username before scanning.",
-        );
+        setError(t("Choose a group and enter the exact username before scanning."));
         return;
       }
       void perform(
-        `Adding @${target} to the group…`,
+        t("Adding @{target} to the group…", { target }),
         async () => {
           const keyPackage = payloadFromQr(
             data,
@@ -2089,7 +2723,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             await addGroupMember(databasePath, entry ? await communityPartFor(entry) : groupId, target, keyPackage);
             setGroupUsername("");
             setScreen("group");
-            setStatus(`@${target} added to the group`);
+            setStatus(t("@{target} added to the group", { target }));
           } finally {
             qrCollector.reset();
             setScannedGroupPackage(null);
@@ -2117,9 +2751,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       const [details, messages] = await Promise.all([inspectGroup(databasePath, fromHex(part)), loadGroupHistory(databasePath, fromHex(part))]);
       return [part, { details, messages }] as const;
     })).then(async (entries) => {
-      if (cancelled) return;
-      setCommunityParts(Object.fromEntries(entries));
-      await refreshPresentations(entries.flatMap(([, part]) => [
+      if (cancelled || !historyCacheEpoch.current.current(cacheEpoch)) return;
+      const now = Date.now();
+      const visibleEntries = entries.map(([id, part]) => [id, { ...part, messages: unexpiredHistory(part.messages, now) }] as const);
+      setCommunityParts(Object.fromEntries(visibleEntries));
+      await refreshPresentations(visibleEntries.flatMap(([, part]) => [
         ...part.details.members.map((member) => `user/${hex(member.accountId)}`),
         ...part.messages.map((message) => `user/${hex(message.senderAccountId)}`),
       ]));
@@ -2127,7 +2763,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       if (!cancelled) setError(friendlyError(caught));
     });
     return () => { cancelled = true; };
-  }, [partsKey, groups, preview]);
+  }, [partsKey, groups, preview, databasePath, profile, cacheEpoch]);
   useEffect(() => {
     if (preview || !selectedCommunity || !canManage) return;
     let cancelled = false;
@@ -2149,7 +2785,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const own = local || id === (ownProfile && hex(ownProfile.accountId));
     const username = own ? ownUsername : contact?.username ?? invitation?.username ?? member?.username ?? null;
     const name = identityName(username, stored, own ? undefined : presentationOf(`nickname/${id}`));
-    return { name: name ?? `Member ${id.slice(0, 6)}`, username, accountId: id,
+    return { name: name ?? t("Member {id}", { id: id.slice(0, 6) }), username, accountId: id,
       avatar: own ? ownAvatar : stored?.avatar, creator: Boolean(creatorId && hex(creatorId) === id),
       // Your private thread with them, when there is one.
       conversation: own ? undefined : contact };
@@ -2177,7 +2813,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const groupRequestCount = groupInvitations.filter((item) => item.state === 1).length;
   const chatBadgeCount = conversations.reduce((total, item) => total + (item.requestPending ? 1 : chatUnread(item)), 0);
   const groupBadgeCount = groupRequestCount + listedGroups.reduce((total, item) => total + groupUnread(item), 0);
-  const mainScreen = profile && ["home", "groups", "settings"].includes(screen);
+  const mainScreen = profile && !replayingOnboarding && !draftPending && ["home", "groups", "settings"].includes(screen);
   const chatRows = buildChatRows(history, (message) => hex(message.messageId)).reverse();
   const chatScope =
     selected && historyFor === hex(selected.conversationId) ? historyFor : null;
@@ -2220,9 +2856,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       communityAsks.some((ask) => ask.state === "approved" && ask.part === hex(invitation.groupId) && ask.conversation.username === invitation.username));
     if (!due.length) return;
     due.forEach((invitation) => acceptedApprovals.current.add(hex(invitation.reference)));
-    void perform("Joining the community…", async () => {
-      for (const invitation of due) await acceptGroupInvitation(databasePath, invitation);
-      setStatus("Approved. You join as soon as they’re next online.");
+    void perform(t("Joining the community…"), async () => {
+      for (const invitation of due) await acceptGroupInvitation(databasePath, profile!, invitation);
+      setStatus(t("Approved. You join as soon as they’re next online."));
     });
   }, [groupInvitations, chatHistories, preview]);
   const previewOf = (conversation: Conversation) =>
@@ -2249,7 +2885,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   const backToScannerOrigin = () => go(scannerOrigin(scanMode));
   // Where dismissing the current screen leads. Root screens stay put.
   const dismissTarget = (): Screen | null =>
-    screen === "scanner" ? scannerOrigin(scanMode) : parentScreen(screen, isDesktop ? groupPackageOrigin : undefined);
+    screen === "credits" && draftPending ? "home" : screen === "scanner" ? scannerOrigin(scanMode) : parentScreen(screen, isDesktop ? groupPackageOrigin : undefined);
   // With the list already on screen beside the pane, a back button to it
   // would only repeat the sidebar; deeper screens keep theirs.
   const backTo = (target: Screen, label?: string) =>
@@ -2267,13 +2903,15 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   useEffect(() => {
     if (Platform.OS !== "android") return undefined;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (activityOverlay?.dismissTop()) return true;
       if (membersOpen) {
         setMembersOpen(false);
         return true;
       }
       if (onboardingActive) {
-        if (onboardingStep !== "profile") return false;
-        goOnboarding("welcome");
+        if (onboardingStep === "profile") goOnboarding("welcome");
+        else if (replayingOnboarding) endReplay(false);
+        else return false;
         return true;
       }
       const target = dismissTarget();
@@ -2313,14 +2951,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   });
 
   function previewText(conversation: Conversation): string {
-    if (conversation.blocked) return "Blocked";
+    if (conversation.blocked) return t("Blocked");
     const last = previewOf(conversation);
     if (last) {
       const text = attachmentPreviewText(last);
-      return last.direction === "sent" ? `You: ${text}` : text;
+      return last.direction === "sent" ? t("You: {text}", { text }) : text;
     }
-    if (conversation.requestPending) return "Wants to start a conversation";
-    return "Encrypted conversation";
+    if (conversation.requestPending) return t("Wants to start a conversation");
+    return t("Encrypted conversation");
   }
 
   // The state of a conversation worth a glyph beside its name, matching the
@@ -2328,11 +2966,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // ordinary case shows nothing; a pending request has its banner in the thread.
   function conversationMark(conversation: Conversation) {
     if (conversation.blocked)
-      return { icon: "block", color: colors.text3, label: "Blocked" } as const;
+      return { icon: "block", color: colors.text3, label: t("Blocked") } as const;
     if (conversation.keyChanged)
-      return { icon: "warning", color: colors.warning, label: "Safety number changed" } as const;
+      return { icon: "warning", color: colors.warning, label: t("Safety number changed") } as const;
     if (conversation.verified)
-      return { icon: "shield", color: colors.success, label: "Safety number verified" } as const;
+      return { icon: "shield", color: colors.success, label: t("Safety number verified") } as const;
     return undefined;
   }
 
@@ -2343,46 +2981,110 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // leaves no room at all. The desktop sets the picture beside the words.
   function renderWelcome() {
     return (
-      <ScrollView
-        contentContainerStyle={[styles.welcome, isDesktop && styles.welcomeDesktop]}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
-        <SealedChat />
-        <View style={styles.welcomeCopy}>
-          {/* The launch screen has just shown the mark on a phone, where the
-              conversation above is picture enough. */}
-          {isDesktop ? (
-            <Reveal>
-              <AppGlyph size={size.mark.sm} />
+      <View style={layout.flex}>
+        <ScrollView
+          contentContainerStyle={[styles.welcome, isDesktop && styles.welcomeDesktop]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <SealedChat />
+          <View style={styles.welcomeCopy}>
+            {/* The launch screen has just shown the mark on a phone, where the
+                conversation above is picture enough. */}
+            {isDesktop ? (
+              <Reveal>
+                <AppGlyph size={size.mark.sm} />
+              </Reveal>
+            ) : null}
+            <Reveal delay={60} style={styles.heroBlock}>
+              <Text accessibilityRole="header" style={type.largeTitle}>
+                {t("Private messaging,\nmade simple.")}
+              </Text>
+              <Text style={type.body}>{t("Pick a username and start talking.")}</Text>
             </Reveal>
-          ) : null}
-          <Reveal delay={60} style={styles.heroBlock}>
-            <Text accessibilityRole="header" style={type.largeTitle}>
-              Private messaging,{"\n"}made simple.
-            </Text>
-            <Text style={type.body}>
-              Pick a username and start talking.
-            </Text>
-          </Reveal>
-          <Reveal delay={120} style={styles.facts}>
-            <Fact icon="lock">End-to-end encrypted</Fact>
-            <Fact icon="person">No phone number, no contact upload</Fact>
-            <Fact icon="shield">Verify contacts with safety numbers</Fact>
-          </Reveal>
-          {notice ? <Notice text={notice} /> : null}
-          <Reveal delay={180}>
-            <Actions>
-              <Button label="Get started" onPress={() => goOnboarding("profile")} />
-              <Button
-                label="Link an existing account"
-                onPress={beginDeviceLink}
-                variant="ghost"
-              />
-            </Actions>
-          </Reveal>
+            <Reveal delay={120} style={styles.facts}>
+              <Fact icon="lock">{t("End-to-end encrypted")}</Fact>
+              <Fact icon="person">{t("No phone number, no contact upload")}</Fact>
+              <Fact icon="shield">{t("Verify contacts with safety numbers")}</Fact>
+            </Reveal>
+            {notice ? <Notice text={notice} /> : null}
+            <Reveal delay={180}>
+              <Actions>
+                <Button label={t("Get started")} onPress={() => goOnboarding("profile")} />
+                <Button
+                  label={t("Link an existing account")}
+                  onPress={beginDeviceLink}
+                  variant="ghost"
+                />
+              </Actions>
+            </Reveal>
+          </View>
+        </ScrollView>
+        {/* The first thing a new account can change: it starts in the phone's
+            language, and stays one tap away in You. */}
+        <View style={styles.languageCorner}>
+          <Button
+            label={languageLabel}
+            accessibilityLabel={t("Language: {name}", { name: languageLabel })}
+            icon="globe"
+            size="sm"
+            variant="secondary"
+            onPress={() => setChoosingLanguage(true)}
+          />
         </View>
-      </ScrollView>
+      </View>
+    );
+  }
+
+  // Each language greets in itself, with its name beneath, in a row across
+  // the sheet; the one in effect is drawn as a message you sent. The phone's
+  // own language leads, as the choice most people keep.
+  function renderLanguageDialog() {
+    const choice = (key: string, label: string, chosen: boolean, onPress: () => void, content: ReactNode) => (
+      <Tap
+        key={key}
+        label={label}
+        role="radio"
+        state={{ checked: chosen }}
+        scaleTo={0.98}
+        onPress={onPress}
+        style={[styles.languageChoice, chosen && styles.languageChoiceChosen]}
+      >
+        {content}
+        {chosen ? <Icon name="check" size={size.icon.lg} color={colors.onAccent} strokeWidth={2.6} /> : null}
+      </Tap>
+    );
+    const phone = languageChoice === "system";
+    return (
+      <Dialog visible={choosingLanguage} label={t("Language")} onClose={() => setChoosingLanguage(false)}>
+        <ScrollView contentContainerStyle={styles.languageSheet}>
+          <Text accessibilityRole="header" style={[type.title2, styles.languageTitle]}>{t("Language")}</Text>
+          {choice("system", `${t("Phone language")}, ${nativeName(systemLanguage)}`, phone, () => chooseLanguage("system"), <>
+            <Icon name="device" size={size.icon.xl} color={phone ? colors.onAccent : colors.accent} strokeWidth={2} />
+            <View style={layout.flex}>
+              <Text style={[styles.languageGreeting, phone && styles.languageChosenText]}>{t("Phone language")}</Text>
+              <Text style={[type.footnote, phone && styles.languageChosenMuted]}>{nativeName(systemLanguage)}</Text>
+            </View>
+          </>)}
+          <View style={styles.languageGap} />
+          {languages.map((language) => {
+            const chosen = languageChoice === language.code;
+            const translatedName = t(languageNames[language.code]);
+            return choice(
+              language.code,
+              translatedName === language.name ? language.name : `${language.name}, ${translatedName}`,
+              chosen,
+              () => chooseLanguage(language.code),
+              <View style={layout.flex}>
+                <Text style={[styles.languageGreeting, chosen && styles.languageChosenText]}>{language.greeting}</Text>
+                <Text style={[type.footnote, chosen && styles.languageChosenMuted]}>
+                  {translatedName === language.name ? language.name : `${language.name} · ${translatedName}`}
+                </Text>
+              </View>,
+            );
+          })}
+        </ScrollView>
+      </Dialog>
     );
   }
 
@@ -2395,47 +3097,51 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const problem = usernameProblem(typed);
     const taken = typed !== "" && typed === takenUsername;
     const usernameError = taken
-      ? "That username is taken. Try another."
+      ? t("That username is taken. Try another.")
       : problem === "characters"
-        ? "Use only lowercase letters, numbers, and underscores."
+        ? t("Use only lowercase letters, numbers, and underscores.")
         : problem === "long"
-          ? "Use 32 characters or fewer."
+          ? t("Use 32 characters or fewer.")
           : undefined;
     const submit = problem === null && !taken ? createAccount : undefined;
     const intro = <>
-      <Text accessibilityRole="header" style={isDesktop ? type.largeTitle : [type.title, layout.centerText]}>
-        Pick a username.
-      </Text>
-      <Text style={[type.body, !isDesktop && layout.centerText]}>
-        It is how people reach you. Your private keys stay on your devices.
-      </Text>
+      <Text accessibilityRole="header" style={isDesktop ? type.largeTitle : [type.title, layout.centerText]}>{t("Pick a username.")}</Text>
+      <Text style={[type.body, !isDesktop && layout.centerText]}>{t("It is how people reach you. Your private keys stay on your devices.")}</Text>
     </>;
     const form = <>
           <Reveal delay={60} style={layout.stackLoose}>
             <Field
-              label="Choose your username"
+              label={t("Choose your username")}
               value={username}
               onChangeText={(value) => setUsername(value.replace(/^@+/, "").toLowerCase())}
               placeholder="your_name"
               prefix="@"
               maxLength={32}
-              hint="3–32 lowercase letters, numbers, or underscores."
+              hint={t("3–32 lowercase letters, numbers, or underscores.")}
               error={usernameError}
-              onSubmitEditing={submit}
+              returnKeyType="next"
+              onSubmitEditing={() => displayNameInput.current?.focus()}
             />
             <Field
-              label="Display name (optional)"
+              label={t("Display name (optional)")}
               value={displayName}
               onChangeText={setDisplayName}
-              placeholder="What people call you"
+              placeholder={t("What people call you")}
               maxLength={96}
-              hint="Shown to people you message. You can change it later."
+              hint={t("Shown to people you message. You can change it later.")}
+              inputRef={displayNameInput}
+              returnKeyType="done"
               onSubmitEditing={submit}
             />
           </Reveal>
           <Reveal delay={120}>
             <Actions>
-              <Button label="Create account" disabled={busy || pickingPhoto || !submit} onPress={createAccount} />
+              <Button label={t("Create account")} disabled={busy || pickingPhoto || !submit} onPress={createAccount} />
+              {!replayingOnboarding && <Button label={t("Check signup options")} variant="ghost" disabled={busy || pickingPhoto || !submit} onPress={checkSignupOptions} />}
+              {signupPolicy?.enabled && signupPolicy.currentDifficulty > signupPolicy.baseDifficulty && !replayingOnboarding ? <>
+                <Notice text={t("Free signup is available. You can also prepare a local profile and choose to spend 20 credits when you are ready.")} />
+                <Button label={t("Set up priority signup")} variant="secondary" disabled={busy || pickingPhoto || !submit} onPress={createPaidSignupDraft} />
+              </> : priorityUnavailable || signupPolicy ? <Notice text={t("Priority signup is not available. You can use the free path.")} /> : null}
             </Actions>
           </Reveal>
     </>;
@@ -2444,7 +3150,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       <Page
         header={
           <Header
-            title="Your profile"
+            title={t("Your profile")}
             onBack={() => goOnboarding("welcome")}
             {...sheetHeader}
           />
@@ -2453,7 +3159,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         {/* The desktop keeps the welcome's spread, so the words stay where
             they were and the picture becomes the identity being made. */}
         {isDesktop ? (
-          <ScrollView
+          <KeyboardAwareScrollView
+            bottomOffset={formKeyboardOffset}
             contentContainerStyle={[styles.welcome, styles.welcomeDesktop]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -2469,9 +3176,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               <Reveal style={styles.heroBlock}>{intro}</Reveal>
               {form}
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
         ) : (
-          <ScrollView
+          <KeyboardAwareScrollView
+            bottomOffset={formKeyboardOffset}
             contentContainerStyle={layout.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -2481,7 +3189,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               {intro}
             </Reveal>
             {form}
-          </ScrollView>
+          </KeyboardAwareScrollView>
         )}
       </Page>
     );
@@ -2492,9 +3200,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       <Page
         header={
           <Header
-            title="Link this device"
+            title={t("Link this device")}
             onBack={() => go("home")}
-            backLabel="Cancel"
+            backLabel={t("Cancel")}
             {...sheetHeader}
           />
         }
@@ -2503,13 +3211,16 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           <QrLayout
             intro={
               <View style={layout.stackLoose}>
-                <Text style={type.title}>Bring your account along.</Text>
+                <Text style={type.title}>{t("Bring your account along.")}</Text>
                 <Steps>
                   {[
-                    <>On the device you signed up on, open <Strong>You → Linked devices</Strong> and choose <Strong>Link another device</Strong>.</>,
-                    "Scan this code with it.",
-                    "Check that both screens show the same code.",
-                    Platform.OS === "web" ? "Enter the approval code it shows you." : "Scan the approval code it shows you.",
+                    <>{richText(t("On the device you signed up on, open {place} and choose {action}."), {
+                      place: <Strong>{t("You → Linked devices")}</Strong>,
+                      action: <Strong>{t("Link another device")}</Strong>,
+                    })}</>,
+                    t("Scan this code with it."),
+                    t("Check that both screens show the same code."),
+                    Platform.OS === "web" ? t("Enter the approval code it shows you.") : t("Scan the approval code it shows you."),
                   ]}
                 </Steps>
               </View>
@@ -2517,15 +3228,15 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             qr={<QrCard value={payloadQrValue("link-request", request)} />}
             details={
               <CodeBlock
-                label="Match this code on both devices"
+                label={t("Match this code on both devices")}
                 value={linkSas}
-                note="The request expires in 10 minutes."
+                note={t("The request expires in 10 minutes.")}
               />
             }
             actions={
               <Actions>
                 <Button
-                  label={Platform.OS === "web" ? "Enter the approval code" : "Scan the approval code"}
+                  label={Platform.OS === "web" ? t("Enter the approval code") : t("Scan the approval code")}
                   icon="scan"
                   onPress={() => openScanner("link-authorization")}
                 />
@@ -2542,9 +3253,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       <Page
         header={
           <Header
-            title={scanMode === "community" ? "Join a community" : Platform.OS === "web" ? "Enter a code" : "Scan a code"}
+            title={scanMode === "safety" ? t("Verify safety number") : scanMode === "community" ? t("Join a community") : Platform.OS === "web" ? t("Enter a code") : t("Scan a code")}
             onBack={backToScannerOrigin}
-            backLabel="Cancel"
+            backLabel={t("Cancel")}
             {...sheetHeader}
           />
         }
@@ -2559,21 +3270,22 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               colorSeed={scannedCommunity.community}
               group
               title={scannedCommunity.name}
-              subtitle={`Community · shared by @${scannedCommunity.admin}`}
-              badge={<Badge label="Community link" icon="link" />}
+              subtitle={t("Community · shared by @{admin}", { admin: scannedCommunity.admin })}
+              badge={<Badge label={t("Community link")} icon="link" />}
             />
-            <Notice text={`Your request goes to @${scannedCommunity.admin} as a message. Once they let you in, you join on this device.`} />
+            <Notice text={t("Your request goes to @{admin} as a message. Once they let you in, you join on this device.", { admin: scannedCommunity.admin })} />
             <Actions>
-              <Button label="Ask to join" onPress={() => askToJoinCommunity(scannedCommunity)} />
+              <Button label={t("Ask to join")} onPress={() => askToJoinCommunity(scannedCommunity)} />
               <Button
-                label={Platform.OS === "web" ? "Enter another link" : "Scan again"}
+                label={Platform.OS === "web" ? t("Enter another link") : t("Scan again")}
                 onPress={() => openScanner("community")}
                 variant="ghost"
               />
             </Actions>
           </ScrollView>
         ) : scannedProfile ? (
-          <ScrollView
+          <KeyboardAwareScrollView
+            bottomOffset={formKeyboardOffset}
             contentContainerStyle={[layout.content, sheetContent]}
             keyboardShouldPersistTaps="handled"
           >
@@ -2581,40 +3293,37 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               name={parseProfileSummary(scannedProfile).username}
               colorSeed={hex(parseProfileSummary(scannedProfile).accountId)}
               title={`@${parseProfileSummary(scannedProfile).username}`}
-              badge={<Badge label="Contact code captured" icon="check" />}
+              badge={<Badge label={t("Contact code captured")} icon="check" />}
             />
-            <Notice text="Compare safety numbers together after connecting." />
+            <Notice text={t("Compare safety numbers together after connecting.")} />
             <Field
-              label="First message"
+              label={t("First message")}
               multiline
               value={firstMessage}
               onChangeText={setFirstMessage}
-              placeholder="Say hello…"
+              placeholder={t("Say hello…")}
             />
             <Actions>
               <Button
-                label="Send message request"
+                label={t("Send message request")}
                 disabled={!firstMessage.trim()}
                 onPress={() => startWithProfile(scannedProfile, firstMessage)}
               />
               <Button
-                label="Scan again"
+                label={t("Scan again")}
                 onPress={() => openScanner("contact")}
                 variant="ghost"
               />
             </Actions>
-          </ScrollView>
+          </KeyboardAwareScrollView>
         ) : scannedLinkRequest ? (
           <ScrollView contentContainerStyle={[layout.content, sheetContent]}>
             <View style={layout.stack}>
-              <Text style={type.title}>Do these codes match?</Text>
-              <Text style={type.body}>
-                Check the code shown on the new device before giving it access
-                to your account.
-              </Text>
+              <Text style={type.title}>{t("Do these codes match?")}</Text>
+              <Text style={type.body}>{t("Check the code shown on the new device before giving it access to your account.")}</Text>
             </View>
             {isDesktop ? (
-              <CodeBlock label="The new device should show" value={linkSas} />
+              <CodeBlock label={t("The new device should show")} value={linkSas} />
             ) : (
               <Card tone="accent" style={layout.center}>
                 <CodeDisplay value={linkSas} />
@@ -2622,39 +3331,38 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             )}
             <Actions>
               <Button
-                label="Authorize this device"
+                label={t("Authorize this device")}
                 icon="check"
                 onPress={authorizeScannedDevice}
               />
               <Button
-                label={Platform.OS === "web" ? "Reject and enter another code" : "Reject and scan again"}
+                label={Platform.OS === "web" ? t("Reject and enter another code") : t("Reject and scan again")}
                 onPress={() => openScanner("link-request")}
                 variant="ghost"
               />
             </Actions>
           </ScrollView>
         ) : Platform.OS === "web" ? (
-          // Desktop has no camera, and reaches people by username, so the only
-          // codes it reads are the ones that link devices: pasted as text.
+          // Desktop accepts the same canonical code as the camera scanner.
           <ScrollView contentContainerStyle={[layout.content, sheetContent]}>
             <View style={layout.stack}>
-              <Text style={type.title}>{scanMode === "community" ? "Paste a community link" : "Paste the code from the other device"}</Text>
+              <Text style={type.title}>{scanMode === "community" ? t("Paste a community link") : t("Paste the code from the other device")}</Text>
               <Text style={type.body}>
                 {scanMode === "community"
-                  ? "Ask someone who runs the community for its link, then paste it here."
-                  : "On the other device, choose Show text code under the code, copy it, and paste it here."}
+                  ? t("Ask someone who runs the community for its link, then paste it here.")
+                  : t("On the other device, choose Show text code under the code, copy it, and paste it here.")}
               </Text>
             </View>
             <Field
-              label={scanMode === "community" ? "Community link" : "Device code"}
-              placeholder={scanMode === "community" ? "Paste the link here" : "Paste the code here"}
+              label={scanMode === "safety" ? t("Safety code") : scanMode === "community" ? t("Community link") : t("Device code")}
+              placeholder={scanMode === "community" ? t("Paste the link here") : t("Paste the code here")}
               value={pastedCode}
               onChangeText={setPastedCode}
               multiline
             />
             <Actions>
               <Button
-                label={scanMode === "community" ? "Read link" : "Read code"}
+                label={scanMode === "community" ? t("Read link") : t("Read code")}
                 disabled={!pastedCode.trim()}
                 onPress={() => {
                   onQrScanned({ data: pastedCode.trim() });
@@ -2666,11 +3374,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         ) : !cameraPermission?.granted ? (
           <EmptyState
             icon="camera"
-            title="Camera access"
-            body="Camera frames never leave your device."
+            title={t("Camera access")}
+            body={t("Camera frames never leave your device.")}
             action={
               <Button
-                label="Allow camera"
+                label={t("Allow camera")}
                 onPress={() => void requestCameraPermission()}
               />
             }
@@ -2682,7 +3390,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               onBarcodeScanned={onQrScanned}
               style={StyleSheet.absoluteFill}
             />
-            <Reticle hint="Hold the code inside the frame" />
+            <Reticle hint={t("Hold the code inside the frame")} />
           </View>
         )}
       </Page>
@@ -2698,19 +3406,19 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   function renderNewChat() {
     const addressed = contactUsername.trim().length > 0;
     return (
-      <Page header={<Header title="New message" {...backTo("home")} />}>
+      <Page keyboard header={<Header title={t("New message")} {...backTo("home")} />}>
         <ScrollView
           contentContainerStyle={[layout.centredScreen, { paddingBottom: composerHeight }]}
           keyboardShouldPersistTaps="handled"
         >
           <EmptyState
             icon="compose"
-            title="Start a private conversation."
-            body="Only they can accept your first message."
+            title={t("Start a private conversation.")}
+            body={t("Only they can accept your first message.")}
             action={
               Platform.OS === "web" ? undefined : (
                 <Button
-                  label="Scan a contact code"
+                  label={t("Scan a contact code")}
                   icon="scan"
                   variant="ghost"
                   onPress={() => openScanner("contact")}
@@ -2727,19 +3435,20 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           </EmptyState>
         </ScrollView>
         <Composer
-          label="First message"
-          sendLabel="Send message request"
+          label={t("First message")}
+          sendLabel={t("Send message request")}
           value={firstMessage}
           onChangeText={setFirstMessage}
           onSend={startByUsername}
           disabled={busy}
           sendDisabled={!addressed}
-          placeholder="Write a message…"
+          placeholder={t("Write a message…")}
           onHeightChange={setComposerHeight}
           inputRef={firstMessageInput}
           autoFocus={addressed}
           attachments={composerAttachments("new-chat")}
           onAttach={() => attachFile("new-chat")}
+          onSavedUploads={() => setSavedUploadsScope("new-chat")}
           onRemoveAttachment={unstageAttachment}
           dropping={dropping}
         />
@@ -2749,7 +3458,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
 
   function renderAccount(currentProfile: Uint8Array) {
     return (
-      <Page header={<Header title="My QR code" onBack={() => go("settings")} />}>
+      <Page header={<Header title={t("My QR code")} onBack={() => go("settings")} />}>
         <ScrollView contentContainerStyle={layout.content}>
           <QrLayout
             intro={
@@ -2758,17 +3467,17 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 avatar={ownAvatar}
                 colorSeed={ownId}
                 title={ownName}
-                subtitle={`@${ownUsername} · Have a friend scan this to connect.`}
+                subtitle={t("@{ownUsername} · Have a friend scan this to connect.", { ownUsername })}
               />
             }
             qr={
               <QrCard
                 value={profileQrValue(currentProfile)}
-                caption="Only your public contact details are shared"
+                caption={t("Only your public contact details are shared")}
               />
             }
             details={
-              <Notice text="Keep the whole code in view while it cycles. Verify safety numbers together after connecting." />
+              <Notice text={t("Keep the whole code in view while it cycles. Verify safety numbers together after connecting.")} />
             }
           />
         </ScrollView>
@@ -2784,27 +3493,27 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const setOwnPhoto = (avatar: string | undefined) => {
       if (ownId) updateAvatar(`user/${ownId}`, ownName, avatar);
     };
-    const theme = appearanceOptions.find((option) => option.value === appearance);
+    const theme = translated(appearanceOptions).find((option) => option.value === appearance);
     return (
-      <Page header={<LargeHeader title="You" />}>
+      <Page header={<LargeHeader title={t("You")} />}>
         <ScrollView contentContainerStyle={layout.contentTight}>
-          <Section footer="People you message see this name and photo.">
+          <Section footer={t("People you message see this name and photo.")}>
             <Card style={styles.profileCard}>
               {renderPhotoButton(ownName, ownAvatar, setOwnPhoto, { size: size.avatar["2xl"], seed: ownId })}
               <View style={layout.flex}>
                 <Text numberOfLines={1} style={type.title2}>{ownName}</Text>
                 <Text numberOfLines={1} style={type.subhead}>@{ownUsername}</Text>
               </View>
-              <IconButton name="qr" label="My QR code" variant="soft" glass={false} size={isDesktop ? control.lg : undefined} onPress={() => go("account")} />
+              <IconButton name="qr" label={t("My QR code")} variant="soft" glass={false} size={isDesktop ? control.lg : undefined} onPress={() => go("account")} />
             </Card>
           </Section>
           <Section
-            title="Account"
+            title={t("Account")}
           >
             <RowGroup>
               <Row
                 icon="person"
-                title="Display name"
+                title={t("Display name")}
                 subtitle={ownName}
                 onPress={preview ? undefined : () => {
                   if (ownProfile) editName(`user/${hex(ownProfile.accountId)}`, ownName === ownUsername ? "" : ownName);
@@ -2813,43 +3522,43 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               {ownAvatar && !preview ? (
                 <Row
                   icon="image"
-                  title="Remove photo"
+                  title={t("Remove photo")}
                   onPress={busy || pickingPhoto ? undefined : () => setOwnPhoto(undefined)}
                   trailing={null}
                 />
               ) : null}
               <Row
                 icon="device"
-                title="Linked devices"
+                title={t("Linked devices")}
                 subtitle={
                   activeDevices
-                    ? `${activeDevices} active ${activeDevices === 1 ? "device" : "devices"}`
-                    : "Manage account access"
+                    ? t.plural("{count} active device", "{count} active devices", activeDevices)
+                    : t("Manage account access")
                 }
                 onPress={openDevices}
               />
             </RowGroup>
           </Section>
-          <Section title="Notifications">
+          <Section title={t("Notifications")}>
             <RowGroup>
               <Row
                 icon="bell"
-                title="Notifications"
-                subtitle={pushError || pushSummary(pushStatus)}
+                title={t("Notifications")}
+                subtitle={pushError || t(pushSummary(pushStatus))}
                 tone={pushStatus === "enabled" ? "muted" : "danger"}
                 trailing={
                   <Toggle
-                    label="Notifications"
+                    label={t("Notifications")}
                     value={pushStatus === "enabled" || pushStatus === "pending-bind"}
                     disabled={pushBusy || preview !== null}
                     // Flipping a switch stuck turning off retries the cleanup.
                     onValueChange={() =>
                       void updatePush(() =>
                         pushStatus === "pending-unbind"
-                          ? recoverPushBinding(databasePath)
+                          ? recoverPushBinding(databasePath, profile!.slice())
                           : pushStatus !== "disabled"
-                            ? disablePushBinding(databasePath)
-                            : enablePushBinding(databasePath),
+                            ? disablePushBinding(databasePath, profile!.slice())
+                            : enablePushBinding(databasePath, profile!.slice()),
                       )
                     }
                   />
@@ -2857,82 +3566,143 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               />
               <Row
                 icon="chat"
-                title="Previews"
-                subtitle={notificationPreviewOptions.find((option) => option.value === notificationPreview)?.label}
+                title={t("Previews")}
+                subtitle={translated(notificationPreviewOptions).find((option) => option.value === notificationPreview)?.label}
                 trailing={
                   <Segmented
-                    label="Notification previews"
-                    options={notificationPreviewOptions}
+                    label={t("Notification previews")}
+                    options={translated(notificationPreviewOptions)}
                     value={notificationPreview}
                     onSelect={(chosen) => {
                       setNotificationPreview(chosen);
-                      try { if (accountId) saveNotificationPreview(accountId, chosen); }
-                      catch { setError("That choice couldn’t be saved. It applies until you restart."); }
+                      if (profile) {
+                        const expected = profile.slice();
+                        void saveNotificationPreview(expected, chosen).catch(() => {
+                          if (visibleAccountIdentity.current === accountProfileIdentity(expected)) setError(t("That choice couldn’t be saved. It applies until you restart."));
+                        });
+                      }
                     }}
                   />
                 }
               />
             </RowGroup>
           </Section>
-          <Section title="Privacy">
+          {!preview && profile && services.backups.kind === 'available' ? <Section title={t('Backups')}>
             <RowGroup>
+              <Row icon="file" title={t('Export encrypted backup')} onPress={() => go('backup-export')} />
+              <Row icon="file" title={t('Import or view backups')} onPress={() => go('backups')} />
+            </RowGroup>
+          </Section> : null}
+          <Section title={t("Privacy")}>
+            <RowGroup>
+              {services.supportsAppLock ? <Row
+                icon="key"
+                title={t("App lock")}
+                subtitle={t("Use device biometrics or passcode. When enabled, notifications show generic activity only and background message processing pauses.")}
+                trailing={<Toggle label={t("App lock")} value={services.appLockEnabled}
+                  disabled={busy || preview !== null}
+                  onValueChange={enabled => { void services.setAppLockEnabled(enabled).catch(caught => setError(friendlyError(caught))); }} />}
+              /> : null}
+              {services.supportsAppLock && services.appLockEnabled ? <Row icon="key" title={t("Lock now")}
+                onPress={() => { void services.lockApp().catch(caught => setError(friendlyError(caught))); }} /> : null}
               <Row
                 icon="checks"
-                title="Read receipts"
-                subtitle={readReceipts ? "People see when you’ve read their messages" : "Off. You won’t see theirs either"}
+                title={t("Read receipts")}
+                subtitle={readReceipts ? t("People see when you’ve read their messages") : t("Off. You won’t see theirs either")}
                 trailing={
                   <Toggle
-                    label="Read receipts"
+                    label={t("Read receipts")}
                     value={readReceipts}
                     disabled={preview !== null || !accountId}
                     onValueChange={(enabled) => {
                       setReadReceipts(enabled);
-                      try { if (accountId) saveReadReceipts(accountId, enabled); }
-                      catch { setError("That choice couldn’t be saved. It applies until you restart."); }
+                      if (profile) {
+                        const expected = profile.slice();
+                        void saveReadReceipts(expected, enabled).catch(() => {
+                          if (visibleAccountIdentity.current === accountProfileIdentity(expected)) setError(t("That choice couldn’t be saved. It applies until you restart."));
+                        });
+                      }
                     }}
                   />
                 }
               />
             </RowGroup>
           </Section>
-          <Section title="Appearance">
+          {!preview ? <Section>
+            <RowGroup>
+              <Row icon="key" title={t("Fork bounties")} subtitle={t("Wallet custody and public transfers")} onPress={() => setShowBounty(true)} />
+              <Row icon="key" title={t("Credits")} subtitle={t("Balance, purchases and wallet")} onPress={() => go("credits")} />
+              <Row icon="clock" title={t("Queued postage")} subtitle={t("Review or recover original queued messages")} onPress={() => setShowPostage(true)} />
+              <Row icon="chat" title={t("Inbox postage")} subtitle={t("Network credits for new senders")} onPress={() => setShowPostagePolicy(true)} />
+            </RowGroup>
+          </Section> : null}
+          {!preview ? <Section title={t("Network")}>
+            <RowGroup><Row icon="checks" title={t("Bonds and slashes")} subtitle={t("Public morse-main collateral")} onPress={() => setShowNetworkCounter(true)} /></RowGroup>
+          </Section> : null}
+          {anchorObservation && !preview ? (
+            <Section title={t("Key log")}>
+              <RowGroup>
+                <Row
+                  icon="checks"
+                  title={describeAnchorObservation(anchorObservation.status).title}
+                  subtitle={anchorObservation.status === "off" || anchorObservation.status === "pending"
+                    ? t("Public checkpoint status") : t("Checked independently by this device")}
+                  tone={describeAnchorObservation(anchorObservation.status).blocking ? "danger" : "muted"}
+                  onPress={() => setShowAnchorDetails(true)}
+                />
+              </RowGroup>
+            </Section>
+          ) : null}
+          <Section title={t("Appearance")}>
             <RowGroup>
               <Row
                 icon={theme?.icon}
-                title="Theme"
+                title={t("Theme")}
                 subtitle={theme?.label}
                 trailing={
-                  <Segmented label="Theme" options={appearanceOptions} value={appearance} onSelect={setAppearance} />
+                  <Segmented label={t("Theme")} options={translated(appearanceOptions)} value={appearance} onSelect={setAppearance} />
                 }
+              />
+              <Row
+                icon="globe"
+                title={t("Language")}
+                subtitle={languageChoice === "system" ? t("Phone language · {name}", { name: languageLabel }) : languageLabel}
+                onPress={() => setChoosingLanguage(true)}
               />
             </RowGroup>
           </Section>
           {updates}
           {isDevelopmentBuild() ? (
-            <Section title="Development">
+            <Section title={t("Development")}>
               <RowGroup>
                 <Row
                   icon="chat"
-                  title="Sample content"
-                  subtitle="Read and unread chats and groups. Nothing is saved or sent."
+                  title={t("Sample content")}
+                  subtitle={t("Read and unread chats and groups. Nothing is saved or sent.")}
                   trailing={
-                    <Toggle label="Sample content" value={preview !== null} disabled={busy} onValueChange={toggleDevPreview} />
+                    <Toggle label={t("Sample content")} value={preview !== null} disabled={busy} onValueChange={toggleDevPreview} />
                   }
+                />
+                <Row
+                  icon="refresh"
+                  title={t("Replay onboarding")}
+                  subtitle={t("The welcome and profile screens again. No account is created or linked.")}
+                  onPress={busy ? undefined : replayOnboarding}
                 />
                 {isDesktop && onWindowsPreviewChange ? (
                   <Row
                     icon="device"
-                    title="Windows UI"
-                    subtitle="Preview the Windows title bar and window controls."
+                    title={t("Windows UI")}
+                    subtitle={t("Preview the Windows title bar and window controls.")}
                     trailing={
                       <Toggle
-                        label="Windows UI"
+                        label={t("Windows UI")}
                         value={previewWindows}
                         disabled={changingWindowsUI}
                         onValueChange={async (enabled) => {
                           setChangingWindowsUI(true);
                           try { await onWindowsPreviewChange(enabled); }
-                          catch { setError("Couldn’t change the window controls. Try again."); }
+                          catch { setError(t("Couldn’t change the window controls. Try again.")); }
                           finally { setChangingWindowsUI(false); }
                         }}
                       />
@@ -2949,10 +3719,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 icon="warning"
                 tone="danger"
                 emphasis="danger"
-                title={devices?.canManage === false ? "Erase this device" : "Delete account"}
+                title={devices?.canManage === false ? t("Erase this device") : t("Delete account")}
                 subtitle={devices?.canManage === false
-                  ? "Leaves your account and erases this device"
-                  : "Erases your username and messages everywhere"}
+                  ? t("Leaves your account and erases this device")
+                  : t("Erases your username and messages everywhere")}
                 onPress={preview || busy ? undefined : confirmDeleteAccount}
               />
             </RowGroup>
@@ -2964,20 +3734,17 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
 
   function renderDevices() {
     return (
-      <Page header={<Header title="Linked devices" onBack={() => go("settings")} />}>
+      <Page header={<Header title={t("Linked devices")} onBack={() => go("settings")} />}>
         <ScrollView contentContainerStyle={layout.content}>
-          <Text style={type.body}>
-            Only these devices can receive your messages. Remove any device you
-            no longer trust.
-          </Text>
+          <Text style={type.body}>{t("Only these devices can receive your messages. Remove any device you no longer trust.")}</Text>
           {devices?.changed ? (
             <Notice
               tone="warning"
-              text="Your device list changed since your last review."
+              text={t("Your account changed while this device was away. Review these devices.")}
             />
           ) : null}
           {!devices?.canManage ? (
-            <Notice text="Use your original device to link or remove other devices." />
+            <Notice text={t("Use your original device to link or remove other devices.")} />
           ) : null}
           {devices ? (
             <RowGroup>
@@ -2988,24 +3755,24 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                   tone={device.active ? (device.current ? "accent" : "muted") : "danger"}
                   title={
                     device.current
-                      ? "This device"
+                      ? t("This device")
                       : device.active
-                        ? "Linked device"
-                        : "Removed device"
+                        ? t("Linked device")
+                        : t("Removed device")
                   }
                   subtitle={
                     device.current
-                      ? "The device you’re using now"
+                      ? t("The device you’re using now")
                       : device.expired
-                        ? "Gets no messages until it’s opened again"
+                        ? t("Gets no messages until it’s opened again")
                         : device.active
-                          ? "Receives your messages"
-                          : "No longer has access"
+                          ? t("Receives your messages")
+                          : t("No longer has access")
                   }
                   trailing={
                     devices.canManage && device.active && !device.current ? (
                       <Button
-                        label="Remove"
+                        label={t("Remove")}
                         variant="danger"
                         size="sm"
                         onPress={() => confirmRevoke(device.deviceId)}
@@ -3025,16 +3792,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           {devices?.canManage ? (
             <Actions>
               <Button
-                label="Link another device"
+                label={t("Link another device")}
                 icon="scan"
                 onPress={() => openScanner("link-request")}
               />
             </Actions>
           ) : null}
-          <Text style={type.caption}>
-            Removing a device is permanent. It would have to be linked again
-            from scratch.
-          </Text>
+          <Text style={type.caption}>{t("Removing a device is permanent. It would have to be linked again from scratch.")}</Text>
         </ScrollView>
       </Page>
     );
@@ -3044,22 +3808,19 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     return (
       <Page
         header={
-          <Header title="Approve the connection" onBack={() => go("devices")} backLabel="Close" />
+          <Header title={t("Approve the connection")} onBack={() => go("devices")} backLabel={t("Close")} />
         }
       >
         <ScrollView contentContainerStyle={layout.content}>
           <QrLayout
             intro={
               <View style={layout.stack}>
-                <Text style={type.title}>One last scan.</Text>
-                <Text style={type.body}>
-                  Use the new device to scan this code. Only continue if the
-                  codes match on both screens.
-                </Text>
+                <Text style={type.title}>{t("One last scan.")}</Text>
+                <Text style={type.body}>{t("Use the new device to scan this code. Only continue if the codes match on both screens.")}</Text>
               </View>
             }
             qr={<QrCard value={payloadQrValue("link-authorization", authorization)} />}
-            details={<CodeBlock label="Both screens should show" value={linkSas} />}
+            details={<CodeBlock label={t("Both screens should show")} value={linkSas} />}
           />
         </ScrollView>
       </Page>
@@ -3070,12 +3831,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     return (
       <Page header={
         <Header
-          title="Join a group"
+          title={t("Join a group")}
           {...(isDesktop ? {} : backTo("groups"))}
           action={isDesktop ? (
             <IconButton
               name="close"
-              label="Close join group"
+              label={t("Close join group")}
               variant="tonal"
               size={size.avatar.xs}
               onPress={() => go(groupPackageOrigin)}
@@ -3087,16 +3848,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           <QrLayout
             intro={
               <View style={layout.stack}>
-                <Text style={type.title}>You’re invited.</Text>
-                <Text style={type.body}>
-                  Ask a group member to scan this code from their group details to
-                  add this device.
-                </Text>
+                <Text style={type.title}>{t("You’re invited.")}</Text>
+                <Text style={type.body}>{t("Ask a group member to scan this code from their group details to add this device.")}</Text>
               </View>
             }
             qr={<QrCard value={payloadQrValue("group-key-package", keyPackage)} />}
             details={
-              <Notice text="This invitation code is for this device only. Share a separate code for each linked device you want to add." />
+              <Notice text={t("This invitation code is for this device only. Share a separate code for each linked device you want to add.")} />
             }
           />
         </ScrollView>
@@ -3121,53 +3879,56 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         // The most recently active first, as chats are.
         data={[...listedGroups].sort((a, b) => (groupLast(b)?.timestamp ?? 0) - (groupLast(a)?.timestamp ?? 0))}
         keyExtractor={(group) => hex(group.groupId)}
-        ItemSeparatorComponent={sidebar ? null : ListSeparator}
+        ItemSeparatorComponent={sidebar ? undefined : ListSeparator}
         ListHeaderComponent={incoming.length || asked.length ? (
           <View style={styles.listHeader}>
             {asked.length ? (
-              <Section title="Asked to join">
+              <Section title={t("Asked to join")}>
                 {asked.map((ask) => (
                   <Card key={ask.community}>
                     <Text style={type.headline}>{ask.name}</Text>
                     <Text style={type.body}>
-                      {ask.state === "approved" ? `@${ask.conversation.username} let you in. Joining…`
-                        : ask.state === "declined" ? `@${ask.conversation.username} didn’t let you in.`
-                        : `Waiting for @${ask.conversation.username} to let you in.`}
+                      {ask.state === "approved" ? t("@{username} let you in. Joining…", { username: ask.conversation.username })
+                        : ask.state === "declined" ? t("@{username} didn’t let you in.", { username: ask.conversation.username })
+                        : t("Waiting for @{username} to let you in.", { username: ask.conversation.username })}
                     </Text>
                   </Card>
                 ))}
               </Section>
             ) : null}
-            {incoming.length ? <Section title="Invitations">
+            {incoming.length ? <Section title={t("Invitations")}>
               {incoming.map((invitation) => (
                 <Card key={hex(invitation.reference)}>
                   <Text style={type.headline}>{groupName(invitation.groupId)}</Text>
                   <Text style={type.body}>
                     {invitation.state === 1
-                      ? `@${invitation.username} invited you. Accept to join on this device.`
-                      : `Accepted. Joining when @${invitation.username} next connects.`}
+                      ? t("@{username} invited you. Accept to join on this device.", { username: invitation.username })
+                      : t("Accepted. Joining when @{username} next connects.", { username: invitation.username })}
                   </Text>
                   {invitation.state === 1 ? (
                     <View style={layout.row}>
-                      <Button label="Accept" accessibilityLabel="Accept group invitation" size={sidebar ? "sm" : "md"} onPress={() => answerGroupInvitation(invitation, true)} />
-                      <Button label="Decline" variant="ghost" size={sidebar ? "sm" : "md"} onPress={() => answerGroupInvitation(invitation, false)} />
+                      <Button label={t("Accept")} accessibilityLabel={t("Accept group invitation")} size={sidebar ? "sm" : "md"} onPress={() => answerGroupInvitation(invitation, true)} />
+                      <Button label={t("Decline")} variant="ghost" size={sidebar ? "sm" : "md"} onPress={() => answerGroupInvitation(invitation, false)} />
                     </View>
-                  ) : null}
+                  ) : (
+                    <Button label={t("Retry joining")} variant="ghost" size={sidebar ? "sm" : "md"} onPress={() => answerGroupInvitation(invitation, true)} />
+                  )}
                 </Card>
               ))}
             </Section> : null}
           </View>
-        ) : null}
-        ListEmptyComponent={sidebar ? <SidebarEmptyState title="No groups yet." /> : (
+        ) : undefined}
+        ListEmptyComponent={sidebar ? <SidebarEmptyState title={t("No groups yet.")} /> : (
           <EmptyState
             icon="groups"
-            title="No groups yet."
-            body={`Ask a member to invite @${ownUsername}, or open a community’s link. Invitations appear here.`}
+            title={t("No groups yet.")}
+            body={t("Ask a member to invite @{ownUsername}, or open a community’s link. Invitations appear here.", { ownUsername })}
             action={
-              <View style={layout.row}>
-                <Button label="Start a group" onPress={createNewGroup} />
-                <Button label="Join a community" variant="ghost" onPress={() => openScanner("community")} />
-              </View>
+              // Stacked and centred, as the empty Chats tab sets its own.
+              <>
+                <Button label={t("Start a group")} icon="plus" onPress={createNewGroup} />
+                <Button label={t("Join a community")} variant="ghost" onPress={() => openScanner("community")} />
+              </>
             }
           />
         )}
@@ -3193,24 +3954,24 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       <Page
         header={
           <LargeHeader
-            title="Groups"
+            title={t("Groups")}
             actions={
               <>
                 <IconButton
-                  label="Join a community"
+                  label={t("Join a community")}
                   variant="tonal"
                   name="link"
                   onPress={() => openScanner("community")}
                 />
                 <IconButton
-                  label="Join with QR"
+                  label={t("Join with QR")}
                   variant="tonal"
                   name="qr"
                   onPress={showGroupKeyPackage}
                 />
                 <IconButton
                   name="plus"
-                  label="Create group"
+                  label={t("Create group")}
                   variant="filled"
                   onPress={createNewGroup}
                 />
@@ -3225,8 +3986,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
 
   const askedWhen = (timestamp: number) => {
-    const when = formatInboxTime(timestamp);
-    return /^\d/.test(when) ? `Asked at ${when}` : `Asked ${when === "Yesterday" ? "yesterday" : when}`;
+    if (sameDay(timestamp, Date.now())) return t("Asked at {time}", { time: formatInboxTime(timestamp) });
+    if (sameDay(timestamp, Date.now() - 86_400_000)) return t("Asked yesterday");
+    return t("Asked {date}", { date: formatInboxTime(timestamp) });
   };
 
   // An admin answers someone who asked, through their link, to join.
@@ -3234,18 +3996,18 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const identity = reviewing ? senderIdentity(reviewing.conversation.peerAccountId) : null;
     const buttonSize = isDesktop ? "sm" : "md";
     return (
-      <Dialog visible={Boolean(reviewing)} label={identity ? `Review ${identity.name}` : "Review"} onClose={() => setReviewing(null)}>
+      <Dialog visible={Boolean(reviewing)} label={identity ? t("Review {name}", { name: identity.name }) : t("Review")} onClose={() => setReviewing(null)}>
         {reviewing && identity ? (
           <>
             <View style={styles.dialogHero}>
               <Avatar name={identity.name} uri={identity.avatar} colorSeed={identity.accountId} size={size.avatar["2xl"]} />
               <Text numberOfLines={1} style={type.title2}>{identity.name}</Text>
-              <Text style={type.subhead}>{`${askedWhen(reviewing.request.timestamp)} to join ${name}`}</Text>
+              <Text style={type.subhead}>{t("{asked} to join {name}", { asked: askedWhen(reviewing.request.timestamp), name })}</Text>
             </View>
             <View style={styles.dialogActions}>
-              <Button label="Let them in" size={buttonSize} disabled={preview !== null}
+              <Button label={t("Let them in")} size={buttonSize} disabled={preview !== null}
                 onPress={() => approveAsk(reviewing.conversation, reviewing.request)} />
-              <Button label="Decline" variant="secondary" size={buttonSize} disabled={preview !== null}
+              <Button label={t("Decline")} variant="secondary" size={buttonSize} disabled={preview !== null}
                 onPress={() => declineAsk(reviewing.conversation, reviewing.request)} />
             </View>
           </>
@@ -3262,27 +4024,27 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const act = (run: () => void) => { setManaging(null); run(); };
     const buttonSize = isDesktop ? "sm" : "md";
     return (
-      <Dialog visible={Boolean(accountId && identity)} label={identity ? `Manage ${identity.name}` : "Manage"} onClose={() => setManaging(null)}>
+      <Dialog visible={Boolean(accountId && identity)} label={identity ? t("Manage {name}", { name: identity.name }) : t("Manage")} onClose={() => setManaging(null)}>
         {accountId && identity ? (
           <>
             <View style={styles.dialogHero}>
               <Avatar name={identity.name} uri={identity.avatar} colorSeed={accountId} size={size.avatar["2xl"]} />
               <Text numberOfLines={1} style={type.title2}>{identity.name}</Text>
-              <Text style={type.subhead}>{admin ? "Admin" : "Member"}</Text>
+              <Text style={type.subhead}>{admin ? t("Admin") : t("Member")}</Text>
             </View>
             <View style={styles.dialogActions}>
               {admin ? (
                 <>
-                  <Button label="Make owner" size={buttonSize} onPress={() => act(() => confirmHandover(accountId, identity.name))} />
-                  <Button label="Remove as admin" variant="secondary" size={buttonSize}
+                  <Button label={t("Make owner")} size={buttonSize} onPress={() => act(() => confirmHandover(accountId, identity.name))} />
+                  <Button label={t("Remove as admin")} variant="secondary" size={buttonSize}
                     onPress={() => act(() => changeRoles({ admins: community.admins.filter((item) => item !== accountId) },
-                      `${identity.name} is no longer an admin`))} />
+                      t("{name} is no longer an admin", { name: identity.name })))} />
                 </>
               ) : (
                 <>
-                  <Button label="Make admin" size={buttonSize} disabled={community.admins.length >= MAX_ADMINS}
-                    onPress={() => act(() => changeRoles({ admins: [...community.admins, accountId] }, `${identity.name} is an admin now`))} />
-                  <Button label="Remove from community" variant="secondary" size={buttonSize}
+                  <Button label={t("Make admin")} size={buttonSize} disabled={community.admins.length >= MAX_ADMINS}
+                    onPress={() => act(() => changeRoles({ admins: [...community.admins, accountId] }, t("{name} is an admin now", { name: identity.name })))} />
+                  <Button label={t("Remove from community")} variant="secondary" size={buttonSize}
                     onPress={() => act(() => removeFromCommunity(accountId, identity.name))} />
                 </>
               )}
@@ -3309,18 +4071,19 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const others = (summary?.people ?? []).filter((item) => !staff.includes(hex(item.accountId)));
     const linkable = groups.filter((item) => !communityOfGroup(hex(item.groupId)) &&
       !community.groups.some((group) => group.id === hex(item.groupId)));
-    const members = (count: number) => `${count} ${count === 1 ? "member" : "members"}`;
+    const members = (count: number) => t.plural("{count} member", "{count} members", count);
     const canInvite = preview === null && groupUsername.trim().length > 0;
     const pending = [...new Map(groupInvitations
       .filter((item) => entry.parts.includes(hex(item.groupId)) && (item.state === 0 || item.state === 3))
       .map((item) => [hex(item.accountId), item])).values()];
-    const spread = community.parts.length > 1 ? `Spread across ${community.parts.length} groups of up to 64 devices. ` : "";
+    const spread = community.parts.length > 1 ? t.plural("Spread across {count} group of up to 64 devices. ", "Spread across {count} groups of up to 64 devices. ", community.parts.length) : "";
     const communityLink = payloadQrValue("community", utf8(encodeCommunityLink({ community: communityId(community), admin: ownUsername || "_", name })));
     return (
-      <Page header={<Header title="Community details" onBack={() => go("group")} />}>
+      <Page header={<Header title={t("Community details")} onBack={() => go("group")} />}>
         {renderRoleDialog(community)}
         {renderReviewDialog(name)}
-        <ScrollView
+        <KeyboardAwareScrollView
+          bottomOffset={formKeyboardOffset}
           contentContainerStyle={layout.contentTight}
           keyboardShouldPersistTaps="handled"
         >
@@ -3331,34 +4094,34 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             group
             leading={canManage ? renderPhotoButton(name, avatar, setPhoto, { group: true, seed: entry.parts[0] }) : undefined}
             title={name}
-            subtitle={canManage && summary ? `Community · ${describeMembers(summary)}` : "Community"}
+            subtitle={canManage && summary ? t("Community · {members}", { members: describeMembers(summary) }) : t("Community")}
             actions={canManage && avatar ? renderRemovePhoto(() => setPhoto(undefined)) : undefined}
           />
         {canManage ? (
-          <Section title="About">
+          <Section title={t("About")}>
             <Card>
               <Field
-                label="Description"
+                label={t("Description")}
                 value={aboutDraft ?? community.about}
                 onChangeText={setAboutDraft}
-                placeholder="What this community is for"
+                placeholder={t("What this community is for")}
                 multiline
                 maxLength={500}
               />
               {aboutDraft !== null && aboutDraft.trim() !== community.about ? (
                 <Actions>
-                  <Button label="Save description" onPress={() => saveCommunity({ ...community, about: aboutDraft }, "Description saved")} />
+                  <Button label={t("Save description")} onPress={() => saveCommunity({ ...community, about: aboutDraft }, t("Description saved"))} />
                 </Actions>
               ) : null}
             </Card>
           </Section>
         ) : community.about ? (
-          <Section title="About">
+          <Section title={t("About")}>
             <Card><Text style={type.body}>{community.about}</Text></Card>
           </Section>
         ) : null}
         {incomingAsks.length ? (
-          <Section title="Asking to join" footer="They opened your link. Letting someone in accepts their message request and invites them.">
+          <Section title={t("Asking to join")} footer={t("They opened your link. Letting someone in accepts their message request and invites them.")}>
             <RowGroup>
               {incomingAsks.map(({ conversation, request }) => {
                 const identity = senderIdentity(conversation.peerAccountId);
@@ -3369,7 +4132,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                     title={identity.name}
                     subtitle={askedWhen(request.timestamp)}
                     trailing={
-                      <Button label="Review" accessibilityLabel={`Review ${identity.name}`} variant="secondary" size="sm"
+                      <Button label={t("Review")} accessibilityLabel={t("Review {name}", { name: identity.name })} variant="secondary" size="sm"
                         onPress={() => setReviewing({ conversation, request })} />
                     }
                   />
@@ -3379,7 +4142,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           </Section>
         ) : null}
         {joinWaiting.length ? (
-          <Section title="Join requests" footer="Inviting sends that group’s usual encrypted invitation.">
+          <Section title={t("Join requests")} footer={t("Inviting sends that group’s usual encrypted invitation.")}>
             <RowGroup>
               {joinWaiting.map((request) => {
                 const identity = senderIdentity(request.accountId);
@@ -3389,11 +4152,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                     key={`${request.accountId}/${request.groupId}`}
                     leading={<Avatar name={identity.name} uri={identity.avatar} colorSeed={identity.accountId} size={size.avatar.md} />}
                     title={identity.name}
-                    subtitle={`Asked to join ${group?.name ?? "a group"}`}
+                    subtitle={group?.name ? t("Asked to join {group}", { group: group.name }) : t("Asked to join a group")}
                     trailing={
                       <Button
-                        label="Invite"
-                        accessibilityLabel={`Invite ${identity.name} to ${group?.name ?? "the group"}`}
+                        label={t("Invite")}
+                        accessibilityLabel={group?.name ? t("Invite {name} to {group}", { name: identity.name, group: group.name }) : t("Invite {name} to the group", { name: identity.name })}
                         size="sm"
                         disabled={!identity.username}
                         onPress={() => identity.username && approveRequest(request, identity.username)}
@@ -3406,10 +4169,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           </Section>
         ) : null}
         <Section
-          title="Groups"
+          title={t("Groups")}
           footer={canManage
-            ? "Members see these names and can ask to join. You invite them from here."
-            : "Ask to join a group and the community’s owner or an admin can invite you."}
+            ? t("Members see these names and can ask to join. You invite them from here.")
+            : t("Ask to join a group and the community’s owner or an admin can invite you.")}
         >
           {community.groups.length ? (
             <RowGroup>
@@ -3427,24 +4190,24 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                     trailing={
                       canManage ? (
                         <Button
-                          label="Unlink"
-                          accessibilityLabel={`Unlink ${group.name}`}
+                          label={t("Unlink")}
+                          accessibilityLabel={t("Unlink {name}", { name: group.name })}
                           variant="secondary"
                           size="sm"
-                          onPress={() => saveCommunity({ ...community, groups: community.groups.filter((item) => item.id !== group.id) }, `${group.name} unlinked`)}
+                          onPress={() => saveCommunity({ ...community, groups: community.groups.filter((item) => item.id !== group.id) }, t("{name} unlinked", { name: group.name }))}
                         />
                       ) : joined ? (
-                        <Badge label="Joined" />
+                        <Badge label={t("Joined")} />
                       ) : invitation?.state === 1 ? (
-                        <Button label="Join" accessibilityLabel={`Join ${group.name}`} size="sm" onPress={() => answerGroupInvitation(invitation, true)} />
+                        <Button label={t("Join")} accessibilityLabel={t("Join {name}", { name: group.name })} size="sm" onPress={() => answerGroupInvitation(invitation, true)} />
                       ) : invitation ? (
-                        <Badge label="Joining" tone="accent" />
+                        <Badge label={t("Joining")} tone="accent" />
                       ) : requested ? (
-                        <Badge label="Requested" tone="muted" />
+                        <Badge label={t("Requested")} tone="muted" />
                       ) : (
                         <Button
-                          label="Ask to join"
-                          accessibilityLabel={`Ask to join ${group.name}`}
+                          label={t("Ask to join")}
+                          accessibilityLabel={t("Ask to join {name}", { name: group.name })}
                           variant="secondary"
                           size="sm"
                           disabled={preview !== null}
@@ -3458,12 +4221,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             </RowGroup>
           ) : (
             <Card>
-              <Text style={type.body}>{canManage ? "Link groups you’re in so members can find them." : "No groups yet."}</Text>
+              <Text style={type.body}>{canManage ? t("Link groups you’re in so members can find them.") : t("No groups yet.")}</Text>
             </Card>
           )}
         </Section>
         {canManage && linkable.length ? (
-          <Section title="Link a group">
+          <Section title={t("Link a group")}>
             <RowGroup>
               {linkable.map((item) => (
                 <Row
@@ -3473,12 +4236,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                   subtitle={members(item.memberCount)}
                   trailing={
                     <Button
-                      label="Link"
-                      accessibilityLabel={`Link ${groupName(item.groupId)}`}
+                      label={t("Link")}
+                      accessibilityLabel={t("Link {name}", { name: groupName(item.groupId) })}
                       variant="secondary"
                       size="sm"
                       onPress={() => saveCommunity({ ...community, groups: [...community.groups, { id: hex(item.groupId), name: groupName(item.groupId) }] },
-                        `${groupName(item.groupId)} linked`)}
+                        t("{name} linked", { name: groupName(item.groupId) }))}
                     />
                   }
                 />
@@ -3488,25 +4251,25 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         ) : null}
           {canManage && ownUsername ? (
             <Section
-              title="Invite link"
-              footer="Anyone with this link or code can ask you to let them in. Their request comes to you as a message."
+              title={t("Invite link")}
+              footer={t("Anyone with this link or code can ask you to let them in. Their request comes to you as a message.")}
             >
-              <QrCard value={communityLink} caption="Scan with Morse to ask to join" />
+              <QrCard value={communityLink} caption={t("Scan with Morse to ask to join")} />
               <Actions>
-                <Button label="Copy link" icon="copy" variant="secondary" onPress={() => copyCommunityLink(communityLink)} />
+                <Button label={t("Copy link")} icon="copy" variant="secondary" onPress={() => copyCommunityLink(communityLink)} />
               </Actions>
             </Section>
           ) : null}
           {canManage ? (
             <Section
-              title="Invite members"
-              footer="They’ll receive an encrypted invitation and choose whether to join. Or scan the code from their Groups tab to add them right away."
+              title={t("Invite members")}
+              footer={t("They’ll receive an encrypted invitation and choose whether to join. Or scan the code from their Groups tab to add them right away.")}
             >
               <Card>
                 <View style={isDesktop && styles.inviteRow}>
                   <View style={isDesktop && [layout.flex, { minWidth: 180 }]}>
                     <Field
-                      label="Exact username"
+                      label={t("Exact username")}
                       value={groupUsername}
                       onChangeText={setGroupUsername}
                       placeholder="their_name"
@@ -3515,9 +4278,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                     />
                   </View>
                   <Actions style={isDesktop ? { maxWidth: "100%" } : styles.inviteActions}>
-                    <Button label="Send invitation" disabled={!canInvite} onPress={inviteByUsername} />
+                    <Button label={t("Send invitation")} disabled={!canInvite} onPress={inviteByUsername} />
                     <Button
-                      label={isDesktop ? "Enter their code" : "Scan their code"}
+                      label={isDesktop ? t("Enter their code") : t("Scan their code")}
                       icon="scan"
                       variant="ghost"
                       disabled={!canInvite}
@@ -3529,10 +4292,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             </Section>
           ) : null}
           <Section
-            title="Admins"
+            title={t("Admins")}
             footer={isOwner
-              ? "Admins post announcements, answer requests, invite and remove members, and edit the community. Only you change who runs it."
-              : "They post the announcements and invite people to the community’s groups."}
+              ? t("Admins post announcements, answer requests, invite and remove members, and edit the community. Only you change who runs it.")
+              : t("They post the announcements and invite people to the community’s groups.")}
           >
             <RowGroup>
               {staff.map((accountId) => {
@@ -3542,11 +4305,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                     key={accountId}
                     leading={<Avatar name={identity.name} uri={identity.avatar} colorSeed={accountId} size={size.avatar.md} />}
                     title={identity.name}
-                    subtitle={accountId === community.owner ? "Owner" : "Admin"}
+                    subtitle={accountId === community.owner ? t("Owner") : t("Admin")}
                     trailing={accountId === ownId ? (
-                      <Badge label="You" />
+                      <Badge label={t("You")} />
                     ) : isOwner ? (
-                      <Button label="Manage" accessibilityLabel={`Manage ${identity.name}`} variant="secondary" size="sm"
+                      <Button label={t("Manage")} accessibilityLabel={t("Manage {name}", { name: identity.name })} variant="secondary" size="sm"
                         onPress={() => setManaging(accountId)} />
                     ) : null}
                   />
@@ -3555,7 +4318,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             </RowGroup>
           </Section>
           {canManage ? (
-            <Section title="Members" footer={`${spread}Members see only who runs the community.`}>
+            <Section title={t("Members")} footer={t("{spread}Members see only who runs the community.", { spread })}>
               {!summary ? (
                 <Card style={layout.center}>
                   <ActivityIndicator color={colors.accent} />
@@ -3571,14 +4334,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                         leading={<Avatar name={identity.name} uri={identity.avatar} colorSeed={accountId} size={size.avatar.md} />}
                         title={identity.name}
                         subtitle={[describeMember({ local: item.local, creator: false, conversation: identity.conversation }),
-                          item.devices > 1 ? `${item.devices} devices` : undefined].filter(Boolean).join(" · ") || undefined}
+                          item.devices > 1 ? t.plural("{count} device", "{count} devices", item.devices) : undefined].filter(Boolean).join(" · ") || undefined}
                         trailing={isOwner ? (
-                          <Button label="Manage" accessibilityLabel={`Manage ${identity.name}`} variant="secondary" size="sm"
+                          <Button label={t("Manage")} accessibilityLabel={t("Manage {name}", { name: identity.name })} variant="secondary" size="sm"
                             onPress={() => setManaging(accountId)} />
                         ) : (
                           <Button
-                            label="Remove"
-                            accessibilityLabel={`Remove ${identity.name}`}
+                            label={t("Remove")}
+                            accessibilityLabel={t("Remove {name}", { name: identity.name })}
                             variant="secondary"
                             size="sm"
                             disabled={preview !== null}
@@ -3591,38 +4354,38 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 </RowGroup>
               ) : (
                 <Card>
-                  <Text style={type.body}>No one else yet. Invite members above.</Text>
+                  <Text style={type.body}>{t("No one else yet. Invite members above.")}</Text>
                 </Card>
               )}
             </Section>
           ) : null}
           {canManage && pending.length > 0 ? (
-            <Section title="Invited" footer="They join once they accept.">
+            <Section title={t("Invited")} footer={t("They join once they accept.")}>
               <RowGroup>
                 {pending.map((item) => (
                   <Row
                     key={hex(item.reference)}
                     leading={<Avatar name={`@${item.username}`} size={size.avatar.md} />}
                     title={`@${item.username}`}
-                    subtitle={item.state === 3 ? "Finishing their invitation…" : "Waiting for them to accept"}
-                    trailing={<Badge label={item.state === 3 ? "Joining" : "Invited"} tone={item.state === 3 ? "accent" : "muted"} />}
+                    subtitle={item.state === 3 ? t("Finishing their invitation…") : t("Waiting for them to accept")}
+                    trailing={<Badge label={item.state === 3 ? t("Joining") : t("Invited")} tone={item.state === 3 ? "accent" : "muted"} />}
                   />
                 ))}
               </RowGroup>
             </Section>
           ) : null}
-          <Section footer={isOwner ? "Make an admin the owner before you leave." : undefined}>
+          <Section footer={isOwner ? t("Make an admin the owner before you leave.") : undefined}>
             <RowGroup>
               <Row
                 icon="close"
                 tone="danger"
                 emphasis="danger"
-                title="Leave community"
+                title={t("Leave community")}
                 onPress={isOwner || preview ? undefined : () => confirmLeave(entry)}
               />
             </RowGroup>
           </Section>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </Page>
     );
   }
@@ -3631,6 +4394,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   // by the creator to change it, over its name and who is in it; then the
   // ways to grow it, its people device by device, and the state they share.
   function renderGroupInfo(groupId: Uint8Array) {
+    const timerValue = groupTimer?.groupId === hex(groupId) && groupTimer.epoch === cacheEpoch ? groupTimer.seconds : undefined;
     const name = groupName(groupId);
     const avatar = groupAvatar(groupId);
     const summary = groupDetails ? summarizeMembers(groupDetails.members) : null;
@@ -3640,8 +4404,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       .filter((item) => hex(item.groupId) === hex(groupId) && (item.state === 0 || item.state === 3))
       .map((item) => [hex(item.accountId), item])).values()];
     return (
-      <Page header={<Header title="Group details" onBack={() => go("group")} />}>
-        <ScrollView
+      <Page header={<Header title={t("Group details")} onBack={() => go("group")} />}>
+        <KeyboardAwareScrollView
+          bottomOffset={formKeyboardOffset}
           contentContainerStyle={layout.contentTight}
           keyboardShouldPersistTaps="handled"
         >
@@ -3652,19 +4417,19 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             group
             leading={isGroupCreator ? renderPhotoButton(name, avatar, setGroupPhoto, { group: true, seed: hex(groupId) }) : undefined}
             title={name}
-            subtitle={summary ? describeMembers(summary) : "Loading members…"}
+            subtitle={summary ? describeMembers(summary) : t("Loading members…")}
             actions={isGroupCreator && avatar ? renderRemovePhoto(() => setGroupPhoto(undefined)) : undefined}
           />
           <Section
-            title="Invite someone"
-            footer="They’ll receive an encrypted invitation and choose whether to join. Or scan the code from their Groups tab to add them right away."
+            title={t("Invite someone")}
+            footer={t("They’ll receive an encrypted invitation and choose whether to join. Or scan the code from their Groups tab to add them right away.")}
           >
             <Card>
               {/* Desktop keeps the field and its actions on one line. */}
               <View style={isDesktop && styles.inviteRow}>
                 <View style={isDesktop && [layout.flex, { minWidth: 180 }]}>
                   <Field
-                    label="Exact username"
+                    label={t("Exact username")}
                     value={groupUsername}
                     onChangeText={setGroupUsername}
                     placeholder="their_name"
@@ -3673,9 +4438,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                   />
                 </View>
                 <Actions style={isDesktop ? { maxWidth: "100%" } : styles.inviteActions}>
-                  <Button label="Send group invitation" disabled={!canInvite} onPress={inviteByUsername} />
+                  <Button label={t("Send group invitation")} disabled={!canInvite} onPress={inviteByUsername} />
                   <Button
-                    label={isDesktop ? "Enter their code" : "Scan their code"}
+                    label={isDesktop ? t("Enter their code") : t("Scan their code")}
                     icon="scan"
                     variant="ghost"
                     disabled={!canInvite}
@@ -3685,7 +4450,19 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               </View>
             </Card>
           </Section>
-          <Section title="Members">
+          <Section title={t("Disappearing messages")} footer={t("Applies to messages this device sends to this group. Other members choose their own timers.")}>
+            <RowGroup>
+              <Row icon="timer" title={t("Timer")} subtitle={timerValue !== undefined ? translated(disappearingOptions).find((option) => option.value === timerValue)?.label : t("Loading…")}
+                trailing={<Segmented label={t("Disappear")} options={translated(disappearingOptions)}
+                  value={timerValue ?? 0}
+                  onSelect={(seconds) => { if (preview || busy || timerValue === undefined) return; void perform(t("Saving the timer…"), async () => {
+                    const accepted = await groupMessageTimer(databasePath, groupId, seconds);
+                    if (historyCacheEpoch.current.current(cacheEpoch)) setGroupTimer({ groupId: hex(groupId), seconds: accepted, epoch: cacheEpoch });
+                  }); }} />}
+              />
+            </RowGroup>
+          </Section>
+          <Section title={t("Members")}>
             {summary ? (
               <RowGroup>
                 {summary.people.map((person) => {
@@ -3696,14 +4473,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                       key={identity.accountId}
                       leading={<Avatar name={identity.name} uri={identity.avatar} colorSeed={identity.accountId} size={size.avatar.md} />}
                       title={identity.name}
-                      subtitle={[note, person.devices > 1 ? `${person.devices} devices` : undefined].filter(Boolean).join(" · ") || undefined}
+                      subtitle={[note, person.devices > 1 ? t.plural("{count} device", "{count} devices", person.devices) : undefined].filter(Boolean).join(" · ") || undefined}
                       trailing={
                         person.local ? (
-                          <Badge label="You" />
+                          <Badge label={t("You")} />
                         ) : identity.creator ? null : (
                           <Button
-                            label="Remove"
-                            accessibilityLabel={`Remove ${identity.name}`}
+                            label={t("Remove")}
+                            accessibilityLabel={t("Remove {name}", { name: identity.name })}
                             variant="secondary"
                             size="sm"
                             disabled={preview !== null}
@@ -3722,21 +4499,21 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             )}
           </Section>
           {pending.length > 0 ? (
-            <Section title="Invited" footer="They join once they accept.">
+            <Section title={t("Invited")} footer={t("They join once they accept.")}>
               <RowGroup>
                 {pending.map((item) => (
                   <Row
                     key={hex(item.reference)}
                     leading={<Avatar name={`@${item.username}`} size={size.avatar.md} />}
                     title={`@${item.username}`}
-                    subtitle={item.state === 3 ? "Finishing their invitation…" : "Waiting for them to accept"}
-                    trailing={<Badge label={item.state === 3 ? "Joining" : "Invited"} tone={item.state === 3 ? "accent" : "muted"} />}
+                    subtitle={item.state === 3 ? t("Finishing their invitation…") : t("Waiting for them to accept")}
+                    trailing={<Badge label={item.state === 3 ? t("Joining") : t("Invited")} tone={item.state === 3 ? "accent" : "muted"} />}
                   />
                 ))}
               </RowGroup>
             </Section>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </Page>
     );
   }
@@ -3748,13 +4525,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const summary = groupDetails ? summarizeMembers(groupDetails.members) : null;
     const buttonSize = isDesktop ? "sm" : "md";
     return (
-      <Dialog visible={membersOpen} label="Group members" onClose={() => setMembersOpen(false)}>
+      <Dialog visible={membersOpen} label={t("Group members")} onClose={() => setMembersOpen(false)}>
         <View style={styles.dialogHero}>
           <Avatar name={groupName(groupId)} uri={groupAvatar(groupId)} colorSeed={hex(groupId)} size={size.avatar["2xl"]} group />
           <Text numberOfLines={1} style={type.title2}>
             {groupName(groupId)}
           </Text>
-          <Text style={type.subhead}>{summary ? describeMembers(summary) : "Loading members…"}</Text>
+          <Text style={type.subhead}>{summary ? describeMembers(summary) : t("Loading members…")}</Text>
         </View>
         {summary ? (
           <ScrollView style={styles.memberList} contentContainerStyle={styles.memberListContent}>
@@ -3770,11 +4547,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                   subtitle={describeMember({ local: person.local, creator: identity.creator, conversation: identity.conversation })}
                   trailing={
                     person.local ? (
-                      <Badge label="You" />
+                      <Badge label={t("You")} />
                     ) : reachable ? (
                       <IconButton
                         name="chat"
-                        label={`Message ${identity.name}`}
+                        label={t("Message {name}", { name: identity.name })}
                         variant="soft"
                         glass={false}
                         size={isDesktop ? control.sm : control.lg}
@@ -3790,8 +4567,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           <ActivityIndicator color={colors.accent} style={styles.memberListLoading} />
         )}
         <View style={styles.dialogActions}>
-          <Button label="Invite someone" icon="plus" variant="secondary" size={buttonSize} onPress={inviteSomeone} />
-          <Button label="Group details" variant="ghost" size={buttonSize} onPress={() => go("group-info")} />
+          <Button label={t("Invite someone")} icon="plus" variant="secondary" size={buttonSize} onPress={inviteSomeone} />
+          <Button label={t("Group details")} variant="ghost" size={buttonSize} onPress={() => go("group-info")} />
         </View>
       </Dialog>
     );
@@ -3813,22 +4590,23 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const quoteOf = (message: Omit<GroupHistoryMessage, "reply">) => {
       const own = message.direction === "sent" || hex(message.senderAccountId) === accountId;
       const identity = senderIdentity(message.senderAccountId, own);
-      return { name: own ? "You" : identity.name, accountId: identity.accountId, text: attachmentPreviewText(message) };
+      return { name: own ? t("You") : identity.name, accountId: identity.accountId, text: attachmentPreviewText(message) };
     };
     const answering = replyTarget && "senderAccountId" in replyTarget ? quoteOf(replyTarget) : undefined;
     return (
       <Page
+        keyboard
         header={
           <ChatHeader
             name={groupName(groupId)}
             avatar={groupAvatar(groupId)}
             colorSeed={hex(groupId)}
             group
-            {...backTo("groups", "Back to groups")}
+            {...backTo("groups", t("Back to groups"))}
             onAvatarPress={() => selectedCommunity ? go("group-info") : setMembersOpen(true)}
-            avatarLabel={selectedCommunity ? "Community details" : "Group members"}
+            avatarLabel={selectedCommunity ? t("Community details") : t("Group members")}
             onInfo={() => go("group-info")}
-            infoLabel={selectedCommunity ? "Community details" : "Group details"}
+            infoLabel={selectedCommunity ? t("Community details") : t("Group details")}
           />
         }
       >
@@ -3837,10 +4615,10 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           <View style={[styles.banners, isDesktop && layout.threadContent]}>
             <Card tone="accent">
               <Text style={type.body}>
-                {waiting === 1 ? "Someone is" : `${waiting} people are`} waiting for you to let them in.
+                {t.plural("Someone is waiting for you to let them in.", "{count} people are waiting for you to let them in.", waiting)}
               </Text>
               <Actions>
-                <Button label="Review requests" size="sm" onPress={() => go("group-info")} />
+                <Button label={t("Review requests")} size="sm" onPress={() => go("group-info")} />
               </Actions>
             </Card>
           </View>
@@ -3858,14 +4636,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               {selectedCommunity ? (
                 <EmptyState
                   icon="megaphone"
-                  title="No announcements yet."
-                  body={canManage ? "Only you and the other admins post here. Members read, react and find the community’s groups in its details." : "Announcements from the people who run the community appear here. Find its groups in its details."}
+                  title={t("No announcements yet.")}
+                  body={canManage ? t("Only you and the other admins post here. Members read, react and find the community’s groups in its details.") : t("Announcements from the people who run the community appear here. Find its groups in its details.")}
                 />
               ) : (
                 <EmptyState
                   icon="lock"
-                  title="Nothing here yet."
-                  body="Add people from group details to begin."
+                  title={t("Nothing here yet.")}
+                  body={t("Add people from group details to begin.")}
                 />
               )}
             </View>
@@ -3876,6 +4654,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             ) : (
               <MessageBubble
                 body={item.message.body}
+                disappearing={!!item.message.disappearingSeconds}
                 action={communityLinkAction(item.message.body)}
                 mentionUsernames={mentionMembers.map((member) => member.username)}
                 timestamp={item.message.timestamp}
@@ -3887,7 +4666,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 spaced={item.spaced}
                 enter={isFreshGroupMessage(item.key)}
                 sender={senderIdentity(item.message.senderAccountId, item.message.direction === "sent")}
-                attachments={item.message.attachments?.map((attachment) => bubbleAttachment(attachment, true))}
+                attachments={item.message.attachments?.map((attachment) => bubbleAttachment(scope, attachment, true))}
                 reactions={item.message.reactions}
                 reactionSender={accountId ?? ""}
                 reactor={(sender) => senderIdentity(sender)}
@@ -3895,7 +4674,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 reactionsDisabled={busy || (selectedGroup?.memberCount ?? 0) < 2}
                 quote={item.message.reply && (item.message.reply.message
                   ? { ...quoteOf(item.message.reply.message), onPress: () => showOriginal(groupRows, item.message.reply!.target) }
-                  : { text: "Original message unavailable" })}
+                  : { text: t("Original message unavailable") })}
                 onReply={canReply && item.message.messageId
                   ? () => setReplying({ scope, target: hex(item.message.messageId!) }) : undefined}
                 highlighted={flashKey === item.key}
@@ -3910,12 +4689,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           onChangeText={setGroupComposer}
           onSend={sendGroupText}
           disabled={busy || preview !== null || readOnly}
-          placeholder={preview ? "Sample preview · read-only" : readOnly ? "Only admins post here"
-            : selectedCommunity ? "Announce something" : "Message · @mention someone"}
+          placeholder={preview ? t("Sample preview · read-only") : readOnly ? t("Only admins post here")
+            : selectedCommunity ? t("Announce something") : t("Message · @mention someone")}
           sendDisabled={(selectedGroup?.memberCount ?? 0) < 2}
           onHeightChange={setComposerHeight}
           attachments={composerAttachments(scope)}
           onAttach={() => attachFile(scope)}
+          onSavedUploads={() => setSavedUploadsScope(scope)}
           onRemoveAttachment={unstageAttachment}
           dropping={dropping}
           reply={answering && { id: replying!.target, ...answering }}
@@ -3927,8 +4707,9 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
 
   function renderChatInfo(conversation: Conversation) {
     const safety = describeSafety(conversation);
+    const hasSafetyCode = /^[0-9a-f]{64}$/.test(conversation.safetyNumber);
     return (
-      <Page header={<Header title="Conversation details" onBack={() => go("chat")} />}>
+      <Page header={<Header title={t("Conversation details")} onBack={() => go("chat")} />}>
         <ScrollView contentContainerStyle={layout.content}>
           <Hero
             name={contactName(conversation)}
@@ -3938,18 +4719,18 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             subtitle={`@${conversation.username}`}
             badge={
               conversation.blocked ? (
-                <Badge label="Blocked" tone="danger" icon="block" />
+                <Badge label={t("Blocked")} tone="danger" icon="block" />
               ) : conversation.verified ? (
-                <Badge label="Safety number verified" tone="success" icon="shield" />
+                <Badge label={t("Safety number verified")} tone="success" icon="shield" />
               ) : null
             }
           />
-          <Section title="Personalization">
+          <Section title={t("Personalization")}>
             <RowGroup>
               <Row
                 icon="person"
-                title="Private nickname"
-                subtitle={presentationOf(`nickname/${hex(conversation.peerAccountId)}`)?.name ?? "Only you see this, on this device."}
+                title={t("Private nickname")}
+                subtitle={presentationOf(`nickname/${hex(conversation.peerAccountId)}`)?.name ?? t("Only you see this, on this device.")}
                 onPress={preview ? undefined : () => editName(`nickname/${hex(conversation.peerAccountId)}`,
                   presentationOf(`nickname/${hex(conversation.peerAccountId)}`)?.name ?? "")}
               />
@@ -3957,33 +4738,37 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           </Section>
           {/* The number is the exhibit: its state above it as a row, the way
               to act on it below, and the words about it under the card. */}
-          <Section title="Security" footer={safety.note}>
+          <Section title={t("Security")} footer={safety.note}>
             <RowGroup>
-              <Row icon="shield" tone={safety.tone} title="Safety number" subtitle={safety.status} />
+              <Row icon="shield" tone={safety.tone} title={t("Safety number")} subtitle={safety.status} />
               {conversation.safetyNumber ? <SafetyNumber value={conversation.safetyNumber} tone={safety.tone} /> : null}
-              {safety.verifiable ? (
+              {hasSafetyCode ? (
+                <Row icon="scan" title={t("Scan safety code")} onPress={() => openScanner("safety")} />
+              ) : null}
+              {safety.verifiable && hasSafetyCode ? (
                 <Row
                   icon="check"
                   tone="success"
-                  title="Mark as verified"
+                  title={t("Mark as verified")}
                   trailing={null}
-                  onPress={() => updatePolicy(4)}
+                  onPress={() => verifySafetyNumber(conversation, conversation.safetyNumber, false)}
                 />
               ) : null}
             </RowGroup>
+            {hasSafetyCode ? <QrCard value={safetyQrValue(conversation.safetyNumber)} caption={t("Compare in person or through a channel you already trust. This code contains only your shared safety number.")} /> : null}
           </Section>
           <Section
-            title="Disappearing messages"
+            title={t("Disappearing messages")}
           >
             <RowGroup>
               <Row
                 icon="timer"
-                title="Timer"
-                subtitle={disappearingOptions.find((option) => option.value === conversation.disappearingSeconds)?.label}
+                title={t("Timer")}
+                subtitle={translated(disappearingOptions).find((option) => option.value === conversation.disappearingSeconds)?.label}
                 trailing={
                   <Segmented
-                    label="Disappear"
-                    options={disappearingOptions}
+                    label={t("Disappear")}
+                    options={translated(disappearingOptions)}
                     value={conversation.disappearingSeconds}
                     onSelect={(seconds) => updatePolicy(5, seconds)}
                   />
@@ -3991,17 +4776,17 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               />
             </RowGroup>
           </Section>
-          <Section title="Privacy">
+          <Section title={t("Privacy")}>
             <RowGroup>
               <Row
                 icon="block"
                 tone={conversation.blocked ? "muted" : "danger"}
                 emphasis={conversation.blocked ? undefined : "danger"}
-                title={conversation.blocked ? "Unblock contact" : "Block contact"}
+                title={conversation.blocked ? t("Unblock contact") : t("Block contact")}
                 subtitle={
                   conversation.blocked
-                    ? "You’ll receive their messages again."
-                    : "They won’t be told, and their messages stop arriving."
+                    ? t("You’ll receive their messages again.")
+                    : t("They won’t be told, and their messages stop arriving.")
                 }
                 onPress={() => updatePolicy(conversation.blocked ? 3 : 2)}
               />
@@ -4020,22 +4805,23 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     const canReply = !conversation.blocked && !conversation.requestPending;
     // Each side of a chat is named in its own colour, as group members are.
     const quoteOf = (message: Omit<HistoryMessage, "reply">) => ({
-      name: message.direction === "sent" ? "You" : contactName(conversation),
+      name: message.direction === "sent" ? t("You") : contactName(conversation),
       accountId: message.direction === "sent" ? ownId : hex(conversation.peerAccountId),
       text: attachmentPreviewText(message),
     });
     const answering = replyTarget && !("senderAccountId" in replyTarget) ? quoteOf(replyTarget) : undefined;
     return (
       <Page
+        keyboard
         header={
           <ChatHeader
             name={contactName(conversation)}
             avatar={presentationOf(`user/${hex(conversation.peerAccountId)}`)?.avatar}
             colorSeed={hex(conversation.peerAccountId)}
             mark={conversationMark(conversation)}
-            {...backTo("home", "Back to chats")}
+            {...backTo("home", t("Back to chats"))}
             onInfo={() => go("chat-info")}
-            infoLabel="Conversation details"
+            infoLabel={t("Conversation details")}
           />
         }
       >
@@ -4043,23 +4829,23 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           <View style={[styles.banners, isDesktop && layout.threadContent]}>
             {conversation.requestPending ? (
               <Card tone="accent">
-                <Text style={type.headline}>Message request</Text>
+                <Text style={type.headline}>{t("Message request")}</Text>
                 <Text style={type.body}>
                   @{conversation.username} wants to start a conversation. Accept to
                   reply, or block to never hear from them.
                 </Text>
                 {isDesktop ? (
                   <Actions>
-                    <Button label="Accept request" onPress={() => updatePolicy(1)} />
-                    <Button label="Block" variant="secondary" onPress={() => updatePolicy(2)} />
+                    <Button label={t("Accept request")} onPress={() => updatePolicy(1)} />
+                    <Button label={t("Block")} variant="secondary" onPress={() => updatePolicy(2)} />
                   </Actions>
                 ) : (
                   <View style={layout.row}>
                     <View style={layout.flex}>
-                      <Button label="Accept request" onPress={() => updatePolicy(1)} />
+                      <Button label={t("Accept request")} onPress={() => updatePolicy(1)} />
                     </View>
                     <Button
-                      label="Block"
+                      label={t("Block")}
                       variant="secondary"
                       onPress={() => updatePolicy(2)}
                     />
@@ -4070,11 +4856,11 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             {conversation.keyChanged ? (
               <Notice
                 tone="warning"
-                text={`@${conversation.username}’s safety number changed. Compare it again before sending.`}
+                text={t("@{username}’s safety number changed. Compare it again before sending.", { username: conversation.username })}
               />
             ) : null}
             {conversation.blocked ? (
-              <Notice text="This contact is blocked. You can unblock them in conversation details." />
+              <Notice text={t("This contact is blocked. You can unblock them in conversation details.")} />
             ) : null}
           </View>
         ) : null}
@@ -4093,8 +4879,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             <View style={styles.flipped}>
               <EmptyState
                 icon="chat"
-                title="Say hello."
-                body="Your messages are encrypted from the first word."
+                title={t("Say hello.")}
+                body={t("Your messages are encrypted from the first word.")}
               />
             </View>
           }
@@ -4123,14 +4909,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 reactionsDisabled={busy || conversation.blocked || conversation.requestPending}
                 quote={item.message.reply && (item.message.reply.message
                   ? { ...quoteOf(item.message.reply.message), onPress: () => showOriginal(chatRows, item.message.reply!.target) }
-                  : { text: "Original message unavailable" })}
+                  : { text: t("Original message unavailable") })}
                 onReply={canReply ? () => setReplying({ scope, target: hex(item.message.messageId) }) : undefined}
                 highlighted={flashKey === item.key}
                 tail={item.tail}
                 spaced={item.spaced}
                 enter={isFreshMessage(item.key)}
                 attachments={item.message.attachments?.map((attachment) => bubbleAttachment(
-                  attachment,
+                  scope, attachment,
                   !conversation.requestPending && !conversation.blocked,
                 ))}
               />
@@ -4144,16 +4930,17 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           disabled={busy || preview !== null || conversation.blocked || conversation.requestPending}
           placeholder={
             preview
-              ? "Sample preview · read-only"
+              ? t("Sample preview · read-only")
               : conversation.blocked
-              ? "Contact blocked"
+              ? t("Contact blocked")
               : conversation.requestPending
-                ? "Accept the request to reply"
-                : "Message"
+                ? t("Accept the request to reply")
+                : t("Message")
           }
           onHeightChange={setComposerHeight}
           attachments={composerAttachments(scope)}
           onAttach={() => attachFile(scope)}
+          onSavedUploads={() => setSavedUploadsScope(scope)}
           reply={answering && { id: replying!.target, ...answering }}
           onCancelReply={() => setReplying(null)}
           onRemoveAttachment={unstageAttachment}
@@ -4176,25 +4963,25 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
         keyExtractor={(entry) => entry.key}
         ItemSeparatorComponent={
           sidebar
-            ? null
+            ? undefined
             : ({ leadingItem }: { leadingItem: HomeItem }) =>
                 leadingItem.kind === "chat" ? <ListSeparator /> : null
         }
-        ListEmptyComponent={sidebar ? <SidebarEmptyState title="No chats yet." /> : (
+        ListEmptyComponent={sidebar ? <SidebarEmptyState title={t("No chats yet.")} /> : (
           <EmptyState
             icon="chat"
-            title="No conversations yet."
+            title={t("No conversations yet.")}
             body={firstChatHint}
             action={
               <>
                 <Button
-                  label="New message"
+                  label={t("New message")}
                   icon="compose"
                   onPress={() => go("new-chat")}
                 />
                 {Platform.OS === "web" ? null : (
                   <Button
-                    label="Scan a contact code"
+                    label={t("Scan a contact code")}
                     variant="ghost"
                     onPress={() => openScanner("contact")}
                   />
@@ -4244,19 +5031,19 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
 
   // A new account's first step: whom to write to, and how others find you.
-  const firstChatHint = `Message someone by their exact username. People can find you as\u00A0@${ownUsername}.`;
+  const firstChatHint = t("Message someone by their exact username. People can find you as\u00A0@{ownUsername}.", { ownUsername });
 
   function renderHome() {
     return (
       <Page
         header={
           <LargeHeader
-            title="Chats"
+            title={t("Chats")}
             actions={
               <>
                 <IconButton
                   name="compose"
-                  label="New conversation"
+                  label={t("New conversation")}
                   variant="filled"
                   onPress={() => go("new-chat")}
                 />
@@ -4276,12 +5063,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (list === "chats" && homeItems.length === 0) return (
       <EmptyState
         icon="chat"
-        title="No conversations yet."
+        title={t("No conversations yet.")}
         body={firstChatHint}
         action={
           <View style={layout.row}>
-            <Button label="New message" icon="compose" onPress={() => go("new-chat")} />
-            <Button label="My QR code" variant="ghost" onPress={() => go("account")} />
+            <Button label={t("New message")} icon="compose" onPress={() => go("new-chat")} />
+            <Button label={t("My QR code")} variant="ghost" onPress={() => go("account")} />
           </View>
         }
       />
@@ -4289,13 +5076,13 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (list === "groups" && groups.length === 0 && groupInvitations.length === 0) return (
       <EmptyState
         icon="groups"
-        title="No groups yet."
-        body={`Start one, or ask a member to invite\u00A0@${ownUsername}.`}
+        title={t("No groups yet.")}
+        body={t("Start one, or ask a member to invite\u00A0@{ownUsername}.", { ownUsername })}
         action={
           <View style={layout.row}>
-            <Button label="Create group" icon="plus" onPress={createNewGroup} />
-            <Button label="Join a community" variant="ghost" onPress={() => openScanner("community")} />
-            <Button label="Join with a code" variant="ghost" onPress={showGroupKeyPackage} />
+            <Button label={t("Create group")} icon="plus" onPress={createNewGroup} />
+            <Button label={t("Join a community")} variant="ghost" onPress={() => openScanner("community")} />
+            <Button label={t("Join with a code")} variant="ghost" onPress={showGroupKeyPackage} />
           </View>
         }
       />
@@ -4303,22 +5090,22 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     return list === "chats" ? (
       <EmptyState
         icon="chat"
-        title="Your messages"
-        body="Choose a conversation from the sidebar."
+        title={t("Your messages")}
+        body={t("Choose a conversation from the sidebar.")}
         action={
-          <Button label="New message" icon="compose" onPress={() => go("new-chat")} />
+          <Button label={t("New message")} icon="compose" onPress={() => go("new-chat")} />
         }
       />
     ) : (
       <EmptyState
         icon="groups"
-        title="Your groups"
-        body="Choose a group from the sidebar."
+        title={t("Your groups")}
+        body={t("Choose a group from the sidebar.")}
         action={
           <View style={layout.row}>
-            <Button label="Create group" icon="plus" onPress={createNewGroup} />
-            <Button label="Join a community" variant="ghost" onPress={() => openScanner("community")} />
-            <Button label="Join with a code" variant="ghost" onPress={showGroupKeyPackage} />
+            <Button label={t("Create group")} icon="plus" onPress={createNewGroup} />
+            <Button label={t("Join a community")} variant="ghost" onPress={() => openScanner("community")} />
+            <Button label={t("Join with a code")} variant="ghost" onPress={showGroupKeyPackage} />
           </View>
         }
       />
@@ -4348,8 +5135,8 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           tabs={
             <SegmentedControl
               segments={[
-                { key: "chats", title: "Chats", icon: "chat", badge: chatBadgeCount },
-                { key: "groups", title: "Groups", icon: "groups", badge: groupBadgeCount },
+                { key: "chats", title: t("Chats"), icon: "chat", badge: chatBadgeCount },
+                { key: "groups", title: t("Groups"), icon: "groups", badge: groupBadgeCount },
               ]}
               current={sidebarList}
               onSelect={(key) => go(key === "chats" ? "home" : "groups")}
@@ -4359,7 +5146,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
             chats ? (
               <IconButton
                 name="compose"
-                label="New conversation"
+                label={t("New conversation")}
                 variant="tonal"
                 size={chrome.sidebarControl}
                 onPress={() => go("new-chat")}
@@ -4369,12 +5156,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
                 {/* The strip fits two actions; a group code is offered in the pane beside it. */}
                 <IconButton
                   name="link"
-                  label="Join a community"
+                  label={t("Join a community")}
                   variant="tonal"
                   size={chrome.sidebarControl}
                   onPress={() => openScanner("community")}
                 />
-                <IconButton name="plus" label="Create group" variant="tonal" size={chrome.sidebarControl} onPress={createNewGroup} />
+                <IconButton name="plus" label={t("Create group")} variant="tonal" size={chrome.sidebarControl} onPress={createNewGroup} />
               </>
             )
           }
@@ -4385,6 +5172,12 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
   }
 
   function renderScreen() {
+    if (profileLoadProblem) return <Page header={<Header title={t("Finish signup")} />}><ScrollView contentContainerStyle={layout.content}>
+      <Notice tone="error" text={t("Your saved signup could not be loaded. Retry before continuing.")} />
+      <Button label={t("Retry")} onPress={() => { setProfileLoadProblem(false); setInitialLoading(true); setProfileLoadAttempt(value => value + 1); }} />
+    </ScrollView></Page>;
+    if (draftPending && profile && screen !== "credits") return <CreditSignupScreen services={services} database={databasePath} profile={profile} mode={signupDraft as 1 | 2}
+      onProfile={setProfile} onBuyCredits={() => go("credits")} onComplete={finishPaidSignup} onFree={finishFreeDraft} />;
     if (onboardingActive)
       return onboardingStep === "profile" ? renderProfileSetup() : renderWelcome();
     if (screen === "link-device" && linkRequest) return renderLinkDevice(linkRequest);
@@ -4392,6 +5185,18 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
     if (screen === "new-chat") return renderNewChat();
     if (screen === "account" && profile) return renderAccount(profile);
     if (screen === "settings") return renderSettings();
+    if (screen === 'backup-export' && profile && services.backups.kind === 'available') return <BackupExportScreen
+      key={accountProfileIdentity(profile)} capability={services.backups} action={{ databasePath, expectedProfile: profile }} pendingLabels={pendingBackupExportLabels(t, locale)}
+      choices={[
+        ...conversations.map(conversation => ({ scope: { kind: 'direct' as const, id: conversation.conversationId }, label: contactName(conversation) })),
+        ...groups.map(group => ({ scope: { kind: 'group' as const, id: group.groupId }, label: groupName(group.groupId) })),
+      ]} onBack={() => go('settings')} />;
+    if (screen === 'backups' && profile && services.backups.kind === 'available') return <Page header={<Header title={t('Backups')} onBack={() => go('settings')} />}>
+      <BackupArchiveScreen key={accountProfileIdentity(profile)} scope={services.backups.scope} services={services.backups.operations}
+        action={{ databasePath, expectedProfile: profile }} chooseBackupSource={services.backups.files.chooseBackupSource}
+        discardBackupSource={services.backups.files.discardBackupSource} saveAttachmentFile={saveAttachmentFile} labels={backupArchiveLabels(t)} locale={locale} onClose={() => go('settings')} />
+    </Page>;
+    if (screen === "credits") return <CreditsScreen services={services} database={databasePath} onBack={() => go(draftPending ? "home" : "settings")} />;
     if (screen === "devices") return renderDevices();
     if (screen === "link-authorization" && linkAuthorization)
       return renderLinkAuthorization(linkAuthorization);
@@ -4409,16 +5214,14 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
 
   const ready = fontsReady && !initialLoading;
   const screenKey: ScreenKey = onboardingActive
-    ? onboardingStep === "profile"
+    ? draftPending || onboardingStep === "profile"
       ? "onboarding-profile"
       : "onboarding"
     : screen;
+  // Screens with a composer make room for the keyboard themselves (see Page);
+  // every other screen scrolls its form instead.
   const pane = (
-    // Keyboard frames are in screen coordinates but the pane starts under the
-    // top inset, which the view's own layout frame leaves out.
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "web" ? undefined : "padding"}
-      keyboardVerticalOffset={initialWindowMetrics?.insets.top ?? 0}
+    <View
       style={[layout.flex, isDesktop && screenKey === "onboarding" && styles.desktopOnboarding]}
       onLayout={({ nativeEvent: { layout: { x, y } } }) => setPaneOffset({ x, y })}
     >
@@ -4430,7 +5233,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       >
         {renderScreen()}
       </ScreenTransition>
-    </KeyboardAvoidingView>
+    </View>
   );
   // Status floats over the foot of the pane, clear of a composer or the tab
   // bar. Every error can be dismissed; an action's error goes first, then
@@ -4441,25 +5244,48 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       busy={busy && !error}
       error={error.length > 0 || shownSyncError.length > 0}
       onDismiss={() => (error ? setError("") : setDismissedSyncError(syncError))}
-      lift={mainScreen && !split ? chrome.tabBarSpace : composerHeight}
+      lift={mainScreen && !split ? 0 : composerHeight}
     />
   );
+  const keyLogWarning = !profile || preview ? null
+    : forkEvidence
+      ? { text: t("Your device found conflicting signed key logs. New chats and key changes are paused. Existing chats can continue."), details: () => setShowForkDetails(true) }
+      : anchorObservation && describeAnchorObservation(anchorObservation.status).blocking
+        ? { text: t("{problem}. New chats and key changes are paused. Existing chats can continue.", { problem: describeAnchorObservation(anchorObservation.status).title }), details: () => setShowAnchorDetails(true) }
+        : null;
   const main = (
     <View style={layout.flex} onLayout={({ nativeEvent: { layout: { x, y, height } } }) => setMainFrame({ x, y, height })}>
-      {pane}
+      {keyLogWarning ? (
+        // The warning takes the status bar's place at the top. The screen's
+        // header still covers a status bar's height of its own, which rests
+        // on the warning's foot, kept empty for it.
+        <View style={[layout.contentTight, styles.keyLogBanner, !isDesktop && styles.keyLogBannerPhone]}>
+          <Notice tone="error" text={keyLogWarning.text} />
+          <Button label={t("Details")} variant="ghost" onPress={keyLogWarning.details} />
+        </View>
+      ) : null}
+      {profile && !preview && postageTriggers.length > 0 ? <View style={layout.contentTight}>
+        <Button label={t("Review queued postage")} variant="secondary" onPress={() => setShowPostage(true)} />
+      </View> : null}
+      <View style={[layout.flex, keyLogWarning && !isDesktop && { marginTop: -chrome.status }]}>
+        {pane}
+      </View>
       {statusPill}
     </View>
   );
   return (
-    <SafeAreaProvider style={styles.screen}>
+    <>
       {ready ? <>
       <StatusBar style={statusBar} />
       <SafeAreaView
-        edges={
-          mainScreen
-            ? ["top", "left", "right"]
-            : ["top", "left", "right", "bottom"]
-        }
+        // A phone's screens run on under the status bar, beneath their
+        // headers' fade; the desktop window has no such strip.
+        edges={[
+          ...(isDesktop ? ["top" as const] : []),
+          "left",
+          "right",
+          ...(mainScreen ? [] : ["bottom" as const]),
+        ]}
         style={[styles.screen, split && styles.split]}
       >
         <Wallpaper />
@@ -4475,13 +5301,32 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
           {isDesktop && screenKey === "onboarding" ? <DragStrip /> : null}
           {mainScreen && !split ? (
             <TabBar
-              tabs={tabs.map((tab) => ({ ...tab, badge: tab.key === "home" ? chatBadgeCount : tab.key === "groups" ? groupBadgeCount : 0 }))}
+              tabs={tabs.map((tab) => ({ ...tab, title: t(tab.title), badge: tab.key === "home" ? chatBadgeCount : tab.key === "groups" ? groupBadgeCount : 0 }))}
               current={screen as (typeof tabs)[number]["key"]}
               onSelect={go}
             />
           ) : null}
         </WallpaperFrame.Provider>
       </SafeAreaView>
+      {renderLanguageDialog()}
+      <Dialog visible={showBounty} label={t("Fork bounties")} onClose={() => setShowBounty(false)}>
+        <ScrollView contentContainerStyle={layout.content}>
+          <Text style={type.title2}>{t("Fork bounties")}</Text>
+          {showBounty ? <BountyPanel services={services} database={databasePath} /> : null}
+        </ScrollView>
+      </Dialog>
+      <Dialog visible={showPostage} label={t("Queued postage")} onClose={() => setShowPostage(false)}>
+        <ScrollView contentContainerStyle={layout.content}>
+          <Text style={type.title2}>{t("Queued postage")}</Text>
+          {showPostage ? <PostagePanel services={services} database={databasePath} triggers={postageTriggers} onSettled={postageSettled} /> : null}
+        </ScrollView>
+      </Dialog>
+      <Dialog visible={showPostagePolicy} label={t("Inbox postage")} onClose={() => setShowPostagePolicy(false)}>
+        <ScrollView contentContainerStyle={layout.content}>
+          <Text style={type.title2}>{t("Inbox postage")}</Text>
+          {showPostagePolicy && profile ? <PostagePolicy services={services} key={accountProfileIdentity(profile)} database={databasePath} accountId={parseProfileSummary(profile).accountId} publicProfile={profile} /> : null}
+        </ScrollView>
+      </Dialog>
       {nameEditor ? (
         <Dialog visible label={nameEditorTitle} onClose={() => { if (!busy) setNameEditor(null); }}>
           <ScrollView contentContainerStyle={styles.nameEditor} keyboardShouldPersistTaps="handled">
@@ -4490,29 +5335,79 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
               label={nameEditorTitle}
               value={nameEditor.value}
               onChangeText={(value) => setNameEditor({ ...nameEditor, value })}
-              placeholder={editingNickname ? "What you call them" : ownUsername}
+              placeholder={editingNickname ? t("What you call them") : ownUsername}
               maxLength={96}
               autoFocus
               hint={editingNickname
-                ? "Only you see this, on this device. Leave blank to use their shared name."
-                : "Shared with your next message. Leave blank to use your username."}
+                ? t("Only you see this, on this device. Leave blank to use their shared name.")
+                : t("Shared with your next message. Leave blank to use your username.")}
             />
             {nameError ? <Notice text={nameError} tone="error" /> : null}
             <Actions>
-              <Button label="Save" onPress={saveName} disabled={busy || preview !== null} />
-              <Button label="Cancel" variant="ghost" disabled={busy} onPress={() => setNameEditor(null)} />
+              <Button label={t("Save")} onPress={saveName} disabled={busy || preview !== null} />
+              <Button label={t("Cancel")} variant="ghost" disabled={busy} onPress={() => setNameEditor(null)} />
             </Actions>
           </ScrollView>
         </Dialog>
       ) : null}
-      <Modal visible={pendingConfirm !== null} transparent onRequestClose={() => setPendingConfirm(null)}>
+      <Dialog visible={showAnchorDetails} label={t("Public checkpoint")} onClose={() => setShowAnchorDetails(false)}>
+        {anchorObservation ? (
+          <ScrollView contentContainerStyle={styles.nameEditor}>
+            <Text accessibilityRole="header" style={type.title2}>{describeAnchorObservation(anchorObservation.status).title}</Text>
+            <Text style={type.body}>{describeAnchorObservation(anchorObservation.status).detail}</Text>
+            {showAnchorDetails ? <AnchorCheckpointTime blockTime={anchorObservation.blockTime} /> : null}
+            {anchorObservation.contextSlot !== "0" ? (
+              <Text selectable style={type.caption}>Finalized slot {anchorObservation.contextSlot}{"\n"}Checkpoint slot {anchorObservation.postedSlot}</Text>
+            ) : null}
+            <Text style={type.footnote}>{t("Check results stay on this device. Proof requests do not include your contacts.")}</Text>
+          </ScrollView>
+        ) : null}
+      </Dialog>
+      <Dialog visible={showNetworkCounter} label={t("Network")} onClose={() => setShowNetworkCounter(false)}>
+        {showNetworkCounter ? <NetworkCounter services={services} database={databasePath} /> : null}
+      </Dialog>
+      <Dialog visible={showForkDetails} label={t("Key log evidence")} onClose={() => setShowForkDetails(false)}>
+        <ScrollView contentContainerStyle={styles.nameEditor}>
+          <Text accessibilityRole="header" style={type.title2}>{t("Conflicting signed checkpoints")}</Text>
+          <Text style={type.body}>{t("Your device verified conflicting signed checkpoints and kept the proof on this device.")}</Text>
+          <Text style={type.body}>{filingDescription.detail}</Text>
+          {filingError ? <Text style={type.body}>{t("Filing status could not be loaded. The evidence is still retained; your device will retry.")}</Text> : null}
+          {filingDescription.acknowledgments ? <Text style={type.footnote}>{filingDescription.acknowledgments}</Text> : null}
+          {filingDescription.payment && filingObservation ? (
+            <Text selectable style={type.caption}>Paid: {filingDescription.payment}{"\n"}Finder: {filingObservation.paidFinder}{"\n"}Mint: {filingObservation.mint}{"\n"}Finalized slot: {filingObservation.contextSlot}</Text>
+          ) : null}
+          {filingObservation?.proofHash ? <Text selectable style={type.caption}>Proof: {filingObservation.proofHash}</Text> : null}
+          <Button label={t("Save evidence file")} onPress={() => {
+            void saveAttachmentFile("morse-fork.frk", "application/octet-stream", fromHex(forkEvidence))
+              .then(saved => { if (saved) setStatus(t("Evidence file saved")); })
+              .catch(caught => setError(friendlyError(caught)));
+          }} />
+          <Button label={t("Copy evidence")} onPress={() => { void services.copyProtectedText(forkEvidence).then(() => setStatus(t("Evidence copied as FRK hexadecimal")), caught => setError(friendlyError(caught))); }} />
+          <Text selectable style={type.caption}>{forkEvidence}</Text>
+        </ScrollView>
+      </Dialog>
+      <Dialog visible={savedUploadsScope !== null} label={t("Saved large uploads")} onClose={() => setSavedUploadsScope(null)}>
+        <ScrollView contentContainerStyle={layout.content}>
+          <Text style={type.title2}>{t("Saved large uploads")}</Text>
+          {savedUploadsScope !== null ? <PaidUploadList services={services} database={databasePath} onSelect={row => {
+            const scope = savedUploadsScope;
+            if (!scope) return;
+            const limit = attachmentSelectionLimit([row.size], stagedFor(scope).length);
+            if (limit) { setError(limit); return; }
+            if (stagedFor(scope).some(entry => entry.upload.nonce && hex(entry.upload.nonce) === hex(row.nonce))) { setSavedUploadsScope(null); return; }
+            updateStaged([...stagedRef.current, { id: `staged-${stagedSerial.current++}`, scope, upload: savedAttachmentUpload(row) }]);
+            setSavedUploadsScope(null);
+          }} /> : null}
+        </ScrollView>
+      </Dialog>
+      <Modal visible={pendingConfirm !== null} transparent animationType="fade" onRequestClose={() => { pendingConfirm?.cancel?.(); setPendingConfirm(null); }}>
         <View style={styles.confirmOverlay}>
           <Card style={styles.confirmCard}>
             <Text style={type.title2}>{pendingConfirm?.title}</Text>
             <Text style={type.body}>{pendingConfirm?.body}</Text>
             <View style={styles.confirmActions}>
-              <Button label="Cancel" variant="secondary" onPress={() => setPendingConfirm(null)} />
-              <Button label={pendingConfirm?.action ?? ""} variant="danger" onPress={() => {
+              <Button label={t("Cancel")} variant="secondary" onPress={() => { pendingConfirm?.cancel?.(); setPendingConfirm(null); }} />
+              <Button label={pendingConfirm?.action ?? ""} variant={pendingConfirm?.primary ? "primary" : "danger"} onPress={() => {
                 pendingConfirm?.run();
                 setPendingConfirm(null);
               }} />
@@ -4522,7 +5417,7 @@ export default function App({ windowsPreview = false, onWindowsPreviewChange, on
       </Modal>
       </> : null}
       <StartupScreen ready={ready} fontsReady={fontsReady} />
-    </SafeAreaProvider>
+    </>
   );
 }
 
@@ -4558,6 +5453,34 @@ const useStyles = themed(({ colors, type, space, radius, size, elevation }) => S
   // An alert's measure: wide enough for a sentence, never a full pane.
   confirmCard: { maxWidth: 420, width: "100%", gap: space[4] },
   nameEditor: { paddingHorizontal: space[5], gap: space[4] },
+  // The language sheet. Each choice is a wash of the text colour, so it
+  // stands off whatever is behind it, glass or the sheet's own pane; the
+  // chosen one is the accent with white words, as a sent message is.
+  languageSheet: { paddingHorizontal: space[4], paddingBottom: space[2], gap: space[2] },
+  languageTitle: { paddingHorizontal: space[1], marginBottom: space[2] },
+  languageChoice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    minHeight: controls["4xl"],
+    paddingHorizontal: space[4],
+    paddingVertical: space[2.5],
+    borderRadius: radius["2xl"],
+    backgroundColor: withAlpha(colors.text, 0.08),
+  },
+  languageChoiceChosen: { backgroundColor: colors.accent },
+  languageGap: { height: space[2] },
+  languageGreeting: { ...type.headline, color: colors.text },
+  languageChosenText: { color: colors.onAccent },
+  languageChosenMuted: { color: colors.onAccentMuted },
+  // Over the welcome's top corner, clear of the status bar or window buttons.
+  languageCorner: {
+    position: "absolute",
+    top: isDesktop ? TOOLBAR_HEIGHT : chrome.status + space[2],
+    right: isDesktop ? space[6] : space[4],
+  },
+  keyLogBanner: { flexGrow: 0, paddingTop: space[3], paddingBottom: space[3], gap: space[1] },
+  keyLogBannerPhone: { paddingTop: chrome.status + space[3], paddingBottom: chrome.status + space[3] },
   // A desktop alert puts its buttons in a row with the confirming action last.
   confirmActions: isDesktop
     ? { flexDirection: "row", justifyContent: "flex-end", gap: space[2], marginTop: space[1] }
@@ -4567,7 +5490,7 @@ const useStyles = themed(({ colors, type, space, radius, size, elevation }) => S
   welcome: {
     flexGrow: 1,
     paddingHorizontal: space[6],
-    paddingTop: space[3],
+    paddingTop: chrome.status + space[3],
     paddingBottom: space[4],
   },
   // Words on the left, the picture on the right, the pair centred in the

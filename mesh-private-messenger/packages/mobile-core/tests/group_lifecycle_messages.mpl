@@ -1,11 +1,10 @@
+from Tests.PresentationFixture import fixture_load_presentation, fixture_save_presentation
+from Tests.HistoryFixture import fixture_group_history
 from MobileCore import (
   group_add_export,
-  group_history_export,
   group_key_package_export,
   group_receive_export,
   group_send_export,
-  presentation_save_export,
-  presentation_load_export,
   process_delivery_batch_export
 )
 from Protocol.EnvelopeWire import encode_outer_envelope
@@ -93,7 +92,7 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture,
     "linked welcome receive mismatch")?
   let group_key = Bytes.from_utf8("group/" <> Bytes.to_hex(group_id))
   let group_presentation = group_vectors([Bytes.from_utf8("Weekend walks"), Bytes.empty()])?
-  case presentation_save_export(group_vectors([
+  case fixture_save_presentation(group_vectors([
     Bytes.from_utf8(accounts.bob_path),
     group_key,
     group_presentation
@@ -102,7 +101,7 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture,
     Err(error) -> group_messages_ensure(error == "group_creator_required",
       "wrong group permission error")?
   end
-  presentation_save_export(group_vectors([
+  fixture_save_presentation(group_vectors([
     Bytes.from_utf8(accounts.alice_path),
     group_key,
     group_presentation
@@ -113,7 +112,7 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture,
     Bytes.from_utf8("alice"),
     Bytes.from_utf8("data:image/jpeg;base64,/9j/2Q==")
   ])?
-  presentation_save_export(group_vectors([
+  fixture_save_presentation(group_vectors([
     Bytes.from_utf8(accounts.alice_path),
     presentation_key,
     presentation
@@ -136,7 +135,7 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture,
       bob_greeting_batch
     ])?)?) == 0,
     "future greeting was not deferred")?
-  group_messages_ensure(List.length(output_list(group_history_export(group_vectors([
+  group_messages_ensure(List.length(output_list(fixture_group_history(group_vectors([
       Bytes.from_utf8(accounts.bob_path),
       group_id
     ])?)?)?) == 0,
@@ -156,7 +155,7 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture,
   group_messages_ensure(Bytes.secure_equals(List.head(bob_greeting_ack.envelope_ids),
       outer(bob_greeting)?.envelope_id),
     "bob greeting acknowledgement mismatch")?
-  let bob_greeting_history = output_list(group_history_export(group_vectors([
+  let bob_greeting_history = output_list(fixture_group_history(group_vectors([
     Bytes.from_utf8(accounts.bob_path),
     group_id
   ])?)?)?
@@ -167,7 +166,7 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture,
   group_messages_ensure(List.length(bob_greeting_record) == 10
       && Bytes.length(List.get(bob_greeting_record, 8)) == 32,
     "group history must expose a stable message ID")?
-  let alice_greeting_history = output_list(group_history_export(group_vectors([
+  let alice_greeting_history = output_list(fixture_group_history(group_vectors([
     Bytes.from_utf8(accounts.alice_path),
     group_id
   ])?)?)?
@@ -177,13 +176,13 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture,
     "sender and recipient group message IDs differ")?
   group_messages_ensure(Bytes.secure_equals(List.get(bob_greeting_record, 6), greeting),
     "bob greeting history body mismatch")?
-  group_messages_ensure(Bytes.secure_equals(presentation_load_export(group_vectors([
+  group_messages_ensure(Bytes.secure_equals(fixture_load_presentation(group_vectors([
         Bytes.from_utf8(accounts.bob_path),
         presentation_key
       ])?)?,
       presentation),
     "sender presentation did not travel with the encrypted message")?
-  group_messages_ensure(Bytes.secure_equals(presentation_load_export(group_vectors([
+  group_messages_ensure(Bytes.secure_equals(fixture_load_presentation(group_vectors([
         Bytes.from_utf8(accounts.bob_path),
         group_key
       ])?)?,
@@ -209,7 +208,7 @@ pub fn exercise_linked_greeting(accounts :: GroupAccountFixture,
     Bytes.from_utf8(accounts.linked_path),
     envelope_for(announcement, accounts.linked_entry.mailbox_token, 0)?
   ])?)?
-  group_messages_ensure(List.length(output_list(group_history_export(group_vectors([
+  group_messages_ensure(List.length(output_list(fixture_group_history(group_vectors([
       Bytes.from_utf8(accounts.bob_path),
       group_id
     ])?)?)?) == 1,
@@ -220,7 +219,7 @@ end
 
 pub fn exercise_group_message_boundary(accounts :: GroupAccountFixture,
   group_id :: Bytes) -> Bool!String do
-  let maximum = repeated(97, 65290)?
+  let maximum = repeated(97, 65237)?
   let maximum_output = group_send_export(group_vectors([
     Bytes.from_utf8(accounts.alice_path),
     group_id,
@@ -244,11 +243,23 @@ pub fn exercise_group_message_boundary(accounts :: GroupAccountFixture,
       ])?)?,
       maximum),
     "linked maximum receive mismatch")?
+  # The byte-bounded history must keep the newest valid maximum-size message,
+  # even when older messages must be removed to fit its single sealed value.
+  for path in [accounts.alice_path, accounts.bob_path, accounts.linked_path] do
+    let history = output_list(fixture_group_history(group_vectors([
+      Bytes.from_utf8(path),
+      group_id
+    ])?)?)?
+    group_messages_ensure(List.length(history) > 0, "maximum group history was discarded")?
+    let newest = output_list(List.get(history, List.length(history) - 1))?
+    group_messages_ensure(Bytes.secure_equals(List.get(newest, 6), maximum),
+      "maximum group body was not retained")?
+  end
   acknowledge(accounts.alice_path, maximum_deliveries, 0)?
   case group_send_export(group_vectors([
     Bytes.from_utf8(accounts.alice_path),
     group_id,
-    repeated(98, 65291)?
+    repeated(98, 65238)?
   ])?) do
     Ok(_) -> Err("oversized group message was accepted")?
     Err(error) -> group_messages_ensure(error == "group_message_too_large",

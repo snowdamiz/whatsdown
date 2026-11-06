@@ -1,3 +1,5 @@
+from Session.HeaderRatchet import he_header_matches
+from Session.State import RatchetState, RatchetError, RatchetMessage
 from Groups.Mls import GroupError
 from Identity.Device import (
   AccountKeys,
@@ -26,7 +28,13 @@ from Mobile.DeviceSet import device_set_label, verified_device_set
 from Mobile.FanoutPrekeys import fanout_prekey_claim_label, fanout_prekey_reservation_label
 from Mobile.Inbox import permanent_direct_delivery_error
 from Mobile.InboxState import inbox_state_writes, load_delivery_attempts, load_fetch_cursor
-from Mobile.Platform import expo_project_id, expo_registration_body, parse_expo_raw_token
+from Mobile.Platform import (
+  expo_project_id,
+  expo_registration_body,
+  parse_expo_raw_token,
+  native_security_config
+)
+from Transparency.Config import SecurityConfig
 from Mobile.Prekeys import load_prekey_pool
 from Mobile.Renewal import renew_devices_at
 from Mobile.Profile import (
@@ -55,6 +63,10 @@ from Mobile.Requests import (
 )
 from Mobile.Sessions import (
   find_peer_session,
+  find_device_session,
+  load_session_record,
+  session_uses_headers,
+  restore_session,
   initial_bytes,
   inner_bytes,
   load_session_ids,
@@ -65,6 +77,7 @@ from Mobile.Sessions import (
   updated_session_record
 )
 from Mobile.Transparency import (
+  legacy_witness_set_id,
   encode_verified_transparency_set,
   load_transparency_view,
   transparency_checkpoint_in_view,
@@ -108,7 +121,6 @@ from Protocol.V1 import (
   PrekeyBundle
 )
 from Session.Handshake import (
-  RatchetState,
   SessionError,
   initiate,
   is_retryable_session_crypto_error,
@@ -116,11 +128,10 @@ from Session.Handshake import (
   receive_initial
 )
 from Session.Ratchet import (
-  RatchetError,
-  RatchetMessage,
   decode_ratchet_message,
   encode_ratchet_message,
   encrypt,
+  encrypt_sealed,
   is_retryable_ratchet_error,
   ratchet_open_error,
   skipped_key_error
@@ -171,7 +182,9 @@ pub fn remove_safety_binding_for_test(database_path :: String,
     load_session_ids(database_path, wrapping_key)?,
     0)?
   let record = updated_session_record(loaded.record.snapshot, %{loaded.record | verified: true})?
-  let legacy = Bytes.slice(record, 0, Bytes.length(record) - 68)?
+  # Drop both newer trailing vectors to reproduce the original stored record.
+  let trailing = 68 + 4 + Bytes.length(loaded.record.peer_transport_key)
+  let legacy = Bytes.slice(record, 0, Bytes.length(record) - trailing)?
   let blob = seal_local(legacy, wrapping_key, local_context(loaded.label)?)?
   store_updated_session(database_path, loaded.label, blob)?
   Ok(true)
@@ -205,6 +218,34 @@ pub fn install_group_checkpoint_for_test(database_path :: String,
   Ok(true)
 end
 
+# This fixture installs trusted evidence directly, so it also supplies the
+# matching native trust resource. Keep any test's existing delivery pins.
+fn install_group_native_config(service_key :: Bytes,
+  witness_a :: Bytes,
+  witness_b :: Bytes) -> Result<(), String> do
+  let (delivery, difficulty) = case native_security_config() do
+    Ok(config) -> Ok((config.delivery_public_key, config.abuse_difficulty))
+    Err(_) -> case Crypto.x25519_generate() do
+      Err(_) -> Err("test delivery key generation failed")
+      Ok(pair) -> Ok((pair.public_key.bytes, 8))
+    end
+  end?
+  let frame = String.join([
+      "1",
+      Bytes.to_hex(service_key),
+      Bytes.to_hex(witness_a),
+      Bytes.to_hex(witness_b),
+      Bytes.to_hex(delivery),
+      Int.to_string(difficulty)
+    ],
+    "\n")
+  if Test.set_push_token(Bytes.from_utf8("messenger/config/v1"), Bytes.from_utf8(frame)) do
+    Ok(nil)
+  else
+    Err("test security config installation failed")
+  end
+end
+
 pub fn install_group_transparency_for_test(database_path :: String,
   encoded_checkpoint :: Bytes,
   encoded_consistency :: Bytes,
@@ -217,12 +258,13 @@ pub fn install_group_transparency_for_test(database_path :: String,
     checkpoint: encoded_checkpoint,
     consistency: encoded_consistency,
     service_public_key: service_public_key,
-    witness_a_public_key: witness_a_public_key,
-    witness_b_public_key: witness_b_public_key
+    set_id: legacy_witness_set_id(witness_a_public_key, witness_b_public_key)?,
+    witness_threshold: 2
   }
   if !(transparency_checkpoint_in_view(encoded_checkpoint, view)?) do
     Err("invalid_transparency_view")
   else
+    install_group_native_config(service_public_key, witness_a_public_key, witness_b_public_key)?
     ensure_schema(database_path)?
     let wrapping_key = platform_key()?
     let checkpoint_label = "transparency-checkpoint/v1"
@@ -324,6 +366,42 @@ end
 
 ## The protocol suite inside a sealed envelope: visible to its recipient only.
 
+fn test_suite_for_state(state :: consume RatchetState,
+  message :: RatchetMessage) -> Option<Int>!String do
+  let suite = state.suite
+  let aad = session_aad(state.session_id)?
+  let authenticated = case he_header_matches(state, message, aad) do
+    Err(_) -> Err("test_header_authentication_failed")
+    Ok(value)
+  end?
+  Ok(if authenticated do
+    Some(suite)
+  else
+    None
+  end)
+end
+
+fn test_private_ratchet_suite(path :: String,
+  key :: borrow StorageKey,
+  message :: RatchetMessage,
+  ids :: List<Bytes>,
+  index :: Int) -> Int!String do
+  if index >= List.length(ids) do
+    return Err("test_header_session_not_found")
+  end
+  let loaded = load_session_record(path, key, List.get(ids, index))?
+  if session_uses_headers(loaded.record.snapshot) do
+    case test_suite_for_state(restore_session(loaded, key)?, message)? do
+      Some(suite) -> return Ok(suite)
+      None -> nil
+    end
+  end
+  test_private_ratchet_suite(path, key, message, ids, index + 1)
+end
+
+## Legacy suites remain identity-readable; HE inspection also requires this
+## owned recipient fixture's ratchet secret. No identity-only suite inference.
+
 pub fn test_inner_suite(recipient_path :: String, input :: Bytes) -> Int!String do
   let opened = test_opened_packet(recipient_path, canonical_outer(input)?)?
   case decode_packet(opened.packet) do
@@ -334,7 +412,17 @@ pub fn test_inner_suite(recipient_path :: String, input :: Bytes) -> Int!String 
     end
     Ok(RatchetPacket(message)) -> case decode_ratchet_message(message) do
       Err(_) -> Err("invalid_ratchet_message")
-      Ok(ratchet) -> Ok(ratchet.suite)
+      # The public RAT4 suite is a deliberate placeholder, never suite evidence.
+      Ok(ratchet) -> if ratchet.version == 4 do
+        let key = platform_key()?
+        test_private_ratchet_suite(recipient_path,
+          key,
+          ratchet,
+          load_session_ids(recipient_path, key)?,
+          0)
+      else
+        Ok(ratchet.suite)
+      end
     end
   end
 end
@@ -369,6 +457,48 @@ end
 pub fn test_ratchet_jump_envelope(recipient_path :: String, input :: Bytes) -> Bytes!String do
   let (outer, message) = test_ratchet_outer(recipient_path, input)?
   test_encode_ratchet_outer(recipient_path, outer, %{message | message_number: 65})
+end
+
+# The clear-counter helper above remains the legacy-wire corpus. HE has no
+# mutable clear counter: copy the actual sender snapshot and generate a genuine
+# future authenticated header/body, without committing any sender state.
+fn test_future_ratchet(state :: consume RatchetState,
+  remaining :: Int,
+  aad :: Bytes) -> RatchetMessage!String do
+  let (next, message) = case encrypt_sealed(state, Bytes.from_utf8("future jump fixture"), aad) do
+    Err(_) -> Err("test_future_ratchet_failed")
+    Ok(value)
+  end?
+  if remaining == 0 do
+    Ok(message)
+  else
+    test_future_ratchet(next, remaining - 1, aad)
+  end
+end
+
+pub fn test_sender_ratchet_jump_envelope(sender_path :: String,
+  recipient_path :: String,
+  input :: Bytes) -> Bytes!String do
+  let (outer, message) = test_ratchet_outer(recipient_path, input)?
+  if message.version != 4 do
+    return test_ratchet_jump_envelope(recipient_path, input)
+  end
+  let recipient = decode_client_profile(load_profile(recipient_path)?)?
+  let wrapping = platform_key()?
+  let loaded = find_device_session(sender_path,
+    wrapping,
+    recipient.account_id,
+    recipient.device_id,
+    load_session_ids(sender_path, wrapping)?,
+    0)?
+  let state = restore_session(loaded, wrapping)?
+  if state.version != 2 || state.sent_count < 0 || state.sent_count > 65 do
+    return Err("invalid_test_future_source")
+  end
+  let remaining = 65 - state.sent_count
+  let aad = session_aad(state.session_id)?
+  let future = test_future_ratchet(state, remaining, aad)?
+  test_encode_ratchet_outer(recipient_path, outer, future)
 end
 
 pub fn test_ratchet_tamper_envelope(recipient_path :: String, input :: Bytes) -> Bytes!String do
@@ -511,11 +641,11 @@ pub fn direct_delivery_classification_for_test() -> Bool do
   let session = is_retryable_session_crypto_error(InternalFailure)
     && !is_retryable_session_crypto_error(InvalidPublicKey)
     && is_retryable_session_error(PrekeyFailure(InvalidBundle))
-  let ratchet = is_retryable_ratchet_error(CryptoFailure)
-    && !is_retryable_ratchet_error(ExcessiveJump)
-    && !is_retryable_ratchet_error(AuthenticationRejected)
-    && !is_retryable_ratchet_error(Replay)
-    && !is_retryable_ratchet_error(InvalidMessage)
+  let ratchet = is_retryable_ratchet_error(RatchetError.CryptoFailure)
+    && !is_retryable_ratchet_error(RatchetError.ExcessiveJump)
+    && !is_retryable_ratchet_error(RatchetError.AuthenticationRejected)
+    && !is_retryable_ratchet_error(RatchetError.Replay)
+    && !is_retryable_ratchet_error(RatchetError.InvalidMessage)
   let skipped = !is_retryable_ratchet_error(skipped_key_error(InvalidKey))
     && is_retryable_ratchet_error(skipped_key_error(InternalFailure))
   let opened = !is_retryable_ratchet_error(ratchet_open_error(AuthenticationFailed))

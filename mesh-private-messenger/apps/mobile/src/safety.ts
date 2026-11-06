@@ -1,4 +1,5 @@
 import type { Conversation } from './codec.ts';
+import { t } from './i18n.ts';
 
 // What the safety number card says about a conversation: the tone of its
 // glyph, the state in a few words, the sentence under the card, and whether
@@ -21,33 +22,33 @@ export function describeSafety(
   if (keyChanged) {
     return {
       tone: 'warning',
-      status: 'Changed',
+      status: t('Changed'),
       note: ready
-        ? `@${username}’s devices changed, so this number did too. Compare it again before you trust this conversation.`
-        : `@${username}’s devices changed. A new number appears here once you’ve exchanged a message.`,
+        ? t('@{username}’s devices changed, so this number did too. Compare it again before you trust this conversation.', { username })
+        : t('@{username}’s devices changed. A new number appears here once you’ve exchanged a message.', { username }),
       verifiable: ready,
     };
   }
   if (!ready) {
     return {
       tone: 'muted',
-      status: 'Not ready',
-      note: `It appears here once you’ve exchanged a message with @${username}.`,
+      status: t('Not ready'),
+      note: t('It appears here once you’ve exchanged a message with @{username}.', { username }),
       verifiable: false,
     };
   }
   if (verified) {
     return {
       tone: 'success',
-      status: 'Verified on this device',
-      note: 'You’ll be warned if it ever changes.',
+      status: t('Verified on this device'),
+      note: t('You’ll be warned if it ever changes.'),
       verifiable: false,
     };
   }
   return {
     tone: 'muted',
-    status: 'Not verified',
-    note: `Compare with @${username} in person or through a channel you already trust. It reads the same on both of your screens.`,
+    status: t('Not verified'),
+    note: t('Compare with @{username} in person or through a channel you already trust. It reads the same on both of your screens.', { username }),
     verifiable: true,
   };
 }

@@ -65,10 +65,11 @@ becomes material.
 
 ## Stamped directory requests
 
-Device registration, device lookup and prekey claim are anonymous. The backend
-never sees a network address, because the Worker forwards no client headers,
-and a limit keyed on the name being registered or looked up would let anyone
-lock a victim out of their own name. These three requests therefore cost the
+Device registration, device lookup and prekey claim do not require an account
+credential. Their current service endpoint and TLS platform still see the
+caller's connection IP and timing, even though the Worker strips client headers
+before forwarding internally. A limit keyed on the name being registered or
+looked up would let anyone lock a victim out of their own name. These three requests therefore cost the
 caller work instead. Signed requests (prekey publication, mailbox fetch and
 acknowledgement, revocation, push binding) are already attributable to a device
 and carry no stamp.
@@ -127,7 +128,7 @@ The separation is real only when the edge and the delivery core are separate
 deployments: the edge sees the source connection and must never hold the
 delivery core's static private key; the delivery core holds that key and must
 never see the source connection. The production build therefore deploys the
-edge on its own with a single secret (its bearer credential), and the backend
+edge on its own with its bearer credential, and the backend
 without any edge. A combined deployment, used for local development, provides
 no such separation. One operator controlling both deployments, or the platform
 terminating TLS for both, can still correlate them by timing; see the
@@ -141,8 +142,11 @@ terminating TLS for both, can still correlate them by timing; see the
   registered only when `MESSENGER_DIRECT_DELIVERY_COMPATIBILITY=enabled`; that
   compatibility flag is forbidden in production.
 - The internal sealed route requires the privacy edge's exact
-  `Authorization: Bearer` credential, compared in constant time, in addition
-  to network policy restricting the route to the edge.
+  `Authorization: Bearer` credential, compared in constant time. That check
+  alone does not restrict the public ingress to the edge. Production requires
+  an additional verified client-certificate boundary and a supported ingress
+  topology. The current Worker-to-Worker route must not be described as
+  network-isolated until that deployment is qualified.
 - Neither service logs request bodies, mailbox tokens, envelope IDs, token
   nonces, hashes, or shared request identifiers.
 

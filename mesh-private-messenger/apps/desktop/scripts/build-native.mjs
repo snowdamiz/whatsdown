@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { desktopConfig } from './config.mjs';
+import { writePlaintextBuildEvidence } from '../../../ops/plaintext/report.mjs';
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url));
 const native = fileURLToPath(new URL('../src-tauri/native/', import.meta.url));
@@ -20,6 +21,11 @@ try {
     '--artifact', 'cdylib', '--output', library], { stdio: 'inherit', env });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Mesh native build failed (${result.status})`);
+  await writePlaintextBuildEvidence({
+    report: `${library}.plaintext.json`,
+    review: fileURLToPath(new URL('../../../protocol/plaintext-disclosures.json', import.meta.url)),
+    compiler: resolve(compiler), artifact: library, output: `${library}.plaintext-evidence.json`,
+  });
   if (process.platform === 'darwin') {
     const version = spawnSync('otool', ['-l', library], { encoding: 'utf8' });
     if (version.status !== 0 || !version.stdout.split('\n').some(line => line.trim() === `minos ${minimumMacOS}`)) {
@@ -28,6 +34,8 @@ try {
   }
   mkdirSync(native, { recursive: true });
   copyFileSync(library, join(native, `libmessenger_mobile.${extension}`));
+  copyFileSync(`${library}.plaintext.json`, join(native, `libmessenger_mobile.${extension}.plaintext.json`));
+  copyFileSync(`${library}.plaintext-evidence.json`, join(native, `libmessenger_mobile.${extension}.plaintext-evidence.json`));
   writeFileSync(join(native, 'config.json'), JSON.stringify(config, null, 2) + '\n');
 } finally {
   rmSync(temp, { recursive: true, force: true });

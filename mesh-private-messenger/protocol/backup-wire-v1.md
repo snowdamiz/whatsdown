@@ -21,6 +21,34 @@ The Argon2 salt input is the ASCII domain `mesh-msg/v1/backup-key` followed by
 the stored random salt. Decoders reject any changed parameter. A future profile
 requires a new version; implementations must not silently weaken version 1.
 
+## User-held recovery code
+
+The development `Backups.Recovery` adapter calls public Mesh
+`RecoveryCode.generate()` to create a new 256-bit opaque recovery secret and
+its display String. `RecoveryCode.parse()` restores the opaque owner from the
+canonical user-held code. Generation cannot export an existing key. The code
+is `MRC1-` followed by nine groups of eight uppercase hexadecimal digits:
+eight encode the secret and the last is a 32-bit transcription checksum.
+The checksum is not authentication or proof of sufficient entropy; generation
+uses operating-system randomness, while a caller can construct a chosen code.
+
+The String deliberately discloses recovery material. The eventual setup UI must
+show it only during creation, require acknowledgement and clear its references;
+it must never log, persist or upload the code. String/JS/native copies cannot
+promise prompt memory erasure. Parsing the code and decrypting an archive do not
+authorize an account or a device. The fixed Argon2id profile above is unchanged.
+
+Host dogfood generates a code, seals a real manifest/chunk, destroys the original
+secret owners, imports the code and authenticates the backup. Wrong valid codes
+fail manifest authentication and malformed codes fail import; correct retries
+remain usable. The existing tamper/index/size/KDF tests also pass. The public
+Mesh source and two Morse adapter/test files are adopted in
+`.morse/d4-recovery-code-adoption-v1/result.json`. The additive
+[portable text-archive codecs](backup-text-archive-v1.md) now provide bounded
+payload and file framing. Guarded core export/import, UI, native and release
+qualification remain unfinished. Raw local SQLite rows and active protocol,
+nonce, prekey or financial state are not a portable backup payload.
+
 ## Sealed manifest
 
 The canonical wrapper is:
@@ -63,6 +91,13 @@ trailing bytes fail closed.
 
 A maximum plaintext chunk seals to 65,552 ciphertext bytes, and its complete
 `BCH` wrapper is therefore at most 65,608 bytes.
+
+The clear framing exposes the KDF profile and salt, backup ID, nonces, chunk
+indices and ciphertext lengths. Subtracting each fixed 16-byte authentication
+tag reveals that chunk's plaintext byte length and, across all chunks, the
+total payload byte length. Backup v1 does not pad those lengths. Record counts,
+names, text and the snapshot hash remain inside the encrypted payload or
+manifest.
 
 The snapshot hash is checked only after every authenticated chunk has been
 reassembled. A successful cryptographic restore does not itself recover account

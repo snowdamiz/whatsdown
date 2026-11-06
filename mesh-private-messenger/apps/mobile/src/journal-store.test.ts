@@ -66,3 +66,64 @@ test('a journal erased underneath the store is written out in full again', async
   await store.save('read-state', { [chat]: ['01'] });
   assert.deepEqual(JSON.parse((await createJournalStore(sealed.load, sealed.save).load('read-state'))!), { [chat]: ['01'] });
 });
+
+test('a delayed load cannot replace the cache of a newer queued write', async () => {
+  const sealed = core();
+  let entered!: () => void, release!: () => void;
+  const reading = new Promise<void>(resolve => { entered = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let blocked = false;
+  const store = createJournalStore(async key => {
+    const value = await sealed.load(key);
+    if (blocked && key === `read-state/${chat}`) { entered(); await gate; }
+    return value;
+  }, sealed.save);
+  await store.save('read-state', { [chat]: ['old'] });
+  blocked = true;
+  const load = store.load('read-state');
+  await reading;
+  const write = store.save('read-state', { [chat]: ['new'] });
+  await new Promise<void>(resolve => setImmediate(resolve));
+  release();
+  await Promise.all([load, write]);
+  await store.save('read-state', { [chat]: ['old'] });
+  assert.deepEqual(JSON.parse(sealed.records.get(`read-state/${chat}`)!), ['old']);
+});
+
+test('queued writes capture their value before caller-owned state changes', async () => {
+  const sealed = core();
+  const store = createJournalStore(sealed.load, sealed.save);
+  const value = { [chat]: ['first'] };
+  const saving = store.save('receipt-marks', value);
+  value[chat]!.push('late mutation');
+  await saving;
+  assert.deepEqual(JSON.parse(sealed.records.get(`receipt-marks/${chat}`)!), ['first']);
+});
+
+test('asynchronous legacy journal migration waits for read then committed removal', async () => {
+  const sealed = core(); const readGate = Promise.withResolvers<string | null>();
+  const removeGate = Promise.withResolvers<void>(); let removes = 0, settled = false;
+  const store = createJournalStore(sealed.load, sealed.save);
+  const reading = store.load('read-state', {
+    read: () => readGate.promise,
+    async remove() { removes++; await removeGate.promise; },
+  }).then(value => { settled = true; return value; });
+  await new Promise<void>(resolve => setImmediate(resolve)); const earlyWrites = sealed.writes.length;
+  readGate.resolve(JSON.stringify({ [chat]: ['01'] }));
+  await new Promise<void>(resolve => setImmediate(resolve)); const earlyFinish = settled;
+  removeGate.resolve(); const result = await reading;
+  assert.equal(earlyWrites, 0); assert.equal(earlyFinish, false); assert.equal(removes, 1);
+  assert.deepEqual(JSON.parse(result!), { [chat]: ['01'] });
+  assert.deepEqual(JSON.parse(sealed.records.get(`read-state/${chat}`)!), ['01']);
+});
+
+test('an existing sealed journal waits for asynchronous legacy removal', async () => {
+  const sealed = core(); const store = createJournalStore(sealed.load, sealed.save);
+  await store.save('read-state', { [chat]: ['01'] });
+  const gate = Promise.withResolvers<void>(); let settled = false;
+  const reading = store.load('read-state', { read: () => { throw Error('sealed_copy_must_win'); }, remove: () => gate.promise })
+    .then(value => { settled = true; return value; });
+  await new Promise<void>(resolve => setImmediate(resolve)); const earlyFinish = settled;
+  gate.resolve(); assert.deepEqual(JSON.parse((await reading)!), { [chat]: ['01'] });
+  assert.equal(earlyFinish, false);
+});

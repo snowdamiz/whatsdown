@@ -100,6 +100,10 @@ export type Palette = {
   inkFaint: string;
   white: string;
   black: string;
+  // Ink for text that only takes up room, such as the space a bubble's words
+  // leave for its time. Android draws a nested span set in "transparent" (all
+  // zero bits) in its parent's colour instead, so this keeps its channels.
+  hiddenInk: string;
 };
 
 const fixed = {
@@ -114,6 +118,7 @@ const fixed = {
   inkFaint: gray[600],
   white: gray[0],
   black: "#000000",
+  hiddenInk: withAlpha(gray[0], 0),
 };
 
 const dark: Palette = {

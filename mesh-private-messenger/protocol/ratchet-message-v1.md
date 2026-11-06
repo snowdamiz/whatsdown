@@ -1,8 +1,10 @@
 # Ratchet message v1
 
-This is the historical unpadded format. New sends use authenticated message
-version `3` inside the [recipient-sealed transport](recipient-transport-v1.md),
-which hides every field below from delivery. Version `2` added encrypted
+This is the historical unpadded format. Recipient-sealed legacy writes use
+authenticated message version `3`. The adopted development C4/D3 profile's latest writes use
+[header-encrypted version `4`](header-encryption-v1.md) inside the same
+[recipient-sealed transport](recipient-transport-v1.md). Release qualification
+remains separate. Version `2` added encrypted
 padding for bare packets ([client privacy revision 2](client-privacy-v2.md));
 receivers still read versions `1` and `2` for previously queued messages.
 

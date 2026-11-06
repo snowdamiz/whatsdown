@@ -53,9 +53,9 @@ test('raw push-token autolinking is removed idempotently and drift fails closed'
     hardened.apple.modules.pop();
     await writeFile(configPath, `${JSON.stringify(hardened, null, 2)}\n`);
     const packageJson = JSON.parse(await readFile(packagePath, 'utf8'));
-    packageJson.version = '57.0.16';
+    packageJson.version = '58.1.6';
     await writeFile(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
-    await assert.rejects(hardenExpoNotifications(fixture), /expected expo-notifications 57\.0\.15/);
+    await assert.rejects(hardenExpoNotifications(fixture), /expected expo-notifications 58\.1\.5/);
   } finally {
     await rm(temporaryDirectory, { recursive: true });
   }

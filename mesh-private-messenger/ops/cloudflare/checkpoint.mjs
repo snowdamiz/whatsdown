@@ -3,6 +3,21 @@ import { boundedBody } from './storage.mjs';
 
 export class CheckpointStore extends DurableObject {
   async fetch(request) {
+    const evidence = /\/evidence\/(timing|history)$/.exec(new URL(request.url).pathname);
+    if (evidence) {
+      const key = `evidence-${evidence[1]}`;
+      if (request.method === 'GET') {
+        const body = await this.ctx.storage.get(key);
+        return new Response(body ?? null, { status: body ? 200 : 404, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (request.method !== 'PUT') return new Response(null, { status: 405 });
+      const body = await boundedBody(request, 2048);
+      if (!body?.length) return new Response(null, { status: 400 });
+      await this.ctx.storage.transaction(async storage => {
+        if (!await storage.get(key)) await storage.put(key, body);
+      });
+      return new Response(null, { status: 204 });
+    }
     if (request.method === 'GET') {
       const stored = await this.ctx.storage.get('checkpoint');
       return new Response(stored?.body ?? null, { status: stored ? 200 : 404 });

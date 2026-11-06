@@ -29,7 +29,9 @@ export function scatterDoodles(tile: number, glyphs: number, gap: number, seed =
       glyph: placed.length % glyphs,
       x: random() * tile,
       y: random() * tile,
-      size: 16 + random() * 12,
+      // Mostly small, now and then large: skewing the draw keeps the big
+      // glyphs few enough to stand out instead of crowding the tile.
+      size: 24 + random() ** 1.8 * 36,
       angle: random() * 90 - 45,
     };
     const clear = placed.every(

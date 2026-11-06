@@ -30,7 +30,7 @@ from Protocol.V1 import (
   protocol_supported_suite
 )
 
-fn validate_inner_envelope(value :: InnerEnvelope) -> Result<(), ProtocolError> do
+fn validate_inner_fields(value :: InnerEnvelope) -> Result<(), ProtocolError> do
   if value.version != 1 do
     Err(UnsupportedVersion)
   else if Bytes.length(value.sender_account_id) != 32
@@ -54,7 +54,7 @@ fn validate_inner_envelope(value :: InnerEnvelope) -> Result<(), ProtocolError> 
   end
 end
 
-pub fn encode_inner_envelope(value :: InnerEnvelope) -> Bytes!ProtocolError do
+fn encode_inner_fields(value :: InnerEnvelope) -> Bytes!ProtocolError do
   validate_inner_envelope(value)?
   let encoded = protocol_join([
       protocol_byte(value.version)?,
@@ -206,5 +206,82 @@ pub fn decode_outer_envelope(input :: Bytes) -> OuterEnvelope!ProtocolError do
       validate_outer(value)?
       Ok(value)
     end
+  end
+end
+
+# This exhaustive classifier is the complete reviewed disclosure surface. A new
+# ProtocolError variant must fail compilation until its fixed status is reviewed.
+fn inner_protocol_error_code(error :: ProtocolError) -> Int do
+  case error do
+    UnsupportedVersion -> 1
+    UnsupportedSuite -> 2
+    InvalidSuiteList -> 3
+    DuplicateSuite -> 4
+    InvalidSuiteHistory -> 5
+    DowngradeDetected -> 6
+    TooManyExtensions -> 7
+    InvalidExtension -> 8
+    UnknownMandatoryExtension -> 9
+    NonCanonicalEncoding -> 10
+    InvalidPolicy -> 11
+    InvalidFieldLength -> 12
+    InvalidPaddingBucket -> 13
+    InvalidExpiration -> 14
+    PostQuantumNotSupported -> 15
+    OversizedInput -> 16
+    MalformedEncoding -> 17
+  end
+end
+
+fn inner_protocol_error_from_code(code :: Int) -> ProtocolError do
+  case code do
+    1 -> UnsupportedVersion
+    2 -> UnsupportedSuite
+    3 -> InvalidSuiteList
+    4 -> DuplicateSuite
+    5 -> InvalidSuiteHistory
+    6 -> DowngradeDetected
+    7 -> TooManyExtensions
+    8 -> InvalidExtension
+    9 -> UnknownMandatoryExtension
+    10 -> NonCanonicalEncoding
+    11 -> InvalidPolicy
+    12 -> InvalidFieldLength
+    13 -> InvalidPaddingBucket
+    14 -> InvalidExpiration
+    15 -> PostQuantumNotSupported
+    16 -> OversizedInput
+    17 -> MalformedEncoding
+    _ -> MalformedEncoding
+  end
+end
+
+fn validate_inner_envelope(value :: InnerEnvelope) -> Result<(), ProtocolError> do
+  let checked = validate_inner_fields(value)
+  let status = case checked do
+    Err(error) -> inner_protocol_error_code(error)
+    Ok(_) -> 0
+  end
+  let published = declassify(status,
+    "inner envelope admission discloses only its reviewed fixed0..17 status classifier, including bounds and policy failures; no ProtocolError payload is released")
+  if published == 0 do
+    Ok(nil)
+  else
+    Err(inner_protocol_error_from_code(published))
+  end
+end
+
+pub fn encode_inner_envelope(value :: InnerEnvelope) -> Bytes!ProtocolError do
+  let encoded = encode_inner_fields(value)
+  let status = case encoded do
+    Err(error) -> inner_protocol_error_code(error)
+    Ok(_) -> 0
+  end
+  let published = declassify(status,
+    "inner envelope encoding discloses only its reviewed fixed0..17 status classifier; encoded bytes and ProtocolError payloads remain private")
+  if published == 0 do
+    Ok(Result.unwrap_or(encoded, Bytes.empty()))
+  else
+    Err(inner_protocol_error_from_code(published))
   end
 end

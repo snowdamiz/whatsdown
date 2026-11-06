@@ -193,7 +193,9 @@ test('history entries expose opened attachment manifests next to their opaque re
   assert.deepEqual(parseAttachmentSummary(new Uint8Array()), undefined);
   assert.throws(() => parseAttachmentSummary(attachmentSummary(70_000, 1)));
   assert.throws(() => parseAttachmentSummary(attachmentSummary(0)));
-  assert.throws(() => parseAttachmentSummary(attachmentSummary(256 * 65_536 + 1)));
+  assert.equal(parseAttachmentSummary(attachmentSummary(8192 * 65_536))?.chunkCount, 8192);
+  assert.throws(() => parseAttachmentSummary(attachmentSummary(8192 * 65_536 + 1)));
+  assert.throws(() => parseAttachmentSummary(attachmentSummary(8192 * 65_536, 8191)));
 });
 
 test('binary output lists decode each bounded envelope', () => {

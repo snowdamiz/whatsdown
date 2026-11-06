@@ -1,0 +1,294 @@
+# Test-only orchestration of a real legacy seal/RFC cutover and issuer
+# admission. The primary accounts were registered through the native ABI.
+from Runtime.Registry import get_pool
+from Storage.CreditIssuers import announce_credit_issuer, admit_credit_issuer
+from Storage.Transparency import store_registered_witness_for, create_configured_checkpoint
+from Storage.TransparencyCutover import (
+  begin_cutover_on_connection,
+  accept_legacy_seal_on_connection,
+  copy_cutover_batch_on_connection
+)
+from Storage.TransparencyTree import tree_inclusion_for, tree_consistency_for
+from Transparency.Merkle import WitnessKey, sign_witness
+from Transparency.Wire import TransparencyEvidence, encode_transparency_evidence, encode_checkpoint
+from Identity.Device import (
+  AccountKeys,
+  DeviceKeys,
+  generate_account,
+  generate_device,
+  issue_hybrid_device_credential
+)
+from Prekeys.Bundle import (
+  generate_post_quantum_prekey,
+  generate_signed_prekey,
+  generate_one_time_prekey,
+  build_hybrid_prekey_bundle
+)
+from Protocol.IdentityWire import encode_account_identity
+from Protocol.PrekeyWire import encode_prekey_bundle
+from Protocol.V1 import AccountIdentity, DirectoryEntry
+from Storage.Devices import register_device, DeviceWrite
+from Storage.Prekeys import publish_prekeys, PrekeyPublishWrite
+from Prekeys.Pool import PrekeyPublishRequest, OneTimePrekeyPublic, prekey_publish_signing_bytes
+from Storage.CreditPostagePolicy import publish_postage_policy
+from Credits.PostagePolicy import sign_postage_policy
+
+
+fn pair(name :: String) -> SigningKeyPair!String do
+  let material = case Env.get_secret_hex(name) do
+    Err(_) -> return Err("fixture_key_missing")
+    Ok(value) -> value
+  end
+  case Crypto.signing_from_secret(material) do
+    Err(_) -> Err("fixture_key_invalid")
+    Ok(value) -> Ok(value)
+  end
+end
+
+fn activate(pool :: PoolHandle) -> Result<(), String> do
+  let seal = Repo.transaction(pool,
+    fn(conn :: borrow PgConn) do
+      let signer = pair("MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX")?
+      begin_cutover_on_connection(conn, signer.private_key, signer.public_key.bytes)
+    end)?
+  let witness = pair("MORSE_RETENTION_PROOF_WITNESS")?
+  let attestation = sign_witness("outside", witness.private_key, seal)?
+  let witness_public = witness.public_key.bytes
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> accept_legacy_seal_on_connection(conn,
+      [attestation],
+      [WitnessKey { witness_id: "outside", public_key: witness_public }],
+      1) end)?
+  let complete = Repo.transaction(pool,
+    fn(conn :: borrow PgConn) do
+      let signer = pair("MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX")?
+      copy_cutover_batch_on_connection(conn, 100, signer.private_key, signer.public_key.bytes)
+    end)?
+  if !complete do
+    Err("fixture_cutover_incomplete")
+  else
+    Ok(nil)
+  end
+end
+
+fn admit(leaf :: Bytes) -> Bytes!String do
+  let pool = get_pool()
+  let witness = pair("MORSE_RETENTION_PROOF_WITNESS")?
+  activate(pool)?
+  let announced = announce_credit_issuer(pool, leaf)?
+  let checkpoint = announced.checkpoint
+  let count = U64.to_int(checkpoint.tree_size)?
+  let attestation = sign_witness("outside", witness.private_key, checkpoint)?
+  store_registered_witness_for(pool, 2, attestation)?
+  let evidence = Repo.transaction(pool,
+    fn(conn :: borrow PgConn) do
+      let rows = Pg.query(conn,
+        "SELECT leaf_index::text FROM transparency_entries WHERE sequence = $1::bigint",
+        [Int.to_string(announced.entry_sequence)])?
+      let index = case String.to_int(Map.get(List.head(rows), "leaf_index")) do
+        None -> return Err("fixture_leaf_index")
+        Some(value) -> value
+      end
+      Ok(TransparencyEvidence {
+        entry_bytes: leaf,
+        checkpoint: checkpoint,
+        inclusion: tree_inclusion_for(conn, 2, index, count)?,
+        consistency: tree_consistency_for(conn, 2, 0, count)?,
+        witnesses: [attestation]
+      })
+    end)?
+  admit_credit_issuer(pool, evidence)?
+  encode_transparency_evidence(evidence)
+end
+
+
+fn now_ms() -> U64!String do
+  U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
+end
+
+fn append(left :: Bytes, right :: Bytes) -> Bytes!String do
+  case Bytes.concat(left, right) do
+    Err(_) -> Err("fixture_vector")
+    Ok(value) -> Ok(value)
+  end
+end
+
+fn vector(value :: Bytes) -> Bytes!String do
+  let length = case Bytes.write_u32_be(U64.parse(Int.to_string(Bytes.length(value)))?) do
+    Err(_) -> return Err("fixture_vector")
+    Ok(value) -> value
+  end
+  append(length, value)
+end
+
+fn recipient_entry(owner :: borrow AccountKeys,
+  identity :: AccountIdentity,
+  device :: borrow DeviceKeys,
+  sequence :: Int) -> DirectoryEntry!String do
+  let created = now_ms()?
+  let expires = U64.add(created, U64.parse("86400000")?)?
+  let pq = case generate_post_quantum_prekey() do
+    Err(_) -> return Err("fixture_post_quantum")
+    Ok(value) -> value
+  end
+  let credential = case issue_hybrid_device_credential(owner,
+    device,
+    pq.public_key,
+    U64.parse("1")?,
+    created,
+    expires,
+    U64.parse(Int.to_string(sequence))?) do
+    Err(_) -> return Err("fixture_credential")
+    Ok(value) -> value
+  end
+  let signed = case generate_signed_prekey(device, credential, U64.parse("1")?, expires) do
+    Err(_) -> return Err("fixture_signed_prekey")
+    Ok(value) -> value
+  end
+  let once = case generate_one_time_prekey(U64.parse("1")?) do
+    Err(_) -> return Err("fixture_one_time_prekey")
+    Ok(value) -> value
+  end
+  let bundle = case build_hybrid_prekey_bundle(credential, signed, once, pq) do
+    Err(_) -> return Err("fixture_bundle")
+    Ok(value) -> value
+  end
+  Ok(DirectoryEntry {
+    version: 1,
+    username: "postage-owner",
+    account_identity: case encode_account_identity(identity) do
+      Err(_) -> return Err("fixture_identity")
+      Ok(value) -> value
+    end,
+    prekey_bundle: case encode_prekey_bundle(bundle) do
+      Err(_) -> return Err("fixture_bundle_wire")
+      Ok(value) -> value
+    end,
+    mailbox_token: case Crypto.random_bytes(32) do
+      Err(_) -> return Err("fixture_entropy")
+      Ok(value) -> value
+    end
+  })
+end
+
+fn publish_recipient_prekeys(pool :: PoolHandle,
+  account_id :: Bytes,
+  device :: borrow DeviceKeys) -> Result<(), String> do
+  let public = for index in 2..18 do
+    let id = U64.parse(Int.to_string(index))?
+    let key = case generate_one_time_prekey(id) do
+      Err(_) -> return Err("fixture_pool_key")
+      Ok(value) -> value
+    end
+    OneTimePrekeyPublic { id: id, public_key: key.public_key.bytes }
+  end
+  let reusable = case generate_one_time_prekey(U64.parse("1000")?) do
+    Err(_) -> return Err("fixture_reusable_key")
+    Ok(value) -> value
+  end
+  let unsigned = PrekeyPublishRequest {
+    account_id: account_id,
+    device_id: device.device_id,
+    prekeys: public,
+    last_resort: Some(OneTimePrekeyPublic {
+      id: reusable.id,
+      public_key: reusable.public_key.bytes
+    }),
+    contact_address_hash: None,
+    signature: Bytes.empty()
+  }
+  let signature = case Crypto.sign(device.signing_private_key,
+    prekey_publish_signing_bytes(unsigned)?) do
+    Err(_) -> return Err("fixture_pool_signature")
+    Ok(value) -> value.bytes
+  end
+  case publish_prekeys(pool, %{unsigned | signature: signature})? do
+    PrekeysPublished(ids) -> if List.length(ids) == 17 do
+      Ok(nil)
+    else
+      Err("fixture_pool_count")
+    end
+    _ -> Err("fixture_pool_publication")
+  end
+end
+
+fn bootstrap_recipient() -> Bytes!String do
+  let pool = get_pool()
+  let (owner, identity) = case generate_account(now_ms()?, U64.parse("1")?) do
+    Err(_) -> return Err("fixture_account")
+    Ok(value) -> value
+  end
+  let primary = case generate_device() do
+    Err(_) -> return Err("fixture_primary")
+    Ok(value) -> value
+  end
+  if register_device(pool, recipient_entry(owner, identity, primary, 1)?)? != DeviceAccepted do
+    return Err("fixture_primary_registration")
+  end
+  publish_recipient_prekeys(pool, identity.account_id, primary)?
+  for sequence in 2..9 do
+    let linked = case generate_device() do
+      Err(_) -> return Err("fixture_linked_device")
+      Ok(value) -> value
+    end
+    if register_device(pool, recipient_entry(owner, identity, linked, sequence)?)? != DeviceAccepted do
+      return Err("fixture_linked_registration")
+    end
+    publish_recipient_prekeys(pool, identity.account_id, linked)?
+  end
+  let policy = sign_postage_policy(owner,
+    primary.device_id,
+    U64.parse("1")?,
+    U64.parse("8")?,
+    1,
+    now_ms()?)?
+  let published = publish_postage_policy(pool, policy)?
+  if !published.created || published.device_set_revision != U64.parse("9")? do
+    return Err("fixture_policy_publication")
+  end
+  let delivery = case Crypto.x25519_from_seed(Bytes.from_hex(String.repeat("77", 32))?) do
+    Err(_) -> return Err("fixture_delivery_key")
+    Ok(value) -> value
+  end
+  append(vector(Bytes.from_utf8("postage-owner"))?,
+    append(vector(identity.account_id)?, vector(delivery.public_key.bytes)?)?)
+end
+
+fn refresh_witness() -> Bytes!String do
+  let pool = get_pool()
+  let checkpoint = create_configured_checkpoint(pool)?
+  if checkpoint.version != 2 do
+    return Err("fixture_requires_active_v2")
+  end
+  let witness = pair("MORSE_RETENTION_PROOF_WITNESS")?
+  let attestation = sign_witness("outside", witness.private_key, checkpoint)?
+  store_registered_witness_for(pool, 2, attestation)?
+  encode_checkpoint(checkpoint)
+end
+
+pub fn proof_router(router :: Router) -> Router do
+  let initialized = HTTP.on_post(router,
+    "/proof/bootstrap-recipient",
+    fn(_input) do
+      case bootstrap_recipient() do
+        Err(error) -> HTTP.response(500, error)
+        Ok(value) -> HTTP.response_bytes(200, value)
+      end
+    end)
+  let refreshed = HTTP.on_post(initialized,
+    "/proof/refresh-witness",
+    fn(_input) do
+      case refresh_witness() do
+        Err(error) -> HTTP.response(500, error)
+        Ok(value) -> HTTP.response_bytes(200, value)
+      end
+    end)
+  HTTP.on_post(refreshed,
+    "/proof/admit",
+    fn(input) do
+      case admit(Request.body_bytes(input)) do
+        Err(error) -> HTTP.response(500, error)
+        Ok(value) -> HTTP.response_bytes(200, value)
+      end
+    end)
+end

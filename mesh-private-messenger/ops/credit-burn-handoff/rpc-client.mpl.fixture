@@ -1,0 +1,63 @@
+from Payment.TreasuryBurn import read_treasury_burn_ready,read_treasury_burn_funding
+from Payment.Treasury import TreasuryChainConfig
+from Payment.TreasuryBurnHandoff import CreditBurnAllocation,prepare_credit_burn_handoff
+from Payment.RevenuePolicy import credit_revenue_policy_hash
+from Runtime.Treasury import TreasuryWorkerConfig,treasury_provider_hash
+from Transparency.TokenBurn import decode_token_burn_profile
+from Transparency.TokenBurnRead import TokenBurnReadPins
+from Solana.Read import pubkey
+
+fn field(root :: Json,name :: String) -> String!String do Json.as_string(Json.object_get(root,name)?) end
+fn frame(root :: Json,index :: Int) -> Bytes!String do Bytes.from_hex(field(Json.array_get(Json.object_get(root,"accounts")?,index)?,"data_hex")?) end
+fn bytes(value :: String) -> Bytes!String do Bytes.from_hex(String.repeat(value,32)) end
+fn run() -> Result<(),String> do
+ let root=Json.parse(File.read(Env.get("BURN_READY_FIXTURE",""))?)?
+ let providers=String.split(Env.get("BURN_RPC_URLS",""),",")
+ let pins=TokenBurnReadPins {program:pubkey(field(root,"program")?)?,governance:pubkey(field(root,"governance")?)?,
+  program_slot:U64.parse(field(root,"program_slot")?)?,usdc:pubkey(field(root,"usdc")?)?,treasury:pubkey(field(root,"treasury")?)?,factory:pubkey(field(root,"factory")?)?}
+ let config=TreasuryChainConfig {cluster:pins.program.bytes,providers_hash:treasury_provider_hash(providers)?,mint:pins.usdc.bytes,
+  treasury_owner:pins.treasury.bytes,fee_payer:bytes("11")?,nonce_authority:bytes("12")?,nonce_address:bytes("13")?,rewards_program:bytes("14")?,rewards_pool:bytes("15")?}
+ let worker=TreasuryWorkerConfig {chain:config,providers:providers,test_mode:Env.get("BURN_TEST_MODE","1")=="1"}
+ let epoch=U64.parse(field(root,"epoch")?)?
+ let profile=decode_token_burn_profile(frame(root,2)?)?
+ let now=U64.parse(Bytes.read_uint_le(frame(root,5)?,32,8)?)?
+ let result=if Env.get("BURN_RPC_OPERATION","ready")=="ready" do
+  case read_treasury_burn_ready(worker,pins,epoch,U64.parse("0")?,now) do
+   Ok(value)->Ok(U64.to_string(value.available_carry)<>":"<>U64.to_string(value.source_balance))
+   Err(error)->Err(error)
+  end
+ else
+  let scope=Crypto.sha256(Bytes.from_utf8("credit-burn-rpc-scope"))
+  let allocations=[CreditBurnAllocation {batch_id:U64.parse("1")?,policy_hash:credit_revenue_policy_hash(2)?,config_hash:scope,mint:pins.usdc,amount:U64.parse("120000000")?}]
+  let weights=for _index in 0..24 do U64.parse("1")? end
+  let entropy=for index in 0..24 do U64.parse(Int.to_string(index*999999))? end
+  let intent=prepare_credit_burn_handoff(scope,pins.program,pubkey(field(root,"payer")?)?,profile,epoch,allocations,U64.parse("120000000")?,weights,entropy)?
+  case read_treasury_burn_funding(worker,pins,intent) do
+   Ok(value)->Ok("funded:"<>U64.to_string(value.context_slot))
+   Err(error)->Err(error)
+  end
+ end
+ let error_expected=Env.get("BURN_EXPECT_ERROR","0")=="1"
+ case result do
+  Ok(value)->do
+   if error_expected do return Err("unexpected_rpc_success") end
+   println("MORSE_CREDIT_BURN_RPC_OK "<>value)
+  end
+  Err(error)->do
+   if !error_expected do return Err(error) end
+   println("MORSE_CREDIT_BURN_RPC_REJECT "<>error)
+  end
+ end
+ Ok(nil)
+end
+fn main() do
+ case run() do
+  Ok(_)->nil
+  Err(error)->do
+   if Env.get("BURN_EXPECT_ERROR","0")=="1" do println("MORSE_CREDIT_BURN_RPC_REJECT "<>error) else
+    IO.eprintln(error)
+    Process.exit(1)
+   end
+  end
+ end
+end

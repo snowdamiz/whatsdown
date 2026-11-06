@@ -180,13 +180,49 @@ end
 # The directory refused an envelope for good. If it was addressed to a contact
 # address, stop using that address: the next message goes to the public one.
 
-pub fn refused_address_removals(database_path :: String,
-  wrapping_key :: borrow StorageKey,
-  address :: Bytes) -> List<String>!String do
-  let owner = load_address(database_path, wrapping_key, owner_label(address))?
-  if Bytes.length(owner) != 32 do
-    Ok(List.new())
-  else
-    Ok([owner_label(address), peer_label(owner)])
+pub struct RefusedAddressSnapshot do
+  labels :: List<String>
+  previous :: List<Bytes>
+end
+
+fn optional_address_blob(path :: String, label :: String) -> Bytes!String do
+  case load_blob(path, label) do
+    Ok(value)
+    Err("local_state_not_found") -> Ok(Bytes.empty())
+    Err(error)
   end
+end
+
+# Snapshot the exact records that established the refused alias. A concurrently
+# rotated public mapping must never be removed using an old ownership hint.
+pub fn refused_address_snapshot(path :: String,
+  wrapping :: borrow StorageKey,
+  address :: Bytes) -> RefusedAddressSnapshot!String do
+  let label = owner_label(address)
+  let previous = optional_address_blob(path, label)?
+  if Bytes.length(previous) == 0 do
+    return Ok(RefusedAddressSnapshot { labels: [], previous: [] })
+  end
+  let owner = open_local(previous, wrapping, local_context(label)?)?
+  if Bytes.length(owner) != 32 do
+    return Err("invalid_contact_address")
+  end
+  let peer = peer_label(owner)
+  let peer_blob = optional_address_blob(path, peer)?
+  if Bytes.length(peer_blob) > 0 do
+    let current = open_local(peer_blob, wrapping, local_context(peer)?)?
+    if Bytes.length(current) != 32 do
+      return Err("invalid_contact_address")
+    end
+    if Bytes.secure_equals(current, address) do
+      return Ok(RefusedAddressSnapshot { labels: [label, peer], previous: [previous, peer_blob] })
+    end
+  end
+  Ok(RefusedAddressSnapshot { labels: [label], previous: [previous] })
+end
+
+pub fn refused_address_removals(path :: String,
+  wrapping :: borrow StorageKey,
+  address :: Bytes) -> List<String>!String do
+  Ok(refused_address_snapshot(path, wrapping, address)?.labels)
 end

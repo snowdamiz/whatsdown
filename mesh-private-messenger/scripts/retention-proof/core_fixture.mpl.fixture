@@ -1,0 +1,91 @@
+# Test-only orchestration of a real legacy seal/RFC cutover and issuer
+# admission. The primary accounts were registered through the native ABI.
+from Runtime.Registry import get_pool
+from Storage.CreditIssuers import announce_credit_issuer, admit_credit_issuer
+from Storage.Transparency import store_registered_witness_for
+from Storage.TransparencyCutover import (
+  begin_cutover_on_connection,
+  accept_legacy_seal_on_connection,
+  copy_cutover_batch_on_connection
+)
+from Storage.TransparencyTree import tree_inclusion_for, tree_consistency_for
+from Transparency.Merkle import WitnessKey, sign_witness
+from Transparency.Wire import TransparencyEvidence, encode_transparency_evidence
+
+fn pair(name :: String) -> SigningKeyPair!String do
+  let material = case Env.get_secret_hex(name) do
+    Err(_) -> return Err("fixture_key_missing")
+    Ok(value) -> value
+  end
+  case Crypto.signing_from_secret(material) do
+    Err(_) -> Err("fixture_key_invalid")
+    Ok(value) -> Ok(value)
+  end
+end
+
+fn activate(pool :: PoolHandle) -> Result<(), String> do
+  let seal = Repo.transaction(pool,
+    fn(conn :: borrow PgConn) do
+      let signer = pair("MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX")?
+      begin_cutover_on_connection(conn, signer.private_key, signer.public_key.bytes)
+    end)?
+  let witness = pair("MORSE_RETENTION_PROOF_WITNESS")?
+  let attestation = sign_witness("outside", witness.private_key, seal)?
+  let witness_public = witness.public_key.bytes
+  Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> accept_legacy_seal_on_connection(conn,
+      [attestation],
+      [WitnessKey { witness_id: "outside", public_key: witness_public }],
+      1) end)?
+  let complete = Repo.transaction(pool,
+    fn(conn :: borrow PgConn) do
+      let signer = pair("MESSENGER_TRANSPARENCY_SIGNING_SEED_HEX")?
+      copy_cutover_batch_on_connection(conn, 100, signer.private_key, signer.public_key.bytes)
+    end)?
+  if !complete do
+    Err("fixture_cutover_incomplete")
+  else
+    Ok(nil)
+  end
+end
+
+fn admit(leaf :: Bytes) -> Bytes!String do
+  let pool = get_pool()
+  let witness = pair("MORSE_RETENTION_PROOF_WITNESS")?
+  activate(pool)?
+  let announced = announce_credit_issuer(pool, leaf)?
+  let checkpoint = announced.checkpoint
+  let count = U64.to_int(checkpoint.tree_size)?
+  let attestation = sign_witness("outside", witness.private_key, checkpoint)?
+  store_registered_witness_for(pool, 2, attestation)?
+  let evidence = Repo.transaction(pool,
+    fn(conn :: borrow PgConn) do
+      let rows = Pg.query(conn,
+        "SELECT leaf_index::text FROM transparency_entries WHERE sequence = $1::bigint",
+        [Int.to_string(announced.entry_sequence)])?
+      let index = case String.to_int(Map.get(List.head(rows), "leaf_index")) do
+        None -> return Err("fixture_leaf_index")
+        Some(value) -> value
+      end
+      Ok(TransparencyEvidence {
+        entry_bytes: leaf,
+        checkpoint: checkpoint,
+        inclusion: tree_inclusion_for(conn, 2, index, count)?,
+        consistency: tree_consistency_for(conn, 2, 0, count)?,
+        witnesses: [attestation]
+      })
+    end)?
+  admit_credit_issuer(pool, evidence)?
+  encode_transparency_evidence(evidence)
+end
+
+pub fn proof_router(router :: Router) -> Router do
+  HTTP.on_post(router,
+    "/proof/admit",
+    fn(input) do
+      case admit(Request.body_bytes(input)) do
+        Err(error) -> HTTP.response(500, error)
+        Ok(value) -> HTTP.response_bytes(200, value)
+      end
+    end)
+end

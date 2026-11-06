@@ -1,0 +1,6 @@
+[package]
+name = "owned-common-conversion-bank"
+version = "0.1.0"
+entrypoint = "main.mpl"
+[dependencies]
+credit-issuer = { path = "../../services/credit-issuer" }

@@ -1,0 +1,10 @@
+{
+  "source": "Owned Bitcoin31.1/LND0.21.4-beta regtest; no live funds or stored preimage",
+  "network": 2,
+  "amount_msat": "5000000",
+  "payment_hash": "4a1f7d9811fbfea271b1329eec67b1c852ff1e0e52c4783ae871069a919a7e69",
+  "payee": "03659ee9278803e3667d20d2d081dffc7d6bd6145e4e1bca9fb4a941bfd932dbc2",
+  "created_at": "1792605690",
+  "expiry": "900",
+  "invoice": "lnbcrt50u1p4d3l06pp5fg0hmxq3l0l2yud3x20wcea3epf078sw2tz8swhgwyrf4yv60e5sdq4f4hhyum9yp3hyetyd968xcqzzsxqzuysp5xe8fr3fkk2pzgw5nkuy7y8k834jyq0e3e6kpa2vzykfhvaly5sts9qxpqysgqmhy4l6nwn2padyzpmek4hhme5ke5an3g0wasatmllw78wqnhwcjkrsa7zfrff4sttax2gw87lhjvux9wdn7ya0x2caumx57grdkyd9spgyzdct"
+}

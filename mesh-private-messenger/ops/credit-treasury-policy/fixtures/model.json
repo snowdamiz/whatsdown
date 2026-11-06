@@ -1,0 +1,2667 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "version": 1,
+      "amount": "0",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "1",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "2",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "2"
+      ],
+      "next_carries": [
+        2,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "3",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "3"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "4",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "4"
+      ],
+      "next_carries": [
+        4,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "5",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "4"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "6",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "5"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "7",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "6"
+      ],
+      "next_carries": [
+        2,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "8",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "7"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "9",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "8"
+      ],
+      "next_carries": [
+        4,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "10",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "0",
+        "8"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "11",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "0",
+        "9"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "12",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "0",
+        "10"
+      ],
+      "next_carries": [
+        2,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "13",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "0",
+        "11"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "14",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "0",
+        "12"
+      ],
+      "next_carries": [
+        4,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "15",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "0",
+        "12"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "16",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "0",
+        "13"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "17",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "0",
+        "14"
+      ],
+      "next_carries": [
+        2,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "18",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "0",
+        "15"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "19",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "0",
+        "16"
+      ],
+      "next_carries": [
+        4,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "20",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "4",
+        "0",
+        "16"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "1000001",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "200000",
+        "0",
+        "800001"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "9007199254740993",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1801439850948198",
+        "0",
+        "7205759403792795"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "18446744073709551615",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "0",
+        "14757395258967641292"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 2,
+      "amount": "0",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        2,
+        3,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "2",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        4,
+        6,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "3",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        6,
+        9,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "4",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "1",
+        "2"
+      ],
+      "next_carries": [
+        8,
+        2,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "5",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "1",
+        "2"
+      ],
+      "next_carries": [
+        0,
+        5,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "6",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "1",
+        "3"
+      ],
+      "next_carries": [
+        2,
+        8,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "7",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "2",
+        "3"
+      ],
+      "next_carries": [
+        4,
+        1,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "8",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "2",
+        "4"
+      ],
+      "next_carries": [
+        6,
+        4,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "2",
+        "4"
+      ],
+      "next_carries": [
+        8,
+        7,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "10",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "3",
+        "5"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "11",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "3",
+        "5"
+      ],
+      "next_carries": [
+        2,
+        3,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "12",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "3",
+        "6"
+      ],
+      "next_carries": [
+        4,
+        6,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "13",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "3",
+        "6"
+      ],
+      "next_carries": [
+        6,
+        9,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "14",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "2",
+        "4",
+        "7"
+      ],
+      "next_carries": [
+        8,
+        2,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "15",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "4",
+        "7"
+      ],
+      "next_carries": [
+        0,
+        5,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "16",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "4",
+        "8"
+      ],
+      "next_carries": [
+        2,
+        8,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "17",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "5",
+        "8"
+      ],
+      "next_carries": [
+        4,
+        1,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "5",
+        "9"
+      ],
+      "next_carries": [
+        6,
+        4,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "19",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3",
+        "5",
+        "9"
+      ],
+      "next_carries": [
+        8,
+        7,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "20",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "4",
+        "6",
+        "10"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1000001",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "200000",
+        "300000",
+        "500000"
+      ],
+      "next_carries": [
+        2,
+        3,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9007199254740993",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1801439850948198",
+        "2702159776422297",
+        "4503599627370496"
+      ],
+      "next_carries": [
+        6,
+        9,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18446744073709551615",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "5534023222112865484",
+        "9223372036854775807"
+      ],
+      "next_carries": [
+        0,
+        5,
+        5
+      ],
+      "reserve_before": 0,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "0",
+      "carries": [
+        0,
+        5,
+        5
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        0,
+        5,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1",
+      "carries": [
+        0,
+        5,
+        5
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        2,
+        8,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "3",
+      "carries": [
+        0,
+        5,
+        5
+      ],
+      "shares": [
+        "0",
+        "1",
+        "2"
+      ],
+      "next_carries": [
+        6,
+        4,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9",
+      "carries": [
+        0,
+        5,
+        5
+      ],
+      "shares": [
+        "1",
+        "3",
+        "5"
+      ],
+      "next_carries": [
+        8,
+        2,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "20",
+      "carries": [
+        0,
+        5,
+        5
+      ],
+      "shares": [
+        "4",
+        "6",
+        "10"
+      ],
+      "next_carries": [
+        0,
+        5,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18446744073709551615",
+      "carries": [
+        0,
+        5,
+        5
+      ],
+      "shares": [
+        "3689348814741910323",
+        "5534023222112865485",
+        "9223372036854775808"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 0,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "0",
+      "carries": [
+        2,
+        3,
+        5
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        2,
+        3,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1",
+      "carries": [
+        2,
+        3,
+        5
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        4,
+        6,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "3",
+      "carries": [
+        2,
+        3,
+        5
+      ],
+      "shares": [
+        "0",
+        "1",
+        "2"
+      ],
+      "next_carries": [
+        8,
+        2,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9",
+      "carries": [
+        2,
+        3,
+        5
+      ],
+      "shares": [
+        "2",
+        "3",
+        "5"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 0,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "20",
+      "carries": [
+        2,
+        3,
+        5
+      ],
+      "shares": [
+        "4",
+        "6",
+        "10"
+      ],
+      "next_carries": [
+        2,
+        3,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18446744073709551615",
+      "carries": [
+        2,
+        3,
+        5
+      ],
+      "shares": [
+        "3689348814741910323",
+        "5534023222112865484",
+        "9223372036854775808"
+      ],
+      "next_carries": [
+        2,
+        8,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "0",
+      "carries": [
+        4,
+        6,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        4,
+        6,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1",
+      "carries": [
+        4,
+        6,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        6,
+        9,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "3",
+      "carries": [
+        4,
+        6,
+        0
+      ],
+      "shares": [
+        "1",
+        "1",
+        "1"
+      ],
+      "next_carries": [
+        0,
+        5,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9",
+      "carries": [
+        4,
+        6,
+        0
+      ],
+      "shares": [
+        "2",
+        "3",
+        "4"
+      ],
+      "next_carries": [
+        2,
+        3,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "20",
+      "carries": [
+        4,
+        6,
+        0
+      ],
+      "shares": [
+        "4",
+        "6",
+        "10"
+      ],
+      "next_carries": [
+        4,
+        6,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18446744073709551615",
+      "carries": [
+        4,
+        6,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "5534023222112865485",
+        "9223372036854775807"
+      ],
+      "next_carries": [
+        4,
+        1,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "0",
+      "carries": [
+        6,
+        9,
+        5
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        6,
+        9,
+        5
+      ],
+      "reserve_before": 2,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1",
+      "carries": [
+        6,
+        9,
+        5
+      ],
+      "shares": [
+        "0",
+        "1",
+        "1"
+      ],
+      "next_carries": [
+        8,
+        2,
+        0
+      ],
+      "reserve_before": 2,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "3",
+      "carries": [
+        6,
+        9,
+        5
+      ],
+      "shares": [
+        "1",
+        "1",
+        "2"
+      ],
+      "next_carries": [
+        2,
+        8,
+        0
+      ],
+      "reserve_before": 2,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9",
+      "carries": [
+        6,
+        9,
+        5
+      ],
+      "shares": [
+        "2",
+        "3",
+        "5"
+      ],
+      "next_carries": [
+        4,
+        6,
+        0
+      ],
+      "reserve_before": 2,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "20",
+      "carries": [
+        6,
+        9,
+        5
+      ],
+      "shares": [
+        "4",
+        "6",
+        "10"
+      ],
+      "next_carries": [
+        6,
+        9,
+        5
+      ],
+      "reserve_before": 2,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18446744073709551615",
+      "carries": [
+        6,
+        9,
+        5
+      ],
+      "shares": [
+        "3689348814741910323",
+        "5534023222112865485",
+        "9223372036854775808"
+      ],
+      "next_carries": [
+        6,
+        4,
+        0
+      ],
+      "reserve_before": 2,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "0",
+      "carries": [
+        8,
+        2,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        8,
+        2,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1",
+      "carries": [
+        8,
+        2,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        0,
+        5,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "3",
+      "carries": [
+        8,
+        2,
+        0
+      ],
+      "shares": [
+        "1",
+        "1",
+        "1"
+      ],
+      "next_carries": [
+        4,
+        1,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9",
+      "carries": [
+        8,
+        2,
+        0
+      ],
+      "shares": [
+        "2",
+        "2",
+        "4"
+      ],
+      "next_carries": [
+        6,
+        9,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "20",
+      "carries": [
+        8,
+        2,
+        0
+      ],
+      "shares": [
+        "4",
+        "6",
+        "10"
+      ],
+      "next_carries": [
+        8,
+        2,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18446744073709551615",
+      "carries": [
+        8,
+        2,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "5534023222112865484",
+        "9223372036854775807"
+      ],
+      "next_carries": [
+        8,
+        7,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "0",
+      "carries": [
+        9,
+        9,
+        2
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        9,
+        9,
+        2
+      ],
+      "reserve_before": 2,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1",
+      "carries": [
+        9,
+        9,
+        2
+      ],
+      "shares": [
+        "1",
+        "1",
+        "0"
+      ],
+      "next_carries": [
+        1,
+        2,
+        7
+      ],
+      "reserve_before": 2,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "3",
+      "carries": [
+        9,
+        9,
+        2
+      ],
+      "shares": [
+        "1",
+        "1",
+        "1"
+      ],
+      "next_carries": [
+        5,
+        8,
+        7
+      ],
+      "reserve_before": 2,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9",
+      "carries": [
+        9,
+        9,
+        2
+      ],
+      "shares": [
+        "2",
+        "3",
+        "4"
+      ],
+      "next_carries": [
+        7,
+        6,
+        7
+      ],
+      "reserve_before": 2,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "20",
+      "carries": [
+        9,
+        9,
+        2
+      ],
+      "shares": [
+        "4",
+        "6",
+        "10"
+      ],
+      "next_carries": [
+        9,
+        9,
+        2
+      ],
+      "reserve_before": 2,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18446744073709551615",
+      "carries": [
+        9,
+        9,
+        2
+      ],
+      "shares": [
+        "3689348814741910323",
+        "5534023222112865485",
+        "9223372036854775807"
+      ],
+      "next_carries": [
+        9,
+        4,
+        7
+      ],
+      "reserve_before": 2,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "0",
+      "carries": [
+        1,
+        0,
+        9
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        1,
+        0,
+        9
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1",
+      "carries": [
+        1,
+        0,
+        9
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        3,
+        3,
+        4
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "3",
+      "carries": [
+        1,
+        0,
+        9
+      ],
+      "shares": [
+        "0",
+        "0",
+        "2"
+      ],
+      "next_carries": [
+        7,
+        9,
+        4
+      ],
+      "reserve_before": 1,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9",
+      "carries": [
+        1,
+        0,
+        9
+      ],
+      "shares": [
+        "1",
+        "2",
+        "5"
+      ],
+      "next_carries": [
+        9,
+        7,
+        4
+      ],
+      "reserve_before": 1,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "20",
+      "carries": [
+        1,
+        0,
+        9
+      ],
+      "shares": [
+        "4",
+        "6",
+        "10"
+      ],
+      "next_carries": [
+        1,
+        0,
+        9
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18446744073709551615",
+      "carries": [
+        1,
+        0,
+        9
+      ],
+      "shares": [
+        "3689348814741910323",
+        "5534023222112865484",
+        "9223372036854775808"
+      ],
+      "next_carries": [
+        1,
+        5,
+        4
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "0",
+      "carries": [
+        9,
+        1,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        9,
+        1,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "1",
+      "carries": [
+        9,
+        1,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        1,
+        4,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "3",
+      "carries": [
+        9,
+        1,
+        0
+      ],
+      "shares": [
+        "1",
+        "1",
+        "1"
+      ],
+      "next_carries": [
+        5,
+        0,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "9",
+      "carries": [
+        9,
+        1,
+        0
+      ],
+      "shares": [
+        "2",
+        "2",
+        "4"
+      ],
+      "next_carries": [
+        7,
+        8,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "20",
+      "carries": [
+        9,
+        1,
+        0
+      ],
+      "shares": [
+        "4",
+        "6",
+        "10"
+      ],
+      "next_carries": [
+        9,
+        1,
+        0
+      ],
+      "reserve_before": 1,
+      "reserve_after": 1,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 2,
+      "amount": "18446744073709551615",
+      "carries": [
+        9,
+        1,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "5534023222112865484",
+        "9223372036854775807"
+      ],
+      "next_carries": [
+        9,
+        6,
+        5
+      ],
+      "reserve_before": 1,
+      "reserve_after": 2,
+      "policy_hash": "c1d54934a091845ddcfe7e8bc71d1dc15120af97a9761666a822cd21ceac58a9"
+    },
+    {
+      "version": 1,
+      "amount": "0",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "1",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "4",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "4"
+      ],
+      "next_carries": [
+        4,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "5",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "4"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "18446744073709551615",
+      "carries": [
+        0,
+        0,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "0",
+        "14757395258967641292"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "0",
+      "carries": [
+        1,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "1",
+      "carries": [
+        1,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        2,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "4",
+      "carries": [
+        1,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "3"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "5",
+      "carries": [
+        1,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "4"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "18446744073709551615",
+      "carries": [
+        1,
+        0,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "0",
+        "14757395258967641292"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "0",
+      "carries": [
+        2,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        2,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "1",
+      "carries": [
+        2,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "4",
+      "carries": [
+        2,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "3"
+      ],
+      "next_carries": [
+        1,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "5",
+      "carries": [
+        2,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "4"
+      ],
+      "next_carries": [
+        2,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "18446744073709551615",
+      "carries": [
+        2,
+        0,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "0",
+        "14757395258967641292"
+      ],
+      "next_carries": [
+        2,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "0",
+      "carries": [
+        3,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "1",
+      "carries": [
+        3,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "1"
+      ],
+      "next_carries": [
+        4,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "4",
+      "carries": [
+        3,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "3"
+      ],
+      "next_carries": [
+        2,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "5",
+      "carries": [
+        3,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "4"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "18446744073709551615",
+      "carries": [
+        3,
+        0,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "0",
+        "14757395258967641292"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "0",
+      "carries": [
+        4,
+        0,
+        0
+      ],
+      "shares": [
+        "0",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        4,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "1",
+      "carries": [
+        4,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "0"
+      ],
+      "next_carries": [
+        0,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "4",
+      "carries": [
+        4,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "3"
+      ],
+      "next_carries": [
+        3,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "5",
+      "carries": [
+        4,
+        0,
+        0
+      ],
+      "shares": [
+        "1",
+        "0",
+        "4"
+      ],
+      "next_carries": [
+        4,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    },
+    {
+      "version": 1,
+      "amount": "18446744073709551615",
+      "carries": [
+        4,
+        0,
+        0
+      ],
+      "shares": [
+        "3689348814741910323",
+        "0",
+        "14757395258967641292"
+      ],
+      "next_carries": [
+        4,
+        0,
+        0
+      ],
+      "reserve_before": 0,
+      "reserve_after": 0,
+      "policy_hash": "e0fc245ad422c7a1b1504fc07f29e427b7d46fce04da2ee5618f3ca39d6093b9"
+    }
+  ]
+}

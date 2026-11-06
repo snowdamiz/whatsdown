@@ -1,4 +1,5 @@
 import { hex, utf8 } from './codec.ts';
+import { t } from './i18n.ts';
 import type { Reaction } from './reactions.ts';
 
 // A community is a set of groups, its parts, whose records carry the same
@@ -32,12 +33,12 @@ export const communityId = (community: CommunityDetails): string => community.pa
 export function encodeCommunity(value: CommunityDetails): string {
   const about = value.about.trim();
   // Newlines are escaped in JSON; other control characters would reach the core raw.
-  if (utf8(about).length > 512 || /[\u0000-\u0009\u000b-\u001f\u007f]/.test(about)) throw new Error('Shorten the description.');
-  if (value.groups.length > MAX_LINKED_GROUPS) throw new Error(`A community holds up to ${MAX_LINKED_GROUPS} groups.`);
-  if (new Set(value.groups.map((group) => group.id)).size !== value.groups.length) throw new Error('That group is already in the community.');
+  if (utf8(about).length > 512 || /[\u0000-\u0009\u000b-\u001f\u007f]/.test(about)) throw new Error(t('Shorten the description.'));
+  if (value.groups.length > MAX_LINKED_GROUPS) throw new Error(t.plural('A community holds up to {count} group.', 'A community holds up to {count} groups.', MAX_LINKED_GROUPS));
+  if (new Set(value.groups.map((group) => group.id)).size !== value.groups.length) throw new Error(t('That group is already in the community.'));
   if (!value.parts.length || value.parts.length > MAX_PARTS || new Set(value.parts).size !== value.parts.length ||
     !value.parts.every((part) => groupId.test(part))) {
-    throw new Error(`A community spans up to ${MAX_PARTS} groups of members.`);
+    throw new Error(t.plural('A community spans up to {count} group of members.', 'A community spans up to {count} groups of members.', MAX_PARTS));
   }
   const groups = value.groups.map(({ id, name }) => {
     const trimmed = name.trim();
@@ -45,7 +46,7 @@ export function encodeCommunity(value: CommunityDetails): string {
     return [id, trimmed];
   });
   const text = JSON.stringify([about, groups, value.parts]);
-  if (utf8(text).length > MAX_COMMUNITY_BYTES) throw new Error('Shorten the description or the group names.');
+  if (utf8(text).length > MAX_COMMUNITY_BYTES) throw new Error(t('Shorten the description or the group names.'));
   return text;
 }
 
@@ -76,7 +77,7 @@ export function encodeRoles(owner: string, admins: string[]): Uint8Array {
   const sorted = [...admins].sort();
   if (![owner, ...sorted].every((account) => groupId.test(account)) || sorted.includes(owner) ||
     new Set(sorted).size !== sorted.length || sorted.length > MAX_ADMINS) {
-    throw new Error(`A community has one owner and up to ${MAX_ADMINS} admins.`);
+    throw new Error(t.plural('A community has one owner and up to {count} admin.', 'A community has one owner and up to {count} admins.', MAX_ADMINS));
   }
   return fromHex([owner, ...sorted].join(''));
 }
@@ -109,7 +110,7 @@ export function encodeJoinRequest(id: string): string {
 // An owner's or admin's device that is missing from a part hands its one-use
 // join package to the admins, one part at a time, inside a part it is already in.
 export function encodeDeviceRequest(part: string, keyPackage: Uint8Array): string {
-  if (!groupId.test(part) || keyPackage.length !== 369) throw new Error('Invalid device request.');
+  if (!groupId.test(part) || (keyPackage.length !== 369 && keyPackage.length !== 401)) throw new Error('Invalid device request.');
   return `${devicePrefix}${part}\n${hex(keyPackage)}`;
 }
 
@@ -150,7 +151,7 @@ export function communityNotices<T extends Posted>(history: T[], community: Comm
   return history.flatMap((message) => {
     const id = joinTarget(message, community, now);
     const group = community.groups.find((item) => item.id === id);
-    return group ? [{ ...message, body: `Asked to join ${group.name}` }] : [];
+    return group ? [{ ...message, body: t('Asked to join {group}', { group: group.name }) }] : [];
   });
 }
 
@@ -162,7 +163,7 @@ export function deviceRequests(history: (Posted & { senderDeviceId: Uint8Array }
   const authority = authorities(community);
   const latest = new Map<string, DeviceRequest>();
   for (const message of history) {
-    const match = /^MORSE-DEVICE\/1\n([a-f0-9]{64})\n([a-f0-9]{738})$/.exec(message.body);
+    const match = /^MORSE-DEVICE\/1\n([a-f0-9]{64})\n([a-f0-9]{738}|[a-f0-9]{802})$/.exec(message.body);
     const accountId = hex(message.senderAccountId);
     if (!match || !authority.has(accountId) || !community.parts.includes(match[1]!)) continue;
     const deviceId = hex(message.senderDeviceId);

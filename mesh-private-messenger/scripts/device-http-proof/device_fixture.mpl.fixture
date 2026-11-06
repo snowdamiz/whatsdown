@@ -1,0 +1,283 @@
+# Owned external linked-device producer and local witness. This module is
+# included only in the proof server, never in mobile or production services.
+from Runtime.Registry import get_pool
+from Storage.Transparency import create_configured_checkpoint, store_witness
+from Storage.Devices import resolve_devices
+from Transparency.Merkle import WitnessKey, sign_witness
+from Transparency.Wire import encode_checkpoint
+from Identity.Device import DeviceKeys, AccountKeys, issue_device_revocation
+from Protocol.V1 import DeviceLinkRequest, DirectoryEntry, PrekeyBundle, ProtocolError
+from Protocol.DirectoryWire import (
+  encode_device_link_request,
+  decode_device_link_authorization,
+  encode_directory_entry,
+  decode_directory_entry,
+  encode_device_revocation
+)
+from Protocol.IdentityWire import decode_device_credential
+from Protocol.PrekeyWire import encode_prekey_bundle, decode_prekey_bundle
+from Prekeys.Bundle import generate_signed_prekey, normalize_prekey_bundle, generate_post_quantum_prekey
+from Prekeys.Renewal import (
+  generate_renewal_signed_prekey,
+  issue_renewal_request,
+  bundle_with_renewal_request,
+  bundle_renewal_request
+)
+from Privacy.Edge import mint_request_stamp, encode_stamped_request
+
+fn wide(value :: String) -> U64!String do
+  U64.parse(value)
+end
+
+fn now() -> U64!String do
+  wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
+end
+
+fn wire(value :: Bytes!ProtocolError) -> Bytes!String do
+  case value do
+    Err(_) -> Err("fixture_protocol_error")
+    Ok(bytes) -> Ok(bytes)
+  end
+end
+
+fn file_path() -> String do
+  Env.get("MORSE_DEVICE_PROOF_WORK", "") <> "/external-entry.bin"
+end
+
+fn secret(name :: String) -> SecretBytes!String do
+  case Env.get_secret_hex(name) do
+    Err(_) -> Err("fixture_secret_material")
+    Ok(value) -> Ok(value)
+  end
+end
+
+fn device() -> DeviceKeys!String do
+  let signing = case Crypto.signing_from_secret(secret("MORSE_DEVICE_PROOF_SIGNING")?) do
+    Err(_) -> return Err("fixture_signing_key")
+    Ok(value) -> value
+  end
+  let identity = case Crypto.x25519_from_secret(secret("MORSE_DEVICE_PROOF_IDENTITY")?) do
+    Err(_) -> return Err("fixture_identity_key")
+    Ok(value) -> value
+  end
+  let signing_public = signing.public_key
+  let identity_public = identity.public_key
+  Ok(DeviceKeys {
+    device_id: Bytes.from_hex(Env.get("MORSE_DEVICE_PROOF_ID", ""))?,
+    signing_private_key: signing.private_key,
+    signing_public_key: signing_public,
+    identity_private_key: identity.private_key,
+    identity_public_key: identity_public
+  })
+end
+
+fn request_bytes() -> Bytes!String do
+  let keys = device()?
+  let post_quantum = case generate_post_quantum_prekey() do
+    Err(_) -> return Err("fixture_post_quantum")
+    Ok(value) -> value
+  end
+  wire(encode_device_link_request(DeviceLinkRequest {
+    version: 2,
+    suite: 2,
+    nonce: case Crypto.random_bytes(32) do
+      Err(_) -> return Err("fixture_entropy")
+      Ok(value) -> value
+    end,
+    device_id: keys.device_id,
+    signing_public_key: keys.signing_public_key.bytes,
+    dh_public_key: keys.identity_public_key.bytes,
+    post_quantum_public_key: post_quantum.public_key.bytes,
+    capabilities: wide("1")?,
+    created_at: now()?,
+    expires_at: U64.add(now()?, wide("600000")?)?
+  }))
+end
+
+fn stamped(entry :: DirectoryEntry) -> Bytes!String do
+  let bytes = wire(encode_directory_entry(entry))?
+  encode_stamped_request(mint_request_stamp("mesh-msg/v1/work/register",
+      bytes,
+      U64.add(now()?, wide("240000")?)?,
+      1)?,
+    bytes)
+end
+
+fn entry_bytes(authorization_wire :: Bytes) -> Bytes!String do
+  let authorization = case decode_device_link_authorization(authorization_wire) do
+    Err(_) -> return Err("fixture_authorization")
+    Ok(value) -> value
+  end
+  let credential = case decode_device_credential(authorization.device_credential) do
+    Err(_) -> return Err("fixture_credential")
+    Ok(value) -> value
+  end
+  let keys = device()?
+  if !Bytes.secure_equals(keys.device_id, credential.device_id)
+    || !Bytes.secure_equals(keys.signing_public_key.bytes, credential.signing_public_key) do
+    return Err("fixture_authorization_identity")
+  end
+  let signed = case generate_signed_prekey(keys, credential, wide("1")?, credential.expires_at) do
+    Err(_) -> return Err("fixture_signed_prekey")
+    Ok(value) -> value
+  end
+  # This synthetic external producer does not receive messages. Its public
+  # ML-KEM key is exactly the key authorized by the real native primary.
+  let bundle = PrekeyBundle {
+    version: 1,
+    suite: 2,
+    device_credential: authorization.device_credential,
+    identity_dh_public_key: credential.dh_public_key,
+    signing_public_key: credential.signing_public_key,
+    signed_prekey_id: signed.id,
+    signed_prekey: signed.public_key.bytes,
+    signed_prekey_signature: signed.signature.bytes,
+    one_time_prekey_id: wide("0")?,
+    one_time_prekey: Bytes.empty(),
+    post_quantum_prekey: credential.post_quantum_public_key,
+    supported_suites: [2, 1],
+    expires_at: signed.expires_at,
+    extensions: []
+  }
+  let entry = DirectoryEntry {
+    version: 1,
+    username: authorization.username,
+    account_identity: authorization.account_identity,
+    prekey_bundle: wire(encode_prekey_bundle(bundle))?,
+    mailbox_token: case Crypto.random_bytes(32) do
+      Err(_) -> return Err("fixture_entropy")
+      Ok(value) -> value
+    end
+  }
+  File.write(file_path(), Bytes.to_hex(wire(encode_directory_entry(entry))?))?
+  stamped(entry)
+end
+
+fn renewal_bytes() -> Bytes!String do
+  let entry = case decode_directory_entry(Bytes.from_hex(File.read(file_path())?)?) do
+    Err(_) -> return Err("fixture_saved_entry")
+    Ok(value) -> value
+  end
+  let previous = case decode_prekey_bundle(entry.prekey_bundle) do
+    Err(_) -> return Err("fixture_saved_bundle")
+    Ok(value) -> value
+  end
+  let credential = case decode_device_credential(previous.device_credential) do
+    Err(_) -> return Err("fixture_saved_credential")
+    Ok(value) -> value
+  end
+  let keys = device()?
+  let next = case generate_renewal_signed_prekey(keys,
+    credential,
+    wide("2")?,
+    U64.add(now()?, wide("31536000000")?)?) do
+    Err(_) -> return Err("fixture_renewal_prekey")
+    Ok(value) -> value
+  end
+  let post_quantum = case generate_post_quantum_prekey() do
+    Err(_) -> return Err("fixture_renewal_post_quantum")
+    Ok(value) -> value
+  end
+  let asked = case issue_renewal_request(keys, credential, next, post_quantum) do
+    Err(_) -> return Err("fixture_renewal_request")
+    Ok(value) -> value
+  end
+  let normalized = case normalize_prekey_bundle(previous) do
+    Err(_) -> return Err("fixture_normalization")
+    Ok(value) -> value
+  end
+  let bundle = case bundle_with_renewal_request(normalized, asked) do
+    Err(_) -> return Err("fixture_asking_bundle")
+    Ok(value) -> value
+  end
+  stamped(%{entry | prekey_bundle: wire(encode_prekey_bundle(bundle))?})
+end
+
+fn cosign() -> Bytes!String do
+  let checkpoint = create_configured_checkpoint(get_pool())?
+  let pair = case Crypto.signing_from_secret(secret("MORSE_DEVICE_PROOF_WITNESS")?) do
+    Err(_) -> return Err("fixture_witness_key")
+    Ok(value) -> value
+  end
+  let attestation = sign_witness("outside", pair.private_key, checkpoint)?
+  store_witness(get_pool(), attestation, WitnessKey {
+    witness_id: "outside",
+    public_key: pair.public_key.bytes
+  })?
+  encode_checkpoint(checkpoint)
+end
+
+fn summary() -> Bytes!String do
+  let value = case resolve_devices(get_pool(), Env.get("MORSE_DEVICE_PROOF_USERNAME", ""))? do
+    None -> return Err("fixture_missing_account")
+    Some(value) -> value
+  end
+  let rows = for entry in value.devices do
+    let bundle = case decode_prekey_bundle(entry.prekey_bundle) do
+      Err(_) -> return Err("fixture_summary_bundle")
+      Ok(value) -> value
+    end
+    let credential = case decode_device_credential(bundle.device_credential) do
+      Err(_) -> return Err("fixture_summary_credential")
+      Ok(value) -> value
+    end
+    let asking = case bundle_renewal_request(bundle) do
+      Ok(None) -> "0"
+      Ok(Some(_)) -> "1"
+      Err(_) -> return Err("fixture_summary_renewal")
+    end
+    Bytes.to_hex(credential.device_id)
+      <> ","
+      <> U64.to_string(credential.directory_sequence)
+      <> ","
+      <> U64.to_string(bundle.signed_prekey_id)
+      <> ","
+      <> asking
+  end
+  Ok(Bytes.from_utf8(U64.to_string(value.sequence) <> "\n" <> String.join(rows, "\n")))
+end
+
+fn forged_revoke() -> Bytes!String do
+  let value = case resolve_devices(get_pool(), Env.get("MORSE_DEVICE_PROOF_USERNAME", ""))? do
+    None -> return Err("fixture_missing_account")
+    Some(value) -> value
+  end
+  let first = case decode_prekey_bundle(List.head(value.devices).prekey_bundle) do
+    Err(_) -> return Err("fixture_forged_bundle")
+    Ok(value) -> value
+  end
+  let credential = case decode_device_credential(first.device_credential) do
+    Err(_) -> return Err("fixture_forged_credential")
+    Ok(value) -> value
+  end
+  let keys = device()?
+  let wrong_account = AccountKeys {
+    account_id: credential.account_id,
+    public_key: keys.signing_public_key,
+    private_key: keys.signing_private_key
+  }
+  let revocation = case issue_device_revocation(wrong_account,
+    credential.device_id,
+    U64.add(value.sequence, wide("1")?)?) do
+    Err(_) -> return Err("fixture_forged_revocation")
+    Ok(value) -> value
+  end
+  wire(encode_device_revocation(revocation))
+end
+
+fn response(value :: Bytes!String) -> Response do
+  case value do
+    Err(error) -> HTTP.response(500, error)
+    Ok(bytes) -> HTTP.response_bytes(200, bytes)
+  end
+end
+
+pub fn proof_router(router :: Router) -> Router do
+  router
+    |> HTTP.on_get("/proof/device-request", fn(_) -> response(request_bytes()) end)
+    |> HTTP.on_post("/proof/entry", fn(input) -> response(entry_bytes(Request.body_bytes(input))) end)
+    |> HTTP.on_post("/proof/renewal", fn(_) -> response(renewal_bytes()) end)
+    |> HTTP.on_get("/proof/cosign", fn(_) -> response(cosign()) end)
+    |> HTTP.on_get("/proof/summary", fn(_) -> response(summary()) end)
+    |> HTTP.on_get("/proof/forged-revocation", fn(_) -> response(forged_revoke()) end)
+end

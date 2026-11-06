@@ -1,3 +1,4 @@
+from Storage.Blobs import blob_record_hash
 from Protocol.V1 import DirectoryEntry, AccountIdentity
 from Protocol.IdentityWire import decode_account_identity
 from Mobile.Transparency import transparency_device_set_label
@@ -44,7 +45,7 @@ fn proof() -> Bool!String do
   let database = Sqlite.open(accounts.alice_path)?
   Sqlite.execute_values(database,
     "DELETE FROM encrypted_blobs WHERE record_hash = ?",
-    [Text(Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(label))))])?
+    [Text(blob_record_hash(database, label)?)])?
   Sqlite.close(database)
   case group_send_export(group_vectors([
     Bytes.from_utf8(accounts.alice_path),

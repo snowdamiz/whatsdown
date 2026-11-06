@@ -12,6 +12,7 @@ coverage/
 .expo/
 .svelte-kit/
 target/
+.cxx/
 
 # Mesh is a separate repository. A local checkout may live here for reference.
 /mesh-lang

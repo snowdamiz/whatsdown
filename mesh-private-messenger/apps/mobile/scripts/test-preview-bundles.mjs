@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 const app = fileURLToPath(new URL('..', import.meta.url));
 const cli = fileURLToPath(new URL('../node_modules/expo/bin/cli', import.meta.url));
 const output = mkdtempSync(join(tmpdir(), 'morse-preview-bundles-'));
+// Metro writes an indexed map, one section per module group, as often as a flat one.
+const mapSources = (map) => map.sections ? map.sections.flatMap((section) => mapSources(section.map)) : map.sources ?? [];
 try {
   for (const build of [
     { name: 'release', platforms: ['ios', 'android', 'web'], desktop: 'false', dev: false, fixtures: false },
@@ -27,8 +29,8 @@ try {
       const bundles = join(directory, '_expo', 'static', 'js', platform);
       const maps = readdirSync(bundles).filter((file) => file.endsWith('.map'));
       assert.ok(maps.length, `${build.name}/${platform}: missing source maps`);
-      const hasFixtures = maps.some((file) => JSON.parse(readFileSync(join(bundles, file), 'utf8'))
-        .sources.some((source) => /(^|\/)dev-preview\.ts$/.test(source.replaceAll('\\', '/'))));
+      const hasFixtures = maps.some((file) => mapSources(JSON.parse(readFileSync(join(bundles, file), 'utf8')))
+        .some((source) => /(^|\/)dev-preview\.ts$/.test(source.replaceAll('\\', '/'))));
       assert.equal(hasFixtures, build.fixtures, `${build.name}/${platform}: unexpected fixture module inclusion`);
       console.log(`${build.name}/${platform}: fixtures ${hasFixtures ? 'included' : 'excluded'}`);
     }

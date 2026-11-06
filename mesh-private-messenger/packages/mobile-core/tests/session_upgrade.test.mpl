@@ -1,3 +1,4 @@
+from Tests.HistoryFixture import fixture_direct_history
 import File
 from MobileCore import (
   create_account_export,
@@ -6,7 +7,6 @@ from MobileCore import (
   has_fanout_prekey_state_for_test,
   install_classical_session_for_test,
   install_group_transparency_for_test,
-  load_history_export,
   outbox_ack_export,
   receive_initial_export,
   receive_message_export,
@@ -66,22 +66,24 @@ fn device_set(username :: String, entry_value :: DirectoryEntry, sequence :: Int
   end
 end
 
-fn install_view(path :: String, peer_set :: Bytes, local_set :: Bytes) -> Bool!String do
+fn install_views(paths :: List<String>, peer_set :: Bytes, local_set :: Bytes) -> Bool!String do
   let view = signed_transparency_view([leaf_hash(peer_set)?, leaf_hash(local_set)?])?
-  assert(install_group_transparency_for_test(path,
-    view.checkpoint,
-    view.consistency,
-    view.service_public_key,
-    view.witness_a_public_key,
-    view.witness_b_public_key,
-    peer_set)?)
-  assert(install_group_transparency_for_test(path,
-    view.checkpoint,
-    view.consistency,
-    view.service_public_key,
-    view.witness_a_public_key,
-    view.witness_b_public_key,
-    local_set)?)
+  for path in paths do
+    assert(install_group_transparency_for_test(path,
+      view.checkpoint,
+      view.consistency,
+      view.service_public_key,
+      view.witness_a_public_key,
+      view.witness_b_public_key,
+      peer_set)?)
+    assert(install_group_transparency_for_test(path,
+      view.checkpoint,
+      view.consistency,
+      view.service_public_key,
+      view.witness_a_public_key,
+      view.witness_b_public_key,
+      local_set)?)
+  end
   Ok(true)
 end
 
@@ -121,8 +123,7 @@ fn proof() -> Bool!String do
   let claimed_bob = entry(claimed_bob_wire)?
   let alice_set = device_set("alice", base_entry(claimed_alice)?, 1)?
   let bob_set = device_set("bob", base_entry(claimed_bob)?, 1)?
-  assert(install_view(alice_path, bob_set, alice_set)?)
-  assert(install_view(bob_path, alice_set, bob_set)?)
+  assert(install_views([alice_path, bob_path], bob_set, alice_set)?)
   let claims_request = request([Bytes.from_utf8(alice_path), bob_set, alice_set])?
   assert(List.length(output_list(fanout_prekey_claims_export(claims_request)?)?) == 1)
   assert(Bytes.length(reserve_fanout_prekey_export(request([
@@ -198,7 +199,8 @@ fn proof() -> Bool!String do
     Bytes.from_utf8("legacy direct send")
   ])?) do
     Ok(_) -> assert(false)
-    Err(error) -> assert(error == "peer_keys_changed")
+    # This retired credential is absent from the authenticated current set.
+    Err(error) -> assert(error == "header_recipient_changed")
   end
   assert(Bytes.secure_equals(update_conversation_export(request([
       Bytes.from_utf8(alice_path),
@@ -208,25 +210,26 @@ fn proof() -> Bool!String do
     ])?)?,
     Bytes.from_utf8("ok")))
   let history_request = request([Bytes.from_utf8(alice_path), bob_profile])?
-  let history_before_delayed = load_history_export(history_request)?
+  let history_before_delayed = fixture_direct_history(history_request)?
   case receive_message_export(request([Bytes.from_utf8(alice_path), delayed])?) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "blocked_message")
   end
-  assert(Bytes.secure_equals(load_history_export(history_request)?, history_before_delayed))
+  assert(Bytes.secure_equals(fixture_direct_history(history_request)?, history_before_delayed))
   case receive_message_export(request([Bytes.from_utf8(alice_path), delayed])?) do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "message_rejected")
   end
   let downgraded_set = device_set("bob", classical_bob, 2)?
-  assert(install_view(alice_path, downgraded_set, alice_set)?)
+  assert(install_views([alice_path], downgraded_set, alice_set)?)
   case fanout_prekey_claims_export(request([
     Bytes.from_utf8(alice_path),
     downgraded_set,
     alice_set
   ])?) do
     Ok(_) -> assert(false)
-    Err(error) -> assert(error == "peer_keys_changed")
+    # Even an authenticated downgraded set cannot admit a latest HE write.
+    Err(error) -> assert(error == "header_recipient_upgrade_required")
   end
   File.delete(alice_path)?
   File.delete(bob_path)?
@@ -235,6 +238,42 @@ end
 
 test("mobile session upgrades enforce conversation blocks on delayed suite-1 traffic") do
   case proof() do
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok(value) -> assert(value)
+  end
+end
+
+fn legacy_queued_positive() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let alice = database_path("legacy-queued-positive-alice")?
+  let bob = database_path("legacy-queued-positive-bob")?
+  create_account_export(request([Bytes.from_utf8(alice), Bytes.from_utf8("alice")])?)?
+  create_account_export(request([Bytes.from_utf8(bob), Bytes.from_utf8("bob")])?)?
+  let fixture = output_list(install_classical_session_for_test(alice, bob)?)?
+  let queued = List.get(fixture, 0)
+  let peer = List.get(fixture, 2)
+  assert(outer(queued)?.suite == 1)
+  assert(Bytes.secure_equals(receive_message_export(request([Bytes.from_utf8(alice), queued])?)?,
+    Bytes.from_utf8("delayed suite-1")))
+  let history_before_replay = fixture_direct_history(request([Bytes.from_utf8(alice), peer])?)?
+  let history = output_list(history_before_replay)?
+  assert(List.length(history) == 1)
+  case receive_message_export(request([Bytes.from_utf8(alice), queued])?) do
+    Ok(_) -> assert(false)
+    Err(error) -> assert(error == "message_rejected")
+  end
+  assert(Bytes.secure_equals(fixture_direct_history(request([Bytes.from_utf8(alice), peer])?)?,
+    history_before_replay))
+  File.delete(alice)?
+  File.delete(bob)?
+  Ok(true)
+end
+
+test("legacy queued RAT2 remains readable exactly once through the common source guard") do
+  case legacy_queued_positive() do
     Err(error) -> do
       println(error)
       assert(false)

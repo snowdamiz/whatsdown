@@ -1,3 +1,4 @@
+from Storage.PushGuard import PushBasis, load_push_basis, commit_push_basis, require_current_push
 from Binary.Reader import BinaryReader, finish, reader
 from Mobile.Codec import (
   mobile_byte,
@@ -18,6 +19,12 @@ from Mobile.Platform import (
 from Mobile.Profile import load_profile
 from Mobile.PushState import (
   load_push_state,
+  push_state_from_basis,
+  profile_from_push_basis,
+  seal_push_state,
+  guarded_push_install_id,
+  build_new_push_bind,
+  build_push_unbind,
   next_push_action_epoch,
   prepare_new_push_bind,
   prepare_push_unbind_loaded,
@@ -97,7 +104,7 @@ fn encode_push_action(kind :: Int, flags :: Int, epoch :: U64, payload :: Bytes)
   end
 end
 
-fn push_status_code(state :: MobilePushState) -> Int do
+pub fn push_status_code(state :: MobilePushState) -> Int do
   if state.action_kind == 1 || state.action_kind == 2 || state.action_kind == 3 do
     2
   else if state.action_kind == 4 || state.action_kind == 5 do
@@ -130,7 +137,7 @@ fn push_done_action(state :: MobilePushState, surface_error :: Int) -> Bytes!Str
   encode_push_action(0, surface_error, state.action_epoch, mobile_byte(push_status_code(state))?)
 end
 
-fn current_push_action(state :: MobilePushState) -> Bytes!String do
+pub fn current_push_action(state :: MobilePushState) -> Bytes!String do
   if state.action_kind == 0 do
     push_done_action(state, 0)
   else if state.action_kind == 3 || state.action_kind == 4 do
@@ -143,8 +150,9 @@ end
 fn store_push_action(database_path :: String,
   profile :: ClientProfile,
   wrapping_key :: borrow StorageKey,
-  state :: MobilePushState) -> Bytes!String do
-  store_push_state(database_path, profile, wrapping_key, state)?
+  state :: MobilePushState,
+  basis :: PushBasis) -> Bytes!String do
+  commit_push_basis(database_path, basis, seal_push_state(profile, wrapping_key, state)?)?
   current_push_action(state)
 end
 
@@ -178,7 +186,8 @@ fn begin_push_cleanup(database_path :: String,
   state :: MobilePushState,
   target_mode :: Int,
   project_id :: Bytes,
-  broker_public_key :: Bytes) -> Bytes!String do
+  broker_public_key :: Bytes,
+  basis :: PushBasis) -> Bytes!String do
   let cleanup = %{state |
     action_epoch: next_push_action_epoch(state.action_epoch)?,
     action_kind: 5,
@@ -187,14 +196,13 @@ fn begin_push_cleanup(database_path :: String,
     broker_public_key: broker_public_key
   }
   if state.pending_kind == 2 do
-    store_push_action(database_path, profile, wrapping_key, cleanup)
+    store_push_action(database_path, profile, wrapping_key, cleanup, basis)
   else
-    let wire = prepare_push_unbind_loaded(database_path, profile, wrapping_key, cleanup)?
-    if Bytes.length(wire) == 0 do
-      store_push_action(database_path, profile, wrapping_key, cleanup)
-    else
-      encode_push_action(5, 0, cleanup.action_epoch, Bytes.empty())
-    end
+    store_push_action(database_path,
+      profile,
+      wrapping_key,
+      build_push_unbind(database_path, profile, wrapping_key, cleanup)?,
+      basis)
   end
 end
 
@@ -202,7 +210,8 @@ fn retarget_push_enable(database_path :: String,
   config :: MobilePushBuildConfig,
   profile :: ClientProfile,
   wrapping_key :: borrow StorageKey,
-  state :: MobilePushState) -> Bytes!String do
+  state :: MobilePushState,
+  basis :: PushBasis) -> Bytes!String do
   if state.action_kind == 4 || state.action_kind == 5 do
     store_push_action(database_path,
       profile,
@@ -212,7 +221,8 @@ fn retarget_push_enable(database_path :: String,
         target_mode: 1,
         project_id: config.project_id,
         broker_public_key: config.broker_public_key
-      })
+      },
+      basis)
   else if state.mode == 1 || state.pending_kind == 1 do
     begin_push_cleanup(database_path,
       profile,
@@ -220,7 +230,8 @@ fn retarget_push_enable(database_path :: String,
       state,
       1,
       config.project_id,
-      config.broker_public_key)
+      config.broker_public_key,
+      basis)
   else
     store_push_action(database_path,
       profile,
@@ -230,15 +241,20 @@ fn retarget_push_enable(database_path :: String,
         target_mode: 1,
         project_id: config.project_id,
         broker_public_key: config.broker_public_key
-      })
+      },
+      basis)
   end
 end
 
 pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
-  ensure_schema(request.database_path)?
-  let profile = decode_client_profile(load_profile(request.database_path)?)?
+  push_intent_with_basis(request, load_push_basis(request.database_path)?)
+end
+
+pub fn push_intent_with_basis(request :: MobilePushIntentRequest,
+  basis :: PushBasis) -> Bytes!String do
   let wrapping_key = platform_key()?
-  let state = load_push_state(request.database_path, profile, wrapping_key)?
+  let profile = profile_from_push_basis(basis, wrapping_key)?
+  let state = push_state_from_basis(basis, profile, wrapping_key)?
   if request.intent == 0 do
     if state.action_kind != 0 do
       if state.target_mode == 0 do
@@ -248,7 +264,7 @@ pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
         if push_config_matches(state, config) do
           current_push_action(state)
         else
-          retarget_push_enable(request.database_path, config, profile, wrapping_key, state)
+          retarget_push_enable(request.database_path, config, profile, wrapping_key, state, basis)
         end
       end
     else if state.mode == 1 do
@@ -260,7 +276,8 @@ pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
           state,
           1,
           config.project_id,
-          config.broker_public_key)
+          config.broker_public_key,
+          basis)
       else
         store_push_action(request.database_path,
           profile,
@@ -269,7 +286,8 @@ pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
             action_epoch: next_push_action_epoch(state.action_epoch)?,
             action_kind: 2,
             target_mode: 1
-          })
+          },
+          basis)
       end
     else
       current_push_action(state)
@@ -280,7 +298,7 @@ pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
       if state.target_mode == 1 && push_config_matches(state, config) do
         current_push_action(state)
       else
-        retarget_push_enable(request.database_path, config, profile, wrapping_key, state)
+        retarget_push_enable(request.database_path, config, profile, wrapping_key, state, basis)
       end
     else if state.mode == 1 do
       if push_config_matches(state, config) do
@@ -292,7 +310,8 @@ pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
           state,
           1,
           config.project_id,
-          config.broker_public_key)
+          config.broker_public_key,
+          basis)
       end
     else
       store_push_action(request.database_path,
@@ -304,7 +323,8 @@ pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
           target_mode: 1,
           project_id: config.project_id,
           broker_public_key: config.broker_public_key
-        })
+        },
+        basis)
     end
   else if state.action_kind == 4 || state.action_kind == 5 do
     if state.target_mode == 0
@@ -320,7 +340,8 @@ pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
           target_mode: 0,
           project_id: Bytes.empty(),
           broker_public_key: Bytes.empty()
-        })
+        },
+        basis)
     end
   else if state.mode == 1 || state.pending_kind == 1 do
     begin_push_cleanup(request.database_path,
@@ -329,7 +350,8 @@ pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
       state,
       0,
       Bytes.empty(),
-      Bytes.empty())
+      Bytes.empty(),
+      basis)
   else if state.action_kind != 0 do
     store_push_action(request.database_path,
       profile,
@@ -340,7 +362,8 @@ pub fn push_intent(request :: MobilePushIntentRequest) -> Bytes!String do
         target_mode: 0,
         project_id: Bytes.empty(),
         broker_public_key: Bytes.empty()
-      })
+      },
+      basis)
   else
     current_push_action(state)
   end
@@ -348,10 +371,15 @@ end
 
 pub fn complete_push_action_with_config(request :: MobilePushActionCompletion,
   endpoint :: String) -> Bytes!String do
-  ensure_schema(request.database_path)?
-  let profile = decode_client_profile(load_profile(request.database_path)?)?
+  complete_push_action_with_basis(request, endpoint, load_push_basis(request.database_path)?)
+end
+
+pub fn complete_push_action_with_basis(request :: MobilePushActionCompletion,
+  endpoint :: String,
+  basis :: PushBasis) -> Bytes!String do
   let wrapping_key = platform_key()?
-  let state = load_push_state(request.database_path, profile, wrapping_key)?
+  let profile = profile_from_push_basis(basis, wrapping_key)?
+  let state = push_state_from_basis(basis, profile, wrapping_key)?
   let completed = parse_push_action_frame(request.action)?
   let order = U64.compare(completed.epoch, state.action_epoch)
   if order < 0 do
@@ -364,14 +392,16 @@ pub fn complete_push_action_with_config(request :: MobilePushActionCompletion,
     store_push_action(request.database_path,
       profile,
       wrapping_key,
-      %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 4})
+      %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 4},
+      basis)
   else if request.outcome == 1 do
     push_done_action(state, 1)
   else if state.action_kind == 1 do
     store_push_action(request.database_path,
       profile,
       wrapping_key,
-      %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 2})
+      %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 2},
+      basis)
   else if state.action_kind == 2 do
     let config = matching_native_push_config(state)?
     let project_id = expo_project_id(config.project_id)?
@@ -382,7 +412,7 @@ pub fn complete_push_action_with_config(request :: MobilePushActionCompletion,
     end?
     let epoch = next_push_action_epoch(state.action_epoch)?
     let bind_state = %{state | action_epoch: epoch, action_kind: 3}
-    let wire = prepare_new_push_bind(MobilePayloadRequest {
+    let prepared = build_new_push_bind(MobilePayloadRequest {
         database_path: request.database_path,
         payload: config.project_id
       },
@@ -392,15 +422,11 @@ pub fn complete_push_action_with_config(request :: MobilePushActionCompletion,
       project_id,
       configured_key,
       endpoint,
-      raw_material)?
-    if Bytes.length(wire) == 0 do
-      store_push_action(request.database_path,
-        profile,
-        wrapping_key,
-        %{state | action_epoch: epoch, action_kind: 0, target_mode: 1})
-    else
-      encode_push_action(3, 0, epoch, wire)
-    end
+      raw_material,
+      guarded_push_install_id(request.database_path, basis, wrapping_key)?)?
+    matching_native_push_config(state)?
+    require_current_push(request.database_path, basis)?
+    store_push_action(request.database_path, profile, wrapping_key, prepared, basis)
   else if state.action_kind == 3 do
     matching_native_push_config(state)?
     store_push_action(request.database_path,
@@ -412,7 +438,8 @@ pub fn complete_push_action_with_config(request :: MobilePushActionCompletion,
         action_epoch: next_push_action_epoch(state.action_epoch)?,
         action_kind: 0,
         target_mode: 1
-      })
+      },
+      basis)
   else if state.action_kind == 4 do
     store_push_action(request.database_path,
       profile,
@@ -422,12 +449,14 @@ pub fn complete_push_action_with_config(request :: MobilePushActionCompletion,
         pending_wire: Bytes.empty(),
         action_epoch: next_push_action_epoch(state.action_epoch)?,
         action_kind: 5
-      })
+      },
+      basis)
   else if state.target_mode == 1 do
     store_push_action(request.database_path,
       profile,
       wrapping_key,
-      %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 1})
+      %{state | action_epoch: next_push_action_epoch(state.action_epoch)?, action_kind: 1},
+      basis)
   else
     store_push_action(request.database_path,
       profile,
@@ -438,7 +467,8 @@ pub fn complete_push_action_with_config(request :: MobilePushActionCompletion,
         target_mode: 0,
         project_id: Bytes.empty(),
         broker_public_key: Bytes.empty()
-      })
+      },
+      basis)
   end
 end
 

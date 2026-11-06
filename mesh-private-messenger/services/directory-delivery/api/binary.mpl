@@ -1,3 +1,7 @@
+from Storage.TransparencyCutover import legacy_bridge_on_connection
+from Storage.TransparencyTree import tree_leaf_proof_for
+from Transparency.LeafProof import LeafQuery, LeafProof, decode_leaf_query, encode_leaf_proof
+from Transparency.Migration import decode_bridge_query, encode_legacy_bridge
 from Storage.Transparency import transparency_username
 from Protocol.DirectoryWire import (
   decode_account_deletion,
@@ -42,14 +46,18 @@ from Storage.RateLimit import allow_request
 from Storage.Prekeys import PrekeyClaimWrite, PrekeyPublishWrite, claim_prekey, publish_prekeys
 from Storage.Transparency import (
   consistency_from,
-  configured_evidence_for_username,
-  create_configured_checkpoint,
-  latest_checkpoint,
-  store_witness,
+  consistency_between_for,
+  configured_evidence_for_username_for,
+  configured_checkpoint_note,
+  latest_checkpoint_for,
+  historical_checkpoint_for,
+  polled_checkpoint_for,
+  store_registered_witness_for,
+  store_current_c2sp_response,
   validate_signing_config,
-  witnesses_for_checkpoint
+  witnesses_for_checkpoint_for
 )
-from Transparency.Merkle import WitnessKey
+from Transparency.Merkle import ConsistencyProof, WitnessKey
 from Transparency.Wire import (
   decode_transparency_evidence,
   decode_transparency_lookup,
@@ -149,9 +157,17 @@ pub fn admission_failure(result :: Result<Admission, String>) -> BinaryResult do
   end
 end
 
+fn mutation_error(error :: String) -> BinaryResult do
+  if error == "transparency_migration_in_progress" do
+    empty(503)
+  else
+    empty(500)
+  end
+end
+
 fn device_write(result :: Result<DeviceWrite, String>) -> BinaryResult do
   case result do
-    Err(_) -> empty(500)
+    Err(error) -> mutation_error(error)
     Ok(DeviceAccepted) -> empty(201)
     Ok(DeviceUnchanged) -> empty(200)
     Ok(DeviceConflict) -> empty(409)
@@ -172,23 +188,54 @@ pub fn register_device_request(pool :: PoolHandle, body :: Bytes) -> BinaryResul
 end
 
 pub fn resolve_devices_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
+  resolve_devices_request_for(pool, 1, body)
+end
+
+pub fn resolve_log_availability(pool :: PoolHandle, version :: Int) -> BinaryResult do
+  if version == 1 do
+    return empty(204)
+  end
+  if version != 2 do
+    return empty(400)
+  end
+  case latest_checkpoint_for(pool, 2) do
+    Err(_) -> empty(503)
+    Ok(None) -> response(404, Bytes.from_utf8("transparency_v2_not_active"))
+    Ok(Some(_)) -> empty(204)
+  end
+end
+
+pub fn resolve_devices_request_for(pool :: PoolHandle,
+  version :: Int,
+  body :: Bytes) -> BinaryResult do
+  let availability = resolve_log_availability(pool, version)
+  if availability.status != 204 do
+    return availability
+  end
   case decode_transparency_lookup(body) do
     Err(_) -> empty(400)
     Ok(lookup) -> case transparency_username(pool, lookup.username) do
       Err(_) -> empty(500)
       Ok(None) -> empty(404)
-      Ok(Some(username)) -> resolved_device_evidence(pool, username, lookup.previous_tree_size)
+      Ok(Some(username)) -> resolved_device_evidence(pool,
+        version,
+        username,
+        lookup.previous_tree_size)
     end
   end
 end
 
 fn resolved_device_evidence(pool :: PoolHandle,
+  version :: Int,
   username :: String,
   previous_tree_size :: Int) -> BinaryResult do
   case resolve_devices(pool, username) do
     Err(_) -> empty(500)
     Ok(None) -> empty(404)
-    Ok(Some(_)) -> case configured_evidence_for_username(pool, username, previous_tree_size) do
+    Ok(Some(_)) -> case configured_evidence_for_username_for(pool,
+      version,
+      username,
+      previous_tree_size) do
       Err(_) -> empty(500)
       Ok(evidence) -> case encode_transparency_evidence(evidence) do
         Err(_) -> empty(500)
@@ -220,26 +267,8 @@ fn delivery_private_key() -> X25519PrivateKey!String do
   end
 end
 
-fn trusted_witness(witness_id :: String) -> WitnessKey!String do
-  if witness_id == "witness-a" do
-    Ok(WitnessKey {
-      witness_id: witness_id,
-      public_key: configured_public_key("MESSENGER_WITNESS_A_PUBLIC_KEY_HEX")?
-    })
-  else if witness_id == "witness-b" do
-    Ok(WitnessKey {
-      witness_id: witness_id,
-      public_key: configured_public_key("MESSENGER_WITNESS_B_PUBLIC_KEY_HEX")?
-    })
-  else
-    Err("untrusted witness")
-  end
-end
-
 pub fn validate_transparency_config() -> Result<(), String> do
   validate_signing_config()?
-  trusted_witness("witness-a")?
-  trusted_witness("witness-b")?
   Ok(nil)
 end
 
@@ -249,25 +278,39 @@ pub fn validate_delivery_config() -> Result<(), String> do
 end
 
 pub fn submit_witness_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
+  submit_witness_request_for(pool, 1, body)
+end
+
+pub fn submit_witness_request_for(pool :: PoolHandle,
+  version :: Int,
+  body :: Bytes) -> BinaryResult do
   case decode_witnesses(body) do
-    Err(_) -> empty(400)
+    Err(_) -> if version == 2 do
+      case store_current_c2sp_response(pool, body) do
+        Err(_) -> empty(400)
+        Ok(_) -> empty(201)
+      end
+    else
+      empty(400)
+    end
     Ok(values) -> if List.length(values) != 1 do
       empty(400)
     else
       let value = List.head(values)
-      case trusted_witness(value.witness_id) do
+      case store_registered_witness_for(pool, version, value) do
         Err(_) -> empty(400)
-        Ok(trusted) -> case store_witness(pool, value, trusted) do
-          Err(_) -> empty(400)
-          Ok(_) -> empty(201)
-        end
+        Ok(_) -> empty(201)
       end
     end
   end
 end
 
 pub fn checkpoint_request(pool :: PoolHandle) -> BinaryResult do
-  case latest_checkpoint(pool) do
+  checkpoint_request_for(pool, 1)
+end
+
+pub fn checkpoint_request_for(pool :: PoolHandle, version :: Int) -> BinaryResult do
+  case polled_checkpoint_for(pool, version) do
     Err(_) -> empty(500)
     Ok(None) -> empty(404)
     Ok(Some(checkpoint)) -> case encode_checkpoint(checkpoint) do
@@ -277,11 +320,38 @@ pub fn checkpoint_request(pool :: PoolHandle) -> BinaryResult do
   end
 end
 
-pub fn witnesses_request(pool :: PoolHandle) -> BinaryResult do
-  case latest_checkpoint(pool) do
+pub fn historical_checkpoint_request_for(pool :: PoolHandle,
+  version :: Int,
+  body :: Bytes) -> BinaryResult do
+  if (version != 1 && version != 2) || Bytes.length(body) != 8 do
+    return empty(400)
+  end
+  let sequence = case Bytes.read_u64_be(body, 0) do
+    Err(_) -> return empty(400)
+    Ok(value) -> value
+  end
+  if U64.to_string(sequence) == "0" do
+    return empty(400)
+  end
+  case historical_checkpoint_for(pool, version, sequence) do
     Err(_) -> empty(500)
     Ok(None) -> empty(404)
-    Ok(Some(checkpoint)) -> case witnesses_for_checkpoint(pool, checkpoint.sequence) do
+    Ok(Some(value)) -> case encode_checkpoint(value) do
+      Err(_) -> empty(500)
+      Ok(bytes) -> response(200, bytes)
+    end
+  end
+end
+
+pub fn witnesses_request(pool :: PoolHandle) -> BinaryResult do
+  witnesses_request_for(pool, 1)
+end
+
+pub fn witnesses_request_for(pool :: PoolHandle, version :: Int) -> BinaryResult do
+  case latest_checkpoint_for(pool, version) do
+    Err(_) -> empty(500)
+    Ok(None) -> empty(404)
+    Ok(Some(checkpoint)) -> case witnesses_for_checkpoint_for(pool, version, checkpoint.sequence) do
       Err(_) -> empty(500)
       Ok(values) -> case encode_witnesses(values) do
         Err(_) -> empty(500)
@@ -292,7 +362,11 @@ pub fn witnesses_request(pool :: PoolHandle) -> BinaryResult do
 end
 
 pub fn inclusion_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
-  let evidence = resolve_devices_request(pool, body)
+  inclusion_request_for(pool, 1, body)
+end
+
+pub fn inclusion_request_for(pool :: PoolHandle, version :: Int, body :: Bytes) -> BinaryResult do
+  let evidence = resolve_devices_request_for(pool, version, body)
   if evidence.status != 200 do
     evidence
   else
@@ -306,17 +380,99 @@ pub fn inclusion_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
   end
 end
 
+pub fn leaf_proof_request_for(pool :: PoolHandle, version :: Int, body :: Bytes) -> BinaryResult do
+  if version != 1 && version != 2 do
+    return empty(400)
+  end
+  let query = case decode_leaf_query(body) do
+    Err(_) -> return empty(400)
+    Ok(value) -> value
+  end
+  let proof = Repo.transaction(pool,
+    fn(conn :: borrow PgConn) do tree_leaf_proof_for(conn,
+      version,
+      query.leaf_index,
+      query.tree_size) end)
+  case proof do
+    Err(error) -> if error == "transparency_tree_unavailable" do
+      empty(404)
+    else
+      empty(500)
+    end
+    Ok(value) -> case encode_leaf_proof(value) do
+      Err(_) -> empty(500)
+      Ok(bytes) -> response(200, bytes)
+    end
+  end
+end
+
+fn consistency_result(result :: ConsistencyProof!String) -> BinaryResult do
+  case result do
+    Err(_) -> empty(400)
+    Ok(proof) -> case encode_consistency_proof(proof) do
+      Err(_) -> empty(500)
+      Ok(encoded) -> response(200, encoded)
+    end
+  end
+end
+
 pub fn consistency_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
+  consistency_request_for(pool, 1, body)
+end
+
+fn current_consistency(pool :: PoolHandle, version :: Int, previous :: Int) -> BinaryResult do
+  case polled_checkpoint_for(pool, version) do
+    Err(_) -> empty(500)
+    Ok(None) -> empty(404)
+    Ok(Some(checkpoint)) -> if version == 1 do
+      consistency_result(consistency_from(pool, previous))
+    else
+      case U64.to_int(checkpoint.tree_size) do
+        Err(_) -> empty(500)
+        Ok(size) -> consistency_result(consistency_between_for(pool, version, previous, size))
+      end
+    end
+  end
+end
+
+pub fn consistency_request_for(pool :: PoolHandle, version :: Int, body :: Bytes) -> BinaryResult do
   case decode_transparency_tree_query(body) do
     Err(_) -> empty(400)
-    Ok(query) -> case create_configured_checkpoint(pool) do
-      Err(_) -> empty(500)
-      Ok(_) -> case consistency_from(pool, query.previous_tree_size) do
-        Err(_) -> empty(400)
-        Ok(proof) -> case encode_consistency_proof(proof) do
-          Err(_) -> empty(500)
-          Ok(encoded) -> response(200, encoded)
-        end
+    Ok(query) -> if query.new_tree_size > 0 do
+      consistency_result(consistency_between_for(pool,
+        version,
+        query.previous_tree_size,
+        query.new_tree_size))
+    else
+      current_consistency(pool, version, query.previous_tree_size)
+    end
+  end
+end
+
+pub fn checkpoint_note_request(pool :: PoolHandle) -> BinaryResult do
+  case configured_checkpoint_note(pool) do
+    Err(error) -> if error == "transparency_v2_not_active" do
+      empty(404)
+    else
+      empty(500)
+    end
+    Ok(value) -> response(200, value)
+  end
+end
+
+pub fn legacy_bridge_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
+  case decode_bridge_query(body) do
+    Err(_) -> empty(400)
+    Ok((old, current)) -> case Repo.transaction(pool,
+      fn(conn :: borrow PgConn) -> legacy_bridge_on_connection(conn, old, current) end) do
+      Err(error) -> if error == "transparency_v2_not_active" do
+        empty(404)
+      else
+        empty(400)
+      end
+      Ok(bridge) -> case encode_legacy_bridge(bridge) do
+        Err(_) -> empty(500)
+        Ok(value) -> response(200, value)
       end
     end
   end
@@ -326,7 +482,7 @@ pub fn revoke_device_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult 
   case decode_device_revocation(body) do
     Err(_) -> empty(400)
     Ok(revocation) -> case revoke_device(pool, revocation) do
-      Err(_) -> empty(500)
+      Err(error) -> mutation_error(error)
       Ok(DeviceAccepted) -> empty(200)
       Ok(DeviceUnchanged) -> empty(200)
       Ok(DeviceConflict) -> empty(409)
@@ -368,7 +524,7 @@ pub fn leave_device_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult d
   case decode_device_departure(body) do
     Err(_) -> empty(400)
     Ok(departure) -> case leave_device(pool, departure) do
-      Err(_) -> empty(500)
+      Err(error) -> mutation_error(error)
       Ok(DeviceInvalid) -> empty(403)
       Ok(DeviceConflict) -> empty(409)
       Ok(DeviceLogFull) -> empty(507)
@@ -388,6 +544,7 @@ pub fn submit_request(pool :: PoolHandle, body :: Bytes) -> BinaryResult do
       Ok(MailboxRevoked) -> empty(410)
       Ok(RateLimited) -> empty(429)
       Ok(ExpiryRejected) -> empty(400)
+      Ok(PostageRequired) -> empty(402)
     end
   end
 end

@@ -9,7 +9,7 @@ import { chromium } from "../mobile/node_modules/playwright/index.mjs";
 const here = fileURLToPath(new URL(".", import.meta.url));
 // Articles are hardcoded files named blog-<slug>.html, listed by hand on blog.html.
 const articles = readdirSync(here).filter((f) => /^blog-[\w-]+\.html$/.test(f));
-const pages = ["index.html", "how-it-works.html", "witnesses.html", "blog.html", ...articles];
+const pages = ["index.html", "how-it-works.html", "witnesses.html", "network.html", "blog.html", ...articles];
 const problems = [];
 
 // There is no audit and no licence file (SECURITY.md), so the copy can't claim either. The owner also wants no audit
@@ -24,7 +24,7 @@ for (const file of pages) {
   if (!card || !existsSync(new URL(card, import.meta.url))) problems.push(`${file}: og:image ${card ?? "is missing"} isn't a file here`);
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH });
 for (const file of pages.filter((f) => existsSync(new URL(f, import.meta.url)))) {
   for (const [width, height] of [[1440, 900], [390, 844]]) {
     const name = `${file} at ${width}`;

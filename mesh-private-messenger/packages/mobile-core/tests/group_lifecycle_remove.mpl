@@ -1,3 +1,4 @@
+from Tests.HistoryFixture import fixture_group_history
 from Identity.Device import DeviceKeys
 from Groups.CommitWire import encode_group_commit
 from Groups.Membership import commit_remove
@@ -8,7 +9,6 @@ from Mobile.Profile import load_profile, open_device
 from Storage.Keys import platform_key
 from Transport.Packet import decode_client_profile
 from MobileCore import (
-  group_history_export,
   group_inspect_export,
   group_receive_export,
   group_remove_export,
@@ -122,7 +122,7 @@ pub fn exercise_group_removal(accounts :: GroupAccountFixture, group_id :: Bytes
   ])?)?)?
   group_remove_ensure(List.length(output_list(List.get(final_inspect, 6))?) == 2,
     "final group member count mismatch")?
-  let alice_history = output_list(group_history_export(group_vectors([
+  let alice_history = output_list(fixture_group_history(group_vectors([
     Bytes.from_utf8(accounts.alice_path),
     group_id
   ])?)?)?

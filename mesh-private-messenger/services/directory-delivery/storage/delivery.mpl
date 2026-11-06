@@ -12,6 +12,7 @@ pub type DeliveryInsert do
   MailboxRevoked
   RateLimited
   ExpiryRejected
+  PostageRequired
 end deriving(Eq, Debug)
 
 fn binary(value :: DbValue) -> Bytes!String do
@@ -68,7 +69,9 @@ end
 # mailbox, so it is stored under the mailbox's own hash: fetch, acknowledgement,
 # deduplication and the delivered envelope are all unchanged.
 
-fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryInsert!String do
+fn insert_envelope(conn :: borrow PgConn,
+  value :: OuterEnvelope,
+  paid :: Bool) -> DeliveryInsert!String do
   let (token_hash, contact) = resolve_deposit_address(conn, Crypto.sha256(value.mailbox_token))?
   let existing = Pg.query_values(conn,
     "SELECT sequence::text FROM messenger_envelopes WHERE mailbox_token_hash = $1 AND envelope_id = $2",
@@ -76,6 +79,22 @@ fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryIns
   if List.length(existing) > 0 do
     Ok(Duplicate)
   else
+    if !contact && !paid do
+      # Publication and registration lock the account before its mailboxes.
+      # Acquire the same account share lock before reading the mirrored price;
+      # no mailbox share lock is upgraded by two concurrent deposits.
+      Pg.query_values(conn,
+        "SELECT a.account_id FROM messenger_accounts a JOIN messenger_devices d ON d.account_id = a.account_id WHERE d.mailbox_token_hash = $1 AND d.revoked_at IS NULL FOR SHARE OF a",
+        [Binary(token_hash)])?
+      let prices = Pg.query_values(conn,
+        "SELECT postage_credits::text FROM messenger_mailboxes WHERE mailbox_token_hash = $1 AND active",
+        [Binary(token_hash)])?
+      if List.length(prices) == 1 && integer(Map.get(List.head(prices), "postage_credits"))? > 0 do
+        return Ok(PostageRequired)
+      end
+    else
+      nil
+    end
     Pg.execute_values(conn,
       "INSERT INTO messenger_envelopes (mailbox_token_hash, envelope_id, suite, expiration_ms, padding_bucket, ciphertext, contact) VALUES ($1, $2, $3::smallint, $4::bigint, $5::integer, $6, $7::boolean)",
       [
@@ -91,6 +110,12 @@ fn insert_envelope(conn :: borrow PgConn, value :: OuterEnvelope) -> DeliveryIns
           "false"
         end)
       ])?
+    # The insert trigger has locked the mailbox. A separate statement now sees
+    # any paid grant that committed while that lock was pending, so a racing
+    # deposit cannot miss an already-paid horizon. The sender's TTL is intact.
+    Pg.execute_values(conn,
+      "UPDATE messenger_envelopes e SET storage_until_ms = m.credit_retention_until_ms FROM messenger_mailboxes m WHERE e.mailbox_token_hash = $1 AND e.envelope_id = $2 AND m.mailbox_token_hash = e.mailbox_token_hash",
+      [Binary(token_hash), Binary(value.envelope_id)])?
     if deposit_rate_allowed(conn, token_hash, contact)? do
       Pg.execute_values(conn,
         "INSERT INTO messenger_outbox_events (mailbox_token_hash, envelope_id) VALUES ($1, $2)",
@@ -120,7 +145,8 @@ pub fn enqueue_envelope(pool :: PoolHandle, value :: OuterEnvelope) -> DeliveryI
   if !(expiry_acceptable(value.expiration)?) do
     return Ok(ExpiryRejected)
   end
-  case Repo.transaction(pool, fn(conn :: borrow PgConn) -> insert_envelope(conn, value) end) do
+  case Repo.transaction(pool,
+    fn(conn :: borrow PgConn) -> insert_envelope(conn, value, false) end) do
     Ok(result)
     Err(error) -> if String.contains(error, "messenger_envelopes_mailbox_envelope_key") do
       Ok(Duplicate)
@@ -170,7 +196,7 @@ pub fn fetch_mailbox(pool :: PoolHandle,
   owner :: MailboxOwner,
   after_sequence :: U64) -> List<DeliveredEnvelope>!String do
   let rows = Pool.query_values(pool,
-    "SELECT envelope.sequence::text, envelope.envelope_id, envelope.suite::text, envelope.expiration_ms::text, envelope.padding_bucket::text, envelope.ciphertext FROM messenger_envelopes AS envelope JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = envelope.mailbox_token_hash AND mailbox.active WHERE envelope.mailbox_token_hash = $1 AND envelope.sequence > $2::bigint AND envelope.acknowledged_at IS NULL AND envelope.expiration_ms > floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint ORDER BY envelope.sequence LIMIT 8",
+    "SELECT envelope.sequence::text, envelope.envelope_id, envelope.suite::text, envelope.expiration_ms::text, envelope.padding_bucket::text, envelope.ciphertext FROM messenger_envelopes AS envelope JOIN messenger_mailboxes AS mailbox ON mailbox.mailbox_token_hash = envelope.mailbox_token_hash AND mailbox.active WHERE envelope.mailbox_token_hash = $1 AND envelope.sequence > $2::bigint AND envelope.acknowledged_at IS NULL AND GREATEST(envelope.expiration_ms, envelope.storage_until_ms) > floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint ORDER BY envelope.sequence LIMIT 8",
     [Binary(Crypto.sha256(owner.mailbox_token)), Text(U64.to_string(after_sequence))])?
   deliveries(rows, owner.mailbox_token)
 end
@@ -203,4 +229,16 @@ pub fn acknowledge_mailbox(pool :: PoolHandle,
   owner :: MailboxOwner,
   envelope_ids :: List<Bytes>) -> Int!String do
   acknowledge_ids(pool, Crypto.sha256(owner.mailbox_token), envelope_ids, 0, 0)
+end
+
+# Trusted paid adapter only: the caller must first authenticate the complete
+# account/device snapshot, exact ordered batch and paid hold in this transaction.
+# Any non-Accepted result must abort the entire batch, including every token.
+pub fn enqueue_paid_envelope_on_connection(conn :: borrow PgConn,
+  value :: OuterEnvelope) -> DeliveryInsert!String do
+  valid_outer(value)?
+  if !(expiry_acceptable(value.expiration)?) do
+    return Ok(ExpiryRejected)
+  end
+  insert_envelope(conn, value, true)
 end

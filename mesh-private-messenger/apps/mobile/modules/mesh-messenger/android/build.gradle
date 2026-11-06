@@ -13,6 +13,7 @@ android {
     versionCode 1
     versionName '0.1.0'
     minSdk 23
+    consumerProguardFiles 'wallet-consumer-rules.pro'
     ndk { abiFilters 'arm64-v8a', 'x86_64' }
     externalNativeBuild {
       cmake { cppFlags '-std=c++17' }
@@ -27,11 +28,17 @@ android {
     }
   }
 
+  testBuildType 'release'
+  testOptions { unitTests.includeAndroidResources = true }
   lintOptions { abortOnError false }
 }
 
 dependencies {
+  implementation 'com.facebook.react:react-android'
+  implementation 'androidx.biometric:biometric:1.1.0'
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.robolectric:robolectric:4.16.1'
   // Expo links expo-notifications as its prebuilt artifact, not a Gradle project.
-  implementation 'host.exp.exponent:expo.modules.notifications:57.0.15'
-  implementation 'com.google.firebase:firebase-messaging:25.0.1'
+  implementation 'host.exp.exponent:expo.modules.notifications:58.1.5'
+  api 'com.google.firebase:firebase-messaging:25.0.1'
 }

@@ -43,9 +43,22 @@ async function open({ scheme = 'dark', account = true, creator = true, width = 1
       if (command === 'appearance') return scheme;
       if (command === 'binary_request' && options?.headers?.['X-Service-Url']?.endsWith('/v1/devices/resolve')) return [0, 200, 1];
       const symbol = options?.headers?.['X-Mesh-Symbol'] || args?.symbol;
+      if (symbol === 'mesh_messenger_signup_draft_state') return [0];
+      if (symbol === 'mesh_messenger_transparency_fork') return [];
+      if (symbol === 'mesh_messenger_account_capabilities') return [1,65,67,80,1];
+      if (symbol === 'mesh_messenger_directory_register') return [1,68,82,71,0,64,0];
+      if (symbol === 'mesh_messenger_prekeys_synchronize') return [1,68,80,75,0,64];
+      if (symbol === 'mesh_messenger_mailbox_synchronize') return [1,77,83,89,0,1,0,0,0,0,0,0];
+      if (symbol === 'mesh_messenger_devices_renew') return [1,68,78,82,0,0,0,0];
+      if (symbol === 'mesh_messenger_credit_signup_policy_online') throw Error('credits_disabled');
+      if (symbol === 'mesh_messenger_anchor_check') return list(...['off','0','0','0','0'].map(text));
+      if (symbol === 'mesh_messenger_outbox_drain') return [0,0,0,6,0,0,0,4,1,79,66,88,0,0,0,1,0,0,0,0,2,0,0,0,0,0,2,0,0,0,0,0,4,0,0,0,0,0,0,0,4,0,0,0,0];
+      if (symbol === 'mesh_messenger_mailbox_stream_open') return Array(32).fill(1);
+      if (symbol === 'mesh_messenger_mailbox_stream_poll' || symbol === 'mesh_messenger_mailbox_stream_close') return [];
       const request = args instanceof Uint8Array ? Array.from(args) : args?.request;
       state.calls.push(symbol || command);
       if (symbol === 'mesh_messenger_load_profile') { if (!state.account) throw Error('profile_not_found'); return profile; }
+      if (symbol === 'mesh_messenger_directory_resolve') return [1];
       if (symbol === 'mesh_messenger_create_account') { state.account = true; return profile; }
       if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_resolve_request' || symbol === 'mesh_messenger_verify_transparency') return [1];
       if (symbol === 'mesh_messenger_inspect_device_set') return vectors(text(creator ? 'alice' : 'maya'), id(self), u64(1), [0], [1], list(vectors(id(self, 16), [1], [1])));
@@ -64,20 +77,21 @@ async function open({ scheme = 'dark', account = true, creator = true, width = 1
         [2, 'Sunday works for me.'], [3, 'I’ll bring coffee.'], [1, 'See you both there!'],
       ].map(([sender, body], i) => list([1], [2], u64(1), id(sender), id(sender, 16), u64(Date.now() - (3 - i) * 60_000), text(body), [])));
       // The sealed journals, kept where a reload leaves them alone, as the database would.
-      if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_save') {
+      if (['mesh_messenger_journal_load', 'mesh_messenger_journal_save', 'mesh_messenger_journal_load_bound', 'mesh_messenger_journal_save_bound'].includes(symbol)) {
         const bytes = Array.from(args), parts = [];
         for (let at = 0; at < bytes.length;) {
           const size = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
           parts.push(new Uint8Array(bytes.slice(at + 4, at + 4 + size)));
           at += 4 + size;
         }
-        const label = `sealed-journal/${new TextDecoder().decode(parts[1])}`;
-        if (symbol.endsWith('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
-        if (parts[2].length === 1 && parts[2][0] === 0) localStorage.removeItem(label);
-        else localStorage.setItem(label, new TextDecoder().decode(parts[2]));
+        const field = symbol.endsWith('_bound') ? 2 : 1;
+          const label = `sealed-journal/${new TextDecoder().decode(parts[field])}`;
+        if (symbol.includes('_load')) return [...new TextEncoder().encode(localStorage.getItem(label) ?? '')];
+        if (parts[field + 1].length === 1 && parts[field + 1][0] === 0) localStorage.removeItem(label);
+        else localStorage.setItem(label, new TextDecoder().decode(parts[field + 1]));
         return [];
       }
-      throw Error('Offline test boundary');
+      throw Error(`Unexpected fixture IPC: ${symbol || command}`);
     } };
   }, { scheme, account, creator, contact });
   await page.goto(url);

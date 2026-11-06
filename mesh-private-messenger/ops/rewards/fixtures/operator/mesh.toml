@@ -1,0 +1,7 @@
+[package]
+name = "morse-rewards-operator-proof"
+version = "0.1.0"
+description = "Disposable loopback RPC proof of the public rewards operator"
+
+[dependencies]
+messenger-protocol = { path = "../../../../packages/messenger-protocol" }

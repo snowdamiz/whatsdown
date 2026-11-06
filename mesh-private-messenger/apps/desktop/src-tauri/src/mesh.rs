@@ -19,6 +19,13 @@ struct Callbacks {
 
 struct Host {
     config: String,
+    counter_config: String,
+    network_config: String,
+    ohttp_config: String,
+    credit_purpose: String,
+    credit_mint: String,
+    lightning_network: String,
+    issuer_tls_root: String,
     service: String,
 }
 
@@ -29,7 +36,18 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn load(path: &Path, config: String, service: String) -> Result<Self, String> {
+    pub fn load(
+        path: &Path,
+        config: String,
+        counter_config: String,
+        network_config: String,
+        ohttp_config: String,
+        credit_purpose: String,
+        credit_mint: String,
+        lightning_network: String,
+        issuer_tls_root: String,
+        service: String,
+    ) -> Result<Self, String> {
         // SAFETY: only the bundled library, built from our pinned Mesh toolchain, is loaded.
         unsafe {
             let library = Library::new(path).map_err(|e| e.to_string())?;
@@ -39,7 +57,17 @@ impl Mesh {
             if init() != 0 {
                 return Err("mesh_initialization_failed".into());
             }
-            let mut context = Box::new(Host { config, service });
+            let mut context = Box::new(Host {
+                config,
+                counter_config,
+                network_config,
+                ohttp_config,
+                credit_purpose,
+                credit_mint,
+                lightning_network,
+                issuer_tls_root,
+                service,
+            });
             let callbacks = Callbacks {
                 abi_version: 1,
                 struct_size: size_of::<Callbacks>() as u32,
@@ -109,7 +137,9 @@ impl Mesh {
             let status = invoke(request.as_ptr(), request.len() as u64, &mut response);
             let bytes = if response.len == 0 {
                 Vec::new()
-            } else if response.data.is_null() || response.len > super::request::MAX_REQUEST as u64 {
+            } else if response.data.is_null()
+                || response.len > super::request::maximum_response(symbol) as u64
+            {
                 free(&mut response);
                 return Err("invalid_native_response".into());
             } else {
@@ -142,6 +172,21 @@ impl Drop for Mesh {
     }
 }
 
+fn issuer_tls_resource(encoded: &str) -> Result<Vec<u8>, ()> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    if encoded.is_empty() {
+        return Ok(vec![1, 0, 0, 0, 0, 0, 0]);
+    }
+    if encoded.len() > 90124 {
+        return Err(());
+    }
+    let bytes = STANDARD.decode(encoded).map_err(|_| ())?;
+    if !(7..=67591).contains(&bytes.len()) || STANDARD.encode(&bytes) != encoded {
+        return Err(());
+    }
+    Ok(bytes)
+}
+
 unsafe extern "C" fn host<const OP: u8>(
     context: *mut c_void,
     input: *const u8,
@@ -161,14 +206,62 @@ unsafe extern "C" fn host<const OP: u8>(
         let input = unsafe { slice::from_raw_parts(input, len as usize) };
         let host = unsafe { &*context.cast::<Host>() };
         let result = if OP == 4 {
-            if input != b"messenger/config/v1" {
-                return 2;
+            if input == b"messenger/issuer-tls-root/v1" {
+                match issuer_tls_resource(&host.issuer_tls_root) {
+                    Ok(bytes) => Ok(bytes),
+                    Err(_) => return 3,
+                }
+            } else if input == b"messenger/ohttp/v1" {
+                if host.ohttp_config.is_empty() {
+                    return 2;
+                }
+                if host.ohttp_config.len() > 600 {
+                    return 1;
+                }
+                Ok(host.ohttp_config.as_bytes().to_vec())
+            } else if input == b"messenger/network/v1" {
+                if host.network_config.is_empty() {
+                    return 2;
+                }
+                Ok(host.network_config.as_bytes().to_vec())
+            } else if input == b"messenger/wallet/v1" {
+                match super::wallet::pins(&host.credit_purpose, &host.credit_mint) {
+                    Ok(frame) => Ok(frame.to_vec()),
+                    Err(_) => return 2,
+                }
+            } else if input == b"messenger/lightning/v1" {
+                match host.lightning_network.as_str() {
+                    "mainnet" => Ok(vec![1, 0]),
+                    "testnet" => Ok(vec![1, 1]),
+                    "regtest" => Ok(vec![1, 2]),
+                    "signet" => Ok(vec![1, 3]),
+                    "simnet" => Ok(vec![1, 4]),
+                    _ => return 2,
+                }
+            } else if input == b"messenger/network-counter/v1" {
+                if host.counter_config.is_empty() {
+                    return 2;
+                }
+                if host.counter_config.len() > 24576 {
+                    return 1;
+                }
+                Ok(host.counter_config.as_bytes().to_vec())
+            } else if input == b"messenger/credits/v1" {
+                match host.credit_purpose.as_str() {
+                    "live" => Ok(vec![1, 0]),
+                    "test" => Ok(vec![1, 1]),
+                    _ => return 2,
+                }
+            } else {
+                if input != b"messenger/config/v1" {
+                    return 2;
+                }
+                let config = &host.config;
+                if config.is_empty() {
+                    return 2;
+                }
+                Ok(config.as_bytes().to_vec())
             }
-            let config = &host.config;
-            if config.is_empty() {
-                return 2;
-            }
-            Ok(config.as_bytes().to_vec())
         } else {
             secure_store(&host.service, OP, input)
         };
@@ -228,7 +321,80 @@ fn secure_store(service: &str, operation: u8, input: &[u8]) -> Result<Vec<u8>, i
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn ohttp_selector_reads_only_the_bounded_release_resource() {
+        fn read(frame: &str, selector: &[u8], capacity: usize) -> (i32, u64, Vec<u8>) {
+            let mut context = super::Host {
+                config: "legacy config must not substitute".into(),
+                counter_config: "counter must not substitute".into(),
+                network_config: "network must not substitute".into(),
+                ohttp_config: frame.into(),
+                credit_purpose: String::new(),
+                credit_mint: String::new(),
+                lightning_network: String::new(),
+                issuer_tls_root: String::new(),
+                service: "unused-ohttp-callback-test".into(),
+            };
+            let mut output = vec![0xcc; 601];
+            let mut written = 99;
+            let status = unsafe {
+                super::host::<4>(
+                    (&mut context as *mut super::Host).cast(),
+                    selector.as_ptr(),
+                    selector.len() as u64,
+                    output.as_mut_ptr(),
+                    capacity as u64,
+                    &mut written,
+                )
+            };
+            (status, written, output)
+        }
+        let selector = b"messenger/ohttp/v1";
+        let frame = format!("1\n{}\n{}\n1\noff\n0", "11".repeat(32), "22".repeat(32));
+        let (status, written, output) = read(&frame, selector, frame.len());
+        assert_eq!((status, written), (0, frame.len() as u64));
+        assert_eq!(&output[..frame.len()], frame.as_bytes());
+        assert!(output[frame.len()..].iter().all(|byte| *byte == 0xcc));
+        for frame in ["a".repeat(600), "é".repeat(300)] {
+            let (status, written, output) = read(&frame, selector, 600);
+            assert_eq!((status, written), (0, 600));
+            assert_eq!(&output[..600], frame.as_bytes());
+        }
+        for (frame, selector, capacity, expected) in [
+            (String::new(), selector.as_slice(), 600, 2),
+            ("a".repeat(601), selector.as_slice(), 601, 1),
+            ("é".repeat(301), selector.as_slice(), 601, 1),
+            (frame.clone(), selector.as_slice(), frame.len() - 1, 4),
+            (frame.clone(), b"messenger/ohttp/v1/", 600, 2),
+        ] {
+            let (status, written, output) = read(&frame, selector, capacity);
+            assert_eq!((status, written), (expected, 0));
+            assert!(output.iter().all(|byte| *byte == 0xcc));
+        }
+    }
+    #[test]
+    fn issuer_tls_native_resource_is_explicit_and_canonical() {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        assert_eq!(
+            super::issuer_tls_resource("").unwrap(),
+            [1, 0, 0, 0, 0, 0, 0]
+        );
+        let maximum = vec![7; 67591];
+        assert_eq!(
+            super::issuer_tls_resource(&STANDARD.encode(&maximum)).unwrap(),
+            maximum
+        );
+        for bad in [
+            "bad-base64!".to_owned(),
+            STANDARD.encode([1; 6]),
+            STANDARD.encode(vec![1; 67592]),
+            format!("{}\n", STANDARD.encode([1; 7])),
+        ] {
+            assert!(super::issuer_tls_resource(&bad).is_err());
+        }
+    }
     use super::*;
+    static NATIVE_CORE_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
     #[test]
     fn platform_credentials_round_trip_binary_secrets_and_delete() {
         let service = format!("io.morseapp.desktop.tests.{}", std::process::id());
@@ -260,11 +426,24 @@ mod tests {
 
     #[test]
     fn bundled_core_opens_storage_and_rejects_invalid_wire() {
+        let _serial = NATIVE_CORE_TEST_LOCK.lock().unwrap();
         let extension = if cfg!(windows) { "dll" } else { "dylib" };
         let library = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join(format!("native/libmessenger_mobile.{extension}"));
         let service = format!("io.morseapp.desktop.tests.{}.core", std::process::id());
-        let mesh = Mesh::load(&library, String::new(), service.clone()).unwrap();
+        let mesh = Mesh::load(
+            &library,
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            service.clone(),
+        )
+        .unwrap();
         let directory =
             std::env::temp_dir().join(format!("morse-native-test-{}", std::process::id()));
         std::fs::create_dir_all(&directory).unwrap();
@@ -290,5 +469,213 @@ mod tests {
             assert_eq!(secure_store(&service, 3, key), Ok(Vec::new()));
         }
         std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn bundled_mailbox_authenticates_to_owned_peer_and_fences_sessions() {
+        use std::{net::TcpListener, process::Command, thread, time::Duration};
+        // The bundled runtime intentionally initializes once per process. Keep
+        // this real scheduler/network proof separate from the storage test.
+        if std::env::var("MORSE_DESKTOP_MAILBOX_CHILD").as_deref() != Ok("1") {
+            let proof = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "mesh::tests::bundled_mailbox_authenticates_to_owned_peer_and_fences_sessions",
+                    "--nocapture",
+                ])
+                .env("MORSE_DESKTOP_MAILBOX_CHILD", "1")
+                .output()
+                .unwrap();
+            assert!(
+                proof.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&proof.stdout),
+                String::from_utf8_lossy(&proof.stderr)
+            );
+            return;
+        }
+        let _serial = NATIVE_CORE_TEST_LOCK.lock().unwrap();
+        let product = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let directory =
+            std::env::temp_dir().join(format!("morse-mailbox-desktop-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let service = format!("io.morseapp.desktop.tests.{}.mailbox", std::process::id());
+        struct Cleanup(std::path::PathBuf, String);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = secure_store(&self.1, 3, b"mesh/storage-key/v2");
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(directory.clone(), service.clone());
+        let socket = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = socket.local_addr().unwrap().port();
+        drop(socket);
+        let frame = format!("1\n1\nhttp://127.0.0.1:18086\nhttp://127.0.0.1:18087\nhttp://127.0.0.1:18089\nws://127.0.0.1:{port}/v1/mailbox/stream");
+        let mesh = Mesh::load(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("native/libmessenger_mobile.dylib"),
+            String::new(),
+            String::new(),
+            frame,
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            service,
+        )
+        .unwrap();
+        let database = directory.join("mailbox.db").to_string_lossy().into_owned();
+        let db = database.as_bytes();
+        let vector = |value: &[u8]| {
+            let mut bytes = (value.len() as u32).to_be_bytes().to_vec();
+            bytes.extend(value);
+            bytes
+        };
+        let packet = |ticket: &[u8]| {
+            let mut bytes = 2u32.to_be_bytes().to_vec();
+            bytes.extend(vector(db));
+            bytes.extend(vector(ticket));
+            bytes
+        };
+        let mut account = vector(db);
+        account.extend(vector(b"alice"));
+        mesh.invoke("mesh_messenger_create_account", &account, &database)
+            .unwrap();
+        let entry = mesh
+            .invoke("mesh_messenger_directory_entry", db, &database)
+            .unwrap();
+        std::fs::write(
+            directory.join("entry.hex"),
+            entry
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>(),
+        )
+        .unwrap();
+        let keys = Command::new("node")
+            .arg(product.join("scripts/mailbox-proof-keys.mjs"))
+            .arg(directory.join("entry.hex"))
+            .arg(directory.join("keys.json"))
+            .arg(port.to_string())
+            .output()
+            .unwrap();
+        assert!(
+            keys.status.success(),
+            "{}",
+            String::from_utf8_lossy(&keys.stderr)
+        );
+        struct Peer(std::process::Child);
+        impl Drop for Peer {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let mut peer = Peer(
+            Command::new("node")
+                .arg(product.join("scripts/mailbox-proof-peer.mjs"))
+                .arg(directory.join("keys.json"))
+                .arg(directory.join("ready"))
+                .arg(directory.join("peer.json"))
+                .spawn()
+                .unwrap(),
+        );
+        for _ in 0..100 {
+            if directory.join("ready").exists() {
+                break;
+            }
+            assert!(peer.0.try_wait().unwrap().is_none(), "owned peer exited");
+            thread::sleep(Duration::from_millis(20));
+        }
+        assert!(directory.join("ready").exists());
+        let first = mesh
+            .invoke("mesh_messenger_mailbox_stream_open", db, &database)
+            .unwrap();
+        assert_eq!(first.len(), 32);
+        assert_eq!(
+            mesh.invoke(
+                "mesh_messenger_mailbox_stream_poll",
+                &packet(&first),
+                &database
+            )
+            .unwrap(),
+            b"ready"
+        );
+        assert_eq!(
+            mesh.invoke(
+                "mesh_messenger_mailbox_stream_poll",
+                &packet(&first),
+                &database
+            )
+            .unwrap(),
+            b"encrypted-wakeup"
+        );
+        let second = mesh
+            .invoke("mesh_messenger_mailbox_stream_open", db, &database)
+            .unwrap();
+        assert_ne!(first, second);
+        assert!(mesh
+            .invoke(
+                "mesh_messenger_mailbox_stream_poll",
+                &packet(&first),
+                &database
+            )
+            .is_err());
+        let mut trailing = packet(&second);
+        trailing.push(1);
+        assert!(mesh
+            .invoke("mesh_messenger_mailbox_stream_poll", &trailing, &database)
+            .is_err());
+        let mut other = 2u32.to_be_bytes().to_vec();
+        other.extend(vector(b"other.db"));
+        other.extend(vector(&second));
+        assert!(mesh
+            .invoke("mesh_messenger_mailbox_stream_poll", &other, &database)
+            .is_err());
+        mesh.invoke(
+            "mesh_messenger_mailbox_stream_close",
+            &packet(&second),
+            &database,
+        )
+        .unwrap();
+        assert!(mesh
+            .invoke(
+                "mesh_messenger_mailbox_stream_poll",
+                &packet(&second),
+                &database
+            )
+            .is_err());
+        let erased = mesh
+            .invoke("mesh_messenger_mailbox_stream_open", db, &database)
+            .unwrap();
+        mesh.invoke("mesh_messenger_erase_account", db, &database)
+            .unwrap();
+        assert!(mesh
+            .invoke(
+                "mesh_messenger_mailbox_stream_poll",
+                &packet(&erased),
+                &database
+            )
+            .is_err());
+        assert!(Command::new("kill")
+            .args(["-TERM", &peer.0.id().to_string()])
+            .status()
+            .unwrap()
+            .success());
+        assert!(peer.0.wait().unwrap().success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(directory.join("peer.json")).unwrap()).unwrap();
+        assert_eq!(report["accepted"], 3);
+        assert_eq!(report["rejected"], 0);
+        if let Ok(evidence) = std::env::var("MORSE_MAILBOX_EVIDENCE_DIR") {
+            std::fs::create_dir_all(&evidence).unwrap();
+            std::fs::write(
+                Path::new(&evidence).join("phase6-mailbox-desktop-peer.json"),
+                serde_json::to_vec_pretty(&report).unwrap(),
+            )
+            .unwrap();
+        }
     }
 }

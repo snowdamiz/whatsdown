@@ -1,3 +1,5 @@
+import { t } from './i18n.ts';
+
 const chunkSize = 900;
 const maximumLength = 48_200;
 
@@ -32,32 +34,32 @@ export function createQrCollector() {
     },
     scan(value: string): string | null {
       if (complete) return null;
-      if (value.length === 0 || value.length > maximumLength) throw new Error('Invalid QR payload size');
+      if (value.length === 0 || value.length > maximumLength) throw new Error(t('Invalid QR payload size'));
       if (!value.startsWith('mesh://part/')) {
         complete = true;
         return value;
       }
       const match = /^mesh:\/\/part\/([0-9a-f]{8})\/(0|[1-9]\d?)\/([1-9]\d?)\/([\s\S]+)$/.exec(value);
-      if (!match) throw new Error('Invalid QR fragment');
+      if (!match) throw new Error(t('Invalid QR fragment'));
       const id = match[1]!;
       const index = Number(match[2]);
       const count = Number(match[3]);
       const chunk = match[4]!;
       if (count < 2 || count > Math.ceil(maximumLength / chunkSize) || index >= count ||
           chunk.length > chunkSize || (index < count - 1 && chunk.length !== chunkSize)) {
-        throw new Error('Invalid QR fragment');
+        throw new Error(t('Invalid QR fragment'));
       }
       const key = `${id}/${count}`;
       if (current !== key) {
         current = key;
         parts.clear();
       }
-      if (parts.has(index) && parts.get(index) !== chunk) throw new Error('Conflicting QR fragment');
+      if (parts.has(index) && parts.get(index) !== chunk) throw new Error(t('Conflicting QR fragment'));
       parts.set(index, chunk);
       if (parts.size !== count) return null;
       const assembled = Array.from({ length: count }, (_, part) => parts.get(part)!).join('');
       if (assembled.length > maximumLength || checksum(assembled) !== id) {
-        throw new Error('QR fragments did not match. Scan again.');
+        throw new Error(t('QR fragments did not match. Scan again.'));
       }
       complete = true;
       return assembled;

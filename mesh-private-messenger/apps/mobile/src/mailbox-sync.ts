@@ -1,3 +1,5 @@
+import { t } from './i18n.ts';
+
 export type MailboxSocket = Pick<WebSocket, 'onmessage' | 'onerror' | 'onclose' | 'close'>;
 
 // One foreground subscription per account. Wakeups invalidate local data; they
@@ -70,7 +72,7 @@ export function createMailboxSync(
         return;
       }
       socket = connected;
-      deadline = setTimeout(() => reconnect(new Error('Connection timed out. Reconnecting…')), 10_000);
+      deadline = setTimeout(() => reconnect(new Error(t('Connection timed out. Reconnecting…'))), 10_000);
       connected.onmessage = ({ data }) => {
         if (data === 'ready') {
           clearTimeout(deadline);
@@ -78,7 +80,7 @@ export function createMailboxSync(
         } else if (data === 'encrypted-wakeup') invalidate();
         else reconnect(new Error('Invalid mailbox stream event'));
       };
-      connected.onerror = connected.onclose = () => reconnect(new Error('Connection lost. Reconnecting…'));
+      connected.onerror = connected.onclose = () => reconnect(new Error(t('Connection lost. Reconnecting…')));
     } catch (error) {
       if (attempt === generation) reconnect(error);
     }

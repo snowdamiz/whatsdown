@@ -1,0 +1,122 @@
+from Fixtures.WorkerBank import token_burn_bank_fixture
+from BurnNetwork import (
+  read_token_burn_worker_from,
+  read_token_burn_worker_quorum,
+  read_token_burn_expiry_quorum
+)
+from Transparency.TokenBurnRead import read_token_burn_from
+
+fn exercise_worker_rpc() -> Bool!String do
+  let fixture = token_burn_bank_fixture(Env.get("MORSE_BURN_WORKER_BANK_FIXTURE", ""))?
+  let base = Env.get("MORSE_BURN_WORKER_TEST_RPC", "")
+  if base == "" do
+    return Err("owned_burn_worker_rpc_required")
+  end
+  let origins = String.split(Env.get("MORSE_BURN_WORKER_TEST_RPC_PEERS", ""), ",")
+  if List.length(origins) != 3 do
+    return Err("three_owned_origins_required")
+  end
+  let peer_b = List.get(origins, 1)
+  let peer_c = List.get(origins, 2)
+  let slot = fixture.bank.custody.context_slot
+  let client = Http.client()
+  let good = read_token_burn_worker_from(client,
+    base <> "/good/a",
+    fixture.pins,
+    fixture.epoch,
+    slot)?
+  assert(good.custody == fixture.bank.custody && good.market == fixture.bank.market)
+  let market = read_token_burn_from(client,
+    base <> "/market-good/a",
+    fixture.pins,
+    fixture.epoch,
+    slot)?
+  let expected = case good.market do
+    None -> return Err("missing_market")
+    Some(value) -> value
+  end
+  assert(market.week == expected.week)
+  assert(Result.is_err(read_token_burn_from(client,
+    base <> "/market-carry/a",
+    fixture.pins,
+    fixture.epoch,
+    slot)))
+  for path in [
+    "wrong-id",
+    "redirect",
+    "oversized",
+    "stale",
+    "missing",
+    "wrong-owner",
+    "custody-owner",
+    "quoted-context",
+    "quoted-height",
+    "null-height",
+    "mismatched-time",
+    "future-tip",
+    "expired-tip",
+    "trailing",
+    "wrong-space",
+    "nested-context",
+    "wrong-carry",
+    "contradictory-copy"
+  ] do
+    assert(Result.is_err(read_token_burn_worker_from(client,
+      base <> "/" <> path <> "/a",
+      fixture.pins,
+      fixture.epoch,
+      slot)))
+  end
+  let paused = read_token_burn_worker_from(client,
+    base <> "/upgraded/a",
+    fixture.pins,
+    fixture.epoch,
+    slot)?
+  assert(!paused.custody.code_current)
+  # Three paths on one origin cannot manufacture a provider quorum.
+  assert(Result.is_err(read_token_burn_worker_quorum(client,
+    [base <> "/alias/a", base <> "/alias/b", base <> "/alias/c"],
+    true,
+    fixture.pins,
+    fixture.epoch,
+    slot)))
+  let agreed = read_token_burn_worker_quorum(client,
+    [base <> "/good/a", peer_b <> "/wrong-owner/b", peer_c <> "/good/c"],
+    true,
+    fixture.pins,
+    fixture.epoch,
+    slot)?
+  assert(agreed.digest == good.digest)
+  assert(Result.is_err(read_token_burn_worker_quorum(client,
+    [base <> "/split/a", peer_b <> "/split/b", peer_c <> "/split/c"],
+    true,
+    fixture.pins,
+    fixture.epoch,
+    slot)))
+  assert(Result.is_err(read_token_burn_worker_quorum(client,
+    [base <> "/good/a", peer_b <> "/upgraded/b", peer_c <> "/wrong-id/c"],
+    true,
+    fixture.pins,
+    fixture.epoch,
+    slot)))
+  for mode in ["hash-valid", "hash-quoted", "hash-context", "hash-null", "hash-disagree"] do
+    assert(Result.is_err(read_token_burn_expiry_quorum(client,
+      [base <> "/" <> mode <> "/a", peer_b <> "/" <> mode <> "/b", peer_c <> "/" <> mode <> "/c"],
+      true,
+      fixture.pins,
+      fixture.epoch,
+      slot,
+      fixture.bank.blockhash)))
+  end
+  Http.client_close(client)
+  Ok(true)
+end
+
+test("worker binds height to exact finalized31-account bank and whole-batch quorum refuses malformed or divergent observations") do
+  let result = exercise_worker_rpc()
+  case result do
+    Err(reason) -> IO.eprintln(reason)
+    Ok(_) -> nil
+  end
+  assert(result == Ok(true))
+end

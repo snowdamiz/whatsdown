@@ -1,8 +1,9 @@
 from Transparency.Merkle import (
   WitnessKey,
   checkpoint_hash,
-  leaf_hash,
-  merkle_root,
+  leaf_hash_for,
+  merkle_root_for,
+  proof_matches_log,
   verify_checkpoint,
   verify_consistency,
   verify_inclusion,
@@ -18,8 +19,10 @@ pub fn verify_evidence(evidence :: TransparencyEvidence,
   let current_size = U64.to_int(evidence.checkpoint.tree_size)?
   let current_valid = evidence.inclusion.tree_size == current_size
     && evidence.consistency.new_tree_size == current_size
+    && proof_matches_log(evidence.checkpoint.version, evidence.inclusion.version)
+    && proof_matches_log(evidence.checkpoint.version, evidence.consistency.version)
     && verify_checkpoint(evidence.checkpoint, trusted_service_key)?
-    && verify_inclusion(leaf_hash(evidence.entry_bytes)?,
+    && verify_inclusion(leaf_hash_for(evidence.checkpoint.version, evidence.entry_bytes)?,
       evidence.inclusion,
       evidence.checkpoint.tree_root)?
     && verify_witnesses(evidence.checkpoint,
@@ -30,7 +33,7 @@ pub fn verify_evidence(evidence :: TransparencyEvidence,
     Ok(false)
   else if Bytes.length(previous_checkpoint_bytes) == 0 do
     Ok(evidence.consistency.old_tree_size == 0
-      && verify_consistency(merkle_root(List.new())?,
+      && verify_consistency(merkle_root_for(evidence.checkpoint.version, List.new())?,
         evidence.checkpoint.tree_root,
         evidence.consistency)?)
   else
@@ -41,7 +44,8 @@ pub fn verify_evidence(evidence :: TransparencyEvidence,
     let same_sequence = sequence_order == 0
     let same_checkpoint = Bytes.secure_equals(checkpoint_hash(evidence.checkpoint)?,
       checkpoint_hash(previous)?)
-    if !verify_checkpoint(previous, trusted_service_key)?
+    if previous.version != evidence.checkpoint.version
+      || !verify_checkpoint(previous, trusted_service_key)?
       || sequence_order < 0
       || size_order < 0
       || (same_sequence && !same_checkpoint)

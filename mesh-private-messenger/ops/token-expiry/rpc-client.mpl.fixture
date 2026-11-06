@@ -1,0 +1,27 @@
+from Payment.TreasuryBurnExpiry import read_treasury_burn_expiry_bank
+from Payment.Treasury import TreasuryChainConfig
+from Runtime.Treasury import TreasuryWorkerConfig, treasury_provider_hash
+from Transparency.TokenBurnRead import TokenBurnReadPins
+from Solana.Read import pubkey
+fn field(root :: Json, name :: String) -> String!String do Json.as_string(Json.object_get(root, name)?) end
+fn bytes(value :: String) -> Bytes!String do Bytes.from_hex(String.repeat(value, 32)) end
+fn run() -> Result<(), String> do
+  let root = Json.parse(File.read(Env.get("BURN_EXPIRY_FIXTURE", ""))?)?
+  let providers = String.split(Env.get("BURN_EXPIRY_URLS", ""), ",")
+  let pins = TokenBurnReadPins { program: pubkey(field(root, "program")?)?, governance: pubkey(field(root, "governance")?)?, program_slot: U64.parse(field(root, "program_slot")?)?, usdc: pubkey(field(root, "usdc")?)?, treasury: pubkey(field(root, "treasury")?)?, factory: pubkey(field(root, "factory")?)? }
+  let chain = TreasuryChainConfig { cluster: pins.program.bytes, providers_hash: treasury_provider_hash(providers)?, mint: pins.usdc.bytes, treasury_owner: pins.treasury.bytes, fee_payer: bytes("11")?, nonce_authority: bytes("12")?, nonce_address: bytes("13")?, rewards_program: bytes("14")?, rewards_pool: bytes("15")? }
+  let worker = TreasuryWorkerConfig { chain: chain, providers: providers, test_mode: Env.get("BURN_EXPIRY_TEST_MODE", "1") == "1" }
+  let bank = read_treasury_burn_expiry_bank(worker, pins, U64.parse(field(root, "epoch")?)?)?
+  let status = if Option.is_none(bank.frame) do "absent" else "expired" end
+  println(status <> ":" <> U64.to_string(bank.context_slot))
+  Ok(nil)
+end
+fn main() do
+  case run() do
+    Ok(_) -> nil
+    Err(error) -> do
+      IO.eprintln(error)
+      Process.exit(1)
+    end
+  end
+end

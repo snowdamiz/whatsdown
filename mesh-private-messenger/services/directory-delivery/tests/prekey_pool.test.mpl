@@ -281,8 +281,9 @@ fn happy_path() -> Bool!String do
     "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000)?
   Pool.execute(pool,
-    "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
     [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
   let created_at = now()?
   let expires_at = U64.add(created_at, wide("31536000000")?)?
   let (account, identity) = case generate_account(created_at, wide("1")?) do
@@ -582,7 +583,7 @@ fn rotation_replay_assertions(pool :: PoolHandle,
   let hybrid_credential = case issue_hybrid_device_credential(account,
     target,
     post_quantum.public_key,
-    wide("3")?,
+    wide("1")?,
     created_at,
     expires_at,
     wide("4")?) do
@@ -663,8 +664,9 @@ fn last_resort_path() -> Bool!String do
     "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000)?
   Pool.execute(pool,
-    "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
     [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
   let created_at = now()?
   let expires_at = U64.add(created_at, wide("31536000000")?)?
   let (account, identity) = case generate_account(created_at, wide("1")?) do
@@ -733,8 +735,9 @@ fn contact_address_path() -> Bool!String do
     "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let pool = Pool.open(url, 1, 2, 5000)?
   Pool.execute(pool,
-    "TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
     [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
   let created_at = now()?
   let expires_at = U64.add(created_at, wide("31536000000")?)?
   let (account, identity) = case generate_account(created_at, wide("1")?) do
@@ -801,5 +804,532 @@ test("authenticated publication feeds one atomic bundle claim") do
       assert(false)
     end
     Ok(value) -> assert(value)
+  end
+end
+
+# Unrun addition to tests/prekey_pool.test.mpl; reuses its existing helpers.
+from Api.Ohttp import execute_prekey_ohttp
+from Ohttp.BinaryHttp import encode_request, decode_response
+from Ohttp.Policy import prekey_claim_request, open_prekey_claim_response
+from Ohttp.Types import BhttpRequest, BhttpResponse, BhttpField, BhttpFraming, default_bhttp_limits
+from Privacy.Edge import mint_request_stamp, encode_stamped_request
+
+fn ohttp_work_count(pool :: PoolHandle) -> Int!String do
+  let rows = Pool.query_values(pool,
+    "SELECT count(*)::text AS total FROM messenger_rate_limits",
+    [])?
+  if List.length(rows) != 1 do
+    return Err("work count unavailable")
+  end
+  case Map.get(List.head(rows), "total") do
+    Text(value) -> case String.to_int(value) do
+      Some(total) -> Ok(total)
+      None -> Err("invalid work count")
+    end
+    _ -> Err("invalid work count value")
+  end
+end
+
+fn ohttp_stamp(payload :: Bytes, expires :: U64, label :: String) -> Bytes!String do
+  encode_stamped_request(mint_request_stamp(label, payload, expires, 8)?, payload)
+end
+
+fn ohttp_wire(request :: BhttpRequest, framing :: BhttpFraming) -> Bytes!String do
+  case encode_request(request, framing, default_bhttp_limits()) do
+    Err(_) -> Err("fixture Binary HTTP encode failed")
+    Ok(value)
+  end
+end
+
+fn ohttp_exchange(pool :: PoolHandle,
+  key :: borrow X25519PrivateKey,
+  public_key :: X25519PublicKey,
+  inner :: Bytes,
+  clock :: U64) -> BhttpResponse!String do
+  let request = case Ohttp.encapsulate_request(7, public_key, inner) do
+    Err(_) -> Err("fixture request encryption failed")
+    Ok(value)
+  end?
+  let outer = execute_prekey_ohttp(pool,
+    key,
+    7,
+    request.wire,
+    "https://core.example",
+    false,
+    clock,
+    8)
+  assert(outer.status == 200)
+  let plaintext = case Ohttp.decapsulate_response(request.response_context, outer.body) do
+    Err(_) -> Err("fixture reply authentication failed")
+    Ok(value)
+  end?
+  case decode_response(plaintext, default_bhttp_limits()) do
+    Err(_) -> Err("fixture Binary HTTP reply decode failed")
+    Ok(value)
+  end
+end
+
+fn ohttp_outer_refusals(pool :: PoolHandle,
+  key :: borrow X25519PrivateKey,
+  public_key :: X25519PublicKey,
+  inner :: Bytes,
+  clock :: U64) -> Result<(), String> do
+  let request = case Ohttp.encapsulate_request(7, public_key, inner) do
+    Err(_) -> Err("fixture outer request encryption failed")
+    Ok(value)
+  end?
+  let wire = request.wire
+  # Change only the advertised AEAD from3 to1; this is a caller suite refusal,
+  # never service unavailability. The rest of the encrypted frame is unchanged.
+  let wrong_suite = append_bytes(append_bytes(Bytes.slice(wire, 0, 6)?, repeated(1, 1)?)?,
+    Bytes.slice(wire, 7, Bytes.length(wire) - 7)?)?
+  for rejected in [
+    execute_prekey_ohttp(pool, key, 7, wrong_suite, "https://core.example", false, clock, 8),
+    execute_prekey_ohttp(pool, key, 8, wire, "https://core.example", false, clock, 8),
+    execute_prekey_ohttp(pool,
+      key,
+      7,
+      Bytes.slice(wire, 0, Bytes.length(wire) - 1)?,
+      "https://core.example",
+      false,
+      clock,
+      8),
+    execute_prekey_ohttp(pool,
+      key,
+      7,
+      repeated(0, 1048577)?,
+      "https://core.example",
+      false,
+      clock,
+      8)
+  ] do
+    assert(rejected.status == 400)
+    assert(Bytes.length(rejected.body) == 0)
+  end
+  for rejected in [
+    execute_prekey_ohttp(pool, key, 256, wire, "https://core.example", false, clock, 8),
+    execute_prekey_ohttp(pool, key, 7, wire, "https://core.example/path", false, clock, 8),
+    execute_prekey_ohttp(pool, key, 7, wire, "https://core.example", false, clock, 0)
+  ] do
+    assert(rejected.status == 503)
+    assert(Bytes.length(rejected.body) == 0)
+  end
+  Ok(nil)
+end
+
+fn ohttp_gateway_proof() -> Bool!String do
+  let url = Env.get("MESSENGER_OHTTP_TEST_DATABASE_URL", "")
+  if String.length(url) == 0 do
+    return Err("explicit owned OHTTP test database required")
+  end
+  let pool = Pool.open(url, 1, 2, 5000)?
+  Pool.execute(pool,
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
+  let clock = now()?
+  let expires = U64.add(clock, wide("31536000000")?)?
+  let (account, identity) = case generate_account(clock, wide("1")?) do
+    Err(_) -> Err("gateway fixture account failed")
+    Ok(value)
+  end?
+  let target = case generate_device() do
+    Err(_) -> Err("gateway fixture device failed")
+    Ok(value)
+  end?
+  let mailbox = repeated(71, 32)?
+  case register_device(pool,
+    registration(account, identity, target, mailbox, "1", clock, expires)?)? do
+    DeviceAccepted -> Ok(nil)
+    _ -> Err("gateway fixture registration failed")
+  end?
+  let base = target_base_bundle(pool, mailbox)?
+  let claim = claim_request(identity, target, base, repeated(72, 16)?)
+  let body = encode_prekey_claim(claim)?
+  let deadline = U64.add(clock, wide("60000")?)?
+  let paid = ohttp_stamp(body, deadline, "mesh-msg/v1/work/prekey-claim")?
+  let allowed = prekey_claim_request("https://core.example", false, paid)?
+  let gateway = case Crypto.x25519_generate() do
+    Err(_) -> Err("gateway fixture key failed")
+    Ok(value)
+  end?
+  ohttp_outer_refusals(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(allowed, BhttpKnownLength)?,
+    clock)?
+  # Policy failures do not spend valid work or consume a prekey. Both legal
+  # Binary HTTP framing modes reach the same application policy.
+  for request in [
+    %{allowed | authority: Bytes.from_utf8("other.example")},
+    %{allowed | path: Bytes.from_utf8("/v1/prekeys/bundle?ignored=1")},
+    %{allowed |
+      fields: List.append(allowed.fields,
+        BhttpField {
+          name: Bytes.from_utf8("authorization"),
+          value: Bytes.from_utf8("Bearer caller")
+        })
+    }
+  ] do
+    let refused = ohttp_exchange(pool,
+      gateway.private_key,
+      gateway.public_key,
+      ohttp_wire(request, BhttpIndeterminateLength)?,
+      clock)?
+    assert(refused.status == 400)
+    assert(Bytes.length(refused.content) == 0)
+  end
+  assert(ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    Bytes.from_utf8("invalid binary HTTP"),
+    clock)?.status == 400)
+  let unstamped = prekey_claim_request("https://core.example", false, body)?
+  assert(ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(unstamped, BhttpKnownLength)?,
+    clock)?.status == 400)
+  let wrong_work = prekey_claim_request("https://core.example",
+    false,
+    ohttp_stamp(body, deadline, "mesh-msg/v1/work/resolve")?)?
+  assert(ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(wrong_work, BhttpKnownLength)?,
+    clock)?.status == 429)
+  assert(ohttp_work_count(pool)? == 0)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 0)
+  let malformed = execute_prekey_ohttp(pool,
+    gateway.private_key,
+    7,
+    Bytes.from_utf8("not an encrypted request"),
+    "https://core.example",
+    false,
+    clock,
+    8)
+  assert(malformed.status == 400)
+  assert(Bytes.length(malformed.body) == 0)
+  let first = ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(allowed, BhttpKnownLength)?,
+    clock)?
+  let first_body = open_prekey_claim_response(first)?
+  assert(U64.compare(decoded_bundle(first_body)?.one_time_prekey_id, wide("2")?) == 0)
+  assert(ohttp_work_count(pool)? == 1)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 1)
+  # Fresh encryption alone cannot buy a second admission for a spent stamp.
+  assert(ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(allowed, BhttpIndeterminateLength)?,
+    clock)?.status == 429)
+  # A lost reply uses fresh work around the SAME logical reservation. Changing
+  # the expiry guarantees distinct stamp input even if the miner is deterministic.
+  let fresh = ohttp_stamp(body, U64.add(deadline, wide("1000")?)?, "mesh-msg/v1/work/prekey-claim")?
+  assert(!Bytes.secure_equals(fresh, paid))
+  let retry = ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(prekey_claim_request("https://core.example", false, fresh)?, BhttpKnownLength)?,
+    clock)?
+  assert(Bytes.secure_equals(open_prekey_claim_response(retry)?, first_body))
+  assert(Bytes.secure_equals(claim_prekey_request(pool, body).body, first_body))
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 1)
+  let another = encode_prekey_claim(%{claim | reservation_id: repeated(73, 16)?})?
+  let exhausted = prekey_claim_request("https://core.example",
+    false,
+    ohttp_stamp(another, deadline, "mesh-msg/v1/work/prekey-claim")?)?
+  assert(ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(exhausted, BhttpKnownLength)?,
+    clock)?.status == 409)
+  let rebound = encode_prekey_claim(%{claim | base_bundle_hash: repeated(74, 32)?})?
+  let mismatch = prekey_claim_request("https://core.example",
+    false,
+    ohttp_stamp(rebound, deadline, "mesh-msg/v1/work/prekey-claim")?)?
+  assert(ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(mismatch, BhttpKnownLength)?,
+    clock)?.status == 404)
+  # Paid malformed inner bytes retain the established spend-before-codec order.
+  let before_bad = ohttp_work_count(pool)?
+  let invalid_claim = prekey_claim_request("https://core.example",
+    false,
+    ohttp_stamp(Bytes.from_utf8("bad claim"), deadline, "mesh-msg/v1/work/prekey-claim")?)?
+  assert(ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(invalid_claim, BhttpKnownLength)?,
+    clock)?.status == 400)
+  assert(ohttp_work_count(pool)? == before_bad + 1)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 1)
+  # A real database transaction failure is an encrypted target error. The
+  # work remains spent, while the failed one-time-prekey mutation rolls back.
+  let refill = sign_publish(target.signing_private_key,
+    unsigned_publish(identity,
+      target,
+      [OneTimePrekeyPublic { id: wide("100")?, public_key: repeated(76, 32)? }])?)?
+  assert(publish_prekeys_request(pool, encode_prekey_publish(refill)?).status == 201)
+  Pool.execute(pool,
+    "CREATE FUNCTION morse_test_ohttp_claim_fault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'owned OHTTP database failure marker'; END $$",
+    [])?
+  Pool.execute(pool,
+    "CREATE TRIGGER morse_test_ohttp_claim_fault BEFORE UPDATE OF claim_id_hash ON messenger_one_time_prekeys FOR EACH ROW WHEN (OLD.claim_id_hash IS NULL AND NEW.claim_id_hash IS NOT NULL) EXECUTE FUNCTION morse_test_ohttp_claim_fault()",
+    [])?
+  let fault_body = encode_prekey_claim(%{claim | reservation_id: repeated(75, 16)?})?
+  let fault_request = prekey_claim_request("https://core.example",
+    false,
+    ohttp_stamp(fault_body, deadline, "mesh-msg/v1/work/prekey-claim")?)?
+  let before_fault = ohttp_work_count(pool)?
+  let failed = ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(fault_request, BhttpKnownLength)?,
+    clock)?
+  assert(failed.status == 500)
+  assert(Bytes.length(failed.content) == 0)
+  assert(ohttp_work_count(pool)? == before_fault + 1)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 1)
+  Pool.execute(pool, "DROP TRIGGER morse_test_ohttp_claim_fault ON messenger_one_time_prekeys", [])?
+  Pool.execute(pool, "DROP FUNCTION morse_test_ohttp_claim_fault()", [])?
+  let recovered_request = prekey_claim_request("https://core.example",
+    false,
+    ohttp_stamp(fault_body, U64.add(deadline, wide("2000")?)?, "mesh-msg/v1/work/prekey-claim")?)?
+  let recovered = ohttp_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    ohttp_wire(recovered_request, BhttpKnownLength)?,
+    clock)?
+  assert(U64.compare(decoded_bundle(open_prekey_claim_response(recovered)?)?.one_time_prekey_id,
+    wide("100")?) == 0)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 2)
+  Pool.close(pool)
+  Ok(true)
+end
+
+test("OHTTP prekey admission encrypts refusals and preserves one-time claim recovery") do
+  case ohttp_gateway_proof() do
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok(value) -> assert(value)
+  end
+end
+
+from Api.Ohttp import execute_read_ohttp
+from Ohttp.LookupPolicy import OhttpLookupOperation, lookup_request, open_lookup_response
+from Transparency.Wire import (
+  TransparencyLookup,
+  encode_transparency_lookup,
+  decode_transparency_evidence,
+  encode_consistency_range,
+  decode_consistency_proof
+)
+from Transparency.Migration import encode_bridge_query, decode_legacy_bridge
+from Storage.TransparencyCutover import (
+  begin_cutover_on_connection,
+  accept_legacy_seal_on_connection,
+  copy_cutover_batch_on_connection
+)
+from Transparency.Merkle import WitnessKey, sign_witness
+
+fn read_exchange(pool :: PoolHandle,
+  key :: borrow X25519PrivateKey,
+  public_key :: X25519PublicKey,
+  inner :: BhttpRequest,
+  clock :: U64,
+  combined :: Bool) -> BhttpResponse!String do
+  let outgoing = case Ohttp.encapsulate_request(7,
+    public_key,
+    ohttp_wire(inner, BhttpKnownLength)?) do
+    Err(_) -> Err("read fixture encryption")
+    Ok(value)
+  end?
+  let result = if combined do
+    execute_read_ohttp(pool, key, 7, outgoing.wire, "https://core.example", false, clock, 8)
+  else
+    execute_prekey_ohttp(pool, key, 7, outgoing.wire, "https://core.example", false, clock, 8)
+  end
+  assert(result.status == 200)
+  let plaintext = case Ohttp.decapsulate_response(outgoing.response_context, result.body) do
+    Err(_) -> Err("read fixture authentication")
+    Ok(value)
+  end?
+  case decode_response(plaintext, default_bhttp_limits()) do
+    Err(_) -> Err("read fixture response codec")
+    Ok(value)
+  end
+end
+
+fn lookup_cutover(conn :: borrow PgConn) -> Result<(), String> do
+  let signer = case Crypto.signing_from_seed(Bytes.from_hex("5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b")?) do
+    Err(_) -> Err("read fixture signer")
+    Ok(value)
+  end?
+  let a = case Crypto.signing_from_seed(Bytes.from_hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")?) do
+    Err(_) -> Err("read fixture witness")
+    Ok(value)
+  end?
+  let b = case Crypto.signing_from_seed(Bytes.from_hex("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb")?) do
+    Err(_) -> Err("read fixture witness")
+    Ok(value)
+  end?
+  let seal = begin_cutover_on_connection(conn, signer.private_key, signer.public_key.bytes)?
+  let keys = [
+    WitnessKey { witness_id: "witness-a", public_key: a.public_key.bytes },
+    WitnessKey { witness_id: "witness-b", public_key: b.public_key.bytes }
+  ]
+  accept_legacy_seal_on_connection(conn,
+    [
+      sign_witness("witness-a", a.private_key, seal)?,
+      sign_witness("witness-b", b.private_key, seal)?
+    ],
+    keys,
+    2)?
+  assert(copy_cutover_batch_on_connection(conn, 16, signer.private_key, signer.public_key.bytes)?)
+  Ok(nil)
+end
+
+fn lookup_gateway_proof() -> Result<(), String> do
+  let url = Env.get("MESSENGER_OHTTP_TEST_DATABASE_URL", "")
+  if String.length(url) == 0 do
+    return Err("owned lookup database required")
+  end
+  let pool = Pool.open(url, 1, 2, 5000)?
+  Pool.execute(pool,
+    "TRUNCATE messenger_retired_prekeys, credit_postage_policies, credit_issuer_announcements, transparency_v2_anchors, transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, transparency_log_cutover, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_v2_signatures, transparency_v2_checkpoints, transparency_v2_nodes, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY",
+    [])?
+  Pool.execute(pool, "UPDATE credit_issuer_cursor SET checkpoint = ''::bytea WHERE singleton", [])?
+  let clock = now()?
+  let expires = U64.add(clock, wide("31536000000")?)?
+  let (account, identity) = case generate_account(clock, wide("1")?) do
+    Err(_) -> Err("read fixture account")
+    Ok(value)
+  end?
+  let target = case generate_device() do
+    Err(_) -> Err("read fixture device")
+    Ok(value)
+  end?
+  let mailbox = repeated(81, 32)?
+  assert(register_device(pool,
+    registration(account, identity, target, mailbox, "1", clock, expires)?)? == DeviceAccepted)
+  let gateway = case Crypto.x25519_generate() do
+    Err(_) -> Err("read fixture key")
+    Ok(value)
+  end?
+  let lookup = encode_transparency_lookup(TransparencyLookup {
+    username: "prekey-account",
+    previous_tree_size: 0
+  })?
+  let deadline = U64.add(clock, wide("60000")?)?
+  let paid = ohttp_stamp(lookup, deadline, "mesh-msg/v1/work/resolve")?
+  let v2 = lookup_request("https://core.example",
+    false,
+    OhttpDirectoryLookup(2),
+    ohttp_stamp(lookup, U64.add(deadline, wide("1000")?)?, "mesh-msg/v1/work/resolve")?)?
+  let unavailable = read_exchange(pool, gateway.private_key, gateway.public_key, v2, clock, true)?
+  assert(unavailable.status == 404
+    && Bytes.secure_equals(unavailable.content, Bytes.from_utf8("transparency_v2_not_active")))
+  assert(ohttp_work_count(pool)? == 0)
+  let v1 = lookup_request("https://core.example", false, OhttpDirectoryLookup(1), paid)?
+  assert(read_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    v1,
+    clock,
+    false)?.status == 400)
+  assert(ohttp_work_count(pool)? == 0)
+  let first = open_lookup_response(OhttpDirectoryLookup(1),
+    read_exchange(pool, gateway.private_key, gateway.public_key, v1, clock, true)?)?
+  assert(first.status == 200)
+  assert(decode_transparency_evidence(first.body)?.checkpoint.version == 1)
+  assert(ohttp_work_count(pool)? == 1)
+  assert(read_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    v1,
+    clock,
+    true)?.status == 429)
+  let proof1 = lookup_request("https://core.example",
+    false,
+    OhttpConsistencyLookup(1),
+    encode_consistency_range(0, 1)?)?
+  let proof = open_lookup_response(OhttpConsistencyLookup(1),
+    read_exchange(pool, gateway.private_key, gateway.public_key, proof1, clock, true)?)?
+  assert(proof.status == 200 && decode_consistency_proof(proof.body)?.version == 2)
+  let bad = lookup_request("https://core.example",
+    false,
+    OhttpDirectoryLookup(1),
+    ohttp_stamp(Bytes.from_utf8("bad"), deadline, "mesh-msg/v1/work/resolve")?)?
+  assert(read_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    bad,
+    clock,
+    true)?.status == 400)
+  assert(ohttp_work_count(pool)? == 2)
+  let base = target_base_bundle(pool, mailbox)?
+  let claim = encode_prekey_claim(claim_request(identity, target, base, repeated(82, 16)?))?
+  let prekey = prekey_claim_request("https://core.example",
+    false,
+    ohttp_stamp(claim, deadline, "mesh-msg/v1/work/prekey-claim")?)?
+  assert(Bytes.length(open_prekey_claim_response(read_exchange(pool,
+    gateway.private_key,
+    gateway.public_key,
+    prekey,
+    clock,
+    true)?)?) > 0)
+  assert(target_consumed_key_count(pool, identity.account_id, target.device_id)? == 1)
+  assert(ohttp_work_count(pool)? == 3)
+  Repo.transaction(pool, fn(conn :: borrow PgConn) -> lookup_cutover(conn) end)?
+  # The v2 stamp was not spent by the unavailable endpoint and remains usable.
+  let second = open_lookup_response(OhttpDirectoryLookup(2),
+    read_exchange(pool, gateway.private_key, gateway.public_key, v2, clock, true)?)?
+  assert(second.status == 200 && decode_transparency_evidence(second.body)?.checkpoint.version == 2)
+  assert(ohttp_work_count(pool)? == 4)
+  let proof2 = lookup_request("https://core.example",
+    false,
+    OhttpConsistencyLookup(2),
+    encode_consistency_range(0, 2)?)?
+  let proof = open_lookup_response(OhttpConsistencyLookup(2),
+    read_exchange(pool, gateway.private_key, gateway.public_key, proof2, clock, true)?)?
+  assert(proof.status == 200 && decode_consistency_proof(proof.body)?.version == 3)
+  let bridge_request = lookup_request("https://core.example",
+    false,
+    OhttpLegacyBridgeLookup,
+    encode_bridge_query(1, 2)?)?
+  let bridge = open_lookup_response(OhttpLegacyBridgeLookup,
+    read_exchange(pool, gateway.private_key, gateway.public_key, bridge_request, clock, true)?)?
+  assert(bridge.status == 200 && decode_legacy_bridge(bridge.body)?.checkpoint.version == 1)
+  let before_bad = ohttp_work_count(pool)?
+  for rejected in [
+    %{v1 | path: Bytes.from_utf8("/v1/accounts/register")},
+    %{v1 | authority: Bytes.from_utf8("other.example")},
+    %{v1 | method: Bytes.from_utf8("GET")}
+  ] do
+    assert(read_exchange(pool,
+      gateway.private_key,
+      gateway.public_key,
+      rejected,
+      clock,
+      true)?.status == 400)
+  end
+  assert(ohttp_work_count(pool)? == before_bad)
+  Pool.close(pool)
+  Ok(nil)
+end
+
+test("combined OHTTP read gateway preserves prekey authority and all five exact lookup operations") do
+  case lookup_gateway_proof() do
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok(_) -> println("m3-combined-lookup-gateway:passed")
   end
 end

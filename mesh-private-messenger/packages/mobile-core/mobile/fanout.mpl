@@ -1,8 +1,23 @@
+from Mobile.SessionPolicy import capture_native_session_policy, native_session_minimum
+from Mobile.HeaderCapabilities import require_header_sets, require_new_header_capacity
+from Session.State import RatchetState, RatchetError, RatchetMessage
+from Mobile.AttachmentCapabilities import require_attachment_format_sets
+from Mobile.FanoutState import capture_fanout_sources
+from Storage.FanoutCommit import (
+  FanoutSnapshot,
+  capture_fanout_snapshot,
+  capture_fanout_history,
+  combine_fanout_snapshots,
+  commit_fanout_snapshot_at_policy,
+  commit_fanout_records
+)
 from Mobile.Attachments import rewrap_reference
 from Mobile.Presentation import present_message
 from Identity.Device import DeviceKeys, VerificationPolicy
 from Mobile.Codec import current_time, encode_output_list, random_bytes
-from Mobile.ContactAddress import deposit_address, outgoing_extensions
+from Mobile.ContactAddress import deposit_address
+from Mobile.Outgoing import direct_extensions
+from Mobile.TransparencySafety import require_log_changes_allowed
 from Mobile.DeviceSet import verified_device_set
 from Mobile.FanoutPrekeys import (
   claimed_prekey_profile,
@@ -26,6 +41,7 @@ from Mobile.Sessions import (
   prepared_session_ids,
   ratchet_bytes,
   restore_session,
+  session_uses_headers,
   safety_number,
   seal_session,
   seal_session_ids,
@@ -52,12 +68,11 @@ from Protocol.V1 import (
   InnerEnvelope,
   PrekeyBundle
 )
-from Session.Handshake import RatchetState, SessionError, initiate
-from Session.Ratchet import RatchetError, RatchetMessage, encrypt_sealed
+from Session.Handshake import SessionError, initiate_at_minimum_suite
+from Session.Ratchet import encrypt_sealed
 from Session.Snapshot import SnapshotOutcome, snapshot
-from Storage.Blobs import ensure_schema
-from Storage.Keys import platform_key
-from Storage.Records import store_outbound
+from Storage.Blobs import ensure_schema, load_blob
+from Storage.Keys import platform_key, open_local, local_context
 from Transport.Packet import (
   ClientProfile,
   TransportPacket,
@@ -104,6 +119,7 @@ fn append_needed_prekeys(database_path :: String,
         claims,
         index + 1)
     else
+      require_log_changes_allowed(database_path, wrapping_key)?
       case load_fanout_prekey_reservation(database_path, wrapping_key, profile, now) do
         Err(error)
         Ok(None) -> Err("invalid_fanout_prekeys")
@@ -122,6 +138,7 @@ fn append_needed_prekeys(database_path :: String,
 end
 
 fn start_device_session(claimed_prekeys :: List<MobileClaimedPrekey>,
+  minimum_session_suite :: Int,
   local_device :: borrow DeviceKeys,
   local_encode_client_profile :: Bytes,
   local :: ClientProfile,
@@ -137,13 +154,15 @@ fn start_device_session(claimed_prekeys :: List<MobileClaimedPrekey>,
     Err(_) -> Err("invalid_initial_plaintext")
     Ok(value)
   end?
-  let (state, initial) = case initiate(local_device,
+  let (state, initial) = case initiate_at_minimum_suite(local_device,
     local.credential,
     claimed_peer.account,
     claimed_peer.bundle,
     policy(claimed_peer, inner.client_timestamp),
     strongest_suite,
+    minimum_session_suite,
     plaintext) do
+    Err(MinimumSessionSuiteRequired) -> Err("session_suite_below_minimum")
     Err(_) -> Err("session_start_failed")
     Ok(value)
   end?
@@ -169,6 +188,7 @@ fn send_to_device(database_path :: String,
   wrapping_key :: borrow StorageKey,
   session_ids :: List<Bytes>,
   claimed_prekeys :: List<MobileClaimedPrekey>,
+  minimum_session_suite :: Int,
   local_device :: borrow DeviceKeys,
   local_encode_client_profile :: Bytes,
   local :: ClientProfile,
@@ -189,10 +209,13 @@ fn send_to_device(database_path :: String,
         Err("peer_keys_changed")
       else if loaded.record.strongest_suite > peer.bundle.suite do
         Err("peer_keys_changed")
-      else if loaded.record.strongest_suite < peer.bundle.suite
+      else if !session_uses_headers(loaded.record.snapshot)
+        || loaded.record.strongest_suite < peer.bundle.suite
         || Bytes.length(loaded.record.safety_number) == 0 do
+        require_log_changes_allowed(database_path, wrapping_key)?
         let strongest_suite = loaded.record.strongest_suite
         start_device_session(claimed_prekeys,
+          minimum_session_suite,
           local_device,
           local_encode_client_profile,
           local,
@@ -218,7 +241,9 @@ fn send_to_device(database_path :: String,
           packet,
           peer.credential.dh_public_key,
           inner.client_timestamp)?
-        let session_blob = seal_updated_session(next_state, loaded, wrapping_key)?
+        let session_blob = seal_updated_session(next_state,
+          %{loaded | record: %{loaded.record | peer_transport_key: peer.credential.dh_public_key}},
+          wrapping_key)?
         Ok(MobilePreparedSend {
           envelope: outer,
           session_id: loaded.session_id,
@@ -231,7 +256,9 @@ fn send_to_device(database_path :: String,
     Err(error) -> if error != "session_not_found" do
       Err(error)
     else
+      require_log_changes_allowed(database_path, wrapping_key)?
       start_device_session(claimed_prekeys,
+        minimum_session_suite,
         local_device,
         local_encode_client_profile,
         local,
@@ -250,6 +277,7 @@ fn peer_fanout(database_path :: String,
   wrapping_key :: borrow StorageKey,
   session_ids :: List<Bytes>,
   claimed_prekeys :: List<MobileClaimedPrekey>,
+  minimum_session_suite :: Int,
   local_device :: borrow DeviceKeys,
   local_encode_client_profile :: Bytes,
   local :: ClientProfile,
@@ -267,7 +295,7 @@ fn peer_fanout(database_path :: String,
     Ok(output)
   else
     let peer = List.get(profiles, index)
-    let handed_over = outgoing_extensions(database_path, wrapping_key)?
+    let handed_over = direct_extensions(database_path, wrapping_key)?
     let inner = InnerEnvelope {
       version: 1,
       sender_account_id: local.account_id,
@@ -290,6 +318,7 @@ fn peer_fanout(database_path :: String,
       wrapping_key,
       session_ids,
       claimed_prekeys,
+      minimum_session_suite,
       local_device,
       local_encode_client_profile,
       local,
@@ -300,6 +329,7 @@ fn peer_fanout(database_path :: String,
       wrapping_key,
       session_ids,
       claimed_prekeys,
+      minimum_session_suite,
       local_device,
       local_encode_client_profile,
       local,
@@ -320,6 +350,7 @@ fn self_fanout(database_path :: String,
   wrapping_key :: borrow StorageKey,
   session_ids :: List<Bytes>,
   claimed_prekeys :: List<MobileClaimedPrekey>,
+  minimum_session_suite :: Int,
   local_device :: borrow DeviceKeys,
   local_encode_client_profile :: Bytes,
   local :: ClientProfile,
@@ -339,6 +370,7 @@ fn self_fanout(database_path :: String,
         wrapping_key,
         session_ids,
         claimed_prekeys,
+        minimum_session_suite,
         local_device,
         local_encode_client_profile,
         local,
@@ -350,7 +382,7 @@ fn self_fanout(database_path :: String,
         index + 1,
         output)
     else
-      let handed_over = outgoing_extensions(database_path, wrapping_key)?
+      let handed_over = direct_extensions(database_path, wrapping_key)?
       let inner = InnerEnvelope {
         version: 1,
         sender_account_id: local.account_id,
@@ -373,6 +405,7 @@ fn self_fanout(database_path :: String,
         wrapping_key,
         session_ids,
         claimed_prekeys,
+        minimum_session_suite,
         local_device,
         local_encode_client_profile,
         local,
@@ -383,6 +416,7 @@ fn self_fanout(database_path :: String,
         wrapping_key,
         session_ids,
         claimed_prekeys,
+        minimum_session_suite,
         local_device,
         local_encode_client_profile,
         local,
@@ -398,20 +432,46 @@ fn self_fanout(database_path :: String,
 end
 
 pub fn send_fanout(request :: MobileFanoutRequest) -> Bytes!String do
-  send_fanout_control(%{request |
+  send_fanout_at_profile(request, load_blob(request.database_path, "profile/v1")?)
+end
+
+pub fn send_fanout_at_profile(request :: MobileFanoutRequest, profile :: Bytes) -> Bytes!String do
+  let key = platform_key()?
+  let local = decode_client_profile(open_local(profile, key, local_context("profile/v1")?)?)?
+  let before = capture_fanout_snapshot(request.database_path,
+    profile,
+    ["presentation/v1/user/#{Bytes.to_hex(local.account_id)}"])?
+  send_fanout_control_after_snapshot(%{request |
       body: present_message(request.database_path, Bytes.empty(), request.body)?
     },
     1,
     [],
-    [])
+    [],
+    before)
 end
 
 pub fn send_fanout_control(request :: MobileFanoutRequest,
   message_type :: Int,
   extra_labels :: List<String>,
   extra_blobs :: List<Bytes>) -> Bytes!String do
+  let captured_profile = load_blob(request.database_path, "profile/v1")?
+  let before = capture_fanout_snapshot(request.database_path, captured_profile, extra_labels)?
+  send_fanout_control_after_snapshot(request, message_type, extra_labels, extra_blobs, before)
+end
+
+pub fn send_fanout_control_after_snapshot(request :: MobileFanoutRequest,
+  message_type :: Int,
+  extra_labels :: List<String>,
+  extra_blobs :: List<Bytes>,
+  initial :: FanoutSnapshot) -> Bytes!String do
   ensure_schema(request.database_path)?
-  let local_encode_client_profile = load_profile(request.database_path)?
+  commit_fanout_records(request.database_path, initial, [], [], [])?
+  let session_policy = capture_native_session_policy()?
+  let captured_profile = List.head(initial.bases).profile
+  let wrapping_key = platform_key()?
+  let local_encode_client_profile = open_local(captured_profile,
+    wrapping_key,
+    local_context("profile/v1")?)?
   let local = decode_client_profile(local_encode_client_profile)?
   let peers = verified_device_set(request.peer_device_set)?
   let local_devices = verified_device_set(request.local_device_set)?
@@ -421,7 +481,31 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
     let wrapping_key = platform_key()?
     require_transparency_device_set(request.database_path, wrapping_key, peers)?
     require_transparency_device_set(request.database_path, wrapping_key, local_devices)?
+    let before = combine_fanout_snapshots(initial,
+      capture_fanout_sources(request.database_path,
+        wrapping_key,
+        captured_profile,
+        local,
+        peers.profiles,
+        local_devices.profiles,
+        extra_labels)?)?
+    require_transparency_device_set(request.database_path, wrapping_key, peers)?
+    require_transparency_device_set(request.database_path, wrapping_key, local_devices)?
+    require_header_sets(peers, local_devices)?
+    if Bytes.length(request.attachment) > 0 do
+      require_attachment_format_sets(peers, local_devices, request.attachment)?
+    end
     let session_ids = load_session_ids(request.database_path, wrapping_key)?
+    let needed = needed_header_sessions(request.database_path,
+      wrapping_key,
+      session_ids,
+      peers.profiles
+        ++ List.filter(local_devices.profiles,
+          fn(profile) do message_type == 1
+            && !Bytes.secure_equals(profile.device_id, local.device_id) end),
+      0,
+      0)?
+    require_new_header_capacity(List.length(session_ids), needed)?
     let now = current_time()?
     let peer_prekeys = append_needed_prekeys(request.database_path,
       wrapping_key,
@@ -468,7 +552,8 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
           key_changed: false,
           disappearing_seconds: 0,
           strongest_suite: 1,
-          safety_number: safety_number(local, representative)?
+          safety_number: safety_number(local, representative)?,
+          peer_transport_key: representative.credential.dh_public_key
         })
       else
         Err(error)
@@ -488,12 +573,19 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
     else if anchor.request_state != 1 && message_type != 4 do
       Err("message_request_pending")
     else
+      let before = if message_type == 1 do
+        capture_fanout_history(request.database_path, before, anchor.conversation_id)
+      else
+        Ok(before)
+      end?
       let client_message_id = random_bytes(16)?
       let local_device = open_device(local, wrapping_key, request.database_path)?
+      let minimum_session_suite = native_session_minimum(session_policy)?
       let prepared_peers = peer_fanout(request.database_path,
         wrapping_key,
         session_ids,
         claimed_prekeys,
+        minimum_session_suite,
         local_device,
         local_encode_client_profile,
         local,
@@ -544,6 +636,7 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
           wrapping_key,
           session_ids,
           claimed_prekeys,
+          minimum_session_suite,
           local_device,
           local_encode_client_profile,
           local,
@@ -571,8 +664,11 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
         request.database_path,
         client_message_id,
         0,
-        tracked)?
-      store_outbound(request.database_path,
+        tracked,
+        local)?
+      commit_fanout_snapshot_at_policy(request.database_path,
+        before,
+        session_policy,
         prepared,
         fanout_prekey_reservation_labels(claimed_prekeys, 0, List.new()),
         session_index_blob,
@@ -583,5 +679,29 @@ pub fn send_fanout_control(request :: MobileFanoutRequest,
         outbox_index_blob)?
       encode_output_list(envelopes)
     end
+  end
+end
+
+fn needed_header_sessions(path :: String,
+  key :: borrow StorageKey,
+  ids :: List<Bytes>,
+  profiles :: List<ClientProfile>,
+  index :: Int,
+  total :: Int) -> Int!String do
+  if index >= List.length(profiles) do
+    Ok(total)
+  else
+    let needed = device_needs_prekey(path, key, ids, List.get(profiles, index))?
+    needed_header_sessions(path,
+      key,
+      ids,
+      profiles,
+      index + 1,
+      total
+        + if needed do
+          1
+        else
+          0
+        end)
   end
 end

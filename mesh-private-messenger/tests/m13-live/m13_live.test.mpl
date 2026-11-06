@@ -274,6 +274,7 @@ fn proof() -> Bool!String do
     assert(post(core_url,
       "/v1/transparency/consistency",
       encode_transparency_tree_query(TransparencyTreeQuery {
+        new_tree_size: 0,
         previous_tree_size: 0
       })?)?.status == 200)
     wait_for_witnesses(core_url, 0)?

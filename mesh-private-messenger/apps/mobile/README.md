@@ -8,6 +8,13 @@ TestFlight submissions, and production OTA updates through GitHub Actions.
 The [Windows and macOS app](../desktop/README.md) reuses these screens through
 React Native Web and provides its own native Mesh bridge and installer workflow.
 
+The app is built on Expo SDK 58 (React Native 0.88), whose iOS template adopts
+the UIScene life cycle that apps built with the iOS 27 SDK must use. Screens make
+room for the software keyboard with `react-native-keyboard-controller`, which
+follows the keyboard's own animation on Android as well as iOS: a composer rides
+on top of it, and a form scrolls the field being typed in, with its button, into
+view. Both need a new native build; an OTA update alone does not carry them.
+
 In a development build, open **You → Development → Sample content** to preview
 16 chats, 6 groups, and 528 messages, with read rows and varied unread counts.
 Opening a sample conversation clears its badge; toggle the preview off and on

@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+  "instruction": {
+    "name": "route_v2",
+    "discriminator": [
+      187,
+      100,
+      250,
+      204,
+      49,
+      196,
+      175,
+      20
+    ],
+    "accounts": [
+      {
+        "name": "user_transfer_authority",
+        "signer": true
+      },
+      {
+        "name": "user_source_token_account",
+        "writable": true
+      },
+      {
+        "name": "user_destination_token_account",
+        "writable": true
+      },
+      {
+        "name": "source_mint"
+      },
+      {
+        "name": "destination_mint"
+      },
+      {
+        "name": "source_token_program"
+      },
+      {
+        "name": "destination_token_program"
+      },
+      {
+        "name": "destination_token_account",
+        "writable": true,
+        "optional": true
+      },
+      {
+        "name": "event_authority",
+        "address": "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf"
+      },
+      {
+        "name": "program"
+      }
+    ],
+    "args": [
+      {
+        "name": "in_amount",
+        "type": "u64"
+      },
+      {
+        "name": "quoted_out_amount",
+        "type": "u64"
+      },
+      {
+        "name": "slippage_bps",
+        "type": "u16"
+      },
+      {
+        "name": "platform_fee_bps",
+        "type": "u16"
+      },
+      {
+        "name": "positive_slippage_bps",
+        "type": "u16"
+      },
+      {
+        "name": "route_plan",
+        "type": {
+          "vec": {
+            "defined": {
+              "name": "RoutePlanStepV2"
+            }
+          }
+        }
+      }
+    ],
+    "returns": "u64"
+  },
+  "plan_type": {
+    "name": "RoutePlanStepV2",
+    "type": {
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "swap",
+          "type": {
+            "defined": {
+              "name": "Swap"
+            }
+          }
+        },
+        {
+          "name": "bps",
+          "type": "u16"
+        },
+        {
+          "name": "input_index",
+          "type": "u8"
+        },
+        {
+          "name": "output_index",
+          "type": "u8"
+        }
+      ]
+    }
+  },
+  "supported_swap": {
+    "enum_index": 46,
+    "name": "RaydiumCP",
+    "fields": []
+  },
+  "limits": {
+    "route_steps": 1,
+    "bps": 10000,
+    "input_index": 0,
+    "output_index": 1,
+    "maximum_slippage_bps": 100,
+    "platform_fee_bps": 0,
+    "positive_slippage_bps": 0,
+    "source_token_program": "classic_SPL",
+    "destination_token_program": "classic_SPL"
+  }
+}

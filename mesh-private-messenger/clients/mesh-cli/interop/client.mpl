@@ -1,3 +1,5 @@
+from Protocol.Capabilities import supports_header_encryption
+from Session.State import RatchetState, DecryptOutcome, RatchetMessage
 from Identity.Device import (
   AccountKeys,
   DeviceKeys,
@@ -33,14 +35,8 @@ from Protocol.V1 import (
   OuterEnvelope,
   PrekeyBundle
 )
-from Session.Handshake import RatchetState, initiate
-from Session.Ratchet import (
-  DecryptOutcome,
-  RatchetMessage,
-  decode_ratchet_message,
-  decrypt,
-  ratchet_transport_matches
-)
+from Session.Handshake import initiate
+from Session.Ratchet import decode_ratchet_message, decrypt, ratchet_transport_matches
 from Transport.Packet import (
   TransportPacket,
   decode_client_profile,
@@ -142,7 +138,7 @@ fn credential(account_keys :: borrow AccountKeys,
   case issue_hybrid_device_credential(account_keys,
     device_keys,
     post_quantum.public_key,
-    wide("1")?,
+    wide("9")?,
     created_at,
     expires_at,
     wide("1")?) do
@@ -274,6 +270,9 @@ end
 pub fn start_mobile_session(peer_profile :: Bytes,
   body :: Bytes) -> Result<(RatchetState, DeviceKeys, InteropSession, Bytes, Bytes), String> do
   let peer = decode_client_profile(peer_profile)?
+  if !supports_header_encryption(peer.credential.capabilities) do
+    return Err("header_recipient_upgrade_required")
+  end
   let created_at = now()?
   let expires_at = U64.add(created_at, wide("31536000000")?)?
   let (account_keys, account_identity) = account(created_at)?
@@ -393,9 +392,17 @@ end
 fn open_reply_message(state :: consume RatchetState,
   session :: InteropSession,
   message :: RatchetMessage) -> InteropOpenOutcome do
-  if message.suite != 2
-    || !Bytes.secure_equals(message.session_id, session.session_id)
-    || !Bytes.secure_equals(message.session_id, state.session_id) do
+  let selected = state.suite == 2
+    && session.suite == 2
+    && Bytes.secure_equals(state.session_id, session.session_id)
+  let matching_wire = if state.version == 2 do
+    message.version == 4
+  else
+    (message.version == 1 || message.version == 2 || message.version == 3)
+      && message.suite == 2
+      && Bytes.secure_equals(message.session_id, session.session_id)
+  end
+  if !selected || !matching_wire do
     reject(state, session, "interop reply session mismatch")
   else
     case session_aad(state.session_id) do

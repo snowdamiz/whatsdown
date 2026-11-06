@@ -42,6 +42,17 @@ end
 test("default router exposes neither GET prekey claims nor public direct delivery") do
   let _server = spawn(directory_router)
   Timer.sleep(100)
+  # The test has no database registry. An unauthenticated writer request must
+  # return before it can touch the pool or start preparing transactions.
+  for request in [
+    Http.build(:get, "http://127.0.0.1:18994/internal/v1/transparency/anchor-candidate/1"),
+    Http.build(:post, "http://127.0.0.1:18994/internal/v1/transparency/anchor-cosigns")
+  ] do
+    case Http.send(request) do
+      Err(_) -> assert(false)
+      Ok(response) -> assert(response.status == 401)
+    end
+  end
   case Http.build(:get, "http://127.0.0.1:18994/v1/prekeys/bundle")
     |> Http.max_response_bytes(1024)
     |> Http.send() do

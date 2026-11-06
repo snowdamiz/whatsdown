@@ -127,13 +127,47 @@ jobs:
           import fs from 'node:fs';
           const config = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
           const profile = config.build[process.env.PROFILE];
-          profile.env = { ...profile.env, MESH_LANG_REVISION: process.env.MESH_LANG_REVISION };
+          profile.env = { ...profile.env, MESH_LANG_REVISION: process.env.MESH_LANG_REVISION,
+            MORSE_RELEASE_REPOSITORY: process.env.GITHUB_REPOSITORY };
           fs.writeFileSync('eas.json', JSON.stringify(config, null, 2) + '\n');
           NODE
+      - name: Check worker disclosure export configuration
+        id: plaintext_evidence
+        run: node ../../scripts/plaintext-release.mjs configured
       - name: Wait for the native build
         run: |
           eas build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"
           jq -r '.[0] | "[\(.platform) \(.buildProfile) build](https://expo.dev/accounts/120356aa-user/projects/morse/builds/\(.id))"' "$RUNNER_TEMP/eas-build.json" >> "$GITHUB_STEP_SUMMARY"
+      - name: Retrieve and verify disclosures for this exact EAS build and package
+        if: steps.plaintext_evidence.outputs.enabled == 'true'
+        run: |
+          build_id="$(node ../../scripts/plaintext-release.mjs eas-id --build "$RUNNER_TEMP/eas-build.json")"
+          eas build:view "$build_id" --json > "$RUNNER_TEMP/eas-build-view.json"
+          node ../../scripts/plaintext-release.mjs retrieve-eas \
+            --build "$RUNNER_TEMP/eas-build-view.json" --id "$build_id" \
+            --output "$RUNNER_TEMP/plaintext-mobile"
+          cat "$RUNNER_TEMP/plaintext-mobile/DISCLOSURES.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Record pending disclosure export for an unconfigured legacy worker
+        if: steps.plaintext_evidence.outputs.enabled != 'true'
+        run: |
+          node ../../scripts/plaintext-release.mjs pending-eas \
+            --build "$RUNNER_TEMP/eas-build.json" --output "$RUNNER_TEMP/plaintext-mobile"
+          echo 'Disclosure publication is pending worker export configuration; no reviewed report is associated with this EAS package by this run.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        id: plaintext_artifact
+        if: always()
+        with:
+          name: morse-mobile-plaintext-${{ matrix.platform }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/plaintext-mobile/**
+          if-no-files-found: error
+          retention-days: 90
+      - name: Associate retained disclosure evidence with build notes
+        if: steps.plaintext_evidence.outputs.enabled == 'true' && steps.plaintext_artifact.outcome == 'success'
+        env:
+          DISCLOSURE_EVIDENCE_URL: ${{ steps.plaintext_artifact.outputs.artifact-url }}
+        run: |
+          printf '\n[Exact build disclosure evidence](%s)\n' "$DISCLOSURE_EVIDENCE_URL" >> "$GITHUB_STEP_SUMMARY"
+          printf 'MORSE_DISCLOSURE_NOTES=Reviewed Mesh disclosure inventory for source %s: %s . This is not a complete plaintext-source coverage claim.\n' "$GITHUB_SHA" "$DISCLOSURE_EVIDENCE_URL" >> "$GITHUB_ENV"
       - name: Submit this iOS build to TestFlight
         if: matrix.platform == 'ios' && env.PROFILE == 'production' && env.ASC_APP_ID != ''
         run: |
@@ -144,7 +178,11 @@ jobs:
           fs.writeFileSync('eas.json', JSON.stringify(config, null, 2) + '\n');
           NODE
           build_id="$(jq -er '.[0] | select(.platform == "IOS" and .status == "FINISHED") | .id' "$RUNNER_TEMP/eas-build.json")"
-          eas submit --platform ios --profile production --id "$build_id" --non-interactive --wait
+          disclosure_arguments=()
+          if [[ -n "${MORSE_DISCLOSURE_NOTES:-}" ]]; then
+            disclosure_arguments=(--what-to-test "$MORSE_DISCLOSURE_NOTES")
+          fi
+          eas submit --platform ios --profile production --id "$build_id" --non-interactive --wait "${disclosure_arguments[@]}"
 
   update:
     environment: ota-signing

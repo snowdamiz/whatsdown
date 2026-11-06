@@ -1,0 +1,97 @@
+from Credits.Token import sign_credit_request
+from Payment.Verify import verify_credit_payment
+from Credits.Issuer import CreditIssuerKey, encode_issuer_key, decode_issuer_key
+from Credits.Issuance import CreditQuote, CreditIssueResponse, decode_credit_quote_request, encode_credit_quote, decode_credit_quote, decode_credit_issue_request, encode_credit_issue_response
+from Credits.QuoteAuth import sign_credit_quote, encode_signed_credit_quote
+from Credits.Policy import issuer_epoch
+from Solana.Read import pubkey, spl_token_program
+from Solana.Address import find_program_address
+from Mobile.CreditState import CreditWallet, pack_credit_parts, unpack_credit_parts
+from Mobile.CreditWallet import add_credit_issuer
+from Mobile.CreditPurchase import prepare_credit_purchase, accept_credit_quote, recover_credit_purchase, finalize_credit_purchase
+from Mobile.CreditPaymentNetwork import CreditWalletPaymentPlan, prepare_credit_wallet_payment, commit_credit_wallet_payment, recover_credit_wallet_payment, submit_credit_wallet_payment
+from Storage.Credits import CreditWalletIdentity, load_credit_wallet, commit_credit_wallet
+
+fn bytes(value :: Int, length :: Int) -> Bytes!String do
+  case Bytes.repeat(value, length) do
+    Err(_) -> Err("bytes failed")
+    Ok(output) -> Ok(output)
+  end
+end
+fn result(value :: CreditWalletPaymentPlan) -> String do
+  "{\"status\":" <> Int.to_string(value.status) <> ",\"quote_hex\":" <> Json.encode_string(Bytes.to_hex(value.quote))
+    <> ",\"wire_hex\":" <> Json.encode_string(Bytes.to_hex(value.wire)) <> ",\"signature_hex\":" <> Json.encode_string(Bytes.to_hex(value.signature))
+    <> ",\"blockhash_hex\":" <> Json.encode_string(Bytes.to_hex(value.blockhash)) <> "}"
+end
+fn issuer_context() -> Bytes!String do
+  Bytes.from_hex("01" <> String.repeat("07", 48) <> String.repeat("00", 32) <> String.repeat("08", 32) <> "00120000000000000001")
+end
+fn run() -> String!String do
+  let wrapping = case StorageKey.file(Env.get("WALLET_STORAGE", "")) do
+    Err(_) -> return Err("file_key_failed")
+    Ok(value) -> value
+  end
+  let path = Env.get("WALLET_DATABASE", "")
+  let who = CreditWalletIdentity { account_id: bytes(61, 32)?, device_id: bytes(62, 16)?, service_key: bytes(63, 32)?, purpose: 1 }
+  let now = U64.parse(Env.get("WALLET_NOW", "0"))?
+  let mint = bytes(7, 32)?
+  let action = Env.get("WALLET_ACTION", "")
+  if action == "bootstrap" do
+    let signing = case Crypto.blind_rsa_generate() do Err(_) -> return Err("RSA failed") Ok(value) -> value end
+    let public = case Crypto.blind_rsa_public(signing) do Err(_) -> return Err("RSA public failed") Ok(value) -> value end
+    let quote_pair = case Crypto.signing_generate() do Err(_) -> return Err("quote key failed") Ok(value) -> value end
+    let issuer = CreditIssuerKey { epoch: issuer_epoch(now)?, purpose: 1, spki: public.bytes, quote_public_key: quote_pair.public_key.bytes }
+    let sealed = case BlindRsaSecretKey.seal_for_storage(signing, wrapping, issuer_context()?) do Err(_) -> return Err("fixture seal") Ok(value) -> value end
+    File.write(Env.get("WALLET_ISSUER", ""), Bytes.to_base64(pack_credit_parts([encode_issuer_key(issuer)?, sealed])?))?
+    let before = load_credit_wallet(path, wrapping, who)?
+    let admitted = add_credit_issuer(before.wallet, issuer, now, 1)?
+    commit_credit_wallet(path, wrapping, who, before, CreditWallet { revision: U64.parse("1")?, records: admitted.records })?
+    let asset = case String.to_int(Env.get("WALLET_ASSET", "1")) do None -> return Err("asset") Some(value) -> value end
+    let purchase = prepare_credit_purchase(path, wrapping, who, 100, asset, now)?
+    let request = decode_credit_quote_request(purchase.quote_request)?
+    let deposit = bytes(21, 32)?
+    let destination = if asset == 1 do deposit else
+      find_program_address(pubkey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")?, [deposit, spl_token_program()?.bytes, mint])?.address.bytes end
+    let quote = CreditQuote { quote_id: bytes(71, 32)?, deposit_owner: deposit, destination: destination,
+      mint: if asset == 1 do bytes(0, 32)? else mint end, asset: asset, amount: U64.parse(if asset == 1 do "25000000" else "5000000" end)?,
+      purpose: 1, credits: 100, issued_at: now, expires_at: U64.add(now, U64.parse("900")?)?, issuer_key_id: request.issuer_key_id, batch_hash: request.batch_hash }
+    accept_credit_quote(path, wrapping, who, purchase.purchase_id,
+      encode_signed_credit_quote(sign_credit_quote(quote_pair.private_key, quote)?)?, now)?
+    return Ok("{\"purchase_id_hex\":" <> Json.encode_string(Bytes.to_hex(purchase.purchase_id)) <> ",\"quote_hex\":" <> Json.encode_string(Bytes.to_hex(encode_credit_quote(quote)?)) <> "}")
+  end
+  let id = Bytes.from_hex(Env.get("WALLET_PURCHASE", ""))?
+  let endpoints = String.split(Env.get("WALLET_ENDPOINTS", ""), ",")
+  if action == "prepare" do
+    Ok(result(prepare_credit_wallet_payment(path, wrapping, who, id, mint, endpoints, Bytes.from_hex(Env.get("WALLET_PAYER", ""))?, now)?))
+  else if action == "commit" do
+    Ok(result(commit_credit_wallet_payment(path, wrapping, who, id, mint, Bytes.from_hex(Env.get("WALLET_WIRE", ""))?, endpoints, now)?))
+  else if action == "submit" do
+    Ok(result(submit_credit_wallet_payment(path, wrapping, who, id, mint, endpoints, now)?))
+  else if action == "recover" do
+    Ok(result(recover_credit_wallet_payment(path, wrapping, who, id, mint)?))
+  else if action == "finalize" do
+    let purchase = recover_credit_purchase(path, wrapping, who, id)?
+    let issue = decode_credit_issue_request(purchase.issue_request)?
+    let quote = decode_credit_quote(purchase.quote)?
+    let client = Http.client()
+    let receipt = verify_credit_payment(client, List.head(endpoints), issue.transaction_signature, 41, quote, mint, quote.issued_at, now)
+    Http.client_close(client)
+    case receipt? do None -> return Err("fixture payment pending") Some(_) -> nil end
+    let parts = unpack_credit_parts(Bytes.from_base64(File.read(Env.get("WALLET_ISSUER", ""))?)?, 2, 4096)?
+    let issuer = decode_issuer_key(List.get(parts, 0))?
+    let private = case BlindRsaSecretKey.unseal_from_storage(List.get(parts, 1), wrapping, issuer_context()?) do Err(_) -> return Err("fixture open") Ok(value) -> value end
+    let signatures = for item in issue.requests do sign_credit_request(private, issuer, item)? end
+    let response = encode_credit_issue_response(CreditIssueResponse { quote_id: quote.quote_id, batch_hash: quote.batch_hash, signatures: signatures })?
+    let done = finalize_credit_purchase(path, wrapping, who, id, response, now)?
+    Ok("{\"stage\":" <> Int.to_string(done.stage) <> ",\"tokens\":" <> Int.to_string(List.length(signatures)) <> "}")
+  else if action == "purchase" do
+    let purchase = recover_credit_purchase(path, wrapping, who, id)?
+    Ok("{\"stage\":" <> Int.to_string(purchase.stage) <> ",\"issue_hex\":" <> Json.encode_string(Bytes.to_hex(purchase.issue_request)) <> "}")
+  else Err("unknown_action") end
+end
+fn main() do
+  case run() do
+    Err(error) -> println("{\"error\":" <> Json.encode_string(error) <> "}")
+    Ok(value) -> println(value)
+  end
+end

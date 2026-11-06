@@ -1,4 +1,17 @@
-from Mobile.Attachments import attachment_summary, group_attachment_reference
+from Mobile.Expiry import message_unexpired
+from Mobile.Codec import current_time
+from Mobile.GroupPolicyWire import group_policy_label
+from Mobile.AttachmentCapabilities import (
+  require_attachment_profile,
+  require_padded_attachment_profile
+)
+from Storage.AccountGuard import AccountBasis, load_account_basis, commit_account_changes
+from Mobile.TransparencySafety import require_log_changes_allowed
+from Mobile.Attachments import (
+  attachment_summary,
+  group_attachment_reference,
+  attachment_requires_buckets
+)
 from Mobile.ContactAddress import deposit_address
 from Mobile.Delivery import DeliveryRecord, delivery_state, load_delivery
 from Mobile.Transparency import fresh_account_device_set
@@ -38,6 +51,7 @@ from Mobile.Codec import (
   take_vector
 )
 from Mobile.Profile import load_profile, open_device
+from Mobile.Platform import native_security_config
 from Mobile.Transparency import (
   canonical_transparency_checkpoint,
   load_transparency_view,
@@ -59,8 +73,9 @@ from Mobile.Types import (
 from Protocol.V1 import AccountIdentity, DeviceCredential, DeviceSet, DirectoryEntry, PrekeyBundle
 from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import context, local_context, open_local, platform_key, seal_local, seal_x25519
-from Storage.Records import store_blobs, store_record_changes
+from Storage.Records import compare_and_swap_blobs, store_blobs, store_record_changes
 from Transparency.Merkle import TransparencyCheckpoint, checkpoint_hash
+from Transparency.Config import SecurityConfig
 from Transparency.Wire import decode_checkpoint, encode_checkpoint
 from Transport.Packet import ClientProfile, decode_client_profile
 
@@ -138,7 +153,7 @@ fn decode_group_ids_parts(state :: BinaryReader,
   end
 end
 
-fn decode_group_ids(input :: Bytes) -> List<Bytes>!String do
+pub fn decode_group_ids(input :: Bytes) -> List<Bytes>!String do
   case reader(input, 4616) do
     Err(_) -> Err("invalid_group_index")
     Ok(state) -> do
@@ -191,6 +206,8 @@ fn valid_group_history_entry(value :: MobileGroupHistoryEntry) -> Bool do
     && Bytes.length(value.sender_device_id) == 16
     && Bytes.length(value.body) <= 65346
     && Bytes.length(value.attachment) <= 16384
+    && value.disappearing_seconds >= 0
+    && value.disappearing_seconds <= 2592000
 end
 
 fn encode_group_history_entry(value :: MobileGroupHistoryEntry) -> Bytes!String do
@@ -198,7 +215,11 @@ fn encode_group_history_entry(value :: MobileGroupHistoryEntry) -> Bytes!String 
     Err("invalid_group_history")
   else
     encode_output_list([
-      mobile_byte(1)?,
+      mobile_byte(if value.disappearing_seconds > 0 do
+        2
+      else
+        1
+      end)?,
       mobile_byte(value.direction)?,
       mobile_write_u64(value.epoch)?,
       value.sender_account_id,
@@ -207,7 +228,12 @@ fn encode_group_history_entry(value :: MobileGroupHistoryEntry) -> Bytes!String 
       value.body,
       value.attachment,
       value.message_id
-    ])
+    ]
+      ++ if value.disappearing_seconds > 0 do
+        [mobile_write_u32(value.disappearing_seconds)?]
+      else
+        []
+      end)
   end
 end
 
@@ -227,7 +253,11 @@ fn encode_group_history_summary(device :: borrow DeviceKeys,
       0
     end
     encode_output_list([
-      mobile_byte(1)?,
+      mobile_byte(if value.disappearing_seconds > 0 do
+        2
+      else
+        1
+      end)?,
       mobile_byte(value.direction)?,
       mobile_write_u64(value.epoch)?,
       value.sender_account_id,
@@ -237,7 +267,12 @@ fn encode_group_history_summary(device :: borrow DeviceKeys,
       attachment_summary(device, value.attachment),
       value.message_id,
       mobile_byte(state)?
-    ])
+    ]
+      ++ if value.disappearing_seconds > 0 do
+        [mobile_write_u32(value.disappearing_seconds)?]
+      else
+        []
+      end)
   end
 end
 
@@ -261,24 +296,36 @@ fn decode_group_history_entry(input :: Bytes) -> MobileGroupHistoryEntry!String 
         MobileReadBytes { state: body.state, value: Bytes.empty() }
       end
       # Legacy histories remain readable; their missing wire IDs cannot be reconstructed.
-      let message_id = if count_value == 9 do
+      let message_id = if count_value >= 9 do
         take_vector(attachment.state, 32)?
       else
         MobileReadBytes { state: attachment.state, value: Bytes.empty() }
       end
-      case finish(message_id.state) do
+      let expiry = if count_value == 10 do
+        take_vector(message_id.state, 4)?
+      else
+        MobileReadBytes { state: message_id.state, value: Bytes.empty() }
+      end
+      case finish(expiry.state) do
         Err(_) -> Err("invalid_group_history")
         Ok(_) -> do
           let direction_value = mobile_read_byte(direction.value)?
-          if (count_value != 7 && count_value != 8 && count_value != 9)
+          let version_value = mobile_read_byte(version.value)?
+          let seconds = if count_value == 10 do
+            mobile_read_u32(expiry.value)?
+          else
+            0
+          end
+          if !((version_value == 1 && (count_value == 7 || count_value == 8 || count_value == 9))
+            || (version_value == 2 && count_value == 10 && seconds > 0 && seconds <= 2592000))
             || (Bytes.length(message_id.value) != 0 && Bytes.length(message_id.value) != 32)
-            || mobile_read_byte(version.value)? != 1
             || (direction_value != 1 && direction_value != 2)
             || Bytes.length(account_id.value) != 32
             || Bytes.length(device_id.value) != 16 do
             Err("invalid_group_history")
           else
             Ok(MobileGroupHistoryEntry {
+              disappearing_seconds: seconds,
               message_id: message_id.value,
               direction: direction_value,
               epoch: mobile_read_u64(epoch.value)?,
@@ -313,7 +360,7 @@ fn decode_group_history_parts(state :: BinaryReader,
   end
 end
 
-fn decode_group_history(input :: Bytes) -> List<MobileGroupHistoryEntry>!String do
+pub fn decode_group_history(input :: Bytes) -> List<MobileGroupHistoryEntry>!String do
   case reader(input, 65536) do
     Err(_) -> Err("invalid_group_history")
     Ok(state) -> do
@@ -328,7 +375,7 @@ fn decode_group_history(input :: Bytes) -> List<MobileGroupHistoryEntry>!String 
   end
 end
 
-fn encode_group_history(values :: List<MobileGroupHistoryEntry>) -> Bytes!String do
+pub fn encode_group_history(values :: List<MobileGroupHistoryEntry>) -> Bytes!String do
   let bounded = if List.length(values) > 256 do
     List.drop(values, List.length(values) - 256)
   else
@@ -392,38 +439,56 @@ fn load_group_history(database_path :: String,
   end
 end
 
+fn prepared_group_history_attachment(database_path :: String,
+  attachment :: Bytes,
+  envelope :: Bytes) -> Bytes!String do
+  if Bytes.length(attachment) > 0 do
+    Ok(attachment)
+  else
+    let local = decode_client_profile(load_profile(database_path)?)?
+    case group_attachment_reference(envelope, local.account_id, local.device_id) do
+      Err(_) -> Ok(Bytes.empty())
+      Ok(value)
+    end
+  end
+end
+
 pub fn updated_group_history_blob(database_path :: String,
   wrapping_key :: borrow StorageKey,
   group_id :: Bytes,
   creator_id :: Bytes,
   entry :: MobileGroupHistoryEntry) -> Result<(List<String>, List<Bytes>), String> do
   let label = group_history_label(group_id)
-  let (body, envelope, presentation_labels, presentation_blobs) = presented_message_writes(database_path,
+  let presentation = presented_message_writes(database_path,
     wrapping_key,
     entry.sender_account_id,
     group_id,
     creator_id,
-    entry.body)?
-  # Senders pass their own local reference; receivers pick theirs out of the group envelope.
-  # A malformed envelope must not block the text body, so it degrades to "no attachment".
-  let attachment = if Bytes.length(entry.attachment) > 0 do
-    entry.attachment
+    entry.body)
+  let (body, envelope, presentation_labels, presentation_blobs) = Result.unwrap_or(presentation,
+    (entry.body, Bytes.empty(), [], []))
+  let attachment = prepared_group_history_attachment(database_path, entry.attachment, envelope)
+  let previous = load_group_history(database_path, wrapping_key, group_id)
+  let local_attachment = Result.unwrap_or(attachment, Bytes.empty())
+  let entries = if Bytes.length(body) == 0 && Bytes.length(local_attachment) == 0 do
+    Result.unwrap_or(previous, [])
   else
-    let local = decode_client_profile(load_profile(database_path)?)?
-    case group_attachment_reference(envelope, local.account_id, local.device_id) do
-      Err(_) -> Bytes.empty()
-      Ok(value) -> value
-    end
+    List.append(Result.unwrap_or(previous, []), %{entry | body: body, attachment: local_attachment})
   end
-  let previous = load_group_history(database_path, wrapping_key, group_id)?
-  let entries = if Bytes.length(body) == 0 && Bytes.length(attachment) == 0 do
-    previous
-  else
-    List.append(previous, %{entry | body: body, attachment: attachment})
-  end
-  Ok((List.append(presentation_labels, label),
-    List.append(presentation_blobs,
-      seal_local(encode_group_history(entries)?, wrapping_key, local_context(label)?)?)))
+  let encoded = encode_group_history(entries)
+  let prepared_context = local_context(label)
+  let encrypted = seal_local(Result.unwrap_or(encoded, Bytes.empty()),
+    wrapping_key,
+    Result.unwrap_or(prepared_context, Bytes.empty()))
+  # The caller receives a plan only after all original checks, in their original
+  # order. Extra preparation cannot publish fallback ciphertext or override an error.
+  let _ = presentation?
+  let _ = attachment?
+  let _ = previous?
+  let _ = encoded?
+  let _ = prepared_context?
+  let blob = encrypted?
+  Ok((List.append(presentation_labels, label), List.append(presentation_blobs, blob)))
 end
 
 pub fn group_join_label(kind :: String) -> String do
@@ -475,15 +540,23 @@ pub fn group_member(profile :: ClientProfile,
 end
 
 pub fn group_key_package_unsigned(value :: MobileGroupKeyPackage) -> Bytes!String do
+  if Bytes.length(value.set_id) != 0 && Bytes.length(value.set_id) != 32 do
+    return Err("invalid_group_key_package")
+  end
   mobile_join([
-      mobile_byte(1)?,
+      mobile_byte(if Bytes.length(value.set_id) == 0 do
+        1
+      else
+        2
+      end)?,
       Bytes.from_utf8("GKP"),
       value.account_id,
       value.device_id,
       value.init_public_key.bytes,
       value.leaf_public_key.bytes,
       value.checkpoint,
-      mobile_byte(value.witness_count)?
+      mobile_byte(value.witness_count)?,
+      value.set_id
     ],
     0,
     Bytes.empty())
@@ -491,7 +564,8 @@ end
 
 fn encode_group_key_package(value :: MobileGroupKeyPackage) -> Bytes!String do
   let unsigned = group_key_package_unsigned(value)?
-  if Bytes.length(unsigned) != 305 || Bytes.length(value.signature.bytes) != 64 do
+  if Bytes.length(unsigned) != 305 + Bytes.length(value.set_id)
+    || Bytes.length(value.signature.bytes) != 64 do
     Err("invalid_group_key_package")
   else
     mobile_append(unsigned, value.signature.bytes)
@@ -499,14 +573,18 @@ fn encode_group_key_package(value :: MobileGroupKeyPackage) -> Bytes!String do
 end
 
 pub fn decode_group_key_package(input :: Bytes) -> MobileGroupKeyPackage!String do
-  if Bytes.length(input) != 369 do
+  if Bytes.length(input) != 369 && Bytes.length(input) != 401 do
     Err("invalid_group_key_package")
   else
-    let state = case reader(input, 369) do
+    let state = case reader(input, 401) do
       Err(_) -> Err("invalid_group_key_package")
       Ok(value)
     end?
     let version = take_fixed(state, 1)?
+    let wire_version = mobile_read_byte(version.value)?
+    if wire_version != 1 && wire_version != 2 do
+      return Err("invalid_group_key_package")
+    end
     let magic = take_fixed(version.state, 3)?
     let account_id = take_fixed(magic.state, 32)?
     let device_id = take_fixed(account_id.state, 16)?
@@ -514,7 +592,13 @@ pub fn decode_group_key_package(input :: Bytes) -> MobileGroupKeyPackage!String 
     let leaf_public = take_fixed(init_public.state, 32)?
     let checkpoint = take_fixed(leaf_public.state, 188)?
     let witness = take_fixed(checkpoint.state, 1)?
-    let signature = take_fixed(witness.state, 64)?
+    let set_id = take_fixed(witness.state,
+      if wire_version == 2 do
+        32
+      else
+        0
+      end)?
+    let signature = take_fixed(set_id.state, 64)?
     case finish(signature.state) do
       Err(_) -> Err("invalid_group_key_package")
       Ok(_) -> do
@@ -525,12 +609,14 @@ pub fn decode_group_key_package(input :: Bytes) -> MobileGroupKeyPackage!String 
           leaf_public_key: X25519PublicKey { bytes: leaf_public.value },
           checkpoint: checkpoint.value,
           witness_count: mobile_read_byte(witness.value)?,
+          set_id: set_id.value,
           signature: Signature { bytes: signature.value }
         }
-        if mobile_read_byte(version.value)? != 1
-          || !Bytes.secure_equals(magic.value, Bytes.from_utf8("GKP"))
+        if !Bytes.secure_equals(magic.value, Bytes.from_utf8("GKP"))
           || Bytes.secure_equals(init_public.value, leaf_public.value)
-          || value.witness_count != 2
+          || value.witness_count < 1
+          || value.witness_count > 9
+          || (wire_version == 1 && value.witness_count != 2)
           || !Bytes.secure_equals(encode_checkpoint(decode_checkpoint(checkpoint.value)?)?,
             checkpoint.value)
           || !Bytes.secure_equals(encode_group_key_package(value)?, input) do
@@ -540,6 +626,28 @@ pub fn decode_group_key_package(input :: Bytes) -> MobileGroupKeyPackage!String 
         end
       end
     end
+  end
+end
+
+# A native v1 rollout still speaks the old group wire format. A v2 native
+# release switches new groups and packages to the pinned set hash.
+pub fn group_wire_set(view :: MobileTransparencyView) -> Bytes!String do
+  if native_security_config()?.version == 1 do
+    Ok(Bytes.empty())
+  else
+    Ok(view.set_id)
+  end
+end
+
+# Legacy unbound packages/policies are accepted only by a native v1 build.
+# A set hash in a remote packet cannot replace the phone's native pins.
+pub fn group_trust_matches(set_id :: Bytes,
+  threshold :: Int,
+  view :: MobileTransparencyView) -> Bool!String do
+  if Bytes.length(set_id) == 0 do
+    Ok(native_security_config()?.version == 1 && threshold == 2 && view.witness_threshold == 2)
+  else
+    Ok(Bytes.secure_equals(set_id, view.set_id) && threshold == view.witness_threshold)
   end
 end
 
@@ -564,7 +672,9 @@ pub fn verified_group_member(devices :: MobileVerifiedDeviceSet,
   encoded_package :: Bytes,
   proof_checkpoint :: Bytes,
   baseline_checkpoint :: Bytes,
-  view :: MobileTransparencyView) -> GroupMember!String do
+  view :: MobileTransparencyView,
+  database_path :: String,
+  wrapping_key :: borrow StorageKey) -> GroupMember!String do
   let package = decode_group_key_package(encoded_package)?
   let profile = group_profile(devices.profiles, package.account_id, package.device_id, 0)?
   let valid_signature = case Crypto.verify(SigningPublicKey {
@@ -576,8 +686,17 @@ pub fn verified_group_member(devices :: MobileVerifiedDeviceSet,
     Ok(value) -> value
   end
   if !valid_signature
-    || !(transparency_checkpoint_precedes(baseline_checkpoint, package.checkpoint, view)?)
-    || !(transparency_checkpoint_precedes(package.checkpoint, proof_checkpoint, view)?) do
+    || !(group_trust_matches(package.set_id, package.witness_count, view)?)
+    || !(transparency_checkpoint_precedes(baseline_checkpoint,
+      package.checkpoint,
+      view,
+      database_path,
+      wrapping_key)?)
+    || !(transparency_checkpoint_precedes(package.checkpoint,
+      proof_checkpoint,
+      view,
+      database_path,
+      wrapping_key)?) do
     Err("invalid_group_key_package")
   else
     let baseline_hash = checkpoint_hash(canonical_transparency_checkpoint(baseline_checkpoint)?)?
@@ -595,9 +714,33 @@ pub fn create_group_key_package(database_path :: String) -> Bytes!String do
 end
 
 pub fn create_group_key_package_scoped(database_path :: String, scope :: String) -> Bytes!String do
+  create_group_key_package_scoped_at_profile(database_path,
+    scope,
+    load_blob(database_path, "profile/v1")?)
+end
+
+pub fn create_group_key_package_scoped_at_profile(database_path :: String,
+  scope :: String,
+  expected_profile :: Bytes) -> Bytes!String do
   ensure_schema(database_path)?
-  let profile = decode_client_profile(load_profile(database_path)?)?
+  let before = load_account_basis(database_path,
+    [
+      group_join_scoped_label(scope, "package"),
+      group_join_scoped_label(scope, "init"),
+      group_join_scoped_label(scope, "leaf"),
+      "transparency-checkpoint/v1",
+      "transparency-fork/v1",
+      "transparency-witnesses/v2",
+      "anchor-schedule/v1"
+    ])?
+  if !Bytes.secure_equals(before.profile, expected_profile) do
+    return Err("account_state_changed")
+  end
   let wrapping_key = platform_key()?
+  let profile = decode_client_profile(open_local(before.profile,
+    wrapping_key,
+    local_context("profile/v1")?)?)?
+  require_log_changes_allowed(database_path, wrapping_key)?
   let checkpoint = group_checkpoint(database_path, wrapping_key)?
   let view = load_transparency_view(database_path, wrapping_key)?
   let package_label = group_join_scoped_label(scope, "package")
@@ -616,7 +759,23 @@ pub fn create_group_key_package_scoped(database_path :: String, scope :: String)
       if signature_valid
         && Bytes.secure_equals(package.account_id, profile.account_id)
         && Bytes.secure_equals(package.device_id, profile.device_id)
-        && transparency_checkpoint_precedes(package.checkpoint, checkpoint, view)? do
+        && !(group_trust_matches(package.set_id, package.witness_count, view)?) do
+        fresh_group_key_package(database_path,
+          scope,
+          profile,
+          wrapping_key,
+          checkpoint,
+          view,
+          before)
+      else if signature_valid
+        && Bytes.secure_equals(package.account_id, profile.account_id)
+        && Bytes.secure_equals(package.device_id, profile.device_id)
+        && transparency_checkpoint_precedes(package.checkpoint,
+          checkpoint,
+          view,
+          database_path,
+          wrapping_key)? do
+        commit_account_changes(database_path, before, [], [], [])?
         Ok(encoded)
       else
         Err("group_key_package_pending")
@@ -625,47 +784,59 @@ pub fn create_group_key_package_scoped(database_path :: String, scope :: String)
     Err(error) -> if error != "local_state_not_found" do
       Err(error)
     else
-      let init_keys = case Crypto.x25519_generate() do
-        Err(_) -> Err("group_key_generation_failed")
-        Ok(value)
-      end?
-      let leaf_keys = case Crypto.x25519_generate() do
-        Err(_) -> Err("group_key_generation_failed")
-        Ok(value)
-      end?
-      let unsigned = MobileGroupKeyPackage {
-        account_id: profile.account_id,
-        device_id: profile.device_id,
-        init_public_key: init_keys.public_key,
-        leaf_public_key: leaf_keys.public_key,
-        checkpoint: checkpoint,
-        witness_count: 2,
-        signature: Signature { bytes: Bytes.empty() }
-      }
-      let device = open_device(profile, wrapping_key, database_path)?
-      let signature = case Crypto.sign(device.signing_private_key,
-        group_key_package_unsigned(unsigned)?) do
-        Err(_) -> Err("group_key_generation_failed")
-        Ok(value)
-      end?
-      let encoded = encode_group_key_package(%{unsigned | signature: signature})?
-      let init_label = group_join_scoped_label(scope, "init")
-      let leaf_label = group_join_scoped_label(scope, "leaf")
-      let package_blob = seal_local(encoded, wrapping_key, local_context(package_label)?)?
-      let init_blob = seal_x25519(init_keys.private_key,
-        wrapping_key,
-        context(profile.account_id, profile.device_id, init_label, 17)?)?
-      let leaf_blob = seal_x25519(leaf_keys.private_key,
-        wrapping_key,
-        context(profile.account_id, profile.device_id, leaf_label, 17)?)?
-      consume_group_private(init_keys.private_key)
-      consume_group_private(leaf_keys.private_key)
-      store_blobs(database_path,
-        [package_label, init_label, leaf_label],
-        [package_blob, init_blob, leaf_blob])?
-      Ok(encoded)
+      fresh_group_key_package(database_path, scope, profile, wrapping_key, checkpoint, view, before)
     end
   end
+end
+
+fn fresh_group_key_package(database_path :: String,
+  scope :: String,
+  profile :: ClientProfile,
+  wrapping_key :: borrow StorageKey,
+  checkpoint :: Bytes,
+  view :: MobileTransparencyView,
+  before :: AccountBasis) -> Bytes!String do
+  let package_label = group_join_scoped_label(scope, "package")
+  let init_keys = case Crypto.x25519_generate() do
+    Err(_) -> Err("group_key_generation_failed")
+    Ok(value)
+  end?
+  let leaf_keys = case Crypto.x25519_generate() do
+    Err(_) -> Err("group_key_generation_failed")
+    Ok(value)
+  end?
+  let unsigned = MobileGroupKeyPackage {
+    account_id: profile.account_id,
+    device_id: profile.device_id,
+    init_public_key: init_keys.public_key,
+    leaf_public_key: leaf_keys.public_key,
+    checkpoint: checkpoint,
+    witness_count: view.witness_threshold,
+    set_id: group_wire_set(view)?,
+    signature: Signature { bytes: Bytes.empty() }
+  }
+  let device = open_device(profile, wrapping_key, database_path)?
+  let signature = case Crypto.sign(device.signing_private_key,
+    group_key_package_unsigned(unsigned)?) do
+    Err(_) -> Err("group_key_generation_failed")
+    Ok(value)
+  end?
+  let encoded = encode_group_key_package(%{unsigned | signature: signature})?
+  let init_label = group_join_scoped_label(scope, "init")
+  let leaf_label = group_join_scoped_label(scope, "leaf")
+  let package_blob = seal_local(encoded, wrapping_key, local_context(package_label)?)?
+  let init_blob = seal_x25519(init_keys.private_key,
+    wrapping_key,
+    context(profile.account_id, profile.device_id, init_label, 17)?)?
+  let leaf_blob = seal_x25519(leaf_keys.private_key,
+    wrapping_key,
+    context(profile.account_id, profile.device_id, leaf_label, 17)?)?
+  consume_group_private(init_keys.private_key)
+  consume_group_private(leaf_keys.private_key)
+  let labels = [package_label, init_label, leaf_label]
+  let blobs = [package_blob, init_blob, leaf_blob]
+  commit_account_changes(database_path, before, labels, blobs, [])?
+  Ok(encoded)
 end
 
 pub fn group_snapshot_blob(state :: consume GroupState,
@@ -839,19 +1010,23 @@ pub fn forget_mobile_group(request :: MobileGroupReferenceRequest) -> Bytes!Stri
     [
       group_state_label(request.group_id)?,
       group_history_label(request.group_id),
-      group_baseline_label(request.group_id)?
+      group_baseline_label(request.group_id)?,
+      group_policy_label(request.group_id)?
     ]
       ++ group_record_labels(request.group_id))?
   Ok(Bytes.empty())
 end
 
-pub fn mobile_group_history(request :: MobileGroupReferenceRequest) -> Bytes!String do
+pub fn mobile_group_history(request :: MobileGroupReferenceRequest) -> Result<Plaintext<Bytes>, String> do
   ensure_schema(request.database_path)?
   let profile = decode_client_profile(load_profile(request.database_path)?)?
   let wrapping_key = platform_key()?
   let state = load_group(request.database_path, profile, wrapping_key, request.group_id)?
   consume_group_state(state)
-  let entries = load_group_history(request.database_path, wrapping_key, request.group_id)?
+  let entries = unexpired_group_history(load_group_history(request.database_path,
+      wrapping_key,
+      request.group_id)?,
+    current_time()?)?
   let device = open_device(profile, wrapping_key, request.database_path)?
   encode_output_list(encode_group_history_summaries(device,
     entries,
@@ -1035,9 +1210,10 @@ end
 
 # Attachment keys wrap to each member's stable identity key, not to rotating TreeKEM leaves.
 
-pub fn group_attachment_recipients(path :: String,
+fn attachment_recipients_for(path :: String,
   key :: borrow StorageKey,
   targets :: List<GroupDeliveryTarget>,
+  padded :: Bool,
   index :: Int,
   output :: List<MobileAttachmentRecipient>) -> List<MobileAttachmentRecipient>!String do
   if index >= List.length(targets) do
@@ -1046,9 +1222,14 @@ pub fn group_attachment_recipients(path :: String,
     let target = List.get(targets, index)
     let devices = fresh_account_device_set(path, key, target.account_id)?
     let recipient = group_profile(devices.profiles, target.account_id, target.device_id, 0)?
-    group_attachment_recipients(path,
+    require_attachment_profile(recipient)?
+    if padded do
+      require_padded_attachment_profile(recipient)?
+    end
+    attachment_recipients_for(path,
       key,
       targets,
+      padded,
       index + 1,
       List.append(output,
         MobileAttachmentRecipient {
@@ -1107,5 +1288,41 @@ pub fn group_add_envelopes(path :: String,
       now,
       index + 1,
       List.append(output, group_recipient_envelope(path, key, target, packet, now)?))
+  end
+end
+
+pub fn group_attachment_recipients(path :: String,
+  key :: borrow StorageKey,
+  targets :: List<GroupDeliveryTarget>,
+  attachment :: Bytes,
+  index :: Int,
+  output :: List<MobileAttachmentRecipient>) -> List<MobileAttachmentRecipient>!String do
+  attachment_recipients_for(path,
+    key,
+    targets,
+    attachment_requires_buckets(attachment)?,
+    index,
+    output)
+end
+
+pub fn unexpired_group_history(entries :: List<MobileGroupHistoryEntry>,
+  now :: U64) -> List<MobileGroupHistoryEntry>!String do
+  retain_group_history(entries, now, 0, [])
+end
+
+fn retain_group_history(entries :: List<MobileGroupHistoryEntry>,
+  now :: U64,
+  index :: Int,
+  kept :: List<MobileGroupHistoryEntry>) -> List<MobileGroupHistoryEntry>!String do
+  if index >= List.length(entries) do
+    Ok(kept)
+  else
+    let entry = List.get(entries, index)
+    let next = if message_unexpired(entry.timestamp, entry.disappearing_seconds, now)? do
+      List.append(kept, entry)
+    else
+      kept
+    end
+    retain_group_history(entries, now, index + 1, next)
   end
 end

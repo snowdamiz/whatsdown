@@ -53,7 +53,7 @@ try {
       const fields = (bytes) => { const out = []; let i = 0; while (i < bytes.length) { const n = new DataView(new Uint8Array(bytes.slice(i, i + 4)).buffer).getUint32(0); i += 4; out.push(bytes.slice(i, i + n)); i += n; } return out; };
       const now = Date.now();
       const state = window.unreadTest = {
-        focused: true, reloads: 0, channel: null,
+        focused: true, reloads: 0, channel: null, nativeWakeups: [],
         notifications: [],
         windowCalls: [], decorations: !windowsHost, maximized: false,
         messages: [{ id: 1, direction: 2, body: 'Coffee this weekend?', time: now - 120000 },
@@ -64,11 +64,11 @@ try {
       // Simulate OS focus independently of headless Chromium's window manager.
       document.hasFocus = () => state.focused;
       state.focus = (focused) => { state.focused = focused; window.dispatchEvent(new Event(focused ? 'focus' : 'blur')); };
-      state.wake = () => state.channel.onmessage('encrypted-wakeup');
+      state.wake = () => state.nativeWakeups.push('encrypted-wakeup');
       const profile = vectors(text('alice'), id(1), id(1, 16), []);
       window.isTauri = true;
       Object.defineProperty(window.Notification, 'permission', { get: () => 'granted' });
-      localStorage.setItem('/test/unread.db/notifications-enabled', 'true');
+      localStorage.setItem(`/test/unread.db/notifications-enabled/${'01'.repeat(32)}/${'01'.repeat(16)}`, 'true');
       window.__TAURI_INTERNALS__ = {
         metadata: { currentWindow: { label: 'main' } },
         transformCallback: () => 1,
@@ -92,7 +92,22 @@ try {
           if (command === 'mailbox_disconnect') return;
           if (command === 'binary_request') return [0, 200, 0, 0, 0, 0, 0];
           const symbol = options?.headers?.['X-Mesh-Symbol'];
+          if (symbol === 'mesh_messenger_fanout_send') return [1,70,78,79,0];
+        if (symbol === 'mesh_messenger_account_capabilities') return [1,65,67,80,1];
+        if (['mesh_messenger_send_fanout','mesh_messenger_prepare_fanout_prekeys','mesh_messenger_group_invite','mesh_messenger_group_invitation_accept','mesh_messenger_journal_load','mesh_messenger_journal_save'].includes(symbol)) throw Error('Retired native authority');
+      if (symbol === 'mesh_messenger_outbox_drain') return [0,0,0,6,0,0,0,4,1,79,66,88,0,0,0,1,0,0,0,0,2,0,0,0,0,0,2,0,0,0,0,0,4,0,0,0,0,0,0,0,4,0,0,0,0];
+          if (symbol === 'mesh_messenger_directory_resolve') return [1];
+          if (symbol === 'mesh_messenger_directory_register') return [1,68,82,71,0,64,0];
+          if (symbol === 'mesh_messenger_prekeys_synchronize') return [1,68,80,75,0,64];
           if (symbol === 'mesh_messenger_load_profile') return profile;
+          if (symbol === 'mesh_messenger_signup_draft_state') return [0];
+          if (symbol === 'mesh_messenger_transparency_fork') return [];
+          if (symbol === 'mesh_messenger_anchor_check') return list(...['off','0','0','0','0'].map(text));
+          if (symbol === 'mesh_messenger_mailbox_stream_open') { state.channel = {}; state.nativeWakeups.push('ready'); return id(1); }
+          if (symbol === 'mesh_messenger_mailbox_stream_poll') return text(state.nativeWakeups.shift() || '');
+          if (symbol === 'mesh_messenger_mailbox_stream_close') return [];
+          if (symbol === 'mesh_messenger_devices_renew') return [1,68,78,82,0,0,0,0];
+          if (symbol === 'mesh_messenger_resolve_plan') return list(list(text('/v1/devices/resolve'), [1]));
           if (symbol === 'mesh_messenger_list_conversations') {
             state.reloads++;
             return list(...[[2, 'alex'], [3, 'maya'], [4, 'jordan']].map(([n, name]) =>
@@ -110,11 +125,12 @@ try {
             list(...[1, 2].map((n) => list([1], u32(n - 1), [n === 1 ? 1 : 0], id(n), id(n, 16), u64(1), [2], text(n === 1 ? 'alice' : 'alex')))));
           // The sealed journals. They outlive a reload, as the database they stand for would,
           // so the stand-in keeps them where a reload leaves them alone.
-          if (symbol === 'mesh_messenger_journal_load') {
-            return text(localStorage.getItem(`/test/unread.db/sealed/${decode(fields(Array.from(args))[1])}`) ?? '');
+          if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_load_bound') {
+            return text(localStorage.getItem(`/test/unread.db/sealed/${decode(fields(Array.from(args))[symbol.endsWith('_bound') ? 2 : 1])}`) ?? '');
           }
-          if (symbol === 'mesh_messenger_journal_save') {
-            const [, key, data] = fields(Array.from(args));
+          if (symbol === 'mesh_messenger_journal_save' || symbol === 'mesh_messenger_journal_save_bound') {
+            const values = fields(Array.from(args));
+            const [key, data] = values.slice(symbol.endsWith('_bound') ? 2 : 1);
             const label = `/test/unread.db/sealed/${decode(key)}`;
             if (data.length === 1 && data[0] === 0) localStorage.removeItem(label);
             else localStorage.setItem(label, decode(data));
@@ -127,6 +143,8 @@ try {
           if (symbol === 'mesh_messenger_reconcile_prekeys') return u32(64);
           if (symbol === 'mesh_messenger_inspect_device_set') return vectors(text('alice'), id(1), u64(1), [0], [1], vectors(u32(0)));
           if (['mesh_messenger_group_invitations', 'mesh_messenger_outbox_list', 'mesh_messenger_outbox_page', 'mesh_messenger_group_send'].includes(symbol)) return list();
+          if (symbol === 'mesh_messenger_credit_signup_policy_online') throw Error('credits_disabled');
+          if (symbol === 'mesh_messenger_mailbox_synchronize') return [1,77,83,89,0,1,0,0,0,0,0,0];
           if (['mesh_messenger_directory_entry', 'mesh_messenger_register_request', 'mesh_messenger_replenish_prekeys', 'mesh_messenger_mailbox_fetch',
             'mesh_messenger_process_delivery_batch', 'mesh_messenger_transparency_lookup', 'mesh_messenger_resolve_request', 'mesh_messenger_verify_transparency'].includes(symbol)) return [];
           throw Error(`Unexpected IPC: ${symbol || command}`);
@@ -135,7 +153,7 @@ try {
     }, { scheme, windowsHost });
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     const chat = (unread) => page.getByRole('button', { name: new RegExp(`^Conversation with @?alex${unread ? `, ${unread} unread ${unread === 1 ? 'message' : 'messages'}` : ''}$`) });
-    await chat(2).waitFor();
+    await chat(2).waitFor({ timeout: 5000 }).catch(async error => { console.log(await page.locator("body").innerText(), errors); throw error; });
     await page.getByRole('button', { name: /^Conversation with @?maya$/ }).waitFor();
     await page.getByRole('tab', { name: 'Chats, 2 needing attention', exact: true }).waitFor();
     if (screenshots) await page.screenshot({ path: `${screenshots}/unread-${scheme}.png` });
@@ -150,11 +168,11 @@ try {
     }
     const toolbar = await page.getByRole('tablist').locator('..').locator('..').boundingBox();
     const toolbarBottom = toolbar.y + toolbar.height;
-    const firstChat = await chat(2).locator('..').boundingBox();
+    const firstChat = await chat(2).boundingBox();
     assert.ok(firstChat.y >= toolbarBottom && firstChat.y <= toolbarBottom + 8, 'Chats start just below the toolbar');
-    // ConversationRow's accessible overlay delegates pointer input to its row.
+    // The stable labelled conversation button must activate the actual row.
     const unreadTabWidth = (await page.getByTestId('segment-chats').boundingBox()).width;
-    await chat(2).locator('..').click();
+    await chat(2).click();
     await chat(0).waitFor();
     await page.getByRole('tab', { name: 'Chats', exact: true }).waitFor();
     const readTabWidth = (await page.getByTestId('segment-chats').boundingBox()).width;
@@ -172,7 +190,7 @@ try {
     await chat(1).waitFor();
     await page.waitForFunction(() => window.unreadTest.notifications.some((item) => item.body === 'One more thing…'));
     assert.equal((await page.getByTestId('segment-chats').boundingBox()).width, unreadTabWidth, 'New notifications expand the tab again');
-    const contracting = await tabResizeFrames(page.getByTestId('segment-chats'), 'Chats', () => chat(1).locator('..').click());
+    const contracting = await tabResizeFrames(page.getByTestId('segment-chats'), 'Chats', () => chat(1).click());
     for (const frames of [expanding, contracting]) {
       assert.ok(frames.some(({ width }) => width > readTabWidth && width < unreadTabWidth), 'Tab width animates through intermediate sizes');
       assert.ok(frames.every(({ width, thumb }) => Math.abs(width - thumb) < 1), 'Selection highlight resizes with the tab');
@@ -224,13 +242,25 @@ try {
     assert.equal(await page.evaluate(() => localStorage.getItem(`/test/unread.db/read-state/v1/${'01'.repeat(32)}`)), null);
     assert.equal(saved.includes('Coffee'), false, 'Read metadata must never persist message text');
     if (process.argv.includes('--notifications')) {
+      // Preview choices persist through the same sealed native boundary as journals.
+      await page.getByRole('radio', { name: 'Notification previews: No name or message', exact: true }).click();
+      await page.waitForFunction(() => localStorage.getItem('/test/unread.db/sealed/preferences/notification-preview') === 'none');
+      assert.equal(await page.evaluate(() => localStorage.getItem(`/test/unread.db/notification-preview/v1/${'01'.repeat(32)}`)), null);
+      await page.reload();
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      assert.equal(await page.getByRole('radio', { name: 'Notification previews: No name or message', exact: true }).getAttribute('aria-checked'), 'true');
+      await page.waitForFunction(() => window.unreadTest.channel !== null);
+      await page.evaluate(() => { window.unreadTest.messages.push({ id: 250, direction: 2, body: 'Private preview after restart', time: Date.now() }); window.unreadTest.wake(); });
+      await page.waitForFunction(() => window.unreadTest.notifications.some((item) => item.title === 'Morse' && item.body === 'New message'));
+      assert.ok(!(await page.evaluate(() => window.unreadTest.notifications)).some((item) => item.body.includes('Private preview')));
+      const beforeOptOut = await page.evaluate(() => window.unreadTest.notifications);
       // Settings is open, and notifications are one switch there.
       await page.getByRole('switch', { name: 'Notifications', exact: true, checked: true }).click();
       await page.getByRole('switch', { name: 'Notifications', exact: true, checked: false }).waitFor();
       const beforeDisabled = await page.evaluate(() => window.unreadTest.reloads);
       await page.evaluate(() => { window.unreadTest.groups.push({ sender: 2, body: '@alice notifications are off', time: Date.now() }); window.unreadTest.wake(); });
       await page.waitForFunction((before) => window.unreadTest.reloads > before, beforeDisabled);
-      assert.deepEqual(await page.evaluate(() => window.unreadTest.notifications), notifications, 'Disabled notifications stay silent');
+      assert.deepEqual(await page.evaluate(() => window.unreadTest.notifications), beforeOptOut, 'Disabled notifications stay silent');
       assert.deepEqual(errors, []);
       console.log(`Notifications: ${scheme} ordinary/mention alerts, autocomplete, highlighting, active chat suppression, duplicate/restart suppression and opt-out passed`);
       await page.close();
@@ -284,7 +314,7 @@ try {
     await page.getByRole('button', { name: 'Conversation with Jordan, 1 unread message', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Conversation with Riley, 12 unread messages', exact: true }).waitFor();
     if (screenshots) await page.screenshot({ path: `${screenshots}/sample-chats-${scheme}.png` });
-    await sampleChat(2).locator('..').click();
+    await sampleChat(2).click();
     await sampleChat(0).waitFor();
     await page.setViewportSize({ width: 720, height: 560 });
     await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);

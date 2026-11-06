@@ -1,3 +1,5 @@
+from Transparency.Config import SecurityConfig, decode_security_config
+from Transparency.AnchorChain import AnchorPins, configured_anchor_pins
 from Binary.Reader import BinaryReader, finish, reader
 from Mobile.Codec import (
   current_time,
@@ -10,8 +12,7 @@ from Mobile.Codec import (
 from Mobile.Types import (
   MobileExpoRawToken,
   MobilePushBuildConfig,
-  MobileReadBytes,
-  MobileSecurityConfig
+  MobileReadBytes
 )
 from Privacy.Edge import (
   RequestStamp,
@@ -27,7 +28,7 @@ from Privacy.Edge import (
 pub fn privacy_submission(outer :: Bytes) -> Bytes!String do
   let config = native_security_config()?
   let sealed = seal_delivery(outer, X25519PublicKey { bytes: config.delivery_public_key })?
-  let expires_at = U64.add(current_time()?, mobile_wide("300000")?)?
+  let expires_at = U64.add(current_time()?, mobile_wide("240000")?)?
   encode_privacy_submission(mint_submission(sealed, expires_at, config.abuse_difficulty)?)
 end
 
@@ -244,76 +245,28 @@ pub fn native_push_build_config() -> MobilePushBuildConfig!String do
   end
 end
 
-fn security_config_key(input :: String) -> Bytes!String do
-  let value = case Bytes.from_hex(input) do
-    Err(_) -> Err("invalid_messenger_configuration")
-    Ok(parsed)
-  end?
-  if String.length(input) != 64 || Bytes.length(value) != 32 || Bytes.to_hex(value) != input do
-    Err("invalid_messenger_configuration")
-  else
-    Ok(value)
-  end
-end
-
 fn security_delivery_key(input :: Bytes) -> X25519PublicKey!String do
   contributory_x25519_public_key(input,
     "invalid_messenger_configuration",
     "messenger_configuration_validation_failed")
 end
 
-fn parse_security_config(frame :: Bytes) -> MobileSecurityConfig!String do
-  if Bytes.length(frame) < 263 || Bytes.length(frame) > 264 do
-    Err("invalid_messenger_configuration")
-  else
-    let text = mobile_utf8(frame, "invalid_messenger_configuration")?
-    let fields = String.split(text, "\n")
-    if List.length(fields) != 6 || List.get(fields, 0) != "1" do
-      Err("invalid_messenger_configuration")
-    else
-      let service_key = security_config_key(List.get(fields, 1))?
-      let witness_a = security_config_key(List.get(fields, 2))?
-      let witness_b = security_config_key(List.get(fields, 3))?
-      let delivery_bytes = security_config_key(List.get(fields, 4))?
-      let difficulty = case String.to_int(List.get(fields, 5)) do
-        None -> Err("invalid_messenger_configuration")
-        Some(value) -> Ok(value)
-      end?
-      let canonical = "1\n"
-        <> Bytes.to_hex(service_key)
-        <> "\n"
-        <> Bytes.to_hex(witness_a)
-        <> "\n"
-        <> Bytes.to_hex(witness_b)
-        <> "\n"
-        <> Bytes.to_hex(delivery_bytes)
-        <> "\n"
-        <> Int.to_string(difficulty)
-      if difficulty < 1
-        || difficulty > 24
-        || text != canonical
-        || Bytes.secure_equals(witness_a, witness_b) do
-        Err("invalid_messenger_configuration")
-      else
-        let delivery_key = security_delivery_key(delivery_bytes)?
-        Ok(MobileSecurityConfig {
-          transparency_service_public_key: service_key,
-          witness_a_public_key: witness_a,
-          witness_b_public_key: witness_b,
-          delivery_public_key: delivery_key.bytes,
-          abuse_difficulty: difficulty
-        })
-      end
-    end
+pub fn decode_native_security_config(frame :: Bytes) -> SecurityConfig!String do
+  let config = decode_security_config(frame)?
+  security_delivery_key(config.delivery_public_key)?
+  case configured_anchor_pins(config) do
+    Err(_) -> return Err("invalid_messenger_configuration")
+    Ok(_) -> nil
   end
+  Ok(config)
 end
 
-pub fn native_security_config() -> MobileSecurityConfig!String do
+pub fn native_security_config() -> SecurityConfig!String do
   let frame = case Host.push_get_token(Bytes.from_utf8("messenger/config/v1")) do
     Err(_) -> Err("messenger_configuration_required")
     Ok(value)
   end?
-  parse_security_config(frame)
+  decode_native_security_config(frame)
 end
 
 pub fn expo_push_endpoint() -> String do

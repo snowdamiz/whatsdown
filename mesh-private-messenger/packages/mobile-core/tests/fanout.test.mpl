@@ -1,3 +1,7 @@
+from Storage.Blobs import blob_record_hash
+from Storage.Records import store_record_changes
+from Tests.GroupLifecycleSupport import install_signed_transparency
+from Tests.HistoryFixture import fixture_direct_history
 import File
 from MobileCore import (
   authorize_device_link_export,
@@ -7,7 +11,6 @@ from MobileCore import (
   directory_entry_export,
   fanout_prekey_claims_export,
   install_group_transparency_for_test,
-  load_history_export,
   outbox_ack_export,
   outbox_list_export,
   prepare_fanout_prekeys_export,
@@ -18,7 +21,7 @@ from MobileCore import (
   safety_number_export,
   send_fanout_export,
   start_conversation_export,
-  test_ratchet_jump_envelope,
+  test_sender_ratchet_jump_envelope,
   test_ratchet_tamper_envelope,
   test_sealed_tamper_envelope,
   update_conversation_export
@@ -236,7 +239,8 @@ end
 fn set_outbox_failure(path :: String, enabled :: Bool) -> Result<(), String> do
   let database = Sqlite.open(path)?
   let statement = if enabled do
-    "CREATE TRIGGER mesh_test_fail_fanout BEFORE INSERT ON encrypted_blobs WHEN NEW.record_hash = '2e18a8aa47e3428a0c87b2dd84049e85da6950238b82128496e6c35bd760b220' BEGIN SELECT RAISE(ABORT, 'forced fanout outbox write failure'); END"
+    "CREATE TRIGGER mesh_test_fail_fanout BEFORE INSERT ON encrypted_blobs WHEN NEW.record_hash = '#{blob_record_hash(database,
+      "outbox/v1")?}' BEGIN SELECT RAISE(ABORT, 'forced fanout outbox write failure'); END"
   else
     "DROP TRIGGER mesh_test_fail_fanout"
   end
@@ -359,6 +363,10 @@ fn proof() -> Bool!String do
     devices: [bob_entry],
     revoked_device_ids: List.new()
   })?
+  # Latest HE direct writes require both authenticated current sets too.
+  let initial_view = signed_transparency_view([leaf_hash(alice_set)?, leaf_hash(bob_set)?])?
+  assert(install_signed_transparency(alice_path, initial_view, alice_set)?)
+  assert(install_signed_transparency(alice_path, initial_view, bob_set)?)
   let greeting = Bytes.from_utf8("hello bob")
   let initial = start_conversation_export(request([
     Bytes.from_utf8(alice_path),
@@ -381,6 +389,13 @@ fn proof() -> Bool!String do
   let safety = safety_number_export(request([Bytes.from_utf8(alice_path), bob_profile])?)?
   assert(Bytes.secure_equals(safety,
     safety_number_export(request([Bytes.from_utf8(bob_path), alice_profile])?)?))
+  # Keep the original missing-proof fanout refusals meaningful after the
+  # direct HE precondition above. This owned fixture explicitly removes trust.
+  let bob_identity = credential(claimed_bob_bundle.device_credential)?
+  store_record_changes(alice_path,
+    [],
+    [],
+    ["transparency-device-set/v1/#{Bytes.to_hex(bob_identity.account_id)}"])?
   let synced = Bytes.from_utf8("synced hello")
   let claim_targets_request = request([Bytes.from_utf8(alice_path), bob_set, alice_set])?
   let fanout_request = request([Bytes.from_utf8(alice_path), bob_set, alice_set, synced])?
@@ -597,7 +612,7 @@ fn proof() -> Bool!String do
   end
   case receive_message_export(request([
     Bytes.from_utf8(alice_path),
-    test_ratchet_jump_envelope(alice_path, root_reply)?
+    test_sender_ratchet_jump_envelope(bob_path, alice_path, root_reply)?
   ])?) do
     Ok(_) -> assert(false)
     # Final, not something to try again: the messages in between are never
@@ -627,7 +642,7 @@ fn proof() -> Bool!String do
     reply))
   assert(Bytes.secure_equals(safety,
     safety_number_export(request([Bytes.from_utf8(linked_path), bob_profile])?)?))
-  let linked_history = output_list(load_history_export(request([
+  let linked_history = output_list(fixture_direct_history(request([
     Bytes.from_utf8(linked_path),
     bob_profile
   ])?)?)?

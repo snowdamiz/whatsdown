@@ -1,3 +1,6 @@
+from Session.HeaderStore import header_slot_names, checked_header_names, encode_header_names
+from Session.State import RatchetError
+from Session.State import RatchetState
 from Binary.Reader import (
   BinaryReader,
   finish,
@@ -7,7 +10,6 @@ from Binary.Reader import (
   read_vector,
   reader
 )
-from Session.Handshake import RatchetState
 
 pub type SnapshotError do
   CryptoFailure(error :: CryptoError)
@@ -58,6 +60,8 @@ struct ParsedSnapshot do
   receiving_chain_key :: Bytes
   local_ratchet_private :: Bytes
   skipped_keys :: Bytes
+  header_names :: Bytes
+  header_secrets :: Bytes
 end
 
 fn append(left :: Bytes, right :: Bytes) -> Bytes!SnapshotError do
@@ -127,7 +131,7 @@ end
 
 fn encode_header(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes!SnapshotError do
   let valid_suite = state.suite == 1 || state.suite == 2
-  let valid = state.version == 1
+  let valid = (state.version == 1 || state.version == 2)
     && valid_suite
     && Bytes.length(state.session_id) == 32
     && Bytes.length(state.local_ratchet_public.bytes) == 32
@@ -146,8 +150,12 @@ fn encode_header(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes
     else
       0
     end
-    join([
-        byte(2)?,
+    let encoded = join([
+        byte(if state.version == 2 do
+          3
+        else
+          2
+        end)?,
         Bytes.from_utf8("RST"),
         write_u16(state.suite)?,
         state.session_id,
@@ -162,7 +170,20 @@ fn encode_header(state :: borrow RatchetState, snapshot_version :: U64) -> Bytes
         vector(state.skipped_index)?
       ],
       0,
-      Bytes.empty())
+      Bytes.empty())?
+    if state.version == 2 do
+      let names = case checked_header_names(state) do
+        Err(error) -> Err(header_snapshot_error(error))
+        Ok(value)
+      end?
+      let encoded_names = case encode_header_names(names) do
+        Err(error) -> Err(header_snapshot_error(error))
+        Ok(value)
+      end?
+      append(encoded, vector(encoded_names)?)
+    else
+      Ok(encoded)
+    end
   end
 end
 
@@ -183,7 +204,12 @@ fn storage_context(account_id :: Bytes,
   header :: Bytes,
   purpose :: Int,
   snapshot_version :: U64) -> Bytes!SnapshotError do
-  let supported = purpose == 1 || purpose == 2 || purpose == 3 || purpose == 12 || purpose == 13
+  let supported = purpose == 1
+    || purpose == 2
+    || purpose == 3
+    || purpose == 4
+    || purpose == 12
+    || purpose == 13
   if Bytes.length(account_id) != 32
     || Bytes.length(device_id) != 16
     || Bytes.length(session_id) != 32
@@ -252,7 +278,7 @@ fn seal_snapshot(state :: borrow RatchetState,
   let skipped_keys = seal_map(state.skipped_keys,
     wrapping_key,
     storage_context(account_id, device_id, state.session_id, header, 12, snapshot_version)?)?
-  join([
+  let encoded = join([
       header,
       vector(root_key)?,
       vector(sending_chain_key)?,
@@ -261,7 +287,25 @@ fn seal_snapshot(state :: borrow RatchetState,
       vector(skipped_keys)?
     ],
     0,
-    Bytes.empty())
+    Bytes.empty())?
+  if state.version == 2 do
+    let names = case checked_header_names(state) do
+      Err(error) -> Err(header_snapshot_error(error))
+      Ok(value)
+    end?
+    let secrets = seal_headers(state,
+      wrapping_key,
+      account_id,
+      device_id,
+      header,
+      snapshot_version,
+      names,
+      0,
+      Bytes.empty())?
+    append(encoded, vector(secrets)?)
+  else
+    Ok(encoded)
+  end
 end
 
 pub fn snapshot(state :: consume RatchetState,
@@ -280,7 +324,7 @@ pub fn snapshot(state :: consume RatchetState,
 end
 
 fn open_reader(input :: Bytes) -> BinaryReader!SnapshotError do
-  case reader(input, 68900) do
+  case reader(input, 70100) do
     Err(_) -> Err(InvalidSnapshot)
     Ok(state)
   end
@@ -359,7 +403,7 @@ struct ReadAging do
 end
 
 fn take_aging(state :: BinaryReader, format :: Int) -> ReadAging!SnapshotError do
-  if format == 2 do
+  if format == 2 || format == 3 do
     let generation = take_u32(state)?
     let index = take_vector(generation.state, 2560)?
     Ok(ReadAging { state: index.state, generation: generation.value, index: index.value })
@@ -381,14 +425,25 @@ fn decode_snapshot(input :: Bytes) -> ParsedSnapshot!SnapshotError do
   let received_count = take_u32(sent_count.state)?
   let pending = take_u8(received_count.state)?
   let aging = take_aging(pending.state, version.value)?
-  let root_key = take_vector(aging.state, 99)?
+  let header_names = if version.value == 3 do
+    take_vector(aging.state, 262)?
+  else
+    ReadBytes { state: aging.state, value: Bytes.empty() }
+  end
+  let root_key = take_vector(header_names.state, 99)?
   let sending_chain_key = take_vector(root_key.state, 99)?
   let receiving_chain_key = take_vector(sending_chain_key.state, 99)?
   let local_private = take_vector(receiving_chain_key.state, 99)?
   let skipped_keys = take_vector(local_private.state, 65603)?
-  require_end(skipped_keys.state)?
+  let header_secrets = if version.value == 3 do
+    take_vector(skipped_keys.state, 927)?
+  else
+    ReadBytes { state: skipped_keys.state, value: Bytes.empty() }
+  end
+  require_end(header_secrets.state)?
   let valid_suite = suite.value == 1 || suite.value == 2
-  let valid = (version.value == 1 || version.value == 2)
+  let valid = (version.value == 1 || version.value == 2 || version.value == 3)
+    && (version.value == 3 || Bytes.length(input) <= 68900)
     && Bytes.secure_equals(magic.value, Bytes.from_utf8("RST"))
     && valid_suite
     && pending.value >= 0
@@ -415,7 +470,9 @@ fn decode_snapshot(input :: Bytes) -> ParsedSnapshot!SnapshotError do
       sending_chain_key: sending_chain_key.value,
       receiving_chain_key: receiving_chain_key.value,
       local_ratchet_private: local_private.value,
-      skipped_keys: skipped_keys.value
+      skipped_keys: skipped_keys.value,
+      header_names: header_names.value,
+      header_secrets: header_secrets.value
     })
   end
 end
@@ -444,9 +501,14 @@ fn parsed_header(value :: ParsedSnapshot) -> Bytes!SnapshotError do
   if value.format == 1 do
     Ok(header)
   else
-    join([header, write_u32(value.receive_generation)?, vector(value.skipped_index)?],
+    let encoded = join([header, write_u32(value.receive_generation)?, vector(value.skipped_index)?],
       0,
-      Bytes.empty())
+      Bytes.empty())?
+    if value.format == 3 do
+      append(encoded, vector(value.header_names)?)
+    else
+      Ok(encoded)
+    end
   end
 end
 
@@ -516,8 +578,20 @@ fn restore_parsed(value :: ParsedSnapshot,
     wrapping_key,
     storage_context(account_id, device_id, value.session_id, header, 13, value.snapshot_version)?)?
   let skipped_keys = restored_skipped_keys(value, wrapping_key, account_id, device_id, header)?
+  let header_keys = if value.format == 3 do
+    restore_headers(value, wrapping_key, account_id, device_id, header)?
+  else
+    case SecretMap.new(16) do
+      Err(error) -> Err(CryptoFailure(error))
+      Ok(value)
+    end?
+  end
   Ok(RatchetState {
-    version: 1,
+    version: if value.format == 3 do
+      2
+    else
+      1
+    end,
     suite: value.suite,
     session_id: value.session_id,
     root_key: root_key,
@@ -533,7 +607,8 @@ fn restore_parsed(value :: ParsedSnapshot,
     skipped_index: value.skipped_index,
     receive_generation: value.receive_generation,
     pending_send_ratchet: value.pending_send_ratchet,
-    snapshot_version: value.snapshot_version
+    snapshot_version: value.snapshot_version,
+    header_keys: header_keys
   })
 end
 
@@ -566,4 +641,116 @@ pub fn replace_session(current :: consume RatchetState,
       end
     end
   end
+end
+
+# RST3 maximum: prior header2791 + names vector266 + four key vectors412
+# + skipped-map vector65607 + nine purpose4 key vectors927 + vector4 =70007.
+# 70100 is the new parser ceiling; RST1/2 retain their68900 admission ceiling.
+fn header_snapshot_error(error :: RatchetError) -> SnapshotError do
+  case error do
+    RatchetError.CryptoFailure -> CryptoFailure(InternalFailure)
+    _ -> InvalidSnapshot
+  end
+end
+
+fn seal_headers(state :: borrow RatchetState,
+  key :: borrow StorageKey,
+  account :: Bytes,
+  device :: Bytes,
+  header :: Bytes,
+  version :: U64,
+  names :: List<Bytes>,
+  index :: Int,
+  output :: Bytes) -> Bytes!SnapshotError do
+  if index >= List.length(names) do
+    return Ok(output)
+  end
+  let name = List.get(names, index)
+  let material = case SecretMap.copy(state.header_keys, name) do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value)
+  end?
+  let role_header = append(header, vector(name)?)?
+  let blob = seal_secret(material,
+    key,
+    storage_context(account, device, state.session_id, role_header, 4, version)?)?
+  Secret.destroy(material)
+  seal_headers(state,
+    key,
+    account,
+    device,
+    header,
+    version,
+    names,
+    index + 1,
+    append(output, vector(blob)?)?)
+end
+
+fn restore_header_rows(value :: ParsedSnapshot,
+  key :: borrow StorageKey,
+  account :: Bytes,
+  device :: Bytes,
+  header :: Bytes,
+  names :: List<Bytes>,
+  index :: Int,
+  headers :: borrow SecretMap) -> Unit!SnapshotError do
+  if index >= List.length(names) do
+    return Ok(nil)
+  end
+  let name = List.get(names, index)
+  let offset = index * 103
+  let length = case Bytes.read_u32_be(value.header_secrets, offset) do
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(wide) -> case U64.to_int(wide) do
+      Err(_) -> Err(InvalidSnapshot)
+      Ok(number)
+    end
+  end?
+  if length != 99 do
+    return Err(InvalidSnapshot)
+  end
+  let blob = case Bytes.slice(value.header_secrets, offset + 4, 99) do
+    Err(_) -> Err(InvalidSnapshot)
+    Ok(value)
+  end?
+  let material = unseal_secret(blob,
+    key,
+    storage_context(account,
+      device,
+      value.session_id,
+      append(header, vector(name)?)?,
+      4,
+      value.snapshot_version)?)?
+  case SecretMap.insert(headers, name, material) do
+    Err(error) -> return Err(CryptoFailure(error))
+    Ok(_) -> nil
+  end
+  restore_header_rows(value, key, account, device, header, names, index + 1, headers)
+end
+
+fn restore_headers(value :: ParsedSnapshot,
+  key :: borrow StorageKey,
+  account :: Bytes,
+  device :: Bytes,
+  header :: Bytes) -> SecretMap!SnapshotError do
+  let names = case header_slot_names(value.skipped_index,
+    value.remote_ratchet_public,
+    value.receive_generation) do
+    Err(error) -> Err(header_snapshot_error(error))
+    Ok(value)
+  end?
+  let canonical = case encode_header_names(names) do
+    Err(error) -> Err(header_snapshot_error(error))
+    Ok(value)
+  end?
+  if !Bytes.secure_equals(canonical, value.header_names)
+    || Bytes.length(value.header_secrets) != List.length(names) * 103 do
+    return Err(InvalidSnapshot)
+  end
+  let headers = case SecretMap.new(16) do
+    Err(error) -> Err(CryptoFailure(error))
+    Ok(value)
+  end?
+  restore_header_rows(value, key, account, device, header, names, 0, headers)?
+  Ok(headers)
 end

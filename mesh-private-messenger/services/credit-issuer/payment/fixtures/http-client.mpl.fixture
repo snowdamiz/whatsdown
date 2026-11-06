@@ -1,0 +1,146 @@
+from Credits.QuoteAuth import decode_signed_credit_quote, verify_credit_quote
+# Local proof executable. It uses the production ledger and public crypto API.
+# Generated wrapping keys and pending capabilities stay in private temp dirs.
+from Credits.Issuer import CreditIssuerKey, issuer_key_id, encode_issuer_key, decode_issuer_key
+from Credits.Issuance import (
+  CreditQuoteRequest, CreditIssueRequest, encode_credit_quote_request,
+  decode_credit_quote_request, decode_credit_quote, validate_quote_response,
+  encode_credit_issue_request, decode_credit_issue_response, credit_batch_hash
+)
+from Credits.Token import blind_credit, finalize_credit, verify_credit_token
+from Credits.Storage import seal_pending_credit, open_pending_credit, seal_credit_token
+from Credits.Wire import decode_token_request, encode_token_request, credit_nullifier
+from Storage.Keys import ensure_current_key
+from Transparency.Merkle import (
+  leaf_hash_for, merkle_root_for, compact_inclusion_proof_for,
+  compact_consistency_proof_for, sign_tree_checkpoint_for, sign_witness
+)
+from Transparency.Wire import TransparencyEvidence, encode_transparency_evidence, encode_checkpoint
+
+fn key(directory :: String) -> StorageKey!String do
+  case StorageKey.file(directory) do Ok(value) -> Ok(value) Err(_) -> Err("fixture_file_key_failed") end
+end
+
+fn now() -> U64!String do
+  U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now()) / 1000))
+end
+
+fn bootstrap(work :: String) -> Result<(), String> do
+  let service_seed = case Env.get_secret_hex("MORSE_HTTP_SERVICE_SEED") do Ok(value) -> value Err(_) -> return Err("fixture_service_seed_failed") end
+  let witness_seed = case Env.get_secret_hex("MORSE_HTTP_WITNESS_SEED") do Ok(value) -> value Err(_) -> return Err("fixture_witness_seed_failed") end
+  let service_public = case Crypto.signing_from_secret(service_seed) do Ok(value) -> value Err(_) -> return Err("fixture_service_key_failed") end
+  let witness = case Crypto.signing_from_secret(witness_seed) do Ok(value) -> value Err(_) -> return Err("fixture_witness_key_failed") end
+  let pool = Pool.open(Env.get("MESSENGER_ISSUER_DATABASE_URL", ""), 1, 4, 5000)?
+  let directory = Env.get("MESSENGER_CREDIT_STORAGE_DIR", "")
+  let current = now()?
+  let managed = ensure_current_key(pool, 1, current, fn() do key(directory) end, service_public.public_key.bytes)?
+  if managed.admitted do return Err("fixture_expected_unadmitted_key") end
+  let entry = encode_issuer_key(managed.key)?
+  let tree = [leaf_hash_for(2, entry)?]
+  let checkpoint = sign_tree_checkpoint_for(2, service_public.private_key, service_public.public_key.bytes,
+    U64.parse("1")?, U64.parse("1")?, merkle_root_for(2, tree)?,
+    Bytes.from_hex(String.repeat("00", 32))?, U64.multiply(current, U64.parse("1000")?)?)?
+  let first = TransparencyEvidence {
+    entry_bytes: entry,
+    inclusion: compact_inclusion_proof_for(2, tree, 0)?,
+    consistency: compact_consistency_proof_for(2, [], tree)?,
+    checkpoint: checkpoint,
+    witnesses: [sign_witness("outside", witness.private_key, checkpoint)?]
+  }
+  let same = %{first | consistency: compact_consistency_proof_for(2, tree, tree)?}
+  File.write(work <> "/bootstrap.json", "{\"service_key\":" <> Json.encode_string(Bytes.to_hex(service_public.public_key.bytes))
+    <> ",\"witness_key\":" <> Json.encode_string(Bytes.to_hex(witness.public_key.bytes))
+    <> ",\"issuer\":" <> Json.encode_string(Bytes.to_hex(entry))
+    <> ",\"key_id\":" <> Json.encode_string(Bytes.to_hex(issuer_key_id(managed.key)?))
+    <> ",\"checkpoint\":" <> Json.encode_string(Bytes.to_hex(encode_checkpoint(checkpoint)?))
+    <> ",\"evidence0\":" <> Json.encode_string(Bytes.to_hex(encode_transparency_evidence(first)?))
+    <> ",\"evidence1\":" <> Json.encode_string(Bytes.to_hex(encode_transparency_evidence(same)?)) <> "}")?
+  File.write(work <> "/issuer", Bytes.to_hex(entry))?
+  File.write(work <> "/service_public", Bytes.to_hex(service_public.public_key.bytes))?
+  Pool.close(pool)
+  Ok(nil)
+end
+
+fn context(service_public :: Bytes, index :: Int) -> Bytes!String do
+  Bytes.from_hex("01" <> Bytes.to_hex(service_public) <> String.repeat("00", 48)
+    <> Bytes.to_hex(Crypto.sha256(Bytes.from_utf8("morse-http-proof-pending-" <> Int.to_string(index))))
+    <> "000e0000000000000001")
+end
+
+fn issuer(work :: String) -> CreditIssuerKey!String do
+  decode_issuer_key(Bytes.from_hex(File.read(work <> "/issuer")?)?)
+end
+
+fn prepare(work :: String, output :: String) -> Result<(), String> do
+  let selected = issuer(work)?
+  let service_public = Bytes.from_hex(File.read(work <> "/service_public")?)?
+  let wrapping = key(Env.get("MORSE_HTTP_CLIENT_STORE", ""))?
+  let current = now()?
+  let requests = for index in 0..100 do
+    let pending = blind_credit(selected, service_public, current)?
+    let request = pending.request
+    let sealed = seal_pending_credit(pending, wrapping, context(service_public, index)?)?
+    File.write(output <> "/pending-" <> Int.to_string(index), Bytes.to_hex(sealed))?
+    request
+  end
+  let asset = case String.to_int(Env.get("MORSE_HTTP_ASSET", "0")) do Some(value) -> value None -> return Err("fixture_asset_failed") end
+  let request = CreditQuoteRequest { credits: 100, asset: asset, purpose: 1,
+    issuer_key_id: issuer_key_id(selected)?, batch_hash: credit_batch_hash(requests)? }
+  File.write(output <> "/quote-request", Bytes.to_hex(encode_credit_quote_request(request)?))?
+  File.write(output <> "/requests", String.join(for row in requests do Bytes.to_hex(encode_token_request(row)?) end, ""))?
+  Ok(nil)
+end
+
+fn issue(work :: String, output :: String) -> Result<(), String> do
+  let authenticated = decode_signed_credit_quote(Bytes.from_hex(File.read(output <> "/quote")?)?)?
+  let selected = issuer(work)?
+  if !verify_credit_quote(authenticated, selected)? do return Err("fixture_unauthenticated_quote") end
+  let quote = authenticated.quote
+  let forged = %{quote | deposit_owner: Bytes.from_hex(String.repeat("66", 32))?, destination: Bytes.from_hex(String.repeat("77", 32))?}
+  if quote.asset == 0 && verify_credit_quote(%{authenticated | quote: forged}, selected)? do return Err("fixture_forged_quote_accepted") end
+  let query = decode_credit_quote_request(Bytes.from_hex(File.read(output <> "/quote-request")?)?)?
+  validate_quote_response(query, quote, issuer(work)?, now()?)?
+  let rows = Bytes.from_hex(File.read(output <> "/requests")?)?
+  let requests = for index in 0..100 do decode_token_request(Bytes.slice(rows, index * 259, 259)?)? end
+  let request = CreditIssueRequest { quote_id: quote.quote_id,
+    transaction_signature: Bytes.from_hex(File.read(output <> "/signature")?)?, requests: requests }
+  File.write(output <> "/issue-request", Bytes.to_hex(encode_credit_issue_request(request)?))?
+  Ok(nil)
+end
+
+fn finalize(work :: String, output :: String) -> Result<(), String> do
+  let selected = issuer(work)?
+  let service_public = Bytes.from_hex(File.read(work <> "/service_public")?)?
+  let wrapping = key(Env.get("MORSE_HTTP_CLIENT_STORE", ""))?
+  let response = decode_credit_issue_response(Bytes.from_hex(File.read(output <> "/response")?)?)?
+  if List.length(response.signatures) != 100 do return Err("fixture_signature_count_failed") end
+  let nullifiers = for index in 0..100 do
+    let pending = open_pending_credit(Bytes.from_hex(File.read(output <> "/pending-" <> Int.to_string(index))?)?, wrapping, context(service_public, index)?)?
+    let token = finalize_credit(selected, pending, List.get(response.signatures, index))?
+    if !verify_credit_token(selected, token, service_public, now()?, 1)? do return Err("fixture_token_verification_failed") end
+    File.write(output <> "/token-" <> Int.to_string(index), Bytes.to_hex(seal_credit_token(token, wrapping, context(service_public, index)?)?))?
+    Bytes.to_hex(credit_nullifier(token.input)?)
+  end
+  if Set.size(Set.from_list(nullifiers)) != 100 do return Err("fixture_duplicate_nullifiers") end
+  File.write(output <> "/tokens-hash", Bytes.to_hex(Crypto.sha256(Bytes.from_utf8(String.join(nullifiers, "")))))?
+  Ok(nil)
+end
+
+fn run() -> Result<(), String> do
+  let work = Env.get("MORSE_HTTP_WORK", "")
+  let output = Env.get("MORSE_HTTP_OUTPUT", "")
+  case Env.get("MORSE_HTTP_OPERATION", "") do
+    "bootstrap" -> bootstrap(work)
+    "prepare" -> prepare(work, output)
+    "issue" -> issue(work, output)
+    "finalize" -> finalize(work, output)
+    _ -> Err("fixture_operation_failed")
+  end
+end
+
+fn main() do
+  case run() do
+    Ok(_) -> println("issuer-http-fixture:ok")
+    Err(error) -> do io_eprintln(error); Process.exit(1) end
+  end
+end

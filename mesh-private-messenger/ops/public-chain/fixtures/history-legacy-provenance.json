@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "scope": "Actual complete active and settled v1 custody banks, with controlled later clones",
+  "sbf_manifest": "public-history-legacy-context-sbf/manifest.json",
+  "sbf_manifest_sha256": "b94c61372daaf8c46d1f5b371bbd6bde0ad76594918bec374e41691a952cc5b1",
+  "fixtures": [
+    {
+      "file": "history-legacy-active.json",
+      "sha256": "4b07b5786535e9ee915b4aa01e86b2e9cec9f7be2a0890c625f187980ff328e4"
+    },
+    {
+      "file": "history-legacy-active-later.json",
+      "sha256": "76d464ed3306ee8a7cc0374d49bcd73b96d71ef23985d56b18b3f6fc667abe97"
+    },
+    {
+      "file": "history-legacy-settled.json",
+      "sha256": "f46faf47d08f925183e9a92467aa5a4f10c9ee5eb7fa93773e75b1b826e641e9"
+    },
+    {
+      "file": "history-legacy-settled-later.json",
+      "sha256": "f8a9d150babddcb99bde88246ef8f6369459d66c9fed4ee75e4333bffcb1e4d5"
+    }
+  ],
+  "limits": [
+    "Owned LiteSVM bank observations; finalized commitment RPC is supplied by owned fixture peers, not production ledger finality.",
+    "Later clone advances controlled Clock/slot only, no new transaction execution.",
+    "MEC1/MBD1/MPR1 values use one explicitly configured classic SPL mint with six decimals, no fiat or ticker identity."
+  ]
+}

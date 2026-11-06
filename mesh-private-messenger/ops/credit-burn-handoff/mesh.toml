@@ -1,0 +1,8 @@
+[package]
+name = "morse-credit-burn-handoff"
+version = "0.1.0"
+license = "MIT"
+
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }
+credit-issuer = { path = "../../services/credit-issuer" }

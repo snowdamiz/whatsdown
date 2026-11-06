@@ -9,6 +9,9 @@ from Mobile.InboxState import (
   without_delivery_attempts
 )
 from Mobile.Messages import receive_initial_message, receive_message
+from Mobile.GossipSend import flush_gossip
+from Mobile.HistoryExpiry import expire_direct_history
+from Mobile.GroupHistoryExpiry import expire_group_history
 from Mobile.Profile import load_profile, open_device
 from Mobile.Transport import MobileOpenedPacket, open_outer_packet, opened_packet_kind
 from Mobile.Types import (
@@ -61,6 +64,13 @@ end
 # reveals its kind only after this device opens it; legacy envelopes named it in
 # the clear through the outer suite and the packet magic.
 
+## Pending private routing does not acknowledge, age out, or charge retry attempts.
+pub fn header_selection_unfinished(error :: String) -> Bool do
+  error == "header_selection_pending"
+    || error == "header_selection_capacity"
+    || error == "account_state_changed"
+end
+
 fn sealed_packet_kind(database_path :: String,
   profile :: ClientProfile,
   outer :: OuterEnvelope) -> Int!String do
@@ -109,20 +119,28 @@ end
 fn acknowledge_delivery(database_path :: String,
   profile :: ClientProfile,
   outer :: OuterEnvelope,
-  encoded :: Bytes) -> Bool do
+  encoded :: Bytes) -> Int do
   let request = MobileReceiveRequest { database_path: database_path, outer: encoded }
   case delivery_kind(database_path, profile, outer) do
-    Err(error) -> permanent_direct_delivery_error(error)
-    Ok(3) -> case receive_mobile_group_classified(request) do
-      GroupReceiveApplied(_) -> true
-      GroupReceiveRetry(_) -> false
-      GroupReceiveRejected(_) -> true
+    Err(error) -> if permanent_direct_delivery_error(error) do
+      1
+    else
+      0
     end
-    Ok(0) -> true
+    Ok(3) -> case receive_mobile_group_classified(request) do
+      GroupReceiveApplied(_) -> 1
+      GroupReceiveRetry(_) -> 0
+      GroupReceiveRejected(_) -> 1
+    end
+    Ok(0) -> 1
     Ok(kind) -> case receive_mobile_direct_classified(request, kind) do
-      DirectReceiveApplied(_) -> true
-      DirectReceiveRetry(_) -> false
-      DirectReceiveRejected(_) -> true
+      DirectReceiveApplied(_) -> 1
+      DirectReceiveRetry(error) -> if header_selection_unfinished(error) do
+        2
+      else
+        0
+      end
+      DirectReceiveRejected(_) -> 1
     end
   end
 end
@@ -151,7 +169,16 @@ fn settle_delivery(database_path :: String,
   else
     pass.highest
   end
-  if acknowledge_delivery(database_path, profile, outer, encoded) do
+  let decision = acknowledge_delivery(database_path, profile, outer, encoded)
+  if decision == 2 do
+    Ok(InboxPass {
+      envelope_ids: pass.envelope_ids,
+      attempts: pass.attempts,
+      set_aside: true,
+      highest: highest,
+      now: pass.now
+    })
+  else if decision == 1 do
     Ok(InboxPass {
       envelope_ids: List.append(pass.envelope_ids, outer.envelope_id),
       attempts: without_delivery_attempts(pass.attempts, outer.envelope_id)?,
@@ -236,6 +263,10 @@ pub fn process_delivery_batch(request :: MobileBatchRequest) -> Bytes!String do
   end
   let (labels, blobs) = inbox_state_writes(wrapping_key, pass.attempts, cursor)?
   store_updated_blobs(request.database_path, labels, blobs)?
+  let expiry_now = current_time()?
+  expire_direct_history(request.database_path, expiry_now)?
+  expire_group_history(request.database_path, expiry_now)?
+  flush_gossip(request.database_path)?
   let envelope_ids = pass.envelope_ids
   if List.length(envelope_ids) == 0 do
     Ok(Bytes.empty())

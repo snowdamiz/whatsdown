@@ -84,3 +84,8 @@ for target in "${targets[@]}"; do
   cargo build --locked -p mesh-rt --lib --target "$target"
 done
 MESHC="$CARGO_TARGET_DIR/debug/meshc" bash "$script_dir/build-mobile-native.sh" "$EAS_BUILD_PLATFORM"
+
+# Export only the reviewed native/compiler inputs; final package binding runs after EAS succeeds.
+if [[ "${MORSE_PLAINTEXT_EVIDENCE:-}" == 1 ]]; then
+  node "$script_dir/plaintext-release.mjs" worker-capture
+fi

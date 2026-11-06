@@ -96,3 +96,24 @@ test('picker, drop, and paste accept ten files in order and reject an oversized 
   assert.equal(input.multiple, true);
   assert.deepEqual(picked?.map((file) => file.filename), files.map((file) => file.name));
 });
+
+
+test('desktop preview release is scoped and account cleanup revokes remaining URLs', async (t) => {
+  const io = await import('./attachment-io.web.ts');
+  const revoked: string[] = [];
+  const revoke = URL.revokeObjectURL.bind(URL);
+  t.mock.method(URL, 'revokeObjectURL', uri => { revoked.push(uri); revoke(uri); });
+  const a = io.attachmentPreviewUri('same', 'image/png', Uint8Array.of(1));
+  const b = io.attachmentPreviewUri('same', 'image/png', Uint8Array.of(2));
+  io.releasePreviewUri(a); io.releasePreviewUri(a);
+  assert.deepEqual(revoked, [a]);
+  await assert.rejects(fetch(a));
+  assert.deepEqual(new Uint8Array(await (await fetch(b)).arrayBuffer()), Uint8Array.of(2));
+  io.discardPreviews(); io.discardPreviews();
+  assert.deepEqual(revoked, [a,b]);
+  await assert.rejects(fetch(b));
+  const controller = new AbortController(); controller.abort();
+  const before = calls.length;
+  assert.equal(await io.saveAttachmentFile('x', 'image/png', Uint8Array.of(3), controller.signal), false);
+  assert.equal(calls.length, before);
+});

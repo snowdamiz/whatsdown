@@ -1,3 +1,5 @@
+import { createDesktopAppServices } from './app-lock-services.web';
+const desktopServices = createDesktopAppServices();
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEffect, useState } from 'react';
@@ -13,6 +15,8 @@ import { setDatabasePath } from './storage.web';
 import { AppearanceProvider, WindowsChromeContext, useTheme, type Appearance } from './theme';
 import { control, cubicBezier, duration, easing, radius, space } from './tokens';
 import { isDevelopmentBuild } from './transport.web';
+import { t } from './i18n';
+import { LanguageProvider, useI18n } from './language';
 import { chrome, IconButton } from './ui';
 
 const windowsHost = /Windows/.test(navigator.userAgent);
@@ -94,9 +98,10 @@ function DocumentTheme() {
 
 function WindowsWindowControls() {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const [maximized, setMaximized] = useState(false);
   const [error, setError] = useState('');
-  const reportError = () => setError('Couldn’t update the window. Try again.');
+  const reportError = () => setError(t('Couldn’t update the window. Try again.'));
   useEffect(() => {
     const update = () => { void getCurrentWindow().isMaximized().then(setMaximized).catch(reportError); };
     update();
@@ -112,12 +117,12 @@ function WindowsWindowControls() {
     } catch { reportError(); }
   };
   return <>
-    <div role="group" aria-label="Window controls"
+    <div role="group" aria-label={t('Window controls')}
       style={{ position: 'absolute', top: (chrome.header - control.xs) / 2, right: space[4], zIndex: 10, display: 'flex', gap: space[1] }}>
-      <IconButton name="minimize" label="Minimize window" variant="tonal" size={control.xs} onPress={() => void act('minimize')} />
-      <IconButton name={maximized ? 'restore' : 'maximize'} label={maximized ? 'Restore window' : 'Maximize window'}
+      <IconButton name="minimize" label={t('Minimize window')} variant="tonal" size={control.xs} onPress={() => void act('minimize')} />
+      <IconButton name={maximized ? 'restore' : 'maximize'} label={maximized ? t('Restore window') : t('Maximize window')}
         variant="tonal" size={control.xs} onPress={() => void act('toggleMaximize')} />
-      <IconButton name="close" label="Close window" variant="tonal" size={control.xs} onPress={() => void act('close')} />
+      <IconButton name="close" label={t('Close window')} variant="tonal" size={control.xs} onPress={() => void act('close')} />
     </div>
     {error ? <div role="alert" style={{ position: 'absolute', top: chrome.header, right: 8, zIndex: 10,
       color: colors.danger, background: colors.canvas, padding: 8 }}>{error}</div> : null}
@@ -148,26 +153,31 @@ export default function Root() {
         setDatabasePath(path);
         setBoot({ appearance });
       })
-      .catch(() => setBoot({ error: 'Open Morse in the installed desktop app.' }));
+      .catch(() => setBoot({ error: t('Open Morse in the installed desktop app.') }));
   }, []);
   if (boot && 'appearance' in boot) {
     return (
-      <AppearanceProvider load={() => boot.appearance} save={saveAppearance}>
-        <DocumentTheme />
-        <WindowsChromeContext.Provider value={windowsUI}>
-          <View style={{ flex: 1 }}>
-            <App key={session.generation} notice={session.notice} windowsPreview={preview}
-              onWindowsPreviewChange={toggleWindowsPreview}
-              updates={isDevelopmentBuild() ? undefined : <DesktopUpdates />}
-              onAccountErased={(notice) => setSession(({ generation }) => ({ generation: generation + 1, notice }))} />
-            {windowsUI ? <WindowsWindowControls /> : null}
-          </View>
-        </WindowsChromeContext.Provider>
-      </AppearanceProvider>
+      <LanguageProvider>
+        <AppearanceProvider load={() => boot.appearance} save={saveAppearance}>
+          <DocumentTheme />
+          <WindowsChromeContext.Provider value={windowsUI}>
+            <View style={{ flex: 1 }}>
+              <App services={desktopServices} environment={{ kind: 'desktop' }} key={session.generation} notice={session.notice} windowsPreview={preview}
+                onWindowsPreviewChange={toggleWindowsPreview}
+                updates={isDevelopmentBuild() ? undefined : <DesktopUpdates />}
+                onAccountErased={(notice) => setSession(({ generation }) => ({ generation: generation + 1, notice }))} />
+              {windowsUI ? <WindowsWindowControls /> : null}
+            </View>
+          </WindowsChromeContext.Provider>
+        </AppearanceProvider>
+      </LanguageProvider>
     );
   }
-  return <View style={{ flex: 1 }}>
-    <StartupScreen error={boot?.error} />
-    {windowsUI ? <WindowsWindowControls /> : null}
-  </View>;
+  // The startup screen speaks the chosen language too, before the app is ready.
+  return <LanguageProvider>
+    <View style={{ flex: 1 }}>
+      <StartupScreen error={boot?.error} />
+      {windowsUI ? <WindowsWindowControls /> : null}
+    </View>
+  </LanguageProvider>;
 }

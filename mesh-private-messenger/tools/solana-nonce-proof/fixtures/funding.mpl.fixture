@@ -1,0 +1,53 @@
+from Payment.RevenuePolicy import parse_credit_revenue_policy,split_credit_revenue
+from Payment.Treasury import TreasuryChainConfig,treasury_config_hash
+from Runtime.Treasury import TreasuryWorkerConfig,treasury_provider_hash
+from Runtime.TreasuryFunding import prepare_weekly_treasury_funding,reconcile_weekly_treasury_funding
+from Storage.TreasuryFunding import treasury_funding_request
+from Transparency.RewardsWrite import RewardWriteContext
+from Solana.Read import Pubkey
+fn field(value :: Json,name :: String) -> String!String do Json.as_string(Json.object_get(value,name)?) end
+fn key(value :: Json,name :: String) -> Bytes!String do Bytes.from_base58(field(value,name)?) end
+fn fixed(byte :: String) -> Bytes!String do Bytes.from_hex(String.repeat(byte,32)) end
+fn run(pool :: PoolHandle,input :: Json) -> String!String do
+  let providers = [field(input,"provider_a")?,field(input,"provider_b")?]
+  let config = TreasuryWorkerConfig {test_mode: true,providers: providers,chain: TreasuryChainConfig {
+    providers_hash: treasury_provider_hash(providers)?,cluster: fixed("11")?,mint: key(input,"mint")?,
+    treasury_owner: key(input,"funder")?,fee_payer: key(input,"payer")?,nonce_authority: fixed("b2")?,nonce_address: fixed("b3")?,
+    rewards_program: key(input,"program")?,rewards_pool: key(input,"pool")?}}
+  let mode = field(input,"mode")?
+  if mode == "init" do
+    let hash = treasury_config_hash(config.chain)?
+    return Repo.transaction(pool,fn(conn :: borrow PgConn) do
+      let version=parse_credit_revenue_policy(Env.get("TREASURY_REVENUE_POLICY","1"))?
+      let split=split_credit_revenue(version,U64.parse("5000003")?,0,0,0)?
+      let inserted=Pg.query_values(conn,"INSERT INTO issuer_treasury_weekly(week,asset,cutoff,mint,config_hash,amount,witness,operations,carry_before,carry_after,membership_hash,policy_version,policy_hash,burn,burn_carry_before,burn_carry_after,operations_carry_before,operations_carry_after,reserve_before,reserve_after) VALUES(2800,0,0,$1,$2,5000003,$3::numeric,$4::numeric,0,$5::smallint,$6,$7::smallint,$8,$9::numeric,0,$10::smallint,0,$11::smallint,0,$12::smallint) RETURNING batch_id::text",[Binary(config.chain.mint),Binary(hash),Text(U64.to_string(split.witness)),Text(U64.to_string(split.operations)),Text(Int.to_string(split.carry_witness)),Binary(fixed("aa")?),Text(Int.to_string(version)),Binary(split.policy_hash),Text(U64.to_string(split.burn)),Text(Int.to_string(split.carry_burn)),Text(Int.to_string(split.carry_operations)),Text(Int.to_string(split.reserve_after))])?
+      Pg.execute_values(conn,"INSERT INTO issuer_treasury_burn_liabilities(batch_id,amount) SELECT batch_id,burn FROM issuer_treasury_weekly WHERE week=2800 AND policy_version=2 AND burn>0",[])?
+      case Map.get(List.head(inserted),"batch_id") do Text(value) -> Ok(value) _ -> Err("invalid batch fixture") end
+    end)
+  end
+  let intent = if mode == "prepare" do
+    case prepare_weekly_treasury_funding(pool,config,U64.parse(field(input,"batch_id")?)?)? do Some(value) -> value None -> return Err("missing funding intent") end
+  else
+    reconcile_weekly_treasury_funding(pool,config,Bytes.from_hex(field(input,"intent_id")?)?)?
+  end
+  let request = if intent.state == 0 do
+    treasury_funding_request(intent,RewardWriteContext {program: Pubkey {bytes: config.chain.rewards_program},judge: Pubkey {bytes: key(input,"judge")?},log_name: field(input,"log_name")?,mint: Pubkey {bytes: config.chain.mint}},Pubkey {bytes: config.chain.fee_payer})?
+  else "null" end
+  Ok("{\"state\":" <> Int.to_string(intent.state) <> ",\"intent_id\":" <> Json.encode_string(Bytes.to_hex(intent.intent_id)) <> ",\"amount\":" <> Json.encode_string(U64.to_string(intent.amount)) <> ",\"epoch\":" <> Json.encode_string(U64.to_string(intent.epoch)) <> ",\"request\":" <> request <> "}")
+end
+fn proof() -> String!String do
+  let input = Json.parse(File.read(Env.get("TREASURY_INPUT",""))?)?
+  let pool = Pool.open(Env.get("MESSENGER_ISSUER_TEST_DATABASE_URL",""),1,2,5000)?
+  let result = run(pool,input)
+  Pool.close(pool)
+  result
+end
+fn main() do
+  case proof() do
+    Ok(value) -> println(value)
+    Err(error) -> do
+      println("ERROR:" <> error)
+      Process.exit(1)
+    end
+  end
+end

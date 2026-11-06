@@ -1,3 +1,4 @@
+from Session.State import RatchetState
 from Binary.Reader import BinaryReader
 from Protocol.V1 import (
   AccountIdentity,
@@ -7,7 +8,6 @@ from Protocol.V1 import (
   InnerEnvelope,
   PrekeyBundle
 )
-from Session.Handshake import RatchetState
 from Session.Snapshot import SnapshotOutcome, snapshot
 from Transport.Packet import ClientProfile
 
@@ -61,8 +61,8 @@ end
 
 pub struct MobileAttachmentPrepareRequest do
   database_path :: String
-  filename :: Bytes
-  mime_type :: Bytes
+  filename :: Plaintext<Bytes>
+  mime_type :: Plaintext<Bytes>
   plaintext_size :: Int
   difficulty :: Int
 end
@@ -128,6 +128,7 @@ pub struct MobileSessionRecord do
   disappearing_seconds :: Int
   strongest_suite :: Int
   safety_number :: Bytes
+  peer_transport_key :: Bytes
 end
 
 pub struct MobileLoadedSession do
@@ -165,6 +166,7 @@ pub struct MobilePolicyRequest do
   peer_profile :: Bytes
   action :: Int
   value :: Int
+  expected_safety :: Bytes
 end
 
 pub struct MobilePeerRequest do
@@ -205,14 +207,7 @@ pub struct MobileTransparencyRequest do
   database_path :: String
   username :: String
   evidence :: Bytes
-end
-
-pub struct MobileSecurityConfig do
-  transparency_service_public_key :: Bytes
-  witness_a_public_key :: Bytes
-  witness_b_public_key :: Bytes
-  delivery_public_key :: Bytes
-  abuse_difficulty :: Int
+  directory_url :: String
 end
 
 pub struct MobilePushState do
@@ -284,8 +279,8 @@ pub struct MobileTransparencyView do
   checkpoint :: Bytes
   consistency :: Bytes
   service_public_key :: Bytes
-  witness_a_public_key :: Bytes
-  witness_b_public_key :: Bytes
+  set_id :: Bytes
+  witness_threshold :: Int
 end
 
 pub struct MobileTransparencyManifest do
@@ -294,8 +289,8 @@ pub struct MobileTransparencyManifest do
   consistency_hash :: Bytes
   chunk_count :: Int
   service_public_key :: Bytes
-  witness_a_public_key :: Bytes
-  witness_b_public_key :: Bytes
+  set_id :: Bytes
+  witness_threshold :: Int
 end
 
 pub struct MobileTransparencyStorage do
@@ -310,6 +305,7 @@ pub struct MobileGroupKeyPackage do
   leaf_public_key :: X25519PublicKey
   checkpoint :: Bytes
   witness_count :: Int
+  set_id :: Bytes
   signature :: Signature
 end
 
@@ -350,6 +346,7 @@ pub struct MobileGroupReferenceRequest do
 end
 
 pub struct MobileGroupHistoryEntry do
+  disappearing_seconds :: Int
   message_id :: Bytes
   direction :: Int
   epoch :: U64

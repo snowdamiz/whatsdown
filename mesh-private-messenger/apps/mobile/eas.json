@@ -10,11 +10,18 @@
       "channel": "production",
       "autoIncrement": true,
       "android": {
-        "image": "sdk-57",
+        "image": "sdk-58",
         "buildType": "app-bundle"
       },
       "ios": {
-        "image": "sdk-57"
+        "image": "sdk-58"
+      },
+      "buildArtifactPaths": [
+        "plaintext-release"
+      ],
+      "env": {
+        "MORSE_PLAINTEXT_EVIDENCE": "1",
+        "MORSE_RELEASE_REPOSITORY": "snowdamiz/whatsdown"
       }
     },
     "staging": {

@@ -1,182 +1,104 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { executePushActions, type PushActionOperations } from './push-action-executor.ts';
 
-import {
-  executePushActions,
-  type PushActionOperations,
-} from './push-action-executor.ts';
+function action(kind: number, status = 0, failure = 0, epoch = 1): Uint8Array {
+  const bytes = new Uint8Array(kind === 0 ? 19 : 50);
+  bytes.set([2, 0x50, 0x46, 0x41, kind, failure]);
+  const view = new DataView(bytes.buffer);
+  view.setBigUint64(6, BigInt(epoch));
+  view.setUint32(14, kind === 0 ? 1 : 32);
+  bytes.fill(kind === 0 ? status : 42, 18);
+  return bytes;
+}
 
-const action = (
-  kind: number,
-  payload: Uint8Array = new Uint8Array(),
-  flags = 0,
-  epoch = 1,
-): Uint8Array => {
-  const frame = new Uint8Array(18 + payload.length);
-  frame.set([1, 0x50, 0x46, 0x41, kind, flags], 0);
-  new DataView(frame.buffer).setBigUint64(6, BigInt(epoch));
-  new DataView(frame.buffer).setUint32(14, payload.length);
-  frame.set(payload, 18);
-  return frame;
-};
+function operations(poll: Uint8Array, overrides: Partial<PushActionOperations> = {}): PushActionOperations {
+  return {
+    poll: async () => poll,
+    complete: async () => { throw new Error('unexpected UI completion'); },
+    send: async () => { throw new Error('unexpected native network action'); },
+    requestPermission: async () => {}, prime: async () => {}, clear: async () => {},
+    ...overrides,
+  };
+}
 
-test('executes only the capabilities selected by Mesh and completes the exact actions', async () => {
-  const bind = Uint8Array.of(9, 8, 7);
-  const actions = [action(1), action(2), action(3, bind), action(0, Uint8Array.of(1))];
-  const completed: Array<{ action: Uint8Array; outcome: number }> = [];
+test('only native Mesh sends and settles a network action; UI receives opaque tickets', async () => {
+  const permission = action(1), prime = action(2, 0, 0, 2), bind = action(3, 0, 0, 3);
   const events: string[] = [];
-  let index = 0;
-  const operations: PushActionOperations = {
-    poll: async () => actions[index],
-    complete: async (exactAction, outcome) => {
-      completed.push({ action: exactAction, outcome });
-      index += 1;
-      return actions[index];
-    },
+  assert.equal(await executePushActions(operations(permission, {
     requestPermission: async () => { events.push('permission'); },
     prime: async () => { events.push('prime'); },
-    clear: async () => { events.push('clear'); },
-    sendBind: async (wire) => { events.push(`bind:${Array.from(wire).join(',')}`); },
-    sendUnbind: async () => { events.push('unbind'); },
-  };
-
-  assert.equal(await executePushActions(operations), 'enabled');
-  assert.deepEqual(events, ['permission', 'prime', 'bind:9,8,7']);
-  assert.deepEqual(completed.map(({ outcome }) => outcome), [0, 0, 0]);
-  assert.strictEqual(completed[0].action, actions[0]);
-  assert.strictEqual(completed[1].action, actions[1]);
-  assert.strictEqual(completed[2].action, actions[2]);
+    complete: async (frame, outcome) => {
+      assert.equal(outcome, 0);
+      events.push('UI completion');
+      if (frame === permission) return prime;
+      assert.strictEqual(frame, prime);
+      return bind;
+    },
+    send: async frame => { assert.strictEqual(frame, bind); events.push('native send'); return action(0, 1); },
+  })), 'enabled');
+  assert.deepEqual(events, ['permission', 'UI completion', 'prime', 'UI completion', 'native send']);
 });
 
-test('records a failed capability and surfaces the original error only when Mesh directs it', async () => {
-  const clear = action(5);
-  const done = action(0, Uint8Array.of(3), 1);
-  const clearError = new Error('native clear failed');
-  let completion: { action: Uint8Array; outcome: number } | undefined;
-
-  await assert.rejects(
-    executePushActions({
-      poll: async () => clear,
-      complete: async (exactAction, outcome) => {
-        completion = { action: exactAction, outcome };
-        return done;
-      },
-      requestPermission: async () => {},
-      prime: async () => {},
-      clear: async () => { throw clearError; },
-      sendBind: async () => {},
-      sendUnbind: async () => {},
-    }),
-    clearError,
-  );
-  assert.deepEqual(completion, { action: clear, outcome: 1 });
+test('a native transport error is never converted into a JavaScript acknowledgment', async () => {
+  const error = new Error('push_transport_unavailable');
+  let completed = 0;
+  await assert.rejects(executePushActions(operations(action(3), {
+    send: async () => { throw error; },
+    complete: async () => { completed++; return action(0, 1); },
+  })), error);
+  assert.equal(completed, 0);
 });
 
-test('does not report a Mesh completion failure as a platform action failure', async () => {
-  const prime = action(2);
-  let completions = 0;
-  await assert.rejects(
-    executePushActions({
-      poll: async () => prime,
-      complete: async () => {
-        completions += 1;
-        throw new Error('Mesh completion failed');
-      },
-      requestPermission: async () => {},
-      prime: async () => {},
-      clear: async () => {},
-      sendBind: async () => {},
-      sendUnbind: async () => {},
-    }),
-    /Mesh completion failed/,
-  );
-  assert.equal(completions, 1);
-});
-
-test('continues from a failed first clear through unbind and the final clear selected by Mesh', async () => {
-  const clearError = new Error('stale clear failure');
-  const unbind = Uint8Array.of(4, 5, 6);
-  const frames = [
-    action(5),
-    action(4, unbind, 0, 2),
-    action(5, new Uint8Array(), 0, 3),
-    action(0, Uint8Array.of(0), 0, 4),
-  ];
-  let completion = 0;
+test('failed platform clear still follows Mesh through native unbind and final clear', async () => {
+  const first = action(5), unbind = action(4, 0, 0, 2), last = action(5, 0, 0, 3);
   let clears = 0;
-  const events: string[] = [];
-
-  assert.equal(await executePushActions({
-    poll: async () => frames[0],
-    complete: async (_exactAction, outcome) => {
-      events.push(`outcome:${outcome}`);
-      completion += 1;
-      return frames[completion];
+  const outcomes: number[] = [];
+  assert.equal(await executePushActions(operations(first, {
+    clear: async () => { if (++clears === 1) throw new Error('first clear failed'); },
+    complete: async (frame, outcome) => {
+      outcomes.push(outcome);
+      if (frame === first) return unbind;
+      assert.strictEqual(frame, last);
+      return action(0, 0);
     },
-    requestPermission: async () => {},
-    prime: async () => {},
-    clear: async () => {
-      clears += 1;
-      events.push(`clear:${clears}`);
-      if (clears === 1) throw clearError;
-    },
-    sendBind: async () => {},
-    sendUnbind: async (wire) => { events.push(`unbind:${Array.from(wire).join(',')}`); },
-  }), 'disabled');
-  assert.deepEqual(events, [
-    'clear:1',
-    'outcome:1',
-    'unbind:4,5,6',
-    'outcome:0',
-    'clear:2',
-    'outcome:0',
-  ]);
+    send: async frame => { assert.strictEqual(frame, unbind); return last; },
+  })), 'disabled');
+  assert.deepEqual(outcomes, [1, 0]);
+  assert.equal(clears, 2);
 });
 
-test('stops a non-converging Mesh action stream', async () => {
-  const permission = action(1);
-  let completions = 0;
-
-  await assert.rejects(
-    executePushActions({
-      poll: async () => permission,
-      complete: async () => {
-        completions += 1;
-        return permission;
-      },
-      requestPermission: async () => {},
-      prime: async () => {},
-      clear: async () => {},
-      sendBind: async () => {},
-      sendUnbind: async () => {},
-    }),
-    /did not converge/,
-  );
-  assert.equal(completions, 16);
+test('surfaces the original platform error only when Mesh selects failure', async () => {
+  const error = new Error('permission refused');
+  await assert.rejects(executePushActions(operations(action(1), {
+    requestPermission: async () => { throw error; },
+    complete: async (_frame, outcome) => { assert.equal(outcome, 1); return action(0, 2, 1); },
+  })), error);
 });
 
-test('rejects malformed or over-permissive Mesh action frames', async () => {
-  const invalid = [
-    action(1, Uint8Array.of(1)),
-    action(2, new Uint8Array(), 1),
-    action(3),
-    action(0, Uint8Array.of(9)),
-    action(6),
-    Uint8Array.of(1, 0x50, 0x46, 0x41),
-  ];
-
-  for (const frame of invalid) {
-    await assert.rejects(
-      executePushActions({
-        poll: async () => frame,
-        complete: async () => { throw new Error('must not complete malformed action'); },
-        requestPermission: async () => {},
-        prime: async () => {},
-        clear: async () => {},
-        sendBind: async () => {},
-        sendUnbind: async () => {},
-      }),
-      /invalid push action/i,
-    );
+test('rejects legacy wires and malformed tickets before any capability runs', async () => {
+  const legacy = action(3); legacy[0] = 1;
+  const short = action(3).slice(0, 49);
+  const trailing = new Uint8Array(51); trailing.set(action(3));
+  const invalidStatus = action(0, 9);
+  const emptyEpoch = action(1, 0, 0, 0);
+  for (const frame of [legacy, short, trailing, invalidStatus, emptyEpoch, action(6), action(2, 0, 1)]) {
+    let calls = 0;
+    await assert.rejects(executePushActions(operations(frame, {
+      send: async () => { calls++; return action(0); },
+      complete: async () => { calls++; return action(0); },
+      requestPermission: async () => { calls++; }, prime: async () => { calls++; }, clear: async () => { calls++; },
+    })), /invalid push action/i);
+    assert.equal(calls, 0);
   }
+});
+
+test('bounds nonconverging action loops and preserves native completion errors', async () => {
+  let completions = 0;
+  await assert.rejects(executePushActions(operations(action(1), {
+    complete: async () => { completions++; return action(1); },
+  })), /did not converge/);
+  assert.equal(completions, 16);
+  const error = new Error('push_state_changed');
+  await assert.rejects(executePushActions(operations(action(2), { complete: async () => { throw error; } })), error);
 });

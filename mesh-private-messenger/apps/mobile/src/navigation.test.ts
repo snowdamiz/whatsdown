@@ -9,6 +9,12 @@ test('drilling into detail screens moves forward and returning moves backward', 
   assert.equal(transitionDirection('chat-info', 'chat'), 'backward');
   assert.equal(transitionDirection('chat', 'home'), 'backward');
   assert.equal(transitionDirection('settings', 'account'), 'forward');
+  assert.equal(transitionDirection('settings', 'credits'), 'forward');
+  assert.equal(transitionDirection('credits', 'settings'), 'backward');
+  for (const screen of ['backups', 'backup-export'] as const) {
+    assert.equal(transitionDirection('settings', screen), 'forward');
+    assert.equal(transitionDirection(screen, 'settings'), 'backward');
+  }
   assert.equal(transitionDirection('group-info', 'group'), 'backward');
 });
 
@@ -19,7 +25,7 @@ test('switching between root tabs is lateral', () => {
 });
 
 test('the scanner pushes forward from every origin and pops back to it', () => {
-  for (const origin of ['new-chat', 'devices', 'group-info', 'link-device'] as const) {
+  for (const origin of ['new-chat', 'devices', 'group-info', 'link-device', 'chat-info'] as const) {
     assert.equal(transitionDirection(origin, 'scanner'), 'forward', origin);
     assert.equal(transitionDirection('scanner', origin), 'backward', origin);
   }
@@ -39,6 +45,7 @@ test('the scanner returns to the screen that opened it', () => {
   assert.equal(scannerOrigin('link-authorization'), 'link-device');
   assert.equal(scannerOrigin('group-key-package'), 'group-info');
   assert.equal(scannerOrigin('community'), 'groups');
+  assert.equal(scannerOrigin('safety'), 'chat-info');
 });
 
 test('every pushed screen has a parent to return to and root screens have none', () => {
@@ -49,6 +56,9 @@ test('every pushed screen has a parent to return to and root screens have none',
   assert.equal(parentScreen('group-info'), 'group');
   assert.equal(parentScreen('group-package'), 'groups');
   assert.equal(parentScreen('account'), 'settings');
+  assert.equal(parentScreen('credits'), 'settings');
+  assert.equal(parentScreen('backups'), 'settings');
+  assert.equal(parentScreen('backup-export'), 'settings');
   assert.equal(parentScreen('devices'), 'settings');
   assert.equal(parentScreen('link-authorization'), 'devices');
   assert.equal(parentScreen('link-device'), 'home');

@@ -1,0 +1,123 @@
+{
+  "amount": "49699202",
+  "boundary": "Separate owned classic SPL3.5.0 TransferChecked bank; exact pinned mint prestate and explicit provider genesis liquidity; controlled clock/RPC finality fixtures, no mainnet continuity or live USDC/provider evidence.",
+  "custody": "58ruDhoamt9HYZsUQkKiWMq56MQbFwZqXKGpRbV1uFfe",
+  "custody_account": {
+    "data": [
+      "wCZ4907v8TWzOi1Hi+Wsw5wYT9NQ/DmkxhLS+6CcXqogmKdOTzyHPEisWWXbMz/URr8Yb00jj23HKbs2mo6L34JZ9gIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "base64"
+    ],
+    "executable": false,
+    "lamports": 2039280,
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "rentEpoch": 18446744073709551615
+  },
+  "logs": [
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]",
+    "Program log: Instruction: TransferChecked",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 6172 of 200000 compute units",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success"
+  ],
+  "mint": "Dw5JbBf8sSj3gJujGy4HTCM3wCSQvkiUVc5hixV8oJ4y",
+  "mint_account": {
+    "data": [
+      "AQAAACCYp05PPIc8SKxZZdszP9RGvxhvTSOPbccpuzaajovf6Jv3Pl0BAAAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "base64"
+    ],
+    "executable": false,
+    "lamports": 1461600,
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "rentEpoch": 18446744073709551615
+  },
+  "owner": "3CF48HwS4araR6dysSKeQu3zrVMZA5Xg9S96egMXVT1x",
+  "scope_sha256": "bf9ff3c6c4a7b951150c096fd96471e3769f02160411052c3e9a2cafe51bb4d9",
+  "signature": "59EoAsLQbK44FPDU9x9mokU4Y7wm6HBE75LWMc1BTHqZkP53iPsvgYBBd2kPqsAFmw57DhnRYDKogtmpnL14jxL6",
+  "source_prestate_amount": "100000000",
+  "token_elf_sha256": "7b44674b9704fa7640fbebfac68389f338b500b8c2bc29175c27ed66838b5a3c",
+  "transaction": {
+    "blockTime": 1792687484,
+    "meta": {
+      "err": null,
+      "fee": 5000,
+      "innerInstructions": [],
+      "loadedAddresses": {
+        "readonly": [],
+        "writable": []
+      },
+      "postBalances": [
+        995911440,
+        2039280,
+        2039280,
+        1141440,
+        1461600
+      ],
+      "postTokenBalances": [
+        {
+          "accountIndex": 1,
+          "mint": "Dw5JbBf8sSj3gJujGy4HTCM3wCSQvkiUVc5hixV8oJ4y",
+          "owner": "3CF48HwS4araR6dysSKeQu3zrVMZA5Xg9S96egMXVT1x",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "49699202",
+            "decimals": 6,
+            "uiAmount": null,
+            "uiAmountString": "0"
+          }
+        },
+        {
+          "accountIndex": 2,
+          "mint": "Dw5JbBf8sSj3gJujGy4HTCM3wCSQvkiUVc5hixV8oJ4y",
+          "owner": "BS6dXqgPWUxHpmdnpxCWKENuyQtTHC1KHDUuynkc8i7e",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "50300798",
+            "decimals": 6,
+            "uiAmount": null,
+            "uiAmountString": "0"
+          }
+        }
+      ],
+      "preBalances": [
+        995916440,
+        2039280,
+        2039280,
+        1141440,
+        1461600
+      ],
+      "preTokenBalances": [
+        {
+          "accountIndex": 1,
+          "mint": "Dw5JbBf8sSj3gJujGy4HTCM3wCSQvkiUVc5hixV8oJ4y",
+          "owner": "3CF48HwS4araR6dysSKeQu3zrVMZA5Xg9S96egMXVT1x",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "0",
+            "decimals": 6,
+            "uiAmount": null,
+            "uiAmountString": "0"
+          }
+        },
+        {
+          "accountIndex": 2,
+          "mint": "Dw5JbBf8sSj3gJujGy4HTCM3wCSQvkiUVc5hixV8oJ4y",
+          "owner": "BS6dXqgPWUxHpmdnpxCWKENuyQtTHC1KHDUuynkc8i7e",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "100000000",
+            "decimals": 6,
+            "uiAmount": null,
+            "uiAmountString": "0"
+          }
+        }
+      ]
+    },
+    "slot": 1000,
+    "transaction": [
+      "Ac8sCRXUGt4C+AQ+n8qi4as6bH3+/Q7r8dQ8FGrh7WAIa7q50L7iCPOWBDuwqa0MB2D2xC0RQkPdHHY4Brv2ow8BAAIFmwLBVCPFrMxJwapMNyHKDS6zNzVpb78a0D+ePFSiRa09cjxgpa9PNLQvCAmNKid5syu/31ryURBMHoaNsTDr2V49DiLSBvmpZjTxfcaLX8m1xftfWJY5u93CJmjtxFz+Bt324ddloZPZy+FGzut5rBy0he1fWzeROoz1hX7/AKnAJnj3Tu/xNbM6LUeL5azDnBhP01D8OaTGEtL7oJxeqjKnKoBD9M5climUrhN9NQoL/zAy6XGeKSNjjLxqv8yfAQMEAgQBAAoMgln2AgAAAAAG",
+      "base64"
+    ],
+    "version": "legacy"
+  },
+  "treasury_config": "393d0aec7f681d88d6c587bce010c0b6ad237ac39db838895f51eab1605b7402",
+  "wire_sha256": "a7bf25442cbbe4523dfd704d877bb08f9188cf7b2f2f2e1bddfe12c2225fcb49"
+}

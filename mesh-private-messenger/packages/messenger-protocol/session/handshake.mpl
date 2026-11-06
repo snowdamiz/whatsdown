@@ -1,3 +1,17 @@
+from Session.Spqr import SpqrState, initialize_spqr
+from Session.SpqrKdf import SpqrError
+from Session.BraidResponder import BraidScope, BraidAwaitHeader, BraidError, initialize_responder
+from Session.BraidInitiator import BraidAliceIdle, initialize_initiator
+from Session.State import RatchetState, RatchetError, DecryptOutcome
+from Session.HeaderRatchet import (
+  he_initialize_alice,
+  he_initialize_bob,
+  he_encrypt,
+  he_decrypt,
+  he_initial_aad
+)
+from Session.HeaderWire import he_encode_message, he_decode_message
+from Protocol.Capabilities import supports_header_encryption
 from Identity.Device import (
   DeviceKeys,
   IdentityError,
@@ -32,6 +46,7 @@ pub type SessionError do
   PrekeyFailure(error :: PrekeyError)
   ProtocolFailure(error :: ProtocolError)
   InvalidHandshake
+  MinimumSessionSuiteRequired
 end
 
 impl From<CryptoError> for SessionError do
@@ -56,27 +71,18 @@ pub fn is_retryable_session_error(error :: SessionError) -> Bool do
   end
 end
 
-pub resource struct RatchetState do
-  version :: Int
-  suite :: Int
-  session_id :: Bytes
-  root_key :: SecretBytes
-  sending_chain_key :: SecretBytes
-  receiving_chain_key :: SecretBytes
-  local_ratchet_private :: X25519PrivateKey
-  local_ratchet_public :: X25519PublicKey
-  remote_ratchet_public :: X25519PublicKey
-  previous_chain_length :: Int
-  sent_count :: Int
-  received_count :: Int
-  skipped_keys :: SecretMap
-  # The map cannot be listed, so this names what it holds, oldest first: 40
-  # bytes a key, the chain's ratchet key, the message number, and
-  # `receive_generation` as it was when the key was set aside.
-  skipped_index :: Bytes
-  receive_generation :: Int
-  pending_send_ratchet :: Bool
-  snapshot_version :: U64
+fn header_error(error :: RatchetError) -> SessionError do
+  case error do
+    RatchetError.CryptoFailure -> CryptoFailure(InternalFailure)
+    RatchetError.AuthenticationRejected -> AuthenticationRejected
+    _ -> InvalidHandshake
+  end
+end
+
+fn he_pair(credential :: DeviceCredential, bundle :: PrekeyBundle) -> Bool!SessionError do
+  let responder = decoded_credential(bundle.device_credential)?
+  Ok(supports_header_encryption(credential.capabilities)
+    && supports_header_encryption(responder.capabilities))
 end
 
 fn initial_snapshot_version() -> U64!SessionError do
@@ -129,6 +135,23 @@ fn selected_suite(credential :: DeviceCredential,
     strongest_authenticated_suite) do
     Err(error) -> Err(ProtocolFailure(error))
     Ok(value)
+  end
+end
+
+# The release floor is policy, not authenticated peer history. Keep both inputs
+# separate and retain the old history-dependent bundle/transcript matching.
+fn selected_suite_at_minimum(credential :: DeviceCredential,
+  bundle :: PrekeyBundle,
+  strongest_authenticated_suite :: Int,
+  minimum_session_suite :: Int) -> Int!SessionError do
+  if minimum_session_suite < 1 || minimum_session_suite > 2 do
+    return Err(InvalidHandshake)
+  end
+  let selected = selected_suite(credential, bundle, strongest_authenticated_suite)?
+  if selected < minimum_session_suite do
+    Err(MinimumSessionSuiteRequired)
+  else
+    Ok(selected)
   end
 end
 
@@ -189,7 +212,11 @@ fn transcript_for(initiator_credential :: DeviceCredential,
     Ok(encoded) -> Ok(Crypto.sha256(encoded))
   end?
   Ok(HandshakeTranscript {
-    version: 1,
+    version: if he_pair(initiator_credential, responder_bundle)? do
+      2
+    else
+      1
+    end,
     suite: suite,
     initiator_credential_hash: credential_hash,
     responder_prekey_bundle_hash: bundle_hash,
@@ -214,6 +241,8 @@ fn transcript_hash(value :: HandshakeTranscript) -> Bytes!SessionError do
   end
 end
 
+# Manual protocol compatibility retains explicit classical negotiation. Release
+# callers pass their separately captured minimum to the policy-taking API.
 pub fn initiate(initiator :: borrow DeviceKeys,
   initiator_credential :: DeviceCredential,
   responder_account :: AccountIdentity,
@@ -221,15 +250,68 @@ pub fn initiate(initiator :: borrow DeviceKeys,
   responder_policy :: VerificationPolicy,
   strongest_authenticated_suite :: Int,
   plaintext :: Bytes) -> Result<(RatchetState, InitialMessage), SessionError> do
-  let suite = selected_suite(initiator_credential, responder_bundle, strongest_authenticated_suite)?
+  initiate_at_minimum_suite(initiator,
+    initiator_credential,
+    responder_account,
+    responder_bundle,
+    responder_policy,
+    strongest_authenticated_suite,
+    1,
+    plaintext)
+end
+
+pub fn initiate_at_minimum_suite(initiator :: borrow DeviceKeys,
+  initiator_credential :: DeviceCredential,
+  responder_account :: AccountIdentity,
+  responder_bundle :: PrekeyBundle,
+  responder_policy :: VerificationPolicy,
+  strongest_authenticated_suite :: Int,
+  minimum_session_suite :: Int,
+  plaintext :: Bytes) -> Result<(RatchetState, InitialMessage), SessionError> do
+  let (state, message, owners) = initiate_profile(initiator,
+    initiator_credential,
+    responder_account,
+    responder_bundle,
+    responder_policy,
+    strongest_authenticated_suite,
+    minimum_session_suite,
+    plaintext,
+    None)?
+  case owners do
+    None -> Ok((state, message))
+    Some(_) -> Err(InvalidHandshake)
+  end
+end
+
+fn initiate_profile(initiator :: borrow DeviceKeys,
+  initiator_credential :: DeviceCredential,
+  responder_account :: AccountIdentity,
+  responder_bundle :: PrekeyBundle,
+  responder_policy :: VerificationPolicy,
+  strongest_authenticated_suite :: Int,
+  minimum_session_suite :: Int,
+  plaintext :: Bytes,
+  configuration :: Option<Bytes>) -> (RatchetState, InitialMessage, Option<C1AliceOwners>)!SessionError do
+  let suite = selected_suite_at_minimum(initiator_credential,
+    responder_bundle,
+    strongest_authenticated_suite,
+    minimum_session_suite)?
   let credential_length = Bytes.length(encoded_credential(initiator_credential)?)
   let post_quantum_length = if suite == 2 do
     1088
   else
     0
   end
-  let maximum_plaintext = 65382 - credential_length - post_quantum_length
-  if Bytes.length(plaintext) > maximum_plaintext do
+  let header_mode = he_pair(initiator_credential, responder_bundle)?
+  c1_selected(configuration, suite, header_mode)?
+  let maximum_plaintext = (if header_mode do
+    48512
+  else
+    65382
+  end) - credential_length - post_quantum_length
+  let oversized = declassify(Bytes.length(plaintext) > maximum_plaintext,
+    "initial handshake admission discloses only whether plaintext exceeds the public credential and suite dependent transport bound; plaintext content remains private")
+  if oversized do
     Err(InvalidHandshake)
   else
     let bundle_valid = case verify_prekey_bundle(responder_account,
@@ -259,8 +341,62 @@ pub fn initiate(initiator :: borrow DeviceKeys,
         responder_bundle,
         ephemeral_public,
         suite)?
-      let hash = transcript_hash(transcript)?
+      let hash = c1_hash(configuration, transcript_hash(transcript)?)?
       let salt = handshake_salt(hash)?
+      if header_mode do
+        let root_key = Crypto.hkdf_sha256(ikm,
+          salt,
+          Bytes.from_utf8("mesh-msg/v2/he-bootstrap-root"),
+          32)?
+        let owners = case configuration do
+          None
+          Some(c) -> Some(c1_alice_owners(ikm,
+            salt,
+            c1_scope(c,
+              hash,
+              initiator_credential,
+              decoded_credential(responder_bundle.device_credential)?)?)?)
+        end
+        Secret.destroy(ikm)
+        let state = case he_initialize_alice(root_key,
+          suite,
+          hash,
+          responder_one_time,
+          initial_snapshot_version()?) do
+          Err(error) -> Err(header_error(error))
+          Ok(value)
+        end?
+        let initial_aad = case he_initial_aad(hash) do
+          Err(error) -> Err(header_error(error))
+          Ok(value)
+        end?
+        let (state, message) = case he_encrypt(state, plaintext, initial_aad) do
+          Err(error) -> Err(header_error(error))
+          Ok(value)
+        end?
+        let wire = case he_encode_message(message) do
+          Err(error) -> Err(header_error(error))
+          Ok(value)
+        end?
+        return Ok((state,
+          InitialMessage {
+            version: 2,
+            suite: suite,
+            signed_prekey_id: responder_bundle.signed_prekey_id,
+            one_time_prekey_id: responder_bundle.one_time_prekey_id,
+            initiator_credential: encoded_credential(initiator_credential)?,
+            initiator_identity_public_key: initiator.identity_public_key,
+            initiator_ephemeral_public_key: ephemeral_public,
+            post_quantum_ciphertext: post_quantum_ciphertext,
+            transcript_hash: hash,
+            nonce: case Bytes.repeat(0, 12) do
+              Err(_) -> Err(InvalidHandshake)
+              Ok(value)
+            end?,
+            ciphertext: wire
+          },
+          owners))
+      end
       let root_key = Crypto.hkdf_sha256(ikm, salt, Bytes.from_utf8("mesh-msg/v1/root-key"), 32)?
       let sending_chain_key = chain_key(root_key, hash, "initiator")?
       let receiving_chain_key = chain_key(root_key, hash, "responder")?
@@ -272,7 +408,11 @@ pub fn initiate(initiator :: borrow DeviceKeys,
       Secret.destroy(ikm)
       let message_key = Crypto.aead_key(message_material)?
       let nonce = Crypto.random_bytes(12)?
-      let ciphertext = Crypto.aead_seal(message_key, nonce, hash, plaintext)?
+      let ciphertext = declassify_discriminant(Crypto.aead_seal(message_key,
+          nonce,
+          hash,
+          plaintext),
+        "initial handshake encryption exposes only success or failure; message bytes, error payloads, and unrelated private control remain private")?
       let credential_bytes = encoded_credential(initiator_credential)?
       Ok((RatchetState {
           version: 1,
@@ -291,7 +431,8 @@ pub fn initiate(initiator :: borrow DeviceKeys,
           skipped_index: Bytes.empty(),
           receive_generation: 0,
           pending_send_ratchet: true,
-          snapshot_version: initial_snapshot_version()?
+          snapshot_version: initial_snapshot_version()?,
+          header_keys: SecretMap.new(16)?
         },
         InitialMessage {
           version: 1,
@@ -305,7 +446,8 @@ pub fn initiate(initiator :: borrow DeviceKeys,
           transcript_hash: hash,
           nonce: nonce,
           ciphertext: ciphertext
-        }))
+        },
+        None))
     end
   end
 end
@@ -324,13 +466,81 @@ pub fn receive_initial(responder :: borrow DeviceKeys,
   initiator_policy :: VerificationPolicy,
   strongest_authenticated_suite :: Int,
   message_bytes :: Bytes) -> Result<(RatchetState, Bytes), SessionError> do
+  receive_initial_at_minimum_suite(responder,
+    responder_account,
+    responder_bundle,
+    signed_prekey,
+    one_time_prekey,
+    post_quantum_prekey,
+    initiator_account,
+    responder_policy,
+    initiator_policy,
+    strongest_authenticated_suite,
+    1,
+    message_bytes)
+end
+
+pub fn receive_initial_at_minimum_suite(responder :: borrow DeviceKeys,
+  responder_account :: AccountIdentity,
+  responder_bundle :: PrekeyBundle,
+  signed_prekey :: borrow SignedPrekeySecrets,
+  one_time_prekey :: consume OneTimePrekeySecrets,
+  post_quantum_prekey :: borrow PostQuantumPrekeySecrets,
+  initiator_account :: AccountIdentity,
+  responder_policy :: VerificationPolicy,
+  initiator_policy :: VerificationPolicy,
+  strongest_authenticated_suite :: Int,
+  minimum_session_suite :: Int,
+  message_bytes :: Bytes) -> Result<(RatchetState, Bytes), SessionError> do
+  let (state, clear, owners) = receive_profile(responder,
+    responder_account,
+    responder_bundle,
+    signed_prekey,
+    one_time_prekey,
+    post_quantum_prekey,
+    initiator_account,
+    responder_policy,
+    initiator_policy,
+    strongest_authenticated_suite,
+    minimum_session_suite,
+    message_bytes,
+    None)?
+  case owners do
+    None -> Ok((state, clear))
+    Some(_) -> Err(InvalidHandshake)
+  end
+end
+
+fn receive_profile(responder :: borrow DeviceKeys,
+  responder_account :: AccountIdentity,
+  responder_bundle :: PrekeyBundle,
+  signed_prekey :: borrow SignedPrekeySecrets,
+  one_time_prekey :: consume OneTimePrekeySecrets,
+  post_quantum_prekey :: borrow PostQuantumPrekeySecrets,
+  initiator_account :: AccountIdentity,
+  responder_policy :: VerificationPolicy,
+  initiator_policy :: VerificationPolicy,
+  strongest_authenticated_suite :: Int,
+  minimum_session_suite :: Int,
+  message_bytes :: Bytes,
+  configuration :: Option<Bytes>) -> (RatchetState, Bytes, Option<C1BobOwners>)!SessionError do
   let message = case decode_initial_message(message_bytes) do
     Err(_) -> Err(InvalidHandshake)
     Ok(value)
   end?
   let credential = decoded_credential(message.initiator_credential)?
-  let suite = selected_suite(credential, responder_bundle, strongest_authenticated_suite)?
-  let wrong_version = message.version != 1 || message.suite != suite
+  let suite = selected_suite_at_minimum(credential,
+    responder_bundle,
+    strongest_authenticated_suite,
+    minimum_session_suite)?
+  let header_mode = he_pair(credential, responder_bundle)?
+  c1_selected(configuration, suite, header_mode)?
+  let expected_version = if header_mode do
+    2
+  else
+    1
+  end
+  let wrong_version = message.version != expected_version || message.suite != suite
   let wrong_ids = U64.compare(message.signed_prekey_id, signed_prekey.id) != 0
     || U64.compare(message.one_time_prekey_id, one_time_prekey.id) != 0
   let wrong_keys = !Bytes.secure_equals(responder_bundle.signed_prekey,
@@ -371,7 +581,7 @@ pub fn receive_initial(responder :: borrow DeviceKeys,
     responder_bundle,
     message.initiator_ephemeral_public_key,
     suite)?
-  let hash = transcript_hash(transcript)?
+  let hash = c1_hash(configuration, transcript_hash(transcript)?)?
   if !Bytes.secure_equals(hash, message.transcript_hash) do
     return Err(InvalidHandshake)
   end
@@ -387,6 +597,42 @@ pub fn receive_initial(responder :: borrow DeviceKeys,
     post_quantum_prekey,
     message.post_quantum_ciphertext)?
   let salt = handshake_salt(hash)?
+  if header_mode do
+    let root_key = Crypto.hkdf_sha256(ikm,
+      salt,
+      Bytes.from_utf8("mesh-msg/v2/he-bootstrap-root"),
+      32)?
+    let owners = case configuration do
+      None
+      Some(c) -> Some(c1_bob_owners(ikm,
+        salt,
+        c1_scope(c, hash, decoded_credential(responder_bundle.device_credential)?, credential)?)?)
+    end
+    Secret.destroy(ikm)
+    let one_time_prekey_public = one_time_prekey.public_key
+    let one_time_prekey_private = one_time_prekey.private_key
+    let state = case he_initialize_bob(root_key,
+      suite,
+      hash,
+      one_time_prekey_private,
+      one_time_prekey_public,
+      initial_snapshot_version()?) do
+      Err(error) -> Err(header_error(error))
+      Ok(value)
+    end?
+    let message = case he_decode_message(message.ciphertext) do
+      Err(error) -> Err(header_error(error))
+      Ok(value)
+    end?
+    let aad = case he_initial_aad(hash) do
+      Err(error) -> Err(header_error(error))
+      Ok(value)
+    end?
+    return case he_decrypt(state, message, aad) do
+      Rejected(rejected, error) -> Err(header_error(error))
+      Opened(next, plaintext) -> Ok((next, plaintext, owners))
+    end
+  end
   let root_key = Crypto.hkdf_sha256(ikm, salt, Bytes.from_utf8("mesh-msg/v1/root-key"), 32)?
   let sending_chain_key = chain_key(root_key, hash, "responder")?
   let receiving_chain_key = chain_key(root_key, hash, "initiator")?
@@ -421,9 +667,11 @@ pub fn receive_initial(responder :: borrow DeviceKeys,
       skipped_index: Bytes.empty(),
       receive_generation: 0,
       pending_send_ratchet: false,
-      snapshot_version: initial_snapshot_version()?
+      snapshot_version: initial_snapshot_version()?,
+      header_keys: SecretMap.new(16)?
     },
-    plaintext))
+    plaintext,
+    None))
 end
 
 ## Whether a first message was sealed to exactly this responder bundle, with
@@ -458,4 +706,221 @@ fn bundle_matches_message(responder_bundle :: PrekeyBundle,
     |> Result.ok()?
   Some(U64.compare(message.signed_prekey_id, responder_bundle.signed_prekey_id) == 0
     && Bytes.secure_equals(hash, message.transcript_hash))
+end
+
+## C1 remains an explicitly invoked separate profile; legacy wrappers pass None.
+resource struct C1AliceOwners do
+  spqr :: SpqrState
+  braid :: BraidAliceIdle
+end
+
+resource struct C1BobOwners do
+  spqr :: SpqrState
+  braid :: BraidAwaitHeader
+end
+
+pub resource struct C1Initiated do
+  he :: RatchetState
+  spqr :: SpqrState
+  braid :: BraidAliceIdle
+  initial :: InitialMessage
+end
+
+pub resource struct C1Received do
+  he :: RatchetState
+  spqr :: SpqrState
+  braid :: BraidAwaitHeader
+  plaintext :: Bytes
+end
+
+fn c1_join(parts :: List<Bytes>) -> Bytes!SessionError do
+  case Bytes.concat_many(parts, 256) do
+    Ok(v)
+    Err(_) -> Err(InvalidHandshake)
+  end
+end
+
+fn c1_zero() -> Bytes!SessionError do
+  case Bytes.from_list([0]) do
+    Ok(v)
+    Err(_) -> Err(InvalidHandshake)
+  end
+end
+
+fn c1_selected(configuration :: Option<Bytes>,
+  suite :: Int,
+  headers :: Bool) -> Unit!SessionError do
+  case configuration do
+    None -> Ok(nil)
+    Some(c) -> if Bytes.length(c) == 32 && suite == 2 && headers do
+      Ok(nil)
+    else
+      Err(InvalidHandshake)
+    end
+  end
+end
+
+fn c1_hash(configuration :: Option<Bytes>, canonical :: Bytes) -> Bytes!SessionError do
+  case configuration do
+    None -> Ok(canonical)
+    Some(c) -> Ok(Crypto.sha256(c1_join([
+      Bytes.from_utf8("mesh-msg/c1/handshake/v1"),
+      c1_zero()?,
+      c,
+      canonical
+    ])?))
+  end
+end
+
+fn c1_scope(c :: Bytes,
+  hash :: Bytes,
+  local :: DeviceCredential,
+  peer :: DeviceCredential) -> BraidScope!SessionError do
+  Ok(BraidScope {
+    protocol_info: c1_join([Bytes.from_utf8("mesh-msg/braid/v1"), c1_zero()?, c, hash])?,
+    configuration: c,
+    session_id: hash,
+    account_id: local.account_id,
+    device_id: local.device_id,
+    peer_account_id: peer.account_id,
+    peer_device_id: peer.device_id
+  })
+end
+
+fn c1_seed(ikm :: borrow SecretBytes,
+  salt :: Bytes,
+  scope :: BraidScope,
+  label :: String) -> SecretBytes!SessionError do
+  Ok(Crypto.hkdf_sha256(ikm,
+    salt,
+    c1_join([Bytes.from_utf8(label), c1_zero()?, scope.configuration, scope.session_id])?,
+    32)?)
+end
+
+fn c1_braid_error(error :: BraidError) -> SessionError do
+  case error do
+    BraidCryptoFailure(e) -> CryptoFailure(e)
+    _ -> InvalidHandshake
+  end
+end
+
+fn c1_spqr_error(error :: SpqrError) -> SessionError do
+  case error do
+    SpqrCryptoFailure(e) -> CryptoFailure(e)
+    _ -> InvalidHandshake
+  end
+end
+
+fn c1_alice_owners(ikm :: borrow SecretBytes,
+  salt :: Bytes,
+  scope :: BraidScope) -> C1AliceOwners!SessionError do
+  let seed = c1_seed(ikm, salt, scope, "mesh-msg/spqr/bootstrap/v1")?
+  let q = initialize_spqr(scope, 0, seed)
+  Secret.destroy(seed)
+  let q = case q do
+    Ok(v) -> v
+    Err(e) -> return Err(c1_spqr_error(e))
+  end
+  let seed = c1_seed(ikm, salt, scope, "mesh-msg/braid/bootstrap/v1")?
+  let b = initialize_initiator(scope, seed)
+  Secret.destroy(seed)
+  let b = case b do
+    Ok(v) -> v
+    Err(e) -> return Err(c1_braid_error(e))
+  end
+  Ok(C1AliceOwners { spqr: q, braid: b })
+end
+
+fn c1_bob_owners(ikm :: borrow SecretBytes,
+  salt :: Bytes,
+  scope :: BraidScope) -> C1BobOwners!SessionError do
+  let seed = c1_seed(ikm, salt, scope, "mesh-msg/spqr/bootstrap/v1")?
+  let q = initialize_spqr(scope, 1, seed)
+  Secret.destroy(seed)
+  let q = case q do
+    Ok(v) -> v
+    Err(e) -> return Err(c1_spqr_error(e))
+  end
+  let seed = c1_seed(ikm, salt, scope, "mesh-msg/braid/bootstrap/v1")?
+  let b = initialize_responder(scope, seed)
+  Secret.destroy(seed)
+  let b = case b do
+    Ok(v) -> v
+    Err(e) -> return Err(c1_braid_error(e))
+  end
+  Ok(C1BobOwners { spqr: q, braid: b })
+end
+
+pub fn initiate_braid_spqr_at_minimum_suite(initiator :: borrow DeviceKeys,
+  initiator_credential :: DeviceCredential,
+  responder_account :: AccountIdentity,
+  responder_bundle :: PrekeyBundle,
+  responder_policy :: VerificationPolicy,
+  strongest_authenticated_suite :: Int,
+  minimum_session_suite :: Int,
+  plaintext :: Bytes,
+  configuration :: Bytes) -> C1Initiated!SessionError do
+  if !Bytes.secure_equals(initiator.device_id, initiator_credential.device_id)
+    || !Bytes.secure_equals(initiator.identity_public_key.bytes, initiator_credential.dh_public_key)
+    || !Bytes.secure_equals(initiator.signing_public_key.bytes,
+      initiator_credential.signing_public_key) do
+    return Err(InvalidHandshake)
+  end
+  let (he, initial, owners) = initiate_profile(initiator,
+    initiator_credential,
+    responder_account,
+    responder_bundle,
+    responder_policy,
+    strongest_authenticated_suite,
+    minimum_session_suite,
+    plaintext,
+    Some(configuration))?
+  case owners do
+    Some(o) -> do
+      let C1AliceOwners { spqr, braid } = o
+      Ok(C1Initiated { he: he, spqr: spqr, braid: braid, initial: initial })
+    end
+    None -> Err(InvalidHandshake)
+  end
+end
+
+pub fn receive_initial_braid_spqr_at_minimum_suite(responder :: borrow DeviceKeys,
+  responder_account :: AccountIdentity,
+  responder_bundle :: PrekeyBundle,
+  signed_prekey :: borrow SignedPrekeySecrets,
+  one_time_prekey :: consume OneTimePrekeySecrets,
+  post_quantum_prekey :: borrow PostQuantumPrekeySecrets,
+  initiator_account :: AccountIdentity,
+  responder_policy :: VerificationPolicy,
+  initiator_policy :: VerificationPolicy,
+  strongest_authenticated_suite :: Int,
+  minimum_session_suite :: Int,
+  message_bytes :: Bytes,
+  configuration :: Bytes) -> C1Received!SessionError do
+  let local = decoded_credential(responder_bundle.device_credential)?
+  if !Bytes.secure_equals(responder.device_id, local.device_id)
+    || !Bytes.secure_equals(responder.identity_public_key.bytes, local.dh_public_key)
+    || !Bytes.secure_equals(responder.signing_public_key.bytes, local.signing_public_key) do
+    return Err(InvalidHandshake)
+  end
+  let (he, plaintext, owners) = receive_profile(responder,
+    responder_account,
+    responder_bundle,
+    signed_prekey,
+    one_time_prekey,
+    post_quantum_prekey,
+    initiator_account,
+    responder_policy,
+    initiator_policy,
+    strongest_authenticated_suite,
+    minimum_session_suite,
+    message_bytes,
+    Some(configuration))?
+  case owners do
+    Some(o) -> do
+      let C1BobOwners { spqr, braid } = o
+      Ok(C1Received { he: he, spqr: spqr, braid: braid, plaintext: plaintext })
+    end
+    None -> Err(InvalidHandshake)
+  end
 end

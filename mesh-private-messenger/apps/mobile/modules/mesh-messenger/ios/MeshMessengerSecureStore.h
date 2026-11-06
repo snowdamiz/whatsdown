@@ -15,6 +15,7 @@ int32_t MeshMessengerCacheApplePushToken(const uint8_t *application_id,
                                          uint64_t token_length,
                                          bool development);
 void MeshMessengerClearApplePushToken(void);
+int32_t MeshMessengerWalletPins(uint8_t output[34]);
 
 #ifdef __cplusplus
 }

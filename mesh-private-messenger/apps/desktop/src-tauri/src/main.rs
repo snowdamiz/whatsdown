@@ -1,42 +1,52 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod appearance;
+mod attachment_files;
+mod bounty;
 mod mesh;
+mod navigation;
 mod request;
+mod wallet;
 
-use futures_util::StreamExt;
 use serde::Deserialize;
 use std::{
-    collections::HashMap,
     path::PathBuf,
     sync::{Arc, Mutex},
-    time::Duration,
 };
 use tauri::{
-    ipc::{Channel, InvokeBody, Request, Response},
+    ipc::{InvokeBody, Request, Response},
     Manager,
 };
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_updater::{Update, UpdaterExt};
-use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue, Message};
 
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Config {
-    base_url: String,
-    edge_url: String,
-    stream_url: String,
-    object_url: String,
     security_frame: String,
+    #[serde(default)]
+    network_counter_frame: String,
+    #[serde(default)]
+    network_frame: String,
+    #[serde(default)]
+    ohttp_frame: String,
+    #[serde(default)]
+    credit_purpose: String,
+    #[serde(default)]
+    credit_usdc_mint_hex: String,
+    #[serde(default)]
+    lightning_network: String,
+    #[serde(default)]
+    issuer_tls_root: String,
     development: bool,
 }
 struct Desktop {
     mesh: Arc<Mutex<mesh::Mesh>>,
     database: String,
+    app_identifier: String,
     data: PathBuf,
     config: Config,
-    http: reqwest::Client,
-    streams: Mutex<HashMap<u32, tokio::task::JoinHandle<()>>>,
+    attachment_saves: Arc<attachment_files::AttachmentSaves>,
 }
 
 #[tauri::command]
@@ -88,7 +98,9 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
         .find(|window| window.label == "main")
         .expect("the main window is configured")
         .clone();
-    let builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?;
+    let builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?
+        .on_navigation(navigation::allowed)
+        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
     #[cfg(target_os = "macos")]
     let builder = match config.traffic_light_position {
         Some(lights) if tall_window_buttons() => {
@@ -117,13 +129,10 @@ fn tall_window_buttons() -> bool {
     })
 }
 
-// Binary IPC: the web view sends bytes as the raw request body, with the small
-// string parameters in headers, so wire frames never round-trip through JSON.
+// Binary IPC: postMessage carries exact bounded byte arrays; the native handler
+// restores the frame and reads the small string parameters from headers.
 fn raw_body(request: &Request<'_>, error: &'static str) -> Result<Vec<u8>, String> {
-    match request.body() {
-        InvokeBody::Raw(bytes) if bytes.len() <= request::MAX_REQUEST => Ok(bytes.clone()),
-        _ => Err(error.into()),
-    }
+    request::binary_body(request.body(), error)
 }
 
 fn header<'a>(request: &'a Request<'_>, name: &str) -> Option<&'a str> {
@@ -138,16 +147,50 @@ async fn mesh_invoke(
     state: tauri::State<'_, Desktop>,
     request: Request<'_>,
 ) -> Result<Response, String> {
-    let body = raw_body(&request, "invalid_native_request")?;
     let symbol = header(&request, "X-Mesh-Symbol")
         .ok_or("invalid_native_request")?
         .to_owned();
-    if symbol == "mesh_messenger_prepare_fanout_prekeys" {
-        request::validate_prekey_url(&body, &state.config.base_url)?;
-    }
+    let body = request::bounded_binary_body(
+        request.body(),
+        0,
+        request::maximum_request(&symbol),
+        "invalid_native_request",
+    )?;
+    request::validate_public(&symbol, &body, state.database.as_bytes())?;
     let mesh = Arc::clone(&state.mesh);
     let database = state.database.clone();
+    let purpose = state.config.credit_purpose.clone();
+    let mint = state.config.credit_usdc_mint_hex.clone();
+    let directory = state.data.clone();
+    let identifier = state.app_identifier.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        if matches!(
+            symbol.as_str(),
+            "mesh_messenger_transparency_fork" | "mesh_messenger_fork_filing"
+        ) {
+            return bounty::invoke_proof(
+                &symbol,
+                database.as_bytes(),
+                |name, request| {
+                    mesh.lock()
+                        .map_err(|_| "native_lock_failed")?
+                        .invoke(name, request, &database)
+                },
+                |operation, payload| {
+                    let pins = wallet::pins(&purpose, &mint)?;
+                    let service = format!("{identifier}.wallet.v1.{}", pins[1]);
+                    wallet::invoke(
+                        &service,
+                        &directory.join(format!("MorseWallet-v1-{}", pins[1])),
+                        &pins,
+                        0,
+                        operation,
+                        payload,
+                    )
+                },
+            )
+            .map(Response::new);
+        }
         mesh.lock()
             .map_err(|_| "native_lock_failed")?
             .invoke(&symbol, &body, &database)
@@ -159,51 +202,122 @@ async fn mesh_invoke(
 
 // The response is the HTTP status as two big-endian bytes followed by the body.
 #[tauri::command]
-async fn binary_request(
+async fn wallet_invoke(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Desktop>,
     request: Request<'_>,
 ) -> Result<Response, String> {
-    let body = raw_body(&request, "invalid_service_request")?;
-    let url = header(&request, "X-Service-Url").unwrap_or_default();
-    let method = header(&request, "X-Service-Method").unwrap_or_default();
-    let capability = header(&request, "X-Object-Capability");
-    let routes = request::Routes {
-        base_url: &state.config.base_url,
-        edge_url: &state.config.edge_url,
-        object_url: &state.config.object_url,
+    let operation = header(&request, "X-Wallet-Operation")
+        .ok_or("invalid_wallet_request")?
+        .parse::<u32>()
+        .map_err(|_| "invalid_wallet_request")?;
+    let bytes = raw_body(&request, "invalid_wallet_request")?;
+    let pins = if operation == 7 && bytes.as_slice() == [0] {
+        None
+    } else {
+        Some(wallet::pins(
+            &state.config.credit_purpose,
+            &state.config.credit_usdc_mint_hex,
+        )?)
     };
-    if !request::allowed_request(&routes, url, method, capability)
-        || (method == "GET" && !body.is_empty())
-        || (capability.is_some() && body.len() > request::MAX_OBJECT_PART)
-    {
-        return Err("invalid_service_request".into());
-    }
-    let mut outgoing = state
-        .http
-        .request(method.parse().map_err(|_| "invalid_method")?, url)
-        .header("Content-Type", "application/octet-stream")
-        .body(body);
-    if let Some(capability) = capability {
-        outgoing = outgoing.header("X-Object-Capability", capability);
-    }
-    let mut response = outgoing.send().await.map_err(|_| "service_unreachable")?;
-    let mut framed = response.status().as_u16().to_be_bytes().to_vec();
-    while let Some(chunk) = response.chunk().await.map_err(|_| "service_read_failed")? {
-        if framed.len() + chunk.len() > request::MAX_REQUEST + 2 {
-            return Err("service_response_too_large".into());
+    let mesh = state.mesh.clone();
+    let database = state.database.clone();
+    let purpose = pins.as_ref().map(|value| value[1]).unwrap_or(0);
+    let directory = state.data.join(format!("MorseWallet-v1-{purpose}"));
+    let service = format!("{}.wallet.v1.{purpose}", app.config().identifier);
+    #[cfg(windows)]
+    let parent = app
+        .get_webview_window("main")
+        .ok_or("wallet_window_unavailable")?
+        .hwnd()
+        .map_err(|_| "wallet_window_unavailable")?
+        .0 as isize;
+    #[cfg(not(windows))]
+    let parent = 0;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        if operation == 7 {
+            if bytes.len() != 1 {
+                return Err("invalid_wallet_request".into());
+            }
+            return bounty::set_enabled(
+                database.as_bytes(),
+                bytes[0],
+                |name, request| {
+                    mesh.lock()
+                        .map_err(|_| "mesh_lock_failed")?
+                        .invoke(name, request, &database)
+                },
+                |operation, payload| {
+                    let pins = pins.as_ref().ok_or("wallet_pins_missing")?;
+                    wallet::invoke(&service, &directory, pins, parent, operation, payload)
+                },
+            );
         }
-        framed.extend_from_slice(&chunk);
-    }
-    Ok(Response::new(framed))
+        let pins = pins.ok_or("wallet_pins_missing")?;
+        if operation == 8 {
+            return bounty::movement(
+                &bytes,
+                database.as_bytes(),
+                |name, journal| {
+                    mesh.lock()
+                        .map_err(|_| "mesh_lock_failed")?
+                        .invoke(name, journal, &database)
+                },
+                |operation, payload| {
+                    wallet::invoke(&service, &directory, &pins, parent, operation, payload)
+                },
+            );
+        }
+        if operation == 5 || operation == 6 {
+            return wallet::network_payment(
+                operation,
+                &bytes,
+                database.as_bytes(),
+                |name, journal| {
+                    mesh.lock()
+                        .map_err(|_| "mesh_lock_failed")?
+                        .invoke(name, journal, &database)
+                },
+                |operation, payload| {
+                    wallet::invoke(&service, &directory, &pins, parent, operation, payload)
+                },
+            );
+        }
+        if operation == 3 || operation == 4 {
+            return Err("invalid_wallet_request".into());
+        }
+        let payload = wallet::payload(operation, &bytes)?;
+        wallet::invoke(&service, &directory, &pins, parent, operation, &payload)
+    })
+    .await
+    .map_err(|_| "wallet_worker_failed")??;
+    Ok(Response::new(result))
+}
+
+#[tauri::command]
+async fn credit_open_payment(
+    state: tauri::State<'_, Desktop>,
+    request: Request<'_>,
+) -> Result<(), String> {
+    let body = raw_body(&request, "invalid_wallet_request")?;
+    let mesh = state.mesh.clone();
+    let database = state.database.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let request = wallet::journal(&body, database.as_bytes())?;
+        let bytes = mesh.lock().map_err(|_| "mesh_lock_failed")?.invoke(
+            "mesh_messenger_credit_payment_handoff",
+            &request,
+            &database,
+        )?;
+        let address = String::from_utf8(bytes).map_err(|_| "invalid_payment_url")?;
+        wallet::open_payment_url(&address)
+    })
+    .await
+    .map_err(|_| "wallet_worker_failed")?
 }
 
 fn attachment_body(body: &InvokeBody) -> Result<Vec<u8>, String> {
-    match body {
-        InvokeBody::Raw(bytes) if !bytes.is_empty() && bytes.len() <= 16 * 1024 * 1024 => {
-            Ok(bytes.clone())
-        }
-        _ => Err("invalid_attachment".into()),
-    }
+    request::bounded_binary_body(body, 1, 16 * 1024 * 1024, "invalid_attachment")
 }
 
 // A decrypted attachment leaves the web view only through the system save
@@ -226,80 +340,69 @@ async fn save_attachment(app: tauri::AppHandle, request: Request<'_>) -> Result<
 }
 
 #[tauri::command]
-async fn mailbox_connect(
+async fn begin_attachment_save(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Desktop>,
-    id: u32,
-    authorization: String,
-    events: Channel<String>,
-) -> Result<(), String> {
-    if authorization.len() > 1024
-        || !authorization.starts_with("MeshMailbox ")
-        || !authorization[12..]
-            .bytes()
-            .all(|byte| byte.is_ascii_hexdigit())
-    {
-        return Err("invalid_mailbox_authorization".into());
+    request: Request<'_>,
+) -> Result<Option<u64>, String> {
+    let bytes = request::bounded_binary_body(request.body(), 4, 4, "invalid_attachment_size")?;
+    let size = u32::from_be_bytes(
+        bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| "invalid_attachment_size")?,
+    ) as u64;
+    if size == 0 || size > 536_870_912 {
+        return Err("invalid_attachment_size".into());
     }
-    let mut streams = state.streams.lock().map_err(|_| "stream_lock_failed")?;
-    streams.retain(|_, task| !task.is_finished());
-    if streams.len() >= 4 || streams.contains_key(&id) {
-        return Err("mailbox_connection_limit".into());
-    }
-    let url = state.config.stream_url.clone();
-    streams.insert(
-        id,
-        tokio::spawn(async move {
-            let result = async {
-                let mut request = url.into_client_request().map_err(|_| ())?;
-                request.headers_mut().insert(
-                    "Authorization",
-                    HeaderValue::from_str(&authorization).map_err(|_| ())?,
-                );
-                let socket_config =
-                    tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default()
-                        .max_message_size(Some(1024))
-                        .max_frame_size(Some(1024));
-                let (mut socket, _) = tokio::time::timeout(
-                    Duration::from_secs(8),
-                    tokio_tungstenite::connect_async_with_config(
-                        request,
-                        Some(socket_config),
-                        false,
-                    ),
-                )
-                .await
-                .map_err(|_| ())?
-                .map_err(|_| ())?;
-                while let Some(message) = socket.next().await {
-                    match message.map_err(|_| ())? {
-                        Message::Text(text) if text == "ready" || text == "encrypted-wakeup" => {
-                            events.send(text.to_string()).map_err(|_| ())?;
-                        }
-                        Message::Ping(_) | Message::Pong(_) => (),
-                        Message::Close(_) => break,
-                        _ => return Err(()),
-                    }
-                }
-                Ok::<(), ()>(())
-            }
-            .await;
-            let _ = events.send(if result.is_ok() { "closed" } else { "error" }.into());
-        }),
-    );
-    Ok(())
+    let name = request::safe_file_name(header(&request, "X-File-Name").unwrap_or_default());
+    let dialog = app.dialog().file().set_file_name(name);
+    let saves = state.attachment_saves.clone();
+    tauri::async_runtime::spawn_blocking(move || match dialog.blocking_save_file() {
+        None => Ok(None),
+        Some(path) => saves
+            .begin(path.into_path().map_err(|_| "invalid_save_path")?, size)
+            .map(Some),
+    })
+    .await
+    .map_err(|_| "native_task_failed")?
 }
 
 #[tauri::command]
-fn mailbox_disconnect(state: tauri::State<Desktop>, id: u32) -> Result<(), String> {
-    if let Some(task) = state
-        .streams
-        .lock()
-        .map_err(|_| "stream_lock_failed")?
-        .remove(&id)
-    {
-        task.abort();
-    }
-    Ok(())
+async fn write_attachment_range(
+    state: tauri::State<'_, Desktop>,
+    request: Request<'_>,
+) -> Result<(), String> {
+    let bytes =
+        request::bounded_binary_body(request.body(), 1, 65_536, "invalid_attachment_range")?;
+    let id = header(&request, "X-Attachment-Id")
+        .ok_or("invalid_attachment_range")?
+        .parse::<u64>()
+        .map_err(|_| "invalid_attachment_range")?;
+    let offset = header(&request, "X-Attachment-Offset")
+        .ok_or("invalid_attachment_range")?
+        .parse::<u64>()
+        .map_err(|_| "invalid_attachment_range")?;
+    let saves = state.attachment_saves.clone();
+    tauri::async_runtime::spawn_blocking(move || saves.write(id, offset, &bytes))
+        .await
+        .map_err(|_| "native_task_failed")?
+}
+
+#[tauri::command]
+async fn finish_attachment_save(state: tauri::State<'_, Desktop>, id: u64) -> Result<(), String> {
+    let saves = state.attachment_saves.clone();
+    tauri::async_runtime::spawn_blocking(move || saves.finish(id))
+        .await
+        .map_err(|_| "native_task_failed")?
+}
+
+#[tauri::command]
+async fn abort_attachment_save(state: tauri::State<'_, Desktop>, id: u64) -> Result<(), String> {
+    let saves = state.attachment_saves.clone();
+    tauri::async_runtime::spawn_blocking(move || saves.abort(id))
+        .await
+        .map_err(|_| "native_task_failed")?
 }
 
 // Updates come from the newest GitHub release and must carry the signature of
@@ -346,6 +449,7 @@ async fn install_update(
 
 fn main() {
     let result = tauri::Builder::default()
+        .invoke_system(include_str!("ipc-postmessage.js"))
         .plugin(tauri_plugin_notification::init())
         // The HTML already contains the branded cover. Keep the native
         // window hidden until that document is ready to paint.
@@ -390,6 +494,13 @@ fn main() {
             let core = mesh::Mesh::load(
                 &library,
                 config.security_frame.clone(),
+                config.network_counter_frame.clone(),
+                config.network_frame.clone(),
+                config.ohttp_frame.clone(),
+                config.credit_purpose.clone(),
+                config.credit_usdc_mint_hex.clone(),
+                config.lightning_network.clone(),
+                config.issuer_tls_root.clone(),
                 app.config().identifier.clone(),
             )?;
             // The window already exists but has not painted: dress it in the
@@ -400,13 +511,10 @@ fn main() {
             app.manage(Desktop {
                 mesh: Arc::new(Mutex::new(core)),
                 database: directory.join("morse.db").to_string_lossy().into_owned(),
+                app_identifier: app.config().identifier.clone(),
                 data: directory,
                 config,
-                http: reqwest::Client::builder()
-                    .redirect(reqwest::redirect::Policy::none())
-                    .timeout(Duration::from_secs(8))
-                    .build()?,
-                streams: Mutex::new(HashMap::new()),
+                attachment_saves: Arc::new(attachment_files::AttachmentSaves::default()),
             });
             #[cfg(debug_assertions)]
             if std::env::var_os("MORSE_DEVTOOLS").is_some() {
@@ -417,14 +525,17 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            credit_open_payment,
             database_path,
             appearance,
             set_appearance,
             mesh_invoke,
-            binary_request,
+            wallet_invoke,
             save_attachment,
-            mailbox_connect,
-            mailbox_disconnect,
+            begin_attachment_save,
+            write_attachment_range,
+            finish_attachment_save,
+            abort_attachment_save,
             check_update,
             install_update
         ])

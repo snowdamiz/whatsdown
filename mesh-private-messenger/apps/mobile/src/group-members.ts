@@ -1,4 +1,5 @@
 import { hex } from './codec.ts';
+import { t } from './i18n.ts';
 
 type Device = { leaf: number; accountId: Uint8Array; deviceId: Uint8Array; local: boolean };
 
@@ -29,8 +30,8 @@ export function summarizeMembers(members: readonly Device[]): { people: Person[]
 // "3 members", and the device count too once it says something the member
 // count does not.
 export function describeMembers({ people, devices }: { people: readonly Person[]; devices: number }): string {
-  const members = `${people.length} ${people.length === 1 ? 'member' : 'members'}`;
-  return devices > people.length ? `${members} · ${devices} devices` : members;
+  const members = t.plural('{count} member', '{count} members', people.length);
+  return devices > people.length ? `${members} · ${t.plural('{count} device', '{count} devices', devices)}` : members;
 }
 
 // The line under a member's name: what they are to the group, then what they
@@ -46,16 +47,16 @@ export function describeMember({
   conversation?: { verified: boolean; blocked: boolean };
 }): string | undefined {
   const notes: string[] = [];
-  if (creator) notes.push('Created the group');
+  if (creator) notes.push(t('Created the group'));
   if (!local) {
     notes.push(
       !conversation
-        ? 'Not in your chats yet'
+        ? t('Not in your chats yet')
         : conversation.blocked
-          ? 'Blocked'
+          ? t('Blocked')
           : conversation.verified
-            ? 'Verified contact'
-            : 'In your chats',
+            ? t('Verified contact')
+            : t('In your chats'),
     );
   }
   return notes.length ? notes.join(' · ') : undefined;

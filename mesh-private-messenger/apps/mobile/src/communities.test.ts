@@ -122,7 +122,7 @@ test('join requests name a linked group, keep the latest per person and group, a
 });
 
 test('an admin device asks for the parts it is missing, one package at a time, and only admins are heard', () => {
-  const pkg = new Uint8Array(369).fill(9);
+  const pkg = new Uint8Array(401).fill(9);
   const history = [
     message(5, encodeDeviceRequest(id('d'), new Uint8Array(369)), 10),
     message(5, encodeDeviceRequest(id('d'), pkg), 20),

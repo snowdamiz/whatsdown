@@ -58,17 +58,28 @@ authenticate it. A suite-`4` envelope whose body is not an `RCP` packet, and an
 `RCP` packet under any other suite, are rejected as `invalid_recipient_packet`:
 neither is reinterpreted.
 
-## Ratchet message version 3
+## Ratchet messages inside the seal
 
-A ratchet message inside the seal is version `3`: identical to version `2`
+The adopted development C4/D3 profile adds [header-encrypted RAT4 and INI2](header-encryption-v1.md).
+Its latest authenticated HE-capable writes use RAT4; the RCP framing, buckets and
+outer suite remain unchanged. Matching development native libraries are adopted;
+release qualification remains separate. The following RAT3 description remains the legacy
+recipient-sealed read/profile contract.
+
+A legacy ratchet message inside the seal is version `3`: identical to version `2`
 except that its plaintext carries no padding of its own, because the transport
 pads the whole packet. Padding twice would double every message's bucket. The
 version is part of the authenticated associated data, and the transport binding
 is enforced: version `3` is accepted only from a sealed envelope, and versions
 `1` and `2` only from a bare one. Maximum plaintext is 65,357 bytes.
 
-Group application messages inside the seal keep version `4`, which already
-omits inner padding.
+Permanent group application messages inside the seal use version `5`, whose
+encrypted payload includes checkpoint gossip framing. Timed messages use version
+`6` and the authenticated expiry fields described in
+[disappearing group messages](group-message-expiry-v1.md). Both omit inner padding;
+version `4` remains readable. See
+[checkpoint gossip](checkpoint-gossip-v1.md#groups) for the payload limits and
+native upgrade requirement.
 
 ## What delivery still sees
 
@@ -81,10 +92,12 @@ anonymity against a global observer, and it does not hide that two mailboxes
 receive traffic at correlated times.
 
 The seal uses a long-lived classical key. It claims neither forward secrecy nor
-post-quantum protection for the *metadata* it hides: later compromise of a
-recipient's device identity key exposes the headers of envelopes captured
-earlier. Message content is governed by the inner handshake and ratchet, not by
-this layer. Signal's sealed sender has the same property.
+post-quantum protection for the *metadata* this layer hides: later compromise of a
+recipient's device identity key exposes the inner packet and its legacy RAT3
+header; historical bare RAT1/2 headers were already public. RAT4 separately encrypts its evolved
+header with ratcheted header keys; INI bootstrap metadata remains recoverable
+after opening RCP. Message content is governed by the inner handshake and ratchet.
+See the [HE scope and retained-key limitations](header-encryption-v1.md).
 
 ## Compatibility
 
@@ -95,6 +108,14 @@ packets under outer suite `3`. Their exposed metadata is not retroactively
 hidden. A bare initial packet is never accepted. Clients that predate this
 transport cannot open sealed envelopes; update mobile, desktop, and CLI
 together. Migration `012` admits outer suite `4` in the delivery database.
+
+HE admission is separate from this transport's legacy readers. RAT4
+must be inside RCP and must match an HE state; failure is not retried as RAT3 or
+a bare RAT1/2. Current mobile writes require mask `8` on all actual authenticated
+peer/own-device targets. An unfinished bounded header scan receives no ACK and
+does not spend the ordinary failed-delivery retry budget. The [HE routing
+contract](header-encryption-v1.md#bounded-private-routing-and-acknowledgement)
+describes continuation, capacity and completed-no-match behavior.
 
 `recipient_transport.test.mpl` reproduces the leak on a bare packet and shows
 the sealed packet contains neither the session ID nor the ratchet key, that

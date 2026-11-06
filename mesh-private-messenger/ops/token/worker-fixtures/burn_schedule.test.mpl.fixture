@@ -1,0 +1,132 @@
+from BurnSchedule import token_burn_packet_disposition
+from BurnJournal import reserve_token_burn_chunk, sign_and_commit_token_burn_entry
+from Transparency.TokenBurn import decode_token_burn_profile, decode_token_burn_week
+from Solana.Read import Pubkey, Hash, pubkey
+
+fn text(root :: Json, field :: String) -> String!String do
+  Json.as_string(Json.object_get(root, field)?)
+end
+
+fn expired_chunk() -> Bool!String do
+  let source = Json.parse(File.read(Env.get("MORSE_TOKEN_BURN_FIXTURES_PATH", ""))?)?
+  let profile = decode_token_burn_profile(Bytes.from_hex(text(source, "profile_hex")?)?)?
+  let program = pubkey(text(source, "program")?)?
+  let item = Json.array_get(Json.object_get(source, "weeks")?, 3)?
+  let week = decode_token_burn_week(Bytes.from_hex(text(item, "initial_data_hex")?)?)?
+  let report = Json.array_get(Json.object_get(Json.object_get(source, "instructions")?, "execute")?,
+    95)?
+  let route = Bytes.slice(Bytes.from_base64(text(report, "dataBase64")?)?, 2, 39)?
+  let signer = case Crypto.signing_generate() do
+    Err(_) -> return Err("fixture_signer_failed")
+    Ok(value) -> value
+  end
+  let payer = Pubkey { bytes: signer.public_key.bytes }
+  let wrapping = case StorageKey.file(Env.get("MORSE_BURN_WORKER_TEST_KEY", "")) do
+    Err(_) -> return Err("fixture_storage_failed")
+    Ok(value) -> value
+  end
+  let path = Env.get("MORSE_BURN_WORKER_TEST_DB", "")
+  reserve_token_burn_chunk(path,
+    wrapping,
+    program,
+    payer,
+    profile,
+    week,
+    23,
+    route,
+    U64.parse("2000000")?)?
+  let original = sign_and_commit_token_burn_entry(path,
+    wrapping,
+    program,
+    10,
+    week.epoch,
+    23,
+    signer.private_key,
+    signer.private_key,
+    Hash { bytes: Bytes.from_hex(String.repeat("a4", 32))? },
+    U64.parse("100")?,
+    U64.parse("1000")?)?
+  # The existing safe behavior must remain: a retry never silently signs again.
+  let retained = sign_and_commit_token_burn_entry(path,
+    wrapping,
+    program,
+    10,
+    week.epoch,
+    23,
+    signer.private_key,
+    signer.private_key,
+    Hash { bytes: Bytes.from_hex(String.repeat("b5", 32))? },
+    U64.parse("200")?,
+    U64.parse("1200")?)?
+  assert(retained.packet == original.packet && retained.signature == original.signature)
+  let result = token_burn_packet_disposition(original,
+    week,
+    List.get(week.rows, 23).execute_at,
+    U64.parse("1001")?,
+    U64.parse("200")?,
+    true)?
+  assert(result == "replace:expired")
+  let due = List.get(week.rows, 23).execute_at
+  assert(token_burn_packet_disposition(original,
+    week,
+    due,
+    U64.parse("1000")?,
+    U64.parse("200")?,
+    true)? == "submit:exact")
+  assert(token_burn_packet_disposition(original,
+    week,
+    due,
+    U64.parse("1001")?,
+    U64.parse("99")?,
+    true)? == "reconcile:stale")
+  assert(token_burn_packet_disposition(original,
+    week,
+    due,
+    U64.parse("1001")?,
+    U64.parse("200")?,
+    false)? == "reconcile:code")
+  assert(token_burn_packet_disposition(original,
+    week,
+    U64.subtract(due, U64.parse("1")?)?,
+    U64.parse("1001")?,
+    U64.parse("200")?,
+    true)? == "waiting:window")
+  assert(token_burn_packet_disposition(original,
+    week,
+    original.deadline,
+    U64.parse("1001")?,
+    U64.parse("200")?,
+    true)? == "missed:window")
+  assert(token_burn_packet_disposition(%{original | epoch: U64.add(week.epoch, U64.parse("1")?)?},
+    week,
+    due,
+    U64.parse("1001")?,
+    U64.parse("200")?,
+    true)? == "reconcile:intent")
+  assert(token_burn_packet_disposition(%{original | status: 3},
+    week,
+    due,
+    U64.parse("1001")?,
+    U64.parse("200")?,
+    true)? == "reconcile:state")
+  let row = List.get(week.rows, 23)
+  let completed = %{week | rows: List.take(week.rows, 23) ++ [%{row | complete: true}]}
+  assert(token_burn_packet_disposition(original,
+    completed,
+    original.deadline,
+    U64.parse("1001")?,
+    U64.parse("200")?,
+    true)? == "confirm:receipt")
+  Secret.destroy(signer.private_key)
+  Secret.destroy(wrapping)
+  Ok(true)
+end
+
+test("finalized expired unexecuted chunk has an explicit replacement disposition while legacy retry retains bytes") do
+  let result = expired_chunk()
+  case result do
+    Err(reason) -> IO.eprintln(reason)
+    Ok(_) -> nil
+  end
+  assert(result == Ok(true))
+end

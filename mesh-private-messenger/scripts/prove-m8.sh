@@ -157,6 +157,7 @@ run_witness() {
   local signing_seed=$2
   local public_key=$3
   MESSENGER_BASE_URL="$base_url" \
+    WITNESS_INITIAL_CHECKPOINT_HEX="new-identity" \
     MESSENGER_WITNESS_ID="$witness_id" \
     MESSENGER_WITNESS_CHECKPOINT_PATH="$temp_dir/$witness_id-checkpoint" \
     MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX="$transparency_public_key_hex" \
@@ -284,7 +285,7 @@ main() {
   compose down --volumes --remove-orphans >/dev/null 2>&1
   compose up --detach --wait postgres
   (cd "$service_dir" && MESSENGER_TEST_DATABASE_URL="$database_url" "$meshc_bin" test tests)
-  psql -c 'TRUNCATE messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY;' >/dev/null
+  psql -c 'TRUNCATE transparency_entry_devices, transparency_device_records, transparency_anchors, transparency_maintenance, messenger_mailbox_aliases, messenger_one_time_prekeys, messenger_push_bindings, witness_signatures, transparency_checkpoints, transparency_nodes, transparency_entries, messenger_outbox_events, messenger_rate_limits, messenger_envelopes, messenger_devices, messenger_revoked_devices, messenger_accounts, messenger_mailboxes RESTART IDENTITY;' >/dev/null
 
   start_service
   MESSENGER_ROLE=device-b MESSENGER_BASE_URL="$base_url" MESSENGER_FETCH_DELAY_MS=25000 \

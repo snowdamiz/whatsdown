@@ -102,6 +102,19 @@ try {
       if (command === 'appearance') return 'light';
       if (command === 'binary_request') return new Uint8Array([0, 200, ...args]).buffer;
       const symbol = options?.headers?.['X-Mesh-Symbol'];
+      if (symbol === 'mesh_messenger_signup_draft_state') return [0];
+      if (symbol === 'mesh_messenger_transparency_fork') return [];
+      if (symbol === 'mesh_messenger_directory_register') return [1,68,82,71,0,64,0];
+      if (symbol === 'mesh_messenger_prekeys_synchronize') return [1,68,80,75,0,64];
+      if (symbol === 'mesh_messenger_mailbox_synchronize') return [1,77,83,89,0,1,0,0,0,0,0,0];
+      if (symbol === 'mesh_messenger_devices_renew') return [1,68,78,82,0,0,0,0];
+      if (symbol === 'mesh_messenger_credit_signup_policy_online') throw Error('credits_disabled');
+      if (symbol === 'mesh_messenger_anchor_check') return list(...['off','0','0','0','0'].map(text));
+        if (symbol === 'mesh_messenger_account_capabilities') return [1,65,67,80,1];
+        if (['mesh_messenger_send_fanout','mesh_messenger_prepare_fanout_prekeys','mesh_messenger_group_invite','mesh_messenger_group_invitation_accept','mesh_messenger_journal_load','mesh_messenger_journal_save'].includes(symbol)) throw Error('Retired native authority');
+      if (symbol === 'mesh_messenger_outbox_drain') return [0,0,0,6,0,0,0,4,1,79,66,88,0,0,0,1,0,0,0,0,2,0,0,0,0,0,2,0,0,0,0,0,4,0,0,0,0,0,0,0,4,0,0,0,0];
+      if (symbol === 'mesh_messenger_mailbox_stream_open') return Array(32).fill(1);
+      if (symbol === 'mesh_messenger_mailbox_stream_poll' || symbol === 'mesh_messenger_mailbox_stream_close') return [];
       const request = args instanceof Uint8Array ? [...args] : [];
       if (symbol === 'mesh_messenger_load_profile') return vectors(text('alice'), id(1), id(1, 16), []);
       if (symbol === 'mesh_messenger_list_conversations') {
@@ -116,19 +129,18 @@ try {
         persist();
         return [];
       }
-      if (symbol === 'mesh_messenger_send_fanout') {
+      if (symbol === 'mesh_messenger_fanout_send') {
         const parts = fields(request);
-        const n = Number(Object.keys(names).find((key) => names[key] === decode(parts[1])));
-        const body = decode(parts[3]);
-        state.fanouts.push({ peer: names[n], body });
-        (state.direct[n] ??= []).push(direct(body, 70 + state.fanouts.length, 1));
+        if (parts[3][0] === 3) state.accepted.push(parts[4][0]);
+        else if (parts[3][0] === 2) state.invites.push({ group: parts[4][0] });
+        else {
+          const n = Number(Object.keys(names).find((key) => names[key] === decode(parts[2])));
+          const body = decode(parts[4]);
+          state.fanouts.push({ peer: names[n], body });
+          (state.direct[n] ??= []).push(direct(body, 70 + state.fanouts.length, 1));
+        }
         persist();
-        return list();
-      }
-      if (symbol === 'mesh_messenger_group_invitation_accept') {
-        state.accepted.push(fields(request)[3][0]);
-        persist();
-        return list();
+        return [1,70,78,79,0];
       }
       if (symbol === 'mesh_messenger_group_list') return list(...groups().map((group) => list([1], id(group), u64(1), u32(leaves(group)))));
       if (symbol === 'mesh_messenger_group_history') return list(...(state.histories[groupOf(request)] ?? []));
@@ -157,6 +169,7 @@ try {
       }
       if (['mesh_messenger_outbox_list', 'mesh_messenger_outbox_page'].includes(symbol)) return list();
       if (symbol === 'mesh_messenger_transparency_lookup' || symbol === 'mesh_messenger_resolve_request') return fields(request)[1];
+      if (symbol === 'mesh_messenger_directory_resolve') return fields(request)[1];
       if (symbol === 'mesh_messenger_verify_transparency') return fields(request)[1];
       if (symbol === 'mesh_messenger_inspect_device_set') {
         const username = decode(fields(request)[1]);
@@ -195,15 +208,16 @@ try {
         persist();
         return list();
       }
-      if (symbol === 'mesh_messenger_journal_load' || symbol === 'mesh_messenger_journal_save') {
+      if (['mesh_messenger_journal_load', 'mesh_messenger_journal_save', 'mesh_messenger_journal_load_bound', 'mesh_messenger_journal_save_bound'].includes(symbol)) {
         const parts = fields(request);
-        const label = `sealed-journal/${decode(parts[1])}`;
-        if (symbol.endsWith('_load')) return text(localStorage.getItem(label) ?? '');
-        if (parts[2].length === 1 && parts[2][0] === 0) localStorage.removeItem(label);
-        else localStorage.setItem(label, decode(parts[2]));
+        const field = symbol.endsWith('_bound') ? 2 : 1;
+        const label = `sealed-journal/${decode(parts[field])}`;
+        if (symbol.includes('_load')) return text(localStorage.getItem(label) ?? '');
+        if (parts[field + 1].length === 1 && parts[field + 1][0] === 0) localStorage.removeItem(label);
+        else localStorage.setItem(label, decode(parts[field + 1]));
         return [];
       }
-      throw Error('Offline test boundary');
+      throw Error(`Unexpected fixture IPC: ${symbol || command}`);
     } };
   });
   const url = `http://127.0.0.1:${server.address().port}`;
@@ -213,7 +227,7 @@ try {
     await page.evaluate(() => sessionStorage.clear()).catch(() => {});
     await page.goto(`${url}${query}`);
     await page.getByRole('progressbar', { name: 'Opening Morse', exact: true }).first().waitFor({ state: 'detached' });
-    await page.getByRole('tab', { name: /^Groups(?:,|$)/ }).click();
+    await page.getByRole('tab', { name: /^Groups(?:,|$)/ }).click().catch(async (error) => { console.error(await page.locator('body').innerText(), errors); throw error; });
     await community.press('Enter');
   };
   const details = () => page.getByRole('button', { name: 'Community details', exact: true }).first().click();
@@ -267,13 +281,13 @@ try {
   await page.getByText('Community · shared by @bob', { exact: true }).waitFor();
   if (shots) await page.screenshot({ path: `${shots}/join-link.png` });
   await page.getByRole('button', { name: 'Ask to join', exact: true }).click();
-  await page.getByText('Waiting for @bob to let you in.', { exact: true }).waitFor();
-  assert.deepEqual((await test()).fanouts, [{ peer: 'bob', body: `MORSE-COMMUNITY-REQUEST/1\n${JSON.stringify([hex(80), 'Solana builders'])}` }]);
+  await page.getByText('Waiting for @bob to let you in.', { exact: true }).waitFor().catch(async (error) => { console.error(await page.locator('body').innerText(), await test(), errors); throw error; });
+  assert.deepEqual((await test()).fanouts.filter((item) => item.body.startsWith('MORSE-COMMUNITY-REQUEST/1\n')), [{ peer: 'bob', body: `MORSE-COMMUNITY-REQUEST/1\n${JSON.stringify([hex(80), 'Solana builders'])}` }]);
   if (shots) await page.screenshot({ path: `${shots}/join-waiting.png` });
   await page.getByRole('tab', { name: /^Chats(?:,|$)/ }).click();
   await page.getByText(/Asked to join Solana builders$/).first().waitFor();
   // A link someone shares in a chat is answered from its message.
-  await page.getByRole('button', { name: /^Conversation with @dave(?:,|$)/ }).press('Enter');
+  await page.getByRole('button', { name: /^Conversation with @?dave(?:,|$)/ }).press('Enter');
   await page.getByText(/^Come build with us: mesh:\/\/community\//).last().click({ button: 'right' });
   await page.getByRole('dialog', { name: 'Message actions', exact: true }).getByRole('button', { name: 'Ask to join Solana builders', exact: true }).click();
   await page.getByText('Community · shared by @bob', { exact: true }).waitFor();
@@ -322,7 +336,7 @@ try {
   const letIn = await test();
   assert.deepEqual(letIn.policies, [6], 'Her message request is accepted first');
   assert.equal(letIn.invites.at(-1).group, 80, 'She is invited to a part with room');
-  assert.deepEqual(letIn.fanouts.at(-1), { peer: 'erin', body: `MORSE-COMMUNITY-ANSWER/1\n${JSON.stringify([hex(80), hex(80)])}` });
+  assert.deepEqual(letIn.fanouts.filter((item) => item.body.startsWith('MORSE-COMMUNITY-ANSWER/1\n')).at(-1), { peer: 'erin', body: `MORSE-COMMUNITY-ANSWER/1\n${JSON.stringify([hex(80), hex(80)])}` });
   await page.getByRole('button', { name: 'Review @erin', exact: true }).waitFor({ state: 'detached' });
   // Promoting someone rewrites every part's record with the new roles.
   const before = (await test()).saves.length;

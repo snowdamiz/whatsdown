@@ -74,6 +74,34 @@ copy. State advances only after a complete transition succeeds.
 All integers are unsigned big-endian. Decoders require complete input and
 reject trailing bytes before cryptographic work.
 
+Welcome (`GWL`) and snapshot (`GST`) envelope version 2 appends a 32-byte
+`set_id` to the transparency policy's minimum sequence, checkpoint hash and
+one-byte witness threshold. The set is part of the welcome's HPKE associated
+data and the snapshot's authenticated header. It cannot be substituted while
+retaining an otherwise valid commit. Version 2 policies require a 32-byte set ID and
+threshold 1–9; the native configuration additionally enforces the exact strict
+majority for its 1–16 pins. The group commit/message schedule version is
+independent of this envelope version.
+
+Version 1 envelopes remain readable, with an empty set ID preserving their
+original authenticated bytes. Phones with native security config v1 continue
+creating v1 groups and 369-byte v1 key packages, so existing clients can join.
+Native config v2 creates groups and 401-byte key packages binding the current
+native set and threshold. A schedule-v2 commit proposal, `UpdateWitnessPolicy` (tag 4, zero
+u16 reserved field, 73-byte v2 policy), authenticates a native set change with
+the current member's signature and a fresh TreeKEM path. It preserves the
+creation checkpoint and minimum directory sequence. Roster witness counts and
+tree hashes change with the policy; a threshold cannot change without its set
+ID changing. Version 1 commits cannot carry this proposal.
+
+Before sending or adding a member under changed native pins, the phone requires
+fresh evidence for the full roster and queues the policy commit before the
+application message or add commit. State and envelopes commit together. A
+recipient accepts this transition only for its own current native set and
+threshold, with fresh roster authorization. An older native build must upgrade
+before it can apply the transition. Existing ciphertext and snapshots remain
+readable.
+
 | Value | Magic | Maximum encoded bytes |
 |---|---|---:|
 | Commit | `GCM` | 8,200 |
@@ -95,6 +123,16 @@ u32 length || value`, a nine-byte overhead. Thus every encoder-valid `GMS` and
 `GWL` fits the 65,536-byte `OuterEnvelope.ciphertext` limit exactly. The outer
 suite is `0x0003`; add/remove commits, welcomes, and messages use the same
 encrypted persistent outbox as direct messages.
+
+New mobile sends use `GMS` message version 5, with a canonical encrypted `GAP`
+payload separating application bodies from addressed checkpoint controls. The
+application body limit is 65,237 bytes, reserving 53 bytes for the checkpoint
+hint and framing inside the 65,290-byte recipient-transport plaintext budget.
+The hint is the same public size/root pair used in direct messages. Padding
+remains in the sealed recipient transport. Version 1–4 messages retain their
+original decoding; older native builds must upgrade to read version 5. See
+[checkpoint gossip](checkpoint-gossip-v1.md#groups) for the exact bytes, routing,
+privacy and retry rules.
 
 The Mesh mobile API owns the group records exposed to the thin app bridge.
 `group_list` returns at most 128 summaries; `group_inspect` returns the current

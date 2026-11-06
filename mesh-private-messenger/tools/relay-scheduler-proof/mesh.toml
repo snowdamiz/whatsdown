@@ -1,0 +1,7 @@
+[package]
+name = "morse-relay-scheduler-proof"
+version = "0.1.0"
+description = "Local SBF proof harness for the production Mesh relay readers"
+
+[dependencies]
+messenger-protocol = { path = "../../packages/messenger-protocol" }

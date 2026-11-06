@@ -203,12 +203,13 @@ fn rejects_join(value :: Result<GroupState, GroupError>) -> Bool do
   end
 end
 
-fn proof() -> Bool!GroupError do
+fn proof(set_id :: Bytes) -> Bool!GroupError do
   let checkpoint = repeated(73, 32)
   let policy = GroupTransparencyPolicy {
     minimum_directory_sequence: wide(4)?,
     checkpoint_hash: checkpoint,
-    witness_threshold: 2
+    witness_threshold: 2,
+    set_id: set_id
   }
   let alice_signing = signing_pair()?
   let alice_init = init_pair()?
@@ -272,6 +273,7 @@ fn proof() -> Bool!GroupError do
   assert(rejects_restore(blob, key, repeated(9, 32), bob_device, wide(1)?))
   assert(rejects_restore(blob, key, bob_account, repeated(9, 16), wide(1)?))
   let restored = restore_group(blob, key, bob_account, bob_device, wide(1)?)?
+  assert(Bytes.secure_equals(restored.policy.set_id, set_id))
   let (carol_state, dave_commit, dave_welcome) = added(commit_add(carol_state,
     carol_signing.private_key,
     dave))?
@@ -295,7 +297,17 @@ fn proof() -> Bool!GroupError do
 end
 
 test("group recovery restores TreeKEM private paths and rejects rollback or tampering") do
-  case proof() do
+  case proof(Bytes.empty()) do
+    Err(error) -> do
+      println(group_error_name(error))
+      assert(false)
+    end
+    Ok(value) -> assert(value)
+  end
+end
+
+test("group snapshot v2 retains the witness set through sealed recovery") do
+  case proof(repeated(91, 32)) do
     Err(error) -> do
       println(group_error_name(error))
       assert(false)

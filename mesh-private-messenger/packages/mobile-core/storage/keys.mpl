@@ -130,7 +130,9 @@ end
 pub fn seal_local(value :: Bytes,
   wrapping_key :: borrow StorageKey,
   value_context :: Bytes) -> Bytes!String do
-  case StorageKey.seal_bytes(value, wrapping_key, value_context) do
+  let raw = StorageKey.seal_bytes(value, wrapping_key, value_context)
+  case declassify_discriminant(raw,
+    "local storage reviews only bounded seal success or refusal; ciphertext alone crosses encryption while plaintext contents raw error payloads private metadata and prior caller control remain private") do
     Err(_) -> Err("local_state_seal_failed")
     Ok(blob)
   end

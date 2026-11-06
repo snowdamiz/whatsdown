@@ -1,0 +1,6 @@
+[package]
+name = "transparency-cutover"
+version = "0.1.0"
+
+[dependencies]
+directory-delivery = { path = "../../services/directory-delivery" }

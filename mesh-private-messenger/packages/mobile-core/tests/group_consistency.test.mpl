@@ -241,6 +241,14 @@ fn proof() -> Bool!String do
     Ok(_) -> assert(false)
     Err(error) -> assert(error == "transparency_trust_mismatch")
   end
+  # The failed probe deliberately changed the native test fixture. Restore
+  # its legitimate pins and reverify before authorizing the group addition.
+  verify_for(alice,
+    "alice",
+    current_alice_evidence,
+    service_public_key,
+    witness_a_public_key,
+    witness_b_public_key)?
   let welcome_output = group_add_export(request([
     Bytes.from_utf8(alice.path),
     group_id,

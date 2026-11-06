@@ -18,6 +18,7 @@ from Mobile.Codec import (
 )
 from Mobile.GroupState import decode_group_key_package, group_join_label
 from Mobile.Types import MobileGroupKeyPackage
+from Mobile.Transparency import load_transparency_view
 from Protocol.V1 import InnerEnvelope
 from Storage.Blobs import load_blob
 from Storage.Keys import local_context, open_local, seal_local
@@ -91,7 +92,7 @@ fn encode_record(value :: GroupInvitation) -> Bytes!String do
 end
 
 fn decode_record(input :: Bytes) -> GroupInvitation!String do
-  let p = invitation_parts(input, 12, 369)?
+  let p = invitation_parts(input, 12, 401)?
   let value = GroupInvitation {
     id: List.get(p, 0),
     group_id: List.get(p, 1),
@@ -119,7 +120,9 @@ fn decode_record(input :: Bytes) -> GroupInvitation!String do
     || (Bytes.length(value.inviter_signing_key) != 0
       && Bytes.length(value.inviter_signing_key) != 32)
     || (value.state == 2 && Bytes.length(value.inviter_signing_key) != 32)
-    || (Bytes.length(value.key_package) != 0 && Bytes.length(value.key_package) != 369) do
+    || (Bytes.length(value.key_package) != 0
+      && Bytes.length(value.key_package) != 369
+      && Bytes.length(value.key_package) != 401) do
     Err("invalid_group_invitation")
   else
     Ok(value)
@@ -242,7 +245,7 @@ fn receive_control(path :: String,
         inviter_signing_key: Bytes.empty()
       }))
   else
-    let p = invitation_parts(inner.body, 3, 369)?
+    let p = invitation_parts(inner.body, 3, 401)?
     let id = List.get(p, 0)
     let group_id = List.get(p, 1)
     let package = decode_group_key_package(List.get(p, 2))?
@@ -251,7 +254,16 @@ fn receive_control(path :: String,
       Ok(value) -> value
       Err(_) -> return Ok(values)
     end
-    if previous.state != 0
+    if previous.state == 3 do
+      # Only a current native set can replace an already authenticated response;
+      # a delayed old acceptance cannot roll it back after renewal.
+      let view = load_transparency_view(path, key)?
+      if !Bytes.secure_equals(package.set_id, view.set_id)
+        || package.witness_count != view.witness_threshold do
+        return Ok(values)
+      end
+    end
+    if (previous.state != 0 && previous.state != 3)
       || !Bytes.secure_equals(previous.group_id, group_id)
       || !Bytes.secure_equals(previous.inviter_account, local.account_id)
       || !Bytes.secure_equals(previous.inviter_device, local.device_id)
@@ -272,7 +284,7 @@ fn validate_control(inner :: InnerEnvelope) -> Bool!String do
   else
     3
   end
-  let parts = invitation_parts(inner.body, count, 369)?
+  let parts = invitation_parts(inner.body, count, 401)?
   if Bytes.length(List.get(parts, 0)) != 16 || Bytes.length(List.get(parts, 1)) != 32 do
     return Ok(false)
   end

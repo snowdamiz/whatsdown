@@ -1,3 +1,17 @@
+from Protocol.Capabilities import supports_header_encryption
+from Session.State import RatchetState, DecryptOutcome, RatchetError, RatchetMessage
+from Monitor.Service import run_monitor_command
+from Client.Bonds import run_bonds_command
+from Client.Receipt import run_receipt_command
+from Client.Attendance import run_attendance_command
+from Client.Rewards import run_rewards_command
+from Client.Security import (
+  configured_difficulty,
+  configured_session_minimum,
+  configured_policy,
+  verify_cli_evidence,
+  resolution_path
+)
 from Identity.Device import (
   AccountKeys,
   DeviceKeys,
@@ -43,19 +57,15 @@ from Protocol.V1 import (
   OuterEnvelope,
   PrekeyBundle
 )
-from Session.Handshake import RatchetState, initiate, receive_initial
+from Client.Session import initiate_cli, receive_initial_cli
 from Session.Ratchet import (
-  DecryptOutcome,
-  RatchetError,
-  RatchetMessage,
   decode_ratchet_message,
   decrypt,
   encode_ratchet_message,
   encrypt_sealed,
   ratchet_transport_matches
 )
-from Transparency.Client import checkpoint_fresh_at, verify_evidence
-from Transparency.Merkle import TransparencyCheckpoint, WitnessKey
+from Transparency.Merkle import TransparencyCheckpoint
 from Transparency.Wire import (
   TransparencyEvidence,
   TransparencyLookup,
@@ -105,7 +115,7 @@ fn credential(account_keys :: borrow AccountKeys,
   expires_at :: U64) -> DeviceCredential!String do
   case issue_device_credential(account_keys,
     device_keys,
-    wide("1")?,
+    wide("9")?,
     created_at,
     expires_at,
     wide("1")?) do
@@ -192,15 +202,6 @@ fn clock() -> U64!String do
   wide(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))
 end
 
-fn pinned_key(name :: String) -> Bytes!String do
-  let value = Bytes.from_hex(Env.get(name, ""))?
-  if Bytes.length(value) == 32 do
-    Ok(value)
-  else
-    Err("#{name} must be a pinned 32-byte public key")
-  end
-end
-
 fn base_url() -> String do
   Env.get("MESSENGER_BASE_URL", "http://127.0.0.1:18086")
 end
@@ -211,10 +212,7 @@ end
 
 fn stamped(label :: String, payload :: Bytes) -> Bytes!String do
   let expires_at = U64.add(clock()?, U64.parse("240000")?)?
-  encode_stamped_request(mint_request_stamp(label,
-      payload,
-      expires_at,
-      Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16))?,
+  encode_stamped_request(mint_request_stamp(label, payload, expires_at, configured_difficulty()?)?,
     payload)
 end
 
@@ -247,26 +245,10 @@ fn register_entry(entry :: DirectoryEntry) -> Int!String do
 end
 
 # The directory is untrusted: an entry is used only with a fresh checkpoint
-# signed by the pinned service key, an inclusion proof, and both pinned witnesses.
+# signed by the pinned service key, an inclusion proof, and the configured majority.
 
 fn evidence_verified(evidence :: TransparencyEvidence) -> Bool!String do
-  let witnesses = [
-    WitnessKey {
-      witness_id: "witness-a",
-      public_key: pinned_key("MESSENGER_WITNESS_A_PUBLIC_KEY_HEX")?
-    },
-    WitnessKey {
-      witness_id: "witness-b",
-      public_key: pinned_key("MESSENGER_WITNESS_B_PUBLIC_KEY_HEX")?
-    }
-  ]
-  let service_key_bytes = pinned_key("MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX")?
-  let service_key = SigningPublicKey { bytes: service_key_bytes }
-  if !checkpoint_fresh_at(evidence.checkpoint.timestamp, clock()?) do
-    Ok(false)
-  else
-    verify_evidence(evidence, service_key, witnesses, 2, Bytes.empty())
-  end
+  verify_cli_evidence(evidence, configured_policy()?, clock()?)
 end
 
 fn verified_entry(evidence :: TransparencyEvidence, username :: String) -> DirectoryEntry!String do
@@ -297,7 +279,8 @@ fn resolve_entry(username :: String, attempt :: Int) -> DirectoryEntry!String do
     username: username,
     previous_tree_size: 0
   })?
-  let response = post("/v1/devices/resolve", stamped("mesh-msg/v1/work/resolve", lookup)?)?
+  let response = post(resolution_path(configured_policy()?),
+    stamped("mesh-msg/v1/work/resolve", lookup)?)?
   if response.status == 404 do
     retry_resolution(username, attempt, "device resolution returned 404")
   else if response.status != 200 do
@@ -464,6 +447,7 @@ fn outbound(token :: Bytes, packet :: Bytes, recipient_dh_public_key :: Bytes) -
 end
 
 fn run_device_a() -> Int!String do
+  let minimum = configured_session_minimum()?
   let created_at = wide("1700000000000")?
   let now = wide("1800000000000")?
   let expires_at = wide("1900000000000")?
@@ -477,6 +461,9 @@ fn run_device_a() -> Int!String do
     Err(_) -> Err("invalid responder credential")
     Ok(value)
   end?
+  if !supports_header_encryption(bob_credential.capabilities) do
+    return Err("header_recipient_upgrade_required")
+  end
   let (alice_account_keys, alice_account) = account(created_at)?
   let alice = device()?
   let alice_credential = credential(alice_account_keys, alice, created_at, expires_at)?
@@ -487,7 +474,8 @@ fn run_device_a() -> Int!String do
     conversation_id,
     random(16)?,
     "initial")?
-  let (alice_session, initial) = case initiate(alice,
+  let (alice_session, initial) = case initiate_cli(minimum,
+    alice,
     alice_credential,
     bob_account,
     bob_bundle,
@@ -648,6 +636,7 @@ fn envelope_ids(deliveries :: List<DeliveredEnvelope>,
 end
 
 fn run_device_b() -> Int!String do
+  let minimum = configured_session_minimum()?
   let created_at = wide("1700000000000")?
   let now = wide("1800000000000")?
   let expires_at = wide("1900000000000")?
@@ -692,7 +681,8 @@ fn run_device_b() -> Int!String do
           Ok(account_value) -> Ok((account_value, initial_bytes))
         end
       end?
-      let (bob_session, initial_plaintext) = case receive_initial(bob,
+      let (bob_session, initial_plaintext) = case receive_initial_cli(minimum,
+        bob,
         bob_account,
         published,
         signed,
@@ -759,6 +749,57 @@ fn report(role :: String, result :: Result<Int, String>) do
 end
 
 fn main() do
+  let args = Env.args()
+  if List.length(args) > 1 && List.get(args, 1) == "rewards" do
+    case run_rewards_command(args) do
+      Err(error) -> do
+        io_eprintln(error)
+        Process.exit(1)
+      end
+      Ok(code) -> Process.exit(code)
+    end
+    return
+  end
+  if List.length(args) > 1 && List.get(args, 1) == "attendance" do
+    case run_attendance_command(args) do
+      Err(error) -> do
+        io_eprintln(error)
+        Process.exit(1)
+      end
+      Ok(code) -> Process.exit(code)
+    end
+    return
+  end
+  if List.length(args) > 1 && List.get(args, 1) == "receipt" do
+    case run_receipt_command(args) do
+      Err(error) -> do
+        io_eprintln(error)
+        Process.exit(1)
+      end
+      Ok(code) -> Process.exit(code)
+    end
+    return
+  end
+  if List.length(args) > 1 && List.get(args, 1) == "bonds" do
+    case run_bonds_command(args) do
+      Err(error) -> do
+        io_eprintln(error)
+        Process.exit(1)
+      end
+      Ok(code) -> Process.exit(code)
+    end
+    return
+  end
+  if List.length(args) > 1 && List.get(args, 1) == "monitor" do
+    case run_monitor_command(args) do
+      Err(error) -> do
+        io_eprintln(error)
+        Process.exit(1)
+      end
+      Ok(code) -> Process.exit(code)
+    end
+    return
+  end
   let role = Env.get("MESSENGER_ROLE", "")
   if role == "device-a" do
     report(role, run_device_a())

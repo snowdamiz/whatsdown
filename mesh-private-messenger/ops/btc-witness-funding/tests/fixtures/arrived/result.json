@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "fault": "payment-after",
+  "bucket": "witness",
+  "final_stage": "arrived",
+  "actual_sbf_transfer_executed": true,
+  "withdrawal_mutation_requests": 1,
+  "natural_expiry_and_concurrent_drafts": [],
+  "provider_effect_counts": {
+    "/0/private/DepositAddresses": 1,
+    "/v2/router/send": 1,
+    "/0/private/AddOrder": 1
+  },
+  "boundary": "Owned regtest LND + authenticated loopback Kraken protocol fixtures + actual classic SPL test-mint bank; no live provider credit/finality/USDC evidence."
+}

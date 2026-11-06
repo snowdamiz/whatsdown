@@ -5,6 +5,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, Text, View } from "react-native";
 
 import { formatClock } from "./format";
+import { msg } from "./i18n";
+import { useI18n } from "./language";
 import { fonts, isDesktop, motion, radius, size as sizes, space, themed, useTheme, withAlpha } from "./theme";
 import { Glow, Icon, metaRoom, type IconName } from "./ui";
 
@@ -30,9 +32,9 @@ function useReducedMotion(): boolean | null {
 // side's messages land sealed and open into words, as they do on arrival;
 // your own reply was never sealed to you. `at` is when each one lands.
 const thread = [
-  { sent: false, text: "Dinner on Friday?", minute: 31, at: 250 },
-  { sent: true, text: "Yes! I’ll book the place by the river.", minute: 32, at: 1250 },
-  { sent: false, text: "Perfect. See you at 7.", minute: 33, at: 2050 },
+  { sent: false, text: msg("Dinner on Friday?"), minute: 31, at: 250 },
+  { sent: true, text: msg("Yes! I’ll book the place by the river."), minute: 32, at: 1250 },
+  { sent: false, text: msg("Perfect. See you at 7."), minute: 33, at: 2050 },
 ] as const;
 // A sealed message rests a beat before it opens, then opens left to right.
 const openAfter = 420;
@@ -132,6 +134,7 @@ function ArtBubble({ sent, text, minute, at, still }: {
 // decoration, so it drops out of the accessibility tree, and it steps aside
 // entirely where the screen is too short to hold it.
 export function SealedChat() {
+  const { t } = useI18n();
   const styles = useStyles();
   const still = useReducedMotion();
   const [room, setRoom] = useState(0);
@@ -152,7 +155,7 @@ export function SealedChat() {
           onLayout={(event) => setNeed(event.nativeEvent.layout.height)}
         >
           {thread.map((message) => (
-            <ArtBubble key={message.minute} {...message} still={still} />
+            <ArtBubble key={message.minute} {...message} text={t(message.text)} still={still} />
           ))}
         </View>
       )}
@@ -169,6 +172,7 @@ export function IdentityPreview({ photo, name, username, children }: {
   username: string;
   children?: ReactNode;
 }) {
+  const { t } = useI18n();
   const styles = useStyles();
   return (
     <View style={styles.art}>
@@ -176,7 +180,7 @@ export function IdentityPreview({ photo, name, username, children }: {
       <View style={styles.identity}>
         {photo}
         <View aria-hidden style={styles.identityText}>
-          <Text numberOfLines={1} style={[styles.identityName, !name && styles.unset]}>{name || "Your name"}</Text>
+          <Text numberOfLines={1} style={[styles.identityName, !name && styles.unset]}>{name || t("Your name")}</Text>
           <Text numberOfLines={1} style={styles.identityHandle}>@{username || "your_name"}</Text>
         </View>
         {children}
@@ -261,7 +265,7 @@ const useStyles = themed(({ colors, type }) =>
       fontSize: type.micro.fontSize,
       letterSpacing: type.micro.letterSpacing,
       fontVariant: ["tabular-nums"],
-      color: "transparent",
+      color: colors.hiddenInk,
     },
     noise: { flexDirection: "row", flexWrap: "wrap", columnGap: space[2] },
     noiseWord: { height: type.body.lineHeight, flexDirection: "row", alignItems: "center", gap: space[1] - 1 },

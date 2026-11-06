@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
-import { MARK_CANVAS, MARK_GRADIENT, MARK_PATH, MORSE_CODE_WORDMARK } from './brand';
+import { MARK_CANVAS, MARK_GRADIENT, MARK_PATH } from './brand';
+import { useI18n } from './language';
 import { motion, space, themed, useTheme } from './theme';
 import { Wallpaper } from './ui';
 
@@ -26,6 +27,7 @@ export function StartupScreen({ ready = false, fontsReady = false, error }: {
 }) {
   // The cover follows the device's scheme, like the app it lifts to reveal.
   const { scheme, type } = useTheme();
+  const { t } = useI18n();
   const styles = useStyles();
   const [visible, setVisible] = useState(true);
   const [opacity] = useState(() => new Animated.Value(1));
@@ -77,7 +79,7 @@ export function StartupScreen({ ready = false, fontsReady = false, error }: {
     <Animated.View
       testID="startup-screen"
       accessibilityRole={error ? 'alert' : 'progressbar'}
-      accessibilityLabel={error || 'Opening Morse'}
+      accessibilityLabel={error || t('Opening Morse')}
       accessibilityState={{ busy: !error }}
       accessibilityViewIsModal
       onLayout={() => {
@@ -104,10 +106,7 @@ export function StartupScreen({ ready = false, fontsReady = false, error }: {
         <Path d={MARK_PATH} fill="url(#startup-mark)" />
       </Svg>
       <View style={styles.caption}>
-        {fontsReady ? <>
-          <Text style={type.title2}>Morse</Text>
-          <Text style={styles.code} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{MORSE_CODE_WORDMARK}</Text>
-        </> : null}
+        {fontsReady ? <Text style={type.title2}>Morse</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
     </Animated.View>
@@ -118,6 +117,5 @@ const useStyles = themed(({ colors, type }) => StyleSheet.create({
   screen: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas, zIndex: 100 },
   // Keep the mark at the exact centre, matching the OS splash and HTML.
   caption: { position: 'absolute', top: '50%', marginTop: 100, alignItems: 'center', gap: space[2], paddingHorizontal: space[6] },
-  code: { ...type.monoSmall, color: colors.text3, letterSpacing: 1.5 },
   error: { color: colors.text2, textAlign: 'center', maxWidth: 320 },
 }));

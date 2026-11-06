@@ -1,0 +1,304 @@
+from Fixtures.WorkerBank import token_burn_bank_fixture
+from BurnJournal import (
+  reserve_token_burn_chunk,
+  sign_and_commit_token_burn_entry,
+  commit_token_burn_packet,
+  replace_token_burn_expired_packet,
+  load_token_burn_retired_packet,
+  load_token_burn_entry,
+  record_token_burn_missed_window,
+  load_token_burn_missed_window
+)
+from Solana.Read import Pubkey, Hash
+
+fn recovery() -> Bool!String do
+  let fixture = token_burn_bank_fixture(Env.get("MORSE_BURN_WORKER_BANK_FIXTURE", ""))?
+  let bank = fixture.bank
+  let week = case bank.custody.frame do
+    None -> return Err("missing_fixture_frame")
+    Some(value) -> value.week
+  end
+  assert(bank.custody.code_current)
+  let market = case bank.market do
+    None -> return Err("missing_fixture_market")
+    Some(value) -> value
+  end
+  assert(market.code_current && market.spot == Some(U64.parse("2000000")?))
+  let pair = case Crypto.signing_generate() do
+    Err(_) -> return Err("fixture_signer")
+    Ok(value) -> value
+  end
+  let payer = Pubkey { bytes: pair.public_key.bytes }
+  let wrapping = case StorageKey.file(Env.get("MORSE_BURN_WORKER_TEST_KEY", "")) do
+    Err(_) -> return Err("fixture_storage")
+    Ok(value) -> value
+  end
+  let path = Env.get("MORSE_BURN_WORKER_TEST_DB", "")
+  let reserved = reserve_token_burn_chunk(path,
+    wrapping,
+    fixture.pins.program,
+    payer,
+    bank.custody.profile,
+    week,
+    fixture.index,
+    fixture.route,
+    U64.parse("2000000")?)?
+  let original = sign_and_commit_token_burn_entry(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    pair.private_key,
+    pair.private_key,
+    bank.tip.blockhash,
+    bank.custody.context_slot,
+    bank.tip.last_valid_block_height)?
+  assert(original.status == 1 && original.id == reserved.id)
+  let slot = U64.add(bank.custody.context_slot, U64.parse("1")?)?
+  # Synthetic policy mutations of a genuine exported bank; these are not chain observations.
+  let expired = %{bank |
+    expired_hash: Some(bank.tip.blockhash),
+    height: U64.add(original.last_valid_block_height, U64.parse("1")?)?,
+    custody: %{bank.custody | context_slot: slot},
+    market: Some(%{market | context_slot: slot}),
+    tip: %{bank.tip |
+      context_slot: slot,
+      last_valid_block_height: U64.parse("1400")?,
+      blockhash: Hash { bytes: Bytes.from_hex(String.repeat("b5", 32))? }
+    }
+  }
+  assert(Result.is_err(replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature,
+    bank,
+    pair.private_key)))
+  assert(Result.is_err(replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature,
+    %{expired | height: original.last_valid_block_height},
+    pair.private_key)))
+  assert(Result.is_err(replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature,
+    %{expired | custody: %{expired.custody | code_current: false}},
+    pair.private_key)))
+  assert(Result.is_err(replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature,
+    %{expired | market: Some(%{market | context_slot: slot, spot: None})},
+    pair.private_key)))
+  # A legacy imported lifetime can be too small. Height alone never authorizes replacement.
+  assert(replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature,
+    %{expired | expired_hash: None},
+    pair.private_key) == Err("token_burn_hash_not_proven_expired"))
+  assert(replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature,
+    %{expired | expired_hash: Some(expired.tip.blockhash)},
+    pair.private_key) == Err("token_burn_hash_not_proven_expired"))
+  # Force failure after the current UPDATE but before archive INSERT; both must roll back.
+  let transaction = Sqlite.open(path)?
+  Sqlite.execute_values(transaction,
+    "INSERT INTO token_burn_retired (id,signature,ciphertext) VALUES (?,?,?)",
+    [
+      Text(Bytes.to_hex(original.id)),
+      Text(Bytes.to_hex(original.signature)),
+      Binary(Bytes.from_hex("00")?)
+    ])?
+  Sqlite.close(transaction)
+  assert(Result.is_err(replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature,
+    expired,
+    pair.private_key)))
+  assert(load_token_burn_entry(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index)? == original)
+  let transaction = Sqlite.open(path)?
+  Sqlite.execute_values(transaction,
+    "DELETE FROM token_burn_retired WHERE id = ?",
+    [Text(Bytes.to_hex(original.id))])?
+  Sqlite.close(transaction)
+  let next = replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature,
+    expired,
+    pair.private_key)?
+  assert(next.status == 1
+    && next.id == original.id
+    && next.instruction == original.instruction
+    && next.not_before == original.not_before
+    && next.deadline == original.deadline
+    && next.signature != original.signature
+    && next.packet != original.packet)
+  let retired = load_token_burn_retired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature)?
+  assert(retired.entry == original
+    && retired.replacement_signature == next.signature
+    && retired.observed_height == expired.height
+    && retired.bank_digest == expired.digest)
+  let database = Sqlite.open(path)?
+  let archive_rows = Sqlite.query_values(database,
+    "SELECT ciphertext FROM token_burn_retired WHERE id = ? AND signature = ?",
+    [Text(Bytes.to_hex(original.id)), Text(Bytes.to_hex(original.signature))])?
+  let sealed = case Map.get(List.head(archive_rows), "ciphertext") do
+    Binary(value) -> value
+    _ -> return Err("fixture_archive")
+  end
+  let last = Bytes.length(sealed) - 1
+  let corrupt = Bytes.concat(Bytes.slice(sealed, 0, last)?,
+    Bytes.write_uint_le(Int.to_string((Bytes.get(sealed, last)? + 1) % 256), 1)?)?
+  Sqlite.execute_values(database,
+    "UPDATE token_burn_retired SET ciphertext = ? WHERE id = ? AND signature = ?",
+    [Binary(corrupt), Text(Bytes.to_hex(original.id)), Text(Bytes.to_hex(original.signature))])?
+  assert(load_token_burn_retired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature) == Err("token_burn_retired_authentication_failed"))
+  assert(load_token_burn_entry(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index)? == next)
+  Sqlite.execute_values(database,
+    "UPDATE token_burn_retired SET ciphertext = ? WHERE id = ? AND signature = ?",
+    [Binary(sealed), Text(Bytes.to_hex(original.id)), Text(Bytes.to_hex(original.signature))])?
+  Sqlite.close(database)
+  assert(Result.is_err(replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature,
+    expired,
+    pair.private_key)))
+  assert(Result.is_err(commit_token_burn_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.packet,
+    original.context_slot,
+    original.last_valid_block_height)))
+  assert(load_token_burn_entry(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index)? == next)
+  assert(load_token_burn_missed_window(path,
+    wrapping,
+    fixture.pins.program,
+    fixture.epoch,
+    fixture.index)? == None)
+  let missed_time = case String.to_int(U64.to_string(next.deadline)) do
+    None -> return Err("fixture_time")
+    Some(value) -> value
+  end
+  let missed_bank = %{expired | custody: %{expired.custody | timestamp: missed_time}}
+  let missed = record_token_burn_missed_window(path,
+    wrapping,
+    fixture.pins.program,
+    fixture.epoch,
+    fixture.index,
+    missed_bank)?
+  assert(missed.deadline == next.deadline && missed.observed_time == next.deadline)
+  assert(record_token_burn_missed_window(path,
+    wrapping,
+    fixture.pins.program,
+    fixture.epoch,
+    fixture.index,
+    missed_bank)? == missed)
+  assert(load_token_burn_entry(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index)? == next)
+  # A later stale within-window result cannot reopen a durably missed chunk.
+  let stale = %{expired |
+    expired_hash: Some(expired.tip.blockhash),
+    height: U64.parse("1401")?,
+    tip: %{expired.tip |
+      last_valid_block_height: U64.parse("1600")?,
+      blockhash: Hash { bytes: Bytes.from_hex(String.repeat("c6", 32))? }
+    }
+  }
+  assert(replace_token_burn_expired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    next.signature,
+    stale,
+    pair.private_key) == Err("token_burn_reconcile_missed"))
+  assert(load_token_burn_retired_packet(path,
+    wrapping,
+    fixture.pins.program,
+    10,
+    fixture.epoch,
+    fixture.index,
+    original.signature)? == retired)
+  Secret.destroy(pair.private_key)
+  Secret.destroy(wrapping)
+  Ok(true)
+end
+
+test("actual31-role v2 bank authenticates; expired packet replacement archives atomically and missed windows never release/reopen") do
+  let result = recovery()
+  case result do
+    Err(reason) -> IO.eprintln(reason)
+    Ok(_) -> nil
+  end
+  assert(result == Ok(true))
+end

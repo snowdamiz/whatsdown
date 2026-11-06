@@ -1,0 +1,108 @@
+from Credits.Issuance import CreditQuote
+from Storage.Treasury import TreasuryMovement
+from Payment.Treasury import TreasuryChainConfig,treasury_config_hash,treasury_message
+from Runtime.TreasurySigning import sign_treasury_packet
+from Payment.TreasuryOutcome import validate_treasury_outcome
+from Solana.Read import AccountInfo, Signature, pubkey
+from Solana.Tx import AccountMeta, Instruction, serialize_legacy_message
+from Solana.Nonce import nonce_account, compile_durable_nonce_message
+from Solana.TransactionWrite import serialize_signed_legacy_transaction
+from Solana.TransactionRead import get_finalized_transaction_outcome
+
+fn field(value :: Json, name :: String) -> String!String do
+  Json.as_string(Json.object_get(value, name)?)
+end
+fn pair(name :: String) -> SigningKeyPair!String do
+  let secret = case Env.get_secret_hex(name) do Err(_) -> return Err("test signer seed failed") Ok(value) -> value end
+  case Crypto.signing_from_secret(secret) do Err(_) -> Err("test signer import failed") Ok(value) -> Ok(value) end
+end
+fn signature(key :: borrow SigningPrivateKey, message :: Bytes) -> Signature!String do
+  case Crypto.sign(key, message) do Err(_) -> Err("test signing failed") Ok(value) -> Ok(value) end
+end
+fn treasury_config(input :: Json) -> TreasuryChainConfig!String do
+  Ok(TreasuryChainConfig {providers_hash: Bytes.from_hex(String.repeat("12",32))?,cluster: Bytes.from_hex(String.repeat("11",32))?,mint: Bytes.from_hex(String.repeat("44",32))?,
+    treasury_owner: pubkey(field(input,"destination")?)?.bytes,fee_payer: pubkey(field(input,"payer")?)?.bytes,
+    nonce_authority: pubkey(field(input,"authority")?)?.bytes,nonce_address: pubkey(field(input,"address")?)?.bytes,
+    rewards_program: Bytes.from_hex(String.repeat("55",32))?,rewards_pool: Bytes.from_hex(String.repeat("66",32))?})
+end
+fn treasury_movement(input :: Json) -> TreasuryMovement!String do
+  let config = treasury_config(input)?
+  let source = pubkey(field(input,"source")?)?.bytes
+  let amount = U64.parse(field(input,"amount")?)?
+  let quote = CreditQuote {quote_id: Bytes.from_hex(String.repeat("88",32))?,deposit_owner: source,destination: source,
+    mint: Bytes.from_hex(String.repeat("00",32))?,asset: 1,amount: amount,purpose: 1,credits: 100,
+    issued_at: U64.parse("1700000000")?,expires_at: U64.parse("1700000900")?,
+    issuer_key_id: Bytes.from_hex(String.repeat("99",32))?,batch_hash: Bytes.from_hex(String.repeat("aa",32))?}
+  Ok(TreasuryMovement {batch_id: Bytes.empty(),movement_id: Bytes.from_hex(String.repeat("bb",32))?,quote: quote,
+    payment_signature: Bytes.from_hex(String.repeat("cc",64))?,kind: 0,config_hash: treasury_config_hash(config)?,
+    source: source,destination: config.treasury_owner,destination_owner: config.treasury_owner,
+    amount: amount,ready_at: U64.parse("1700000000")?,state: 0,message: Bytes.empty(),packet: Bytes.empty(),transaction_signature: Bytes.empty()})
+end
+fn outcome(input :: Json) -> String!String do
+  let client = Http.client()
+  let checked = get_finalized_transaction_outcome(client, Env.get("NONCE_OUTCOME_RPC", ""),
+    Bytes.from_hex(field(input, "signature_hex")?)?, 41, 10000, 262144)
+  Http.client_close(client)
+  let value = case checked? do None -> return Err("missing expected bank outcome") Some(value) -> value end
+  if !Bytes.secure_equals(value.transaction.signed.wire, Bytes.from_hex(field(input, "wire_hex")?)?) do
+    return Err("outcome changed signed packet")
+  end
+  let succeeded = if Json.get(input,"treasury") == "true" do
+    let initial = treasury_movement(input)?
+    validate_treasury_outcome(%{initial | state: 1,message: value.transaction.signed.message,
+      packet: Bytes.from_hex(field(input,"wire_hex")?)?,transaction_signature: Bytes.from_hex(field(input,"signature_hex")?)?},treasury_config(input)?,value)?
+  else
+    case value.execution_error do None -> true Some(_) -> false end
+  end
+  if succeeded != Json.as_bool(Json.object_get(input, "expected_success")?)? do return Err("wrong bank outcome") end
+  Ok(if succeeded do "success" else "failure" end)
+end
+fn proof() -> String!String do
+  let input = Json.parse(File.read(Env.get("NONCE_INPUT", ""))?)?
+  if Json.get(input, "mode") == "outcome" do return outcome(input) end
+  let raw = Json.object_get(input, "account")?
+  let account = AccountInfo { owner: pubkey(field(raw, "owner")?)?,
+    executable: Json.as_bool(Json.object_get(raw, "executable")?)?,
+    lamports: U64.parse(field(raw, "lamports")?)?, rent_epoch: U64.parse("0")?,
+    data: Bytes.from_base64(field(raw, "data_base64")?)? }
+  let state = nonce_account(account)?
+  if Bytes.to_base58(state.authority.bytes) != field(input, "authority")?
+    || Bytes.to_base58(state.nonce.bytes) != field(input, "nonce")?
+    || U64.to_string(state.lamports_per_signature) != field(input, "lamports_per_signature")? do
+    return Err("independent SDK nonce state mismatch")
+  end
+  let data = Bytes.concat(Bytes.from_hex("02000000")?, Bytes.write_uint_le(field(input, "amount")?, 8)?)?
+  let transfer = Instruction { program_id: pubkey("11111111111111111111111111111111")?,
+    accounts: [AccountMeta { pubkey: pubkey(field(input, "source")?)?, signer: true, writable: true },
+      AccountMeta { pubkey: pubkey(field(input, "destination")?)?, signer: false, writable: true }], data: data }
+  let treasury = Json.get(input,"mode") == "treasury"
+  let message = if treasury do treasury_message(treasury_movement(input)?,treasury_config(input)?,state)?
+    else compile_durable_nonce_message(pubkey(field(input,"payer")?)?,pubkey(field(input,"address")?)?,state,[transfer])? end
+  let serialized = serialize_legacy_message(message)?
+  let payer_key = pair("NONCE_PAYER_SEED")?
+  let source_key = pair("NONCE_SOURCE_SEED")?
+  let authority_key = pair("NONCE_AUTHORITY_SEED")?
+  let signatures = for index in 0..message.header.num_required_signatures do
+    let address = List.get(message.account_keys, index).bytes
+    if Bytes.secure_equals(address, payer_key.public_key.bytes) do signature(payer_key.private_key, serialized)?
+    else if Bytes.secure_equals(address, source_key.public_key.bytes) do signature(source_key.private_key, serialized)?
+    else if Bytes.secure_equals(address, authority_key.public_key.bytes) do signature(authority_key.private_key, serialized)?
+    else return Err("unexpected test signer") end
+  end
+  let wire = if treasury do
+    let movement = treasury_movement(input)?
+    sign_treasury_packet(%{movement | message: serialized},treasury_config(input)?,state,
+      source_key.private_key,payer_key.private_key,authority_key.private_key)?
+  else serialize_signed_legacy_transaction(message,signatures)? end
+  Ok("{\"message_hex\":" <> Json.encode_string(Bytes.to_hex(serialized))
+    <> ",\"wire_hex\":" <> Json.encode_string(Bytes.to_hex(wire)) <> "}")
+end
+fn main() do
+  case proof() do
+    Ok(value) -> println(value)
+    Err(error) -> do
+      println("ERROR:" <> error)
+      Process.exit(1)
+    end
+  end
+end

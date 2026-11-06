@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "scope": "local-fixture",
+  "generated_at_unix": "1708650000",
+  "max_age_seconds": "900",
+  "provider_independence": "not-established",
+  "history_completeness": "selected-epochs-only",
+  "phase5_complete": false,
+  "burns": [
+    {
+      "epoch": "1",
+      "availability": "unavailable",
+      "reason": "no-agreeing-finalized-snapshot"
+    }
+  ],
+  "bonds": {
+    "schema_version": 2,
+    "availability": "available",
+    "selection_scope": "explicit-indexed-records-only",
+    "bank_scope": "this-section-only",
+    "context_slot": "100000",
+    "source_time_unix": "1708650000",
+    "snapshot_digest": "bf082429f92a5a9d352552f20db15fd4b5d7131b4b7af02492b8d7fb2227720f",
+    "code_current": true,
+    "judge": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+    "token": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+    "rewards": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+    "log_name": "custody-test",
+    "log_id": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+    "service_public_key": "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+    "usdc_mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+    "morse_mint": "6PEm2vyPPU8UaveRS1g8No4Sfsxa3mHuAuQZUtY2NFy",
+    "decimals": 6,
+    "valuation": {
+      "availability": "unavailable",
+      "reason": "no-oracle-authentication-or-USD-valuation"
+    },
+    "rows": [
+      {
+        "kind": "directory",
+        "witness_id": "",
+        "public_key": "0000000000000000000000000000000000000000000000000000000000000000",
+        "address": "6nsVP8yyhodyJHYq1wo1h4f6VmmU2rLmLKc1c559AHHt",
+        "owner": "DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx",
+        "asset": "USDC",
+        "mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+        "vault": "9ycFyB1PkGepcRRgsSgztaAAj8cLioHa3uWzUHL7Uiy5",
+        "status": "slashed",
+        "principal_units": "0",
+        "pending_recorded_units": "1",
+        "pending_liability_units": "0",
+        "vault_balance_units": "0",
+        "donation_surplus_units": "0",
+        "opposite_asset_vault": {
+          "availability": "absent",
+          "balance_units": null
+        },
+        "bonded_at_unix": "1210600",
+        "unbond_at_unix": "0",
+        "slashed_at_unix": "1708650000",
+        "underwater_since_unix": "0",
+        "pending_target_usd_micros": "0"
+      },
+      {
+        "kind": "witness",
+        "witness_id": "outside",
+        "public_key": "0b513ad9b4924015ca0902ed079044d3ac5dbec2306f06948c10da8eb6e39f2d",
+        "address": "5SSA78JUa4aeDDKvGcqR4zvkgFt6DrzskpnRoDpwzrYM",
+        "owner": "5jotNjSnm9ZJRefVfqHato9FC4d9t6CHb2xS1726MTyY",
+        "asset": "USDC",
+        "mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+        "vault": "C12YyRZZ4kciBa9Xa4ckX3vVFmp2uAnRhL5LuX8teXFd",
+        "status": "slashed",
+        "principal_units": "0",
+        "pending_recorded_units": "7",
+        "pending_liability_units": "0",
+        "vault_balance_units": "0",
+        "donation_surplus_units": "0",
+        "opposite_asset_vault": {
+          "availability": "absent",
+          "balance_units": null
+        },
+        "bonded_at_unix": "1210600",
+        "unbond_at_unix": "0",
+        "slashed_at_unix": "1708650000",
+        "underwater_since_unix": "0",
+        "pending_target_usd_micros": "0"
+      },
+      {
+        "kind": "witness",
+        "witness_id": "token-outside",
+        "public_key": "d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c",
+        "address": "GNiCK46hgAUYnmkUXVb72jGKP3Y2ShnULgM5TeUghCoJ",
+        "owner": "5jotNjSnm9ZJRefVfqHato9FC4d9t6CHb2xS1726MTyY",
+        "asset": "MORSE",
+        "mint": "6PEm2vyPPU8UaveRS1g8No4Sfsxa3mHuAuQZUtY2NFy",
+        "vault": "FcjVhMbDDfgmcSk1XPQDGXXU6jXe1USSu33wKSgU4XFj",
+        "status": "slashed",
+        "principal_units": "0",
+        "pending_recorded_units": "5",
+        "pending_liability_units": "0",
+        "vault_balance_units": "0",
+        "donation_surplus_units": "0",
+        "opposite_asset_vault": {
+          "availability": "absent",
+          "balance_units": null
+        },
+        "bonded_at_unix": "1708650000",
+        "unbond_at_unix": "0",
+        "slashed_at_unix": "1708650000",
+        "underwater_since_unix": "0",
+        "pending_target_usd_micros": "200000000"
+      }
+    ]
+  },
+  "slashes": {
+    "schema_version": 2,
+    "availability": "available",
+    "selection_scope": "explicit-indexed-records-only",
+    "bank_scope": "this-section-only",
+    "context_slot": "100000",
+    "source_time_unix": "1708650000",
+    "snapshot_digest": "2e1b4e0c892c22ae8c8ccac2d5ff4412e3599373484799b843cee6676bebfc0d",
+    "code_current": true,
+    "judge": "11157t3sqMV725NVRLrVQbAu98Jjfk1uCKehJnXXQs",
+    "token": "1119DWteoLSdjvrT6g6L8C2PfDD2faiTQUpsjY2RiF",
+    "rewards": "111BuZ6b86gm7XhxjvTakhRvxSMjXp2GqgifkNUmDK",
+    "log_name": "custody-test",
+    "log_id": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+    "service_public_key": "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+    "usdc_mint": "1117mWrzzrZr312ebPDHu8tbfMwFNvCvMbr6WepCNG",
+    "morse_mint": "6PEm2vyPPU8UaveRS1g8No4Sfsxa3mHuAuQZUtY2NFy",
+    "decimals": 6,
+    "proof_scope": "onchain-recorded-receipts-not-independent-fork-reverification",
+    "receipts": [
+      {
+        "address": "FTzWwPDyhCTUTRaFgom7qPizHpGog2xxPWe2i5Tyc8Xv",
+        "proof_hash": "f680934a5f363e7554b70cfe72409e96ef44e96bf6c3a206d74e82af44f0d501",
+        "kind": 1,
+        "anchored": false,
+        "status": "settled",
+        "prepared_at_unix": "1708650000",
+        "settled_at_unix": "1708650000",
+        "deadline_ms": "1711069199000",
+        "verified_signature_mask": "63",
+        "verified_signatures": "6",
+        "finder": "DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx",
+        "submitter": "DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx",
+        "stage": "G4TwriBaNpEkPatrEBruNDT2vuVgZv6qvhNCwyWUw61v",
+        "assets": [
+          {
+            "asset": "USDC",
+            "slashed_units": "600000008",
+            "finder_units": "60000000",
+            "directory_slashed_units": "500000001"
+          },
+          {
+            "asset": "MORSE",
+            "slashed_units": "133333358",
+            "finder_units": "13333335",
+            "directory_slashed_units": "0"
+          }
+        ],
+        "rows": [
+          {
+            "identity": "bc368bcc963e6616bd0bee40346a2b8797c30a6bdc7caafacd568fd04dbcc2c6",
+            "witness": "4x5PDcDEJWZFpDGDqoKrf3aRPn7uLqqrBnjs2sndSNkM",
+            "public_key": "0b513ad9b4924015ca0902ed079044d3ac5dbec2306f06948c10da8eb6e39f2d",
+            "asset": "USDC",
+            "bonded_at_unix": "1210600",
+            "principal_units": "100000000",
+            "slashed_units": "100000007",
+            "finder_units": "10000000"
+          },
+          {
+            "identity": "e3c991610c1accbedae7230f7580d517b8708f3ee52ccfa011c37e6f1159c486",
+            "witness": "FujC3ih8pPsurF7FmP2quT9scPVCKRWrRgW3NjqtaJ9o",
+            "public_key": "d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c",
+            "asset": "MORSE",
+            "bonded_at_unix": "1708650000",
+            "principal_units": "133333334",
+            "slashed_units": "133333358",
+            "finder_units": "13333335"
+          }
+        ]
+      }
+    ]
+  }
+}

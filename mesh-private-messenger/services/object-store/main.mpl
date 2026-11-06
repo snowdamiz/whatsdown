@@ -1,3 +1,13 @@
+from Store.Large import (
+  initialize_large,
+  grant_large,
+  put_large_part,
+  get_large_part,
+  complete_large,
+  delete_large,
+  purge_large,
+  next_large_expiry
+)
 from Store.Service import (
   ObjectResult,
   complete,
@@ -12,8 +22,24 @@ from Store.Service import next_expiry, transaction_in_progress
 import RuntimeJobs
 
 fn run_expiry() -> Int!String do
-  purge_expired(database_path(), storage_root(), current_time()?, 1)?
-  next_expiry(database_path())
+  let now = current_time()?
+  purge_expired(database_path(), storage_root(), now, 1)?
+  if purge_large(database_path(), storage_root(), now).status >= 400 do
+    return Err("large object expiry failed")
+  end
+  next_object_expiry()
+end
+
+fn next_object_expiry() -> Int!String do
+  let free = next_expiry(database_path())?
+  let large = next_large_expiry(database_path())?
+  if free == 0 do
+    Ok(large)
+  else if large == 0 || free < large do
+    Ok(free)
+  else
+    Ok(large)
+  end
 end
 
 fn handle_jobs(request :: Request) -> Response do
@@ -73,6 +99,10 @@ fn hex32(value :: String) -> Bytes!String do
 end
 
 fn part_request(request :: Request) -> PartRequest!String do
+  part_request_bound(request, 256)
+end
+
+fn part_request_bound(request :: Request, maximum :: Int) -> PartRequest!String do
   let object_id = case Request.param(request, "object_id") do
     None -> Err("invalid object request")
     Some(value) -> hex32(value)
@@ -96,7 +126,7 @@ fn part_request(request :: Request) -> PartRequest!String do
     None -> Err("invalid object request")
     Some(value) -> hex32(value)
   end?
-  if part_index < 0 || part_index > 256 do
+  if part_index < 0 || part_index > maximum do
     Err("invalid object request")
   else
     Ok(PartRequest { object_id: object_id, part_index: part_index, capability: capability })
@@ -117,6 +147,12 @@ fn purge_loop(database :: String, root :: String, elapsed_ms :: Int) do
         Ok(now) -> case purge_expired(database, root, now, 32) do
           Err(_) -> println("object expiry worker failed")
           Ok(_) -> nil
+        end
+      end
+      case current_time() do
+        Err(_) -> println("large object expiry worker failed")
+        Ok(now) -> if purge_large(database, root, now).status >= 400 do
+          println("large object expiry worker failed")
         end
       end
       0
@@ -195,6 +231,63 @@ fn handle_delete(request :: Request) -> Response do
   end
 end
 
+fn handle_paid_grant(request :: Request) -> Response do
+  let result = case current_time() do
+    Err(_) -> ObjectResult { status: 503, body: Bytes.empty() }
+    Ok(now) -> grant_large(database_path(), storage_root(), Request.body_bytes(request), now)
+  end
+  HTTP.response_bytes_with_headers(result.status,
+    result.body,
+    Map.new()
+      |> Map.put("Content-Type", "application/octet-stream")
+      |> Map.put("Cache-Control", "no-store"))
+end
+
+fn handle_large_put(request :: Request) -> Response do
+  case part_request_bound(request, 8192) do
+    Err(_) -> HTTP.response(400, "")
+    Ok(part) -> case current_time() do
+      Err(_) -> HTTP.response(503, "")
+      Ok(now) -> respond(put_large_part(database_path(),
+        storage_root(),
+        part.object_id,
+        part.part_index,
+        part.capability,
+        Request.body_bytes(request),
+        now))
+    end
+  end
+end
+
+fn handle_large_get(request :: Request) -> Response do
+  case part_request_bound(request, 8192) do
+    Err(_) -> HTTP.response(400, "")
+    Ok(part) -> case current_time() do
+      Err(_) -> HTTP.response(503, "")
+      Ok(now) -> respond(get_large_part(database_path(),
+        storage_root(),
+        part.object_id,
+        part.part_index,
+        part.capability,
+        now))
+    end
+  end
+end
+
+fn handle_large_complete(request :: Request) -> Response do
+  case current_time() do
+    Err(_) -> HTTP.response(503, "")
+    Ok(now) -> respond(complete_large(database_path(),
+      storage_root(),
+      Request.body_bytes(request),
+      now))
+  end
+end
+
+fn handle_large_delete(request :: Request) -> Response do
+  respond(delete_large(database_path(), storage_root(), Request.body_bytes(request)))
+end
+
 fn main() do
   Process.install_shutdown_signals()
   let port = Env.get_int("MESSENGER_OBJECT_PORT", 18089)
@@ -207,18 +300,28 @@ fn main() do
     case initialize(database_path(), storage_root()) do
       Err(_) -> fatal("object storage configuration is invalid or unavailable")
       Ok(_) -> do
+        case initialize_large(database_path(), storage_root()) do
+          Err(_) -> fatal("large object metadata is unavailable")
+          Ok(_) -> nil
+        end
         if !RuntimeJobs.enabled() do
           spawn(expiry_worker, database_path(), storage_root())
         end
         println("object-store listening on :#{port}")
-        HTTP.serve(HTTP.router()
+        HTTP.serve_on(HTTP.router()
             |> HTTP.on_get("/health", handle_health)
             |> HTTP.on_post("/internal/v1/jobs/objects", handle_jobs)
             |> HTTP.on_post("/v1/attachments/grant", handle_grant)
             |> HTTP.on_put("/v1/objects/:object_id/parts/:part_index", handle_put)
             |> HTTP.on_get("/v1/objects/:object_id/parts/:part_index", handle_get)
             |> HTTP.on_post("/v1/attachments/complete", handle_complete)
-            |> HTTP.on_post("/v1/attachments/delete", handle_delete),
+            |> HTTP.on_post("/v1/attachments/delete", handle_delete)
+            |> HTTP.on_post("/v1/attachments/paid-grant", handle_paid_grant)
+            |> HTTP.on_put("/v2/objects/:object_id/parts/:part_index", handle_large_put)
+            |> HTTP.on_get("/v2/objects/:object_id/parts/:part_index", handle_large_get)
+            |> HTTP.on_post("/v2/attachments/complete", handle_large_complete)
+            |> HTTP.on_post("/v2/attachments/delete", handle_large_delete),
+          Env.get("MESSENGER_BIND_ADDRESS", "::"),
           port)
         if !Process.shutdown_requested() do
           fatal("object-store HTTP server failed")

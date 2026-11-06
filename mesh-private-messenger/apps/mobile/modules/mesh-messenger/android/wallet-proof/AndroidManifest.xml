@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="app.morse.wallet.proof" android:versionCode="1" android:versionName="1">
+  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="36" />
+  <application android:label="Morse wallet proof" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+    <uses-library android:name="android.test.runner" />
+    <meta-data android:name="app.morse.mesh.CREDIT_PURPOSE" android:value="test" />
+    <meta-data android:name="app.morse.mesh.CREDIT_USDC_MINT_HEX" android:value="7777777777777777777777777777777777777777777777777777777777777777" />
+    <activity android:name="expo.modules.meshmessenger.WalletProofActivity" android:exported="true" />
+    <service android:name="expo.modules.meshmessenger.WalletProofPeer" android:process="app.morse.wallet.proof.peer" android:exported="false" />
+  </application>
+  <instrumentation android:name="android.test.InstrumentationTestRunner" android:targetPackage="app.morse.wallet.proof" />
+</manifest>

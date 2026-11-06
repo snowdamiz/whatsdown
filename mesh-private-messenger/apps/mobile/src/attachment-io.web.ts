@@ -2,10 +2,39 @@ import { invoke } from '@tauri-apps/api/core';
 
 import { attachmentFileName, attachmentSelectionError } from './attachments.ts';
 import type { OutgoingAttachment } from './network.ts';
+import { attachmentSelectionLimit, MAXIMUM_ATTACHMENT_SIZE, smallAttachmentSelection, type AttachmentSelection } from './attachment-selections.ts';
+import { openAttachmentRangeSource } from './attachment-range-io.web.ts';
 
 export async function fileToAttachment(file: File): Promise<OutgoingAttachment> {
   const mimeType = file.type || 'application/octet-stream';
   return { filename: attachmentFileName(file.name, mimeType), mimeType, bytes: new Uint8Array(await file.arrayBuffer()) };
+}
+
+export async function fileToAttachmentSelection(file: File): Promise<AttachmentSelection> {
+  const error = attachmentSelectionLimit([file.size]);
+  if (error) throw new Error(error);
+  if (file.size <= MAXIMUM_ATTACHMENT_SIZE) return smallAttachmentSelection(await fileToAttachment(file));
+  const source = openAttachmentRangeSource(file);
+  const mimeType = file.type || 'application/octet-stream';
+  return { kind: 'large', filename: attachmentFileName(file.name, mimeType), mimeType, size: file.size, source,
+    dispose() { source.close(); } };
+}
+async function filesToSelections(files: File[]): Promise<AttachmentSelection[]> {
+  const error = attachmentSelectionLimit(files.map(file => file.size));
+  if (error) throw new Error(error);
+  const selected: AttachmentSelection[] = [];
+  try { for (const file of files) selected.push(await fileToAttachmentSelection(file)); return selected; }
+  catch (error) { selected.forEach(file => file.dispose()); throw error; }
+}
+
+export function pickAttachmentSelections(): Promise<AttachmentSelection[]> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.multiple = true; input.style.display = 'none';
+    input.onchange = () => { const files = Array.from(input.files ?? []); input.remove(); filesToSelections(files).then(resolve, reject); };
+    input.oncancel = () => { input.remove(); resolve([]); };
+    document.body.append(input); input.click();
+  });
 }
 
 async function filesToAttachments(files: File[]): Promise<OutgoingAttachment[]> {
@@ -36,26 +65,35 @@ export function pickAttachmentFiles(): Promise<OutgoingAttachment[]> {
 
 // The desktop shell writes the bytes where the system save dialog points. The
 // suggested name is percent-encoded so any filename survives the header.
-export function saveAttachmentFile(filename: string, _mimeType: string, bytes: Uint8Array): Promise<boolean> {
+export function saveAttachmentFile(filename: string, _mimeType: string, bytes: Uint8Array, signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted) return Promise.resolve(false);
   return invoke<boolean>('save_attachment', bytes, { headers: { 'X-File-Name': encodeURIComponent(filename) } })
     .catch((error) => { throw new Error(String(error)); });
 }
 
+const previews = new Set<string>();
+
 export function attachmentPreviewUri(_key: string, mimeType: string, bytes: Uint8Array): string {
-  return URL.createObjectURL(new Blob([bytes as BlobPart], { type: mimeType }));
+  const uri = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mimeType }));
+  previews.add(uri);
+  return uri;
 }
 
 export function releasePreviewUri(uri: string): void {
-  URL.revokeObjectURL(uri);
+  if (previews.delete(uri)) URL.revokeObjectURL(uri);
 }
 
-// Previews here are object URLs, which leave nothing on disk.
-export function discardPreviews(): void {}
+// Account-wide cleanup also releases any remaining object URLs. Thread close
+// uses releasePreviewUri for only that opening's previews.
+export function discardPreviews(): void {
+  for (const uri of previews) releasePreviewUri(uri);
+}
 
 export type IncomingFileHandlers = {
   // A file is being dragged over the window, or has left it.
   onDragging: (dragging: boolean) => void;
   onFiles: (files: OutgoingAttachment[]) => void;
+  onSelections?: (files: AttachmentSelection[]) => void;
   onError: (message: string) => void;
 };
 
@@ -74,9 +112,10 @@ export function listenForIncomingFiles(handlers: IncomingFileHandlers): () => vo
   let leaving: ReturnType<typeof setTimeout> | undefined;
   const accept = (files: File[]) => {
     if (!files.length) return;
-    const error = attachmentSelectionError(files.map((file) => file.size));
+    const error = handlers.onSelections ? attachmentSelectionLimit(files.map(file => file.size)) : attachmentSelectionError(files.map(file => file.size));
     if (error) { handlers.onError(error); return; }
-    filesToAttachments(files).then(handlers.onFiles, () => handlers.onError('Those files could not be read.'));
+    if (handlers.onSelections) filesToSelections(files).then(handlers.onSelections, () => handlers.onError('Those files could not be read.'));
+    else filesToAttachments(files).then(handlers.onFiles, () => handlers.onError('Those files could not be read.'));
   };
   const onDragOver = (event: DragEvent) => {
     if (!carriesFiles(event.dataTransfer)) return;

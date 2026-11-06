@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "scope": "local-fixture",
+  "generated_at_unix": "1700000001",
+  "max_age_seconds": "900",
+  "provider_independence": "not-established",
+  "history_completeness": "bounded-filtered-index-with-separate-value-pages",
+  "phase5_complete": false,
+  "burns": [],
+  "bonds": {
+    "availability": "unavailable",
+    "reason": "legacy-values-are-explicitly-versioned-in-history-pages"
+  },
+  "slashes": {
+    "availability": "unavailable",
+    "reason": "legacy-values-are-explicitly-versioned-in-history-pages"
+  },
+  "history": {
+    "schema_version": 1,
+    "context_kind": "legacy-v1",
+    "scope": "bounded-filtered-family-discovery",
+    "global_totals": null,
+    "provider_independence": "not-established",
+    "bank_scope": "per-discovery-section-and-value-page",
+    "burns": {
+      "availability": "not-configured",
+      "reason": "legacy-context-has-no-token-program",
+      "upper_bound": 128
+    },
+    "witnesses": {
+      "availability": "available",
+      "context_kind": "legacy-v1",
+      "discovery_scope": "complete-returned-filtered-family-at-index-bank",
+      "index_slot": "447552000",
+      "source_time_unix": "1700000001",
+      "snapshot_digest": "90a55ecbef4dd9282749a02ae9282ed024c43bf8c14a0094922a39df6ab0a279",
+      "program": "111kAcRukyCJ5njHnNgVhxHgU8GNcVY2fEUtzC9kcf",
+      "binding": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+      "mint": "111nsfrnL7NwUjsqEJscfSDLfzgSfKBcRQyUF5e2oa",
+      "asset_scope": "configured-legacy-mint",
+      "code_current": true,
+      "release_pins": [
+        {
+          "program": "111kAcRukyCJ5njHnNgVhxHgU8GNcVY2fEUtzC9kcf",
+          "deployment_slot": "447552000"
+        }
+      ],
+      "upper_bound": 128,
+      "record_count": 1,
+      "supported_layouts_complete": true,
+      "value_completeness": "complete-for-applicable-supported-records",
+      "value_bank_scope": "separate-from-discovery-and-other-pages",
+      "legacy_rendering": "versioned-single-mint-v1-values",
+      "records": [
+        {
+          "address": "9pVg4XutVcu3ML9AdbwTmmQpYvFR1ZsiNN7WdYW1yCkA",
+          "version": 1,
+          "verification": "supported",
+          "canonical_identity": true,
+          "epoch": null,
+          "witness_id": "outside",
+          "public_key": "0b513ad9b4924015ca0902ed079044d3ac5dbec2306f06948c10da8eb6e39f2d",
+          "proof_hash": null,
+          "registry_status": 1,
+          "value_status": "requested"
+        }
+      ],
+      "pages": [
+        {
+          "page": 0,
+          "requested_addresses": [
+            "9pVg4XutVcu3ML9AdbwTmmQpYvFR1ZsiNN7WdYW1yCkA"
+          ],
+          "bank_scope": "this-value-page-only",
+          "complete": true,
+          "values": {
+            "schema_version": 1,
+            "context_kind": "legacy-v1",
+            "availability": "available",
+            "selection_scope": "explicit-indexed-records-only",
+            "bank_scope": "this-value-page-only",
+            "context_slot": "447552007",
+            "source_time_unix": "1700000008",
+            "snapshot_digest": "87d14a49d91959413b7256544674012ba83775d709c4146666d0e361bda22002",
+            "code_current": true,
+            "judge": "111kAcRukyCJ5njHnNgVhxHgU8GNcVY2fEUtzC9kcf",
+            "log_name": "custody-test",
+            "log_id": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+            "service_public_key": "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+            "mint": "111nsfrnL7NwUjsqEJscfSDLfzgSfKBcRQyUF5e2oa",
+            "decimals": 6,
+            "asset_scope": "configured-legacy-mint",
+            "rows": [
+              {
+                "kind": "directory",
+                "status": "active",
+                "address": "5hCm3dzvmXi7XjScCkVep1F2skTuV5KFmy28D1oDmNtH",
+                "witness_id": "",
+                "public_key": null,
+                "owner": "CqhFUnE6xmpbT9cCTDoP95Pbhg5ARtzgQBKJfyzf7PvM",
+                "vault": "J5fXR7vCf4bCRFe5zgEEuY8bubRcw2eKKQ5UQkckArA4",
+                "principal_units": "500000000",
+                "vault_balance_units": "500000000",
+                "donation_surplus_units": "0",
+                "pending_units": null,
+                "liability_scope": "principal-only-v1-no-v2-pending-interpretation",
+                "bonded_at_unix": "1210600",
+                "unbond_at_unix": "0",
+                "slashed_at_unix": "0"
+              },
+              {
+                "kind": "witness",
+                "status": "active",
+                "address": "6acuZyM6R4o3qUJTLaSiSQyvuxEUZ2SceMsJXzYUKG5j",
+                "witness_id": "outside",
+                "public_key": "0b513ad9b4924015ca0902ed079044d3ac5dbec2306f06948c10da8eb6e39f2d",
+                "owner": "AHVj8b255tuds5ZBSdTYjrL4dHDoHdLbN6b9KgrXySF3",
+                "vault": "D6dhHTB8DMaGSd92DZ4GW3ZJu7HNpsPPNL282XPZpyML",
+                "principal_units": "100000000",
+                "vault_balance_units": "100000000",
+                "donation_surplus_units": "0",
+                "pending_units": null,
+                "liability_scope": "principal-only-v1-no-v2-pending-interpretation",
+                "bonded_at_unix": "1210600",
+                "unbond_at_unix": "0",
+                "slashed_at_unix": "0"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "proofs": {
+      "availability": "available",
+      "context_kind": "legacy-v1",
+      "discovery_scope": "complete-returned-filtered-family-at-index-bank",
+      "index_slot": "447552000",
+      "source_time_unix": "1700000001",
+      "snapshot_digest": "bf752c66ff1b9d4cf59253b5bc559d98dfaefb439d619a3212613fbd002f7121",
+      "program": "111kAcRukyCJ5njHnNgVhxHgU8GNcVY2fEUtzC9kcf",
+      "binding": "350ad523f360acc745936c314dae80ede337a9d64684957c1139baeb016398a6",
+      "mint": "111nsfrnL7NwUjsqEJscfSDLfzgSfKBcRQyUF5e2oa",
+      "asset_scope": "configured-legacy-mint",
+      "code_current": true,
+      "release_pins": [
+        {
+          "program": "111kAcRukyCJ5njHnNgVhxHgU8GNcVY2fEUtzC9kcf",
+          "deployment_slot": "447552000"
+        }
+      ],
+      "upper_bound": 128,
+      "record_count": 0,
+      "supported_layouts_complete": true,
+      "value_completeness": "complete-for-applicable-supported-records",
+      "value_bank_scope": "separate-from-discovery-and-other-pages",
+      "legacy_rendering": "versioned-single-mint-v1-values",
+      "records": [],
+      "pages": []
+    }
+  }
+}

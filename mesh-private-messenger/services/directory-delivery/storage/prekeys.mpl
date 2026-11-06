@@ -1,3 +1,4 @@
+from Runtime.PrekeyRetention import prekey_retention_enabled, notify_prekey_retention
 from Prekeys.Pool import (
   OneTimePrekeyPublic,
   PrekeyClaimRequest,
@@ -6,8 +7,8 @@ from Prekeys.Pool import (
   encode_prekey_publish,
   prekey_publish_signing_bytes
 )
-from Prekeys.Bundle import normalize_prekey_bundle
-from Protocol.IdentityWire import decode_device_credential
+from Prekeys.Bundle import normalize_prekey_bundle, verify_prekey_bundle
+from Protocol.IdentityWire import decode_account_identity, decode_device_credential
 from Protocol.PrekeyWire import decode_prekey_bundle, encode_prekey_bundle
 from Protocol.V1 import PrekeyBundle
 from Storage.ContactAddress import ContactAddressWrite, publish_contact_address_on_connection
@@ -113,7 +114,7 @@ fn publication_check(conn :: borrow PgConn,
   else
     let value = List.get(request.prekeys, index)
     let rows = Pg.query_values(conn,
-      "SELECT public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint",
+      "SELECT public_key FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint UNION ALL SELECT public_key FROM messenger_retired_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint",
       [Binary(request.account_id), Binary(request.device_id), Text(U64.to_string(value.id))])?
     if List.length(rows) == 0 do
       publication_check(conn, request, index + 1, new_count + 1)
@@ -134,7 +135,7 @@ fn insert_prekeys(conn :: borrow PgConn,
   else
     let value = List.get(request.prekeys, index)
     Pg.execute_values(conn,
-      "INSERT INTO messenger_one_time_prekeys (account_id, device_id, prekey_id, public_key) VALUES ($1, $2, $3::bigint, $4) ON CONFLICT DO NOTHING",
+      "INSERT INTO messenger_one_time_prekeys (account_id, device_id, prekey_id, public_key) SELECT $1, $2, $3::bigint, $4 WHERE NOT EXISTS (SELECT 1 FROM messenger_retired_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint) ON CONFLICT DO NOTHING",
       [
         Binary(request.account_id),
         Binary(request.device_id),
@@ -183,7 +184,7 @@ fn publish_last_resort(conn :: borrow PgConn, request :: PrekeyPublishRequest) -
         Text(U64.to_string(value.id))
       ]
       let rows = Pg.query_values(conn,
-        "SELECT public_key, last_resort::text AS last_resort FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint",
+        "SELECT public_key, last_resort::text AS last_resort FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint UNION ALL SELECT public_key, last_resort::text AS last_resort FROM messenger_retired_prekeys WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint",
         key)?
       if List.length(rows) > 0 do
         let row = List.head(rows)
@@ -195,14 +196,17 @@ fn publish_last_resort(conn :: borrow PgConn, request :: PrekeyPublishRequest) -
         end
       else
         let newer = Pg.query_values(conn,
-          "SELECT 1 AS found FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND last_resort AND prekey_id > $3::bigint LIMIT 1",
+          "SELECT 1 AS found FROM (SELECT prekey_id FROM messenger_one_time_prekeys WHERE account_id = $1 AND device_id = $2 AND last_resort AND prekey_id > $3::bigint UNION ALL SELECT prekey_id FROM messenger_retired_prekeys WHERE account_id = $1 AND device_id = $2 AND last_resort AND prekey_id > $3::bigint) AS newer LIMIT 1",
           key)?
         if List.length(newer) > 0 do
           Ok(2)
         else
-          Pg.execute_values(conn,
-            "UPDATE messenger_one_time_prekeys SET consumed_at = clock_timestamp() WHERE account_id = $1 AND device_id = $2 AND last_resort AND consumed_at IS NULL",
+          let retired = Pg.execute_values(conn,
+            "UPDATE messenger_one_time_prekeys SET consumed_at = clock_timestamp(), claim_retry_until_ms = 0, claim_retention_checked = true WHERE account_id = $1 AND device_id = $2 AND last_resort AND consumed_at IS NULL",
             [Binary(request.account_id), Binary(request.device_id)])?
+          if retired > 0 do
+            notify_prekey_retention(conn)?
+          end
           Pg.execute_values(conn,
             "INSERT INTO messenger_one_time_prekeys (account_id, device_id, prekey_id, public_key, last_resort) VALUES ($1, $2, $3::bigint, $4, true)",
             [
@@ -296,6 +300,7 @@ end
 
 pub fn publish_prekeys(pool :: PoolHandle,
   request :: PrekeyPublishRequest) -> PrekeyPublishWrite!String do
+  prekey_retention_enabled()?
   encode_prekey_publish(request)?
   Repo.transaction(pool, fn(conn :: borrow PgConn) -> publish_on_connection(conn, request) end)
 end
@@ -465,16 +470,18 @@ fn reserve_claim(conn :: borrow PgConn,
   claimed :: OneTimePrekeyPublic,
   response :: Bytes) -> Result<(), String> do
   let changed = Pg.execute_values(conn,
-    "UPDATE messenger_one_time_prekeys SET consumed_at = clock_timestamp(), claim_id_hash = $4, claim_base_bundle_hash = $5, claim_response = $6 WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND consumed_at IS NULL",
+    "UPDATE messenger_one_time_prekeys SET consumed_at = clock_timestamp(), claim_id_hash = $4, claim_base_bundle_hash = $5, claim_response = $6, claim_retry_until_ms = $7::numeric, claim_retention_checked = true WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND consumed_at IS NULL",
     [
       Binary(request.account_id),
       Binary(request.device_id),
       Text(U64.to_string(claimed.id)),
       Binary(Crypto.sha256(request.reservation_id)),
       Binary(request.base_bundle_hash),
-      Binary(response)
+      Binary(response),
+      Text(U64.to_string(bundle_retry_until(response)?))
     ])?
   if changed == 1 do
+    notify_prekey_retention(conn)?
     Ok(nil)
   else
     Err("prekey claim changed concurrently")
@@ -486,7 +493,7 @@ fn store_legacy_claim_response(conn :: borrow PgConn,
   claimed :: OneTimePrekeyPublic,
   response :: Bytes) -> Result<(), String> do
   let changed = Pg.execute_values(conn,
-    "UPDATE messenger_one_time_prekeys SET claim_response = $6 WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND claim_id_hash = $4 AND claim_base_bundle_hash = $5 AND claim_response IS NULL",
+    "UPDATE messenger_one_time_prekeys SET claim_response = $6, claim_retention_checked = false, claim_retry_until_ms = NULL WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND claim_id_hash = $4 AND claim_base_bundle_hash = $5 AND claim_response IS NULL",
     [
       Binary(request.account_id),
       Binary(request.device_id),
@@ -496,6 +503,7 @@ fn store_legacy_claim_response(conn :: borrow PgConn,
       Binary(response)
     ])?
   if changed == 1 do
+    notify_prekey_retention(conn)?
     Ok(nil)
   else
     Err("legacy prekey claim response changed concurrently")
@@ -508,7 +516,7 @@ fn replace_legacy_claim_response(conn :: borrow PgConn,
   legacy :: Bytes,
   response :: Bytes) -> Result<(), String> do
   let changed = Pg.execute_values(conn,
-    "UPDATE messenger_one_time_prekeys SET claim_response = $7 WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND claim_id_hash = $4 AND claim_base_bundle_hash = $5 AND claim_response = $6",
+    "UPDATE messenger_one_time_prekeys SET claim_response = $7, claim_retention_checked = false, claim_retry_until_ms = NULL WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND claim_id_hash = $4 AND claim_base_bundle_hash = $5 AND claim_response = $6",
     [
       Binary(request.account_id),
       Binary(request.device_id),
@@ -519,6 +527,7 @@ fn replace_legacy_claim_response(conn :: borrow PgConn,
       Binary(response)
     ])?
   if changed == 1 do
+    notify_prekey_retention(conn)?
     Ok(nil)
   else
     Err("legacy prekey claim response changed concurrently")
@@ -528,17 +537,22 @@ end
 fn replayed_claim(conn :: borrow PgConn,
   request :: PrekeyClaimRequest,
   stored :: borrow StoredClaim,
-  current_bundle :: Bytes) -> PrekeyClaimWrite!String do
+  current_bundle :: Bytes,
+  now :: U64) -> PrekeyClaimWrite!String do
   case stored.response do
     Some(response) -> do
       let bundle = stored_response_bundle(stored, request, response)?
+      if U64.compare(bundle_retry_until(response)?, now) < 0 do
+        return Ok(PrekeyClaimMissing)
+      end
       let exact = encoded_bundle(bundle)?
       if !Bytes.secure_equals(exact, response) do
         replace_legacy_claim_response(conn, request, stored.claimed, response, exact)?
       end
       Ok(PrekeyClaimed(bundle))
     end
-    None -> if !Bytes.secure_equals(Crypto.sha256(current_bundle), request.base_bundle_hash) do
+    None -> if !Bytes.secure_equals(Crypto.sha256(current_bundle), request.base_bundle_hash)
+      || U64.compare(bundle_retry_until(current_bundle)?, now) < 0 do
       Ok(PrekeyClaimMissing)
     else
       let bundle = resolved_bundle(current_bundle, stored.claimed)?
@@ -570,13 +584,15 @@ fn claim_on_connection(conn :: borrow PgConn,
     None -> Ok(PrekeyClaimMissing)
     Some(current_bundle) -> do
       lock_claim_reservation(conn, request)?
+      let now = database_time(conn)?
       case existing_claim(conn, request)? do
         Some(stored) -> if !claim_binding_matches(stored, request) do
           Ok(PrekeyClaimMissing)
         else
-          replayed_claim(conn, request, stored, current_bundle)
+          replayed_claim(conn, request, stored, current_bundle, now)
         end
-        None -> if !Bytes.secure_equals(Crypto.sha256(current_bundle), request.base_bundle_hash) do
+        None -> if !Bytes.secure_equals(Crypto.sha256(current_bundle), request.base_bundle_hash)
+          || U64.compare(bundle_retry_until(current_bundle)?, now) < 0 do
           Ok(PrekeyClaimMissing)
         else
           new_claim(conn, request, current_bundle)
@@ -587,6 +603,182 @@ fn claim_on_connection(conn :: borrow PgConn,
 end
 
 pub fn claim_prekey(pool :: PoolHandle, request :: PrekeyClaimRequest) -> PrekeyClaimWrite!String do
+  prekey_retention_enabled()?
   encode_prekey_claim(request)?
   Repo.transaction(pool, fn(conn :: borrow PgConn) -> claim_on_connection(conn, request) end)
+end
+
+# This is a signed usability horizon, not a duration measured from consumption.
+fn bundle_retry_until(encoded :: Bytes) -> U64!String do
+  let bundle = case decode_prekey_bundle(encoded) do
+    Err(_) -> Err("invalid prekey replay bundle")
+    Ok(value)
+  end?
+  let credential = case decode_device_credential(bundle.device_credential) do
+    Err(_) -> Err("invalid prekey replay credential")
+    Ok(value)
+  end?
+  Ok(if U64.compare(bundle.expires_at, credential.expires_at) < 0 do
+    bundle.expires_at
+  else
+    credential.expires_at
+  end)
+end
+
+fn database_time(conn :: borrow PgConn) -> U64!String do
+  let rows = Pg.query_values(conn,
+    "SELECT GREATEST(floor(extract(epoch FROM clock_timestamp()) * 1000), expired_before_ms)::numeric::text AS now_ms FROM messenger_prekey_retention_clock WHERE singleton",
+    [])?
+  if List.length(rows) != 1 do
+    Err("prekey database time missing")
+  else
+    wide(Map.get(List.head(rows), "now_ms"))
+  end
+end
+
+# Verify historical material at its inclusive signed horizon. A malformed,
+# missing or unverifiable legacy response has no safe deletion boundary.
+fn historical_retry_until(row :: Map<String, DbValue>) -> U64!String do
+  let stored = case stored_claim([row])? do
+    None -> Err("prekey retention row missing")
+    Some(value) -> Ok(value)
+  end?
+  let request = PrekeyClaimRequest {
+    account_id: stored.account_id,
+    device_id: stored.device_id,
+    base_bundle_hash: stored.base_bundle_hash,
+    reservation_id: Bytes.empty()
+  }
+  let response = case stored.response do
+    Some(value) -> value
+    None -> do
+      let current = binary(Map.get(row, "current_bundle"))?
+      if !Bytes.secure_equals(Crypto.sha256(current), stored.base_bundle_hash) do
+        return Err("prekey legacy response unavailable")
+      end
+      current
+    end
+  end
+  let bundle = stored_response_bundle(stored, request, response)?
+  let encoded = encoded_bundle(bundle)?
+  let horizon = bundle_retry_until(encoded)?
+  let account = case decode_account_identity(binary(Map.get(row, "account_identity"))?) do
+    Err(_) -> Err("invalid prekey retention account")
+    Ok(value)
+  end?
+  let verified = case verify_prekey_bundle(account,
+    bundle,
+    1,
+    horizon,
+    account.directory_sequence) do
+    Err(_) -> false
+    Ok(value) -> value
+  end
+  if verified do
+    Ok(horizon)
+  else
+    Err("unverifiable prekey retention response")
+  end
+end
+
+fn retire_prekey(conn :: borrow PgConn,
+  row :: Map<String, DbValue>,
+  horizon :: U64) -> Int!String do
+  let parameters = [
+    Binary(binary(Map.get(row, "account_id"))?),
+    Binary(binary(Map.get(row, "device_id"))?),
+    Text(U64.to_string(wide(Map.get(row, "prekey_id"))?)),
+    Binary(binary(Map.get(row, "public_key"))?),
+    Text(text(Map.get(row, "last_resort"))?)
+  ]
+  Pg.execute_values(conn,
+    "INSERT INTO messenger_retired_prekeys (account_id, device_id, prekey_id, public_key, last_resort) VALUES ($1, $2, $3::bigint, $4, $5::boolean) ON CONFLICT DO NOTHING",
+    parameters)?
+  # Never delete the original if a contradictory retired record exists.
+  let changed = Pg.execute_values(conn,
+    "DELETE FROM messenger_one_time_prekeys AS prekey USING messenger_retired_prekeys AS retired WHERE prekey.account_id = $1 AND prekey.device_id = $2 AND prekey.prekey_id = $3::bigint AND prekey.consumed_at IS NOT NULL AND retired.account_id = prekey.account_id AND retired.device_id = prekey.device_id AND retired.prekey_id = prekey.prekey_id AND retired.public_key = prekey.public_key AND retired.last_resort = prekey.last_resort AND retired.public_key = $4 AND retired.last_resort = $5::boolean",
+    parameters)?
+  if changed != 1 do
+    return Err("prekey retirement conflict")
+  end
+  # horizon < observed now, so +1 is representable; a U64 maximum horizon
+  # can never enter this retirement branch. Advance in this same transaction.
+  let floor = U64.add(horizon, U64.parse("1")?)?
+  let clocks = Pg.execute_values(conn,
+    "UPDATE messenger_prekey_retention_clock SET expired_before_ms = GREATEST(expired_before_ms, $1::numeric) WHERE singleton",
+    [Text(U64.to_string(floor))])?
+  if clocks == 1 do
+    Ok(changed)
+  else
+    Err("prekey retention clock missing")
+  end
+end
+
+fn maintain_prekey_rows(conn :: borrow PgConn,
+  rows :: List<Map<String, DbValue>>,
+  now :: U64,
+  index :: Int,
+  deleted :: Int) -> Int!String do
+  if index >= List.length(rows) do
+    return Ok(deleted)
+  end
+  let row = List.get(rows, index)
+  let claim = optional_binary(Map.get(row, "claim_id_hash"))?
+  let response = optional_binary(Map.get(row, "claim_response"))?
+  let base = optional_binary(Map.get(row, "claim_base_bundle_hash"))?
+  let uncorrelated = case (claim, response, base) do
+    (None, None, None) -> true
+    _ -> false
+  end
+  let horizon = if uncorrelated do
+    Some(U64.parse("0")?)
+  else
+    case historical_retry_until(row) do
+      Err(_) -> None
+      Ok(value) -> Some(value)
+    end
+  end
+  let deadline = case horizon do
+    None -> Null
+    Some(value) -> Text(U64.to_string(value))
+  end
+  Pg.execute_values(conn,
+    "UPDATE messenger_one_time_prekeys SET claim_retention_checked = true, claim_retry_until_ms = $4::numeric WHERE account_id = $1 AND device_id = $2 AND prekey_id = $3::bigint AND consumed_at IS NOT NULL",
+    [
+      Binary(binary(Map.get(row, "account_id"))?),
+      Binary(binary(Map.get(row, "device_id"))?),
+      Text(U64.to_string(wide(Map.get(row, "prekey_id"))?)),
+      deadline
+    ])?
+  let changed = case horizon do
+    Some(value) -> if U64.compare(value, now) < 0 do
+      retire_prekey(conn, row, value)?
+    else
+      0
+    end
+    None -> 0
+  end
+  maintain_prekey_rows(conn, rows, now, index + 1, deleted + changed)
+end
+
+fn maintain_prekeys(conn :: borrow PgConn, limit :: Int) -> Int!String do
+  let now = database_time(conn)?
+  # All claim/publication paths lock the device first. Exclusive device locks
+  # make retirement atomic against them and revocation; busy devices are skipped.
+  let rows = Pg.query_values(conn,
+    "SELECT prekey.account_id, prekey.device_id, prekey.prekey_id::text, prekey.public_key, prekey.last_resort::text, prekey.claim_id_hash, prekey.claim_base_bundle_hash, prekey.claim_response, device.prekey_bundle AS current_bundle, account.account_identity FROM messenger_one_time_prekeys AS prekey JOIN messenger_devices AS device ON device.account_id = prekey.account_id AND device.device_id = prekey.device_id JOIN messenger_accounts AS account ON account.account_id = device.account_id WHERE prekey.consumed_at IS NOT NULL AND (NOT prekey.claim_retention_checked OR prekey.claim_retry_until_ms < $1::numeric) ORDER BY prekey.account_id, prekey.device_id, prekey.prekey_id FOR UPDATE OF device SKIP LOCKED LIMIT $2::integer",
+    [Text(U64.to_string(now)), Text(Int.to_string(limit))])?
+  maintain_prekey_rows(conn, rows, now, 0, 0)
+end
+
+# At most 128 rows are verified/backfilled or retired in one transaction. Exact
+# retired IDs remain until device removal; their total count is not a TTL bound.
+pub fn prune_consumed_prekeys(pool :: PoolHandle, limit :: Int) -> Int!String do
+  if limit <= 0 || limit > 128 do
+    Err("invalid prekey retention limit")
+  else if !prekey_retention_enabled()? do
+    Ok(0)
+  else
+    Repo.transaction(pool, fn(conn :: borrow PgConn) -> maintain_prekeys(conn, limit) end)
+  end
 end

@@ -1,0 +1,31 @@
+# Run only with the release-verified image digest and a protected env file.
+# TLS terminates on this host; issuer HTTP is published to loopback only.
+services:
+  issuer:
+    image: ${MORSE_ISSUER_IMAGE:?Set a release-verified image digest}
+    entrypoint: ["/app/credit-issuer"]
+    user: "65532:65532"
+    env_file:
+      - ${MORSE_ISSUER_ENV_FILE:?Set the absolute protected issuer environment file}
+    environment:
+      MESSENGER_ISSUER_PORT: "18096"
+      MESSENGER_CREDIT_STORAGE_DIR: /var/lib/morse-credit-issuer
+    ports:
+      - "127.0.0.1:18096:18096"
+    volumes:
+      - issuer-keys:/var/lib/morse-credit-issuer
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    stop_grace_period: 45s
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  issuer-keys:
+    name: morse-credit-issuer-keys

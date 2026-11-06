@@ -1,0 +1,32 @@
+from Credits.Issuance import decode_credit_quote
+from Payment.Verify import verify_credit_payment
+
+fn run() -> Int!String do
+  let root = Json.parse(File.read(Env.get("WALLET_CASES", ""))?)?
+  let client = Http.client()
+  for index in 0..Json.array_length(root)? do
+    let item = Json.array_get(root, index)?
+    let quote = decode_credit_quote(Bytes.from_hex(Json.as_string(Json.object_get(item, "quote_hex")?)?)?)?
+    let signature = Bytes.from_hex(Json.as_string(Json.object_get(item, "signature_hex")?)?)?
+    let result = verify_credit_payment(client, Env.get("RPC_URL", ""), signature, 41,
+      quote, Bytes.from_hex(String.repeat("07", 32))?, quote.issued_at, quote.issued_at)?
+    case result do
+      None -> return Err("wallet payment not finalized")
+      Some(receipt) -> do
+        if U64.compare(receipt.received_amount, quote.amount) != 0 do
+          return Err("wallet amount changed")
+        end
+        if Bytes.to_hex(receipt.payer) != Json.as_string(Json.object_get(item, "payer_hex")?)? do
+          return Err("wallet payer changed")
+        end
+      end
+    end
+  end
+  Ok(Json.array_length(root)?)
+end
+fn main() do
+  case run() do
+    Err(error) -> println("wallet-error:#{error}")
+    Ok(count) -> println("wallet-payments:#{count}:ok")
+  end
+end

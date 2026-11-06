@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Public network record · Morse</title>
+<meta name="description" content="The public record of Morse burns, bonds and slashes, with source status and exact units. Launching in stages.">
+<meta name="theme-color" content="#F6F2EA">
+<meta property="og:title" content="Public network record · Morse">
+<meta property="og:description" content="Burns, bonds and slashes, with the source and status behind every record.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://morseapp.io/og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='230' fill='%232F6BEA'/%3E%3Cpath fill='%23fff' d='M248 392a88 88 0 1 1 176 0 88 88 0 1 1-176 0M336 544h352a88 88 0 0 1 0 176H336a88 88 0 0 1 0-176'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="network.css">
+<script src="network-data.js" defer></script>
+<script src="network-history.js" defer></script>
+<script src="network-report.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav"><div class="wrap"><a class="brand" href="index.html" aria-label="Morse home"><svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M248 392a88 88 0 1 1 176 0 88 88 0 1 1-176 0M336 544h352a88 88 0 0 1 0 176H336a88 88 0 0 1 0-176"/></svg>Morse</a><nav aria-label="Main"><a href="how-it-works.html">How it works</a><a href="witnesses.html">Run a witness</a></nav></div></header>
+<main id="main" class="wrap">
+<p class="eyebrow">Launching in stages · Public network record</p>
+<h1>Burns, bonds<br>and slashes.</h1>
+<p class="intro">Every published amount needs a record behind it. This page shows what is available, when it was read, and where the evidence stops.</p>
+<section class="notice" aria-labelledby="report-status" aria-live="polite"><h2 id="report-status">Awaiting published records</h2><p id="report-detail">No live report is configured. Burns, bonds and slashes are unavailable; this does not establish that no activity occurred.</p><dl class="source-grid"><div><dt>Report source</dt><dd id="source-scope">Awaiting source policy</dd></div><div><dt>Retrieved at</dt><dd id="retrieved-at">Unavailable</dd></div><div><dt>Maximum age</dt><dd id="age-limit">Unconfigured</dd></div></dl></section>
+<noscript><p>The report viewer needs JavaScript. The page is currently awaiting a reviewed public source policy and published live records.</p></noscript>
+<section class="section" aria-labelledby="history-title"><h2 id="history-title">Discovered records</h2><p class="explain">A bounded index is optional. It covers returned records for pinned families, with separate value banks and explicit unsupported versions. It is not a global balance or proof of provider completeness.</p><div id="history-records"><p class="empty">No discovery index is published. Selected records below do not establish complete history.</p></div></section>
+<section class="section" aria-labelledby="burns-title"><h2 id="burns-title">Weekly burns</h2><p class="explain">Amounts use six decimal places. Each report covers its selected weeks only. Missing weeks are unknown, and donation surplus is shown separately from the burn budget. The configured mint is shown with each record; local fixture assets are test tokens.</p><div id="burn-records"><p class="empty">No weekly records have been published in this report.</p></div></section>
+<section class="section" aria-labelledby="bonds-title"><h2 id="bonds-title">Selected bonds</h2><p class="explain">Each section reads its own finalized bank. USDC and MORSE remain separate; principal, pending liability and donations are shown independently. Recorded status and underwater timestamps are not a USD valuation or an eligibility decision.</p><div id="bond-records"><p class="empty">Bond records are unavailable.</p></div></section>
+<section class="section" aria-labelledby="slashes-title"><h2 id="slashes-title">Selected slash receipts</h2><p class="explain">Only explicitly selected proof identifiers are checked. Prepared amounts are unavailable until settlement. This is an onchain receipt view, not a complete slash index or independent verification of a fork.</p><div id="slash-records"><p class="empty">Slash records are unavailable.</p></div></section>
+<section class="method"><h3>What a report establishes</h3><p>The read-only generator checks selected finalized accounts through Mesh: expected addresses, owners, account shapes, code pins, liabilities and close receipts. An amount appears only when at least two configured sources agree. A changed code pin remains visible. No market quote is inferred from custody.</p><p>Different RPC origins do not establish independent operators. Public release pins, a reviewed source policy and a complete weekly index are still prerequisites. The first four actual weekly burns must be executed and published before the token phase is complete. Local fixture executions do not satisfy that exit.</p><p><a href="network-data.js" download="network-report-data.js">Download this report’s source data</a></p></section>
+</main>
+<footer><div class="wrap"><p>Morse · Private messaging, kept honest.</p><p>No analytics, no third-party requests.</p></div></footer>
+</body>
+</html>

@@ -1,7 +1,7 @@
+from Tests.HistoryFixture import fixture_direct_history
 import File
 from MobileCore import (
   create_account_export,
-  load_history_export,
   outbox_ack_export,
   outbox_fail_export,
   outbox_list_export,
@@ -24,7 +24,7 @@ end
 # a history summary is one byte, 0 sent, 1 waiting to leave, 2 not delivered.
 
 fn states(path :: String, peer :: Bytes) -> List<Int>!String do
-  let summaries = output_list(load_history_export(request([Bytes.from_utf8(path), peer],
+  let summaries = output_list(fixture_direct_history(request([Bytes.from_utf8(path), peer],
     0,
     Bytes.empty())?)?)?
   Ok(List.map(summaries,

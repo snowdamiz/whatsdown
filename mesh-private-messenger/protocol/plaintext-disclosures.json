@@ -1,0 +1,516 @@
+{
+  "schema_version": 1,
+  "policy": "plaintext-v1",
+  "sites": [
+    {
+      "module": "Attachments.Protocol",
+      "file": "dependency/Attachments.Protocol/protocol.mpl",
+      "kind": "declassify",
+      "reason": "attachment manifest admission discloses only whether filename length is at most 255 bytes and MIME length is 1..127 bytes; metadata bytes and unrelated private control remain private",
+      "start": 5411,
+      "end": 5743,
+      "line": 190,
+      "column": 14
+    },
+    {
+      "module": "Attachments.Protocol",
+      "file": "dependency/Attachments.Protocol/protocol.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "attachment encryption exposes only success or failure; encrypted content, error payloads, and unrelated private control remain private",
+      "start": 9243,
+      "end": 9475,
+      "line": 314,
+      "column": 8
+    },
+    {
+      "module": "Attachments.Protocol",
+      "file": "dependency/Attachments.Protocol/protocol.mpl",
+      "kind": "declassify",
+      "reason": "attachment manifest framing exposes only whether bounded encoding succeeded; filename and MIME bytes, lengths, error payloads, and unrelated private control remain private",
+      "start": 14326,
+      "end": 14538,
+      "line": 466,
+      "column": 23
+    },
+    {
+      "module": "Backups.PortableV2",
+      "file": "dependency/Backups.PortableV2/portable_v2.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "portable backup reviews only bounded AEAD seal admission for fixed manifest or disclosed-size chunk bodies; ciphertext alone crosses encryption and plaintext, error payloads and prior private control remain private",
+      "start": 7046,
+      "end": 7296,
+      "line": 257,
+      "column": 8
+    },
+    {
+      "module": "Backups.PortableV2",
+      "file": "dependency/Backups.PortableV2/portable_v2.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "portable backup reviews only bounded chunk slice admission at public offsets and lengths derived from the disclosed extent; chunk bytes and error payload remain private",
+      "start": 10352,
+      "end": 10556,
+      "line": 355,
+      "column": 8
+    },
+    {
+      "module": "Backups.PortableV2",
+      "file": "dependency/Backups.PortableV2/portable_v2.mpl",
+      "kind": "declassify",
+      "reason": "portable backup explicitly discloses only zero refusal or a bounded payload byte extent already derivable from its unpadded encrypted framing; payload records and hashes remain private",
+      "start": 12332,
+      "end": 12551,
+      "line": 409,
+      "column": 16
+    },
+    {
+      "module": "Backups.PortableV2",
+      "file": "dependency/Backups.PortableV2/portable_v2.mpl",
+      "kind": "declassify",
+      "reason": "portable backup exposes only complete restore validity after all authenticated chunks and snapshot hash checks; no plaintext, hash, stage, error payload or partial archive is disclosed",
+      "start": 22786,
+      "end": 22996,
+      "line": 688,
+      "column": 17
+    },
+    {
+      "module": "Mobile.AttachmentMetadata",
+      "file": "mobile/attachment_metadata.mpl",
+      "kind": "declassify",
+      "reason": "attachment native metadata admission exposes only whether filename is at most 255 bytes and MIME is 1..127 bytes, with valid UTF8 when the free request parser requires it; metadata bytes, exact lengths, derived digests, and unrelated private control remain private",
+      "start": 481,
+      "end": 786,
+      "line": 13,
+      "column": 3
+    },
+    {
+      "module": "Mobile.Attachments",
+      "file": "mobile/attachments.mpl",
+      "kind": "declassify",
+      "reason": "attachment operations expose only six fixed failure classes; filename and MIME bytes, nested CryptoError payloads, and unrelated private control remain private",
+      "start": 8185,
+      "end": 8393,
+      "line": 269,
+      "column": 16
+    },
+    {
+      "module": "Mobile.BackupArchive",
+      "file": "mobile/backup_archive.mpl",
+      "kind": "declassify",
+      "reason": "backup archive operations disclose only finite authenticated owner schema storage admission and identical-payload disposition; plaintext records payload digests arbitrary errors and archive index metadata remain private",
+      "start": 29826,
+      "end": 30071,
+      "line": 956,
+      "column": 3
+    },
+    {
+      "module": "Mobile.BackupArchive",
+      "file": "mobile/backup_archive.mpl",
+      "kind": "declassify",
+      "reason": "pending backup export discloses only finite authenticated current owner exact draft original file acceptance and explicit invalid slot repair or exact ID discard admission; user entered recovery codes restored plaintext descriptor digests owner metadata and raw errors remain private",
+      "start": 58556,
+      "end": 58864,
+      "line": 1764,
+      "column": 3
+    },
+    {
+      "module": "Mobile.BackupArchive",
+      "file": "mobile/backup_archive.mpl",
+      "kind": "declassify",
+      "reason": "Explicit user-requested attachment backup exposes only closed refusal, retrieval completion or publication eligibility, and each authenticated fixed-origin request's exact 32-byte object ID, exact 32-byte download capability and bounded part index; request count/order is inherent in this sequence. Source and slot identities, EAM/wrapped-key bytes, filename/MIME, file digests, exact plaintext lengths and expiry timestamps, content, raw errors and prior caller control are not released by this projection.",
+      "start": 82469,
+      "end": 83002,
+      "line": 2456,
+      "column": 3
+    },
+    {
+      "module": "Mobile.Codec",
+      "file": "mobile/codec.mpl",
+      "kind": "declassify",
+      "reason": "mobile binary framing discloses only its one-bit concatenation failure status; framed content stays private",
+      "start": 1563,
+      "end": 1711,
+      "line": 47,
+      "column": 6
+    },
+    {
+      "module": "Mobile.Codec",
+      "file": "mobile/codec.mpl",
+      "kind": "declassify",
+      "reason": "mobile vector framing discloses only success, invalid length integer, or integer encoding failure; encoded length bytes stay private",
+      "start": 7182,
+      "end": 7340,
+      "line": 263,
+      "column": 19
+    },
+    {
+      "module": "Mobile.CreditAttachmentJournal",
+      "file": "mobile/credit_attachment_journal.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "attachment intent storage exposes only seal success or failure; filename, MIME, binding digest, storage error payloads and unrelated private control remain private",
+      "start": 517,
+      "end": 758,
+      "line": 13,
+      "column": 8
+    },
+    {
+      "module": "Mobile.CreditAttachmentJournal",
+      "file": "mobile/credit_attachment_journal.mpl",
+      "kind": "declassify",
+      "reason": "attachment retry exposes only whether the caller supplied exactly the already saved filename MIME and public size; metadata bytes and binding digests remain private",
+      "start": 1413,
+      "end": 1633,
+      "line": 35,
+      "column": 3
+    },
+    {
+      "module": "Mobile.CreditAttachmentJournal",
+      "file": "mobile/credit_attachment_journal.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "attachment intent framing exposes only primitive encoding success or failure for bounded filename MIME and public size; private bytes, exact lengths, binding digest and error payloads remain private",
+      "start": 2167,
+      "end": 2403,
+      "line": 50,
+      "column": 8
+    },
+    {
+      "module": "Mobile.CreditAttachmentJournal",
+      "file": "mobile/credit_attachment_journal.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "attachment intent length framing exposes only four-byte writer success or failure; exact metadata lengths encoded in private bytes and error payloads remain private",
+      "start": 2681,
+      "end": 3012,
+      "line": 62,
+      "column": 8
+    },
+    {
+      "module": "Mobile.HistoryWire",
+      "file": "mobile/history_wire.mpl",
+      "kind": "declassify",
+      "reason": "canonical local-history framing discloses only success or its closed framing, integer, envelope-admission and capacity error classes; encoded entries and arbitrary error strings remain private",
+      "start": 2424,
+      "end": 2640,
+      "line": 84,
+      "column": 16
+    },
+    {
+      "module": "Mobile.Presentation",
+      "file": "mobile/presentation.mpl",
+      "kind": "declassify",
+      "reason": "disclose only whether bounded authenticated presentation metadata is structurally valid; record content remains private",
+      "start": 4062,
+      "end": 4222,
+      "line": 122,
+      "column": 6
+    },
+    {
+      "module": "Mobile.Presentation",
+      "file": "mobile/presentation.mpl",
+      "kind": "declassify",
+      "reason": "disclose only acceptance of bounded authenticated presentation framing before accessing public storage keys; parsed content remains private",
+      "start": 15456,
+      "end": 15637,
+      "line": 460,
+      "column": 7
+    },
+    {
+      "module": "Mobile.Presentation",
+      "file": "mobile/presentation.mpl",
+      "kind": "declassify",
+      "reason": "disclose only presence of authenticated group presentation metadata to preserve conditional group storage access; content and authorization stay private",
+      "start": 16851,
+      "end": 17046,
+      "line": 494,
+      "column": 23
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Paid attachment names, MIME types and journal status are returned to the reviewed React Native paid-attachment inventory for display and explicit resume/cancel controls; content remains private elsewhere.",
+      "start": 12348,
+      "end": 12564,
+      "line": 360,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Authenticated attachment names, MIME types and bounded download metadata are returned to the reviewed React Native attachment display/save adapter; object fetching remains in Mesh.",
+      "start": 12722,
+      "end": 12914,
+      "line": 365,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Group history bodies and attachment presentation are returned to the reviewed React Native chat and local notification adapters; notification redaction and receipt timestamps are computed there, and receipt transport is natively re-sealed.",
+      "start": 19070,
+      "end": 19321,
+      "line": 512,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Direct history bodies and attachment presentation are returned to the reviewed React Native chat and local notification adapters; notification redaction and receipt timestamps are computed there, and receipt transport is natively re-sealed.",
+      "start": 20945,
+      "end": 21197,
+      "line": 551,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Profile, contact nickname, group and community name/avatar/text records are returned to the reviewed React Native presentation store for chat, contact/profile/community screens and local group notification presentation; raw content remains private elsewhere.",
+      "start": 29542,
+      "end": 29812,
+      "line": 747,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "The confirmed selected profile, local nickname, group or community presentation record is returned to the reviewed React Native edit and community-state adapters after an authenticated local update; raw content remains private elsewhere.",
+      "start": 29984,
+      "end": 30233,
+      "line": 752,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "User-requested attachment plaintext is returned to the native display/save boundary after authenticated chunk opening; HTTP transport remains in Mesh.",
+      "start": 37828,
+      "end": 37990,
+      "line": 975,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Authenticated portable backup overview metadata including finite schema attachment policy and separate file omission counts is returned only to the account-bound native import confirmation screen after complete restore canonical schema and current owner checks; message bodies attachment names MIME types file contents equality tokens authorization keys service realms recovery codes and raw errors remain private.",
+      "start": 41869,
+      "end": 42295,
+      "line": 1082,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Authenticated local archive identifiers and creation timestamps are returned only to the account-bound native backup inventory for selecting a read-only archive or explicit removal; message bodies archive digests authorization keys service realms recovery codes and raw errors remain private.",
+      "start": 42661,
+      "end": 42965,
+      "line": 1093,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Authenticated stored archive historical conversation identifiers labels creation time bounded message counts finite attachment policy and separate file omission counts are returned only to the account-bound native read-only archive overview after current owner and snapshot checks; message bodies attachment names MIME types file contents equality tokens authorization keys service realms recovery codes and raw errors remain private.",
+      "start": 43316,
+      "end": 43762,
+      "line": 1104,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Authenticated bounded archive page text historical record metadata included-file display metadata explicit omission reasons revision-bound equality tokens and explicitly selected archive-file chunks are returned only to the current account-bound native read-only archive viewer after canonical owner selected-slot original snapshot and current authority checks; raw canonical archives archive and index digests revision tags authorization keys service realms recovery codes object capabilities keys and raw errors remain private.",
+      "start": 43947,
+      "end": 44488,
+      "line": 1110,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "Current custody checked pending backup export state is returned only to the account bound native continuation screen as empty repair required or an authenticated bounded draft identifier creation timestamp and ciphertext byte count; recovery codes plaintext history payloads descriptor digests authorization keys service realms raw errors and prior caller control remain private.",
+      "start": 44827,
+      "end": 45218,
+      "line": 1123,
+      "column": 1
+    },
+    {
+      "module": "MobileCore",
+      "file": "mobile_core.mpl",
+      "kind": "display",
+      "reason": "User explicitly opens this selected per-device view-once image; authenticated image format and bytes are returned only after durable local consumption to the current native-only one-shot viewer. Generic JavaScript invoke, save, sharing, backup, network and detailed errors remain excluded.",
+      "start": 46085,
+      "end": 46386,
+      "line": 1146,
+      "column": 1
+    },
+    {
+      "module": "Protocol.EnvelopeWire",
+      "file": "dependency/Protocol.EnvelopeWire/envelope_wire.mpl",
+      "kind": "declassify",
+      "reason": "inner envelope admission discloses only its reviewed fixed0..17 status classifier, including bounds and policy failures; no ProtocolError payload is released",
+      "start": 8926,
+      "end": 9109,
+      "line": 265,
+      "column": 19
+    },
+    {
+      "module": "Protocol.EnvelopeWire",
+      "file": "dependency/Protocol.EnvelopeWire/envelope_wire.mpl",
+      "kind": "declassify",
+      "reason": "inner envelope encoding discloses only its reviewed fixed0..17 status classifier; encoded bytes and ProtocolError payloads remain private",
+      "start": 9457,
+      "end": 9620,
+      "line": 280,
+      "column": 19
+    },
+    {
+      "module": "Session.Handshake",
+      "file": "dependency/Session.Handshake/handshake.mpl",
+      "kind": "declassify",
+      "reason": "initial handshake admission discloses only whether plaintext exceeds the public credential and suite dependent transport bound; plaintext content remains private",
+      "start": 9838,
+      "end": 10062,
+      "line": 312,
+      "column": 19
+    },
+    {
+      "module": "Session.Handshake",
+      "file": "dependency/Session.Handshake/handshake.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "initial handshake encryption exposes only success or failure; message bytes, error payloads, and unrelated private control remain private",
+      "start": 14126,
+      "end": 14383,
+      "line": 411,
+      "column": 24
+    },
+    {
+      "module": "Session.HeaderRatchet",
+      "file": "dependency/Session.HeaderRatchet/header_ratchet.mpl",
+      "kind": "declassify",
+      "reason": "HE ratchet admission exposes only whether plaintext exceeds the fixed recipient transport bound; content remains private",
+      "start": 6158,
+      "end": 6329,
+      "line": 224,
+      "column": 19
+    },
+    {
+      "module": "Session.HeaderRatchet",
+      "file": "dependency/Session.HeaderRatchet/header_ratchet.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "HE body encryption discloses only success or failure; plaintext, error payloads and unrelated private control remain private",
+      "start": 7811,
+      "end": 8064,
+      "line": 273,
+      "column": 16
+    },
+    {
+      "module": "Session.HeaderRatchet",
+      "file": "dependency/Session.HeaderRatchet/header_ratchet.mpl",
+      "kind": "declassify",
+      "reason": "Hybrid HE ratchet admission exposes only whether plaintext exceeds the fixed recipient transport bound; content remains private",
+      "start": 28946,
+      "end": 29124,
+      "line": 939,
+      "column": 19
+    },
+    {
+      "module": "Session.HeaderRatchet",
+      "file": "dependency/Session.HeaderRatchet/header_ratchet.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "Hybrid HE body encryption discloses only success or failure; plaintext, error payloads and unrelated private control remain private",
+      "start": 32593,
+      "end": 32806,
+      "line": 1045,
+      "column": 16
+    },
+    {
+      "module": "Session.Ratchet",
+      "file": "dependency/Session.Ratchet/ratchet.mpl",
+      "kind": "declassify",
+      "reason": "ratchet admission discloses only whether the plaintext exceeds this transport's documented message bound",
+      "start": 17062,
+      "end": 17219,
+      "line": 542,
+      "column": 19
+    },
+    {
+      "module": "Session.Ratchet",
+      "file": "dependency/Session.Ratchet/ratchet.mpl",
+      "kind": "declassify",
+      "reason": "ratchet padding discloses only its one-bit InvalidMessage status; plaintext and padding bytes remain private",
+      "start": 31770,
+      "end": 31906,
+      "line": 972,
+      "column": 6
+    },
+    {
+      "module": "Storage.HistoryBlobs",
+      "file": "storage/history_blobs.mpl",
+      "kind": "declassify",
+      "reason": "sealed history part framing discloses only its one-bit bounds failure status; extracted content remains private",
+      "start": 1802,
+      "end": 1952,
+      "line": 57,
+      "column": 6
+    },
+    {
+      "module": "Storage.HistoryBlobs",
+      "file": "storage/history_blobs.mpl",
+      "kind": "declassify",
+      "reason": "chunked encrypted local-history storage discloses only its valid8..16794632 encoded byte length through ciphertext sizes, or0 for invalid capacity; history content and digest remain private",
+      "start": 3624,
+      "end": 3845,
+      "line": 117,
+      "column": 14
+    },
+    {
+      "module": "Storage.Keys",
+      "file": "storage/keys.mpl",
+      "kind": "declassify_discriminant",
+      "reason": "local storage reviews only bounded seal success or refusal; ciphertext alone crosses encryption while plaintext contents raw error payloads private metadata and prior caller control remain private",
+      "start": 3932,
+      "end": 4164,
+      "line": 134,
+      "column": 8
+    },
+    {
+      "module": "Storage.ViewOnce",
+      "file": "storage/view_once.mpl",
+      "kind": "declassify",
+      "reason": "User explicitly opens this selected per-device view-once image; disclose only whether its authenticated current available state may be durably consumed. Image bytes, metadata, key envelopes and detailed errors remain protected.",
+      "start": 1087,
+      "end": 1391,
+      "line": 43,
+      "column": 3
+    },
+    {
+      "module": "Transport.Packet",
+      "file": "dependency/Transport.Packet/packet.mpl",
+      "kind": "declassify",
+      "reason": "client transport framing discloses only its one-bit concatenation failure status; framed content stays private",
+      "start": 2091,
+      "end": 2242,
+      "line": 76,
+      "column": 6
+    },
+    {
+      "module": "Transport.Packet",
+      "file": "dependency/Transport.Packet/packet.mpl",
+      "kind": "declassify",
+      "reason": "client vector framing discloses only success, invalid length integer, or integer encoding failure; encoded length bytes stay private",
+      "start": 12763,
+      "end": 12921,
+      "line": 402,
+      "column": 19
+    }
+  ]
+}

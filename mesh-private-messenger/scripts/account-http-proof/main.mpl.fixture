@@ -1,0 +1,33 @@
+# Owned HTTP proof bootstrap: the production router, API and storage run
+# unchanged against local PostgreSQL. No background witness/push workers run.
+from Api.Router import build_router
+from Api.Binary import validate_delivery_config, validate_transparency_config
+from Runtime.Registry import start_registry
+
+fn fatal(message :: String) do
+  io_eprintln(message)
+  Process.exit(1)
+end
+
+fn main() do
+  Process.install_shutdown_signals()
+  case validate_transparency_config() do
+    Err(error) -> fatal(error)
+    Ok(_) -> nil
+  end
+  case validate_delivery_config() do
+    Err(error) -> fatal(error)
+    Ok(_) -> nil
+  end
+  let url = Env.get("MESSENGER_DATABASE_URL", "")
+  let port = Env.get_int("MESSENGER_PORT", 0)
+  case Pool.open(url, 1, 4, 5000) do
+    Err(error) -> fatal(error)
+    Ok(pool) -> do
+      start_registry(pool)
+      println("owned account HTTP peer ready")
+      HTTP.serve(build_router(), port)
+      Pool.close(pool)
+    end
+  end
+end

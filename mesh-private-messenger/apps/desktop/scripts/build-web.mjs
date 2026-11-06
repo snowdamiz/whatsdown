@@ -8,7 +8,8 @@ const cli = fileURLToPath(new URL('../../mobile/node_modules/expo/bin/cli', impo
 // Metro inlines build flags; cached development transforms must not reach a release.
 const result = spawnSync(process.execPath, [cli, 'export', '--clear', '--platform', 'web', '--output-dir', '../desktop/dist'], {
   cwd: mobile, stdio: 'inherit',
-  env: { ...process.env, EXPO_PUBLIC_DESKTOP_DEVELOPMENT: String(config.development), EXPO_PUBLIC_MESSENGER_BASE_URL: config.baseUrl,
+  env: { ...process.env, EAS_BUILD_PROFILE: config.development ? 'development' : 'production',
+    EXPO_PUBLIC_DESKTOP_DEVELOPMENT: String(config.development), EXPO_PUBLIC_MESSENGER_BASE_URL: config.baseUrl,
     EXPO_PUBLIC_MESSENGER_PRIVACY_EDGE_URL: config.edgeUrl, EXPO_PUBLIC_MESSENGER_STREAM_URL: config.streamUrl,
     EXPO_PUBLIC_MESSENGER_OBJECT_URL: config.objectUrl },
 });

@@ -1,0 +1,16 @@
+[package]
+name = "morse-token-program"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "morse_token"
+crate-type = ["cdylib"]
+
+[dependencies]
+token-core = { package = "morse-token", path = "../morse-token" }
+pinocchio = { version = "=0.11.2", default-features = false }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

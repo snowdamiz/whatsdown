@@ -1,4 +1,19 @@
 from Api.Binary import (
+  checkpoint_request_for,
+  historical_checkpoint_request_for,
+  leaf_proof_request_for,
+  consistency_request_for,
+  inclusion_request_for,
+  submit_witness_request_for,
+  witnesses_request_for,
+  resolve_devices_request_for,
+  resolve_log_availability,
+  checkpoint_note_request,
+  legacy_bridge_request
+)
+from Storage.WitnessRegistry import public_witness_registry, push_witness_registry, witness_health
+from Storage.C2spPush import push_registered_c2sp, witness_job_deadline
+from Api.Binary import (
   Admission,
   BinaryResult,
   CheckedRequest,
@@ -27,6 +42,7 @@ from Api.Binary import (
 from Prekeys.Pool import decode_prekey_claim
 from Privacy.Edge import internal_delivery_authorized, internal_delivery_token
 from Runtime.Registry import get_pool
+from Runtime.WorkPolicy import configured_signup_difficulty
 from Runtime.Workers import run_scheduled, transaction_in_progress
 import RuntimeJobs
 
@@ -39,7 +55,10 @@ fn run_jobs(request :: Request, witness_only :: Bool) -> Response do
       Err(_) -> HTTP.response(503, "")
       Ok(true) -> HTTP.response(202, "")
       Ok(false) -> if witness_only do
-        HTTP.response(200, "0")
+        case witness_job_deadline(get_pool()) do
+          Err(_) -> HTTP.response(503, "")
+          Ok(due) -> HTTP.response(200, Int.to_string(due))
+        end
       else
         case run_scheduled(get_pool()) do
           Err(_) -> HTTP.response(503, "")
@@ -69,7 +88,7 @@ fn respond_no_store(result :: BinaryResult) -> Response do
 end
 
 pub fn handle_health(_request :: Request) -> Response do
-  HTTP.response(200, "ok")
+  registry_response(witness_health(get_pool()))
 end
 
 # Register, resolve and prekey claim are anonymous, so each must arrive wrapped
@@ -81,7 +100,11 @@ fn admitted(request :: Request, label :: String, maximum_payload :: Int) -> Admi
     Request.body_bytes(request),
     maximum_payload,
     U64.parse(Int.to_string(DateTime.to_unix_ms(DateTime.utc_now())))?,
-    Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16))? do
+    if label == "mesh-msg/v1/work/register" do
+      configured_signup_difficulty()
+    else
+      Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16)
+    end)? do
     RequestMalformed -> Ok(AdmissionMalformed)
     RequestUnpaid -> Ok(AdmissionRefused)
     RequestPaid(payload, spent_key) -> spend_request(get_pool(), payload, spent_key)
@@ -191,4 +214,114 @@ end
 
 pub fn handle_transparency_witness_submit(request :: Request) -> Response do
   respond(submit_witness_request(get_pool(), Request.body_bytes(request)))
+end
+
+fn registry_response(result :: String!String) -> Response do
+  case result do
+    Err(_) -> HTTP.response(503, "")
+    Ok(value) -> HTTP.response_bytes_with_headers(200,
+      Bytes.from_utf8(value),
+      Map.new()
+        |> Map.put("Content-Type", "application/json")
+        |> Map.put("Cache-Control", "no-store"))
+  end
+end
+
+pub fn handle_transparency_registry(_request :: Request) -> Response do
+  registry_response(public_witness_registry(get_pool()))
+end
+
+pub fn handle_push_witness_registry(request :: Request) -> Response do
+  if !RuntimeJobs.internal_request_authorized(request,
+    Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+    HTTP.response(401, "")
+  else
+    registry_response(push_witness_registry(get_pool()))
+  end
+end
+
+pub fn handle_witness_health(request :: Request) -> Response do
+  if !RuntimeJobs.internal_request_authorized(request,
+    Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+    HTTP.response(401, "")
+  else
+    registry_response(witness_health(get_pool()))
+  end
+end
+
+pub fn handle_c2sp_push(request :: Request) -> Response do
+  if !RuntimeJobs.internal_request_authorized(request,
+    Env.get("MESSENGER_DELIVERY_INTERNAL_TOKEN", "")) do
+    return HTTP.response(401, "")
+  end
+  let id = Request.body(request)
+  if Bytes.length(Request.body_bytes(request)) > 64 || !Regex.is_match(~r/^[a-z0-9-]{1,64}$/, id) do
+    return HTTP.response(400, "")
+  end
+  case push_registered_c2sp(get_pool(), id) do
+    Err(_) -> HTTP.response(503, "")
+    Ok(_) -> HTTP.response(204, "")
+  end
+end
+
+pub fn handle_v2_checkpoint(_request :: Request) -> Response do
+  respond_no_store(checkpoint_request_for(get_pool(), 2))
+end
+
+pub fn handle_v1_checkpoint_history(request :: Request) -> Response do
+  respond_no_store(historical_checkpoint_request_for(get_pool(), 1, Request.body_bytes(request)))
+end
+
+pub fn handle_v2_checkpoint_history(request :: Request) -> Response do
+  respond_no_store(historical_checkpoint_request_for(get_pool(), 2, Request.body_bytes(request)))
+end
+
+pub fn handle_v1_leaf_proof(request :: Request) -> Response do
+  respond_no_store(leaf_proof_request_for(get_pool(), 1, Request.body_bytes(request)))
+end
+
+pub fn handle_v2_leaf_proof(request :: Request) -> Response do
+  respond_no_store(leaf_proof_request_for(get_pool(), 2, Request.body_bytes(request)))
+end
+
+pub fn handle_v2_consistency(request :: Request) -> Response do
+  respond_no_store(consistency_request_for(get_pool(), 2, Request.body_bytes(request)))
+end
+
+pub fn handle_v2_inclusion(request :: Request) -> Response do
+  respond_no_store(inclusion_request_for(get_pool(), 2, Request.body_bytes(request)))
+end
+
+pub fn handle_v2_witnesses(_request :: Request) -> Response do
+  respond_no_store(witnesses_request_for(get_pool(), 2))
+end
+
+pub fn handle_v2_witness_submit(request :: Request) -> Response do
+  respond_no_store(submit_witness_request_for(get_pool(), 2, Request.body_bytes(request)))
+end
+
+pub fn handle_v2_resolve(request :: Request) -> Response do
+  # Availability is public checkpoint state. Refuse before spending work so
+  # the native pre-cutover fallback can submit its legacy request exactly once.
+  let availability = resolve_log_availability(get_pool(), 2)
+  if availability.status != 204 do
+    return respond_no_store(availability)
+  end
+  case admitted(request, "mesh-msg/v1/work/resolve", 76) do
+    Ok(Admitted(payload)) -> respond_no_store(resolve_devices_request_for(get_pool(), 2, payload))
+    refused -> respond_no_store(admission_failure(refused))
+  end
+end
+
+pub fn handle_checkpoint_note(_request :: Request) -> Response do
+  let result = checkpoint_note_request(get_pool())
+  HTTP.response_bytes_with_headers(result.status,
+    result.body,
+    Map.new()
+      |> Map.put("Content-Type", "text/plain; charset=utf-8")
+      |> Map.put("Cache-Control", "no-store"))
+end
+
+pub fn handle_legacy_bridge(request :: Request) -> Response do
+  respond_no_store(legacy_bridge_request(get_pool(), Request.body_bytes(request)))
 end

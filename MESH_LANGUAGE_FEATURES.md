@@ -9,6 +9,187 @@ and CI resolve it on every run (`mesh-private-messenger/scripts/mesh-release.mjs
 and a release build uses the revision its verification recorded. A compiler
 feature can be used here once a release contains it.
 
+
+Witness-network development (2026-10-08) additionally requires the unpublished
+sibling Mesh changes for `Http.url_origin`, `File.sync`, `File.rename`, and five
+compiler regressions (actor/helper inference, comprehension result types,
+string-keyed map function values, ownership after returning branches, and
+full-path import resolution for modules with the same final segment), plus
+HTTP handling of empty HEAD and 204/205/304 responses carrying gzip metadata.
+The unpublished public `mesh-solana` additions also include context-aware
+atomic account batches and bounded keyed program-account discovery. Morse
+dogfoods those APIs in custody reads and historical collectible-key resolution.
+Rewards development (2026-10-20) additionally uses exact full-intermediate
+`U64.multiply_divide` / `U128.multiply_divide` and UTC calendar
+`DateTime.add_months`. The reward policy compares both implementations against
+the same independent integer/calendar vectors. Attendance reads dogfood
+`mesh-solana` sliced account batches, preserving one RPC context and full
+allocation sizes while fetching bounded data.
+The authenticated rewards reader also exposed a lexical block-scope bug: an
+inner conditional or loop binding could overwrite an outer variable's type or
+MIR value. Public Mesh now scopes each block in inference and lowering, with
+debug/optimized regressions and the original reader shadowing retained as app
+dogfood. This compiler fix is also unpublished.
+Credit development additionally uses public Mesh BR1: strict RSA-PSS SPKI
+parsing, blind/sign/finalize/verify, affine `BlindRsaSecretKey` and
+`BlindRsaBlindingState`, and authenticated storage purposes 18 and 19. Pending
+blinding state is sealed before issuance so an interrupted paid purchase can
+recover the same token. Direct `Secret.destroy` now accepts built-in opaque
+secret handles; aggregates and arbitrary resources remain excluded. Morse's
+credit protocol tests exercise the public API, published RFC 9578 vectors and
+sealed restart recovery. These APIs also remain unpublished.
+The issuer additionally dogfoods `StorageKey.file(directory)` on Linux/macOS:
+an opaque wrapping key backed by a private directory, process-safe nonce
+reservations and durable atomic counter updates. It uses the same authenticated
+storage format as native-host keys; it cannot detect an operator rolling back
+both key and counter. See Mesh `docs/security/storage-key-file.md`.
+Credit batches exposed the old 64 KiB builder ceiling. `BytesBuilder` now accepts
+explicit capacities up to 1 MiB, with overflow leaving its content unchanged;
+secret storage blobs retain their existing 64 KiB limit. Imported public return
+types now carry reachable type-layout context across module boundaries without
+re-exporting private fields or constructors. Payment parsing and mobile credit
+storage use these fixes without redundant leaf-type imports.
+Local proofs use that checkout. Production release verification and the exact
+released compiler pin must be updated before these app changes ship.
+
+Local service integration additionally uses the unpublished public Mesh
+`HTTP.serve_on` / `HTTP.serve_tls_on` and `Ws.serve_on` / `Ws.serve_tls_on` APIs.
+They accept an explicit IPv4 or IPv6 literal and a separate port, reject invalid
+values without a wildcard fallback, and retain the existing server lifetime and
+diagnostic behavior. The original APIs keep their existing wildcard defaults.
+Morse uses the explicit variants in directory HTTP, mailbox WebSockets and the
+privacy edge so owned local fixtures can bind to `127.0.0.1`. This does not change
+the released compiler requirement for production deployment.
+
+Backup recovery development (2026-10-23) adds public Mesh
+`RecoveryCode.generate()` / `RecoveryCode.parse()`. Generation returns a fresh
+opaque 256-bit secret and a deliberately disclosed canonical recovery String;
+parsing restores an opaque owner. There is no exporter for existing keys.
+Morse dogfoods these operations through `Backups.Recovery` and the actual fixed
+Argon2id backup manifest/chunk protocol, including restore after original owners
+are destroyed. Public compiled/affine tests and all 719 typechecker checks pass.
+The displayed String has no prompt-erasure guarantee, and the checksum is not
+account authentication. This remains unpublished development source, with UI,
+portable export/import and matching native/release qualification still open.
+
+Backup file development (2026-10-29) additionally adopts public Mesh
+`File.read_bytes_v2` / `File.write_bytes_v2` with explicit quotas and the same
+64-KiB per-call limit. Morse's maximum 16-MiB synthetic archive passes actual
+encrypted-file write, readback and full restore with a 16,796,864-byte quota.
+The final compiler/runtime candidate also passes namespace and free API calls;
+missing interactive-runtime registrations for these APIs and RecoveryCode
+were reproduced and fixed. The 11 public compiler/runtime/test/documentation
+paths are adopted locally after 1,657 runtime tests, 713 end-to-end tests and
+13 Solana test files pass. The stale fuzz lockfile is also repaired without
+changing retained dependency versions; all fuzz targets compile with the lock
+required, and the documentation site builds locally. Seven mechanical formatting
+repairs are adopted and the whole-workspace formatting check passes. Platform-specific
+release gaps remain explicit; this is not a published release.
+Guarded backup integration, resource bounds and native/UI acceptance remain open.
+
+Backup database development (2026-10-30) adopts public Mesh
+`Sqlite.execute_values_v2` / `Sqlite.query_values_v2`, with explicit per-value
+quotas from 1 through 33,554,432 bytes and a 64-MiB aggregate parameter budget.
+Legacy SQLite and PostgreSQL limits are unchanged. The new calls work through
+compiled Mesh and the interactive runtime, and reject private arguments/control.
+Morse's canonical synthetic 16-MiB archive passes actual HCB2 sealing, storage
+of the resulting 16,797,311 bytes, SQL close/reopen and full plaintext recovery.
+A one-byte-smaller quota rejects replacement and preserves the first container.
+The 14 public source paths are adopted after core/runtime/end-to-end checks,
+public-package and fuzz checks, formatting/lint and a local documentation build.
+The whole protected backup operations remain in isolated integration; native,
+production and published-release qualification are still open.
+
+Plaintext migration (2026-10-22) additionally dogfoods public Mesh
+`Plaintext<T>`, checked encryption/storage exits, reviewed `@display` exports,
+and source-hashed disclosure reports. The qualified successor adds
+`declassify_discriminant(result, "reason")`: it reviews only the `Result` tag,
+preserving payload labels, prior/caller control and affine ownership. It is a
+runtime identity, including pipe forms. Application code must review the raw
+encryption result before matching it; reviewing a result after branching on
+private data cannot erase that control dependency. Morse's adopted development
+attachment manifest and initial handshake exercise this boundary. The same compiler fixes
+qualified module calls shadowed by local closures and shorthand constructor
+arms that falsely retained an unreachable variant's private payload. Exact
+qualification and adoption status are in `WITNESS_NETWORK_PLAN.md`; the compiler
+and full application migration are not a published release.
+
+Wallet performance qualification (2026-10-22) additionally adds public
+`meshc test --opt-level 0..3`, retaining debug `0` as the default and preserving
+test-only fixtures and assertion failures at release `2`. The scoped compiler
+change passes 73 compiler unit tests, 56 tooling tests and three Morse runtime
+tests at explicit optimization `2`. Its frozen executable is
+`ca50900d0926acd5c76b50ddd42a1b48712f23f71587c8e386fbe937a42ed6d9`;
+the sibling checkout's `.morse/witness-proof/test-optimization/manifest.json`
+records the exact sources and results. This option alone does not establish a
+maximum-wallet memory bound; the separately qualified workload and development
+adoption are recorded below.
+
+The adopted development wallet also dogfoods public
+`Bytes.concat_many(parts :: List<Bytes>, maximum :: Int) -> Bytes!BytesError`.
+It preflights the full extent, copies parts in order into one output buffer, and
+treats the limit as a bound rather than reserved storage. Immutable views,
+aliases and private dependencies remain intact; the `BytesBuilder` ceiling is
+unchanged. Twenty focused Morse tests and its full host build pass with the same
+32 reviewed disclosures and 162 exports. The initial joined-buffer candidate
+still exceeded the 512 MiB sampled host RSS bound. A subsequent public runtime
+fix enables safe-point collection in native-thread library calls, preserving
+coroutine-origin synchronous behavior, child loans and output-copy ordering.
+The unchanged actual FFI maximum-wallet workload now passes in 26.892 seconds
+at 315,277,312 bytes sampled peak RSS. Fresh five-target libraries, iOS/Android
+ACH3 and funded upload proofs, all three development host builds and native
+inventory checks pass. The guarded development adoption retains 32 reviewed
+sites and the same 162 exports. The current adopted app regression is now
+qualified with the documented fixture successors; public Mesh publication and
+the exact release dependency pin remain separate gates. Exact scope, source
+pins and prior failures are recorded in `WITNESS_NETWORK_PLAN.md`.
+
+BTC conversion development additionally dogfoods public
+`Crypto.hmac_sha512_tag(key :: borrow SecretBytes, message :: Bytes)` returning
+`Bytes!CryptoError`. It emits the 64-byte public authentication tag without
+exporting the opaque key, with 64 KiB input bounds and repeated borrowing.
+Morse's isolated Kraken request builders pass the published Spot signature
+vector and an independent Funding v1 query/body vector at optimization 0 and 2.
+The host qualification passed 4,549 workspace tests with 27 explicitly ignored
+environment/timing gates. Its 1,030-record source/tool/evidence manifest is the
+sibling checkout's `.morse/witness-proof/hmac-sha512-tag-host/manifest.json`
+(SHA-256 `7d0e58bb292990544e0a100161911cbc93e4a115cb3278e9c80b15b4c52980d5`).
+Existing unrelated repository formatting findings and public/multiplatform
+release gates remain open. This isolated host toolchain does not replace native
+app runtime pins. The pure signing proof is complemented by the adopted default-off
+BTC adapter's 3,081-record local archive,
+`.morse/witness-proof/btc-conversion-adapter/manifest.json` (SHA-256
+`f27daaed3626717bec3c8e119ccd492e126352eb767bd7e59bdde4bad8ca53fe`).
+It exercises the same opaque-key API through persisted nonce allocation,
+authenticated owned Kraken request fixtures and actual regtest Lightning/SPL
+outputs. This qualifies local application behavior; live Kraken acceptance,
+independent providers and public Mesh publication remain separate gates.
+
+The combined treasury proof exposed a public HTTP persistence defect: a
+length-delimited HTTP/1.0 response could return a nonpersistent socket to the
+connection pool before its delayed close. Mesh now vendors the narrowly patched
+locked `ureq-proto` 0.5.3 dependency, preserving HTTP/1.1 reuse and explicit
+HTTP/1.0 keep-alive while giving `Connection: close` precedence. Deterministic
+two-POST tests reproduce the old failure and pass at optimization 0 and 2; no
+request retry or pooling disable is added. Both root and fuzz workspaces resolve
+the same reviewed source. The final 1,120-record host qualification is
+`../mesh-lang/.morse/witness-proof/http10-response-persistence-host/manifest.json`
+(SHA-256 `a657ec10995268fc602384e03590abe727c310d555649c8f6826d330687bbf77`).
+All 66 owned file bodies and eight existing baselines were independently checked.
+The workspace passes 4,555 tests with 27 existing ignores, plus two doc tests;
+179 protocol, four runtime and seven generated HTTP checks pass. Workspace build,
+four fuzz binaries and 13 public Solana test files also pass. Six unchanged
+preexisting Rust formatting findings remain outside this change.
+
+Morse dogfoods the fixed host runtime in the 47-outcome common BTC/SOL bank proof
+and its current optimized issuer build, recorded respectively in
+`.morse/witness-proof/treasury-conversions-common-bank-final/manifest.json`
+(`b28b9d5daa4ef358b41ee34f767dbe0c8b6b0045ea32b4792e2695a17043ef25`)
+and `.morse/witness-proof/treasury-conversions-http-adopted/manifest.json`
+(`5eeb9dd816c0d4f74f7c724c9e6e576217840a4d795f6ec9861c901a680bc2c6`).
+This qualification does not change native/default compiler pins or publish a
+Mesh release; owned local banks do not establish production finality.
+
 This is an inventory of language constructs, library capabilities, and tools.
 The linked references own individual API signatures and limits. Compiler
 registrations and executable tests resolve gaps in the prose documentation.
@@ -181,9 +362,9 @@ This includes source APIs omitted by the website's summary, such as `Host`,
 | `IO`, `Env`, `File` | Console and environment access, secret environment ingestion, filesystem operations, bounded binary range I/O. |
 | `DateTime`, `Monotonic`, `Duration` | Wall-clock dates/timestamps, elapsed time, checked duration conversions. |
 | `Random` | Deterministic state-threaded random streams; never key generation. |
-| `Crypto` | OS randomness, SHA-256/512, HMAC/HKDF, Argon2id, X25519, Ed25519, ChaCha20-Poly1305, HPKE including secret payloads, ML-KEM-768, UUIDs. |
+| `Crypto` | OS randomness, SHA-256/512, HMAC/HKDF, Argon2id, X25519, Ed25519, public Edwards25519 curve membership, ChaCha20-Poly1305, HPKE including secret payloads, ML-KEM-768, BR1 blind RSA, UUIDs. |
 | `Secret`, `SecretMap` | Move-only random/derived material, explicit destruction, bounded secret collections with independent `SecretMap.fork` candidates, authenticated storage wrapping. |
-| `StorageKey`, `X25519PrivateKey`, `SigningPrivateKey`, `MlKemPrivateKey` | Platform/ephemeral storage keys and typed private-key sealing/unsealing; context/purpose binding. |
+| `StorageKey`, `X25519PrivateKey`, `SigningPrivateKey`, `MlKemPrivateKey`, `BlindRsaSecretKey`, `BlindRsaBlindingState` | Platform/ephemeral storage keys and typed private-key or blinding-state sealing/unsealing; context/purpose binding. BR1 issuance operations are available on Linux/macOS; clients and state recovery also compile for mobile. |
 | `Host` | Native callbacks for secure storage, push tokens, background scheduling, network state, clocks, redacted logs. |
 | `Job`, `Timer`, `Channel`, `Process` | Jobs, scheduling, bounded queues, registries, monitors, process/shutdown management. |
 | `Test` | Test-owned actors, secure-store/push fixtures, and test runtime helpers; test-only builtins are rejected in production builds. |
@@ -205,11 +386,12 @@ when a higher-level API does not express locking, binary values, or atomicity.
 | Feature | Surface and constraints |
 | --- | --- |
 | Native imports | `@native("c_symbol")` on a public, concrete, bodyless function with fully annotated parameters/return in a manifest-listed bindings file. |
+| GC aggregate layout | Mixed sum payloads use aligned, zero-initialized machine words so nested live pointers survive conservative collection. The relay scheduler dogfoods optimized native admission and recovery under allocation pressure. Rebuild compiled libraries with the fixed compiler; see Mesh `docs/gc-value-layout.md`. |
 | Native ABI 1 | Scalars `Int`, `Float`, `Bool`, `String`, `Bytes`, `U64`, `U128`, `I128`; optional/result returns over supported payloads. No arbitrary struct/collection/closure ABI. |
 | Library exports | `@export("symbol")` with a Mesh body; messenger boundary uses `Bytes -> Bytes ! String`. Static/dynamic library builds generate C, Swift, Kotlin/JNI and TypeScript bindings. |
 | Cross-compilation | Exact target triple, compatible LLVM/linker/runtime archives; compiler target selection does not install platform SDKs. |
 | Dependencies | Manifest source/git/path/registry/native packages, lockfiles and checksummed exact-target native archives; packages do not execute build scripts. |
-| Official packages | `mesh-binary` (bounded binary codecs, used here), `mesh-borsh`, `mesh-anchor`, `mesh-solana` (RPC/account/unsigned transaction tooling; no signing/submission). |
+| Official packages | `mesh-binary` (bounded binary codecs, used here), `mesh-borsh`, `mesh-anchor`, `mesh-solana` (RPC/account/unsigned transaction tooling; no signing/submission). Morse's anchor reader uses its bounded account slices, context slots, public PDA derivation and typed block-time requests. The custody reader dogfoods atomic account batches with minimum context slots and explicit optional accounts. The relay discovers active and unbonding historical keys through context-aware bounded program-account queries and whole-set RPC agreement, reads the typed Clock sysvar for age admission, and emits unsigned ATA/settlement instruction reports. Its lookup-table lifecycle instructions and finalized recovery reader use `Solana.LookupTable`; its closure decision quorum dogfoods the public `Solana.SlotHashes` decoder and `lookup_table_status`, preserving full-width slots and the SDK cooldown rule. |
 | Test DSL | `.test.mpl`, `test`, `describe`, scoped `setup`/`teardown`, `assert`, `assert_eq`, `assert_ne`, `assert_raises`, `assert_receive`. |
 | Private test support | Sibling `*.test-support.mpl` fragments are merged for tests and excluded from production builds. |
 | Secure test fixtures | In-memory secure store and push token fixtures use the production host callback frames; cleaned between tests. |
@@ -227,14 +409,20 @@ when a higher-level API does not express locking, binary values, or atomicity.
   those language constructs. Use imports, conditionals, interfaces, results,
   and actor lifecycle APIs instead.
 - There are no glob imports or struct-field patterns.
-- Imported modules are addressed by their final path component. Avoid importing
-  two modules with the same final component into one file.
-- Public functions currently keep unqualified native symbols. Two modules with
-  the same public function name can silently call the wrong implementation,
-  even with qualified source calls. Shared helpers use distinct `protocol_`
+- Plain module imports are addressed by their final path component. Two plain
+  imports cannot bind different modules to the same namespace. Selective
+  `from ... import ...` imports resolve their full paths and may share a final
+  module segment; gossip dogfoods this with `Mobile.Gossip` and `Transparency.Gossip`.
+  Missing dotted imports cannot silently resolve to a standard module with the
+  same final segment.
+- Public functions currently keep unqualified native symbols. The compiler
+  rejects two modules defining the same public function name, even with
+  qualified source calls. Shared helpers use distinct `protocol_`
   and `group_` names until Mesh supports qualified native symbols.
 - Types in an imported function's signature must be available to the consuming
-  module. Import the defining type module when inspecting a returned record.
+  module. The current local compiler preserves reachable public return-type
+  layouts across imports; older released compilers may still require importing
+  the defining type module when inspecting a returned record.
 - Qualified nullary variants currently fail native lowering in some contexts.
   When two imported enums share a constructor name, construct it in its defining
   module rather than depending on import order.
@@ -243,9 +431,9 @@ when a higher-level API does not express locking, binary values, or atomicity.
 - `Iter.from` starts from lists; `for` has a broader iterable surface.
 - `Set`, `Queue`, and `Channel` have integer payload limits; ordinary containers
   cannot hold secrets. Use `SecretMap` for supported secret collections.
-- The current ownership checker does not treat resource-consuming early returns
-  as separate ownership paths. Keep explicit match branches or small consuming
-  helpers for state-preserving crypto failures; do not bypass the checker.
+- Ownership after a returning branch follows the paths that can reach the next
+  statement. Loop `break`/`continue` paths remain conservative; use explicit
+  state threading for those resource transitions rather than bypassing checks.
 - Resource captures in closures and cross-actor transfers are restricted.
   Do not weaken ownership just to fit a collection combinator.
 - Tail-call elimination covers direct self tail calls only.

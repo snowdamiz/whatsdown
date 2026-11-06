@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "scope": "local-fixture",
+  "generated_at_unix": "1792627200",
+  "max_age_seconds": "900",
+  "provider_independence": "not-established",
+  "history_completeness": "selected-epochs-only",
+  "phase5_complete": false,
+  "burns": [
+    {
+      "epoch": "2813",
+      "availability": "available",
+      "context_slot": "100",
+      "source_time_unix": "1701907200",
+      "snapshot_digest": "2e3834fff396bb569449dbb203b6542947f44e63f11a4c141359b56628e8dc8a",
+      "code_current": true,
+      "program": "EnTJCS15dqbDTU2XywYSMaScoPv4Py4GzExrtY9DQxoD",
+      "week_address": "EtFQqtPgKcvF6yt7Q3jCKznHaW9hwHio3DDWVxfVQgz4",
+      "usdc_mint": "Hzy3XXUm8mQBTLW2oWmHSYVKHBGVPZrwM5DjPzLQhUxN",
+      "decimals": 6,
+      "remaining_units": "0",
+      "week_donation_surplus_units": "17",
+      "carry_donation_surplus_units": "19",
+      "quote": {
+        "status": "unavailable",
+        "reason": "custody-only-reader",
+        "spot_usd_micros": null,
+        "twap_usd_micros": null,
+        "source_time_unix": null
+      },
+      "status": "closed",
+      "budget_units": "240000000",
+      "cash_budget_units": "240000000",
+      "carry_budget_units": "0",
+      "spent_units": "10000000",
+      "burned_units": "4987497",
+      "receipt": {
+        "address": "2MB9p4RHJqZwTvXXURyEoDuo8S4Y7oExognV4JhibqYM",
+        "budget_units": "240000000",
+        "spent_units": "10000000",
+        "burned_units": "4987497",
+        "carried_units": "230000000",
+        "closed_at_unix": "1701907200",
+        "funding_hash": "de2f0ffae091b73c2be58c00e1cf10dcab5404996887b1a6e9f79091cfaf7af6",
+        "active_frame_hash": "a304675ae4545dcd0087dcfdd044154890681f9bb85495d828ba452bfa52ed1a"
+      },
+      "rows": [
+        {
+          "index": 0,
+          "status": "executed",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "4987497",
+          "execute_at_unix": "1701302400",
+          "window_end_unix": "1701327600",
+          "execution_hash": "41021232928153302d9f062d6f1e69f54f9c461d19e62011f35edcee4ab37e81"
+        },
+        {
+          "index": 1,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701344799",
+          "window_end_unix": "1701352800",
+          "execution_hash": null
+        },
+        {
+          "index": 2,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701361998",
+          "window_end_unix": "1701378000",
+          "execution_hash": null
+        },
+        {
+          "index": 3,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701379197",
+          "window_end_unix": "1701403200",
+          "execution_hash": null
+        },
+        {
+          "index": 4,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701421596",
+          "window_end_unix": "1701428400",
+          "execution_hash": null
+        },
+        {
+          "index": 5,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701438795",
+          "window_end_unix": "1701453600",
+          "execution_hash": null
+        },
+        {
+          "index": 6,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701455994",
+          "window_end_unix": "1701478800",
+          "execution_hash": null
+        },
+        {
+          "index": 7,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701498393",
+          "window_end_unix": "1701504000",
+          "execution_hash": null
+        },
+        {
+          "index": 8,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701515592",
+          "window_end_unix": "1701529200",
+          "execution_hash": null
+        },
+        {
+          "index": 9,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701532791",
+          "window_end_unix": "1701554400",
+          "execution_hash": null
+        },
+        {
+          "index": 10,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701575190",
+          "window_end_unix": "1701579600",
+          "execution_hash": null
+        },
+        {
+          "index": 11,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701592389",
+          "window_end_unix": "1701604800",
+          "execution_hash": null
+        },
+        {
+          "index": 12,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701609588",
+          "window_end_unix": "1701630000",
+          "execution_hash": null
+        },
+        {
+          "index": 13,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701651987",
+          "window_end_unix": "1701655200",
+          "execution_hash": null
+        },
+        {
+          "index": 14,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701669186",
+          "window_end_unix": "1701680400",
+          "execution_hash": null
+        },
+        {
+          "index": 15,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701686385",
+          "window_end_unix": "1701705600",
+          "execution_hash": null
+        },
+        {
+          "index": 16,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701728784",
+          "window_end_unix": "1701730800",
+          "execution_hash": null
+        },
+        {
+          "index": 17,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701745983",
+          "window_end_unix": "1701756000",
+          "execution_hash": null
+        },
+        {
+          "index": 18,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701763182",
+          "window_end_unix": "1701781200",
+          "execution_hash": null
+        },
+        {
+          "index": 19,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701805581",
+          "window_end_unix": "1701806400",
+          "execution_hash": null
+        },
+        {
+          "index": 20,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701822780",
+          "window_end_unix": "1701831600",
+          "execution_hash": null
+        },
+        {
+          "index": 21,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701839979",
+          "window_end_unix": "1701856800",
+          "execution_hash": null
+        },
+        {
+          "index": 22,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701857178",
+          "window_end_unix": "1701882000",
+          "execution_hash": null
+        },
+        {
+          "index": 23,
+          "status": "carried",
+          "input_usdc_units": "10000000",
+          "burned_morse_units": "0",
+          "execute_at_unix": "1701899577",
+          "window_end_unix": "1701907200",
+          "execution_hash": null
+        }
+      ]
+    }
+  ],
+  "bonds": {
+    "availability": "unavailable",
+    "reason": "v2-finalized-custody-adapter-not-qualified"
+  },
+  "slashes": {
+    "availability": "unavailable",
+    "reason": "v2-finalized-receipt-adapter-and-public-index-not-qualified"
+  }
+}

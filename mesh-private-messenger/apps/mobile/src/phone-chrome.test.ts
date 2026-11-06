@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { tabBarClearance } from './phone-chrome.ts';
+import { tabBarFoot } from './phone-chrome.ts';
 
-test('the tab bar rests on the home indicator but floats clear of Android navigation', () => {
-  assert.equal(tabBarClearance('ios', 34), 28);
-  assert.equal(tabBarClearance('ios', 0), 20);
-  // Gesture handle, then the three-button bar: a floating margin above either.
-  assert.equal(tabBarClearance('android', 24), 40);
-  assert.equal(tabBarClearance('android', 48), 64);
-  assert.equal(tabBarClearance('android', 0), 20);
+test('the tab bar tucks into the home indicator but stays clear of Android navigation', () => {
+  // The home indicator needs less than its whole inset under a bar's labels.
+  assert.equal(tabBarFoot('ios', 34), 22);
+  assert.equal(tabBarFoot('ios', 0), 8);
+  // Android's gesture handle and button bar are content of their own.
+  assert.equal(tabBarFoot('android', 24), 24);
+  assert.equal(tabBarFoot('android', 48), 48);
+  assert.equal(tabBarFoot('android', 0), 8);
 });

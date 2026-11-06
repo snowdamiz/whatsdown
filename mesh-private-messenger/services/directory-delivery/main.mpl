@@ -1,9 +1,13 @@
+from Storage.WitnessRegistry import bootstrap_witness_registry
 from Api.Router import build_router
+from Storage.TransparencyRetention import validate_retention_config
+from Runtime.WorkPolicy import configured_signup_difficulty
 from Api.Binary import validate_delivery_config, validate_transparency_config
 from Privacy.Edge import internal_delivery_token
 from Runtime.Registry import start_registry
 from Runtime.Workers import start_workers
 from Runtime.MailboxStream import start_mailbox_stream
+from Api.OhttpHttp import validate_ohttp_gateway_config
 
 fn fatal(message :: String) do
   io_eprintln(message)
@@ -20,7 +24,7 @@ fn serve(pool :: PoolHandle, port :: Int, stream_port :: Int) do
     end
     Ok(count) -> do
       println("directory-delivery listening on :#{port} with #{count} workers")
-      HTTP.serve(build_router(), port)
+      HTTP.serve_on(build_router(), Env.get("MESSENGER_BIND_ADDRESS", "::"), port)
       Pool.close(pool)
       if !Process.shutdown_requested() do
         fatal("directory-delivery HTTP server failed")
@@ -37,13 +41,27 @@ fn open_and_serve(url :: String, port :: Int, stream_port :: Int) do
   else
     case Pool.open(url, 1, 4, 5000) do
       Err(error) -> fatal("database connection failed: #{error}")
-      Ok(pool) -> serve(pool, port, stream_port)
+      Ok(pool) -> case bootstrap_witness_registry(pool) do
+        Err(error) -> do
+          Pool.close(pool)
+          fatal("witness registry startup failed: #{error}")
+        end
+        Ok(_) -> serve(pool, port, stream_port)
+      end
     end
   end
 end
 
 fn main() do
   Process.install_shutdown_signals()
+  case validate_ohttp_gateway_config() do
+    Err(_) -> fatal("invalid OHTTP gateway configuration")
+    Ok(_) -> nil
+  end
+  case validate_retention_config() do
+    Err(error) -> fatal(error)
+    Ok(_) -> nil
+  end
   let url = Env.get("MESSENGER_DATABASE_URL",
     "postgres://messenger:messenger@127.0.0.1:55432/messenger?sslmode=disable")
   let port = Env.get_int("MESSENGER_PORT", 18086)
@@ -51,6 +69,12 @@ fn main() do
   let difficulty = Env.get_int("MESSENGER_ABUSE_DIFFICULTY", 16)
   if difficulty < 1 || difficulty > 24 do
     fatal("MESSENGER_ABUSE_DIFFICULTY must be between 1 and 24")
+  else
+    nil
+  end
+  let signup_difficulty = configured_signup_difficulty()
+  if signup_difficulty < 1 || signup_difficulty > 24 do
+    fatal("MESSENGER_SIGNUP_DIFFICULTY must be between 1 and 24")
   else
     nil
   end
