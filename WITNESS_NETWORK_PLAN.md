@@ -119,7 +119,7 @@ revisited at each phase gate.
 | Public anchors | Local judge anchor/cosign subset, native verification, scheduled writer and receipt APIs implemented; chain deployment pending | `programs/morse-judge`, `mobile-core/mobile/anchor_check.mpl`, `directory-delivery/storage/anchor_receipts.mpl` |
 | Monitor | Native Mesh polling, durable comparisons and cached status implemented locally; deployment pending | `clients/mesh-cli/monitor` |
 | Relay | Mesh admission, Kit signing, SQLite progress/ownership, finalized RPC recovery, durable scheduler, HTTP/manual entry points, bounded retention, witness-package integration and legacy phone filing implemented locally; mixed-asset execution/receipts, published distribution and funded qualification pending | `transparency/relay_admission.mpl`, `tools/fork-verifier`, `ops/relay`, `mobile-core/mobile/fork_filing.mpl` |
-| Rewards | Local Mesh policy, isolated custody program, authenticated reader, durable v1 funding/settlement/claims and explicit v2 settlement/asset claims implemented; v2 multi-epoch scheduling, grace assessment, deployment and live funding qualification pending | `transparency/rewards_operator.mpl`, `programs/morse-rewards`, `ops/rewards`, `ops/token-v2/reward_operator.mpl` |
+| Rewards | Local Mesh policy, isolated custody program, authenticated reader, durable v1 funding/settlement/claims, v2 settlement/asset claims and bounded multi-epoch scheduling implemented; continuous grace assessment, deployment and live funding qualification pending | `transparency/rewards_operator.mpl`, `programs/morse-rewards`, `ops/rewards`, `ops/token-v2/reward_operator.mpl` |
 | Credits, payments and token | Credits and USDC/SOL/Lightning paths have local implementation and execution evidence; token swaps/burns have local SBF proofs. Native dogfood, keeper/rewards integration, review, deployment and live exit gates remain open | Implementation progress below; Phases 4–6 |
 
 
@@ -184,10 +184,35 @@ compiler/runtime and log hashes are recorded in
 `.morse/continuation-20261106/rewards-final-evidence.json`; this reuses the
 recorded custody fixture and does not repeat SBF execution.
 
-Multi-epoch scheduling, continuous permissionless grace assessment, governance
-activation, pool funding, deployment, public compiler release and live-duration
-gates remain open. This advances the execution boundary; it does not complete
-the operational v2 keeper.
+This explicit-intent checkpoint is extended by the bounded scheduling unit below.
+Continuous permissionless grace assessment, governance activation, pool funding,
+deployment, public compiler release and live-duration gates remain open.
+
+### Bounded v2 rewards scheduling — 2026-11-06
+
+Settlement now accepts an immutable range of 1–256 epochs. Mesh authenticates
+each completed epoch before proposing its successor. One durable journal retains
+the cursor, finalized context, lease, cumulative transaction/debit limits and
+pending signed bytes across epoch transitions and process restarts. Unknown
+outcomes must reconcile before advancement. `--watch` continues across completed
+epochs and stops at the configured bound; explicit v1 operations and earned
+USDC/MORSE claims retain their separate behavior.
+
+The baseline completed its first epoch after 25 signed attempts and stopped,
+reproducing the missing schedule. The new native executable → CLI/Kit → SQLite →
+HTTP → disposable SBF path passes 23 Node and five bridge checks. These cover
+lost acknowledgments, unresolved earlier packets, stale leases, cumulative caps,
+external completion, cancellation/replanning, and empty/all-excluded carry-forward.
+Three focused Mesh cases, full messenger lint, scoped formatting and bridge
+Clippy also pass. This is fresh SBF execution with a reused custody snapshot and
+documented bank initialization; three loopback origins share one bank.
+
+Adoption verified all 460 recorded source hashes and 26 logs from
+`.morse/rewards-scheduler/receipt.json` in worktree `t3-81bd2113`; the composed
+source matches those inputs exactly. The parent rebuilt the executable and passed
+13 focused Node/native checks. Independent review is running. Permissionless
+grace assessment remains unconnected, and this does not establish independent
+providers, live finality, deployment, funding or continuous operation.
 
 ### Presentation privacy continuation — 2026-11-06
 
@@ -283,7 +308,7 @@ notes. Local checks and development adoption do not establish production rollout
 | 0–3: witnesses, anchors, bonds and rewards | Substantial implementation and local integration proofs; direct native Settings bond/slash counter and checkpoint age adopted, with current development host checks | Native/production rollout, independent operators and review, funded/live qualification |
 | 4A: public Mesh crypto | Blind RSA and supporting public runtime/compiler capabilities implemented and exercised in Morse | Published, reviewed release and exact dependency pin |
 | 4: credits and payments | Native credit journal/actions, spending, wallet integration, treasury and Lightning proofs; direct HTTPS purchase/recovery and production React Native wallet handoff to an owned OS receiver qualified on iOS Simulator and Android emulator | Third-party wallet and remaining native action coverage, live conversion/funding, outside review and live drills |
-| 5: token | Local token custody/rewards, burn carry and finalized reader/planner proofs archived; versioned issuer 20/30/50 accounting, actual CLI-to-SBF burn handoff and bounded durable burn scheduling/recovery qualified; default-off SOL and Kraken BTC conversion adapters adopted; both witness-output funding paths and combined BTC/SOL burn funding/expiry qualified in owned banks; public burn/collateral/slash readers, default-off minute snapshot publisher, bootstrap page, unsigned collateral/proof operator planning and explicit durable v2 settlement/claims implemented | V2 multi-epoch scheduling and continuous grace assessment, public reporting activation/history qualification, deployment and live observation |
+| 5: token | Local token custody/rewards, burn carry and finalized reader/planner proofs archived; versioned issuer 20/30/50 accounting, actual CLI-to-SBF burn handoff and bounded durable burn scheduling/recovery qualified; default-off SOL and Kraken BTC conversion adapters adopted; both witness-output funding paths and combined BTC/SOL burn funding/expiry qualified in owned banks; public burn/collateral/slash readers, default-off minute snapshot publisher, bootstrap page, unsigned collateral/proof operator planning and durable bounded v2 settlement/claims implemented | Continuous grace assessment, public reporting activation/history qualification, deployment and live observation |
 | 6: plaintext types and native networking | Native networking, account-bound journals, fanout and sealed-preference UI integration qualified; private attachment metadata and presentation ingress/storage/projection labels are adopted. The current source report has 69 reviewed sites. Earlier four-target native qualification covers the 49-site source and 175-export ABI; the new presentation closure has local compilation and privacy proofs. Public Mesh GC and concatenation improvements retain their separately archived maximum-wallet, ACH3, funded-upload and app-regression proofs | Remaining message/request-field labels, native qualification of the new closure, complete reviewed leak report, mobile performance and release qualification |
 | §22: security tracks S1–S3 | Nine of 27 items are closed locally: W1, C2, M5, M6, M7, M8, M10, D1 and D2. Padded attachments and keyed indexes have matching development libraries and dual-native execution/upgrade evidence. M6 cleanup stays off until old writers are drained. Header encryption, guarded direct/group expiry and protected secret memory now have adopted development source and matching native libraries; their remaining qualification, separate push deployment, other cryptographic upgrades and safety QR remain in progress; ingress certificate policy has local tests but no qualified deployment topology | S1 deployment isolation and supported mTLS topology; OHTTP, separate push deployment, prekey cleanup activation, cryptographic upgrades and remaining device features. This is substantial local implementation work, not only release gates |
 
