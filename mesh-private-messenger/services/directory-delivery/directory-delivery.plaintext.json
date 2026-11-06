@@ -1123,7 +1123,7 @@
     {
       "module": "Transparency.AnchorBatch",
       "file": "dependency/Transparency.AnchorBatch/anchor_batch.mpl",
-      "source_sha256": "75d8e69a44bc6bffcae6e3f2559ae70df3bc504383c3cb84f7d26b8a8206a92a",
+      "source_sha256": "42c4c2c3da51ea5b337fdc2e9601dcc3d0e1a0237b38976ce76d96d3a17d74b1",
       "sites": []
     },
     {
@@ -1135,13 +1135,13 @@
     {
       "module": "Transparency.AnchorChain",
       "file": "dependency/Transparency.AnchorChain/anchor_chain.mpl",
-      "source_sha256": "6a35b6a93c6f66d3c540399307592ec08756c59539ee5f691082744c1a8283f7",
+      "source_sha256": "ab8bca0426a178b761cf7b1a5e9068ca25d843b8745546222002bd1ffadea2d2",
       "sites": []
     },
     {
       "module": "Transparency.AnchorConsistency",
       "file": "dependency/Transparency.AnchorConsistency/anchor_consistency.mpl",
-      "source_sha256": "616c74487b6ecafb5772149969578a96c67bc25f59ba34c645ae08caabf9df3a",
+      "source_sha256": "ec228907e0184aea9f29f4c51ea1cbd92b6d8a24467f575dc3d7aedd5b2d5656",
       "sites": []
     },
     {
@@ -1153,19 +1153,19 @@
     {
       "module": "Transparency.AnchorContinuity",
       "file": "dependency/Transparency.AnchorContinuity/anchor_continuity.mpl",
-      "source_sha256": "34c16e368208599d8cf738dda3604de8c44c8028518555ce6abfdd463d62e772",
+      "source_sha256": "30dbd9826469f6e871f73e1dcd55dd3a54ca4104203d6c9f76a66bdff2518f03",
       "sites": []
     },
     {
       "module": "Transparency.AnchorContradiction",
       "file": "dependency/Transparency.AnchorContradiction/anchor_contradiction.mpl",
-      "source_sha256": "022eda836ad2e85ecff50d6d82568c4aaf3d497978c47edbc22420b53113c258",
+      "source_sha256": "fa3f18052bd66a0c89beb091ea7ececedcf4173380c8f4d1e726fe4da3d2d83e",
       "sites": []
     },
     {
       "module": "Transparency.AnchorCustody",
       "file": "dependency/Transparency.AnchorCustody/anchor_custody.mpl",
-      "source_sha256": "0a8e7061a9406f56aeb058eea81dcfbf8c7eadd2b4067e10c2ca61844b5376db",
+      "source_sha256": "abba12ec440248e37f799a2de92ed457a27762238ae6cd5dfc5e4db01759ce5b",
       "sites": []
     },
     {
@@ -1183,7 +1183,7 @@
     {
       "module": "Transparency.AnchorHttp",
       "file": "dependency/Transparency.AnchorHttp/anchor_http.mpl",
-      "source_sha256": "7adead191319cb00fef0efa3f921eeac6f12d5437d2509170d3bc6bd424cc53a",
+      "source_sha256": "4878b882ca5cea1a3692df787663fcaba5be75f3dec513d4459b1b9c557ddd5c",
       "sites": []
     },
     {
@@ -1201,7 +1201,7 @@
     {
       "module": "Transparency.AnchorRegistry",
       "file": "dependency/Transparency.AnchorRegistry/anchor_registry.mpl",
-      "source_sha256": "83093e902adc09c2c15c1d6f6debc89cadee15e82091d2727be688baa360cadf",
+      "source_sha256": "2dbf6d3860717ebb246be75a97549dc381eadce301b05be08998da83ca00f73f",
       "sites": []
     },
     {
@@ -1213,7 +1213,7 @@
     {
       "module": "Transparency.AnchorRpc",
       "file": "dependency/Transparency.AnchorRpc/anchor_rpc.mpl",
-      "source_sha256": "101d5c50ba01ed192b617c072036b6acda4963a2eb0f219f58edbb5e630d1901",
+      "source_sha256": "1e829ca5dbc6a22c2ed19803d5b7c6eaeb0f0b0b49ffb8db284d7b6c562796b5",
       "sites": []
     },
     {
@@ -1237,7 +1237,7 @@
     {
       "module": "Transparency.AttendanceRead",
       "file": "dependency/Transparency.AttendanceRead/attendance_read.mpl",
-      "source_sha256": "d5410faff4bab1d289b1ca3f24cb133feaf2085bc8a02311f00cb3cc5720e77d",
+      "source_sha256": "2a40b2dd02a00092cffee422556f68ac2d7fa3a8f37448c72aa77c865be871dc",
       "sites": []
     },
     {
@@ -1333,19 +1333,19 @@
     {
       "module": "Transparency.RelayAdmission",
       "file": "dependency/Transparency.RelayAdmission/relay_admission.mpl",
-      "source_sha256": "58efb96f4f05d3755155ef7074b49c9ea270fe1633cbab03a9e0e8b9fc15564a",
+      "source_sha256": "7d4a37b1038551cf4a0efd0b8835efa773130bc9f11fa801ab4f6e1ced180571",
       "sites": []
     },
     {
       "module": "Transparency.RelayClock",
       "file": "dependency/Transparency.RelayClock/relay_clock.mpl",
-      "source_sha256": "2d668b1bec4fac013bc7c54b1ef61bb82c94568a599d34993fb259013ae5516d",
+      "source_sha256": "4b7e05ef70668414239e65c80f0a13a346913d6063dd7525d946805a99cf8146",
       "sites": []
     },
     {
       "module": "Transparency.RelayDestinations",
       "file": "dependency/Transparency.RelayDestinations/relay_destinations.mpl",
-      "source_sha256": "02c246e32fddba5bbd30b7a1271bd9b02a1530f7073fdd20b07cb94e72a7e769",
+      "source_sha256": "3cc2d5defc06b16e35f369dcf891925364d5f0356efc03c80cfcd0bc8c1fec6e",
       "sites": []
     },
     {
@@ -1357,7 +1357,7 @@
     {
       "module": "Transparency.RelayLookupRead",
       "file": "dependency/Transparency.RelayLookupRead/relay_lookup_read.mpl",
-      "source_sha256": "18523a25ab78bd4f41a47253b22c845ec59cd6431c5adf5038653645f51e4824",
+      "source_sha256": "57f5aa0eecc9b40c5433db6f1464c0c916929adaa0fe545c9e816ec23f2a2e35",
       "sites": []
     },
     {
@@ -1375,7 +1375,7 @@
     {
       "module": "Transparency.RelayStageRead",
       "file": "dependency/Transparency.RelayStageRead/relay_stage_read.mpl",
-      "source_sha256": "213040b0fcc1d00416544759b84f65f7eec612f3d5ad64219db25aff11d30090",
+      "source_sha256": "d64f8f1967531de7d79f3e549a9eb903de74a8356052f0c146130367ac25247f",
       "sites": []
     },
     {
@@ -1393,19 +1393,25 @@
     {
       "module": "Transparency.RewardsOperator",
       "file": "dependency/Transparency.RewardsOperator/rewards_operator.mpl",
-      "source_sha256": "ce6b958e1e373331abe8e66589349f83624a78ff280d21ea382c0f22829fcc8d",
+      "source_sha256": "11f139cd54cc83b4572db9df29b0a763c7018143cf9e550c747be0d91e90803d",
       "sites": []
     },
     {
       "module": "Transparency.RewardsRead",
       "file": "dependency/Transparency.RewardsRead/rewards_read.mpl",
-      "source_sha256": "2bc68b8ceff269f3b7bc637031e5539c3abff09227322b260f6ec542773409da",
+      "source_sha256": "ad4455bbd24e05847e0463593cafcaa1408a728828268d769ed922ebb2d46a4a",
       "sites": []
     },
     {
       "module": "Transparency.RewardsWrite",
       "file": "dependency/Transparency.RewardsWrite/rewards_write.mpl",
       "source_sha256": "f9db9c40e72c4881c1ed70bced955f7845e97d8e38ee4ad8a3a201fc62da4425",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RpcTransport",
+      "file": "dependency/Transparency.RpcTransport/rpc_transport.mpl",
+      "source_sha256": "3c9bb5d5cf517fe2a03ecaf5776cb65945c702a070703ea5562e9df6a5310a23",
       "sites": []
     },
     {
@@ -1417,7 +1423,7 @@
     {
       "module": "Transparency.SlashReceiptRead",
       "file": "dependency/Transparency.SlashReceiptRead/slash_receipt_read.mpl",
-      "source_sha256": "4af0b3fb090ab41e9aecd7db10e216d499c44451898b0e09b2a641c7a5c73a92",
+      "source_sha256": "6af1598f44e5160da99e875caa84d98563c70610e2b26ea953edd33fb834cc8d",
       "sites": []
     },
     {

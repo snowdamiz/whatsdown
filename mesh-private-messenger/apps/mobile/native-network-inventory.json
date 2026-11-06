@@ -455,8 +455,8 @@
         "resolve:android"
       ],
       "moduleConfig": "03cf494e0ad3d85613cfc49c2a70b64e8ef50bbb5b10673bd7368b14c850ebf7",
-      "sha256": "26a4fec1de33eff5118e85d881d1885e2256ea0ee60579b030950e7bb068a264",
-      "sources": 51,
+      "sha256": "b201625512fe010028c950ecf4ac1a45e0e2dde75bfda67a9aebd6452133aff9",
+      "sources": 52,
       "connectionSites": []
     },
     {
@@ -698,15 +698,27 @@
     }
   ],
   "desktopHost": {
-    "sha256": "ee22dfae695d211c168b2a78f7df631d92c614e8d54658196d72e4c8e6378097",
-    "sources": 9,
-    "connectionSites": []
+    "sha256": "915dee830adf6015704519234641e2de6ddb1e90718e21486ddf29f07083cef7",
+    "sources": 83,
+    "connectionSites": [
+      "desktop_lock/bootstrap.rs",
+      "desktop_lock/native/LegacyStorage.m",
+      "desktop_lock/native/PrivateJob.h",
+      "desktop_lock/native/PrivatePreview.h",
+      "desktop_lock/native/PrivatePreview.m",
+      "desktop_lock/native/Protection.h",
+      "desktop_lock/native/Protection.m",
+      "desktop_lock/native/ProtectionBridge.m",
+      "desktop_lock/native_protection.rs",
+      "desktop_lock/private_preview.rs",
+      "desktop_lock/receiver_scope.rs"
+    ]
   },
   "controls": {
     "apps/mobile/package-lock.json": "f28ece85921491203e2276bdaec3059d015d88d526e4cd00c7e1bc0cc9e3dd7d",
-    "apps/desktop/src-tauri/Cargo.lock": "9dfd3cfca7f72e0d4e662770bbc76a8ddb9e655a1b516129205d8e814090208c",
-    "apps/desktop/src-tauri/Cargo.toml": "b57e32417e26d50f88de21cc853eabf2a966c99f4dd9a0a80df5470f8de1a5f0",
-    "apps/desktop/src-tauri/tauri.conf.json": "4d395191806a36e09535ea2265077ab0819c0d65efe4057410dbef7c3ab197ec",
+    "apps/desktop/src-tauri/Cargo.lock": "33f287084dc9c74f0d8b05d0a7aadd1a419bbf2eb58ab6b1799ec0370d97bd69",
+    "apps/desktop/src-tauri/Cargo.toml": "0fced7008e7b4c135b051685a6a36b1031383f008c62bb16a0fbe30d5ec69288",
+    "apps/desktop/src-tauri/tauri.conf.json": "90a2fc60e880e864a47c3bdfbf5c2b6883d868b367706269b23517792af7118a",
     "apps/desktop/src-tauri/src/ipc-postmessage.js": "7a6e5f2e2967d1877d456c0dec15b29b34e2accfa6416fcdb7389f908103bca0",
     "apps/mobile/index.ts": "03773dee2995870476e2d2a8563dd6d5e691626172bca4f6aae6d0c8538250df",
     "apps/mobile/src/network-lockdown.ts": "15e03eeabe1227a8b56eda405997640b45372e6642e4802943a0982e4837dc68",
