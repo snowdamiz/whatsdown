@@ -261,7 +261,10 @@ fn legacy_queued_positive() -> Bool!String do
   let queued = List.get(fixture, 0)
   let peer = List.get(fixture, 2)
   assert(outer(queued)?.suite == 1)
-  assert_received_fixture(Bytes.secure_equals(receive_message_export(request([Bytes.from_utf8(alice), queued])?)?,
+  assert_received_fixture(Bytes.secure_equals(receive_message_export(request([
+      Bytes.from_utf8(alice),
+      queued
+    ])?)?,
     Bytes.from_utf8("delayed suite-1")))
   let history_before_replay = fixture_direct_history(request([Bytes.from_utf8(alice), peer])?)?
   let history = output_list(history_before_replay)?

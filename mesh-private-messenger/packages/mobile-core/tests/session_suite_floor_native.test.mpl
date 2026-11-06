@@ -304,7 +304,8 @@ fn incoming_proof() -> Bool!String do
   case result do
     Err(_) -> nil
     Ok(clear) -> do
-      assert_received_fixture(Bytes.secure_equals(clear, Bytes.from_utf8("classical initial for hybrid reader")))
+      assert_received_fixture(Bytes.secure_equals(clear,
+        Bytes.from_utf8("classical initial for hybrid reader")))
       println("c3-native-incoming-opened-baseline:passed")
     end
   end

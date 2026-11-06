@@ -105,7 +105,7 @@ revisited at each phase gate.
 | Directory's witness list | SQL registry with pinned/shadow/retired states and current-key admission. Empty registries bootstrap A/B; populated registries control membership | `migrations/017_witness_registry.sql`, `storage/witness_registry.mpl` |
 | Attestation storage | `witness_signatures(checkpoint_sequence, witness_id, checkpoint_hash, …)`, primary key (sequence, witness_id) | `migrations/004_transparency.sql:30` |
 | Phone threshold | Configured strict majority over 1–16 distinct native pins; v1 maps to legacy 2-of-2 | `packages/mobile-core/mobile/transparency.mpl`, `transparency/config.mpl` |
-| Phone pinning | Canonical config v6 wraps an exact v1–v5 frame with a new-session suite minimum; existing bytes/defaults stay valid. Migration policies, judge identity and relay pins remain native resources; phone filing is pending | `mobile-core/mobile/platform.mpl`, `mobile-core/mobile/session_policy.mpl`, `apps/mobile/plugins/security-config.cjs` |
+| Phone pinning | Canonical config v6 wraps an exact v1–v5 frame with a new-session suite minimum; existing bytes/defaults stay valid. Migration policies, judge identity and relay pins remain native resources. Legacy phone filing is connected; mixed-asset receipts remain pending | `mobile-core/mobile/platform.mpl`, `mobile-core/mobile/session_policy.mpl`, `mobile-core/mobile/fork_filing.mpl`, `apps/mobile/plugins/security-config.cjs` |
 | Groups | Native v2 binds set ID and threshold in welcomes, snapshots and key packages; signed policy updates migrate joined groups. Native v1 preserves legacy wires | `mobile-core/mobile/groups.mpl`, `groups/welcome_wire.mpl` |
 | Limits | `verify_witnesses` accepts at most 16 pinned keys and 16 attestations | `merkle.mpl:388` |
 | Proof size | v2 compact paths and incremental stored nodes implemented; v1 remains the default until native rollout. Compact mode verified at 1,000,001 leaves | `transparency/merkle.mpl`, `storage/transparency_tree.mpl`, `key-transparency-v1.md` |
@@ -118,8 +118,8 @@ revisited at each phase gate.
 | Checkpoint gossip | Direct and linked-device encrypted hints/control exchange; group message v5 carries the same hint and addressed controls. Signed conflicts retain FRK and pause new trust | `mobile-core/mobile/gossip.mpl`, `group_gossip.mpl` |
 | Public anchors | Local judge anchor/cosign subset, native verification, scheduled writer and receipt APIs implemented; chain deployment pending | `programs/morse-judge`, `mobile-core/mobile/anchor_check.mpl`, `directory-delivery/storage/anchor_receipts.mpl` |
 | Monitor | Native Mesh polling, durable comparisons and cached status implemented locally; deployment pending | `clients/mesh-cli/monitor` |
-| Relay | Mesh admission, Kit signing, SQLite progress/ownership, finalized RPC recovery, durable scheduler, HTTP/manual entry points, bounded retention and witness-package integration implemented locally; published distribution, phone filing and funded qualification pending | `transparency/relay_admission.mpl`, `tools/fork-verifier`, `ops/relay` |
-| Rewards | Local Mesh policy, isolated custody program, authenticated reader and durable funding/settlement/claim operator; deployment and live funding qualification pending | `transparency/rewards_operator.mpl`, `programs/morse-rewards`, `ops/rewards` |
+| Relay | Mesh admission, Kit signing, SQLite progress/ownership, finalized RPC recovery, durable scheduler, HTTP/manual entry points, bounded retention, witness-package integration and legacy phone filing implemented locally; mixed-asset execution/receipts, published distribution and funded qualification pending | `transparency/relay_admission.mpl`, `tools/fork-verifier`, `ops/relay`, `mobile-core/mobile/fork_filing.mpl` |
+| Rewards | Local Mesh policy, isolated custody program, authenticated reader, durable v1 funding/settlement/claims and explicit v2 settlement/asset claims implemented; v2 multi-epoch scheduling, grace assessment, deployment and live funding qualification pending | `transparency/rewards_operator.mpl`, `programs/morse-rewards`, `ops/rewards`, `ops/token-v2/reward_operator.mpl` |
 | Credits, payments and token | Credits and USDC/SOL/Lightning paths have local implementation and execution evidence; token swaps/burns have local SBF proofs. Native dogfood, keeper/rewards integration, review, deployment and live exit gates remain open | Implementation progress below; Phases 4–6 |
 
 
@@ -178,6 +178,12 @@ silently require v2 fixtures in the legacy job. Both proof commands include the
 shared writer hostname regression. The separate legacy SBF job and hosted CI
 have not been rerun during this continuation.
 
+The composed app checkpoint `9333896` was then rebuilt and passed all 12 focused
+native/Node checks, including the hostname regression. The exact executable,
+compiler/runtime and log hashes are recorded in
+`.morse/continuation-20261106/rewards-final-evidence.json`; this reuses the
+recorded custody fixture and does not repeat SBF execution.
+
 Multi-epoch scheduling, continuous permissionless grace assessment, governance
 activation, pool funding, deployment, public compiler release and live-duration
 gates remain open. This advances the execution boundary; it does not complete
@@ -208,15 +214,24 @@ Focused runtime checks pass for presentation, community roles, multi-device
 fanout, group payload/encryption, session suites, bounded history helpers and
 braid journals. Synthetic test assertions now explicitly observe only their
 Boolean outcomes. The forgotten-group error assertion was stale on the unchanged
-base and now expects `group_not_found`. The broader receive-caller test cohort
-is still being qualified. Full message/request-field labeling, native app/device
+base and now expects `group_not_found`. A further 11 receive-caller test files
+now pass all 32 cases. Three failures reproduced on the unchanged base: the
+joined-group migration copied a v2 wire version into a v3 configuration, and
+both safety-QR cases omitted authenticated native/witness setup. The fixtures
+now provide those prerequisites without weakening assertions or production
+admission. The remaining receive-caller cohort is still being qualified.
+Full message/request-field labeling, native app/device
 and release qualification remain open; this does not close Phase 6 or D4/D6.
 The existing 67 Mesh lint findings were also removed; full messenger lint passes.
 
 A separate compiler defect was isolated: implicit `From` error conversion lost
 privacy shape precision. The application uses the exact equivalent explicit
 constructor match without adding a disclosure. The generic compiler correction
-and its adversarial regressions are being qualified in the Mesh repository.
+is committed and pushed as Mesh `bb593b1b` on `fix/plaintext-try-from`. Its core
+and public compiler checks pass; a separate runtime test-harness marker race
+is being repaired. App qualification with the retained new compiler is still
+running. An attempted independent compiler review was unavailable because the
+provider flagged the request; no independent review pass is claimed.
 
 ### Progress summary — 2026-10-31
 
@@ -257,8 +272,8 @@ notes. Local checks and development adoption do not establish production rollout
 | 0–3: witnesses, anchors, bonds and rewards | Substantial implementation and local integration proofs; direct native Settings bond/slash counter and checkpoint age adopted, with current development host checks | Native/production rollout, independent operators and review, funded/live qualification |
 | 4A: public Mesh crypto | Blind RSA and supporting public runtime/compiler capabilities implemented and exercised in Morse | Published, reviewed release and exact dependency pin |
 | 4: credits and payments | Native credit journal/actions, spending, wallet integration, treasury and Lightning proofs; direct HTTPS purchase/recovery and production React Native wallet handoff to an owned OS receiver qualified on iOS Simulator and Android emulator | Third-party wallet and remaining native action coverage, live conversion/funding, outside review and live drills |
-| 5: token | Local token custody/rewards, burn carry and finalized reader/planner proofs archived; versioned issuer 20/30/50 accounting, actual CLI-to-SBF burn handoff and bounded durable burn scheduling/recovery qualified; default-off SOL and Kraken BTC conversion adapters adopted; both witness-output funding paths and combined BTC/SOL burn funding/expiry qualified in owned banks; public burn/collateral/slash readers, default-off minute snapshot publisher, bootstrap page and unsigned collateral/proof operator planning implemented | Durable v2 rewards keeper, public reporting activation/history qualification, deployment and live observation |
-| 6: plaintext types and native networking | Native networking, account-bound journals, fanout and sealed-preference UI integration qualified; private attachment manifest and filename/MIME ingress labels are adopted; the current development mobile-main report contains 49 reviewed sites across 321 reached modules. The adopted 175-export ABI adds 11 guarded backup operations to the previous 164, with matching libraries for all four mobile targets. Public Mesh GC and concatenation improvements retain their separately archived maximum-wallet, ACH3, funded-upload and app-regression proofs | Remaining field/ingress labels, reviewed leak report, mobile performance and release qualification |
+| 5: token | Local token custody/rewards, burn carry and finalized reader/planner proofs archived; versioned issuer 20/30/50 accounting, actual CLI-to-SBF burn handoff and bounded durable burn scheduling/recovery qualified; default-off SOL and Kraken BTC conversion adapters adopted; both witness-output funding paths and combined BTC/SOL burn funding/expiry qualified in owned banks; public burn/collateral/slash readers, default-off minute snapshot publisher, bootstrap page, unsigned collateral/proof operator planning and explicit durable v2 settlement/claims implemented | V2 multi-epoch scheduling and continuous grace assessment, public reporting activation/history qualification, deployment and live observation |
+| 6: plaintext types and native networking | Native networking, account-bound journals, fanout and sealed-preference UI integration qualified; private attachment metadata and presentation ingress/storage/projection labels are adopted. The current source report has 69 reviewed sites. Earlier four-target native qualification covers the 49-site source and 175-export ABI; the new presentation closure has local compilation and privacy proofs. Public Mesh GC and concatenation improvements retain their separately archived maximum-wallet, ACH3, funded-upload and app-regression proofs | Remaining message/request-field labels, native qualification of the new closure, complete reviewed leak report, mobile performance and release qualification |
 | §22: security tracks S1–S3 | Nine of 27 items are closed locally: W1, C2, M5, M6, M7, M8, M10, D1 and D2. Padded attachments and keyed indexes have matching development libraries and dual-native execution/upgrade evidence. M6 cleanup stays off until old writers are drained. Header encryption, guarded direct/group expiry and protected secret memory now have adopted development source and matching native libraries; their remaining qualification, separate push deployment, other cryptographic upgrades and safety QR remain in progress; ingress certificate policy has local tests but no qualified deployment topology | S1 deployment isolation and supported mTLS topology; OHTTP, separate push deployment, prekey cleanup activation, cryptographic upgrades and remaining device features. This is substantial local implementation work, not only release gates |
 
 The 2026-10-22 closure audit includes §22 as part of this goal. Finishing the
