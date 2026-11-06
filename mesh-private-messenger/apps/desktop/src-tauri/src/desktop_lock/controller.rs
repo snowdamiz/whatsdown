@@ -496,6 +496,7 @@ impl Controller {
         };
         self.retire(retired.0, retired.1);
     }
+    pub(crate) fn account_generation(&self) -> u64 { self.state.lock().unwrap().account }
     pub fn account_changed(&self) {
         let retired = {
             let mut s = self.state.lock().unwrap();

@@ -45,5 +45,5 @@ impl ProfileIdentity {
         if database.is_empty() || database.len()>4096 || database.contains('\0') { return Err("invalid_database_path"); }
         Ok(format!("{}/notifications-enabled/{}/{}",database,hex(&self.account),hex(&self.device)))
     }
-    pub(crate) fn account_hex(self)->String { hex(&self.account) }
+    pub(crate) fn same_account(self,other:Self)->bool { self.account == other.account }
 }

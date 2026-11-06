@@ -228,19 +228,19 @@ impl PrivateCall {
 }
 
 // This capability can only remove a captured account's finite legacy keys. It
-// cannot invoke Core, read storage, publish bytes, or adopt another page/epoch.
+// cannot invoke Core, read storage, publish bytes, or adopt another page/account.
 #[derive(Clone)]
-pub(crate) struct RetiredCleanup { bound: BoundReceiver, epoch: Epoch }
+pub(crate) struct RetiredCleanup { bound: BoundReceiver, account: u64 }
 impl RetiredCleanup {
     pub(crate) fn check(&self) -> Result<(), Refusal> {
         self.bound.require_open()?;
-        if self.bound.controller.epoch() != self.epoch { return Err(Refusal::StaleEpoch); }
+        if self.bound.controller.account_generation() != self.account { return Err(Refusal::StaleEpoch); }
         self.bound.require_open()
     }
     pub(crate) fn owner(&self) -> Owner { self.bound.page.owner }
 }
 impl PrivateScope {
-    pub(crate) fn retired_cleanup(&self, epoch: Epoch) -> RetiredCleanup {
-        RetiredCleanup { bound: self.bound.clone(), epoch }
+    pub(crate) fn retired_cleanup(&self, account: u64) -> RetiredCleanup {
+        RetiredCleanup { bound: self.bound.clone(), account }
     }
 }

@@ -60,26 +60,61 @@ pub(crate) async fn app_lock_legacy_preference(webview:WebviewWindow,boot:State<
     }
 }
 
-// Called only by the native Core worker, with identity captured before the
-// mutation and canonical removal observed under that same Core mutex. Holding
-// the mutex through completion prevents a restored account from racing cleanup.
-pub(crate) fn forget_removed_profile(native: &Arc<super::native_protection::NativeProtection>,
-    scope: super::receiver_scope::RetiredCleanup, identity: ProfileIdentity, database: &str) -> Result<(),String> {
-    let mut keys=Vec::new();
-    for kind in [LegacyKind::ReadState,LegacyKind::NotificationState,LegacyKind::ReceiptMarks,LegacyKind::ReadReceipts,LegacyKind::NotificationPreview] {
-        keys.push(Zeroizing::new(identity.legacy_key(database,kind)?));
+
+struct LegacyRemoval {
+    identity: ProfileIdentity,
+    account: u64,
+    keys: Vec<Zeroizing<String>>,
+}
+#[derive(Default)]
+pub(crate) struct LegacyRemovals(Mutex<Option<Arc<LegacyRemoval>>>);
+impl LegacyRemovals {
+    // One Core writer owns this finite obligation. Every later Core command
+    // drains it before mutation, so another erasure cannot overwrite it.
+    pub(crate) fn capture(&self, identity:ProfileIdentity, account:u64, database:&str) -> Result<(),String> {
+        let mut keys=Vec::new();
+        for kind in [LegacyKind::ReadState,LegacyKind::NotificationState,LegacyKind::ReceiptMarks,LegacyKind::ReadReceipts,LegacyKind::NotificationPreview] {
+            keys.push(Zeroizing::new(identity.legacy_key(database,kind)?));
+        }
+        keys.push(Zeroizing::new(identity.notification_key(database)?));
+        let mut pending=self.0.lock().unwrap();
+        if pending.is_some() { return Err("legacy_cleanup_pending".to_owned()); }
+        *pending=Some(Arc::new(LegacyRemoval { identity,account,keys }));Ok(())
     }
-    keys.push(Zeroizing::new(identity.notification_key(database)?));
-    for key in keys {
-        let native=native.clone();let captured=scope.clone();
-        let (send,receive)=std::sync::mpsc::sync_channel(1);
-        super::native_protection::NativeProtection::defer_main(move || {
-            let _=send.send(native.forget_legacy_on_main(captured,&key));
-        });
-        let mut pending=receive.recv().map_err(|_|"legacy_storage_unavailable")?.map_err(commands::failure)?;
-        let reply=tauri::async_runtime::block_on(pending.recv());
-        scope.check().map_err(commands::failure)?;
-        if reply.is_none_or(|reply|reply.status!=2) { return Err("legacy_storage_unavailable".to_owned()); }
+    pub(crate) fn drain(&self, library:&mesh::Mesh, controller:&super::controller::Controller,
+        scope:&PrivateScope, database:&str,
+        mut remove:impl FnMut(super::receiver_scope::RetiredCleanup,&str)->Result<(),String>) -> Result<(),String> {
+        let pending=self.0.lock().unwrap().clone();
+        let Some(pending)=pending else { return Ok(()); };
+        // Native identity/generation, never caller metadata, decides whether a
+        // restored account owns these keys again. No old job may delete them.
+        let identity=super::private_commands::identity(library,database)?;
+        if controller.account_generation()!=pending.account || identity.is_some_and(|current|current.same_account(pending.identity)) {
+            self.finish(&pending);return Ok(());
+        }
+        let cleanup=scope.retired_cleanup(pending.account);
+        for key in &pending.keys { cleanup.check().map_err(commands::failure)?;remove(cleanup.clone(),key)?; }
+        cleanup.check().map_err(commands::failure)?;
+        self.finish(&pending);Ok(())
     }
+    fn finish(&self, completed:&Arc<LegacyRemoval>) {
+        let mut pending=self.0.lock().unwrap();
+        if pending.as_ref().is_some_and(|current|Arc::ptr_eq(current,completed)) { pending.take(); }
+    }
+}
+// The Core worker holds Core's mutex while WebKit removes these exact keys.
+// On page replacement/error the obligation stays in Bootstrap for the next
+// receiving page. There is no JS cleanup command or private-data capability.
+pub(crate) fn remove_legacy_key(native: &Arc<super::native_protection::NativeProtection>,
+    scope: super::receiver_scope::RetiredCleanup, key:&str) -> Result<(),String> {
+    let native=native.clone();let captured=scope.clone();let key=Zeroizing::new(key.to_owned());
+    let (send,receive)=std::sync::mpsc::sync_channel(1);
+    super::native_protection::NativeProtection::defer_main(move || {
+        let _=send.send(native.forget_legacy_on_main(captured,&key));
+    });
+    let mut pending=receive.recv().map_err(|_|"legacy_storage_unavailable")?.map_err(commands::failure)?;
+    let reply=tauri::async_runtime::block_on(pending.recv());
+    scope.check().map_err(commands::failure)?;
+    if reply.is_none_or(|reply|reply.status!=2) { return Err("legacy_storage_unavailable".to_owned()); }
     Ok(())
 }

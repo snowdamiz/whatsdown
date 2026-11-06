@@ -42,6 +42,7 @@ pub(crate) async fn mesh_invoke(webview: WebviewWindow, boot: State<'_, Arc<Boot
     let ready=boot.ready().await.map_err(str::to_owned)?;
     let call=commands::private_call(webview, ready.clone(), &request).await.map_err(str::to_owned)?;
     let mesh=state.mesh.clone();let database=state.database.clone();let resources=boot.resources.clone();
+    let boot=boot.inner().clone();
     let purpose=state.config.credit_purpose.clone();let mint=state.config.credit_usdc_mint_hex.clone();
     let directory=state.data.clone();let identifier=state.app_identifier.clone();
     let completion_scope=call.scope();
@@ -57,14 +58,20 @@ pub(crate) async fn mesh_invoke(webview: WebviewWindow, boot: State<'_, Arc<Boot
             }
             let library=mesh.lock().map_err(|_| "native_lock_failed")?;
             check(call)?;
+            boot.legacy_removals.drain(&library,&ready.controller,&call.scope(),&database,
+                |scope,key|super::legacy_commands::remove_legacy_key(&ready.native,scope,key))?;
             if matches!(symbol.as_str(), "mesh_messenger_mailbox_stream_poll" | "mesh_messenger_mailbox_stream_close") {
                 let ticket=stream_close_ticket(&body, &database).ok_or("invalid_mailbox_ticket")?;
                 if !resources.owns(call.scope().owner(),call.scope().epoch(),&stream_tag(ticket)) {
                     return Err("app_lock_stale_epoch".to_owned());
                 }
             }
-            let mut bytes=invoke_identity_transition(&library,&ready.controller,&symbol,&body,&database,|identity,epoch| {
-                super::legacy_commands::forget_removed_profile(&ready.native,call.scope().retired_cleanup(epoch),identity,&database)
+            let mut bytes=invoke_identity_transition(&library,&ready.controller,&symbol,&body,&database,|identity,account| {
+                boot.legacy_removals.capture(identity,account,&database)?;
+                // Failure preserves the obligation; this original private call
+                // still refuses. A successor page retries before any Core use.
+                boot.legacy_removals.drain(&library,&ready.controller,&call.scope(),&database,
+                    |scope,key|super::legacy_commands::remove_legacy_key(&ready.native,scope,key))
             })?;
             if symbol=="mesh_messenger_mailbox_stream_open" {
                 if bytes.len()!=32 { use zeroize::Zeroize;bytes.zeroize();return Err("invalid_native_response".to_owned()); }
@@ -114,7 +121,7 @@ pub(crate) async fn wallet_invoke(webview: WebviewWindow, boot: State<'_, Arc<Bo
     completion_scope.publish_result(result.map_err(|_|"wallet_worker_failed")?).map(Response::new)
 }
 
-fn identity(library: &mesh::Mesh, database: &str) -> Result<Option<super::legacy_profile::ProfileIdentity>, String> {
+pub(super) fn identity(library: &mesh::Mesh, database: &str) -> Result<Option<super::legacy_profile::ProfileIdentity>, String> {
     match library.invoke("mesh_messenger_load_profile",database.as_bytes(),database).map(Zeroizing::new).map_err(Zeroizing::new) {
         Ok(bytes) => super::legacy_profile::ProfileIdentity::parse(&bytes).map(Some).map_err(str::to_owned),
         Err(error) if error.as_str() == "Mesh 9: local_state_not_found" => Ok(None),
@@ -142,12 +149,12 @@ pub(crate) async fn credit_open_payment(webview: WebviewWindow, boot: State<'_, 
     }).await.map_err(str::to_owned)
 }
 
-fn invoke_identity_transition(library: &mesh::Mesh, controller: &super::controller::Controller, symbol: &str, body: &[u8], database: &str, removed: impl FnOnce(super::legacy_profile::ProfileIdentity, super::controller::Epoch) -> Result<(),String>) -> Result<Zeroizing<Vec<u8>>, String> {
+fn invoke_identity_transition(library: &mesh::Mesh, controller: &super::controller::Controller, symbol: &str, body: &[u8], database: &str, removed: impl FnOnce(super::legacy_profile::ProfileIdentity, u64) -> Result<(),String>) -> Result<Zeroizing<Vec<u8>>, String> {
     observe_identity_transition(library,controller,symbol,database,||library.invoke(symbol,body,database),removed)
 }
 fn observe_identity_transition(library: &mesh::Mesh, controller: &super::controller::Controller, symbol: &str, database: &str,
     invoke: impl FnOnce() -> Result<Vec<u8>,String>,
-    removed: impl FnOnce(super::legacy_profile::ProfileIdentity, super::controller::Epoch) -> Result<(),String>) -> Result<Zeroizing<Vec<u8>>,String> {
+    removed: impl FnOnce(super::legacy_profile::ProfileIdentity, u64) -> Result<(),String>) -> Result<Zeroizing<Vec<u8>>,String> {
     let transition=matches!(symbol, "mesh_messenger_create_account" | "mesh_messenger_create_signup_draft" |
         "mesh_messenger_complete_device_link" | "mesh_messenger_directory_register" | "mesh_messenger_devices_renew" | "mesh_messenger_account_delete" | "mesh_messenger_account_discard" | "mesh_messenger_erase_account");
     let before=if transition { Some(identity(&library,&database)?) } else { None };
@@ -159,7 +166,7 @@ fn observe_identity_transition(library: &mesh::Mesh, controller: &super::control
         let after=identity(&library,&database);
         if after.as_ref().map_or(true, |after| *after != before) {
             controller.account_changed();
-            if let (Some(identity), Ok(None))=(before,after) { removed(identity,controller.epoch())?; }
+            if let (Some(identity), Ok(None))=(before,after) { removed(identity,controller.account_generation())?; }
             return Err("app_lock_account_changed".to_owned());
         }
     }

@@ -121,18 +121,33 @@ fn actual_core_identity_changes_retire_once_and_failed_mutations_keep_admission(
     assert!(f.scopes.receiver(owner(1),&f.token).unwrap().check(&fresh).is_ok());
     let scope=f.scopes.receiver(owner(1),&f.token).unwrap().private(&fresh).unwrap().scope();
     let expected=super::identity(&library,&database).unwrap().unwrap();
-    let mut cleaned=0;
-    let mut successor=String::new();
-    let erased=super::invoke_identity_transition(&library,&f.controller,"mesh_messenger_erase_account",database.as_bytes(),&database,|captured,epoch| {
+    let removals=crate::desktop_lock::legacy_commands::LegacyRemovals::default();
+    let mut successor=String::new();let mut removed=Vec::new();
+    let erased=super::invoke_identity_transition(&library,&f.controller,"mesh_messenger_erase_account",database.as_bytes(),&database,|captured,account| {
         assert_eq!(captured,expected);assert_eq!(super::identity(&library,&database).unwrap(),None);
         assert!(scope.check().is_err());
-        let cleanup=scope.retired_cleanup(epoch);assert!(cleanup.check().is_ok());
-        let token=f.replace(2);f.activate(2,&token);successor=token.clone();
-        assert!(cleanup.check().is_err(),"late cleanup cannot borrow the successor page");
-        assert!(f.scopes.receiver(owner(2),&token).unwrap().check(&f.epoch()).is_ok());
-        cleaned+=1;Ok(())
+        removals.capture(captured,account,&database)?;
+        let result=removals.drain(&library,&f.controller,&scope,&database,|cleanup,key| {
+            cleanup.check().unwrap();
+            if removed.len()==2 {
+                let token=f.replace(2);f.activate(2,&token);successor=token;
+                assert!(cleanup.check().is_err(),"old removal may not adopt the replacement document");
+                return Err("page_replaced".to_owned());
+            }
+            removed.push(key.to_owned());Ok(())
+        });
+        assert_eq!(result,Err("page_replaced".to_owned()));Ok(())
     });
-    assert_eq!(erased.unwrap_err(),"app_lock_account_changed");assert_eq!(cleaned,1);
+    assert_eq!(erased.unwrap_err(),"app_lock_account_changed");assert_eq!(removed.len(),2);
+    let next=f.scopes.receiver(owner(2),&successor).unwrap().private(&f.epoch()).unwrap().scope();
+    let mut retried=Vec::new();
+    removals.drain(&library,&f.controller,&next,&database,|cleanup,key| {
+        cleanup.check().unwrap();retried.push(key.to_owned());Ok(())
+    }).unwrap();
+    assert_eq!(retried.len(),6,"the replacement page must finish all finite native-owned keys");
+    assert!(removed.iter().all(|key|retried.contains(key)));
+    removals.drain(&library,&f.controller,&next,&database,|_,_|panic!("completed cleanup must not replay")).unwrap();
+    assert!(next.check().is_ok(),"old cleanup must not retire fresh services");
     for symbol in ["mesh_messenger_directory_register","mesh_messenger_devices_renew"] {
         let made=super::invoke_identity_transition(&library,&f.controller,"mesh_messenger_create_account",&request,&database,|_,_|panic!("creation"));
         assert_eq!(made.unwrap_err(),"app_lock_account_changed");f.activate(2,&successor);
@@ -149,6 +164,11 @@ fn actual_core_identity_changes_retire_once_and_failed_mutations_keep_admission(
         assert!(files.preview(&old,preview).is_err(),"remote removal must revoke retained private files");
         resources.retire(old.epoch());f.activate(2,&successor);
     }
-
-
+    let _=super::invoke_identity_transition(&library,&f.controller,"mesh_messenger_create_account",&request,&database,|_,_|panic!("creation"));
+    f.activate(2,&successor);
+    let restored=super::identity(&library,&database).unwrap().unwrap();
+    let current=f.scopes.receiver(owner(2),&successor).unwrap().private(&f.epoch()).unwrap().scope();
+    removals.capture(restored,f.controller.account_generation(),&database).unwrap();
+    removals.drain(&library,&f.controller,&current,&database,|_,_|panic!("cleanup must spare a restored identity's keys")).unwrap();
+    assert!(current.check().is_ok());
 }

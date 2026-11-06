@@ -14,6 +14,7 @@ impl Executor for Worker {
 
 pub(crate) struct Bootstrap {
     pub(crate) documents: super::document::Documents,
+    pub(crate) legacy_removals: super::legacy_commands::LegacyRemovals,
     app: Mutex<Option<tauri::AppHandle>>,
     pub(crate) notifications:Arc<super::notification_commands::NotificationBindings>,
     pub(crate) native: Arc<NativeProtection>,
@@ -57,6 +58,7 @@ impl Bootstrap {
         }))?;
         let this = Arc::new(Self {
                 documents: super::document::Documents::default(),
+                legacy_removals: super::legacy_commands::LegacyRemovals::default(),
                 app:Mutex::new(Some(app)),
                 notifications,
                 native: Arc::new(native),
