@@ -11,13 +11,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { createKeyPairSignerFromPrivateKeyBytes, getAddressEncoder, getCompiledTransactionMessageDecoder,
+import { createKeyPairSignerFromPrivateKeyBytes, getAddressEncoder, getAddressDecoder, getCompiledTransactionMessageDecoder,
   getTransactionDecoder, getSignatureFromTransaction } from '@solana/kit';
 import { parseJsonWithBigInts, stringifyJsonWithBigInts } from '@solana/rpc-spec-types';
 
 import { RewardsJournal } from './journal.mjs';
 import { createRewardsPlanner } from './planner.mjs';
 import { runRewardsCycle } from './writer.mjs';
+import { connectRewardsRpc } from './rpc.mjs';
+import { prepareRewardsTransaction, signRewardsTransaction } from './transactions.mjs';
 
 const run=promisify(execFile),genesis='11111111111111111111111111111111';
 const required=name=>{assert.ok(process.env[name],`Missing ${name}; run scripts/prove-rewards-v2.sh`);return process.env[name];};
@@ -148,7 +150,7 @@ async function harness(initialization={}){
       }};
     }
     async function data(key){const value=await bridge.ask({method:'account',address:key});return value.value?Buffer.from(value.value.data[0],'base64'):null;}
-    return {bridge,rpc,fixture,request,intent,data,async close(){await rpc.close();await bridge.close();await rm(directory,{recursive:true,force:true});}};
+    return {bridge,rpc,fixture,request,intent,data,pins,payer,securityConfig,async close(){await rpc.close();await bridge.close();await rm(directory,{recursive:true,force:true});}};
   }catch(e){if(rpc)await rpc.close();await bridge.close();await rm(directory,{recursive:true,force:true});throw e;}
 }
 
@@ -414,4 +416,197 @@ test('empty and all-excluded schedules carry every unallocated dollar through tw
       assert.equal((await intent.cycle()).state,'complete');assert.equal(rows(intent.journalPath).length,all.length);
     }finally{await h.close();}
   }
+});
+
+async function executeAction(intent,action){
+  assert.equal((await intent.cycle()).state,'broadcast');
+  const row=rows(intent.journalPath).at(-1);assert.equal(row.plan.action,action);
+  assert.equal((await intent.cycle()).state,'finalized');return row;
+}
+async function externalAssessment(h,plan){
+  await h.bridge.ask({method:'expire_blockhash'});
+  const life=await h.bridge.ask({method:'context'});
+  const step=prepareRewardsTransaction(plan,h.pins);
+  const signed=await signRewardsTransaction(step,[h.payer],{blockhash:life.blockhash,lastValidBlockHeight:BigInt(life.last_valid_block_height)});
+  const receipt=await h.bridge.ask({method:'execute',wire:signed.wire});assert.equal(receipt.ok,true,JSON.stringify(receipt));
+  return receipt;
+}
+
+test('continuous CLI grace recovery and new threshold crossing cancel fully collected stages; no-op assessments allow finalize', {timeout:120000},async()=>{
+  const h=await harness({row_indices:[0,17,63]});
+  try{
+    const intent=await h.intent('continuous',{...h.request,epoch_count:'2'}),a=h.fixture.addresses;
+    for(const action of ['open','begin','append'])await executeAction(intent,action);
+    const bondBefore=await h.data(a.bond1),pendingBefore=await h.data(a.pending1);
+    const vaultKey=getAddressDecoder().decode(bondBefore.subarray(136,168)),vaultBefore=await h.data(vaultKey);
+    const principal=bondBefore.readBigUInt64LE(168),revision=(await h.data(a.economics)).readBigUInt64LE(168);
+    assert.ok(bondBefore.readBigUInt64LE(200)>0n);
+    await h.bridge.ask({method:'fixture_price',price:'2000000'});
+    const recovered=await executeAction(intent,'assess');
+    assert.equal(Buffer.from(recovered.plan.instructions.at(-1).dataBase64,'base64')[0],45);
+    assert.equal((await h.data(a.bond1)).readBigUInt64LE(200),0n);
+    assert.equal((await h.data(a.economics)).readBigUInt64LE(168),revision+1n);
+    assert.equal((await h.data(a.epoch))[52],1,'assessment is allowed during active collection');
+    assert.equal((await h.data(a.bond1)).readBigUInt64LE(168),principal);
+    assert.deepEqual(await h.data(a.pending1),pendingBefore,'pending collateral is never applied');
+    if(vaultBefore)assert.deepEqual(await h.data(vaultKey),vaultBefore);
+    await executeAction(intent,'cancel');await executeAction(intent,'begin');
+    await h.bridge.ask({method:'fixture_price',price:'1000000'});
+    const crossed=await executeAction(intent,'assess');
+    assert.ok((await h.data(a.bond1)).readBigUInt64LE(200)>0n);
+    assert.equal((await h.data(a.economics)).readBigUInt64LE(168),revision+2n);
+    await executeAction(intent,'cancel');await executeAction(intent,'begin');
+    const economics=await h.data(a.economics),bond=await h.data(a.bond1);
+    for(let pass=0;pass<2;pass++)await externalAssessment(h,crossed.plan);
+    assert.deepEqual(await h.data(a.economics),economics,'actual no-op tag45 does not invalidate collection');
+    assert.deepEqual(await h.data(a.bond1),bond);assert.deepEqual(await h.data(a.pending1),pendingBefore);
+    const advanced=await until(intent,'advanced');assert.equal(advanced.epoch,(BigInt(h.request.epoch)+1n).toString());
+    const all=rows(intent.journalPath);assert.equal(all.filter(r=>r.plan.action==='assess').length,2);
+    assert.ok(all.every(r=>Buffer.from(r.plan.instructions.at(-1).dataBase64,'base64')[0]!==36));
+    assert.equal((await h.data(a.epoch))[52],2);
+    assert.ok(BigInt(advanced.spentLamports)>0n);
+  }finally{await h.close();}
+});
+
+test('pending assessment packets retain exact identity through expiry, pruned history, source changes, and lost acknowledgement', {timeout:120000},async()=>{
+  const h=await harness({row_indices:[0,17,63]});
+  try{
+    const intent=await h.intent('assessment-restart',h.request);
+    for(const action of ['open','begin','append'])await executeAction(intent,action);
+    await h.bridge.ask({method:'fixture_price',price:'2000000'});
+    h.rpc.control.mode='drop';assert.equal((await intent.cycle()).state,'unacknowledged');
+    const first=rows(intent.journalPath).at(-1);assert.equal(first.plan.action,'assess');
+    await h.bridge.ask({method:'expire_blockhash'});h.rpc.control.hideHistory=true;h.rpc.control.historyCovered=false;
+    for(let restart=0;restart<2;restart++){
+      await intent.cycle();assert.deepEqual(rows(intent.journalPath).at(-1),first);
+    }
+    await h.bridge.ask({method:'fixture_source_revision',revision:'2'});
+    await assert.rejects(intent.cycle(),/collateral_operator|assessment/);
+    assert.deepEqual(rows(intent.journalPath).at(-1),first,'pin failure cannot replace an unresolved packet');
+    await h.bridge.ask({method:'fixture_source_revision',revision:'1'});
+    h.rpc.control.historyCovered=true;
+    const spentBefore=BigInt(scope(intent.journalPath).spent);
+    const expired=await intent.cycle();assert.equal(expired.state,'expired');
+    assert.equal(BigInt(expired.spentLamports)-spentBefore,BigInt(JSON.parse(first.quote).maxDebitLamports));
+    h.rpc.control.mode='lost-ack';h.rpc.control.hideHistory=false;
+    assert.equal((await intent.cycle()).state,'unacknowledged');
+    const second=rows(intent.journalPath).at(-1);assert.equal(second.plan.action,'assess');
+    assert.notEqual(second.signed.signature,first.signed.signature);
+    h.rpc.control.mode='normal';h.rpc.control.hideHistory=true;h.rpc.control.historyCovered=false;
+    await h.bridge.ask({method:'expire_blockhash'});
+    assert.equal((await intent.cycle()).state,'effect');
+    assert.deepEqual(rows(intent.journalPath).at(-1).signed,second.signed);
+    assert.equal((await h.data(h.fixture.addresses.epoch))[52],1);
+    h.rpc.control.hideHistory=false;h.rpc.control.historyCovered=true;
+    await executeAction(intent,'cancel');
+    assert.equal((await h.data(h.fixture.addresses.epoch))[52],0);
+    assert.equal((await until(intent,'complete')).state,'complete');
+  }finally{await h.close();}
+});
+
+test('assessment and settlement share aggregate fee and transaction caps across process restarts', {timeout:120000},async()=>{
+  for(const cap of ['transactions','lamports']){
+    const h=await harness({row_indices:[0,17,63]});
+    try{
+      const rent=await h.bridge.ask({method:'rent',space:8416}),tokenRent=await h.bridge.ask({method:'rent',space:1280});
+      const spent=BigInt(rent.lamports)+BigInt(tokenRent.lamports)+15000n;
+      const policy={maxTransactions:cap==='transactions'?4:128,maxLamports:cap==='lamports'?(spent+5000n).toString():'1000000000'};
+      const intent=await h.intent('shared-cap',h.request,policy);
+      for(const action of ['open','begin','append'])await executeAction(intent,action);
+      await h.bridge.ask({method:'fixture_price',price:'2000000'});
+      await executeAction(intent,'assess');
+      const before=rows(intent.journalPath),sent=h.rpc.sent.length;
+      for(let restart=0;restart<2;restart++)await assert.rejects(intent.cycle(),/budget exhausted/);
+      assert.deepEqual(rows(intent.journalPath),before);assert.equal(h.rpc.sent.length,sent);
+      assert.equal(scope(intent.journalPath).spent,(spent+5000n).toString());
+      assert.equal((await h.data(h.fixture.addresses.epoch))[52],1);
+    }finally{await h.close();}
+  }
+});
+
+test('stale assessment reads and quotes cannot persist or broadcast; external code/source changes fail closed', {timeout:120000},async()=>{
+  const h=await harness({row_indices:[0,17,63]});
+  try{
+    await h.bridge.ask({method:'fixture_price',price:'2000000'});
+    for(const boundary of ['plan','quote','sign']){
+      const intent=await h.intent('lease-'+boundary,h.request),{config}=intent;
+      const planner=await createRewardsPlanner({binary,tempRoot:config.journalPath+'-planner',securityConfig:h.securityConfig,logVersion:config.logVersion,pins:h.pins});
+      const rpc=await connectRewardsRpc(config.rpc);
+      const options={path:config.journalPath,pins:h.pins,request:h.request,policy:config.policy};
+      const a=new RewardsJournal(options),b=new RewardsJournal(options);let now=100,sends=0;
+      try{
+        const takeover=()=>{now+=30001;b.claim('takeover',now);};
+        const ctx={journal:a,lease:a.claim('stale',now),now:()=>++now,pins:h.pins,signers:[boundary==='sign'?{...h.payer,async signTransactions(...args){const signed=await h.payer.signTransactions(...args);takeover();return signed;}}:h.payer],
+          planner:{...planner,async plan(request,floor){const plan=await planner.plan(request,floor);assert.equal(plan.action,'assess');if(boundary==='plan')takeover();return plan;}},
+          rpc:{...rpc,async quote(step){const quote=await rpc.quote(step);if(boundary==='quote')takeover();return quote;},async broadcast(){sends++;}}};
+        await assert.rejects(runRewardsCycle(ctx),/lease/);assert.equal(sends,0);
+        assert.equal(a.pending()?.phase??null,boundary==='sign'?'reserved':null);
+        assert.equal(a.progress().spentLamports,'0');assert.equal(a.progress().attempts,boundary==='sign'?1:0);
+      }finally{a.close();b.close();}
+    }
+    const effectIntent=await h.intent('lease-effect',h.request),config=effectIntent.config;
+    const effectPlanner=await createRewardsPlanner({binary,tempRoot:config.journalPath+'-planner',securityConfig:h.securityConfig,logVersion:config.logVersion,pins:h.pins});
+    const effectRpc=await connectRewardsRpc(config.rpc);
+    const options={path:config.journalPath,pins:h.pins,request:h.request,policy:config.policy};
+    const owner=new RewardsJournal(options),replacement=new RewardsJournal(options);let effectNow=100;
+    try{
+      h.rpc.control.mode='drop';
+      const ctx={journal:owner,lease:owner.claim('effect-stale',effectNow),now:()=>++effectNow,pins:h.pins,signers:[h.payer],rpc:effectRpc,
+        planner:{...effectPlanner,async effect(...args){const value=await effectPlanner.effect(...args);effectNow+=30001;replacement.claim('effect-new',effectNow);return value;}}};
+      assert.equal((await runRewardsCycle(ctx)).state,'unacknowledged');
+      const original=owner.pending(),before=owner.progress(),sent=h.rpc.sent.length;
+      assert.equal(original.plan.action,'assess');
+      await h.bridge.ask({method:'expire_blockhash'});h.rpc.control.hideHistory=true;h.rpc.control.historyCovered=true;
+      await assert.rejects(runRewardsCycle(ctx),/lease/);
+      assert.deepEqual(owner.pending(),original);assert.deepEqual(owner.progress(),before);assert.equal(h.rpc.sent.length,sent);
+    }finally{owner.close();replacement.close();h.rpc.control.mode='normal';h.rpc.control.hideHistory=false;}
+    const fresh=await h.intent('pin-change',h.request);
+    await h.bridge.ask({method:'fixture_code_slot',role:'judge_data',slot:'1'});
+    assert.equal((await fresh.cycle()).reason,'waiting:code-pins');assert.deepEqual(rows(fresh.journalPath),[]);
+    await h.bridge.ask({method:'fixture_code_slot',role:'judge_data',slot:'0'});
+    await h.bridge.ask({method:'fixture_source_revision',revision:'2'});
+    assert.equal((await fresh.cycle()).reason,'waiting:source-pins');assert.deepEqual(rows(fresh.journalPath),[]);
+    await h.bridge.ask({method:'fixture_source_revision',revision:'1'});
+    await executeAction(fresh,'assess');
+    for(const action of ['open','begin','append'])await executeAction(fresh,action);
+    await h.bridge.ask({method:'fixture_source_revision',revision:'2'});
+    await executeAction(fresh,'cancel');
+    assert.equal((await fresh.cycle()).reason,'waiting:source-pins');
+    assert.equal((await h.data(h.fixture.addresses.epoch))[52],0);
+
+  }finally{await h.close();}
+});
+
+test('directory assessment uses its fourteen-role packet and reconciles a lost acknowledgement through pruned history', {timeout:60000},async()=>{
+  const h=await harness({row_count:0,directory_morse:true});
+  try{
+    const intent=await h.intent('directory-assessment',h.request),a=h.fixture.addresses;
+    const pending=await h.data(a.directory_pending),bond=await h.data(a.directory);
+    h.rpc.control.mode='lost-ack';assert.equal((await intent.cycle()).state,'unacknowledged');
+    const first=rows(intent.journalPath)[0];assert.equal(first.plan.action,'assess');
+    assert.equal(first.plan.assessment.subject,null);assert.equal(first.plan.instructions.at(-1).accountCount,14);
+    assert.equal((await h.data(a.directory)).readBigUInt64LE(168),bond.readBigUInt64LE(168));
+    assert.deepEqual(await h.data(a.directory_pending),pending);
+    h.rpc.control.mode='normal';h.rpc.control.hideHistory=true;h.rpc.control.historyCovered=false;
+    await h.bridge.ask({method:'expire_blockhash'});
+    assert.equal((await intent.cycle()).state,'effect');
+    assert.deepEqual(rows(intent.journalPath)[0].signed,first.signed);
+    h.rpc.control.hideHistory=false;h.rpc.control.historyCovered=true;
+    assert.equal((await until(intent,'complete')).state,'complete');
+    assert.equal(rows(intent.journalPath).filter(r=>r.plan.action==='assess').length,1);
+  }finally{await h.close();}
+});
+
+test('durable assessment rotation reaches a later witness even when the earlier directory needs another transition', {timeout:60000},async()=>{
+  const h=await harness({row_indices:[0,17,63],directory_morse:true});
+  try{
+    const intent=await h.intent('assessment-rotation',h.request);
+    const first=await executeAction(intent,'assess');assert.equal(first.plan.assessment.subject,null);
+    await h.bridge.ask({method:'fixture_price',price:'2000000'});
+    const next=await executeAction(intent,'assess');
+    assert.notEqual(next.plan.assessment.subject,null,'a changed directory cannot starve a later due witness across restarts');
+    assert.equal(next.plan.assessment.subject.public_key,h.fixture.witnesses[2].key_hex);
+    const directory=await executeAction(intent,'assess');assert.equal(directory.plan.assessment.subject,null);
+    assert.equal((await until(intent,'complete')).state,'complete');
+  }finally{await h.close();}
 });

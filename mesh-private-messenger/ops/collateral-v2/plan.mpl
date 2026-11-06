@@ -467,3 +467,37 @@ pub fn plan_collateral_operation(pins :: CollateralOperatorPins,
   end
   Ok(ready(r, s, [token_collateral_assess_instruction(c, r.subject, r.asset)?], false))
 end
+
+# Judge tag45 records only the first <80% crossing or full recovery. Partial
+# recovery preserves the original timer. This preflight avoids no-op packets;
+# execution rechecks the live price, custody and revision atomically.
+pub fn collateral_grace_update_needed(s :: CollateralOperatorState) -> Bool!String do
+  let b = case s.bond do
+    None -> return Ok(false)
+    Some(value) -> value
+  end
+  if b.status != 1 || b.asset == 0 do
+    return Ok(false)
+  end
+  if s.legacy_bond || !s.oracle_current || !s.binding_current || !s.binding_release_current do
+    return Err("collateral_assessment_pins_changed")
+  end
+  let p = case s.pending do
+    None -> return Err("collateral_pending_record_required")
+    Some(value) -> value
+  end
+  let price = case s.twap do
+    None -> return Ok(false)
+    Some(value) -> value
+  end
+  let current = value(U64.parse("0")?, b.principal, price)?
+  let full = target(p.target_usd)?
+  let zero = U64.parse("0")?
+  if U128.compare(current, full) >= 0 do
+    Ok(b.underwater_since != zero)
+  else
+    Ok(b.underwater_since == zero
+      && U128.compare(U128.multiply(current, U128.parse("5")?)?,
+        U128.multiply(full, U128.parse("4")?)?) < 0)
+  end
+end

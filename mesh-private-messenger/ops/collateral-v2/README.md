@@ -12,7 +12,7 @@ Build `main.mpl` with the qualified compiler, then run:
 collateral-v2 --pins pins.json --input request.json
 ```
 
-Each JSON file is bounded to32768bytes. Config schema1 requires three distinct canonical HTTPS origins (only `http://127.0.0.1:PORT` is allowed for owned tests), judge/token/rewards program identities, governance, log name/version/service public key, USDC mint, network start, all three executable deployment slots, oracle receiver/source/feed/revision. See `request.mpl` for the typed exact field names. U64 values are canonical decimal **strings**, byte strings canonical lowercase hex. No price, current slot or current time supplied by the request becomes authority.
+Each JSON file is bounded to32768bytes. Config schema1 requires three distinct canonical HTTPS origins (only `http://127.0.0.1:PORT` is allowed for owned tests), judge/token/rewards program identities, governance, optional token_governance (defaults to governance), log name/version/service public key, USDC mint, network start, all three executable deployment slots, oracle receiver/source/feed/revision. See `request.mpl` for the typed exact field names. U64 values are canonical decimal **strings**, byte strings canonical lowercase hex. No price, current slot or current time supplied by the request becomes authority.
 
 Collateral requests specify action `collateral`, tag, fee_payer, operator, subject `{kind:"directory"}` or `{kind:"witness",witness_id,public_key}`, asset0USDC/1MORSE, amount, witness_minimum, directory_minimum, min_context_slot. Proof requests specify action `proof`, fee_payer, submitter, wire_hex, witnesses (max16), explicit close Boolean and min_context_slot. Proof wire bound8009bytes. Unused collateral numeric fields must still be supplied; they do not create policy.
 
@@ -45,3 +45,11 @@ The opt-in fixture adds all three signed/anchored fork kinds and real timelocked
 The owner-close SBF regression stages an unsupported format, proves sealing is refused, genuinely withdraws the witness after forty days (oracle stale and binding still inactive), rejects the distinct governance/fee payer's attempt to close the owner's stage, and executes the exact Mesh owner-close packet. Repeated missing-stage planning is complete with no instructions/signers. The additional close corpus is mandatory: use `qualify.py --vectors ACTUAL_SUBSET --close-vectors ACTUAL_CLOSE_SUBSET --output NEW_DIRECTORY`. `close_fixture_subset.py` selects it from the separate actual owned SBF regression output. Both HTTP fixtures are local historical-state replay; neither is a live chain freshness claim.
 
 Origins must equal the public URL parser's canonical origin exactly; case/default-port aliases, credentials, fragments, paths and queries are refused. Three strings pointing at one origin do not form a quorum. Distinct origins still do not establish independent operators.
+
+`assessment_read.mpl` exposes bounded groups for the v2 rewards keeper. Groups
+reuse this package's exact collateral decoder, retain a single finalized bank
+per group, and authenticate independent Judge and token governance pins. The
+reward keeper scans the directory and all attendance witnesses before each
+settlement step. `collateral_grace_update_needed` compares only active principal
+against the recorded lifetime target, so no-op checks can continue collection.
+This API prepares unsigned tag45 assessment; it does not apply pending collateral.

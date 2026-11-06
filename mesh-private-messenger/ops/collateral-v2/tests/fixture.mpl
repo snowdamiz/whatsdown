@@ -48,6 +48,7 @@ pub fn operator_fixture_pins(row :: Json) -> CollateralOperatorPins!String do
   Ok(CollateralOperatorPins {
     context: c,
     governance: pubkey(operator_fixture_text(row, "governance")?)?,
+    token_governance: pubkey(operator_fixture_text(row, "governance")?)?,
     service_key: Bytes.slice(log, 72, 32)?,
     log_version: Bytes.get(log, 4)?,
     network_started: U64.parse(Bytes.read_uint_le(pool, 164, 8)?)?,

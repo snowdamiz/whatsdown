@@ -8,8 +8,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { getAddressDecoder } from '@solana/kit';
+import { getAddressDecoder, getProgramDerivedAddress } from '@solana/kit';
 import { createRewardsPlanner } from './planner.mjs';
+import { prepareRewardsTransaction } from './transactions.mjs';
 
 const root=JSON.parse(await readFile(process.env.MORSE_TOKEN_CUSTODY_FIXTURES_PATH,'utf8'));
 const binary=process.env.MORSE_REWARDS_V2_OPERATOR_BIN;
@@ -65,6 +66,11 @@ test('v2 host config preserves ordinary IPv6 and the explicit loopback port cont
 test('production v2 executable authenticates snapshots, plans explicit intent and reconciles immutable claims', {timeout:120000},async()=>{
   let selected=root.snapshots.find(f=>f.name==='token-rewards-collecting');
   const initial=selected, errors=[], requests=[];
+  let advanceGroups=false;const groupRequests=[0,0,0];
+  const [judgeConfig]=await getProgramDerivedAddress({programAddress:initial.program,seeds:[Buffer.from('config')]});
+  const governance=Buffer.from(initial.accounts.pool.data_hex,'hex').subarray(4,36);
+  const configData=Buffer.concat([Buffer.from('MCF\x01'),governance,Buffer.alloc(4)]);
+
   const servers=[],endpoints=[];
   const directory=await mkdtemp(join(tmpdir(),'rewards-v2-native-'));
   try{
@@ -75,16 +81,24 @@ test('production v2 executable authenticates snapshots, plans explicit intent an
           const call=JSON.parse(body);requests.push(call);
           assert.equal(call.method,'getMultipleAccounts');
           assert.equal(call.params[1].commitment,'finalized');
-          assert.ok(call.params[1].minContextSlot<=Number(selected.context_slot));
+          const group=advanceGroups&&call.params[0][0]===judgeConfig;
+          const ordinal=group?++groupRequests[index]:0;
+          const slot=Number(selected.context_slot)+ordinal*10;
+          assert.ok(call.params[1].minContextSlot<=slot);
+          if(group)assert.ok(call.params[1].minContextSlot>=Number(selected.context_slot)+(ordinal-1)*10,'later groups must retain the previous finalized context');
           const accounts=Object.values(selected.accounts);
           const value=call.params[0].map(key=>{
-            const a=accounts.find(a=>a.address===key);
+            const a=accounts.find(a=>a.address===key)??(key===judgeConfig?{owner:initial.program,executable:false,lamports:'1000000',space:'40',data_hex:configData.toString('hex')}:null);
             if(!a||a.missing)return null;
             const slice=call.params[1].dataSlice;
+            // The stored fixture truncates program data at 8416 bytes. Its
+            // omitted tail is zero-extended only in this local replay adapter.
+            const raw=Buffer.concat([Buffer.from(a.data_hex,'hex'),Buffer.alloc(Math.max(0,Math.min(Number(a.space),slice.offset+slice.length)-a.data_hex.length/2))]);
+            if(group&&key===selected.accounts.clock.address)raw.writeBigUInt64LE(BigInt(slot),0);
             return {owner:a.owner,executable:a.executable,lamports:Number(a.lamports),rentEpoch:0,
-              space:Number(a.space),data:[Buffer.from(a.data_hex,'hex').subarray(slice.offset,slice.offset+slice.length).toString('base64'),'base64']};
+              space:Number(a.space),data:[raw.subarray(slice.offset,slice.offset+slice.length).toString('base64'),'base64']};
           });
-          res.end(JSON.stringify({jsonrpc:'2.0',id:call.id,result:{context:{slot:Number(selected.context_slot)},value}}));
+          res.end(JSON.stringify({jsonrpc:'2.0',id:call.id,result:{context:{slot},value}}));
         }catch(e){errors.push(e);res.writeHead(500).end();}
       });
       server.listen(0,'127.0.0.1');await once(server,'listening');servers.push(server);
@@ -96,8 +110,59 @@ test('production v2 executable authenticates snapshots, plans explicit intent an
       payer:initial.payer,configuration_hash:createHash('sha256').update(securityConfig).digest('hex')};
     const planner=await createRewardsPlanner({binary,tempRoot:join(directory,'planner'),securityConfig,logVersion:1,pins});
     const request={schema_version:2,program:pins.program,mint:pins.mint,log:initial.log_name,payer:pins.payer,epoch:initial.epoch,action:'settle'};
+    // Clear the recorded timer while preserving the authenticated live price.
+    // The unassessed below-threshold bond must be assessed during collection.
+    selected=structuredClone(initial);
+    const unassessed=Buffer.from(selected.accounts.bond1.data_hex,'hex');
+    unassessed.writeBigUInt64LE(0n,200);selected.accounts.bond1.data_hex=unassessed.toString('hex');
+    const assess=await planner.plan(request);
+    assert.equal(assess.action,'assess');
+    assert.equal(Buffer.from(assess.instructions.at(-1).dataBase64,'base64')[0],45);
+    const report=assess.instructions.at(-1);
+    assert.deepEqual(report.signerKeys,[]);assert.equal(report.accountCount,15);
+    assert.ok(!report.writableKeys.includes(report.accountKeys[4]),'pending remains readonly');
+    for(const change of [
+      p=>{const ix=p.instructions.at(-1);ix.dataBase64=Buffer.from([36,1]).toString('base64');},
+      p=>p.instructions.at(-1).writableKeys.push(report.accountKeys[4]),
+      p=>p.instructions.at(-1).signerKeys.push(report.accountKeys[3]),
+      p=>p.rent_allocations.push({address:p.payer,space:96})
+    ]){const invalid=structuredClone(assess);change(invalid);assert.throws(()=>prepareRewardsTransaction(invalid,pins));}
+
+    assert.equal((await planner.effect(request,assess,initial.context_slot)).state,'absent');
+    selected=initial;
+    assert.equal((await planner.effect(request,assess,initial.context_slot)).state,'present');
+    selected=structuredClone(initial);
+    const lifetime=Buffer.from(selected.accounts.bond1.data_hex,'hex');
+    lifetime.writeBigUInt64LE(lifetime.readBigUInt64LE(176)-1n,176);selected.accounts.bond1.data_hex=lifetime.toString('hex');
+    assert.equal((await planner.effect(request,assess,initial.context_slot)).state,'absent','another bond lifetime cannot reconcile the old packet');
+
+    // Exact 80%, first crossing, partial recovery and exact full recovery use
+    // the recorded lifetime target, which can differ from current policy.
+    for(const [price,since,action] of [
+      [1200000,0n,'append'],[1199999,0n,'assess'],
+      [1400000,BigInt(initial.now),'append'],[1500000,BigInt(initial.now),'assess']
+    ]){
+      selected=structuredClone(initial);
+      const bond=Buffer.from(selected.accounts.bond1.data_hex,'hex');bond.writeBigUInt64LE(since,200);selected.accounts.bond1.data_hex=bond.toString('hex');
+      const pending=Buffer.from(selected.accounts.pending1.data_hex,'hex');pending.writeBigUInt64LE(200000001n,84);selected.accounts.pending1.data_hex=pending.toString('hex');
+      const oracle=Buffer.from(selected.accounts.oracle.data_hex,'hex'),end=Number(oracle.readBigUInt64LE(164)/3600n);
+      oracle.writeBigUInt64LE(BigInt(price),172);
+      for(let hour=end-168;hour<end;hour++){
+        const at=320+(hour%169)*32;
+        oracle.writeBigUInt64LE(BigInt(price)*3600n,at+8);oracle.writeBigUInt64LE(0n,at+16);
+      }
+      selected.accounts.oracle.data_hex=oracle.toString('hex');
+      assert.equal((await planner.plan(request)).action,action,`price=${price} since=${since}`);
+    }
+    selected=initial;
     const append=await planner.plan(request);
     assert.equal(append.action,'append');assert.equal(append.instructions.at(-1).accountCount,31);
+    advanceGroups=true;
+    const advancedContext=await planner.plan(request);
+    advanceGroups=false;
+    assert.equal(advancedContext.context_slot,(BigInt(initial.context_slot)+50n).toString());
+    assert.deepEqual(groupRequests,[5,5,0]);
+
     assert.equal((await planner.effect(request,append,initial.context_slot)).state,'absent');
     selected=root.snapshots.find(f=>f.name==='token-rewards-ready');
     assert.equal((await planner.effect(request,append,initial.context_slot)).state,'present');
@@ -110,7 +175,7 @@ test('production v2 executable authenticates snapshots, plans explicit intent an
     assert.equal(completed.status,'complete');assert.equal(completed.next_epoch,(BigInt(request.epoch)+1n).toString());
     assert.notEqual(completed.intent_hash,finalize.intent_hash);
     for(const invalid of [
-      {...range,epoch_count:2}, {...range,action:'claim',row:0,asset:0}, {...range,epoch_count:'0'}, {...range,epoch_count:'257'}, {...range,epoch_count:'02'},
+      {...range,epoch_count:2}, {...range,assessment_cursor:'65'}, {...range,assessment_cursor:'01'}, {...range,assessment_cursor:1}, {...range,action:'claim',row:0,asset:0}, {...range,epoch_count:'0'}, {...range,epoch_count:'257'}, {...range,epoch_count:'02'},
       {...range,epoch:'18446744073709551615'}, {...range,cursor:(BigInt(request.epoch)-1n).toString()},
       {...range,cursor:(BigInt(request.epoch)+2n).toString()}
     ])await assert.rejects(planner.plan(invalid));
@@ -121,6 +186,17 @@ test('production v2 executable authenticates snapshots, plans explicit intent an
       selected=root.snapshots.find(f=>f.name===`token-rewards-${name}`);
       assert.equal((await planner.plan(range)).action,action);
     }
+    selected=structuredClone(root.snapshots.find(f=>f.name==='token-rewards-floor-unfunded'));
+    const waitingBond=Buffer.from(selected.accounts.bond1.data_hex,'hex');
+    waitingBond.writeBigUInt64LE(0n,200);selected.accounts.bond1.data_hex=waitingBond.toString('hex');
+    assert.equal((await planner.plan(range)).action,'assess','reserve waits must continue grace maintenance during collection');
+    selected=structuredClone(root.snapshots.find(f=>f.name==='token-rewards-open'));
+    const unsealed=Buffer.from(selected.accounts.attendance_epoch.data_hex,'hex');
+    unsealed[62]=0;unsealed.writeBigUInt64LE(BigInt(selected.context_slot),52);
+    selected.accounts.attendance_epoch.data_hex=unsealed.toString('hex');
+    const beforeBegin=Buffer.from(selected.accounts.bond1.data_hex,'hex');
+    beforeBegin.writeBigUInt64LE(0n,200);selected.accounts.bond1.data_hex=beforeBegin.toString('hex');
+    assert.equal((await planner.plan(range)).action,'assess','cosign waits must continue grace maintenance before collection');
     const pausedConfig=JSON.stringify({...JSON.parse(securityConfig),rewards_slot:'1'});
     const paused=await createRewardsPlanner({binary,tempRoot:join(directory,'paused'),securityConfig:pausedConfig,logVersion:1,
       pins:{...pins,configuration_hash:createHash('sha256').update(pausedConfig).digest('hex')}});

@@ -4,7 +4,8 @@
 `ops/rewards/cli.mjs`, SQLite journal, Kit signer and finalized quorum writer.
 Each journal owns **one explicit epoch settlement, one fixed earned claim, or
 one bounded settlement range**. Mesh authenticates eligibility and completion
-for each scheduled epoch. The keeper does not assess grace or fund pools.
+for each scheduled epoch. The keeper continuously checks grace before and
+during collection. Pool funding remains explicit.
 Eligibility, stage cancellation, floor/reserve policy and payout selection stay
 in Mesh and the on-chain programs.
 
@@ -105,8 +106,52 @@ without rustup shims, also set `SBF_RUSTC` to platform-tools v1.57's rustc.
 The script rebuilds all three SBF programs and runs the Rust, Kit, native Mesh,
 CLI/journal and v1 compatibility checks.
 
-Permissionless grace assessment remains the next operational gap; this unit
-only schedules already admissible settlements.
+Before each settlement step, Mesh checks the directory and every witness in
+that epoch's attendance set, including rows already appended. One identity read
+and at most five groups of fourteen subjects cover the bounded set. Each group
+contains at most 100 canonical account keys and requires two matching finalized
+snapshots. A third provider is read only on disagreement. Each group retains the prior
+group's finalized context floor. The shared collateral
+decoder verifies ownership, exact roles, custody liabilities, executable slots,
+source pins and the recorded lifetime target. Judge and token governance pins
+are independent. Groups must agree with the settlement's economics revision and
+pool cursor. A changed snapshot refuses that cycle and is read again next time.
+The resulting context floor includes every group read, even when no packet is needed.
+
+The journal stores a Mesh-selected assessment cursor and advances it only after
+the current signed packet is terminal. The next scan starts after that subject
+and wraps through the whole bounded set. An earlier subject that changes again
+cannot repeatedly hide later subjects. The cursor is internal journal state,
+separate from the epoch cursor and immutable request hash.
+
+Mesh proposes Judge tag45 only when active MORSE principal first falls strictly
+below 80% of its recorded target or recovers to at least 100%. Partial recovery
+retains the original grace start. Without a usable authenticated TWAP, Mesh
+prepares no grace mutation and the existing USDC settlement policy still applies.
+Pending topups and donated balances do not
+increase the assessed principal. A real transition updates the eligibility
+revision. The next authenticated plan cancels the old collection and begins a
+new snapshot. Repeated no-op checks fall through to settlement, and actual
+no-op tag45 execution preserves the revision. Grace expiry uses the stage's
+saved timestamp and price; crossing the deadline does not rewrite an existing
+snapshot. Tag36 pending activation is never synthesized by this operator.
+
+Assessment packets use the same journal, reservation, transaction count,
+lamport cap, signer and restart path as settlement. The journal reconciles an
+old assessment before any cancellation, replan or epoch advancement. After
+expiry, effect evidence must match the selected subject's bond lifetime,
+principal, mint, owner, recorded target and canonical instruction. An unrelated
+revision increase cannot prove that assessment. Missing evidence with pruned
+history retains the original packet; permitted expiry replacement charges its
+full reserved maximum. Code or source drift pauses effect-based reconciliation.
+Finalized transaction metadata can still reconcile the exact original packet.
+
+`--watch` repeats these checks throughout the explicit intent or bounded range,
+including waits for week end, cosign completion and reserve funding. Completion still stops the finite request.
+Claims use immutable entitlements and do not depend on a maintenance scan.
+This path monitors the current epoch's attendance set and directory, not every
+registered witness in the network. It does not activate governance bindings,
+apply pending collateral, fund pools or change payouts.
 
 Local qualification is described by that script and the
 retained proof receipt. Loopback endpoints over one disposable bank exercise

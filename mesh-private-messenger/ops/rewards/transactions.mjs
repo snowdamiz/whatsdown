@@ -68,12 +68,16 @@ export function prepareRewardsTransaction(plan,pins){
   if(work[0]?.programAddress===ATA)setup=work.shift();
   if(work.length!==1)fail('Expected one rewards operation');
   const ix=work[0],a=ix.accounts.map(value=>value.address),tag=ix.data[0];
-  const tags=version===2?{open:14,begin:15,append:16,finalize:17,'claim-usdc':8,'claim-morse':18,cancel:19,'attendance-open':28,seal:29}:
+  const tags=version===2?{open:14,begin:15,append:16,finalize:17,'claim-usdc':8,'claim-morse':18,cancel:19,assess:45,'attendance-open':28,seal:29}:
     {open:1,fund:12,begin:5,append:6,finalize:7,claim:8,cancel:11,'attendance-open':28,seal:29};
-  if(tag!==tags[plan.action]||ix.programAddress!==(['seal','attendance-open'].includes(plan.action)?plan.judge:plan.program))fail('Unexpected rewards program or operation');
+  if(tag!==tags[plan.action]||ix.programAddress!==(['seal','attendance-open','assess'].includes(plan.action)?plan.judge:plan.program))fail('Unexpected rewards program or operation');
   let rents=[],signers=[plan.payer];
   if(version===2&&!['attendance-open','seal'].includes(plan.action)){
     switch(plan.action){
+      case 'assess':
+        if(ix.data.length!==2||ix.data[1]>1||a.length!==14+ix.data[1]||a[0]!==plan.log||a[6]!==plan.token||a[9]!==plan.morse||a[11]!==plan.program)fail('Invalid v2 grace assessment');
+        if(rewardsCoordinate(plan.assessment?.next_cursor)>64n)fail('Invalid v2 assessment cursor');
+        roles(ix,[],[1,3,5]);break;
       case 'open':
         if(a.length!==6||ix.data.length!==9||a[0]!==plan.payer||a[5]!==SYSTEM||ix.data.readBigUInt64LE(1)!==BigInt(plan.epoch))fail('Invalid v2 rewards open');
         roles(ix,[0],[0,3,4]);rents=[{address:a[3],space:8416},{address:a[4],space:1280}];break;
@@ -129,7 +133,7 @@ export function prepareRewardsTransaction(plan,pins){
   if(!same(plan.rent_allocations,rents)||!Array.isArray(plan.signer_keys)||!same(unique(plan.signer_keys),unique(signers))||plan.signer_keys.length!==unique(signers).length)fail('Invalid rewards rent or signers');
   const recipe={instructions,payer:plan.payer,signers:unique(signers),contextSlot:plan.context_slot,rent:rents,
     intent:hash(JSON.stringify({intent:plan.intent_hash,action:plan.action,payer:plan.payer,instructions,
-      ...(version===2?{version,configuration:plan.configuration_hash}:{})}))};
+      ...(version===2?{version,configuration:plan.configuration_hash,...(plan.action==='assess'?{assessment:plan.assessment}:{})}:{})}))};
   const step=Object.freeze({id:recipe.intent,kind:plan.action});RECIPES.set(step,recipe);
   rewardsMessage(step,{blockhash:SYSTEM,lastValidBlockHeight:1n});return step;
 }

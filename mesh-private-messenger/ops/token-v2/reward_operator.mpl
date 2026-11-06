@@ -1,3 +1,4 @@
+from RewardAssessment import plan_reward_assessment, read_reward_assessment_effect
 from RewardRead import (
   TokenRewardReadPins,
   TokenRewardReadState,
@@ -24,6 +25,7 @@ pub struct RewardV2Intent do
   epoch :: U64
   hash :: Bytes
   schedule_end :: Option<U64>
+  assessment_cursor :: Int
 end
 
 pub struct RewardV2Config do
@@ -168,6 +170,19 @@ pub fn decode_reward_v2_intent(config :: RewardV2Config,
   else
     return Err("rewards_v2_action")
   end
+  let assessment_cursor = case Json.object_get(value, "assessment_cursor") do
+    Err(_) -> 0
+    Ok(_) -> do
+      if action != "settle" do
+        return Err("rewards_v2_assessment_action")
+      end
+      let cursor = wide(value, "assessment_cursor")?
+      if U64.compare(cursor, U64.parse("64")?) > 0 do
+        return Err("rewards_v2_assessment_cursor")
+      end
+      U64.to_int(cursor)?
+    end
+  end
   let selection = case operation do
     SettleRewards -> "settle"
     ClaimRewards(row, asset) -> "claim\n" <> Int.to_string(row) <> "\n" <> Int.to_string(asset)
@@ -189,6 +204,7 @@ pub fn decode_reward_v2_intent(config :: RewardV2Config,
     payer: payer,
     epoch: epoch,
     schedule_end: schedule_end,
+    assessment_cursor: assessment_cursor,
     hash: Crypto.sha256(Bytes.from_utf8(canonical))
   })
 end
@@ -216,7 +232,8 @@ end
 fn report(config :: RewardV2Config,
   intent :: RewardV2Intent,
   state :: TokenRewardReadState,
-  step :: TokenRewardKeeperStep) -> String!String do
+  step :: TokenRewardKeeperStep,
+  evidence :: String) -> String!String do
   let c = config.pins.context
   let a = token_reward_write_addresses(c, intent.epoch)?
   let status = if step.status == "complete" do
@@ -263,7 +280,7 @@ fn report(config :: RewardV2Config,
     end,
     ",")
   Ok("""{"schema_version":2,"status":#{Json.encode_string(status)},"action":#{Json.encode_string(step.status)},"program":#{address(c.program)},"judge":#{address(c.judge)},"token":#{address(c.token)},"log":#{address(a.base.log)},"mint":#{address(c.usdc_mint)},"morse":#{address(a.morse)},"payer":#{address(intent.payer)},"epoch":"#{U64.to_string(intent.epoch)}","context_slot":"#{U64.to_string(state.context_slot)}","configuration_hash":"#{Bytes.to_hex(config.hash)}","intent_hash":"#{Bytes.to_hex(intent.hash)}","stage_hash":"#{stage}","staged_count":#{count},"signer_keys":[#{address(intent.payer)}],"instructions":[#{reports}],"rent_allocations":[#{String.join(rent,
-    ",")}]#{advancement}}""")
+    ",")}]#{advancement}#{evidence}}""")
 end
 
 pub fn plan_reward_v2(client :: Int,
@@ -312,7 +329,35 @@ pub fn plan_reward_v2(client :: Int,
       end
     end
   end
-  report(config, intent, state, step)
+  case intent.operation do
+    SettleRewards -> if step.status != "cancel"
+      && step.status != "complete"
+      && state.code_current
+      && state.source_current
+      && (List.length(step.instructions) != 0
+        || step.status == "waiting:week-end"
+        || step.status == "waiting:cosign-window"
+        || String.starts_with(step.status, "waiting:token_reserve_")) do
+      let assessed = plan_reward_assessment(client,
+        config.sources,
+        config.allow_loopback,
+        config.pins,
+        intent.payer,
+        intent.assessment_cursor,
+        state)?
+      let fresh = %{state | context_slot: assessed.slot}
+      if List.length(assessed.instructions) != 0 do
+        return report(config,
+          intent,
+          fresh,
+          TokenRewardKeeperStep { status: "assess", instructions: assessed.instructions },
+          assessed.evidence)
+      end
+      return report(config, intent, fresh, step, "")
+    end
+    _ -> nil
+  end
+  report(config, intent, state, step, "")
 end
 
 fn effect_report(present :: Bool, slot :: U64) -> String do
@@ -360,6 +405,16 @@ pub fn read_reward_v2_effect(client :: Int,
       end) do
       return Err("rewards_v2_effect_action")
     end
+  end
+  if action == "assess" do
+    let (present, slot) = read_reward_assessment_effect(client,
+      config.sources,
+      config.allow_loopback,
+      config.pins,
+      intent.payer,
+      previous,
+      minimum)?
+    return Ok(effect_report(present, slot))
   end
   let state = read_token_reward_quorum(client,
     config.sources,

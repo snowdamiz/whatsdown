@@ -51,6 +51,7 @@ from Transparency.TokenRewards import decode_token_reward_usdc_pool
 pub struct CollateralOperatorPins do
   context :: TokenCollateralContext
   governance :: Pubkey
+  token_governance :: Pubkey
   service_key :: Bytes
   log_version :: Int
   network_started :: U64
@@ -93,7 +94,7 @@ end
 
 pub fn validate_collateral_operator_pins(pins :: CollateralOperatorPins) -> Bool!String do
   token_collateral_addresses(pins.context)?
-  for key in [pins.governance, pins.source_program, pins.source] do
+  for key in [pins.governance, pins.token_governance, pins.source_program, pins.source] do
     if !collateral_public_key(key) do
       return Err("collateral_operator_pins")
     end
@@ -316,7 +317,7 @@ pub fn decode_collateral_operator_unpriced_snapshot(pins :: CollateralOperatorPi
     || log.ring_address != a.ring.bytes
     || e.log_id != a.log_id
     || e.usdc_mint != c.usdc_mint.bytes
-    || token.governance != pins.governance
+    || token.governance != pins.token_governance
     || token.mint != a.morse_mint
     || U64.compare(token.started, now) > 0
     || pool.governance != pins.governance.bytes
@@ -603,6 +604,7 @@ pub fn collateral_selection_digest(pins :: CollateralOperatorPins,
     fn(result, key) do Bytes.concat(result?, key.bytes) end)?
   let fields = [
     pins.governance.bytes,
+    pins.token_governance.bytes,
     pins.service_key,
     Bytes.write_uint_le(Int.to_string(pins.log_version), 1)?,
     Bytes.write_uint_le(U64.to_string(pins.network_started), 8)?,

@@ -35,13 +35,13 @@ export async function createRewardsPlanner({binary,tempRoot,securityConfig,logVe
         const child=spawn(binary,args,{shell:false,stdio:['ignore','pipe','pipe'],env:{PATH:'/usr/bin:/bin',
           ...(version===2?{MORSE_REWARDS_V2_CONFIG:securityConfig}:{MESSENGER_SECURITY_CONFIG:securityConfig}),
           MORSE_REWARDS_LOG_VERSION:String(logVersion),MORSE_REWARDS_MIN_CONTEXT_SLOT:floor}});
-        const chunks=[];let size=0,errors=0,reason;
+        const chunks=[],diagnostics=[];let size=0,errors=0,reason;
         const stop=message=>{reason??=message;child.kill('SIGKILL');};
         const timer=setTimeout(()=>stop('Rewards planning timed out'),timeoutMs);
         child.stdout.on('data',chunk=>{size+=chunk.length;if(size>32768)stop('Rewards plan exceeded limit');else chunks.push(chunk);});
-        child.stderr.on('data',chunk=>{errors+=chunk.length;if(errors>8192)stop('Rewards planner diagnostics exceeded limit');});
+        child.stderr.on('data',chunk=>{errors+=chunk.length;if(errors>8192)stop('Rewards planner diagnostics exceeded limit');else diagnostics.push(chunk);});
         child.on('error',()=>{reason??='Rewards planner unavailable';});
-        child.on('close',(code,signal)=>{clearTimeout(timer);if(reason||code!==0||signal)reject(new Error(reason??'Rewards planning refused'));else resolve(Buffer.concat(chunks));});
+        child.on('close',(code,signal)=>{clearTimeout(timer);if(reason||code!==0||signal)reject(new Error(reason??`Rewards planning refused: ${Buffer.concat(diagnostics).toString('utf8').trim()}`));else resolve(Buffer.concat(chunks));});
       });
       const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(output));
       if(!value||value.schema_version!==version||Array.isArray(value))fail('Invalid rewards planner output');

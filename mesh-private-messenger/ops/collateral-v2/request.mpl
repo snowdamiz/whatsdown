@@ -66,6 +66,10 @@ pub fn parse_collateral_operator_config(value :: Json) -> CollateralOperatorConf
       usdc_mint: pubkey(text(value, "usdc_mint")?)?
     },
     governance: pubkey(text(value, "governance")?)?,
+    token_governance: pubkey(case Json.object_get(value, "token_governance") do
+      Ok(v) -> Json.as_string(v)?
+      Err(_) -> text(value, "governance")?
+    end)?,
     service_key: bytes(value, "service_public_key", 32)?,
     log_version: Json.as_int(Json.object_get(value, "log_version")?)?,
     network_started: wide(value, "network_started")?,

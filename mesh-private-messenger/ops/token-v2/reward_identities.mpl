@@ -47,19 +47,15 @@ end
 # These reads resolve immutable identity preimages only. They do not assert a
 # cross-call bank snapshot or make custody, admission or attendance eligibility
 # decisions. The rewards program fences revisions and checks all four row roles.
-pub fn decode_token_reward_append_identities(context :: TokenRewardWriteContext,
+pub fn decode_token_reward_identities(context :: TokenRewardWriteContext,
   state :: TokenRewardReadState,
+  keys :: List<Pubkey>,
   snapshot :: OptionalAccountSlicesAtSlot) -> List<RewardAppendWitness>!String do
-  let keys = token_reward_next_witnesses(state)?
-  let record = case state.record do
-    None -> return Err("token_rewards_epoch_missing")
-    Some(value) -> value
-  end
-  let a = token_reward_write_addresses(context, record.epoch)?
+  let a = token_reward_write_addresses(context, state.pool.next_epoch)?
   if state.pool.judge != context.judge.bytes
     || state.pool.log != a.base.log.bytes
     || state.pool.log_id != a.base.log_id
-    || record.pool != a.base.pool.bytes
+    || List.length(keys) > 64
     || List.length(snapshot.accounts) != List.length(keys)
     || U64.compare(snapshot.slot, state.context_slot) < 0 do
     return Err("token_rewards_identity_context_mismatch")
@@ -70,6 +66,12 @@ pub fn decode_token_reward_append_identities(context :: TokenRewardWriteContext,
     log_name: context.log_name,
     mint: context.usdc_mint
   }
+  case state.record do
+    Some(record) -> if record.pool != a.base.pool.bytes do
+      return Err("token_rewards_identity_context_mismatch")
+    end
+    None -> nil
+  end
   let result = for index in 0..List.length(keys) do
     let value = case List.get(snapshot.accounts, index) do
       None -> return Err("token_rewards_witness_missing")
@@ -111,19 +113,21 @@ pub fn decode_token_reward_append_identities(context :: TokenRewardWriteContext,
   Ok(result)
 end
 
-pub fn read_token_reward_append_from(client :: Int,
+fn read_identities_from(client :: Int,
   url :: String,
   context :: TokenRewardWriteContext,
-  state :: TokenRewardReadState) -> List<RewardAppendWitness>!String do
+  state :: TokenRewardReadState,
+  keys :: List<Pubkey>) -> List<RewardAppendWitness>!String do
   let request = get_multiple_accounts_slice_request(3,
-    token_reward_next_witnesses(state)?,
+    keys,
     "finalized",
     0,
     320,
     Some(state.context_slot))?
-  let response = rpc_send(client, url, request, 5000, 8192)?
-  decode_token_reward_append_identities(context,
+  let response = rpc_send(client, url, request, 5000, 65536)?
+  decode_token_reward_identities(context,
     state,
+    keys,
     optional_accounts_slice_from_response(response)?)
 end
 
@@ -142,19 +146,20 @@ fn agree(first :: List<RewardAppendWitness>!String,
   end
 end
 
-pub fn read_token_reward_append_quorum(client :: Int,
+pub fn read_token_reward_identities_quorum(client :: Int,
   urls :: List<String>,
   test_mode :: Bool,
   context :: TokenRewardWriteContext,
-  state :: TokenRewardReadState) -> List<RewardAppendWitness>!String do
+  state :: TokenRewardReadState,
+  keys :: List<Pubkey>) -> List<RewardAppendWitness>!String do
   token_reward_rpc_sources(urls, test_mode)?
-  let first = read_token_reward_append_from(client, List.get(urls, 0), context, state)
-  let second = read_token_reward_append_from(client, List.get(urls, 1), context, state)
+  let first = read_identities_from(client, List.get(urls, 0), context, state, keys)
+  let second = read_identities_from(client, List.get(urls, 1), context, state, keys)
   case agree(first, second) do
     Some(value) -> return Ok(value)
     None -> nil
   end
-  let third = read_token_reward_append_from(client, List.get(urls, 2), context, state)
+  let third = read_identities_from(client, List.get(urls, 2), context, state, keys)
   case agree(first, third) do
     Some(value) -> return Ok(value)
     None -> nil
@@ -163,4 +168,23 @@ pub fn read_token_reward_append_quorum(client :: Int,
     Some(value) -> Ok(value)
     None -> Err("token_rewards_identity_rpc_no_agreement")
   end
+end
+
+pub fn decode_token_reward_append_identities(context :: TokenRewardWriteContext,
+  state :: TokenRewardReadState,
+  snapshot :: OptionalAccountSlicesAtSlot) -> List<RewardAppendWitness>!String do
+  decode_token_reward_identities(context, state, token_reward_next_witnesses(state)?, snapshot)
+end
+
+pub fn read_token_reward_append_quorum(client :: Int,
+  urls :: List<String>,
+  test_mode :: Bool,
+  context :: TokenRewardWriteContext,
+  state :: TokenRewardReadState) -> List<RewardAppendWitness>!String do
+  read_token_reward_identities_quorum(client,
+    urls,
+    test_mode,
+    context,
+    state,
+    token_reward_next_witnesses(state)?)
 end

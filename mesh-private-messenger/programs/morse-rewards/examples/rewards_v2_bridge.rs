@@ -67,6 +67,7 @@ struct Bridge {
     height: u64,
     // A local counter advances only when the current hash is explicitly expired.
     statuses: serde_json::Map<String, Value>,
+    fixture_addresses: serde_json::Map<String, Value>,
 }
 impl Bridge {
     fn initialize(request: &Value) -> Result<(Self, Value), String> {
@@ -82,6 +83,11 @@ impl Bridge {
         let all_excluded = request
             .get("all_excluded")
             .map(|v| v.as_bool().ok_or("all_excluded must be a boolean"))
+            .transpose()?
+            .unwrap_or(false);
+        let directory_morse = request
+            .get("directory_morse")
+            .map(|v| v.as_bool().ok_or("directory_morse must be a boolean"))
             .transpose()?
             .unwrap_or(false);
         let payer = key(request, "payer")?;
@@ -103,11 +109,35 @@ impl Bridge {
         let epoch = number(&snapshot["epoch"])?;
         let mut week = raw(&accounts["attendance_epoch"])?;
         let source = EpochHeader::parse(&week).map_err(|e| format!("fixture attendance: {e:?}"))?;
-        let count = row_count.unwrap_or(source.witnesses as usize);
+        let selected_rows = match request.get("row_indices") {
+            None => (0..row_count.unwrap_or(source.witnesses as usize)).collect::<Vec<_>>(),
+            Some(value) => {
+                if row_count.is_some() {
+                    return Err("row_indices conflicts with row_count".into());
+                }
+                let raw = value.as_array().ok_or("row_indices must be an array")?;
+                if raw.len() > 64 {
+                    return Err("row_indices bound".into());
+                }
+                let mut selected = Vec::new();
+                for v in raw {
+                    let row = v
+                        .as_u64()
+                        .filter(|n| *n < source.witnesses as u64)
+                        .ok_or("row_indices range")? as usize;
+                    if selected.last().is_some_and(|last| *last >= row) {
+                        return Err("row_indices must increase".into());
+                    }
+                    selected.push(row);
+                }
+                selected
+            }
+        };
+        let count = selected_rows.len();
         if count > source.witnesses as usize {
             return Err("row_count exceeds available fixture attendance rows".into());
         }
-        if row_count.is_some() {
+        if row_count.is_some() || request.get("row_indices").is_some() {
             let mut selected = vec![0; EPOCH_LEN];
             initialize_epoch(&mut selected, &source.log_id, source.epoch)
                 .map_err(|e| format!("initialize attendance: {e:?}"))?;
@@ -115,7 +145,10 @@ impl Bridge {
                 put64(&mut selected, 44, source.posts);
                 put64(&mut selected, 52, source.max_post_slot);
                 selected[60..62].copy_from_slice(&(count as u16).to_le_bytes());
-                selected[80..80 + count * 40].copy_from_slice(&week[80..80 + count * 40]);
+                for (at, row) in selected_rows.iter().enumerate() {
+                    selected[80 + at * 40..120 + at * 40]
+                        .copy_from_slice(&week[80 + row * 40..120 + row * 40]);
+                }
             }
             selected[62] = u8::from(source.sealed);
             EpochHeader::parse(&selected).map_err(|e| format!("selected attendance: {e:?}"))?;
@@ -221,6 +254,40 @@ impl Bridge {
         let oracle = raw(&accounts["oracle"])?;
         let usdc = key(&accounts["usdc"], "address")?;
         let morse = key(&accounts["morse"], "address")?;
+        if directory_morse {
+            // Explicit initial fixture conversion for directory tag45 transport.
+            // No application path converts existing USDC collateral this way.
+            let directory = key(&accounts["directory"], "address")?;
+            let pending = key(&accounts["directory_pending"], "address")?;
+            let economics = key(&accounts["economics"], "address")?;
+            let log_key = key(&accounts["log"], "address")?;
+            let mut bond = svm.get_account(&directory).ok_or("directory")?;
+            let principal = u64_at(&bond.data, 168);
+            let vault = ata(directory, morse);
+            let mut holding = svm
+                .get_account(&bytes_key(&bond.data, 136))
+                .ok_or("directory vault")?;
+            holding.data[..32].copy_from_slice(morse.as_ref());
+            account(&mut svm, vault, TOKEN, holding.data)?;
+            bond.data[6] = 1;
+            bond.data[104..136].copy_from_slice(morse.as_ref());
+            bond.data[136..168].copy_from_slice(vault.as_ref());
+            svm.set_account(directory, bond)
+                .map_err(|e| e.to_string())?;
+            let mut e = svm.get_account(&economics).ok_or("economics")?;
+            let target = u64_at(&e.data, 108);
+            put64(&mut e.data, 156, 0);
+            put64(&mut e.data, 184, principal);
+            e.data[165] = 1;
+            svm.set_account(economics, e).map_err(|e| e.to_string())?;
+            let mut p = svm.get_account(&pending).ok_or("directory pending")?;
+            p.data[36..68].copy_from_slice(morse.as_ref());
+            put64(&mut p.data, 84, target);
+            svm.set_account(pending, p).map_err(|e| e.to_string())?;
+            let mut l = svm.get_account(&log_key).ok_or("log")?;
+            l.data[168..200].copy_from_slice(vault.as_ref());
+            svm.set_account(log_key, l).map_err(|e| e.to_string())?;
+        }
         let mut witnesses = Vec::new();
         for row in 0..count {
             let witness = bytes_key(&week, 80 + row * 40);
@@ -243,6 +310,13 @@ impl Bridge {
             let payout = bytes_key(&data, 136);
             witnesses.push(json!({"row":row,"id":String::from_utf8_lossy(&data[8..8+data[4] as usize]),"key_hex":hex::encode(&data[72..104]),"address":witness.to_string(),"witness":witness.to_string(),"bond":bond.to_string(),"pending":pending.to_string(),"member":member.to_string(),"payout":payout.to_string(),"payout_usdc_ata":ata(payout,usdc).to_string(),"payout_morse_ata":ata(payout,morse).to_string(),"signed":u64_at(&week,112+row*40).to_string()}));
         }
+        // Reused rewards-only fixture omitted config. Public collateral reads
+        // authenticate the same governance already pinned by the rewards pool.
+        let judge_config = Address::find_program_address(&[b"config"], &judge).0;
+        let mut judge_config_data = vec![0; 40];
+        judge_config_data[..4].copy_from_slice(b"MCF\x01");
+        judge_config_data[4..36].copy_from_slice(&pool[4..36]);
+        account(&mut svm, judge_config, judge, judge_config_data)?;
         let pins = json!({"program":rewards.to_string(),"judge":judge.to_string(),"token":token.to_string(),"log_name":snapshot["log_name"],"usdc_mint":usdc.to_string(),"governance":bytes_key(&pool,4).to_string(),"token_governance":bytes_key(&cfg,4).to_string(),"service_key":hex::encode(&log[72..104]),"log_version":log[4],"network_started":u64_at(&pool,164).to_string(),"token_slot":u64_at(&raw(&accounts["token_data"] )?,4).to_string(),"judge_slot":u64_at(&raw(&accounts["judge_data"] )?,4).to_string(),"rewards_slot":u64_at(&raw(&accounts["rewards_data"] )?,4).to_string(),"source_program":bytes_key(&oracle,68).to_string(),"source":bytes_key(&oracle,100).to_string(),"feed":hex::encode(&oracle[132..164]),"source_revision":u64_at(&oracle,292).to_string()});
         let mut addresses: serde_json::Map<String, Value> = accounts
             .iter()
@@ -288,14 +362,19 @@ impl Bridge {
             "truncated attendance clock tail zero-filled; exported 8416-byte prefix retained".into(),
             "deployment metadata pins retained with fresh SBF ELF code".into(),
             "external payer funded with disposable lamports".into(),
+            "omitted Judge config supplied with governance pinned by the fixture rewards pool".into(),
         ];
-        if row_count.is_some() {
-            adaptations.push(format!("attendance selects first {count} of {} rows; removed rows zeroed; zero rows reset posts and max slot", source.witnesses));
+        if row_count.is_some() || request.get("row_indices").is_some() {
+            adaptations.push(format!("attendance selects source rows {selected_rows:?} of {}; removed rows zeroed; zero rows reset posts and max slot", source.witnesses));
+        }
+        if directory_morse {
+            adaptations.push("directory fixture starts in MORSE with its existing principal, pending amount and recorded USD target; old USDC vault remains a donation".into());
         }
         let bank = Self {
             svm,
             height: c.slot,
             statuses: serde_json::Map::new(),
+            fixture_addresses: addresses.clone(),
         };
         let mut init = pins.clone();
         init.as_object_mut().unwrap().extend(json!({"pins":pins,"payer":payer.to_string(),"epoch":epoch.to_string(),"next_epoch":next_epoch.to_string(),"row_count":count,"all_excluded":all_excluded,"addresses":addresses,"witnesses":witnesses,"context":bank.context(),"execution":"local-sbf","signature_verification":true,"provenance":{"fixture_path":path,"fixture_sha256":hex::encode(hash(&fixture_bytes).to_bytes()),"snapshot":"token-rewards-ready","fixture_reused":true,"programs":binaries,"adaptations":adaptations,"limits":"Injected local fixture state and LiteSVM, not live RPC, oracle publication or native program execution; next-epoch addresses are derived only, accounts still require signed open/seal operations"}}).as_object().unwrap().clone());
@@ -390,6 +469,79 @@ impl Bridge {
                 self.svm.set_sysvar(&c);
                 self.expire()?;
                 Ok(self.context())
+            }
+            // Explicit test-state injections. Economic transitions still execute
+            // only through signed SBF instructions; this is not oracle publication.
+            "fixture_price" => {
+                let price = number(&request["price"])?;
+                if price == 0 {
+                    return Err("fixture price must be positive".into());
+                }
+                let oracle = address(
+                    self.fixture_addresses["oracle"]
+                        .as_str()
+                        .ok_or("oracle fixture")?,
+                )?;
+                let mut a = self.svm.get_account(&oracle).ok_or("oracle account")?;
+                let c = self.svm.get_sysvar::<Clock>();
+                let hour = c.unix_timestamp / 3600;
+                a.data[320..].fill(0);
+                for h in hour - 168..hour {
+                    let at = 320 + (h as usize % 169) * 32;
+                    put64(&mut a.data, at, h as u64);
+                    a.data[at + 8..at + 24].copy_from_slice(&(price as u128 * 3600).to_le_bytes());
+                    put64(&mut a.data, at + 24, 3600);
+                }
+                put64(&mut a.data, 164, c.unix_timestamp as u64);
+                put64(&mut a.data, 172, price);
+                put64(&mut a.data, 180, c.slot);
+                morse_token::oracle::twap(&a.data, c.unix_timestamp)
+                    .map_err(|e| format!("fixture TWAP: {e:?}"))?;
+                self.svm.set_account(oracle, a).map_err(|e| e.to_string())?;
+                self.expire()?;
+                Ok(
+                    json!({"context":self.context(),"injection":"full seven-day synthetic fixture oracle history","price":price.to_string()}),
+                )
+            }
+            "fixture_source_revision" => {
+                let revision = number(&request["revision"])?;
+                if revision == 0 {
+                    return Err("fixture revision must be positive".into());
+                }
+                let oracle = address(
+                    self.fixture_addresses["oracle"]
+                        .as_str()
+                        .ok_or("oracle fixture")?,
+                )?;
+                let mut a = self.svm.get_account(&oracle).ok_or("oracle account")?;
+                put64(&mut a.data, 292, revision);
+                self.svm.set_account(oracle, a).map_err(|e| e.to_string())?;
+                self.expire()?;
+                Ok(
+                    json!({"context":self.context(),"injection":"fixture external oracle source revision"}),
+                )
+            }
+            "fixture_code_slot" => {
+                let role = text(request, "role")?;
+                if !["token_data", "judge_data", "rewards_data"].contains(&role) {
+                    return Err("fixture deployment role".into());
+                }
+                let slot = number(&request["slot"])?;
+                if slot > self.svm.get_sysvar::<Clock>().slot {
+                    return Err("future deployment slot".into());
+                }
+                let key = address(
+                    self.fixture_addresses[role]
+                        .as_str()
+                        .ok_or("deployment fixture")?,
+                )?;
+                let mut a = self.svm.get_account(&key).ok_or("deployment account")?;
+                put64(&mut a.data, 4, slot);
+                self.svm.set_account(key, a).map_err(|e| e.to_string())?;
+                self.expire()?;
+                Ok(
+                    json!({"context":self.context(),"injection":"fixture deployment metadata only; ELF unchanged"}),
+                )
             }
             "status" => Ok(
                 json!({"context":self.context(),"value":self.statuses.get(text(request,"signature")?)}),

@@ -37,7 +37,15 @@ node --test "$product/ops/rewards/transactions.test.mjs" "$product/ops/rewards/j
   "$product/ops/chain-writer/rpc.test.mjs" \
   "$product/programs/morse-rewards/examples/support/rewards_v2_kit.test.mjs" > "$proof_dir/node-tests.txt" 2>&1
 "$compiler" lint "$product" > "$proof_dir/lint.txt" 2>&1
-for source in "$product/ops/token-v2/reward_operator.mpl" "$product/tools/rewards-v2-operator/main.mpl"; do
+for source in "$product/ops/token-v2/reward_operator.mpl" \
+  "$product/ops/token-v2/reward_assessment.mpl" \
+  "$product/ops/token-v2/reward_identities.mpl" \
+  "$product/ops/collateral-v2/assessment_read.mpl" \
+  "$product/ops/collateral-v2/plan.mpl" \
+  "$product/ops/collateral-v2/read.mpl" \
+  "$product/ops/collateral-v2/request.mpl" \
+  "$product/ops/collateral-v2/tests/fixture.mpl" \
+  "$product/tools/rewards-v2-operator/main.mpl"; do
   "$compiler" fmt --check "$source"
   "$compiler" lint "$source"
 done

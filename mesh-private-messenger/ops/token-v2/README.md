@@ -22,8 +22,8 @@ Tests exercise actual frozen-SBF account bytes through loopback fake RPC servers
 they do not establish production RPC finality or provider independence. The
 Pyth publication prestate is injected and does not qualify a live MORSE feed.
 
-`RewardIdentities` fetches only the next one to three mandatory attendance
-identities. It checks owner/schema/log and derives the canonical Witness PDA
+`RewardIdentities` fetches the next one to three mandatory append identities
+or the complete bounded attendance set for grace checks. It checks owner/schema/log and derives the canonical Witness PDA
 from each immutable ID/public-key preimage. Its later account read is not claimed
 to be the same bank as the26-role snapshot and does not make eligibility
 judgments. The onchain append rechecks Witness/Bond/Pending/Member and the pinned
@@ -38,11 +38,13 @@ finalize, using the immutable staged TWAP rather than a later market observation
 Claims prepare canonical ATA creation plus the fixed-payout USDC or MORSE claim;
 earned entitlements are independent of current eligibility and price availability.
 
-This is an instruction planner. Durable signing, uncertain-packet reconciliation,
-continuous permissionless grace assessment, scheduling and CLI/service integration
-remain required before calling it an operational keeper. These functions do not
-authenticate structs invented by a caller; the intended input is the strict
-finalized reader, followed by an onchain revalidation at execution.
+`RewardAssessment` reuses the public collateral reader and planner to check
+the directory and all current attendance witnesses before each settlement step.
+It emits tag45 only for a grace transition, including during active collection.
+The operational executable, shared durable journal, bounded scheduler and CLI
+are described in [the operator guide](../rewards/README-v2.md). These functions
+do not authenticate structs invented by a caller; the intended input is the
+strict finalized reader, followed by onchain revalidation at execution.
 
 Run `scripts/prove-token.sh` for the required local gate. It rebuilds all three
 SBF programs, checks legacy compatibility, generates actual SBF snapshots,

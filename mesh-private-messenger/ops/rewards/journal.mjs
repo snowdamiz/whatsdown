@@ -15,12 +15,14 @@ function label(value){if(typeof value!=='string'||!value.length||value.length>25
 // persist reservations and signed bytes before the broadcast capability exists.
 // A lease is checked again after every asynchronous signer/RPC operation.
 export class RewardsJournal {
-  #db;#pins;#policy;#request;#range;
+  #db;#pins;#policy;#request;#range;#assess;
   constructor({path,pins,request,policy}){
     if(typeof path!=='string'||!path.length||path===':memory:')fail('Rewards journal requires a durable path');
     if(amount(policy?.maxLamports)===0n||!Number.isSafeInteger(policy.maxTransactions)||policy.maxTransactions<1||policy.maxTransactions>4096)fail('Invalid rewards budget');
     this.#pins=structuredClone(pins);this.#policy=structuredClone(policy);
     this.#request=structuredClone(request);this.#range=settlementRange(request);
+    if(Object.hasOwn(request??{},'assessment_cursor'))fail('Rewards assessment cursor is internal journal state');
+    this.#assess=pins.version===2&&request.action==='settle';
     if(this.#range&&pins.version!==2)fail('Rewards schedule requires v2 pins');
     const scope=json({version:this.#range?2:1,pins,request,policy});if(scope.length>16384)fail('Rewards journal scope too large');
     mkdirSync(dirname(path),{recursive:true,mode:0o700});
@@ -36,12 +38,14 @@ export class RewardsJournal {
           CREATE TABLE IF NOT EXISTS rewards_transactions(id INTEGER PRIMARY KEY AUTOINCREMENT,phase TEXT NOT NULL,
           plan TEXT NOT NULL,quote TEXT NOT NULL,signed TEXT,observation TEXT,broadcast_at INTEGER NOT NULL DEFAULT 0);
           CREATE TABLE IF NOT EXISTS rewards_schedule(singleton INTEGER PRIMARY KEY CHECK(singleton=1),epoch TEXT NOT NULL,done INTEGER NOT NULL DEFAULT 0);
+          CREATE TABLE IF NOT EXISTS rewards_assessment(singleton INTEGER PRIMARY KEY CHECK(singleton=1),cursor TEXT NOT NULL DEFAULT '0');
           CREATE TABLE IF NOT EXISTS rewards_completions(epoch TEXT PRIMARY KEY,plan TEXT NOT NULL);
           CREATE UNIQUE INDEX IF NOT EXISTS rewards_one_pending ON rewards_transactions((1)) WHERE phase IN ('reserved','signed');
           CREATE UNIQUE INDEX IF NOT EXISTS rewards_unique_signature ON rewards_transactions(json_extract(signed,'$.signature')) WHERE signed IS NOT NULL;`);
         this.#run('INSERT OR IGNORE INTO rewards_scope(singleton,scope) VALUES(1,?)',scope);
         if(this.#scope().scope!==scope)fail('Rewards journal scope changed');
         if(this.#range)this.#run('INSERT OR IGNORE INTO rewards_schedule(singleton,epoch) VALUES(1,?)',request.epoch);
+        if(this.#assess)this.#run('INSERT OR IGNORE INTO rewards_assessment(singleton) VALUES(1)');
       });
     }catch(error){this.#db.close();throw error;}
   }
@@ -68,9 +72,10 @@ export class RewardsJournal {
   renew(lease,now){return this.#write(lease,now,()=>this.#run('UPDATE rewards_scope SET lease_until=? WHERE singleton=1',now+LEASE_MS));}
   release(lease,now){return this.#write(lease,now,()=>this.#run('UPDATE rewards_scope SET owner=NULL,lease_until=0 WHERE singleton=1'));}
   progress(){const s=this.#scope(),schedule=this.#schedule();return {contextSlot:s.context_slot,spentLamports:s.spent,attempts:s.attempts,halted:!!s.halted,
-    ...(schedule?{epoch:schedule.epoch,scheduleComplete:!!schedule.done}:{})};}
+    ...(schedule?{epoch:schedule.epoch,scheduleComplete:!!schedule.done}:{}),...(this.#assess?{assessmentCursor:this.#assessmentCursor()}:{})};}
   #schedule(){return this.#range?this.#get('SELECT * FROM rewards_schedule WHERE singleton=1'):null;}
-  planningRequest(){const schedule=this.#schedule();return {...structuredClone(this.#request),...(schedule?{cursor:schedule.epoch}:{})};}
+  #assessmentCursor(){return this.#get('SELECT cursor FROM rewards_assessment WHERE singleton=1').cursor;}
+  planningRequest(){const schedule=this.#schedule();return {...structuredClone(this.#request),...(schedule?{cursor:schedule.epoch}:{}),...(this.#assess?{assessment_cursor:this.#assessmentCursor()}:{})};}
   acceptPlan(lease,plan,now){
     return this.#write(lease,now,scope=>{
       if(scope.halted)fail('Rewards journal halted');
@@ -150,6 +155,7 @@ export class RewardsJournal {
       this.#run('UPDATE rewards_scope SET context_slot=?,spent=?,halted=? WHERE singleton=1',observation.slot,spent.toString(),
         spent>amount(this.#policy.maxLamports)||debit>amount(row.quote.maxDebitLamports)?1:0);
       this.#run('UPDATE rewards_transactions SET phase=?,observation=? WHERE id=?',observation.state,json(observation),row.id);
+      if(this.#assess&&row.plan.action==='assess')this.#run('UPDATE rewards_assessment SET cursor=? WHERE singleton=1',row.plan.assessment.next_cursor);
     });
   }
 }

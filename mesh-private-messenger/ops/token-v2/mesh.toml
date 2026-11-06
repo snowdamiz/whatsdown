@@ -8,3 +8,4 @@ license = "MIT"
 mesh-solana = { path = "../../../mesh-lang/packages/mesh-solana" }
 messenger-protocol = { path = "../../packages/messenger-protocol" }
 morse-token-ops = { path = "../token" }
+morse-collateral-v2-operator = { path = "../collateral-v2" }
