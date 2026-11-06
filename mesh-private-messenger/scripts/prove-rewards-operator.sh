@@ -20,7 +20,9 @@ fi
 "$compiler" build "$product/ops/rewards/fixtures/operator" --opt-level 2 --output "$proof_dir/rewards-test-operator"
 export MORSE_REWARDS_TEST_OPERATOR_BIN="$proof_dir/rewards-test-operator"
 npm ci --prefix "$product/ops/rewards" --ignore-scripts --no-audit --no-fund
-node --test "$product"/ops/rewards/*.test.mjs
+node --test "$product/ops/rewards/transactions.test.mjs" "$product/ops/rewards/journal.test.mjs" \
+  "$product/ops/rewards/writer.test.mjs" "$product/ops/rewards/mesh-sbf.test.mjs" \
+  "$product/ops/chain-writer/rpc.test.mjs"
 "$compiler" test "$product/packages/messenger-protocol/security/rewards-chain.test.mpl"
 "$compiler" test "$product/packages/messenger-protocol/security/rewards-read.test.mpl"
 MESHC="$compiler" node --test "$product/scripts/rewards-command.test.mjs"

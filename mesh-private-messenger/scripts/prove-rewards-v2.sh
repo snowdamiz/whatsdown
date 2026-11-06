@@ -34,6 +34,7 @@ done
 npm ci --prefix "$product/ops/rewards" --ignore-scripts --no-audit --no-fund
 node --test "$product/ops/rewards/transactions.test.mjs" "$product/ops/rewards/journal.test.mjs" \
   "$product/ops/rewards/writer.test.mjs" "$product"/ops/rewards/v2-*.test.mjs \
+  "$product/ops/chain-writer/rpc.test.mjs" \
   "$product/programs/morse-rewards/examples/support/rewards_v2_kit.test.mjs" > "$proof_dir/node-tests.txt" 2>&1
 for source in "$product/ops/token-v2/reward_operator.mpl" "$product/tools/rewards-v2-operator/main.mpl"; do
   "$compiler" fmt --check "$source"
