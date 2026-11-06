@@ -5,7 +5,13 @@ product="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 repository="$(cd "$product/.." && pwd -P)"
 work="${MORSE_MPR2_RELAY_PROOF_OUTPUT:-$repository/.morse/mpr2-relay-proof}"
 mkdir -p "$work"
-rm -f "$work/qualification.json"
+if [[ -e "$work/qualification.json" ]]; then
+  echo 'Refusing to overwrite a qualified proof; select a fresh proof output directory' >&2
+  exit 1
+fi
+git -C "$repository" diff --quiet HEAD -- || { echo 'Commit tracked changes before qualifying a proof' >&2; exit 1; }
+bridge_target=''
+trap 'if [[ -n "$bridge_target" ]]; then rm -rf "$bridge_target"; fi' EXIT
 export MORSE_MPR2_RELAY_PROOF_OUTPUT="$work"
 export MORSE_TOKEN_CUSTODY_FIXTURES_PATH="${MORSE_TOKEN_CUSTODY_FIXTURES_PATH:-/Users/andreyyurlov/Documents/dev/whatsdown/.morse/witness-proof/token-custody-fixtures.json}"
 export MORSE_MPR2_RELAY_VECTORS_PATH="${MORSE_MPR2_RELAY_VECTORS_PATH:-/Users/andreyyurlov/Documents/dev/whatsdown/.morse/witness-proof/collateral-v2-operator/sdk-vector-subset-final3.json}"
@@ -60,7 +66,8 @@ explicit=[str(repo/'mesh-private-messenger/programs/morse-judge/examples/mpr2_re
 explicit += [str(repo/path) for path in sources]
 for path in explicit:watched[path]=sha(path)
 head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
-(work/'source-before.json').write_text(json.dumps({'schema_version':1,'head':head,'roots':roots,'explicit':explicit,'sources':watched},indent=2)+'\n')
+tree=subprocess.check_output(['git','rev-parse','HEAD^{tree}'],cwd=repo,text=True).strip()
+(work/'source-before.json').write_text(json.dumps({'schema_version':1,'head':head,'tree':tree,'roots':roots,'explicit':explicit,'sources':watched},indent=2)+'\n')
 (work/'inputs.json').write_text(json.dumps({'schema_version':1,'head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip(),
 'retained_receipt':{'path':str(receipt),'sha256':sha(receipt)},'artifacts':expected,'sbf_sources':sources,
 'source_manifest':{'path':str(work/'source-before.json'),'sha256':sha(work/'source-before.json')},
@@ -73,7 +80,8 @@ if ! command -v cargo >/dev/null 2>&1; then
   export PATH="/Users/andreyyurlov/.rustup/toolchains/1.99.0-aarch64-apple-darwin/bin:$PATH"
 fi
 if [[ -z "${MORSE_MPR2_RELAY_SBF_BRIDGE:-}" ]]; then
-  export CARGO_TARGET_DIR="$work/target"
+  bridge_target="$(mktemp -d "$work/bridge-target.XXXXXX")"
+  export CARGO_TARGET_DIR="$bridge_target"
   cargo build --manifest-path "$product/programs/Cargo.toml" --locked \
     -p morse-judge --features svm --example mpr2_relay_bridge > "$work/bridge-build.txt" 2>&1
   cp "$CARGO_TARGET_DIR/debug/examples/mpr2_relay_bridge" "$work/mpr2_relay_bridge"
@@ -140,6 +148,14 @@ paths.append(native)
 'artifacts':{str(p.resolve()):sha(p) for p in paths}},indent=2)+'\n')
 PY
 node --test "$product/ops/relay/mpr2-sbf.test.mjs" 2>&1 | tee "$work/sbf-green.txt"
+if [[ -n "$bridge_target" ]]; then
+  rm -rf "$bridge_target"
+  python3 - "$work" "$bridge_target" <<'PY'
+import json,pathlib,sys
+work,target=map(pathlib.Path,sys.argv[1:]);assert not target.exists()
+(work/'bridge-cleanup.json').write_text(json.dumps({'target':str(target),'removed':True})+'\n')
+PY
+fi
 python3 - "$work" "$MORSE_MPR2_RELAY_BINARY" "$MORSE_MPR2_RELAY_SBF_BRIDGE" "$repository" <<'PY'
 import hashlib,json,pathlib,subprocess,sys
 work=pathlib.Path(sys.argv[1]);repo=pathlib.Path(sys.argv[4]);paths=[pathlib.Path(p) for p in sys.argv[2:4]]
@@ -153,15 +169,29 @@ for directory,suffixes,recursive in before['roots']:
   if p.is_file() and p.suffix in suffixes:current[str(p.resolve())]=sha(p)
 for p in before['explicit']:current[p]=sha(p)
 head_end=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
+assert head_end==before['head'],'Git HEAD changed during proof'
+assert subprocess.run(['git','diff','--quiet','HEAD','--'],cwd=repo).returncode==0,'Tracked worktree changed during proof'
 drift=[p for p in before['sources'].keys()|current.keys() if before['sources'].get(p)!=current.get(p)]
 artifact_drift=[p for p,h in execution['artifacts'].items() if sha(p)!=h]
 artifact_drift += [p for p,h in json.loads((work/'inputs.json').read_text())['artifacts'].items() if sha(p)!=h]
 (work/'source-after.json').write_text(json.dumps({'schema_version':1,'head':head_end,'sources':current,'source_drift':drift,'artifact_drift':artifact_drift},indent=2)+'\n')
 assert not drift and not artifact_drift,f'Source or execution artifacts drifted; refusing PASS: {drift+artifact_drift}'
 paths+=list(work.glob('case-*.json'))+list(work.glob('journal-*.sqlite'))+[work/'inputs.json',work/'sbf-green.txt',work/'legacy-replay.json',work/'source-before.json',work/'source-after.json',work/'execution-before.json']
-paths+=[p for pattern in ['bank-input-*.json','pins-*.json','evidence-*.frk','request-*.json','red/*'] for p in work.glob(pattern) if p.is_file()]
+paths+=[p for pattern in ['bank-input-*.json','pins-*.json','evidence-*.frk','request-*.json','phone-*','bridge-build.txt','bridge-cleanup.json','frozen-native.json','red/*'] for p in work.glob(pattern) if p.is_file()]
+for name in ['prepared','settled','legacy']:
+ capture=json.loads((work/f'phone-{name}.json').read_text())
+ assert all(sha(p)==h for p,h in capture['artifacts'].items()),f'{name} capture artifact drift'
+ assert all(sha(p)==h for p,h in capture['sources'].items()),f'{name} capture source drift'
+ assert capture['boundary']['signed_packet_count'] == (0 if name=='legacy' else 11 if name=='prepared' else 13)
+ assert capture['status']==('prepared' if name=='prepared' else 'settled')
+prepared=json.loads((work/'phone-prepared.json').read_text());settled=json.loads((work/'phone-settled.json').read_text())
+assert prepared['proof_hash']==settled['proof_hash'] and prepared['wire_identity']==settled['wire_identity']
+assert prepared['ordered_keys']==settled['ordered_keys']
+case=json.loads((work/'case-prepared-winner.json').read_text());assert case['verdict']=='PASS'
+packet_count=sum(len(json.loads((work/f'case-{name}.json').read_text())['packets']) for name in ['2','16','prepared-winner'])
+assert packet_count==80,packet_count
 (work/'qualification.json').write_text(json.dumps({'schema_version':1,'verdict':'PASS',
-'head_start':before['head'],'head_end':head_end,'source_manifest_sha256':sha(work/'source-before.json'),
+'head_start':before['head'],'head_end':head_end,'tree':before['tree'],'signed_packets':packet_count,'source_manifest_sha256':sha(work/'source-before.json'),
 'native_modules_verified':execution['native_modules_verified'],'watched_sources':execution['watched_sources'],
 'executed_artifacts':execution['artifacts'],'source_drift':[],'artifact_drift':[],
 'artifacts':{str(p):sha(p) for p in paths}},indent=2)+'\n')

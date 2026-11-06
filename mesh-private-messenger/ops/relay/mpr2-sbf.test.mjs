@@ -118,7 +118,7 @@ async function fixture(count=2,{settled=false}={}){
 function rpcAccount(value,config={}){
   if(!value||value.lamports==='0')return null;
   const data=raw(value),slice=config.dataSlice;
-  return {owner:value.owner,lamports:BigInt(value.lamports),executable:value.executable,rentEpoch:0n,space:BigInt(data.length),
+  return {owner:value.owner,lamports:BigInt(value.lamports),executable:value.executable,rentEpoch:BigInt(value.rent_epoch),space:BigInt(data.length),
     data:[(slice?data.subarray(Number(slice.offset),Number(slice.offset)+Number(slice.length)):data).toString('base64'),'base64']};
 }
 
@@ -199,6 +199,91 @@ async function oracle(bridge,f){
     server.listen(0,'127.0.0.1');await once(server,'listening');servers.push(server);endpoints.push(`http://127.0.0.1:${server.address().port}`);
   }
   return {endpoints,errors,calls,packets,control,genesis,async close(){await Promise.all(servers.map(server=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();})));}};
+}
+
+// Read the live bank over HTTP. Never rebuild receipt bytes from a codec report.
+async function capturePhoneSnapshot({bridge,server,f,initialized},name,{label='winner-a',status,
+  requestedLabel=label,requestedFinder=f.finder,requestedWallet=signer.address,reusedReceiptBank=false,legacySource}={}){
+  const loader='BPFLoaderUpgradeab1e11111111111111111111111';
+  // Upgradeable programdata is derived under the loader, not the judge.
+  const programdataKey=await pda(loader,[encoder.encode(f.snapshot.program)]);
+  const orderedKeys=[f.snapshot.program,programdataKey,f.snapshot.accounts.log.address,f.receipt];
+  const roles=['program','programdata','log','receipt'],before=await bridge.ask({method:'read_context'});
+  const request={jsonrpc:'2.0',id:{prepared:910001n,settled:910002n,legacy:910003n}[name],method:'getMultipleAccounts',params:[orderedKeys,
+    {commitment:'finalized',encoding:'base64',dataSlice:{offset:0,length:9216},minContextSlot:BigInt(before.slot)}]};
+  const requestPath=join(output,`phone-${name}.raw.request.json`),responsePath=join(output,`phone-${name}.raw.response.json`);
+  const requestBytes=Buffer.from(stringifyJsonWithBigInts(request));await writeFile(requestPath,requestBytes);
+  const response=await fetch(server.endpoints[0],{method:'POST',headers:{'content-type':'application/json'},body:requestBytes});
+  const responseBytes=Buffer.from(await response.arrayBuffer());await writeFile(responsePath,responseBytes);
+  assert.equal(response.status,200);const result=parseJsonWithBigInts(responseBytes.toString());
+  assert.equal(result.id,request.id);assert.equal(result.error,undefined);assert.equal(result.result.value.length,4);
+  const after=await bridge.ask({method:'read_context'}),slot=result.result.context.slot;
+  assert.equal(slot,BigInt(before.slot));assert.equal(after.slot,before.slot,'capture does not advance the bank');
+  const bank=await Promise.all(orderedKeys.map(address=>bridge.ask({method:'account',address})));
+  await writeFile(join(output,`phone-${name}.bank.json`),JSON.stringify({ordered_keys:orderedKeys,accounts:bank},null,2)+'\n');
+  for(const [index,account] of result.result.value.entries()){
+    const actual=bank[index];assert.ok(actual,roles[index]);assert.ok(Object.hasOwn(actual,'rent_epoch'),'actual bank rent_epoch');
+    assert.equal(account.owner,actual.owner);assert.equal(account.executable,actual.executable);
+    assert.equal(account.lamports,BigInt(actual.lamports));assert.equal(account.rentEpoch,BigInt(actual.rent_epoch));
+    assert.equal(account.space,BigInt(raw(actual).length));assert.equal(account.data[1],'base64');
+    assert.deepEqual(Buffer.from(account.data[0],'base64'),raw(actual).subarray(0,9216));
+  }
+  const accounts=result.result.value,program=Buffer.from(accounts[0].data[0],'base64'),deployment=Buffer.from(accounts[1].data[0],'base64');
+  assert.equal(accounts[0].owner,loader);assert.equal(accounts[0].executable,true);assert.equal(program.readUInt32LE(0),2);
+  assert.equal(addr(program.subarray(4,36)),programdataKey);assert.equal(accounts[1].owner,loader);
+  assert.equal(accounts[1].executable,false);assert.equal(deployment.readUInt32LE(0),3);
+  assert.equal(deployment.readBigUInt64LE(4).toString(),f.configuration.judge_slot);
+  assert.ok(accounts[1].space>9216n);assert.equal(deployment.length,9216,'full allocation with sliced programdata prefix');
+  assert.equal(accounts[2].owner,f.snapshot.program);assert.equal(accounts[3].owner,f.snapshot.program);
+  assert.equal(accounts[2].executable,false);assert.equal(accounts[3].executable,false);
+  const evidence=await readFile(join(output,`evidence-${label}.frk`));assert.deepEqual(evidence,f.wire);
+  const requested=await readFile(join(output,`evidence-${requestedLabel}.frk`));
+  for(const pinLabel of new Set([label,requestedLabel])){
+    const pins=JSON.parse(await readFile(join(output,`pins-${pinLabel}.json`),'utf8'));
+    for(const field of ['judge','usdc_mint','morse_mint','judge_slot'])assert.equal(pins[field],f.configuration[field]);
+  }
+  const proofHash=hash(Buffer.concat([evidence.subarray(0,5),evidence.subarray(37)]));
+  assert.equal(proofHash,f.proofHash);assert.equal(hash(Buffer.concat([requested.subarray(0,5),requested.subarray(37)])),proofHash);
+  assert.equal(addr(requested.subarray(5,37)),requestedFinder);
+  const receipt=Buffer.from(accounts[3].data[0],'base64'),log=Buffer.from(accounts[2].data[0],'base64');
+  assert.equal(receipt.subarray(0,4).toString('hex'),reusedReceiptBank?'4d505201':'4d505202');
+  assert.equal(receipt.subarray(8,40).toString('hex'),f.snapshot.log_id);
+  assert.deepEqual(log.subarray(40,72),receipt.subarray(8,40));assert.equal(receipt.subarray(40,72).toString('hex'),proofHash);
+  assert.equal(await pda(f.snapshot.program,[Buffer.from('proof'),receipt.subarray(8,40),receipt.subarray(40,72)]),f.receipt);
+  assert.equal(addr(receipt.subarray(72,104)),f.finder);assert.equal(addr(evidence.subarray(5,37)),f.finder);
+  assert.equal(addr(receipt.subarray(136,168)),f.configuration.usdc_mint);
+  if(!reusedReceiptBank){
+    assert.equal(receipt[7],status==='prepared'?0:1);assert.equal(addr(receipt.subarray(104,136)),signer.address);
+    assert.equal(addr(receipt.subarray(168,200)),f.configuration.morse_mint);assert.equal(addr(receipt.subarray(328,360)),f.stage);
+  }
+  const paths=[requestPath,responsePath,join(output,`phone-${name}.bank.json`),`bank-input-${label}.json`,
+    ...new Set([label,requestedLabel].flatMap(value=>[`evidence-${value}.frk`,`pins-${value}.json`,`request-${value}.json`]))
+      ].map(path=>path.startsWith(output)?path:join(output,path));
+  const sourcePaths=['ops/relay/mpr2-sbf.test.mjs','programs/morse-judge/examples/mpr2_relay_bridge.rs','scripts/prove-mpr2-relay.sh']
+    .map(path=>new URL(`../../${path}`,import.meta.url));
+  const sources=Object.fromEntries(await Promise.all(sourcePaths.map(async path=>[path.pathname,hash(await readFile(path))])));
+  const sourceManifest=await readFile(join(output,'source-before.json')).catch(()=>null);
+  const inputs=await readFile(join(output,'inputs.json')).catch(()=>null);
+  const artifacts=Object.fromEntries(await Promise.all([...paths,binary,`${binary}.plaintext.json`,bridgeBinary,
+    ...initialized.programs.map(program=>program.path),...(legacySource?[legacySource]:[]),
+    ...(sourceManifest?[join(output,'source-before.json')]:[]),...(inputs?[join(output,'inputs.json')]:[])].map(async path=>[path,hash(await readFile(path))])));
+  const manifest={schema_version:1,witness:'witness-phone-mpr2-filing-20261106-r1',status,
+    provenance:reusedReceiptBank?'reusedreceiptbank; retained actual MPR1 receipt and original wire; zero new signing':
+      'fresh signed actual SBF execution; initialized custody and pinned SBF programs reused',
+    boundary:{signed_packet_count:server.packets.length,packet_sha256:server.packets.map(packet=>hash(Buffer.from(packet.wire,'base64')))},
+    endpoint:server.endpoints[0],http:{status:response.status,headers:Object.fromEntries(response.headers),response_body_bytes:responseBytes.length},
+    context:{slot:String(slot),minimum_context_slot:before.slot,maximum_observed_context_slot:after.slot},
+    commitment:'finalized',dataSlice:{offset:0,length:9216},ordered_keys:roles.map((role,index)=>({index,role,address:orderedKeys[index]})),
+    proof_hash:proofHash,receipt_address:f.receipt,actual_finder:f.finder,actual_uploader:addr(receipt.subarray(104,136)),
+    requested_finder:requestedFinder,requested_wallet:requestedWallet,wire_identity:{a_sha256:hash(evidence),b_sha256:hash(requested)},
+    pins:{program:f.snapshot.program,programdata:programdataKey,log:f.snapshot.accounts.log.address,log_id:f.snapshot.log_id,
+      judge_slot:f.configuration.judge_slot,usdc_mint:f.configuration.usdc_mint,morse_mint:f.configuration.morse_mint},
+    artifacts,sources,programs:initialized.programs,sbf_sources:inputs?JSON.parse(inputs).sbf_sources:null,
+    head:sourceManifest?JSON.parse(sourceManifest).head:null,tree:sourceManifest?JSON.parse(sourceManifest).tree:null,
+    limits:['Three loopback origins share one disposable bank; finalized is a local fixture label, not validator finality.',
+      'Blockhash expiry and pruned history are local fixture controls; no provider independence or live chain claim.']};
+  await writeFile(join(output,`phone-${name}.json`),JSON.stringify(manifest,null,2)+'\n');
+  return {path:join(output,`phone-${name}.json`),sha256:hash(await readFile(join(output,`phone-${name}.json`)))};
 }
 
 async function harness(count=2,options={}){
@@ -446,6 +531,15 @@ test('competing PREPARED winner is settled by a different relay wallet with orig
     assert.deepEqual(results.prepared_balances,['0','0','0','0']);
     assert.equal(other.job(h.f.proofHash).receipt,null);
     const boundary=h.server.packets.length;results.a_stopped_after_prepare_packet_count=boundary;
+    results.phone_prepared=await capturePhoneSnapshot(h,'prepared',{status:'prepared',requestedLabel:'winner-b',
+      requestedFinder:otherSigner.address,requestedWallet:otherSigner.address});
+    const preparedAccount=await h.bridge.ask({method:'account',address:h.f.receipt});
+    const missingCapture=[];
+    if(!Object.hasOwn(preparedAccount,'rent_epoch'))missingCapture.push('actual bank rent_epoch');
+    for(const suffix of ['raw.request.json','raw.response.json','json']){
+      if(!await readFile(join(output,`phone-prepared.${suffix}`)).catch(()=>null))missingCapture.push(`phone-prepared.${suffix}`);
+    }
+    assert.deepEqual(missingCapture,[],'PREPARED phone boundary must retain actual metadata and raw four-account RPC capture');
     // Keep raw compiled diagnostics for the red run, independently of adapter errors.
     try{results.competing_native={code:0,stdout:(await run(binary,['--pins',join(output,'pins-winner-b.json'),
       '--input',join(output,'evidence-winner-b.frk'),'--request',join(output,'request-winner-b.json')],{timeout:30000,env:{PATH:'/usr/bin:/bin'}})).stdout};}
@@ -485,6 +579,8 @@ test('competing PREPARED winner is settled by a different relay wallet with orig
       if(pending?.stepId==='settle'&&!lostAck){
         assert.equal(state.state,'unacknowledged');
         assert.equal((await verifier.receipt(job.plan)).status,'settled');
+        results.phone_settled=await capturePhoneSnapshot(h,'settled',{status:'settled',requestedLabel:'winner-b',
+          requestedFinder:otherSigner.address,requestedWallet:otherSigner.address});
         lostAck={pending,packet_count:h.server.packets.length,charged:other.budget(900000).chargedLamports};
         await restart();h.server.control.hideHistory=true;
         h.server.control.blockHeight=BigInt(pending.signed.lastValidBlockHeight)+1n;
@@ -582,10 +678,15 @@ test('actual permanent MPR1 receipts replay through the mixed relay without sign
       executable:false,lamports:'10000000',space:String(source.receipt_hex.length/2)};
     f.snapshot={...f.snapshot,program:source.program,log_id:source.log_id,log_name:source.log_name,accounts};
     f.wire=Buffer.from(source.wire_hex,'hex');f.proofHash=hash(Buffer.concat([f.wire.subarray(0,5),f.wire.subarray(37)]));
-    await bridge.ask({method:'initialize',fixture:f.snapshot,payer:signer.address});server=await oracle(bridge,f);
+    const initialized=await bridge.ask({method:'initialize',fixture:f.snapshot,payer:signer.address});server=await oracle(bridge,f);
     const log=raw(accounts.log),configuration={...f.configuration,judge:source.program,log_name:source.log_name,usdc_mint:source.mint,
       service_public_key:source.service_key,log_version:log[4],endpoints:server.endpoints};
     const pins={program:source.program,log:accounts.log.address,mint:source.mint,usdcMint:source.mint,morseMint:f.mints[1],submitter:signer.address};
+    f.configuration=configuration;f.receipt=source.receipt_address;f.finder=source.finder;
+    await writeFile(join(output,'bank-input-legacy.json'),JSON.stringify({fixture:f.snapshot,configuration,
+      wire_hex:f.wire.toString('hex'),proof_hash:f.proofHash,receipt:f.receipt,reused_receipt_bank:true},null,2)+'\n');
+    await writeFile(join(output,'evidence-legacy.frk'),f.wire);await writeFile(join(output,'pins-legacy.json'),JSON.stringify(configuration));
+    await writeFile(join(output,'request-legacy.json'),JSON.stringify({schema_version:2,method:'receipt',min_context_slot:'0'}));
     const verifier=await createRelayVerifier({binary,tempRoot:join(directory,'native'),securityConfig:'owned MPR1 receipt bank',
       plannerConfig:JSON.stringify(configuration),logVersion:log[4],pins});
     const before=await bridge.ask({method:'account',address:source.receipt_address});
@@ -594,7 +695,9 @@ test('actual permanent MPR1 receipts replay through the mixed relay without sign
     assert.equal(admitted.settled_receipt.schema_version,1);assert.equal(admitted.settled_receipt.proof_hash,f.proofHash);
     assert.equal(admitted.settled_receipt.finder,source.finder);
     const readback=await verifier.receipt(admitted);assert.equal(readback.status,'settled');assert.deepEqual(readback.receipt,admitted.settled_receipt);
+    const phone=await capturePhoneSnapshot({bridge,server,f,initialized},'legacy',{label:'legacy',status:'settled',
+      reusedReceiptBank:true,legacySource:required('MORSE_MPR2_LEGACY_FIXTURES_PATH')});
     assert.deepEqual(await bridge.ask({method:'account',address:source.receipt_address}),before);assert.equal(server.packets.length,0);assert.deepEqual(server.errors,[]);
-    await writeFile(join(output,'legacy-replay.json'),JSON.stringify({schema_version:1,source_sha256:hash(bytes),source_case:3,receipt:readback.receipt,signed_packets:0},null,2)+'\n');
+    await writeFile(join(output,'legacy-replay.json'),JSON.stringify({schema_version:1,source_sha256:hash(bytes),source_case:3,receipt:readback.receipt,phone,signed_packets:0},null,2)+'\n');
   }finally{await server?.close();await bridge.close();await rm(directory,{recursive:true,force:true});}
 });
