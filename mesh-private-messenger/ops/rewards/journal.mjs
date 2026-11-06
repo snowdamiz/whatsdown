@@ -120,7 +120,10 @@ export class RewardsJournal {
         if(typeof observation.success!=='boolean')fail('Invalid rewards finality');debit=amount(observation.debitLamports);
       }else if(observation.state==='effect'||observation.state==='expired'){
         if(amount(observation.blockHeight)<=amount(row.signed.lastValidBlockHeight))fail('Invalid rewards expiry barrier');
-        debit=observation.state==='effect'?amount(row.quote.maxDebitLamports):0n;
+        // An oldest available block is not continuous transaction history. A
+        // mutable effect may disappear after execution (e.g. append/cancel).
+        // Missing transaction metadata never proves zero fees, in either version.
+        debit=amount(row.quote.maxDebitLamports);
       }else fail('Invalid rewards terminal observation');
       const spent=amount(scope.spent)+debit;
       this.#run('UPDATE rewards_scope SET context_slot=?,spent=?,halted=? WHERE singleton=1',observation.slot,spent.toString(),

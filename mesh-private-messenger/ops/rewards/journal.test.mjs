@@ -77,3 +77,18 @@ test('signed persistence evaluates the lease clock after asynchronous cryptograp
     assert.equal(calls,1);assert.equal(j.pending().phase,'reserved');assert.equal(j.pending().signed,null);
   }finally{j.close();await rm(dir,{recursive:true,force:true});}
 });
+
+test('expired signed packets retain their budget charge without finalized debit metadata, including v1',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'morse-rewards-'));
+  const j=new RewardsJournal({...options(join(dir,'journal.sqlite')),policy:{maxLamports:'1000',maxTransactions:4}});
+  try{
+    const lease=j.claim('one',100);j.reserve(lease,plan,quote,101);
+    await j.recordSigned(lease,await signRewardsTransaction(step,[signer],life),()=>102);
+    j.finish(lease,{state:'expired',slot:'12',blockHeight:'101'},103);
+    assert.equal(j.progress().spentLamports,'1000','absence is not evidence that signed work spent nothing');
+    const next={...plan,context_slot:'12'},s=prepareRewardsTransaction(next,pins);
+    const later={blockhash:keys[0],lastValidBlockHeight:200n};
+    const q={...quote,blockhash:later.blockhash,lastValidBlockHeight:'200',minContextSlot:'12',contextSlot:'12',messageHash:rewardsMessage(s,later).messageHash};
+    assert.throws(()=>j.reserve(lease,next,q,104),/budget/i);
+  }finally{j.close();await rm(dir,{recursive:true,force:true});}
+});
