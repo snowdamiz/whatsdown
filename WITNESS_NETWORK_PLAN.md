@@ -143,10 +143,11 @@ passing local fixture does not close a native-device or production gate.
 | Quorum source identity | Shared Mesh and writer host checks adopted through `f4c21c2`; seven Mesh and 28 native/writer checks pass, including mapped/nonmapped IPv6 controls | Independent-provider and live RPC qualification; different names alone do not establish different operators |
 | V2 rewards | Bounded scheduling plus directory/current-attendance grace assessment adopted (`cee839c`); 47 composed local Node/native/Kit/SBF checks pass | Deployment, funded operation, independent providers and live duration gates; finite requests stop at their configured bound |
 | Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; prior 800 app checks remain recorded. Current TLS/body composition passes 126 native checks and the default Debug build. A certificate-signed actual-store probe still refuses with `-34018` | Matching macOS profile/entitlements and provisioned bundle, then unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
+| Native effects after suspension | Outer private-owner/epoch admission and completion checks exist. Bounty integration identified a source-level gap inside one Core call: native wrappers hold their Core locks across RPC, while profile/resource checks alone do not establish that the original native owner still permits a later effect | Shared design must establish effect admission and retirement semantics without holding a native ownership lock across network waits. Actual RPC/prompt retirement controls, journal/send admission and fresh-owner usability are required; this gap is not yet runtime-qualified or fixed |
 | Plaintext propagation | Presentation labels plus outgoing direct/fanout/group-send/self-sync body labels adopted through `4eaed22`. Fresh qualified-compiler proof refuses seven selected HTTP exits, passes label-removal/production controls and the 69-site disclosure gate; three send/invitation test files pass | The three demonstrated raw storage/fanout-target/triple-payload projections are private in the native facade at `b59eaf1`; eight import refusals, 18 facade tests and the unchanged 69-site gate pass. Remaining semantic decoders, general byte decoding, decoded receive/history boundaries, mobile targets and release qualification stay open |
 | Bootstrap acceptance | Scoped native RPC TLS adopted through `748270a`; retained fresh compiled-Core fixture exits zero with 37 checks and `consistent`. Parent verified its source/artifact hashes; the combined product Main build passes with 69 sites, 176 exports and exact generated bindings | Full phone/UI and platform packaging, real production-clock next-due controls, broader bootstrap acceptance and all eight scheduled production checks remain open |
 | Witness outage qualification | Tooling adopted through `fc0e701`. Exact owner source `a66889a` passed 900.056500333 seconds with 155 native lookups and C's retained 1→31 catch-up; parent verified retained provenance and freshly rebuilt the combined sources for a passing 60-second control | Hosted B1 deployment, seven-day observation and the scheduled production outage drill remain open. The 900-second artifact predates TLS/body composition; the composed artifact has the separately recorded short control |
-| View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unadopted | App candidate `13ed5d7` passes 818 tests, typecheck and local web rendering; follow-up `75fb777` uses the passing direct-receive producer's `02HST` fixture. Parent verified all 25 recorded app files and freshly passed 63 codec/control/preview tests with no verified source defect. The isolated Core owner reports wrapped-reference, conflicting-ID and expiry-retry regressions passing, but broader receive, mailbox, group, native-fetch and independent qualification remain open. Adopt Core and UI together; storage prerequisite `924d24f` alone is insufficient |
+| View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unadopted | App candidate `13ed5d7` passes 818 tests, typecheck and local web rendering; follow-up `75fb777` uses the passing direct-receive producer's `02HST` fixture. Parent verified all 25 recorded app files and freshly passed 63 codec/control/preview tests with no verified source defect. The Core owner reports direct/mailbox and initial/sibling-sync tests passing, including changed-body duplicate refusal. Review now requires contact/gossip and sync-alias mutation controls plus canonical reference identity across local aliases. Group, native-fetch and shared native-effect admission remain open. Adopt Core and UI together; storage prerequisite `924d24f` alone is insufficient |
 | Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
 | Mixed-asset fork filing | Durable MPR2 relay and permanent receipt reader adopted at `27b4e2b`, including completion by another relay after the prepared winner stops. Fresh parent proof passes 80 signed SBF executions, 108 Node tests, six Mesh tests and 17 compiled CLI checks | Raw four-account capture tooling is adopted at `0d59e0a`; all 457 watched inputs match the retained 80-packet owner proof. Isolated phone `6f23709` reports 20 native groups, 13 negative vectors, actual relay admission and legacy recovery passing. Its composition with the shared operator receipt reader is actively qualifying in a separate checkout, not yet adopted. Bounty movement/recovery has a separate implementation owner and real signer/bank proof in progress; device UI and live qualification remain unfinished |
 | Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
@@ -175,6 +176,12 @@ seven superseded parent CLI/proof executables, 208,865,192 logical bytes, after
 hashing and fresh open-handle checks. Sources, reports, databases, current native
 artifacts and shared compiler/runtime families were preserved. Concurrent disk
 activity prevents attributing a net free-space gain to this pass.
+
+The next bounded cleanup removed nine obsolete, untracked Mesh SQLite example
+test executables, 663,997,000 logical bytes. Each was older than 24 hours, hashed
+and checked for open handles twice. Source fixtures, databases, reports and all
+compiler/runtime families remain; the language worktree stayed clean. The
+receipt is `.morse/continuation-20261106/checkpoint-cleanup/language-cleanup.json`.
 
 ### Continuation checkpoint — 2026-11-06
 
@@ -4979,12 +4986,15 @@ names the current v2 operation instead of the legacy `settle_epoch` label. The
 credit check uses the standard $5 pack, consistent with §7's fixed pricing;
 the earlier $1 requirement is superseded. These contract clarifications do not
 establish that any scheduled production check has run.
-The first local integration unit is adopted: it connects the actual Core
-directory resolver and anchor check with one synthetic canary and owned local
-services. Lookup/refusal/restart controls pass; combined acceptance exits 1 at
-the missing native RPC TLS-root input. See §2's native bootstrap adoption entry
-and `ops/bootstrap/README.md`. This does not qualify native phone ownership,
-independent providers or production operation.
+The local lookup/anchor integration and scoped RPC TLS correction are adopted:
+the fresh retained Core fixture exits zero with 37 checks, reports `consistent`,
+and exercises refusal, cache/restart continuity and resource/account replacement.
+The original missing-TLS-root failure remains historical red evidence. The
+separate outage prerequisite passed a measured 900-second local run, with a
+fresh 60-second control on the later composed sources; those are distinct
+artifacts. See §2's scoped TLS and outage entries and `ops/bootstrap/README.md`.
+These fixtures do not qualify native phone ownership, independent providers,
+scheduled production operation or the full eight-check suite.
 
 ### 4.4 Saying which profile we're in
 
