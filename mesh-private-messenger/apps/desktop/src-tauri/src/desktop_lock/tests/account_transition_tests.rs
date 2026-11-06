@@ -99,7 +99,7 @@ fn actual_core_identity_changes_retire_once_and_failed_mutations_keep_admission(
     }
     let _cleanup=Cleanup(service.clone(),f.root.path.clone());
     let library=crate::mesh::Mesh::load(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("native/libmessenger_mobile.dylib"),
-        String::new(),String::new(),String::new(),String::new(),String::new(),String::new(),String::new(),String::new(),service).unwrap();
+        String::new(),String::new(),String::new(),String::new(),String::new(),String::new(),String::new(),String::new(),Default::default(),service).unwrap();
     library.invoke("mesh_messenger_initialize",database.as_bytes(),&database).unwrap();
     assert_eq!(library.invoke("mesh_messenger_load_profile",database.as_bytes(),&database).unwrap_err(), "Mesh 9: local_state_not_found");
     assert_eq!(super::identity(&library,&database).unwrap(),None);
