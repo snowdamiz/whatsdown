@@ -5,6 +5,8 @@ import { access, lstat, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { prepareRewardsTransaction, rewardsCoordinate } from './transactions.mjs';
 
+import { settlementRange, validateSchedulePlan } from './schedule.mjs';
+
 const fail=message=>{throw new Error(message);};
 
 // Local executable and operator-owned inputs only. The verifier receives public
@@ -49,7 +51,9 @@ export async function createRewardsPlanner({binary,tempRoot,securityConfig,logVe
         if(!['ready','complete','waiting'].includes(value.status)||rewardsCoordinate(value.context_slot)<rewardsCoordinate(floor))fail('Invalid rewards plan context');
         for(const field of ['program','judge','log','mint','payer'])if(value[field]!==bound[field])fail('Rewards planner pin mismatch');
         if(version===2)for(const field of ['token','morse','configuration_hash'])if(value[field]!==bound[field])fail('Rewards planner v2 pin mismatch');
-        if(value.epoch!==request.epoch)fail('Rewards planner epoch mismatch');
+        const range=settlementRange(request,true);
+        validateSchedulePlan(value,range,request.cursor);
+        if(value.epoch!==(range?request.cursor:request.epoch))fail('Rewards planner epoch mismatch');
         if(value.status==='ready')prepareRewardsTransaction(value,bound);
         else if(!Array.isArray(value.instructions)||value.instructions.length)fail('Inactive rewards plan contains instructions');
       }

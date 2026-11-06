@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { closeSync, chmodSync, lstatSync, mkdirSync, openSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { settlementRange, validateSchedulePlan } from './schedule.mjs';
 import { prepareRewardsTransaction, rewardsMessage, rewardsSignedStep, rewardsCoordinate } from './transactions.mjs';
 
 const LEASE_MS=30000;
@@ -10,16 +11,18 @@ const amount=rewardsCoordinate;
 function time(value){if(!Number.isSafeInteger(value)||value<0||value>Number.MAX_SAFE_INTEGER-LEASE_MS)fail('Invalid rewards clock');}
 function label(value){if(typeof value!=='string'||!value.length||value.length>256)fail('Invalid rewards lease identity');}
 
-// One explicit operator request per durable journal. SQLite FULL transactions
+// One immutable request (explicit or bounded schedule) per durable journal. SQLite FULL transactions
 // persist reservations and signed bytes before the broadcast capability exists.
 // A lease is checked again after every asynchronous signer/RPC operation.
 export class RewardsJournal {
-  #db;#pins;#policy;
+  #db;#pins;#policy;#request;#range;
   constructor({path,pins,request,policy}){
     if(typeof path!=='string'||!path.length||path===':memory:')fail('Rewards journal requires a durable path');
     if(amount(policy?.maxLamports)===0n||!Number.isSafeInteger(policy.maxTransactions)||policy.maxTransactions<1||policy.maxTransactions>4096)fail('Invalid rewards budget');
     this.#pins=structuredClone(pins);this.#policy=structuredClone(policy);
-    const scope=json({version:1,pins,request,policy});if(scope.length>16384)fail('Rewards journal scope too large');
+    this.#request=structuredClone(request);this.#range=settlementRange(request);
+    if(this.#range&&pins.version!==2)fail('Rewards schedule requires v2 pins');
+    const scope=json({version:this.#range?2:1,pins,request,policy});if(scope.length>16384)fail('Rewards journal scope too large');
     mkdirSync(dirname(path),{recursive:true,mode:0o700});
     try{closeSync(openSync(path,'wx',0o600));}catch(error){if(error.code!=='EEXIST')throw error;}
     if(!lstatSync(path).isFile())fail('Rewards journal must be a regular file');chmodSync(path,0o600);
@@ -32,10 +35,13 @@ export class RewardsJournal {
           context_slot TEXT NOT NULL DEFAULT '0',spent TEXT NOT NULL DEFAULT '0',attempts INTEGER NOT NULL DEFAULT 0,halted INTEGER NOT NULL DEFAULT 0);
           CREATE TABLE IF NOT EXISTS rewards_transactions(id INTEGER PRIMARY KEY AUTOINCREMENT,phase TEXT NOT NULL,
           plan TEXT NOT NULL,quote TEXT NOT NULL,signed TEXT,observation TEXT,broadcast_at INTEGER NOT NULL DEFAULT 0);
+          CREATE TABLE IF NOT EXISTS rewards_schedule(singleton INTEGER PRIMARY KEY CHECK(singleton=1),epoch TEXT NOT NULL,done INTEGER NOT NULL DEFAULT 0);
+          CREATE TABLE IF NOT EXISTS rewards_completions(epoch TEXT PRIMARY KEY,plan TEXT NOT NULL);
           CREATE UNIQUE INDEX IF NOT EXISTS rewards_one_pending ON rewards_transactions((1)) WHERE phase IN ('reserved','signed');
           CREATE UNIQUE INDEX IF NOT EXISTS rewards_unique_signature ON rewards_transactions(json_extract(signed,'$.signature')) WHERE signed IS NOT NULL;`);
         this.#run('INSERT OR IGNORE INTO rewards_scope(singleton,scope) VALUES(1,?)',scope);
         if(this.#scope().scope!==scope)fail('Rewards journal scope changed');
+        if(this.#range)this.#run('INSERT OR IGNORE INTO rewards_schedule(singleton,epoch) VALUES(1,?)',request.epoch);
       });
     }catch(error){this.#db.close();throw error;}
   }
@@ -61,16 +67,28 @@ export class RewardsJournal {
   }
   renew(lease,now){return this.#write(lease,now,()=>this.#run('UPDATE rewards_scope SET lease_until=? WHERE singleton=1',now+LEASE_MS));}
   release(lease,now){return this.#write(lease,now,()=>this.#run('UPDATE rewards_scope SET owner=NULL,lease_until=0 WHERE singleton=1'));}
-  progress(){const s=this.#scope();return {contextSlot:s.context_slot,spentLamports:s.spent,attempts:s.attempts,halted:!!s.halted};}
+  progress(){const s=this.#scope(),schedule=this.#schedule();return {contextSlot:s.context_slot,spentLamports:s.spent,attempts:s.attempts,halted:!!s.halted,
+    ...(schedule?{epoch:schedule.epoch,scheduleComplete:!!schedule.done}:{})};}
+  #schedule(){return this.#range?this.#get('SELECT * FROM rewards_schedule WHERE singleton=1'):null;}
+  planningRequest(){const schedule=this.#schedule();return {...structuredClone(this.#request),...(schedule?{cursor:schedule.epoch}:{})};}
+  acceptPlan(lease,plan,now){
+    return this.#write(lease,now,scope=>{
+      if(scope.halted)fail('Rewards journal halted');
+      if(this.pending())fail('Rewards transaction pending');
+      const schedule=this.#schedule();validateSchedulePlan(plan,this.#range,schedule?.epoch);
+      if(amount(plan.context_slot)<amount(scope.context_slot))fail('Rewards context regressed');
+      this.#run('UPDATE rewards_scope SET context_slot=? WHERE singleton=1',plan.context_slot);
+      if(schedule&&plan.status==='complete'){
+        this.#run('INSERT OR IGNORE INTO rewards_completions(epoch,plan) VALUES(?,?)',schedule.epoch,json(plan));
+        this.#run('UPDATE rewards_schedule SET epoch=?,done=? WHERE singleton=1',plan.next_epoch??schedule.epoch,plan.next_epoch===null?1:0);
+        return {state:plan.next_epoch===null?'complete':'advanced',reason:plan.action};
+      }
+      return {state:plan.status,reason:plan.action};
+    });
+  }
   pending(){
     const row=this.#get("SELECT * FROM rewards_transactions WHERE phase IN ('reserved','signed')");
     return row?{id:row.id,phase:row.phase,plan:JSON.parse(row.plan),quote:JSON.parse(row.quote),signed:row.signed?JSON.parse(row.signed):null}:null;
-  }
-  observeContext(lease,slot,now){
-    amount(slot);return this.#write(lease,now,scope=>{
-      if(amount(slot)<amount(scope.context_slot))fail('Rewards context regressed');
-      this.#run('UPDATE rewards_scope SET context_slot=? WHERE singleton=1',slot);
-    });
   }
   reserve(lease,plan,quote,now){
     plan=structuredClone(plan);quote=structuredClone(quote);
@@ -80,6 +98,9 @@ export class RewardsJournal {
     return this.#write(lease,now,scope=>{
       if(scope.halted)fail('Rewards journal halted');
       if(this.pending())fail('Rewards transaction pending');
+      const schedule=this.#schedule();
+      if(schedule?.done)fail('Rewards schedule complete');
+      validateSchedulePlan(plan,this.#range,schedule?.epoch);
       if(amount(plan.context_slot)<amount(scope.context_slot))fail('Rewards context regressed');
       if(this.#get('SELECT id FROM rewards_transactions WHERE signed IS NOT NULL AND json_extract(quote,\'$.messageHash\')=?',quote.messageHash))fail('Rewards blockhash already used for this message');
       if(scope.attempts>=this.#policy.maxTransactions||amount(scope.spent)+amount(quote.maxDebitLamports)>amount(this.#policy.maxLamports))fail('Rewards budget exhausted');

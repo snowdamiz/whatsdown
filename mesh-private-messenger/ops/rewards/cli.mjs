@@ -40,7 +40,7 @@ async function main(){
   let lease;
   try{
     lease=journal.claim(randomUUID(),Date.now());
-    const ctx={journal,lease,pins:config.pins,request,planner,rpc,signers,now:Date.now};
+    const ctx={journal,lease,pins:config.pins,planner,rpc,signers,now:Date.now};
     for(;;){
       const result=await runRewardsCycle(ctx);
       console.log(JSON.stringify({...result,...journal.progress()}));

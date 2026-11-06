@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawn, execFile } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
@@ -14,6 +14,10 @@ import { promisify } from 'node:util';
 import { createKeyPairSignerFromPrivateKeyBytes, getAddressEncoder, getCompiledTransactionMessageDecoder,
   getTransactionDecoder, getSignatureFromTransaction } from '@solana/kit';
 import { parseJsonWithBigInts, stringifyJsonWithBigInts } from '@solana/rpc-spec-types';
+
+import { RewardsJournal } from './journal.mjs';
+import { createRewardsPlanner } from './planner.mjs';
+import { runRewardsCycle } from './writer.mjs';
 
 const run=promisify(execFile),genesis='11111111111111111111111111111111';
 const required=name=>{assert.ok(process.env[name],`Missing ${name}; run scripts/prove-rewards-v2.sh`);return process.env[name];};
@@ -115,12 +119,12 @@ function rows(path){
   try{return db.prepare('SELECT * FROM rewards_transactions ORDER BY id').all().map(r=>({...r,plan:JSON.parse(r.plan),signed:r.signed?JSON.parse(r.signed):null}));}
   finally{db.close();}
 }
-async function harness(){
+async function harness(initialization={}){
   const directory=await mkdtemp(join(tmpdir(),'rewards-v2-sbf-')),bridge=new Bridge();
   let rpc;
   try{
     const seed=new Uint8Array(32).fill(203),payer=await createKeyPairSignerFromPrivateKeyBytes(seed);
-    const fixture=await bridge.ask({method:'initialize',payer:payer.address});
+    const fixture=await bridge.ask({method:'initialize',payer:payer.address,...initialization});
     assert.equal(fixture.execution,'local-sbf');assert.equal(fixture.signature_verification,true);
     rpc=await oracle(bridge);
     const securityConfig=JSON.stringify({...fixture.pins,schema_version:2,endpoints:rpc.urls,allow_loopback:true});
@@ -131,13 +135,13 @@ async function harness(){
     const securityConfigPath=join(directory,'pins.json'),wallet=join(directory,'payer.json');
     await writeFile(securityConfigPath,securityConfig,{mode:0o600});
     await writeFile(wallet,JSON.stringify([...seed,...getAddressEncoder().encode(payer.address)]),{mode:0o600});
-    async function intent(name,value){
+    async function intent(name,value,policy={maxLamports:'1000000000',maxTransactions:128}){
       const requestPath=join(directory,`${name}-request.json`),journalPath=join(directory,`${name}.sqlite`),configPath=join(directory,`${name}.json`);
       await writeFile(requestPath,JSON.stringify(value),{mode:0o600});
       const config={binary,securityConfigPath,logVersion:fixture.log_version,requestPath,walletPaths:[wallet],journalPath,pins,
-        rpc:{urls:rpc.urls,genesisHash:genesis,allowLoopback:true},policy:{maxLamports:'1000000000',maxTransactions:128}};
+        rpc:{urls:rpc.urls,genesisHash:genesis,allowLoopback:true},policy};
       await writeFile(configPath,JSON.stringify(config),{mode:0o600});
-      return {journalPath,async cycle(){
+      return {journalPath,config,configPath,async cycle(){
         let result;try{result=await run(process.execPath,[cli,'--config',configPath],{timeout:60000,maxBuffer:65536});}
         catch(e){throw new Error(`CLI: ${e.stderr||e.message}; RPC: ${rpc.errors.join('\n')}`);}
         assert.deepEqual(rpc.errors,[]);return JSON.parse(result.stdout.trim());
@@ -199,10 +203,10 @@ test('CLI processes restart through dropped packet expiry, pruned lost-ack effec
   }finally{await h.close();}
 });
 
-test('restarted explicit settlement cancels an expired stage through the real program', {timeout:90000},async()=>{
+test('restarted bounded settlement cancels an expired stage and replans through the real program', {timeout:90000},async()=>{
   const h=await harness();
   try{
-    const intent=await h.intent('expiry',h.request);
+    const intent=await h.intent('expiry',{...h.request,epoch_count:'2'});
     for(const action of ['open','begin']){
       assert.equal((await intent.cycle()).state,'broadcast');
       assert.equal(rows(intent.journalPath).at(-1).plan.action,action);
@@ -213,6 +217,8 @@ test('restarted explicit settlement cancels an expired stage through the real pr
     assert.equal(rows(intent.journalPath).at(-1).plan.action,'cancel');
     assert.equal((await intent.cycle()).state,'finalized');
     assert.equal((await h.data(h.fixture.addresses.epoch))[52],0);
+    assert.equal((await intent.cycle()).state,'broadcast');assert.equal(rows(intent.journalPath).at(-1).plan.action,'begin');
+    assert.ok(rows(intent.journalPath).every(row=>row.plan.epoch===h.request.epoch));
   }finally{await h.close();}
 });
 
@@ -240,4 +246,172 @@ test('lost append fees remain charged when cancellation erases its effect and tr
     assert.equal(BigInt(result.spentLamports)-BigInt(sent.spentLamports),BigInt(JSON.parse(packet.quote).maxDebitLamports),
       'oldest available block is not complete history; absent mutable effect cannot erase spent fees');
   }finally{await h.close();}
+});
+
+test('bounded settlement schedule resumes one journal across finalized epochs without resetting context or spending', {timeout:300000},async()=>{
+  const h=await harness();
+  try{
+    const schedule=await h.intent('range',{...h.request,action:'settle',epoch_count:'2'});
+    assert.equal((await schedule.cycle()).state,'broadcast');
+    let advanced;
+    for(let pass=0;pass<80;pass++){
+      const result=await schedule.cycle();
+      if(result.state==='advanced'){advanced=result;break;}
+      assert.ok(['broadcast','finalized'].includes(result.state),JSON.stringify(result));
+    }
+    assert.ok(advanced,'Mesh must authenticate completion and durably advance');
+    assert.equal(advanced.epoch,(BigInt(h.request.epoch)+1n).toString());
+    const prior=rows(schedule.journalPath),spent=BigInt(advanced.spentLamports);
+    const originalLedger=await h.data(h.fixture.addresses.epoch);
+    assert.ok(spent>0n);assert.equal(prior.at(-1).plan.action,'finalize');
+    const waiting=await schedule.cycle();
+    assert.equal(waiting.state,'waiting');assert.equal(waiting.reason,'waiting:week-end');
+    assert.equal(waiting.contextSlot,advanced.contextSlot);assert.equal(waiting.spentLamports,advanced.spentLamports);
+    await h.bridge.ask({method:'advance_clock',seconds:604800});
+    let completed;
+    for(let pass=0;pass<20;pass++){
+      const result=await schedule.cycle();
+      if(result.state==='complete'){completed=result;break;}
+      assert.ok(['broadcast','finalized'].includes(result.state),JSON.stringify(result));
+    }
+    assert.ok(completed);assert.ok(BigInt(completed.contextSlot)>BigInt(advanced.contextSlot));
+    assert.ok(BigInt(completed.spentLamports)>spent);assert.ok(completed.attempts>advanced.attempts);
+    assert.deepEqual(await h.data(h.fixture.addresses.epoch),originalLedger,'later epochs preserve old entitlements');
+    const next=rows(schedule.journalPath).slice(prior.length);
+    assert.deepEqual(next.map(r=>r.plan.action),['open','attendance-open','seal','begin','finalize']);
+    assert.ok(next.every(r=>r.plan.epoch===advanced.epoch));
+    assert.equal((await schedule.cycle()).state,'complete');assert.equal(rows(schedule.journalPath).length,prior.length+next.length);
+  }finally{await h.close();}
+});
+
+async function until(intent,state,limit=80){
+  for(let pass=0;pass<limit;pass++){
+    const result=await intent.cycle();if(result.state===state)return result;
+    assert.ok(['broadcast','finalized','advanced','effect','unacknowledged'].includes(result.state),JSON.stringify(result));
+  }
+  assert.fail(`did not reach ${state}`);
+}
+function scope(path){
+  const db=new DatabaseSync(path,{readOnly:true});
+  try{return db.prepare('SELECT * FROM rewards_scope').get();}finally{db.close();}
+}
+
+test('scheduled lost finalize acknowledgment and pruned older packets cannot advance before reconciliation', {timeout:120000},async()=>{
+  const h=await harness({row_count:3});
+  try{
+    const intent=await h.intent('pending-range',{...h.request,action:'settle',epoch_count:'2'});
+    h.rpc.control.mode='drop';assert.equal((await intent.cycle()).state,'unacknowledged');
+    const first=rows(intent.journalPath)[0];
+    await h.bridge.ask({method:'expire_blockhash'});h.rpc.control.hideHistory=true;h.rpc.control.historyCovered=false;
+    for(let restart=0;restart<2;restart++){
+      assert.equal((await intent.cycle()).epoch,h.request.epoch);
+      assert.deepEqual(rows(intent.journalPath),[first]);assert.equal(scope(intent.journalPath).spent,'0');
+    }
+    h.rpc.control.historyCovered=true;assert.equal((await intent.cycle()).state,'expired');
+    h.rpc.control.mode='normal';h.rpc.control.hideHistory=false;
+    while(rows(intent.journalPath).filter(r=>r.phase==='finalized').length<3)await intent.cycle();
+    h.rpc.control.mode='lost-ack';const lost=await intent.cycle();assert.equal(lost.state,'unacknowledged');
+    const finalize=rows(intent.journalPath).at(-1);assert.equal(finalize.plan.action,'finalize');
+    assert.equal((await h.data(h.fixture.addresses.epoch))[52],2,'bank has completed while journal still owns old packet');
+    assert.equal(lost.epoch,h.request.epoch);assert.equal(finalize.phase,'signed');
+    h.rpc.control.hideHistory=true;h.rpc.control.historyCovered=false;
+    await h.bridge.ask({method:'expire_blockhash'});
+    assert.equal((await intent.cycle()).state,'effect');
+    assert.deepEqual(rows(intent.journalPath).at(-1).signed,finalize.signed);
+    assert.equal((await intent.cycle()).state,'advanced');
+    assert.equal(rows(intent.journalPath).length,5,'no new epoch packet until old reservation is terminal');
+    assert.ok(BigInt(scope(intent.journalPath).spent)>=BigInt(JSON.parse(first.quote).maxDebitLamports)+BigInt(JSON.parse(finalize.quote).maxDebitLamports));
+  }finally{await h.close();}
+});
+
+test('aggregate transaction and lamport caps refuse the next epoch across CLI restarts', {timeout:120000},async()=>{
+  for(const cap of ['transactions','lamports','exact-lamports']){
+    const h=await harness({row_count:3});
+    try{
+      const rent=await h.bridge.ask({method:'rent',space:8416}),tokenRent=await h.bridge.ask({method:'rent',space:1280});
+      // Three selected rows fit the existing USDC subsidy; no reserve CPI
+      // creates a receipt. Quotes still conservatively reserve its rent.
+      const firstDebit=BigInt(rent.lamports)+BigInt(tokenRent.lamports)+20000n;
+      const nextQuote=BigInt(rent.lamports)+BigInt(tokenRent.lamports)+5000n;
+      const policy={maxTransactions:cap==='transactions'?4:128,maxLamports:cap==='transactions'?'1000000000':(firstDebit+nextQuote-(cap==='lamports'?1n:0n)).toString()};
+      const intent=await h.intent(`cap-${cap}`,{...h.request,action:'settle',epoch_count:'2'},policy);
+      const advanced=await until(intent,'advanced');assert.equal(advanced.attempts,4);
+      assert.equal(BigInt(advanced.spentLamports),firstDebit);
+      await h.bridge.ask({method:'advance_clock',seconds:604800});
+      if(cap==='exact-lamports'){
+        const allowed=await intent.cycle();assert.equal(allowed.state,'broadcast');assert.equal(allowed.attempts,5);
+        assert.equal((await intent.cycle()).state,'finalized');
+      }
+      const before=rows(intent.journalPath),sent=h.rpc.sent.length,budgetBefore=scope(intent.journalPath);
+      for(let restart=0;restart<2;restart++)await assert.rejects(intent.cycle(),/budget exhausted/);
+      assert.deepEqual(rows(intent.journalPath),before);assert.equal(h.rpc.sent.length,sent);
+      assert.equal(scope(intent.journalPath).spent,budgetBefore.spent);assert.equal(scope(intent.journalPath).attempts,budgetBefore.attempts);
+    }finally{await h.close();}
+  }
+});
+
+test('external completion advances without spending, but a superseded completion read and invalid plans cannot publish', {timeout:120000},async()=>{
+  const h=await harness({row_count:3});let a,b;
+  try{
+    const other=await h.intent('external',h.request);await until(other,'complete');
+    const scheduled=await h.intent('external-range',{...h.request,action:'settle',epoch_count:'2'});
+    const {config}=scheduled,request=JSON.parse(await readFile(config.requestPath,'utf8'));
+    const planner=await createRewardsPlanner({binary:config.binary,tempRoot:join(config.journalPath+'-planner'),
+      securityConfig:(await readFile(config.securityConfigPath,'utf8')).trim(),logVersion:config.logVersion,pins:config.pins});
+    const options={path:config.journalPath,pins:config.pins,request,policy:config.policy};
+    a=new RewardsJournal(options);b=new RewardsJournal(options);let now=100;
+    const ctx={journal:a,lease:a.claim('stale',now),now:()=>++now,pins:config.pins,signers:[],rpc:{},
+      planner:{async plan(request,floor){const plan=await planner.plan(request,floor);now+=30001;b.claim('takeover',now);return plan;}}};
+    await assert.rejects(runRewardsCycle(ctx),/lease/);
+    assert.equal(a.progress().epoch,h.request.epoch);assert.equal(a.progress().spentLamports,'0');assert.equal(a.progress().contextSlot,'0');
+    b.close();b=undefined;now+=30001;const lease=a.claim('current',now);
+    const plan=await planner.plan(a.planningRequest());
+    for(const invalid of [{...plan,next_epoch:null},{...plan,next_epoch:(BigInt(h.request.epoch)+2n).toString()},{...plan,epoch:plan.next_epoch}]){
+      assert.throws(()=>a.acceptPlan(lease,invalid,++now),/schedule/);
+      assert.equal(a.progress().epoch,h.request.epoch);
+    }
+    a.release(lease,++now);a.close();a=undefined;
+    const advanced=await scheduled.cycle();assert.equal(advanced.state,'advanced');assert.equal(advanced.attempts,0);assert.equal(advanced.spentLamports,'0');
+    assert.deepEqual(rows(scheduled.journalPath),[]);
+    assert.equal((await scheduled.cycle()).state,'waiting');
+    await h.bridge.ask({method:'advance_clock',seconds:604800});
+    const externalNext=await h.intent('external-next',{...h.request,epoch:(BigInt(h.request.epoch)+1n).toString()});
+    await until(externalNext,'complete');
+    const watch=await h.intent('watch-range',request);
+    const result=await run(process.execPath,[cli,'--config',watch.configPath,'--watch'],{timeout:20000,maxBuffer:65536});
+    const outputs=result.stdout.trim().split('\n').map(line=>JSON.parse(line));
+    assert.deepEqual(outputs.map(o=>o.state),['advanced','complete'],'watch continues across the completion transition');
+    assert.equal(outputs.at(-1).attempts,0);assert.equal(outputs.at(-1).spentLamports,'0');
+
+  }finally{a?.close();b?.close();await h.close();}
+});
+
+test('empty and all-excluded schedules carry every unallocated dollar through two epochs and stop at the bound', {timeout:120000},async()=>{
+  for(const initialization of [{row_count:0},{row_count:3,all_excluded:true}]){
+    const h=await harness(initialization);
+    try{
+      const addresses=h.fixture.addresses,before=await h.data(addresses.pool);
+      const tokenBefore=await h.data(addresses.token_pool),vaultBefore=await h.data(addresses.pool_morse_vault);
+      assert.ok(before.readBigUInt64LE(196)>0n,'fixture carries a nonzero dollar unit');
+      const intent=await h.intent('zero-range',{...h.request,action:'settle',epoch_count:'2'});
+      const advanced=await until(intent,'advanced');
+      const firstRows=rows(intent.journalPath);
+      assert.deepEqual(firstRows.map(r=>r.plan.action),initialization.row_count===0?['open','begin','finalize']:['open','begin','append','finalize']);
+      await h.bridge.ask({method:'advance_clock',seconds:604800});
+      const complete=await until(intent,'complete');assert.equal(complete.scheduleComplete,true);
+      const after=await h.data(addresses.pool),tokenAfter=await h.data(addresses.token_pool);
+      assert.equal(after.readBigUInt64LE(180),BigInt(h.request.epoch)+2n);
+      for(const offset of [188,196,204,212])assert.equal(after.readBigUInt64LE(offset),before.readBigUInt64LE(offset));
+      assert.equal(tokenAfter.readBigUInt64LE(260),tokenBefore.readBigUInt64LE(260));
+      assert.equal(tokenAfter.readBigUInt64LE(268),tokenBefore.readBigUInt64LE(268));
+      assert.deepEqual(await h.data(addresses.pool_morse_vault),vaultBefore);
+      for(const address of [addresses.epoch,addresses.next_epoch]){
+        const ledger=await h.data(address);assert.equal(ledger[52],2);assert.equal(ledger.readBigUInt64LE(144),0n);
+        assert.equal(ledger.readBigUInt64LE(152),before.readBigUInt64LE(196));
+      }
+      const all=rows(intent.journalPath);assert.ok(all.every(r=>BigInt(r.plan.epoch)<BigInt(h.request.epoch)+2n));
+      assert.ok(BigInt(complete.contextSlot)>BigInt(advanced.contextSlot));
+      assert.equal((await intent.cycle()).state,'complete');assert.equal(rows(intent.journalPath).length,all.length);
+    }finally{await h.close();}
+  }
 });

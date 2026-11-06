@@ -23,6 +23,7 @@ pub struct RewardV2Intent do
   payer :: Pubkey
   epoch :: U64
   hash :: Bytes
+  schedule_end :: Option<U64>
 end
 
 pub struct RewardV2Config do
@@ -149,8 +150,39 @@ pub fn decode_reward_v2_intent(config :: RewardV2Config,
   if Bytes.to_hex(payer.bytes) == String.repeat("00", 32) do
     return Err("rewards_v2_payer")
   end
-  let epoch = wide(value, "epoch")?
+  let first = wide(value, "epoch")?
   let action = text(value, "action")?
+  let scheduled = case Json.object_get(value, "epoch_count") do
+    Ok(_) -> true
+    Err(_) -> false
+  end
+  if scheduled && action != "settle" do
+    return Err("rewards_v2_schedule_action")
+  end
+  let schedule_end = if scheduled do
+    let count = wide(value, "epoch_count")?
+    if count == U64.parse("0")? || U64.compare(count, U64.parse("256")?) > 0 do
+      return Err("rewards_v2_schedule_bound")
+    end
+    # Leave room for the on-chain pool's next_epoch after the final settlement.
+    let stop = U64.add(first, count)?
+    Some(U64.subtract(stop, U64.parse("1")?)?)
+  else
+    None
+  end
+  let epoch = case schedule_end do
+    None -> first
+    Some(last) -> do
+      let cursor = case Json.object_get(value, "cursor") do
+        Err(_) -> first
+        Ok(_) -> wide(value, "cursor")?
+      end
+      if U64.compare(cursor, first) < 0 || U64.compare(cursor, last) > 0 do
+        return Err("rewards_v2_schedule_cursor")
+      end
+      cursor
+    end
+  end
   let operation = if action == "settle" do
     SettleRewards
   else if action == "claim" do
@@ -167,6 +199,10 @@ pub fn decode_reward_v2_intent(config :: RewardV2Config,
     SettleRewards -> "settle"
     ClaimRewards(row, asset) -> "claim\n" <> Int.to_string(row) <> "\n" <> Int.to_string(asset)
   end
+  let selection = case schedule_end do
+    None -> selection
+    Some(last) -> selection <> "\nschedule\n" <> U64.to_string(first) <> "\n" <> U64.to_string(last)
+  end
   let canonical = String.join([
       "morse-rewards-intent-v2",
       Bytes.to_hex(config.hash),
@@ -179,6 +215,7 @@ pub fn decode_reward_v2_intent(config :: RewardV2Config,
     operation: operation,
     payer: payer,
     epoch: epoch,
+    schedule_end: schedule_end,
     hash: Crypto.sha256(Bytes.from_utf8(canonical))
   })
 end
@@ -237,12 +274,23 @@ fn report(config :: RewardV2Config,
     None -> ""
     Some(record) -> stage_hash(record)
   end
+  let advancement = case intent.schedule_end do
+    None -> ""
+    Some(last) -> do
+      let next = if status == "complete" && U64.compare(intent.epoch, last) < 0 do
+        Json.encode_string(U64.to_string(U64.add(intent.epoch, U64.parse("1")?)?))
+      else
+        "null"
+      end
+      ",\"next_epoch\":" <> next
+    end
+  end
   let reports = String.join(for instruction in instructions do
       instruction_report_json(instruction)
     end,
     ",")
   Ok("""{"schema_version":2,"status":#{Json.encode_string(status)},"action":#{Json.encode_string(step.status)},"program":#{address(c.program)},"judge":#{address(c.judge)},"token":#{address(c.token)},"log":#{address(a.base.log)},"mint":#{address(c.usdc_mint)},"morse":#{address(a.morse)},"payer":#{address(intent.payer)},"epoch":"#{U64.to_string(intent.epoch)}","context_slot":"#{U64.to_string(state.context_slot)}","configuration_hash":"#{Bytes.to_hex(config.hash)}","intent_hash":"#{Bytes.to_hex(intent.hash)}","stage_hash":"#{stage}","staged_count":#{count},"signer_keys":[#{address(intent.payer)}],"instructions":[#{reports}],"rent_allocations":[#{String.join(rent,
-    ",")}]}""")
+    ",")}]#{advancement}}""")
 end
 
 pub fn plan_reward_v2(client :: Int,

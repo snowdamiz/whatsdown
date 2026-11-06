@@ -92,3 +92,19 @@ test('expired signed packets retain their budget charge without finalized debit 
     assert.throws(()=>j.reserve(lease,next,q,104),/budget/i);
   }finally{j.close();await rm(dir,{recursive:true,force:true});}
 });
+
+test('a previously ignored count in an old explicit scope cannot become a schedule',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'morse-rewards-'));
+  const path=join(dir,'journal.sqlite'),bound={...pins,version:2},policy={maxLamports:'2000',maxTransactions:4};
+  const request={schema_version:2,action:'settle',epoch:'99',epoch_count:'2'};
+  let journal=new RewardsJournal({path,pins:bound,request:{schema_version:2,action:'settle',epoch:'99'},policy});
+  journal.close();journal=undefined;
+  const {DatabaseSync}=await import('node:sqlite'),db=new DatabaseSync(path);
+  try{
+    // The old journal accepted unknown request fields and stored version 1.
+    db.prepare('UPDATE rewards_scope SET scope=?,spent=?,attempts=?,context_slot=? WHERE singleton=1')
+      .run(JSON.stringify({version:1,pins:bound,request,policy}),'1000',1,'12');
+  }finally{db.close();}
+  try{assert.throws(()=>new RewardsJournal({path,pins:bound,request,policy}),/scope changed/);}
+  finally{await rm(dir,{recursive:true,force:true});}
+});

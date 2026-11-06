@@ -85,11 +85,164 @@ fn success(v: &Value) {
 }
 
 #[test]
+fn initialize_rejects_invalid_fixture_options_before_loading() {
+    for (field, value) in [
+        ("row_count", json!(65)),
+        ("row_count", json!(-1)),
+        ("row_count", json!(1.5)),
+        ("row_count", json!("3")),
+        ("row_count", Value::Null),
+        ("all_excluded", json!("true")),
+        ("all_excluded", json!(1)),
+        ("all_excluded", Value::Null),
+    ] {
+        let mut request = json!({"payer":"11111111111111111111111111111111"});
+        request[field] = value;
+        let error = Bridge::initialize(&request).err().expect("invalid option");
+        assert!(error.contains(field), "{error}");
+    }
+}
+
+#[test]
+fn initialize_selects_valid_attendance_and_excludes_every_selected_member() {
+    use judge_core::attendance::EpochHeader;
+    use morse_rewards::state::Member;
+
+    let payer = Keypair::new_from_array([205; 32]);
+    let fixture = fixture();
+    let snapshot = fixture["snapshots"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["name"] == "token-rewards-ready")
+        .unwrap();
+    let original = raw(&snapshot["accounts"]["attendance_epoch"]).unwrap();
+    let source = EpochHeader::parse(&original).unwrap();
+    for count in [0, 1, 2, 3, 64] {
+        let (mut bank, init) = Bridge::initialize(&json!({
+            "payer":payer.pubkey().to_string(),"row_count":count,"all_excluded":true
+        }))
+        .unwrap();
+        let week = read(&mut bank, &init["addresses"]["attendance_epoch"]);
+        let header = EpochHeader::parse(&week).unwrap();
+        assert_eq!(header.witnesses as usize, count);
+        assert_eq!(header.epoch, source.epoch);
+        assert_eq!(header.log_id, source.log_id);
+        assert_eq!(header.sealed, source.sealed);
+        assert_eq!(header.posts, if count == 0 { 0 } else { source.posts });
+        assert_eq!(
+            header.max_post_slot,
+            if count == 0 { 0 } else { source.max_post_slot }
+        );
+        assert_eq!(&week[80..80 + count * 40], &original[80..80 + count * 40]);
+        assert!(week[80 + count * 40..].iter().all(|b| *b == 0));
+        let witnesses = init["witnesses"].as_array().unwrap();
+        assert_eq!(witnesses.len(), count);
+        for (row, witness) in witnesses.iter().enumerate() {
+            let address = key(witness, "address").unwrap();
+            assert_eq!(address, bytes_key(&week, 80 + row * 40));
+            assert_eq!(
+                number(&witness["signed"]).unwrap(),
+                u64_at(&week, 112 + row * 40)
+            );
+            assert_eq!(witness["row"], row);
+            let member = read(&mut bank, &witness["member"]);
+            let member = Member::parse(&member).unwrap();
+            assert_eq!(member.witness.as_slice(), address.as_ref());
+            assert_eq!(member.status, 2);
+            assert_eq!(member.pending, 0);
+            assert_eq!(member.ready, 0);
+            assert!(member.effective <= source.epoch as i64 * 604800);
+        }
+        for role in [
+            "epoch",
+            "token_epoch",
+            "next_epoch",
+            "next_token_epoch",
+            "next_attendance_epoch",
+        ] {
+            assert!(bank
+                .request(&json!({"method":"account","address":init["addresses"][role]}))
+                .unwrap()["value"]
+                .is_null());
+        }
+    }
+}
+
+#[test]
+fn selected_empty_and_excluded_fixtures_settle_through_signed_operations() {
+    use morse_rewards::state::{Ledger, Pool};
+    use morse_token::reward_state::TokenEpoch;
+
+    let payer = Keypair::new_from_array([206; 32]);
+    let vectors = &fixture()["write_vectors"];
+    for (count, excluded) in [(0, false), (3, true)] {
+        let (mut bank, init) = Bridge::initialize(&json!({
+            "payer":payer.pubkey().to_string(),"row_count":count,"all_excluded":excluded
+        }))
+        .unwrap();
+        let before = Pool::parse(&read(&mut bank, &init["addresses"]["pool"])).unwrap();
+        for name in ["open", "begin"] {
+            success(&send(
+                &mut bank,
+                &payer,
+                instruction(&vectors[name], &payer),
+            ));
+        }
+        if count != 0 {
+            let mut append = instruction(&vectors["begin"], &payer);
+            append.data = vec![16];
+            let rows: Vec<_> = vectors["append"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|v| instruction(v, &payer).accounts[19..].to_vec())
+                .collect();
+            append.accounts.extend_from_slice(&rows[..count * 4]);
+            success(&send(&mut bank, &payer, append));
+        }
+        success(&send(
+            &mut bank,
+            &payer,
+            instruction(&vectors["finalize"], &payer),
+        ));
+        let ledger = Ledger::parse(&read(&mut bank, &init["addresses"]["epoch"])).unwrap();
+        assert_eq!(ledger.status, 2);
+        assert_eq!(ledger.count as usize, count);
+        assert_eq!(ledger.expected as usize, count);
+        assert_eq!(ledger.weight, 0);
+        assert_eq!(ledger.floors, 0);
+        let token = TokenEpoch::parse(&read(&mut bank, &init["addresses"]["token_epoch"])).unwrap();
+        assert_eq!(token.status, 2);
+        assert_eq!(token.amount, 0);
+        assert_eq!(token.usd_committed, 0);
+        let after = Pool::parse(&read(&mut bank, &init["addresses"]["pool"])).unwrap();
+        assert_eq!(after.next_epoch, before.next_epoch + 1);
+        assert_eq!(after.carry, before.carry + ledger.revenue);
+        assert_eq!(after.subsidy, before.subsidy);
+        assert_eq!(after.liabilities, before.liabilities);
+        assert_eq!(after.active, 0);
+    }
+}
+
+#[test]
 fn signed_wire_lifecycle_and_atomic_refusals() {
     let payer = Keypair::new_from_array([203; 32]);
-    let (mut bank, init) = Bridge::initialize(&payer.pubkey().to_string()).unwrap();
+    let (mut bank, init) =
+        Bridge::initialize(&json!({"payer":payer.pubkey().to_string()})).unwrap();
     assert_eq!(init["execution"], "local-sbf");
     assert!(init["witnesses"].as_array().unwrap().len() >= 3);
+    let source = fixture();
+    let snapshot = source["snapshots"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["name"] == "token-rewards-ready")
+        .unwrap();
+    assert_eq!(
+        read(&mut bank, &init["addresses"]["attendance_epoch"]),
+        raw(&snapshot["accounts"]["attendance_epoch"]).unwrap()
+    );
     for k in [
         "program",
         "judge",
@@ -210,7 +363,8 @@ fn signed_wire_lifecycle_and_atomic_refusals() {
 #[test]
 fn expired_stage_cancels_without_moving_funds() {
     let payer = Keypair::new_from_array([204; 32]);
-    let (mut bank, init) = Bridge::initialize(&payer.pubkey().to_string()).unwrap();
+    let (mut bank, init) =
+        Bridge::initialize(&json!({"payer":payer.pubkey().to_string()})).unwrap();
     let vectors = &fixture()["write_vectors"];
     for name in ["open", "begin"] {
         success(&send(

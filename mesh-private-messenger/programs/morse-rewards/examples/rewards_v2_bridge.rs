@@ -1,6 +1,8 @@
 //! Disposable local SBF bank. No RPC, operator key loading, or native program fallback.
 //! Run with MORSE_TOKEN_CUSTODY_FIXTURES_PATH and fresh target/deploy/*.so files.
+//! initialize optionally selects row_count (integer 0..=64) and all_excluded (boolean).
 use base64::{engine::general_purpose::STANDARD, Engine};
+use judge_core::attendance::{initialize_epoch, EpochHeader, EPOCH_LEN};
 use litesvm::LiteSVM;
 use morse_rewards::state::{put64, u64_at, MEMBER_LEN};
 use serde_json::{json, Value};
@@ -67,8 +69,22 @@ struct Bridge {
     statuses: serde_json::Map<String, Value>,
 }
 impl Bridge {
-    fn initialize(payer: &str) -> Result<(Self, Value), String> {
-        let payer = address(payer)?;
+    fn initialize(request: &Value) -> Result<(Self, Value), String> {
+        let row_count = request
+            .get("row_count")
+            .map(|v| {
+                v.as_u64()
+                    .filter(|n| *n <= 64)
+                    .map(|n| n as usize)
+                    .ok_or("row_count must be an integer in 0..=64")
+            })
+            .transpose()?;
+        let all_excluded = request
+            .get("all_excluded")
+            .map(|v| v.as_bool().ok_or("all_excluded must be a boolean"))
+            .transpose()?
+            .unwrap_or(false);
+        let payer = key(request, "payer")?;
         let path = std::env::var("MORSE_TOKEN_CUSTODY_FIXTURES_PATH").map_err(|_| {
             "set MORSE_TOKEN_CUSTODY_FIXTURES_PATH to the immutable custody fixture"
         })?;
@@ -85,6 +101,26 @@ impl Bridge {
         let judge = key(snapshot, "program")?;
         let token = key(snapshot, "token_program")?;
         let epoch = number(&snapshot["epoch"])?;
+        let mut week = raw(&accounts["attendance_epoch"])?;
+        let source = EpochHeader::parse(&week).map_err(|e| format!("fixture attendance: {e:?}"))?;
+        let count = row_count.unwrap_or(source.witnesses as usize);
+        if count > source.witnesses as usize {
+            return Err("row_count exceeds available fixture attendance rows".into());
+        }
+        if row_count.is_some() {
+            let mut selected = vec![0; EPOCH_LEN];
+            initialize_epoch(&mut selected, &source.log_id, source.epoch)
+                .map_err(|e| format!("initialize attendance: {e:?}"))?;
+            if count != 0 {
+                put64(&mut selected, 44, source.posts);
+                put64(&mut selected, 52, source.max_post_slot);
+                selected[60..62].copy_from_slice(&(count as u16).to_le_bytes());
+                selected[80..80 + count * 40].copy_from_slice(&week[80..80 + count * 40]);
+            }
+            selected[62] = u8::from(source.sealed);
+            EpochHeader::parse(&selected).map_err(|e| format!("selected attendance: {e:?}"))?;
+            week = selected;
+        }
         let mut svm = LiteSVM::new();
         let mut binaries = Vec::new();
         for (name, program, env) in [
@@ -125,7 +161,11 @@ impl Bridge {
             {
                 continue;
             }
-            let mut data = raw(value)?;
+            let mut data = if role == "attendance_epoch" {
+                week.clone()
+            } else {
+                raw(value)?
+            };
             let space = usize::try_from(number(&value["space"])?).map_err(|e| e.to_string())?;
             if data.len() != space {
                 if role != "attendance_clock"
@@ -156,13 +196,22 @@ impl Bridge {
         svm.set_sysvar(&c);
         svm.airdrop(&payer, 20_000_000_000)
             .map_err(|e| format!("airdrop: {e:?}"))?;
-        for role in ["witness0", "witness1"] {
-            let witness = key(&accounts[role], "address")?;
+        let member_witnesses = if all_excluded {
+            (0..count)
+                .map(|row| bytes_key(&week, 80 + row * 40))
+                .collect::<Vec<_>>()
+        } else {
+            vec![
+                key(&accounts["witness0"], "address")?,
+                key(&accounts["witness1"], "address")?,
+            ]
+        };
+        for witness in member_witnesses {
             let member = Address::find_program_address(&[b"member", witness.as_ref()], &rewards).0;
             let mut data = vec![0; MEMBER_LEN];
             data[..4].copy_from_slice(b"MRM\x01");
             data[4..36].copy_from_slice(witness.as_ref());
-            data[36] = 1;
+            data[36] = if all_excluded { 2 } else { 1 };
             put64(&mut data, 48, (epoch - 1) * 604800);
             account(&mut svm, member, rewards, data)?;
         }
@@ -173,11 +222,6 @@ impl Bridge {
         let usdc = key(&accounts["usdc"], "address")?;
         let morse = key(&accounts["morse"], "address")?;
         let mut witnesses = Vec::new();
-        let week = raw(&accounts["attendance_epoch"])?;
-        let count = u16::from_le_bytes(week[60..62].try_into().unwrap()) as usize;
-        if count < 3 {
-            return Err("fixture requires at least three attendance rows".into());
-        }
         for row in 0..count {
             let witness = bytes_key(&week, 80 + row * 40);
             let data = svm
@@ -200,17 +244,61 @@ impl Bridge {
             witnesses.push(json!({"row":row,"id":String::from_utf8_lossy(&data[8..8+data[4] as usize]),"key_hex":hex::encode(&data[72..104]),"address":witness.to_string(),"witness":witness.to_string(),"bond":bond.to_string(),"pending":pending.to_string(),"member":member.to_string(),"payout":payout.to_string(),"payout_usdc_ata":ata(payout,usdc).to_string(),"payout_morse_ata":ata(payout,morse).to_string(),"signed":u64_at(&week,112+row*40).to_string()}));
         }
         let pins = json!({"program":rewards.to_string(),"judge":judge.to_string(),"token":token.to_string(),"log_name":snapshot["log_name"],"usdc_mint":usdc.to_string(),"governance":bytes_key(&pool,4).to_string(),"token_governance":bytes_key(&cfg,4).to_string(),"service_key":hex::encode(&log[72..104]),"log_version":log[4],"network_started":u64_at(&pool,164).to_string(),"token_slot":u64_at(&raw(&accounts["token_data"] )?,4).to_string(),"judge_slot":u64_at(&raw(&accounts["judge_data"] )?,4).to_string(),"rewards_slot":u64_at(&raw(&accounts["rewards_data"] )?,4).to_string(),"source_program":bytes_key(&oracle,68).to_string(),"source":bytes_key(&oracle,100).to_string(),"feed":hex::encode(&oracle[132..164]),"source_revision":u64_at(&oracle,292).to_string()});
-        let addresses: serde_json::Map<String, Value> = accounts
+        let mut addresses: serde_json::Map<String, Value> = accounts
             .iter()
             .map(|(k, v)| (k.clone(), v["address"].clone()))
             .collect();
+        let next_epoch = epoch.checked_add(1).ok_or("epoch overflow")?;
+        let next_epoch_bytes = next_epoch.to_le_bytes();
+        for (role, program, seeds) in [
+            (
+                "next_epoch",
+                rewards,
+                vec![b"epoch".as_slice(), &next_epoch_bytes],
+            ),
+            (
+                "next_token_epoch",
+                rewards,
+                vec![b"token-epoch".as_slice(), &next_epoch_bytes],
+            ),
+            (
+                "next_attendance_epoch",
+                judge,
+                vec![
+                    b"attendance-epoch".as_slice(),
+                    &source.log_id,
+                    &next_epoch_bytes,
+                ],
+            ),
+        ] {
+            addresses.insert(
+                role.into(),
+                json!(Address::find_program_address(&seeds, &program)
+                    .0
+                    .to_string()),
+            );
+        }
+        let mut adaptations = vec![
+            "target epoch and token epoch omitted; pool active cleared for actual open/begin/append".to_string(),
+            if all_excluded {
+                format!("all {count} selected witnesses supplied status-2 member records before staging")
+            } else {
+                "two omitted eligible member records supplied with effective time before target epoch".into()
+            },
+            "truncated attendance clock tail zero-filled; exported 8416-byte prefix retained".into(),
+            "deployment metadata pins retained with fresh SBF ELF code".into(),
+            "external payer funded with disposable lamports".into(),
+        ];
+        if row_count.is_some() {
+            adaptations.push(format!("attendance selects first {count} of {} rows; removed rows zeroed; zero rows reset posts and max slot", source.witnesses));
+        }
         let bank = Self {
             svm,
             height: c.slot,
             statuses: serde_json::Map::new(),
         };
         let mut init = pins.clone();
-        init.as_object_mut().unwrap().extend(json!({"pins":pins,"payer":payer.to_string(),"epoch":epoch.to_string(),"addresses":addresses,"witnesses":witnesses,"context":bank.context(),"execution":"local-sbf","signature_verification":true,"provenance":{"fixture_path":path,"fixture_sha256":hex::encode(hash(&fixture_bytes).to_bytes()),"snapshot":"token-rewards-ready","fixture_reused":true,"programs":binaries,"adaptations":["target epoch and token epoch omitted; pool active cleared for actual open/begin/append","two omitted eligible member records supplied with effective time before target epoch","truncated attendance clock tail zero-filled; exported 8416-byte prefix retained","deployment metadata pins retained with fresh SBF ELF code","external payer funded with disposable lamports"],"limits":"Injected local fixture state and LiteSVM, not live RPC, oracle publication or native program execution"}}).as_object().unwrap().clone());
+        init.as_object_mut().unwrap().extend(json!({"pins":pins,"payer":payer.to_string(),"epoch":epoch.to_string(),"next_epoch":next_epoch.to_string(),"row_count":count,"all_excluded":all_excluded,"addresses":addresses,"witnesses":witnesses,"context":bank.context(),"execution":"local-sbf","signature_verification":true,"provenance":{"fixture_path":path,"fixture_sha256":hex::encode(hash(&fixture_bytes).to_bytes()),"snapshot":"token-rewards-ready","fixture_reused":true,"programs":binaries,"adaptations":adaptations,"limits":"Injected local fixture state and LiteSVM, not live RPC, oracle publication or native program execution; next-epoch addresses are derived only, accounts still require signed open/seal operations"}}).as_object().unwrap().clone());
         Ok((bank, init))
     }
     fn context(&self) -> Value {
@@ -360,7 +448,7 @@ fn main() {
                 if bank.is_some() {
                     return Err("already initialized; start a new process for a fresh bank".into());
                 }
-                let (b, result) = Bridge::initialize(text(&request, "payer")?)?;
+                let (b, result) = Bridge::initialize(&request)?;
                 bank = Some(b);
                 Ok(result)
             } else {

@@ -69,6 +69,27 @@ test('production v2 executable authenticates snapshots, plans explicit intent an
     selected=root.snapshots.find(f=>f.name==='token-rewards-finalized');
     assert.equal((await planner.effect(request,finalize,initial.context_slot)).state,'present');
     assert.equal((await planner.plan(request)).status,'complete');
+    const range={...request,action:'settle',epoch_count:'2',cursor:request.epoch};
+    const completed=await planner.plan(range);
+    assert.equal(completed.status,'complete');assert.equal(completed.next_epoch,(BigInt(request.epoch)+1n).toString());
+    assert.notEqual(completed.intent_hash,finalize.intent_hash);
+    for(const invalid of [
+      {...range,epoch_count:2}, {...range,action:'claim',row:0,asset:0}, {...range,epoch_count:'0'}, {...range,epoch_count:'257'}, {...range,epoch_count:'02'},
+      {...range,epoch:'18446744073709551615'}, {...range,cursor:(BigInt(request.epoch)-1n).toString()},
+      {...range,cursor:(BigInt(request.epoch)+2n).toString()}
+    ])await assert.rejects(planner.plan(invalid));
+    await assert.rejects(planner.effect(range,finalize,initial.context_slot),'range is bound separately from explicit settlement');
+    const one=await planner.plan({...range,epoch_count:'1'});
+    assert.equal(one.next_epoch,null);
+    for(const [name,action] of [['floor-unfunded','waiting:token_reserve_cap'],['stale-floor-unfunded','waiting:token_reserve_unavailable'],['expired','cancel']]){
+      selected=root.snapshots.find(f=>f.name===`token-rewards-${name}`);
+      assert.equal((await planner.plan(range)).action,action);
+    }
+    const pausedConfig=JSON.stringify({...JSON.parse(securityConfig),rewards_slot:'1'});
+    const paused=await createRewardsPlanner({binary,tempRoot:join(directory,'paused'),securityConfig:pausedConfig,logVersion:1,
+      pins:{...pins,configuration_hash:createHash('sha256').update(pausedConfig).digest('hex')}});
+    assert.equal((await paused.plan(range)).action,'waiting:code-pins');
+    selected=root.snapshots.find(f=>f.name==='token-rewards-finalized');
     for(const asset of [0,1]){
       const claim={...request,action:'claim',row:17,asset};
       const plan=await planner.plan(claim);assert.equal(plan.action,asset?'claim-morse':'claim-usdc');
