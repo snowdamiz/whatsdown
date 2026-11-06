@@ -96,6 +96,11 @@ revisited at each phase gate.
 
 ## 2. Where things stand today (verified in code)
 
+The table below is the original design baseline. Subsequent implementation and
+verification checkpoints are recorded in §2.1; the baseline is not a current
+inventory of missing code. Phase exits still require their stated release and
+production evidence.
+
 | Area | Today | Where |
 |---|---|---|
 | Checkpoint | 188-byte `KTK` wire form. The service signs a 146-byte statement: `"mesh-key-transparency-v1"`, version u16, sequence u64, tree size u64, root, previous checkpoint hash, timestamp u64, service key. `checkpoint_hash = SHA-256("mesh-msg/v1/transparency-checkpoint" ‖ statement ‖ signature)` | `packages/messenger-protocol/transparency/merkle.mpl:182`, `wire.mpl:416` |
@@ -116,6 +121,25 @@ revisited at each phase gate.
 | Health | `/health` runs both witness checks | `ops/cloudflare/routing.mjs:31`, `README.md` |
 | Operator recruiting | Landing page `witnesses.html` (terms, lifecycle, FAQ) and a public GitHub issue form | `apps/landing/witnesses.html`, `.github/ISSUE_TEMPLATE/witness-application.yml` |
 | Missing entirely | No public record, monitors, relays, fork-proof format, N-of-M sets, chain programs, credits, payments or token, and no comparison of a phone's view with anyone else's | |
+
+### 2.1 Continuation checkpoints
+
+**2026-11-06 — acceptance process failures (§4.3 checks 1, 2, 4 and 8).**
+The canary runner retains completed observations and reports nonzero exits,
+signals and timeouts as errors even when it already wrote successful results.
+Lookup, phone-anchor and witness-outage checks now reject such runs; the credits
+drill already consumes canary errors. The outage drill restores the witness
+before returning the failure. Regression evidence: five tests failed before the
+change; all 27 focused canary, check and outage tests passed afterwards,
+including real subprocess exit, signal and timeout cases. This is local
+acceptance-runner verification, not a production phase exit.
+
+**Language prerequisite still open.** On 2026-11-06 the published Mesh release
+resolved to v0.1.8 (`10edaab3ebf0e8c1e73fa7c4e556188596af7d22`). CI documents
+that this release lacks `File.rename`/`File.sync`, `Crypto.BlindRsa` and the OHTTP
+APIs used in this tree. Existing local language work must be qualified and
+published before the release-based Mesh CI and canary-device build can pass.
+The acceptance-runner changes above require no language change.
 
 ---
 

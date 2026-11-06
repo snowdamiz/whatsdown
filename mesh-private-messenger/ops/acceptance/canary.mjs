@@ -32,16 +32,23 @@ export function canaryProcess({ role, directory, frame, workdir, accounts, env =
   let output = '';
   child.stdout.on('data', chunk => { output = (output + chunk).slice(-4000); });
   child.stderr.on('data', chunk => { output = (output + chunk).slice(-4000); });
-  const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, timeoutMs);
   const lines = () => existsSync(out) ? parse(readFileSync(out, 'utf8')) : [];
   const done = new Promise(resolve => {
-    const finish = error => {
+    let spawnError = null;
+    child.on('error', error => { spawnError = error; });
+    child.on('close', (code, signal) => {
       clearTimeout(timer);
       const found = lines();
-      resolve(found.length ? found : [{ kind: 'error', error: `${error ? error.message : 'the canary device wrote nothing'}: ${output.trim().slice(-600)}` }]);
-    };
-    child.on('error', finish);
-    child.on('close', () => finish(null));
+      const failure = spawnError ? spawnError.message
+        : timedOut ? `the canary device timed out after ${timeoutMs} ms`
+          : signal ? `the canary device was terminated by ${signal}`
+            : code !== 0 ? `the canary device exited ${code}`
+              : !found.length ? 'the canary device wrote nothing' : null;
+      if (failure) found.push({ kind: 'error', error: `${failure}: ${output.trim().slice(-600)}` });
+      resolve(found);
+    });
   });
   return { lines, done, stop: () => { writeFileSync(stopFile, ''); return done; } };
 }

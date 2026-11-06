@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -47,3 +47,22 @@ test('canary process: a helper that writes nothing reports why', async () => {
   assert.equal(line.kind, 'error');
   assert.match(line.error, /COMPILE ERROR/);
 });
+
+for (const [name, ending, expected] of [
+  ['nonzero exit', 'process.exit(7)', /exited 7/],
+  ['signal', "process.kill(process.pid, 'SIGTERM')", /SIGTERM/],
+  ['timeout', 'setInterval(() => {}, 1000)', /timed out/],
+]) {
+  test(`canary process: successful output cannot hide a ${name}`, async t => {
+    const workdir = mkdtempSync(join(tmpdir(), 'canary-test-'));
+    t.after(() => rmSync(workdir, { recursive: true, force: true }));
+    const line = { kind: 'lookup', account: 'morse-canary-1', ok: true };
+    const helper = `require('node:fs').appendFileSync(process.env.MORSE_CANARY_OUT,
+      JSON.stringify(${JSON.stringify(line)}) + '\\n'); ${ending};`;
+    const run = canaryProcess({ role: 'check', directory: 'https://dir.test', frame: 'x', workdir,
+      command: [process.execPath, '-e', helper], timeoutMs: 2000 });
+    const lines = await run.done;
+    assert.deepEqual(lines[0], line, 'retain the completed lookup for diagnosis');
+    assert.match(lines.find(line => line.kind === 'error')?.error ?? '', expected);
+  });
+}

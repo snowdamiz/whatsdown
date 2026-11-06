@@ -52,6 +52,7 @@ async function lookupCheck(ctx) {
   const failed = names.filter(name => !lookups.some(line => line.account === name && line.ok));
   const evidence = [{ label: 'registry', url: `${ctx.directory}/v1/transparency/registry` },
     { label: 'checkpoint', url: `${ctx.directory}/v1/transparency/checkpoint.note` }];
+  if (helperError) return result(1, 'fail', `canary device: ${helperError}`, evidence);
   if (failed.length) {
     return result(1, 'fail', failed.map(name => `${name}: ${lookups.find(line => line.account === name)?.error ?? helperError ?? 'no result'}`).join('; '), evidence);
   }
@@ -163,6 +164,8 @@ async function phoneCheck(ctx) {
   const lines = await canaryCheck(ctx);
   const anchor = lines.find(line => line.kind === 'anchor');
   const evidence = [{ label: 'Log account', url: (await links(ctx)).address(ctx.config.anchor.log) }];
+  const helperError = lines.find(line => line.kind === 'error')?.error;
+  if (helperError) return result(4, 'fail', `canary device: ${helperError}`, evidence);
   if (!anchor) return result(4, 'fail', `the canary device ran no anchor check (${lines.find(line => line.kind === 'error')?.error ?? 'no result'})`, evidence);
   const providers = [...new Set((anchor.rpc ?? []).filter(r => r.status === 200).map(r => hostOf(r.url)))];
   if (anchor.outcome !== 'ok') return result(4, 'fail', `outcome ${anchor.outcome}${anchor.error ? `: ${anchor.error}` : ''}`, evidence);

@@ -95,6 +95,18 @@ test('lookup and phone check share one canary run', async () => {
   assert.equal(ctx.canaryCalls.length, 1);
 });
 
+test('lookup and phone check fail when the canary errors after reporting success', async () => {
+  const ctx = context({ lines: [
+    ...[1, 2, 3].map(n => ({ kind: 'lookup', account: `morse-canary-${n}`, ok: true })),
+    { kind: 'anchor', outcome: 'ok', rpc: [{ url: 'https://rpc-1.test', status: 200 }, { url: 'https://rpc-2.test', status: 200 }] },
+    { kind: 'error', error: 'the canary device exited 7' },
+  ] });
+  for (const result of await runChecks([1, 4], ctx)) {
+    assert.equal(result.status, 'fail', result.name);
+    assert.match(result.detail, /exited 7/);
+  }
+});
+
 // A ring whose entries landed `latency` seconds after their checkpoint, every `every` seconds.
 function ringChain(entries) {
   const chain = memoryChain();

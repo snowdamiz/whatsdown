@@ -59,6 +59,16 @@ test('outage drill: a failed lookup during the window fails it, and the witness 
   assert.ok(h.calls.includes('start-c'));
 });
 
+test('outage drill: a canary error after successful lookups fails after restoring the witness', async () => {
+  const h = harness();
+  h.options.watch = () => ({ lines: () => h.lines, done: new Promise(() => {}),
+    stop: async () => [...h.lines, { kind: 'error', error: 'the canary device exited 7' }] });
+  const report = await outageDrill(h.options);
+  assert.equal(report.ok, false);
+  assert.match(report.detail, /exited 7/);
+  assert.deepEqual(h.calls, ['stop-c', 'start-c', 'status-c']);
+});
+
 test('outage drill: the threshold must hold while the witness is down', async () => {
   const report = await outageDrill(harness({ during: health({ stopped: 'witness-c', threshold: false }) }).options);
   assert.equal(report.ok, false);

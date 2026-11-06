@@ -58,6 +58,11 @@ fail to compile. Roles:
 - `create`: registers the canary accounts;
 - `extras`: the credits drill's own device (check 8, below).
 
+A nonzero exit, termination signal or timeout fails the check even if the
+device already reported successful observations. Those observations remain in
+the result for diagnosis. An outage drill restores the witness before reporting
+the device failure.
+
 ### The canary accounts, once
 
 `morse-canary-1…3` are the only synthetic leaves in `morse-main` (§11.3).

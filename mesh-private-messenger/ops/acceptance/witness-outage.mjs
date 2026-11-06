@@ -121,11 +121,14 @@ export async function outageDrill({ witness, target, minutes = 15, catchUpMinute
       if (code !== 0) statusProblem = `the witness's status check exited ${code} (halted or holding evidence?): ${output.slice(-200)}`;
     }
   }
-  const lookups = (await canary.stop()).filter(line => line.kind === 'lookup').slice(1);
+  const lines = await canary.stop();
+  const lookups = lines.filter(line => line.kind === 'lookup').slice(1);
 
   if (stopError) return fail(`stopping ${witness} failed: ${stopError.message}${startError ? `; starting it again failed too: ${startError.message}` : ''}`);
   if (startError) return fail(`starting ${witness} again failed: ${startError.message}. Start it by hand (witness-outage.mjs start ${witness})`);
   const problems = [];
+  const helperError = lines.find(line => line.kind === 'error')?.error;
+  if (helperError) problems.push(`canary device: ${helperError}`);
   const failed = lookups.filter(line => !line.ok);
   if (!lookups.length) problems.push('the canary device made no lookup during the drill');
   if (failed.length) problems.push(`${failed.length} of ${lookups.length} lookups failed (${[...new Set(failed.map(line => line.error))].join(', ')})`);
