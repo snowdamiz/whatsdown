@@ -304,6 +304,19 @@ payload/effect and original implicit/explicit probes. This is local macOS ARM64
 compiler qualification; the new artifact is not a published release or a fresh
 native-app qualification. The 5.2 GB owned build target was removed after proof.
 
+An optimized local compiler/runtime family from the same clean `8256d5d3`
+source now passes the conversion matrix at optimization levels 0 and 2,
+private-payload and user-conversion-effect refusals, the original implicit
+conversion, and the test runtime. All 1,482 source hashes match. Its compiler
+SHA-256 is `19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85`;
+the source, artifact and execution receipt is retained in Mesh at
+`.tmp/builtin-try-from/release-evidence/receipt.json`. The 1.56 GB owned target
+and 147 MB of superseded probe binaries were removed after hashing and checking
+for open files. The retained installed family still passes its runtime test
+after cleanup. These are apparent file sizes, not a claim of net disk recovery
+while other builds run. The earlier shared compiler remains available to active
+qualification work; no published release or app compiler pin changed.
+
 ### Progress summary — 2026-10-31
 
 The owned Android emulator run passes the full OS-PIN app-lock scenario, including cancellation, background dialog retirement, locked restart and authenticated disable. All 31 runtime/cleanup/guard checks pass; this advances D6 qualification without closing it. The current iOS Simulator app now passes a genuine UI signup, OS biometric refusal/cancel/success, enabled-policy background cover and a locked process restart followed by successful unlock. Its exact name and enabled setting survive restart, with source/product guards and owned cleanup passing. These are simulated Face ID checks; passcode fallback, authenticated disable and physical-device checks remain open. The initial caught-error Debug overlay still appears after signup and is ordinarily dismissed.
