@@ -49,8 +49,9 @@ export function desktopConfig(env, development = false) {
     EXPO_PUBLIC_MESSENGER_STREAM_URL: streamUrl,
     EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY: env.EXPO_PUBLIC_MESSENGER_OBJECT_WORK_DIFFICULTY }, { development });
   const ohttpFrame = ohttpConfig(env, networkFrame, securityFrame);
+  const rpcRoots = rpcTLSRoots(env, securityFrame);
   return { baseUrl, edgeUrl, streamUrl, objectUrl, securityFrame, ohttpFrame, networkCounterFrame: networkCounterConfig(env, securityFrame), creditPurpose: purpose,
-    rpcTlsRoots: rpcTLSRoots(env, securityFrame)?.toString('base64') ?? '',
+    ...(rpcRoots ? { rpcTlsRoots: rpcRoots.toString('base64') } : {}),
     issuerTlsRoot: issuerTLSRoot(env)?.toString('base64') ?? '',
     creditIssuerOrigin: purpose && env.MESSENGER_CREDIT_ISSUER_ORIGIN !== '-' ? env.MESSENGER_CREDIT_ISSUER_ORIGIN ?? '' : '',
     lightningNetwork: creditPurpose.lightningNetwork(env) ?? '',

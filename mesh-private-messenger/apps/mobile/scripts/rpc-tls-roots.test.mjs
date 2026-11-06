@@ -176,7 +176,7 @@ test('native plist and desktop config carry identical bytes, clear stale roots a
   assert.equal(JSON.stringify(config.android).includes(wire.toString('base64')), false, 'Android roots live only in binary asset');
   const cleared = await compileModsAsync(withMeshPushConfig(base(), env), options);
   assert.equal(cleared.ios.infoPlist.MeshMessengerRpcTLSRoots, undefined);
-  assert.equal(desktopConfig(env).rpcTlsRoots, '');
+  assert.equal(Object.hasOwn(desktopConfig(env), 'rpcTlsRoots'), false);
 });
 
 test('Expo public config evaluation exposes neither the build manifest path nor root bytes', () => {
