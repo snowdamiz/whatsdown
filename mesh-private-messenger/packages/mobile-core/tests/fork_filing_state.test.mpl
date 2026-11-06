@@ -29,6 +29,56 @@ fn attempt(path :: String, now :: U64) -> Option<FilingClaim>!String do
   claim_filing(path, key, repeated(1, 32)?, repeated(2, 32)?, 3, now)
 end
 
+fn binding_write_proof() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let key = platform_key()?
+  let pending = filing_pending(wide("90")?)?
+  for status in ["prepared", "settled"] do
+    let path = database_path("filing-binding-write")?
+    ensure_schema(path)?
+    let claim = required(attempt(path, wide("1000")?)?)?
+    let observation = %{pending |
+      status: status,
+      finder: repeated(7, 32)?,
+      receipt_format: 2,
+      receipt_binding: repeated(8, 32)?,
+      units: if status == "settled" do
+        wide("9223372036854775808")?
+      else
+        wide("0")?
+      end,
+      morse_units: if status == "settled" do
+        wide("18446744073709551615")?
+      else
+        wide("0")?
+      end
+    }
+    let before = load_blob(path, "fork-filing/v1")?
+    for length in [0, 1, 31, 33] do
+      let invalid = %{observation | receipt_binding: repeated(8, length)?}
+      case finish_filing(path, key, claim, wide("1001")?, 0, invalid) do
+        Err(error) -> assert(error == "invalid_filing_state")
+        Ok(_) -> assert(false)
+      end
+      assert(Bytes.secure_equals(before, load_blob(path, "fork-filing/v1")?))
+    end
+    finish_filing(path, key, claim, wide("1002")?, 0, observation)?
+    assert(load_filing(path, key, repeated(1, 32)?)?.observation == observation)
+    File.delete(path)?
+  end
+  Ok(true)
+end
+
+test("prepared and settled MPR2 persist only with the supplied full receipt binding and reopen unchanged") do
+  case binding_write_proof() do
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok(value) -> assert(value)
+  end
+end
+
 fn proof() -> Bool!String do
   assert(Test.install_in_memory_secure_store())
   let key = platform_key()?
@@ -66,7 +116,8 @@ fn proof() -> Bool!String do
     finder: repeated(7, 32)?,
     units: wide("18446744073709551615")?,
     morse_units: wide("0")?,
-    receipt_format: 1
+    receipt_format: 1,
+    receipt_binding: Bytes.empty()
   }
   finish_filing(path, key, next, wide("361002")?, 1, paid)?
   assert(claim_filing(path, key, scope, repeated(4, 32)?, 8, wide("99999999")?)? == None)
@@ -149,7 +200,8 @@ end
 fn durable_fixture(magic :: String,
   status :: String,
   receipt :: String,
-  finder :: String) -> Bytes!String do
+  finder :: String,
+  binding :: String) -> Bytes!String do
   Bytes.from_hex(magic
     <> String.repeat("01", 32)
     <> String.repeat("02", 32)
@@ -159,7 +211,8 @@ fn durable_fixture(magic :: String,
     <> receipt
     <> "00000010"
     <> String.repeat("06", 16)
-    <> finder)
+    <> finder
+    <> binding)
 end
 
 fn prepared_restart_proof() -> Bool!String do
@@ -170,7 +223,9 @@ fn prepared_restart_proof() -> Bool!String do
   let bytes = durable_fixture("46465332",
     "04",
     "0000000000000000000000000000000002",
-    "00000020" <> String.repeat("07", 32))?
+    "00000020" <> String.repeat("07", 32),
+    "00000020" <> String.repeat("08", 32))?
+  assert(Bytes.length(bytes) == 213)
   store_updated_session(path,
     "fork-filing/v1",
     seal_local(bytes, key, local_context("fork-filing/v1")?)?)?
@@ -179,6 +234,7 @@ fn prepared_restart_proof() -> Bool!String do
   assert(state.observation.units == wide("0")?)
   assert(state.observation.morse_units == wide("0")? && state.observation.receipt_format == 2)
   assert(Bytes.secure_equals(state.observation.finder, repeated(7, 32)?))
+  assert(Bytes.secure_equals(state.observation.receipt_binding, repeated(8, 32)?))
   assert(state.accepted == 2 && state.tier == 2)
   assert(attempt(path, wide("360999")?)? == None)
   let claim = required(attempt(path, wide("361000")?)?)?
@@ -240,7 +296,8 @@ fn legacy_restart_proof() -> Bool!String do
         "00000020" <> String.repeat("07", 32)
       else
         "00000000"
-      end)?
+      end,
+      "")?
     let blob = seal_local(bytes, key, local_context("fork-filing/v1")?)?
     store_updated_session(path, "fork-filing/v1", blob)?
     let state = load_filing(path, key, repeated(1, 32)?)?
@@ -257,6 +314,7 @@ fn legacy_restart_proof() -> Bool!String do
         0
       end)
     assert(state.observation.morse_units == wide("0")?)
+    assert(state.observation.receipt_binding == Bytes.empty())
     assert(state.observation.units == if settled do
         wide("18446744073709551615")?
       else
@@ -325,7 +383,12 @@ fn observation_contract_proof() -> Bool!String do
   let zero = wide("0")?
   let maximum = wide("18446744073709551615")?
   let pending = filing_pending(wide("90")?)?
-  let prepared = %{pending | status: "prepared", finder: repeated(7, 32)?, receipt_format: 2}
+  let prepared = %{pending |
+    status: "prepared",
+    finder: repeated(7, 32)?,
+    receipt_format: 2,
+    receipt_binding: repeated(8, 32)?
+  }
   let legacy = %{prepared | status: "settled", receipt_format: 1}
   let settled = %{prepared | status: "settled"}
   let observations = [
@@ -335,12 +398,13 @@ fn observation_contract_proof() -> Bool!String do
     prepared,
     legacy,
     %{legacy | units: maximum},
+    %{legacy | receipt_binding: Bytes.empty()},
     settled,
     %{settled | units: maximum},
     %{settled | morse_units: maximum},
     %{settled | units: maximum, morse_units: maximum}
   ]
-  let codes = [0, 1, 2, 4, 3, 3, 3, 3, 3, 3]
+  let codes = [0, 1, 2, 4, 3, 3, 3, 3, 3, 3, 3]
   for index in 0..List.length(observations) do
     let observation = List.get(observations, index)
     let path = database_path("filing-receipt-format")?
@@ -365,6 +429,7 @@ fn observation_contract_proof() -> Bool!String do
     %{pending | units: maximum},
     %{pending | morse_units: maximum},
     %{pending | finder: prepared.finder},
+    %{pending | receipt_binding: prepared.receipt_binding},
     %{pending | status: "rpc_unavailable", receipt_format: 2},
     %{pending | status: "rpc_disagree", morse_units: maximum},
     %{pending | status: "unknown"},
@@ -381,6 +446,9 @@ fn observation_contract_proof() -> Bool!String do
     %{settled | receipt_format: -1},
     %{settled | receipt_format: 3},
     %{legacy | morse_units: maximum},
+    %{legacy | receipt_binding: repeated(8, 1)?},
+    %{legacy | receipt_binding: repeated(8, 31)?},
+    %{legacy | receipt_binding: repeated(8, 33)?},
     %{settled | finder: Bytes.empty()},
     %{settled | finder: repeated(0, 32)?}
   ]
@@ -419,28 +487,41 @@ fn strict_decode_proof() -> Bool!String do
   ensure_schema(path)?
   let zero = "0000000000000000"
   let finder = "00000020" <> String.repeat("07", 32)
-  let old = durable_fixture("46465331", "03", "ffffffffffffffff", finder)?
-  let prepared = durable_fixture("46465332", "04", zero <> zero <> "02", finder)?
+  let binding = "00000020" <> String.repeat("08", 32)
+  let old = durable_fixture("46465331", "03", "ffffffffffffffff", finder, "")?
+  let prepared = durable_fixture("46465332", "04", zero <> zero <> "02", finder, binding)?
   let invalid = [
-    durable_fixture("46465330", "03", zero, finder)?,
-    durable_fixture("46465331", "04", zero, finder)?,
-    durable_fixture("46465331", "ff", zero, "00000000")?,
-    durable_fixture("46465331", "00", "ffffffffffffffff", "00000000")?,
-    durable_fixture("46465331", "03", zero, "00000000")?,
-    durable_fixture("46465331", "03", zero, "00000020" <> String.repeat("00", 32))?,
+    durable_fixture("46465330", "03", zero, finder, "")?,
+    durable_fixture("46465331", "04", zero, finder, "")?,
+    durable_fixture("46465331", "ff", zero, "00000000", "")?,
+    durable_fixture("46465331", "00", "ffffffffffffffff", "00000000", "")?,
+    durable_fixture("46465331", "03", zero, "00000000", "")?,
+    durable_fixture("46465331", "03", zero, "00000020" <> String.repeat("00", 32), "")?,
     append(old, Bytes.from_hex("00")?)?,
+    append(old, Bytes.from_hex("00000000")?)?,
+    append(old, Bytes.from_hex(binding)?)?,
     Bytes.slice(old, 0, Bytes.length(old) - 1)?,
-    durable_fixture("46465332", "03", zero, finder)?,
-    durable_fixture("46465332", "05", zero <> zero <> "02", finder)?,
-    durable_fixture("46465332", "04", zero <> zero <> "01", finder)?,
-    durable_fixture("46465332", "04", "ffffffffffffffff" <> zero <> "02", finder)?,
-    durable_fixture("46465332", "04", zero <> "ffffffffffffffff02", finder)?,
-    durable_fixture("46465332", "04", zero <> zero <> "02", "00000020" <> String.repeat("00", 32))?,
-    durable_fixture("46465332", "00", zero <> zero <> "02", "00000000")?,
-    durable_fixture("46465332", "00", zero <> "ffffffffffffffff00", "00000000")?,
-    durable_fixture("46465332", "03", zero <> "ffffffffffffffff01", finder)?,
-    durable_fixture("46465332", "03", zero <> zero <> "00", finder)?,
-    durable_fixture("46465332", "03", zero <> zero <> "03", finder)?,
+    durable_fixture("46465332", "03", zero, finder, binding)?,
+    durable_fixture("46465332", "05", zero <> zero <> "02", finder, binding)?,
+    durable_fixture("46465332", "04", zero <> zero <> "01", finder, binding)?,
+    durable_fixture("46465332", "04", "ffffffffffffffff" <> zero <> "02", finder, binding)?,
+    durable_fixture("46465332", "04", zero <> "ffffffffffffffff02", finder, binding)?,
+    durable_fixture("46465332",
+      "04",
+      zero <> zero <> "02",
+      "00000020" <> String.repeat("00", 32),
+      binding)?,
+    durable_fixture("46465332", "00", zero <> zero <> "02", "00000000", binding)?,
+    durable_fixture("46465332", "00", zero <> "ffffffffffffffff00", "00000000", "00000000")?,
+    durable_fixture("46465332", "00", zero <> zero <> "00", "00000000", binding)?,
+    durable_fixture("46465332", "03", zero <> "ffffffffffffffff01", finder, binding)?,
+    durable_fixture("46465332",
+      "03",
+      zero <> zero <> "01",
+      finder,
+      "0000001f" <> String.repeat("08", 31))?,
+    durable_fixture("46465332", "03", zero <> zero <> "00", finder, binding)?,
+    durable_fixture("46465332", "03", zero <> zero <> "03", finder, binding)?,
     append(prepared, Bytes.from_hex("00")?)?,
     Bytes.slice(prepared, 0, Bytes.length(prepared) - 1)?
   ]
@@ -467,6 +548,47 @@ end
 
 test("authenticated FFS2 prepared receipt survives restart and can be rechecked after its budget") do
   case prepared_restart_proof() do
+    Err(error) -> do
+      println(error)
+      assert(false)
+    end
+    Ok(value) -> assert(value)
+  end
+end
+
+fn binding_decode_proof() -> Bool!String do
+  assert(Test.install_in_memory_secure_store())
+  let key = platform_key()?
+  let path = database_path("filing-binding-decode")?
+  ensure_schema(path)?
+  let zero = "0000000000000000"
+  let finder = "00000020" <> String.repeat("07", 32)
+  for status in ["04", "03"] do
+    let unbound = durable_fixture("46465332", status, zero <> zero <> "02", finder, "")?
+    let invalid = [
+      unbound,
+      append(unbound, Bytes.from_hex("00000000")?)?,
+      append(unbound, Bytes.from_hex("0000001f" <> String.repeat("08", 31))?)?,
+      append(unbound, Bytes.from_hex("00000021" <> String.repeat("08", 33))?)?,
+      append(unbound, Bytes.from_hex("00000021" <> String.repeat("08", 32))?)?,
+      append(unbound, Bytes.from_hex("00000020" <> String.repeat("08", 31))?)?,
+      append(unbound, Bytes.from_hex("000000")?)?,
+      append(unbound, Bytes.from_hex("00000020" <> String.repeat("08", 32) <> "00")?)?
+    ]
+    for bytes in invalid do
+      let blob = seal_local(bytes, key, local_context("fork-filing/v1")?)?
+      store_updated_session(path, "fork-filing/v1", blob)?
+      assert(Result.is_err(load_filing(path, key, repeated(1, 32)?)))
+      assert(Result.is_err(attempt(path, wide("99999999")?)))
+      assert(Bytes.secure_equals(blob, load_blob(path, "fork-filing/v1")?))
+    end
+  end
+  File.delete(path)?
+  Ok(true)
+end
+
+test("FFS2 prepared and settled MPR2 reject missing, malformed and trailing receipt bindings") do
+  case binding_decode_proof() do
     Err(error) -> do
       println(error)
       assert(false)

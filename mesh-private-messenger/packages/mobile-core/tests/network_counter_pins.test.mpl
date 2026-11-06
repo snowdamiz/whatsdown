@@ -1,7 +1,8 @@
 from Transparency.Config import decode_security_config, encode_security_config
-from Mobile.NetworkCounterPins import decode_network_counter_pins
+from Mobile.NetworkCounterPins import decode_network_counter_pins, decode_filing_counter_pins
 from Solana.Read import pubkey
 from Transparency.TokenChain import token_addresses
+from Transparency.AnchorChain import anchor_addresses
 
 fn security() -> Bytes do
   Bytes.from_utf8(String.join([
@@ -76,7 +77,10 @@ fn proof() -> Bool!String do
     assert(Result.is_err(decode_network_counter_pins(Bytes.from_utf8(String.join(bad, "\n")), s)))
   end
   assert(Result.is_err(decode_network_counter_pins(Bytes.concat(frame, Bytes.from_utf8("\n"))?, s)))
-  let canary = %{s | anchor_log_name: "morse-canary"}
+  let canary = %{s |
+    anchor_log_name: "morse-canary",
+    anchor_address: Bytes.to_base58(anchor_addresses(pubkey(s.anchor_program)?, "morse-canary")?.ring.bytes)
+  }
   let bad = for index in 0..17 do
     if index == 1 do
       Bytes.to_hex(Crypto.sha256(encode_security_config(canary)?))
@@ -86,6 +90,12 @@ fn proof() -> Bool!String do
   end
   assert(Result.is_err(decode_network_counter_pins(Bytes.from_utf8(String.join(bad, "\n")),
     canary)))
+  let filing = decode_filing_counter_pins(Bytes.from_utf8(String.join(bad, "\n")), canary)?
+  assert(case filing.collateral do
+    Some(value) -> value.pins.log_name == "morse-canary"
+    None -> false
+  end)
+  assert(Result.is_err(decode_filing_counter_pins(frame, canary)))
   Ok(true)
 end
 
