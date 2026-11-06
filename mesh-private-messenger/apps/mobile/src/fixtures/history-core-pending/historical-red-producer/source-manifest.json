@@ -1,0 +1,22 @@
+{
+  "head": "924d24f62f6f4a725f467d237c8e55f2dc917c18",
+  "sha256": {
+    "mesh-private-messenger/packages/mobile-core/mobile/backup_archive.mpl": "a3cff838b8cc7367d084ce82b985b6d4bc7e3b0b0a7ab74ccfa67c7f00f87a69",
+    "mesh-private-messenger/packages/mobile-core/mobile/header_admission.mpl": "ba93c8a7df30a123bdb0e22a04dcaa4e4d87158f75f108e78b02796d9c858364",
+    "mesh-private-messenger/packages/mobile-core/mobile/history.mpl": "975f2b664007931fc584d055d380a2abc40b2b9be24d5246d7947cfbf2b2111e",
+    "mesh-private-messenger/packages/mobile-core/mobile/history_wire.mpl": "b5bd9343ac7c5c854fb9aba5ff989084d2ce2e5f690c5b31a6c7e072ef955818",
+    "mesh-private-messenger/packages/mobile-core/mobile/inbox.mpl": "7abbf6ecb5d031cf7cc56955df0cae93dc041148537a2be38de92529b4f22811",
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": "31b6b1c5eed5968e0abc370c0e1de2cecd7a8af08ce8b4a5af11eb2e1377fc84",
+    "mesh-private-messenger/packages/mobile-core/mobile/receive_sources.mpl": "3200ea57883a671ca96f1ea6b1bff9724014f65201b16b547804fdb250fc951c",
+    "mesh-private-messenger/packages/mobile-core/mobile/types.mpl": "eb3ccf85b221239ef6d6741d32e673533f01588220cccbde0106c29abc17e69f",
+    "mesh-private-messenger/packages/mobile-core/mobile_core.mpl": "7529482ce4a68943ea136695fe31dbbe9443498e9b6384a3976a90790cc37794",
+    "mesh-private-messenger/packages/mobile-core/tests/backup_archive_fixture.mpl": "942e3b7d810fa32844965ee0b511aa663f2ac17b1106e7cea8ac8dbf13c55ff7",
+    "mesh-private-messenger/packages/mobile-core/tests/expiry_history_capacity.test.mpl": "d619a88461c3096bc8218b82bd23094ceb850df5900dae212f9af157ce7e0437",
+    "mesh-private-messenger/packages/mobile-core/tests/expiry_sync.test.mpl": "225eaa04d5e73d4a18fdf7cfe219168859639fd0b8f1fe9dec814886c9d29882",
+    "mesh-private-messenger/packages/mobile-core/tests/history_storage.test.mpl": "b262e7cfdd2c93e9aab37a69fd5b4e5f5aeaa83f8a23c52acde2c32f5bd7202f",
+    "mesh-private-messenger/packages/mobile-core/tests/plaintext_history.test.mpl": "b7cc703368a2250a0f3d0bd66fcb431cd8fc1eb0d619643d17891c3ae88f5c6f",
+    "mesh-private-messenger/packages/mobile-core/tests/view_once_fixture.mpl": "bf4837bbe87139816fa0d857462b800c66048bed846d9bee939bcefe8c3c613c",
+    "mesh-private-messenger/packages/mobile-core/mobile/view_once_admission.mpl": "ae74a41546bc3dbef7967fe60e24bfb383a24147345e4d3cb0090a6882f4229d",
+    "mesh-private-messenger/packages/mobile-core/tests/view_once_receive.test.mpl": "9de32683f2550bb4cd5aaa0303842cd814b565e537b3ac401de91d4d277536d3"
+  }
+}

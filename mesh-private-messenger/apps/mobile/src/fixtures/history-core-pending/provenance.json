@@ -1,16 +1,16 @@
 {
   "artifact": "direct-pending-mixed.bin",
-  "sha256": "4c5b8f24a52749f67a9a868ca0584931698d6c4732d13763746d281fd646251a",
+  "sha256": "3d20432d6c493965abfc6dc01aced0322f20dc6e6ebbe72a71e1699142212c65",
   "size_bytes": 160,
-  "entries": 2,
   "statuses": [
     0,
     1
   ],
-  "source_manifest_sha256": "ca8a597870358e73a89ab44f53f13fe598340ef75bf581dfd278179d1c35cb4f",
-  "test_log_sha256": "dd6e72938084c6eac50be7f259cf9304b941c368fd515a723d8a312f399d9528",
+  "test_log_sha256": "ff217b1247b7e0c948a42efb82b90df251fae9eb6f38f357fa68ec935b09f3c8",
+  "source_manifest": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-39088f20/.morse/view-once-core-admission/evidence/collision-expiry-candidate/manifest.json",
+  "source_manifest_sha256": "f31ffbd85569285c694af5aec08e1053ff8af1fe863b36d682c1c33eb846b9e5",
   "compiler_sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
   "runtime_sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
   "test_runtime_sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
-  "outcome": "Artifact produced by real synthetic load_history_export and checked for absence of fixture VOR, capability, wrapped key, encrypted manifest, ciphertext and image. Test run subsequently failed on two separate known receive-collision regressions; fixture is not a qualified release artifact."
+  "outcome": "Actual synthetic load_history_export; test passes. Fixture-specific VOR, capability, wrapped key, manifest, encrypted chunk and image were checked absent before write. This proves direct parser fixture only, not native retrieval, group, platform or release."
 }
