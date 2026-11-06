@@ -32,7 +32,7 @@ creates private, bounded files and runs:
 relay-mpr2 --pins operator.json --input evidence.frk --request request.json
 ```
 
-Requests select `admit`, `receipt`, `stage`, `effect`, `lookup`, or `lookup-close`
+Requests select `admit`, `resume`, `receipt`, `stage`, `effect`, `lookup`, or `lookup-close`
 and carry a canonical decimal `min_context_slot`. The wrapper passes the Mesh
 operation's opaque effect token unchanged when reconciling an older packet.
 
@@ -44,13 +44,21 @@ The upgrade adds the asset pins to the existing scope. An active legacy lease
 refuses the upgrade. It retains old jobs, charges, signed bytes, and the single
 global pending packet fence.
 
+After that packet resolves, `resume` selects the current planner from
+authenticated collateral state. An unpaid legacy job can adopt schema 2 once
+MPR2 collateral activates. Its original plan, evidence, spending, and context
+remain in the journal. Paid records cannot change version, and plans cannot
+downgrade to schema 1.
+
 The scheduler reconciles that packet before adopting a replacement plan. Missing
 acknowledgments retain the packet. Pruned history requires the finalized expiry
 barrier and a Mesh-authenticated effect, with the reservation charged
 conservatively. A prepared receipt does not authorize cleanup or suppress the
 settlement packet.
 
-The Mesh planner stages the evidence, verifies its signatures, prepares the
+The relay first plans any permissionless tag 33 migrations for selected legacy
+USDC bonds. Each migration uses the same signed-packet journal and moves no token
+units. The Mesh planner then stages the evidence, verifies its signatures, prepares the
 permanent receipt with tags 41 through 43, creates payout accounts for both
 assets, and settles with tag 44. Packet admission checks the tag 44 account shape:
 13 fixed accounts and three accounts per witness. Wide packets use the stable
