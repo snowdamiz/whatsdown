@@ -352,9 +352,20 @@ export class RelayJournal {
       if (this.pending()) fail('Relay transaction still pending');
       const row = this.#job(proof), old = JSON.parse(row.plan), previous = this.#prepared(row);
       if (row.state === 'complete' || (row.receipt !== null && old.schema_version !== 2)) fail('Relay proof already settled or completed');
-      if (old.schema_version === 2 && ((fresh.status === 'settled') !== (row.receipt !== null))) fail('Relay revision requires authenticated settled receipt');
-      for (const field of ['schema_version', 'proof_hex', 'proof_hash', 'finder', 'receipt', 'program', 'log', 'mint', 'usdc_mint', 'morse_mint', 'submitter']) {
+      // Only unpaid legacy work can adopt mixed collateral after recovery.
+      const adopting = old.schema_version === 1 && fresh.schema_version === 2;
+      if (!adopting && fresh.schema_version !== old.schema_version) fail('Relay revision version changed');
+      if ((old.schema_version === 2 || adopting) && ((fresh.status === 'settled') !== (row.receipt !== null))) fail('Relay revision requires authenticated settled receipt');
+      for (const field of ['proof_hex', 'proof_hash', 'finder', 'receipt', 'program', 'log', 'submitter']) {
         if (fresh[field] !== old[field]) fail('Relay revision identity changed');
+      }
+      if (adopting) {
+        if (old.mint !== fresh.usdc_mint || fresh.usdc_mint !== this.#pins.usdcMint || fresh.morse_mint !== this.#pins.morseMint ||
+            (fresh.mint !== undefined && fresh.mint !== old.mint)) fail('Relay revision asset identity changed');
+      } else {
+        for (const field of ['mint', 'usdc_mint', 'morse_mint']) {
+          if (fresh[field] !== old[field]) fail('Relay revision identity changed');
+        }
       }
       if (fresh.stage.address !== old.stage.address || fresh.stage.full_hash !== old.stage.full_hash) fail('Relay revision Stage identity changed');
       if (units(fresh.context_slot) < units(this.progress(proof).minContextSlot)) fail('Relay revision context regressed');

@@ -11,7 +11,7 @@ async function receipt(context,job){
   if(job.receipt)return job;
   const view=await context.verifier.receipt(job.plan,floor(context,job.proofHash));fence(context);
   if(view.context_slot!==undefined&&!context.journal.pending())context.journal.observeContext(context.lease,job.proofHash,view.context_slot,context.now());
-  if(view.status==='settled')context.journal.recordReceipt(context.lease,job.proofHash,view.receipt,context.now());
+  if(view.status==='settled')context.journal.recordReceipt(context.lease,job.proofHash,view.settled_receipt??view.receipt,context.now());
   return context.journal.job(job.proofHash);
 }
 function waiting(context,proof,reason,delay=1000){
@@ -95,9 +95,12 @@ export async function advanceRelay(context){
     if(!context.journal.claimResources(context.lease,job.proofHash,context.now()))return waiting(context,job.proofHash,'resource-ownership');
     return walk(context,job,prepared(job.plan).cleanup);
   }
-  const admission=await context.verifier.admit(Buffer.from(job.plan.proof_hex,'hex'),floor(context,job.proofHash),{schemaVersion:1});fence(context);
+  const admission=typeof context.verifier.resume==='function'?
+    await context.verifier.resume(job.plan,floor(context,job.proofHash),{lookup:job.plan.lookup}):
+    await context.verifier.admit(Buffer.from(job.plan.proof_hex,'hex'),floor(context,job.proofHash),{schemaVersion:1});fence(context);
   if(admission.status==='settled'){
-    context.journal.recordReceipt(context.lease,job.proofHash,admission.receipt,context.now());
+    // Permanent MPR1 receipts keep the legacy plan and its cleanup recipes.
+    context.journal.recordReceipt(context.lease,job.proofHash,admission.settled_receipt??admission.receipt,context.now());
     return {state:'receipt-observed',proofHash:job.proofHash};
   }
   let lookupView;
@@ -109,7 +112,9 @@ export async function advanceRelay(context){
   if(revision.state==='retire-table')return walk(context,job,prepared(job.plan).cleanup.filter(step=>step.kind!=='close-stage'),{retiring:true});
   job=context.journal.job(job.proofHash);
   const plan=prepared(job.plan);
-  return walk(context,job,[...plan.preparation,...(plan.needsLookup?plan.lookup:[]),plan.settlement]);
+  return walk(context,job,job.plan.schema_version===2?
+    [...(plan.needsLookup?plan.lookup:[]),...plan.preparation,plan.settlement]:
+    [...plan.preparation,...(plan.needsLookup?plan.lookup:[]),plan.settlement]);
 }
 
 export function createRelayScheduler({journal,verifier,rpc,signer,now=Date.now,owner=randomUUID()}){
