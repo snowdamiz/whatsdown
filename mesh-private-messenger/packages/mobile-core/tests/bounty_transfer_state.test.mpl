@@ -5,7 +5,9 @@ from Mobile.BountyTransferState import (
   commit_bounty_transfer,
   acknowledge_bounty_transfer,
   cancel_bounty_transfer,
-  settle_bounty_transfer
+  settle_bounty_transfer,
+  migrate_bounty_transfer_legacy,
+  read_bounty_transfer_route
 )
 from Bounty.Settlement import BountyTransferSettlement
 from Mobile.TransparencySafety import retain_fork
@@ -14,9 +16,9 @@ from Solana.Read import Pubkey, Hash
 from Solana.Tx import compile_legacy_message, serialize_legacy_message
 from Solana.TransactionWrite import serialize_signed_legacy_transaction
 from Storage.Blobs import ensure_schema, load_blob
-from Storage.Keys import platform_key
-from Storage.Records import erase_local_state
-from Storage.BountyTransfer import store_bounty_transfer_snapshot
+from Storage.Keys import platform_key, seal_local, local_context
+from Storage.Records import erase_local_state, store_blobs
+from Storage.BountyTransfer import store_bounty_transfer_snapshot, bounty_transfer_row_label
 from Tests.Support import database_path, repeated, append
 from Tests.ForkFilingSupport import filing_fixture
 from Transparency.Config import encode_security_config
@@ -35,6 +37,9 @@ fn proof() -> Bool!String do
   let finder = pair()?
   let path = database_path("bounty-transfer-state")?
   ensure_schema(path)?
+  store_blobs(path,
+    ["profile/v1"],
+    [seal_local(Bytes.from_utf8("test-account"), key, local_context("profile/v1")?)?])?
   assert(load_bounty_transfer(path, key)? == None)
   let (proof, config) = filing_fixture()?
   assert(Test.set_push_token(Bytes.from_utf8("messenger/config/v1"),
@@ -134,6 +139,27 @@ fn proof() -> Bool!String do
   let signed = commit_bounty_transfer(path, key, id, packet, U64.parse("70")?, U64.parse("1100")?)?
   assert(signed.status == 2 && Bytes.secure_equals(signed.signature, p.bytes))
   assert(Bytes.secure_equals(signed.wire, packet))
+  let old_cipher = load_blob(path, "bounty-transfer/v1")?
+  let old_guard = load_blob(path, "fork-bounty/v1")?
+  let migrated = migrate_bounty_transfer_legacy(path, key, repeated(84, 32)?)?
+  let legacy_label = bounty_transfer_row_label(Bytes.to_hex(migrated.claim_id), 0)?
+  assert(Bytes.secure_equals(migrated.legacy_identity, id))
+  assert(Bytes.secure_equals(load_blob(path, legacy_label <> "/archive/v1")?, old_cipher))
+  assert(Bytes.secure_equals(read_bounty_transfer_route(path, key, 0)?.identity, id))
+  let restored = case load_bounty_transfer(path, key)? do
+    None -> return Err("lost legacy packet")
+    Some(value) -> value
+  end
+  assert(Bytes.secure_equals(restored.wire, packet))
+  assert(Bytes.secure_equals(restored.signature, signed.signature))
+  assert(Bytes.secure_equals(restored.intent, first.intent))
+  assert(Result.is_err(read_bounty_transfer_route(path, key, 1)))
+  assert(Result.is_err(store_bounty_transfer_snapshot(path,
+    ["bounty-transfer/v1"],
+    [old_cipher],
+    old_cipher,
+    old_guard)))
+  assert(Result.is_err(migrate_bounty_transfer_legacy(path, key, repeated(85, 32)?)))
   assert(Result.is_err(cancel_bounty_transfer(path, key, id)))
   assert(Result.is_err(commit_bounty_transfer(path,
     key,
@@ -196,6 +222,18 @@ fn proof() -> Bool!String do
     U64.parse("180")?,
     U64.parse("120")?,
     next.issued_at)))
+  # New issue times do not change the signed Solana message. A finalized
+  # failure retry must obtain a different hash rather than reuse its signature.
+  assert(Result.is_err(prepare_bounty_transfer(path,
+    key,
+    id,
+    %{next | blockhash: intent.blockhash},
+    payer.public_key.bytes,
+    usdc,
+    U64.parse("100")?,
+    U64.parse("180")?,
+    U64.parse("120")?,
+    next.issued_at)))
   let fresh = prepare_bounty_transfer(path,
     key,
     id,
@@ -208,7 +246,7 @@ fn proof() -> Bool!String do
     next.issued_at)?
   assert(fresh.status == 1)
   assert(Bytes.length(load_blob(path,
-    "bounty-transfer/v1/history/" <> Bytes.to_hex(signed.signature))?) > 0)
+    legacy_label <> "/history/" <> Bytes.to_hex(signed.signature))?) > 0)
   assert(Result.is_err(commit_bounty_transfer(path,
     key,
     id,
