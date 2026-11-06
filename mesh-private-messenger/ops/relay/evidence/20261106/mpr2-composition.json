@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "verdict": "PASS_LOCAL_MPR2_RELAY",
+  "head": "27b4e2bf98229bfac255e4d134992e390ab3555f",
+  "adopted_source": "2f5fa6649fb7fc7357618d973a68bf4a9a5e5e4d",
+  "production_acceptance": false,
+  "parent_owner_provenance": {
+    "status": "PASS_PARENT_PROVENANCE",
+    "qualified_head": "2f5fa6649fb7fc7357618d973a68bf4a9a5e5e4d",
+    "watched_sources": 457,
+    "retained_artifacts": 30,
+    "qualification_sha256": "9f57d9edde81e5be54045524c194428732875229f4874eaf027e34dc8cda3a50",
+    "handoff_sha256": "938885f70a4b2180664597adcd1d13bdfb085b78778047b3e8644b113050db12",
+    "all_sources_match_composed_tree": true
+  },
+  "fresh_parent_checks": {
+    "node_tests": 108,
+    "node_failures": 0,
+    "mesh_tests": 6,
+    "mesh_files": 4,
+    "cli_checks": 17,
+    "cli_rpc_requests": 72,
+    "local_sbf_tests_passed": 4,
+    "baseline_red_probe_skipped": 1,
+    "signed_sbf_executions": 80,
+    "distinct_signatures_across_reset_banks": 79,
+    "packet_cases": {
+      "case-2.json": 14,
+      "case-16.json": 52,
+      "case-prepared-winner.json": 14
+    },
+    "mpr1_replay": "no signing",
+    "prepared_winner": "A prepares then stops; B settles to A actual finder using only B signer; immutable B intent, pruned lost-ack reservation, then A cleanup without repay",
+    "prepared_balances": [
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "settled_winner_balances": {
+      "finderUsdc": "60000000",
+      "finderMorse": "13333333",
+      "lockedUsdc": "540000001",
+      "lockedMorse": "120000001"
+    },
+    "full_mesh_lint": "empty",
+    "scoped_format": "PASS",
+    "native_modules_verified": 190,
+    "watched_sources": 457,
+    "source_drift": [],
+    "artifact_drift": []
+  },
+  "retained_inputs": {
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+    "/Users/andreyyurlov/Documents/dev/whatsdown/.morse/witness-proof/token-custody-fixtures.json": "448e6668036e6dd2184bc7a4fd60e2740545b1270ba070c59858c9bb7eb196b5",
+    "/Users/andreyyurlov/Documents/dev/whatsdown/.morse/witness-proof/collateral-v2-operator/sdk-vector-subset-final3.json": "6c34a4b1979a3d6518d165f26e1467a1251b48446db5d9e988d1cf7d91c7aa97",
+    "/Users/andreyyurlov/Documents/dev/whatsdown/.morse/witness-proof/adjudication-account-fixtures.json": "b439d014e2680e0f5efff7f708c116c058ac2cee5ac1ce0afeac897fdac6866a",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-63282176/.morse/grace-assessment/sbf/morse_judge.so": "3b51921ac1a4537618325032b3d6184a1e0d583b034de4389bd923799d2e91ca",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-63282176/.morse/grace-assessment/sbf/morse_token.so": "f01a5e15daf6044ebb5edff7a8fe0b7422f9c6d4f094b24bc49c564a2c32702d",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-63282176/.morse/grace-assessment/sbf/morse_rewards.so": "d4521ada26a87b5fdf7cbdda94cc39897c12a21381bbd98c4746ee7cca1c8714"
+  },
+  "records": {
+    "sbf/qualification.json": "a7ded53972a4921777beb73fb9cd889ef630e5afa8879cabf825bf5fb43f4a9f",
+    "sbf/source-before.json": "3c4588932fff1e694714b2e94f46a4feb5443b680d3e05a5fe2ece735c059e79",
+    "sbf/execution-before.json": "c36338fd00ed20187fca00a69c6b6389e3ebe81dee19403a45472ab6452168c9",
+    "sbf/sbf-green.txt": "ecb1640b44f0afe181e26c0d33ec0c4a71c27275d12f50b4a2b389b5a79d3618",
+    "node-inputs.json": "9c4b0d54916fe8801c40410a08f89db39c97fe07f05f986daa7d1691181e9862",
+    "node-green.log": "dc1bcb3e5cc9d8cf7a2a8843eeec8df00c57dee0ffb233d2a7ac7610da5f485b",
+    "mesh-tests.json": "381e6bb7a4942db2e2669f999f30c20bbb29817b81c6153f94669f766e8db2cc",
+    "mesh-tests.log": "7f50dc40cea74d4fe6f44f30b28fa82e06e4d04b0f2de3e134d06fce0351fd92",
+    "cli/results.json": "69857d1ed6b660a468ffb5da246c36607d807373e2b4bee05b9efa2c1bd4ffaf",
+    "lint.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "fmt.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "qualification_root": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/mpr2-adoption",
+  "initial_attempts": [
+    "Unconfigured glob test command failed at missing required fixture environment. Correct documented20-file cohort rerun passes108 with hashed retained inputs. Not a production regression.",
+    "Formatting invocation passed two paths to a single-path CLI and was refused. Both separate scoped checks passed."
+  ],
+  "limits": [
+    "Retained initialized custody fixture and byte/source-verified SBF programs/bridge reused; new production Mesh executable compiled and fresh packets executed in disposable banks.",
+    "Three loopback origins share each bank; no independent provider, validator-finality, funded deployment or live settlement claim.",
+    "Full separate legacy SBF suite not rerun; legacy Node migration/recovery and permanent MPR1 no-sign replay are covered.",
+    "Phone filing and both-asset movement remain unfinished."
+  ]
+}

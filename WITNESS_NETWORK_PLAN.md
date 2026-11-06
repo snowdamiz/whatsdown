@@ -118,14 +118,14 @@ revisited at each phase gate.
 | Checkpoint gossip | Direct and linked-device encrypted hints/control exchange; group message v5 carries the same hint and addressed controls. Signed conflicts retain FRK and pause new trust | `mobile-core/mobile/gossip.mpl`, `group_gossip.mpl` |
 | Public anchors | Local judge anchor/cosign subset, native verification, scheduled writer and receipt APIs implemented; chain deployment pending | `programs/morse-judge`, `mobile-core/mobile/anchor_check.mpl`, `directory-delivery/storage/anchor_receipts.mpl` |
 | Monitor | Native Mesh polling, durable comparisons and cached status implemented locally; deployment pending | `clients/mesh-cli/monitor` |
-| Relay | Mesh admission, Kit signing, SQLite progress/ownership, finalized RPC recovery, durable scheduler, HTTP/manual entry points, bounded retention, witness-package integration and legacy phone filing implemented locally; mixed-asset execution/receipts, published distribution and funded qualification pending | `transparency/relay_admission.mpl`, `tools/fork-verifier`, `ops/relay`, `mobile-core/mobile/fork_filing.mpl` |
+| Relay | Mesh admission, Kit signing, SQLite progress/ownership, finalized RPC recovery, durable scheduler, HTTP/manual entry points, bounded retention, witness-package integration and legacy phone filing implemented locally. Durable mixed-asset execution and permanent MPR1/MPR2 receipts are adopted; mixed-asset phone filing, published distribution and funded qualification remain pending | `transparency/relay_admission.mpl`, `ops/relay-mpr2`, `ops/relay`, `mobile-core/mobile/fork_filing.mpl` |
 | Rewards | Local Mesh policy, isolated custody program, authenticated reader, durable v1 funding/settlement/claims, v2 settlement/asset claims, bounded multi-epoch scheduling and continuous directory/current-attendance grace assessment implemented; deployment and live funding qualification pending | `transparency/rewards_operator.mpl`, `programs/morse-rewards`, `ops/rewards`, `ops/token-v2/reward_operator.mpl` |
 | Credits, payments and token | Credits and USDC/SOL/Lightning paths have local implementation and execution evidence; token swaps/burns have local SBF proofs. Native dogfood, keeper/rewards integration, review, deployment and live exit gates remain open | Implementation progress below; Phases 4–6 |
 
 ### Current continuation status — 2026-11-06
 
 This table is the current continuation reference, through source checkpoint
-`fc0e701`. Detailed entries below retain the history of implementation and proof;
+`27b4e2b`. Detailed entries below retain the history of implementation and proof;
 an older candidate or pending note does not override a later adoption record.
 Local source, local execution, native UI qualification and live production
 acceptance are separate states. No live deployment inventory was refreshed by
@@ -146,9 +146,9 @@ passing local fixture does not close a native-device or production gate.
 | Plaintext propagation | Presentation labels plus outgoing direct/fanout/group-send/self-sync body labels adopted through `4eaed22`. Fresh qualified-compiler proof refuses seven selected HTTP exits, passes label-removal/production controls and the 69-site disclosure gate; three send/invitation test files pass | A separate exported triple-payload parser still accepts overlapping frames; demonstrated production message exports select their labeled parsers. Close remaining semantic parser and decoded receive/history boundaries, mobile targets and release qualification |
 | Bootstrap acceptance | Scoped native RPC TLS adopted through `748270a`; retained fresh compiled-Core fixture exits zero with 37 checks and `consistent`. Parent verified its source/artifact hashes; the combined product Main build passes with 69 sites, 176 exports and exact generated bindings | Full phone/UI and platform packaging, real production-clock next-due controls, broader bootstrap acceptance and all eight scheduled production checks remain open |
 | Witness outage qualification | Tooling adopted through `fc0e701`. Exact owner source `a66889a` passed 900.056500333 seconds with 155 native lookups and C's retained 1→31 catch-up; parent verified retained provenance and freshly rebuilt the combined sources for a passing 60-second control | Hosted B1 deployment, seven-day observation and the scheduled production outage drill remain open. The 900-second artifact predates TLS/body composition; the composed artifact has the separately recorded short control |
-| View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unconnected | Isolated storage prerequisite `924d24f` passes its scoped tests but is unadopted. Actual direct receive reproduces missing Pending and reference retention in history; the integration draft still has rejected private control flows. Resolve and qualify the complete receive path, full-reference binding, restart key retention and legacy Consumed precedence before adopting it |
+| View-once receive | Durable local consume/restart refusal exists; receive-side Pending admission and native opening remain unadopted | Isolated storage prerequisite `924d24f` passes scoped tests. After isolating private error propagation, the uncommitted direct-ratchet draft passes one actual Pending/history admission case and rejects private payload/caller-control probes. Initial/self-sync/group paths, duplicates, rollback, mailbox, native fetch and complete independent review remain open |
 | Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
-| Mixed-asset fork filing | MPR2 codecs and authenticated unsigned proof planning exist; legacy relay/phone filing works | Isolated relay `2f5fa66` has an 80-packet local SBF proof and independent prepared-winner review; parent adoption remains pending. Phone FFS2 state/view and actual native receipt work have begun with failing old-source controls. Shared receipt extraction must use native pins; mixed-asset bounty movement remains a separate unfinished unit |
+| Mixed-asset fork filing | Durable MPR2 relay and permanent receipt reader adopted at `27b4e2b`, including completion by another relay after the prepared winner stops. Fresh parent proof passes 80 signed SBF executions, 108 Node tests, six Mesh tests and 17 compiled CLI checks | Phone FFS2 state/view and actual native receipt work have begun with failing old-source controls. Shared receipt extraction must use native pins, retain MPR1 jobs and bind cached observations to those pins. Separate bounty-asset recovery, deployment and live qualification remain unfinished |
 | Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
 
 All eight §4.3 production checks remain pending. B1 shadow/outage observation,
@@ -425,6 +425,43 @@ state and logs remain available; duplicate copied toolchains were removed.
 This closes the local integration prerequisite only. It does not establish a
 native phone, TLS in this fixture, independent operators/software, remote
 hosting, seven-day B1 observation or any scheduled production acceptance check.
+
+### Durable mixed-asset relay — 2026-11-06
+
+The isolated `2f5fa66` implementation is adopted at `27b4e2b`. The production Mesh
+executable now supplies authenticated MPR2 operations to the existing Kit signer,
+durable SQLite journal and scheduler. The journal preserves exact signed packets,
+one global pending fence, context floors, spending totals and legacy jobs across
+restart and version migration. Permissionless legacy-bond migration, preparation,
+settlement and receipt-backed stage/table cleanup use the same path. Permanent
+MPR1/MPR2 reads bind the judge release, immutable log, derived receipt address and
+operator asset pins; current oracle, bond and registry lifetimes cannot
+erase an earned receipt. Prepared is explicitly unpaid.
+
+Independent review found a prepared-winner recovery gap: a second relay could
+not finish after the winning preparer stopped. The corrected path authenticates
+the winner's canonical intent and pays that winner while retaining the second
+relay's original accepted wire, requested finder and cleanup ownership. The
+reviewed correction and explicit RPC transport migration are included; fatal
+TLS/current-authority errors cannot become missing receipts or absent effects.
+
+Parent verified all 457 captured sources and 30 retained artifacts, then rebuilt
+and executed the combined source. The fresh local proof executes 80 signed SBF
+packets: 14 for two targets, 52 for sixteen targets, and 14 across the competing
+preparer/finisher/cleanup case. Both assets settle; lost acknowledgement with
+pruned history retains the full conservative reservation, and cleanup does not
+repay. MPR1 permanent receipt replay signs nothing. All 108 Node tests, six Mesh
+tests, 17 compiled CLI checks over 72 RPC requests, scoped formatting and full
+messenger lint pass. The [composition receipt](mesh-private-messenger/ops/relay/evidence/20261106/mpr2-composition.json)
+records exact hashes, retained unit vectors, the initially misconfigured test
+command and the corrected passing cohort.
+
+The initialized custody fixture, programs and bank bridge are reused after
+source/artifact checks; the packets and Mesh execution are fresh. Three loopback
+origins share each bank. This does not qualify independent providers, validator
+finality, funded deployment, phone receipt presentation or mixed-asset bounty
+movement. The separate full legacy SBF suite was not rerun. Phone integration is
+active in its own worktree and remains unadopted.
 
 ### Monitor acceptance contract — 2026-11-06
 
@@ -6184,6 +6221,10 @@ that first ships BR1.
 
 - Mint per §6.12, then the allocation transfers and vesting accounts.
 - Burn crank; token bonds with the TWAP oracle and top-up rule.
+- Local mixed-asset relay execution, prepared-winner recovery and permanent
+  MPR1/MPR2 receipts are adopted through `27b4e2b`, with a fresh 80-packet SBF
+  proof. Versioned phone filing and separate asset-transfer recovery remain
+  unfinished; local banks do not qualify funded operation.
 - Public page of burns, bonds and slashes.
 - **Exit:** the first four weekly burns are executed and published.
 
