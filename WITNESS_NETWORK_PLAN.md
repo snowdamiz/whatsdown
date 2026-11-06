@@ -4608,6 +4608,18 @@ witnesses. Any failure pages the on-call.
 8. **Credits (Phase 4+):** a $1 live purchase and one redemption of each extra,
    weekly.
 
+Current integration audit (2026-11-06): all eight production checks remain
+pending. The phone returns structured statuses; the combined lookup/check must
+require `consistent`, not accept `observed` without a verified local comparison.
+It samples three pinned RPC sources for a matching quorum of two. The monitor
+verifies consecutive links while traversing the ordered anchor history; whether
+the acceptance requires additional non-adjacent pairs remains unresolved. The
+current credit catalog starts at $5 and cannot satisfy the $1 purchase check.
+These differences must be resolved explicitly before claiming this suite passes.
+The first local integration unit connects the actual Core directory resolver and
+anchor check with synthetic canaries and owned local services. It does not
+qualify native phone ownership, independent providers or production operation.
+
 ### 4.4 Saying which profile we're in
 
 - **In the app:** Settings → Network shows the profile. For example, "Bootstrap: all
