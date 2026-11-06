@@ -86,7 +86,7 @@ fn actual_core_identity_changes_retire_once_and_failed_mutations_keep_admission(
         assert!(proof.status.success(),"{}\n{}",String::from_utf8_lossy(&proof.stdout),String::from_utf8_lossy(&proof.stderr));
         return;
     }
-    let f=Fixture::new("account-transition",false);
+    let f=Fixture::new("account-transition",true);
     let service=format!("io.morseapp.desktop.tests.{}.account-transition",std::process::id());
     let database=f.root.path.join("core.db").to_string_lossy().into_owned();
     struct Cleanup(String,PathBuf);
@@ -164,6 +164,37 @@ fn actual_core_identity_changes_retire_once_and_failed_mutations_keep_admission(
         assert!(files.preview(&old,preview).is_err(),"remote removal must revoke retained private files");
         resources.retire(old.epoch());f.activate(2,&successor);
     }
+    // The cleanup capability survives lock/unlock for this account, but the
+    // original private command must recheck its own epoch before invoking Core.
+    removals.capture(expected,f.controller.account_generation(),&database).unwrap();
+    let call=f.scopes.receiver(owner(2),&successor).unwrap().private(&f.epoch()).unwrap();
+    let (entered_tx,entered)=std::sync::mpsc::channel();let (resume,resume_rx)=std::sync::mpsc::channel();
+    let controller=f.controller.clone();let queue=f.queue.clone();let auth=f.auth.clone();let scopes=&f.scopes;let token=successor.clone();
+    let mut attempted=false;
+    let fresh_epoch=std::thread::scope(|threads| {
+        let lifecycle=threads.spawn(move || {
+            entered.recv().unwrap();controller.lifecycle(owner(2),Event::Inactive);
+            controller.lifecycle(owner(2),Event::Active);
+            controller.request(owner(2),controller.epoch(),Intent::Unlock).unwrap();queue.drain();
+            auth.0.lock().unwrap().take().unwrap()(AuthReply::Approved);queue.drain();
+            let epoch=crate::desktop_lock::wire::epoch(controller.epoch());
+            scopes.receiver(owner(2),&token).unwrap().activate(&epoch).unwrap();resume.send(()).unwrap();epoch
+        });
+        let mut first=true;
+        let result=call.execute_checked(|call| {
+            super::drain_before_core(call,||removals.drain(&library,&f.controller,&call.scope(),&database,|cleanup,_| {
+                if first { first=false;entered_tx.send(()).unwrap();resume_rx.recv().unwrap(); }
+                cleanup.check().unwrap();Ok(())
+            }))?;
+            attempted=true;
+            super::invoke_identity_transition(&library,&f.controller,"mesh_messenger_create_account",&request,&database,|_,_|panic!("creation"))
+                .map(|mut bytes|std::mem::take(&mut *bytes))
+        });
+        assert!(result.is_err());lifecycle.join().unwrap()
+    });
+    assert!(!attempted,"stale Core operation must not run after cleanup resumes");
+    assert!(f.scopes.receiver(owner(2),&successor).unwrap().check(&fresh_epoch).is_ok());
+    assert_eq!(super::identity(&library,&database).unwrap(),None);
     let _=super::invoke_identity_transition(&library,&f.controller,"mesh_messenger_create_account",&request,&database,|_,_|panic!("creation"));
     f.activate(2,&successor);
     let restored=super::identity(&library,&database).unwrap().unwrap();

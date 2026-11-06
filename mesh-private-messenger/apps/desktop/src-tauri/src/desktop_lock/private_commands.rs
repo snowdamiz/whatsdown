@@ -58,15 +58,16 @@ pub(crate) async fn mesh_invoke(webview: WebviewWindow, boot: State<'_, Arc<Boot
             }
             let library=mesh.lock().map_err(|_| "native_lock_failed")?;
             check(call)?;
-            boot.legacy_removals.drain(&library,&ready.controller,&call.scope(),&database,
-                |scope,key|super::legacy_commands::remove_legacy_key(&ready.native,scope,key))?;
+            drain_before_core(call, || boot.legacy_removals.drain(&library,&ready.controller,&call.scope(),&database,
+                |scope,key|super::legacy_commands::remove_legacy_key(&ready.native,scope,key)))?;
             if matches!(symbol.as_str(), "mesh_messenger_mailbox_stream_poll" | "mesh_messenger_mailbox_stream_close") {
                 let ticket=stream_close_ticket(&body, &database).ok_or("invalid_mailbox_ticket")?;
                 if !resources.owns(call.scope().owner(),call.scope().epoch(),&stream_tag(ticket)) {
                     return Err("app_lock_stale_epoch".to_owned());
                 }
             }
-            let mut bytes=invoke_identity_transition(&library,&ready.controller,&symbol,&body,&database,|identity,account| {
+            let mut bytes=observe_identity_transition(&library,&ready.controller,&symbol,&database,
+                || { check(call)?; library.invoke(&symbol,&body,&database) },|identity,account| {
                 boot.legacy_removals.capture(identity,account,&database)?;
                 // Failure preserves the obligation; this original private call
                 // still refuses. A successor page retries before any Core use.
@@ -149,6 +150,7 @@ pub(crate) async fn credit_open_payment(webview: WebviewWindow, boot: State<'_, 
     }).await.map_err(str::to_owned)
 }
 
+#[cfg(all(test, feature = "native-boundary-tests"))]
 fn invoke_identity_transition(library: &mesh::Mesh, controller: &super::controller::Controller, symbol: &str, body: &[u8], database: &str, removed: impl FnOnce(super::legacy_profile::ProfileIdentity, u64) -> Result<(),String>) -> Result<Zeroizing<Vec<u8>>, String> {
     observe_identity_transition(library,controller,symbol,database,||library.invoke(symbol,body,database),removed)
 }
@@ -176,3 +178,9 @@ fn observe_identity_transition(library: &mesh::Mesh, controller: &super::control
 #[cfg(all(test, feature = "native-boundary-tests"))]
 #[path = "tests/account_transition_tests.rs"]
 mod tests;
+
+fn drain_before_core(call:&PrivateCall, drain:impl FnOnce()->Result<(),String>) -> Result<(),String> {
+    check(call)?;
+    drain()?;
+    check(call)
+}
