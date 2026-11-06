@@ -125,11 +125,17 @@ revisited at each phase gate.
 ### Current continuation status — 2026-11-06
 
 This table is the current continuation reference, through source checkpoint
-`f4c21c2`. Detailed entries below retain the history of implementation and proof;
+`4b2953a`. Detailed entries below retain the history of implementation and proof;
 an older candidate or pending note does not override a later adoption record.
 Local source, local execution, native UI qualification and live production
 acceptance are separate states. No live deployment inventory was refreshed by
 these local checks.
+
+Maintain this table and the affected phase/§22 rows at each adopted checkpoint,
+alongside the detailed evidence entry. Record the adopted commit, what actually
+ran, any reused evidence, and the next unmet gate. Work in an isolated worktree
+is in progress until adopted and checked on the combined branch; a design or a
+passing local fixture does not close a native-device or production gate.
 
 | Workstream | Adopted or verified now | Next required work |
 |---|---|---|
@@ -137,9 +143,9 @@ these local checks.
 | Quorum source identity | Shared Mesh and writer host checks adopted through `f4c21c2`; seven Mesh and 28 native/writer checks pass, including mapped/nonmapped IPv6 controls | Independent-provider and live RPC qualification; different names alone do not establish different operators |
 | V2 rewards | Bounded scheduling plus directory/current-attendance grace assessment adopted (`cee839c`); 47 composed local Node/native/Kit/SBF checks pass | Deployment, funded operation, independent providers and live duration gates; finite requests stop at their configured bound |
 | Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; fresh 800 app, 121 native and 16 desktop-script checks pass | Provisioned Keychain/signing and unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
-| Plaintext propagation | Presentation ingress/storage/projection adopted with 69 reviewed sites; current macOS desktop Core build and native tests pass | Message/request ingress continuation is still in an isolated worktree; remaining content propagation, mobile targets and release qualification |
-| Bootstrap acceptance | Actual native-ABI canary lookup, forged-signature refusal and restart continuity reproduced; isolated runner commits await adoption | Explicit scoped native RPC TLS-root input is missing: owned HTTPS peers work with request-scoped roots, but the actual anchor call returns `rpc_unavailable`; combined acceptance remains red |
-| Mixed-asset fork filing | MPR2 codecs and authenticated unsigned proof planning exist; legacy relay/phone filing works | Durable MPR2 relay execution, versioned authenticated receipts, phone filing and separate bounty-asset recovery |
+| Plaintext propagation | Presentation ingress/storage/projection adopted with 69 reviewed sites; current macOS desktop Core build and native tests pass | Message/request ingress candidate remains isolated; review reproduced label loss through an alternate control parser. Close that boundary, decoded receive/history propagation, mobile targets and release qualification |
+| Bootstrap acceptance | Native-ABI runner adopted through `4b2953a`; fresh combined-branch run passes lookup, forged-signature refusal and restart controls but exits 1 with `BLOCKED_NATIVE_RPC_TLS` | Scoped native RPC TLS implementation is active in an isolated worktree. The actual anchor call still returns `rpc_unavailable`; remaining local controls and all eight production checks stay open |
+| Mixed-asset fork filing | MPR2 codecs and authenticated unsigned proof planning exist; legacy relay/phone filing works | Durable MPR2 relay execution is active in an isolated worktree; versioned authenticated receipts, phone filing and separate bounty-asset recovery remain unadopted |
 | Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
 
 All eight §4.3 production checks remain pending. B1 shadow/outage observation,
@@ -293,6 +299,36 @@ exact canonical mapped shape. Seven Mesh and 28 native executable/writer checks
 pass on the composed source, preserving ordinary IPv6, explicit local ports and
 strict production mode. Receipts are under
 `.morse/continuation-20261106/anchor-host-final`.
+
+### Native bootstrap runner adoption — 2026-11-06
+
+The local runner is adopted in `355b378` and `4b2953a`:
+[`ops/bootstrap/README.md`](mesh-private-messenger/ops/bootstrap/README.md)
+documents reproduction, and the
+[retained owner receipt](mesh-private-messenger/ops/bootstrap/evidence/20261106/receipt.json)
+records the original failure. Parent adoption verified 716 source hashes and
+seven retained evidence files, then rebuilt and reran the actual C ABI fixture
+on `4b2953a` using the qualified optimized Mesh `8256d5d3` family.
+
+The fresh run passes six local controls: explicit-root readiness of all three
+owned HTTPS peers, actual directory lookup and verified cache publication,
+forged-signature refusal with byte-identical prior cache, process-restart lookup
+continuity, persisted anchor result/reservation, and refusal of HTTP RPC pins.
+The combined acceptance still **fails**: `mesh_messenger_anchor_check` returns
+`rpc_unavailable`, with zero RPC HTTP requests. The persisted result is that
+failure, not a successful daily check. OHTTP is explicitly off; one synthetic
+canary and three loopback origins do not qualify independent providers or a
+native phone. Fresh evidence is under
+`.morse/continuation-20261106/bootstrap-adoption/current`; the runner removed
+its owned temporary library, databases, certificates and keys after hashing.
+
+The accepted next design uses explicit URL/root pairs and a refusal-only
+current-context guard, captured from an immutable native RPC resource and
+applied through public `Http.trust_root_pem`. Existing public Mesh APIs suffice;
+no global trust override or JavaScript-selected root is planned. Implementation
+is isolated and not yet adopted. Valid `consistent` anchors, missing-cache and
+invalid-anchor controls, provider disagreement, due-day progression and three
+canaries remain unqualified. All eight §4.3 production checks remain pending.
 
 ### Desktop native service connection — 2026-11-06
 
@@ -4684,8 +4720,9 @@ witnesses. Any failure pages the on-call.
    a fork.
 3. **Anchoring:** every root change reaches the ring within 60 s, and heartbeats land
    at least hourly.
-4. **Phone check:** the canary device's daily check reports `ok` against two RPC
-   providers.
+4. **Phone check:** the canary device's daily check reports `consistent` against
+   a matching quorum of two of three sampled pinned RPC sources and its verified
+   local checkpoint. `observed` without a local comparison does not pass.
 5. **Monitor:** zero inconsistencies. The consistency proof for every anchor pair
    verifies.
 6. **Fork drill:** monthly on the canary log (§11.3). The proof is filed by a relay,
@@ -4696,17 +4733,20 @@ witnesses. Any failure pages the on-call.
    redeem each deployed extra, weekly.
 
 Current integration audit (2026-11-06): all eight production checks remain
-pending. The phone returns structured statuses; the combined lookup/check must
-require `consistent`, not accept `observed` without a verified local comparison.
-It samples three pinned RPC sources for a matching quorum of two. The monitor
-verifies consecutive links while traversing the ordered anchor history; whether
+pending. Check 4 now names the actual structured `consistent` result and the
+three-source/two-view quorum; the earlier literal `ok` wording is superseded.
+The monitor verifies consecutive links while traversing the ordered anchor
+history; whether
 the acceptance requires additional non-adjacent pairs remains unresolved. The
 credit check now uses the standard $5 pack, consistent with §7's fixed pricing;
 the earlier $1 requirement is superseded. The remaining differences must be
 resolved explicitly before claiming this suite passes.
-The first local integration unit connects the actual Core directory resolver and
-anchor check with synthetic canaries and owned local services. It does not
-qualify native phone ownership, independent providers or production operation.
+The first local integration unit is adopted: it connects the actual Core
+directory resolver and anchor check with one synthetic canary and owned local
+services. Lookup/refusal/restart controls pass; combined acceptance exits 1 at
+the missing native RPC TLS-root input. See §2's native bootstrap adoption entry
+and `ops/bootstrap/README.md`. This does not qualify native phone ownership,
+independent providers or production operation.
 
 ### 4.4 Saying which profile we're in
 
