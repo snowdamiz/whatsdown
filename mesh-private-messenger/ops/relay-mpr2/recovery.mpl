@@ -1,6 +1,12 @@
 ##! Reconcile old operations without readmission through mutable collateral.
 from Input import RelayConfig, text
-from Receipt import RelayReceiptState, receipt_keys, decode_receipt_snapshot
+from Receipt import (
+  RelayReceiptState,
+  PermanentReceipt,
+  read_receipt,
+  receipt_keys,
+  decode_receipt_snapshot
+)
 from Accounts import operator_snapshot_digest, operator_absent
 from Solana.Read import (
   Pubkey,
@@ -27,17 +33,32 @@ pub struct RecoveryState do
   digest :: Bytes
 end
 
-pub fn recovery_keys(config :: RelayConfig, wire :: Bytes) -> List<Pubkey>!String do
-  let pins = config.operator.pins
-  let proof = validate_relay_submission(pins.service_key, pins.log_version, wire)?
-  let a = token_collateral_addresses(pins.context)?
-  let finder = Pubkey {
+fn payout_finder(config :: RelayConfig,
+  wire :: Bytes,
+  receipt :: RelayReceiptState) -> Pubkey!String do
+  case receipt.value do
+    Some(MixedReceipt(value)) -> return Ok(Pubkey { bytes: value.finder })
+    Some(LegacyReceipt(value)) -> return Ok(Pubkey { bytes: value.finder })
+    None -> nil
+  end
+  let proof = validate_relay_submission(config.operator.pins.service_key,
+    config.operator.pins.log_version,
+    wire)?
+  Ok(Pubkey {
     bytes: if Bytes.to_hex(proof.finder) == String.repeat("00", 32) do
       config.submitter.bytes
     else
       proof.finder
     end
-  }
+  })
+end
+
+pub fn recovery_keys(config :: RelayConfig,
+  wire :: Bytes,
+  finder :: Pubkey) -> List<Pubkey>!String do
+  let pins = config.operator.pins
+  let proof = validate_relay_submission(pins.service_key, pins.log_version, wire)?
+  let a = token_collateral_addresses(pins.context)?
   let locked = collateral_derived(pins.context.judge, [Bytes.from_utf8("locked"), a.log_id])?
   Ok(receipt_keys(pins, fork_hash(proof)?)?
     ++ [token_proof_stage_address(pins.context, config.submitter, wire)?]
@@ -51,8 +72,9 @@ end
 pub fn decode_recovery_snapshot(config :: RelayConfig,
   wire :: Bytes,
   minimum :: U64,
+  finder :: Pubkey,
   snapshot :: OptionalAccountSlicesAtSlot) -> RecoveryState!String do
-  let keys = recovery_keys(config, wire)?
+  let keys = recovery_keys(config, wire, finder)?
   if List.length(snapshot.accounts) != List.length(keys) do
     return Err("relay_recovery_snapshot")
   end
@@ -78,13 +100,9 @@ pub fn decode_recovery_snapshot(config :: RelayConfig,
     wire,
     account,
     snapshot.slot)?
-  let finder = Pubkey {
-    bytes: if Bytes.to_hex(proof.finder) == String.repeat("00", 32) do
-      config.submitter.bytes
-    else
-      proof.finder
-    end
-  }
+  if payout_finder(config, wire, receipt)? != finder do
+    return Err("relay_recovery_winner_changed")
+  end
   let locked = collateral_derived(pins.context.judge, [Bytes.from_utf8("locked"), a.log_id])?
   let destinations = for index in 0..4 do
     let slice = List.get(snapshot.accounts, 5 + index)
@@ -128,9 +146,10 @@ fn origin(client :: Int,
   url :: String,
   config :: RelayConfig,
   wire :: Bytes,
+  finder :: Pubkey,
   minimum :: U64) -> RecoveryState!String do
   let request = get_multiple_accounts_slice_request(1,
-    recovery_keys(config, wire)?,
+    recovery_keys(config, wire, finder)?,
     "finalized",
     0,
     9216,
@@ -138,6 +157,7 @@ fn origin(client :: Int,
   decode_recovery_snapshot(config,
     wire,
     minimum,
+    finder,
     optional_accounts_slice_from_response(rpc_send(client, url, request, 5000, 262144)?)?)
 end
 
@@ -147,9 +167,15 @@ pub fn read_recovery(client :: Int,
   minimum :: U64) -> RecoveryState!String do
   let sources = config.operator.sources
   validate_collateral_operator_sources(sources)?
-  let first = origin(client, List.get(sources, 0), config, wire, minimum)
-  let second = origin(client, List.get(sources, 1), config, wire, minimum)
-  let third = origin(client, List.get(sources, 2), config, wire, minimum)
+  let proof = validate_relay_submission(config.operator.pins.service_key,
+    config.operator.pins.log_version,
+    wire)?
+  let receipt = read_receipt(client, sources, config.operator.pins, fork_hash(proof)?, minimum)?
+  let finder = payout_finder(config, wire, receipt)?
+  let floor = receipt.context_slot
+  let first = origin(client, List.get(sources, 0), config, wire, finder, floor)
+  let second = origin(client, List.get(sources, 1), config, wire, finder, floor)
+  let third = origin(client, List.get(sources, 2), config, wire, finder, floor)
   for pair in [(first, second), (first, third), (second, third)] do
     case pair do
       (Ok(a), Ok(b)) -> if a.digest == b.digest do

@@ -70,19 +70,20 @@ pub fn plan_lookup(config :: RelayConfig,
   state :: CollateralProofState,
   requested :: Option<LookupRequest>) -> RelayLookupPlan!String do
   let c = config.operator.pins.context
-  let prepare = token_proof_prepare_instruction(c,
-    config.fee_payer,
-    config.submitter,
-    intent.wire,
-    state.plan,
-    state.second_hash,
-    state.anchor_generation)?
   let settle = token_proof_settle_instruction(c, settlement_shape(config, state)?)?
-  let combined = Instruction {
-    program_id: c.judge,
-    accounts: prepare.accounts ++ settle.accounts,
-    data: Bytes.empty()
-  }
+  let accounts = case state.receipt do
+    Some(_) -> settle.accounts
+    None ->
+      let prepare = token_proof_prepare_instruction(c,
+        intent.fee_payer,
+        intent.submitter,
+        intent.wire,
+        state.plan,
+        state.second_hash,
+        state.anchor_generation)?
+      prepare.accounts ++ settle.accounts
+  end
+  let combined = Instruction { program_id: c.judge, accounts: accounts, data: Bytes.empty() }
   let candidate = prepare_relay_lookup(config.submitter, combined, state.base.slot)?
   case requested do
     None -> Ok(candidate)

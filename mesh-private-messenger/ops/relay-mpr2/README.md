@@ -63,6 +63,13 @@ include both assets, checkpoint hashes, finder, submitter, stage, deadline,
 subject identities, bond lifetimes, and per-asset amounts. Prepared records are
 unpaid. MPR1 objects retain the original schema 1 `slash_receipt_report` shape.
 A competing receipt can name a different finder from the submitted evidence.
+Admission of a prepared winner reconstructs its canonical finder and submitter
+intent, binds it to the receipt's exact stage, and reuses the existing collateral
+reader and planner. The caller's pinned wallet remains the fee payer. Ready
+reports keep the original accepted wire, finder, submitter and cleanup stage;
+`payout_finder` names the authenticated winner used for payout account ownership.
+Prepared lookup candidates use the actual settlement metas. Existing compatible
+tables remain eligible through the ordinary coverage and retirement checks.
 Permanent reads depend on the pinned judge loader, immutable log identity, and
 derived proof PDA. They do not read current sources, bonds, or witness registries.
 
@@ -78,6 +85,10 @@ old descriptor `{kind,stepId,lookup,instructions}` for create, extend, deactivat
 and close. Mesh checks that descriptor against the canonical lookup lifecycle
 before reading the table. Old effects and destination reads do not require
 readmission through current economics or the evidence deadline.
+Payout effects first authenticate the permanent receipt to select the winner,
+then reauthenticate it with that winner's destinations in one finalized batch
+at the learned slot floor. A changed winner rejects reconciliation. Stage reads
+and close instructions continue to target the original submitter and wire.
 
 ## Local verification
 

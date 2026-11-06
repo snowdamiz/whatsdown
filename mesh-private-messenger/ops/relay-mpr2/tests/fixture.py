@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 CUSTODY_SHA256 = '448e6668036e6dd2184bc7a4fd60e2740545b1270ba070c59858c9bb7eb196b5'
+VECTORS_SHA256 = '6c34a4b1979a3d6518d165f26e1467a1251b48446db5d9e988d1cf7d91c7aa97'
 ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
 
@@ -56,10 +57,12 @@ def select(source, legacy=None, vectors=None):
         output['legacy-settled'] = dict(config=base['config'], proof_hash=receipt[40:72].hex(),
                                         accounts=base['accounts'][:2] + [logs[0], by_address[row['receipt_address']]])
     if vectors:
+        assert hashlib.sha256(vectors.read_bytes()).hexdigest() == VECTORS_SHA256
         rows = []
+        prepared = []
         observed = json.loads(vectors.read_text())['cases']
         for row in observed:
-            if row['tag'] != 41 or not row['success'] or row['anchor_generation'] is not None or len(row['keys']) != 2:
+            if row['tag'] not in [41, 44] or not row['success'] or row['anchor_generation'] is not None or len(row['keys']) != 2:
                 continue
             accounts = row['accounts']
             def find(magic):
@@ -84,9 +87,12 @@ def select(source, legacy=None, vectors=None):
                                       if case['accounts'].get(address, {}).get('data_hex', '').startswith('4d424402')), None)
                     if successor:
                         migrated[address] = successor
-            rows.append(dict(row, config=config, migrated_bonds=migrated))
+            target = rows if row["tag"] == 41 else prepared
+            target.append(dict(row, config=config, migrated_bonds=migrated))
         assert rows
         output['migration_cases'] = rows
+        assert prepared
+        output['prepared_cases'] = prepared
     return output
 
 

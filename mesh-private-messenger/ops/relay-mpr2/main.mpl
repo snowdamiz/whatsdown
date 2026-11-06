@@ -1,6 +1,7 @@
 from Input import RelayConfig, RelayRequest, parse_config, parse_request
 from ProofRead import CollateralProofIntent, read_collateral_proof
 from ProofPlan import plan_collateral_proof
+from Prepared import prepared_intent
 from Read import read_collateral_operator_unpriced
 from Transparency.TokenCollateralWrite import TokenCollateralSubject
 from Receipt import read_receipt, receipt_report
@@ -140,7 +141,7 @@ fn execute(client :: Int,
   if receipt.status == "settled" do
     return settled_report(config, wire, receipt)
   end
-  if request.method == "resume" do
+  if request.method == "resume" && receipt.status != "prepared" do
     let base = read_collateral_operator_unpriced(client,
       config.operator.sources,
       pins,
@@ -162,16 +163,24 @@ fn execute(client :: Int,
     witnesses: config.witnesses,
     close: false
   }
-  let state = read_collateral_proof(client, config.operator.sources, pins, intent, request.minimum)?
+  let effective = prepared_intent(pins, intent, receipt)?
+  let state = read_collateral_proof(client,
+    config.operator.sources,
+    pins,
+    effective,
+    receipt.context_slot)?
+  if receipt.status == "prepared" && state.receipt == None do
+    return Err("relay_prepared_receipt_changed")
+  end
   let operation = if List.length(state.legacy_subjects) > 0 do
-    migration_operation(config, intent, state)?
+    migration_operation(config, effective, state)?
   else
-    plan_collateral_proof(pins, intent, state)?
+    plan_collateral_proof(pins, effective, state)?
   end
   if operation.state != "ready" do
     return Err("relay_readmission_changed")
   end
-  let lookup = plan_lookup(config, intent, state, request.lookup)?
+  let lookup = plan_lookup(config, effective, state, request.lookup)?
   if request.method == "lookup-plan" do
     return Ok(lookup_report(lookup))
   end

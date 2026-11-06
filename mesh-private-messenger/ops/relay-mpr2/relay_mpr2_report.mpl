@@ -63,6 +63,17 @@ pub fn ready_report(config :: RelayConfig,
   plan :: CollateralOperationPlan,
   lookup :: RelayLookupPlan) -> String!String do
   let a = token_collateral_addresses(config.operator.pins.context)?
+  let proof = validate_relay_submission(config.operator.pins.service_key,
+    config.operator.pins.log_version,
+    intent.wire)?
+  let finder = if Bytes.to_hex(proof.finder) == String.repeat("00", 32) do
+    intent.submitter.bytes
+  else
+    proof.finder
+  end
+  let stage = token_proof_stage_address(config.operator.pins.context,
+    intent.submitter,
+    intent.wire)?
   let receipt = token_receipt_address(config, state.plan.proof_hash)?
   let rents = if plan.reason == "initialize_proof_stage" do
     ["""{"address":#{key(state.plan.stage)},"space":#{1152 + Bytes.length(intent.wire)}}"""]
@@ -79,7 +90,7 @@ pub fn ready_report(config :: RelayConfig,
       instruction_report_json(ix)
     end,
     ",")
-  Ok("""{"schema_version":2,"status":"ready","program":#{key(config.operator.pins.context.judge)},"log":#{key(a.log)},"submitter":#{key(config.submitter)},"fee_payer":#{key(config.fee_payer)},"usdc_mint":#{key(config.operator.pins.context.usdc_mint)},"morse_mint":#{key(a.morse_mint)},"proof_hex":#{hex(intent.wire)},"proof_hash":#{hex(state.plan.proof_hash)},"finder":#{Json.encode_string(Bytes.to_base58(state.plan.finder))},"receipt":#{key(receipt)},"context_slot":"#{U64.to_string(state.base.slot)}","stage":{"address":#{key(state.plan.stage)},"full_hash":#{hex(state.plan.full_hash)}},"digest":#{hex(state.digest)},"selection":#{hex(state.selection)},"compute_budget":#{instruction_report_json(compute_unit_limit_instruction(1400000)?)},"operation":{"reason":#{Json.encode_string(plan.reason)},"instructions":[#{instructions}],"rent_allocations":[#{String.join(rents,
+  Ok("""{"schema_version":2,"status":"ready","program":#{key(config.operator.pins.context.judge)},"log":#{key(a.log)},"submitter":#{key(config.submitter)},"fee_payer":#{key(config.fee_payer)},"usdc_mint":#{key(config.operator.pins.context.usdc_mint)},"morse_mint":#{key(a.morse_mint)},"proof_hex":#{hex(intent.wire)},"proof_hash":#{hex(state.plan.proof_hash)},"finder":#{Json.encode_string(Bytes.to_base58(finder))},"payout_finder":#{Json.encode_string(Bytes.to_base58(state.plan.finder))},"receipt":#{key(receipt)},"context_slot":"#{U64.to_string(state.base.slot)}","stage":{"address":#{key(stage)},"full_hash":#{hex(Crypto.sha256(intent.wire))}},"digest":#{hex(state.digest)},"selection":#{hex(state.selection)},"compute_budget":#{instruction_report_json(compute_unit_limit_instruction(1400000)?)},"operation":{"reason":#{Json.encode_string(plan.reason)},"instructions":[#{instructions}],"rent_allocations":[#{String.join(rents,
     ",")}],"effect":#{effect_descriptor(intent.wire,
     state,
     plan)?}},"lookup":#{lookup_report(lookup)}}""")
