@@ -85,9 +85,13 @@ function transaction(value,signed,info,expected){
     return url;
   });
   const hostKey=url=>{
-    if(allowLoopback&&['localhost','127.0.0.1','[::1]'].includes(url.hostname))return url.origin;
-    const host=url.hostname.toLowerCase();
-    return host.startsWith('[')||!host.endsWith('.')?host:host.slice(0,-1);
+    const folded=url.hostname.toLowerCase();
+    const host=folded.startsWith('[')||!folded.endsWith('.')?folded:folded.slice(0,-1);
+    // Match the Mesh boundary: URL already canonicalizes every IPv4-mapped
+    // spelling to this prefix. Refuse it instead of adding an address parser.
+    if(host.startsWith('[::ffff:'))fail('Relay RPC sources must be independent');
+    if(allowLoopback&&['localhost','127.0.0.1','[::1]'].includes(host))return url.origin.replace(url.hostname,host);
+    return host;
   };
   if(new Set(sources.map(hostKey)).size!==3)fail('Relay RPC sources must be independent');
   const clients=sources.map(url=>{

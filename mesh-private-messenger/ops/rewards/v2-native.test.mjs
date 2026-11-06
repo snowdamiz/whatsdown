@@ -26,6 +26,42 @@ function configuration(f,endpoints){
     endpoints,allow_loopback:true};
 }
 
+async function configurationGate(endpoints,allow_loopback){
+  const directory=await mkdtemp(join(tmpdir(),'rewards-v2-host-config-'));
+  try{
+    const f=root.snapshots.find(f=>f.name==='token-rewards-collecting');
+    const config={...configuration(f,endpoints),allow_loopback};
+    return await promisify(execFile)(binary,['--input',join(directory,'missing.json')],
+      {env:{MORSE_REWARDS_V2_CONFIG:JSON.stringify(config)},timeout:5000});
+  }finally{await rm(directory,{recursive:true,force:true});}
+}
+
+for(const allowLoopback of [false,true]){
+  for(const [name,endpoints] of [
+    ['localhost root dot',['https://localhost:444/a','https://localhost.:444/b','https://other.example/rpc']],
+    ['canonical mapped IPv6',['https://192.0.2.1/rpc','https://[::ffff:c000:201]/rpc','https://other.example/rpc']],
+  ]){
+    test(`v2 host config refuses ${name} before input or HTTP with allow_loopback=${allowLoopback}`,async()=>{
+      await assert.rejects(configurationGate(endpoints,allowLoopback),
+        error=>/invalid_anchor_sources/.test(error.stderr)&&!/No such file/.test(error.stderr));
+    });
+  }
+}
+
+test('v2 host config preserves ordinary IPv6 and the explicit loopback port control',async()=>{
+  const inputGate=error=>!/invalid_anchor_sources/.test(error.stderr)&&/No such file or directory/.test(error.stderr);
+  for(const allowLoopback of [false,true]){
+    await assert.rejects(configurationGate([
+      'https://[::fffe:c000:201]/rpc','https://[::c000:201]/rpc','https://192.0.2.1/rpc',
+    ],allowLoopback),inputGate);
+  }
+  for(const host of ['localhost','127.0.0.1','[::1]']){
+    const endpoints=[444,445,446].map(port=>`https://${host}:${port}/rpc`);
+    await assert.rejects(configurationGate(endpoints,false),error=>/invalid_anchor_sources/.test(error.stderr));
+    await assert.rejects(configurationGate(endpoints,true),inputGate);
+  }
+});
+
 test('production v2 executable authenticates snapshots, plans explicit intent and reconciles immutable claims', {timeout:120000},async()=>{
   let selected=root.snapshots.find(f=>f.name==='token-rewards-collecting');
   const initial=selected, errors=[], requests=[];

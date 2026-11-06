@@ -22,6 +22,41 @@ function observe() {
   return { calls, fetcher };
 }
 
+for (const allowLoopback of [false, true]) {
+  for (const [name, urls] of [
+    ['localhost root dot on the same port', ['https://localhost:444/a', 'https://localhost.:444/b', 'https://other.example/rpc']],
+    ['canonical IPv4 mapped IPv6 alias', ['https://192.0.2.1/rpc', 'https://[::ffff:c000:201]/rpc', 'https://other.example/rpc']],
+    ...['[::ffff:0:0]', '[::ffff:7f00:1]', '[::ffff:ffff:ffff]', '[::ffff:192.0.2.1]'].map(host =>
+      [`mapped spelling ${host}`, ['https://one.example/rpc', `https://${host}/rpc`, 'https://other.example/rpc']]),
+  ]) {
+    test(`writer refuses ${name} before HTTP with allowLoopback=${allowLoopback}`, async () => {
+      const seen = observe();
+      await assert.rejects(connectChainWriterRpc({ urls, genesisHash, allowLoopback }, adapter, platform, seen.fetcher), /independent/);
+      assert.deepEqual(seen.calls, []);
+    });
+  }
+}
+
+test('writer preserves ordinary IPv6 distinction and the explicit loopback port control', async () => {
+  for (const allowLoopback of [false, true]) {
+    const seen = observe();
+    await connectChainWriterRpc({
+      urls: ['https://[::fffe:c000:201]/rpc', 'https://[::c000:201]/rpc', 'https://192.0.2.1/rpc'],
+      genesisHash, allowLoopback,
+    }, adapter, platform, seen.fetcher);
+    assert.equal(seen.calls.length, 3);
+  }
+  for (const host of ['localhost', '127.0.0.1', '[::1]']) {
+    const urls = [444, 445, 446].map(port => `https://${host}:${port}/rpc`);
+    const strict = observe();
+    await assert.rejects(connectChainWriterRpc({ urls, genesisHash }, adapter, platform, strict.fetcher), /independent/);
+    assert.deepEqual(strict.calls, []);
+    const fixture = observe();
+    await connectChainWriterRpc({ urls, genesisHash, allowLoopback: true }, adapter, platform, fixture.fetcher);
+    assert.equal(fixture.calls.length, 3);
+  }
+});
+
 test('writer host identity folds ASCII case and one trailing dot before any request', async () => {
   const aliases = [
     ['https://rpc.example:444/rpc', 'https://rpc.example.:444/rpc', 'https://other.example:444/rpc'],

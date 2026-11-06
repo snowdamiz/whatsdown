@@ -6,6 +6,57 @@ from Transparency.AnchorRpc import (
 )
 from Solana.Read import pubkey
 
+fn refuses_host_aliases(endpoints :: List<String>) -> Result<(), String> do
+  assert(validate_anchor_sources(endpoints) == Err("invalid_anchor_sources"))
+  assert(validate_anchor_provider_sources(endpoints, true) == Err("invalid_anchor_sources"))
+  assert(validate_anchor_provider_sources(endpoints, false) == Err("invalid_anchor_sources"))
+  let address = pubkey("11111111111111111111111111111111")?
+  let zero = U64.parse("0")?
+  # Stop at the validator assertion on regression, before any HTTP is possible.
+  assert(read_anchor_quorum(endpoints,
+    address,
+    address,
+    0,
+    64,
+    zero) == Err("invalid_anchor_sources"))
+  assert(read_anchor_time_quorum(endpoints, zero) == Err("invalid_anchor_sources"))
+  Ok(nil)
+end
+
+test("localhost root dot cannot split one fixture origin into two sources") do
+  assert(refuses_host_aliases([
+    "https://localhost:444/a",
+    "https://localhost.:444/b",
+    "https://other.example/rpc"
+  ]) == Ok(nil))
+end
+
+test("canonical IPv4 mapped IPv6 cannot count as a second IPv4 source") do
+  assert(refuses_host_aliases([
+    "https://192.0.2.1/rpc",
+    "https://[::ffff:c000:201]/rpc",
+    "https://other.example/rpc"
+  ]) == Ok(nil))
+end
+
+test("mapped IPv6 spellings are refused without excluding ordinary IPv6") do
+  for host in ["[::ffff:0:0]", "[::ffff:7f00:1]", "[::ffff:ffff:ffff]", "[::ffff:192.0.2.1]"] do
+    assert(refuses_host_aliases([
+      "https://one.example/rpc",
+      "https://" <> host <> "/rpc",
+      "https://other.example/rpc"
+    ]) == Ok(nil))
+  end
+  for separate in [false, true] do
+    assert(validate_anchor_provider_sources([
+        "https://[::fffe:c000:201]/rpc",
+        "https://[::c000:201]/rpc",
+        "https://192.0.2.1/rpc"
+      ],
+      separate) == Ok(nil))
+  end
+end
+
 fn refuses_aliases() -> Result<(), String> do
   let address = pubkey("11111111111111111111111111111111")?
   let zero = U64.parse("0")?
@@ -34,13 +85,15 @@ fn refuses_aliases() -> Result<(), String> do
 end
 
 test("production writers can require distinct loopback hosts as well as public hosts") do
-  let endpoints = [
-    "https://127.0.0.1:19011/a",
-    "https://127.0.0.1:19012/b",
-    "https://127.0.0.1:19013/a"
-  ]
-  assert(validate_anchor_provider_sources(endpoints, false) == Err("invalid_anchor_sources"))
-  assert(validate_anchor_provider_sources(endpoints, true) == Ok(nil))
+  for host in ["127.0.0.1", "localhost", "[::1]"] do
+    let endpoints = [
+      "https://" <> host <> ":19011/a",
+      "https://" <> host <> ":19012/b",
+      "https://" <> host <> ":19013/a"
+    ]
+    assert(validate_anchor_provider_sources(endpoints, false) == Err("invalid_anchor_sources"))
+    assert(validate_anchor_provider_sources(endpoints, true) == Ok(nil))
+  end
 end
 
 test("anchor account and clock quorums refuse aliases of one public host before HTTP") do

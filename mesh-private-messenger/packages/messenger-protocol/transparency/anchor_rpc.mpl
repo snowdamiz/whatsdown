@@ -159,15 +159,17 @@ fn source_identity(origin :: String, separate_loopback_origins :: Bool) -> Strin
   else
     List.head(String.split(authority, ":"))
   end
-  if separate_loopback_origins && (host == "127.0.0.1" || host == "localhost" || host == "[::1]") do
-    return origin
-  end
   let folded = String.to_lower(host)
-  if String.starts_with(folded, "[") || !String.ends_with(folded, ".") do
+  let identity = if String.starts_with(folded, "[") || !String.ends_with(folded, ".") do
     folded
   else
     String.slice(folded, 0, String.length(folded) - 1)
   end
+  if separate_loopback_origins
+    && (identity == "127.0.0.1" || identity == "localhost" || identity == "[::1]") do
+    return String.replace(origin, host, identity)
+  end
+  identity
 end
 
 pub fn validate_anchor_sources(endpoints :: List<String>) -> Result<(), String> do
@@ -187,7 +189,10 @@ pub fn validate_anchor_provider_sources(endpoints :: List<String>,
     end
     # HTTP is limited to loopback for local validators and tests. Native
     # release configuration additionally requires HTTPS for every provider.
+    # The URL parser canonicalizes IPv4-mapped IPv6 to [::ffff:...]. Refuse
+    # this alternate IPv4 route rather than maintain another address parser.
     if String.length(endpoint) > 2048
+      || String.contains(origin, "://[::ffff:")
       || String.contains(endpoint, "@")
       || String.contains(endpoint, "#")
       || String.contains(endpoint, "\\")
