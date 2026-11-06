@@ -24,6 +24,7 @@ const networkCounterConfig = require('./network-counter-config.cjs');
 const creditPurpose = require('./credits-config.cjs');
 const networkConfig = require('./network-config.cjs');
 const issuerTLSRoot = require('./issuer-tls-root.cjs');
+const rpcTLSRoots = require('./rpc-tls-roots.cjs');
 const ohttpConfig = require('./ohttp-config.cjs');
 
 module.exports = function withMeshPushConfig(config, environment = process.env) {
@@ -33,6 +34,7 @@ module.exports = function withMeshPushConfig(config, environment = process.env) 
   const securityFrame = securityConfig(environment, { development: environment.EAS_BUILD_PROFILE === 'development' });
   const counterFrame = networkCounterConfig(environment, securityFrame);
   const issuerRoot = issuerTLSRoot(environment);
+  const rpcRoots = rpcTLSRoots(environment, securityFrame);
   const purpose = creditPurpose(environment);
   const walletMint = creditPurpose.walletMint(environment);
   const lightningNetwork = creditPurpose.lightningNetwork(environment);
@@ -69,6 +71,8 @@ module.exports = function withMeshPushConfig(config, environment = process.env) 
     else delete current.modResults.MeshMessengerNetworkCounterConfig;
     if (issuerRoot) current.modResults.MeshMessengerIssuerTLSRoot = issuerRoot.toString('base64');
     else delete current.modResults.MeshMessengerIssuerTLSRoot;
+    if (rpcRoots) current.modResults.MeshMessengerRpcTLSRoots = rpcRoots.toString('base64');
+    else delete current.modResults.MeshMessengerRpcTLSRoots;
     if (purpose) current.modResults[IOS_CREDIT_PURPOSE] = purpose;
     else delete current.modResults[IOS_CREDIT_PURPOSE];
     if (lightningNetwork) current.modResults[IOS_LIGHTNING_NETWORK] = lightningNetwork;
@@ -83,6 +87,7 @@ module.exports = function withMeshPushConfig(config, environment = process.env) 
   });
   config = withDangerousMod(config, ['android', async current => {
     issuerTLSRoot.writeAndroid(current.modRequest.platformProjectRoot, environment);
+    rpcTLSRoots.writeAndroid(current.modRequest.platformProjectRoot, environment, securityFrame);
     return current;
   }]);
   return withAndroidManifest(config, (current) => {
