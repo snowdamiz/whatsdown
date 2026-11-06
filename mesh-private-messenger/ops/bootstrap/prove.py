@@ -120,7 +120,8 @@ def main():
         assert sources(FIXTURE) == record['source_hashes']['fixture'], 'fixture drift'
         assert digest(Path(__file__)) == record['source_hashes']['runner'][Path(__file__).name], 'runner drift'
     except Exception as error:
-        record['error'] = str(error)
+        record['status'] = 'FAIL'
+        record['error'] = repr(error)
         raise
     finally:
         record['artifacts']['build.log'] = digest(log) if log.exists() else None
