@@ -36,9 +36,10 @@ node --test "$product/ops/rewards/transactions.test.mjs" "$product/ops/rewards/j
   "$product/ops/rewards/writer.test.mjs" "$product"/ops/rewards/v2-*.test.mjs \
   "$product/ops/chain-writer/rpc.test.mjs" \
   "$product/programs/morse-rewards/examples/support/rewards_v2_kit.test.mjs" > "$proof_dir/node-tests.txt" 2>&1
+"$compiler" lint "$product" > "$proof_dir/lint.txt" 2>&1
 for source in "$product/ops/token-v2/reward_operator.mpl" "$product/tools/rewards-v2-operator/main.mpl"; do
   "$compiler" fmt --check "$source"
   "$compiler" lint "$source"
 done
 python3 "$product/scripts/rewards-v2-receipt.py" "$root" "$proof_dir" "$compiler" "$MESH_RT_LIB_PATH"
-echo "PASS: explicit v2 rewards local execution; receipt: $proof_dir/receipt.json"
+echo "PASS: bounded v2 rewards local execution; receipt: $proof_dir/receipt.json"

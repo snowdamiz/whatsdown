@@ -1,9 +1,10 @@
-# Explicit v2 rewards execution
+# V2 rewards execution and bounded settlement scheduling
 
 `tools/rewards-v2-operator` is the native Mesh planner used by the existing
 `ops/rewards/cli.mjs`, SQLite journal, Kit signer and finalized quorum writer.
-Each journal owns **one explicit epoch settlement or one fixed earned claim**.
-It does not choose epochs, schedule several epochs, assess grace or fund pools.
+Each journal owns **one explicit epoch settlement, one fixed earned claim, or
+one bounded settlement range**. Mesh authenticates eligibility and completion
+for each scheduled epoch. The keeper does not assess grace or fund pools.
 Eligibility, stage cancellation, floor/reserve policy and payout selection stay
 in Mesh and the on-chain programs.
 
@@ -49,10 +50,38 @@ A claim adds `"action":"claim","row":17,"asset":0` (USDC) or `asset:1`
 An already claimed or zero entitlement is complete without another packet.
 There is no caller-supplied payout, instruction report or economic decision.
 
-Run one cycle with `node cli.mjs --config /absolute/operator.json`; optional
-`--watch` repeats this same explicit intent until complete or a failure/budget
-boundary; a waiting result is rechecked on the next cycle. A cycle reconciles the existing packet before asking
-Mesh for new work. Signed bytes are stored before broadcast and remain exact
+A bounded schedule adds `"epoch_count":"2"` to a settle request. Its
+`"epoch":"2828"` remains the first epoch. Count must be a
+canonical decimal string from 1 through 256. The inclusive range must leave
+room for the on-chain pool's `next_epoch`. Claims retain their explicit shape.
+Schedules add no payout selection. Do not include a `cursor` in the configured
+request: it is internal journal state.
+
+A distinct journal scope binds the immutable range, configuration and budget.
+Older journals cannot reinterpret a previously ignored count as a schedule. It
+retains its finalized context floor, attempts, spent lamports, and one active
+reservation across every epoch and restart. A completion report from the
+pinned Mesh executable atomically records that epoch's report and advances
+one epoch, or marks the bounded range complete. An epoch completed by another
+keeper advances without a redundant transaction. Unknown outcomes always
+reconcile against the original pending epoch before any new plan or cursor
+transition. Do not use a separate journal per epoch to run a bounded schedule.
+
+`advanced` means a completion report and the next cursor are durable, without
+signing next-epoch work in that cycle. `waiting` retains that cursor and budget
+for the next poll, including waits for week end, code pins, source pins, or
+reserve policy. Expired or invalidated stages use the existing cancellation
+and replanning path. Empty and all-excluded
+epochs still finalize on chain and carry unallocated revenue forward. No
+binding activation, deposit funding or governance operation is synthesized.
+`epoch` and `scheduleComplete` in the CLI progress identify durable scheduling
+state. Existing explicit journal scopes reopen without a scope or budget reset.
+Changing an explicit request into a range requires a new scope.
+
+Run one cycle with `node cli.mjs --config /absolute/operator.json`. Add
+`--watch` to repeat the explicit intent or bounded schedule until completion,
+failure, or budget exhaustion. The next cycle rechecks a waiting result.
+Each cycle reconciles the existing packet before asking Mesh for new work. Signed bytes are stored before broadcast and remain exact
 across a restart or lost acknowledgment. After finalized expiry, Mesh rereads
 authenticated effects. Absent effects with pruned transaction history retain
 the packet and its reserved budget. When the transport permits replacement
@@ -75,6 +104,9 @@ builder. Cargo and rustc must be on PATH. If using direct toolchain binaries
 without rustup shims, also set `SBF_RUSTC` to platform-tools v1.57's rustc.
 The script rebuilds all three SBF programs and runs the Rust, Kit, native Mesh,
 CLI/journal and v1 compatibility checks.
+
+Permissionless grace assessment remains the next operational gap; this unit
+only schedules already admissible settlements.
 
 Local qualification is described by that script and the
 retained proof receipt. Loopback endpoints over one disposable bank exercise
