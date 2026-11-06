@@ -1,0 +1,13 @@
+{
+  "actual_status": "FAIL",
+  "observed_process_exit_code": 1,
+  "exception": "AssertionError: runner drift",
+  "raw_receipt_status": "PASS_LOCAL_RPC_TLS",
+  "raw_receipt_misclassified": true,
+  "raw_receipt_unchanged": true,
+  "local_behavior_status": "PASS_LOCAL_RPC_TLS",
+  "passed_local_checks": 37,
+  "receipt_sha256": "fb4b843fc1cc0e2e8710107dbeeadc25dfdb161ea84eeb56e7f0c4c339779130",
+  "local_result_sha256": "38f5ee7ed78fba12a17b1232b351964d40b4ed383258418c85f21111fdbbd1f6",
+  "classification_fix_commit": "3293d90"
+}
