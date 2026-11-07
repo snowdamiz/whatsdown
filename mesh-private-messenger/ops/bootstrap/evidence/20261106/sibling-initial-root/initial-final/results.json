@@ -1,0 +1,24 @@
+[
+  {
+    "name": "regression",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "tests/sibling_authority.test.mpl"
+    ],
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f897514f/mesh-private-messenger/packages/mobile-core",
+    "exit": 0,
+    "log_sha256": "3ce2a79d2f3658e23fb0a252b8479ec7f9601de35905e75c43ed70b80131803d"
+  },
+  {
+    "name": "lint",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "lint",
+      "mesh-private-messenger"
+    ],
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f897514f",
+    "exit": 0,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

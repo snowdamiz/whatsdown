@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+    "test",
+    "tests/sibling_authority.test.mpl"
+  ],
+  "exit": 1,
+  "sources": {
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": "4f0d42f6badd824cb543a23a2f26026e850d9bfa7c8817514619d74868b769a0",
+    "mesh-private-messenger/packages/mobile-core/tests/sibling_authority.test.mpl": "7fdfba0f1ac2bf9bb4b5dc975e58bfe30d88b5f6692e6843bb7bd6414a3fd527"
+  },
+  "log_sha256": "a8f8be2d14bef62a73f867a7db8168bef7cc1c64c6199ebd8ad17a736f8baf3c"
+}

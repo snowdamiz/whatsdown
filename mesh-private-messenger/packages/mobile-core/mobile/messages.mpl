@@ -638,6 +638,16 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         Err(_) -> Err("invalid_initiator_account")
         Ok(value)
       end?
+      let trusted_initiator = if Bytes.secure_equals(initiator_account.account_id,
+        local.account_id) do
+        if !Bytes.secure_equals(initiator_account.authorization_public_key,
+          local.account.authorization_public_key) do
+          return Err("initial_identity_mismatch")
+        end
+        local.account
+      else
+        initiator_account
+      end
       let admission_before = Some(capture_header_initial(request.database_path,
         wrapping_key,
         local_encode_client_profile,
@@ -701,11 +711,11 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         signed,
         one_time,
         post_quantum,
-        initiator_account,
+        trusted_initiator,
         own_bundle_policy(local, responder_bundle, now),
         VerificationPolicy {
           current_time: now,
-          minimum_directory_sequence: initiator_account.directory_sequence
+          minimum_directory_sequence: trusted_initiator.directory_sequence
         },
         strongest_suite,
         native_session_minimum(session_policy)?,

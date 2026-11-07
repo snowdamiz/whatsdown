@@ -1,0 +1,42 @@
+[
+  {
+    "test": "sibling_authority",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "tests/sibling_authority.test.mpl"
+    ],
+    "exit": 0,
+    "log_sha256": "8c2cb38b87c2097b7f1ff64487d76b985a2ec2e843b3b1e24e6162374bc9c5a0"
+  },
+  {
+    "test": "view_once_initial_sync",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "tests/view_once_initial_sync.test.mpl"
+    ],
+    "exit": 0,
+    "log_sha256": "67466b138a659d6353e0a1809362a62293066f7d183fb74df9a0b34309773080"
+  },
+  {
+    "test": "linked_device_sync",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "tests/linked_device_sync.test.mpl"
+    ],
+    "exit": 0,
+    "log_sha256": "bdbc0d44528a4ac14d5d8903ed32687aedfa8000468feabe3bcc2d949ca3920a"
+  },
+  {
+    "test": "initial_session",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "tests/initial_session.test.mpl"
+    ],
+    "exit": 0,
+    "log_sha256": "1c2c3340c2f19d7e244d04b4349e6f021e705e520907225b57e7ee652b37159f"
+  }
+]

@@ -1,0 +1,28 @@
+{
+  "status": "BOUNDED_INITIAL_ROOT_FIX_UNADOPTED",
+  "base": "a0511fdabf3c89b99d445b6fb9e8f8564bf08848",
+  "change": "Same-account initial requires local authorization key equality and verifies actual handshake using local AccountIdentity.",
+  "red": "Actual public receive admitted synthetic independently signed same-ID account; retained expected-refusal test fails before change.",
+  "green": "Focused regression, genuine linked initial/sync and ordinary initial controls, then formatted regression and full messenger lint pass.",
+  "source_sha256": {
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": "c96a73355ad1d75e0c96ba639aa33215488d0b3069c6e683d1ac8f9d33e03171",
+    "mesh-private-messenger/packages/mobile-core/tests/sibling_authority.test.mpl": "9b09c8abda9e8b871b6e778259bff8a1cd1b84f01440ff690568b06f4578f5a4"
+  },
+  "evidence_sha256": {
+    "initial-final/lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "initial-final/regression.log": "3ce2a79d2f3658e23fb0a252b8479ec7f9601de35905e75c43ed70b80131803d",
+    "initial-final/results.json": "a072e65a2ce7b52d16ee5a07d27afc15b31f534df21d76afcca999c350e82c45",
+    "parent-initial-green/initial_session/test.log": "1c2c3340c2f19d7e244d04b4349e6f021e705e520907225b57e7ee652b37159f",
+    "parent-initial-green/linked_device_sync/test.log": "bdbc0d44528a4ac14d5d8903ed32687aedfa8000468feabe3bcc2d949ca3920a",
+    "parent-initial-green/results.json": "2704ca6544e71a10c148803a510d377b49a0363afa8db073536462328f023755",
+    "parent-initial-green/sibling_authority/test.log": "8c2cb38b87c2097b7f1ff64487d76b985a2ec2e843b3b1e24e6162374bc9c5a0",
+    "parent-initial-green/view_once_initial_sync/test.log": "67466b138a659d6353e0a1809362a62293066f7d183fb74df9a0b34309773080",
+    "parent-red/receipt.json": "5817ff552965162f25fd33780ea14ba3bb28223a606157aa16d57e43a2f6cd75",
+    "parent-red/test.log": "a8f8be2d14bef62a73f867a7db8168bef7cc1c64c6199ebd8ad17a736f8baf3c"
+  },
+  "limits": [
+    "Does not establish current active sibling membership or decrypted profile key binding.",
+    "Existing/restored same-account ratchet provenance remains open.",
+    "No disclosure inventory approval, protected activation, native/device or full VO adoption."
+  ]
+}
