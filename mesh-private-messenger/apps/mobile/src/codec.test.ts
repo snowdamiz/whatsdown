@@ -196,20 +196,20 @@ test('02HST mixes ordinary history with all five finite view-once placeholders',
   })));
 });
 
-test('actual Core pending export from the green producer parses as ordinary plus pending', () => {
-  // The direct receive producer passed; this capture still qualifies only parser compatibility.
+test('actual Core pending export from the committed snapshot parses as ordinary plus pending', () => {
+  // Snapshot sources match Core bd24a8a; this capture still qualifies only parser compatibility.
   const input = new Uint8Array(readFileSync(new URL('./fixtures/history-core-pending/direct-pending-mixed.bin', import.meta.url)));
   const provenance = readFileSync(new URL('./fixtures/history-core-pending/provenance.json', import.meta.url));
-  assert.equal(createHash('sha256').update(input).digest('hex'), '3d20432d6c493965abfc6dc01aced0322f20dc6e6ebbe72a71e1699142212c65');
-  assert.equal(createHash('sha256').update(provenance).digest('hex'), '5bf3e559548f316087c379dcf24bb46b50f635f9f0bdda74a1566e75a884c5fc');
+  assert.equal(createHash('sha256').update(input).digest('hex'), 'afc6afd33566695258ed03a9c3be9aa0b8852bc4546247084dda4c282c207ec7');
+  assert.equal(createHash('sha256').update(provenance).digest('hex'), 'e3bc0557e506195b36f393c6d8a0d3edcb7e95db4fa8757c58908e6957c0966e');
   assert.equal(input.length, 160);
   const [ordinary, pending] = parseHistory(input);
   assert.deepEqual(ordinary, {
-    direction: 'received', messageId: Uint8Array.from(Buffer.from('0ab37e26071d6d2bd584396ab37fe356', 'hex')),
-    timestamp: 1_794_001_668_188, disappearingSeconds: 0, body: 'hello',
+    direction: 'received', messageId: Uint8Array.from(Buffer.from('ca44869dd0c3e2ca412807028f2ff5f8', 'hex')),
+    timestamp: 1_794_013_112_310, disappearingSeconds: 0, body: 'hello',
   });
   assert.deepEqual(pending, {
-    direction: 'received', messageId: new Uint8Array(16).fill(44), timestamp: 1_794_001_668_204,
+    direction: 'received', messageId: new Uint8Array(16).fill(44), timestamp: 1_794_013_112_346,
     disappearingSeconds: 0, kind: 'view-once', status: 'pending', body: 'one image',
   });
 });

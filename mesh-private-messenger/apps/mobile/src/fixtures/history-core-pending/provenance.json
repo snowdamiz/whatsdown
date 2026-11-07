@@ -1,16 +1,18 @@
 {
-  "artifact": "direct-pending-mixed.bin",
-  "sha256": "3d20432d6c493965abfc6dc01aced0322f20dc6e6ebbe72a71e1699142212c65",
-  "size_bytes": 160,
-  "statuses": [
-    0,
-    1
-  ],
-  "test_log_sha256": "ff217b1247b7e0c948a42efb82b90df251fae9eb6f38f357fa68ec935b09f3c8",
-  "source_manifest": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-39088f20/.morse/view-once-core-admission/evidence/collision-expiry-candidate/manifest.json",
-  "source_manifest_sha256": "f31ffbd85569285c694af5aec08e1053ff8af1fe863b36d682c1c33eb846b9e5",
+  "head": "20f97153f672aa5b3a5cbe287a22864f14291b70",
+  "scope": "synthetic direct receive and load_history_export, ordinary plus Pending; not UI or native integration",
+  "bytes_sha256": "afc6afd33566695258ed03a9c3be9aa0b8852bc4546247084dda4c282c207ec7",
+  "log_sha256": "f1509a32fcc03fc4ff13c8d7707c1b4b9d507acefcabc068203d9cc5d58776ab",
   "compiler_sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
   "runtime_sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
   "test_runtime_sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
-  "outcome": "Actual synthetic load_history_export; test passes. Fixture-specific VOR, capability, wrapped key, manifest, encrypted chunk and image were checked absent before write. This proves direct parser fixture only, not native retrieval, group, platform or release."
+  "production_staticlib_sha256": "d2109c73829df32246997fddc115e0ef34f452e0b3f6e4ff2603aed2b92aa2f3",
+  "sources": {
+    "mesh-private-messenger/packages/mobile-core/tests/view_once_receive.test.mpl": "caff091ade37f71767b8fad423c28485f220f3160e1ff3317c7916560425beef",
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": "422d569f8552d639f27319db767638dc7b5f19be075d29300929984c3a6fb101",
+    "mesh-private-messenger/packages/mobile-core/mobile/history.mpl": "58b37fcaab1e4fe8c6db20d0b2c1cd222888d4fd9f142e2b1d360c195f42cb28",
+    "mesh-private-messenger/packages/mobile-core/mobile/history_wire.mpl": "b5bd9343ac7c5c854fb9aba5ff989084d2ce2e5f690c5b31a6c7e072ef955818",
+    "mesh-private-messenger/packages/mobile-core/mobile/view_once_admission.mpl": "3ed90ad6792df1070a741e4108f079002e598e5f3118460d339601861b004837"
+  },
+  "source_manifest_sha256": "de6bd8b10a08fdedf514c0bd290b8c061e41fd737cd631e10b113f7423f0a3a8"
 }
