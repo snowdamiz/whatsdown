@@ -1,0 +1,4 @@
+PASS failed image initialization: /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib.missing
+PASS failed image initialization: /usr/lib/libSystem.B.dylib
+PASS retained node/domain/image after caller domain release; repeated retire refuses actual ABI bind
+PASS node release then domain release; image release follows domain ABI teardown

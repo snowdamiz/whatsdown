@@ -1,0 +1,397 @@
+{
+  "phase": "green",
+  "baseline": "0d6826b",
+  "runtime_pin": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+  "family_sha256": "652b8475fec8e4391c7f178b26923661e109c18b73c0008d4b84718e03cbbb59",
+  "verified_retained_files": 44,
+  "runtime_source_manifest_sha256": "6fee3604df1d2d6e7825fbb62caa8d76c9eb242371b87ee9030d792b5852bda7",
+  "verified_pinned_runtime_sources": 19,
+  "header_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+  "library_sha256": "1d5af0920725bc0449977060a270393192193b09ce896f96049ce3226299bf5d",
+  "mask": 1,
+  "runs": [
+    {
+      "name": "driver-compile",
+      "command": [
+        "xcrun",
+        "swiftc",
+        "-swift-version",
+        "5",
+        "-emit-library",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLockPolicy.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLock.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerDataProtection.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerProtectedFiles.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerLockedNotifications.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerBackupRequest.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerNativeRetirement.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/native_lifetime.swift",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/native-lifetime.dylib"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "control",
+      "command": [
+        "python3",
+        "-B",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/native-lifetime.dylib",
+        "control"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "bee7cd43e2340ed9c55d62167fd06cc33f0d88c433dc297eb73339895d82bda4"
+    },
+    {
+      "name": "owner",
+      "command": [
+        "python3",
+        "-B",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/native-lifetime.dylib",
+        "owner"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "3244eb169043098f6005de64952f3caf7e9c05e783a79147989a7c2ac4ed7352"
+    },
+    {
+      "name": "sentinel",
+      "command": [
+        "python3",
+        "-B",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/native-lifetime.dylib",
+        "sentinel"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "bff4934847f36703e2fdb44e982bf8f6f52a18b8486f0b6c08b464a7747cf4dd"
+    },
+    {
+      "name": "owner-main",
+      "command": [
+        "python3",
+        "-B",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/native-lifetime.dylib",
+        "owner-main"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "b63cb2cf0ccc995472f6c76112f0a0c539707417f41c8ce95520b8d527f78481"
+    },
+    {
+      "name": "sentinel-main",
+      "command": [
+        "python3",
+        "-B",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/native-lifetime.dylib",
+        "sentinel-main"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "62104a5da902ddbf5bf411166cadf286b43acd195dd67ce709155149b7809ad8"
+    },
+    {
+      "name": "capture-owner",
+      "command": [
+        "python3",
+        "-B",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/native-lifetime.dylib",
+        "capture-owner"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "3d83aee10743403c08fb998581fb85ab100b8485d77c59e075ef558d665a8e31"
+    },
+    {
+      "name": "same-root-sentinel",
+      "command": [
+        "python3",
+        "-B",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/native-lifetime.dylib",
+        "same-root-sentinel"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "97f1502b80c37e38e392ba8bca95f655c210cabe12ac246065cf89f3f62da7cd"
+    },
+    {
+      "name": "same-root-stale-capture",
+      "command": [
+        "python3",
+        "-B",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/native-lifetime.dylib",
+        "same-root-stale-capture"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "46414c7116e03790464cd32338cd8013d2c704e955ed9ba712ac955c5ce2d929"
+    },
+    {
+      "name": "runtime-platform",
+      "command": [
+        "xcrun",
+        "vtool",
+        "-show-build",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "4b54ee9d45346373aa4e8a10c41e1a0cd8f155f2561fb00e1595e7fbb504b0b7"
+    },
+    {
+      "name": "ios-support-typecheck",
+      "command": [
+        "xcrun",
+        "--sdk",
+        "iphonesimulator",
+        "swiftc",
+        "-swift-version",
+        "5",
+        "-typecheck",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.2.sdk",
+        "-target",
+        "arm64-apple-ios16.4-simulator",
+        "-module-cache-path",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/ios-module-cache",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerNativeRetirement.swift"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "image-lifetime-compile",
+      "command": [
+        "xcrun",
+        "swiftc",
+        "-swift-version",
+        "5",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerNativeRetirement.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/image_lifetime.swift",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/image-lifetime"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "379b40f541cbb9466ec0f9846ca569a1ceddfd846505768e3c28dfe921a8ef96"
+    },
+    {
+      "name": "image-lifetime",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/image-lifetime",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "933fbe8c0dead439d1d5c9eff038da301f26420d12a2b3925a8a5b85d63820b1"
+    },
+    {
+      "name": "MeshMessengerAppLockTests-compile",
+      "command": [
+        "xcrun",
+        "swiftc",
+        "-swift-version",
+        "5",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLockPolicy.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLock.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerDataProtection.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerProtectedFiles.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerLockedNotifications.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerBackupRequest.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerNativeRetirement.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/Tests/MeshMessengerAppLockTests.swift",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerAppLockTests"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "MeshMessengerAppLockTests",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerAppLockTests"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "6ab6ca483d3ce34c935910ce583a6c3a020e058c1c01d18722dc80c8420abcbd"
+    },
+    {
+      "name": "MeshMessengerRootBindingTests-compile",
+      "command": [
+        "xcrun",
+        "swiftc",
+        "-swift-version",
+        "5",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLockPolicy.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLock.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerDataProtection.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerProtectedFiles.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerLockedNotifications.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerBackupRequest.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerNativeRetirement.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/Tests/MeshMessengerRootBindingTests.swift",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRootBindingTests"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "MeshMessengerRootBindingTests",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRootBindingTests"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "7bfe5ab08989c6211448944225b892da112201ae8ebb24d1ddce3e4c8cf86d3a"
+    },
+    {
+      "name": "MeshMessengerRootBindingTests-startup",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRootBindingTests",
+        "--startup"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "9855d4e646afd24a52ed004643832f30d13ef89915ea8d3c402b29b072071921"
+    },
+    {
+      "name": "MeshMessengerRootBindingTests-owner-scope",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRootBindingTests",
+        "--owner-scope"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "82db58c5853af627bba17d9c4fc9d9336e412d961825d1ac6b1e2aa5081dd2ad"
+    },
+    {
+      "name": "MeshMessengerRootBindingTests-publication",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRootBindingTests",
+        "--publication"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "5c9bfe79b5abfd69f826889392dc8cf2d9bc09c67c2050969ecec2fd8f0c107d"
+    },
+    {
+      "name": "MeshMessengerRootBindingTests-headless-admission",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRootBindingTests",
+        "--headless-admission"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "77da119286878fc5b80e6121504545a0aa93cd03000f3c5bc7248907d02e3385"
+    },
+    {
+      "name": "MeshMessengerRootBindingTests-owner-construction",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRootBindingTests",
+        "--owner-construction"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "5a9ad5f35fbd571f8fc65e121f2db4abed8716974fce60ba162dd5ee0b36f037"
+    },
+    {
+      "name": "MeshMessengerRootBindingTests-account-transition",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRootBindingTests",
+        "--account-transition"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "956ed4062b4bb0baa565e52a8f4cb5cbff8ddb3d8f8b6f56497671997cdf6d42"
+    },
+    {
+      "name": "MeshMessengerRootBindingTests-headless-lifetime",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRootBindingTests",
+        "--headless-lifetime"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "5e610e94a7d8c7f0a5df5246fc4e0a527a1e8ba534c3343e487c41cba3a0f9a8"
+    },
+    {
+      "name": "MeshMessengerRetirementTests-compile",
+      "command": [
+        "xcrun",
+        "swiftc",
+        "-swift-version",
+        "5",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLockPolicy.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLock.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerDataProtection.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerProtectedFiles.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerLockedNotifications.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerBackupRequest.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerNativeRetirement.swift",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/Tests/MeshMessengerRetirementTests.swift",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRetirementTests"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "MeshMessengerRetirementTests",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/artifacts/final-green-r2/MeshMessengerRetirementTests"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "ccb8d998c009180d89975451960fdd22495d253486d41f692800848a39fec63c"
+    }
+  ],
+  "scope": "Foundation native lifetime ports + production RootBindings/retirement + actual generated HTTP/SQLite",
+  "unqualified": [
+    "UIKit/Expo actual owner/sentinel destruction",
+    "iOS device/simulator runtime",
+    "native policy",
+    "complete effects",
+    "scheduler progress",
+    "publication",
+    "product activation"
+  ],
+  "sources": {
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLockPolicy.swift": "52ca75b1546b7dc7bcbb00a9dd7c6d8b47bb79a2507f0b4991841eb9c37fa4c0",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLock.swift": "8b2913dd793aaa19f4ee664c5e762769b00e76c07b065c592e712f2a8e48d952",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerDataProtection.swift": "cd5410f2f3c58bb6338c8048a068bb2bb06de515696b121ea54e95a54918ed9a",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerProtectedFiles.swift": "979d217c25113fa3e9bdb090e3eb2e0d6fcef4c7172a1df3652c660602a730bb",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerLockedNotifications.swift": "a1cfe6053dd5c0a973f6c30109413cbe2387f5132541b90aca837fcff2625d7a",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerBackupRequest.swift": "460d5e87a90e98f201fe219b35cc9f032e4b4104651ab98d408def95454d50cd",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerNativeRetirement.swift": "79004e1e8938d3bc922164f64da65ac7bd0af3dd36135423567b3f134833c237",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/native_lifetime.swift": "a63486431479bb5f4ba0cc33c6b17b64d1ef0fe853be6a0da896efe3fd6a723e",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/image_lifetime.swift": "8b71f8152e60483a04e972b681e25d00817e5425db62c3a369dabe510322c1bb",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py": "0b3c9459d16cb04bc61e1ac83ec5641e075922e9ff905436709af7085dca4e18",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/prove.py": "8e721462778265a635d522099c80f3d9f9be7f34af97225f8e388f48ecf4756e"
+  },
+  "driver_sha256": "474e44d9e9da84f8d6ed75d8318120f219dd85f030b07e446d7376cb049b8874",
+  "result": "PASS"
+}

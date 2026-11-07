@@ -1,6 +1,10 @@
 import Foundation
 
 enum MeshMessengerNativeRetirement {
+  static func onMain(retiring original: MeshMessengerNativeRetirementNode?, _ cleanup: @escaping () -> Void) {
+    original?.retireOriginal()
+    onMain(cleanup)
+  }
   static func onMain(_ retire: @escaping () -> Void) {
     // Main teardown must retire before returning to its caller. Off-Main
     // teardown still queues exact-identity cleanup without waiting for Main.
@@ -27,26 +31,45 @@ final class MeshMessengerRootBindings {
     let id = UUID(), rootID: UUID, moduleID: UUID
     let epoch: String, account: UInt64, sceneID: String
     let mount: MeshMessengerNativeMountObservation
+    let retirement: MeshMessengerNativeRetirementNode?
+    let rootRetirement: MeshMessengerNativeRetirementNode?
+    let sentinelRetirement: MeshMessengerNativeRetirementNode?
     weak var root: AnyObject?, owner: AnyObject?, context: AnyObject?, module: AnyObject?
     weak var window: AnyObject?, scene: AnyObject?
     init(rootID: UUID, moduleID: UUID, epoch: String, account: UInt64, sceneID: String,
          root: AnyObject, owner: AnyObject, context: AnyObject, module: AnyObject,
-         window: AnyObject, scene: AnyObject, mount: MeshMessengerNativeMountObservation) {
+         window: AnyObject, scene: AnyObject, mount: MeshMessengerNativeMountObservation,
+         retirement: MeshMessengerNativeRetirementNode? = nil,
+         rootRetirement: MeshMessengerNativeRetirementNode? = nil,
+         sentinelRetirement: MeshMessengerNativeRetirementNode? = nil) {
       self.rootID = rootID; self.moduleID = moduleID; self.epoch = epoch; self.account = account; self.sceneID = sceneID
       self.root = root; self.owner = owner; self.context = context; self.module = module
       self.window = window; self.scene = scene; self.mount = mount
+      self.retirement = retirement
+      self.rootRetirement = rootRetirement; self.sentinelRetirement = sentinelRetirement
     }
   }
   private let gate: MeshMessengerAppLock
   private let surface: (AnyObject, AnyObject) -> Surface?
-  init(gate: MeshMessengerAppLock, surface: @escaping (AnyObject, AnyObject) -> Surface?) {
-    self.gate = gate; self.surface = surface
+  private let retirementDomain: MeshMessengerNativeRetirementDomain?
+  init(gate: MeshMessengerAppLock, retirementDomain: MeshMessengerNativeRetirementDomain? = nil,
+       surface: @escaping (AnyObject, AnyObject) -> Surface?) {
+    self.gate = gate; self.surface = surface; self.retirementDomain = retirementDomain
   }
   private final class Root {
     let id = UUID()
+    let retirement: MeshMessengerNativeRetirementNode?
+    var sentinel: SentinelRegistration?
     weak var object: AnyObject?, window: AnyObject?, scene: AnyObject?
     var attached = false
-    init(_ object: AnyObject) { self.object = object }
+    init(_ object: AnyObject, retirement: MeshMessengerNativeRetirementNode?) {
+      self.object = object; self.retirement = retirement
+    }
+  }
+  private final class SentinelRegistration {
+    let id: UUID
+    let retirement: MeshMessengerNativeRetirementNode?
+    init(id: UUID, retirement: MeshMessengerNativeRetirementNode?) { self.id = id; self.retirement = retirement }
   }
   private final class RegisteredModule {
     weak var object: AnyObject?, context: AnyObject?
@@ -94,29 +117,44 @@ final class MeshMessengerRootBindings {
   func registerRoot(_ object: AnyObject) throws -> UUID {
     try requireMain()
     if let root, root.object === object { return root.id }
-    let replacing = root != nil, value = Root(object)
+    let replacing = root != nil, value = Root(object, retirement: try retirementDomain?.makeNode())
+    root?.retirement?.retireOriginal(); root?.sentinel?.retirement?.retireOriginal(); current?.retirement?.retireOriginal()
     root = value; current = nil
     if replacing { gate.lock() }
     return value.id
+  }
+  func registerSentinel(_ rootID: UUID, sentinelID: UUID) throws -> MeshMessengerNativeRetirementNode? {
+    try requireMain()
+    guard let root, root.id == rootID else { throw Failure.stale }
+    if let sentinel = root.sentinel, sentinel.id == sentinelID { return sentinel.retirement }
+    let next = SentinelRegistration(id: sentinelID, retirement: try retirementDomain?.makeNode())
+    root.sentinel?.retirement?.retireOriginal()
+    if retirementDomain != nil { current?.retirement?.retireOriginal(); current = nil }
+    root.sentinel = next
+    return next.retirement
   }
   func rootWindowDidChange(_ rootID: UUID) {
     guard Thread.isMainThread, let root, root.id == rootID else { return }
     guard let object = root.object, let value = surface(object, object) else {
       if root.attached {
+        current?.retirement?.retireOriginal()
         root.attached = false; root.window = nil; root.scene = nil
         current = nil; gate.lock()
       }
       return
     }
     if root.attached && (root.window !== value.window || root.scene !== value.scene) {
+      current?.retirement?.retireOriginal()
       current = nil; gate.lock()
     }
     root.attached = true; root.window = value.window; root.scene = value.scene
     // Inactivity (including owned LA prompt transitions) is handled by the
     // native gate. An attached window becoming inactive is not root loss.
   }
-  func detachRoot(_ rootID: UUID) {
+  func detachRoot(_ rootID: UUID, sentinelID: UUID? = nil) {
     guard Thread.isMainThread, root?.id == rootID else { return }
+    if let sentinelID, root?.sentinel?.id != sentinelID { return }
+    root?.retirement?.retireOriginal(); root?.sentinel?.retirement?.retireOriginal(); current?.retirement?.retireOriginal()
     root = nil; current = nil; gate.lock()
   }
   // Native-only synchronous snapshot. No JS root/context/window/scene value
@@ -125,10 +163,13 @@ final class MeshMessengerRootBindings {
     let rootID: UUID, moduleID: UUID, expected: String, account: UInt64
     let root: AnyObject, owner: AnyObject, context: AnyObject, module: AnyObject
     let surface: Surface
+    let rootRetirement: MeshMessengerNativeRetirementNode?, sentinelRetirement: MeshMessengerNativeRetirementNode?
     fileprivate init(rootID: UUID, moduleID: UUID, expected: String, account: UInt64,
-                     root: AnyObject, owner: AnyObject, context: AnyObject, module: AnyObject, surface: Surface) {
+                     root: AnyObject, owner: AnyObject, context: AnyObject, module: AnyObject, surface: Surface,
+                     rootRetirement: MeshMessengerNativeRetirementNode?, sentinelRetirement: MeshMessengerNativeRetirementNode?) {
       self.rootID = rootID; self.moduleID = moduleID; self.expected = expected; self.account = account
       self.root = root; self.owner = owner; self.context = context; self.module = module; self.surface = surface
+      self.rootRetirement = rootRetirement; self.sentinelRetirement = sentinelRetirement
     }
   }
   func prepareCapture(owner: AnyObject, viewContext: AnyObject, module: AnyObject,
@@ -141,8 +182,10 @@ final class MeshMessengerRootBindings {
           let root, let actualRoot = root.object,
           let value = surface(actualRoot, owner), value.active, !value.sceneID.isEmpty, value.mount?.isCurrent() == true else { throw Failure.unavailable }
     guard expected == gate.currentEpoch, account == gate.accountGeneration else { throw Failure.stale }
+    if retirementDomain != nil, root.sentinel == nil { throw Failure.unavailable }
     return Capture(rootID: root.id, moduleID: moduleID, expected: expected, account: account,
-      root: actualRoot, owner: owner, context: viewContext, module: module, surface: value)
+      root: actualRoot, owner: owner, context: viewContext, module: module, surface: value,
+      rootRetirement: root.retirement, sentinelRetirement: root.sentinel?.retirement)
   }
   func commitCapture(_ captured: Capture) throws -> Lease {
     try requireMain()
@@ -152,6 +195,10 @@ final class MeshMessengerRootBindings {
           let root, root.id == captured.rootID, root.object === captured.root,
           let registered = modules[moduleID], !registered.retired,
           registered.object === captured.module, registered.context === captured.context else { throw Failure.stale }
+    if retirementDomain != nil {
+      guard captured.rootRetirement === root.retirement,
+            captured.sentinelRetirement === root.sentinel?.retirement else { throw Failure.stale }
+    }
     if retiredOwners[ObjectIdentifier(owner)]?.object === owner { throw Failure.stale }
     if let owned = current, liveCurrent(owned) {
       guard owned.rootID == root.id, owned.owner === owner, owned.context === captured.context,
@@ -161,8 +208,11 @@ final class MeshMessengerRootBindings {
     }
     let lease = Lease(rootID: root.id, moduleID: moduleID, epoch: captured.expected, account: captured.account,
       sceneID: value.sceneID, root: captured.root, owner: owner, context: captured.context,
-      module: captured.module, window: value.window, scene: value.scene, mount: mount)
+      module: captured.module, window: value.window, scene: value.scene, mount: mount,
+      retirement: try retirementDomain?.makeNode(), rootRetirement: captured.rootRetirement,
+      sentinelRetirement: captured.sentinelRetirement)
     guard currentEpoch(lease) else { throw Failure.stale }
+    current?.retirement?.retireOriginal()
     // Only this successfully admitted actual native successor retires prior
     // native identities; public auth epochs never clear that retirement.
     retiredOwners = retiredOwners.filter { $0.value.object != nil }
@@ -229,11 +279,13 @@ final class MeshMessengerRootBindings {
   }
   func retireOwner(_ lease: Lease) {
     guard Thread.isMainThread, current?.id == lease.id, root?.id == lease.rootID else { return }
+    lease.retirement?.retireOriginal()
     current = nil
     if currentEpoch(lease) { gate.lock() }
   }
   func retireModule(_ moduleID: UUID) {
     guard Thread.isMainThread else { return }
+    if let owned = current, owned.moduleID == moduleID { owned.retirement?.retireOriginal() }
     modules[moduleID]?.retired = true
     if let owned = current, owned.moduleID == moduleID { retireOwner(owned) }
   }
@@ -710,7 +762,9 @@ public enum MeshMessengerDataProtection {
         let previous = sentinels.removeValue(forKey: obsolete)?.view
         previous?.removeFromSuperview()
       }
-      let sentinel = MeshMessengerRootSentinel(rootID: id)
+      let sentinelID = UUID()
+      let sentinel = MeshMessengerRootSentinel(rootID: id, id: sentinelID,
+        retirement: try rootBindings.registerSentinel(id, sentinelID: sentinelID))
       sentinels[id] = SentinelRecord(sentinel)
       root.addSubview(sentinel)
       observeRoot(id, sentinelID: sentinel.id)
@@ -726,7 +780,7 @@ public enum MeshMessengerDataProtection {
   }
   fileprivate static func retireSentinel(_ rootID: UUID, sentinelID: UUID) {
     guard Thread.isMainThread, sentinels[rootID]?.id == sentinelID else { return }
-    sentinels.removeValue(forKey: rootID); rootBindings.detachRoot(rootID)
+    sentinels.removeValue(forKey: rootID); rootBindings.detachRoot(rootID, sentinelID: sentinelID)
     MeshMessengerAppLock.shared.foreground(ownerSceneID: nil, active: false, cancelPending: true)
   }
   // Snapshot comes only from this actual Module's native AppContext lookup,
@@ -760,15 +814,19 @@ public enum MeshMessengerDataProtection {
 // Weak exact root/window observation. Key-window focus and LA prompt inactivity
 // are not root detachment and are owned by the native gate's scene lifecycle.
 private final class MeshMessengerRootSentinel: UIView {
-  let id = UUID(), rootID: UUID
-  init(rootID: UUID) { self.rootID = rootID; super.init(frame: .zero); isUserInteractionEnabled = false; isAccessibilityElement = false }
+  let id: UUID, rootID: UUID
+  private let retirement: MeshMessengerNativeRetirementNode?
+  init(rootID: UUID, id: UUID, retirement: MeshMessengerNativeRetirementNode?) {
+    self.rootID = rootID; self.id = id; self.retirement = retirement
+    super.init(frame: .zero); isUserInteractionEnabled = false; isAccessibilityElement = false
+  }
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
   override func didMoveToWindow() {
     super.didMoveToWindow(); MeshMessengerDataProtection.observeRoot(rootID, sentinelID: id)
   }
   deinit {
     let rootID = rootID, sentinelID = id
-    MeshMessengerNativeRetirement.onMain { MeshMessengerDataProtection.retireSentinel(rootID, sentinelID: sentinelID) }
+    MeshMessengerNativeRetirement.onMain(retiring: retirement) { MeshMessengerDataProtection.retireSentinel(rootID, sentinelID: sentinelID) }
   }
 }
 
@@ -786,6 +844,7 @@ final class MeshMessengerAppLockOwnerView: ExpoView {
   func bindOwner(_ prepared: MeshMessengerRootBindings.Capture) throws -> MeshMessengerRootBindings.Lease {
     guard prepared.owner === self else { throw MeshMessengerRootBindings.Failure.unavailable }
     let captured = try MeshMessengerDataProtection.commitOwner(prepared)
+    if lease?.id != captured.id { lease?.retirement?.retireOriginal() }
     lease = captured; return captured
   }
   func finishOwnerBinding(_ captured: MeshMessengerRootBindings.Lease) throws {
@@ -794,11 +853,14 @@ final class MeshMessengerAppLockOwnerView: ExpoView {
   }
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    if window == nil, let owned = lease { lease = nil; MeshMessengerDataProtection.retireOwner(owned) }
+    if window == nil, let owned = lease {
+      owned.retirement?.retireOriginal()
+      lease = nil; MeshMessengerDataProtection.retireOwner(owned)
+    }
     else if window != nil { onOwnerAttached([:]) } // Empty attach wake, never an auth result.
   }
   deinit {
-    if let owned = lease { MeshMessengerNativeRetirement.onMain { MeshMessengerDataProtection.retireOwner(owned) } }
+    if let owned = lease { MeshMessengerNativeRetirement.onMain(retiring: owned.retirement) { MeshMessengerDataProtection.retireOwner(owned) } }
   }
 }
 // Called only by the existing native wallet authorize callback on its worker.

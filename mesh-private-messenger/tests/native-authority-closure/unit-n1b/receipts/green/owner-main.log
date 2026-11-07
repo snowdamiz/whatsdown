@@ -1,0 +1,5 @@
+{"event": "real-http-held-main-undrained", "case": "owner-main", "before_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79"}
+{"event": "native-teardown-returned-before-http", "main_cleanup_deferred": false, "bind_status": 10}
+{"event": "real-sink-result", "rows": [], "statuses": [10], "requests": ["/hold"], "after_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79"}
+{"event": "successor-after-stale-main-cleanup-reached-real-sink", "rows": [["later"]]}
+{"event": "PASS", "case": "owner-main"}

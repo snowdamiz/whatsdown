@@ -1,0 +1,8 @@
+{"event": "real-http-held-main-undrained", "case": "same-root-sentinel", "before_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79"}
+{"event": "native-teardown-returned-before-http", "main_cleanup_deferred": true, "bind_status": 10}
+{"event": "real-sink-result", "rows": [], "statuses": [10], "requests": ["/hold"], "after_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79"}
+Traceback (most recent call last):
+  File "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/check.py", line 118, in <module>
+    assert observed == 0 and rows == [("later",)] and results == [0], \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: obsolete same-root sentinel retired successor before Main cleanup

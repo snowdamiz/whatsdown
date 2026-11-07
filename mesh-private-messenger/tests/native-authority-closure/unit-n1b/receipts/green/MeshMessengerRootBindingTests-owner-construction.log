@@ -1,0 +1,2 @@
+PASS locked native owner port construction keeps auth metadata without granting private data
+RESULT 1/1 native-owner-construction groups passed

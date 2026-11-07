@@ -1,0 +1,32 @@
+PASS enabled bootstrap stays restricted until exact OS success
+PASS first opt-in cancellation restores fresh disabled without durable writes
+PASS stale queued authentication cannot relock a newer unlock
+PASS exact approved result waits through prompt inactivity for original scene
+PASS true background consumes request and ignores late success
+PASS authenticated enable write failure remains covered
+PASS committed disable interrupted by background needs a new OS request
+PASS account change cancels request and stale scoped completion refuses
+PASS expired OS success is refused without authority
+PASS nested native scope preserves original call capture
+PASS first pending write failure cannot restore disabled in the running session
+PASS enable notification drain failure leaves pending policy and cover
+PASS cold pending recovery can choose disable after fresh authentication
+PASS unreadable policy cannot bootstrap or authenticate
+PASS unavailable first opt-in returns fresh disabled without writing
+PASS readiness only uncovers current authenticated foreground epoch
+PASS foreign scene cannot inherit request or unlocked scope
+PASS lock revokes immediately while policy IO is blocked
+PASS lock and account events cannot bypass a failed bootstrap drain
+PASS held OS success cannot restore disabled after background cancellation
+PASS manual lock during first opt-in cannot be undone by its cancellation
+PASS lifecycle cannot publish disabled while initial cleanup is blocked
+PASS plain unlock checks exact persisted policy after OS success
+PASS missing persisted policy cannot unlock through cached enabled state
+PASS foreign native source cannot authenticate cancel or publish readiness
+PASS clipboard publication cannot finish after a completed revoke
+PASS manual lock during initial policy load survives disabled bootstrap
+PASS native cover hide cannot finish after a completed revoke
+PASS native environment ownership is required before startup and scoped access
+PASS native environment loss prevents OS success and actual cover hide
+PASS observed environment loss revokes the visible session before returning to UI
+IOS_CONTROLLER_HOST_RESULT failures=0 groups=31

@@ -1,0 +1,5 @@
+PASS each actual account-changing export revokes old data and blocks fresh readers until the native transaction returns
+PASS an actual account body error survives native finalization and releases the private-read barrier
+PASS native account tickets are exact once-only and competing mutation cannot enter its body
+PASS ordinary native data exports preserve their epoch and exact response without an account ticket
+RESULT 4/4 native-account-transition groups passed

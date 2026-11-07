@@ -1,0 +1,10 @@
+/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b4a6d54e/mesh-private-messenger/tests/native-authority-closure/unit-n1b/image_lifetime.swift:16:14: warning: weak variable 'originalDomain' was never mutated; consider changing to 'let' constant [#VariableNeverMutated::WeakMutability]
+14 |     // production domain is its sole image owner after this temporary lookup.
+15 |     var domain: MeshMessengerNativeRetirementDomain? = try .init(imagePath: path)
+16 |     weak var originalDomain = domain
+   |              `- warning: weak variable 'originalDomain' was never mutated; consider changing to 'let' constant [#VariableNeverMutated::WeakMutability]
+17 |     var node: MeshMessengerNativeRetirementNode? = try domain!.makeNode()
+18 |     let domainPointer = domain!.nativeDomain
+
+[#VariableNeverMutated]: <https://docs.swift.org/compiler/documentation/diagnostics/variable-never-mutated>
+[#WeakMutability]: <https://docs.swift.org/compiler/documentation/diagnostics/weak-mutability>

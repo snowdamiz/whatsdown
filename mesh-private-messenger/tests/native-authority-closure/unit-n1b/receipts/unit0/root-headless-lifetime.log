@@ -1,0 +1,2 @@
+PASS released headless native port suppresses pending data and refuses later private effects without retiring a fresh task
+RESULT 1/1 native-headless-lifetime groups passed

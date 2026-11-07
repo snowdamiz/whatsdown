@@ -1,0 +1,4 @@
+FAIL Main owner retirement changes native authority before returning with Main queue held: assertion("owner retirement was deferred past return")
+FAIL Main root retirement changes native authority before returning with Main queue held: assertion("root retirement was deferred past return")
+PASS off-Main retirement returns while Main is held and delayed old loss preserves successor
+RESULT 1/3 native retirement groups passed

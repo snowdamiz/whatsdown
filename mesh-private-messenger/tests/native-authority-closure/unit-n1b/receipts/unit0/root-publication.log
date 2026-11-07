@@ -1,0 +1,2 @@
+PASS native mount replacement during broker registration refuses before external publication
+RESULT 1/1 pending-publication groups passed

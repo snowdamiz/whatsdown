@@ -1,0 +1,4 @@
+PASS native protection installs before RN even when actual provider construction fails
+PASS real policy staging cleanup and notice drain complete under installed native protection
+PASS notification ownership loss fails startup closed and later restoration cannot revive it
+RESULT 3/3 native-startup groups passed

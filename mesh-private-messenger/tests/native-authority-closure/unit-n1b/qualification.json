@@ -1,0 +1,138 @@
+{
+  "status": "PASS_WITH_GATES",
+  "baseline_commit": "0d6826b5d02e3439d93568ecc1d6fa996135a505",
+  "production_sources": {
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerDataProtection.swift": "cd5410f2f3c58bb6338c8048a068bb2bb06de515696b121ea54e95a54918ed9a",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerNativeRetirement.swift": "79004e1e8938d3bc922164f64da65ac7bd0af3dd36135423567b3f134833c237"
+  },
+  "evidence": {
+    "receipts/green/MeshMessengerAppLockTests-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/green/MeshMessengerAppLockTests.log": "6ab6ca483d3ce34c935910ce583a6c3a020e058c1c01d18722dc80c8420abcbd",
+    "receipts/green/MeshMessengerRetirementTests-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/green/MeshMessengerRetirementTests.log": "ccb8d998c009180d89975451960fdd22495d253486d41f692800848a39fec63c",
+    "receipts/green/MeshMessengerRootBindingTests-account-transition.log": "956ed4062b4bb0baa565e52a8f4cb5cbff8ddb3d8f8b6f56497671997cdf6d42",
+    "receipts/green/MeshMessengerRootBindingTests-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/green/MeshMessengerRootBindingTests-headless-admission.log": "77da119286878fc5b80e6121504545a0aa93cd03000f3c5bc7248907d02e3385",
+    "receipts/green/MeshMessengerRootBindingTests-headless-lifetime.log": "5e610e94a7d8c7f0a5df5246fc4e0a527a1e8ba534c3343e487c41cba3a0f9a8",
+    "receipts/green/MeshMessengerRootBindingTests-owner-construction.log": "5a9ad5f35fbd571f8fc65e121f2db4abed8716974fce60ba162dd5ee0b36f037",
+    "receipts/green/MeshMessengerRootBindingTests-owner-scope.log": "82db58c5853af627bba17d9c4fc9d9336e412d961825d1ac6b1e2aa5081dd2ad",
+    "receipts/green/MeshMessengerRootBindingTests-publication.log": "5c9bfe79b5abfd69f826889392dc8cf2d9bc09c67c2050969ecec2fd8f0c107d",
+    "receipts/green/MeshMessengerRootBindingTests-startup.log": "9855d4e646afd24a52ed004643832f30d13ef89915ea8d3c402b29b072071921",
+    "receipts/green/MeshMessengerRootBindingTests.log": "7bfe5ab08989c6211448944225b892da112201ae8ebb24d1ddce3e4c8cf86d3a",
+    "receipts/green/capture-owner.log": "3d83aee10743403c08fb998581fb85ab100b8485d77c59e075ef558d665a8e31",
+    "receipts/green/control.log": "bee7cd43e2340ed9c55d62167fd06cc33f0d88c433dc297eb73339895d82bda4",
+    "receipts/green/driver-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/green/image-lifetime-compile.log": "379b40f541cbb9466ec0f9846ca569a1ceddfd846505768e3c28dfe921a8ef96",
+    "receipts/green/image-lifetime.log": "933fbe8c0dead439d1d5c9eff038da301f26420d12a2b3925a8a5b85d63820b1",
+    "receipts/green/ios-support-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/green/owner-main.log": "b63cb2cf0ccc995472f6c76112f0a0c539707417f41c8ce95520b8d527f78481",
+    "receipts/green/owner.log": "3244eb169043098f6005de64952f3caf7e9c05e783a79147989a7c2ac4ed7352",
+    "receipts/green/receipt.json": "eb43268a525a6571817796188d0314af8f4b14dd1db8e14f3ccafd96d9f3a853",
+    "receipts/green/runtime-platform.log": "4b54ee9d45346373aa4e8a10c41e1a0cd8f155f2561fb00e1595e7fbb504b0b7",
+    "receipts/green/same-root-sentinel.log": "97f1502b80c37e38e392ba8bca95f655c210cabe12ac246065cf89f3f62da7cd",
+    "receipts/green/same-root-stale-capture.log": "46414c7116e03790464cd32338cd8013d2c704e955ed9ba712ac955c5ce2d929",
+    "receipts/green/sentinel-main.log": "62104a5da902ddbf5bf411166cadf286b43acd195dd67ce709155149b7809ad8",
+    "receipts/green/sentinel.log": "bff4934847f36703e2fdb44e982bf8f6f52a18b8486f0b6c08b464a7747cf4dd",
+    "receipts/red/control.log": "bee7cd43e2340ed9c55d62167fd06cc33f0d88c433dc297eb73339895d82bda4",
+    "receipts/red/driver-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/red/owner.log": "475b09a84a29d0779a5fe858e30b011048258ea402fba1f460f2e7f2e051e73a",
+    "receipts/red/receipt.json": "e71e86c9d1326f5a62bdca28b34ac7483b77dcf3f9617827a476f1e9db0ac2fe",
+    "receipts/red/sentinel.log": "fe36453a82a3bd8796fdea7f2951df23760142203523121339a13eb1d86e69f8",
+    "receipts/same-root-red/compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/same-root-red/receipt.json": "2bb09c708f621e93a5a4f5248d715cded353053639d763a0b3d45882e60e1bec",
+    "receipts/same-root-red/same-root.log": "477d11e5af2d01bbcb7d82bcc11523d4483a451aca605471e723138aa8226a55",
+    "receipts/unit0/app-lock-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/unit0/app-lock.log": "6ab6ca483d3ce34c935910ce583a6c3a020e058c1c01d18722dc80c8420abcbd",
+    "receipts/unit0/process-owner-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/unit0/process-owner.log": "b31cd7929ce6a20c3000ce800dc6780db62952e95590e6e3e3913e7b3dd4e64f",
+    "receipts/unit0/receipt.json": "6b8df5e946bb57c28d8c973341f28f714279585b302e2bb864d8c45751de8b7e",
+    "receipts/unit0/retirement-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/unit0/retirement-red-control-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/unit0/retirement-red-control.log": "c9f1d19b5d139c52893637fbaa8c820a38d489fea4dbfe4028ce04e8d63c693a",
+    "receipts/unit0/retirement.log": "ccb8d998c009180d89975451960fdd22495d253486d41f692800848a39fec63c",
+    "receipts/unit0/root-account-transition.log": "956ed4062b4bb0baa565e52a8f4cb5cbff8ddb3d8f8b6f56497671997cdf6d42",
+    "receipts/unit0/root-bindings-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipts/unit0/root-bindings.log": "7bfe5ab08989c6211448944225b892da112201ae8ebb24d1ddce3e4c8cf86d3a",
+    "receipts/unit0/root-headless-admission.log": "77da119286878fc5b80e6121504545a0aa93cd03000f3c5bc7248907d02e3385",
+    "receipts/unit0/root-headless-lifetime.log": "5e610e94a7d8c7f0a5df5246fc4e0a527a1e8ba534c3343e487c41cba3a0f9a8",
+    "receipts/unit0/root-owner-construction.log": "5a9ad5f35fbd571f8fc65e121f2db4abed8716974fce60ba162dd5ee0b36f037",
+    "receipts/unit0/root-owner-scope.log": "82db58c5853af627bba17d9c4fc9d9336e412d961825d1ac6b1e2aa5081dd2ad",
+    "receipts/unit0/root-publication.log": "5c9bfe79b5abfd69f826889392dc8cf2d9bc09c67c2050969ecec2fd8f0c107d",
+    "receipts/unit0/root-startup.log": "9855d4e646afd24a52ed004643832f30d13ef89915ea8d3c402b29b072071921"
+  },
+  "generated_cases": 8,
+  "existing_swift_groups": 71,
+  "existing_retirement_groups": 3,
+  "baseline_expected_red_cases": 2,
+  "review_r1_same_root_red_cases": 1,
+  "native_support_ios_simulator_typecheck": "PASS; support file only",
+  "actual_uikit_expo": "UNQUALIFIED",
+  "runtime_pin": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+  "runtime_source_manifest_sha256": "6fee3604df1d2d6e7825fbb62caa8d76c9eb242371b87ee9030d792b5852bda7",
+  "retained_family_sha256": "652b8475fec8e4391c7f178b26923661e109c18b73c0008d4b84718e03cbbb59",
+  "retained_generated_library_sha256": "1d5af0920725bc0449977060a270393192193b09ce896f96049ce3226299bf5d",
+  "authority_header_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+  "verified_runtime_sources": 19,
+  "verified_retained_artifacts": 44,
+  "runtime_mask": 1,
+  "product_protected_activation": false,
+  "scope": "Bounded Foundation native registration/lifetime bridge, actual accepted generated HTTP/SQLite, no product platform adoption",
+  "remaining_gates": [
+    "UIKit/Expo actual owner/sentinel destruction",
+    "iOS device/simulator runtime",
+    "native policy",
+    "complete effects",
+    "scheduler progress",
+    "publication",
+    "product activation"
+  ],
+  "unchanged_production_files": [
+    "MeshMessengerAppLock.swift",
+    "MeshMessengerAppLockPolicy.swift",
+    "MeshMessengerCurrentMount.mm",
+    "MeshMessengerModule.swift"
+  ],
+  "notes": [
+    "R1 same-root aliasing fixed with distinct sentinel registration/node, exact original ancestry capture and same-epoch replacement refusal.",
+    "Image/domain/node retained by native fixture until all C authorities and invocations release.",
+    "Original Foundation test files unchanged; all seven RootBinding modes actually executed.",
+    "Full iOS app integration unavailable: accepted runtime image is MACOS and checkout has no generated mobile iOS project/Pods.",
+    "No runtime family build/copy, app8256 change, push, PR, deploy, inventory or plan edits."
+  ],
+  "test_build_integration": {
+    "path": "mesh-private-messenger/tests/native-effect-authority-unit0/prove.py",
+    "sha256": "f6cca1cdb463fdfdf5abc20ed4f790bab7a67b041717bd499fa18accabac7bc0",
+    "authorization": "parent granted exact one-line source-list hunk",
+    "unit0_replay": "PASS: 17 recorded runs including expected-red Main dispatcher control"
+  },
+  "reviews": {
+    "r1": {
+      "verdict": "REQUEST_CHANGES",
+      "finding": "same-root sentinel node aliasing",
+      "resolved": true,
+      "path": "review-r1.md"
+    },
+    "r2": {
+      "verdict": "PASS_WITH_GATES",
+      "path": "review-r2.md",
+      "sha256": "3b0c05311fe8fcae53a40fd63c2c2ccb84d55218fdb43887da58bcabb55042ee"
+    },
+    "r3_build_list": {
+      "verdict": "PASS_WITH_GATES",
+      "path": "review-r3-build-list.md",
+      "sha256": "e47e1e960398e297eeeee9d56c5bcb6cbf0145925010602e656b793150e509d7",
+      "scope": "authorized one-line unit0 dependency list; receipts inspected without duplicate test replay"
+    }
+  },
+  "test_sources": {
+    "native_lifetime.swift": "a63486431479bb5f4ba0cc33c6b17b64d1ef0fe853be6a0da896efe3fd6a723e",
+    "image_lifetime.swift": "8b71f8152e60483a04e972b681e25d00817e5425db62c3a369dabe510322c1bb",
+    "check.py": "0b3c9459d16cb04bc61e1ac83ec5641e075922e9ff905436709af7085dca4e18",
+    "prove.py": "8e721462778265a635d522099c80f3d9f9be7f34af97225f8e388f48ecf4756e"
+  },
+  "review_r1_sha256": "8a3638db15a0654b2640bddb4644cb39b0d36b842176c02dc424af52730a0b86",
+  "documentation": {
+    "README.md": "3dd54010f34438e1acfcca9be12a2e6ab8075d410b06cfcb1ef392fc05bfd641",
+    "review-scope-addendum.md": "3b8197758dcacc5ecee3ccf03f33279b924dc64484932842d0d5b421e4eecdb0"
+  }
+}
