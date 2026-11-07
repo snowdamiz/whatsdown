@@ -29,13 +29,14 @@ missing context. Wake callbacks, destruction, UI covering, and resource disposal
 run after the domain releases. Resource deadlines require actual monotonic time
 at their relevant admission boundary. A delayed timer does not prove expiry.
 
-The provisional maximum of 64 native lifetimes is an unresolved pre-freeze
-capacity issue. A workload can retain old handles across pending HTTP, actors,
-resource disposal, and owner replacement. Capacity exhaustion must refuse without
-evicting live references or reusing an identity that an old handle still names.
-The owner must define the bound, ancestry accounting, reclamation, and overflow
-behavior before platform integration. This unit neither assumes 64 is sufficient
-nor changes that API.
+The initial proposal of 64 never-reused lifetimes per domain was rejected before
+API freeze: routine owner replacement would eventually exhaust a live app. The
+language owner now proposes separately retained immutable generation nodes with
+bounded ancestry (currently 32) per authority and no domain lifetime-transition
+limit. This remains an implementation contract under qualification. Old handles
+may survive pending HTTP, actors and resource disposal; reclamation, multi-node
+admission ordering, overflow refusal and absence of identity reuse still need
+proof before platform integration. This unit does not activate that API.
 
 ## Native truth that still blocks integration
 

@@ -1,0 +1,80 @@
+{
+  "source_head": "fccdcddda8ca8da30446c288beaa8180b6d30849",
+  "production_source": {
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLockPolicy.swift": "52ca75b1546b7dc7bcbb00a9dd7c6d8b47bb79a2507f0b4991841eb9c37fa4c0",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLock.swift": "8b2913dd793aaa19f4ee664c5e762769b00e76c07b065c592e712f2a8e48d952",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerProtectedFiles.swift": "979d217c25113fa3e9bdb090e3eb2e0d6fcef4c7172a1df3652c660602a730bb",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerLockedNotifications.swift": "a1cfe6053dd5c0a973f6c30109413cbe2387f5132541b90aca837fcff2625d7a",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerDataProtection.swift": "3700ccd0b79ddb4bcf02b278b24c94c46f9cd90dd552057cc351e3734abb1bd8",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/Tests/MeshMessengerRetirementTests.swift": "f9920b6ee30fd1a3f6ce1a8b6c3b12abc7a9d10d6d21b2c2bd8ba1618f41dfa6",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/Tests/MeshMessengerRootBindingTests.swift": "25cdcefe196195645694893e8883629fdec8ff6176bd4732c26acc7b225edede",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/Tests/MeshMessengerAppLockTests.swift": "396383e164c46f4f2731b4b1b9729b4dafd52aa3b796d349089209e5d454f0a6",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.m": "b6a5dfc60aa31307996656ab7d5b1b548f1a9fbb7018e9b59cebfce4e532aa92",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.h": "aa0cb9a38748e464abcb015be09967d04d691b1afb335cd3199de367ba4e04f6",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/Policy.h": "7bdf4327d763de49f410fb08c36a3ecae1edd768168401e7021747310f5a2faa",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/tests/process_owner_closure.m": "9648ef085716cefe34c6c5a4132d8cb8589e0d2d55ee6105147a8d7090e020cf",
+    "mesh-private-messenger/tests/native-effect-authority-unit0/prove.py": "d835b7b95ad46d7196d1b1e5cb976d9a11801cf54023b3990b72648e7c9579ee"
+  },
+  "host_runs": 17,
+  "passed_cases": {
+    "retirement": 3,
+    "existing_swift": 71,
+    "real_process_owner": 2
+  },
+  "negative_control": "Always-deferred dispatcher expected exit1, two Main failures, one off-Main control passes",
+  "native_inventory": {
+    "only_changed_package": "mesh-messenger",
+    "before": {
+      "name": "mesh-messenger",
+      "version": "local",
+      "integrity": null,
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "03cf494e0ad3d85613cfc49c2a70b64e8ef50bbb5b10673bd7368b14c850ebf7",
+      "sha256": "b201625512fe010028c950ecf4ac1a45e0e2dde75bfda67a9aebd6452133aff9",
+      "sources": 52,
+      "connectionSites": []
+    },
+    "after": {
+      "name": "mesh-messenger",
+      "version": "local",
+      "integrity": null,
+      "registrations": [
+        "resolve:apple",
+        "resolve:android"
+      ],
+      "moduleConfig": "03cf494e0ad3d85613cfc49c2a70b64e8ef50bbb5b10673bd7368b14c850ebf7",
+      "sha256": "38ff04ee750a3be7d3b6cc32e09b34231c2cd5cb1611539861711efd62bb19ee",
+      "sources": 53,
+      "connectionSites": []
+    },
+    "desktop_and_control_pins": "unchanged",
+    "review": "Production diff adds synchronous Main dispatch only; new test has no network capability. Full collector preserves all other packages and network controls.",
+    "gate": {
+      "exit": 0,
+      "log_sha256": "d671611f053c75dd64b563751b93968ed4ff1734334198900978f5329c27b7cb",
+      "packages": 36,
+      "source_files": 5903
+    }
+  },
+  "runtime_api_doc": "Initial64 lifetimecap replaced by separately retained nodes/bounded ancestry proposal. No protectedactivation.",
+  "receipt_sha256": "efed576febc35c238614971f426b72c3122a512003cd940323023fc06a297fa8",
+  "owner_receipt_sha256": "5ceb0db73d6af3eeb09cb1b667b72acd373422e9c24468265f8cd9301d1e383b",
+  "limits": [
+    "Foundation/controller/OS tests on macOS, not UIKit/Expo/Android product execution.",
+    "Off-Main teardown and framework identity mutations remain open; current native OS-path policy remains required.",
+    "No Mesh/runtime integration, SDK/final IPC handoff, signing/Keychain, or serializer removal."
+  ],
+  "replay_receipt": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-effect-unit0-parent/replay/receipt.json",
+    "sha256": "efed576febc35c238614971f426b72c3122a512003cd940323023fc06a297fa8"
+  },
+  "inventory_sha256": "9b475a34295c5b18d7190a7d49171a2d4bcc563c94f037988fe47fe190f57315",
+  "handoff_doc_sha256": "a2af1bd656e00767c7aa7bc0bfca6aa1bc5bbccbbebf1cb62e9abe6f74514ddd",
+  "production_commits": [
+    "f814681",
+    "fccdcdd"
+  ]
+}
