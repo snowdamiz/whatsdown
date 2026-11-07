@@ -1,0 +1,751 @@
+{
+  "schema": "decoded-sync-parser-proof/v1",
+  "date": "2026-11-06",
+  "status": "BLOCKED",
+  "counts": {
+    "PASS": 2,
+    "BLOCKED": 9
+  },
+  "scope": "Actual imported Mobile.Sessions API; fixed synthetic runtime tests and compile-only HTTP/seal probes.",
+  "semantic_unit": "UNADOPTED; no Main, receive authority, native, release, deployment, or network qualification.",
+  "authority_limit": "Public-input routing metadata probes establish no permission to release receive metadata. Authentication and VO prerequisites remain with the parent.",
+  "baseline_commit": "a48963b4918f5fc39981176d4e46069b78dfeebb",
+  "source_family": {
+    "same_app_hashes_across_selected_runs": true,
+    "frozen_files": {
+      "packages/mobile-core/mobile/sessions.mpl": "6bdbfe46e6b8b5dcd3bd71e1dd189d84756d1ddac1cdc9e304d56c7744dabee3",
+      "packages/mobile-core/tests/decoded_sync_errors.test.mpl": "ec0483fa4322c210347cfe274ad00c09ea93d60d8bea598375ed16f7d2f502d7"
+    },
+    "captures": [
+      {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/capture.json",
+        "sha256": "3a8fdd805c14f15ab8b290f21e66e7ae0d75e7d042ce23c3eabd9ce92180c0f4"
+      },
+      {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r3/capture.json",
+        "sha256": "a717e1a696fed2e7c11ea3eea1e978a727a75ebcd49b16281e6402cbdd805213"
+      }
+    ],
+    "live_changed_since_capture": []
+  },
+  "toolchain": {
+    "bin/meshc": {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85"
+    },
+    "lib/libmesh_rt.a": {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8"
+    },
+    "lib/libmesh_test_rt.a": {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33"
+    }
+  },
+  "runner": {
+    "path": "mesh-private-messenger/ops/plaintext/prove_sync_parser.py",
+    "sha256": "540a3e8475e68e2e2dddedfbeb28adcf514e91fa836e169029065ee03da6a923"
+  },
+  "fixtures": {
+    "allowed.mpl": {
+      "path": "mesh-private-messenger/ops/plaintext/fixtures/decoded-sync/allowed.mpl",
+      "sha256": "18773ae3329167ccbf9bf7d71e45daef662fd3bc457b486fc24c7735034887b5"
+    },
+    "classifier.mpl": {
+      "path": "mesh-private-messenger/ops/plaintext/fixtures/decoded-sync/classifier.mpl",
+      "sha256": "9f23bf7f1181cfb9747337559eb28100e23205098ff318c14aafb597599188a7"
+    },
+    "fields.test.mpl": {
+      "path": "mesh-private-messenger/ops/plaintext/fixtures/decoded-sync/fields.test.mpl",
+      "sha256": "c602bf440fd0ed017277340bfecbeb0a71af34300892df24d7463b5a26ca4ba0"
+    },
+    "legacy-errors.test.mpl": {
+      "path": "mesh-private-messenger/ops/plaintext/fixtures/decoded-sync/legacy-errors.test.mpl",
+      "sha256": "9e92194ae599b9c96587bfac83abf2ff24d161167c66d76e8ca5e200652f4586"
+    },
+    "private-exits.mpl": {
+      "path": "mesh-private-messenger/ops/plaintext/fixtures/decoded-sync/private-exits.mpl",
+      "sha256": "8a4d8bf29de82c2d46f32c8dc938aad132615b43a1515cfe81d2455a533b11ba"
+    }
+  },
+  "raw_evidence": [
+    {
+      "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/evidence.json",
+      "sha256": "22015340baa6fa3863a3b19867fabfa7e8ddbfbdcd67f04b79e3e8a074cc9bba"
+    },
+    {
+      "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r3/evidence.json",
+      "sha256": "5280d80bc6ad58ebe3841577a31f0916874c467f3becf6982ba82fa808d1b20a"
+    }
+  ],
+  "historical_evidence": {
+    "path": ".morse/decoded-body-labels/sync-error-baseline/test.log",
+    "use": "Historical single baseline pass only; not current migration evidence."
+  },
+  "preserved_attempts": [
+    {
+      "path": ".morse/decoded-body-labels/sync-parser-child",
+      "status": "INCOMPLETE",
+      "reason": "Initial field fixture used invalid Mesh Unicode escapes. Original sources, inputs, and logs retained."
+    },
+    {
+      "path": "corrected-r2/variants/baseline-wrong-error-control/result/test.log",
+      "reason": "Expected runtime assert executed, but runner only recognized 'assertion failed'. Targeted corrected-r3 rerun recognizes actual 'assert failed:' and passes."
+    }
+  ],
+  "root_shape_comparison": {
+    "historical_probe_main": "fn main() do nil end",
+    "corrected_r3_probe_main": "fn main() do nil end",
+    "result": "Current migration still blocked with inert probe main and the actual imported package. No package source was stripped or patched to isolate it."
+  },
+  "diagnostic_policy": "Retain every diagnostic. Only the exact C0001 aggregate compilation summary is classified separately; no imported-module error is filtered or normalized.",
+  "legacy_fixture_adaptation": "Remove typed parser/type import and typed_outcome helper; replace legacy && typed_outcome(input, expected) with legacy. Every frame and expected legacy string remains byte-identical.",
+  "sensitivity_mutations": [
+    {
+      "variant": "future-variant-control",
+      "path": "packages/mobile-core/mobile/sessions.mpl",
+      "before": "  SyncInvalidSafetyNumber\nend deriving(Eq, Debug)",
+      "after": "  SyncInvalidSafetyNumber\n  SyncFutureVariant\nend deriving(Eq, Debug)",
+      "diff": "--- \n+++ \n@@ -70,6 +70,7 @@\n   SyncInvalidPayload\n   SyncInvalidStoreRequest\n   SyncInvalidSafetyNumber\n+  SyncFutureVariant\n end deriving(Eq, Debug)\n \n fn sync_payload_error_text(error :: SyncPayloadError) -> String do\n"
+    },
+    {
+      "variant": "future-variant-control",
+      "path": "packages/mobile-core/mobile/sessions.mpl",
+      "before": "    SyncInvalidSafetyNumber -> \"invalid_safety_number\"",
+      "after": "    SyncInvalidSafetyNumber -> \"invalid_safety_number\"\n    SyncFutureVariant -> \"synthetic_future_variant\"",
+      "diff": "--- \n+++ \n@@ -78,6 +78,7 @@\n     SyncInvalidPayload -> \"invalid_sync_payload\"\n     SyncInvalidStoreRequest -> \"invalid_store_request\"\n     SyncInvalidSafetyNumber -> \"invalid_safety_number\"\n+    SyncFutureVariant -> \"synthetic_future_variant\"\n   end\n end\n \n"
+    },
+    {
+      "variant": "removed-labels-public-control",
+      "path": "packages/mobile-core/mobile/types.mpl",
+      "before": "pub struct MobileSyncPayload do\n  peer_username :: String\n  peer_account_id :: Bytes\n  conversation_id :: Bytes\n  client_message_id :: Bytes\n  client_timestamp :: U64\n  body :: Plaintext<Bytes>",
+      "after": "pub struct MobileSyncPayload do\n  peer_username :: String\n  peer_account_id :: Bytes\n  conversation_id :: Bytes\n  client_message_id :: Bytes\n  client_timestamp :: U64\n  body :: Bytes",
+      "diff": "--- \n+++ \n@@ -164,7 +164,7 @@\n   conversation_id :: Bytes\n   client_message_id :: Bytes\n   client_timestamp :: U64\n-  body :: Plaintext<Bytes>\n+  body :: Bytes\n   disappearing_seconds :: Int\n   safety_number :: Bytes\n end\n"
+    },
+    {
+      "variant": "removed-labels-public-control",
+      "path": "packages/messenger-protocol/protocol/v1.mpl",
+      "before": "  body :: Plaintext<Bytes>",
+      "after": "  body :: Bytes",
+      "diff": "--- \n+++ \n@@ -86,7 +86,7 @@\n   client_message_id :: Bytes\n   client_timestamp :: U64\n   message_type :: Int\n-  body :: Plaintext<Bytes>\n+  body :: Bytes\n   reply_reference :: Bytes\n   attachment_manifest :: Bytes\n   receipt_policy :: Int\n"
+    },
+    {
+      "variant": "removed-labels-public-control",
+      "path": "packages/mobile-core/mobile/sessions.mpl",
+      "before": "pub fn encode_sync_payload(local :: ClientProfile,\n  peer :: ClientProfile,\n  inner :: InnerEnvelope) -> Plaintext<Bytes>!String do",
+      "after": "pub fn encode_sync_payload(local :: ClientProfile,\n  peer :: ClientProfile,\n  inner :: InnerEnvelope) -> Bytes!String do",
+      "diff": "--- \n+++ \n@@ -51,7 +51,7 @@\n \n pub fn encode_sync_payload(local :: ClientProfile,\n   peer :: ClientProfile,\n-  inner :: InnerEnvelope) -> Plaintext<Bytes>!String do\n+  inner :: InnerEnvelope) -> Bytes!String do\n   mobile_join([\n       mobile_vector(Bytes.from_utf8(peer.username))?,\n       mobile_vector(peer.account_id)?,\n"
+    },
+    {
+      "variant": "removed-labels-private-control",
+      "path": "packages/mobile-core/mobile/types.mpl",
+      "before": "pub struct MobileSyncPayload do\n  peer_username :: String\n  peer_account_id :: Bytes\n  conversation_id :: Bytes\n  client_message_id :: Bytes\n  client_timestamp :: U64\n  body :: Plaintext<Bytes>",
+      "after": "pub struct MobileSyncPayload do\n  peer_username :: String\n  peer_account_id :: Bytes\n  conversation_id :: Bytes\n  client_message_id :: Bytes\n  client_timestamp :: U64\n  body :: Bytes",
+      "diff": "--- \n+++ \n@@ -164,7 +164,7 @@\n   conversation_id :: Bytes\n   client_message_id :: Bytes\n   client_timestamp :: U64\n-  body :: Plaintext<Bytes>\n+  body :: Bytes\n   disappearing_seconds :: Int\n   safety_number :: Bytes\n end\n"
+    },
+    {
+      "variant": "removed-labels-private-control",
+      "path": "packages/messenger-protocol/protocol/v1.mpl",
+      "before": "  body :: Plaintext<Bytes>",
+      "after": "  body :: Bytes",
+      "diff": "--- \n+++ \n@@ -86,7 +86,7 @@\n   client_message_id :: Bytes\n   client_timestamp :: U64\n   message_type :: Int\n-  body :: Plaintext<Bytes>\n+  body :: Bytes\n   reply_reference :: Bytes\n   attachment_manifest :: Bytes\n   receipt_policy :: Int\n"
+    },
+    {
+      "variant": "removed-labels-private-control",
+      "path": "packages/mobile-core/mobile/sessions.mpl",
+      "before": "pub fn encode_sync_payload(local :: ClientProfile,\n  peer :: ClientProfile,\n  inner :: InnerEnvelope) -> Plaintext<Bytes>!String do",
+      "after": "pub fn encode_sync_payload(local :: ClientProfile,\n  peer :: ClientProfile,\n  inner :: InnerEnvelope) -> Bytes!String do",
+      "diff": "--- \n+++ \n@@ -51,7 +51,7 @@\n \n pub fn encode_sync_payload(local :: ClientProfile,\n   peer :: ClientProfile,\n-  inner :: InnerEnvelope) -> Plaintext<Bytes>!String do\n+  inner :: InnerEnvelope) -> Bytes!String do\n   mobile_join([\n       mobile_vector(Bytes.from_utf8(peer.username))?,\n       mobile_vector(peer.account_id)?,\n"
+    }
+  ],
+  "probe_argument_mutation": "In copied probe only, replace input :: Plaintext<Bytes> with input :: Bytes, and flag :: Plaintext<Bool> with flag :: Bool. Body and encoder labels remain.",
+  "wrong_error_mutation": "In copied baseline and current fixtures only: short_tail expected identity invalid_safety_number -> invalid_store_request.",
+  "runs": [
+    {
+      "name": "baseline-legacy",
+      "status": "PASS",
+      "family": "baseline",
+      "expectation": "positive",
+      "exit_code": 0,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/baseline-legacy/result/test.log",
+        "sha256": "ad51788a940c07abf40c37cc5f9355faf5de055e7d93ef9ef61075bcb89f8226"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/baseline-legacy/result/command.json",
+        "sha256": "87c2c88b342994ebf381bbe4668db5fb8e29f00588bb9ad8c0746ba7d5aeb593"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/baseline-legacy/result/sources.json",
+        "sha256": "3760292f88f7456d50044972c0c70b333bb75ff0184c0930198b00c90a90c76c"
+      },
+      "error_counts_by_module": {},
+      "qualification": "baseline fixture only"
+    },
+    {
+      "name": "baseline-wrong-error-control",
+      "status": "PASS",
+      "family": "baseline",
+      "expectation": "runtime-assertion",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r3/variants/baseline-wrong-error-control/result/test.log",
+        "sha256": "ea78af488e6ceb0b933d58bd8c757d7e5f498a91310547be6501b053b3c8bd0c"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r3/variants/baseline-wrong-error-control/result/command.json",
+        "sha256": "5f166cc4446725fc172bf33eb02327df3610e83ec33be59df3ccd7ae4e35f33f"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r3/variants/baseline-wrong-error-control/result/sources.json",
+        "sha256": "dc43cb53440d6daa7c863aebd8f865ebd96cc1c517ae34375a03fa3f09d0142b"
+      },
+      "error_counts_by_module": {},
+      "qualification": "baseline fixture only",
+      "runtime_assertion_observed": true
+    },
+    {
+      "name": "current-migration",
+      "status": "BLOCKED",
+      "family": "current",
+      "expectation": "positive",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r3/variants/current-migration/result/test.log",
+        "sha256": "ae6bb06d33e9eb0ab29be4afda8ed307448bac595fa8bbaa6805059849b9c78f"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r3/variants/current-migration/result/command.json",
+        "sha256": "014fa6e37728942d7dcc3759fe1c338e420240b709fd808f07e067f36af9a828"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r3/variants/current-migration/result/sources.json",
+        "sha256": "6e4ef837d180d4c3726b22f7d9fe0b361abeb61031a8f4958ff8510ff4bf6762"
+      },
+      "error_counts_by_module": {
+        "gossip.mpl": 462,
+        "group_invites_state.mpl": 111,
+        "groups.mpl": 318,
+        "messages.mpl": 1374,
+        "inbox.mpl": 1119,
+        "mailbox_sync.mpl": 663,
+        "mobile_core.mpl": 459
+      },
+      "qualification": "none; imported-module failures remain"
+    },
+    {
+      "name": "wrong-error-control",
+      "status": "BLOCKED",
+      "family": "current",
+      "expectation": "runtime-assertion",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/wrong-error-control/result/test.log",
+        "sha256": "1bf9ce0e7319e48aeaa7becee2e4d27b8cf96b9cd55cfbf1d1041d75e109bdee"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/wrong-error-control/result/command.json",
+        "sha256": "57313424084d1eb1ee6db1089d0739c0895b32a0f0f3d72c8aca57e0cf89d49e"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/wrong-error-control/result/sources.json",
+        "sha256": "69fd25961c4d22a67bffbf2cd6cb520353df2606b51ca93fcc190b4ef461e2f7"
+      },
+      "error_counts_by_module": {
+        "gossip.mpl": 154,
+        "group_invites_state.mpl": 37,
+        "groups.mpl": 106,
+        "messages.mpl": 458,
+        "inbox.mpl": 373,
+        "mailbox_sync.mpl": 221,
+        "mobile_core.mpl": 153
+      },
+      "qualification": "none; imported-module failures remain",
+      "runtime_assertion_observed": false
+    },
+    {
+      "name": "exact-three-classifier",
+      "status": "BLOCKED",
+      "family": "current",
+      "expectation": "positive",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/exact-three-classifier/result/build.log",
+        "sha256": "ff0c0557cde58bdb0335c7966c4ae051b385a6190ac3e8b6582ee3f9d92c41d0"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/exact-three-classifier/result/command.json",
+        "sha256": "edb524a261fe24335220073ddceb165792fb56ae019e04e887e4be159194c190"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/exact-three-classifier/result/sources.json",
+        "sha256": "35feb936c07f6360f127c59e03e455f7c98972383f0ef05d45e6db7850ab5fe0"
+      },
+      "error_counts_by_module": {
+        "gossip.mpl": 154,
+        "group_invites_state.mpl": 37,
+        "groups.mpl": 106,
+        "messages.mpl": 458,
+        "inbox.mpl": 373,
+        "mailbox_sync.mpl": 221,
+        "mobile_core.mpl": 153
+      },
+      "qualification": "none; imported-module failures remain"
+    },
+    {
+      "name": "future-variant-control",
+      "status": "BLOCKED",
+      "family": "current",
+      "expectation": "nonexhaustive",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/future-variant-control/result/build.log",
+        "sha256": "6296f3473f2036f45ba0772bf0a952b2b1a02a3794d44d3dc9ffd6b0380a4e8e"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/future-variant-control/result/command.json",
+        "sha256": "4b8ca4f1ffc1304d6598008658fdfd237640843dba9c642de0dfc71cba5658dc"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/future-variant-control/result/sources.json",
+        "sha256": "0271927a85e51c7ff1681661143a0f2858b3f8b9eafd1fad5a14a2b9bc054549"
+      },
+      "error_counts_by_module": {
+        "main.mpl": 1,
+        "gossip.mpl": 154,
+        "group_invites_state.mpl": 37,
+        "groups.mpl": 106,
+        "messages.mpl": 458,
+        "inbox.mpl": 373,
+        "mailbox_sync.mpl": 221,
+        "mobile_core.mpl": 153
+      },
+      "qualification": "none; imported-module failures remain",
+      "observations_not_qualification": {
+        "exact_E0012_classifier_diagnostics": [
+          {
+            "code": "E0012",
+            "severity": "error",
+            "message": "non-exhaustive match on `SyncPayloadError`: missing patterns [SyncFutureVariant]",
+            "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/future-variant-control/probe/main.mpl",
+            "spans": [
+              {
+                "start": 97,
+                "end": 210,
+                "label": "missing: SyncFutureVariant"
+              }
+            ],
+            "fix": "add the missing patterns or a wildcard `_` arm"
+          }
+        ]
+      }
+    },
+    {
+      "name": "private-exits",
+      "status": "BLOCKED",
+      "family": "current",
+      "expectation": "http",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/private-exits/result/build.log",
+        "sha256": "f553447fa797fe8c54d2ffccb8231661ca2bfd53df1dd91e68d14b08e78b55b9"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/private-exits/result/command.json",
+        "sha256": "4bae59f8bffdd2b011cef115f502ce51a9b57b60d1476df7f98d4e784aafcd73"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/private-exits/result/sources.json",
+        "sha256": "f7e4a08ceb07e6aea06bfc5bcb3e2898815ae967d6e6c6ab5de6ba91e25547ed"
+      },
+      "error_counts_by_module": {
+        "main.mpl": 12,
+        "gossip.mpl": 154,
+        "group_invites_state.mpl": 37,
+        "groups.mpl": 106,
+        "messages.mpl": 458,
+        "inbox.mpl": 373,
+        "mailbox_sync.mpl": 221,
+        "mobile_core.mpl": 153
+      },
+      "qualification": "none; imported-module failures remain",
+      "observations_not_qualification": {
+        "expected_refusals": [
+          {
+            "function": "legacy_body_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 8,
+            "column": 6,
+            "byte_offset": 362,
+            "matches": 1
+          },
+          {
+            "function": "typed_body_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 17,
+            "column": 6,
+            "byte_offset": 648,
+            "matches": 1
+          },
+          {
+            "function": "legacy_metadata_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 23,
+            "column": 6,
+            "byte_offset": 872,
+            "matches": 1
+          },
+          {
+            "function": "typed_metadata_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 32,
+            "column": 6,
+            "byte_offset": 1184,
+            "matches": 1
+          },
+          {
+            "function": "encoder_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 38,
+            "column": 6,
+            "byte_offset": 1471,
+            "matches": 1
+          },
+          {
+            "function": "legacy_roundtrip_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 45,
+            "column": 6,
+            "byte_offset": 1796,
+            "matches": 1
+          },
+          {
+            "function": "typed_roundtrip_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 55,
+            "column": 6,
+            "byte_offset": 2212,
+            "matches": 1
+          },
+          {
+            "function": "history_body_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 61,
+            "column": 6,
+            "byte_offset": 2518,
+            "matches": 1
+          },
+          {
+            "function": "legacy_status_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 71,
+            "column": 5,
+            "byte_offset": 2797,
+            "matches": 1
+          },
+          {
+            "function": "typed_status_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 84,
+            "column": 5,
+            "byte_offset": 3116,
+            "matches": 1
+          },
+          {
+            "function": "legacy_caller_control",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 94,
+            "column": 8,
+            "byte_offset": 3403,
+            "matches": 1
+          },
+          {
+            "function": "typed_caller_control",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 107,
+            "column": 8,
+            "byte_offset": 3778,
+            "matches": 1
+          }
+        ],
+        "missing": [],
+        "unrelated_error_count": 1502
+      }
+    },
+    {
+      "name": "public-routing-and-encode-seal",
+      "status": "BLOCKED",
+      "family": "current",
+      "expectation": "positive",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/public-routing-and-encode-seal/result/build.log",
+        "sha256": "20615c294f343532bdb1e456bbecc0ad3e6ee82c46791d16a1469b84b1345618"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/public-routing-and-encode-seal/result/command.json",
+        "sha256": "67a21f396418007e88f79c5f8140754fc68c63092436195325e4a3eb1ec23d7c"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/public-routing-and-encode-seal/result/sources.json",
+        "sha256": "4636628ed40d9f2c8893909bc6d87482a7f3262df7fc9b1aee2584461fd3a402"
+      },
+      "error_counts_by_module": {
+        "gossip.mpl": 154,
+        "group_invites_state.mpl": 37,
+        "groups.mpl": 106,
+        "messages.mpl": 458,
+        "inbox.mpl": 373,
+        "mailbox_sync.mpl": 221,
+        "mobile_core.mpl": 153
+      },
+      "qualification": "none; imported-module failures remain"
+    },
+    {
+      "name": "public-argument-control",
+      "status": "BLOCKED",
+      "family": "current",
+      "expectation": "http",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/public-argument-control/result/build.log",
+        "sha256": "5d49d29fded534d0d93a0e66baad9b41621059b5b25540b8b3e8a8237168e7d6"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/public-argument-control/result/command.json",
+        "sha256": "0d8c4a81a3ca01b5dca2dbb52d83508686b7abbf4a65971f63730299378f7e80"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/public-argument-control/result/sources.json",
+        "sha256": "ac2e8660995c925cd4bf11bb03d1f977353196b4c82940095c6de2fd420b748c"
+      },
+      "error_counts_by_module": {
+        "main.mpl": 6,
+        "gossip.mpl": 154,
+        "group_invites_state.mpl": 37,
+        "groups.mpl": 106,
+        "messages.mpl": 458,
+        "inbox.mpl": 373,
+        "mailbox_sync.mpl": 221,
+        "mobile_core.mpl": 153
+      },
+      "qualification": "none; imported-module failures remain",
+      "observations_not_qualification": {
+        "expected_refusals": [
+          {
+            "function": "legacy_body_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 8,
+            "column": 6,
+            "byte_offset": 362,
+            "matches": 1
+          },
+          {
+            "function": "typed_body_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 17,
+            "column": 6,
+            "byte_offset": 648,
+            "matches": 1
+          },
+          {
+            "function": "encoder_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 38,
+            "column": 6,
+            "byte_offset": 1449,
+            "matches": 1
+          },
+          {
+            "function": "legacy_roundtrip_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 45,
+            "column": 6,
+            "byte_offset": 1774,
+            "matches": 1
+          },
+          {
+            "function": "typed_roundtrip_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 55,
+            "column": 6,
+            "byte_offset": 2190,
+            "matches": 1
+          },
+          {
+            "function": "history_body_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 61,
+            "column": 6,
+            "byte_offset": 2496,
+            "matches": 1
+          }
+        ],
+        "missing": [],
+        "unrelated_error_count": 1502
+      }
+    },
+    {
+      "name": "removed-labels-public-control",
+      "status": "BLOCKED",
+      "family": "current",
+      "expectation": "positive",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/removed-labels-public-control/result/build.log",
+        "sha256": "43b356eee48f7011b6d05da0833e4db8761a0dad0193f458ed3c8394eb5fb07b"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/removed-labels-public-control/result/command.json",
+        "sha256": "15d50aec74f1cca950ea03fd5a7ca364d5c5038c3ea19a22e400db36fbe44239"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/removed-labels-public-control/result/sources.json",
+        "sha256": "8109478698d43dd6cf9df4b86103cec4d958fb21c0f3404cfe47f861e054f108"
+      },
+      "error_counts_by_module": {
+        "groups.mpl": 106,
+        "inbox.mpl": 292,
+        "mailbox_sync.mpl": 221,
+        "mobile_core.mpl": 109
+      },
+      "qualification": "none; imported-module failures remain"
+    },
+    {
+      "name": "removed-labels-private-control",
+      "status": "BLOCKED",
+      "family": "current",
+      "expectation": "http",
+      "exit_code": 1,
+      "source_stable": true,
+      "log": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/removed-labels-private-control/result/build.log",
+        "sha256": "e937d19e06cd3bbff6696623ba3d2a0d14f91774676302d744a907a3a485eba0"
+      },
+      "command": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/removed-labels-private-control/result/command.json",
+        "sha256": "4f4d67d2214e8102cd701c9f28c8b0a06604771387fac16086b4b6dfbcfc1ccf"
+      },
+      "sources": {
+        "path": ".morse/decoded-body-labels/sync-parser-child/corrected-r2/variants/removed-labels-private-control/result/sources.json",
+        "sha256": "d1668e8e27ee241aa8300f433f5773128dc78e8a5f9e805065f0ee48cfe71fa1"
+      },
+      "error_counts_by_module": {
+        "main.mpl": 6,
+        "groups.mpl": 106,
+        "inbox.mpl": 292,
+        "mailbox_sync.mpl": 221,
+        "mobile_core.mpl": 109
+      },
+      "qualification": "none; imported-module failures remain",
+      "observations_not_qualification": {
+        "expected_refusals": [
+          {
+            "function": "legacy_metadata_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 23,
+            "column": 6,
+            "byte_offset": 872,
+            "matches": 1
+          },
+          {
+            "function": "typed_metadata_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 32,
+            "column": 6,
+            "byte_offset": 1184,
+            "matches": 1
+          },
+          {
+            "function": "legacy_status_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 71,
+            "column": 5,
+            "byte_offset": 2797,
+            "matches": 1
+          },
+          {
+            "function": "typed_status_http",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 84,
+            "column": 5,
+            "byte_offset": 3116,
+            "matches": 1
+          },
+          {
+            "function": "legacy_caller_control",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 94,
+            "column": 8,
+            "byte_offset": 3403,
+            "matches": 1
+          },
+          {
+            "function": "typed_caller_control",
+            "subject": "Http.body_bytes",
+            "code": "E0093",
+            "line": 107,
+            "column": 8,
+            "byte_offset": 3778,
+            "matches": 1
+          }
+        ],
+        "missing": [],
+        "unrelated_error_count": 728
+      }
+    }
+  ],
+  "rerun_after_reserved_handoff": {
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635",
+    "gate_argv": [
+      "python3",
+      "mesh-private-messenger/ops/plaintext/prove_sync_parser.py",
+      "--case",
+      "current-migration",
+      "--output",
+      ".morse/decoded-body-labels/sync-parser-child/after-reserved-closure"
+    ],
+    "full_matrix_if_gate_passes_argv": [
+      "python3",
+      "mesh-private-messenger/ops/plaintext/prove_sync_parser.py",
+      "--from-capture",
+      ".morse/decoded-body-labels/sync-parser-child/after-reserved-closure",
+      "--output",
+      ".morse/decoded-body-labels/sync-parser-child/after-reserved-closure-matrix"
+    ],
+    "note": "Fresh gate capture includes handed-off app changes. Output directories must be new. Do not rerun blocked historical snapshots expecting a changed outcome."
+  }
+}
