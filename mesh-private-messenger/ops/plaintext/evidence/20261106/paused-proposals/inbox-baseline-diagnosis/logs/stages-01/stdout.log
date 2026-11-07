@@ -1,0 +1,87 @@
+  ✗ actual HE receive progresses through full cursor queue without ACK/retry charge; selected-row CAS prevents stale commit
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✓ full unauthenticated cursor queue preserves admitted progress across cold reopen and does not impose4096 read ceiling
+  ✓ deterministic idle and absolute cursor leases reclaim capacity; packet and profile/index churn cannot renew original lease
+  ✓ strict cursor codec rejects duplicate IDs, trailing bytes, invalid offsets and future service ticks; writer admission never changes legacy readability
+  ✗ diagnostic stage 01 after_start_before_initial
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 02 after_initial_before_update
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 03 after_update_before_send
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 04 after_send_before_aliases
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 05 after_aliases_before_packet
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 06 after_packet_before_route
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 07 after_held_cursors_before_batch
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 08 after_batch_before_assertions
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 09 after_cursor_assertions_before_cas
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 10 after_cas_before_history
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 11 after_history_before_final_delivery
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 12 after_final_delivery_before_replay
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+
+Failures:
+  ✗ actual HE receive progresses through full cursor queue without ACK/retry charge; selected-row CAS prevents stale commit
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 01 after_start_before_initial
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 02 after_initial_before_update
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 03 after_update_before_send
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 04 after_send_before_aliases
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 05 after_aliases_before_packet
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 06 after_packet_before_route
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 07 after_held_cursors_before_batch
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 08 after_batch_before_assertions
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 09 after_cursor_assertions_before_cas
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 10 after_cas_before_history
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 11 after_history_before_final_delivery
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic stage 12 after_final_delivery_before_replay
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+
+13 failed, 3 passed in 0.32s
+
+1 test file failed, 0 passed in 38.34s

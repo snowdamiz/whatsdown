@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/offline-expanded-hex.sb",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+    "test",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/unchanged/tests/header_receive.test.mpl"
+  ],
+  "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/unchanged",
+  "env": {
+    "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+    "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+    "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/tmp/unchanged-corrected-sandbox/",
+    "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/tmp/unchanged-corrected-sandbox/clang-cache",
+    "NO_COLOR": "1"
+  },
+  "start_unix": 1794020019.927844,
+  "compiler_concurrency": 1,
+  "exit_code": 0,
+  "elapsed_seconds": 39.82972502708435
+}

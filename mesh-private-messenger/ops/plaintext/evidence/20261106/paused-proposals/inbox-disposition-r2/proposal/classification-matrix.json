@@ -1,0 +1,129 @@
+{
+  "sets": {
+    "D_direct_permanent": [
+      "wrong_mailbox",
+      "invalid_recipient_packet",
+      "invalid_outer_envelope",
+      "noncanonical_outer_envelope",
+      "invalid_initial_packet",
+      "invalid_initial_message",
+      "outer_suite_mismatch",
+      "invalid_initiator_account",
+      "invalid_initiator_credential",
+      "initial_receive_failed",
+      "invalid_initial_plaintext",
+      "invalid_peer_profile",
+      "invalid_inner_envelope",
+      "view_once_reference_refused",
+      "initial_identity_mismatch",
+      "invalid_sync_payload",
+      "invalid_ratchet_packet",
+      "invalid_ratchet_message",
+      "message_rejected",
+      "one_time_prekey_not_found",
+      "replayed_initial_message",
+      "blocked_message"
+    ],
+    "H_direct_unfinished": [
+      "header_selection_pending",
+      "header_selection_capacity",
+      "account_state_changed"
+    ],
+    "G_group_permanent": [
+      "wrong_group_delivery",
+      "invalid_recipient_packet",
+      "invalid_outer_envelope",
+      "noncanonical_outer_envelope",
+      "invalid_group_packet",
+      "invalid_group_welcome",
+      "group_welcome_rejected",
+      "invalid_group_commit",
+      "group_commit_rejected",
+      "group_stale_epoch",
+      "invalid_group_message",
+      "group_message_rejected",
+      "group_limit_reached"
+    ]
+  },
+  "rows": [
+    {
+      "route": "delivery_kind Err(e)",
+      "decision": "1 if e in D, otherwise0; H never consulted",
+      "receive_invoked": false
+    },
+    {
+      "route": "delivery_kind Ok(0)",
+      "decision": 1,
+      "receive_invoked": false,
+      "meaning": "unknown opened sealed packet kind"
+    },
+    {
+      "route": "delivery_kind Ok(3), GroupReceiveApplied",
+      "decision": 1,
+      "receive_invoked": "group"
+    },
+    {
+      "route": "delivery_kind Ok(3), error in G / GroupReceiveRejected",
+      "decision": 1,
+      "receive_invoked": "group"
+    },
+    {
+      "route": "delivery_kind Ok(3), error outside G / GroupReceiveRetry",
+      "decision": 0,
+      "receive_invoked": "group",
+      "includes": [
+        "header_selection_pending",
+        "header_selection_capacity",
+        "account_state_changed"
+      ],
+      "note": "account_state_changed guard failure retries, never direct deferral"
+    },
+    {
+      "route": "other successful kind, direct Ok",
+      "decision": 1,
+      "receive_invoked": "initial if kind1, otherwise ratchet"
+    },
+    {
+      "route": "other successful kind, direct error in D",
+      "decision": 1,
+      "precedence": "D wins over H, including any future overlap"
+    },
+    {
+      "route": "other successful kind, direct error outside D but in H",
+      "decision": 2
+    },
+    {
+      "route": "other successful kind, direct error outside D and H",
+      "decision": 0
+    },
+    {
+      "route": "hypothetical acknowledge_delivery Int other than1 or2",
+      "decision": 0,
+      "note": "same previous else retry branch; acknowledge currently returns only0/1/2"
+    }
+  ],
+  "before_settlement": [
+    "Stored profile load occurs before full batch decode",
+    "Malformed member rejected by batch decoding: no per-envelope settlement site",
+    "Later canonical_outer failure skips that member without ACK/attempt/highest update; do not equate every malformed wire with D invalid_outer_envelope"
+  ],
+  "state_effects": {
+    "2": "ACK IDs/attempt bytes/first-attempt timestamp unchanged, set_aside=true, highest=max sequence; no age-out evaluation during this pass. Header routing may already have persisted its own cursor.",
+    "1": "Append envelope ID, remove retry record, preserve earlier set_aside, highest=max sequence. ACK is eligibility, not proof of display/history/contact authenticity.",
+    "0": "Use fixed batch now and prior attempts. ACK/remove only when current try reaches16 and original first attempt is at least86400000ms old; otherwise increment/saturate count, retain first timestamp, set_aside. 256-record bound/eviction unchanged."
+  },
+  "wall_clock": "Deferral does not pause age or reset first-attempt time. Retry -> long direct deferral -> retry may immediately age out on resumed retry if both thresholds hold. Routing/group H-string failures take ordinary0 path.",
+  "after_settlement": [
+    "Any set_aside -> cursor highest canonical-settled sequence, including later successes; otherwise0. Empty batch resets cursor.",
+    "Prepare/seal/store attempts+cursor -> clock -> direct expiry -> group expiry -> gossip flush -> optional key open/time/sign ACK. Earlier error wins, earlier durable writes are not rolled back.",
+    "process_delivery_batch returns signed ACK bytes; MailboxSync posts later. ACK transport failure does not roll back receive."
+  ],
+  "first_error_examples": [
+    "Direct optional safety framing invalid_store_request and safety length invalid_safety_number retry; required-field invalid_sync_payload ACKs; optional tail parsing can win over later required-field validation.",
+    "Blocked receive commit failure wins over subsequent blocked_message permanent rejection.",
+    "Well-framed invitation enters existing loader/view and may retry on storage failure; malformed control may be ignored and ACK after caller commit.",
+    "Group earlier snapshot/storage error wins over later malformed payload or crypto error; account_state_changed guard retry remains0.",
+    "Preserve parent view_once_reference_refused permanent membership and its guard before later contact/gossip/invitation work.",
+    "Attempt bookkeeping or final batch persistence/expiry/gossip/signature errors escape, not classified by this site."
+  ]
+}

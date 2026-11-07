@@ -1,0 +1,62 @@
+{
+  "status": "PROPOSAL ONLY; no policy approval; reserved source unmodified",
+  "message_source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+  "message_sha256": "592843a76f3253abde64f2224611f55c9bc885291014d5cc236517d6b5782c68",
+  "sessions_sha256": "6bdbfe46e6b8b5dcd3bd71e1dd189d84756d1ddac1cdc9e304d56c7744dabee3",
+  "candidate_sha256": "633703c93c578ed5c5a90f5a2304b750fec7b0da9a80c92aba408927e7570edc",
+  "patch_sha256": "baffba521d58108095f94435fa9d45a979701590de9936b560c4628c76ed0f4c",
+  "prospective_sites": [
+    {
+      "function": "private peer_sync_payload",
+      "release": "status Int: 0 success, 1 invalid_sync_payload incl target-is-own-account, 2 invalid_store_request, 3 invalid_safety_number",
+      "source_selection": "exhaustive peer_sync_status matching SyncPayloadError and peer-account equality",
+      "unknown": "fixed invalid_sync_payload refusal, never metadata release"
+    },
+    {
+      "function": "private peer_sync_payload success arm 0",
+      "release": [
+        "peer_account_id",
+        "conversation_id",
+        "peer_username",
+        "disappearing_seconds",
+        "safety_number"
+      ],
+      "retained_private": [
+        "body",
+        "client_message_id",
+        "client_timestamp"
+      ],
+      "attachment_manifest": "not in projection; existing sync_history_inner argument retained"
+    }
+  ],
+  "caller_anchors": {
+    "initial": {
+      "caller": "receive_initial_message",
+      "crypto": "receive_initial_at_minimum_suite",
+      "authority": [
+        "peer.account_id == local.account_id and inner.message_type == 2",
+        "sender account/device matches authenticated peer/initiator credential",
+        "recipient device and expected or existing conversation match",
+        "blocked branch excluded"
+      ],
+      "call_count": 1
+    },
+    "ratchet": {
+      "caller": "receive_ratchet_message",
+      "crypto": "decrypt -> Opened",
+      "authority": [
+        "loaded.record.peer_account_id == local.account_id and inner.message_type == 2",
+        "inner sender account/device matches loaded record",
+        "recipient device and expected or existing conversation match",
+        "blocked/control/invitation branches excluded"
+      ],
+      "call_count": 1
+    }
+  },
+  "limits": [
+    "Uncompiled proposed policy, not approved or applied to reserved source",
+    "Requires live authenticated initial/ratchet tests, public API input and caller-PC refusals after composition",
+    "No invitation or gossip closure implied",
+    "Neither a public parser/helper nor claimed identities establish the authority above"
+  ]
+}

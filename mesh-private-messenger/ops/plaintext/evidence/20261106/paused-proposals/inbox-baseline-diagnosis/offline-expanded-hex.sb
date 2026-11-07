@@ -1,0 +1,8 @@
+(version 1)
+(allow default)
+(deny network*)
+(deny file-write*)
+(allow file-write* (subpath "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis"))
+(allow file-write* (literal "/dev/null"))
+(allow file-write* (regex #"^/private/tmp/mesh_mobile_(inbox-poison-(alice|bob)|groups-(alice|linked|bob))_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][.]db(-wal|-shm|-journal)?$"))
+(deny file-read* (subpath "/Users/andreyyurlov/Library/Keychains"))

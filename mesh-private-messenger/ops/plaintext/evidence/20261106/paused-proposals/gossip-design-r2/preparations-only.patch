@@ -1,0 +1,177 @@
+diff --git a/mesh-private-messenger/packages/mobile-core/mobile/gossip.mpl b/mesh-private-messenger/packages/mobile-core/mobile/gossip.mpl
+--- a/mesh-private-messenger/packages/mobile-core/mobile/gossip.mpl
++++ b/mesh-private-messenger/packages/mobile-core/mobile/gossip.mpl
+@@ -277,14 +277,32 @@
+       0,
+       List.new())?
+   }
+-  case fork_same_size(proof, log, policy.keys) do
+-    Ok(_) -> return retain_fork(path, key, proof)
++  case prepare_signed_conflict(proof, log, policy.keys) do
++    None -> Ok(nil)
++    Some(selected) -> retain_fork(path, key, selected)
++  end
++end
++
++# A pure selection, not publication authority. Private inputs keep the result private.
++pub fn prepare_signed_conflict(proof :: ForkProof,
++  log :: SigningPublicKey,
++  pins :: List<WitnessKey>) -> Option<ForkProof> do
++  case fork_same_size(proof, log, pins) do
++    Ok(_) -> return Some(proof)
+     Err(_) -> nil
+   end
+   let rollback = %{proof | kind: 3}
+-  case fork_rollback(rollback, log, policy.keys) do
+-    Ok(_) -> retain_fork(path, key, rollback)
+-    Err(_) -> Ok(nil)
++  case fork_rollback(rollback, log, pins) do
++    Ok(_) -> Some(rollback)
++    Err(_) -> None
++  end
++end
++
++# Malformed controls are suppressed before any peer-state access.
++pub fn prepare_gossip_control(body :: Bytes) -> Option<GossipControl> do
++  case decode_gossip(body) do
++    Err(_) -> None
++    Ok(value) -> Some(value)
+   end
+ end
+ 
+@@ -294,9 +312,9 @@
+   own :: TransparencyCheckpoint,
+   now :: U64,
+   group :: Bytes) -> Result<(), String> do
+-  let control = case decode_gossip(inner.body) do
+-    Err(_) -> return Ok(nil)
+-    Ok(value) -> value
++  let control = case prepare_gossip_control(inner.body) do
++    None -> return Ok(nil)
++    Some(value) -> value
+   end
+   let state = load_gossip_state(path, key, inner.sender_account_id)?
+   case control do
+diff --git a/mesh-private-messenger/packages/mobile-core/mobile/gossip_state.mpl b/mesh-private-messenger/packages/mobile-core/mobile/gossip_state.mpl
+--- a/mesh-private-messenger/packages/mobile-core/mobile/gossip_state.mpl
++++ b/mesh-private-messenger/packages/mobile-core/mobile/gossip_state.mpl
+@@ -2,8 +2,6 @@
+ from Mobile.Codec import (
+   mobile_reader,
+   mobile_finish,
+-  mobile_join,
+-  mobile_vector,
+   mobile_write_u64,
+   mobile_read_u64,
+   take_vector,
+@@ -88,11 +86,36 @@
+   })
+ end
+ 
+-pub fn gossip_state_writes(key :: borrow StorageKey,
+-  peer :: Bytes,
+-  state :: GossipState) -> Result<(List<String>, List<Bytes>), String> do
+-  let name = label(peer)?
+-  let bytes = mobile_join(for value in [
++fn gossip_append(left :: Bytes, right :: Bytes) -> Bytes!String do
++  case Bytes.concat(left, right) do
++    Err(_) -> Err("byte_concatenation_failed")
++    Ok(value)
++  end
++end
++
++fn gossip_join(parts :: List<Bytes>, index :: Int, output :: Bytes) -> Bytes!String do
++  if index >= List.length(parts) do
++    Ok(output)
++  else
++    gossip_join(parts, index + 1, gossip_append(output, List.get(parts, index))?)
++  end
++end
++
++fn gossip_vector(value :: Bytes) -> Bytes!String do
++  let size = case U64.parse(Int.to_string(Bytes.length(value))) do
++    Err(_) -> return Err("invalid_wide_integer")
++    Ok(value) -> value
++  end
++  let prefix = case Bytes.write_u32_be(size) do
++    Err(_) -> return Err("integer_encoding_failed")
++    Ok(value) -> value
++  end
++  gossip_append(prefix, value)
++end
++
++# Private encoding only: no storage, nonce reservation, or declassification.
++pub fn encode_gossip_state(state :: GossipState) -> Plaintext<Bytes>!String do
++  gossip_join(for value in [
+       mobile_write_u64(state.next_check)?,
+       mobile_write_u64(state.next_request)?,
+       mobile_write_u64(state.next_answer)?,
+@@ -103,10 +126,17 @@
+       state.pending_body,
+       state.pending_group
+     ] do
+-      mobile_vector(value)?
++      gossip_vector(value)?
+     end,
+     0,
+-    Bytes.empty())?
++    Bytes.empty())
++end
++
++pub fn gossip_state_writes(key :: borrow StorageKey,
++  peer :: Bytes,
++  state :: GossipState) -> Result<(List<String>, List<Bytes>), String> do
++  let name = label(peer)?
++  let bytes = encode_gossip_state(state)?
+   Ok(([name], [seal_local(bytes, key, local_context(name)?)?]))
+ end
+ 
+@@ -146,11 +176,15 @@
+   Ok(peers)
+ end
+ 
+-pub fn queued_gossip_writes(path :: String,
+-  key :: borrow StorageKey,
+-  peer :: Bytes,
+-  state :: GossipState) -> Result<(List<String>, List<Bytes>), String> do
+-  let previous = queued_group_peers(path, key)?
++# These fields are ordinary, forgeable data. They carry no receive authority.
++pub struct GossipQueueSelection do
++  effective :: GossipState
++  next :: List<Bytes>
++end
++
++pub fn prepare_gossip_queue(previous :: List<Bytes>,
++  peer :: Bytes,
++  state :: GossipState) -> GossipQueueSelection do
+   let remaining = List.filter(previous, fn(value) do !Bytes.secure_equals(value, peer) end)
+   let wants_group = Bytes.length(state.pending_group) == 32 && Bytes.length(state.pending_body) > 0
+   let admitted = !wants_group || List.length(remaining) < 256
+@@ -168,11 +202,24 @@
+   else
+     remaining
+   end
+-  let (labels, blobs) = gossip_state_writes(key, peer, effective)?
+-  if List.length(previous) == 0 && List.length(next) == 0 do
++  GossipQueueSelection { effective: effective, next: next }
++end
++
++pub fn encode_gossip_queue(peers :: List<Bytes>) -> Plaintext<Bytes>!String do
++  gossip_join(peers, 0, Bytes.empty())
++end
++
++pub fn queued_gossip_writes(path :: String,
++  key :: borrow StorageKey,
++  peer :: Bytes,
++  state :: GossipState) -> Result<(List<String>, List<Bytes>), String> do
++  let previous = queued_group_peers(path, key)?
++  let selected = prepare_gossip_queue(previous, peer, state)
++  let (labels, blobs) = gossip_state_writes(key, peer, selected.effective)?
++  if List.length(previous) == 0 && List.length(selected.next) == 0 do
+     return Ok((labels, blobs))
+   end
+   let name = "checkpoint-gossip/group-pending/v1"
+-  let bytes = mobile_join(next, 0, Bytes.empty())?
++  let bytes = encode_gossip_queue(selected.next)?
+   Ok((List.append(labels, name), List.append(blobs, seal_local(bytes, key, local_context(name)?)?)))
+ end

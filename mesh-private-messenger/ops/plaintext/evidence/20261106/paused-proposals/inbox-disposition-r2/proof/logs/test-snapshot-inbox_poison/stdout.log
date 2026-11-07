@@ -1,0 +1,4 @@
+COMPILE ERROR: tests/inbox_poison.test.mpl
+  Compilation failed due to errors above.
+
+1 test file failed, 0 passed in 46.66s

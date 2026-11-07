@@ -1,0 +1,10 @@
+[
+  {
+    "code": "C0001",
+    "file": "",
+    "fix": null,
+    "message": "Exported symbol 'proof_caller_pc' conflicts with another generated or runtime symbol",
+    "severity": "error",
+    "spans": []
+  }
+]

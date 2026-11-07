@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "status": "UNAPPROVED, UNIMPLEMENTED, UNCOMPILED; candidate decisions, not complete caller closure",
+  "source_head": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "scope": {
+    "private_owner_functions": [
+      "Mobile.Messages.observe_authenticated_direct_gossip",
+      "Mobile.Groups.observe_authenticated_group_gossip"
+    ],
+    "authorized_call_sites": [
+      "Messages.receive_initial_message -> keep_contact_address after handshake and identity/conversation checks; hint only",
+      "Messages.receive_message -> keep_contact_address after Opened, identity/conversation checks and next-session sealing",
+      "Groups.open_mobile_group_message after MessageOpened, group snapshot sealing, payload checks and recipient addressing"
+    ],
+    "preconditions": [
+      "These function names are proposed private functions, not existing APIs.",
+      "Direct blocked policy and group gossip_peer_blocked checks must precede local checkpoint access as in the original paths.",
+      "The gate expression is evaluated outside any branch on the private result it classifies.",
+      "Upstream authenticated receive control must already be correctly reviewed by its owner; no gate clears unrelated caller branchPC.",
+      "Path, wrapping key, authenticated account/device and group route are separate locally sourced arguments, never extracted from a private control or published plan.",
+      "No public forwarder, test-support production export, callback or caller-constructed flag can reach a release.",
+      "No new release is permitted in observe_gossip, observe_group_gossip, GossipState, TransparencySafety or Bounty."
+    ],
+    "result_handling": "Pure helpers compute private payloads and private decisions. Only the listed finite projection is a candidate for release. Payload extraction stays pure; do not branch on the original Result/Option again around effects. Error-frontier entries below are unresolved, not implicit catch-all permissions."
+  },
+  "finite_candidates": [
+    {
+      "name": "authenticated_gossip_control_disposition",
+      "type": "GossipControlDisposition",
+      "values": ["IgnoreMalformed", "Request", "Answer"],
+      "private_input": "Option<GossipControl> from prepare_gossip_control(inner.body)",
+      "projection": "None -> IgnoreMalformed; Some(CheckpointRequest) -> Request; Some(CheckpointAnswer) -> Answer",
+      "placement": "After own_checkpoint succeeds; before load_gossip_state; IgnoreMalformed returns without peer-state access.",
+      "reason": "authenticated gossip receive reviews only malformed suppression or request versus answer disposition; body, IDs, hint, checkpoint, witnesses, reciprocal flag and unrelated caller control remain private"
+    },
+    {
+      "name": "authenticated_gossip_request_admitted",
+      "type": "Bool",
+      "values": [false, true],
+      "projection": "now >= state.next_answer && Bytes.length(state.pending_body) == 0",
+      "placement": "After request peer-state load; before next_answer deadline, own_witnesses and answer encoding, in that order.",
+      "reason": "authenticated gossip request reviews only whether the existing daily answer budget and pending control permit an answer; deadline values, queued content, request ID and unrelated caller control remain private"
+    },
+    {
+      "name": "authenticated_gossip_answer_correlated",
+      "type": "Bool",
+      "values": [false, true],
+      "projection": "id equals state.request_id OR id equals state.reply_id",
+      "placement": "After answer peer-state load; false suppresses before native config or checkpoint verification.",
+      "reason": "authenticated gossip answer reviews only whether either outstanding identifier matches; identifier bytes, individual match bits, digests and unrelated caller control remain private"
+    },
+    {
+      "name": "authenticated_gossip_answer_checkpoint_status",
+      "type": "GossipCheckpointStatus",
+      "values": ["Invalid", "Verified", "InvalidCheckpoint", "TransparencyEncodingFailed", "CheckpointVerificationFailed"],
+      "projection": "Pure typed verify_checkpoint result: Ok(false), Ok(true), or the exact three existing constant error classes.",
+      "error_text": {
+        "InvalidCheckpoint": "invalid_checkpoint",
+        "TransparencyEncodingFailed": "transparency_encoding_failed",
+        "CheckpointVerificationFailed": "checkpoint_verification_failed"
+      },
+      "prerequisite": "A pure typed verifier core or equivalent exhaustive proof of its error domain; no wildcard String classifier. This prerequisite is not implemented in preparations-only.patch.",
+      "placement": "After original native config read; Invalid suppresses, errors propagate, Verified continues to the same-log decision. Preserve original validation order.",
+      "reason": "authenticated gossip answer reviews only checkpoint signature acceptance or its three existing verification error classes under the native log key; checkpoint fields, signature bytes and unrelated caller control remain private"
+    },
+    {
+      "name": "authenticated_gossip_answer_same_log",
+      "type": "Bool",
+      "values": [false, true],
+      "projection": "own.version == other.version",
+      "placement": "After incoming checkpoint verification; false skips signed-conflict config, policy, finder creation and witness reads but still permits the original ID clearing path.",
+      "reason": "authenticated gossip answer reviews only whether local and received checkpoints belong to the same log version for fork evaluation; version values, checkpoint fields and unrelated caller control remain private"
+    },
+    {
+      "name": "authenticated_gossip_fork_selected",
+      "type": "Bool",
+      "values": [false, true],
+      "projection": "prepare_signed_conflict(selected canonical candidate, native log key, pins) is Some; same-size is attempted first, rollback only on its Err.",
+      "placement": "After original config, policy, zero-finder, own-witness and paired-attestation preparation. Does not authorize retain_fork(private_proof).",
+      "reason": "authenticated gossip fork selection reviews only whether the original same-size-first then rollback verifiers selected a proof; proof fields, verifier errors, witness identities and unrelated caller control remain private",
+      "blocker": "The selected proof remains private. Bounty reparses it before storage. This finite bit cannot authorize publication or complete retention."
+    },
+    {
+      "name": "authenticated_gossip_reciprocal_answer_required",
+      "type": "Bool",
+      "values": [false, true],
+      "projection": "expected_request && incoming request_peer && old state.pending_body is empty",
+      "placement": "Only after signed_conflict, including any retention/revalidation/CAS, succeeds. Clear each matching ID privately. True reads own_witnesses and encodes the reciprocal answer with flag false; false saves the cleared state.",
+      "reason": "authenticated gossip answer reviews only whether a reciprocal answer must be queued; incoming flag, individual ID matches, identifier bytes, queued content and unrelated caller control remain private"
+    },
+    {
+      "name": "authenticated_gossip_state_encoding_status",
+      "type": "GossipFrameStatus",
+      "values": ["Ready", "InvalidWideInteger", "IntegerEncodingFailed", "ByteConcatenationFailed"],
+      "error_text": {
+        "InvalidWideInteger": "invalid_wide_integer",
+        "IntegerEncodingFailed": "integer_encoding_failed",
+        "ByteConcatenationFailed": "byte_concatenation_failed"
+      },
+      "projection": "Closed status of private encode_gossip_state(selected.effective), preserving first failure.",
+      "prerequisite": "Convert the proposed private framing core to a closed GossipFrameError before adding this release; the submitted extraction still returns private String errors.",
+      "placement": "After control-body encoding, queued_group_peers read, pure queue selection and public peer-label validation; before local_context and state seal.",
+      "reason": "authenticated gossip persistence reviews only ready or the three existing state framing error classes before storage sealing; encoded state, deadlines, identifiers, queue fields, exact lengths and unrelated caller control remain private"
+    },
+    {
+      "name": "authenticated_gossip_queue_index_required",
+      "type": "Bool",
+      "values": [false, true],
+      "projection": "List.length(previous) != 0 OR List.length(selected.next) != 0",
+      "placement": "After state sealing succeeds. False returns its writes; true prepares then seals the index before the joint store.",
+      "reason": "authenticated gossip persistence reviews only whether the group queue index must accompany the sealed peer record; queue membership, counts, pending fields and unrelated caller control remain private"
+    },
+    {
+      "name": "authenticated_gossip_queue_encoding_status",
+      "type": "GossipQueueFrameStatus",
+      "values": ["Ready", "ByteConcatenationFailed"],
+      "error_text": {"ByteConcatenationFailed": "byte_concatenation_failed"},
+      "projection": "Closed status of private encode_gossip_queue(selected.next).",
+      "prerequisite": "Closed error type for gossip_join; no arbitrary String release.",
+      "placement": "After the successful state seal and required-index decision; before index local_context/seal and store_updated_blobs. No speculative nonce reservation.",
+      "reason": "authenticated gossip persistence reviews only ready or the existing queue concatenation failure before sealing its index; peer bytes, queue membership, exact lengths and unrelated caller control remain private"
+    }
+  ],
+  "deliberately_unreleased": [
+    "Individual request/reply match and clearing bits; clear each ID inside pure state construction.",
+    "Queue wants_group/admitted decisions; select effective state and next peers purely, then encode privately.",
+    "Whole GossipControl, whole preparation/plan, arbitrary Result, arbitrary error payload or fallback bytes.",
+    "IDs, digests of IDs, checkpoints, witnesses and their lengths except the separately described conditional canonical-evidence projection.",
+    "Path, key, peer/device/group/contact/session routing, local preferences and unrelated caller branchPC."
+  ],
+  "error_frontiers_not_closed": [
+    {
+      "stage": "Control encoding before queue read",
+      "chain": "encode_gossip -> encode_hint / encode_checkpoint -> checkpoint_bytes / encode_witnesses -> vector and integer primitives",
+      "requirement": "Preserve original error payload and priority privately. A finite error-class gate needs a reviewed exhaustive typed domain; a Result-tag-only design would additionally need a complete private-error return/caller audit. Neither is implemented here."
+    },
+    {
+      "stage": "Paired attestations before fork selection",
+      "chain": "paired_attestations -> matching_attestation -> verify_witnesses -> checkpoint_hash / witness_signature_valid -> C2spText",
+      "requirement": "Do not silently suppress propagated preparation errors. Only the original fork_same_size and fork_rollback Errs are suppressed. A future gate must preserve that distinction and original first error."
+    },
+    {
+      "stage": "Bounty retention",
+      "chain": "retain_fork -> encode_fork -> retain_bounty_fork -> decode_fork? -> finder-zero encode_fork? -> retain -> current -> storage/CAS",
+      "requirement": "Caller-side finite gates cannot remove private parse/encode control inside unchanged Bounty. No complete finite-only diff exists in this artifact."
+    },
+    {
+      "stage": "Receive and outbound continuations",
+      "requirement": "VO owns upstream authenticated receive control and downstream caller results. Separately check inbox.flush_gossip, GossipSend and GroupGossip. No finite gossip gate is a blanket continuation permission."
+    }
+  ],
+  "hint_path": {
+    "status": "No additional hint disclosure proposed by this body-label design.",
+    "reason": "The declared semantic private field is body; direct extensions and GroupPayload.hint are separate fields. Preserve their actual dependency labels rather than assuming either universal privacy or universal publicity.",
+    "ordering": "own checkpoint -> parse -> peer state -> own/known equality -> hourly/pending budget -> persist checked state -> same-size/range decision -> local origin -> consistency request -> known_hint save or daily/random-ID/request queue path",
+    "constraint": "If a hint/range/origin is private at a real caller, a finite request/no-request bit does not authorize sending its sizes or URL over HTTP. Keep that route refused until its actual metadata source is resolved. Do not add a hash or length release as a workaround."
+  },
+  "conditional_evidence_exception": {
+    "status": "NOT APPROVED; non-finite disclosure, not part of finite_candidates",
+    "name": "authenticated_gossip_canonical_fork_evidence",
+    "type": "Plaintext<Bytes> -> Bytes, restricted to the exact canonical FRK schema in authority-and-caller-report.txt",
+    "private_owner_functions": [
+      "Mobile.Messages.publish_authenticated_gossip_fork",
+      "Mobile.Groups.publish_authenticated_gossip_fork"
+    ],
+    "candidate_reason": "authenticated fork publication releases only canonical finder-zero evidence constructed from the exact local checkpoint and correlated received checkpoint after native log verification, same-size-first or rollback proof verification and exact paired-witness binding; message bodies, IDs, unused metadata, local preferences, routing and unrelated caller control remain private",
+    "required_binding": [
+      "Native pinned service key, same log version and complete signed checkpoint fields including sequence, root, size, previous hash and timestamp.",
+      "First equals the captured local checkpoint; second equals the exact correlated received checkpoint; no arbitrary incoming ForkProof.",
+      "Kind 1 from successful same-size verification or kind 3 only after same-size Err and successful rollback; contradiction None; no anchor variant.",
+      "Finder equals exactly 32 locally generated zero bytes.",
+      "Only original paired_attestations output in pin order, each assigned to its exact checkpoint hash and locally pinned witness key; preserve 64/72-byte forms and zero-witness service forks.",
+      "Canonical encode/decode equality to those selected fields; no appended fields, original unselected witness list or error payload."
+    ],
+    "after_release": "Decode the published canonical wire as public data and invoke unchanged retain_fork for policy re-read/revalidation and unchanged Bounty first-proof/preference CAS. Do not precheck or duplicate CAS, bypass revalidation or retry rollback after retention failure.",
+    "limit": "A hypothetical exception identifies a possible removal of the private-proof parse blocker, not verified compilation or authorization to add it. Without it or separately owned Bounty API work, full closure remains blocked."
+  }
+}

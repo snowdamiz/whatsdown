@@ -1,0 +1,5 @@
+[package]
+name="inbox-baseline-proof"
+version="0.1.0"
+[dependencies]
+mobile={path="/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core"}

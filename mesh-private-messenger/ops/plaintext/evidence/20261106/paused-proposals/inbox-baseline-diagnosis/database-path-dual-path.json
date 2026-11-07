@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/offline-dual-path.sb",
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/check_database_paths.py"
+  ],
+  "exit_code": 0,
+  "stdout": "[\n  {\n    \"path\": \"/tmp/mesh_mobile_groups-alice_7f4941199acafe92.db\",\n    \"resolved_path\": \"/private/tmp/mesh_mobile_groups-alice_7f4941199acafe92.db\",\n    \"error\": \"OperationalError: unable to open database file\"\n  },\n  {\n    \"path\": \"/private/tmp/mesh_mobile_groups-alice_d1dbc9c892237882.db\",\n    \"resolved_path\": \"/private/tmp/mesh_mobile_groups-alice_d1dbc9c892237882.db\",\n    \"error\": \"OperationalError: unable to open database file\"\n  }\n]\n",
+  "stderr": ""
+}

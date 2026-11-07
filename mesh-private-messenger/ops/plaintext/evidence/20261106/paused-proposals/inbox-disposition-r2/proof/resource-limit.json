@@ -1,0 +1,9 @@
+{
+  "parent_steering": "Available disk fell from approximately 10 GiB to 7.5 GiB; all future compiler concurrency at most 1; no broad builds or new tool families; preserve evidence and unrelated artifacts.",
+  "all_started_jobs_finished_before_further_compilation": true,
+  "compilers_started_after_steering": 0,
+  "future_rerun_compiler_concurrency": 1,
+  "free_bytes_at_finalization": 7084261376,
+  "optional_parent_fixtures": "All four exact fixtures had already completed; none left unrun in the selected scope.",
+  "unrun": "No final gate-added/removed composition, candidate tests, exhaustive ACK signatures or stored-state comparisons, authentication, view-once, full receive/history/Main qualification, protocols/CLI re-proof, broad suite or native/runtime builds."
+}

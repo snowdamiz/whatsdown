@@ -1,0 +1,1 @@
+from MobileCore import initialize

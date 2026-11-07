@@ -1,0 +1,3020 @@
+{
+  "name": "batch-native-private-v2",
+  "status": "PASS_REFUSAL",
+  "exit_code": 1,
+  "elapsed_seconds": 57.443341970443726,
+  "diagnostic_counts": {
+    "E0093": 225,
+    "C0001": 1
+  },
+  "matched_positive": "batch-native-public-v2",
+  "source_sha256": "a70a4b51e8ec96b814f290d84c86b520682f74044f7791db3cfa93f3b88ef42b",
+  "artifact_sha256": null,
+  "plaintext_report_sha256": null,
+  "expected_exact_subjects_by_line": {
+    "7": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "18": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "24": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "29": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "34": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "4": [
+      "native export"
+    ],
+    "13": [
+      "native export"
+    ],
+    "21": [
+      "native export"
+    ],
+    "27": [
+      "native export"
+    ],
+    "32": [
+      "native export"
+    ]
+  },
+  "observed_exact_subjects_by_line": {
+    "7": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "4": [
+      "native export"
+    ],
+    "18": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "13": [
+      "native export"
+    ],
+    "24": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "21": [
+      "native export"
+    ],
+    "29": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "27": [
+      "native export"
+    ],
+    "34": [
+      "DateTime.to_unix_ms",
+      "DateTime.utc_now",
+      "Host.push_get_token",
+      "Http.body_bytes",
+      "Http.build",
+      "Http.header",
+      "Http.max_redirects",
+      "Http.max_response_bytes",
+      "Http.send",
+      "Http.timeout",
+      "Http.url_origin",
+      "MlKemPrivateKey.unseal_from_storage",
+      "Secret.concat",
+      "Secret.random",
+      "Secret.seal_for_storage",
+      "Secret.split_at",
+      "Secret.unseal_from_storage",
+      "SecretMap.contains",
+      "SecretMap.copy",
+      "SecretMap.delete",
+      "SecretMap.fork",
+      "SecretMap.insert",
+      "SecretMap.merge",
+      "SecretMap.new",
+      "SecretMap.seal_for_storage",
+      "SecretMap.unseal_from_storage",
+      "SigningPrivateKey.unseal_from_storage",
+      "Sqlite.begin",
+      "Sqlite.close",
+      "Sqlite.commit",
+      "Sqlite.execute",
+      "Sqlite.execute_values",
+      "Sqlite.execute_values_v2",
+      "Sqlite.open",
+      "Sqlite.query_values",
+      "Sqlite.query_values_v2",
+      "Sqlite.rollback",
+      "StorageKey.index_tag",
+      "StorageKey.platform",
+      "StorageKey.unseal_bytes",
+      "X25519PrivateKey.seal_for_storage",
+      "X25519PrivateKey.unseal_from_storage",
+      "seal public metadata",
+      "unknown function value"
+    ],
+    "32": [
+      "native export"
+    ]
+  },
+  "missing": [],
+  "unexpected": [],
+  "unrelated_errors": [],
+  "diagnostic_sites": [
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "DateTime.to_unix_ms",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "DateTime.utc_now",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Host.push_get_token",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Http.build",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Http.header",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Http.max_redirects",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Http.max_response_bytes",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Http.send",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Http.timeout",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Http.url_origin",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "MlKemPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Secret.concat",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Secret.random",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Secret.seal_for_storage",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Secret.split_at",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Secret.unseal_from_storage",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SecretMap.contains",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SecretMap.copy",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SecretMap.delete",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SecretMap.fork",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SecretMap.insert",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SecretMap.merge",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SecretMap.new",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SecretMap.seal_for_storage",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SecretMap.unseal_from_storage",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "SigningPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.begin",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.close",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.commit",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.execute",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.execute_values",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.execute_values_v2",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.open",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.query_values",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.query_values_v2",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "Sqlite.rollback",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "StorageKey.index_tag",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "StorageKey.platform",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "StorageKey.unseal_bytes",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "X25519PrivateKey.seal_for_storage",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "X25519PrivateKey.unseal_from_storage",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "seal public metadata",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 7,
+      "column": 5,
+      "subject": "unknown function value",
+      "span": {
+        "start": 262,
+        "end": 362,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 4,
+      "column": 1,
+      "subject": "native export",
+      "span": {
+        "start": 93,
+        "end": 401,
+        "label": "plaintext reaches `native export` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "DateTime.to_unix_ms",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "DateTime.utc_now",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Host.push_get_token",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Http.build",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Http.header",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Http.max_redirects",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Http.max_response_bytes",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Http.send",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Http.timeout",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Http.url_origin",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "MlKemPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Secret.concat",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Secret.random",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Secret.seal_for_storage",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Secret.split_at",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Secret.unseal_from_storage",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SecretMap.contains",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SecretMap.copy",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SecretMap.delete",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SecretMap.fork",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SecretMap.insert",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SecretMap.merge",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SecretMap.new",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SecretMap.seal_for_storage",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SecretMap.unseal_from_storage",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "SigningPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.begin",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.close",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.commit",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.execute",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.execute_values",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.execute_values_v2",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.open",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.query_values",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.query_values_v2",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "Sqlite.rollback",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "StorageKey.index_tag",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "StorageKey.platform",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "StorageKey.unseal_bytes",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "X25519PrivateKey.seal_for_storage",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "X25519PrivateKey.unseal_from_storage",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "seal public metadata",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 18,
+      "column": 3,
+      "subject": "unknown function value",
+      "span": {
+        "start": 802,
+        "end": 834,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 13,
+      "column": 1,
+      "subject": "native export",
+      "span": {
+        "start": 403,
+        "end": 838,
+        "label": "plaintext reaches `native export` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "DateTime.to_unix_ms",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "DateTime.utc_now",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Host.push_get_token",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Http.build",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Http.header",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Http.max_redirects",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Http.max_response_bytes",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Http.send",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Http.timeout",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Http.url_origin",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "MlKemPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Secret.concat",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Secret.random",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Secret.seal_for_storage",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Secret.split_at",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Secret.unseal_from_storage",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SecretMap.contains",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SecretMap.copy",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SecretMap.delete",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SecretMap.fork",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SecretMap.insert",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SecretMap.merge",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SecretMap.new",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SecretMap.seal_for_storage",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SecretMap.unseal_from_storage",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "SigningPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.begin",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.close",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.commit",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.execute",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.execute_values",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.execute_values_v2",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.open",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.query_values",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.query_values_v2",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "Sqlite.rollback",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "StorageKey.index_tag",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "StorageKey.platform",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "StorageKey.unseal_bytes",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "X25519PrivateKey.seal_for_storage",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "X25519PrivateKey.unseal_from_storage",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "seal public metadata",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 24,
+      "column": 3,
+      "subject": "unknown function value",
+      "span": {
+        "start": 1087,
+        "end": 1167,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 21,
+      "column": 1,
+      "subject": "native export",
+      "span": {
+        "start": 840,
+        "end": 1171,
+        "label": "plaintext reaches `native export` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "DateTime.to_unix_ms",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "DateTime.utc_now",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Host.push_get_token",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Http.build",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Http.header",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Http.max_redirects",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Http.max_response_bytes",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Http.send",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Http.timeout",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Http.url_origin",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "MlKemPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Secret.concat",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Secret.random",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Secret.seal_for_storage",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Secret.split_at",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Secret.unseal_from_storage",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SecretMap.contains",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SecretMap.copy",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SecretMap.delete",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SecretMap.fork",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SecretMap.insert",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SecretMap.merge",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SecretMap.new",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SecretMap.seal_for_storage",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SecretMap.unseal_from_storage",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "SigningPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.begin",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.close",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.commit",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.execute",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.execute_values",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.execute_values_v2",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.open",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.query_values",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.query_values_v2",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "Sqlite.rollback",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "StorageKey.index_tag",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "StorageKey.platform",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "StorageKey.unseal_bytes",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "X25519PrivateKey.seal_for_storage",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "X25519PrivateKey.unseal_from_storage",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "seal public metadata",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 29,
+      "column": 3,
+      "subject": "unknown function value",
+      "span": {
+        "start": 1407,
+        "end": 1438,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 27,
+      "column": 1,
+      "subject": "native export",
+      "span": {
+        "start": 1173,
+        "end": 1442,
+        "label": "plaintext reaches `native export` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "DateTime.to_unix_ms",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "DateTime.utc_now",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Host.push_get_token",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Http.build",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Http.header",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Http.max_redirects",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Http.max_response_bytes",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Http.send",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Http.timeout",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Http.url_origin",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "MlKemPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Secret.concat",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Secret.random",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Secret.seal_for_storage",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Secret.split_at",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Secret.unseal_from_storage",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SecretMap.contains",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SecretMap.copy",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SecretMap.delete",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SecretMap.fork",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SecretMap.insert",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SecretMap.merge",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SecretMap.new",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SecretMap.seal_for_storage",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SecretMap.unseal_from_storage",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "SigningPrivateKey.unseal_from_storage",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.begin",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.close",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.commit",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.execute",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.execute_values",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.execute_values_v2",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.open",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.query_values",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.query_values_v2",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "Sqlite.rollback",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "StorageKey.index_tag",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "StorageKey.platform",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "StorageKey.unseal_bytes",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "X25519PrivateKey.seal_for_storage",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "X25519PrivateKey.unseal_from_storage",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "seal public metadata",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 34,
+      "column": 3,
+      "subject": "unknown function value",
+      "span": {
+        "start": 1590,
+        "end": 1690,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/main.mpl",
+      "line": 32,
+      "column": 1,
+      "subject": "native export",
+      "span": {
+        "start": 1444,
+        "end": 1694,
+        "label": "plaintext reaches `native export` here"
+      }
+    }
+  ],
+  "command": {
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/proof.a",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2 --artifact staticlib --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/proof.a --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-private-v2/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-private-v2/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017625.059856,
+    "exit_code": 1,
+    "elapsed_seconds": 57.443341970443726
+  },
+  "never_executed": true
+}

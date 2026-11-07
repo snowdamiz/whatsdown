@@ -1,0 +1,13 @@
+{
+  "changes": {
+    "tools": [],
+    "snapshot": [],
+    "live_app": [],
+    "language_inputs": []
+  },
+  "parent_fixture_changes": [],
+  "focused_source_changes": [],
+  "control_source_changes": [],
+  "tool_hashes_match_requested": true,
+  "note": "Pre/post hashes cover pinned snapshot, selected live app inputs, dependency MPL/TOML/LOCK and tool artifacts. Not a binary/compiler-source correspondence claim."
+}

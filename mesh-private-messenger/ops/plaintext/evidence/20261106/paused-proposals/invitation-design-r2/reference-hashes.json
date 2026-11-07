@@ -1,0 +1,10 @@
+{
+  "scope": "Read-only inputs supplied by parent or already retained; no proof was rerun by this design child.",
+  "sha256": {
+    "mesh-private-messenger/ops/plaintext/prove_invitation_authority.py": "855a2b78b851019283b5eb52a907c103336c3495e69866ab6ae71c48832786c3",
+    "mesh-private-messenger/ops/plaintext/fixtures/decoded-body/invitation-authority.mpl": "a13a57c8ad7586accd94db5f320d576e5c704d6d4ef755cd781ec71137bf0916",
+    "mesh-private-messenger/ops/plaintext/fixtures/decoded-body/held-invitation-policy.patch": "a865e9798b1f06449c678429fe43af0b61ae2d7f1c607416c6a00fa4aecf32d5",
+    "mesh-private-messenger/ops/plaintext/evidence/20261106/invitation-authority-counterexample.json": "efe0db59ec4abe03308d947502a12d500c635de338904b0da9af2aeeec8ff49c",
+    "mesh-private-messenger/ops/plaintext/evidence/20261106/invitation-seal-effects.json": "38fe59c9eba0f9f72d6ddd639571e0455f3d58df578f041c905d3e56f020c8c3"
+  }
+}

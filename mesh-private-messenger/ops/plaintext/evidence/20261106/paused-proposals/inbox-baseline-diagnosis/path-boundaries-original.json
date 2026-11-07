@@ -1,0 +1,66 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/offline.sb",
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/check_path_boundaries.py"
+  ],
+  "exit_code": 0,
+  "results": {
+    "paths": [
+      {
+        "case": "valid16",
+        "path": "/tmp/mesh_mobile_groups-bob_355451461f35c308.db",
+        "expected_corrected_allowed": true,
+        "allowed": false,
+        "errno": 1,
+        "error": "[Errno 1] Operation not permitted: '/tmp/mesh_mobile_groups-bob_355451461f35c308.db'"
+      },
+      {
+        "case": "short15",
+        "path": "/tmp/mesh_mobile_groups-bob_02c92b5c763a91b.db",
+        "expected_corrected_allowed": false,
+        "allowed": false,
+        "errno": 1,
+        "error": "[Errno 1] Operation not permitted: '/tmp/mesh_mobile_groups-bob_02c92b5c763a91b.db'"
+      },
+      {
+        "case": "long17",
+        "path": "/tmp/mesh_mobile_groups-bob_6c8f505f7bbe5d91a.db",
+        "expected_corrected_allowed": false,
+        "allowed": false,
+        "errno": 1,
+        "error": "[Errno 1] Operation not permitted: '/tmp/mesh_mobile_groups-bob_6c8f505f7bbe5d91a.db'"
+      },
+      {
+        "case": "nonhex16",
+        "path": "/tmp/mesh_mobile_groups-bob_g0d160689f751b42.db",
+        "expected_corrected_allowed": false,
+        "allowed": false,
+        "errno": 1,
+        "error": "[Errno 1] Operation not permitted: '/tmp/mesh_mobile_groups-bob_g0d160689f751b42.db'"
+      },
+      {
+        "case": "literal_braces",
+        "path": "/tmp/mesh_mobile_groups-bob_a{16}.db",
+        "expected_corrected_allowed": false,
+        "allowed": true
+      },
+      {
+        "case": "other_label",
+        "path": "/tmp/mesh_mobile_outside-owned-fixture_5b882afc8a906b75.db",
+        "expected_corrected_allowed": false,
+        "allowed": false,
+        "errno": 1,
+        "error": "[Errno 1] Operation not permitted: '/tmp/mesh_mobile_outside-owned-fixture_5b882afc8a906b75.db'"
+      }
+    ],
+    "network": {
+      "denied": true,
+      "errno": 1,
+      "error": "[Errno 1] Operation not permitted"
+    }
+  },
+  "stderr": ""
+}

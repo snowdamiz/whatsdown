@@ -1,0 +1,96 @@
+--- a/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl
++++ b/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl
+@@ -69,7 +69,8 @@
+   parse_initial_packet,
+   parse_ratchet_packet,
+   parse_sealed_initial_packet,
+-  parse_sync_payload,
++  parse_sync_payload_typed,
++  SyncPayloadError,
+   prepared_session_ids,
+   ratchet_bytes,
+   restore_session,
+@@ -318,12 +319,59 @@
+   end
+ end
+ 
+-fn peer_sync_payload(body :: Bytes, local_account_id :: Bytes) -> MobileSyncPayload!String do
+-  let sync = parse_sync_payload(body)?
+-  if Bytes.secure_equals(sync.peer_account_id, local_account_id) do
+-    Err("invalid_sync_payload")
+-  else
+-    Ok(sync)
++fn peer_sync_status(parsed :: MobileSyncPayload!SyncPayloadError,
++  local_account_id :: Bytes) -> Int do
++  case parsed do
++    Err(SyncInvalidPayload) -> 1
++    Err(SyncInvalidStoreRequest) -> 2
++    Err(SyncInvalidSafetyNumber) -> 3
++    Ok(sync) -> if Bytes.secure_equals(sync.peer_account_id, local_account_id) do
++      1
++    else
++      0
++    end
++  end
++end
++
++fn peer_sync_payload(inner :: InnerEnvelope,
++  local_account_id :: Bytes) -> MobileSyncPayload!String do
++  let parsed = parse_sync_payload_typed(inner.body)
++  let status = declassify(peer_sync_status(parsed, local_account_id),
++    "authenticated same-account type2 initial or ratchet receive releases only self-sync admission status0 or the existing invalid_sync_payload invalid_store_request invalid_safety_number classification after identity conversation and blocked checks; body fields and arbitrary error payloads remain private")
++  case status do
++    1 -> Err("invalid_sync_payload")
++    2 -> Err("invalid_store_request")
++    3 -> Err("invalid_safety_number")
++    0 -> do
++      let sync = Result.unwrap_or(parsed,
++        MobileSyncPayload {
++          peer_username: "",
++          peer_account_id: Bytes.empty(),
++          conversation_id: Bytes.empty(),
++          client_message_id: Bytes.empty(),
++          client_timestamp: inner.client_timestamp,
++          body: Bytes.empty(),
++          disappearing_seconds: 0,
++          safety_number: Bytes.empty()
++        })
++      let (peer_account_id, conversation_id, peer_username, disappearing_seconds, safety_number) = declassify((sync.peer_account_id,
++          sync.conversation_id,
++          sync.peer_username,
++          sync.disappearing_seconds,
++          sync.safety_number),
++        "admitted authenticated same-account type2 initial or ratchet receive releases only the sibling-supplied peer account conversation username disappearance policy and safety number required by existing alias routing and session metadata; body client message ID client timestamp and attachment manifest remain private or on their existing separate path")
++      Ok(MobileSyncPayload {
++        peer_username: peer_username,
++        peer_account_id: peer_account_id,
++        conversation_id: conversation_id,
++        client_message_id: sync.client_message_id,
++        client_timestamp: sync.client_timestamp,
++        body: sync.body,
++        disappearing_seconds: disappearing_seconds,
++        safety_number: safety_number
++      })
++    end
++    _ -> Err("invalid_sync_payload")
+   end
+ end
+ 
+@@ -530,7 +578,7 @@
+             prekey_blobs)?
+           Err("blocked_message")
+         else if self_sync do
+-          let sync = peer_sync_payload(inner.body, local.account_id)?
++          let sync = peer_sync_payload(inner, local.account_id)?
+           let acceptance_sources = capture_receive_alias(request.database_path,
+             wrapping_key,
+             initial_sources,
+@@ -921,7 +969,7 @@
+               List.append(blobs, session_blob))?
+             Ok(Bytes.empty())
+           else if self_sync do
+-            let sync = peer_sync_payload(inner.body, local.account_id)?
++            let sync = peer_sync_payload(inner, local.account_id)?
+             let acceptance_sources = capture_received_acceptance(request.database_path,
+               wrapping_key,
+               selected,

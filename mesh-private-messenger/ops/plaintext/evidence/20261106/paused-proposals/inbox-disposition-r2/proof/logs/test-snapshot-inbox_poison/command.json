@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+    "test",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/inbox_poison.test.mpl"
+  ],
+  "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc test /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/inbox_poison.test.mpl",
+  "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core",
+  "environment_overrides": {
+    "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-inbox_poison/",
+    "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+    "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+    "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-inbox_poison/clang-cache",
+    "NO_COLOR": "1"
+  },
+  "timeout_seconds": 240,
+  "start_unix": 1794017468.490742,
+  "exit_code": 1,
+  "elapsed_seconds": 46.76112484931946
+}

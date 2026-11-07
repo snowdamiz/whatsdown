@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "git",
+    "ls-tree",
+    "-r",
+    "0d6826b5d02e3439d93568ecc1d6fa996135a505",
+    "--",
+    "mesh-private-messenger"
+  ],
+  "shell_display": "git ls-tree -r 0d6826b5d02e3439d93568ecc1d6fa996135a505 -- mesh-private-messenger",
+  "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635",
+  "environment_overrides": {
+    "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/git-input-list/",
+    "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+    "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+    "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/git-input-list/clang-cache",
+    "NO_COLOR": "1"
+  },
+  "timeout_seconds": 180,
+  "start_unix": 1794017363.092757,
+  "exit_code": 0,
+  "elapsed_seconds": 0.04011201858520508
+}

@@ -1,0 +1,77 @@
+[
+  {
+    "control": "classifiers-public",
+    "report_sha256": "353b1c059dc44da7762b01ec094f5b2e15f2c27888c8d8f34bbe72c2be14a2f7",
+    "module_count": 331,
+    "all_module_source_hashes_match_pinned_inputs": true,
+    "unmatched_modules": [],
+    "inbox": {
+      "module": "Mobile.Inbox",
+      "file": "dependency/Mobile.Inbox/inbox.mpl",
+      "source_sha256": "7abbf6ecb5d031cf7cc56955df0cae93dc041148537a2be38de92529b4f22811",
+      "sites": []
+    },
+    "added_settlement_release_sites": 0,
+    "note": "Baseline report only. A zero-site Inbox audit is not proof of a final composed gate."
+  },
+  {
+    "control": "batch-effects-public",
+    "report_sha256": "e9344e05c56162b021241d8af9c405ce2c3cd9560fce5c9ebbe5b17c803c5acb",
+    "module_count": 331,
+    "all_module_source_hashes_match_pinned_inputs": true,
+    "unmatched_modules": [],
+    "inbox": {
+      "module": "Mobile.Inbox",
+      "file": "dependency/Mobile.Inbox/inbox.mpl",
+      "source_sha256": "7abbf6ecb5d031cf7cc56955df0cae93dc041148537a2be38de92529b4f22811",
+      "sites": []
+    },
+    "added_settlement_release_sites": 0,
+    "note": "Baseline report only. A zero-site Inbox audit is not proof of a final composed gate."
+  },
+  {
+    "control": "batch-native-public-v2",
+    "report_sha256": "535e4092cadbe09b332cf3f989276f2fd6c3aecd6f969409b5d94bdacb5149c5",
+    "module_count": 331,
+    "all_module_source_hashes_match_pinned_inputs": true,
+    "unmatched_modules": [],
+    "inbox": {
+      "module": "Mobile.Inbox",
+      "file": "dependency/Mobile.Inbox/inbox.mpl",
+      "source_sha256": "7abbf6ecb5d031cf7cc56955df0cae93dc041148537a2be38de92529b4f22811",
+      "sites": []
+    },
+    "added_settlement_release_sites": 0,
+    "note": "Baseline report only. A zero-site Inbox audit is not proof of a final composed gate."
+  },
+  {
+    "control": "parent-predicate-nested-public",
+    "report_sha256": "755ef33b06d175a99d7fb98571662ef6949393b42ceace040e88c75e8833e93c",
+    "module_count": 331,
+    "all_module_source_hashes_match_pinned_inputs": true,
+    "unmatched_modules": [],
+    "inbox": {
+      "module": "Mobile.Inbox",
+      "file": "dependency/Mobile.Inbox/inbox.mpl",
+      "source_sha256": "7abbf6ecb5d031cf7cc56955df0cae93dc041148537a2be38de92529b4f22811",
+      "sites": []
+    },
+    "added_settlement_release_sites": 0,
+    "note": "Baseline report only. A zero-site Inbox audit is not proof of a final composed gate."
+  },
+  {
+    "control": "parent-batch-metadata-public",
+    "report_sha256": "1fbcab107e4f4216ef02769699033a6124ceb0893878c76c94a85a8fe6874740",
+    "module_count": 331,
+    "all_module_source_hashes_match_pinned_inputs": true,
+    "unmatched_modules": [],
+    "inbox": {
+      "module": "Mobile.Inbox",
+      "file": "dependency/Mobile.Inbox/inbox.mpl",
+      "source_sha256": "7abbf6ecb5d031cf7cc56955df0cae93dc041148537a2be38de92529b4f22811",
+      "sites": []
+    },
+    "added_settlement_release_sites": 0,
+    "note": "Baseline report only. A zero-site Inbox audit is not proof of a final composed gate."
+  }
+]

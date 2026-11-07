@@ -1,0 +1,391 @@
+STATUS: BLOCKED FOR COMPLETE FINITE-ONLY CALLER CLOSURE; UNCOMPILED DESIGN
+
+Base: 56148470ca80bc3a87fa31c158a1d7156c7223d8, with the current shared
+Mobile.Sessions pure typed parser read as an input. Exact source hashes and
+initial observed git status are in provenance.json. No mutable VO checkout was
+inspected. All line references below are to the original shared source.
+
+The attached preparations-only.patch is an extraction proposal, NOT a two-file
+fix. It adds no declassification, no authority token, no Bounty code and no CAS.
+It exposes plain private-data-preserving preparations. Its legacy effectful
+wrappers still branch on private results. Applying it alone does NOT close the
+reported E0093 sites and can expose further private encoding-result diagnostics.
+There is deliberately no complete-closure.patch.
+
+The bounded blocker is not a claim that Bounty must always change. Publishing
+only an exactly bound, canonical finder-zero fork at the private authenticated
+receive boundary could let unchanged Bounty reparse public evidence. That is an
+evidence disclosure exception, not a finite status gate. It is neither in the
+reviewed inventory nor approved by this task. Without that exception, Bounty's
+current parse-before-storage API cannot be reached with private evidence using
+only caller-side finite gates. A Bounty-side preparation/commit split would be
+the other route, but Bounty edits are expressly excluded. The proposal below
+makes the conditional exception concrete without silently granting it.
+
+READ-ONLY EVIDENCE
+
+Protocol.V1.InnerEnvelope.body is Plaintext<Bytes> at protocol/v1.mpl:89;
+Groups.GroupPayload.body has the same label at groups/group_payload.mpl:16.
+The imported protocol module here is Protocol.V1, not a literal Protocol.Bodies
+module. EnvelopeWire.encode_inner_envelope returns Plaintext<Bytes> at :274.
+Sessions.inner_bytes and encode_sync_payload likewise retain Plaintext, and its
+parse_sync_payload_typed returns a closed SyncPayloadError with no gate. This
+parser is not an authentication capability and does not authorize gossip.
+
+codec-final-trace/sites.json identifies gossip.mpl:301,315,307,323,327,349,341,
+353,366,390,403; messages.mpl:308; groups.mpl:1041, and the outbound inbox:269
+continuation. This is prior retained diagnostic evidence, not a fresh build.
+No new language compiler, runtime, native build, network request, npm or Cargo
+command was run. No test execution or red/green result is claimed.
+
+AUTHORITY AND CALLER CLOSURE
+
+1. Direct initial receive: Messages.receive_initial_message (:330) opens the
+   packet and verifies the handshake at :418, decodes the peer and envelope,
+   and checks the full identity/conversation relation at :481-490. The private
+   keep_contact_address (:300), reached at :497, checks the previous session's
+   blocked flag before observe_gossip (:308). Initial valid kinds exclude 5;
+   this route observes only the eligible hint extension. Gossip precedes
+   contact-address writes, session sealing and the initial admission commit.
+
+2. Established direct receive: Messages.receive_message (:808) selects the
+   captured header/legacy route, restores the session and calls decrypt (:859).
+   Only Opened reaches the sender account/device, recipient, kind and canonical
+   or legacy conversation checks (:872-887). It seals the next ratchet (:891)
+   BEFORE calling private keep_contact_address (:892); this order must stay.
+   The blocked policy is found at account scope, not per sibling device.
+   Contact-address learning follows gossip; the receive commit follows both.
+   Type-5 controls commit the ratchet and return an empty body, never history.
+
+3. Group receive: private open_mobile_group_message (:972) captures the group
+   index/state/history basis, requires indexed membership, rejects future/stale
+   epochs, resolves sender from the roster, and calls decrypt_group_message
+   (:1020). Only MessageOpened reaches group_snapshot_blob (:1030), then time,
+   timed payload and visibility calculations, then recipient addressing
+   (:1037), then observe_group_gossip (:1041). The synthetic envelope's sender
+   IDs come from that roster; group ID comes from the authenticated message;
+   local recipient comes from the stored profile. Group blocks are checked by
+   gossip_peer_blocked before own_checkpoint. Preserve this second block check.
+   Controls are processed even if expired; only the addressed account/device
+   may answer. Every recipient still advances the group ratchet, and controls
+   never become visible history. Gossip remains outside the guarded history
+   basis and cannot grant history-commit authority.
+
+4. Public surface counterexample: observe_gossip (:362) and
+   observe_group_gossip (:383) accept String path + StorageKey + a public
+   InnerEnvelope struct. InnerEnvelope's constructor is public and all route
+   fields are supplied by its caller. A blocked-peer lookup authenticates no
+   envelope. Even a real local path/key and an otherwise public envelope can
+   carry a private body selected by a caller. Comments saying 'called only
+   after authentication' do not change that surface. A validity/operation gate
+   in either observer, or in an effectful descendant it reaches, would turn
+   this call into an oracle. These APIs must acquire NO new declassification.
+
+5. Proposed receivers are private fn observe_authenticated_direct_gossip in
+   Messages and private fn observe_authenticated_group_gossip in Groups. Their
+   only call sites must be the authenticated locations above. A private
+   publish_authenticated_gossip_fork (one per owner module) may only be called
+   from its corresponding private receive driver. No public forwarding export,
+   test-support production export, callback accepting a user predicate, or
+   arbitrary proof/path publication entry point is acceptable. Do not call a
+   public observer from one of these drivers and assume that grants authority.
+
+6. This design uses no prepared-authority type. The proposed GossipQueueSelection
+   is explicitly pub struct with public construction and ordinary data fields.
+   prepare_gossip_control, prepare_signed_conflict, prepare_gossip_queue,
+   encode_gossip_state and encode_gossip_queue release nothing. Any 'ready',
+   'verified', 'authenticated' or operation tag they return remains private
+   when derived from private data. No constructor-visibility claim is needed.
+
+THE PRECISE BLOCKING CHAIN
+
+private InnerEnvelope.body
+ -> Gossip.observe_control, decode_gossip and the private control selection
+ -> private request/reply-ID match and verify_checkpoint(other)
+ -> signed_conflict (:252), paired_attestations and fork_same_size first
+ -> fallback fork_rollback only when fork_same_size returned Err
+ -> TransparencySafety.retain_fork (:42): config/policy lookup followed by
+    fork_same_size / fork_contradiction / fork_rollback revalidation (:48-54)
+ -> encode_fork(proof), still private despite canonicalization
+ -> Bounty.retain_bounty_fork (:238)
+ -> decode_fork(proof)? (:241), then finder-zero re-encoding? (:242)
+ -> Bounty.retain (:197)
+ -> current/read_stored/raw_proof, storage reads and possible legacy migration
+ -> valid/encoding in seal(next), StorageKey.seal_bytes and compare_and_swap_blobs
+    (:223-232), with retry on local_state_changed.
+
+A finite 'valid fork' or 'retain' tag at the receive boundary changes only the
+branch on that tag. The proof bytes and their subsequent decode/encode Results
+are still private. Matching or propagating them inside retain_bounty_fork
+reintroduces private branchPC before current performs storage effects. Gating
+the return from retain_fork is too late. Storage.Keys.seal_local (:130-138)
+only reviews the raw storage-seal Result tag; it does not clear prior branchPC,
+or authorize private metadata/keys/contexts. StorageKey.seal_bytes itself has
+Host/nonce-counter effects; it cannot run speculatively in a pure preparation.
+
+No copy of Bounty.retain/current/compare_and_swap_blobs is a permissible escape.
+Calling retain_bounty_fork directly also skips retain_fork's revalidation and
+is not this proposal. A generic declassify(ForkProof), declassify(GossipControl),
+declassify(Result) or arbitrary error-string release is not acceptable.
+
+MINIMAL PERMITTED RESTRUCTURING AND PATCH CONTENT
+
+The patch factors these preparations without introducing an authority boundary:
+
+- Gossip.prepare_gossip_control(Bytes) -> Option<GossipControl> suppresses all
+  decode errors exactly as observe_control currently does. The optional tag,
+  variant, IDs, flag, checkpoints and attestations retain input dependencies.
+- Gossip.prepare_signed_conflict(ForkProof, SigningPublicKey,
+  List<WitnessKey>) -> Option<ForkProof> performs same-size, then rollback,
+  preserving suppression of verification errors. It neither authenticates the
+  caller nor guarantees that arbitrary finder/attestation fields are publishable.
+- GossipState.prepare_gossip_queue(List<Bytes>, Bytes, GossipState)
+  -> GossipQueueSelection preserves removal of the peer before the 256-peer
+  capacity check. On rejection it clears only pending_group/device/body,
+  retaining budgets, request/reply IDs and known_hint as before.
+- GossipState.encode_gossip_state(GossipState) -> Plaintext<Bytes>!String and
+  encode_gossip_queue(List<Bytes>) -> Plaintext<Bytes>!String perform only
+  private framing. Their local framing helpers use Bytes/U64 operations with
+  the original constant errors, and contain no gate, storage or sealing call.
+  The state order is next_check, next_request, next_answer, request_id, reply_id,
+  known_hint, pending_device, pending_body, pending_group, each length-prefixed.
+  U64 encoding still precedes vector encoding, which precedes outer joining.
+  Each vector performs exactly one prefix/body concatenation, as before; the
+  private join preserves the original outer concatenation sequence.
+- The old wrappers keep their current read/encode/seal/store sequence. They
+  remain the blocked legacy route. No new sink trusts GossipQueueSelection.
+
+The next permitted implementation step, if disclosures are separately reviewed,
+is to lift the EFFECT SEQUENCE into the two private receive drivers. Shared
+modules expose only plain preparations and narrow effect operations. Keep the
+path, platform key, peer account/device and group identity as separate arguments
+from authenticated envelope/local state. Do not project those routes out of a
+private decoded control or publish a whole plan containing them.
+
+Before effects, compute each private decision in a pure helper and release only
+its specified finite status in the private driver. Do not write:
+  case private_result do Ok(x) -> declassify(...); effect() ...
+The case has already set private branchPC. Instead compute a closed status
+without effects, review it in the boundary's existing public control context,
+and branch on that status. Extract payloads through pure helpers; do not case
+on the raw Result/Option again around an effect. Existing unrelated caller-PC
+must still be refused. The corrected VO receive stack must supply this clean
+context; this design does not inspect or certify that mutable stack.
+
+The exact candidate decision-gate names, types, release sets and reasons are
+in prospective-gates.json. This is not an exhaustive implementation: its
+error-frontier section records typed preparation work that remains blocked. They are NOT added to source or the disclosure inventory.
+The queue framing status has exactly Ready, InvalidWideInteger,
+IntegerEncodingFailed and ByteConcatenationFailed; its error text projection
+uses only the three original constant strings. Pure control/checkpoint/witness
+encoding needs its own exhaustively typed errors before any further status is
+released. The patch deliberately retains String Results as private data; it
+is not permission to publish a wildcard error class or a whole Result.
+
+ORDERING OBLIGATIONS FOR THE PRIVATE DRIVERS
+
+A. Direct blocked short-circuit precedes current_time and own_checkpoint.
+   Group recipient addressing precedes blocked-peer lookup, which precedes
+   own_checkpoint. own_checkpoint is evaluated BEFORE control/hint parsing;
+   missing local checkpoint suppresses gossip, but an existing local storage
+   error is not hidden by a malformed control. Do not pre-read state, config or
+   witnesses to work around a private branch.
+
+B. A malformed control/hint is ignored before load_gossip_state. A valid but
+   uncorrelated answer still reads peer state, then is ignored before config,
+   checkpoint verification or witness reads. A suppressed request still reads
+   peer state but does not read witnesses or touch queue/nonce state.
+
+C. Request: check next_answer and pending_body, then compute the 24-hour
+   deadline before own_witnesses, then encode CheckpointAnswer(id, own, ours,
+   true), then load the group queue, prepare/encode/seal/store. Do not generate
+   an ID for a received request. The supplied ID is copied privately to
+   reply_id and the encrypted answer body.
+
+D. Answer: correlated-ID admission -> native config -> verify_checkpoint(other)
+   -> signed_conflict. Cross-log versions short-circuit signed_conflict BEFORE
+   its extra config/policy/witness reads; matching request/reply IDs are still
+   cleared afterward. For same-log candidates, preserve config -> policy ->
+   finder-zero creation -> own_witnesses -> paired_attestations -> same-size ->
+   rollback. Propagated preparation errors stay ahead of later effects;
+   fork verifier Errs remain suppressed as before. Retention/revalidation/CAS
+   completes before any request/reply clearing or reciprocal answer write.
+   A retention error must therefore leave request/reply state unchanged.
+
+E. Clear request_id iff id equals request_id; clear reply_id iff id equals
+   reply_id. Both may match and both must clear. Reciprocal answer is queued
+   iff expected_request && request_peer && old pending_body is empty; its flag
+   is FALSE, never copied from the incoming true flag. A reply-only answer
+   never produces another answer. Unsolicited or invalid-signature answers
+   clear neither ID. The IDs themselves and any digest/length proxy stay
+   private. Only combined correlation admission and reciprocal-action status
+   are candidates for release; individual ID-match/clear bits need not leave
+   pure state preparation.
+
+F. Hint: parse -> peer state -> own/known equality -> hourly/pending check ->
+   next_check deadline -> persist checked state -> consistency attempt. The
+   persisted budget precedes EVERY network attempt, including failure. Same
+   size compares roots locally. Oversized u64 ranges stop before origin read;
+   use the original u32 limit and own-version URL. Origin is local stored data,
+   never body-selected. Consistency response errors/status/proof mismatch are
+   suppressed as before. On success save known_hint. On failure respect the
+   daily request deadline, THEN random_bytes(16), THEN compute next_request,
+   encode the request, and save. Never refund the persisted hourly budget.
+   The limiter key is authenticated sender ACCOUNT, shared across devices,
+   legacy aliases, direct/group receive and sibling-account sessions.
+
+G. Every save: compute the requested control body before queued_group_peers
+   (original error order), then load that index, remove this peer, make the
+   capacity decision, then validate peer label before encoding the effective
+   state. Prepare private state wire, review its finite encoding status at the
+   actual receive boundary, and only then compute public context/seal state.
+   If an index write is needed, prepare its wire AFTER state sealing; review
+   its status, then seal it. Finally store both ciphertexts together. It is
+   safe to prepare PURE index bytes earlier only if error selection still
+   follows the original order; do not move its seal earlier. Peer state seal
+   failure must win over index encoding/sealing failure. Store failure wins
+   only after both required seals. No speculative storage seal is proposed.
+
+H. Direct send consumes pending state with ratchet/outbox via store_outbound;
+   group send consumes it with group/outbox via store_group_outbound. Preserve
+   send_pending/flush_sessions and GroupGossip.send_control's existing policy,
+   blocked-peer, roster, transport, outbox-capacity and refresh checks. Do not
+   'fix' the inbox:269 diagnostic by clearing/dispatching pending controls under
+   private caller-PC. These outbound callers remain a separate closure check.
+
+CONDITIONAL EVIDENCE EXCEPTION: EXACT PUBLICATION SCHEMA
+
+This is a candidate for a later explicit review, NOT approved work. Place the
+exception only in private Messages.publish_authenticated_gossip_fork and private
+Groups.publish_authenticated_gossip_fork, each reachable solely through the
+actual authenticated receive routes described above. It must receive the raw
+pure preparation plus locally loaded trust policy, not an independently claimed
+Boolean 'verified' flag. No exception goes in Gossip, TransparencySafety,
+Transparency.Fork or Bounty's public functions.
+
+Construct publication from exactly the selected proof already built by the
+current signed_conflict algorithm, after successful full binding. Do not accept
+an arbitrary incoming FRK or use fork_same_size success as permission to copy
+all of a caller's metadata. Its publishable fields are exactly:
+
+- kind is 1 for the first successful same-size proof, or 3 only after same-size
+  returned Err and rollback succeeded; no kind 2 or AnchorReference route.
+- finder is exactly the locally created 32 zero bytes, never the inbound
+  finder or the wallet address. service_public_key is the native pinned key
+  and equals each checkpoint's service_public_key.
+- first is the exact local own checkpoint; second is SignedCheckpoint of the
+  exact correlated answer checkpoint. Both versions match and have a native
+  witness policy. Both service signatures verify under that same native key.
+  Signatures bind version, sequence, tree_size, tree_root,
+  previous_checkpoint_hash, timestamp and service_public_key. Every one of
+  these fields and the signature must remain the verified value; copying
+  merely a verified root into an arbitrary metadata object is insufficient.
+- contradiction is None. There are no extra payloads, leaf paths or raw Result
+  fields in this route.
+- attestations are the exact original paired_attestations output: policy-key
+  order, first valid own entry then first valid other entry for each pin, at
+  most 32 total. Each included witness_id equals its native policy pin;
+  checkpoint_hash equals checkpoint_hash of its assigned first or second
+  checkpoint; verify_witnesses(checkpoint,[attestation],[pin],1) succeeded.
+  Native signatures bind the witness ID and complete checkpoint hash. C2SP
+  witness IDs are matched to locally pinned keys; their signature does not
+  itself sign that identifier. C2SP signatures bind their timestamp and
+  canonical note, including the complete
+  morse-checkpoint extension, not just size/root. Preserve 64/72-byte signature
+  forms and the exact selection order; do not publish unused incoming entries.
+  The existing fork verifier accepts a service fork with zero accused witnesses:
+  do not add a witness threshold or reject empty paired evidence. Historical
+  evidence must not acquire a new current-time freshness requirement.
+- serialize using encode_fork; canonical roundtrip must equal those exact
+  selected fields, with finder zero. FRK version is selected by the existing
+  attestation-count/algorithm rules. A valid signature alone is insufficient;
+  complete fork relation and all included witness bindings are required.
+
+The exception may publish only this canonical bounded FRK field projection.
+It excludes incoming control kind/ID/reciprocal flag, raw body, original witness
+list, path, peer/group/contact/session IDs, local preference, arbitrary errors,
+and unused metadata. Do not publish a hash of excluded data as a substitute.
+
+Only after that private-route projection is public may unchanged retain_fork
+receive it, re-read policy, revalidate and call unchanged Bounty. Bounty retains
+its own decode, finder normalization, first-winner identity, legacy migration,
+preference snapshot and retry/CAS logic. Do not pre-check current bounty status
+or suppress this call based on a stale 'already retained' snapshot. Revalidation
+must remain able to fail after policy changes. A caller-side prepared proof is
+not an atomic authority grant or a replacement for Bounty's CAS.
+
+If this exact exception is not approved, the minimal alternative needs Bounty
+ownership: a private pure normalization/encoding stage separated from the
+existing effectful first-proof routine, with the actual authenticated owner
+controlling finite gates. That would require a reviewed API/visibility design
+inside Bounty; exposing private retain publicly or copying its CAS is forbidden.
+No such change is included or authorized here.
+
+REQUIRED ADVERSARIAL AND BEHAVIORAL EVIDENCE AFTER INTEGRATION
+
+All items here are NOT RUN. Use actual receive routes and owned fixtures, with
+injected clock, storage faults and observable nonce/CAS/network counts.
+
+- At public PC, pass a fully public constructed envelope/path/key with only its
+  body Plaintext into EACH old observer. Observe a constant effect afterward.
+  It must be refused. Repeat with type 5 request, matching/nonmatching answer,
+  malformed body, and any new public preparation + effect combination. A
+  private-PC-only probe is insufficient. Repeat with prior private-PC to prove
+  no new gate erases unrelated control.
+- Pure helpers accept private input but cannot export their tag, payload,
+  equality, digest or error. A public GossipQueueSelection/Bool cannot mint
+  authority. Any future capability alternative needs actual external-module
+  construction/access refusal, not a comment about private constructors.
+- Authenticated initial hint, established direct control and addressed group
+  control positive paths; blocked direct/group peers; non-addressed groups;
+  sibling/alias sharing of hourly/daily limiter; absent checkpoint; malformed
+  body plus simultaneous local/storage failure to prove precedence.
+- Request/reply ID equality in all four combinations; reciprocal true/false;
+  already pending body; invalid checkpoint; version transition; valid same-size
+  conflict versus rollback; same-size retention failure must not try rollback.
+- Mutate log key/version/sequence/root/previous hash/time/signature independently;
+  substitute unrelated signed checkpoints, wrong witness IDs/hashes/pairing,
+  arbitrary finder, extra attestations, contradiction or anchor variant. No
+  field may cross the conditional evidence exception unless fully bound.
+- Compare exact canonical evidence to the old algorithm; first-proof and
+  concurrent preference CAS retry/legacy migration behavior remains owned by
+  existing Bounty tests, supplemented through the real receive route.
+- Queue 0/255/256 peers and replacement of an existing peer at capacity;
+  group-full drops only pending fields; inject failures at state encoding,
+  state seal, index encoding, index seal and final store. No earlier-than-old
+  nonce reservation; correct first error; IDs/budgets do not reset.
+- Existing gossip_transport.test.mpl:180 supplies an actual encrypted-route
+  positive scenario. gossip.test.mpl:270 and gossip_limits.test.mpl:165 call
+  public observers directly: their passing literals are not authority proof.
+  linked_device_sync.test.mpl:560 and bounty.test.mpl:130 cover additional
+  behavior but do not replace new raw-private-body refusal probes.
+
+FINAL LIMIT
+
+This deliverable is a bounded, reviewable design with a concrete preparatory
+unified diff and a precise blocker. It does not approve disclosures, certify
+caller closure, claim a production compile, or authorize source changes. VO
+retains Messages/Groups ownership. No merge, commit, live edit, Bounty/runtime/
+native change, copied checkout, network operation or language build occurred.
+
+RESUMED DESIGN AUDIT
+
+The resumed pass re-read the actual receive, gossip, queue, fork-verifier,
+checkpoint/witness, storage-seal and Bounty sources. All 21 original manifest
+source hashes still match. It corrected stale group/storage/Bounty line
+references and removed one extra vector-prefix concatenation from the proposal.
+The revised patch preserves the original single vector prefix/body append.
+
+prospective-gates.json is now present. It lists ten candidate finite decisions
+with exact names, types and reasons, unresolved error/caller frontiers, and the
+separately unapproved canonical-evidence exception. Individual ID-clear bits
+and queue-admission fields are deliberately kept in pure private preparation.
+The hint path gets no additional disclosure; a private consistency request
+range cannot become public through a request/no-request status bit.
+
+Exact in-memory hunk reconstruction and git apply --check --whitespace=error-all
+passed against the recorded source. These are patch/applicability checks only,
+not a language compile, type/effect proof, runtime test or caller-closure result.
+The final static check record is design-audit.json; provenance.json includes
+hashes for every final deliverable. No source file or disclosure inventory was
+written. The implementation blocker remains unchanged.

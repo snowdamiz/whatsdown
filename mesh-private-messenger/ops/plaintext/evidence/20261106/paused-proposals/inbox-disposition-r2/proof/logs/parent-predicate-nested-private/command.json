@@ -1,0 +1,31 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+    "build",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private",
+    "--artifact",
+    "executable",
+    "--json",
+    "--no-color",
+    "-o",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/proof.bin",
+    "--plaintext-report",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/plaintext.json"
+  ],
+  "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/plaintext.json",
+  "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+  "environment_overrides": {
+    "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-predicate-nested-private/",
+    "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+    "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+    "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-predicate-nested-private/clang-cache",
+    "NO_COLOR": "1"
+  },
+  "timeout_seconds": 180,
+  "start_unix": 1794017699.862603,
+  "exit_code": 1,
+  "elapsed_seconds": 42.222394943237305
+}

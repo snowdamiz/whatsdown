@@ -1,0 +1,51 @@
+{
+  "status": "unapproved source proposal; not compiler output or inventory",
+  "baseline": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "sites": [
+    {
+      "file": "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+      "module": "Mobile.Messages",
+      "kind": "declassify",
+      "function": "authenticated_invitation_writes",
+      "visibility": "private",
+      "expression": "declassify(valid,",
+      "line": 344,
+      "column": 7,
+      "reason": "private initial or ratchet receive after peer identity conversation recipient and block checks releases only bounded invitation framing acceptance before invitation storage access and pruning; body fields and parser errors remain private",
+      "domain": [
+        false,
+        true
+      ]
+    },
+    {
+      "file": "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+      "module": "Mobile.Messages",
+      "kind": "declassify",
+      "function": "authenticated_invitation_writes",
+      "visibility": "private",
+      "expression": "declassify(renewal,",
+      "line": 355,
+      "column": 17,
+      "reason": "private authenticated invitation receive releases only whether successful control preparation found an existing state3 acceptance requiring the current transparency view; reference membership is exposed only through this decision and identifiers key packages and later authorization decisions remain private",
+      "domain": [
+        false,
+        true
+      ]
+    },
+    {
+      "file": "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+      "module": "Mobile.Messages",
+      "kind": "declassify",
+      "function": "authenticated_invitation_writes",
+      "visibility": "private",
+      "expression": "declassify(Result.is_ok(encoded),",
+      "line": 368,
+      "column": 7,
+      "reason": "private authenticated invitation receive releases only successful pure control completion and invitation encoding before context construction and one local seal; exact failure payloads and encoded invitation records remain private and failed preparation performs no context construction or seal",
+      "domain": [
+        false,
+        true
+      ]
+    }
+  ]
+}

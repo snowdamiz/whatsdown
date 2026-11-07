@@ -1,0 +1,362 @@
+[
+  {
+    "name": "classifiers-public",
+    "positive": true,
+    "matched_positive": null,
+    "artifact": "executable",
+    "expected_e0093": [],
+    "source_sha256": "04c32b514602cdc0d1ab781e0fd762b26717af856c029ef1075c3ac90e8c99a8",
+    "never_execute": true
+  },
+  {
+    "name": "classifiers-private",
+    "positive": false,
+    "matched_positive": "classifiers-public",
+    "artifact": "executable",
+    "expected_e0093": [
+      {
+        "file": "main.mpl",
+        "line": 5,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 11,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 20,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 26,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 32,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 38,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 43,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 49,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 58,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 64,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 70,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 76,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 80,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 85,
+        "subject": "Http.body_bytes"
+      }
+    ],
+    "source_sha256": "62d2b6d4e2fbe1c78e46d2122730820575e120e768712dc77a5f3f6f1532673c",
+    "never_execute": true
+  },
+  {
+    "name": "batch-effects-public",
+    "positive": true,
+    "matched_positive": null,
+    "artifact": "executable",
+    "expected_e0093": [],
+    "source_sha256": "9de16f090cc90bc01ffb9aaf13c107b25a010edd6638bd1a077377666afa040a",
+    "never_execute": true
+  },
+  {
+    "name": "batch-native-public",
+    "positive": true,
+    "matched_positive": null,
+    "artifact": "staticlib",
+    "expected_e0093": [],
+    "source_sha256": "4181de46426400784606fa0ba9d0b7662b55d7042c9d1ef179c517d0d0635507",
+    "never_execute": true
+  },
+  {
+    "name": "batch-effects-private",
+    "positive": false,
+    "matched_positive": "batch-effects-public",
+    "artifact": "executable",
+    "expected_e0093": [
+      {
+        "file": "main.mpl",
+        "line": 6,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 14,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 19,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 23,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 27,
+        "subject": "process_delivery_batch"
+      }
+    ],
+    "source_sha256": "3cc467dabd6c40725e13d20a7a7c34f35d413554b5fa98c5833a37635cfc07ef",
+    "never_execute": true
+  },
+  {
+    "name": "batch-native-private",
+    "positive": false,
+    "matched_positive": "batch-native-public",
+    "artifact": "staticlib",
+    "expected_e0093": [
+      {
+        "file": "main.mpl",
+        "line": 7,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 18,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 24,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 29,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 34,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 4,
+        "subject": "proof_caller_pc"
+      },
+      {
+        "file": "main.mpl",
+        "line": 13,
+        "subject": "proof_batch_selection"
+      },
+      {
+        "file": "main.mpl",
+        "line": 21,
+        "subject": "proof_path_selection"
+      },
+      {
+        "file": "main.mpl",
+        "line": 27,
+        "subject": "proof_whole_argument"
+      },
+      {
+        "file": "main.mpl",
+        "line": 32,
+        "subject": "proof_wire_argument"
+      }
+    ],
+    "source_sha256": "0419a6d2a67da4fbebe29a8bb7368097a3ff7e447cbf4fa497987185c796f2e5",
+    "never_execute": true
+  },
+  {
+    "name": "batch-native-public-v2",
+    "positive": true,
+    "matched_positive": null,
+    "artifact": "staticlib",
+    "expected_e0093": [],
+    "source_sha256": "5f2c88d120a4e62ff4b2aceb00baffc3ef1e78eb5016626353b7075459a2fd63",
+    "never_execute": true,
+    "adaptation": "Only generated @export symbol names prefixed mesh_inbox_; first pair blocked by C0001 export-name collision. No app edits."
+  },
+  {
+    "name": "batch-native-private-v2",
+    "positive": false,
+    "matched_positive": "batch-native-public-v2",
+    "artifact": "staticlib",
+    "expected_e0093": [
+      {
+        "file": "main.mpl",
+        "line": 7,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 18,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 24,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 29,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 34,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 4,
+        "subject": "proof_caller_pc"
+      },
+      {
+        "file": "main.mpl",
+        "line": 13,
+        "subject": "proof_batch_selection"
+      },
+      {
+        "file": "main.mpl",
+        "line": 21,
+        "subject": "proof_path_selection"
+      },
+      {
+        "file": "main.mpl",
+        "line": 27,
+        "subject": "proof_whole_argument"
+      },
+      {
+        "file": "main.mpl",
+        "line": 32,
+        "subject": "proof_wire_argument"
+      }
+    ],
+    "source_sha256": "a70a4b51e8ec96b814f290d84c86b520682f74044f7791db3cfa93f3b88ef42b",
+    "never_execute": true,
+    "adaptation": "Only generated @export symbol names prefixed mesh_inbox_; first pair blocked by C0001 export-name collision. No app edits."
+  },
+  {
+    "name": "parent-predicate-nested-public",
+    "positive": true,
+    "matched_positive": null,
+    "artifact": "executable",
+    "expected_e0093": [],
+    "source_sha256": "0ab9d1461aa302f57135c5aad8ae3a669f6a6381f25ae58de7a1c7b3b3ebae21",
+    "never_execute": true,
+    "adaptation": "Exact parent fixture bytes; generated manifest points solely to the unchanged pinned baseline. No proposal patch compiled."
+  },
+  {
+    "name": "parent-predicate-nested-private",
+    "positive": false,
+    "matched_positive": "parent-predicate-nested-public",
+    "artifact": "executable",
+    "expected_e0093": [
+      {
+        "file": "main.mpl",
+        "line": 13,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 19,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 25,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 32,
+        "subject": "Http.body_bytes"
+      },
+      {
+        "file": "main.mpl",
+        "line": 38,
+        "subject": "Http.body_bytes"
+      }
+    ],
+    "source_sha256": "7bd6afbb4afad24fdf36fa71bfa5efea26e2edee15121895931df87aa1fbc755",
+    "never_execute": true,
+    "adaptation": "Exact parent fixture bytes; generated manifest points solely to the unchanged pinned baseline. No proposal patch compiled."
+  },
+  {
+    "name": "parent-batch-metadata-private",
+    "positive": false,
+    "matched_positive": "parent-batch-metadata-public",
+    "artifact": "executable",
+    "expected_e0093": [
+      {
+        "file": "main.mpl",
+        "line": 11,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 15,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 23,
+        "subject": "process_delivery_batch"
+      },
+      {
+        "file": "main.mpl",
+        "line": 35,
+        "subject": "process_delivery_batch"
+      }
+    ],
+    "source_sha256": "700b3a29dbe05a1fa770450dc4f7bc1b7b9318636105ecb2d5d09b450c030851",
+    "never_execute": true,
+    "adaptation": "Exact parent fixture bytes; generated manifest points solely to the unchanged pinned baseline. No proposal patch compiled."
+  },
+  {
+    "name": "parent-batch-metadata-public",
+    "positive": true,
+    "matched_positive": null,
+    "artifact": "executable",
+    "expected_e0093": [],
+    "source_sha256": "3404beb1508a191062ad94c5d3134c16824531ecfe6d64f5c8f5a71e74bdccc0",
+    "never_execute": true,
+    "adaptation": "Exact parent fixture bytes; generated manifest points solely to the unchanged pinned baseline. No proposal patch compiled."
+  }
+]

@@ -1,0 +1,52 @@
+{
+  "scope": "immutable baseline and owned artifact copies only; not live source applicability or compilation",
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "apply",
+        "--check",
+        "--verbose",
+        "--unsafe-paths",
+        "--directory=/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/base",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/invitation-private-boundary.patch"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "Checking patch /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/base/mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl...\nChecking patch /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/base/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl...\n"
+    },
+    {
+      "argv": [
+        "git",
+        "apply",
+        "--verbose",
+        "--unsafe-paths",
+        "--directory=/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/applied-check",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/invitation-private-boundary.patch"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "Checking patch /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/applied-check/mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl...\nChecking patch /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/applied-check/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl...\nApplied patch /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/applied-check/mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl cleanly.\nApplied patch /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-design-r2/applied-check/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl cleanly.\n"
+    }
+  ],
+  "checks": {
+    "base_matches_pinned_git_objects": true,
+    "baseline_apply_check": true,
+    "artifact_application_matches_proposal_bytes": true,
+    "changed_paths": [
+      "mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl",
+      "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl"
+    ],
+    "baseline_copies_unchanged": true,
+    "source_structure_only": {
+      "new_private_helper_callers": 2,
+      "new_release_sites_in_state_module": 0,
+      "new_release_sites_in_private_helper": 3,
+      "limits": "Text checks establish placement only; not import privacy, taint propagation, or compiler acceptance."
+    }
+  },
+  "compiler_run": false,
+  "runtime_run": false,
+  "live_source_apply_check": false,
+  "status": "artifact checks passed"
+}

@@ -1,0 +1,596 @@
+[
+  {
+    "log": "logs/batch-effects-private",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-effects-private/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-effects-private/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017506.6568902,
+    "exit_code": 1,
+    "elapsed_seconds": 52.82394194602966
+  },
+  {
+    "log": "logs/batch-effects-public",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-public",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-public/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-public/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-public --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-public/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-public/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-effects-public/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-effects-public/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017506.656815,
+    "exit_code": 0,
+    "elapsed_seconds": 62.24063277244568
+  },
+  {
+    "log": "logs/batch-native-private",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private/proof.a",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private --artifact staticlib --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private/proof.a --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-private/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-private/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017506.660893,
+    "exit_code": 1,
+    "elapsed_seconds": 52.386852979660034
+  },
+  {
+    "log": "logs/batch-native-private-v2",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/proof.a",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2 --artifact staticlib --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/proof.a --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-private-v2/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-private-v2/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-private-v2/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017625.059856,
+    "exit_code": 1,
+    "elapsed_seconds": 57.443341970443726
+  },
+  {
+    "log": "logs/batch-native-public",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public/proof.a",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public --artifact staticlib --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public/proof.a --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-public/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-public/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017506.6567528,
+    "exit_code": 1,
+    "elapsed_seconds": 56.269737243652344
+  },
+  {
+    "log": "logs/batch-native-public-v2",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public-v2",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public-v2/proof.a",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public-v2/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public-v2 --artifact staticlib --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public-v2/proof.a --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-native-public-v2/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-public-v2/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/batch-native-public-v2/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017625.0598888,
+    "exit_code": 0,
+    "elapsed_seconds": 72.29900813102722
+  },
+  {
+    "log": "logs/classifiers-private",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/classifiers-private/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/classifiers-private/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017453.355384,
+    "exit_code": 1,
+    "elapsed_seconds": 34.25787973403931
+  },
+  {
+    "log": "logs/classifiers-public",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-public",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-public/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-public/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-public --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-public/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-public/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/classifiers-public/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/classifiers-public/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017453.35526,
+    "exit_code": 0,
+    "elapsed_seconds": 44.041359186172485
+  },
+  {
+    "log": "logs/compiler-version",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "--version"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc --version",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/compiler-version/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/compiler-version/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 10,
+    "start_unix": 1794017679.210628,
+    "exit_code": 0,
+    "elapsed_seconds": 0.040814876556396484
+  },
+  {
+    "log": "logs/git-input-list",
+    "argv": [
+      "git",
+      "ls-tree",
+      "-r",
+      "0d6826b5d02e3439d93568ecc1d6fa996135a505",
+      "--",
+      "mesh-private-messenger"
+    ],
+    "shell_display": "git ls-tree -r 0d6826b5d02e3439d93568ecc1d6fa996135a505 -- mesh-private-messenger",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/git-input-list/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/git-input-list/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017363.092757,
+    "exit_code": 0,
+    "elapsed_seconds": 0.04011201858520508
+  },
+  {
+    "log": "logs/git-status-after",
+    "argv": [
+      "git",
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all"
+    ],
+    "shell_display": "git status --porcelain=v1 --untracked-files=all",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/git-status-after/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/git-status-after/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017841.06814,
+    "exit_code": 0,
+    "elapsed_seconds": 0.08043813705444336
+  },
+  {
+    "log": "logs/git-status-before",
+    "argv": [
+      "git",
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all"
+    ],
+    "shell_display": "git status --porcelain=v1 --untracked-files=all",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/git-status-before/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/git-status-before/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017363.018021,
+    "exit_code": 0,
+    "elapsed_seconds": 0.07343077659606934
+  },
+  {
+    "log": "logs/parent-batch-metadata-private",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-private",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-private/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-private/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-private --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-private/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-private/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-batch-metadata-private/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-batch-metadata-private/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017699.862379,
+    "exit_code": 1,
+    "elapsed_seconds": 42.673181772232056
+  },
+  {
+    "log": "logs/parent-batch-metadata-public",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-public",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-public/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-public/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-public --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-public/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-batch-metadata-public/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-batch-metadata-public/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-batch-metadata-public/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017699.862234,
+    "exit_code": 0,
+    "elapsed_seconds": 55.86500787734985
+  },
+  {
+    "log": "logs/parent-predicate-nested-private",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-predicate-nested-private/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-predicate-nested-private/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017699.862603,
+    "exit_code": 1,
+    "elapsed_seconds": 42.222394943237305
+  },
+  {
+    "log": "logs/parent-predicate-nested-public",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-public",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-public/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-public/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-public --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-public/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-public/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-predicate-nested-public/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-predicate-nested-public/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017699.861583,
+    "exit_code": 0,
+    "elapsed_seconds": 55.62626099586487
+  },
+  {
+    "log": "logs/sandbox-denial-check",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/opt/homebrew/opt/python@3.14/bin/python3.14",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/check_sandbox.py"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /opt/homebrew/opt/python@3.14/bin/python3.14 /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/check_sandbox.py",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/sandbox-denial-check/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/sandbox-denial-check/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 10,
+    "start_unix": 1794017679.129782,
+    "exit_code": 0,
+    "elapsed_seconds": 0.08005094528198242
+  },
+  {
+    "log": "logs/test-focused-header_receive",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests/tests/header_receive.test.mpl"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc test /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests/tests/header_receive.test.mpl",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-focused-header_receive/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-focused-header_receive/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 240,
+    "start_unix": 1794017625.0596979,
+    "exit_code": 1,
+    "elapsed_seconds": 74.37765407562256
+  },
+  {
+    "log": "logs/test-focused-inbox_poison",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests/tests/inbox_poison.test.mpl"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc test /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests/tests/inbox_poison.test.mpl",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-focused-inbox_poison/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-focused-inbox_poison/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 240,
+    "start_unix": 1794017625.0597591,
+    "exit_code": 1,
+    "elapsed_seconds": 57.51625871658325
+  },
+  {
+    "log": "logs/test-snapshot-header_receive",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/header_receive.test.mpl"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc test /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/header_receive.test.mpl",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-header_receive/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-header_receive/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 240,
+    "start_unix": 1794017468.490774,
+    "exit_code": 1,
+    "elapsed_seconds": 66.83253622055054
+  },
+  {
+    "log": "logs/test-snapshot-inbox_poison",
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/inbox_poison.test.mpl"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc test /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/inbox_poison.test.mpl",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-inbox_poison/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-inbox_poison/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 240,
+    "start_unix": 1794017468.490742,
+    "exit_code": 1,
+    "elapsed_seconds": 46.76112484931946
+  }
+]

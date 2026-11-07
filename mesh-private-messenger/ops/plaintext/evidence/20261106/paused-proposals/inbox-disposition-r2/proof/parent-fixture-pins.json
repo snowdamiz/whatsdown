@@ -1,0 +1,10 @@
+{
+  "directory": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proposal/fixtures",
+  "sha256": {
+    "manifest.json": "f12ab260c4e11e5baba9184449e9e367062eeeb573e098d01bd84132f830f3fe",
+    "predicate-nested-public.mpl": "0ab9d1461aa302f57135c5aad8ae3a669f6a6381f25ae58de7a1c7b3b3ebae21",
+    "predicate-nested-private.mpl": "7bd6afbb4afad24fdf36fa71bfa5efea26e2edee15121895931df87aa1fbc755",
+    "batch-metadata-private.mpl": "700b3a29dbe05a1fa770450dc4f7bc1b7b9318636105ecb2d5d09b450c030851",
+    "batch-metadata-public.mpl": "3404beb1508a191062ad94c5d3134c16824531ecfe6d64f5c8f5a71e74bdccc0"
+  }
+}

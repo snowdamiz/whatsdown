@@ -1,0 +1,5 @@
+[package]
+name="sync-error-contract"
+version="0.1.0"
+[dependencies]
+mobile={path="/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-authority-historical/sources/mesh-private-messenger/packages/mobile-core"}

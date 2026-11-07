@@ -1,0 +1,248 @@
+[
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 213,
+        "end": 319,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.build` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 491,
+        "end": 541,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 475,
+        "end": 571,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 797,
+        "end": 903,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 1080,
+        "end": 1186,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 1357,
+        "end": 1463,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 1625,
+        "end": 1731,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 1860,
+        "end": 1966,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.build` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 2135,
+        "end": 2185,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 2119,
+        "end": 2215,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 2438,
+        "end": 2544,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 2718,
+        "end": 2824,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 2992,
+        "end": 3098,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 3257,
+        "end": 3363,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 3428,
+        "end": 3531,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.build` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 3638,
+        "end": 3688,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+    "spans": [
+      {
+        "start": 3622,
+        "end": 3718,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "C0001",
+    "file": "",
+    "fix": null,
+    "message": "Compilation failed due to errors above.",
+    "severity": "error",
+    "spans": []
+  }
+]

@@ -1,0 +1,152 @@
+{
+  "name": "parent-predicate-nested-private",
+  "status": "PASS_REFUSAL",
+  "exit_code": 1,
+  "elapsed_seconds": 42.222394943237305,
+  "diagnostic_counts": {
+    "E0093": 6,
+    "C0001": 1
+  },
+  "matched_positive": "parent-predicate-nested-public",
+  "source_sha256": "7bd6afbb4afad24fdf36fa71bfa5efea26e2edee15121895931df87aa1fbc755",
+  "artifact_sha256": null,
+  "plaintext_report_sha256": null,
+  "expected_exact_subjects_by_line": {
+    "13": [
+      "Http.body_bytes"
+    ],
+    "19": [
+      "Http.body_bytes"
+    ],
+    "25": [
+      "Http.body_bytes"
+    ],
+    "32": [
+      "Http.body_bytes"
+    ],
+    "38": [
+      "Http.body_bytes"
+    ]
+  },
+  "observed_exact_subjects_by_line": {
+    "13": [
+      "Http.body_bytes"
+    ],
+    "19": [
+      "Http.body_bytes"
+    ],
+    "25": [
+      "Http.body_bytes"
+    ],
+    "32": [
+      "Http.body_bytes"
+    ],
+    "38": [
+      "Http.body_bytes",
+      "Http.build"
+    ]
+  },
+  "missing": [],
+  "unexpected": [],
+  "unrelated_errors": [],
+  "diagnostic_sites": [
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/main.mpl",
+      "line": 13,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 345,
+        "end": 468,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/main.mpl",
+      "line": 19,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 576,
+        "end": 699,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/main.mpl",
+      "line": 25,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 834,
+        "end": 957,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/main.mpl",
+      "line": 32,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 1153,
+        "end": 1276,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/main.mpl",
+      "line": 38,
+      "column": 21,
+      "subject": "Http.build",
+      "span": {
+        "start": 1404,
+        "end": 1454,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/main.mpl",
+      "line": 38,
+      "column": 5,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 1388,
+        "end": 1484,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    }
+  ],
+  "command": {
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/parent-predicate-nested-private/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-predicate-nested-private/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/parent-predicate-nested-private/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017699.862603,
+    "exit_code": 1,
+    "elapsed_seconds": 42.222394943237305
+  },
+  "never_executed": true
+}

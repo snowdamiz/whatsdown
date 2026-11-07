@@ -1,0 +1,38 @@
+{
+  "status": "STATIC_ARTIFACT_CHECKS_PASS; IMPLEMENTATION_CLOSURE_BLOCKED",
+  "checked_at_utc": "2026-11-07T01:46:35.748261+00:00",
+  "checks": {
+    "source_head_matches": true,
+    "all_21_recorded_source_hashes_unchanged": true,
+    "candidate_names_unique": true,
+    "all_candidates_have_type_values_placement_reason": true,
+    "patch_adds_no_release_or_cas": true,
+    "vector_has_one_append": true,
+    "patch_only_targets_gossip_and_gossip_state": true,
+    "exact_hunk_reconstruction_in_memory": true,
+    "git_apply_check_passed": true
+  },
+  "changed_recorded_sources": [],
+  "patch_check": {
+    "argv": [
+      "git",
+      "apply",
+      "--check",
+      "--whitespace=error-all",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/gossip-design-r2/preparations-only.patch"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "candidate_finite_decisions": 10,
+  "compiled": false,
+  "tests_run": false,
+  "effect_equivalence_proved": false,
+  "full_caller_closure_proved": false,
+  "network_used": false,
+  "source_files_written": false,
+  "scope": "Read-only source inspection and artifact validation; writes only in .morse/decoded-body-labels/gossip-design-r2",
+  "unrun_required_evidence": "Adversarial/behavioral matrix in authority-and-caller-report.txt; no execution allowed by task brief",
+  "git_status_observed_at_completion": "A  mesh-private-messenger/ops/plaintext/evidence/20261106/direct-decoded-codec.json\nA  mesh-private-messenger/ops/plaintext/evidence/20261106/invitation-authority-counterexample.json\nA  mesh-private-messenger/ops/plaintext/evidence/20261106/invitation-seal-effects.json\nA  mesh-private-messenger/ops/plaintext/fixtures/decoded-body/held-invitation-policy.patch\nA  mesh-private-messenger/ops/plaintext/fixtures/decoded-body/invitation-authority.mpl\nA  mesh-private-messenger/ops/plaintext/fixtures/invitation-seal-effects/main.mpl\nA  mesh-private-messenger/ops/plaintext/prove_direct_decoded_codec.py\nA  mesh-private-messenger/ops/plaintext/prove_invitation_authority.py\nA  mesh-private-messenger/ops/plaintext/prove_invitation_seal_effects.py\n M mesh-private-messenger/packages/mobile-core/mobile/history_wire.mpl\n M mesh-private-messenger/packages/mobile-core/mobile/sessions.mpl\nM  mesh-private-messenger/tests/direct-security/protocol_m5.mpl\n?? mesh-private-messenger/ops/plaintext/__pycache__/prove_sync_parser.cpython-314.pyc\n?? mesh-private-messenger/ops/plaintext/fixtures/decoded-body/allowed.mpl\n?? mesh-private-messenger/ops/plaintext/fixtures/decoded-body/caller-control.mpl\n?? mesh-private-messenger/ops/plaintext/fixtures/decoded-body/ingress.mpl\n?? mesh-private-messenger/ops/plaintext/fixtures/decoded-sync/\n?? mesh-private-messenger/ops/plaintext/prove_decoded_bodies.py\n?? mesh-private-messenger/ops/plaintext/prove_sync_parser.py\n?? mesh-private-messenger/packages/mobile-core/tests/decoded_sync_errors.test.mpl\n"
+}

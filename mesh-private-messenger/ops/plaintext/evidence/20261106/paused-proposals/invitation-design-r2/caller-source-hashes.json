@@ -1,0 +1,8 @@
+{
+  "baseline": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "source_origin": "immutable Git objects; additional downstream error-caller trace",
+  "sha256": {
+    "mesh-private-messenger/packages/mobile-core/mobile/inbox.mpl": "aad83bedb0de121f10df6867e61a66242c50cb75ef51a127e54fe599ff3a3dd3",
+    "mesh-private-messenger/packages/mobile-core/mobile_core.mpl": "58474b35f05384592010a9df522870eba71bed5490a4367501707245b559b9b3"
+  }
+}

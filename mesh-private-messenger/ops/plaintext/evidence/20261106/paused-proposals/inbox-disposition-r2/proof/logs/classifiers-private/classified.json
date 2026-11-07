@@ -1,0 +1,329 @@
+{
+  "name": "classifiers-private",
+  "status": "PASS_REFUSAL",
+  "exit_code": 1,
+  "elapsed_seconds": 34.25787973403931,
+  "diagnostic_counts": {
+    "E0093": 17,
+    "C0001": 1
+  },
+  "matched_positive": "classifiers-public",
+  "source_sha256": "62d2b6d4e2fbe1c78e46d2122730820575e120e768712dc77a5f3f6f1532673c",
+  "artifact_sha256": null,
+  "plaintext_report_sha256": null,
+  "expected_exact_subjects_by_line": {
+    "5": [
+      "Http.body_bytes"
+    ],
+    "11": [
+      "Http.body_bytes"
+    ],
+    "20": [
+      "Http.body_bytes"
+    ],
+    "26": [
+      "Http.body_bytes"
+    ],
+    "32": [
+      "Http.body_bytes"
+    ],
+    "38": [
+      "Http.body_bytes"
+    ],
+    "43": [
+      "Http.body_bytes"
+    ],
+    "49": [
+      "Http.body_bytes"
+    ],
+    "58": [
+      "Http.body_bytes"
+    ],
+    "64": [
+      "Http.body_bytes"
+    ],
+    "70": [
+      "Http.body_bytes"
+    ],
+    "76": [
+      "Http.body_bytes"
+    ],
+    "80": [
+      "Http.body_bytes"
+    ],
+    "85": [
+      "Http.body_bytes"
+    ]
+  },
+  "observed_exact_subjects_by_line": {
+    "5": [
+      "Http.body_bytes"
+    ],
+    "11": [
+      "Http.body_bytes",
+      "Http.build"
+    ],
+    "20": [
+      "Http.body_bytes"
+    ],
+    "26": [
+      "Http.body_bytes"
+    ],
+    "32": [
+      "Http.body_bytes"
+    ],
+    "38": [
+      "Http.body_bytes"
+    ],
+    "43": [
+      "Http.body_bytes"
+    ],
+    "49": [
+      "Http.body_bytes",
+      "Http.build"
+    ],
+    "58": [
+      "Http.body_bytes"
+    ],
+    "64": [
+      "Http.body_bytes"
+    ],
+    "70": [
+      "Http.body_bytes"
+    ],
+    "76": [
+      "Http.body_bytes"
+    ],
+    "80": [
+      "Http.body_bytes"
+    ],
+    "85": [
+      "Http.body_bytes",
+      "Http.build"
+    ]
+  },
+  "missing": [],
+  "unexpected": [],
+  "unrelated_errors": [],
+  "diagnostic_sites": [
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 5,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 213,
+        "end": 319,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 11,
+      "column": 21,
+      "subject": "Http.build",
+      "span": {
+        "start": 491,
+        "end": 541,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 11,
+      "column": 5,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 475,
+        "end": 571,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 20,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 797,
+        "end": 903,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 26,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 1080,
+        "end": 1186,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 32,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 1357,
+        "end": 1463,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 38,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 1625,
+        "end": 1731,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 43,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 1860,
+        "end": 1966,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 49,
+      "column": 21,
+      "subject": "Http.build",
+      "span": {
+        "start": 2135,
+        "end": 2185,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 49,
+      "column": 5,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 2119,
+        "end": 2215,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 58,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 2438,
+        "end": 2544,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 64,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 2718,
+        "end": 2824,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 70,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 2992,
+        "end": 3098,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 76,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 3257,
+        "end": 3363,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 80,
+      "column": 3,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 3428,
+        "end": 3531,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 85,
+      "column": 21,
+      "subject": "Http.build",
+      "span": {
+        "start": 3638,
+        "end": 3688,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    },
+    {
+      "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/main.mpl",
+      "line": 85,
+      "column": 5,
+      "subject": "Http.body_bytes",
+      "span": {
+        "start": 3622,
+        "end": 3718,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    }
+  ],
+  "command": {
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private",
+      "--artifact",
+      "executable",
+      "--json",
+      "--no-color",
+      "-o",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/proof.bin",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/plaintext.json"
+    ],
+    "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc build /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private --artifact executable --json --no-color -o /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/proof.bin --plaintext-report /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/classifiers-private/plaintext.json",
+    "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof",
+    "environment_overrides": {
+      "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/classifiers-private/",
+      "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/classifiers-private/clang-cache",
+      "NO_COLOR": "1"
+    },
+    "timeout_seconds": 180,
+    "start_unix": 1794017453.355384,
+    "exit_code": 1,
+    "elapsed_seconds": 34.25787973403931
+  },
+  "never_executed": true
+}

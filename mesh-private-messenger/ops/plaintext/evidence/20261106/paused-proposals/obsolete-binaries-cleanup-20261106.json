@@ -1,0 +1,29 @@
+{
+  "scope": "Only obsolete owned binary outputs; all source snapshots/logs and qualified families retained",
+  "files": [
+    {
+      "path": ".morse/decoded-body-labels/direct-codec/after-r2/proof",
+      "bytes": 29197976,
+      "sha256": "2de4e2b247792fc36eed377be5cc799a5de1e6800b9cb24dae469ad6b36379b4",
+      "no_lsof_handles": true
+    },
+    {
+      "path": ".morse/decoded-body-labels/direct-codec/after-r3/proof",
+      "bytes": 29197976,
+      "sha256": "985b4cfab1c977aa6aef1cb0fa201b37e895eb49915d47d7a3501b2efbf2e1b8",
+      "no_lsof_handles": true
+    },
+    {
+      "path": ".morse/decoded-body-labels/direct-codec/wrong-error-r2/proof",
+      "bytes": 29197976,
+      "sha256": "e91b9858aae0de9787cb812bad89141709da182e8153d13c811e815f4dee8659",
+      "no_lsof_handles": true
+    },
+    {
+      "path": ".morse/decoded-body-labels/direct-codec/qualified/original-baseline/proof",
+      "bytes": 29197848,
+      "sha256": "c34fd02c9f90465d48a1c171f8f3caa53f0540cc7420ec333ca4be43a7922a81",
+      "no_lsof_handles": true
+    }
+  ]
+}

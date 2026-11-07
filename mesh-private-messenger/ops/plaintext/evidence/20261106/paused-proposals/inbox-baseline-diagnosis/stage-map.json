@@ -1,0 +1,62 @@
+[
+  {
+    "stage": 1,
+    "name": "after_start_before_initial",
+    "before": "  assert_received_fixture(Bytes.secure_equals(receive_initial_message"
+  },
+  {
+    "stage": 2,
+    "name": "after_initial_before_update",
+    "before": "  update_conversation_export(request(["
+  },
+  {
+    "stage": 3,
+    "name": "after_update_before_send",
+    "before": "  let message = send_message("
+  },
+  {
+    "stage": 4,
+    "name": "after_send_before_aliases",
+    "before": "  add_aliases(fixture.bob_path, 16)?"
+  },
+  {
+    "stage": 5,
+    "name": "after_aliases_before_packet",
+    "before": "  let outer = canonical_outer(message)?"
+  },
+  {
+    "stage": 6,
+    "name": "after_packet_before_route",
+    "before": "  # A real earlier profile"
+  },
+  {
+    "stage": 7,
+    "name": "after_held_cursors_before_batch",
+    "before": "  let attempts_before = load_delivery_attempts"
+  },
+  {
+    "stage": 8,
+    "name": "after_batch_before_assertions",
+    "before": "  assert(Bytes.length(first) == 0)"
+  },
+  {
+    "stage": 9,
+    "name": "after_cursor_assertions_before_cas",
+    "before": "  # Read/probe succeeds"
+  },
+  {
+    "stage": 10,
+    "name": "after_cas_before_history",
+    "before": "  # An independent authenticated history"
+  },
+  {
+    "stage": 11,
+    "name": "after_history_before_final_delivery",
+    "before": "  let result = ack(process_delivery_batch(batch)?)?"
+  },
+  {
+    "stage": 12,
+    "name": "after_final_delivery_before_replay",
+    "before": "  # The exact same encrypted packet"
+  }
+]

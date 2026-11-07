@@ -1,0 +1,135 @@
+{
+  "status": "DESIGN_DISPOSITION_ONLY_NO_SOURCE_CHANGE",
+  "frozen_proposal": {
+    "path": ".morse/decoded-body-labels/invitation-design-r2/invitation-private-boundary.patch",
+    "sha256": "162b6c73cd9bc41f838f90a505aafef2b0f4fa53ab7d086d958ff7535727260e"
+  },
+  "review_inputs": {
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/invitation-private-review-r1/REVIEW.md": "6c8708cdfef7ced228ce4d214939af93e44a678d525ba806ed3e833b420b2653",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/invitation-private-review-r1/required-controls.json": "f186c7631fb674012336466aae6c2039d066a09853dc3aefb47ac4a62e4adb74",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/invitation-private-review-r1/exact-site-policy.json": "f3896688aada8d82343810ad79dae17814c2d5ef70b41a592e72da026a5e831a"
+  },
+  "parent_disposition": {
+    "B2": "Accepted exact compatibility policy only: authenticated unblocked sender well-framed acceptance may select first matching state3 record by invitationID+senderdevice before later group/account/package ownership checks, causing existing transparency view access and preserving first-error/effect order. Explicit pre-ownership existence/state disclosure; not ownership certification or lifetime query budget.",
+    "B1_B3_B4_B5": "Required qualification prerequisites accepted; no adoption/inventory or policy completion."
+  },
+  "next_composition": "Preserve frozenr2. After parent supplies reviewed auth+VO pin, selective new imports/privatehelper/twocalls only; retain require_control_without_view_once placement and revised receive order. Re-pin sites and compare generated report. No current transplant.",
+  "controls": [
+    {
+      "id": "C01",
+      "kind": "compiler",
+      "requirement": "Pin the final composed product sources, actual meshc, runtime/test runtime libraries, language dependencies, compiler flags and native export artifacts; preserve full diagnostics and generated plaintext report. Build actual receive callers, Inbox, and exports; a helper-only proof is insufficient.",
+      "status": "not_run"
+    },
+    {
+      "id": "C02",
+      "kind": "compiler",
+      "requirement": "Run the retained public-API fixture unchanged against corrected composed source: public claimed path/local/envelope with an explicit Plaintext<Bytes> body must fail on intended private effects. Retain historical original-refuses (19 E0093) and held-admits as controls; do not require the new diagnostic count to remain exactly 19.",
+      "status": "not_run"
+    },
+    {
+      "id": "C03",
+      "kind": "compiler",
+      "requirement": "Refuse external import/reference of authenticated_invitation_writes, including alias/function-value forwarding. Ensure exactly two private call sites after composition; do not add a public test-only authority wrapper to production.",
+      "status": "not_run"
+    },
+    {
+      "id": "C04",
+      "kind": "compiler",
+      "requirement": "Refuse invocation of public receive/helpers under an unrelated private caller PC when it would select Host/SQL/time/network effects. Also test straight-line public caller with private input; a PC-only probe is insufficient.",
+      "status": "not_run"
+    },
+    {
+      "id": "C05",
+      "kind": "compiler",
+      "requirement": "Exercise each public pure API with explicit private body/record/state/package/view values. Construct InvitationAcceptance/InvitationValues directly and mix preparations with another envelope/profile/view. Derived variant/status/content must not select an HTTP/Host/storage effect without its own legitimate release. Public constant pure computations should compile as controls.",
+      "status": "not_run"
+    },
+    {
+      "id": "C06",
+      "kind": "compiler",
+      "requirement": "Verify I3 public success/failure shape while its Err String and Ok plaintext remain private, including unknown primitive errors, ? propagation, rewrapping Err, pattern matching, unwrap_or, aliases and native forwarding. Attempts to send or branch publicly on raw Result/error/body/continuation content must fail.",
+      "status": "not_run"
+    },
+    {
+      "id": "C07",
+      "kind": "compiler",
+      "requirement": "Verify the corrected finite delivery disposition across both real receive entrypoints, Inbox settlement and native exports. Private String classifiers remain pure/unreleased; no wildcard remapping may change unknown errors. Assert exactly the intended public disposition domain and trace allowed effects.",
+      "status": "not_run"
+    },
+    {
+      "id": "C08",
+      "kind": "compiler",
+      "requirement": "Compare generated disclosure sites against the approved composed baseline and these three sites. No generic signedvalid, GossipControl, Result, error, body, or exported-helper disclosure; preserve prior caller-PC restrictions and existing codec/encryption boundaries. Any held inventory remains scratch only.",
+      "status": "not_run"
+    },
+    {
+      "id": "R01",
+      "kind": "runtime",
+      "requirement": "Drive actual encrypted initial and ratchet receive for type 3 and 4 with real test principals/session state. Bad handshake/AEAD/credential, sender account/device, recipient, conversation, blocked peer and sibling-auth provenance failures must not enter the invitation boundary. Cover legacy/header routes and repaired local-account/session provenance.",
+      "status": "not_run"
+    },
+    {
+      "id": "R02",
+      "kind": "runtime",
+      "requirement": "On composed VO source, type-3/type-4 controls carrying single/batch view-once markers must hit require_control_without_view_once before contact/gossip and invitation work. Preserve valid controls and all existing VO behavior.",
+      "status": "not_run"
+    },
+    {
+      "id": "R03",
+      "kind": "runtime",
+      "requirement": "Malformed control plus expired stored invitations: I1 false causes no invitation load, prune, removal, helper clock, context or final seal, while the original caller ratchet/prekey/session behavior remains. A well-framed ignored/expired/duplicate/full-list control retains the original loader/pruning and unchanged-list seal behavior.",
+      "status": "not_run"
+    },
+    {
+      "id": "R04",
+      "kind": "runtime",
+      "requirement": "State-3 selected reference vs missing reference vs other states, same inputs otherwise. Test wrong group, local inviter account/device, recipient account, package account/device, and another account with colliding device ID. Confirm I2 is true before those later failures, only on successful preparation; log exact view reads/Host/time effects and the approved observer scope.",
+      "status": "not_run"
+    },
+    {
+      "id": "R05",
+      "kind": "runtime",
+      "requirement": "Preparation error => no view read, no encoding/context/final seal and exact error. View failure on selected state 3 wins over a later ownership mismatch or encoding error. Valid view with set/threshold mismatch returns unchanged values and still serializes/seals as baseline.",
+      "status": "not_run"
+    },
+    {
+      "id": "R06",
+      "kind": "runtime",
+      "requirement": "Run baseline vs corrected direct invitation_blob on the retained five cases: empty-list success +1; 129-record limit Err(group_invitation_limit) +0; state=256 record Err(integer_encoding_failed) +0; direct invalid-context refusal +0; valid-context empty plaintext +1. These are serializer controls, not full receive tests.",
+      "status": "not_run"
+    },
+    {
+      "id": "R07",
+      "kind": "runtime",
+      "requirement": "Competing errors: >128 plus malformed record => limit first; encoding vs context/seal/key failure => encoding first and no final counter/Host reservation; context failure vs seal => context first. Force actual prepare/view/encoder failures in integrated receive without bypassing authority in shipped source.",
+      "status": "not_run"
+    },
+    {
+      "id": "R08",
+      "kind": "runtime",
+      "requirement": "For successful eligible controls, measure exactly one final invitation seal after successful encoding and context. Count caller session/prekey and loader-pruning seals separately. Retain exact nonce/counter reservation and Host callback order on failure; a post-reservation seal failure may consume a counter as baseline does.",
+      "status": "not_run"
+    },
+    {
+      "id": "R09",
+      "kind": "runtime",
+      "requirement": "Use synthetic file-key counters and platform/Host instrumentation for the actual artifact, plus targeted key/refusal/reservation failures. Preserve exact returned errors, reads, removal labels, writes, durable counters and commit ordering; equal return strings alone do not pass.",
+      "status": "not_run"
+    },
+    {
+      "id": "R10",
+      "kind": "runtime",
+      "requirement": "Run invitation lifecycle: invite/accept/state-3 renew/no rollback/complete/decline/list/prune and accepted_invitation_scope, plus actual Inbox permanent/retry/pending settlement. Preserve ack IDs, retry charging, cursor and mailbox signing, concurrent admission failure semantics, and existing VO/auth regressions.",
+      "status": "not_run"
+    }
+  ],
+  "feasible_preparation": {
+    "already_retained": [
+      "Historical publichelper rawprivateinput19E0093 vs heldpatchacceptance; never rerun as correctedproof",
+      "Ten actual oldserializer counter cases; correctedcandidate comparison remainsR06 pending"
+    ],
+    "current": "Inbox r2 exactstatuspolicy/controls and actualparentbaseline proof supportB1/C07; no candidategateapproval implied",
+    "pending": "Correctedinvitation source not compiled or run. C01-C08/R01-R10 stillnotrun onfinalcandidate."
+  }
+}

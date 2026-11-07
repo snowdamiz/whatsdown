@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-baseline-diagnosis/offline-expanded-hex.sb",
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "-c",
+    "import os,json\np='/tmp/mesh_mobile_groups-bob_b{16}.db'\ntry:\n fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600);os.close(fd); print(json.dumps({\"allowed\":True}))\nexcept OSError as e: print(json.dumps({\"allowed\":False,\"errno\":e.errno,\"error\":str(e)}))"
+  ],
+  "path_previously_absent": true,
+  "exit_code": 0,
+  "stdout": "{\"allowed\": false, \"errno\": 1, \"error\": \"[Errno 1] Operation not permitted: '/tmp/mesh_mobile_groups-bob_b{16}.db'\"}\n",
+  "stderr": ""
+}

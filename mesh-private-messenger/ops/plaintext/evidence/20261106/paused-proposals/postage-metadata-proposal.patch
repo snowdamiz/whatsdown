@@ -1,0 +1,34 @@
+--- a/mesh-private-messenger/packages/mobile-core/mobile/history.mpl
++++ b/mesh-private-messenger/packages/mobile-core/mobile/history.mpl
+@@ -491,6 +491,20 @@
+ 
+ # Read-only local context for a queued message request. Duplicate message IDs
+ # across different conversations are ambiguous and never select a recipient.
++fn history_contains_message(entries :: List<MobileHistoryEntry>,
++  message_id :: Bytes,
++  local_account_id :: Bytes,
++  index :: Int) -> Bool do
++  if index >= List.length(entries) do
++    false
++  else
++    let entry = List.get(entries, index)
++    (Bytes.secure_equals(entry.inner.client_message_id, message_id)
++      && Bytes.secure_equals(entry.inner.sender_account_id, local_account_id))
++      || history_contains_message(entries, message_id, local_account_id, index + 1)
++  end
++end
++
+ pub fn postage_message_recipient(path :: String,
+   wrapping :: borrow StorageKey,
+   message_id :: Bytes) -> PostageMessageRecipient!String do
+@@ -509,9 +523,7 @@
+       None
+     else
+       let entries = load_history(path, wrapping, record.conversation_id)?
+-      if List.any(entries,
+-        fn(entry) -> Bytes.secure_equals(entry.inner.client_message_id, message_id)
+-          && Bytes.secure_equals(entry.inner.sender_account_id, record.local_account_id) end) do
++      if history_contains_message(entries, message_id, record.local_account_id, 0) do
+         Some(PostageMessageRecipient {
+           account_id: record.peer_account_id,
+           username: record.peer_username,

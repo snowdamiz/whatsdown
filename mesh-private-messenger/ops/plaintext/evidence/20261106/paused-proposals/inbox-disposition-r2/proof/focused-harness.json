@@ -1,0 +1,681 @@
+{
+  "adaptation": "Unchanged baseline mobile production MPL plus exact two test files and recursive Tests.* support; retain only directly required mobile_core.test-support.mpl; generated manifest resolves pinned snapshot and symlinked language deps by absolute paths. Standard meshc test preprocessing and test-support merge only; no test/source/assertion edits.",
+  "manifest_sha256": "fdb386cf551ee569c8a0c481d4df42823303147e0107cd8e11c359768ed029aa",
+  "copied_files": [
+    {
+      "path": "mobile_core.mpl",
+      "sha256": "098827b9e53913309502db859f3b9c4c3c68b44dc5c076b7cccff066017657d6"
+    },
+    {
+      "path": "mobile_core.test-support.mpl",
+      "sha256": "afdf78fc4838995a56d578d1bfa9afcf061c41d094b64e90d2804927369c418f"
+    },
+    {
+      "path": "main.mpl",
+      "sha256": "11c7a027a8e6aff5caedf71401339efff9a828ddaff6394ab8a43a9d2d89865e"
+    },
+    {
+      "path": "storage/credits.mpl",
+      "sha256": "50ec57d954659d84df37a74868e6b8619333a66416db727596a4c3f074c07e8b"
+    },
+    {
+      "path": "storage/outbox_guard.mpl",
+      "sha256": "ce3a21b37c94bc2c2f576a249e4e254b6db7db1ec969ec9b69bee7b0eb7f102b"
+    },
+    {
+      "path": "storage/group_records.mpl",
+      "sha256": "dd4ea1cd28c342a7fdcdc0273972a8b7e6d4428a3368c5cee51fb372dfe7490d"
+    },
+    {
+      "path": "storage/push_guard.mpl",
+      "sha256": "d150594518c2e92fdebb989528ec35a1ff5331741910cedcf6195fbfe267f55f"
+    },
+    {
+      "path": "storage/journal_blobs.mpl",
+      "sha256": "8e6be8fdf547f17ee37d3c184419800b93198a437ae8bad6626e3b5ec40efa7a"
+    },
+    {
+      "path": "storage/signup_draft.mpl",
+      "sha256": "8743ac9b958c96ed5bea7e19c83f0f4e2e92c469ad1e6881ff84f6704f4d29f8"
+    },
+    {
+      "path": "storage/bounty_transfer.mpl",
+      "sha256": "70e285e0eb0317db1754f0520983527482c89294b2c83bcf1800dec17728521d"
+    },
+    {
+      "path": "storage/backup_pending_commit.mpl",
+      "sha256": "bc7af71a213f326ed36401dc2c13cd30ce51054ad72047138dddd5ede460993f"
+    },
+    {
+      "path": "storage/credit_maintenance.mpl",
+      "sha256": "8e2c8154ae7875c4c2dcb4fadff2ae3b6bbf11ee1baa13018a5957cc59bb2d1a"
+    },
+    {
+      "path": "storage/fanout_commit.mpl",
+      "sha256": "c8e53ce2f55304c0be0afada7f674333145e23206e0506869257752dc0f931df"
+    },
+    {
+      "path": "storage/view_once.mpl",
+      "sha256": "f81954da0e17fbddf4ffdf5c7f173683d977385d33e6788e5b6c78aba9bcb2ba"
+    },
+    {
+      "path": "storage/blobs.mpl",
+      "sha256": "1f0ee7e205bb5dc6b686c6a448989d7db19224b1728002c6aeac8351ed12a054"
+    },
+    {
+      "path": "storage/credit_attachment.mpl",
+      "sha256": "fb9aabc5ba79f646be2306d2fa126203683daeeb30a04006361d3f4ba2077239"
+    },
+    {
+      "path": "storage/history_blobs.mpl",
+      "sha256": "31a5f2bbe46701db1388e265e9cc730620c14e4e047ff865ac5e053088405ae6"
+    },
+    {
+      "path": "storage/transparency_commit.mpl",
+      "sha256": "0db63f5d2a2a30c803610ddd75e4a5c24d3ecc79128caaee3bf4c17f46abdb49"
+    },
+    {
+      "path": "storage/keys.mpl",
+      "sha256": "9b7816e127eb3c09ec127431419a845d244826b1129a59aaecce25d62a3f004e"
+    },
+    {
+      "path": "storage/outbox_settlement.mpl",
+      "sha256": "74c4c699e35f7dc4b01166959470eb428e7579896c27c84c4cf7ebbd77d940a2"
+    },
+    {
+      "path": "storage/backup_archive_commit.mpl",
+      "sha256": "739575745fffa6a65227baaa089a48b4f058ea1a1b799a314486040aef25304d"
+    },
+    {
+      "path": "storage/records.mpl",
+      "sha256": "015c85452ee0271f934277b73851fc742c35c897d9fbe88fd40bd291600d89f1"
+    },
+    {
+      "path": "storage/account_guard.mpl",
+      "sha256": "efb03e08ecd7b635d1099d297262f5b80ebb431938d10b970833860b326a8bff"
+    },
+    {
+      "path": "mobile/credit_signup.mpl",
+      "sha256": "1ffd79fbe11353c63fa52193a8a5b55613f19cea94fdd3d2bbf741c6fadcfeb3"
+    },
+    {
+      "path": "mobile/history_expiry.mpl",
+      "sha256": "192200e36ce0f3140d28e9c87d20e8bd2854a44555b6ed7dfeefdbe9e2e24208"
+    },
+    {
+      "path": "mobile/credit_payment_network.mpl",
+      "sha256": "38807920ed182580da931db34d51341763c3f10e4bc843663705969986fdd70e"
+    },
+    {
+      "path": "mobile/bounty_native.mpl",
+      "sha256": "55987ed8a0026763be0d1ead39f1cf8fc5948c839962a282ec1a47d48138391c"
+    },
+    {
+      "path": "mobile/credit_nonce.mpl",
+      "sha256": "96d3cd011a713792e1e9fdb538346e1af82d68ad044b73313b85a2ba65bd8eff"
+    },
+    {
+      "path": "mobile/fork_filing_receipt.mpl",
+      "sha256": "68766657aff8a84fe0984c4224ee65782c2e6fddc6d53355bbaae4ee5b5e596d"
+    },
+    {
+      "path": "mobile/credits.mpl",
+      "sha256": "1645664e04917b48d45fc63a161ca8fbdc82d8fbb5ec3b354e085507c772ee63"
+    },
+    {
+      "path": "mobile/fork_filing_state.mpl",
+      "sha256": "512d81c0e6d9599bb5deead93774e43487f2f70628c8eb6b05193beff85fb89a"
+    },
+    {
+      "path": "mobile/resolve.mpl",
+      "sha256": "87ff525770dc996a66d034a8c68ea55115774c6022d42163cd8ac6c8f98b6305"
+    },
+    {
+      "path": "mobile/directory_resolve.mpl",
+      "sha256": "fd7bc960fd893b3da6621bfe55a3efeb4d00f044c65592da7883393c559edd1c"
+    },
+    {
+      "path": "mobile/types.mpl",
+      "sha256": "d329b1accf2ee19ce1156ef5d6ef6fd551d0bca104ae12eabdd594d22edc0529"
+    },
+    {
+      "path": "mobile/ohttp_context.mpl",
+      "sha256": "9ddf1b200f82f0a2822693567d1ba6cf323fc7833772c6fdd7432fafa9c0791d"
+    },
+    {
+      "path": "mobile/bounty_transfer_state.mpl",
+      "sha256": "00ba9850c26bc908d45766f816ef7539824c4d96d1b5db44e215b7cee7bb2287"
+    },
+    {
+      "path": "mobile/backup_attachment_reader.mpl",
+      "sha256": "9d4188dc4e03691730cee00d8a7a4e25f4a810151472b812e4cb24426a77aa3a"
+    },
+    {
+      "path": "mobile/native_rpc_tls.mpl",
+      "sha256": "d77210eda8ed2838c8a1ee0ca25b72f46dae9443051cf962c62ec867c03ddfb2"
+    },
+    {
+      "path": "mobile/ohttp_prekeys.mpl",
+      "sha256": "991bef3657fef754f656bcd48f022ec1a4ad0606ec8efc2f763439dec57cfb8a"
+    },
+    {
+      "path": "mobile/account_state.mpl",
+      "sha256": "31dddf9f5160734b4b6e1ee7f89e367756a357466b37b9ace205e706912c1b1c"
+    },
+    {
+      "path": "mobile/groups.mpl",
+      "sha256": "7959d4513bdacd38ab8975963922e824509fed4d40dd997de844a53d0420a793"
+    },
+    {
+      "path": "mobile/network_counter_history.mpl",
+      "sha256": "02090a15ce2a31c7d462abbaf3c88b20319edb696a7c1f096398f5841a8775ef"
+    },
+    {
+      "path": "mobile/history_limits.mpl",
+      "sha256": "163f9455c89cf8b61ffdf08738ada9765fd232d491ab1308a3167481bcf465dc"
+    },
+    {
+      "path": "mobile/header_capabilities.mpl",
+      "sha256": "bfc158432387b03decb645f699c1010efe118e3bdf84ca3c6f2093775c4c6ae1"
+    },
+    {
+      "path": "mobile/fork_filing_transport.mpl",
+      "sha256": "c2f21212a650e18ff09ca01dc0b736a58d06f79573ae89fd068ebff267d37868"
+    },
+    {
+      "path": "mobile/network_pins.mpl",
+      "sha256": "d5f9f96ee5484deb71334a56cc2ca8be3ffe0579556c4cb2ee739e3bd996092c"
+    },
+    {
+      "path": "mobile/inbox_state.mpl",
+      "sha256": "ef7479a0dd3f73fbecdd16977ea814363b901ae690ddd422efe247f84eeb2c66"
+    },
+    {
+      "path": "mobile/credit_retention.mpl",
+      "sha256": "f2a064ada443fd00bfe44211e415e9f3353333b6afb8039024e5dd6f64a2cd93"
+    },
+    {
+      "path": "mobile/directory_network.mpl",
+      "sha256": "637d8b97a05984473100477e6a836e73e55be9cb60d46f94d61a082531b4d59a"
+    },
+    {
+      "path": "mobile/mailbox_native.mpl",
+      "sha256": "2a0557cc3ae80428e9a0ff4e3602ab31e49cce349e5c93e051c3e7e9d9ab8efd"
+    },
+    {
+      "path": "mobile/ohttp_pins.mpl",
+      "sha256": "4bbb37f76f54b2116407faa75b1f2b1f85ba146d8e0501bbec26c7bc73fac3c6"
+    },
+    {
+      "path": "mobile/signup_draft.mpl",
+      "sha256": "1f4f7d18a9864a689a0a2b28333816f5d0f7a14539024ece4a9d502b6dbb0c8f"
+    },
+    {
+      "path": "mobile/messages.mpl",
+      "sha256": "4f0d42f6badd824cb543a23a2f26026e850d9bfa7c8817514619d74868b769a0"
+    },
+    {
+      "path": "mobile/backup_archive_content_view.mpl",
+      "sha256": "e7e7be9d48fad2b1bee750d1c05dd1079bda064846740881e495ba918637c00c"
+    },
+    {
+      "path": "mobile/credit_attachment_native.mpl",
+      "sha256": "5478614a93be5b10b0bbb140b0c958c8d7dbc8f8d49944cd3dd6085c21d63903"
+    },
+    {
+      "path": "mobile/braid_alice_state.mpl",
+      "sha256": "069cc30d0f76cb8ff516068d4f7bb9a36f57b0860632f2a169526af71d897e8a"
+    },
+    {
+      "path": "mobile/braid_spqr_state.mpl",
+      "sha256": "28ee159c3ce4f9a207f21c0a1c8d531d617312138ae8ea77f1da5f9c604d6f9f"
+    },
+    {
+      "path": "mobile/attachment_upload.mpl",
+      "sha256": "18aa840928f338bdbaac34bf4fe1287a291678094565d0e415aa1b4fdfdbc5a0"
+    },
+    {
+      "path": "mobile/braid_journal.mpl",
+      "sha256": "df7866891757f5abc497f0aa20c6c141df2e1ea3ed351083c66b70dfbd4ba7ca"
+    },
+    {
+      "path": "mobile/network_counter.mpl",
+      "sha256": "d8514355c97c514d63a06e2277afee755f1bb3dde9977e326421b9a94ab4e2a4"
+    },
+    {
+      "path": "mobile/renewal_queue.mpl",
+      "sha256": "3e5203ba96210695b06441d6d0d1a1a5c094a67d635b03f773c3b42ab0c5509f"
+    },
+    {
+      "path": "mobile/attachment_send_state.mpl",
+      "sha256": "1a67e7cc8a846e6ea0291d6c20fc353ed761a9c0763f0218bb68fbf8184b6962"
+    },
+    {
+      "path": "mobile/contact_address.mpl",
+      "sha256": "b5879c0eb4672913573e4f4096cec3b414bc1192305192f5709df4b9c9b213c6"
+    },
+    {
+      "path": "mobile/outbox_network.mpl",
+      "sha256": "9645c866d1bbce4f13ef3b83ccabf3c116fa883bb12e85620acff2b43742edc6"
+    },
+    {
+      "path": "mobile/expiry.mpl",
+      "sha256": "3b8dfa24cdc59a1a30f4e6dd10172ca933c7233217be14923a3f90a8015b630e"
+    },
+    {
+      "path": "mobile/ohttp_lookups.mpl",
+      "sha256": "6a696c731f7970d7a1d60a80913dd77bd1a8a98f8cd97251d8c568bb176356e7"
+    },
+    {
+      "path": "mobile/history.mpl",
+      "sha256": "58b37fcaab1e4fe8c6db20d0b2c1cd222888d4fd9f142e2b1d360c195f42cb28"
+    },
+    {
+      "path": "mobile/group_state.mpl",
+      "sha256": "f983bc53237baf01df49918d422bad37a1d2f94d7b17f56f605ebca1a20b3eb6"
+    },
+    {
+      "path": "mobile/journal.mpl",
+      "sha256": "8dfd7579617059154de7a9c288aaa9634b00684a5495a304f261f7884c0eb17b"
+    },
+    {
+      "path": "mobile/fork_filing.mpl",
+      "sha256": "c7a1dc6a033f58f37a45cd7f6cf41a90b4b83d7343f3e8ddba8a0e5325a9a5cd"
+    },
+    {
+      "path": "mobile/view_once_native.mpl",
+      "sha256": "52a24ab945b5f6f0bf2f6795bfb036d2dc237ca05ab51eecb3f60a5ea8d97e75"
+    },
+    {
+      "path": "mobile/safety_verification.mpl",
+      "sha256": "bc23be35a38d28a21abae8b310d1332eee79d5dddbb3e09ba525a8357a0365a3"
+    },
+    {
+      "path": "mobile/transport.mpl",
+      "sha256": "154d38da84f2bbc30541f59496eb15920e783c2e4db08bd20e951a4f74c4b34d"
+    },
+    {
+      "path": "mobile/credit_maintenance.mpl",
+      "sha256": "f8a7c32d162f01fd9526f068f39ba7e3b435b632477e9ac4350546ba24ec19b6"
+    },
+    {
+      "path": "mobile/network_counter_state.mpl",
+      "sha256": "8521561df3ebc5b2e8af5635f9c6a3e28ff59f7cef6a9ccc8d7fe6b4ff837f2c"
+    },
+    {
+      "path": "mobile/credit_admission.mpl",
+      "sha256": "6ca979fe7a94f7fe7f6e4fe43a5bb58dde167e2d249f28600d220bf6cdde2f11"
+    },
+    {
+      "path": "mobile/prekeys.mpl",
+      "sha256": "c6e34fcbcec8e8b91f232feeaa4b4e3a32a3681619d3c13fc22443417b7eb03e"
+    },
+    {
+      "path": "mobile/anchor_schedule.mpl",
+      "sha256": "fbb2a0469a0263583db61ff3361263de50c1a2ad3b775c84ac74cef464e5dbac"
+    },
+    {
+      "path": "mobile/transparency_cache.mpl",
+      "sha256": "12495cf4d503e64a6c2ef34f8e278129f53a91df327d7ce530dcf435a3a8a7b5"
+    },
+    {
+      "path": "mobile/group_gossip.mpl",
+      "sha256": "115b41d18efcf4980eef6c4b555f72ff991f35e6244f1f75934e51d9ee457b13"
+    },
+    {
+      "path": "mobile/backup_authority.mpl",
+      "sha256": "6f5828607be28a3424f0dc85548f985135abf7892a669d21fcf044c654be8887"
+    },
+    {
+      "path": "mobile/network_counter_pins.mpl",
+      "sha256": "a12da2643397a1251f95760da2b322d4d1a659225ae3aa495ca156833b4406dd"
+    },
+    {
+      "path": "mobile/header_admission.mpl",
+      "sha256": "8f6ba7643ac47149b835793721257538f804a0b5db8164218a29df08b86d1f30"
+    },
+    {
+      "path": "mobile/outgoing.mpl",
+      "sha256": "5027354837661af89559426835a867cae5030fd2b0a981b09f6b8089f6b5f0c9"
+    },
+    {
+      "path": "mobile/attachment_recipients.mpl",
+      "sha256": "b9025f4c461351e00f203ac493e70dda05d9272b467999a347eac09dad54c6d5"
+    },
+    {
+      "path": "mobile/view_once.mpl",
+      "sha256": "d056e6843503857fba4d37e14b315beb9704a5b249d951dfff4a6ba69856a320"
+    },
+    {
+      "path": "mobile/bounty_transfer_network.mpl",
+      "sha256": "dd3ce7935befbddaa108ac008c15be2a6c50443a69c7586e413cc7b9be3e9a84"
+    },
+    {
+      "path": "mobile/view_once_admission.mpl",
+      "sha256": "d75488f7760ceaeba4a26e44b29bc3f233c86f8b2d2e024b7a8ca77f39dc65ea"
+    },
+    {
+      "path": "mobile/session_policy.mpl",
+      "sha256": "673b49fb30eae5fed2616931bf704235bd1d3c823338a0810f55748c9031452d"
+    },
+    {
+      "path": "mobile/renewal.mpl",
+      "sha256": "13a0594ddb9d96f4b28d5095c9cbce060212b854bd27314948ebe0d4a7caa19e"
+    },
+    {
+      "path": "mobile/gossip.mpl",
+      "sha256": "1ef24ef74ae4c05a6178f459194acbad234c5fd7a65194acc533f4714f3d3925"
+    },
+    {
+      "path": "mobile/push.mpl",
+      "sha256": "2dfcf79f36694335a0e201c8533b97278f4f1cbae33fc38705f08279db483727"
+    },
+    {
+      "path": "mobile/header_routing.mpl",
+      "sha256": "b52c3fba531b516a0b9aebdc310c5dfb941962216ea271c80b3d4caffa0b4a09"
+    },
+    {
+      "path": "mobile/profile.mpl",
+      "sha256": "4831de86664f761f7a10c24baa6783a7bcfc1350a9892dcd5497cd33a6c58f44"
+    },
+    {
+      "path": "mobile/mailbox_sync.mpl",
+      "sha256": "47597d8df766942b588ab17fc910df18132a4be4121adb61549f42a87e847e48"
+    },
+    {
+      "path": "mobile/push_network.mpl",
+      "sha256": "755ddc26cff355c88d751209cc919079042bcdd9e154fd7d5b99617031b5a8ec"
+    },
+    {
+      "path": "mobile/inbox.mpl",
+      "sha256": "7abbf6ecb5d031cf7cc56955df0cae93dc041148537a2be38de92529b4f22811"
+    },
+    {
+      "path": "mobile/device_set.mpl",
+      "sha256": "07cad9d2708e5a952618e6bab70bf895774ffd442f28fba5a18e79ef7132f9e5"
+    },
+    {
+      "path": "mobile/credit_purchase.mpl",
+      "sha256": "62dfe80b861ed1b4b871fd4a8825edf278e44da379cf6ebe82c01b88c08f9a7f"
+    },
+    {
+      "path": "mobile/postage_policy_intent.mpl",
+      "sha256": "0b724139b5f07a44ac108c3a87bfcef0bcf4dadebae33632f59afda87678b4c5"
+    },
+    {
+      "path": "mobile/delivery.mpl",
+      "sha256": "919b15a2b3111058b994cdeedc8ba0a6531d6c3fe3cd23533b2d5b3f633b9beb"
+    },
+    {
+      "path": "mobile/group_invites.mpl",
+      "sha256": "69174fc82d4be67b7fcc0481e3a4650e4e17bffc2dc5341d3919552d1945fa69"
+    },
+    {
+      "path": "mobile/attachment_transport.mpl",
+      "sha256": "4eefe371faf9de8ac6903a173a9a6f323e8c1561058adf84f41b2bf0c8b62524"
+    },
+    {
+      "path": "mobile/mailbox.mpl",
+      "sha256": "44f09e2ec98ea969f47f94b1b86521bfd4032d74d0151778479c9fe4d6902732"
+    },
+    {
+      "path": "mobile/bounty.mpl",
+      "sha256": "767772eceb7c5168fc570995b2bf71b39d681b950b56e1be4283d8d709193cbf"
+    },
+    {
+      "path": "mobile/fork_filing_pins.mpl",
+      "sha256": "b7ce4a617231a94b12e5bc67a52b0985a6fbae3d34d5aecb627ee3ced4c942ce"
+    },
+    {
+      "path": "mobile/fanout_state.mpl",
+      "sha256": "d5c6a450357097a0d25e83d2120befc18da6c3af5a18020e95fcf9202e3d2389"
+    },
+    {
+      "path": "mobile/fanout_network.mpl",
+      "sha256": "91c25ff50e08bb39ba6c818ae0149a805e572f613eecbfaec792d55a2daf9228"
+    },
+    {
+      "path": "mobile/attachments.mpl",
+      "sha256": "d502c3bb1f9e526b61c4038dcf8d0906a2c71f4dcba8e401205a370829dd2b53"
+    },
+    {
+      "path": "mobile/presentation.mpl",
+      "sha256": "36001f9b26d4196c79af07784dc91b474ede30888c023b24ddd39f3985a7c00a"
+    },
+    {
+      "path": "mobile/anchor_check.mpl",
+      "sha256": "894f62697839b7f39492dcc048cc1c3748b8a2e064da9b165f91bb041b063e2e"
+    },
+    {
+      "path": "mobile/platform.mpl",
+      "sha256": "99d7668f39ef0f548f43c9b42e73a44f340bd7eef3702d146745aebd6a031053"
+    },
+    {
+      "path": "mobile/attachment_metadata.mpl",
+      "sha256": "f78d29551864d4af49c2665834968d9e7cbc1d7dec200fff2e814a5beaeebe6f"
+    },
+    {
+      "path": "mobile/credit_postage.mpl",
+      "sha256": "a6db5137c3240050811b0d394b04420542359f0da23baac2a52e1d88a831dbd8"
+    },
+    {
+      "path": "mobile/credit_attachment.mpl",
+      "sha256": "c9a99f4e8b5913a7660e0948d85762d199d0fb9c06a66c10ca7d159a9231169e"
+    },
+    {
+      "path": "mobile/account.mpl",
+      "sha256": "f9903fcbdfd71421bcc9191b7660bc0fbc2489ebf854cfbdb382396667df8da1"
+    },
+    {
+      "path": "mobile/native_issuer_tls.mpl",
+      "sha256": "639af29331691328f932af1e9c8b8ee80fa2626b045a58423e4beec076535981"
+    },
+    {
+      "path": "mobile/group_policy_wire.mpl",
+      "sha256": "153fbf82d6c15bdbd629943f438f14a8939ea46ba5ed754de8b96565ebdc9399"
+    },
+    {
+      "path": "mobile/backup_archive_view_dispatch.mpl",
+      "sha256": "fa2bb0a878b2bfa99099c9229e1a2fa945eb834f51bcb1b6afe671c466cb0aee"
+    },
+    {
+      "path": "mobile/account_network.mpl",
+      "sha256": "5f76b5abeeae61bf25663b488efb9ca310ad15cedcb124577160f931bbcd53b1"
+    },
+    {
+      "path": "mobile/braid_spqr_bootstrap.mpl",
+      "sha256": "80d9105f72d3e4a3e80dc13fd88e3858ad8244c9ddaf39894efd28318a1e0d4d"
+    },
+    {
+      "path": "mobile/device_network.mpl",
+      "sha256": "de47f44b40ad4885a0e7841f2a92933698a01183bdbaacfe000e9ebb7852fa77"
+    },
+    {
+      "path": "mobile/gossip_state.mpl",
+      "sha256": "d6665a1c10429321f27b29f21dae694fe414abc74d7d8da43f77b44de8a9fb7d"
+    },
+    {
+      "path": "mobile/transparency_safety.mpl",
+      "sha256": "8da34fe03a5f4b3fedcd0c83f8098ac250e1f2d1d8b004364d8550c94d4e9f16"
+    },
+    {
+      "path": "mobile/backup_archive.mpl",
+      "sha256": "f6d76f34bd2c6e6920068b81da531efa8f91d128811268a1d15852ceaba143c4"
+    },
+    {
+      "path": "mobile/credit_postage_native.mpl",
+      "sha256": "15df5ba2c0db480e46bdaeaa27f09385422b59dbe652dd5f3bbdf53d1d145d45"
+    },
+    {
+      "path": "mobile/credit_wallet.mpl",
+      "sha256": "bfceb8ffb6539c317ab0f9503368a9dbdbb855fa3d99c110bc662e19a41d78dd"
+    },
+    {
+      "path": "mobile/postage_candidates.mpl",
+      "sha256": "a363a15624786c1612844904671052ed803ecbeb50e36fa9cf5295fab92e1edd"
+    },
+    {
+      "path": "mobile/credit_attachment_journal.mpl",
+      "sha256": "be331f13b6d4f74d7eb974f63bf517dc55cd2abdc18c80c8b3c0684baaf7f9bb"
+    },
+    {
+      "path": "mobile/braid_alice_journal.mpl",
+      "sha256": "4c06d8f48ffcb864a60123716c84d8848f01237555be62d051329c0dfa8e6226"
+    },
+    {
+      "path": "mobile/credit_attachment_parts.mpl",
+      "sha256": "e4087fca564d064555a6c69c85f43931d32059fa4ac65aaaeaa5bef7420e3870"
+    },
+    {
+      "path": "mobile/braid_spqr_journal.mpl",
+      "sha256": "79d377d8d5ddea16037e2335af297a51d94bc0e5671867cac3f530f2ad2feff9"
+    },
+    {
+      "path": "mobile/transparency.mpl",
+      "sha256": "7b7f7e46c5e41c15997f6083c5bcab80f21f1edbc2319af3354780e8705677be"
+    },
+    {
+      "path": "mobile/gossip_send.mpl",
+      "sha256": "f17c8c0da8b23455731cf85aa57d9494c028f4ecf4c7474ed3cd5cbe5d83652a"
+    },
+    {
+      "path": "mobile/conversation_policy.mpl",
+      "sha256": "5bd10add538029a71cb5c1632379b087ef58fa493b9234414f6687ce4934fcd2"
+    },
+    {
+      "path": "mobile/mailbox_transport.mpl",
+      "sha256": "eb76dff76601065e72fbee000a0b6316c8a1af102aaa195e3d2a7d6a1f57b68d"
+    },
+    {
+      "path": "mobile/codec.mpl",
+      "sha256": "5be021955a1c952daecbd77f4a384ba3632bd275af2daaf4b06c51cd3a79040b"
+    },
+    {
+      "path": "mobile/backup_native.mpl",
+      "sha256": "662654bcb3712dc6e0d2938e024ce5268a809f0fa4ad7650ab4962cf998fccb9"
+    },
+    {
+      "path": "mobile/attachment_capabilities.mpl",
+      "sha256": "00bce01d456288c806fd283591245e5029bdd3018b04f6f7299b29ff5f2deab7"
+    },
+    {
+      "path": "mobile/credit_transport.mpl",
+      "sha256": "3a199994f1f2991c13a61787b235472a142008d6764c57a23ec8b735097df37c"
+    },
+    {
+      "path": "mobile/backup_archive_view.mpl",
+      "sha256": "1eb2d5dc9141a2568a6d3d3e7311d2e58fd57e5fcaa3d3268f63c0d3181a0b60"
+    },
+    {
+      "path": "mobile/fanout_prekeys.mpl",
+      "sha256": "65f2c7e6ea6a104c74a302abe2c437eacf60025eec3115cceb30c15fc0ca3ce3"
+    },
+    {
+      "path": "mobile/header_routing_state.mpl",
+      "sha256": "c83df7074d98def57dd52e5ef04c3ff45692d145e9fc3c3b185fd17ddaf3ae1b"
+    },
+    {
+      "path": "mobile/group_expiry_policy.mpl",
+      "sha256": "b77039a441b3b1045be8f82cf9fc04060fb92dcde6986255b10c3e91fa81c5c7"
+    },
+    {
+      "path": "mobile/requests.mpl",
+      "sha256": "891669363ed4991606b739c53d50afa478af238c2d571c7d1432e25fed40abe4"
+    },
+    {
+      "path": "mobile/bounty_transfer_native.mpl",
+      "sha256": "3f35436f0dface1e434a1f2b943637152be905ba21b2a1796fead5debbfe617c"
+    },
+    {
+      "path": "mobile/history_wire.mpl",
+      "sha256": "b5bd9343ac7c5c854fb9aba5ff989084d2ce2e5f690c5b31a6c7e072ef955818"
+    },
+    {
+      "path": "mobile/group_history_expiry.mpl",
+      "sha256": "ab40b27b1955d90418d4f5fd6925eb47ba1a961ed35c50cb3f16ca1646dc81a8"
+    },
+    {
+      "path": "mobile/receive_sources.mpl",
+      "sha256": "91f341457c438631a49eff6f51b38ade781c54c2458d9e1a0a8a44bbc072b0ac"
+    },
+    {
+      "path": "mobile/outbox.mpl",
+      "sha256": "ef24ce1c80b03eb3fe1fba1cb76298d2dcc3cc7d7c8b09119a5eeaaeea91d121"
+    },
+    {
+      "path": "mobile/backup_archive_reader.mpl",
+      "sha256": "0f55ae04ec8198e8f2355a9b453affc355122fd422076f36f20392451ecca4f6"
+    },
+    {
+      "path": "mobile/postage_queue.mpl",
+      "sha256": "15f0cf4d22e6adc9b8225653089d9c4e6475b31358e6f141fcedb55f10974484"
+    },
+    {
+      "path": "mobile/push_state.mpl",
+      "sha256": "2f9cb40087407b022e3c58e0ffde209ef7bbca271dc727c38b274183e2c37922"
+    },
+    {
+      "path": "mobile/credit_state.mpl",
+      "sha256": "ce55e8bfbc3a90bcfc11b1de149f00253fb1ac0e5f7ac38c0a7d432e3f60ff0f"
+    },
+    {
+      "path": "mobile/journal_bound.mpl",
+      "sha256": "fc38f49ae7f96504fd8118158a1054e239fe02b22106861a2c2ee8c54172fb57"
+    },
+    {
+      "path": "mobile/group_invites_state.mpl",
+      "sha256": "f33ab23ba61a52f18105d204893b4d67792a60f5669460706b41aef6626427be"
+    },
+    {
+      "path": "mobile/credit_purchase_intent.mpl",
+      "sha256": "1bb580a2483965809eda427e8298db1fbc01718d427d9e4077b533951b3b7246"
+    },
+    {
+      "path": "mobile/sessions.mpl",
+      "sha256": "54a87e61e572a1b61df8ee69c5f7f481407236092ad99101eb8fd329a1c9d0f4"
+    },
+    {
+      "path": "mobile/backup_archive_payload.mpl",
+      "sha256": "e1fcb163a8dd7575a77ff1f16c6f928094d97c750f14cd0e091c332c1b5a34dc"
+    },
+    {
+      "path": "mobile/fanout.mpl",
+      "sha256": "70aeeef03d8df932c55088faf8e217e496203322b1004db772f647f33c3237e7"
+    },
+    {
+      "path": "tests/inbox_poison.test.mpl",
+      "sha256": "ff58a5ac38c17a1b0682da1535ed3fd4b77b2a786c8e9e0eb6cc625728fc331b"
+    },
+    {
+      "path": "tests/header_receive.test.mpl",
+      "sha256": "d1c27a164ce71f9321006e0d130550dc0d82354afceb4111f1eae907584bcb4b"
+    },
+    {
+      "path": "tests/header_routing_fixture.mpl",
+      "sha256": "58492850eddf0791d01f96a9ddf80f52f56b5b0752c0da11850153ed08a7448a"
+    },
+    {
+      "path": "tests/group_lifecycle_support.mpl",
+      "sha256": "c1a29fde07ba6f069179496a373c4f112e14373f48f873255e3f246dcfd63f35"
+    },
+    {
+      "path": "tests/group_consistency_support.mpl",
+      "sha256": "20c727ab4e77448ee15c0622d156cd37f434bcb77922ce9744dc104e594bc750"
+    },
+    {
+      "path": "tests/group_lifecycle_wire.mpl",
+      "sha256": "22968a59bd056b8a82d724c502832d109a464c6c16c5e026c49f6b7ec7c83062"
+    },
+    {
+      "path": "tests/support.mpl",
+      "sha256": "5280a0a763855d01b794aa53d634c5025b2cbdedb47471fe89556eb2d2a582f9"
+    }
+  ],
+  "test_support_modules": [
+    "Tests.GroupConsistencySupport",
+    "Tests.GroupLifecycleSupport",
+    "Tests.GroupLifecycleWire",
+    "Tests.HeaderRoutingFixture",
+    "Tests.Support"
+  ]
+}

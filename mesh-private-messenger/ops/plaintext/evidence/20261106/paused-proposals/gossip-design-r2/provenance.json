@@ -1,0 +1,41 @@
+{
+  "source_head": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "status": "BLOCKED: finite-only full caller closure; preparatory patch only",
+  "compiled": false,
+  "network_used": false,
+  "source_files_written": false,
+  "baseline_git_status": " M mesh-private-messenger/packages/mobile-core/mobile/history_wire.mpl\n M mesh-private-messenger/packages/mobile-core/mobile/sessions.mpl\n?? mesh-private-messenger/ops/plaintext/__pycache__/prove_sync_parser.cpython-314.pyc\n?? mesh-private-messenger/ops/plaintext/evidence/20261106/invitation-authority-counterexample.json\n?? mesh-private-messenger/ops/plaintext/fixtures/decoded-body/\n?? mesh-private-messenger/ops/plaintext/fixtures/decoded-sync/\n?? mesh-private-messenger/ops/plaintext/prove_decoded_bodies.py\n?? mesh-private-messenger/ops/plaintext/prove_invitation_authority.py\n?? mesh-private-messenger/ops/plaintext/prove_sync_parser.py\n?? mesh-private-messenger/packages/mobile-core/tests/decoded_sync_errors.test.mpl\n",
+  "source_sha256": {
+    "mesh-private-messenger/packages/mobile-core/mobile/gossip.mpl": "1ef24ef74ae4c05a6178f459194acbad234c5fd7a65194acc533f4714f3d3925",
+    "mesh-private-messenger/packages/mobile-core/mobile/gossip_state.mpl": "d6665a1c10429321f27b29f21dae694fe414abc74d7d8da43f77b44de8a9fb7d",
+    "mesh-private-messenger/packages/mobile-core/mobile/transparency_safety.mpl": "8da34fe03a5f4b3fedcd0c83f8098ac250e1f2d1d8b004364d8550c94d4e9f16",
+    "mesh-private-messenger/packages/mobile-core/mobile/bounty.mpl": "767772eceb7c5168fc570995b2bf71b39d681b950b56e1be4283d8d709193cbf",
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": "592843a76f3253abde64f2224611f55c9bc885291014d5cc236517d6b5782c68",
+    "mesh-private-messenger/packages/mobile-core/mobile/groups.mpl": "a3f0c858a0c5a9020f297882bdf9110aa1bd4104e24ae481826452f47631b02d",
+    "mesh-private-messenger/packages/mobile-core/mobile/sessions.mpl": "6bdbfe46e6b8b5dcd3bd71e1dd189d84756d1ddac1cdc9e304d56c7744dabee3",
+    "mesh-private-messenger/packages/mobile-core/mobile/gossip_send.mpl": "f17c8c0da8b23455731cf85aa57d9494c028f4ecf4c7474ed3cd5cbe5d83652a",
+    "mesh-private-messenger/packages/mobile-core/mobile/group_gossip.mpl": "115b41d18efcf4980eef6c4b555f72ff991f35e6244f1f75934e51d9ee457b13",
+    "mesh-private-messenger/packages/messenger-protocol/protocol/v1.mpl": "cee984a2aad68100c548f54db1551419e8abab313e349711cd20011179cabe94",
+    "mesh-private-messenger/packages/messenger-protocol/protocol/envelope_wire.mpl": "bf14d113ec359ae12d2ff0f0092af1fd347c4e09597509d8da7b0c688d7f1b88",
+    "mesh-private-messenger/packages/messenger-protocol/groups/group_payload.mpl": "bcad3c6f5af9d0aed1f5adbc32ccf8e011463d91f51d52510f7a8ecdbfa2f207",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/fork.mpl": "8ebb797ce8c100575734ca5e3a46cd193a5426db1eb4d9aa41f5ae438b06bba0",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/gossip.mpl": "75632ebd0d4a482993198acf456c94d0a70ad9470df4142ad96aa41db90271df",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/merkle.mpl": "0d3fef58a3283e422997e01b39e00f327c63d96f78f7d9b51eb26cc1af574a3a",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/wire.mpl": "8bf85479c3af923a8ed5455e30cac029c0a777387cde3954959d7443285b9b44",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/c2sp_text.mpl": "6ea935d8fd19fcdc6158b0a72bfb924afd352ce438b018a43d99c0901232d53b",
+    "mesh-private-messenger/packages/mobile-core/storage/keys.mpl": "9b7816e127eb3c09ec127431419a845d244826b1129a59aaecce25d62a3f004e",
+    "mesh-private-messenger/packages/mobile-core/mobile/codec.mpl": "5be021955a1c952daecbd77f4a384ba3632bd275af2daaf4b06c51cd3a79040b",
+    "mesh-private-messenger/protocol/plaintext-disclosures.json": "9c32604f14de5266646f6065f860e8d2b9f5bb4c05b9cf2873e489102a324dbf",
+    ".morse/decoded-body-labels/codec-final-trace/sites.json": "01d51ed095d4d3ec296e64013c89db39a3abe92f336e7c06443762767f9270f2"
+  },
+  "artifact_sha256": {
+    "preparations-only.patch": "5255241fef693d4761253f800d84db7eafc51ac0d53626848a7c29dd12c05097",
+    "authority-and-caller-report.txt": "47f9064a0cd0b9b5b82fa3d344bd9d2966761ef6b09d52db3cf660fafad6c53a",
+    "prospective-gates.json": "ec0991690cd88dfa53d739276a595906eba0f4cbab63b9c1344cf91a6906b10d",
+    "design-audit.json": "4f75ef93d6a45c57ff5c3a37920f7eb3967f0753d21ffae72f2aeca25828efc4"
+  },
+  "design_review_complete": true,
+  "full_caller_closure_complete": false,
+  "resumed_review_utc": "2026-11-07T01:46:35.748261+00:00",
+  "artifact_validation": "design-audit.json; static checks only"
+}

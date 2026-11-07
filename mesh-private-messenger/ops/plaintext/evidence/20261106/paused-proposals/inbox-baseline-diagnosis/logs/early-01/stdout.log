@@ -1,0 +1,44 @@
+  ✗ actual HE receive progresses through full cursor queue without ACK/retry charge; selected-row CAS prevents stale commit
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✓ full unauthenticated cursor queue preserves admitted progress across cold reopen and does not impose4096 read ceiling
+  ✓ deterministic idle and absolute cursor leases reclaim capacity; packet and profile/index churn cannot renew original lease
+  ✓ strict cursor codec rejects duplicate IDs, trailing bytes, invalid offsets and future service ticks; writer admission never changes legacy readability
+  ✗ diagnostic early 1
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic early 2
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic early 3
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic early 4
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+database_open_failed
+  ✗ diagnostic exact public fixture error
+    assert failed: false
+
+Failures:
+  ✗ actual HE receive progresses through full cursor queue without ACK/retry charge; selected-row CAS prevents stale commit
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic early 1
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic early 2
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic early 3
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic early 4
+    assert failed: declassify(value,
+        "test-only Boolean assertion of controlled synthetic header-encrypted initial message delivery; no application disclosure")
+  ✗ diagnostic exact public fixture error
+    assert failed: false
+
+6 failed, 3 passed in 0.28s
+
+1 test file failed, 0 passed in 29.78s

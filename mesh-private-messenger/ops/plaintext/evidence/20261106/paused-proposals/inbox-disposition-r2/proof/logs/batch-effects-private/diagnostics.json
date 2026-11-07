@@ -1,0 +1,3090 @@
+[
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.to_unix_ms` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.utc_now` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Host.push_get_token` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.build` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.header` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_redirects` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_response_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.send` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.timeout` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.url_origin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `MlKemPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.concat` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.random` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.split_at` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.contains` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.copy` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.delete` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.fork` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.insert` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.merge` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.new` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SigningPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.begin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.close` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.commit` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.open` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.rollback` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.index_tag` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.platform` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.unseal_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `seal public metadata` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `unknown function value` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 204,
+        "end": 235,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.to_unix_ms` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.utc_now` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Host.push_get_token` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.build` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.header` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_redirects` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_response_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.send` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.timeout` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.url_origin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `MlKemPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.concat` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.random` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.split_at` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.contains` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.copy` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.delete` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.fork` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.insert` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.merge` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.new` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SigningPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.begin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.close` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.commit` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.open` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.rollback` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.index_tag` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.platform` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.unseal_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `seal public metadata` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `unknown function value` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 449,
+        "end": 481,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.to_unix_ms` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.utc_now` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Host.push_get_token` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.build` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.header` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_redirects` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_response_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.send` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.timeout` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.url_origin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `MlKemPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.concat` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.random` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.split_at` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.contains` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.copy` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.delete` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.fork` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.insert` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.merge` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.new` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SigningPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.begin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.close` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.commit` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.open` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.rollback` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.index_tag` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.platform` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.unseal_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `seal public metadata` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `unknown function value` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 673,
+        "end": 753,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.to_unix_ms` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.utc_now` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Host.push_get_token` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.build` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.header` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_redirects` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_response_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.send` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.timeout` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.url_origin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `MlKemPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.concat` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.random` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.split_at` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.contains` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.copy` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.delete` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.fork` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.insert` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.merge` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.new` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SigningPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.begin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.close` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.commit` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.open` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.rollback` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.index_tag` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.platform` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.unseal_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `seal public metadata` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `unknown function value` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 846,
+        "end": 877,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.to_unix_ms` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `DateTime.to_unix_ms` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `DateTime.utc_now` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `DateTime.utc_now` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Host.push_get_token` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Host.push_get_token` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.body_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Http.body_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.build` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Http.build` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.header` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Http.header` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_redirects` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Http.max_redirects` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.max_response_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Http.max_response_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.send` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Http.send` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.timeout` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Http.timeout` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Http.url_origin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Http.url_origin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `MlKemPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `MlKemPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.concat` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Secret.concat` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.random` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Secret.random` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Secret.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.split_at` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Secret.split_at` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Secret.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Secret.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.contains` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SecretMap.contains` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.copy` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SecretMap.copy` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.delete` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SecretMap.delete` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.fork` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SecretMap.fork` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.insert` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SecretMap.insert` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.merge` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SecretMap.merge` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.new` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SecretMap.new` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SecretMap.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SecretMap.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SecretMap.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `SigningPrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `SigningPrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.begin` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.begin` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.close` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.close` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.commit` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.commit` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.execute` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.execute_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.execute_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.execute_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.open` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.open` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.query_values` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.query_values_v2` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.query_values_v2` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `Sqlite.rollback` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `Sqlite.rollback` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.index_tag` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `StorageKey.index_tag` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.platform` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `StorageKey.platform` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `StorageKey.unseal_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `StorageKey.unseal_bytes` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.seal_for_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `X25519PrivateKey.seal_for_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `X25519PrivateKey.unseal_from_storage` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `X25519PrivateKey.unseal_from_storage` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `seal public metadata` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `seal public metadata` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "E0093",
+    "severity": "error",
+    "message": "plaintext flow to `unknown function value` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification",
+    "file": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/controls/batch-effects-private/main.mpl",
+    "spans": [
+      {
+        "start": 970,
+        "end": 1050,
+        "label": "plaintext reaches `unknown function value` here"
+      }
+    ],
+    "fix": "plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification"
+  },
+  {
+    "code": "C0001",
+    "file": "",
+    "fix": null,
+    "message": "Compilation failed due to errors above.",
+    "severity": "error",
+    "spans": []
+  }
+]

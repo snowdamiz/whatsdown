@@ -1,0 +1,289 @@
+--- a/mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl
++++ b/mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl
+@@ -17,7 +17,7 @@
+   take_vector
+ )
+ from Mobile.GroupState import decode_group_key_package, group_join_label
+-from Mobile.Types import MobileGroupKeyPackage
++from Mobile.Types import MobileGroupKeyPackage, MobileTransparencyView
+ from Mobile.Transparency import load_transparency_view
+ from Protocol.V1 import InnerEnvelope
+ from Storage.Blobs import load_blob
+@@ -129,14 +129,18 @@
+   end
+ end
+ 
+-pub fn invitation_blob(values :: List<GroupInvitation>, key :: borrow StorageKey) -> Bytes!String do
++pub fn invitation_plaintext(values :: List<GroupInvitation>) -> Bytes!String do
+   if List.length(values) > 128 do
+     return Err("group_invitation_limit")
+   end
+   let records = for value in values do
+     encode_record(value)?
+   end
+-  seal_local(encode_output_list(records)?, key, local_context("group-invitations/v1")?)
++  encode_output_list(records)
++end
++
++pub fn invitation_blob(values :: List<GroupInvitation>, key :: borrow StorageKey) -> Bytes!String do
++  seal_local(invitation_plaintext(values)?, key, local_context("group-invitations/v1")?)
+ end
+ 
+ pub fn load_invitations(path :: String, key :: borrow StorageKey) -> List<GroupInvitation>!String do
+@@ -201,13 +205,20 @@
+     end)
+ end
+ 
+-fn receive_control(path :: String,
+-  key :: borrow StorageKey,
++pub type InvitationControl do
++  InvitationValues(values :: List<GroupInvitation>)
++  InvitationAcceptance(values :: List<GroupInvitation>,
++    previous :: GroupInvitation,
++    group_id :: Bytes,
++    package :: MobileGroupKeyPackage,
++    key_package :: Bytes)
++end
++
++pub fn prepare_invitation_control(values :: List<GroupInvitation>,
++  now :: U64,
+   local :: ClientProfile,
+   username :: String,
+-  inner :: InnerEnvelope) -> List<GroupInvitation>!String do
+-  let values = load_invitations(path, key)?
+-  let now = current_time()?
++  inner :: InnerEnvelope) -> InvitationControl!String do
+   if inner.message_type == 3 do
+     let p = invitation_parts(inner.body, 4, 188)?
+     let id = List.get(p, 0)
+@@ -219,17 +230,17 @@
+       || Bytes.length(baseline) != 188
+       || U64.compare(expires_at, now) <= 0
+       || U64.compare(expires_at, U64.add(now, mobile_wide("604800000")?)?) > 0 do
+-      return Ok(values)
++      return Ok(InvitationValues(values))
+     end
+     let reference = mobile_append(id, local.device_id)?
+     case find_invitation(values, reference) do
+-      Ok(_) -> return Ok(values)
++      Ok(_) -> return Ok(InvitationValues(values))
+       Err(_) -> nil
+     end
+     if List.length(values) >= 128 do
+-      return Ok(values)
+-    end
+-    Ok(List.append(values,
++      return Ok(InvitationValues(values))
++    end
++    Ok(InvitationValues(List.append(values,
+       GroupInvitation {
+         id: id,
+         group_id: group_id,
+@@ -243,7 +254,7 @@
+         state: 1,
+         key_package: Bytes.empty(),
+         inviter_signing_key: Bytes.empty()
+-      }))
++      })))
+   else
+     let p = invitation_parts(inner.body, 3, 401)?
+     let id = List.get(p, 0)
+@@ -252,33 +263,71 @@
+     let reference = mobile_append(id, inner.sender_device_id)?
+     let previous = case find_invitation(values, reference) do
+       Ok(value) -> value
+-      Err(_) -> return Ok(values)
+-    end
+-    if previous.state == 3 do
+-      # Only a current native set can replace an already authenticated response;
+-      # a delayed old acceptance cannot roll it back after renewal.
+-      let view = load_transparency_view(path, key)?
+-      if !Bytes.secure_equals(package.set_id, view.set_id)
+-        || package.witness_count != view.witness_threshold do
++      Err(_) -> return Ok(InvitationValues(values))
++    end
++    Ok(InvitationAcceptance(values, previous, group_id, package, List.get(p, 2)))
++  end
++end
++
++pub fn invitation_control_requires_view(prepared :: InvitationControl) -> Bool do
++  case prepared do
++    InvitationValues(_) -> false
++    InvitationAcceptance(_, previous, _, _, _) -> previous.state == 3
++  end
++end
++
++pub fn finish_invitation_control(prepared :: InvitationControl,
++  local :: ClientProfile,
++  inner :: InnerEnvelope,
++  current_view :: Option<MobileTransparencyView>) -> List<GroupInvitation>!String do
++  case prepared do
++    InvitationValues(values) -> Ok(values)
++    InvitationAcceptance(values, previous, group_id, package, key_package) -> do
++      if previous.state == 3 do
++        # Only a current native set can replace an already authenticated response;
++        # a delayed old acceptance cannot roll it back after renewal.
++        let view = case current_view do
++          Some(value) -> Ok(value)
++          None -> Err("group_transparency_unverified")
++        end?
++        if !Bytes.secure_equals(package.set_id, view.set_id)
++          || package.witness_count != view.witness_threshold do
++          return Ok(values)
++        end
++      end
++      if (previous.state != 0 && previous.state != 3)
++        || !Bytes.secure_equals(previous.group_id, group_id)
++        || !Bytes.secure_equals(previous.inviter_account, local.account_id)
++        || !Bytes.secure_equals(previous.inviter_device, local.device_id)
++        || !Bytes.secure_equals(previous.recipient_account, inner.sender_account_id)
++        || !Bytes.secure_equals(package.account_id, inner.sender_account_id)
++        || !Bytes.secure_equals(package.device_id, inner.sender_device_id) do
+         return Ok(values)
+       end
+-    end
+-    if (previous.state != 0 && previous.state != 3)
+-      || !Bytes.secure_equals(previous.group_id, group_id)
+-      || !Bytes.secure_equals(previous.inviter_account, local.account_id)
+-      || !Bytes.secure_equals(previous.inviter_device, local.device_id)
+-      || !Bytes.secure_equals(previous.recipient_account, inner.sender_account_id)
+-      || !Bytes.secure_equals(package.account_id, inner.sender_account_id)
+-      || !Bytes.secure_equals(package.device_id, inner.sender_device_id) do
+-      return Ok(values)
+-    end
+-    Ok(replace_invitation(values, %{previous | state: 3, key_package: List.get(p, 2)}))
+-  end
++      Ok(replace_invitation(values, %{previous | state: 3, key_package: key_package}))
++    end
++  end
++end
++
++fn receive_control(path :: String,
++  key :: borrow StorageKey,
++  local :: ClientProfile,
++  username :: String,
++  inner :: InnerEnvelope) -> List<GroupInvitation>!String do
++  let values = load_invitations(path, key)?
++  let now = current_time()?
++  let prepared = prepare_invitation_control(values, now, local, username, inner)?
++  let view = if invitation_control_requires_view(prepared) do
++    Some(load_transparency_view(path, key)?)
++  else
++    None
++  end
++  finish_invitation_control(prepared, local, inner, view)
+ end
+ 
+ ## Invalid authenticated controls are ignored while their ratchet still advances.
+ 
+-fn validate_control(inner :: InnerEnvelope) -> Bool!String do
++pub fn invitation_control_valid(inner :: InnerEnvelope) -> Bool!String do
+   let count = if inner.message_type == 3 do
+     4
+   else
+@@ -302,7 +351,7 @@
+   local :: ClientProfile,
+   username :: String,
+   inner :: InnerEnvelope) -> Result<(List<String>, List<Bytes>), String> do
+-  let valid = case validate_control(inner) do
++  let valid = case invitation_control_valid(inner) do
+     Ok(value) -> value
+     Err(_) -> false
+   end
+--- a/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl
++++ b/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl
+@@ -42,7 +42,15 @@
+ from Mobile.TransparencySafety import require_log_changes_allowed
+ from Mobile.FanoutPrekeys import matching_fanout_prekey_state_labels
+ from Mobile.History import accepted_request_writes_from_sources, updated_history
+-from Mobile.GroupInvitesState import received_invitation_writes
++from Mobile.GroupInvitesState import (
++  invitation_control_valid,
++  load_invitations,
++  prepare_invitation_control,
++  invitation_control_requires_view,
++  finish_invitation_control,
++  invitation_plaintext
++)
++from Mobile.Transparency import load_transparency_view
+ from Mobile.Outbox import load_outbox_ids, outbox_capacity, prepare_outbox_writes
+ from Mobile.Prekeys import (
+   find_prekey,
+@@ -125,7 +133,7 @@
+   ratchet_transport_matches
+ )
+ from Storage.Blobs import ensure_schema
+-from Storage.Keys import one_time_prekey_label, platform_key
++from Storage.Keys import one_time_prekey_label, platform_key, local_context, seal_local
+ from Storage.Records import (
+   store_record_changes,
+   store_updated_session,
+@@ -325,6 +333,50 @@
+   else
+     Ok(sync)
+   end
++end
++
++fn authenticated_invitation_writes(path :: String,
++  key :: borrow StorageKey,
++  local :: ClientProfile,
++  username :: String,
++  inner :: InnerEnvelope) -> Result<(List<String>, List<Bytes>), String> do
++  let valid = Result.unwrap_or(invitation_control_valid(inner), false)
++  if !declassify(valid,
++    "private initial or ratchet receive after peer identity conversation recipient and block checks releases only bounded invitation framing acceptance before invitation storage access and pruning; body fields and parser errors remain private") do
++    return Ok(([], []))
++  end
++  let values = load_invitations(path, key)?
++  let now = current_time()?
++  let prepared = prepare_invitation_control(values, now, local, username, inner)
++  let renewal = case prepared do
++    Ok(value) -> invitation_control_requires_view(value)
++    Err(_) -> false
++  end
++  let view = if declassify(renewal,
++    "private authenticated invitation receive releases only whether successful control preparation found an existing state3 acceptance requiring the current transparency view; reference membership is exposed only through this decision and identifiers key packages and later authorization decisions remain private") do
++    Some(load_transparency_view(path, key)?)
++  else
++    None
++  end
++  let encoded = case prepared do
++    Err(error) -> Err(error)
++    Ok(value) -> case finish_invitation_control(value, local, inner, view) do
++      Err(error) -> Err(error)
++      Ok(updated) -> invitation_plaintext(updated)
++    end
++  end
++  if !declassify(Result.is_ok(encoded),
++    "private authenticated invitation receive releases only successful pure control completion and invitation encoding before context construction and one local seal; exact failure payloads and encoded invitation records remain private and failed preparation performs no context construction or seal") do
++    let error = case encoded do
++      Err(value) -> value
++      Ok(_) -> "invalid_group_invitation"
++    end
++    return Err(error)
++  end
++  let plaintext = Result.unwrap_or(encoded, Bytes.empty())
++  let context = local_context("group-invitations/v1")?
++  let blob = seal_local(plaintext, key, context)?
++  Ok((["group-invitations/v1"], [blob]))
+ end
+ 
+ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String do
+@@ -569,7 +621,7 @@
+             prekey_blobs)?
+           Ok(presented_body(history_inner.body))
+         else if inner.message_type == 3 || inner.message_type == 4 do
+-          let (labels, blobs) = received_invitation_writes(request.database_path,
++          let (labels, blobs) = authenticated_invitation_writes(request.database_path,
+             wrapping_key,
+             local,
+             peer.username,
+@@ -909,7 +961,7 @@
+               [session_blob])?
+             Ok(Bytes.empty())
+           else if inner.message_type == 3 || inner.message_type == 4 do
+-            let (labels, blobs) = received_invitation_writes(request.database_path,
++            let (labels, blobs) = authenticated_invitation_writes(request.database_path,
+               wrapping_key,
+               local,
+               loaded.record.peer_username,

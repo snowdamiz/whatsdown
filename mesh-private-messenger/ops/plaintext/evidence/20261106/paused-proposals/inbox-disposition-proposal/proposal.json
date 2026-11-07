@@ -1,0 +1,60 @@
+{
+  "status": "UNAPPROVED_UNCOMPILED_PROPOSAL_ONLY",
+  "base": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "source": "mesh-private-messenger/packages/mobile-core/mobile/inbox.mpl",
+  "base_sha256": "aad83bedb0de121f10df6867e61a66242c50cb75ef51a127e54fe599ff3a3dd3",
+  "proposed_sha256": "5f0a4949b0b3284458b3264ca07a816863071bd22943bdf9aa35207d226d1f2a",
+  "patch_sha256": "3be7359980ac07e479cde48fe2d6bdc0948d01db19c7213e4f6e1fcbe2996f97",
+  "site": {
+    "owner": "private Mobile.Inbox.settle_delivery",
+    "line": 178,
+    "count": 1,
+    "domain": {
+      "0": "Existing retry and age-out path",
+      "1": "Applied or existing permanent failure: acknowledge",
+      "2": "Existing header/account selection unfinished: defer without retry charge"
+    },
+    "reason": "private local mailbox settlement releases only the existing acknowledgement disposition after actual direct or group receive: applied or permanently rejected acknowledges, unfinished header selection defers without aging, other failures follow bounded retry; decoded bodies exact error strings and unrelated caller control remain private",
+    "unknown": "Original else branch was retry for every status except1 and2; canonicalization maps every such status to0, preserving it"
+  },
+  "authority": "Private settle_delivery has one caller: private process_deliveries after canonical_outer; public process_delivery_batch first opens stored local profile and loads local attempts then uses actual direct/group receive APIs. This is a deliberate local mailbox error/acknowledgement policy, not a claim every rejected packet authenticated successfully. No caller-supplied decoded envelope or classification is accepted as authority.",
+  "private_chain": "receive_initial_message/receive_message -> private receive_mobile_direct_classified -> private acknowledge_delivery (original exact permanent and unfinished classifiers) -> canonical0/1/2 -> single release in settle_delivery",
+  "unchanged": [
+    "Both public string classifiers remain pure and contain no declassify",
+    "Actual receive paths and error precedence unchanged",
+    "No release of whole Result/String/body/outcome payload",
+    "No receive-result API, native export or ABI change",
+    "No context/seal/storage operation moved or speculated",
+    "Group outcome mapping and unknown packet handling unchanged"
+  ],
+  "required_controls": [
+    "Public permanent_direct_delivery_error and header_selection_unfinished on explicit Plaintext<String> cannot feed HTTP/effects",
+    "Explicit private body in public receive/constructed-helper calls stays refused (separate from prior caller-PC)",
+    "Private caller Bool around actual process_delivery_batch must remain refused; gate must not clear unrelated PC",
+    "Every actual direct/group applied,rejected,retry,unfinished route returns same ACK IDs/attempts/cursor as old source",
+    "Header/account selection pending/capacity/state-changed must not increment attempts or age out",
+    "Unknown arbitrary private error bytes remain private and select only original retry disposition; do not add error-specific disclosure",
+    "Actual signature and persistence checks; error text never appears in ACK payload",
+    "Full compiled source caller closure after auth+VO and remaining invitation/gossip approvals"
+  ],
+  "limitations": [
+    "Applycheck only against immutable5614847, not composed source",
+    "No compiler/runtime evidence or policy approval",
+    "Does not solve private errors influencing effects earlier in receive/gossip/invitation",
+    "No release of initial same-account authority hold",
+    "Need parent review of exact disclosure and final public API controls"
+  ],
+  "applycheck": {
+    "command": [
+      "git",
+      "apply",
+      "--check",
+      "--unsafe-paths",
+      "--directory=/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-proposal/base",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-proposal/inbox-disposition.patch"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+}

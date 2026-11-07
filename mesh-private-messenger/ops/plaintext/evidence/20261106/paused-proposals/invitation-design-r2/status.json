@@ -1,0 +1,19 @@
+{
+  "status": "HELD bounded source correction candidate; full caller closure unresolved",
+  "base": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "patch": "invitation-private-boundary.patch",
+  "authority_report": "authority-report.md",
+  "new_release_sites": 3,
+  "new_release_domains": [
+    "framing accepted: Bool",
+    "state3 renewal view required: Bool",
+    "pure preparation/encoding succeeded: Bool"
+  ],
+  "remaining_blocker": "Mobile.Inbox lines 108 and 138 classify preserved private error String content for retry/ack/pending effects; needs reviewed finite disposition or exhaustive typed status policy, not raw Result/error release.",
+  "verification": "git apply --check and owned artifact application/hash match only",
+  "compiled": false,
+  "runtime_tested": false,
+  "production_sources_changed": false,
+  "approved_disclosures": false,
+  "reserved_vo_composition": "not attempted; immutable composed pin required"
+}

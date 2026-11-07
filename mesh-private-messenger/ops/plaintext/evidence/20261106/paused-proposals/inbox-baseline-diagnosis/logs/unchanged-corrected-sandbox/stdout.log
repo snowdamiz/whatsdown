@@ -1,0 +1,8 @@
+  ✓ actual HE receive progresses through full cursor queue without ACK/retry charge; selected-row CAS prevents stale commit
+  ✓ full unauthenticated cursor queue preserves admitted progress across cold reopen and does not impose4096 read ceiling
+  ✓ deterministic idle and absolute cursor leases reclaim capacity; packet and profile/index churn cannot renew original lease
+  ✓ strict cursor codec rejects duplicate IDs, trailing bytes, invalid offsets and future service ticks; writer admission never changes legacy readability
+
+4 passed in 0.84s
+
+1 test file passed in 39.74s

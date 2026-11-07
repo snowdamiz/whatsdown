@@ -1,0 +1,26 @@
+{
+  "baseline": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "source_origin": "immutable git show <baseline>:<path>; no mutable VO source reads",
+  "base_sha256": {
+    "mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl": "f33ab23ba61a52f18105d204893b4d67792a60f5669460706b41aef6626427be",
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": "592843a76f3253abde64f2224611f55c9bc885291014d5cc236517d6b5782c68",
+    "mesh-private-messenger/packages/mobile-core/mobile/group_invites.mpl": "69174fc82d4be67b7fcc0481e3a4650e4e17bffc2dc5341d3919552d1945fa69",
+    "mesh-private-messenger/packages/mobile-core/mobile/groups.mpl": "a3f0c858a0c5a9020f297882bdf9110aa1bd4104e24ae481826452f47631b02d",
+    "mesh-private-messenger/packages/mobile-core/mobile/codec.mpl": "5be021955a1c952daecbd77f4a384ba3632bd275af2daaf4b06c51cd3a79040b",
+    "mesh-private-messenger/packages/mobile-core/mobile/group_state.mpl": "f983bc53237baf01df49918d422bad37a1d2f94d7b17f56f605ebca1a20b3eb6",
+    "mesh-private-messenger/packages/mobile-core/mobile/transparency.mpl": "7b7f7e46c5e41c15997f6083c5bcab80f21f1edbc2319af3354780e8705677be",
+    "mesh-private-messenger/packages/mobile-core/storage/keys.mpl": "9b7816e127eb3c09ec127431419a845d244826b1129a59aaecce25d62a3f004e",
+    "mesh-private-messenger/packages/mobile-core/tests/group_invitations.test.mpl": "fb83bd74ce5cd277d97084719c7c1902fc102bd9501aa61817c2b31bb0f1a7da",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/wire.mpl": "8bf85479c3af923a8ed5455e30cac029c0a777387cde3954959d7443285b9b44",
+    "mesh-private-messenger/packages/messenger-protocol/transparency/merkle.mpl": "0d3fef58a3283e422997e01b39e00f327c63d96f78f7d9b51eb26cc1af574a3a",
+    "mesh-private-messenger/packages/messenger-protocol/protocol/v1.mpl": "cee984a2aad68100c548f54db1551419e8abab313e349711cd20011179cabe94"
+  },
+  "proposed_sha256": {
+    "mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl": "286fe136e9a6ec37a20ba1d21121aa665196306345d8b3ccd86a750c94dc28b1",
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": "6e950836a6625dd33686b580d97155594d60dbf80bdad2875636855659aad2d2"
+  },
+  "patch_sha256": "162b6c73cd9bc41f838f90a505aafef2b0f4fa53ab7d086d958ff7535727260e",
+  "compiler_run": false,
+  "runtime_run": false,
+  "applied_to_worktree": false
+}

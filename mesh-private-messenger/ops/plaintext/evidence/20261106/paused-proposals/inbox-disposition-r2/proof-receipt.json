@@ -1,0 +1,42 @@
+{
+  "verified_at": "2026-11-07T02:20:31.140261+00:00",
+  "baseline": "0d6826b5d02e3439d93568ecc1d6fa996135a505",
+  "artifacts_checked": 1040,
+  "bytes_checked": 260604717,
+  "artifact_manifest_sha256": "ad5200be30a78d49456240bdd97ddc86ea4c1c72a171c5c9e1254f5ebdef073e",
+  "report_sha256": "3c4108470bd8fd38864435d4ce8def729644a7ad5680a017bdbbb58aa016e30b",
+  "tools_match_required_pins": true,
+  "exact_baseline_sources": [
+    {
+      "path": "mesh-private-messenger/packages/mobile-core/mobile/inbox.mpl",
+      "sha256": "7abbf6ecb5d031cf7cc56955df0cae93dc041148537a2be38de92529b4f22811",
+      "exact_git_blob_and_both_harnesses": true
+    },
+    {
+      "path": "mesh-private-messenger/packages/mobile-core/tests/inbox_poison.test.mpl",
+      "sha256": "ff58a5ac38c17a1b0682da1535ed3fd4b77b2a786c8e9e0eb6cc625728fc331b",
+      "exact_git_blob_and_both_harnesses": true
+    },
+    {
+      "path": "mesh-private-messenger/packages/mobile-core/tests/header_receive.test.mpl",
+      "sha256": "d1c27a164ce71f9321006e0d130550dc0d82354afceb4111f1eae907584bcb4b",
+      "exact_git_blob_and_both_harnesses": true
+    }
+  ],
+  "qualified_compile_only_pairs": [
+    "classifiers-private",
+    "batch-effects-private",
+    "batch-native-private-v2",
+    "parent-predicate-nested-private",
+    "parent-batch-metadata-private"
+  ],
+  "runtime_baseline": {
+    "inbox_poison": "BLOCKED_COMPILE: two println E0093, zero cases run",
+    "header_receive": "3 PASS, 1 FAIL: same delivery assertion in both harnesses; root cause not localized"
+  },
+  "candidate_patch_sha256": "5dce1ed51849a85edadaec7c33c0a0c56126474f8f030f1dd8d41453ce74e1da",
+  "candidate": "FROZEN_UNAPPLIED_UNCOMPILED; comparisons UNRUN",
+  "tracked_worktree_clean": true,
+  "new_builds": 0,
+  "evidence_limit": "Artifact and raw-log verification only; no fresh execution and no independent qualification of final candidate."
+}

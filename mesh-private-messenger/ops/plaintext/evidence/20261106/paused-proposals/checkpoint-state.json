@@ -1,0 +1,87 @@
+{
+  "status": "ACTIVE_UNADOPTED_WAITING_PREREQUISITES",
+  "head": "dd1b11a852b97581abb9b83ec55f8f24868312e9",
+  "base": "a48963b4918f5fc39981176d4e46069b78dfeebb",
+  "commits": [
+    "2246b9462d41b2573d20befc540eac15d58c4b98",
+    "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+    "ed08e3d",
+    "1d6b64d",
+    "5e6355a"
+  ],
+  "reserved_files_unmodified": [
+    "messages",
+    "history",
+    "types",
+    "account",
+    "groups",
+    "view_once*"
+  ],
+  "frozen_self_sync_proposal": {
+    "path": ".morse/decoded-body-labels/self-sync-proposal/self-sync-proposal.patch",
+    "sha256": "baffba521d58108095f94435fa9d45a979701590de9936b560c4628c76ed0f4c",
+    "verdict": "REQUEST_CHANGES: trusted local account key and existing/restored sibling session provenance prerequisite; parent owns separate authfix; no releases approved"
+  },
+  "parent_thread": "4af08279-201d-4732-8ff7-b8efc98f1df5",
+  "waiting": [
+    "Exact parent composed reviewed auth+VO prerequisite and reserved consumer ownership handoff",
+    "Parent review of held self-sync/invitation/gossip/Inbox policy proposals",
+    "Current-source parser and full Main/receive/history qualification after all caller closure",
+    "Fresh independent final combined candidate review"
+  ],
+  "children": {
+    "inbox_r2_baseline": "node:delegated-task:command%3Amcp%3A582c67b5-cbaa-4a25-a951-9ac92ed3989c%3Adelegate-task%3Ainbox-r2-parent-baseline-controls-20261106"
+  },
+  "qualified_evidence": [
+    "mesh-private-messenger/ops/plaintext/evidence/20261106/direct-decoded-codec.json",
+    "mesh-private-messenger/ops/plaintext/evidence/20261106/direct-security-traces.json",
+    "mesh-private-messenger/ops/plaintext/evidence/20261106/invitation-authority-counterexample.json",
+    "mesh-private-messenger/ops/plaintext/evidence/20261106/invitation-seal-effects.json"
+  ],
+  "limits": [
+    "Full Main/receive/history not qualified",
+    "Current Sessions typedparser still needs coherent current-source runtime/privacy proof",
+    "No inventory regeneration/push/adoption/native/runtime edits",
+    "Raw decrypt/unsealed-wire remain separate",
+    "Fresh independent final combined candidate review remains required"
+  ],
+  "proof_checkpoint": "dd1b11a",
+  "sync_proof": {
+    "baseline_checks_passed": 2,
+    "current_cases_blocked": 9,
+    "report": "mesh-private-messenger/ops/plaintext/evidence/20261106/decoded-sync-parser.json"
+  },
+  "invitation_proposal": {
+    "path": ".morse/decoded-body-labels/invitation-design-r2/invitation-private-boundary.patch",
+    "sha256": "162b6c73cd9bc41f838f90a505aafef2b0f4fa53ab7d086d958ff7535727260e",
+    "status": "UNAPPROVED_UNAPPLIED_UNCOMPILED"
+  },
+  "inbox_proposal": {
+    "path": ".morse/decoded-body-labels/inbox-disposition-proposal/inbox-disposition.patch",
+    "sha256": "3be7359980ac07e479cde48fe2d6bdc0948d01db19c7213e4f6e1fcbe2996f97",
+    "status": "UNAPPROVED_UNAPPLIED_UNCOMPILED"
+  },
+  "worktree_clean": true,
+  "inbox_r2": {
+    "base": "0d6826b5d02e3439d93568ecc1d6fa996135a505",
+    "patch": ".morse/decoded-body-labels/inbox-disposition-r2/proposal/inbox-disposition-r2.patch",
+    "sha256": "5dce1ed51849a85edadaec7c33c0a0c56126474f8f030f1dd8d41453ce74e1da",
+    "status": "UNAPPROVED_UNAPPLIED_UNCOMPILED",
+    "proposal_manifest_sha256": "036b1e7b274422d6d01c875a42603de9c12b5afd9f925d393a3f3a6699b27203",
+    "proof_task": "node:delegated-task:command%3Amcp%3A582c67b5-cbaa-4a25-a951-9ac92ed3989c%3Adelegate-task%3Ainbox-r2-parent-baseline-controls-20261106",
+    "baseline_proof": {
+      "status": "COMPLETED_BOUNDED_BASELINE_ONLY",
+      "report": ".morse/decoded-body-labels/inbox-disposition-r2/proof/report.md",
+      "report_sha256": "3c4108470bd8fd38864435d4ce8def729644a7ad5680a017bdbbb58aa016e30b",
+      "verification_receipt": ".morse/decoded-body-labels/inbox-disposition-r2/proof-receipt.json",
+      "compile_only_pairs": 5,
+      "runtime_baseline": {
+        "inbox_poison": "BLOCKED_COMPILE: two println E0093, zero cases run",
+        "header_receive": "3 PASS, 1 FAIL: same delivery assertion in both harnesses; root cause not localized"
+      },
+      "candidate_comparisons": "UNRUN"
+    },
+    "proof_task_status": "completed"
+  },
+  "invitation_B2": "Parent exact pre-ownership membership/state compatibility design accepted only; candidate remainsheld awaitingfinalauth/VO/caller/runtimegates; frozenpatch unchanged"
+}

@@ -1,0 +1,146 @@
+[
+  {
+    "test": "inbox_poison",
+    "stage": "snapshot",
+    "exit_code": 1,
+    "status": "BLOCKED_COMPILE",
+    "executed_test_cases": 0,
+    "runtime_passes": 0,
+    "runtime_failures": 0,
+    "diagnostic_codes": {
+      "E0093": 2
+    },
+    "stdout_sha256": "dc14e473d2f094da508beb854fe022f4d792142df2be7fb426c71614a1c227ba",
+    "stderr_sha256": "b0138d4fa9c76ed1b5ce41d6033aa1bb7d541585dfd613e483833c07bfdb0727",
+    "command": {
+      "argv": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "test",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/inbox_poison.test.mpl"
+      ],
+      "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc test /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/inbox_poison.test.mpl",
+      "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core",
+      "environment_overrides": {
+        "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-inbox_poison/",
+        "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+        "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+        "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-inbox_poison/clang-cache",
+        "NO_COLOR": "1"
+      },
+      "timeout_seconds": 240,
+      "start_unix": 1794017468.490742,
+      "exit_code": 1,
+      "elapsed_seconds": 46.76112484931946
+    }
+  },
+  {
+    "test": "header_receive",
+    "stage": "snapshot",
+    "exit_code": 1,
+    "status": "FAIL_RUNTIME",
+    "executed_test_cases": 4,
+    "runtime_passes": 3,
+    "runtime_failures": 1,
+    "diagnostic_codes": {},
+    "stdout_sha256": "5e3e222ced880a2a10a46ddc29fe27b9dc335fb89d8ecaf83df6eba25423aaf4",
+    "stderr_sha256": "64491ada078b6dcc49886ace49ba893046abf4b392f7e8e6d49cbf06fa9be6d2",
+    "command": {
+      "argv": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "test",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/header_receive.test.mpl"
+      ],
+      "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc test /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core/tests/header_receive.test.mpl",
+      "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/mobile-core",
+      "environment_overrides": {
+        "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-header_receive/",
+        "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+        "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+        "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-snapshot-header_receive/clang-cache",
+        "NO_COLOR": "1"
+      },
+      "timeout_seconds": 240,
+      "start_unix": 1794017468.490774,
+      "exit_code": 1,
+      "elapsed_seconds": 66.83253622055054
+    }
+  },
+  {
+    "test": "inbox_poison",
+    "stage": "focused",
+    "exit_code": 1,
+    "status": "BLOCKED_COMPILE",
+    "executed_test_cases": 0,
+    "runtime_passes": 0,
+    "runtime_failures": 0,
+    "diagnostic_codes": {
+      "E0093": 2
+    },
+    "stdout_sha256": "a8db724102383912b9fc6781724db1d034fd527644606364829ea85758f07852",
+    "stderr_sha256": "b1d952b91716c04bc39a49578cfecf4e23ff7220b0401aee2b7c8e6a43fcef29",
+    "command": {
+      "argv": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "test",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests/tests/inbox_poison.test.mpl"
+      ],
+      "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc test /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests/tests/inbox_poison.test.mpl",
+      "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests",
+      "environment_overrides": {
+        "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-focused-inbox_poison/",
+        "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+        "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+        "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-focused-inbox_poison/clang-cache",
+        "NO_COLOR": "1"
+      },
+      "timeout_seconds": 240,
+      "start_unix": 1794017625.0597591,
+      "exit_code": 1,
+      "elapsed_seconds": 57.51625871658325
+    }
+  },
+  {
+    "test": "header_receive",
+    "stage": "focused",
+    "exit_code": 1,
+    "status": "FAIL_RUNTIME",
+    "executed_test_cases": 4,
+    "runtime_passes": 3,
+    "runtime_failures": 1,
+    "diagnostic_codes": {},
+    "stdout_sha256": "724a964dbd9212499bf4d091141de2531e18911bc5d3e67d207dba51f7cc0cce",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "command": {
+      "argv": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "test",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests/tests/header_receive.test.mpl"
+      ],
+      "shell_display": "/usr/bin/sandbox-exec -f /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/offline.sb /Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc test /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests/tests/header_receive.test.mpl",
+      "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/focused-tests",
+      "environment_overrides": {
+        "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-focused-header_receive/",
+        "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+        "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+        "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/tmp/test-focused-header_receive/clang-cache",
+        "NO_COLOR": "1"
+      },
+      "timeout_seconds": 240,
+      "start_unix": 1794017625.0596979,
+      "exit_code": 1,
+      "elapsed_seconds": 74.37765407562256
+    }
+  }
+]

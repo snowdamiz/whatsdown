@@ -1,0 +1,14 @@
+{
+  "recorded_at": "2026-11-07T02:16:28.558481+00:00",
+  "observed_available_disk": "7.5GiB",
+  "future_compiler_concurrency": 1,
+  "already_started_bounded_jobs": "finish and preserve evidence",
+  "new_broad_builds_or_tool_families": "held",
+  "optional_extra_controls": "defer if they expand scope",
+  "unrelated_artifact_deletion": "not authorized",
+  "r2_proposal": "frozen pending auth composition",
+  "child_notification": {
+    "client_request_id": "inbox-r2-resource-single-compiler-20261106",
+    "delivery": "steered"
+  }
+}

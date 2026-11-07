@@ -1,0 +1,13 @@
+[package]
+name = "messenger-mobile-core"
+version = "0.1.0"
+description = "Mobile embedding boundary for the Morse protocol core"
+license = "MIT"
+
+[dependencies]
+mesh-binary = { path = "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-lang/packages/mesh-binary" }
+mesh-solana = { path = "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-lang/packages/mesh-solana" }
+messenger-protocol = { path = "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/inbox-disposition-r2/proof/snapshot/mesh-private-messenger/packages/messenger-protocol" }
+
+[build]
+entrypoint = "main.mpl"

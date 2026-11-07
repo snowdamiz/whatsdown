@@ -1,0 +1,69 @@
+{
+  "status": "PREPARED_NOT_COMPILED_NOT_EXECUTED",
+  "purpose": "Additional exact public API nested/caller-PC/metadata probes for final composition; baseline child has separate simple probes. Missing/type/unrelated dependency errors must be BLOCKED, not refusal success.",
+  "execution": "never execute generated programs; compile only",
+  "expected": {
+    "predicate-nested-private.mpl": {
+      "negative_code": "E0093",
+      "source_locations": {
+        "nested_result": "Http.body_bytes",
+        "nested_box": "Http.body_bytes",
+        "nested_list": "Http.body_bytes",
+        "selected_error": "Http.body_bytes",
+        "unfinished_branch": "Http.body_bytes"
+      },
+      "effect_subject": "Http.body_bytes",
+      "positive": "predicate-nested-public.mpl",
+      "changes": [
+        [
+          "Plaintext<Result<String, String>>",
+          "Result<String, String>"
+        ],
+        [
+          "Plaintext<String>",
+          "String"
+        ],
+        [
+          "Plaintext<Bool>",
+          "Bool"
+        ]
+      ]
+    },
+    "batch-metadata-private.mpl": {
+      "negative_code": "E0093",
+      "source_locations": {
+        "prior_private_return": "process_delivery_batch(request)",
+        "private_whole_request": "process_delivery_batch(request)",
+        "private_sequence": "process_delivery_batch(MobileBatchRequest",
+        "private_envelope_id": "process_delivery_batch(MobileBatchRequest"
+      },
+      "effect_subject": "Actual process_delivery_batch summarized storage/Host/time/native effects at the named public call; retain complete diagnostics and verify matched public control.",
+      "positive": "batch-metadata-public.mpl",
+      "changes": [
+        [
+          "Plaintext<MobileBatchRequest>",
+          "MobileBatchRequest"
+        ],
+        [
+          "Plaintext<Bool>",
+          "Bool"
+        ],
+        [
+          "Plaintext<U64>",
+          "U64"
+        ],
+        [
+          "Plaintext<Bytes>",
+          "Bytes"
+        ]
+      ]
+    }
+  },
+  "positive_mutation": "Remove only the exact Plaintext<...> annotations in each companion file; preserve every API call, branch, constructor and sink. This is a public-input control, not semantic label removal from production.",
+  "sha256": {
+    "predicate-nested-public.mpl": "0ab9d1461aa302f57135c5aad8ae3a669f6a6381f25ae58de7a1c7b3b3ebae21",
+    "predicate-nested-private.mpl": "7bd6afbb4afad24fdf36fa71bfa5efea26e2edee15121895931df87aa1fbc755",
+    "batch-metadata-private.mpl": "700b3a29dbe05a1fa770450dc4f7bc1b7b9318636105ecb2d5d09b450c030851",
+    "batch-metadata-public.mpl": "3404beb1508a191062ad94c5d3134c16824531ecfe6d64f5c8f5a71e74bdccc0"
+  }
+}

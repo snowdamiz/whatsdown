@@ -1,0 +1,18 @@
+--- a/mesh-private-messenger/packages/mobile-core/mobile/inbox.mpl
++++ b/mesh-private-messenger/packages/mobile-core/mobile/inbox.mpl
+@@ -170,7 +170,14 @@
+   else
+     pass.highest
+   end
+-  let decision = acknowledge_delivery(database_path, profile, outer, encoded)
++  let observed = acknowledge_delivery(database_path, profile, outer, encoded)
++  let disposition = case observed do
++    1 -> 1
++    2 -> 2
++    _ -> 0
++  end
++  let decision = declassify(disposition,
++    "private local mailbox settlement releases only the existing routing and receive disposition, including decoded-content local-state and unauthenticated rejection: applied permanent rejection or unknown kind permits ACK; only direct unfinished selection defers without changing attempts or evaluating age-out on this pass; other routing direct and group outcomes follow existing retry and wall-clock aging; bodies exact errors and unrelated caller control remain private")
+   if decision == 2 do
+     Ok(InboxPass {
+       envelope_ids: pass.envelope_ids,
