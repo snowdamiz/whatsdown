@@ -1,0 +1,66 @@
+{
+  "status": "DESIGN_VERIFIED_IMPLEMENTATION_OPEN",
+  "verified_at_utc": "2026-11-07T01:31:16.100296+00:00",
+  "parent_base": "2b13a8939c5a6fe8bd33349b0938bc84f65c0d5a",
+  "scope": "Parent read-only source and retained hash verification; no builds or runtime tests in this audit.",
+  "design": {
+    "entry": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/HANDOFF.md",
+    "manifest_sha256": "415297fc660a53ccccc94b08551a60c70a52c5dcd07c77bc20e7ed9c108515f3",
+    "verified_artifacts": 50,
+    "reviews": {
+      "review/final-contract-review-r2.md": "6e10966876d85a6d0bf8ada3fd6945f4d9550ba5d756708b6425021bdf156f55",
+      "review/n1-final-review-r3.md": "fad2890e11f12ed9c891d95a1f0a109918e8bc0947e408b1a25a216e2eacd378"
+    },
+    "disposition": "R2 and R3 PASS_WITH_GATES, design only; N1a implementation released under the reviewed close protocol.",
+    "close_protocol_sha256": "0587213fd30190ef297a52354ceac952a89ecb195f95ee48479d4cba8440a3db"
+  },
+  "n1a": {
+    "baseline_receipt": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/baseline-r4/receipt.json",
+    "receipt_sha256": "ce19026a4d865b19ead466bcef18e7de0a8b8a232d09c4dc072d5b46020fe538",
+    "retained_sources_verified": 7,
+    "retained_logs_verified": 16,
+    "expected_failures": 10,
+    "unchanged_owner_control": "PASS",
+    "existing_process_owner_controls": "2/2 PASS",
+    "status": "IMPLEMENTATION_ACTIVE_NO_GREEN_CLAIM",
+    "observations": [
+      "After native owner loss, baseline generated code can still commit/send.",
+      "Explicit close releases the flock while admitted commit work remains in flight."
+    ],
+    "requirements": [
+      "Retire and set logical-closed before the mutex.",
+      "Observed false latches loss without releasing the flock.",
+      "Retained acquisition-time control block disposes exact descriptors once, after post-retire local settlement and independent native fences.",
+      "Do not join HTTP or infer permission from zero inflight."
+    ]
+  },
+  "owned_invocation_api": {
+    "runtime_base": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "proposal_sha256": "63d2ee42500c6916966e240aee01ac25d24089e2fa4c1b3bf108878e4355c708",
+    "review": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/REVIEW.md",
+    "review_sha256": "fa4418a92da00c791232f66fd90b249a22a7f7375c63728ba6d9dab4d17c974f",
+    "verified_inputs": 17,
+    "disposition": "REQUEST_CHANGES",
+    "public_api_edits": "HOLD",
+    "nonpublic_prototype": "ACTIVE",
+    "blockers": [
+      "B1 P1: final Host-release executor and shutdown/HTTP-worker quiescence.",
+      "B2 P2: complete submit/take/cancel/release states, fixed statuses, and output ownership."
+    ],
+    "implementation_gates": "G1-G8 remain unexecuted by the API reviewer; source-derived service and platform gaps remain open."
+  },
+  "capabilities": {
+    "advertised_runtime_mask": 1,
+    "protected_app_activation": false,
+    "native_serializer_removal": false
+  },
+  "limits": [
+    "No native product, Keychain, SDK/publication, service, scheduling or complete-effect qualification added.",
+    "Expected baseline failures establish the correction target, not implementation correctness.",
+    "All eight production acceptance checks remain pending."
+  ],
+  "audit_script": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/progress-parent/verify.py",
+    "sha256": "502aa0c010bd891a4341844f3d09c680d1469498461c74d86a915bcfa247fe51"
+  }
+}
