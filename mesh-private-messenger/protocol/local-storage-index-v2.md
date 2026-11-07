@@ -17,6 +17,15 @@ key_check = index_tag(key, UTF8("morse/local-blob-index-key/v2"), database_id)
 without row IDs. There is no clear `updated_at` column. Known labels cannot be
 looked up using an unkeyed label hash alone.
 
+The public `mesh_messenger_store_envelope` boundary maps its caller-supplied
+key bytes to `envelope/v1/` followed by lowercase hexadecimal before deriving
+the keyed index. Internal account, session and view-once labels therefore
+cannot be selected through that API. Repeating the same caller key updates the
+same envelope row; binary keys remain valid. The returned 64-byte index is
+opaque and differs from the former unscoped address. Existing rows are neither
+moved nor removed by this change. In particular, this separation does not
+establish completeness of legacy view-once records stored under unknown labels.
+
 Opening a legacy database authenticates its sealed profile anchor, or its
 pending-link anchor when no profile exists, before binding the new index. An
 atomic transaction transforms every existing label digest, preserves encrypted

@@ -444,7 +444,8 @@ pub fn store_envelope(request :: MobileStoreRequest) -> Bytes!String do
     case Sqlite.open(request.database_path) do
       Err(_) -> Err("database_open_failed")
       Ok(database) -> do
-        let result = case blob_record_key(database, request.record_key) do
+        let key = Bytes.from_utf8("envelope/v1/" <> Bytes.to_hex(request.record_key))
+        let result = case blob_record_key(database, key) do
           Err(error)
           Ok(record_hash) -> case Sqlite.execute_values(database,
             "INSERT INTO encrypted_blobs (record_hash, ciphertext) VALUES (?, ?) ON CONFLICT(record_hash) DO UPDATE SET ciphertext = excluded.ciphertext",
