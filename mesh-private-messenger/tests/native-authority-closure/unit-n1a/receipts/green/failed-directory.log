@@ -1,0 +1,2 @@
+{"event": "failed-acquire-disposed", "closes": 1, "node_releases": 1}
+{"event": "PASS", "case": "failed-directory"}

@@ -32,6 +32,8 @@ fn main() {
         for name in ["Policy", "PolicyPorts", "ProcessOwner", "PolicyBridge", "Protection", "ProtectionBridge", "LegacyStorage", "PrivatePreview", "NativeFilePanels", "FilePanelBridge", "AvatarCodec", "NativeNoticeReceipt", "NativeNotifications", "NativeNotificationsBridge", "NativeNoticeBroker", "NativeNoticeBrokerBridge", "NativeNoticeIntents", "IncomingFiles", "PrivateJob", "Wallet"] {
             println!("cargo:rerun-if-changed={native}/{name}.h");
         }
+        println!("cargo:rerun-if-changed={native}/ProcessOwnerRetirementLink.h");
+        println!("cargo:rerun-if-changed={native}/ProcessOwnerRetirementLink.inc");
         println!("cargo:rustc-link-lib=framework=LocalAuthentication");
         println!("cargo:rustc-link-lib=framework=WebKit");
         println!("cargo:rustc-link-lib=framework=UniformTypeIdentifiers");

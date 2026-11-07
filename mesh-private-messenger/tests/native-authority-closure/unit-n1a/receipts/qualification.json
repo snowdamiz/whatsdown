@@ -1,0 +1,39 @@
+{
+  "baseline_commit": "e036a6240be799e172dfea53faf80581c91ed996",
+  "runtime_commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+  "runtime_tree": "a3c10a88754d427653263dd9d1603559168549d1",
+  "runs": {
+    "baseline": {
+      "artifact_directory": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/baseline-r4",
+      "receipt": "baseline/receipt.json",
+      "receipt_sha256": "ce19026a4d865b19ead466bcef18e7de0a8b8a232d09c4dc072d5b46020fe538",
+      "result": "EXPECTED_RED"
+    },
+    "green": {
+      "artifact_directory": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11",
+      "receipt": "green/receipt.json",
+      "receipt_sha256": "4c716e9b01750b056d10b70722c0941ce1a72607b075240af6341276b48ad4dd",
+      "result": "PASS"
+    }
+  },
+  "baseline_expected_failures": 10,
+  "green_cases": 25,
+  "unchanged_process_owner_controls": 2,
+  "final_latch_negative_controls": 2,
+  "v1_linkage_red_sha256": "654526eefdb6d6337c34e20d05039c466095e61ab05263fe5d91800d223a759e",
+  "additional_build_metadata": {
+    "path": "mesh-private-messenger/apps/desktop/src-tauri/build.rs",
+    "sha256": "cccca859f36314d15be386ba879f400f7f5271cff08192b6024c3b5ae4f408dd",
+    "change": "Only two authorized cargo:rerun-if-changed entries; native sources match green-r11."
+  },
+  "not_run": [
+    "Keychain",
+    "product UI/macOS integration",
+    "iOS/Android/framework ownership",
+    "native SDK",
+    "scheduler/fresh-owner progress",
+    "final publication",
+    "protected app activation",
+    "remaining closure units"
+  ]
+}

@@ -1,0 +1,599 @@
+{
+  "phase": "green",
+  "baseline": "e036a6240be799e172dfea53faf80581c91ed996",
+  "runs": [
+    {
+      "name": "driver-compile",
+      "command": [
+        "xcrun",
+        "clang",
+        "-fobjc-arc",
+        "-fblocks",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-parameter",
+        "-dynamiclib",
+        "-framework",
+        "Foundation",
+        "-I",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native",
+        "-I",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.m",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_owner_barrier.m",
+        "-L",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000",
+        "-lauthority",
+        "-Wl,-rpath,/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "clang-version",
+      "command": [
+        "xcrun",
+        "clang",
+        "--version"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "b8a2569d699eec50baaf1719096d0801d16fb28fbcb2df7ffd0a07cd26d9fd47"
+    },
+    {
+      "name": "os-version",
+      "command": [
+        "sw_vers"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "4ef10a0fc370704ea84699cf3851e51488598c5f1ab35cb572eb6b96278a8e5c"
+    },
+    {
+      "name": "control",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "control"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "cdf7953d2e987d9b9db7286f3aa04f52cfe7484557193525562001b0d45783fe"
+    },
+    {
+      "name": "lock-current",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "lock-current"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "6d3aa99ce4ce825618eb4e7ba787f0dc3a833370d10c4c8c66efa6f38f609568"
+    },
+    {
+      "name": "directory-current",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "directory-current"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "f91eff1392f076f58e37e743d28aa82dcb16264f40ba34eea25a5edda57484d6"
+    },
+    {
+      "name": "lock-duplicate",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "lock-duplicate"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "35721ecd19607666fb5f88ba7cef22c09a6bbc78f8330f488dba920da8bb0947"
+    },
+    {
+      "name": "directory-duplicate",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "directory-duplicate"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "29f6463e16e5638b20affe4082850ea1c31f7f36a9014f92a21a7976413994b5"
+    },
+    {
+      "name": "lock-restore",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "lock-restore"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "fa6510cbed2d97f5e5a357f3c2790641cef697900f2d4fb56226e5439c175ef5"
+    },
+    {
+      "name": "directory-restore",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "directory-restore"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e5d9c2dd15a9a9b3521a9e020b24748ee3db32becf2c72f0d88a839d35287399"
+    },
+    {
+      "name": "lock-send",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "lock-send"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "d3dced95cf9313a67a49598f43f8b60beb56998efee4e4ca60155e0113a42f88"
+    },
+    {
+      "name": "directory-send",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "directory-send"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "90c09f4333c4f9dcdfb82efe21177a8703b0f3188d087f60fc96630a0edfe4e9"
+    },
+    {
+      "name": "http-close",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "http-close"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "f2139894c965a6952aae073ead27edbfbed1cb81ffe6c7655c5041894b16f3a4"
+    },
+    {
+      "name": "accepted-commit",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/native-owner.dylib",
+        "accepted-commit"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "b5704503cf86fb8110619332d028cb0277eca7c5e3475eb414bbeda979036640"
+    },
+    {
+      "name": "instrumented-owner-owner-compile",
+      "command": [
+        "xcrun",
+        "clang",
+        "-fobjc-arc",
+        "-fblocks",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native",
+        "-include",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.h",
+        "-c",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.m",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.o"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "instrumented-owner-link",
+      "command": [
+        "xcrun",
+        "clang",
+        "-fobjc-arc",
+        "-fblocks",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-parameter",
+        "-dynamiclib",
+        "-framework",
+        "Foundation",
+        "-I",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native",
+        "-I",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_owner_barrier.m",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.c",
+        "-L",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000",
+        "-lauthority",
+        "-Wl,-rpath,/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "fd-accepted-commit",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "accepted-commit",
+        "--observe-disposal"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "77a8a27aaeb256d1765b7d49f5e68cf63b30c30a92b6bdfd062e505ecea7c360"
+    },
+    {
+      "name": "fd-http-close",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "http-close",
+        "--observe-disposal"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "43b7fbb8d20c280e0d257e0ea8e78069b0910dad6146edb474ecaeec0e441fc1"
+    },
+    {
+      "name": "stat-current",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "stat-current"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "b46b250dd8813f32b22a8e28a4faefb5a7efad5f8d4958bf311cb0f3357e57ec"
+    },
+    {
+      "name": "stat-postdup",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "stat-postdup"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "7ee15f23f669f37257373d26f0a469186a2870566648551d73b095e6798e4fb8"
+    },
+    {
+      "name": "accepted-store",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "accepted-store"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "45257aecbc65027651a34a298051ef3999380ca607bc6e929ca5092f7fca7434"
+    },
+    {
+      "name": "accepted-store-drop",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "accepted-store-drop"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "ea35ee6c5a378a630ca1ea4f7c3c69586c9e046ca45c952eaca25b44ec6ef131"
+    },
+    {
+      "name": "accepted-store-detached",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "accepted-store-detached"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "436486efd57acbe14fb8ef59ce6e9b51b6fa85cb4b4112d16ef31646b3aae525"
+    },
+    {
+      "name": "close-before-store",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "close-before-store"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "1461bc0b9260edb34e56c832257927f347f811fb9b0523ab22daef38f24fbc37"
+    },
+    {
+      "name": "store-control",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "store-control"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "98d6377ce14912040c5812a5cdaa0b5f7eb08d3de9e5fcabdba599aefd30bc30"
+    },
+    {
+      "name": "zero-close-reuse",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "zero-close-reuse"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "431fbece99f603644391330778b06869bcbe2e38d95de5ed51f449532564f5b0"
+    },
+    {
+      "name": "rebind",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "rebind"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "25f077f26c5ca3a28decfff9cc17c6627600108dda4fe241578e49af3e5986ec"
+    },
+    {
+      "name": "failed-directory",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "failed-directory"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "d79e3d93e5f25f4135f7bc30ea0ffedb7807031eb67fbd699f4800d0445bf580"
+    },
+    {
+      "name": "failed-lock",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "failed-lock"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "abc2dfa175831943a0cf9511e888cbdf06625a2b0e1606cdd7e22367332d7abc"
+    },
+    {
+      "name": "successor",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/instrumented-owner.dylib",
+        "successor"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "3348c025d8fa74f877d8101656f87e52803c77d642edd05371b8fff19091f659"
+    },
+    {
+      "name": "no-final-latch-owner-compile",
+      "command": [
+        "xcrun",
+        "clang",
+        "-fobjc-arc",
+        "-fblocks",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native",
+        "-include",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.h",
+        "-c",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/ProcessOwner-no-final-latch.m",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/no-final-latch.o"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "no-final-latch-link",
+      "command": [
+        "xcrun",
+        "clang",
+        "-fobjc-arc",
+        "-fblocks",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-parameter",
+        "-dynamiclib",
+        "-framework",
+        "Foundation",
+        "-I",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native",
+        "-I",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/no-final-latch.o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_owner_barrier.m",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.c",
+        "-L",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000",
+        "-lauthority",
+        "-Wl,-rpath,/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/no-final-latch.dylib"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "red-stat-current",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/no-final-latch.dylib",
+        "stat-current"
+      ],
+      "exit": 1,
+      "expected": 1,
+      "log_sha256": "b9e19719593327d325498bc1dd705b215e5753415f7c0f8dc0118125b0776742"
+    },
+    {
+      "name": "red-stat-postdup",
+      "command": [
+        "python3",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.dylib",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/no-final-latch.dylib",
+        "stat-postdup"
+      ],
+      "exit": 1,
+      "expected": 1,
+      "log_sha256": "b9e19719593327d325498bc1dd705b215e5753415f7c0f8dc0118125b0776742"
+    },
+    {
+      "name": "existing-controls-compile",
+      "command": [
+        "xcrun",
+        "clang",
+        "-fobjc-arc",
+        "-fblocks",
+        "-framework",
+        "Foundation",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.m",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/tests/process_owner_closure.m",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/process-owner-closure"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "existing-controls",
+      "command": [
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/green-r11/process-owner-closure"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "b31cd7929ce6a20c3000ce800dc6780db62952e95590e6e3e3913e7b3dd4e64f"
+    }
+  ],
+  "head": "e036a6240be799e172dfea53faf80581c91ed996",
+  "retained_family_sha256": "652b8475fec8e4391c7f178b26923661e109c18b73c0008d4b84718e03cbbb59",
+  "retained_files_verified": 44,
+  "runtime_sources_verified": 19,
+  "runtime_source_pin": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+  "live_runtime_source_drift_not_used": {
+    "compiler/mesh-rt/src/actor/process.rs": "1d50682a479bf908a08a619ddab83d504f84f39e6173a904658b0ae3761d1fea",
+    "compiler/mesh-rt/src/actor/scheduler.rs": "8cfa8e658da14cf7e13edc87088f96c4e05b617367d77be11abd349767b3676d",
+    "compiler/mesh-rt/src/actor/stack.rs": "b4d2eb495f50301918683507fc4a3ab83ed1083cce4669ee87ce15a1f1265cc1",
+    "compiler/mesh-rt/src/authority.rs": "b8b84155b76790e347def482c7d18cda3fee71d565bf3331c0f6c16e82c769c3",
+    "compiler/mesh-rt/src/dist/node.rs": "78531a7f1732de804f19cfac376eeef34d825de5377517af8cfc2eeae6a56814",
+    "compiler/mesh-rt/src/http/client.rs": "4c647dc8e9af50b0cd184bb4fe529c7bbac61d63da1c60436a734d6d214a0175",
+    "compiler/mesh-rt/src/library.rs": "2b96e0f43eda6bcc6d45974f5e7965241bb81d6dffa3a47e3223f62f362f6607",
+    "compiler/mesh-rt/src/storage_wrapping.rs": "3c775013bc2d9e509d352c30f75fb82d18edb29d791e4bf813e9f13085e371ff"
+  },
+  "runtime_source_manifest_sha256": "6fee3604df1d2d6e7825fbb62caa8d76c9eb242371b87ee9030d792b5852bda7",
+  "library_sha256": "1d5af0920725bc0449977060a270393192193b09ce896f96049ce3226299bf5d",
+  "authority_header_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+  "free_kib_before": 33511296,
+  "scope": "actual macOS ProcessOwner; synthetic in-memory anchor; bounded generated synchronous runtime; owned loopback only",
+  "not_run": [
+    "Keychain",
+    "product UI/macOS integration",
+    "iOS/Android/framework ownership",
+    "native SDK",
+    "scheduler/fresh-owner progress",
+    "final publication",
+    "protected app activation",
+    "remaining closure units"
+  ],
+  "sources": {
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.m": "fb9b8e611ba0319eea34a3229b97ab516a35b57afe15bfb1b6a181710ab62e60",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_owner_barrier.m": "2dc408afc654c74f5b4c250e7bd7d45b4bcc3955847b89ceaf4a070506f9e49b",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwnerRetirementLink.h": "fd35804933504ca276fb5cd7f51847fffbff78b6fa96a302b16610d49b053bf2",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwnerRetirementLink.inc": "e93d0233af5b1821a6cb19143ea5b1dc29c9ad4a700f0e573c664c51d9db5c17",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.c": "da8e82cb52abb8b3fafdedd9193dee6d0a163c20be7172ba8d418a681279473f",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.h": "c2c67c8779807233a7404d9bb147c78f61f2f600e34af91f2974758fbca3095c",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py": "5b61352ea2de3d131b58ae175a16e87e34c29fb58e07231f63dc522ceb3c4842",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.h": "9012d566d7a073ee8c07123e0ef369f67a8527b6643821de5ab268f60b7fc01a",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/Policy.h": "7bdf4327d763de49f410fb08c36a3ecae1edd768168401e7021747310f5a2faa",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py": "f96653674b7ecded16d8c437b1a17d40994f6ea09958f9f66753040ac6a7cf4b",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/prove.py": "a4272ad22d3d82dfb98d92de36b532d5a29f4d508fd785b6c47e0197c2f75cde",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.h": "6533ccb4d57e0d89ecdc670a57001ad85ec188f744d3c3cf05baae3e739aeec6"
+  },
+  "driver_sha256": "ae4d2ae70b9f0a845ebd62d860e492e652ce58066b93d3379e533da2666ab243",
+  "clang_sha256": "fc5e3cbba6ad54059295cad716aacb05ace8235f5f7a6031f1d8c15d24bd6d66",
+  "instrumented-owner_sha256": "27206df75483eafbf1483401fc6cea474b1261ef0dc934c271d8dc0aa00c8546",
+  "no-final-latch_sha256": "ee20802cf0aa8a5786e5f7309131c38fe526285ee4608cb84156b215a64e4bf0",
+  "no_final_latch_source_sha256": "c3c7b3134dc489ed2d43aab40364fc5be0d72846a8bd83ed7a63638ce52351b8",
+  "existing_control_sha256": "fe137f8129ab0b18466735fbf0d09606b8bca53a9f37783180f2c6073bb424e8",
+  "free_kib_after": 32110968,
+  "result": "PASS"
+}

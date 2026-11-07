@@ -1,0 +1,10 @@
+{"event": "actual-admitted-commit-hook", "local_inflight": 1}
+{"event": "held-real-commit", "local_inflight": 1, "db_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79"}
+{"event": "original-node-bind-after-loss", "status": 0}
+{"event": "close-return-before-barrier-release", "held_flock": false, "local_inflight": 1}
+{"event": "sink-result", "rows": [["staged"]], "requests": [], "status": 0, "before_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79", "after_sha256": "c08ca431dd276fd0e4e3570de37735a3fbe1e8c667731d5df42bbdc1631e0b5e"}
+Traceback (most recent call last):
+  File "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py", line 214, in <module>
+    assert held_at_close, "close released OS exclusion before admitted commit settled"
+           ^^^^^^^^^^^^^
+AssertionError: close released OS exclusion before admitted commit settled

@@ -1,0 +1,13 @@
+Undefined symbols for architecture arm64:
+  "_mesh_authority_generation_release_v2", referenced from:
+      -[MDProcessOwnerRetirementLink initTakingGeneration:] in ProcessOwner-7878fe.o
+      -[MDProcessOwnerRetirementLink dealloc] in ProcessOwner-7878fe.o
+  "_mesh_authority_local_inflight_v2", referenced from:
+      -[MDProcessOwnerRetirementLink initTakingGeneration:] in ProcessOwner-7878fe.o
+      -[MDProcessOwnerRetirementLink localInflightAfterRetirement] in ProcessOwner-7878fe.o
+  "_mesh_authority_retire_v2", referenced from:
+      -[MDProcessOwnerRetirementLink initTakingGeneration:] in ProcessOwner-7878fe.o
+      -[MDProcessOwnerRetirementLink retireOriginal] in ProcessOwner-7878fe.o
+      -[MDProcessOwnerRetirementLink dealloc] in ProcessOwner-7878fe.o
+ld: symbol(s) not found for architecture arm64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)

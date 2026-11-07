@@ -1,0 +1,6 @@
+{"event": "original-descriptors", "directory": 3, "lock": 4}
+{"event": "close-returned-while-stat-held", "node_retired": true, "closed_fds": 0}
+{"event": "dispose-observation", "disposed": 1, "closes": 2, "total": 3}
+{"event": "stat-finished-refused", "observer": "postdup"}
+{"event": "ownership-complete", "node_releases": 1, "host_lifetime": [1, 1], "exact_original_closes": 2, "reused_descriptors_survive": true}
+{"event": "PASS", "case": "stat-postdup"}

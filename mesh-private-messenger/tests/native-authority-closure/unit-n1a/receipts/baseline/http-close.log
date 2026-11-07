@@ -1,0 +1,9 @@
+{"event": "held-real-http", "local_inflight": 0, "db_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79"}
+{"event": "original-node-bind-after-loss", "status": 0}
+{"event": "close-return-before-barrier-release", "held_flock": false, "local_inflight": 0}
+{"event": "sink-result", "rows": [["later"]], "requests": ["/hold"], "status": 0, "before_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79", "after_sha256": "38176d698676fdd3c156e65fb8478be624e377e7a1a192b4725ac73fcfdff4b6"}
+Traceback (most recent call last):
+  File "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py", line 218, in <module>
+    assert rows == [] and requests == ["/hold"] and results[0][0] == 10, \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: observed ProcessOwner loss did not retire the original runtime generation

@@ -1,0 +1,3 @@
+PASS lock replacement: live policy refuses; descriptor and flock do not pin namespace
+PASS directory replacement: live policy refuses; descriptor and flock do not pin namespace
+RESULT 2/2 process-owner capability limits demonstrated
