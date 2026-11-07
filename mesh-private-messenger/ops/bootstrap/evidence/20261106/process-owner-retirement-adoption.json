@@ -1,0 +1,157 @@
+{
+  "status": "ADOPTED_BOUNDED_SOURCE_NOT_ACTIVATED",
+  "source_commit": "73edf69d713e5bc853f59c1ef941b781afa8631f",
+  "parent_head": "16f10ad78bbe91b8636bef447dd721d5b48573f5",
+  "receipt": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/n1a-parent-green/receipt.json",
+  "receipt_sha256": "fc56f8166ff2582071d1b946ee1ac2d6bb0d10ea197dee154cf5249505985173",
+  "verified_sources": [
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.m",
+      "sha256": "fb9b8e611ba0319eea34a3229b97ab516a35b57afe15bfb1b6a181710ab62e60"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_owner_barrier.m",
+      "sha256": "2dc408afc654c74f5b4c250e7bd7d45b4bcc3955847b89ceaf4a070506f9e49b"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwnerRetirementLink.h",
+      "sha256": "fd35804933504ca276fb5cd7f51847fffbff78b6fa96a302b16610d49b053bf2"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwnerRetirementLink.inc",
+      "sha256": "e93d0233af5b1821a6cb19143ea5b1dc29c9ad4a700f0e573c664c51d9db5c17"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.c",
+      "sha256": "da8e82cb52abb8b3fafdedd9193dee6d0a163c20be7172ba8d418a681279473f"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.h",
+      "sha256": "c2c67c8779807233a7404d9bb147c78f61f2f600e34af91f2974758fbca3095c"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py",
+      "sha256": "5b61352ea2de3d131b58ae175a16e87e34c29fb58e07231f63dc522ceb3c4842"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.h",
+      "sha256": "9012d566d7a073ee8c07123e0ef369f67a8527b6643821de5ab268f60b7fc01a"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/Policy.h",
+      "sha256": "7bdf4327d763de49f410fb08c36a3ecae1edd768168401e7021747310f5a2faa"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py",
+      "sha256": "f96653674b7ecded16d8c437b1a17d40994f6ea09958f9f66753040ac6a7cf4b"
+    },
+    {
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/prove.py",
+      "sha256": "a4272ad22d3d82dfb98d92de36b532d5a29f4d508fd785b6c47e0197c2f75cde"
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-effect-authority/generated-abi-1794012766838904000/libauthority.h",
+      "sha256": "6533ccb4d57e0d89ecdc670a57001ad85ec188f744d3c3cf05baae3e739aeec6"
+    }
+  ],
+  "runtime_pin": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+  "runtime_source_files_verified": 19,
+  "retained_artifacts_verified": 44,
+  "runtime_library_sha256": "1d5af0920725bc0449977060a270393192193b09ce896f96049ce3226299bf5d",
+  "authority_header_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+  "runtime_cases": 25,
+  "existing_controls": 2,
+  "negative_controls": 2,
+  "not_run": [
+    "Keychain",
+    "product UI/macOS integration",
+    "iOS/Android/framework ownership",
+    "native SDK",
+    "scheduler/fresh-owner progress",
+    "final publication",
+    "protected app activation",
+    "remaining closure units"
+  ],
+  "adopted_commit": "caf670e802ad28051096bcf6259a0001a3f602ce",
+  "independent_review": {
+    "verdict": "PASS_BOUNDED_N1A",
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/artifacts/review-r1-report.md",
+    "sha256": "56562f64c03b469fde211c808a794810ccf6b41dcbe283d8f0b1d13a85fce2cb",
+    "fresh_review_evidence": [
+      "25 N1a cases + 2 existing controls + 2 expected negative controls",
+      "10 baseline semantic failures",
+      "actual runtime symbol family/linkage probe"
+    ]
+  },
+  "combined_source_matches": {
+    "mesh-private-messenger/apps/desktop/src-tauri/build.rs": "cccca859f36314d15be386ba879f400f7f5271cff08192b6024c3b5ae4f408dd",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.h": "9012d566d7a073ee8c07123e0ef369f67a8527b6643821de5ab268f60b7fc01a",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.m": "fb9b8e611ba0319eea34a3229b97ab516a35b57afe15bfb1b6a181710ab62e60",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwnerRetirementLink.h": "fd35804933504ca276fb5cd7f51847fffbff78b6fa96a302b16610d49b053bf2",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwnerRetirementLink.inc": "e93d0233af5b1821a6cb19143ea5b1dc29c9ad4a700f0e573c664c51d9db5c17",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/.gitignore": "553d888952a23e007d8de3f17e3a76af89c1cd62525beb7d8527ecb5b2bdc867",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/README.md": "d3c929054898bae5a81ab261256f6546bd0851dfe9d42ebdb9ed0a8672f1a8fc",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/check.py": "f96653674b7ecded16d8c437b1a17d40994f6ea09958f9f66753040ac6a7cf4b",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py": "5b61352ea2de3d131b58ae175a16e87e34c29fb58e07231f63dc522ceb3c4842",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.c": "da8e82cb52abb8b3fafdedd9193dee6d0a163c20be7172ba8d418a681279473f",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_interpose.h": "c2c67c8779807233a7404d9bb147c78f61f2f600e34af91f2974758fbca3095c",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/native_owner_barrier.m": "2dc408afc654c74f5b4c250e7bd7d45b4bcc3955847b89ceaf4a070506f9e49b",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/prove.py": "a4272ad22d3d82dfb98d92de36b532d5a29f4d508fd785b6c47e0197c2f75cde",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/accepted-commit.log": "24158733f802ab0278b48abab5f914f1875360c063e249d04b81ca125baad35c",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/clang-version.log": "b8a2569d699eec50baaf1719096d0801d16fb28fbcb2df7ffd0a07cd26d9fd47",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/control.log": "cdf7953d2e987d9b9db7286f3aa04f52cfe7484557193525562001b0d45783fe",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/directory-current.log": "5e41dcec0b6e2ed1cf34c4e1beb1c0d00462c19cb4ca91fadaaf6d3e6fb74d7c",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/directory-duplicate.log": "0122c40ecaf1fefbf7e539287ff41c9779f7b85be6aa18061a7abdfa27975a4e",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/directory-restore.log": "d79c3362602532fcfeafd476d8ef0e61e5ea169ea1cbeac533367c528b827542",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/directory-send.log": "f53f26cc89e31470b0a2f3ebf66475e461cdc6e2207f93d494e5e17040f4e726",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/driver-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/existing-controls-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/existing-controls.log": "b31cd7929ce6a20c3000ce800dc6780db62952e95590e6e3e3913e7b3dd4e64f",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/http-close.log": "c45a84d565700d757925ff4f8ceb15844c4761555d5cbea7d59bdacd35781af8",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/lock-current.log": "5e41dcec0b6e2ed1cf34c4e1beb1c0d00462c19cb4ca91fadaaf6d3e6fb74d7c",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/lock-duplicate.log": "0122c40ecaf1fefbf7e539287ff41c9779f7b85be6aa18061a7abdfa27975a4e",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/lock-restore.log": "d79c3362602532fcfeafd476d8ef0e61e5ea169ea1cbeac533367c528b827542",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/lock-send.log": "f53f26cc89e31470b0a2f3ebf66475e461cdc6e2207f93d494e5e17040f4e726",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/os-version.log": "4ef10a0fc370704ea84699cf3851e51488598c5f1ab35cb572eb6b96278a8e5c",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/baseline/receipt.json": "ce19026a4d865b19ead466bcef18e7de0a8b8a232d09c4dc072d5b46020fe538",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/accepted-commit.log": "b5704503cf86fb8110619332d028cb0277eca7c5e3475eb414bbeda979036640",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/accepted-store-detached.log": "436486efd57acbe14fb8ef59ce6e9b51b6fa85cb4b4112d16ef31646b3aae525",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/accepted-store-drop.log": "ea35ee6c5a378a630ca1ea4f7c3c69586c9e046ca45c952eaca25b44ec6ef131",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/accepted-store.log": "45257aecbc65027651a34a298051ef3999380ca607bc6e929ca5092f7fca7434",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/clang-version.log": "b8a2569d699eec50baaf1719096d0801d16fb28fbcb2df7ffd0a07cd26d9fd47",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/close-before-store.log": "1461bc0b9260edb34e56c832257927f347f811fb9b0523ab22daef38f24fbc37",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/control.log": "cdf7953d2e987d9b9db7286f3aa04f52cfe7484557193525562001b0d45783fe",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/directory-current.log": "f91eff1392f076f58e37e743d28aa82dcb16264f40ba34eea25a5edda57484d6",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/directory-duplicate.log": "29f6463e16e5638b20affe4082850ea1c31f7f36a9014f92a21a7976413994b5",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/directory-restore.log": "e5d9c2dd15a9a9b3521a9e020b24748ee3db32becf2c72f0d88a839d35287399",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/directory-send.log": "90c09f4333c4f9dcdfb82efe21177a8703b0f3188d087f60fc96630a0edfe4e9",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/driver-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/existing-controls-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/existing-controls.log": "b31cd7929ce6a20c3000ce800dc6780db62952e95590e6e3e3913e7b3dd4e64f",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/failed-directory.log": "d79e3d93e5f25f4135f7bc30ea0ffedb7807031eb67fbd699f4800d0445bf580",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/failed-lock.log": "abc2dfa175831943a0cf9511e888cbdf06625a2b0e1606cdd7e22367332d7abc",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/fd-accepted-commit.log": "77a8a27aaeb256d1765b7d49f5e68cf63b30c30a92b6bdfd062e505ecea7c360",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/fd-http-close.log": "43b7fbb8d20c280e0d257e0ea8e78069b0910dad6146edb474ecaeec0e441fc1",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/http-close.log": "f2139894c965a6952aae073ead27edbfbed1cb81ffe6c7655c5041894b16f3a4",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/instrumented-owner-link.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/instrumented-owner-owner-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/lock-current.log": "6d3aa99ce4ce825618eb4e7ba787f0dc3a833370d10c4c8c66efa6f38f609568",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/lock-duplicate.log": "35721ecd19607666fb5f88ba7cef22c09a6bbc78f8330f488dba920da8bb0947",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/lock-restore.log": "fa6510cbed2d97f5e5a357f3c2790641cef697900f2d4fb56226e5439c175ef5",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/lock-send.log": "d3dced95cf9313a67a49598f43f8b60beb56998efee4e4ca60155e0113a42f88",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/no-final-latch-link.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/no-final-latch-owner-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/os-version.log": "4ef10a0fc370704ea84699cf3851e51488598c5f1ab35cb572eb6b96278a8e5c",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/rebind.log": "25f077f26c5ca3a28decfff9cc17c6627600108dda4fe241578e49af3e5986ec",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/receipt.json": "4c716e9b01750b056d10b70722c0941ce1a72607b075240af6341276b48ad4dd",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/red-stat-current.log": "b9e19719593327d325498bc1dd705b215e5753415f7c0f8dc0118125b0776742",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/red-stat-postdup.log": "b9e19719593327d325498bc1dd705b215e5753415f7c0f8dc0118125b0776742",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/stat-current.log": "b46b250dd8813f32b22a8e28a4faefb5a7efad5f8d4958bf311cb0f3357e57ec",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/stat-postdup.log": "7ee15f23f669f37257373d26f0a469186a2870566648551d73b095e6798e4fb8",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/store-control.log": "98d6377ce14912040c5812a5cdaa0b5f7eb08d3de9e5fcabdba599aefd30bc30",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/successor.log": "3348c025d8fa74f877d8101656f87e52803c77d642edd05371b8fff19091f659",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/green/zero-close-reuse.log": "431fbece99f603644391330778b06869bcbe2e38d95de5ed51f449532564f5b0",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/qualification.json": "be18c44a8c8bc566d5230efd90ecc46aa1b5964e77eeafeef18ac2944914686a",
+    "mesh-private-messenger/tests/native-authority-closure/unit-n1a/receipts/v1-linkage-red.log": "654526eefdb6d6337c34e20d05039c466095e61ab05263fe5d91800d223a759e"
+  }
+}

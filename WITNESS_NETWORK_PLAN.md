@@ -147,6 +147,7 @@ passing local fixture does not close a native-device or production gate.
 | Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; prior 800 app checks remain recorded. Current TLS/body composition passes 126 native checks and the default Debug build. A certificate-signed actual-store probe still refuses with `-34018` | Matching macOS profile/entitlements and provisioned bundle, then unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
 | Native effects after suspension | Language checkpoint `9b844dba`, after test-only `8998522a`, is reviewed, clean and pushed. Parent verified all 19 source hashes and 44 retained artifacts and freshly replayed five generated-ABI controls. Final owner qualification passes 31 actual generated-ABI cases and default-parallel runtime/integrations 1669/0 with 20 ignored; R4/R5 accept the bounded source | Only synchronous-sink capability mask 1 is advertised. The app still uses its retained 8256 toolchain; no protected activation or serializer removal. Native policy, complete effects, SDK/IPC publication, service provenance and fresh-owner scheduling require separate implementation and qualification |
 | Native lifecycle prerequisite | Adopted `f814681`/`fccdcdd`: iOS Main-thread teardown retires its exact owner inline. Parent freshly rebuilt/replayed 71 existing Swift groups, three retirement groups and two real macOS process-owner controls; the always-deferred control fails both Main cases. A 57-row predicate matrix records the remaining gaps | Off-Main teardown, framework identity changes, actual SDK/IPC publication and external macOS named-path authority still require qualified integration. No protected runtime activation, serializer removal, UIKit/Expo or Android product claim |
+| Observed native owner loss | Adopted `caf670e`: the bound macOS ProcessOwner retires exact runtime authority before returning observed loss or close, retaining OS exclusion only through accepted local settlement. Independent review and parent replay pass 25 cases, two existing controls and two negative controls | Runtime loader provenance/lifetime, actual protected app integration, off-Main mobile teardown and framework writers remain open; no activation or capability expansion |
 | Public envelope storage | Adopted `25e31b3`: caller keys use a separate envelope namespace, so public writes cannot select native record labels. The actual facade regression fails before and passes after; two optimized cases pass, full Mesh lint is empty, and optimized Main preserves all 176 exports and 69 disclosure sites | Existing rows are not migrated or removed. This does not establish legacy view-once completeness; fresh-account epoch admission and authenticated migration remain separate |
 | Plaintext propagation | Presentation and outgoing body labels adopted through `4eaed22`; three raw storage/fanout-target/triple-payload parsers are private in the native facade at `b59eaf1`. Existing proofs cover seven content exits, eight import refusals and the unchanged 69-site gate | A new compile-only audit accepts five decoded direct/group/timed/history body HTTP sinks; an explicit-label control refuses all five. Shared semantic body labels and coordinated consumer closure are now assigned. Raw decrypt/unseal bytes, general decoding, mobile targets and release qualification remain open |
 | Bootstrap acceptance | Scoped native RPC TLS adopted through `748270a`; retained fresh compiled-Core fixture exits zero with 37 checks and `consistent`. Parent verified its source/artifact hashes; the combined product Main build passes with 69 sites, 176 exports and exact generated bindings | Full phone/UI and platform packaging, real production-clock next-due controls, broader bootstrap acceptance and all eight scheduled production checks remain open |
@@ -402,8 +403,18 @@ rehashed seven retained sources, 16 logs and the native driver/control artifacts
 this audit did not rerun the tests. R3 now releases the bounded implementation:
 retire and set logical-closed before taking the mutex, retain the flock on an
 observed false predicate, and dispose exact descriptors once only after the
-reviewed local-settlement and native-fence conditions. No green implementation
-or product claim is made.
+reviewed local-settlement and native-fence conditions. Implementation `73edf69`
+is now adopted as `caf670e` after independent implementation PASS and a fresh
+parent replay of all 25 cases, two unchanged controls and two expected-failure
+final-latch controls. Parent verified all source bytes against the adopted tree,
+19 runtime source hashes and 44 retained artifacts. The independent reviewer
+also reproduced all ten baseline failures and checked actual symbol linkage.
+The [adoption receipt](mesh-private-messenger/ops/bootstrap/evidence/20261106/process-owner-retirement-adoption.json)
+separates these executions. The native embedding must still establish coherent
+runtime image visibility, provenance and lifetime through the last cleanup;
+this wrapper does not pin the image. Product integration, off-Main mobile
+teardown, framework writers, SDK/publication, scheduling and activation remain
+unqualified. Existing app callers remain unbound and keep their prior behavior.
 
 The sole Mesh writer is prototyping `fix/native-owned-invocations` from
 `9b844dba`. Its fresh baseline records fresh status/load returning BUSY while
