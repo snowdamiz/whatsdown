@@ -1,0 +1,60 @@
+{
+  "status": "VERIFIED_RETAINED_SOURCE_AND_PROOF_PENDING_R4",
+  "head": "4d258811201a4f74dc3f087f609afa246ca6fa94",
+  "tree": "b6f3620e321f74eaee0e197455c779c4328eec60",
+  "handoff_sha256": "a22ebdd59fb186b840e0ec29c57d71c23d60345459cfe353ea5189fee2c20d4b",
+  "source_input_count": 718,
+  "source_inventory_recorded_head": "bba5d9f5168eb5831f9bd6a86061a4e945e5309e",
+  "source_inventory_note": "Older recorded head is retained; all exact current file hashes independently matched",
+  "modules": [
+    {
+      "optimization": 0,
+      "modules": 330,
+      "sites": 69
+    },
+    {
+      "optimization": 2,
+      "modules": 330,
+      "sites": 69
+    }
+  ],
+  "ten_matrix_exit_codes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "limits": "Retained evidence verified; no bank rerun or final review/adoption/native owner closure claimed",
+  "parent_fresh_parser_runs": [
+    {
+      "optimization": 0,
+      "exit_code": 0,
+      "cases": 43,
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/current4d/parser-o0/result.json",
+      "sha256": "c0bf12dcf8d90c256008a440dbb7b759f5023cfec5e575726e44d4f0d4f8b4a3",
+      "library_sha256": "e1e8dcabb3c43de7e1caecb50f9272b648486b688a7449bfb7fd45e7a29ce2c8"
+    },
+    {
+      "optimization": 2,
+      "exit_code": 0,
+      "cases": 43,
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/current4d/parser-o2/result.json",
+      "sha256": "2f910395a72ccac011783737f60aabaa27a221f65b16632a01b125e6bde57fb6",
+      "library_sha256": "ca06b0ad1d6074cc1378a4a027291c142a3065406b38e67e19431d62103bd84f"
+    }
+  ],
+  "audit": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/current4d/audit.json",
+    "sha256": "e198373b5c2411a19b89442f1b200d2d2de88d8498831f388b2526310860a2ee"
+  },
+  "review": "Final R4 pending; prior R3 findings corrected in candidate",
+  "adopted": false,
+  "feature_branch": "origin/t3/mixed-bounty-recovery",
+  "tracked_sources_verified": 34
+}

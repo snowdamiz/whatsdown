@@ -1,0 +1,46 @@
+{
+  "status": "ARCHIVED_AND_EXPANDED_COPY_REMOVED",
+  "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/mesh-target",
+  "archive": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/recovery-archives/20261106-retired-mesh-family/mesh-target.tar.gz",
+  "archive_sha256": "fdfeaaa00cc86643c6d9ce75a366073200bbb97069952668a553166ce39ce3aa",
+  "archive_bytes": 227441814,
+  "files": 25,
+  "logical_source_bytes": 748278102,
+  "verification": "Every regular member SHA-256, size and mode matched; exact source inventory rechecked",
+  "open_handle_checks": [
+    {
+      "at": "2026-11-07T00:30:41.478919+00:00",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "at": "2026-11-07T00:31:11.500747+00:00",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "df_before": "Filesystem   1024-blocks      Used Available Capacity  iused     ifree %iused  Mounted on\n/dev/disk3s5   971298980 905316124  29831068    97% 30489018 298310680    9%   /System/Volumes/Data\n",
+  "protected": "Active 8256 pins, current runtime target, source snapshots, logs, databases and raw bank fixtures untouched",
+  "limit": "Logical size reduction is not a net disk-space gain claim; concurrent activity continues",
+  "df_after": "Filesystem   1024-blocks      Used Available Capacity  iused     ifree %iused  Mounted on\n/dev/disk3s5   971298980 900691024  34456168    97% 30473215 344561680    8%   /System/Volumes/Data\n",
+  "completed_at": "2026-11-07T00:31:11.770146+00:00",
+  "tracked_git_unchanged": true,
+  "manifest": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/recovery-archives/20261106-retired-mesh-family/inventory.json",
+    "sha256": "22cd7ae209e8dc292f1387488fc600766f9844685b33a7e41b53a9a6462a4124"
+  },
+  "receipt": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/recovery-archives/20261106-retired-mesh-family/receipt.json",
+    "sha256": "684734aa812e9197e36ccc19e90dce97911506562bd9bddf4c99659f22a1d336"
+  },
+  "restore": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/recovery-archives/20261106-retired-mesh-family/RESTORE.md",
+    "sha256": "20e6b066bfd0a222f4a7d0c3bf8e7b3b78ab5d84edd5f405967ee80fb58507f0"
+  },
+  "procedure": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/checkpoint-cleanup/archive_retired_family.py",
+    "sha256": "a5cee6fde23e6c02b1b214b7307d1f99ed2bf8b66eb0b2cc5e045fc59ef896bb"
+  }
+}
