@@ -125,7 +125,8 @@ revisited at each phase gate.
 ### Current continuation status — 2026-11-06
 
 This table is the current continuation reference, through source checkpoint
-`57f0db8`, with the separately verified language checkpoint `9b844dba` now pushed.
+`57f0db8`, with the separately verified language checkpoint `9b844dba` pushed.
+Candidate `a0511fd` composes view-once Core/UI for qualification; it is not adopted.
 Detailed entries below retain the history of implementation and proof;
 an older candidate or pending note does not override a later adoption record.
 Local source, local execution, native UI qualification and live production
@@ -150,7 +151,7 @@ passing local fixture does not close a native-device or production gate.
 | Plaintext propagation | Presentation and outgoing body labels adopted through `4eaed22`; three raw storage/fanout-target/triple-payload parsers are private in the native facade at `b59eaf1`. Existing proofs cover seven content exits, eight import refusals and the unchanged 69-site gate | A new compile-only audit accepts five decoded direct/group/timed/history body HTTP sinks; an explicit-label control refuses all five. Shared semantic body labels and coordinated consumer closure are now assigned. Raw decrypt/unseal bytes, general decoding, mobile targets and release qualification remain open |
 | Bootstrap acceptance | Scoped native RPC TLS adopted through `748270a`; retained fresh compiled-Core fixture exits zero with 37 checks and `consistent`. Parent verified its source/artifact hashes; the combined product Main build passes with 69 sites, 176 exports and exact generated bindings | Full phone/UI and platform packaging, real production-clock next-due controls, broader bootstrap acceptance and all eight scheduled production checks remain open |
 | Witness outage qualification | Tooling adopted through `fc0e701`. Exact owner source `a66889a` passed 900.056500333 seconds with 155 native lookups and C's retained 1→31 catch-up; parent verified retained provenance and freshly rebuilt the combined sources for a passing 60-second control | Hosted B1 deployment, seven-day observation and the scheduled production outage drill remain open. The 900-second artifact predates TLS/body composition; the composed artifact has the separately recorded short control |
-| View-once receive | Core source checkpoint `bd24a8a` is committed after record checkpoint `924d24f` and existing envelope isolation. Parent rehashed all 40 snapshot files, 31 test logs/92 passing cases, seven privacy controls and the 176-export optimized staticlib. R7 source/R8 fixture reviews pass. App candidate `600a909` carries the refreshed exact-Core ordinary/Pending fixture; its focused parser test passes | Separate disclosure review found three public admission helpers that release caller-supplied private classifications. Correction `e199c469` moves those decisions to private authenticated receive; 90 local tests and 11 privacy controls pass, with parent evidence verification complete and independent review pending. Adoption still requires review, inventory and combined parent TLS/bounty/Core/UI qualification; neither candidate is adopted. Existing accounts without an authenticated clean epoch cannot admit new VOR until migration. Groups, native fetching/opening and actual effect authority remain open |
+| View-once receive | Core source checkpoint `bd24a8a` is committed after record checkpoint `924d24f` and existing envelope isolation. Parent rehashed all 40 snapshot files, 31 test logs/92 passing cases, seven privacy controls and the 176-export optimized staticlib. R7 source/R8 fixture reviews pass. App candidate `600a909` carries the refreshed exact-Core ordinary/Pending fixture; its focused parser test passes | Separate disclosure review found three public admission helpers that release caller-supplied private classifications. Correction `e199c469` passes independent R3 source review. Composed candidate `a0511fd` passes Main176/unchanged bindings, 838 app tests, typecheck and two web placeholder widths. Adoption/inventory remain held for a separate sibling-account authority and restored-session provenance defect; real receive regression work is assigned. Combined Core tests remain in progress. Existing accounts without an authenticated clean epoch cannot admit new VOR until migration. Groups, native fetching/opening and actual effect authority remain open |
 | Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
 | Mixed-asset fork filing | Phone FFS2 persistence and 16-field display plus shared operator/phone permanent receipt authentication adopted through `1ab2a78`. The combined source matches the qualified 80-packet SBF proof and 20-group native replay, including 13 refusal vectors and three production relay admissions. Parent verified 619 source files and 80 artifacts; Main keeps 176 exports and 69 reviewed disclosure sites | Bounty movement/recovery is separately adopted through `57f0db8` with real signer/bank proofs. Shared native effect admission, whole-app/device UI, optimized phone release, independent providers and live qualification remain unfinished |
 | Per-asset bounty movement | Reviewed implementation adopted through `57f0db8`: independent asset journals, exact-signature submission, scoped native selectors and per-asset UI. R4 resolves all 14 findings. Parent freshly passes 830 app tests, typecheck, Rust/Swift/Kotlin request validation, optimized Main with 176 exports/69 unchanged sites, the actual mixed Core/SDK/SBF flow and stale-host correlation | Native owner admission, actual SDK/IPC final delivery, provisioned/device UI, independent providers and live operation remain open. The ten owner matrix configurations and parser opt0/2 proofs remain exact-source retained evidence; the parent freshly rebuilds/runs opt2 after envelope composition |
@@ -295,6 +296,26 @@ Keychain/device UI, real provider independence, validator finality, live funding
 and release remain open. The fixture's three loopback origins are not independent
 providers, and the legacy migration proof is not a new paid MPR1 movement.
 
+### Resumed combined qualification — 2026-11-06
+
+Candidate `a0511fd` combines the reviewed view-once record, receive correction
+and history UI with the existing TLS and bounty branch. Parent freshly built
+Main with the retained `8256d5d3` family: 176 exports and all five legacy binding
+files match. All 838 app tests and typechecking pass. A fresh Expo web export
+passes the placeholder workflow at 420 and 1160 pixels with no attachment calls;
+this uses literal contract frames and synthetic native I/O, not native-device
+or authenticated receive execution.
+
+The [candidate receipt](mesh-private-messenger/ops/bootstrap/evidence/20261106/view-once-composed-candidate.json)
+retains the failing disclosure-inventory gate. It has not been bypassed or
+regenerated. Independent inventory review and combined Core tests are running.
+A separate self-sync source review found an inherited trust defect: matching
+the local account ID while validating a credential under a packet-supplied key
+does not establish sibling authority. A separate isolated owner is proving and
+correcting the actual initial-receive counterexample and handling existing or
+restored same-account session provenance. This blocks adoption and the proposed
+self-sync releases. No runtime exploitation or production incident is claimed.
+
 ### Active candidate review checkpoints — 2026-11-06
 
 The bounty checkpoint below is adopted as described above. The bounded language
@@ -342,8 +363,15 @@ checkpoint is pushed separately; view-once remains unadopted. None is a release 
   and freshly read all 176 defined symbols with compatible Rust LLVM tooling.
   The initial Apple nm read failed on newer Rust bitcode; that error is retained.
   The [correction preflight](mesh-private-messenger/ops/bootstrap/evidence/20261106/view-once-disclosure-fix-preflight.json)
-  records the verification limits. Independent review is pending; adoption and
-  inventory remain held until review and combined Core/UI qualification.
+  records the verification limits. Independent R3 accepts the bounded source
+  correction. It corrects two synthetic witness inputs; compiler refusals are
+  not executed leak demonstrations. Combined candidate `a0511fd` passes Main
+  compilation with 176 exports and exact bindings, 838 app tests, typechecking,
+  and two web placeholder widths with synthetic native I/O. Inventory approval
+  and adoption remain held: the separate self-sync review found that initial
+  sibling admission trusts a packet-supplied account key with the local account
+  ID. Trusted local authority and existing/restored session provenance require
+  correction before these sibling-path boundaries can be accepted.
 - **Mesh runtime `9b844dba`:** R4/R5 accept the bounded source after actual
   SQLite hot-journal, terminated-registration, V1 error-provenance, timer and
   pending-HTTP cleanup regressions. The final default-parallel runtime/integration
@@ -380,15 +408,15 @@ or product claim is made.
 The sole Mesh writer is prototyping `fix/native-owned-invocations` from
 `9b844dba`. Its fresh baseline records fresh status/load returning BUSY while
 old HTTP is held; retirement still refuses the old continuation. Independent
-API review requests two contract corrections: the final Host-release executor
-and shutdown/HTTP-worker quiescence, and the complete submit/take/cancel/release
-state, status and output-ownership rules. Public header/generator/API edits
-remain held; the nonpublic prototype continues. Amendment 2 is frozen at
-`8d3dbea6` for a fresh review: it specifies process-lifetime code pinning,
-scheduler-only shutdown, final context disposal and the complete status table.
-The proposed companions use a separate, unincluded `.invocations.h` because the
+API rounds 1 and 2 required explicit lifetime/disposal, complete status rules,
+callback-reentry refusal and preservation of standalone V1 init/registration.
+Amendment 3, SHA-256 `544325a5`, resolves those design findings in independent
+R3. Parent releases implementation of that exact contract; G1–G8 qualification
+and activation remain held. It specifies process-lifetime code pinning,
+scheduler-only shutdown, final context disposal and complete status/state rules.
+The companions use a separate, unincluded `.invocations.h` because the
 actual desktop consumer interprets legacy header declarations as three-argument
-exports. This compatibility correction is under review, not API approval.
+exports. This is API design acceptance, not implementation qualification.
 Generated native companions may preserve logical exports while adding physical
 symbols, which must be
 inventoried separately. Shared services, channels/timers/supervisors,
@@ -442,11 +470,15 @@ public-API control: the current helper refuses 19 private-input effects, while
 the proposed helper compiles the same labeled-body call. This is compile-only
 evidence and the patch remains unapplied. No Bounty helper or general body
 getter is widened. The self-sync parser work retains private results and a closed
-three-error contract. Its concrete two-site private receive proposal is in a
-fresh read-only policy review: only the closed status and five routing/session
-fields would be released, while body, message ID and timestamp stay private.
-The proposal is unapplied and uncompiled; reserved Messages ownership is still
-held for the view-once correction. A proposed typed-recursion replacement
+three-error contract. Independent review rejects its concrete two-site private
+receive proposal until sibling authority is bound to the locally trusted account
+key and existing/restored same-account session provenance is addressed. Matching
+account IDs and packet-key credential validation do not establish that authority.
+The proposed five-field tuple is bounded sender-supplied metadata, not a finite
+classifier; body, message ID and timestamp remain private. The proposal is
+unapplied and uncompiled. A separate isolated owner is correcting authentication
+with real public-receive regressions; reserved consumer ownership remains held.
+A proposed typed-recursion replacement
 for history metadata lookup avoids an additional disclosure, but its reserved
 history hunk remains unapplied while the view-once correction is reviewed.
 

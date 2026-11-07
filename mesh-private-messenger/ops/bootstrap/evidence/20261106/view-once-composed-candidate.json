@@ -1,0 +1,131 @@
+{
+  "status": "CANDIDATE_NOT_ADOPTED",
+  "candidate_commit": "a0511fdabf3c89b99d445b6fb9e8f8564bf08848",
+  "base": "b558320a37468f54fd8f1b4ec68ac1015a8001d2",
+  "core_commits": [
+    "924d24f",
+    "bd24a8a",
+    "e199c469"
+  ],
+  "ui_commits": [
+    "13ed5d7",
+    "75fb777",
+    "600a909"
+  ],
+  "review_hashes": {
+    ".morse/continuation-20261106/owned-invocation-api-review-r3/REVIEW.md": "b0b5406a0da29ec46f18c31b1e72a06ad8b8e4dcad2bb568dc8c327c0079963a",
+    ".morse/continuation-20261106/owned-invocation-api-review-r3/API_PROPOSAL.frozen.md": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+    ".morse/continuation-20261106/self-sync-boundary-review-r1/verdict.md": "d1190e1d8e72e6979a29e3e72ea1d20cba9868d4db0f8cf0a58b9d14e4d7207b",
+    ".morse/continuation-20261106/viewonce-disclosure-fix-review-r3/REVIEW.md": "408ebb6ef9e4596ae47907715da2f337425a1fe72f7de5658491554c1e675cce"
+  },
+  "main": {
+    "head": "b558320a37468f54fd8f1b4ec68ac1015a8001d2",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/packages/mobile-core",
+      "--artifact",
+      "cdylib",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/libmessenger_mobile.dylib"
+    ],
+    "compiler_sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+    "runtime_sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+    "deployment_target": "12.0",
+    "exit_code": 0,
+    "seconds": 37.54,
+    "source_drift": [],
+    "artifact_sha256": "47cb559e78af10a3b440756f99f508ae6ad3adbf52469649e8e2a0e54cde34a5",
+    "gate_exit_code": 1,
+    "abi_exports": 176,
+    "binding_matches": {
+      "h": true,
+      "swift": true,
+      "kt": true,
+      "jni.c": true,
+      "ts": true
+    }
+  },
+  "app_checks": [
+    {
+      "name": "tests",
+      "command": [
+        "npm",
+        "test"
+      ],
+      "exit": 0,
+      "seconds": 3.531099792016903,
+      "log_sha256": "f4937cbaae8be4f6ba8202c87854dca8907e1190d2422da2bb3cb35aadb3ed66"
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "exit": 0,
+      "seconds": 4.320583416993031,
+      "log_sha256": "5ccfe5f4b9ff516e35b4e223aad3002a976efb07065ae23abc74b5f2c00862e8"
+    }
+  ],
+  "web_checks": [
+    {
+      "name": "export",
+      "command": [
+        "/Users/andreyyurlov/.local/share/fnm/node-versions/v24.21.0/installation/bin/node",
+        "node_modules/expo/bin/cli",
+        "export",
+        "--platform",
+        "web",
+        "--output-dir",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/web/dist"
+      ],
+      "exit": 0,
+      "seconds": 3.608033249998698,
+      "log_sha256": "8ad5cb9d025e5349818f830657844889de650c21af0f9319e370833250bd5c2c"
+    },
+    {
+      "name": "placeholders",
+      "command": [
+        "/Users/andreyyurlov/.local/share/fnm/node-versions/v24.21.0/installation/bin/node",
+        "scripts/test-history-placeholders.mjs"
+      ],
+      "exit": 0,
+      "seconds": 3.431501124985516,
+      "log_sha256": "d0f713a7a39211de022e3acd143436ac15f3c4fe09e7b971711c54fff68c1835"
+    }
+  ],
+  "web_scope": {
+    "scope": "Actual App.tsx chat render with literal 02HST frames and synthetic native I/O",
+    "cases": [
+      {
+        "width": 420,
+        "status": "passed",
+        "nativeAttachmentCalls": 0
+      },
+      {
+        "width": 1160,
+        "status": "passed",
+        "nativeAttachmentCalls": 0
+      }
+    ],
+    "pageErrors": [],
+    "status": "passed"
+  },
+  "blocked_by": [
+    "Disclosure inventory has intentionally not been approved or updated; gate exit1 retained.",
+    "Initial sibling authority is not bound to the local account authorization key; future admission and existing/restored same-account provenance need correction.",
+    "Combined Core receive/backup tests and independent inventory delta review are running."
+  ],
+  "limits": [
+    "No installed native library replaced.",
+    "No device/native fetching, group admission, account migration, release or production qualification.",
+    "Web uses actual App render with literal contract frames and synthetic native I/O, not real authenticated receive."
+  ],
+  "runtime_api_disposition": {
+    "proposal_sha256": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+    "verdict": "ACCEPT_DESIGN_WITH_GATES",
+    "parent_disposition": "Implementation hold released for exact amendment3; qualification/activation held, mask1 only."
+  }
+}
